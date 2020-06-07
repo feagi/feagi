@@ -51,7 +51,7 @@ def brain_gen():
 
     print("::::: connectome path is:", parameters["InitData"]["connectome_path"])
 
-    # # Reset Connectume
+    # # Reset Connectome
     for key in blueprint:
         file_name = parameters["InitData"]["connectome_path"] + key + '.json'
         with open(file_name, "w") as connectome:

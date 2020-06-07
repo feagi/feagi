@@ -1,15 +1,22 @@
-# Copyright (c) 2019 Mohammad Nadji-Tehrani <m.nadji.tehrani@gmail.com>
-""" This module contains functions capable of modifying and shaping the Genome"""
+"""
+Copyright (c) 2019 Mohammad Nadji-Tehrani <m.nadji.tehrani@gmail.com>
+
+This module contains functions related to genome handling mainly inspired by nature and genetic algorithms.
+"""
 
 import datetime
 import random
 import string
-from misc import db_handler
+from inf import db_handler, settings
 from math import floor
-from configuration import settings
 
 
 print(settings.Bcolors.YELLOW + "Module loaded: genethesizer" + settings.Bcolors.ENDC)
+
+
+def selection():
+
+    return
 
 
 def gene_anomoly_detector():
@@ -60,10 +67,6 @@ def select_a_genome():
     #     genome =
     print(">> >> >> >> The genome id used for brain generation is: ", original_genome_id)
     return genome, original_genome_id
-
-
-
-# class GeneModifier2:
 
 
 class GeneModifier3:
@@ -425,10 +428,6 @@ def compare_genomes():
 
 
 def synthesize_new_gen():
-    return
-
-
-def selection():
     return
 
 

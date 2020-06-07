@@ -35,6 +35,27 @@
          "level": "INFO",
          "propagate": false
       },
+      "evo.neuroembryogenesis": {
+         "handlers": [
+            "file"
+         ],
+         "level": "INFO",
+         "propagate": false
+      },
+      "evo.connectome": {
+         "handlers": [
+            "file"
+         ],
+         "level": "INFO",
+         "propagate": false
+      },
+      "evo.genome": {
+         "handlers": [
+            "file"
+         ],
+         "level": "INFO",
+         "propagate": false
+      },
       "__main__": {
          "handlers": [
             "default"
