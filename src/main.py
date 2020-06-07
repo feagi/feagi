@@ -2,6 +2,13 @@
 """
 Copyright (c) 2019 Mohammad Nadji-Tehrani <m.nadji.tehrani@gmail.com>
 
+FEAGI is a brain inspired evolutionary framework capable of growing and artificial brain from a
+genome and helping it evolve over generations.
+
+This main module is responsible for driving the lifecycle of a single generation of an
+artificial brain at a time. To scale up the system to many parallel generations, FEAGI
+is intended to run within a container and scale up to many container instances.
+
 """
 
 import logging.config
@@ -51,3 +58,9 @@ if __name__ == '__main__':
         consciousness.stop()
         # Death process eliminates the brain instance and captures associated performance details
         death.register()
+
+    print('FEAGI instance has been terminated!')
+
+# todo: redo brain development with no db dependency
+# todo: build Mongodb / local handling for brain development
+# todo: test dev
