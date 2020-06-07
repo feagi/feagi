@@ -1,0 +1,110 @@
+{
+  "Timers": {
+    "burst_timer": 1,
+    "idle_burst_timer": 0.01,
+    "auto_train_delay": 3,
+    "auto_train_delay2": 50,
+    "auto_test_delay": 3,
+    "block_size": 10
+  },
+  "Input": {
+    "user_input": "",
+    "previous_user_input": "",
+    "user_input_param": "",
+    "previous_user_input_param": "",
+    "opu_char": "X",
+    "comprehended_char": []
+  },
+  "Switches": {
+    "verbose": false,
+    "vis_show": false,
+    "auto_train": false,
+    "vis_init_status": false,
+    "auto_test_comp_attempt_threshold": 3,
+    "ready_to_exit_burst": false,
+    "logging_fire": false,
+    "folder_backup": false,
+    "memory_formation": true,
+    "obsolete__plasticity": false,
+    "capture_brain_activities": false,
+    "visualize_latest_file": false,
+    "save_fcl_to_disk": false,
+    "save_fcl_to_db": false,
+    "save_connectome_to_disk": false,
+    "live_mode": true,
+    "use_static_genome": true,
+    "one_round": false,
+    "ipu_vision_dynamic_img_fetch": false,
+    "capture_neuron_mp": false,
+    "capture_neuron_mp_db": false,
+    "evaluation_based_termination": true,
+    "use_highest_performing_genome_only": false,
+    "influx_stat_logger": false,
+    "influx_keep_stats": false,
+    "influx_brain_gen_stats": false,
+    "global_logger": true,
+    "global_timer": true,
+    "MNIST_set_option": 2
+
+  },
+  "InitData": {
+    "read_data_from_memory": true,
+    "regenerate_brain": true,
+    "connectome_path": "/tmp/feagi/connectome/",
+    "rules_path": "./evolutionary/rules.json",
+    "static_genome_path": "./feagi/evolutionary/static_genome3.json",
+    "fcl_to_visualize": "./fcl_repo/fcl-2018-06-18_14:44:04.243315_A1566B_R.json" ,
+    "image_database": "MNIST",
+    "activity_history_span": 4,
+    "comprehension_span": 1,
+    "image_magnification_factor": 200,
+    "image_monochromization_threshold": 100,
+    "kill_trigger_burst_count": 250,
+    "kill_trigger_vision_memory_min": 5,
+    "overlap_prevention_constant": 2,
+    "max_neighbor_count": 100,
+    "influxdb_stat_db": "feagi5",
+    "influxdb_evolutionary_db": "feagi_evolutionary"
+  },
+  "Auto_injector":{
+    "epochs": 0,
+    "variation_default": 1,
+    "exposure_default": 15,
+    "utf_default": 3,
+    "burst_skip": 15,
+    "injector_status": false,
+    "injector_burst_skip_counter": 10
+  },
+  "Auto_tester":{
+    "variation_default": 1,
+    "exposure_default": 15,
+    "utf_default": 3,
+    "burst_skip": 15,
+    "tester_status": false,
+    "tester_burst_skip_counter": 10
+  },
+  "Logs":{
+    "print_mnist_img": true,
+    "print_polarized_img": false,
+    "print_seen_img": false,
+    "print_filtered_img": false,
+    "print_activation_counters": true,
+    "print_cortical_activity_counters": true,
+    "print_mnist_img_info": false,
+    "print_plasticity_info": false,
+    "print_burst_info": true,
+    "print_burst_stats": false,
+    "print_brain_gen_activities": true,
+    "print_comprehension_queue": true,
+    "print_upstream_neuron_stats": true,
+    "print_common_neuron_report": true
+  },
+  "Verbose":{
+    "neuron_functions-neuron_update": false,
+    "neuron_functions-neuron_fire": false
+  },
+  "Alerts":{
+    "email_fitness_threshold": 1.0
+  }
+}
+

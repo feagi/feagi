@@ -1,0 +1,46 @@
+{
+   "version": 1,
+   "disable_existing_loggers": true,
+   "formatters": {
+      "standard": {
+         "format": "%(asctime)s:%(levelname)s:%(name)s:%(funcName)s:%(lineno)d:%(message)s"
+      }
+   },
+   "handlers": {
+      "default": {
+         "level": "INFO",
+         "formatter": "standard",
+         "class": "logging.StreamHandler",
+         "stream": "ext://sys.stdout"
+      },
+      "file": {
+         "level": "INFO",
+         "formatter": "standard",
+         "class": "logging.FileHandler",
+         "filename": "sample.log"
+      }
+   },
+   "loggers": {
+      "": {
+         "handlers": [
+            "default"
+         ],
+         "level": "WARNING",
+         "propagate": false
+      },
+      "inf.initialize": {
+         "handlers": [
+            "file"
+         ],
+         "level": "INFO",
+         "propagate": false
+      },
+      "__main__": {
+         "handlers": [
+            "default"
+         ],
+         "level": "DEBUG",
+         "propagate": false
+      }
+   }
+}
