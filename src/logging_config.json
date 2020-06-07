@@ -17,7 +17,7 @@
          "level": "INFO",
          "formatter": "standard",
          "class": "logging.FileHandler",
-         "filename": "sample.log"
+         "filename": "/tmp/sample.log"
       }
    },
    "loggers": {
