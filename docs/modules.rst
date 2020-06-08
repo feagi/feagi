@@ -5,3 +5,4 @@ feagi
    :maxdepth: 4
 
    setup
+   src

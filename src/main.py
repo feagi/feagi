@@ -49,7 +49,9 @@ if __name__ == '__main__':
     # This while loop simulates a single cycle of life for the artificial brain
     while not exit_condition:
         # Process of artificial neuroembryogenesis that leads to connectome development
-        neuroembryogenesis.develop_brain(reincarnation_mode=feagi_config.get('Brain_Development', 'reincarnation_mode'))
+        neuroembryogenesis.develop_brain(reincarnation_mode=)
+        neuroembryogenesis.develop_brain(reincarnation_mode=feagi_config.getboolean('Brain_Development',
+                                                                                    'reincarnation_mode'))
         # All brain activities occur in between consciousness start and stop
         consciousness.start()
         # A set of experiences will be outlined under life adventures that leads to learning

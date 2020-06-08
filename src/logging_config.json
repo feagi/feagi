@@ -16,8 +16,11 @@
       "file": {
          "level": "INFO",
          "formatter": "standard",
-         "class": "logging.FileHandler",
-         "filename": "/tmp/sample.log"
+         "class": "logging.handlers.RotatingFileHandler",
+         "filename": "/tmp/sample.log",
+         "mode": "a",
+         "maxBytes": 1000000,
+         "backupCount": 5
       }
    },
    "loggers": {

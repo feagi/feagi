@@ -6,6 +6,7 @@ This module handles connectome related operations.
 """
 
 import logging
+from inf import runtime_data
 
 
 log = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ class ConnectomeOps:
         for item in runtime_data.cortical_list:
             runtime_data.brain[item] = {}
 
+    @staticmethod
     def reuse():
         """
         Placeholder for a function to reuse an existing connectome.
@@ -31,7 +33,8 @@ class ConnectomeOps:
         connectome_path = ''
         return
 
-    def develop(genome_instructions):
+    @staticmethod
+    def develop():
         """
         Reads instructions from genome and develops the connectome based on instructions.
         Args:
@@ -44,6 +47,7 @@ class ConnectomeOps:
 
         return
 
+    @staticmethod
     def connectome_backup(src, dst):
         """
         Backs up an existing connectome to preserve all the structures and associated memory data for future use.
@@ -72,6 +76,7 @@ class ConnectomeInsights:
     def neuron_count(self):
         return
 
+    @staticmethod
     def synapse_count(cortical_area_src, cortical_area_dst):
         brain = runtime_data.brain
         synapse__count = 0
@@ -81,6 +86,7 @@ class ConnectomeInsights:
                     synapse__count += 1
         return synapse__count
 
+    @staticmethod
     def connectome_structural_fitness():
         """
         To conduct a set of validations and calculate a structural fitness for the developed connectome. The returned value

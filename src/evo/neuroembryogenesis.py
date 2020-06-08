@@ -35,11 +35,12 @@ def develop_brain(reincarnation_mode=False):
 
     """
 
+    connectome_ops = connectome.ConnectomeOps()
     if reincarnation_mode:
-        connectome.reuse()
+        connectome_ops.reuse()
     else:
         genome_instructions = genome.selection()
-        connectome.develop(genome_instructions)
+        connectome_ops.develop()
 
 
 

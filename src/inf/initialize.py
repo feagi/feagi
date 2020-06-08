@@ -1,4 +1,6 @@
 
+from inf import runtime_data, disk_ops
+from configparser import ConfigParser
 import logging
 
 log = logging.getLogger(__name__)
@@ -6,11 +8,12 @@ log = logging.getLogger(__name__)
 
 def init_parameters():
     """To load all the key configuration parameters"""
-    from configparser import ConfigParser
     feagi_config = ConfigParser()
     feagi_config.read('./feagi_configuration.ini')
+    runtime_data.parameters = {s: dict(feagi_config.items(s)) for s in feagi_config.sections()}
+    print(type(runtime_data.parameters))
+    print(runtime_data.parameters)
     log.info("All parameters have been initialized.")
-    return feagi_config
 
 
 def init_data_sources():
