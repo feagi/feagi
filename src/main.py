@@ -40,25 +40,32 @@ if __name__ == '__main__':
 
     # Initialize the environment
     feagi_config = initialize.init_parameters()
+    initialize.initialize_connectome()
+    initialize.initialize_genome()
     initialize.init_data_sources()
     initialize.init_ipu()
     initialize.init_opu()
 
+    from inf import runtime_data
     exit_condition = False
 
     # This while loop simulates a single cycle of life for the artificial brain
     while not exit_condition:
         # Process of artificial neuroembryogenesis that leads to connectome development
-        neuroembryogenesis.develop_brain(reincarnation_mode=)
-        neuroembryogenesis.develop_brain(reincarnation_mode=feagi_config.getboolean('Brain_Development',
-                                                                                    'reincarnation_mode'))
+        neuroembryogenesis.develop_brain(reincarnation_mode=
+                                         runtime_data.parameters['Brain_Development']['reincarnation_mode'])
+
         # All brain activities occur in between consciousness start and stop
         consciousness.start()
+
         # A set of experiences will be outlined under life adventures that leads to learning
         adventures.tbd()
+
         consciousness.stop()
+
         # Death process eliminates the brain instance and captures associated performance details
         death.register()
+        exit_condition = True
 
     print('FEAGI instance has been terminated!')
 

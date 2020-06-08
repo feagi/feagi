@@ -16,7 +16,7 @@ import collections
 # from numba import jit
 
 from math import sqrt, ceil, floor
-from configuration import runtime_data, settings
+from inf import runtime_data, settings
 
 
 print(settings.Bcolors.YELLOW + "Module loaded: architect" + settings.Bcolors.ENDC)

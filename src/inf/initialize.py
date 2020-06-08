@@ -1,7 +1,10 @@
 
 from inf import runtime_data, disk_ops
 from configparser import ConfigParser
+from shutil import copyfile
 import logging
+import os
+
 
 log = logging.getLogger(__name__)
 
@@ -11,9 +14,19 @@ def init_parameters():
     feagi_config = ConfigParser()
     feagi_config.read('./feagi_configuration.ini')
     runtime_data.parameters = {s: dict(feagi_config.items(s)) for s in feagi_config.sections()}
-    print(type(runtime_data.parameters))
-    print(runtime_data.parameters)
     log.info("All parameters have been initialized.")
+
+
+def initialize_connectome():
+    connectome_path = runtime_data.parameters["InitData"]["connectome_path"]
+    if not os.path.exists(connectome_path):
+        os.makedirs(connectome_path)
+        copyfile(runtime_data.parameters["InitData"]["static_genome_path"], connectome_path)
+
+
+def initialize_genome():
+    # The following stages the genome in the proper connectome path and loads it into the memory
+    disk_ops.genome_handler(runtime_data.parameters["InitData"]["connectome_path"])
 
 
 def init_data_sources():
