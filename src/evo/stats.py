@@ -6,8 +6,7 @@ Provides functions performing statistical analysis on the Connectome and Cortica
 # import numpy as np
 # import pandas as pd
 
-from configuration import runtime_data
-from misc import disk_ops, db_handler
+from inf import runtime_data, disk_ops, db_handler
 
 
 def cortical_area_neuron_count(cortical_area):

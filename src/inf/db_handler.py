@@ -1,7 +1,7 @@
 # Copyright (c) 2019 Mohammad Nadji-Tehrani <m.nadji.tehrani@gmail.com>
 from pymongo import MongoClient, DESCENDING, ASCENDING
 from influxdb import InfluxDBClient
-from configuration import runtime_data, settings
+from inf import runtime_data, settings
 import random
 
 print(settings.Bcolors.YELLOW + "Module loaded: db_handler" + settings.Bcolors.ENDC)

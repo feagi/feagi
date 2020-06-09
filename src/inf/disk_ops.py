@@ -8,7 +8,7 @@ import pickle
 from inf import db_handler
 from evo import stats
 from inf import runtime_data, settings
-from evo.genome import genome_id_gen
+from evo.genome_mgr import genome_id_gen
 from configparser import ConfigParser
 
 
@@ -45,7 +45,7 @@ def load_genome_in_memory(connectome_path, static=False):
 
 
 def save_genome_to_disk():
-    from evo.genome import calculate_brain_cognitive_fitness
+    from evo.genome_mgr import calculate_brain_cognitive_fitness
     mongo = db_handler.MongoManagement()
     influxdb = db_handler.InfluxManagement()
     genome = runtime_data.genome
@@ -133,7 +133,7 @@ def save_genome_to_disk():
 
 
 def stage_genome(connectome_path, dynamic_selection_mode=True):
-    from evo.genome import select_a_genome
+    from evo.genome_mgr import select_a_genome
     if dynamic_selection_mode:
         genome_data, original_genome_id = select_a_genome()
         runtime_data.original_genome_id = original_genome_id

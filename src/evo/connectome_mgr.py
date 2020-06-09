@@ -6,7 +6,6 @@ This module handles connectome related operations.
 """
 
 import logging
-from inf import runtime_data
 import json
 import datetime
 from functools import partial
@@ -144,6 +143,7 @@ def develop():
         if parameters["Logs"]["print_brain_gen_activities"]:
             print(settings.Bcolors.YELLOW + "Cortical area %s is has been cleared." % key
                   + settings.Bcolors.ENDC)
+        runtime_data.brain[key] = {}
 
     # --Neurogenesis--
     # Develop Neurons for various cortical areas defined in Genome

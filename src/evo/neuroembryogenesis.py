@@ -14,8 +14,8 @@ among neurons. All of the structures generated as a result of this process is st
 connectome.
 """
 
-import evo.connectome as connectome
-import evo.genome as genome
+from evo import connectome_mgr
+from evo import genome_mgr
 import logging
 
 log = logging.getLogger(__name__)
@@ -37,8 +37,8 @@ def develop_brain(reincarnation_mode=False):
 
     if bool(reincarnation_mode):
         log.info('Reincarnating...')
-        connectome.reuse()
+        connectome_mgr.reuse()
     else:
         log.info('Developing a new brain...')
-        genome_instructions = genome.selection()
-        connectome.develop()
+        genome_instructions = genome_mgr.selection()
+        connectome_mgr.develop()
