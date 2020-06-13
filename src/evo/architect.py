@@ -35,45 +35,6 @@ def neuron_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
                                                                                            for _ in range(size)))+'_N'
 
 
-def event_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
-    """
-    This function generates a unique id which will be associated with each neuron
-    :param size:
-    :param chars:
-    :return:
-    """
-    # Rand gen source partially from:
-    # http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
-    return (str(datetime.datetime.now()).replace(' ', '_')).replace('.', '_')+'_'+(''.join(random.choice(chars)
-                                                                                           for _ in range(size)))+'_E'
-
-
-def test_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
-    """
-    This function generates a unique id which will be associated with each neuron
-    :param size:
-    :param chars:
-    :return:
-    """
-    # Rand gen source partially from:
-    # http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
-    return (str(datetime.datetime.now()).replace(' ', '_')).replace('.', '_')+'_'+(''.join(random.choice(chars)
-                                                                                           for _ in range(size)))+'_T'
-
-
-def run_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
-    """
-    This function generates a unique id which will be associated with each neuron
-    :param size:
-    :param chars:
-    :return:
-    """
-    # Rand gen source partially from:
-    # http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
-    return (str(datetime.datetime.now()).replace(' ', '_')).replace('.', '_')+'_'+(''.join(random.choice(chars)
-                                                                                           for _ in range(size)))+'_R'
-
-
 def neuro_genesis(cortical_area, soma_location, dendrite_locations):
     """
     Responsible for adding a Neuron to connectome
@@ -765,20 +726,6 @@ def neighboring_blocks(block_id, kernel_size):
                     block_list.append(neighbor_block_id)
 
     return block_list
-
-
-def neurons_in_block_neighborhood(cortical_area, neuron_id, kernel_size=3):
-    """
-    Provides the list of all neurons within the surrounding blocks given the kernel size with default being 3
-    """
-    neuron_list = list()
-    neuron_block_id = runtime_data.brain[cortical_area][neuron_id]['block']
-    block_list = neighboring_blocks(neuron_block_id, kernel_size)
-    for block in block_list:
-        neurons_in_block = neurons_in_the_block(cortical_area, block)
-        for neuron in neurons_in_block:
-            neuron_list.append(neuron)
-    return neuron_list
 
 
 def neurons_in_block_neighborhood_2(cortical_area, block_id, kernel_size=3):

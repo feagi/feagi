@@ -151,8 +151,9 @@ def develop():
         timer = datetime.datetime.now()
         neuron_count = architect.three_dim_growth(cortical_area)
         if parameters["Logs"]["print_brain_gen_activities"]:
-            print("Neuron Creation for Cortical area %s is now complete. Count: %i  Duration: %s"
-                  % (cortical_area, neuron_count, datetime.datetime.now() - timer))
+            duration = datetime.datetime.now() - timer
+            print("Neuron Creation for Cortical area %s is now complete. Count: %i  Duration: %s  Per Neuron Avg.: %s"
+                  % (cortical_area, neuron_count, duration, duration / neuron_count))
 
     disk_ops.save_brain_to_disk(brain=runtime_data.brain, parameters=runtime_data.parameters)
     disk_ops.save_block_dic_to_disk(block_dic=runtime_data.block_dic, parameters=runtime_data.parameters)
@@ -209,8 +210,9 @@ def build_synapse(genome, brain, parameters, key):
                                    [genome["blueprint"][key]["neighbor_locator_rule_param_id"]],
                                    postsynaptic_current=genome["blueprint"][key]["postsynaptic_current"])
     if parameters["Logs"]["print_brain_gen_activities"]:
-        print("Synapse creation for Cortical area %s is now complete. Count: %i  Duration: %s"
-              % (key, synapse_count, datetime.datetime.now() - timer))
+        duration = datetime.datetime.now() - timer
+        print("Synapse creation for Cortical area %s is now complete. Count: %i  Duration: %s  Per Synapse Avg.: %s"
+              % (key, synapse_count, duration, duration / synapse_count))
     disk_ops.save_brain_to_disk(cortical_area=key, brain=runtime_data.brain, parameters=parameters)
     return
 
@@ -242,8 +244,10 @@ def build_synapse_ext(genome, brain, parameters, block_dic, key):
                                                  cortical_area_dst=mapped_cortical_area,
                                                  synapse_count=synapse_count)
         if parameters["Logs"]["print_brain_gen_activities"]:
-            print("Synapse creation between Cortical area %s and %s is now complete. Count: %i  Duration: %s"
-                  % (key, mapped_cortical_area, synapse_count, datetime.datetime.now() - timer))
+            duration = datetime.datetime.now() - timer
+            print("Synapse creation between Cortical area %s and %s is now complete. Count: %i  Duration: %s, "
+                  "Per Synapse Avg.: %s"
+                  % (key, mapped_cortical_area, synapse_count, duration, duration / synapse_count))
     disk_ops.save_brain_to_disk(cortical_area=key, brain=runtime_data.brain, parameters=parameters)
     return
 
