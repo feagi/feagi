@@ -22,6 +22,17 @@ from inf import runtime_data, settings
 print(settings.Bcolors.YELLOW + "Module loaded: architect" + settings.Bcolors.ENDC)
 
 
+def random_location_generator(x1, y1, z1, x2, y2, z2):
+    """
+    Function responsible to generate a pseudo-random location for a Neuron given some constraints
+
+    """
+    # todo: update to leverage the Genome template
+    # todo: Would it be better to use relative locations in each cortical region instead?
+    neuron_location = [random.randrange(x1, x2, 1), random.randrange(y1, y2, 1), random.randrange(z1, z2, 1)]
+    return neuron_location
+
+
 def neuron_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
     """
     This function generates a unique id which will be associated with each neuron
@@ -35,7 +46,7 @@ def neuron_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
                                                                                            for _ in range(size)))+'_N'
 
 
-def neuro_genesis(cortical_area, soma_location, dendrite_locations):
+def neuron_create(cortical_area, soma_location, dendrite_locations):
     """
     Responsible for adding a Neuron to connectome
 
@@ -76,110 +87,6 @@ def neuro_genesis(cortical_area, soma_location, dendrite_locations):
         genome['blueprint'][cortical_area]['neuron_params']['firing_threshold']
 
     return neuron_id
-
-
-def synapse(src_cortical_area, src_id, dst_cortical_area, dst_id, postsynaptic_current):
-    """
-    Function responsible for creating a synapse between a neuron and another one. In reality a single neuron can have
-    many synapses with another individual neuron. Here we use synaptic strength to simulate the same.
-    Note: Synapse association is captured on the Source Neuron side within Connectome
-    
-    # Input: The id for source and destination Neuron plus the parameter defining connection strength
-    # Source provides the Axon and connects to Destination Dendrite
-    # postsynaptic_current is intended to provide the level of synaptic strength
-    """
-
-    # # Check to see if the source and destination ids are valid if not exit the function
-    # if src_id not in runtime_data.brain[src_cortical_area]:
-    #     print("Source or Destination neuron not found")
-    #     return
-
-    runtime_data.brain[src_cortical_area][src_id]["neighbors"][dst_id] = \
-        {"cortical_area": dst_cortical_area, "postsynaptic_current": postsynaptic_current}
-
-    return
-
-
-def random_location_generator(x1, y1, z1, x2, y2, z2):
-    """
-    Function responsible to generate a pseudo-random location for a Neuron given some constraints
-
-    """
-    # todo: update to leverage the Genome template
-    # todo: Would it be better to use relative locations in each cortical region instead?
-    neuron_location = [random.randrange(x1, x2, 1), random.randrange(y1, y2, 1), random.randrange(z1, z2, 1)]
-    return neuron_location
-
-
-def dendrite_template(direction):
-    # todo: use a mathematical model instead of manual templates
-    # todo: move templates to genome
-
-    if direction == '/':
-        template = np.array([
-            [0, 0, 0],
-            [1, 1, 0],
-            [2, 2, 0],
-            [-1, -1, 0],
-            [-2, -2, 0]
-        ])
-
-    elif direction == '\\':
-        template = np.array([
-            [0, 0, 0],
-            [-1, 1, 0],
-            [-2, 2, 0],
-            [1, -1, 0],
-            [2, -2, 0]
-        ])
-
-    elif direction == '-':
-        template = np.array([
-            [0, 0, 0],
-            [-1, 0, 0],
-            [-2, 0, 0],
-            [1, 0, 0],
-            [2, 0, 0]
-        ])
-
-    elif direction == '|':
-        template = np.array([
-            [0, 0, 0],
-            [0, 1, 0],
-            [0, 2, 0],
-            [0, -1, 0],
-            [0, -2, 0]
-        ])
-    else:
-        template = np.array([
-            [0, 0, 0]
-        ])
-
-    return template
-
-
-def dendrite_location_generator(cortical_area, neuron_location):
-    """
-    generates location and block information of the neuron dendrites
-    """
-    dendrite_location_blocks = list()
-
-    neuron_location = np.array(neuron_location)
-
-    # dendrite_growth_rule = runtime_data.genome["blueprint"][cortical_area]["dendrite_growth_rule"]
-
-    # todo: build the function to generate dendrite locations based on dendrite_growth_rule
-    try:
-        direction_sensitivity = runtime_data.genome['blueprint'][cortical_area]['direction_sensitivity']
-    except KeyError:
-        direction_sensitivity = ''
-    dendrite_locations = dendrite_template(direction_sensitivity) + neuron_location
-
-    for dendrite_location in dendrite_locations.tolist():
-        dendrite_location_block = block_id_gen(cortical_area=cortical_area, coordinate=dendrite_location)
-        dendrite_location_blocks.append([dendrite_location, dendrite_location_block])
-
-    return dendrite_location_blocks
 
 
 def location_collector(cortical_area):
@@ -284,7 +191,7 @@ def three_dim_growth(cortical_area):
         candidate_neuron_location_block = block_id_gen(cortical_area=cortical_area,
                                                        coordinate=candidate_neuron_location)
         # Create a new Neuron in target destination
-        neuron_id = neuro_genesis(cortical_area=cortical_area,
+        neuron_id = neuron_create(cortical_area=cortical_area,
                                   soma_location=[candidate_neuron_location, candidate_neuron_location_block],
                                   dendrite_locations=dendrite_locations)
         neuron_count += 1
@@ -298,6 +205,110 @@ def three_dim_growth(cortical_area):
             runtime_data.block_dic[cortical_area][block_reference].append(neuron_id)
 
     return neuron_count
+
+
+
+
+
+
+
+
+
+
+
+
+
+def synapse(src_cortical_area, src_id, dst_cortical_area, dst_id, postsynaptic_current):
+    """
+    Function responsible for creating a synapse between a neuron and another one. In reality a single neuron can have
+    many synapses with another individual neuron. Here we use synaptic strength to simulate the same.
+    Note: Synapse association is captured on the Source Neuron side within Connectome
+    
+    # Input: The id for source and destination Neuron plus the parameter defining connection strength
+    # Source provides the Axon and connects to Destination Dendrite
+    # postsynaptic_current is intended to provide the level of synaptic strength
+    """
+
+    # # Check to see if the source and destination ids are valid if not exit the function
+    # if src_id not in runtime_data.brain[src_cortical_area]:
+    #     print("Source or Destination neuron not found")
+    #     return
+
+    runtime_data.brain[src_cortical_area][src_id]["neighbors"][dst_id] = \
+        {"cortical_area": dst_cortical_area, "postsynaptic_current": postsynaptic_current}
+
+    return
+
+
+def dendrite_template(direction):
+    # todo: use a mathematical model instead of manual templates
+    # todo: move templates to genome
+
+    if direction == '/':
+        template = np.array([
+            [0, 0, 0],
+            [1, 1, 0],
+            [2, 2, 0],
+            [-1, -1, 0],
+            [-2, -2, 0]
+        ])
+
+    elif direction == '\\':
+        template = np.array([
+            [0, 0, 0],
+            [-1, 1, 0],
+            [-2, 2, 0],
+            [1, -1, 0],
+            [2, -2, 0]
+        ])
+
+    elif direction == '-':
+        template = np.array([
+            [0, 0, 0],
+            [-1, 0, 0],
+            [-2, 0, 0],
+            [1, 0, 0],
+            [2, 0, 0]
+        ])
+
+    elif direction == '|':
+        template = np.array([
+            [0, 0, 0],
+            [0, 1, 0],
+            [0, 2, 0],
+            [0, -1, 0],
+            [0, -2, 0]
+        ])
+    else:
+        template = np.array([
+            [0, 0, 0]
+        ])
+
+    return template
+
+
+def dendrite_location_generator(cortical_area, neuron_location):
+    """
+    generates location and block information of the neuron dendrites
+    """
+    dendrite_location_blocks = list()
+
+    neuron_location = np.array(neuron_location)
+
+    # dendrite_growth_rule = runtime_data.genome["blueprint"][cortical_area]["dendrite_growth_rule"]
+
+    # todo: build the function to generate dendrite locations based on dendrite_growth_rule
+    try:
+        direction_sensitivity = runtime_data.genome['blueprint'][cortical_area]['direction_sensitivity']
+    except KeyError:
+        direction_sensitivity = ''
+    dendrite_locations = dendrite_template(direction_sensitivity) + neuron_location
+
+    for dendrite_location in dendrite_locations.tolist():
+        dendrite_location_block = block_id_gen(cortical_area=cortical_area, coordinate=dendrite_location)
+        dendrite_location_blocks.append([dendrite_location, dendrite_location_block])
+
+    return dendrite_location_blocks
 
 
 def neighbor_finder(cortical_area, neuron_id, rule, rule_param):
@@ -330,6 +341,17 @@ def neighbor_finder(cortical_area, neuron_id, rule, rule_param):
             neighbor_candidates.append(dst_neuron_id)
 
     return neighbor_candidates
+
+
+def neighbor_reset(cortical_area):
+    """
+    This function deletes all the neighbor relationships in the connectome
+    """
+
+    for key in runtime_data.brain[cortical_area]:
+        runtime_data.brain[cortical_area][key]["neighbors"] = {}
+
+    return
 
 
 def neighbor_builder(brain, genome, brain_gen, cortical_area, rule_id, rule_param, postsynaptic_current):
@@ -470,31 +492,6 @@ def neighbor_builder_ext(brain, genome, brain_gen, cortical_area_src, cortical_a
     return synapse_count, brain
 
 
-def field_set(cortical_area, field_name, field_value):
-    """
-    This function changes a field value in connectome 
-    
-    *** Incomplete ***
-    
-    """
-    # runtime_data.brain[cortical_area] = runtime_data.brain[cortical_area]
-    # for key in runtime_data.brain[cortical_area]:
-    #     runtime_data.brain[cortical_area][key][field_name] = field_value
-    #
-
-    return
-
-
-def neighbor_reset(cortical_area):
-    """
-    This function deletes all the neighbor relationships in the connectome
-    """
-
-    for key in runtime_data.brain[cortical_area]:
-        runtime_data.brain[cortical_area][key]["neighbors"] = {}
-
-    return
-
 
 # todo: Cythonize this
 # @jit
@@ -543,12 +540,7 @@ def connectome_location_data(cortical_area):
     return neuron_locations
 
 
-def neuron_eliminator():
-    """
-    Responsible for programmed neuron's death
-    """
-    # todo: implement the function
-    return
+
 
 
 def rule_matcher(rule_id, rule_param, cortical_area_src, cortical_area_dst, dst_neuron_id, src_neuron_id):
@@ -657,6 +649,10 @@ def cortical_area_lengths(cortical_area):
     return length
 
 
+
+
+
+
 def block_id_gen(cortical_area, coordinate):
     """
     Generating a block id so it can be used for faster neighbor detection
@@ -739,3 +735,30 @@ def neurons_in_block_neighborhood_2(cortical_area, block_id, kernel_size=3):
         for __ in neurons_in_block:
             neuron_list.append(__)
     return neuron_list
+
+
+
+
+
+
+def field_set(cortical_area, field_name, field_value):
+    """
+    This function changes a field value in connectome
+
+    *** Incomplete ***
+
+    """
+    # runtime_data.brain[cortical_area] = runtime_data.brain[cortical_area]
+    # for key in runtime_data.brain[cortical_area]:
+    #     runtime_data.brain[cortical_area][key][field_name] = field_value
+    #
+
+    return
+
+
+def apoptotic():
+    """
+    Responsible for programmed neuron's death
+    """
+    # todo: implement the function
+    return

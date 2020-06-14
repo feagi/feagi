@@ -19,7 +19,7 @@ def selection():
     return
 
 
-def gene_anomoly_detector():
+def gene_anomaly_detector():
     verdict = False
 
     #todo: implement the logic for anomoly detection here.

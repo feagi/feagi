@@ -32,19 +32,11 @@ if __name__ == '__main__':
     from evo import neuroembryogenesis, death
     from npu import consciousness
     from life import adventures
-    from shutil import copyfile
-    import sys
-    import os
 
     splash_screen()
 
     # Initialize the environment
-    feagi_config = initialize.init_parameters()
-    initialize.initialize_connectome()
-    initialize.initialize_genome()
-    initialize.init_data_sources()
-    initialize.init_ipu()
-    initialize.init_opu()
+    initialize.initialize()
 
     from inf import runtime_data
     exit_condition = False
