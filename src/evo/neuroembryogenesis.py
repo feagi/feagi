@@ -109,6 +109,36 @@ def synapse_count(cortical_area_src, cortical_area_dst):
     return synapse__count
 
 
+def cortical_connectivity():
+    """
+    Evaluates whether the cortical structure is meeting minimum expectations for basic functionality.
+
+    Returns: True or False
+    """
+
+
+def build_cortical_map():
+    """
+    Develops a data structure suitable for graphing cortical connectivity
+    Returns: Cortical map in a ... format.
+
+    source >> destination , synapse count
+
+
+
+    """
+
+
+
+
+def ipu_opu_connectivity():
+    """
+    Evaluates synaptic connectivity between IPU and OPU
+
+    Returns: True or False
+    """
+
+
 def connectome_structural_fitness():
     """
     To conduct a set of validations and calculate a structural fitness for the developed connectome. The returned value
@@ -245,6 +275,11 @@ def build_synapse_ext(genome, brain, parameters, block_dic, key):
             print("Synapse creation between Cortical area %s and %s is now complete. Count: %i  Duration: %s, "
                   "Per Synapse Avg.: %s"
                   % (key, mapped_cortical_area, synapse_count, duration, duration / synapse_count))
+        # if not runtime_data.cortical_map[key]:
+        #     runtime_data.cortical_map[key] = dict()
+        # else:
+        #     runtime_data.cortical_map[key][]
+
     disk_ops.save_brain_to_disk(cortical_area=key, brain=runtime_data.brain, parameters=parameters)
 
 
@@ -271,21 +306,20 @@ def develop():
     # --Reset Connectome--
     reset_connectome_files()
 
-    # --Neurogenesis--
+    # --Neurogenesis-- Creation of all Neurons across all cortical areas
     neurogenesis()
 
-    # --Synaptogenesis-- Build Synapses within all Cortical areas
+    # --Synaptogenesis-- Build Synapses within all cortical areas
     synaptogenesis()
 
+    # Loading connectome data from disk to memory
     runtime_data.brain = disk_ops.load_brain_in_memory()
 
-    if parameters["Logs"]["print_brain_gen_activities"]:
-        print("Neuronal mapping across all Cortical areas has been completed!!")
-
+    print("Neuronal mapping across all Cortical areas has been completed!!")
     print("Total brain synapse count is: ", stats.brain_total_synapse_cnt())
 
     brain_structural_fitness = connectome_structural_fitness()
     print("Brain structural fitness was evaluated as: ", brain_structural_fitness)
-    return connectome_structural_fitness()
+    return brain_structural_fitness
 
 

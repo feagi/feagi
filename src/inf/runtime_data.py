@@ -4,6 +4,7 @@ genome_stats = {}
 genome_test_stats = []
 brain = {}
 cortical_list = []
+cortical_map = {}
 block_dic = {}
 upstream_neurons = {}
 memory_list = {}
