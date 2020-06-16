@@ -4,7 +4,7 @@ from igraph import *
 graph = Graph(directed=True)
 
 
-class Graph:
+class DirectGraph:
     def __init__(self, graph_, edges, weights, labels):
         # Count number of vertices
         unique_edges = set()
@@ -34,14 +34,14 @@ class Graph:
         # Visual Configuration
         self.visual_style = {}
 
-        self.out_name = "graph.png"
+        self.out_name = "./vis/graph.png"
 
         # Set bbox and margin
-        self.visual_style["bbox"] = (800, 600)
+        self.visual_style["bbox"] = (3000, 3000)
         self.visual_style["margin"] = 100
 
         # Set vertex size
-        self.visual_style["vertex_size"] = 65
+        self.visual_style["vertex_size"] = 150
 
         # Set vertex label size
         self.visual_style["vertex_label_size"] = 22
@@ -69,13 +69,13 @@ class Graph:
         plot(self.g, self.out_name, **self.visual_style)
 
 
-graph_edges = [(0, 4), (0, 1), (0, 3), (1, 2), (1, 3), (2, 4), (3, 4), (3, 0)]
-graph_weights = [8, 6, 3, 5, 6, 4, 9, 50]
-graph_labels = ['v1', 'v2', 'v3', 'v4', 'v5']
+if __name__ == '__main__':
+    graph_edges = [(0, 4), (0, 1), (0, 3), (1, 2), (1, 3), (2, 4), (3, 4), (3, 0)]
+    graph_weights = [8, 6, 3, 5, 6, 4, 9, 50]
+    graph_labels = ['v1', 'v2', 'v3', 'v4', 'v5']
 
-
-directed_graph = Graph(graph, edges=graph_edges, weights=graph_weights, labels=graph_labels)
-directed_graph.graph_in_color()
+    directed_graph = DirectGraph(graph, edges=graph_edges, weights=graph_weights, labels=graph_labels)
+    directed_graph.graph_in_color()
 
 
 # print("Number of vertices in the graph:", g.vcount())

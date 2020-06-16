@@ -26,6 +26,8 @@ from inf import disk_ops
 from inf import settings
 from inf import runtime_data
 from inf.db_handler import InfluxManagement
+from igraph import *
+from vis.directed_graph import DirectGraph
 
 
 log = logging.getLogger(__name__)
@@ -134,17 +136,16 @@ def build_cortical_map():
     labels = [label for label in runtime_data.genome['blueprint']]
     indexes = [index for index in range(len(labels))]
     graph_labels = zip(indexes, labels)
+    graph_labels_dict = dict(zip(labels, indexes))
 
     for entry in runtime_data.intercortical_mapping:
-        # graph_weights.append(entry[2])
-        print(entry)
+        graph_weights.append(entry[2])
+        graph_edges.append((graph_labels_dict[entry[0]], graph_labels_dict[entry[1]]))
 
-    # for cortical_area in graph_labels:
-    #     for cortical_mapping_dst in runtime_data.genome['blueprint'][cortical_area[1]]['cortical_mapping_dst']:
-    #         graph_edges.append((cortical_area[0], cortical_mapping_dst))
-    #         graph_weights.append(runtime_data.
-    #                              genome['blueprint'][cortical_area[1]]['cortical_mapping_dst']
-    #                              [cortical_mapping_dst]['established_synapses'])
+    graph_labels_tmp = dict(graph_labels)
+    graph_labels = []
+    for key in graph_labels_tmp:
+        graph_labels.append(graph_labels_tmp[key])
 
     print("graph_edges", graph_edges)
     print("graph weights", graph_weights)
@@ -244,9 +245,18 @@ def synaptogenesis():
                     runtime_data.parameters, runtime_data.block_dic)
     pool2 = Pool(processes=1)
 
-    runtime_data.intercortical_mapping = pool2.map(func2, runtime_data.genome["blueprint"])
+    intercortical_mapping = pool2.map(func2, runtime_data.genome["blueprint"])
     pool2.close()
     pool2.join()
+
+    # Building intercortical mapping data structure
+    runtime_data.intercortical_mapping = []
+    for entry in intercortical_mapping:
+        if len(entry) == 1:
+            runtime_data.intercortical_mapping.append(entry[0])
+        if len(entry) > 1:
+            for _ in entry:
+                runtime_data.intercortical_mapping.append(_)
 
 
 def build_synapse(genome, brain, parameters, key):
@@ -343,5 +353,10 @@ def develop():
 
     brain_structural_fitness = connectome_structural_fitness()
     print("Brain structural fitness was evaluated as: ", brain_structural_fitness)
-    build_cortical_map()
+
+    graph_edges, graph_weights, graph_labels = build_cortical_map()
+    graph = Graph(directed=True)
+    graph_instance = DirectGraph(graph, edges=graph_edges, weights=graph_weights, labels=graph_labels)
+    graph_instance.graph_in_color()
+
     return brain_structural_fitness
