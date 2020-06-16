@@ -5,7 +5,7 @@ graph = Graph(directed=True)
 
 
 class Graph:
-    def __init__(self, graph_, edges, weights):
+    def __init__(self, graph_, edges, weights, labels):
         # Count number of vertices
         unique_edges = set()
         for _ in edges:
@@ -22,9 +22,7 @@ class Graph:
         # Add ids and labels to vertices
         for i in range(len(self.g.vs)):
             self.g.vs[i]["id"] = i
-            self.g.vs[i]["label"] = str(i)
-
-        self.g.vs[4]["label"] = "V1"
+            self.g.vs[i]["label"] = str(labels[i])
 
         # Add edges
         self.g.add_edges(edges)
@@ -52,7 +50,8 @@ class Graph:
         self.visual_style["edge_curved"] = False
 
         # Set the layout
-        my_layout = self.g.layout_lgl()
+        # my_layout = self.g.layout_grid()
+        my_layout = self.g.layout_kamada_kawai()
         self.visual_style["layout"] = my_layout
 
     def graph_in_bw(self):
@@ -70,10 +69,12 @@ class Graph:
         plot(self.g, self.out_name, **self.visual_style)
 
 
-edges_raw = [(0, 2), (0, 1), (0, 3), (1, 2), (1, 3), (2, 4), (3, 4), (3, 0)]
-weights_raw = [8, 6, 3, 5, 6, 4, 9, 50]
+graph_edges = [(0, 4), (0, 1), (0, 3), (1, 2), (1, 3), (2, 4), (3, 4), (3, 0)]
+graph_weights = [8, 6, 3, 5, 6, 4, 9, 50]
+graph_labels = ['v1', 'v2', 'v3', 'v4', 'v5']
 
-directed_graph = Graph(graph, edges=edges_raw, weights=weights_raw)
+
+directed_graph = Graph(graph, edges=graph_edges, weights=graph_weights, labels=graph_labels)
 directed_graph.graph_in_color()
 
 

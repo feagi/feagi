@@ -109,7 +109,7 @@ def synapse_count(cortical_area_src, cortical_area_dst):
     return synapse__count
 
 
-def cortical_connectivity():
+def cortical_connectivity_eval():
     """
     Evaluates whether the cortical structure is meeting minimum expectations for basic functionality.
 
@@ -119,16 +119,38 @@ def cortical_connectivity():
 
 def build_cortical_map():
     """
-    Develops a data structure suitable for graphing cortical connectivity
+    Develops a data structure suitable for graphing cortical connectivity using iGraph package
+
+    Sample output structure
+    graph_edges = [(0, 2), (0, 1), (0, 3), (1, 2), (1, 3), (2, 4), (3, 4), (3, 0)]
+    graph_weights = [8, 6, 3, 5, 6, 4, 9, 50]
+    graph_labels = ['v1', 'v2', 'v3', 'v4', 'v5']
+
     Returns: Cortical map in a ... format.
 
-    source >> destination , synapse count
-
-
-
     """
+    graph_edges, graph_weights, graph_labels = [], [], []
 
+    labels = [label for label in runtime_data.genome['blueprint']]
+    indexes = [index for index in range(len(labels))]
+    graph_labels = zip(indexes, labels)
 
+    for entry in runtime_data.intercortical_mapping:
+        # graph_weights.append(entry[2])
+        print(entry)
+
+    # for cortical_area in graph_labels:
+    #     for cortical_mapping_dst in runtime_data.genome['blueprint'][cortical_area[1]]['cortical_mapping_dst']:
+    #         graph_edges.append((cortical_area[0], cortical_mapping_dst))
+    #         graph_weights.append(runtime_data.
+    #                              genome['blueprint'][cortical_area[1]]['cortical_mapping_dst']
+    #                              [cortical_mapping_dst]['established_synapses'])
+
+    print("graph_edges", graph_edges)
+    print("graph weights", graph_weights)
+    print("graph labels:", list(graph_labels))
+
+    return graph_edges, graph_weights, graph_labels
 
 
 def ipu_opu_connectivity():
@@ -222,7 +244,7 @@ def synaptogenesis():
                     runtime_data.parameters, runtime_data.block_dic)
     pool2 = Pool(processes=1)
 
-    pool2.map(func2, runtime_data.genome["blueprint"])
+    runtime_data.intercortical_mapping = pool2.map(func2, runtime_data.genome["blueprint"])
     pool2.close()
     pool2.join()
 
@@ -246,6 +268,7 @@ def build_synapse(genome, brain, parameters, key):
 
 def build_synapse_ext(genome, brain, parameters, block_dic, key):
     runtime_data.block_dic = block_dic
+    intercortical_mapping = []
     # Read Genome data
     for mapped_cortical_area in genome["blueprint"][key]["cortical_mapping_dst"]:
         timer = datetime.datetime.now()
@@ -275,12 +298,12 @@ def build_synapse_ext(genome, brain, parameters, block_dic, key):
             print("Synapse creation between Cortical area %s and %s is now complete. Count: %i  Duration: %s, "
                   "Per Synapse Avg.: %s"
                   % (key, mapped_cortical_area, synapse_count, duration, duration / synapse_count))
-        # if not runtime_data.cortical_map[key]:
-        #     runtime_data.cortical_map[key] = dict()
-        # else:
-        #     runtime_data.cortical_map[key][]
+
+        # Adding External Synapse counts to genome for future use
+        intercortical_mapping.append((key, mapped_cortical_area, synapse_count))
 
     disk_ops.save_brain_to_disk(cortical_area=key, brain=runtime_data.brain, parameters=parameters)
+    return intercortical_mapping
 
 
 def develop():
@@ -320,6 +343,5 @@ def develop():
 
     brain_structural_fitness = connectome_structural_fitness()
     print("Brain structural fitness was evaluated as: ", brain_structural_fitness)
+    build_cortical_map()
     return brain_structural_fitness
-
-
