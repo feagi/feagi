@@ -12,22 +12,6 @@ src.evo.architect module
    :undoc-members:
    :show-inheritance:
 
-src.evo.brain\_gen module
--------------------------
-
-.. automodule:: src.evo.brain_gen
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-src.evo.connectome module
--------------------------
-
-.. automodule:: src.evo.connectome
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 src.evo.death module
 --------------------
 
@@ -36,10 +20,18 @@ src.evo.death module
    :undoc-members:
    :show-inheritance:
 
-src.evo.genome module
----------------------
+src.evo.doc\_test module
+------------------------
 
-.. automodule:: src.evo.genome
+.. automodule:: src.evo.doc_test
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+src.evo.genetics module
+-----------------------
+
+.. automodule:: src.evo.genetics
    :members:
    :undoc-members:
    :show-inheritance:

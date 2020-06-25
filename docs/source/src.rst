@@ -14,6 +14,7 @@ Subpackages
    src.life
    src.npu
    src.opu
+   src.vis
 
 Submodules
 ----------

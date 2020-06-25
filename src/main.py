@@ -15,7 +15,7 @@ import logging.config
 import json
 from art import text2art
 
-logging_config_file = './logging_config.json'
+logging_config_file = '/Users/mohammadnadji-tehrani/code/feagi/feagi/src/logging_config.json'
 
 with open(logging_config_file, 'r') as data_file:
     LOGGING_CONFIG = json.load(data_file)
@@ -37,7 +37,6 @@ if __name__ == '__main__':
 
     # Initialize the environment
     initialize.initialize()
-
     from inf import runtime_data
     exit_condition = False
 

@@ -3,7 +3,7 @@ def register():
     Document test
 
     Args:
-        ABC
+        ABCD
         
     Returns:
         Something

@@ -17,11 +17,9 @@ connectome.
 import logging
 import json
 import datetime
-from evo import genetics
+from evo import neuron, synapse, stats, genetics
 from functools import partial
 from multiprocessing import Pool
-from evo import stats
-from evo import architect
 from inf import disk_ops
 from inf import settings
 from inf import runtime_data
@@ -208,9 +206,8 @@ def develop_brain(reincarnation_mode=False):
 def neurogenesis():
     # Develop Neurons for various cortical areas defined in Genome
     for cortical_area in runtime_data.genome["blueprint"]:
-        neuron = architect.Neuron(cortical_area=cortical_area)
         timer = datetime.datetime.now()
-        neuron_count_ = neuron.neuron_genesis_3d()
+        neuron_count_ = neuron.neuron_genesis_3d(cortical_area=cortical_area)
         if runtime_data.parameters["Logs"]["print_brain_gen_activities"]:
             duration = datetime.datetime.now() - timer
             print("Neuron Creation for Cortical area %s is now complete. Count: %i  Duration: %s  Per Neuron Avg.: %s"
@@ -221,7 +218,7 @@ def neurogenesis():
 
 
 def synaptogenesis():
-    func1 = partial(build_synapse, runtime_data.genome, runtime_data.brain, runtime_data.parameters)
+    func1 = partial(build_synapse_interacortical, runtime_data.genome, runtime_data.brain, runtime_data.parameters)
     pool1 = Pool(processes=1)
 
     synapse_creation_candidates = []
@@ -258,11 +255,11 @@ def synaptogenesis():
                 runtime_data.intercortical_mapping.append(_)
 
 
-def build_synapse(genome, brain, parameters, key):
+def build_synapse_interacortical(genome, brain, parameters, key):
     # Read Genome data
     timer = datetime.datetime.now()
     synapse_count, runtime_data.brain = \
-        architect.neighbor_builder(brain=brain, genome=genome, brain_gen=True, cortical_area=key,
+        synapse.neighbor_builder(brain=brain, genome=genome, brain_gen=True, cortical_area=key,
                                    rule_id=genome["blueprint"][key]["neighbor_locator_rule_id"],
                                    rule_param=genome["neighbor_locator_rule"]
                                    [genome["blueprint"][key]["neighbor_locator_rule_id"]]
@@ -275,40 +272,40 @@ def build_synapse(genome, brain, parameters, key):
     disk_ops.save_brain_to_disk(cortical_area=key, brain=runtime_data.brain, parameters=parameters)
 
 
-def build_synapse_intercortical(genome, brain, parameters, block_dic, key):
+def build_synapse_intercortical(genome, brain, parameters, block_dic, src_cortical_area):
     runtime_data.block_dic = block_dic
     intercortical_mapping = []
     # Read Genome data
-    for mapped_cortical_area in genome["blueprint"][key]["cortical_mapping_dst"]:
+    for mapped_cortical_area in genome["blueprint"][src_cortical_area]["cortical_mapping_dst"]:
         timer = datetime.datetime.now()
-        synapse = architect.Synapse(key)
         synapse_count_, runtime_data.brain = \
-            synapse.neighbor_builder_intercortical(brain=brain, genome=genome, brain_gen=True,
+            synapse.neighbor_builder_intercortical(cortical_area=src_cortical_area, brain=brain, genome=genome,
+                                                   brain_gen=True,
                                                    cortical_area_dst=mapped_cortical_area,
-                                                   rule=genome["blueprint"][key]["cortical_mapping_dst"]
+                                                   rule=genome["blueprint"][src_cortical_area]["cortical_mapping_dst"]
                                                    [mapped_cortical_area]["neighbor_locator_rule_id"],
-                                                   rule_param=genome["neighbor_locator_rule"][genome["blueprint"][key]
+                                                   rule_param=genome["neighbor_locator_rule"][genome["blueprint"][src_cortical_area]
                                                    ["cortical_mapping_dst"][mapped_cortical_area]
-                                                   ["neighbor_locator_rule_id"]][genome["blueprint"][key]
+                                                   ["neighbor_locator_rule_id"]][genome["blueprint"][src_cortical_area]
                                                    ["cortical_mapping_dst"][mapped_cortical_area]
                                                    ["neighbor_locator_rule_param_id"]],
                                                    postsynaptic_current=genome["blueprint"]
-                                                   [key]["postsynaptic_current"])
+                                                   [src_cortical_area]["postsynaptic_current"])
         if parameters["Switches"]["influx_brain_gen_stats"]:
             influxdb.insert_inter_cortical_stats(connectome_path=parameters["InitData"]["connectome_path"],
-                                                 cortical_area_src=key,
+                                                 cortical_area_src=src_cortical_area,
                                                  cortical_area_dst=mapped_cortical_area,
                                                  synapse_count=synapse_count)
         if parameters["Logs"]["print_brain_gen_activities"]:
             duration = datetime.datetime.now() - timer
             print("Synapse creation between Cortical area %s and %s is now complete. Count: %i  Duration: %s, "
                   "Per Synapse Avg.: %s"
-                  % (key, mapped_cortical_area, synapse_count_, duration, duration / synapse_count_))
+                  % (src_cortical_area, mapped_cortical_area, synapse_count_, duration, duration / synapse_count_))
 
         # Adding External Synapse counts to genome for future use
-        intercortical_mapping.append((key, mapped_cortical_area, synapse_count))
+        intercortical_mapping.append((src_cortical_area, mapped_cortical_area, synapse_count))
 
-    disk_ops.save_brain_to_disk(cortical_area=key, brain=runtime_data.brain, parameters=parameters)
+    disk_ops.save_brain_to_disk(cortical_area=src_cortical_area, brain=runtime_data.brain, parameters=parameters)
     return intercortical_mapping
 
 
@@ -345,7 +342,7 @@ def develop():
     runtime_data.brain = disk_ops.load_brain_in_memory()
 
     print("Neuronal mapping across all Cortical areas has been completed!!")
-    print("Total brain synapse count is: ", stats.brain_total_synapse_cnt())
+    print("Total brain neuron, synapse count is: ", stats.brain_total_synapse_cnt())
 
     brain_structural_fitness = connectome_structural_fitness()
     print("Brain structural fitness was evaluated as: ", brain_structural_fitness)
