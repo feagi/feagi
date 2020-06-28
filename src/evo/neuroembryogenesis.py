@@ -210,7 +210,8 @@ def neurogenesis():
         neuron_count_ = neuron.neuron_genesis_3d(cortical_area=cortical_area)
         if runtime_data.parameters["Logs"]["print_brain_gen_activities"]:
             duration = datetime.datetime.now() - timer
-            print("Neuron Creation for Cortical area %s is now complete. Count: %i  Duration: %s  Per Neuron Avg.: %s"
+            print("Neuron creation completed for Cortical area: \t%s   Count: \t%i  "
+                  "Duration: \t%s  Per Neuron Avg.: \t%s"
                   % (cortical_area, neuron_count_, duration, duration / neuron_count_))
 
     disk_ops.save_brain_to_disk(brain=runtime_data.brain, parameters=runtime_data.parameters)
@@ -284,7 +285,8 @@ def build_synapse_intercortical(genome, brain, parameters, block_dic, src_cortic
                                                    cortical_area_dst=mapped_cortical_area,
                                                    rule=genome["blueprint"][src_cortical_area]["cortical_mapping_dst"]
                                                    [mapped_cortical_area]["neighbor_locator_rule_id"],
-                                                   rule_param=genome["neighbor_locator_rule"][genome["blueprint"][src_cortical_area]
+                                                   rule_param=genome["neighbor_locator_rule"]
+                                                   [genome["blueprint"][src_cortical_area]
                                                    ["cortical_mapping_dst"][mapped_cortical_area]
                                                    ["neighbor_locator_rule_id"]][genome["blueprint"][src_cortical_area]
                                                    ["cortical_mapping_dst"][mapped_cortical_area]
@@ -298,8 +300,8 @@ def build_synapse_intercortical(genome, brain, parameters, block_dic, src_cortic
                                                  synapse_count=synapse_count)
         if parameters["Logs"]["print_brain_gen_activities"]:
             duration = datetime.datetime.now() - timer
-            print("Synapse creation between Cortical area %s and %s is now complete. Count: %i  Duration: %s, "
-                  "Per Synapse Avg.: %s"
+            print("Synapse creation between Cortical area \t%s and \t%s is now complete. Count: \t%i  Duration: \t%s, "
+                  "Per Synapse Avg.: \t%s"
                   % (src_cortical_area, mapped_cortical_area, synapse_count_, duration, duration / synapse_count_))
 
         # Adding External Synapse counts to genome for future use

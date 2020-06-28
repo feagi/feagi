@@ -1222,7 +1222,7 @@
           "orientation_selectivity_pattern" : "",
           "location" : "",
           "kernel_size" : 5,
-          "cortical_neuron_count" : 200,
+          "cortical_neuron_count" : 210,
           "location_generation_type" : "random",
           "synapse_attractivity" : 100,
           "init_synapse_needed" : false,

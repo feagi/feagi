@@ -9,6 +9,10 @@ This main module is responsible for driving the lifecycle of a single generation
 artificial brain at a time. To scale up the system to many parallel generations, FEAGI
 is intended to run within a container and scale up to many container instances.
 
+todo: redo brain development with no db dependency
+todo: build Mongodb / local handling for brain development
+todo: test dev
+
 """
 
 import logging.config
@@ -59,7 +63,3 @@ if __name__ == '__main__':
         exit_condition = True
 
     print('FEAGI instance has been terminated!')
-
-# todo: redo brain development with no db dependency
-# todo: build Mongodb / local handling for brain development
-# todo: test dev
