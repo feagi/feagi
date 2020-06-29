@@ -38,7 +38,7 @@ class SynaptogenesisRuleManager:
         self.src_cortical_area = src_cortical_area
         self.dst_cortical_area = dst_cortical_area
         self.z_offset = 0
-        # todo: this check is adding 0.5s to neuroembryogenesis process
+        # todo: this check is adding ~0.5s to neuroembryogenesis process
         if 'layer_index' in runtime_data.genome['blueprint'][src_cortical_area]:
             self.z_offset = int(runtime_data.genome['blueprint'][src_cortical_area]['layer_index'])
         else:
@@ -104,43 +104,6 @@ class SynaptogenesisRuleManager:
             print(self.rule_param, "is an invalid parameter for block to block mapping")
 
         return candidate_list
-
-    def unused_funcs(self):
-
-        # Defining synapse growth rules
-        def rule_block_2_block(self):
-            """
-            Older implementation of the block to block mapping/
-
-            todo: This function does not belong here. Planning to build a new class/method to return candidate neurons
-            """
-            neighbor_candidates = []
-            # todo: rules are currently not being used for synapse creation. Would there be value? Assess!!
-            neuron_block_src = runtime_data.brain[self.src_cortical_area][self.src_neuron_id]['soma_location'][1]
-            if 'layer_index' in runtime_data.genome['blueprint'][self.src_cortical_area]:
-                src_block_index = runtime_data.genome['blueprint'][self.src_cortical_area]['layer_index'] - 1
-            else:
-                src_block_index = 0
-            # todo: make the next line generic. It would become important when complex cortical areas are introduced
-            if self.dst_cortical_area == 'vision_v2':
-                block_reference = block_reference_builder([neuron_block_src[0], neuron_block_src[1], src_block_index])
-                # print("block_reference:", block_reference)
-            else:
-                block_reference = block_reference_builder(neuron_block_src)
-
-            z_block_boundary = \
-                runtime_data.genome['blueprint'][self.dst_cortical_area]['neuron_params']['block_boundaries'][2]
-
-            if z_block_boundary > 1:
-                if block_reference in runtime_data.block_dic[self.dst_cortical_area]:
-                    for dst_neuron in runtime_data.block_dic[self.dst_cortical_area][block_reference]:
-                        if runtime_data.brain[self.dst_cortical_area][dst_neuron]['soma_location'][1][2] == src_block_index:
-                            neighbor_candidates.append(dst_neuron)
-
-            elif block_reference in runtime_data.block_dic[self.dst_cortical_area]:
-                for neighbor in runtime_data.block_dic[self.dst_cortical_area][block_reference]:
-                    neighbor_candidates.append(neighbor)
-            return neighbor_candidates
 
 
 def block_z_offset(block_ref, offset):
@@ -319,284 +282,284 @@ def neighbor_builder_intercortical(cortical_area, brain, genome, brain_gen, cort
     return synapse_count, brain
 
 
-class UnusedFuncs:
-    def neighbor_builder_intracortical(cortical_area, brain, genome, brain_gen, rule_id, rule_param,
-                                       postsynaptic_current):
-        """
-        Function responsible for crawling through Neurons and deciding where to build Synapses
-        """
-        # Need to figure how to build a Neighbor relationship between Neurons
-        #    1. Should it be based on the proximity?
-        #    2. Should it be manually set? It wont be scalable
-        #    3. How can it be based on a Guide function?
-        # This function will utilize the Synapse function and based on an algorithm will create the relationships
-
-        # Algorithm:
-        #    1. Ask for a direction
-        #    2. For each neuron in path find a list of eligible candidates
-        #    3. Update connectome to the candidates become neighbors of the source neuron
-
-        # todo: Warning: Need to watch for the side effects on this line to make sure its not overwriting values
-        # to accommodate the new namespace used by multiprocessing
-        if brain_gen:
-            runtime_data.brain = brain
-            runtime_data.genome = genome
-
-        synapse_count = 0
-        for src_id in runtime_data.brain[cortical_area]:
-            # Cycle thru the neighbor_candidate_list and establish Synapses
-            neighbor_candidates = neighbor_finder_intracortical(src_id, rule_id, rule_param)
-            for dst_id in neighbor_candidates:
-                synapse(src_id, cortical_area, dst_id, postsynaptic_current)
-                synapse_count += 1
-                # print("Made a Synapse between %s and %s" % (src_id, dst_id))
-        if brain_gen:
-            brain = runtime_data.brain
-            runtime_data.genome = genome
-
-            synapse_count2 = 0
-            for area in brain:
-                for neuron in brain[area]:
-                    for connection in brain[area][neuron]['neighbors']:
-                        synapse_count2 += 1
-        else:
-            brain = {}
-        return synapse_count, brain
-
-    def connectome_location_data(cortical_area):
-        """
-        Extracts Neuron locations and neighbor relationships from the connectome
-        """
-
-        neuron_locations = []
-        for key in runtime_data.brain[cortical_area]:
-            location_data = runtime_data.brain[cortical_area][key]["soma_location"][0]
-            location_data.append(runtime_data.brain[cortical_area][key]["cumulative_fire_count"])
-            neuron_locations.append(location_data)
-
-        return neuron_locations
-
-    def neurons_in_same_block(cortical_area, neuron_id):
-        """
-        Generates a list of Neurons in the same block as the given one
-        """
-        neuron_list = []
-        for _ in runtime_data.brain[cortical_area]:
-            if runtime_data.brain[cortical_area][_]['block'] == \
-                    runtime_data.brain[cortical_area][neuron_id]['block']:
-                if _ != neuron_id:
-                    neuron_list.append(_)
-        return neuron_list
-
-    def dst_projection_center(cortical_area_src, neuron_id, cortical_area_dst):
-        """
-        Returns the coordinates of a neuron projected into a target Cortical layer
-        """
-
-        # Find relative coordinates on the source and destination side
-        src_lengths = cortical_area_lengths(cortical_area_src)
-        dst_lengths = cortical_area_lengths(cortical_area_dst)
-        coordinate_scales = [a / b for a, b in zip(dst_lengths, src_lengths)]
-
-        x_coordinate_src = runtime_data.brain[cortical_area_src][neuron_id]["soma_location"][0][0]
-        y_coordinate_src = runtime_data.brain[cortical_area_src][neuron_id]["soma_location"][0][1]
-        z_coordinate_src = runtime_data.brain[cortical_area_src][neuron_id]["soma_location"][0][2]
-
-        dst_projection_center = list()
-        dst_projection_center.append(x_coordinate_src * coordinate_scales[0])
-        dst_projection_center.append(y_coordinate_src * coordinate_scales[1])
-        dst_projection_center.append(z_coordinate_src * coordinate_scales[2])
-
-        return dst_projection_center
-
-    # todo: Cythonize this
-    # @jit
-    def neuron_finder(cortical_area, location, radius):
-        """
-        Queries a given cortical area and returns a listed of Neuron IDs matching search criteria
-        """
-        brain = runtime_data.brain
-        location = np.array(location)
-
-        neuron_list = np.array([])
-
-        for key in runtime_data.brain[cortical_area]:
-            x = brain[cortical_area][key]['location'][0]
-            y = brain[cortical_area][key]['location'][1]
-            # z = brain[cortical_area][key]['location'][2]
-
-            # Searching only the XY plane for candidate neurons         ????
-            if np.sqrt((x - location[0]) ** 2 + (y - location[1]) ** 2) <= (radius ** 2):
-                if collections.Counter(neuron_list)[key] == 0:
-                    neuron_list = np.append(neuron_list, key)
-
-        return list(neuron_list)
-
-    def neuron_finder2(cortical_area, location):
-
-        block_id = block_id_gen(coordinate=location, cortical_area=cortical_area)
-
-        neuron_list = neurons_in_the_block(block_id)
-
-        return neuron_list
-
-
-    def projection_center(self):
-        # todo: locations to be updated and made generic allowing multiple locations
-        src_coord = np.array(runtime_data.brain[self.src_cortical_area][self.src_neuron_id]['soma_location'][0])
-        dst_coord = np.array(runtime_data.brain[self.dst_cortical_area][self.dst_neuron_id]['dendrite_locations'][0][0])
-
-        src_blk = np.array(runtime_data.brain[self.src_cortical_area][self.src_neuron_id]['soma_location'][1])
-        dst_blk = np.array(runtime_data.brain[self.dst_cortical_area][self.dst_neuron_id]['dendrite_locations'][0][1])
-
-        # Find relative coordinates on the source and destination side
-        src_lengths = cortical_area_lengths(self.src_cortical_area)
-        dest_lengths = cortical_area_lengths(self.dst_cortical_area)
-        coordinate_scales = [a / b for a, b in zip(dest_lengths, src_lengths)]
-
-        x_coordinate_src = src_coord[0]
-        y_coordinate_src = src_coord[1]
-        z_coordinate_src = src_coord[2]
-        x_coordinate_dst = dst_coord[0]
-        y_coordinate_dst = dst_coord[1]
-        z_coordinate_dst = dst_coord[2]
-
-        projection_center = np.array([])
-        projection_center = np.append(projection_center, x_coordinate_src * coordinate_scales[0])
-        projection_center = np.append(projection_center, y_coordinate_src * coordinate_scales[1])
-        projection_center = np.append(projection_center, z_coordinate_src * coordinate_scales[2])
-        return projection_center
-
-    def neighbor_finder_intracortical(cortical_area, neuron_id, rule, rule_param):
-        """
-        A set of math functions allowing to detect the eligibility of a Neuron to become neighbor
-        :param cortical_area
-        :param neuron_id:
-        :param rule:
-        :param rule_param:
-        :return:
-        """
-        if cortical_area == 'utf8_memory':
-            print('rule=', rule)
-        # Input: neuron id of which we desire to find all candidate neurons for
-        neighbor_candidates = []
-
-        # Narrow down the search scope to only few blocks
-        # neighbors_in_block = neurons_in_block_neighborhood(cortical_area, neuron_id, kernel_size=1)
-        neuron_block = runtime_data.brain[cortical_area][neuron_id]['block']
-        block_reference = str(neuron_block[0]) + '-' + str(neuron_block[1]) + '-' + str(neuron_block[2])
-        neighbors_in_block = runtime_data.block_dic[cortical_area][block_reference]
-
-        candidacy_check = IsCandidate(rule_id=rule,
-                                      rule_param=rule_param,
-                                      cortical_area_src=cortical_area,
-                                      cortical_area_dst=cortical_area,
-                                      src_neuron_id=neuron_id)
-
-        for dst_neuron_id in neighbors_in_block:
-            if candidacy_check.growth_rule_applicator(dst_neuron_id):
-                neighbor_candidates.append(dst_neuron_id)
-
-        return neighbor_candidates
-
-    class IsCandidate:
-        """
-        Identifies if a given neuron in the destination cortical area is a match for the source neuron based on a rule
-        """
-        def __init__(self, src_neuron_id, dst_neuron_id, rule, rule_param, src_cortical_area, dst_cortical_area):
-            self.is_candidate = False
-            self.src_neuron_id = src_neuron_id
-            self.dst_neuron_id = dst_neuron_id
-            self.rule = rule
-            self.rule_param = rule_param
-            self.src_cortical_area = src_cortical_area
-            self.dst_cortical_area = dst_cortical_area
-
-        def projection_center(self):
-            # todo: locations to be updated and made generic allowing multiple locations
-            src_coord = np.array(runtime_data.brain[self.src_cortical_area][self.src_neuron_id]['soma_location'][0])
-            dst_coord = np.array(runtime_data.brain[self.dst_cortical_area][self.dst_neuron_id]['dendrite_locations'][0][0])
-
-            src_blk = np.array(runtime_data.brain[self.src_cortical_area][self.src_neuron_id]['soma_location'][1])
-            dst_blk = np.array(runtime_data.brain[self.dst_cortical_area][self.dst_neuron_id]['dendrite_locations'][0][1])
-
-            # Find relative coordinates on the source and destination side
-            src_lengths = cortical_area_lengths(self.src_cortical_area)
-            dest_lengths = cortical_area_lengths(self.dst_cortical_area)
-            coordinate_scales = [a / b for a, b in zip(dest_lengths, src_lengths)]
-
-            x_coordinate_src = src_coord[0]
-            y_coordinate_src = src_coord[1]
-            z_coordinate_src = src_coord[2]
-            x_coordinate_dst = dst_coord[0]
-            y_coordinate_dst = dst_coord[1]
-            z_coordinate_dst = dst_coord[2]
-
-            projection_center = np.array([])
-            projection_center = np.append(projection_center, x_coordinate_src * coordinate_scales[0])
-            projection_center = np.append(projection_center, y_coordinate_src * coordinate_scales[1])
-            projection_center = np.append(projection_center, z_coordinate_src * coordinate_scales[2])
-            return projection_center
-
-        # Defining synapse growth rules
-        def rule_block_2_block(self):
-            """
-            Older implementation of the block to block mapping/
-
-            todo: This function does not belong here. Planning to build a new class/method to return candidate neurons
-            """
-            neighbor_candidates = []
-            # todo: rules are currently not being used for synapse creation. Would there be value? Assess!!
-            neuron_block_src = runtime_data.brain[self.src_cortical_area][self.src_neuron_id]['soma_location'][1]
-            if 'layer_index' in runtime_data.genome['blueprint'][self.src_cortical_area]:
-                src_block_index = runtime_data.genome['blueprint'][self.src_cortical_area]['layer_index'] - 1
-            else:
-                src_block_index = 0
-            # todo: make the next line generic. It would become important when complex cortical areas are introduced
-            if self.dst_cortical_area == 'vision_v2':
-                block_reference = block_reference_builder([neuron_block_src[0], neuron_block_src[1], src_block_index])
-                # print("block_reference:", block_reference)
-            else:
-                block_reference = block_reference_builder(neuron_block_src)
-
-            z_block_boundary = \
-                runtime_data.genome['blueprint'][self.dst_cortical_area]['neuron_params']['block_boundaries'][2]
-
-            if z_block_boundary > 1:
-                if block_reference in runtime_data.block_dic[self.dst_cortical_area]:
-                    for dst_neuron in runtime_data.block_dic[self.dst_cortical_area][block_reference]:
-                        if runtime_data.brain[self.dst_cortical_area][dst_neuron]['soma_location'][1][2] == src_block_index:
-                            neighbor_candidates.append(dst_neuron)
-
-            elif block_reference in runtime_data.block_dic[self.dst_cortical_area]:
-                for neighbor in runtime_data.block_dic[self.dst_cortical_area][block_reference]:
-                    neighbor_candidates.append(neighbor)
-            return neighbor_candidates
-
-        def rule_block_to_block(self):
-            src_neuron_block = runtime_data.brain[self.src_cortical_area][self.src_neuron_id]['soma_location'][1]
-            src_neuron_block_ref = block_reference_builder(src_neuron_block)
-            try:
-                if self.dst_neuron_id in runtime_data.block_dic[self.dst_cortical_area][src_neuron_block_ref]:
-                    return True
-                return False
-            except KeyError:
-                return False
-
-        def rule_tbd_2(self):
-            return
-
-        def growth_rule_applicator(self):
-            # todo: to fix the rules
-            switcher = {
-                "rule_0": self.rule_block_to_block,
-                "rule_1": self.rule_block_to_block,
-                "rule_6": self.rule_block_to_block,
-                "rule_5": self.rule_block_to_block
-            }
-            # Get the function from switcher dictionary
-            func = switcher.get(self.rule, lambda: "Invalid rule")
-            # Execute the function
-            is_candidate = func()
-            return is_candidate
-
+# class UnusedFuncs:
+#     def neighbor_builder_intracortical(cortical_area, brain, genome, brain_gen, rule_id, rule_param,
+#                                        postsynaptic_current):
+#         """
+#         Function responsible for crawling through Neurons and deciding where to build Synapses
+#         """
+#         # Need to figure how to build a Neighbor relationship between Neurons
+#         #    1. Should it be based on the proximity?
+#         #    2. Should it be manually set? It wont be scalable
+#         #    3. How can it be based on a Guide function?
+#         # This function will utilize the Synapse function and based on an algorithm will create the relationships
+#
+#         # Algorithm:
+#         #    1. Ask for a direction
+#         #    2. For each neuron in path find a list of eligible candidates
+#         #    3. Update connectome to the candidates become neighbors of the source neuron
+#
+#         # todo: Warning: Need to watch for the side effects on this line to make sure its not overwriting values
+#         # to accommodate the new namespace used by multiprocessing
+#         if brain_gen:
+#             runtime_data.brain = brain
+#             runtime_data.genome = genome
+#
+#         synapse_count = 0
+#         for src_id in runtime_data.brain[cortical_area]:
+#             # Cycle thru the neighbor_candidate_list and establish Synapses
+#             neighbor_candidates = neighbor_finder_intracortical(src_id, rule_id, rule_param)
+#             for dst_id in neighbor_candidates:
+#                 synapse(src_id, cortical_area, dst_id, postsynaptic_current)
+#                 synapse_count += 1
+#                 # print("Made a Synapse between %s and %s" % (src_id, dst_id))
+#         if brain_gen:
+#             brain = runtime_data.brain
+#             runtime_data.genome = genome
+#
+#             synapse_count2 = 0
+#             for area in brain:
+#                 for neuron in brain[area]:
+#                     for connection in brain[area][neuron]['neighbors']:
+#                         synapse_count2 += 1
+#         else:
+#             brain = {}
+#         return synapse_count, brain
+#
+#     def connectome_location_data(cortical_area):
+#         """
+#         Extracts Neuron locations and neighbor relationships from the connectome
+#         """
+#
+#         neuron_locations = []
+#         for key in runtime_data.brain[cortical_area]:
+#             location_data = runtime_data.brain[cortical_area][key]["soma_location"][0]
+#             location_data.append(runtime_data.brain[cortical_area][key]["cumulative_fire_count"])
+#             neuron_locations.append(location_data)
+#
+#         return neuron_locations
+#
+#     def neurons_in_same_block(cortical_area, neuron_id):
+#         """
+#         Generates a list of Neurons in the same block as the given one
+#         """
+#         neuron_list = []
+#         for _ in runtime_data.brain[cortical_area]:
+#             if runtime_data.brain[cortical_area][_]['block'] == \
+#                     runtime_data.brain[cortical_area][neuron_id]['block']:
+#                 if _ != neuron_id:
+#                     neuron_list.append(_)
+#         return neuron_list
+#
+#     def dst_projection_center(cortical_area_src, neuron_id, cortical_area_dst):
+#         """
+#         Returns the coordinates of a neuron projected into a target Cortical layer
+#         """
+#
+#         # Find relative coordinates on the source and destination side
+#         src_lengths = cortical_area_lengths(cortical_area_src)
+#         dst_lengths = cortical_area_lengths(cortical_area_dst)
+#         coordinate_scales = [a / b for a, b in zip(dst_lengths, src_lengths)]
+#
+#         x_coordinate_src = runtime_data.brain[cortical_area_src][neuron_id]["soma_location"][0][0]
+#         y_coordinate_src = runtime_data.brain[cortical_area_src][neuron_id]["soma_location"][0][1]
+#         z_coordinate_src = runtime_data.brain[cortical_area_src][neuron_id]["soma_location"][0][2]
+#
+#         dst_projection_center = list()
+#         dst_projection_center.append(x_coordinate_src * coordinate_scales[0])
+#         dst_projection_center.append(y_coordinate_src * coordinate_scales[1])
+#         dst_projection_center.append(z_coordinate_src * coordinate_scales[2])
+#
+#         return dst_projection_center
+#
+#     # todo: Cythonize this
+#     # @jit
+#     def neuron_finder(cortical_area, location, radius):
+#         """
+#         Queries a given cortical area and returns a listed of Neuron IDs matching search criteria
+#         """
+#         brain = runtime_data.brain
+#         location = np.array(location)
+#
+#         neuron_list = np.array([])
+#
+#         for key in runtime_data.brain[cortical_area]:
+#             x = brain[cortical_area][key]['location'][0]
+#             y = brain[cortical_area][key]['location'][1]
+#             # z = brain[cortical_area][key]['location'][2]
+#
+#             # Searching only the XY plane for candidate neurons         ????
+#             if np.sqrt((x - location[0]) ** 2 + (y - location[1]) ** 2) <= (radius ** 2):
+#                 if collections.Counter(neuron_list)[key] == 0:
+#                     neuron_list = np.append(neuron_list, key)
+#
+#         return list(neuron_list)
+#
+#     def neuron_finder2(cortical_area, location):
+#
+#         block_id = block_id_gen(coordinate=location, cortical_area=cortical_area)
+#
+#         neuron_list = neurons_in_the_block(block_id)
+#
+#         return neuron_list
+#
+#
+#     def projection_center(self):
+#         # todo: locations to be updated and made generic allowing multiple locations
+#         src_coord = np.array(runtime_data.brain[self.src_cortical_area][self.src_neuron_id]['soma_location'][0])
+#         dst_coord = np.array(runtime_data.brain[self.dst_cortical_area][self.dst_neuron_id]['dendrite_locations'][0][0])
+#
+#         src_blk = np.array(runtime_data.brain[self.src_cortical_area][self.src_neuron_id]['soma_location'][1])
+#         dst_blk = np.array(runtime_data.brain[self.dst_cortical_area][self.dst_neuron_id]['dendrite_locations'][0][1])
+#
+#         # Find relative coordinates on the source and destination side
+#         src_lengths = cortical_area_lengths(self.src_cortical_area)
+#         dest_lengths = cortical_area_lengths(self.dst_cortical_area)
+#         coordinate_scales = [a / b for a, b in zip(dest_lengths, src_lengths)]
+#
+#         x_coordinate_src = src_coord[0]
+#         y_coordinate_src = src_coord[1]
+#         z_coordinate_src = src_coord[2]
+#         x_coordinate_dst = dst_coord[0]
+#         y_coordinate_dst = dst_coord[1]
+#         z_coordinate_dst = dst_coord[2]
+#
+#         projection_center = np.array([])
+#         projection_center = np.append(projection_center, x_coordinate_src * coordinate_scales[0])
+#         projection_center = np.append(projection_center, y_coordinate_src * coordinate_scales[1])
+#         projection_center = np.append(projection_center, z_coordinate_src * coordinate_scales[2])
+#         return projection_center
+#
+#     def neighbor_finder_intracortical(cortical_area, neuron_id, rule, rule_param):
+#         """
+#         A set of math functions allowing to detect the eligibility of a Neuron to become neighbor
+#         :param cortical_area
+#         :param neuron_id:
+#         :param rule:
+#         :param rule_param:
+#         :return:
+#         """
+#         if cortical_area == 'utf8_memory':
+#             print('rule=', rule)
+#         # Input: neuron id of which we desire to find all candidate neurons for
+#         neighbor_candidates = []
+#
+#         # Narrow down the search scope to only few blocks
+#         # neighbors_in_block = neurons_in_block_neighborhood(cortical_area, neuron_id, kernel_size=1)
+#         neuron_block = runtime_data.brain[cortical_area][neuron_id]['block']
+#         block_reference = str(neuron_block[0]) + '-' + str(neuron_block[1]) + '-' + str(neuron_block[2])
+#         neighbors_in_block = runtime_data.block_dic[cortical_area][block_reference]
+#
+#         candidacy_check = IsCandidate(rule_id=rule,
+#                                       rule_param=rule_param,
+#                                       cortical_area_src=cortical_area,
+#                                       cortical_area_dst=cortical_area,
+#                                       src_neuron_id=neuron_id)
+#
+#         for dst_neuron_id in neighbors_in_block:
+#             if candidacy_check.growth_rule_applicator(dst_neuron_id):
+#                 neighbor_candidates.append(dst_neuron_id)
+#
+#         return neighbor_candidates
+#
+#     class IsCandidate:
+#         """
+#         Identifies if a given neuron in the destination cortical area is a match for the source neuron based on a rule
+#         """
+#         def __init__(self, src_neuron_id, dst_neuron_id, rule, rule_param, src_cortical_area, dst_cortical_area):
+#             self.is_candidate = False
+#             self.src_neuron_id = src_neuron_id
+#             self.dst_neuron_id = dst_neuron_id
+#             self.rule = rule
+#             self.rule_param = rule_param
+#             self.src_cortical_area = src_cortical_area
+#             self.dst_cortical_area = dst_cortical_area
+#
+#         def projection_center(self):
+#             # todo: locations to be updated and made generic allowing multiple locations
+#             src_coord = np.array(runtime_data.brain[self.src_cortical_area][self.src_neuron_id]['soma_location'][0])
+#             dst_coord = np.array(runtime_data.brain[self.dst_cortical_area][self.dst_neuron_id]['dendrite_locations'][0][0])
+#
+#             src_blk = np.array(runtime_data.brain[self.src_cortical_area][self.src_neuron_id]['soma_location'][1])
+#             dst_blk = np.array(runtime_data.brain[self.dst_cortical_area][self.dst_neuron_id]['dendrite_locations'][0][1])
+#
+#             # Find relative coordinates on the source and destination side
+#             src_lengths = cortical_area_lengths(self.src_cortical_area)
+#             dest_lengths = cortical_area_lengths(self.dst_cortical_area)
+#             coordinate_scales = [a / b for a, b in zip(dest_lengths, src_lengths)]
+#
+#             x_coordinate_src = src_coord[0]
+#             y_coordinate_src = src_coord[1]
+#             z_coordinate_src = src_coord[2]
+#             x_coordinate_dst = dst_coord[0]
+#             y_coordinate_dst = dst_coord[1]
+#             z_coordinate_dst = dst_coord[2]
+#
+#             projection_center = np.array([])
+#             projection_center = np.append(projection_center, x_coordinate_src * coordinate_scales[0])
+#             projection_center = np.append(projection_center, y_coordinate_src * coordinate_scales[1])
+#             projection_center = np.append(projection_center, z_coordinate_src * coordinate_scales[2])
+#             return projection_center
+#
+#         # Defining synapse growth rules
+#         def rule_block_2_block(self):
+#             """
+#             Older implementation of the block to block mapping/
+#
+#             todo: This function does not belong here. Planning to build a new class/method to return candidate neurons
+#             """
+#             neighbor_candidates = []
+#             # todo: rules are currently not being used for synapse creation. Would there be value? Assess!!
+#             neuron_block_src = runtime_data.brain[self.src_cortical_area][self.src_neuron_id]['soma_location'][1]
+#             if 'layer_index' in runtime_data.genome['blueprint'][self.src_cortical_area]:
+#                 src_block_index = runtime_data.genome['blueprint'][self.src_cortical_area]['layer_index'] - 1
+#             else:
+#                 src_block_index = 0
+#             # todo: make the next line generic. It would become important when complex cortical areas are introduced
+#             if self.dst_cortical_area == 'vision_v2':
+#                 block_reference = block_reference_builder([neuron_block_src[0], neuron_block_src[1], src_block_index])
+#                 # print("block_reference:", block_reference)
+#             else:
+#                 block_reference = block_reference_builder(neuron_block_src)
+#
+#             z_block_boundary = \
+#                 runtime_data.genome['blueprint'][self.dst_cortical_area]['neuron_params']['block_boundaries'][2]
+#
+#             if z_block_boundary > 1:
+#                 if block_reference in runtime_data.block_dic[self.dst_cortical_area]:
+#                     for dst_neuron in runtime_data.block_dic[self.dst_cortical_area][block_reference]:
+#                         if runtime_data.brain[self.dst_cortical_area][dst_neuron]['soma_location'][1][2] == src_block_index:
+#                             neighbor_candidates.append(dst_neuron)
+#
+#             elif block_reference in runtime_data.block_dic[self.dst_cortical_area]:
+#                 for neighbor in runtime_data.block_dic[self.dst_cortical_area][block_reference]:
+#                     neighbor_candidates.append(neighbor)
+#             return neighbor_candidates
+#
+#         def rule_block_to_block(self):
+#             src_neuron_block = runtime_data.brain[self.src_cortical_area][self.src_neuron_id]['soma_location'][1]
+#             src_neuron_block_ref = block_reference_builder(src_neuron_block)
+#             try:
+#                 if self.dst_neuron_id in runtime_data.block_dic[self.dst_cortical_area][src_neuron_block_ref]:
+#                     return True
+#                 return False
+#             except KeyError:
+#                 return False
+#
+#         def rule_tbd_2(self):
+#             return
+#
+#         def growth_rule_applicator(self):
+#             # todo: to fix the rules
+#             switcher = {
+#                 "rule_0": self.rule_block_to_block,
+#                 "rule_1": self.rule_block_to_block,
+#                 "rule_6": self.rule_block_to_block,
+#                 "rule_5": self.rule_block_to_block
+#             }
+#             # Get the function from switcher dictionary
+#             func = switcher.get(self.rule, lambda: "Invalid rule")
+#             # Execute the function
+#             is_candidate = func()
+#             return is_candidate
+#
