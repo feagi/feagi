@@ -37,6 +37,12 @@ class SynaptogenesisRuleManager:
         self.rule_param = runtime_data.genome['neighbor_locator_rule'][self.rule][self.rule_param_key]
         self.src_cortical_area = src_cortical_area
         self.dst_cortical_area = dst_cortical_area
+        self.z_offset = 0
+        # todo: this check is adding 0.5s to neuroembryogenesis process
+        if 'layer_index' in runtime_data.genome['blueprint'][src_cortical_area]:
+            self.z_offset = int(runtime_data.genome['blueprint'][src_cortical_area]['layer_index'])
+        else:
+            self.z_offset = 0
 
     def growth_rule_selector(self):
         """
@@ -81,6 +87,8 @@ class SynaptogenesisRuleManager:
         candidate_list = list()
         src_neuron_block_ref = \
             block_reference_builder(runtime_data.brain[self.src_cortical_area][self.src_neuron_id]['soma_location'][1])
+
+        src_neuron_block_ref = block_z_offset(block_ref=src_neuron_block_ref, offset=self.z_offset)
 
         if self.rule_param == 1:
             try:
@@ -135,6 +143,25 @@ class SynaptogenesisRuleManager:
             return neighbor_candidates
 
 
+def block_z_offset(block_ref, offset):
+    """
+    Offsets the z coordinate of the block reference by the value defined by "offset"
+    Note: There is a risk that the new offset value exceed defined block boundaries of a given cortical area
+
+    Args:
+        block_ref:
+        offset:
+
+    Returns: Adjusted block reference
+
+    """
+    block_id = block_ref_2_id(block_ref)
+    block_id[2] += int(offset)
+    if block_id[2] < 0:
+        block_id[2] = 0
+    return block_reference_builder(block_id)
+
+
 def neurons_in_block_neighborhood(cortical_area, block_ref, kernel_size=3):
     """
     Provides the list of all neurons within the surrounding blocks given the kernel size with default being 3
@@ -160,13 +187,18 @@ def neurons_in_the_block(cortical_area, block_ref):
         return []
 
 
+def block_ref_2_id(block_ref):
+    block_id_str = block_ref.split('-')
+    block_id = [int(x) for x in block_id_str]
+    return block_id
+
+
 def neighboring_blocks(block_ref, kernel_size):
     """
     Returns the list of block ids who are neighbor of the given one
     Block_id is in form of [x,y,z]
     """
-    block_id_str = block_ref.split('-')
-    block_id = [int(x) for x in block_id_str]
+    block_id = block_ref_2_id(block_ref)
 
     block_id_list = list()
 

@@ -12,6 +12,7 @@ is intended to run within a container and scale up to many container instances.
 todo: redo brain development with no db dependency
 todo: build Mongodb / local handling for brain development
 todo: test dev
+todo: perf optimization: ...
 
 """
 
