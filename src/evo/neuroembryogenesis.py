@@ -219,7 +219,7 @@ def neurogenesis():
 
 
 def synaptogenesis():
-    func1 = partial(build_synapse_interacortical, runtime_data.genome, runtime_data.brain, runtime_data.parameters)
+    func1 = partial(build_synapse_intracortical, runtime_data.genome, runtime_data.brain, runtime_data.parameters)
     pool1 = Pool(processes=1)
 
     synapse_creation_candidates = []
@@ -246,17 +246,18 @@ def synaptogenesis():
     pool2.close()
     pool2.join()
 
-    # Building intercortical mapping data structure
+    # Building intercortical mapping data structure when connectome visualizer is enabled
     runtime_data.intercortical_mapping = []
-    for entry in intercortical_mapping:
-        if len(entry) == 1:
-            runtime_data.intercortical_mapping.append(entry[0])
-        if len(entry) > 1:
-            for _ in entry:
-                runtime_data.intercortical_mapping.append(_)
+    if runtime_data.parameters['Visualization']['connectome_visualizer']:
+        for entry in intercortical_mapping:
+            if len(entry) == 1:
+                runtime_data.intercortical_mapping.append(entry[0])
+            if len(entry) > 1:
+                for _ in entry:
+                    runtime_data.intercortical_mapping.append(_)
 
 
-def build_synapse_interacortical(genome, brain, parameters, key):
+def build_synapse_intracortical(genome, brain, parameters, key):
     # Read Genome data
     timer = datetime.datetime.now()
     synapse_count, runtime_data.brain = \
@@ -307,7 +308,7 @@ def build_synapse_intercortical(genome, brain, parameters, block_dic, src_cortic
                   % (src_cortical_area, mapped_cortical_area, rule, rule_param, synapse_count_, duration, duration / synapse_count_))
 
         # Adding External Synapse counts to genome for future use
-        intercortical_mapping.append((src_cortical_area, mapped_cortical_area, synapse_count))
+        intercortical_mapping.append((src_cortical_area, mapped_cortical_area, synapse_count_))
 
     disk_ops.save_brain_to_disk(cortical_area=src_cortical_area, brain=runtime_data.brain, parameters=parameters)
     return intercortical_mapping
@@ -351,9 +352,11 @@ def develop():
     brain_structural_fitness = connectome_structural_fitness()
     print("Brain structural fitness was evaluated as: ", brain_structural_fitness)
 
-    graph_edges, graph_weights, graph_labels = build_cortical_map()
-    graph = Graph(directed=True)
-    graph_instance = DirectGraph(graph, edges=graph_edges, weights=graph_weights, labels=graph_labels)
-    graph_instance.graph_in_color()
+    # Visualize the connectome
+    if runtime_data.parameters['Visualization']['connectome_visualizer']:
+        graph_edges, graph_weights, graph_labels = build_cortical_map()
+        graph = Graph(directed=True)
+        graph_instance = DirectGraph(graph, edges=graph_edges, weights=graph_weights, labels=graph_labels)
+        graph_instance.graph_in_color()
 
     return brain_structural_fitness
