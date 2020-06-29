@@ -21,24 +21,24 @@
       "rule_2" : {
           "param_1" : 5,
           "param_2" : 5,
-          "param_3" : 10
+          "param_3" : 3
       },
       "rule_3" : {
-          "param_1" : 0,
-          "param_2" : 0
+          "param_1" : 3,
+          "param_2" : 3
       },
       "rule_4" : {
-          "param_1" : 25,
-          "param_2" : 77
+          "param_1" : 3,
+          "param_2" : 3
       },
       "rule_5" : {
-          "param_1" : 700,
-          "param_2" : 700,
-          "param_3" : 700,
-          "param_4" : 700,
-          "param_5" : 700,
-          "param_6" : 700,
-          "param_7" : 700
+          "param_1" : 3,
+          "param_2" : 3,
+          "param_3" : 3,
+          "param_4" : 3,
+          "param_5" : 3,
+          "param_6" : 3,
+          "param_7" : 3
       },
       "rule_6" : {
           "param_1" : 1,

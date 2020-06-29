@@ -10,6 +10,10 @@ from math import floor
 from inf import runtime_data
 
 
+def block_reference_builder(block):
+    return str(block[0]) + '-' + str(block[1]) + '-' + str(block[2])
+
+
 def block_id_gen(cortical_area, coordinate):
     """
     Generating a block id so it can be used for faster neighbor detection
@@ -216,7 +220,7 @@ def neuron_genesis_3d(cortical_area):
         neuron_count += 1
         # Adding neuron id to the block dictionary
         for dendrite in dendrite_locations:
-            block_reference = str(dendrite[1][0]) + '-' + str(dendrite[1][1]) + '-' + str(dendrite[1][2])
+            block_reference = block_reference_builder(block=[dendrite[1][0], dendrite[1][1], dendrite[1][2]])
             if cortical_area not in runtime_data.block_dic:
                 runtime_data.block_dic[cortical_area] = {}
             if block_reference not in runtime_data.block_dic[cortical_area]:

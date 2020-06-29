@@ -299,10 +299,12 @@ def build_synapse_intercortical(genome, brain, parameters, block_dic, src_cortic
                                                  cortical_area_dst=mapped_cortical_area,
                                                  synapse_count=synapse_count)
         if parameters["Logs"]["print_brain_gen_activities"]:
+            rule = runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'][mapped_cortical_area]['neighbor_locator_rule_id']
+            rule_param = runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'][mapped_cortical_area]['neighbor_locator_rule_param_id']
             duration = datetime.datetime.now() - timer
-            print("Synapse creation between Cortical area \t%s and \t%s is now complete. Count: \t%i  Duration: \t%s, "
-                  "Per Synapse Avg.: \t%s"
-                  % (src_cortical_area, mapped_cortical_area, synapse_count_, duration, duration / synapse_count_))
+            print("Synaptogenesis: %s <> %s\t\t| Rule/Param: %s -- %s | Synapse Count: %i | Duration: %s\t "
+                  "| Per Synapse Avg.: %s"
+                  % (src_cortical_area, mapped_cortical_area, rule, rule_param, synapse_count_, duration, duration / synapse_count_))
 
         # Adding External Synapse counts to genome for future use
         intercortical_mapping.append((src_cortical_area, mapped_cortical_area, synapse_count))
