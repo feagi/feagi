@@ -1,5 +1,10 @@
 
-from inf import runtime_data
+import json
+from opu import utf8
+from collections import deque
+from evo.synapse import synapse
+from inf import runtime_data, settings
+from cython_libs import neuron_functions_cy as cy
 
 
 def form_memories(cfcl, pain_flag):
@@ -83,7 +88,7 @@ def neuron_fire(cortical_area, neuron_id):
 
     # Condition to update neuron activity history currently only targeted for UTF-OPU
     # todo: move activity_history_span to genome
-    activity_history_span = runtime_data.parameters["InitData"]["activity_history_span"]
+    activity_history_span = int(runtime_data.parameters["InitData"]["activity_history_span"])
     if cortical_area == 'utf8_memory':
         if not runtime_data.brain[cortical_area][neuron_id]["activity_history"]:
             zeros = deque([0] * activity_history_span)
@@ -112,10 +117,10 @@ def neuron_fire(cortical_area, neuron_id):
     # if cortical_area == 'vision_memory':
     #     runtime_data.cumulative_neighbor_count += neighbor_count
     neighbor_count = len(neighbor_list)
-
+    print('Neighbor list is: >>', neighbor_list)
     # Updating downstream neurons
     for dst_neuron_id in neighbor_list:
-
+        print('Destination Neuron: ', dst_neuron_id)
         # Timing the update function
         # update_start_time = datetime.now()
 
@@ -233,7 +238,7 @@ def neuron_fire(cortical_area, neuron_id):
 
     # Condition to translate activity in utf8_out region as a character comprehension
     if cortical_area == 'utf8_memory':
-        detected_item, activity_rank = OPU_utf8.convert_neuron_activity_to_utf8_char(cortical_area, neuron_id)
+        detected_item, activity_rank = utf8.convert_neuron_activity_to_utf8_char(cortical_area, neuron_id)
         # todo: burst detection list could be a set instead
         if detected_item not in runtime_data.burst_detection_list:
             runtime_data.burst_detection_list[detected_item] = {}
@@ -297,6 +302,7 @@ def apply_plasticity(cortical_area, src_neuron, dst_neuron):
             # Every time source and destination neuron is fired at the same time which in case of the code architecture
             # reside in the same burst, the postsynaptic_current will be increased simulating the fire together,
             # wire together. This phenomenon is also considered as long term potentiation or LTP
+
             runtime_data.brain[cortical_area][src_neuron]["neighbors"][dst_neuron]["postsynaptic_current"] += \
                 genome["blueprint"][cortical_area]["plasticity_constant"]
 
@@ -327,15 +333,15 @@ def apply_plasticity_ext(src_cortical_area, src_neuron_id, dst_cortical_area,
 
         if long_term_depression:
             # When long term depression flag is set, there will be negative synaptic influence caused
-            plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"] * (-1) * impact_multiplier
+            plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"] * (-1) * \
+                                  impact_multiplier
 
         try:
-            runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] += \
-                plasticity_constant
+            runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] \
+                += plasticity_constant
 
             # Condition to cap the postsynaptic_current and provide prohibitory reaction
-            if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] > \
-                    runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]:
+            if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] > runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]:
                 runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] = \
                     runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]
 
@@ -379,7 +385,6 @@ def snooze_till(cortical_area, neuron_id, burst_id):
         = burst_id + runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["snooze_length"]
     # print("%s : %s has been snoozed!" % (cortical_area, neuron_id))
     return
-
 
 
 def exhibit_pain():
@@ -430,3 +435,20 @@ def prune_all_candidates():
         prune_candidate = runtime_data.prunning_candidates.pop()
         pruner(prune_candidate)
 
+
+def list_upstream_neurons(cortical_area, neuron_id):
+    if cortical_area in runtime_data.upstream_neurons:
+        if neuron_id in runtime_data.upstream_neurons[cortical_area]:
+            return runtime_data.upstream_neurons[cortical_area][neuron_id]
+    return {}
+
+
+def update_upstream_db(src_cortical_area, src_neuron_id, dst_cortical_area, dst_neuron_id):
+    # if dst_cortical_area not in runtime_data.upstream_neurons:
+    #     runtime_data.upstream_neurons[dst_cortical_area] = {}
+    if dst_neuron_id not in runtime_data.upstream_neurons[dst_cortical_area]:
+        runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id] = {}
+    if src_cortical_area not in runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id]:
+        runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id][src_cortical_area] = set()
+    if src_neuron_id not in runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id][src_cortical_area]:
+        runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id][src_cortical_area].add(src_neuron_id)

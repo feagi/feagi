@@ -166,7 +166,7 @@ def burst():
                                                     cortical_area=cortical_area,
                                                     neuron_id=neuron,
                                                     membrane_potential=
-                                                    runtime_data.brain[cortical_area][neuron]["membrane_potential" ] /1)
+                                                    runtime_data.brain[cortical_area][neuron]["membrane_potential"] /1)
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         # time_firing_activities = datetime.now()
@@ -216,10 +216,12 @@ def burst():
             # runtime_data.plasticity_time_total_p1 = datetime.now() - datetime.now()
             # stats_utf_memory_membrane_potentials()
             # Firing all neurons in the fire_candidate_list
+
             for cortical_area in runtime_data.fire_candidate_list:
                 while runtime_data.fire_candidate_list[cortical_area]:
                     neuron_to_fire = runtime_data.fire_candidate_list[cortical_area].pop()
                     neuron_fire(cortical_area, neuron_to_fire)
+
             # stats_utf_memory_membrane_potentials()
             # pfcl_total_neuron_count = candidate_list_counter(runtime_data.previous_fcl)
             # cfcl_total_neuron_count = candidate_list_counter(runtime_data.fire_candidate_list)
@@ -258,6 +260,8 @@ def burst():
                       % runtime_data.fire_candidate_list + settings.Bcolors.ENDC)
 
             # print_cortical_neuron_mappings('vision_memory', 'utf8_memory')
+
+
 
         # todo: need to break down the training function into pieces with one feeding a stream of data
         # Auto-inject if applicable
@@ -524,8 +528,6 @@ class Injector:
     def image_feeder2(num, seq, mnist_type):
 
         runtime_data.labeled_image = ['', num]
-
-        # runtime_data.training_neuron_list_img = brain.retina(runtime_data.labeled_image)
         runtime_data.training_neuron_list_img = retina(num=num, seq=seq, mnist_type=mnist_type, random_num=False)
 
     def injection_manager(self, injection_mode, injection_param):
@@ -1049,24 +1051,6 @@ def fire_candidate_locations(fire_cnd_list):
                                                     runtime_data.brain[cortical_area][neuron]["location"][2]])
 
     return neuron_locations
-
-
-def update_upstream_db(src_cortical_area, src_neuron_id, dst_cortical_area, dst_neuron_id):
-    # if dst_cortical_area not in runtime_data.upstream_neurons:
-    #     runtime_data.upstream_neurons[dst_cortical_area] = {}
-    if dst_neuron_id not in runtime_data.upstream_neurons[dst_cortical_area]:
-        runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id] = {}
-    if src_cortical_area not in runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id]:
-        runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id][src_cortical_area] = set()
-    if src_neuron_id not in runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id][src_cortical_area]:
-        runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id][src_cortical_area].add(src_neuron_id)
-
-
-def list_upstream_neurons(cortical_area, neuron_id):
-    if cortical_area in runtime_data.upstream_neurons:
-        if neuron_id in runtime_data.upstream_neurons[cortical_area]:
-            return runtime_data.upstream_neurons[cortical_area][neuron_id]
-    return {}
 
 
 def list_top_n_utf_memory_neurons(cortical_area, n):

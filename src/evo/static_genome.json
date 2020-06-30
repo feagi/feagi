@@ -2778,7 +2778,7 @@
           "neighbor_locator_rule_param_id" : "param_1",
           "cortical_mapping_dst" : {
               "utf8_memory" : {
-                  "neighbor_locator_rule_id" : "rule_3",
+                  "neighbor_locator_rule_id" : "rule_0",
                   "neighbor_locator_rule_param_id" : "param_2"
               }
           },
@@ -2835,7 +2835,7 @@
           "neighbor_locator_rule_param_id" : "param_1",
           "cortical_mapping_dst" : {
               "utf8_out" : {
-                  "neighbor_locator_rule_id" : "rule_3",
+                  "neighbor_locator_rule_id" : "rule_0",
                   "neighbor_locator_rule_param_id" : "param_2"
               }
           },
