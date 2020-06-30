@@ -125,6 +125,69 @@ def print_fcl_stats(genome_id):
     print('*******************************************************************************************')
 
 
+def candidate_list_counter(candidate_list):
+    count = 0
+    for cortical_area in candidate_list:
+        count += len(candidate_list[cortical_area])
+        # print("&&$$%%>>", cortical_area, len(candidate_list[cortical_area]))
+    return count
+
+
+def list_upstream_neuron_count_for_digits(digit='all', mode=0):
+    # function_start_time = datetime.now()
+    results = []
+    fcl_results = []
+
+    if digit == 'all':
+        for _ in range(10):
+            # results.append([_, len(list_
+            #                        upstream_neurons('utf8_memory', runtime_data.top_10_utf_memory_neurons[_][1]))])
+            neuron_id = runtime_data.top_10_utf_memory_neurons[_][1]
+            if 'utf8_memory' in runtime_data.upstream_neurons:
+                if neuron_id in runtime_data.upstream_neurons['utf8_memory']:
+                    if 'vision_memory' in runtime_data.upstream_neurons['utf8_memory'][neuron_id]:
+                        results.append([_,
+                                        len(runtime_data.upstream_neurons['utf8_memory'][neuron_id]['vision_memory'])])
+                        if runtime_data.upstream_neurons['utf8_memory'][neuron_id]['vision_memory']:
+                            counter = 0
+                            for neuron in runtime_data.upstream_neurons['utf8_memory'][neuron_id]['vision_memory']:
+                                if neuron in runtime_data.fire_candidate_list['vision_memory']:
+                                    counter += 1
+                            fcl_results.append([_, counter])
+                        else:
+                            fcl_results.append([_, 0])
+                    else:
+                        results.append([_, 0])
+                        fcl_results.append([_, 0])
+                else:
+                    results.append([_, 0])
+                    fcl_results.append([_, 0])
+            else:
+                results.append([_, 0])
+                fcl_results.append([_, 0])
+    else:
+        neuron_id = runtime_data.top_10_utf_memory_neurons[digit][1]
+        if 'utf8_memory' in runtime_data.upstream_neurons:
+            if neuron_id in runtime_data.upstream_neurons['utf8_memory']:
+                if 'vision_memory' in runtime_data.upstream_neurons['utf8_memory'][neuron_id]:
+                    results.append([digit,
+                                    len(runtime_data.upstream_neurons['utf8_memory'][neuron_id]['vision_memory'])])
+                else:
+                    results.append([digit, 0])
+            else:
+                results.append([digit, 0])
+        else:
+            results.append([digit, 0])
+    # print("Timing : list_upstream_neuron_count_for_digits:", datetime.now()-function_start_time)
+
+    if mode == 0:
+        print("&& && & &&& && && & : The mode is == 0")
+        return results
+    else:
+        print("&& && & &&& && && & : The mode is != 0")
+        return results, fcl_results
+
+
 
 # def tbd():
 #     for key in blueprint:

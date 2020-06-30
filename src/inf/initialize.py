@@ -1,5 +1,5 @@
 
-from inf import runtime_data, disk_ops
+from inf import runtime_data, disk_ops, settings
 from configparser import ConfigParser
 from shutil import copyfile
 import logging
@@ -62,3 +62,13 @@ def initialize():
     init_data_sources()
     init_ipu()
     init_opu()
+
+
+def burst_exit_process():
+    print(settings.Bcolors.YELLOW + '>>>Burst Exit criteria has been met!   <<<' + settings.Bcolors.ENDC)
+    runtime_data.live_mode_status = 'idle'
+    runtime_data.burst_count = 0
+    runtime_data.parameters["Switches"]["ready_to_exit_burst"] = True
+    runtime_data.parameters["Auto_injector"]["injector_status"] = False
+    if runtime_data.parameters["Switches"]["capture_brain_activities"]:
+        disk_ops.save_fcl_to_disk()
