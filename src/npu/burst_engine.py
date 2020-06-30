@@ -8,9 +8,12 @@ import string
 from datetime import datetime
 from inf import runtime_data, disk_ops, db_handler, settings
 from collections import deque
-from npu.physiology import neuron_fire, exhibit_pain, trigger_pain
+from time import sleep
+from npu.physiology import *
 from npu.comprehension import utf_detection_logic
-from ipu.vision import MNIST
+from evo.stats import connectome_total_synapse_cnt
+from ipu.vision import MNIST, retina
+from ipu.utf import convert_char_to_fire_list
 from art import text2art
 
 
@@ -23,8 +26,23 @@ def run_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
     """
     # Rand gen source partially from:
     # http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
-    return (str(datetime.datetime.now()).replace(' ', '_')).replace('.', '_')+'_'+(''.join(random.choice(chars)
-                                                                                           for _ in range(size)))+'_R'
+    return (str(datetime.now()).replace(' ', '_')).replace('.', '_')+'_'+(''.join(random.choice(chars)
+                                                                                  for _ in range(size)))+'_R'
+
+
+# todo: move this function to another module
+def test_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
+    """
+    This function generates a unique id which will be associated with each neuron
+    :param size:
+    :param chars:
+    :return:
+    """
+    # Rand gen source partially from:
+    # http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
+    return (str(datetime.now()).replace(' ', '_')).replace('.', '_')+'_'+(''.join(random.choice(chars)
+                                                                                  for _ in range(size)))+'_T'
+
 
 def candidate_list_counter(candidate_list):
     count = 0
@@ -32,6 +50,7 @@ def candidate_list_counter(candidate_list):
         count += len(candidate_list[cortical_area])
         # print("&&$$%%>>", cortical_area, len(candidate_list[cortical_area]))
     return count
+
 
 def cortical_group_members(group):
     # members = []
@@ -41,10 +60,9 @@ def cortical_group_members(group):
     return [item for item in runtime_data.cortical_list if runtime_data.genome['blueprint'][item]['group_id'] == group]
 
 
-
 def burst():
     """This function behaves as instance of Neuronal activities"""
-    print("\n\n\n\n\n")
+    print("\n\n")
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
@@ -52,13 +70,13 @@ def burst():
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
-    print("\n\n\n\n\n")
+    print("\n\n")
 
     print(runtime_data.parameters['Switches']['use_static_genome'])
     disk_ops.genome_handler(runtime_data.parameters['InitData']['connectome_path'])
 
     # todo: Move comprehension span to genome that is currently in parameters
-    comprehension_span = runtime_data.parameters["InitData"]["comprehension_span"]
+    comprehension_span = int(runtime_data.parameters["InitData"]["comprehension_span"])
 
     # Initializing the comprehension queue
     comprehension_queue = deque(['-'] * comprehension_span)
@@ -259,7 +277,7 @@ def burst():
         if runtime_data.burst_count % runtime_data.genome['evolution_burst_count'] == 0:
             print('Evolution phase reached...')
             for area in runtime_data.cortical_list:
-                neuron_count, synapse_count = stats.connectome_total_synapse_cnt(area)
+                neuron_count, synapse_count = connectome_total_synapse_cnt(area)
                 if runtime_data.parameters["Switches"]["influx_stat_logger"]:
                     influxdb.insert_connectome_stats(connectome_path=connectome_path,
                                                      cortical_area=area,
@@ -481,10 +499,10 @@ class Injector:
 
         if self.injector_injection_mode == 'c':
             runtime_data.training_neuron_list_utf = \
-                IPU_utf8.convert_char_to_fire_list(self.injector_utf_to_inject)
+                convert_char_to_fire_list(self.injector_utf_to_inject)
         else:
             runtime_data.training_neuron_list_utf = \
-                IPU_utf8.convert_char_to_fire_list(str(runtime_data.labeled_image[1]))
+                convert_char_to_fire_list(str(runtime_data.labeled_image[1]))
             print("!!! Image label: ", runtime_data.labeled_image[1])
 
         runtime_data.fire_candidate_list['utf8'].update(runtime_data.training_neuron_list_utf)
@@ -504,14 +522,10 @@ class Injector:
     @staticmethod
     def image_feeder2(num, seq, mnist_type):
 
-        brain = brain_functions.Brain()
         runtime_data.labeled_image = ['', num]
 
         # runtime_data.training_neuron_list_img = brain.retina(runtime_data.labeled_image)
-        runtime_data.training_neuron_list_img = brain.retina2(num=num,
-                                                              seq=seq,
-                                                              mnist_type=mnist_type,
-                                                              random_num=False)
+        runtime_data.training_neuron_list_img = retina(num=num, seq=seq, mnist_type=mnist_type, random_num=False)
 
     def injection_manager(self, injection_mode, injection_param):
         """

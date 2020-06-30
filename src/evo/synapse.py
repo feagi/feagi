@@ -372,28 +372,7 @@ def neighbor_builder_intercortical(cortical_area, brain, genome, brain_gen, cort
 #
 #         return dst_projection_center
 #
-#     # todo: Cythonize this
-#     # @jit
-#     def neuron_finder(cortical_area, location, radius):
-#         """
-#         Queries a given cortical area and returns a listed of Neuron IDs matching search criteria
-#         """
-#         brain = runtime_data.brain
-#         location = np.array(location)
-#
-#         neuron_list = np.array([])
-#
-#         for key in runtime_data.brain[cortical_area]:
-#             x = brain[cortical_area][key]['location'][0]
-#             y = brain[cortical_area][key]['location'][1]
-#             # z = brain[cortical_area][key]['location'][2]
-#
-#             # Searching only the XY plane for candidate neurons         ????
-#             if np.sqrt((x - location[0]) ** 2 + (y - location[1]) ** 2) <= (radius ** 2):
-#                 if collections.Counter(neuron_list)[key] == 0:
-#                     neuron_list = np.append(neuron_list, key)
-#
-#         return list(neuron_list)
+
 #
 #     def neuron_finder2(cortical_area, location):
 #

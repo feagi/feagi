@@ -35,7 +35,7 @@ def splash_screen():
 if __name__ == '__main__':
     from inf import initialize
     from evo import neuroembryogenesis, death
-    from npu import consciousness
+    from npu import consciousness, burst_engine
     from life import adventures
 
     splash_screen()
@@ -51,7 +51,11 @@ if __name__ == '__main__':
         neuroembryogenesis.develop_brain(reincarnation_mode=
                                          runtime_data.parameters['Brain_Development']['reincarnation_mode'])
 
+        # Staring the burst engine
+        burst_engine.burst()
+
         # All brain activities occur in between consciousness start and stop
+        # todo: define what consciousness would mean in the context of this framework!!
         consciousness.start()
 
         # A set of experiences will be outlined under life adventures that leads to learning
