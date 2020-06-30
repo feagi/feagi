@@ -10,7 +10,15 @@ from inf.disk_ops import save_processed_mnist_to_disk
 from evo.neuron import neuron_finder
 
 
-def retina(self, num, seq, mnist_type, random_num):
+def cortical_sub_group_members(group):
+    members = []
+    for item in runtime_data.cortical_list:
+        if runtime_data.genome['blueprint'][item]['sub_group_id'] == group:
+            members.append(item)
+    return members
+
+
+def retina(num, seq, mnist_type, random_num):
     """
     Input:
     Output: List of neurons from various Vision V1 layers that are activated
@@ -36,7 +44,7 @@ def retina(self, num, seq, mnist_type, random_num):
 
     neuron_list = {}
 
-    vision_group = self.cortical_sub_group_members('vision_v1')
+    vision_group = cortical_sub_group_members('vision_v1')
 
     # todo: the following is assuming all cortical vision v1 sublayers have the same kernel size (hardcoded value)
     kernel_size = runtime_data.genome['blueprint']['vision_v1-1']['kernel_size']
@@ -44,6 +52,7 @@ def retina(self, num, seq, mnist_type, random_num):
     kernel = Kernel()
 
     polarized_image = mnist.read_nth_mnist_digit(seq=seq, digit=num, type=mnist_type)
+
     # polarized_image = mnist.mnist_img_fetcher_mongo(num=num,
     #                                                 kernel_size=kernel_size,
     #                                                 seq=seq,
@@ -105,8 +114,8 @@ def retina(self, num, seq, mnist_type, random_num):
 class MNIST:
     def __init__(self):
         # global mnist_array, mnist_iterator
-        self.mnist_training_iterator = self.read_mnist_raw(dataset="training")
-        self.mnist_test_iterator = self.read_mnist_raw(dataset="testing")
+        self.mnist_training_iterator = self.read_mnist_raw(dataset_type="training")
+        self.mnist_test_iterator = self.read_mnist_raw(dataset_type="testing")
         self.kernel = Kernel
         self.mnist_array = dict()
         self.mnist_array['training'] = []

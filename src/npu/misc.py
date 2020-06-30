@@ -22,28 +22,6 @@ def utf_neuron_position(neuron_id):
     return int(runtime_data.brain['utf8_memory'][neuron_id]["soma_location"][0][2]) - ord('0')
 
 
-def common_neuron_report():
-    digits = range(10)
-    number_matrix = []
-    for _ in digits:
-        for __ in digits:
-            if _ != __ and [_, __] not in number_matrix and [__, _] not in number_matrix:
-                number_matrix.append([_, __])
-    for item in number_matrix:
-        neuron_a = utf_neuron_id(item[0])
-        neuron_b = utf_neuron_id(item[1])
-        common_neuron_list = list_common_upstream_neurons(neuron_a, neuron_b)
-
-        if common_neuron_list:
-            overlap_amount = len(common_neuron_list)
-            # print(item, '> ', overlap_amount)
-
-            if overlap_amount > runtime_data.parameters["InitData"]["overlap_prevention_constant"]:
-                # The following action is taken to eliminate the overlap
-                for neuron in common_neuron_list:
-                    runtime_data.prunning_candidates.add(('vision_memory', neuron, 'utf8_memory', neuron_a))
-                    runtime_data.prunning_candidates.add(('vision_memory', neuron, 'utf8_memory', neuron_b))
-
 
 def reset_cumulative_counter_instances():
     """
@@ -115,12 +93,6 @@ def cortical_area_synapse_count(cortical_area):
     return synapse_count
 
 
-def cortical_sub_group_members(group):
-    members = []
-    for item in runtime_data.cortical_list:
-        if runtime_data.genome['blueprint'][item]['sub_group_id'] == group:
-            members.append(item)
-    return members
 
 def connectome_neuron_count(self):
     total_neuron_count = 0

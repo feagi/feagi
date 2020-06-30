@@ -306,11 +306,11 @@ def burst():
         # time_monitoring_cortical_activity = datetime.now()
         if runtime_data.parameters["Switches"]["evaluation_based_termination"]:
             if runtime_data.parameters["Auto_injector"]["injector_status"] and \
-                    runtime_data.burst_count > runtime_data.parameters["InitData"]["kill_trigger_burst_count"]:
+                    runtime_data.burst_count > int(runtime_data.parameters["InitData"]["kill_trigger_burst_count"]):
                 if 'vision_memory' not in runtime_data.activity_stats:
                     runtime_data.activity_stats['vision_memory'] = 0
                 elif runtime_data.activity_stats['vision_memory'] < \
-                        runtime_data.parameters["InitData"]["kill_trigger_vision_memory_min"]:
+                        int(runtime_data.parameters["InitData"]["kill_trigger_vision_memory_min"]):
                     print(settings.Bcolors.RED +
                           "\n\n\n\n\n\n!!!!! !! !Terminating the brain due to low performance! !! !!!" +
                           settings.Bcolors.ENDC)
@@ -453,10 +453,10 @@ class Injector:
         self.injector_variation_handler = True
         self.injector_exposure_handler = True
         self.injector_utf_handler = True
-        self.injector_variation_counter = runtime_data.parameters["Auto_injector"]["variation_default"]
-        self.injector_exposure_default = runtime_data.parameters["Auto_injector"]["exposure_default"]
+        self.injector_variation_counter = int(runtime_data.parameters["Auto_injector"]["variation_default"])
+        self.injector_exposure_default = int(runtime_data.parameters["Auto_injector"]["exposure_default"])
         runtime_data.exposure_counter_actual = self.injector_exposure_default
-        self.injector_utf_default = runtime_data.parameters["Auto_injector"]["utf_default"]
+        self.injector_utf_default = int(runtime_data.parameters["Auto_injector"]["utf_default"])
         self.injector_utf_counter_actual = self.injector_utf_default
         self.injector_injection_start_time = datetime.now()
         self.injector_num_to_inject = ''
@@ -511,13 +511,14 @@ class Injector:
     def img_neuron_list_feeder():
 
         # inject neuron activity to FCL
-        for cortical_area in runtime_data.v1_members:
-            if runtime_data.training_neuron_list_img[cortical_area]:
-                # print("Before FCL injection:", candidate_list_counter(runtime_data.fire_candidate_list),
-                # len(runtime_data.training_neuron_list_img[cortical_area]))
-                runtime_data.fire_candidate_list[cortical_area]. \
-                    update(runtime_data.training_neuron_list_img[cortical_area])
-                # print("After FCL injection:", candidate_list_counter(runtime_data.fire_candidate_list))
+        if runtime_data.training_neuron_list_img:
+            for cortical_area in runtime_data.v1_members:
+                if runtime_data.training_neuron_list_img[cortical_area]:
+                    # print("Before FCL injection:", candidate_list_counter(runtime_data.fire_candidate_list),
+                    # len(runtime_data.training_neuron_list_img[cortical_area]))
+                    runtime_data.fire_candidate_list[cortical_area]. \
+                        update(runtime_data.training_neuron_list_img[cortical_area])
+                    # print("After FCL injection:", candidate_list_counter(runtime_data.fire_candidate_list))
 
     @staticmethod
     def image_feeder2(num, seq, mnist_type):
@@ -547,10 +548,11 @@ class Injector:
                 self.injector_utf_handler = True
                 self.injector_variation_handler = True
                 # self.injector_exposure_counter_actual = runtime_data.parameters["Auto_injector"]["exposure_default"]
-                self.injector_variation_counter = runtime_data.parameters["Auto_injector"]["variation_default"]
-                runtime_data.variation_counter_actual = runtime_data.parameters["Auto_injector"]["variation_default"]
-                self.injector_utf_default = runtime_data.parameters["Auto_injector"]["utf_default"]
-                self.injector_utf_counter_actual = runtime_data.parameters["Auto_injector"]["utf_default"]
+                self.injector_variation_counter = int(runtime_data.parameters["Auto_injector"]["variation_default"])
+                runtime_data.variation_counter_actual = \
+                    int(runtime_data.parameters["Auto_injector"]["variation_default"])
+                self.injector_utf_default = int(runtime_data.parameters["Auto_injector"]["utf_default"])
+                self.injector_utf_counter_actual = int(runtime_data.parameters["Auto_injector"]["utf_default"])
                 self.injector_num_to_inject = self.injector_utf_default
                 self.injector_burst_skip_counter = \
                     runtime_data.parameters["Auto_injector"]["injector_burst_skip_counter"]
@@ -722,9 +724,9 @@ class Injector:
 
         runtime_data.parameters["Auto_injector"]["injector_status"] = False
         self.injector_num_to_inject = ''
-        runtime_data.exposure_counter_actual = runtime_data.parameters["Auto_injector"]["exposure_default"]
-        runtime_data.variation_counter_actual = runtime_data.parameters["Auto_injector"]["variation_default"]
-        self.injector_utf_counter_actual = runtime_data.parameters["Auto_injector"]["utf_default"]
+        runtime_data.exposure_counter_actual = int(runtime_data.parameters["Auto_injector"]["exposure_default"])
+        runtime_data.variation_counter_actual = int(runtime_data.parameters["Auto_injector"]["variation_default"])
+        self.injector_utf_counter_actual = int(runtime_data.parameters["Auto_injector"]["utf_default"])
         injection_duration = datetime.now() - self.injector_injection_start_time
         print("----------------------------All injection rounds has been completed-----------------------------")
         print("Total injection duration was: ", injection_duration)
@@ -1219,4 +1221,33 @@ def inject_to_fcl(fire_list, fcl_queue):
     # print("Injected to FCL.../\/\/\/")
     return
 
+
+def utf_neuron_id(n):
+    # Returns the neuron id associated with a particular digit
+    for neuron_id in runtime_data.brain['utf8_memory']:
+        if int(runtime_data.brain['utf8_memory'][neuron_id]["soma_location"][0][2]) == n+ord('0'):
+            return neuron_id
+
+
+def common_neuron_report():
+    digits = range(10)
+    number_matrix = []
+    for _ in digits:
+        for __ in digits:
+            if _ != __ and [_, __] not in number_matrix and [__, _] not in number_matrix:
+                number_matrix.append([_, __])
+    for item in number_matrix:
+        neuron_a = utf_neuron_id(item[0])
+        neuron_b = utf_neuron_id(item[1])
+        common_neuron_list = list_common_upstream_neurons(neuron_a, neuron_b)
+
+        if common_neuron_list:
+            overlap_amount = len(common_neuron_list)
+            # print(item, '> ', overlap_amount)
+
+            if overlap_amount > runtime_data.parameters["InitData"]["overlap_prevention_constant"]:
+                # The following action is taken to eliminate the overlap
+                for neuron in common_neuron_list:
+                    runtime_data.prunning_candidates.add(('vision_memory', neuron, 'utf8_memory', neuron_a))
+                    runtime_data.prunning_candidates.add(('vision_memory', neuron, 'utf8_memory', neuron_b))
 
