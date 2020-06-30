@@ -137,7 +137,8 @@ def neuron_location_collector(cortical_area):
     neuron_loc_list = []
 
     if genome["blueprint"][cortical_area]["location_generation_type"] == "random":
-        for _ in range(0, genome["blueprint"][cortical_area]["cortical_neuron_count"]):
+        for _ in range(0, genome["blueprint"][cortical_area]["cortical_neuron_count"] *
+                       int(runtime_data.parameters['Brain_Development']['neuron_multiplier'])):
             neuron_loc_list.append(neuron_location_gen(
                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][0],
                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][0],

@@ -17,9 +17,10 @@ connectome.
 import logging
 import json
 import datetime
+import concurrent.futures
 from evo import neuron, synapse, stats, genetics
 from functools import partial
-from multiprocessing import Pool
+from multiprocessing import Pool, Process
 from inf import disk_ops
 from inf import settings
 from inf import runtime_data
@@ -220,7 +221,7 @@ def neurogenesis():
 
 def synaptogenesis():
     func1 = partial(build_synapse_intracortical, runtime_data.genome, runtime_data.brain, runtime_data.parameters)
-    pool1 = Pool(processes=1)
+    pool1 = Pool(processes=int(runtime_data.parameters['System']['max_core']))
 
     synapse_creation_candidates = []
     for key in runtime_data.genome["blueprint"]:
@@ -240,11 +241,17 @@ def synaptogenesis():
     # Build Synapses across various Cortical areas
     func2 = partial(build_synapse_intercortical, runtime_data.genome, runtime_data.brain,
                     runtime_data.parameters, runtime_data.block_dic)
-    pool2 = Pool(processes=1)
+    pool2 = Pool(processes=int(runtime_data.parameters['System']['max_core']))
 
-    intercortical_mapping = pool2.map(func2, runtime_data.genome["blueprint"])
+    intercortical_mapping = pool2.map(func2, runtime_data.cortical_list)
     pool2.close()
     pool2.join()
+
+    # Another implementation using concurrent.futures instead of Pool
+    # with concurrent.futures.ProcessPoolExecutor() as executor:
+    #     results = [executor.submit(build_synapse_intercortical, runtime_data.genome, runtime_data.brain,
+    #                runtime_data.parameters, runtime_data.block_dic, cortical_area)
+    #                for cortical_area in runtime_data.cortical_list]
 
     # Building intercortical mapping data structure when connectome visualizer is enabled
     runtime_data.intercortical_mapping = []
@@ -346,8 +353,15 @@ def develop():
     # Loading connectome data from disk to memory
     runtime_data.brain = disk_ops.load_brain_in_memory()
 
-    print("Neuronal mapping across all Cortical areas has been completed!!")
-    print("Total brain neuron, synapse count is: ", stats.brain_total_synapse_cnt())
+    connectome_neuron_count, connectome_synapse_count = stats.brain_total_synapse_cnt()
+
+    # The following formula was derived by curve fitting sample data
+    connectome_size_on_disk = 3E-08 * connectome_neuron_count**2 + 0.0011 * connectome_neuron_count + 2.9073
+
+    print("Neuronal mapping across all Cortical areas has been completed!!\n")
+    print("Total brain neuron count:\t\t", connectome_neuron_count)
+    print("Total brain neuron count:\t\t", connectome_synapse_count)
+    print("Total brain est. size on disk:\t", connectome_size_on_disk, 'MB')
 
     brain_structural_fitness = connectome_structural_fitness()
     print("Brain structural fitness was evaluated as: ", brain_structural_fitness)
