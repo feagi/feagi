@@ -124,10 +124,10 @@ def neuron_fire(cortical_area, neuron_id):
                                                          dst_cortical_area=dst_cortical_area,
                                                          dst_neuron_id=dst_neuron_id, impact_multiplier=1)
 
-        # Resetting last time neuron was updated to the current burst id
+        # Resetting last time neuron was updated to the current burst_manager id
         runtime_data.brain[dst_cortical_area][dst_neuron_id]["last_burst_num"] = runtime_data.burst_count
 
-        # Time overhead for the following function is about 2ms per each burst cycle
+        # Time overhead for the following function is about 2ms per each burst_manager cycle
         update_upstream_db(cortical_area, neuron_id, dst_cortical_area, dst_neuron_id)
 
         # Partial implementation of neuro-plasticity associated with LTD or Long Term Depression
@@ -143,7 +143,7 @@ def neuron_fire(cortical_area, neuron_id):
                           % (dst_cortical_area, dst_cortical_area)
                           + settings.Bcolors.ENDC)
 
-        # Adding up all update times within a burst span
+        # Adding up all update times within a burst_manager span
         # total_update_time = datetime.now() - update_start_time
         # runtime_data.time_neuron_update = total_update_time + runtime_data.time_neuron_update
 
@@ -183,7 +183,7 @@ def neuron_fire(cortical_area, neuron_id):
     # Condition to translate activity in utf8_out region as a character comprehension
     if cortical_area == 'utf8_memory':
         detected_item, activity_rank = utf8.convert_neuron_activity_to_utf8_char(cortical_area, neuron_id)
-        # todo: burst detection list could be a set instead
+        # todo: burst_manager detection list could be a set instead
         if detected_item not in runtime_data.burst_detection_list:
             runtime_data.burst_detection_list[detected_item] = {}
             runtime_data.burst_detection_list[detected_item]['count'] = 1
@@ -224,7 +224,7 @@ def neuron_neighbors(cortical_area, neuron_id):
 def apply_plasticity(cortical_area, src_neuron, dst_neuron):
     """
     This function simulates neuron plasticity in a sense that when neurons in a given cortical area fire in the
-     same burst they wire together. This is done by increasing the postsynaptic_current associated with a link between
+     same burst_manager they wire together. This is done by increasing the postsynaptic_current associated with a link between
      two neuron. Additionally an event id is associated to the neurons who have fired together.
     """
 
@@ -244,7 +244,7 @@ def apply_plasticity(cortical_area, src_neuron, dst_neuron):
                 update_upstream_db(cortical_area, src_neuron, cortical_area, dst_neuron)
 
             # Every time source and destination neuron is fired at the same time which in case of the code architecture
-            # reside in the same burst, the postsynaptic_current will be increased simulating the fire together,
+            # reside in the same burst_manager, the postsynaptic_current will be increased simulating the fire together,
             # wire together. This phenomenon is also considered as long term potentiation or LTP
 
             runtime_data.brain[cortical_area][src_neuron]["neighbors"][dst_neuron]["postsynaptic_current"] += \
@@ -320,7 +320,7 @@ def apply_plasticity_ext(src_cortical_area, src_neuron_id, dst_cortical_area,
 
 
 def snooze_till(cortical_area, neuron_id, burst_id):
-    """ Acting as an inhibitory neurotransmitter to suppress firing of neuron till a later burst
+    """ Acting as an inhibitory neurotransmitter to suppress firing of neuron till a later burst_manager
 
     *** This function instead of inhibitory behavior is more inline with Neuron Refractory period
 

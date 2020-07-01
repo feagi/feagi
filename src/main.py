@@ -51,8 +51,8 @@ if __name__ == '__main__':
         neuroembryogenesis.develop_brain(reincarnation_mode=
                                          runtime_data.parameters['Brain_Development']['reincarnation_mode'])
 
-        # Staring the burst engine
-        burst_engine.burst()
+        # Staring the burst_manager engine
+        burst_engine.burst_manager()
 
         # All brain activities occur in between consciousness start and stop
         # todo: define what consciousness would mean in the context of this framework!!

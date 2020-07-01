@@ -14,8 +14,8 @@ def form_memories(cfcl, pain_flag):
     # print("+++++++++cfcl_utf8_memory_neurons:", cfcl_utf8_memory_neurons)
     utf8_memory_count = len(cfcl['utf8_memory'])
     if cfcl['vision_memory'] and runtime_data.parameters["Auto_injector"]["injector_status"]:
-        print("Number of vision memory neurons fired in this burst:", len(cfcl['vision_memory']))
-        print("Number of UTF memory neurons fired in this burst:", utf8_memory_count)
+        print("Number of vision memory neurons fired in this burst_manager:", len(cfcl['vision_memory']))
+        print("Number of UTF memory neurons fired in this burst_manager:", utf8_memory_count)
         tmp_plasticity_list = []
         # Wiring visual memory neurons who are firing together
         for source_neuron in cfcl['vision_memory']:

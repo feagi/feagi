@@ -25,6 +25,7 @@ prunning_candidates = set()
 genome_id = ""
 event_id = '_'
 blueprint = ""
+comprehension_queue = ''
 
 # rules = ""
 brain_is_running = False

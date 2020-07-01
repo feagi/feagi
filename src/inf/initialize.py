@@ -1,10 +1,12 @@
 
+
+import logging
+import os
+from collections import deque
 from inf import runtime_data, disk_ops, settings
 from configparser import ConfigParser
 from shutil import copyfile
-import logging
-import os
-
+from evo.stats import list_top_n_utf_memory_neurons
 
 log = logging.getLogger(__name__)
 
@@ -64,6 +66,35 @@ def initialize():
     init_opu()
 
 
+def init_burst_engine():
+    print("\n\n")
+    print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
+    print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
+    print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
+    print("**** **** **** **** ****       Starting the burst_manager engine...      **** **** **** **** ****")
+    print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
+    print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
+    print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
+    print("\n\n")
+
+    print(runtime_data.parameters['Switches']['use_static_genome'])
+
+    # Initializing the comprehension queue
+    disk_ops.genome_handler(runtime_data.parameters['InitData']['connectome_path'])
+    # todo: Move comprehension span to genome that is currently in parameters
+    comprehension_span = int(runtime_data.parameters["InitData"]["comprehension_span"])
+    runtime_data.comprehension_queue = deque(['-'] * comprehension_span)
+    runtime_data.parameters["Auto_injector"]["injector_status"] = False
+    runtime_data.termination_flag = False
+    runtime_data.top_10_utf_memory_neurons = list_top_n_utf_memory_neurons("utf8_memory", 10)
+    runtime_data.top_10_utf_neurons = list_top_n_utf_memory_neurons("utf8", 10)
+    runtime_data.v1_members = []
+
+    for item in runtime_data.cortical_list:
+        if runtime_data.genome['blueprint'][item]['sub_group_id'] == "vision_v1":
+            runtime_data.v1_members.append(item)
+
+
 def burst_exit_process():
     print(settings.Bcolors.YELLOW + '>>>Burst Exit criteria has been met!   <<<' + settings.Bcolors.ENDC)
     runtime_data.live_mode_status = 'idle'
@@ -72,3 +103,4 @@ def burst_exit_process():
     runtime_data.parameters["Auto_injector"]["injector_status"] = False
     if runtime_data.parameters["Switches"]["capture_brain_activities"]:
         disk_ops.save_fcl_to_disk()
+

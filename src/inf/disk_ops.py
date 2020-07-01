@@ -334,3 +334,13 @@ def save_fcl_in_db(burst_number, fire_candidate_list, number_under_training):
     fcl_data['number_under_training'] = number_under_training
     fcl_data['fcl_data'] = fire_candidate_list
     mongo.insert_neuron_activity(fcl_data=fcl_data)
+
+
+def save_fcl_to_disk():
+    with open("./fcl_repo/fcl-" + runtime_data.brain_run_id + ".json", 'w') as fcl_file:
+        # Saving changes to the connectome
+        fcl_file.seek(0)  # rewind
+        fcl_file.write(json.dumps(runtime_data.fcl_history, indent=3))
+        fcl_file.truncate()
+
+    print("Brain activities has been preserved!")

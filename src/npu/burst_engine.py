@@ -5,25 +5,15 @@ import glob
 import random
 import string
 from datetime import datetime
-from inf import runtime_data, disk_ops, db_handler
+from inf import disk_ops
 from time import sleep
 from npu.physiology import *
 from mem.memory import form_memories
 from npu.comprehension import utf_detection_logic
 from npu.injector import Injector
-from evo.stats import connectome_total_synapse_cnt
-from collections import deque
-from evo.stats import candidate_list_counter, list_upstream_neuron_count_for_digits
-from inf.initialize import burst_exit_process
-from inf.disk_ops import save_fcl_to_disk
-def save_fcl_to_disk():
-    with open("./fcl_repo/fcl-" + runtime_data.brain_run_id + ".json", 'w') as fcl_file:
-        # Saving changes to the connectome
-        fcl_file.seek(0)  # rewind
-        fcl_file.write(json.dumps(runtime_data.fcl_history, indent=3))
-        fcl_file.truncate()
+from evo.stats import *
+from inf.initialize import init_burst_engine, burst_exit_process
 
-    print("Brain activities has been preserved!")
 
 def run_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
     """
@@ -46,113 +36,86 @@ def cortical_group_members(group):
     return [item for item in runtime_data.cortical_list if runtime_data.genome['blueprint'][item]['group_id'] == group]
 
 
-def burst():
+def burst_manager():
     """This function behaves as instance of Neuronal activities"""
-    print("\n\n")
-    print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
-    print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
-    print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
-    print("**** **** **** **** ****       Starting the burst engine...      **** **** **** **** ****")
-    print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
-    print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
-    print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
-    print("\n\n")
 
-    print(runtime_data.parameters['Switches']['use_static_genome'])
-    disk_ops.genome_handler(runtime_data.parameters['InitData']['connectome_path'])
+    def init_fcl(cortical_area_):
+        runtime_data.fire_candidate_list[cortical_area_] = set()
+        runtime_data.future_fcl[cortical_area_] = set()
+        runtime_data.previous_fcl[cortical_area_] = set()
+        runtime_data.upstream_neurons[cortical_area_] = {}
 
-    # todo: Move comprehension span to genome that is currently in parameters
-    comprehension_span = int(runtime_data.parameters["InitData"]["comprehension_span"])
+    def capture_neuron_mp():
+        if runtime_data.parameters["Switches"]["capture_neuron_mp"]:
+            with open(runtime_data.parameters['InitData']['connectome_path'] + '/neuron_mp.csv', 'w') as neuron_mp_file:
+                neuron_mp_writer = csv.writer(neuron_mp_file, delimiter=',')
+                neuron_mp_writer.writerow(('burst_number', 'cortical_layer', 'neuron_id', 'membrane_potential'))
 
-    # Initializing the comprehension queue
-    comprehension_queue = deque(['-'] * comprehension_span)
+    # def save_fcl_2_disk():
+    #     # todo: *** Danger *** The following section could cause considerable memory expansion. Need to add limitations.
+    #     # Condition to save FCL data to disk
+    #     user_input_processing(user_input, user_input_param)
+    #     if runtime_data.parameters["Switches"]["capture_brain_activities"]:
+    #         runtime_data.fcl_history[runtime_data.burst_count] = runtime_data.fire_candidate_list
+    #
+    #     if runtime_data.parameters["Switches"]["save_fcl_to_disk"]:
+    #         with open('./fcl_repo/fcl.json', 'w') as fcl_file:
+    #             fcl_file.write(json.dumps(runtime_data.fire_candidate_list))
+    #             fcl_file.truncate()
+    #         sleep(0.5)
 
-    runtime_data.parameters["Auto_injector"]["injector_status"] = False
-    runtime_data.termination_flag = False
-    runtime_data.top_10_utf_memory_neurons = list_top_n_utf_memory_neurons("utf8_memory", 10)
-    runtime_data.top_10_utf_neurons = list_top_n_utf_memory_neurons("utf8", 10)
+    def print_cortical_activity_stats():
+        influxdb = db_handler.InfluxManagement()
+        for _ in runtime_data.fire_candidate_list:
+            if _ in runtime_data.activity_stats:
+                cortical_neuron_count = len(runtime_data.fire_candidate_list[_])
+                runtime_data.activity_stats[_] = max(runtime_data.activity_stats[_], cortical_neuron_count)
 
-    runtime_data.v1_members = []
-    for item in runtime_data.cortical_list:
-        if runtime_data.genome['blueprint'][item]['sub_group_id'] == "vision_v1":
-            runtime_data.v1_members.append(item)
+                if runtime_data.parameters["Switches"]["influx_stat_logger"]:
+                    influxdb.insert_burst_activity(
+                        connectome_path=runtime_data.parameters['InitData']['connectome_path'],
+                        burst_id=runtime_data.burst_count,
+                        cortical_area=_,
+                        neuron_count=cortical_neuron_count)
 
-    injector = Injector()
-    mongo = db_handler.MongoManagement()
-    influxdb = db_handler.InfluxManagement()
+                if runtime_data.parameters["Switches"]["global_logger"] and \
+                        runtime_data.parameters["Logs"]["print_cortical_activity_counters"] and \
+                        runtime_data.parameters["Auto_injector"]["injector_status"]:
+                    print(settings.Bcolors.YELLOW + '    %s : %i  '
+                          % (_, cortical_neuron_count)
+                          + settings.Bcolors.ENDC)
+                if runtime_data.parameters["Switches"]["global_logger"] and \
+                        runtime_data.parameters["Logs"]["print_cortical_activity_counters"] and \
+                        runtime_data.parameters["Auto_tester"]["tester_status"]:
+                    print(settings.Bcolors.OKGREEN + '    %s : %i  '
+                          % (_, cortical_neuron_count)
+                          + settings.Bcolors.ENDC)
 
-    if not runtime_data.brain_is_running:
-        toggle_brain_status()
-        runtime_data.brain_run_id = run_id_gen()
-        if runtime_data.parameters["Switches"]["capture_brain_activities"]:
-            print(settings.Bcolors.HEADER + " *** Warning!!! *** Brain activities are being recorded!!" +
-                  settings.Bcolors.ENDC)
+            else:
+                runtime_data.activity_stats[cortical_area] = len(runtime_data.fire_candidate_list[cortical_area])
 
-    runtime_data.event_id = runtime_data.event_id
-
-    print('runtime_data.genome_id = ', runtime_data.genome_id)
-    cortical_list = []
-
-    for cortical_area in runtime_data.genome['blueprint']:
-        cortical_list.append(cortical_area)
-        runtime_data.fire_candidate_list[cortical_area] = set()
-        runtime_data.future_fcl[cortical_area] = set()
-        runtime_data.previous_fcl[cortical_area] = set()
-        runtime_data.upstream_neurons[cortical_area] = {}
-
-    runtime_data.cortical_list = cortical_list
-    runtime_data.memory_list = cortical_group_members('Memory')
-    print("Memory list is: ", runtime_data.memory_list)
-
-    verbose = runtime_data.parameters["Switches"]["verbose"]
-
-    if runtime_data.parameters["Switches"]["capture_brain_activities"]:
-        runtime_data.fcl_history = {}
-
-    if runtime_data.parameters["Switches"]["capture_neuron_mp"]:
-        with open(runtime_data.parameters['InitData']['connectome_path'] + '/neuron_mp.csv', 'w') as neuron_mp_file:
-            neuron_mp_writer = csv.writer(neuron_mp_file, delimiter=',')
-            neuron_mp_writer.writerow(('burst_number', 'cortical_layer', 'neuron_id', 'membrane_potential'))
-
-    print("** ** ** Live mode, live mode status: ",
-          runtime_data.parameters["Switches"]["live_mode"],
-          runtime_data.live_mode_status)
-
-    # Live mode condition
-    if runtime_data.parameters["Switches"]["live_mode"] and runtime_data.live_mode_status == 'idle':
-        runtime_data.live_mode_status = 'learning'
-        print(
-            settings.Bcolors.RED + "Starting an automated learning process...<> <> <> <>" + settings.Bcolors.ENDC)
-        injector.injection_manager(injection_mode="l1", injection_param="")
-
-    print("\n\n >> >> >> Ready to exist burst engine flag:", runtime_data.parameters["Switches"]["ready_to_exit_burst"])
-
-    connectome_path = runtime_data.parameters['InitData']['connectome_path']
-    while not runtime_data.parameters["Switches"]["ready_to_exit_burst"]:
+    def burst():
         if runtime_data.parameters["Switches"]["influx_stat_logger"]:
             influxdb.insert_burst_checkpoints(connectome_path, runtime_data.burst_count)
         burst_start_time = datetime.now()
         runtime_data.pain_flag = False
         now = datetime.now()
 
-        # print(datetime.now(), "Burst count = ", runtime_data.burst_count, file=open("./logs/burst.log", "a"))
-
-        for cortical_area in runtime_data.fire_candidate_list:
-            runtime_data.previous_fcl[cortical_area] = \
-                set([item for item in runtime_data.fire_candidate_list[cortical_area]])
+        for _ in runtime_data.fire_candidate_list:
+            runtime_data.previous_fcl[_] = \
+                set([item for item in runtime_data.fire_candidate_list[_]])
 
         runtime_data.burst_count += 1
 
         # logging neuron activities to the influxdb
         if runtime_data.parameters["Switches"]["influx_stat_logger"]:
-            connectome_path = runtime_data.parameters['InitData']['connectome_path']
-            for cortical_area in runtime_data.fire_candidate_list:
-                for neuron in runtime_data.fire_candidate_list[cortical_area]:
+            for _ in runtime_data.fire_candidate_list:
+                for neuron in runtime_data.fire_candidate_list[_]:
                     influxdb.insert_neuron_activity(connectome_path=connectome_path,
-                                                    cortical_area=cortical_area,
+                                                    cortical_area=_,
                                                     neuron_id=neuron,
                                                     membrane_potential=
-                                                    runtime_data.brain[cortical_area][neuron]["membrane_potential"] /1)
+                                                    runtime_data.brain[_][neuron]["membrane_potential"] /1)
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         # time_firing_activities = datetime.now()
@@ -164,57 +127,13 @@ def burst():
             print("FCL is empty!")
         else:
             # Capture cortical activity stats
-            for cortical_area in runtime_data.fire_candidate_list:
-                if cortical_area in runtime_data.activity_stats:
-                    cortical_neuron_count = len(runtime_data.fire_candidate_list[cortical_area])
-                    runtime_data.activity_stats[cortical_area] = max(runtime_data.activity_stats[cortical_area],
-                                                                     cortical_neuron_count)
 
-                    if runtime_data.parameters["Switches"]["influx_stat_logger"]:
-                        influxdb.insert_burst_activity(connectome_path=connectome_path,
-                                                       burst_id=runtime_data.burst_count,
-                                                       cortical_area=cortical_area,
-                                                       neuron_count=cortical_neuron_count)
-
-                    if runtime_data.parameters["Switches"]["global_logger"] and \
-                            runtime_data.parameters["Logs"]["print_cortical_activity_counters"] and \
-                            runtime_data.parameters["Auto_injector"]["injector_status"]:
-                        print(settings.Bcolors.YELLOW + '    %s : %i  '
-                              % (cortical_area, cortical_neuron_count)
-                              + settings.Bcolors.ENDC)
-                    if runtime_data.parameters["Switches"]["global_logger"] and \
-                            runtime_data.parameters["Logs"]["print_cortical_activity_counters"] and \
-                            runtime_data.parameters["Auto_tester"]["tester_status"]:
-                        print(settings.Bcolors.OKGREEN + '    %s : %i  '
-                              % (cortical_area, cortical_neuron_count)
-                              + settings.Bcolors.ENDC)
-
-                else:
-                    runtime_data.activity_stats[cortical_area] = len(runtime_data.fire_candidate_list[cortical_area])
-
-            # todo: Look into multi-threading for Neuron neuron_fire and wire_neurons function
-            # Firing all neurons in the Fire Candidate List
-            # Fire all neurons in FCL
-            time_actual_firing_activities = datetime.now()
-            # now = datetime.now()
-            # runtime_data.time_neuron_update = datetime.now() - now
-            # runtime_data.plasticity_time_total = datetime.now() - datetime.now()
-            # runtime_data.plasticity_time_total_p1 = datetime.now() - datetime.now()
-            # stats_utf_memory_membrane_potentials()
-            # Firing all neurons in the fire_candidate_list
+            print_cortical_activity_stats()
 
             for cortical_area in runtime_data.fire_candidate_list:
                 while runtime_data.fire_candidate_list[cortical_area]:
                     neuron_to_fire = runtime_data.fire_candidate_list[cortical_area].pop()
                     neuron_fire(cortical_area, neuron_to_fire)
-
-            # stats_utf_memory_membrane_potentials()
-            # pfcl_total_neuron_count = candidate_list_counter(runtime_data.previous_fcl)
-            # cfcl_total_neuron_count = candidate_list_counter(runtime_data.fire_candidate_list)
-
-            # print("PFCL:", pfcl_total_neuron_count,
-            #       "\nCFCL:", cfcl_total_neuron_count,
-            #       "\nFFCL:", candidate_list_counter(runtime_data.future_fcl))
 
             # Transferring future_fcl to current one and resetting the future one in process
             for cortical_area in runtime_data.future_fcl:
@@ -222,46 +141,11 @@ def burst():
                     set([item for item in runtime_data.future_fcl[cortical_area]])
                 runtime_data.future_fcl[cortical_area] = set()
 
-            # try:
-            #     print("Timing : .__________ Firing ops...........:",
-            #           (datetime.now() - time_actual_firing_activities - runtime_data.time_neuron_update) /
-            #           pfcl_total_neuron_count)
-            #     print("Timing : |___________Neuron updates.......:",
-            #           runtime_data.time_neuron_update / pfcl_total_neuron_count)
-            #     print("Timing :             |__Ext plasticity....:",
-            #           runtime_data.plasticity_time_total / pfcl_total_neuron_count)
-            #     print("Timing :                |___Ext plast. P1.:",
-            #           runtime_data.plasticity_time_total_p1 / pfcl_total_neuron_count)
-            #
-            #     print("\nTiming : Average time per fire ....................:",
-            #           (datetime.now() - time_firing_activities) /
-            #           pfcl_total_neuron_count)
-            #     print("\nTiming : Total firing time per FCL.................:", datetime.now() - time_firing_activities)
-            #
-            # except ZeroDivisionError:
-            #     pass
-
-            if verbose:
-                print(settings.Bcolors.YELLOW + 'Current fire_candidate_list is %s'
-                      % runtime_data.fire_candidate_list + settings.Bcolors.ENDC)
-
-            # print_cortical_neuron_mappings('vision_memory', 'utf8_memory')
-
-
-
-        # todo: need to break down the training function into pieces with one feeding a stream of data
         # Auto-inject if applicable
-        if runtime_data.parameters["Auto_injector"]["injector_status"]:
-            # injection_time = datetime.now()
-            # print("-------------------------++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ auto_injector")
-            injector.auto_injector()
-            # print("Timing : Injection:", datetime.now() - injection_time)
+        injector.auto_injector()
 
         # Auto-test if applicable
-        if runtime_data.parameters["Auto_tester"]["tester_status"]:
-            # test_time = datetime.now()
-            injector.auto_tester()
-            # print("Timing : Test:", datetime.now() - test_time)
+        injector.auto_tester()
 
         # todo: The following is to have a check point to assess the perf of the in-use genome and make on the fly adj.
         if runtime_data.burst_count % runtime_data.genome['evolution_burst_count'] == 0:
@@ -282,8 +166,8 @@ def burst():
                                     injector.injector_num_to_inject)
 
         detected_char = utf_detection_logic(runtime_data.burst_detection_list)
-        comprehension_queue.append(detected_char)
-        comprehension_queue.popleft()
+        runtime_data.comprehension_queue.append(detected_char)
+        runtime_data.comprehension_queue.popleft()
 
         def training_quality_test():
             upstream_general_stats_ = list_upstream_neuron_count_for_digits()
@@ -323,9 +207,9 @@ def burst():
                 print(settings.Bcolors.RED + "<><><><><><><><><><><><><><>"
                                              "<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>"
                       + settings.Bcolors.ENDC)
-            print(">>comprehension_queue  ", comprehension_queue, "  <<")
+            print(">>comprehension_queue  ", runtime_data.comprehension_queue, "  <<")
 
-        for item in comprehension_queue:
+        for item in runtime_data.comprehension_queue:
             if item in counter_list:
                 counter_list[item] += 1
             else:
@@ -376,20 +260,8 @@ def burst():
             print("The following is the common neuron report:")
             common_neuron_report()
 
-        # Resetting burst detection list
+        # Resetting burst_manager detection list
         runtime_data.burst_detection_list = {}
-
-        # todo: *** Danger *** The following section could cause considerable memory expansion. Need to add limitations.
-        # # Condition to save FCL data to disk
-        # user_input_processing(user_input, user_input_param)
-        # if runtime_data.parameters["Switches"]["capture_brain_activities"]:
-        #     runtime_data.fcl_history[runtime_data.burst_count] = runtime_data.fire_candidate_list
-        #
-        # if runtime_data.parameters["Switches"]["save_fcl_to_disk"]:
-        #     with open('./fcl_repo/fcl.json', 'w') as fcl_file:
-        #         fcl_file.write(json.dumps(runtime_data.fire_candidate_list))
-        #         fcl_file.truncate()
-        #     sleep(0.5)
 
         # todo: This is the part to capture the neuron membrane potential values in a file, still need to figure how
         if runtime_data.parameters["Switches"]["capture_neuron_mp"]:
@@ -423,6 +295,51 @@ def burst():
                   ">>> Burst duration: %s %i --- ---- ---- ---- ---- ---- ----"
                   % (burst_duration, runtime_data.burst_count) + settings.Bcolors.ENDC)
 
+    print('runtime_data.genome_id = ', runtime_data.genome_id)
+
+    # Initializing the burst_manager engine parameters
+    init_burst_engine()
+
+    injector = Injector()
+    mongo = db_handler.MongoManagement()
+    influxdb = db_handler.InfluxManagement()
+
+    if not runtime_data.brain_is_running:
+        toggle_brain_status()
+        runtime_data.brain_run_id = run_id_gen()
+        if runtime_data.parameters["Switches"]["capture_brain_activities"]:
+            print(settings.Bcolors.HEADER + " *** Warning!!! *** Brain activities are being recorded!!" +
+                  settings.Bcolors.ENDC)
+
+    cortical_list = []
+    for cortical_area in runtime_data.genome['blueprint']:
+        cortical_list.append(cortical_area)
+        init_fcl(cortical_area)
+    runtime_data.cortical_list = cortical_list
+    runtime_data.memory_list = cortical_group_members('Memory')
+
+    if runtime_data.parameters["Switches"]["capture_brain_activities"]:
+        runtime_data.fcl_history = {}
+
+    capture_neuron_mp()
+
+    print("** ** ** Live mode, live mode status: ",
+          runtime_data.parameters["Switches"]["live_mode"],
+          runtime_data.live_mode_status)
+
+    # Live mode condition
+    if runtime_data.parameters["Switches"]["live_mode"] and runtime_data.live_mode_status == 'idle':
+        runtime_data.live_mode_status = 'learning'
+        print(
+            settings.Bcolors.RED + "Starting an automated learning process...<> <> <> <>" + settings.Bcolors.ENDC)
+        injector.injection_manager(injection_mode="l1", injection_param="")
+
+    print("\n\n >> >> >> Ready to exist burst_manager engine flag:", runtime_data.parameters["Switches"]["ready_to_exit_burst"])
+
+    connectome_path = runtime_data.parameters['InitData']['connectome_path']
+    while not runtime_data.parameters["Switches"]["ready_to_exit_burst"]:
+        burst()
+
 
 def fire_candidate_locations(fire_cnd_list):
     """Extracts Neuron locations from the fire_candidate_list"""
@@ -443,35 +360,6 @@ def fire_candidate_locations(fire_cnd_list):
                                                     runtime_data.brain[cortical_area][neuron]["location"][2]])
 
     return neuron_locations
-
-
-def list_top_n_utf_memory_neurons(cortical_area, n):
-    neuron_list = []
-    counter = ord('0')
-    the_other_counter = 0
-    for neuron_id in runtime_data.brain[cortical_area]:
-        if int(runtime_data.brain[cortical_area][neuron_id]['soma_location'][0][2]) == counter:
-            neuron_list.append([int(runtime_data.brain[cortical_area][neuron_id]['soma_location'][0][2])-48, neuron_id])
-            counter += 1
-            the_other_counter += 1
-            if the_other_counter == n:
-                return neuron_list
-    print("ERROR: Something went wrong in list_top_n_utf_memory_neurons")
-
-
-def list_common_upstream_neurons(neuron_a, neuron_b):
-    common_neuron_list = []
-
-    try:
-        neuron_a_upstream_neurons = runtime_data.upstream_neurons['utf8_memory'][neuron_a]['vision_memory']
-        neuron_b_upstream_neurons = runtime_data.upstream_neurons['utf8_memory'][neuron_b]['vision_memory']
-        for neuron in neuron_a_upstream_neurons:
-            if neuron in neuron_b_upstream_neurons:
-                common_neuron_list.append(neuron)
-        return common_neuron_list
-
-    except:
-        pass
 
 
 def load_fcl_in_memory(file_name):
