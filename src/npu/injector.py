@@ -56,7 +56,6 @@ class Injector:
         self.tester_burst_skip_counter = 0
         print("-------------------------++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ Injector init")
         self.mnist = MNIST()
-        print("*** *** ***\n\n\n*** *AA BB CC ** ***\n\n\n*** *** ***")
 
     def utf8_feeder(self):
 

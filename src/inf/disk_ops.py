@@ -172,7 +172,6 @@ def genome_handler(connectome_path):
     if runtime_data.parameters["InitData"]["regenerate_brain"]:
         print("use_static_genome:", runtime_data.parameters["Switches"]["use_static_genome"])
         if runtime_data.parameters["Switches"]["use_static_genome"]:
-            print("** ** ** ** ** ** ** ** **")
             stage_genome(connectome_path, dynamic_selection_mode=False)
             load_genome_in_memory(connectome_path, static=True)
             print(settings.Bcolors.RED + ">> >> >> A static genome was used to generate the brain."

@@ -318,6 +318,7 @@ def burst_manager():
     injector = Injector()
     mongo = db_handler.MongoManagement()
     influxdb = db_handler.InfluxManagement()
+    connectome_path = runtime_data.parameters['InitData']['connectome_path']
 
     if not runtime_data.brain_is_running:
         toggle_brain_status()
@@ -335,23 +336,18 @@ def burst_manager():
 
     if runtime_data.parameters["Switches"]["capture_brain_activities"]:
         runtime_data.fcl_history = {}
-
     capture_neuron_mp()
 
-    print("** ** ** Live mode, live mode status: ",
-          runtime_data.parameters["Switches"]["live_mode"],
-          runtime_data.live_mode_status)
-
     # Live mode condition
+    print("live mode status: ", runtime_data.parameters["Switches"]["live_mode"], runtime_data.live_mode_status)
     if runtime_data.parameters["Switches"]["live_mode"] and runtime_data.live_mode_status == 'idle':
         runtime_data.live_mode_status = 'learning'
-        print(
-            settings.Bcolors.RED + "Starting an automated learning process...<> <> <> <>" + settings.Bcolors.ENDC)
+        print(settings.Bcolors.RED + "Starting an automated learning process..." + settings.Bcolors.ENDC)
         injector.injection_manager(injection_mode="l1", injection_param="")
 
-    print("\n\n >> >> >> Ready to exist burst_manager engine flag:", runtime_data.parameters["Switches"]["ready_to_exit_burst"])
+    print("\n\nReady to exit burst_manager engine flag:", runtime_data.parameters["Switches"]["ready_to_exit_burst"])
 
-    connectome_path = runtime_data.parameters['InitData']['connectome_path']
+    # This loop runs for the entirety of brain active life
     while not runtime_data.parameters["Switches"]["ready_to_exit_burst"]:
         burst()
 

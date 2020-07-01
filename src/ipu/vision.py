@@ -125,11 +125,9 @@ class MNIST:
         for __ in self.mnist_test_iterator:
             self.mnist_array['test'].append(__)
         self.mongo = MongoManagement()
-        print(">><<>><<>><<>><< **  **  **  **   **  **  **  ****  >><<>><<>><<>><<>><<")
         # print(len(mnist_array))
 
     def mnist_direction_matrix_builder_in_mongodb(self):
-
         import inf.db_handler
         mongo = inf.db_handler.MongoManagement()
         kernel = Kernel()
