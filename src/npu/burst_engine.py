@@ -45,6 +45,13 @@ def burst_manager():
         runtime_data.previous_fcl[cortical_area_] = set()
         runtime_data.upstream_neurons[cortical_area_] = {}
 
+
+    def save_fcl_2_dsk():
+        if runtime_data.parameters["Switches"]["save_fcl_to_db"]:
+            disk_ops.save_fcl_in_db(runtime_data.burst_count,
+                                    runtime_data.fire_candidate_list,
+                                    injector.injector_num_to_inject)
+
     def capture_neuron_mp():
         if runtime_data.parameters["Switches"]["capture_neuron_mp"]:
             with open(runtime_data.parameters['InitData']['connectome_path'] + '/neuron_mp.csv', 'w') as neuron_mp_file:
@@ -94,90 +101,14 @@ def burst_manager():
             else:
                 runtime_data.activity_stats[cortical_area] = len(runtime_data.fire_candidate_list[cortical_area])
 
-    def burst():
-        if runtime_data.parameters["Switches"]["influx_stat_logger"]:
-            influxdb.insert_burst_checkpoints(connectome_path, runtime_data.burst_count)
-        burst_start_time = datetime.now()
-        runtime_data.pain_flag = False
-        now = datetime.now()
+    def training_quality_test():
+        upstream_general_stats_ = list_upstream_neuron_count_for_digits()
+        for entry in upstream_general_stats_:
+            if entry[1] == 0:
+                print(upstream_general_stats_, "This entry was zero >", entry)
+                return False
 
-        for _ in runtime_data.fire_candidate_list:
-            runtime_data.previous_fcl[_] = \
-                set([item for item in runtime_data.fire_candidate_list[_]])
-
-        runtime_data.burst_count += 1
-
-        # logging neuron activities to the influxdb
-        if runtime_data.parameters["Switches"]["influx_stat_logger"]:
-            for _ in runtime_data.fire_candidate_list:
-                for neuron in runtime_data.fire_candidate_list[_]:
-                    influxdb.insert_neuron_activity(connectome_path=connectome_path,
-                                                    cortical_area=_,
-                                                    neuron_id=neuron,
-                                                    membrane_potential=
-                                                    runtime_data.brain[_][neuron]["membrane_potential"] /1)
-
-        # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
-        # time_firing_activities = datetime.now()
-        # todo: replace the hardcoded vision memory statement
-        if candidate_list_counter(runtime_data.fire_candidate_list) == \
-                0 and not runtime_data.parameters["Auto_injector"]["injector_status"]:
-            sleep(runtime_data.parameters["Timers"]["idle_burst_timer"])
-            runtime_data.empty_fcl_counter += 1
-            print("FCL is empty!")
-        else:
-            # Capture cortical activity stats
-
-            print_cortical_activity_stats()
-
-            for cortical_area in runtime_data.fire_candidate_list:
-                while runtime_data.fire_candidate_list[cortical_area]:
-                    neuron_to_fire = runtime_data.fire_candidate_list[cortical_area].pop()
-                    neuron_fire(cortical_area, neuron_to_fire)
-
-            # Transferring future_fcl to current one and resetting the future one in process
-            for cortical_area in runtime_data.future_fcl:
-                runtime_data.fire_candidate_list[cortical_area] = \
-                    set([item for item in runtime_data.future_fcl[cortical_area]])
-                runtime_data.future_fcl[cortical_area] = set()
-
-        # Auto-inject if applicable
-        injector.auto_injector()
-
-        # Auto-test if applicable
-        injector.auto_tester()
-
-        # todo: The following is to have a check point to assess the perf of the in-use genome and make on the fly adj.
-        if runtime_data.burst_count % runtime_data.genome['evolution_burst_count'] == 0:
-            print('Evolution phase reached...')
-            for area in runtime_data.cortical_list:
-                neuron_count, synapse_count = connectome_total_synapse_cnt(area)
-                if runtime_data.parameters["Switches"]["influx_stat_logger"]:
-                    influxdb.insert_connectome_stats(connectome_path=connectome_path,
-                                                     cortical_area=area,
-                                                     neuron_count=neuron_count,
-                                                     synapse_count=synapse_count)
-            # genethesizer.generation_assessment()
-
-        # Saving FCL to disk for post-processing and running analytics
-        if runtime_data.parameters["Switches"]["save_fcl_to_db"]:
-            disk_ops.save_fcl_in_db(runtime_data.burst_count,
-                                    runtime_data.fire_candidate_list,
-                                    injector.injector_num_to_inject)
-
-        detected_char = utf_detection_logic(runtime_data.burst_detection_list)
-        runtime_data.comprehension_queue.append(detected_char)
-        runtime_data.comprehension_queue.popleft()
-
-        def training_quality_test():
-            upstream_general_stats_ = list_upstream_neuron_count_for_digits()
-            for entry in upstream_general_stats_:
-                if entry[1] == 0:
-                    print(upstream_general_stats_, "This entry was zero >", entry)
-                    return False
-
-        # Monitor cortical activity levels and terminate brain if not meeting expectations
-        # time_monitoring_cortical_activity = datetime.now()
+    def terminate_on_low_perf():
         if runtime_data.parameters["Switches"]["evaluation_based_termination"]:
             if runtime_data.parameters["Auto_injector"]["injector_status"] and \
                     runtime_data.burst_count > int(runtime_data.parameters["InitData"]["kill_trigger_burst_count"]):
@@ -192,14 +123,11 @@ def burst_manager():
                     runtime_data.termination_flag = True
                     burst_exit_process()
 
-        # print("Timing : Monitoring cortical activity:", datetime.now()-time_monitoring_cortical_activity)
+    def comprehension_check():
+        detected_char = utf_detection_logic(runtime_data.burst_detection_list)
+        runtime_data.comprehension_queue.append(detected_char)
+        runtime_data.comprehension_queue.popleft()
 
-        # Pain check
-        if runtime_data.pain_flag:
-            exhibit_pain()
-
-        # Comprehension check
-        # time_comprehension_check = datetime.now()
         counter_list = {}
         print("~~~~~~..... Burst detection list: ", runtime_data.burst_detection_list)
         if runtime_data.parameters["Logs"]["print_comprehension_queue"]:
@@ -231,38 +159,7 @@ def burst_manager():
                 if list_length >= 2:
                     runtime_data.parameters["Input"]["comprehended_char"] = ''
 
-        # Forming memories through creation of cell assemblies
-        if runtime_data.parameters["Switches"]["memory_formation"]:
-            # memory_formation_start_time = datetime.now()
-            # todo: instead of passing a pain flag simply detect of pain neuron is activated
-            form_memories(runtime_data.fire_candidate_list, runtime_data.pain_flag)
-            # print("    Memory formation took--",datetime.now()-memory_formation_start_time)
-        # print("Timing : Comprehension check:", datetime.now() - time_comprehension_check)
-
-        # Burst stats
-        if runtime_data.parameters["Logs"]["print_burst_stats"]:
-            for area in runtime_data.brain:
-                print("### Average postSynaptic current in --- %s --- was: %i"
-                      % (area, average_postsynaptic_current(area)))
-
-        if runtime_data.parameters["Logs"]["print_upstream_neuron_stats"]:
-            # Listing the number of neurons activating each UTF memory neuron
-            upstream_report_time = datetime.now()
-            upstream_general_stats, upstream_fcl_stats = \
-                list_upstream_neuron_count_for_digits(mode=1)
-            print("list_upstream_neuron_count_for_digits:", upstream_general_stats)
-            print("list_upstream___FCL__count_for_digits:", upstream_fcl_stats)
-
-            print("Timing : Upstream + common neuron report:", datetime.now() - upstream_report_time)
-
-        if runtime_data.parameters["Logs"]["print_common_neuron_report"]:
-            # todo: investigate the efficiency of the common neuron report
-            print("The following is the common neuron report:")
-            common_neuron_report()
-
-        # Resetting burst_manager detection list
-        runtime_data.burst_detection_list = {}
-
+    def capture_mem_potential():
         # todo: This is the part to capture the neuron membrane potential values in a file, still need to figure how
         if runtime_data.parameters["Switches"]["capture_neuron_mp"]:
             with open(runtime_data.parameters['InitData']['connectome_path'] + '/neuron_mp.csv', 'a') as neuron_mp_file:
@@ -284,16 +181,134 @@ def burst_manager():
                     new_data.append(new_content)
                     mongo.inset_membrane_potentials(new_content)
 
-        # Prune all prune candidate synapses
-        pruning_start_time = datetime.now()
-        prune_all_candidates()
-        print("Timing : Pruning:", datetime.now() - pruning_start_time)
+    def burst_stats(burst_start_time):
+        if runtime_data.parameters["Logs"]["print_burst_stats"]:
+            for area in runtime_data.brain:
+                print("### Average postSynaptic current in --- %s --- was: %i"
+                      % (area, average_postsynaptic_current(area)))
+
+        if runtime_data.parameters["Logs"]["print_upstream_neuron_stats"]:
+            # Listing the number of neurons activating each UTF memory neuron
+            upstream_report_time = datetime.now()
+            upstream_general_stats, upstream_fcl_stats = \
+                list_upstream_neuron_count_for_digits(mode=1)
+            print("list_upstream_neuron_count_for_digits:", upstream_general_stats)
+            print("list_upstream___FCL__count_for_digits:", upstream_fcl_stats)
+
+            print("Timing : Upstream + common neuron report:", datetime.now() - upstream_report_time)
+
+        if runtime_data.parameters["Logs"]["print_common_neuron_report"]:
+            # todo: investigate the efficiency of the common neuron report
+            print("The following is the common neuron report:")
+            common_neuron_report()
 
         burst_duration = datetime.now() - burst_start_time
         if runtime_data.parameters["Logs"]["print_burst_info"]:
             print(settings.Bcolors.YELLOW +
                   ">>> Burst duration: %s %i --- ---- ---- ---- ---- ---- ----"
                   % (burst_duration, runtime_data.burst_count) + settings.Bcolors.ENDC)
+
+    def evolutionary_checkpoint():
+        if runtime_data.burst_count % runtime_data.genome['evolution_burst_count'] == 0:
+            print('Evolution phase reached...')
+            for area in runtime_data.cortical_list:
+                neuron_count, synapse_count = connectome_total_synapse_cnt(area)
+                if runtime_data.parameters["Switches"]["influx_stat_logger"]:
+                    influxdb.insert_connectome_stats(connectome_path=connectome_path,
+                                                     cortical_area=area,
+                                                     neuron_count=neuron_count,
+                                                     synapse_count=synapse_count)
+            # genethesizer.generation_assessment()
+
+    def fire_fcl_contents():
+        # time_firing_activities = datetime.now()
+        # todo: replace the hardcoded vision memory statement
+        if candidate_list_counter(runtime_data.fire_candidate_list) == \
+                0 and not runtime_data.parameters["Auto_injector"]["injector_status"]:
+            sleep(runtime_data.parameters["Timers"]["idle_burst_timer"])
+            runtime_data.empty_fcl_counter += 1
+            print("FCL is empty!")
+        else:
+            # Capture cortical activity stats
+            print_cortical_activity_stats()
+
+            for _ in runtime_data.fire_candidate_list:
+                while runtime_data.fire_candidate_list[_]:
+                    neuron_to_fire = runtime_data.fire_candidate_list[_].pop()
+                    neuron_fire(_, neuron_to_fire)
+
+            # Transferring future_fcl to current one and resetting the future one in process
+            for _ in runtime_data.future_fcl:
+                runtime_data.fire_candidate_list[_] = \
+                    set([item for item in runtime_data.future_fcl[_]])
+                runtime_data.future_fcl[_] = set()
+
+    def log_neuron_activity_influx():
+        if runtime_data.parameters["Switches"]["influx_stat_logger"]:
+            for _ in runtime_data.fire_candidate_list:
+                for neuron in runtime_data.fire_candidate_list[_]:
+                    influxdb.insert_neuron_activity(connectome_path=connectome_path,
+                                                    cortical_area=_,
+                                                    neuron_id=neuron,
+                                                    membrane_potential=
+                                                    runtime_data.brain[_][neuron]["membrane_potential"] /1)
+
+    def log_burst_activity_influx():
+        if runtime_data.parameters["Switches"]["influx_stat_logger"]:
+            influxdb.insert_burst_checkpoints(connectome_path, runtime_data.burst_count)
+
+    def burst():
+        burst_start_time = datetime.now()
+        log_burst_activity_influx()
+        runtime_data.pain_flag = False
+        runtime_data.burst_count += 1
+
+        # A deep copy of the FCL to previous FCL
+        for _ in runtime_data.fire_candidate_list:
+            runtime_data.previous_fcl[_] = set([item for item in runtime_data.fire_candidate_list[_]])
+
+        # logging neuron activities to the influxdb
+        log_neuron_activity_influx()
+
+        # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
+        fire_fcl_contents()
+
+        # Auto-inject if applicable
+        injector.auto_injector()
+
+        # Auto-test if applicable
+        injector.auto_tester()
+
+        # The following is to have a check point to assess the perf of the in-use genome and make on the fly adj.
+        evolutionary_checkpoint()
+
+        # Saving FCL to disk for post-processing and running analytics
+        save_fcl_2_dsk()
+
+        # Monitor cortical activity levels and terminate brain if not meeting expectations
+        terminate_on_low_perf()
+
+        # Pain check
+        exhibit_pain()
+
+        # Comprehension check
+        comprehension_check()
+
+        # Forming memories through creation of cell assemblies
+        # todo: instead of passing a pain flag simply detect of pain neuron is activated
+        form_memories(runtime_data.fire_candidate_list, runtime_data.pain_flag)
+
+        # Resetting burst_manager detection list
+        runtime_data.burst_detection_list = {}
+
+        # Capture Neuron Membrane Potential Stats
+        capture_mem_potential()
+
+        # Prune all prune candidate synapses
+        prune_all_candidates()
+
+        # Burst stats
+        burst_stats(burst_start_time)
 
     print('runtime_data.genome_id = ', runtime_data.genome_id)
 
