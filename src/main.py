@@ -36,7 +36,7 @@ if __name__ == '__main__':
     from inf import initialize
     from evo import neuroembryogenesis, death
     from npu import consciousness, burst_engine
-    from life import adventures
+    from life import trainer, evaluator
 
     splash_screen()
 

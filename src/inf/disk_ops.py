@@ -204,8 +204,8 @@ def load_block_dic_in_memory():
     return block_dic
 
 
-def save_block_dic_to_disk(cortical_area='all', block_dic=runtime_data.block_dic,
-                           parameters=runtime_data.parameters, backup=False):
+def save_block_dic_to_disk(cortical_area='all', block_dic=runtime_data.block_dic, parameters=runtime_data.parameters,
+                           backup=False):
     connectome_path = parameters["InitData"]["connectome_path"]
     if block_dic == {}:
         print(">> >> Error: Could not save the brain contents to disk as >> block_dic << was empty!")
@@ -333,13 +333,3 @@ def save_fcl_in_db(burst_number, fire_candidate_list, number_under_training):
     fcl_data['number_under_training'] = number_under_training
     fcl_data['fcl_data'] = fire_candidate_list
     mongo.insert_neuron_activity(fcl_data=fcl_data)
-
-
-def save_fcl_to_disk():
-    with open("./fcl_repo/fcl-" + runtime_data.brain_run_id + ".json", 'w') as fcl_file:
-        # Saving changes to the connectome
-        fcl_file.seek(0)  # rewind
-        fcl_file.write(json.dumps(runtime_data.fcl_history, indent=3))
-        fcl_file.truncate()
-
-    print("Brain activities has been preserved!")

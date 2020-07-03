@@ -145,7 +145,9 @@ def build_cortical_map():
     graph_labels = []
     for key in graph_labels_tmp:
         graph_labels.append(graph_labels_tmp[key])
-
+    print('graph_edges: ', graph_edges)
+    print('graph_weights: ', graph_weights)
+    print('graph_labels: ', graph_labels)
     return graph_edges, graph_weights, graph_labels
 
 
@@ -262,6 +264,7 @@ def synaptogenesis():
             if len(entry) > 1:
                 for _ in entry:
                     runtime_data.intercortical_mapping.append(_)
+    print(runtime_data.intercortical_mapping)
 
 
 def build_synapse_intracortical(genome, brain, parameters, key):
@@ -312,7 +315,8 @@ def build_synapse_intercortical(genome, brain, parameters, block_dic, src_cortic
             duration = datetime.datetime.now() - timer
             print("Synaptogenesis: %s <> %s\t\t| Rule/Param: %s -- %s | Synapse Count: %i | Duration: %s\t "
                   "| Per Synapse Avg.: %s"
-                  % (src_cortical_area, mapped_cortical_area, rule, rule_param, synapse_count_, duration, duration / synapse_count_))
+                  % (src_cortical_area, mapped_cortical_area, rule, rule_param, synapse_count_, duration, duration /
+                     (synapse_count_+1)))
 
         # Adding External Synapse counts to genome for future use
         intercortical_mapping.append((src_cortical_area, mapped_cortical_area, synapse_count_))

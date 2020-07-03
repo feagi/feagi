@@ -10,7 +10,7 @@ from time import sleep
 from npu.physiology import *
 from mem.memory import form_memories
 from npu.comprehension import utf_detection_logic
-from npu.injector import Injector
+from npu.feeder import Injector
 from evo.stats import *
 from inf.initialize import init_burst_engine, burst_exit_process
 
@@ -273,10 +273,8 @@ def burst_manager():
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
 
-        # Auto-inject if applicable
+        # Auto-inject/test if applicable
         injector.auto_injector()
-
-        # Auto-test if applicable
         injector.auto_tester()
 
         # The following is to have a check point to assess the perf of the in-use genome and make on the fly adj.

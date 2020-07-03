@@ -1,4 +1,7 @@
-
+"""
+This module acts as an eye. An input processing module responsible for processing visual raw data and activating the
+ganglion cells that act as the gateway to the visual cortical pathways.
+"""
 import os
 import struct
 import numpy as np
@@ -660,5 +663,3 @@ class Image:
             stats.append([counts[key][0], str(counts[key][1] * 100 / float(count_total)) + ' %'])
 
         return stats
-
-
