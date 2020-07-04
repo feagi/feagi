@@ -44,7 +44,7 @@ def reset_connectome_in_mem():
 # Resets all connectome files
 def reset_connectome_files():
     for key in runtime_data.genome['blueprint']:
-        file_name = runtime_data.parameters["InitData"]["connectome_path"] + key + '.json'
+        file_name = runtime_data.connectome_path + key + '.json'
         with open(file_name, "w") as connectome:
             connectome.write(json.dumps({}))
             connectome.truncate()
@@ -343,7 +343,7 @@ def develop():
     reset_connectome_in_mem()
 
     print("Here is the list of all defined cortical areas: %s " % runtime_data.cortical_list)
-    print("::::: connectome path is:", parameters["InitData"]["connectome_path"])
+    print("::::: connectome path is:", runtime_data.connectome_path)
 
     # --Reset Connectome--
     reset_connectome_files()

@@ -2,6 +2,9 @@
 
 import logging
 import os
+import string
+import random
+from datetime import datetime
 from collections import deque
 from inf import runtime_data, disk_ops, settings
 from configparser import ConfigParser
@@ -9,6 +12,21 @@ from shutil import copyfile
 from evo.stats import list_top_n_utf_memory_neurons
 
 log = logging.getLogger(__name__)
+
+
+def run_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
+    """
+    This function generates a unique id which will be associated with each neuron
+    :param size:
+    :param chars:
+    :return:
+
+    Rand gen source partially from:
+    http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
+    """
+    runtime_data.brain_run_id = \
+        (str(datetime.now()).replace(' ', '_')).replace('.', '_')+'_'+(''.join(random.choice(chars)
+                                                                               for _ in range(size)))+'_R'
 
 
 def init_parameters():
@@ -19,16 +37,36 @@ def init_parameters():
     log.info("All parameters have been initialized.")
 
 
-def init_connectome():
-    connectome_path = runtime_data.parameters["InitData"]["connectome_path"]
-    if not os.path.exists(connectome_path):
-        os.makedirs(connectome_path)
-        copyfile(runtime_data.parameters["InitData"]["static_genome_path"], connectome_path)
+def init_working_directory():
+    """
+    Creates needed folder structure as the working directory for FEAGI. This includes a folder to house connectome
+    as well as folders needed for IPU/OPU to ingress/egress data accordingly.
+
+    """
+    runtime_data.working_directory = runtime_data.parameters["InitData"]["working_directory"] + '/' + runtime_data.brain_run_id
+
+    # Create connectome directory if needed
+    # todo: need to consolidate the connectome path as currently captured in two places
+    runtime_data.connectome_path = runtime_data.working_directory + '/connectome/'
+    runtime_data.parameters["InitData"]["connectome_path"] = runtime_data.connectome_path
+    if not os.path.exists(runtime_data.connectome_path):
+        os.makedirs(runtime_data.connectome_path)
+    # copyfile(runtime_data.parameters["InitData"]["static_genome_path"], runtime_data.connectome_path + '/')
+
+    # Create IPU directories if needed
+    # todo: figure best way to obtain the following list. possibly from genome
+    directory_list = ['ipu_vision', 'ipu_utf', 'ipu_auditory', 'opu_vision', 'opu_utf', 'opu_auditory']
+    for _ in directory_list:
+        ipu_path = runtime_data.working_directory + '/' + _
+        if not os.path.exists(ipu_path):
+            os.makedirs(ipu_path)
+        runtime_data.paths[_] = runtime_data.working_directory + _
+    print(runtime_data.paths)
 
 
 def init_genome():
     # The following stages the genome in the proper connectome path and loads it into the memory
-    disk_ops.genome_handler(runtime_data.parameters["InitData"]["connectome_path"])
+    disk_ops.genome_handler(runtime_data.connectome_path)
 
 
 def init_cortical_list():
@@ -57,8 +95,9 @@ def init_opu():
 
 
 def initialize():
+    run_id_gen()
     init_parameters()
-    init_connectome()
+    init_working_directory()
     init_genome()
     init_cortical_list()
     init_data_sources()
@@ -71,7 +110,7 @@ def init_burst_engine():
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
-    print("**** **** **** **** ****       Starting the burst_manager engine...      **** **** **** **** ****")
+    print("**** **** **** **** ****       Starting the burst_manager engine...        **** **** ****")
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")

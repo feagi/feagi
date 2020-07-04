@@ -26,6 +26,9 @@ genome_id = ""
 event_id = '_'
 blueprint = ""
 comprehension_queue = ''
+working_directory = ''
+connectome_path = ''
+paths = {}
 
 # rules = ""
 brain_is_running = False

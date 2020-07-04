@@ -31,7 +31,7 @@ from configparser import ConfigParser
 def load_genome_in_memory(connectome_path, static=False):
     if not static:
         print("Genome from local connectome folder was chosen: ", connectome_path)
-        with open(connectome_path+'genome_tmp.json', "r") as genome_file:
+        with open(runtime_data.working_directory + '/genome_tmp.json', "r") as genome_file:
             genome_data = json.load(genome_file)
             runtime_data.genome = genome_data
     else:
@@ -144,7 +144,7 @@ def stage_genome(connectome_path, dynamic_selection_mode=True):
 
     print("Staged genome had the following genome id:", runtime_data.original_genome_id)
     genome_data['genome_id_source'] = runtime_data.original_genome_id
-    with open(connectome_path+'genome_tmp.json', "w") as staged_genome:
+    with open(runtime_data.working_directory+'/genome_tmp.json', "w") as staged_genome:
         # Saving changes to the connectome
         staged_genome.seek(0)  # rewind
         staged_genome.write(json.dumps(genome_data, indent=3))
@@ -156,7 +156,7 @@ def stage_genome(connectome_path, dynamic_selection_mode=True):
 
 def load_brain_in_memory():
     # todo: Need error handling added so if there is a corruption in brain data it can regenerate
-    connectome_path = runtime_data.parameters["InitData"]["connectome_path"]
+    connectome_path = runtime_data.connectome_path
     brain = {}
     for item in runtime_data.cortical_list:
         if os.path.isfile(connectome_path + item + '.json'):
@@ -206,7 +206,7 @@ def load_block_dic_in_memory():
 
 def save_block_dic_to_disk(cortical_area='all', block_dic=runtime_data.block_dic, parameters=runtime_data.parameters,
                            backup=False):
-    connectome_path = parameters["InitData"]["connectome_path"]
+    connectome_path = runtime_data.connectome_path
     if block_dic == {}:
         print(">> >> Error: Could not save the brain contents to disk as >> block_dic << was empty!")
         return
@@ -245,7 +245,7 @@ def save_fcl_to_disk():
 
 
 def save_brain_to_disk(cortical_area='all', brain=runtime_data.brain, parameters=runtime_data.parameters, backup=False):
-    connectome_path = parameters["InitData"]["connectome_path"]
+    connectome_path = runtime_data.connectome_path
     if brain == {}:
         print(">> >> Error: Could not save the brain contents to disk as brain was empty!")
         return

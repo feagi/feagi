@@ -1,4 +1,8 @@
-# Source: https://gist.github.com/Vini2/f13a1fc6776319416982a7105844dc27#file-python-igraph-example-ipynb
+"""
+Source mostly from: https://gist.github.com/Vini2/f13a1fc6776319416982a7105844dc27#file-python-igraph-example-ipynb
+
+todo: cortical areas without any initial connection to other areas are not displayed.
+"""
 from igraph import *
 
 graph = Graph(directed=True)

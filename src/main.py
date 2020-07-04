@@ -36,17 +36,18 @@ if __name__ == '__main__':
     from inf import initialize
     from evo import neuroembryogenesis, death
     from npu import consciousness, burst_engine
+    from inf import runtime_data
     from life import trainer, evaluator
 
     splash_screen()
 
-    # Initialize the environment
-    initialize.initialize()
-    from inf import runtime_data
     exit_condition = False
 
     # This while loop simulates a single cycle of life for the artificial brain
     while not exit_condition:
+        # Initialize the environment
+        initialize.initialize()
+
         # Process of artificial neuroembryogenesis that leads to connectome development
         neuroembryogenesis.develop_brain(reincarnation_mode=
                                          runtime_data.parameters['Brain_Development']['reincarnation_mode'])

@@ -10,22 +10,11 @@ from time import sleep
 from npu.physiology import *
 from mem.memory import form_memories
 from npu.comprehension import utf_detection_logic
-from npu.feeder import Injector
+from npu.feeder import Feeder
 from evo.stats import *
 from inf.initialize import init_burst_engine, burst_exit_process
-
-
-def run_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
-    """
-    This function generates a unique id which will be associated with each neuron
-    :param size:
-    :param chars:
-    :return:
-    """
-    # Rand gen source partially from:
-    # http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
-    return (str(datetime.now()).replace(' ', '_')).replace('.', '_')+'_'+(''.join(random.choice(chars)
-                                                                                  for _ in range(size)))+'_R'
+from life.trainer import Trainer
+from life.evaluator import Tester
 
 
 def cortical_group_members(group):
@@ -274,8 +263,8 @@ def burst_manager():
         fire_fcl_contents()
 
         # Auto-inject/test if applicable
-        injector.auto_injector()
-        injector.auto_tester()
+        Trainer.auto_train()
+        Tester.auto_tester()
 
         # The following is to have a check point to assess the perf of the in-use genome and make on the fly adj.
         evolutionary_checkpoint()
@@ -313,14 +302,13 @@ def burst_manager():
     # Initializing the burst_manager engine parameters
     init_burst_engine()
 
-    injector = Injector()
+    injector = Feeder()
     mongo = db_handler.MongoManagement()
     influxdb = db_handler.InfluxManagement()
     connectome_path = runtime_data.parameters['InitData']['connectome_path']
 
     if not runtime_data.brain_is_running:
         toggle_brain_status()
-        runtime_data.brain_run_id = run_id_gen()
         if runtime_data.parameters["Switches"]["capture_brain_activities"]:
             print(settings.Bcolors.HEADER + " *** Warning!!! *** Brain activities are being recorded!!" +
                   settings.Bcolors.ENDC)

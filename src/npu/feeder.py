@@ -19,7 +19,7 @@ from inf.initialize import burst_exit_process
 from evo.stats import candidate_list_counter, list_upstream_neuron_count_for_digits
 
 
-class Injector:
+class Feeder:
 
     def __init__(self):
         self.injector_img_flag = False
