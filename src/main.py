@@ -62,7 +62,7 @@ if __name__ == '__main__':
         ipu_folder_handler.start()
 
         ipu_thread = Thread(target=folder_mon,
-                            args=(runtime_data.working_directory + '/ipu', ['*.png'],
+                            args=(runtime_data.working_directory + '/ipu', ['*.png', '*.txt'],
                                   runtime_data.watchdog_queue, ),
                             name='IPU_folder_monitor', daemon=True)
         ipu_thread.start()
