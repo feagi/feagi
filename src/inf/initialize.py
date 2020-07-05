@@ -4,12 +4,17 @@ import logging
 import os
 import string
 import random
+from queue import Queue
+from threading import Thread
+from watchdog.observers import Observer
+from watchdog.events import LoggingEventHandler
 from datetime import datetime
 from collections import deque
 from inf import runtime_data, disk_ops, settings
 from configparser import ConfigParser
 from shutil import copyfile
 from evo.stats import list_top_n_utf_memory_neurons
+from ipu.folder_monitor import FileLoaderWatchdog
 
 log = logging.getLogger(__name__)
 
@@ -55,7 +60,7 @@ def init_working_directory():
 
     # Create IPU directories if needed
     # todo: figure best way to obtain the following list. possibly from genome
-    directory_list = ['ipu_vision', 'ipu_utf', 'ipu_auditory', 'opu_vision', 'opu_utf', 'opu_auditory']
+    directory_list = ['ipu', 'opu_vision', 'opu_utf', 'opu_auditory']
     for _ in directory_list:
         ipu_path = runtime_data.working_directory + '/' + _
         if not os.path.exists(ipu_path):
@@ -83,8 +88,24 @@ def init_data_sources():
 
 
 def init_ipu():
-    """To validate and initialize all the Input Processing Units"""
+    """
+    This function will monitor the IPU folder and other possible input devices such as a camera or mic for data and
+    pass them along to the IPU module to have them converted to neuronal activity that in turn can be passed to cortical
+    areas via FCL injection.
+
+    """
+
     log.info("All IPUs have been initialized.")
+    pattern = ["*.png"]
+    event_handler = FileLoaderWatchdog(runtime_data.watchdog_queue, patterns=pattern)
+    observer = Observer()
+    path = runtime_data.working_directory + '/ipu'
+    observer.schedule(event_handler, path, recursive=True)
+    observer.start()
+    return
+
+
+def exit_ipu():
     return
 
 
@@ -101,7 +122,6 @@ def initialize():
     init_genome()
     init_cortical_list()
     init_data_sources()
-    init_ipu()
     init_opu()
 
 
@@ -134,7 +154,7 @@ def init_burst_engine():
             runtime_data.v1_members.append(item)
 
 
-def burst_exit_process():
+def exit_burst_process():
     print(settings.Bcolors.YELLOW + '>>>Burst Exit criteria has been met!   <<<' + settings.Bcolors.ENDC)
     runtime_data.live_mode_status = 'idle'
     runtime_data.burst_count = 0

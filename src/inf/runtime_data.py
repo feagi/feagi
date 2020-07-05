@@ -29,6 +29,7 @@ comprehension_queue = ''
 working_directory = ''
 connectome_path = ''
 paths = {}
+watchdog_queue = ''
 
 # rules = ""
 brain_is_running = False

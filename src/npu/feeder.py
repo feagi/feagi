@@ -15,7 +15,7 @@ from inf import runtime_data, settings
 from ipu.vision import MNIST, retina
 from ipu.utf import convert_char_to_fire_list
 from art import text2art
-from inf.initialize import burst_exit_process
+from inf.initialize import exit_burst_process
 from evo.stats import candidate_list_counter, list_upstream_neuron_count_for_digits
 
 
@@ -220,7 +220,7 @@ class Feeder:
                                   "\n\n\n\n\n\n!!!!! !! !Terminating the brain due to low training capability! !! !!!" +
                                   settings.Bcolors.ENDC)
                             runtime_data.termination_flag = True
-                            burst_exit_process()
+                            exit_burst_process()
                             self.injector_exit_flag = True
 
                     if not self.injector_exit_flag:

@@ -6,7 +6,7 @@ import random
 from datetime import datetime
 from inf import runtime_data, settings
 from ipu.vision import MNIST, retina
-from inf.initialize import burst_exit_process
+from inf.initialize import exit_burst_process
 from evo.stats import candidate_list_counter, list_upstream_neuron_count_for_digits
 
 
@@ -318,7 +318,7 @@ class Tester:
         runtime_data.live_mode_status = 'idle'
         print(settings.Bcolors.RED + "Burst exit triggered by the automated workflow >< >< >< >< >< " +
               settings.Bcolors.ENDC)
-        burst_exit_process()
+        exit_burst_process()
 
 
 def toggle_test_mode():

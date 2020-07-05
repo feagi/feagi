@@ -12,7 +12,7 @@ from mem.memory import form_memories
 from npu.comprehension import utf_detection_logic
 from npu.feeder import Feeder
 from evo.stats import *
-from inf.initialize import init_burst_engine, burst_exit_process
+from inf.initialize import init_burst_engine, exit_burst_process
 from life.trainer import Trainer
 from life.evaluator import Tester
 
@@ -110,7 +110,7 @@ def burst_manager():
                           settings.Bcolors.ENDC)
                     print("vision_memory max activation was:", runtime_data.activity_stats['vision_memory'])
                     runtime_data.termination_flag = True
-                    burst_exit_process()
+                    exit_burst_process()
 
     def comprehension_check():
         detected_char = utf_detection_logic(runtime_data.burst_detection_list)
@@ -247,6 +247,8 @@ def burst_manager():
             influxdb.insert_burst_checkpoints(connectome_path, runtime_data.burst_count)
 
     def burst():
+        sleep(1)
+
         burst_start_time = datetime.now()
         log_burst_activity_influx()
         runtime_data.pain_flag = False
@@ -263,8 +265,9 @@ def burst_manager():
         fire_fcl_contents()
 
         # Auto-inject/test if applicable
-        Trainer.auto_train()
-        Tester.auto_tester()
+        # todo: uncomment the following
+        # Trainer.auto_train()
+        # Tester.auto_tester()
 
         # The following is to have a check point to assess the perf of the in-use genome and make on the fly adj.
         evolutionary_checkpoint()

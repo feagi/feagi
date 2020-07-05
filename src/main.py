@@ -33,15 +33,26 @@ def splash_screen():
 
 
 if __name__ == '__main__':
+    from threading import Thread
+    from queue import Queue
     from inf import initialize
     from evo import neuroembryogenesis, death
     from npu import consciousness, burst_engine
     from inf import runtime_data
+    from ipu.folder_monitor import process_image
     from life import trainer, evaluator
 
     splash_screen()
 
     exit_condition = False
+
+    # create queue
+    runtime_data.watchdog_queue = Queue()
+
+    # Set up a worker thread to process database load
+    worker = Thread(target=process_image, args=(runtime_data.watchdog_queue,))
+    worker.setDaemon(True)
+    worker.start()
 
     # This while loop simulates a single cycle of life for the artificial brain
     while not exit_condition:
@@ -51,6 +62,13 @@ if __name__ == '__main__':
         # Process of artificial neuroembryogenesis that leads to connectome development
         neuroembryogenesis.develop_brain(reincarnation_mode=
                                          runtime_data.parameters['Brain_Development']['reincarnation_mode'])
+
+        # todo: create a thread for IPU folder monitoring
+        # todo: create a process for burst_engine
+        ipu_thread = Thread(target=initialize.init_ipu, name='IPU_folder_monitor', daemon=True)
+        # opu_thread = threading.Thread(target=initialize.init_opu)
+        ipu_thread.start()
+        # opu_thread.start()
 
         # Staring the burst_manager engine
         burst_engine.burst_manager()
@@ -63,6 +81,9 @@ if __name__ == '__main__':
         adventures.tbd()
 
         consciousness.stop()
+
+        # closing the threads
+        ipu_thread.join()
 
         # Death process eliminates the brain instance and captures associated performance details
         death.register()
