@@ -13,49 +13,39 @@ todo: redo brain development with no db dependency
 todo: build Mongodb / local handling for brain development
 todo: test dev
 todo: perf optimization: ...
-
+todo: create a process for burst_engine
 """
 
-import logging.config
-import json
-from art import text2art
-
-logging_config_file = '/Users/mohammadnadji-tehrani/code/feagi/feagi/src/logging_config.json'
-
-with open(logging_config_file, 'r') as data_file:
-    LOGGING_CONFIG = json.load(data_file)
-    logging.config.dictConfig(LOGGING_CONFIG)
-
-
-def splash_screen():
-    # FEAGI Word Art
-    print(text2art("FEAGI", font='block'))
-
-
 if __name__ == '__main__':
+    import logging.config
+    import json
+    from art import text2art
     from threading import Thread
     from queue import Queue
     from inf import initialize
     from evo import neuroembryogenesis, death
     from npu import consciousness, burst_engine
     from inf import runtime_data
-    from ipu.folder_monitor import process_image
+    from ipu.folder_monitor import push_data_to_ipu, folder_mon
     from life import trainer, evaluator
+
+    logging_config_file = '/Users/mohammadnadji-tehrani/code/feagi/feagi/src/logging_config.json'
+
+    with open(logging_config_file, 'r') as data_file:
+        LOGGING_CONFIG = json.load(data_file)
+        logging.config.dictConfig(LOGGING_CONFIG)
+
+    def splash_screen():
+        # FEAGI Word Art
+        print(text2art("FEAGI", font='block'))
 
     splash_screen()
 
     exit_condition = False
 
-    # create queue
-    runtime_data.watchdog_queue = Queue()
-
-    # Set up a worker thread to process database load
-    worker = Thread(target=process_image, args=(runtime_data.watchdog_queue,))
-    worker.setDaemon(True)
-    worker.start()
-
     # This while loop simulates a single cycle of life for the artificial brain
-    while not exit_condition:
+    while not runtime_data.exit_condition:
+
         # Initialize the environment
         initialize.initialize()
 
@@ -63,12 +53,19 @@ if __name__ == '__main__':
         neuroembryogenesis.develop_brain(reincarnation_mode=
                                          runtime_data.parameters['Brain_Development']['reincarnation_mode'])
 
-        # todo: create a thread for IPU folder monitoring
-        # todo: create a process for burst_engine
-        ipu_thread = Thread(target=initialize.init_ipu, name='IPU_folder_monitor', daemon=True)
-        # opu_thread = threading.Thread(target=initialize.init_opu)
+        # create queue
+        runtime_data.watchdog_queue = Queue()
+
+        # Set up a worker thread to process IPU folder reads
+        ipu_folder_handler = Thread(target=push_data_to_ipu,
+                                    args=(runtime_data.watchdog_queue,), name="ipu_folder_handler", daemon=True)
+        ipu_folder_handler.start()
+
+        ipu_thread = Thread(target=folder_mon,
+                            args=(runtime_data.working_directory + '/ipu', ['*.png'],
+                                  runtime_data.watchdog_queue, ),
+                            name='IPU_folder_monitor', daemon=True)
         ipu_thread.start()
-        # opu_thread.start()
 
         # Staring the burst_manager engine
         burst_engine.burst_manager()
@@ -78,7 +75,7 @@ if __name__ == '__main__':
         consciousness.start()
 
         # A set of experiences will be outlined under life adventures that leads to learning
-        adventures.tbd()
+        # adventures.tbd()
 
         consciousness.stop()
 
@@ -87,6 +84,6 @@ if __name__ == '__main__':
 
         # Death process eliminates the brain instance and captures associated performance details
         death.register()
-        exit_condition = True
+        runtime_data.exit_condition = True
 
     print('FEAGI instance has been terminated!')

@@ -14,7 +14,7 @@ from inf import runtime_data, disk_ops, settings
 from configparser import ConfigParser
 from shutil import copyfile
 from evo.stats import list_top_n_utf_memory_neurons
-from ipu.folder_monitor import FileLoaderWatchdog
+
 
 log = logging.getLogger(__name__)
 
@@ -95,13 +95,13 @@ def init_ipu():
 
     """
 
-    log.info("All IPUs have been initialized.")
-    pattern = ["*.png"]
-    event_handler = FileLoaderWatchdog(runtime_data.watchdog_queue, patterns=pattern)
-    observer = Observer()
-    path = runtime_data.working_directory + '/ipu'
-    observer.schedule(event_handler, path, recursive=True)
-    observer.start()
+    # log.info("All IPUs have been initialized.")
+    # pattern = ["*.png"]
+    # event_handler = FileLoaderWatchdog(runtime_data.watchdog_queue, patterns=pattern)
+    # observer = Observer()
+    # path = runtime_data.working_directory + '/ipu'
+    # observer.schedule(event_handler, path, recursive=True)
+    # observer.start()
     return
 
 

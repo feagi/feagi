@@ -30,6 +30,7 @@ working_directory = ''
 connectome_path = ''
 paths = {}
 watchdog_queue = ''
+exit_condition = False
 
 # rules = ""
 brain_is_running = False
