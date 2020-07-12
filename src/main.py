@@ -20,14 +20,13 @@ if __name__ == '__main__':
     import logging.config
     import json
     from art import text2art
-    from threading import Thread
-    from queue import Queue
     from inf import initialize
     from evo import neuroembryogenesis, death
     from npu import consciousness, burst_engine
     from inf import runtime_data
-    from ipu.folder_monitor import push_data_to_ipu, folder_mon
-    from life import trainer, evaluator
+    from ipu import ipu_controller
+    from opu import opu_controller
+    from edu import edu_controller
 
     logging_config_file = '/Users/mohammadnadji-tehrani/code/feagi/feagi/src/logging_config.json'
 
@@ -53,34 +52,27 @@ if __name__ == '__main__':
         neuroembryogenesis.develop_brain(reincarnation_mode=
                                          runtime_data.parameters['Brain_Development']['reincarnation_mode'])
 
-        # create queue
-        runtime_data.watchdog_queue = Queue()
-
-        # Set up a worker thread to process IPU folder reads
-        ipu_folder_handler = Thread(target=push_data_to_ipu,
-                                    args=(runtime_data.watchdog_queue,), name="ipu_folder_handler", daemon=True)
-        ipu_folder_handler.start()
-
-        ipu_thread = Thread(target=folder_mon,
-                            args=(runtime_data.working_directory + '/ipu', ['*.png', '*.txt'],
-                                  runtime_data.watchdog_queue, ),
-                            name='IPU_folder_monitor', daemon=True)
-        ipu_thread.start()
+        # Initialize Input/Output Processing Units
+        ipu_controller.initialize()
+        opu_controller.initialize()
 
         # Staring the burst_manager engine
         burst_engine.burst_manager()
 
         # All brain activities occur in between consciousness start and stop
         # todo: define what consciousness would mean in the context of this framework!!
+        # todo: comprehension related thread could be here
         consciousness.start()
+
+        # Starting the edu controller responsible for learning and evaluations
+        edu_controller.initialize()
 
         # A set of experiences will be outlined under life adventures that leads to learning
         # adventures.tbd()
 
         consciousness.stop()
 
-        # closing the threads
-        ipu_thread.join()
+
 
         # Death process eliminates the brain instance and captures associated performance details
         death.register()

@@ -21,7 +21,22 @@ from inf.initialize import exit_burst_process
 from evo.stats import candidate_list_counter, list_upstream_neuron_count_for_digits
 
 
+
 class Trainer:
+    def __init__(self):
+        self.training_epochs = runtime_data.training_epochs
+
+    def training_manager(self):
+        # for epoch in self.training_epochs:
+        #     for
+        return
+
+
+
+
+
+
+class Trainer_old:
     def __init__(self):
         self.injector_img_flag = False
         self.injector_utf_flag = False

@@ -87,34 +87,6 @@ def init_data_sources():
     return
 
 
-def init_ipu():
-    """
-    This function will monitor the IPU folder and other possible input devices such as a camera or mic for data and
-    pass them along to the IPU module to have them converted to neuronal activity that in turn can be passed to cortical
-    areas via FCL injection.
-
-    """
-
-    # log.info("All IPUs have been initialized.")
-    # pattern = ["*.png"]
-    # event_handler = FileLoaderWatchdog(runtime_data.watchdog_queue, patterns=pattern)
-    # observer = Observer()
-    # path = runtime_data.working_directory + '/ipu'
-    # observer.schedule(event_handler, path, recursive=True)
-    # observer.start()
-    return
-
-
-def exit_ipu():
-    return
-
-
-def init_opu():
-    """To validate and initialize all the Output Processing Units"""
-    log.info("All OPUs have been initialized.")
-    return
-
-
 def initialize():
     run_id_gen()
     init_parameters()
@@ -122,7 +94,6 @@ def initialize():
     init_genome()
     init_cortical_list()
     init_data_sources()
-    init_opu()
 
 
 def init_burst_engine():

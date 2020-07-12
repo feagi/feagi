@@ -13,8 +13,8 @@ from npu.comprehension import utf_detection_logic
 from npu.feeder import Feeder
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
-from life.trainer import Trainer
-from life.evaluator import Tester
+from edu.trainer import Trainer
+from edu.evaluator import Tester
 
 
 def cortical_group_members(group):
@@ -265,7 +265,7 @@ def burst_manager():
         fire_fcl_contents()
 
         # Auto-inject/test if applicable
-        # todo: uncomment the following
+        # todo: move the following functionality to the life.controller to run as a thread
         # Trainer.auto_train()
         # Tester.auto_tester()
 
