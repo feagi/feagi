@@ -1,5 +1,7 @@
 """
 This module manages all IPU related modules
+
+todo: figure how the exposure counter can work in synchrony with the burst engine
 """
 from queue import Queue
 from threading import Thread

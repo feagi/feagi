@@ -34,10 +34,10 @@ def run_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
                                                                                for _ in range(size)))+'_R'
 
 
-def init_parameters():
+def init_parameters(ini_path='./feagi_configuration.ini'):
     """To load all the key configuration parameters"""
     feagi_config = ConfigParser()
-    feagi_config.read('./feagi_configuration.ini')
+    feagi_config.read(ini_path)
     runtime_data.parameters = {s: dict(feagi_config.items(s)) for s in feagi_config.sections()}
     log.info("All parameters have been initialized.")
 

@@ -1,4 +1,16 @@
+"""
+Burst engine is responsible for the event driven behavior of the artificial brain. It facilitates the firing all the
+contents of the Fire Candidate List (FCL) at the same instant.
 
+todo: Engine modes; one the super mode used for automated training and evaluations, second one with the speed of life.
+todo: figure how to calibrate the speed of engine with IPU feeder
+todo: assess viability of having a GIL like behavior for burst engine
+todo: implement autopilot mode suitable for automated training and testing vs speed of life
+todo: need a higher level mechanism to switch between life mode and autopilot mode something like falling sleep
+        - let the lack of IPU activity for a period to trigger the education mode. IPU activity to wake up in life mode
+        - Question: Where does IPU activity monitor belong? Thalamus? IPU controller? FCL injector?
+        - Solution: FCL Injector can keep track of IPU activities in a variable and set a flag accordingly
+"""
 import os
 import csv
 import glob
@@ -33,7 +45,6 @@ def burst_manager():
         runtime_data.future_fcl[cortical_area_] = set()
         runtime_data.previous_fcl[cortical_area_] = set()
         runtime_data.upstream_neurons[cortical_area_] = {}
-
 
     def save_fcl_2_dsk():
         if runtime_data.parameters["Switches"]["save_fcl_to_db"]:
@@ -341,6 +352,21 @@ def burst_manager():
         burst()
 
 
+def fcl_injector(fire_list, fcl_queue):
+    # print("Injecting to FCL.../\/\/\/")
+    # Update FCL with new input data. FCL is read from the Queue and updated
+    flc = fcl_queue.get()
+    for item in fire_list:
+        flc.append(item)
+    fcl_queue.put(flc)
+
+    print("Injected to FCL.../\/\/\/")
+
+    # todo: add the check so if the there is limited IPU activity for multiple consequtive rounds to set a flag
+
+    return
+
+
 def fire_candidate_locations(fire_cnd_list):
     """Extracts Neuron locations from the fire_candidate_list"""
 
@@ -391,16 +417,6 @@ def toggle_brain_status():
         runtime_data.brain_is_running = True
         print("Brain is now running!!!")
 
-
-def inject_to_fcl(fire_list, fcl_queue):
-    # print("Injecting to FCL.../\/\/\/")
-    # Update FCL with new input data. FCL is read from the Queue and updated
-    flc = fcl_queue.get()
-    for item in fire_list:
-        flc.append(item)
-    fcl_queue.put(flc)
-    # print("Injected to FCL.../\/\/\/")
-    return
 
 
 def utf_neuron_id(n):

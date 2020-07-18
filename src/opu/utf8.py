@@ -2,7 +2,7 @@
 from inf import runtime_data
 
 """
-Library of Output Proecssing Unit (OPU) functions responsible for translating neuronal activities into a read world 
+Output Processing Unit (OPU) functions responsible for translating neuronal activities into a read world 
 event.
 """
 
