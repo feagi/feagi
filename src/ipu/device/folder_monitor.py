@@ -6,12 +6,22 @@ triggered if a file is moved to have a .trigger extension. Once triggered the wa
 queue, ready to be picked up by the worker thread
 """
 
-import queue
 import string
 import time
+from queue import Queue
+from threading import Thread
 from watchdog.observers import Observer
 from watchdog.events import PatternMatchingEventHandler
 from inf import runtime_data
+
+
+# todo: combine all of this module into a single class
+def initialize():
+    runtime_data.watchdog_queue = Queue()
+    ipu_folder_monitor = Thread(target=folder_mon, args=(runtime_data.working_directory + '/ipu', ['*.png', '*.txt'],
+                                                         runtime_data.watchdog_queue,), name='IPU_folder_monitor',
+                                daemon=True)
+    ipu_folder_monitor.start()
 
 
 def folder_mon(folder_path, pattern, q):
@@ -48,11 +58,10 @@ class FolderWatchdog(PatternMatchingEventHandler):
     #     self.process(event)
 
     def on_created(self, event):
-        push_data_to_ipu(event.src_path)
+        file_processor(event.src_path)
 
 
-# todo: most likely this function needs to run on its own thread and not block other operations...maybe!
-def push_data_to_ipu(file_path):
+def file_processor(file_path):
     if str(file_path).endswith('.png'):
         pass
     if str(file_path).endswith('.txt'):

@@ -22,7 +22,7 @@ from time import sleep
 from npu.physiology import *
 from mem.memory import form_memories
 from npu.comprehension import utf_detection_logic
-from npu.feeder import Feeder
+# from npu.feeder import Feeder
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
 from edu.trainer import Trainer
@@ -50,7 +50,7 @@ def burst_manager():
         if runtime_data.parameters["Switches"]["save_fcl_to_db"]:
             disk_ops.save_fcl_in_db(runtime_data.burst_count,
                                     runtime_data.fire_candidate_list,
-                                    injector.injector_num_to_inject)
+                                    feeder.injector_num_to_inject)
 
     def capture_neuron_mp():
         if runtime_data.parameters["Switches"]["capture_neuron_mp"]:
@@ -225,7 +225,7 @@ def burst_manager():
         # todo: replace the hardcoded vision memory statement
         if candidate_list_counter(runtime_data.fire_candidate_list) == \
                 0 and not runtime_data.parameters["Auto_injector"]["injector_status"]:
-            sleep(runtime_data.parameters["Timers"]["idle_burst_timer"])
+            sleep(float(runtime_data.parameters["Timers"]["idle_burst_timer"]))
             runtime_data.empty_fcl_counter += 1
             print("FCL is empty!")
         else:
@@ -316,7 +316,8 @@ def burst_manager():
     # Initializing the burst_manager engine parameters
     init_burst_engine()
 
-    injector = Feeder()
+    # todo: need to figure how to incorporate FCL injection
+    # feeder = Feeder()
     mongo = db_handler.MongoManagement()
     influxdb = db_handler.InfluxManagement()
     connectome_path = runtime_data.parameters['InitData']['connectome_path']
@@ -339,11 +340,12 @@ def burst_manager():
     capture_neuron_mp()
 
     # Live mode condition
-    print("live mode status: ", runtime_data.parameters["Switches"]["live_mode"], runtime_data.live_mode_status)
-    if runtime_data.parameters["Switches"]["live_mode"] and runtime_data.live_mode_status == 'idle':
-        runtime_data.live_mode_status = 'learning'
-        print(settings.Bcolors.RED + "Starting an automated learning process..." + settings.Bcolors.ENDC)
-        injector.injection_manager(injection_mode="l1", injection_param="")
+    # todo: This segment to be replaced with auto-pilot code
+    # print("live mode status: ", runtime_data.parameters["Switches"]["live_mode"], runtime_data.live_mode_status)
+    # if runtime_data.parameters["Switches"]["live_mode"] and runtime_data.live_mode_status == 'idle':
+    #     runtime_data.live_mode_status = 'learning'
+    #     print(settings.Bcolors.RED + "Starting an automated learning process..." + settings.Bcolors.ENDC)
+    #     feeder.injection_manager(injection_mode="l1", injection_param="")
 
     print("\n\nReady to exit burst_manager engine flag:", runtime_data.parameters["Switches"]["ready_to_exit_burst"])
 
@@ -352,7 +354,7 @@ def burst_manager():
         burst()
 
 
-def fcl_injector(fire_list, fcl_queue):
+def fcl_feeder(fire_list, fcl_queue):
     # print("Injecting to FCL.../\/\/\/")
     # Update FCL with new input data. FCL is read from the Queue and updated
     flc = fcl_queue.get()
@@ -448,3 +450,17 @@ def common_neuron_report():
                     runtime_data.prunning_candidates.add(('vision_memory', neuron, 'utf8_memory', neuron_a))
                     runtime_data.prunning_candidates.add(('vision_memory', neuron, 'utf8_memory', neuron_b))
 
+
+def eval(self):
+    # Effectiveness check
+    if runtime_data.parameters["Switches"]["evaluation_based_termination"]:
+        upstream_neuron_count_for_digits = \
+            list_upstream_neuron_count_for_digits(digit=self.injector_utf_counter_actual)
+        print('## ## ###:', upstream_neuron_count_for_digits)
+        if upstream_neuron_count_for_digits[0][1] == 0:
+            print(settings.Bcolors.RED +
+                  "\n\n\n\n\n\n!!!!! !! !Terminating the brain due to low training capability! !! !!!" +
+                  settings.Bcolors.ENDC)
+            runtime_data.termination_flag = True
+            exit_burst_process()
+            self.injector_exit_flag = True

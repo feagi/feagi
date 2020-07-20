@@ -24,8 +24,6 @@ if __name__ == '__main__':
     from evo import neuroembryogenesis, death
     from npu import consciousness, burst_engine
     from inf import runtime_data
-    from ipu import ipu_controller
-    from opu import opu_controller
     from edu import edu_controller
 
     logging_config_file = '/Users/mohammadnadji-tehrani/code/feagi/feagi/src/logging_config.json'
@@ -51,10 +49,6 @@ if __name__ == '__main__':
         # Process of artificial neuroembryogenesis that leads to connectome development
         neuroembryogenesis.develop_brain(reincarnation_mode=
                                          runtime_data.parameters['Brain_Development']['reincarnation_mode'])
-
-        # Initialize Input/Output Processing Units
-        ipu_controller.initialize()
-        opu_controller.initialize()
 
         # Staring the burst_manager engine
         burst_engine.burst_manager()

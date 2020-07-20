@@ -10,31 +10,18 @@ Q) Why the need for seperate module? Can this be merged with the burst-engine? o
 """
 from queue import Queue
 from inf import runtime_data, settings
-from ipu.vision import retina
+from ipu.visual import retina
 from ipu.mnist import MNIST
 from ipu.utf import convert_char_to_fire_list
 from inf.initialize import exit_burst_process
 from evo.stats import candidate_list_counter, list_upstream_neuron_count_for_digits
 
 
-
-class Feeder:
-
+class Injector:
     def __init__(self):
+        self.something = 'something'
 
-    def eval(self):
-        # Effectiveness check
-        if runtime_data.parameters["Switches"]["evaluation_based_termination"]:
-            upstream_neuron_count_for_digits = \
-                list_upstream_neuron_count_for_digits(digit=self.injector_utf_counter_actual)
-            print('## ## ###:', upstream_neuron_count_for_digits)
-            if upstream_neuron_count_for_digits[0][1] == 0:
-                print(settings.Bcolors.RED +
-                      "\n\n\n\n\n\n!!!!! !! !Terminating the brain due to low training capability! !! !!!" +
-                      settings.Bcolors.ENDC)
-                runtime_data.termination_flag = True
-                exit_burst_process()
-                self.injector_exit_flag = True
+
 
     def utf8_feeder(self):
         # inject label to FCL

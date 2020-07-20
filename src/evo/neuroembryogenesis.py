@@ -100,6 +100,14 @@ def cortical_list():
     return cortical_list_
 
 
+def cortical_sub_group_members(group):
+    members = []
+    for item in runtime_data.cortical_list:
+        if runtime_data.genome['blueprint'][item]['sub_group_id'] == group:
+            members.append(item)
+    return members
+
+
 def synapse_count(cortical_area_src, cortical_area_dst):
     brain = runtime_data.brain
     synapse__count = 0

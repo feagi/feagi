@@ -11,16 +11,7 @@ from inf import runtime_data, settings
 from inf.db_handler import MongoManagement
 from inf.disk_ops import save_processed_mnist_to_disk
 from evo.neuron import neuron_finder
-
-
-def cortical_sub_group_members(group):
-    members = []
-    for item in runtime_data.cortical_list:
-        if runtime_data.genome['blueprint'][item]['sub_group_id'] == group:
-            members.append(item)
-    return members
-
-
+from evo.neuroembryogenesis import cortical_sub_group_members
 
 
 def polarize_img(img):
