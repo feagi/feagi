@@ -14,8 +14,6 @@ from inf import runtime_data, disk_ops, settings
 from configparser import ConfigParser
 from shutil import copyfile
 from evo.stats import list_top_n_utf_memory_neurons
-from ipu import ipu_controller
-from opu import opu_controller
 
 
 log = logging.getLogger(__name__)
@@ -96,9 +94,7 @@ def initialize():
     init_genome()
     init_cortical_list()
     init_data_sources()
-    # Initialize Input/Output Processing Units
-    ipu_controller.initialize()
-    opu_controller.initialize()
+    runtime_data.fcl_queue = Queue()
 
 
 def init_burst_engine():

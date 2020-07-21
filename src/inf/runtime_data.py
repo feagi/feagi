@@ -31,6 +31,7 @@ connectome_path = ''
 paths = {}
 watchdog_queue = ''
 exit_condition = False
+fcl_queue = ''
 
 # rules = ""
 brain_is_running = False

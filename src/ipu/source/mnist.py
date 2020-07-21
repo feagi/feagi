@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from inf.db_handler import MongoManagement
 from inf.disk_ops import save_processed_mnist_to_disk
 from inf import runtime_data
-from ipu.processor.visual import Kernel
+from ipu.processor.image import Kernel
 from datetime import datetime
 
 

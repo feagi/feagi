@@ -16,6 +16,7 @@ import csv
 import glob
 import random
 import string
+from queue import Queue
 from datetime import datetime
 from inf import disk_ops
 from time import sleep
@@ -99,8 +100,11 @@ def burst_manager():
                           + settings.Bcolors.ENDC)
 
             else:
-                runtime_data.activity_stats[cortical_area] = len(runtime_data.fire_candidate_list[cortical_area])
-
+                try:
+                    runtime_data.activity_stats[cortical_area] = len(runtime_data.fire_candidate_list[cortical_area])
+                except KeyError:
+                    print("Error: Cortical Area not found:", cortical_area)
+                    
     def training_quality_test():
         upstream_general_stats_ = list_upstream_neuron_count_for_digits()
         for entry in upstream_general_stats_:
@@ -268,6 +272,13 @@ def burst_manager():
         # A deep copy of the FCL to previous FCL
         for _ in runtime_data.fire_candidate_list:
             runtime_data.previous_fcl[_] = set([item for item in runtime_data.fire_candidate_list[_]])
+
+        # Feeding FCL queue content into the FCL
+        while not runtime_data.fcl_queue.empty():
+            # todo: the following is not properly feeding data to FCL -- investigate --
+            runtime_data.fire_candidate_list = runtime_data.fcl_queue.get()
+
+        print("Fire Candidate List:\n", runtime_data.fire_candidate_list)
 
         # logging neuron activities to the influxdb
         log_neuron_activity_influx()

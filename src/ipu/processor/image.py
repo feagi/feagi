@@ -30,8 +30,10 @@ def polarize_img(img):
     return polarized_image
 
 
-def retina(image, polarize=False):
+def image_to_neuron_list(image, polarize=False):
     """
+    Plays the role of Ganglionic Layer in retina.
+
     Responsible for converting visual stimuli to neuronal activity so it can be passed along the cortical pathways
     Input: Standard Image Data
     Output: List of neurons from various Thalamic Visual layers (LGN) that are activated
