@@ -40,6 +40,7 @@ def cortical_group_members(group):
 
 def burst_manager():
     """This function behaves as instance of Neuronal activities"""
+    influxdb = db_handler.InfluxManagement()
 
     def init_fcl(cortical_area_):
         runtime_data.fire_candidate_list[cortical_area_] = set()
@@ -60,7 +61,7 @@ def burst_manager():
                 neuron_mp_writer.writerow(('burst_number', 'cortical_layer', 'neuron_id', 'membrane_potential'))
 
     # def save_fcl_2_disk():
-    #     # todo: *** Danger *** The following section could cause considerable memory expansion. Need to add limitations.
+    #     # todo: * Danger * The following section could cause considerable memory expansion. Need to add limitations.
     #     # Condition to save FCL data to disk
     #     user_input_processing(user_input, user_input_param)
     #     if runtime_data.parameters["Switches"]["capture_brain_activities"]:
@@ -72,39 +73,33 @@ def burst_manager():
     #             fcl_file.truncate()
     #         sleep(0.5)
 
-    def print_cortical_activity_stats():
-        influxdb = db_handler.InfluxManagement()
-        for _ in runtime_data.fire_candidate_list:
-            if _ in runtime_data.activity_stats:
-                cortical_neuron_count = len(runtime_data.fire_candidate_list[_])
-                runtime_data.activity_stats[_] = max(runtime_data.activity_stats[_], cortical_neuron_count)
+    def capture_cortical_activity_stats():
+        print('@@@--- Activity Stats:', runtime_data.activity_stats)
+        for cortical_area_ in runtime_data.fire_candidate_list:
+            if cortical_area_ in runtime_data.activity_stats:
+                cortical_neuron_count = len(runtime_data.fire_candidate_list[cortical_area_])
+                runtime_data.activity_stats[cortical_area_] = \
+                    max(runtime_data.activity_stats[cortical_area_], cortical_neuron_count)
 
                 if runtime_data.parameters["Switches"]["influx_stat_logger"]:
                     influxdb.insert_burst_activity(
                         connectome_path=runtime_data.parameters['InitData']['connectome_path'],
                         burst_id=runtime_data.burst_count,
-                        cortical_area=_,
+                        cortical_area=cortical_area_,
                         neuron_count=cortical_neuron_count)
 
                 if runtime_data.parameters["Switches"]["global_logger"] and \
-                        runtime_data.parameters["Logs"]["print_cortical_activity_counters"] and \
-                        runtime_data.parameters["Auto_injector"]["injector_status"]:
+                        runtime_data.parameters["Logs"]["print_cortical_activity_counters"]:
                     print(settings.Bcolors.YELLOW + '    %s : %i  '
-                          % (_, cortical_neuron_count)
-                          + settings.Bcolors.ENDC)
-                if runtime_data.parameters["Switches"]["global_logger"] and \
-                        runtime_data.parameters["Logs"]["print_cortical_activity_counters"] and \
-                        runtime_data.parameters["Auto_tester"]["tester_status"]:
-                    print(settings.Bcolors.OKGREEN + '    %s : %i  '
-                          % (_, cortical_neuron_count)
+                          % (cortical_area_, cortical_neuron_count)
                           + settings.Bcolors.ENDC)
 
             else:
                 try:
-                    runtime_data.activity_stats[cortical_area] = len(runtime_data.fire_candidate_list[cortical_area])
+                    runtime_data.activity_stats[cortical_area_] = len(runtime_data.fire_candidate_list[cortical_area_])
                 except KeyError:
-                    print("Error: Cortical Area not found:", cortical_area)
-                    
+                    print("Error: Cortical Area not found:", cortical_area_)
+
     def training_quality_test():
         upstream_general_stats_ = list_upstream_neuron_count_for_digits()
         for entry in upstream_general_stats_:
@@ -234,7 +229,7 @@ def burst_manager():
             print("FCL is empty!")
         else:
             # Capture cortical activity stats
-            print_cortical_activity_stats()
+            capture_cortical_activity_stats()
 
             for _ in runtime_data.fire_candidate_list:
                 while runtime_data.fire_candidate_list[_]:
@@ -262,6 +257,7 @@ def burst_manager():
             influxdb.insert_burst_checkpoints(connectome_path, runtime_data.burst_count)
 
     def burst():
+        # todo: the following sleep value should be tied to Autopilot status
         sleep(1)
 
         burst_start_time = datetime.now()
@@ -429,7 +425,6 @@ def toggle_brain_status():
     else:
         runtime_data.brain_is_running = True
         print("Brain is now running!!!")
-
 
 
 def utf_neuron_id(n):
