@@ -80,7 +80,7 @@ class SynaptogenesisRuleManager:
         """
         Returns the list of neurons listed under the same block id as the source neuron
         todo: need to add ability to account for the sublayer mapping e.g. v1.1 > v2 layer 1 based on z offset
-        todo: instead of a single destincation block based on the rule pass a set of blocks to make it generalizable
+        todo: instead of a single destination block based on the rule pass a set of blocks to make it generalizable
         Returns:
 
         """
@@ -109,7 +109,7 @@ class SynaptogenesisRuleManager:
 def block_z_offset(block_ref, offset):
     """
     Offsets the z coordinate of the block reference by the value defined by "offset"
-    Note: There is a risk that the new offset value exceed defined block boundaries of a given cortical area
+    todo: There is a risk that the new offset value exceed defined block boundaries of a given cortical area
 
     Args:
         block_ref:
@@ -240,7 +240,6 @@ def neighbor_finder_intercortical(cortical_area, cortical_area_dst, src_neuron_i
 
     rule_manager = SynaptogenesisRuleManager(src_neuron_id=src_neuron_id, src_cortical_area=cortical_area,
                                              dst_cortical_area=cortical_area_dst)
-
     candidate_list = rule_manager.growth_rule_selector()
     return candidate_list
 

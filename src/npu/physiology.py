@@ -61,10 +61,8 @@ def neuron_fire(cortical_area, neuron_id):
     # if cortical_area == 'vision_memory':
     #     runtime_data.cumulative_neighbor_count += neighbor_count
     neighbor_count = len(neighbor_list)
-    print('Neighbor list is: >>', neighbor_list)
     # Updating downstream neurons
     for dst_neuron_id in neighbor_list:
-        print('Destination Neuron: ', dst_neuron_id)
         # Timing the update function
         # update_start_time = datetime.now()
 

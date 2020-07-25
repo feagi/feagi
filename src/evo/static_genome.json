@@ -1217,8 +1217,7 @@
           "group_id" : "thalamus",
           "sub_group_id" : "t_vision",
           "plot_index" : 1,
-          "layer_index" : 1,
-          "total_layer_count" : 7,
+          "total_layer_count" : 2,
           "orientation_selectivity_pattern" : "",
           "location" : "",
           "kernel_size" : 5,
@@ -1277,8 +1276,7 @@
           "group_id" : "thalamus",
           "sub_group_id" : "t_vision",
           "plot_index" : 1,
-          "layer_index" : 1,
-          "total_layer_count" : 7,
+          "total_layer_count" : 2,
           "orientation_selectivity_pattern" : "",
           "location" : "",
           "kernel_size" : 5,
@@ -1292,7 +1290,7 @@
           "neighbor_locator_rule_id" : "rule_1",
           "neighbor_locator_rule_param_id" : "param_1",
           "cortical_mapping_dst" : {
-              "vision_v1-1" : {
+              "vision_v1-2" : {
                   "neighbor_locator_rule_id" : "rule_5",
                   "neighbor_locator_rule_param_id" : "param_1"
               }
