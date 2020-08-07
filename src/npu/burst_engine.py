@@ -42,6 +42,29 @@ def burst_manager():
     """This function behaves as instance of Neuronal activities"""
     influxdb = db_handler.InfluxManagement()
 
+    def consciousness_manager():
+        """responsible for start and stop of all non-main threads based on various conditions"""
+        # Check flags for IPU activities
+        # todo: need mechanism to set the ipu_idle flag if there is no IPU activity for a period
+        # Alert condition checks to ensure brain is not in Alert mode which can be triggered via fear or cautiousness
+        alert_condition = datetime.now() - runtime_data.last_alertness_trigger > \
+                                           runtime_data.parameters['Timers']['alert_mode_duration']
+        if alert_condition:
+            if datetime.now() - runtime_data.last_ipu_activity > runtime_data.parameters['IPU']['idle_threshold']:
+                # Go to sleep by stopping IPU/OPU threads
+                # todo: instead of turning off the IPU, reduce IPU responsiveness so via an trigger brain can awake
+                print(">> >> Brain going to sleep..")
+
+                # todo: adjust burst frequency
+
+        # todo: implementation of coming out of sleep
+        # one trigger to be large activity on IPU and another to be time-bound
+        if condition:
+            print(">> >> Brain waking up from sleep..")
+
+            # todo: adjust burst frequency
+
+
     def init_fcl(cortical_area_):
         runtime_data.fire_candidate_list[cortical_area_] = set()
         runtime_data.future_fcl[cortical_area_] = set()
@@ -317,6 +340,13 @@ def burst_manager():
 
         # Burst stats
         burst_stats(burst_start_time)
+
+        # Manage Threads
+        # For performance reasons, running this function not on every single burst
+        if runtime_data.burst_count % 10 == 0:
+            consciousness_manager()
+
+        burst_manager()
 
     print('runtime_data.genome_id = ', runtime_data.genome_id)
 

@@ -32,6 +32,8 @@ paths = {}
 watchdog_queue = ''
 exit_condition = False
 fcl_queue = ''
+last_ipu_activity = ''
+last_alertness_trigger = ''
 
 # rules = ""
 brain_is_running = False

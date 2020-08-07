@@ -22,6 +22,7 @@ def initialize():
                                                          runtime_data.watchdog_queue,), name='IPU_folder_monitor',
                                 daemon=True)
     ipu_folder_monitor.start()
+    print(">> >> >> Folder monitoring thread has started..")
 
 
 def folder_mon(folder_path, pattern, q):

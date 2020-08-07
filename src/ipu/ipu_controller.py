@@ -45,6 +45,7 @@ def initialize():
     ipu_controller_thread = Thread(target=ipu_controller, args=(runtime_data.watchdog_queue, runtime_data.fcl_queue,),
                                    name="IPU_Controller", daemon=True)
     ipu_controller_thread.start()
+    print(">> >> IPU Controller thread has started..")
 
 
 # todo: most likely this function needs to run on its own thread and not block other operations...maybe!
@@ -63,7 +64,6 @@ def ipu_controller(watchdoq_queue, fcl_queue):
                                                                                 cortical_area=cortical_layer)
 
                 fcl_entry[cortical_layer] = neuron_list
-                print("==========================================================", cortical_layer, neuron_list)
             fcl_queue.put(fcl_entry)
         except Exception as e:
             traceback.print_exc()

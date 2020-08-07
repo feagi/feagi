@@ -22,7 +22,7 @@ if __name__ == '__main__':
     from art import text2art
     from inf import initialize
     from evo import neuroembryogenesis, death
-    from npu import consciousness, burst_engine
+    from npu import burst_engine
     from inf import runtime_data
     from edu import edu_controller
     from ipu import ipu_controller
@@ -59,19 +59,11 @@ if __name__ == '__main__':
         # Staring the burst_manager engine
         burst_engine.burst_manager()
 
-        # All brain activities occur in between consciousness start and stop
-        # todo: define what consciousness would mean in the context of this framework!!
-        # todo: comprehension related thread could be here
-        consciousness.start()
-
         # Starting the edu controller responsible for learning and evaluations
         edu_controller.initialize()
 
         # A set of experiences will be outlined under life adventures that leads to learning
         # adventures.tbd()
-
-        consciousness.stop()
-
 
 
         # Death process eliminates the brain instance and captures associated performance details
