@@ -12,7 +12,7 @@ from queue import Queue
 from threading import Thread
 from inf import runtime_data
 from ipu.source import folder_monitor
-from ipu.source.mnist import MNIST
+from ipu.source.mnist import MNIST, print_mnist_img_raw
 from ipu.processor import image
 from evo.neuroembryogenesis import cortical_sub_group_members
 
@@ -56,6 +56,7 @@ def ipu_controller(watchdoq_queue, fcl_queue):
         # todo: The following is experimental and needs to be rebuilt
         try:
             mnist_img = mnist.mnist_array['training'][5][1]
+            print_mnist_img_raw(mnist_img)
             # Building the list of visual corticothalamic layers associated with vision
             visual_cortical_layers = cortical_sub_group_members('t_vision')
             fcl_entry = {}

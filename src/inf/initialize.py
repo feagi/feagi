@@ -88,6 +88,7 @@ def init_data_sources():
 
 
 def initialize():
+    runtime_data.last_alertness_trigger = datetime.now()
     run_id_gen()
     init_parameters()
     init_working_directory()

@@ -2,6 +2,9 @@
 Copyright (c) 2019 Mohammad Nadji-Tehrani <m.nadji.tehrani@gmail.com>
 
 This module contains functions related to genome handling mainly inspired by nature and genetic algorithms.
+
+
+todo: Gene regulatory considerations
 """
 
 import datetime

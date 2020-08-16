@@ -260,6 +260,16 @@ def print_mnist_img(num, seq, mnist_type):
             print("ERROR: Attribute error while printing image.", mnist_img)
 
 
+def print_mnist_img_raw(raw_img):
+    for row in raw_img:
+        for item in row:
+            if item > 50:
+                print("*", end='  ')
+            else:
+                print('   ', end='')
+        print('\n')
+
+
 def read_mnist_labels(dataset="training"):
     """
     For importing the MNIST data set.  It returns an iterator
