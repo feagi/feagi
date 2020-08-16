@@ -14,6 +14,7 @@ from inf import runtime_data, disk_ops, settings
 from configparser import ConfigParser
 from shutil import copyfile
 from evo.stats import list_top_n_utf_memory_neurons
+from evo.static_genome import genome
 
 
 log = logging.getLogger(__name__)
@@ -71,7 +72,8 @@ def init_working_directory():
 
 def init_genome():
     # The following stages the genome in the proper connectome path and loads it into the memory
-    disk_ops.genome_handler(runtime_data.connectome_path)
+    # disk_ops.genome_handler(runtime_data.connectome_path)
+    runtime_data.genome = genome
 
 
 def init_cortical_list():
