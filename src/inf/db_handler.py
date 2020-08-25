@@ -173,30 +173,37 @@ class MongoManagement:
 
 class InfluxManagement:
     def __init__(self):
-        self.client = InfluxDBClient(host='127.0.0.1', port=8086)
+        host = '127.0.0.1'
+        port = 8086
+        self.client = InfluxDBClient(host, port)
         try:
-            self.client.ping()
-            print(
-                settings.Bcolors.OKGREEN + "Success: Connection to << InfluxDb >> has been established." + settings.Bcolors.ENDC)
+            print("Connected to Influxdb client %s on %s:%s" % (self.client.ping(), host, port))
+            print(runtime_data.parameters["InitData"])
             self.stats_database = runtime_data.parameters["InitData"]["influxdb_stat_db"]
             self.evolutionary_database = runtime_data.parameters["InitData"]["influxdb_evolutionary_db"]
 
+            print("Using %s as stat collection database" % self.stats_database)
+            print("Using %s as evolutionary data collection database" % self.evolutionary_database)
+
             if not runtime_data.parameters["Switches"]["influx_keep_stats"]:
                 self.client.drop_database(self.stats_database)
+                print("Warning: Data from previous stat database was dropped!")
 
             def db_existence_check(db_name):
                 """Checks the existence of a database and creates it if it doesnt exist."""
                 self.db_list = self.client.get_list_database()
                 if db_name not in [db['name'] for db in self.db_list]:
-                    print("Creating database named ", db_name)
+                    print("Creating InfluxDb database named ", db_name)
                     self.client.create_database(db_name)
                 else:
-                    print("Database was in there somewhere ;-)")
+                    print("InfluxDB %s exists" % db_name)
 
             db_existence_check(self.stats_database)
             db_existence_check(self.evolutionary_database)
-        except:
-            print(settings.Bcolors.RED + "ERROR: Cannot connect to << InfluxDb >> Database" + settings.Bcolors.ENDC)
+
+        except Exception as e:
+            print(settings.Bcolors.RED +
+                  "ERROR: Cannot connect to << InfluxDb >> Database \n ::: %s" % str(repr(e)) + settings.Bcolors.ENDC)
 
     def get_db_list(self):
         print(self.client.get_list_database())

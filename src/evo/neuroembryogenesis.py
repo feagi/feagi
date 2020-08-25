@@ -32,7 +32,7 @@ from vis.directed_graph import DirectGraph
 log = logging.getLogger(__name__)
 print(settings.Bcolors.YELLOW + "Module loaded: brain_gen" + settings.Bcolors.ENDC)
 
-influxdb = InfluxManagement()
+# influxdb = InfluxManagement()
 
 
 # Resets the in-memory brain for each cortical area

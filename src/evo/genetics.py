@@ -3,6 +3,23 @@ Copyright (c) 2019 Mohammad Nadji-Tehrani <m.nadji.tehrani@gmail.com>
 
 This module contains functions related to genome handling mainly inspired by nature and genetic algorithms.
 
+Evolution
+- Generational
+    - Gene mutation
+    - Crossover
+    - Genome selection
+    - Pairing
+    - Colonies, groups, and boundaries
+    - Epigenetics and selective enablement of genes
+    - Passing of gene changes to next generation
+- Developmental
+    - Global
+        - System level optimization
+    - Localized
+        - Within a cortical later
+        - Within a cortical pathway
+        - Within an organ
+    - Reflection of stress on a region back on genome
 
 todo: Gene regulatory considerations
 """
@@ -10,7 +27,7 @@ todo: Gene regulatory considerations
 import datetime
 import random
 import string
-from inf import db_handler, settings
+from inf import db_handler, settings, runtime_data
 from math import floor
 
 
@@ -305,9 +322,9 @@ def crossover():
     todo: Given genome is hierarchical, crossover need to account for different levels
 
     """
-    db = db_handler.MongoManagement()
+    # db = db_handler.MongoManagement()
 
-    genome_1, genome_2 = db.id_list_2_genome_list(db.random_m_from_top_n(2, 5))
+    genome_1, genome_2 = runtime_data.mongodb.id_list_2_genome_list(runtime_data.mongodb.random_m_from_top_n(2, 5))
 
     original_genome_id = []
     original_genome_id.append(genome_1['genome_id'])
@@ -334,8 +351,8 @@ def crossover():
 
 
 def random_genome():
-    db = db_handler.MongoManagement()
-    genomes = db.id_list_2_genome_list(db.random_m_from_top_n(1, 5))
+    # db = db_handler.MongoManagement()
+    genomes = runtime_data.mongodb.id_list_2_genome_list(runtime_data.mongodb.random_m_from_top_n(1, 5))
     for item in genomes:
         genome = item
     # print("this is the random genome", genome)
@@ -345,8 +362,8 @@ def random_genome():
 
 
 def latest_genome():
-    db = db_handler.MongoManagement()
-    genome = db.latest_genome()
+    # db = db_handler.MongoManagement()
+    genome = runtime_data.mongodb.latest_genome()
     for key in genome:
         print(">.> ", key)
     original_genome_id = []
@@ -358,8 +375,8 @@ def latest_genome():
 
 
 def highest_fitness_genome():
-    db = db_handler.MongoManagement()
-    genome = db.highest_fitness_genome()
+    # db = db_handler.MongoManagement()
+    genome = runtime_data.mongodb.highest_fitness_genome()
     original_genome_id = []
     original_genome_id.append(genome['genome_id'])
     return genome['properties'], original_genome_id

@@ -40,7 +40,7 @@ def cortical_group_members(group):
 
 def burst_manager():
     """This function behaves as instance of Neuronal activities"""
-    influxdb = db_handler.InfluxManagement()
+    # influxdb = db_handler.InfluxManagement()
 
     def consciousness_manager():
         """responsible for start and stop of all non-main threads based on various conditions"""
@@ -105,7 +105,7 @@ def burst_manager():
                     max(runtime_data.activity_stats[cortical_area_], cortical_neuron_count)
 
                 if runtime_data.parameters["Switches"]["influx_stat_logger"]:
-                    influxdb.insert_burst_activity(
+                    runtime_data.influxdb.insert_burst_activity(
                         connectome_path=runtime_data.parameters['InitData']['connectome_path'],
                         burst_id=runtime_data.burst_count,
                         cortical_area=cortical_area_,
@@ -201,7 +201,7 @@ def burst_manager():
                     new_content = (runtime_data.burst_count, cortical_area, neuron,
                                    runtime_data.brain[cortical_area][neuron]["membrane_potential"])
                     new_data.append(new_content)
-                    mongo.inset_membrane_potentials(new_content)
+                    runtime_data.mongodb.inset_membrane_potentials(new_content)
 
     def burst_stats(burst_start_time):
         if runtime_data.parameters["Logs"]["print_burst_stats"]:
@@ -236,7 +236,7 @@ def burst_manager():
             for area in runtime_data.cortical_list:
                 neuron_count, synapse_count = connectome_total_synapse_cnt(area)
                 if runtime_data.parameters["Switches"]["influx_stat_logger"]:
-                    influxdb.insert_connectome_stats(connectome_path=connectome_path,
+                    runtime_data.influxdb.insert_connectome_stats(connectome_path=connectome_path,
                                                      cortical_area=area,
                                                      neuron_count=neuron_count,
                                                      synapse_count=synapse_count)
@@ -269,7 +269,7 @@ def burst_manager():
         if runtime_data.parameters["Switches"]["influx_stat_logger"]:
             for _ in runtime_data.fire_candidate_list:
                 for neuron in runtime_data.fire_candidate_list[_]:
-                    influxdb.insert_neuron_activity(connectome_path=connectome_path,
+                    runtime_data.influxdb.insert_neuron_activity(connectome_path=connectome_path,
                                                     cortical_area=_,
                                                     neuron_id=neuron,
                                                     membrane_potential=
@@ -277,7 +277,7 @@ def burst_manager():
 
     def log_burst_activity_influx():
         if runtime_data.parameters["Switches"]["influx_stat_logger"]:
-            influxdb.insert_burst_checkpoints(connectome_path, runtime_data.burst_count)
+            runtime_data.influxdb.insert_burst_checkpoints(connectome_path, runtime_data.burst_count)
 
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
@@ -355,8 +355,8 @@ def burst_manager():
 
     # todo: need to figure how to incorporate FCL injection
     # feeder = Feeder()
-    mongo = db_handler.MongoManagement()
-    influxdb = db_handler.InfluxManagement()
+    # mongo = db_handler.MongoManagement()
+    # influxdb = db_handler.InfluxManagement()
     connectome_path = runtime_data.parameters['InitData']['connectome_path']
 
     if not runtime_data.brain_is_running:

@@ -27,7 +27,7 @@ class MNIST:
             self.mnist_array['training'].append(_)
         for __ in self.mnist_test_iterator:
             self.mnist_array['test'].append(__)
-        self.mongo = MongoManagement()
+        # self.mongo = MongoManagement()
         # print(len(mnist_array))
 
     def mnist_direction_matrix_builder_in_mongodb(self):
@@ -56,7 +56,7 @@ class MNIST:
                     for direction in direction_matrix_:
                         mnist_data[direction] = direction_matrix_[direction]
 
-                    self.mongo.insert_mnist_entry(mnist_data=mnist_data)
+                    runtime_data.mongodb.insert_mnist_entry(mnist_data=mnist_data)
                     print("Added to MongoDb: Type=%s  Seq=%s  Kernel_size=%s  Digit=%s" % (mnist_type, mnist_instance_seq, kernel_size, mnist_instance_label))
                 mnist_instance_seq += 1
 

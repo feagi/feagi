@@ -10,11 +10,11 @@ from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
 from datetime import datetime
 from collections import deque
-from inf import runtime_data, disk_ops, settings
+from inf import runtime_data, disk_ops, settings, db_handler
 from configparser import ConfigParser
 from shutil import copyfile
 from evo.stats import list_top_n_utf_memory_neurons
-from evo.static_genome import genome
+
 
 
 log = logging.getLogger(__name__)
@@ -67,13 +67,15 @@ def init_working_directory():
         if not os.path.exists(ipu_path):
             os.makedirs(ipu_path)
         runtime_data.paths[_] = runtime_data.working_directory + _
-    print(runtime_data.paths)
+    # print(runtime_data.paths)
 
 
 def init_genome():
+    print("\nInitializing genome...")
+    print("************")
     # The following stages the genome in the proper connectome path and loads it into the memory
-    # disk_ops.genome_handler(runtime_data.connectome_path)
-    runtime_data.genome = genome
+    disk_ops.genome_handler(runtime_data.connectome_path)
+    print("************\n")
 
 
 def init_cortical_list():
@@ -83,8 +85,28 @@ def init_cortical_list():
     runtime_data.cortical_list = cortical_list
 
 
+def init_timeseries_db():
+    """
+    Conducts needed checks to ensure the time-series database is ready
+
+    Utilizing InfluxDb as the time-series database
+    """
+    runtime_data.influxdb = db_handler.InfluxManagement()
+    return
+
+
+def init_genome_db():
+    runtime_data.mongodb = db_handler.MongoManagement()
+    return
+
+
 def init_data_sources():
     """To validate and initialize all data sources and databases"""
+    print("\nInitializing databases...")
+    print("************")
+    init_timeseries_db()
+    init_genome_db()
+    print("************\n")
     log.info("All data sources have been initialized.")
     return
 
@@ -94,9 +116,9 @@ def initialize():
     run_id_gen()
     init_parameters()
     init_working_directory()
+    init_data_sources()
     init_genome()
     init_cortical_list()
-    init_data_sources()
     runtime_data.fcl_queue = Queue()
 
 

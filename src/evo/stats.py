@@ -94,8 +94,8 @@ def cortical_xyz_range():
 
 
 def fcl_stats(genome_id):
-    mongo = db_handler.MongoManagement()
-    fcl_data_from_db = mongo.fcl_data(genome_id)
+    # mongo = db_handler.MongoManagement()
+    fcl_data_from_db = runtime_data.mongo.fcl_data(genome_id)
     fcl_stats_data = {}
     for burst in fcl_data_from_db:
         neuron_activities = burst['fcl_data']

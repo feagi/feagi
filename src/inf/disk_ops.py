@@ -9,6 +9,7 @@ from inf import db_handler
 from evo import stats
 from inf import runtime_data, settings
 from evo.genetics import genome_id_gen
+from evo.static_genome import genome
 from configparser import ConfigParser
 
 
@@ -35,19 +36,16 @@ def load_genome_in_memory(connectome_path, static=False):
             genome_data = json.load(genome_file)
             runtime_data.genome = genome_data
     else:
-        print("Static genome from the following file was loaded in memory: ",
-              runtime_data.parameters["InitData"]["static_genome_path"])
-        with open(runtime_data.parameters["InitData"]["static_genome_path"], "r") as genome_file:
-            genome_data = json.load(genome_file)
-            runtime_data.genome = genome_data
+        runtime_data.genome = genome
+        print("Static genome was loaded in memory")
     # todo: The following is suitable for the main_auto but needs to be adjusted for the main_manual
     runtime_data.genome_id = genome_id_gen()
 
 
-def save_genome_to_disk():
+def save_genome_to_db():
     from evo.genetics import calculate_brain_cognitive_fitness
-    mongo = db_handler.MongoManagement()
-    influxdb = db_handler.InfluxManagement()
+    # mongo = db_handler.MongoManagement()
+    # influxdb = db_handler.InfluxManagement()
     genome = runtime_data.genome
     genome_id = runtime_data.genome_id
 
@@ -78,7 +76,7 @@ def save_genome_to_disk():
         print(" ********** ********")
         print(" **********")
         print("\n\n\n")
-        influxdb.insert_evolutionary_fitness_stats(connectome_path=runtime_data.parameters["InitData"]
+        runtime_data.influxdb.insert_evolutionary_fitness_stats(connectome_path=runtime_data.parameters["InitData"]
         ["connectome_path"],
                                                    fitness_score=brain_fitness/1,
                                                    training_sets=runtime_data.parameters["Auto_injector"]
@@ -102,14 +100,14 @@ def save_genome_to_disk():
     # Logging cortical stats in the InfluxDb
     for cortical_area in runtime_data.brain:
         neuron_count, synapse_count = stats.connectome_total_synapse_cnt(cortical_area)
-        influxdb.insert_evolutionary_connectome_stats(connectome_path=runtime_data.parameters["InitData"]["connectome_path"],
+        runtime_data.influxdb.insert_evolutionary_connectome_stats(connectome_path=runtime_data.parameters["InitData"]["connectome_path"],
                                                       cortical_area=cortical_area,
                                                       neuron_count=neuron_count,
                                                       synapse_count=synapse_count)
 
     # print("*** @@@ *** @@@ *** \n ", genome_db)
 
-    mongo.insert_genome(genome_db)
+    runtime_data.mongodb.insert_genome(genome_db)
 
     mail_body = "Genome " + str(genome_id) + " has been evaluated to have a fitness of " + str(brain_fitness)
 
@@ -123,8 +121,7 @@ def save_genome_to_disk():
     for stat in runtime_data.genome_test_stats:
         stat_to_save = stat
         # todo: The following is leading to duplicate db record ---> Investigate
-        # mongo.insert_test_stats(stat_to_save)
-
+        # runtime_data.mongodb.insert_test_stats(stat_to_save)
 
     print("Genome %s has been preserved for future generations!" % genome_id)
     stats.print_fcl_stats(genome_id)
@@ -149,22 +146,9 @@ def stage_genome(connectome_path, dynamic_selection_mode=True):
         staged_genome.seek(0)  # rewind
         staged_genome.write(json.dumps(genome_data, indent=3))
         staged_genome.truncate()
-        print("\n*\n**\n***\ngenome_tmp.json was just staged...vvv ^^^ vvv\n***\n**\n*", connectome_path)
+        # print("\n*\n**\n***\ngenome_tmp.json was just staged...vvv ^^^ vvv\n***\n**\n*", connectome_path)
 
     print("<< << Genome has been staged in runtime repo >> >>")
-
-
-def load_brain_in_memory():
-    # todo: Need error handling added so if there is a corruption in brain data it can regenerate
-    connectome_path = runtime_data.connectome_path
-    brain = {}
-    for item in runtime_data.cortical_list:
-        if os.path.isfile(connectome_path + item + '.json'):
-            with open(connectome_path + item + '.json', "r") as data_file:
-                data = json.load(data_file)
-                brain[item] = data
-    print("Brain has been successfully loaded into memory...")
-    return brain
 
 
 def genome_handler(connectome_path):
@@ -182,6 +166,19 @@ def genome_handler(connectome_path):
     else:
         # Using the existing genome previously staged in the connectome_path
         load_genome_in_memory(connectome_path)
+
+
+def load_brain_in_memory():
+    # todo: Need error handling added so if there is a corruption in brain data it can regenerate
+    connectome_path = runtime_data.connectome_path
+    brain = {}
+    for item in runtime_data.cortical_list:
+        if os.path.isfile(connectome_path + item + '.json'):
+            with open(connectome_path + item + '.json', "r") as data_file:
+                data = json.load(data_file)
+                brain[item] = data
+    print("Brain has been successfully loaded into memory...")
+    return brain
 
 
 def serialize_brain_data(brain):
@@ -326,10 +323,10 @@ def load_rules_in_memory():
 
 
 def save_fcl_in_db(burst_number, fire_candidate_list, number_under_training):
-    mongo = db_handler.MongoManagement()
+    # mongo = db_handler.MongoManagement()
     fcl_data = {}
     fcl_data['genome_id'] = runtime_data.genome_id
     fcl_data['burst_id'] = burst_number
     fcl_data['number_under_training'] = number_under_training
     fcl_data['fcl_data'] = fire_candidate_list
-    mongo.insert_neuron_activity(fcl_data=fcl_data)
+    runtime_data.mongodb.insert_neuron_activity(fcl_data=fcl_data)
