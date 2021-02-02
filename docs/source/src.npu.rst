@@ -20,10 +20,26 @@ src.npu.consciousness module
    :undoc-members:
    :show-inheritance:
 
-src.npu.neuron module
----------------------
+src.npu.comprehension module
+----------------------------
 
-.. automodule:: src.npu.neuron
+.. automodule:: src.npu.comprehension
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+src.npu.misc module
+----------------------------
+
+.. automodule:: src.npu.misc
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+src.npu.physiology module
+----------------------------
+
+.. automodule:: src.npu.physiology
    :members:
    :undoc-members:
    :show-inheritance:
