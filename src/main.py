@@ -28,7 +28,7 @@ if __name__ == '__main__':
     from ipu import ipu_controller
     from opu import opu_controller
 
-    logging_config_file = '/Users/mohammadnadji-tehrani/code/feagi/feagi/src/logging_config.json'
+    logging_config_file = './logging_config.json'
 
     with open(logging_config_file, 'r') as data_file:
         LOGGING_CONFIG = json.load(data_file)
