@@ -37,5 +37,16 @@ Using a ramdisk when running FEAGI can enhance execution speed by reducing read/
 * To start FEAGI, open a terminal, ensure the FEAGI virtual environment is active and run: `$ python3 main.py ./connectome/` (assuming the working directory is `~/FEAGI/src/`).
 
 # Setup Guide (containerized)
-TBD
+Users also have the option to deploy FEAGI via Docker container, thereby automating or eliminating the need for many of the steps listed in the above manual setup. Containerized deployment creates a relatively lightweight environment containing all of the dependencies needed to run FEAGI. The current image (`docker/buster.Dockerfile`) is based on a Debian (Buster) parent image using Python 3.7. Support for a more lightweight parent image (ex: Alpine Linux) to accommodate running FEAGI on resource-constrained devices (such as Raspberry Pi) is expected soon. 
+
+Ensure that Docker is installed on your machine by opening a terminal application and entering: `$ docker --version`. If the output of running this command is **not** _similar_ to `Docker version _._._, build _______`, you may need to install Docker. Visit https://www.docker.com/get-started for more information.
+
+**If Docker is installed**:
+* Navigate to `FEAGI/docker/` via the terminal.
+
+* Build the Docker image by running: `$ docker build --no-cache -t feagi:0.2 --build-arg REPO=link_to_target_repo .`, where `link_to_target_repo` is replaced by the target repository URL (https://github.com/feagi/feagi-core.git). **Note**: You should only need to rebuild the image if introducing changes to the Dockerfile or after deleting the existing image.   
+
+* Run `$ docker images` and confirm that the newly-built image (with tag `feagi:0.2`) exists in the list.
+
+* Start/run the container by entering: `$ docker run -t feagi:0.2` and confirm standard output in the terminal indicates that FEAGI is running.
 ***
