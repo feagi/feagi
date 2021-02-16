@@ -19,7 +19,7 @@ import argparse
 import sys
 import logging
 
-from feagi import __version__
+# from feagi import __version__
 
 __author__ = "Mohammad Nadji-Tehrani"
 __copyright__ = "Mohammad Nadji-Tehrani"
