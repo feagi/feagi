@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import pytest
-from feagi.skeleton import fib
+from src.skeleton import fib
 
 __author__ = "Mohammad Nadji-Tehrani"
 __copyright__ = "Mohammad Nadji-Tehrani"
