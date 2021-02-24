@@ -141,6 +141,9 @@ class MNIST:
         else:
             raise Exception(ValueError, "data set must be 'testing' or 'training'")
 
+        import pathlib
+        print(">>>>>>  >>> >> >> >> >> >> ", pathlib.Path(__file__).parent.absolute(), fname_lbl, path)
+
         # Load everything in some numpy arrays
         with open(fname_lbl, 'rb') as flbl:
             magic, num = struct.unpack(">II", flbl.read(8))
