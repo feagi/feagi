@@ -65,7 +65,6 @@ if __name__ == '__main__':
         # A set of experiences will be outlined under life adventures that leads to learning
         # adventures.tbd()
 
-
         # Death process eliminates the brain instance and captures associated performance details
         death.register()
         runtime_data.exit_condition = True
