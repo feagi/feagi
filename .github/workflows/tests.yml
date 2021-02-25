@@ -12,9 +12,7 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python 3.7
@@ -28,5 +26,5 @@ jobs:
         pip install pytest pytest-cov
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Run tests using pytest
-      run: |
-        pytest --cov
+      run: pytest ../tests
+      working-directory: ./src

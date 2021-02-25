@@ -1,5 +1,5 @@
 # Introduction
-The framework is known to run stably on OS X and Ubuntu, with deployment support for more operating systems (Windows, etc.) anticipated in the future, if needed. Users may extensively configure the framework according to their preferences by editing the various parameters in the `/src/feagi_configuration.ini` file. It is important that configuration parameters representing a path to a file or directory relevant to FEAGI execution be updated to accurately reflect the user's local environment (see `InitData` parameters in `feagi_configuration.ini`).
+The framework is known to run stably on OS X and Ubuntu, with deployment support for more operating systems (Windows, etc.) anticipated in the future, if needed. Users may extensively configure the framework according to their preferences by editing the various parameters in the `/src/feagi_configuration.ini` file. It is important that configuration parameters representing a path to a file or directory relevant to FEAGI execution be updated to accurately reflect the user's local environment (see `InitData` parameters in `feagi_configuration.ini`). FEAGI data output is, by default, stored in the host system's temporary directory. To customize this parameter, enter the desired output path in `working_directory` under `InitData` in `feagi_configuration.ini`.
 
 # Supported Operating Systems
 * **macOS**: High Sierra (10.13)
@@ -19,7 +19,7 @@ Install the FEAGI Python dependencies in the active virtual environment (assumin
 * `$ pip3 install -r requirements.txt`
 
 ## Ramdisk Setup
-Using a ramdisk when running FEAGI can enhance execution speed by reducing read/write latency when interacting with genome/connectome data; whether this is necessary/useful depends on local physical drive performance specifications. If using a ramdisk, users should monitor its space when running FEAGI successively; each framework execution generates a new directory containing updated brain connectome data in `JSON` format.
+Using a ramdisk when running FEAGI can enhance execution speed by reducing read/write latency when interacting with genome/connectome data; whether this is necessary/useful depends on local physical drive performance specifications. If using a ramdisk, users should monitor its space when running FEAGI successively; each framework execution generates a new directory containing updated brain connectome data in `JSON` format. **Note:** If using a ramdisk for FEAGI execution, update the `working_directory` parameter in `InitData` of `feagi_configuration.ini` with the path to the mounted disk (typically in `/Volumes/` on macOS and `/mnt/` on Ubuntu).
 
 ### High Sierra (10.13)
 Create/mount ramdisk (`diskSize` is user-defined disk size specified in MB): 
