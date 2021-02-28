@@ -1,4 +1,6 @@
 # Copyright (c) 2019 Mohammad Nadji-Tehrani <m.nadji.tehrani@gmail.com>
+from requests.exceptions import ConnectionError
+from pymongo.errors import ServerSelectionTimeoutError
 from pymongo import MongoClient, DESCENDING, ASCENDING
 from influxdb import InfluxDBClient
 from inf import runtime_data, settings
@@ -10,8 +12,17 @@ print(settings.Bcolors.YELLOW + "Module loaded: db_handler" + settings.Bcolors.E
 class MongoManagement:
     def __init__(self):
         # print("*** Connecting to database ***")
+        host = '127.0.0.1'
+        container_host = 'mongo'
+        port = 27017
 
-        self.client = MongoClient('127.0.0.1', 27017, serverSelectionTimeoutMS=1)
+        # check if running in a container
+        try:
+            self.client = MongoClient(container_host, port, serverSelectionTimeoutMS=1)
+            self.client.server_info()
+        except ServerSelectionTimeoutError:
+            self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
+
         try:
             self.client.server_info()
             self.db = self.client['metis']
@@ -174,8 +185,17 @@ class MongoManagement:
 class InfluxManagement:
     def __init__(self):
         host = '127.0.0.1'
+        container_host = 'influx'
         port = 8086
-        self.client = InfluxDBClient(host, port)
+
+        # check if running in a container
+        try:
+            self.client = InfluxDBClient(container_host, port)
+            self.client.ping()
+            host = container_host
+        except ConnectionError:
+            self.client = InfluxDBClient(host, port)
+
         try:
             print("Connected to Influxdb client %s on %s:%s" % (self.client.ping(), host, port))
             print(runtime_data.parameters["InitData"])

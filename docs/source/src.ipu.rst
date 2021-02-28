@@ -4,10 +4,18 @@ src.ipu package
 Submodules
 ----------
 
-src.ipu.vision module
----------------------
+src.ipu.fcl\_injector module
+----------------------------
 
-.. automodule:: src.ipu.vision
+.. automodule:: src.ipu.fcl_injector
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+src.ipu.ipu\_controller module
+------------------------------
+
+.. automodule:: src.ipu.ipu_controller
    :members:
    :undoc-members:
    :show-inheritance:

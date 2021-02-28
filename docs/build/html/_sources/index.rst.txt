@@ -10,7 +10,7 @@ Welcome to FEAGI's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   src/main
+   modules
 
 
 Indices and tables

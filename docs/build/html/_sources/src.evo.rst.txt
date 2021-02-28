@@ -4,26 +4,10 @@ src.evo package
 Submodules
 ----------
 
-src.evo.architect module
-------------------------
-
-.. automodule:: src.evo.architect
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 src.evo.death module
 --------------------
 
 .. automodule:: src.evo.death
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-src.evo.doc\_test module
-------------------------
-
-.. automodule:: src.evo.doc_test
    :members:
    :undoc-members:
    :show-inheritance:
@@ -48,6 +32,22 @@ src.evo.stats module
 --------------------
 
 .. automodule:: src.evo.stats
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+src.evo.neuron module
+---------------------------------
+
+.. automodule:: src.evo.neuron
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+src.evo.synapse module
+---------------------------------
+
+.. automodule:: src.evo.synapse
    :members:
    :undoc-members:
    :show-inheritance:

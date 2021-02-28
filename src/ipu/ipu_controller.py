@@ -66,6 +66,9 @@ def ipu_controller(watchdoq_queue, fcl_queue):
 
                 fcl_entry[cortical_layer] = neuron_list
             fcl_queue.put(fcl_entry)
+            # todo: exiting immediately for test purposes
+            runtime_data.exit_condition = True
+            runtime_data.parameters["Switches"]["ready_to_exit_burst"] = True
         except Exception as e:
             traceback.print_exc()
         time.sleep(2)

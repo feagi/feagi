@@ -1,10 +1,9 @@
-
-
 import logging
 import os
 import string
 import random
 from queue import Queue
+from tempfile import gettempdir
 from threading import Thread
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
@@ -14,7 +13,6 @@ from inf import runtime_data, disk_ops, settings, db_handler
 from configparser import ConfigParser
 from shutil import copyfile
 from evo.stats import list_top_n_utf_memory_neurons
-
 
 
 log = logging.getLogger(__name__)
@@ -40,6 +38,8 @@ def init_parameters(ini_path='./feagi_configuration.ini'):
     feagi_config = ConfigParser()
     feagi_config.read(ini_path)
     runtime_data.parameters = {s: dict(feagi_config.items(s)) for s in feagi_config.sections()}
+    if not runtime_data.parameters["InitData"]["working_directory"]:
+        runtime_data.parameters["InitData"]["working_directory"] = gettempdir()
     log.info("All parameters have been initialized.")
 
 

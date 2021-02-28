@@ -10,7 +10,7 @@ Q) Why the need for seperate module? Can this be merged with the burst-engine? o
 """
 from queue import Queue
 from inf import runtime_data, settings
-from ipu.visual import retina
+# from ipu.visual import retina
 from ipu.source.mnist import MNIST
 from ipu.processor.utf import convert_char_to_fire_list
 from inf.initialize import exit_burst_process
