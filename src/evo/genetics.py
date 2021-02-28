@@ -3,25 +3,6 @@ Copyright (c) 2019 Mohammad Nadji-Tehrani <m.nadji.tehrani@gmail.com>
 
 This module contains functions related to genome handling mainly inspired by nature and genetic algorithms.
 
-Evolution
-- Generational
-    - Gene mutation
-    - Crossover
-    - Genome selection
-    - Pairing
-    - Colonies, groups, and boundaries
-    - Epigenetics and selective enablement of genes
-    - Passing of gene changes to next generation
-- Developmental
-    - Global
-        - System level optimization
-    - Localized
-        - Within a cortical later
-        - Within a cortical pathway
-        - Within an organ
-    - Reflection of stress on a region back on genome
-
-todo: Gene regulatory considerations
 """
 
 import datetime
@@ -2109,18 +2090,3 @@ if __name__ == "__main__":
 }
 
     print(gene_modifier.random_gene_selector(sample_genome))
-
-
-#     # print(genethesize())
-
-
-    # genome_1 = {"a": 3, "b": {"name": "mohammad", "last": "nadji"}, "c": 5}
-    # genome_2 = {"a": 1, "b": {"name": "jafar", "last": "gholi"}, "c": 6}
-    #
-    # print(crossover(genome_1, genome_2))
-
-    # a = crossover()
-    # for _ in a:
-    #     print(_)
-    # print(calculate_fitness())
-
