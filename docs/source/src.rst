@@ -11,7 +11,7 @@ Subpackages
    src.evo
    src.inf
    src.ipu
-   src.life
+   src.mem
    src.npu
    src.opu
    src.vis

@@ -1,40 +1,45 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <title>src package &mdash; FEAGI 0.2 documentation</title>
   
 
   
-  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
   
   
 
   
-  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
         <script src="_static/doctools.js"></script>
-        <script src="_static/language_data.js"></script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
     
-
-  
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" /> 
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="src.edu package" href="src.edu.html" />
+    <link rel="prev" title="setup module" href="setup.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -71,6 +76,7 @@
           
         </div>
 
+        
         <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
           
             
@@ -78,22 +84,37 @@
               
             
             
-              <!-- Local TOC -->
-              <div class="local-toc"><ul>
-<li><a class="reference internal" href="#">src package</a><ul>
-<li><a class="reference internal" href="#subpackages">Subpackages</a></li>
-<li><a class="reference internal" href="#submodules">Submodules</a></li>
-<li><a class="reference internal" href="#module-src.json_to_ini">src.json_to_ini module</a></li>
-<li><a class="reference internal" href="#module-src.main">src.main module</a></li>
-<li><a class="reference internal" href="#module-src.skeleton">src.skeleton module</a></li>
-<li><a class="reference internal" href="#module-src">Module contents</a></li>
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">FEAGI</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="setup.html">setup module</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">src package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#subpackages">Subpackages</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="src.edu.html">src.edu package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="src.evo.html">src.evo package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="src.inf.html">src.inf package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="src.ipu.html">src.ipu package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="src.mem.html">src.mem package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="src.npu.html">src.npu package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="src.opu.html">src.opu package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="src.vis.html">src.vis package</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#submodules">Submodules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-src.json_to_ini">src.json_to_ini module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-src.main">src.main module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#src-skeleton-module">src.skeleton module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-src">Module contents</a></li>
 </ul>
 </li>
 </ul>
-</div>
+</li>
+</ul>
+
             
           
         </div>
+        
       </div>
     </nav>
 
@@ -128,18 +149,22 @@
 
 
 
+
+
 <div role="navigation" aria-label="breadcrumbs navigation">
 
   <ul class="wy-breadcrumbs">
     
-      <li><a href="index.html">Docs</a> &raquo;</li>
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="modules.html">FEAGI</a> &raquo;</li>
         
       <li>src package</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
-            
+          
             <a href="_sources/src.rst.txt" rel="nofollow"> View page source</a>
           
         
@@ -161,28 +186,29 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="src.edu.html">src.edu package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="src.edu.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="src.edu.html#module-src.edu.evaluation">src.edu.evaluation module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="src.edu.html#module-src.edu.training">src.edu.training module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.edu.html#module-src.edu.edu_controller">src.edu.edu_controller module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.edu.html#module-src.edu.evaluator">src.edu.evaluator module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.edu.html#module-src.edu.trainer">src.edu.trainer module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="src.edu.html#module-src.edu">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="src.evo.html">src.evo package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="src.evo.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="src.evo.html#src-evo-architect-module">src.evo.architect module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="src.evo.html#module-src.evo.death">src.evo.death module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="src.evo.html#module-src.evo.doc_test">src.evo.doc_test module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="src.evo.html#src-evo-genetics-module">src.evo.genetics module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="src.evo.html#src-evo-neuroembryogenesis-module">src.evo.neuroembryogenesis module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="src.evo.html#src-evo-stats-module">src.evo.stats module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.evo.html#module-src.evo.genetics">src.evo.genetics module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.evo.html#module-src.evo.neuroembryogenesis">src.evo.neuroembryogenesis module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.evo.html#module-src.evo.stats">src.evo.stats module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.evo.html#module-src.evo.neuron">src.evo.neuron module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.evo.html#module-src.evo.synapse">src.evo.synapse module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="src.evo.html#module-src.evo">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="src.inf.html">src.inf package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="src.inf.html#submodules">Submodules</a></li>
 <li class="toctree-l2"><a class="reference internal" href="src.inf.html#module-src.inf.alerts">src.inf.alerts module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="src.inf.html#src-inf-db-handler-module">src.inf.db_handler module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="src.inf.html#src-inf-disk-ops-module">src.inf.disk_ops module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="src.inf.html#src-inf-initialize-module">src.inf.initialize module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.inf.html#module-src.inf.db_handler">src.inf.db_handler module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.inf.html#module-src.inf.disk_ops">src.inf.disk_ops module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.inf.html#module-src.inf.initialize">src.inf.initialize module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="src.inf.html#module-src.inf.insights">src.inf.insights module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="src.inf.html#module-src.inf.runtime_data">src.inf.runtime_data module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="src.inf.html#module-src.inf.settings">src.inf.settings module</a></li>
@@ -191,27 +217,31 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="src.ipu.html">src.ipu package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="src.ipu.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="src.ipu.html#module-src.ipu.vision">src.ipu.vision module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.ipu.html#module-src.ipu.fcl_injector">src.ipu.fcl_injector module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.ipu.html#module-src.ipu.ipu_controller">src.ipu.ipu_controller module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="src.ipu.html#module-src.ipu">Module contents</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="src.life.html">src.life package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="src.life.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="src.life.html#module-src.life.adventures">src.life.adventures module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="src.life.html#module-src.life">Module contents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="src.mem.html">src.mem package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="src.mem.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.mem.html#module-src.mem.memory">src.mem.memory module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.mem.html#module-src.mem">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="src.npu.html">src.npu package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="src.npu.html#submodules">Submodules</a></li>
 <li class="toctree-l2"><a class="reference internal" href="src.npu.html#module-src.npu.burst_engine">src.npu.burst_engine module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="src.npu.html#module-src.npu.consciousness">src.npu.consciousness module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="src.npu.html#module-src.npu.neuron">src.npu.neuron module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.npu.html#module-src.npu.comprehension">src.npu.comprehension module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.npu.html#module-src.npu.misc">src.npu.misc module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.npu.html#module-src.npu.physiology">src.npu.physiology module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="src.npu.html#module-src.npu">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="src.opu.html">src.opu package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="src.opu.html#submodules">Submodules</a></li>
 <li class="toctree-l2"><a class="reference internal" href="src.opu.html#module-src.opu.utf8">src.opu.utf8 module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src.opu.html#module-src.opu.opu_controller">src.opu.opu_controller module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="src.opu.html#module-src.opu">Module contents</a></li>
 </ul>
 </li>
@@ -238,78 +268,14 @@ genome and helping it evolve over generations.</p>
 <p>This main module is responsible for driving the lifecycle of a single generation of an
 artificial brain at a time. To scale up the system to many parallel generations, FEAGI
 is intended to run within a container and scale up to many container instances.</p>
-<dl class="py function">
-<dt id="src.main.splash_screen">
-<code class="sig-prename descclassname">src.main.</code><code class="sig-name descname">splash_screen</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#src.main.splash_screen" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
+<p>todo: redo brain development with no db dependency
+todo: build Mongodb / local handling for brain development
+todo: test dev
+todo: perf optimization: …
+todo: create a process for burst_engine</p>
 </div>
-<div class="section" id="module-src.skeleton">
-<span id="src-skeleton-module"></span><h2>src.skeleton module<a class="headerlink" href="#module-src.skeleton" title="Permalink to this headline">¶</a></h2>
-<p>This is a skeleton file that can serve as a starting point for a Python
-console script. To run this script uncomment the following lines in the
-[options.entry_points] section in setup.cfg:</p>
-<blockquote>
-<div><dl class="simple">
-<dt>console_scripts =</dt><dd><p>fibonacci = feagi.skeleton:run</p>
-</dd>
-</dl>
-</div></blockquote>
-<p>Then run <cite>python setup.py install</cite> which will install the command <cite>fibonacci</cite>
-inside your current environment.
-Besides console scripts, the header (i.e. until _logger…) of this file can
-also be used as template for Python modules.</p>
-<p>Note: This skeleton file can be safely removed if not needed!</p>
-<dl class="py function">
-<dt id="src.skeleton.fib">
-<code class="sig-prename descclassname">src.skeleton.</code><code class="sig-name descname">fib</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">n</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.skeleton.fib" title="Permalink to this definition">¶</a></dt>
-<dd><p>Fibonacci example function</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>n (int): integer</p>
-</dd>
-<dt>Returns:</dt><dd><p>int: n-th Fibonacci number</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt id="src.skeleton.main">
-<code class="sig-prename descclassname">src.skeleton.</code><code class="sig-name descname">main</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">args</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.skeleton.main" title="Permalink to this definition">¶</a></dt>
-<dd><p>Main entry point allowing external calls</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>args ([str]): command line parameter list</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt id="src.skeleton.parse_args">
-<code class="sig-prename descclassname">src.skeleton.</code><code class="sig-name descname">parse_args</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">args</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.skeleton.parse_args" title="Permalink to this definition">¶</a></dt>
-<dd><p>Parse command line parameters</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>args ([str]): command line parameters as list of strings</p>
-</dd>
-<dt>Returns:</dt><dd><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">argparse.Namespace</span></code>: command line parameters namespace</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt id="src.skeleton.run">
-<code class="sig-prename descclassname">src.skeleton.</code><code class="sig-name descname">run</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#src.skeleton.run" title="Permalink to this definition">¶</a></dt>
-<dd><p>Entry point for console_scripts</p>
-</dd></dl>
-
-<dl class="py function">
-<dt id="src.skeleton.setup_logging">
-<code class="sig-prename descclassname">src.skeleton.</code><code class="sig-name descname">setup_logging</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">loglevel</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.skeleton.setup_logging" title="Permalink to this definition">¶</a></dt>
-<dd><p>Setup basic logging</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>loglevel (int): minimum loglevel for emitting messages</p>
-</dd>
-</dl>
-</dd></dl>
-
+<div class="section" id="src-skeleton-module">
+<h2>src.skeleton module<a class="headerlink" href="#src-skeleton-module" title="Permalink to this headline">¶</a></h2>
 </div>
 <div class="section" id="module-src">
 <span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-src" title="Permalink to this headline">¶</a></h2>
@@ -321,20 +287,29 @@ also be used as template for Python modules.</p>
            
           </div>
           <footer>
-  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+        <a href="src.edu.html" class="btn btn-neutral float-right" title="src.edu package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="setup.html" class="btn btn-neutral float-left" title="setup module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
 
   <hr/>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2020, Mohammad Nadji-Tehrani
+        &#169; Copyright 2020, Mohammad Nadji-Tehrani.
 
     </p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
-
         </div>
       </div>
 
@@ -342,7 +317,6 @@ also be used as template for Python modules.</p>
 
   </div>
   
-
 
   <script type="text/javascript">
       jQuery(function () {

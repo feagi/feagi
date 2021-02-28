@@ -12,6 +12,14 @@ src.opu.utf8 module
    :undoc-members:
    :show-inheritance:
 
+src.opu.opu\_controller module
+------------------------------
+
+.. automodule:: src.opu.opu_controller
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 
 Module contents
 ---------------

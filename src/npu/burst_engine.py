@@ -346,7 +346,7 @@ def burst_manager():
         if runtime_data.burst_count % 10 == 0:
             consciousness_manager()
 
-        burst_manager()
+        # burst()
 
     print('runtime_data.genome_id = ', runtime_data.genome_id)
 
