@@ -3327,6 +3327,115 @@
                   ]
               }
           }
-      }
+      },
+      "lidar" : {
+        "growth_path" : "",
+        "group_id" : "IPU",
+        "sub_group_id" : "IPU_lidar",
+        "plot_index" : 3,
+        "orientation_selectivity_pattern" : "",
+        "location" : "",
+        "kernel_size" : 7,
+        "cortical_neuron_count" : 500,
+        "location_generation_type" : "random",
+        "synapse_attractivity" : 80,
+        "init_synapse_needed" : false,
+        "postsynaptic_current" : 100,
+        "plasticity_constant" : 0.5,
+        "postsynaptic_current_max" : 300,
+        "neighbor_locator_rule_id" : "rule_1",
+        "neighbor_locator_rule_param_id" : "param_2",
+        "cortical_mapping_dst" : {
+            "lidar_memory" : {
+                "neighbor_locator_rule_id" : "rule_6",
+                "neighbor_locator_rule_param_id" : "param_2"
+            }
+        },
+        "neuron_params" : {
+            "activation_function_id" : "",
+            "orientation_selectivity_id" : "",
+            "depolarization_threshold" : 1.574682375,
+            "firing_threshold" : 0.882,
+            "firing_pattern_id" : "",
+            "refractory_period" : 0,
+            "axon_avg_length" : "",
+            "leak_coefficient" : 5,
+            "axon_avg_connections" : "",
+            "axon_orientation function" : "",
+            "consecutive_fire_cnt_max" : 0,
+            "snooze_length" : 1.02467266,
+            "block_boundaries" : [
+                10,
+                10,
+                10
+            ],
+            "geometric_boundaries" : {
+                "x" : [
+                    0,
+                    100
+                ],
+                "y" : [
+                    0,
+                    100
+                ],
+                "z" : [
+                    0,
+                    100
+                ]
+            }
+        }
+    },
+    "lidar_memory" : {
+        "growth_path" : "",
+        "group_id" : "Memory",
+        "sub_group_id" : "lidar",
+        "plot_index" : 1,
+        "orientation_selectivity_pattern" : "",
+        "location" : "",
+        "kernel_size" : 7,
+        "cortical_neuron_count" : 1001,
+        "location_generation_type" : "random",
+        "synapse_attractivity" : 10,
+        "init_synapse_needed" : false,
+        "postsynaptic_current" : 0.9,
+        "plasticity_constant" : 1,
+        "postsynaptic_current_max" : 60,
+        "neighbor_locator_rule_id" : "rule_0",
+        "neighbor_locator_rule_param_id" : "param_1",
+        "cortical_mapping_dst" : {},
+        "neuron_params" : {
+            "activation_function_id" : "",
+            "orientation_selectivity_id" : "",
+            "depolarization_threshold" : 5,
+            "firing_threshold" : 1.5,
+            "firing_pattern_id" : "",
+            "refractory_period" : 0,
+            "axon_avg_length" : "",
+            "leak_coefficient" : 5,
+            "axon_avg_connections" : "",
+            "axon_orientation function" : "",
+            "consecutive_fire_cnt_max" : 2,
+            "snooze_length" : 8,
+            "block_boundaries" : [
+                50,
+                50,
+                1
+            ],
+            "geometric_boundaries" : {
+                "x" : [
+                    0,
+                    500
+                ],
+                "y" : [
+                    0,
+                    500
+                ],
+                "z" : [
+                    0,
+                    50
+                ]
+            }
+        }
+    }
   }
 }
