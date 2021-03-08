@@ -46,11 +46,13 @@ def convert_locations_to_neuron_ids(detection_locations, cortical_area):
             runtime_data.genome["location_tolerance"]
         )    
         if found_neurons:
-            neuron_ids.append(found_neurons)
+            for neuron in found_neurons:
+                neuron_ids.append(neuron)
     
     return neuron_ids
 
 
+# should this be done via fcl_injector.py?
 def add_to_fcl_queue(neuron_ids):
     """ Add neuron IDs to firing queue so burst engine will fire them.
 
