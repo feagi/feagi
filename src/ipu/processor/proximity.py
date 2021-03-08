@@ -12,8 +12,9 @@ def convert_detections_to_coords(proximity_data, proximity_type):
     :return:
     """
     detection_locations = []
-    # could become expensive (O(n^2)) if high-res LIDAR (?)
+    # can become expensive (O(n^2)) if high-res LIDAR (?)
     # convert to list comprehension for modest gains? <-- could be ugly
+    # cythonize this?
     for sweep in proximity_data:
         for point in proximity_data[sweep][proximity_type]:
             h_angle = point[0]
@@ -48,3 +49,13 @@ def convert_locations_to_neuron_ids(detection_locations, cortical_area):
             neuron_ids.append(found_neurons)
     
     return neuron_ids
+
+
+def add_to_fcl_queue(neuron_ids):
+    """ Add neuron IDs to firing queue so burst engine will fire them.
+
+    :param neuron_ids:
+    :return:
+    """
+    for neuron in neuron_ids:
+        runtime_data.fcl_queue.put(neuron)
