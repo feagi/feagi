@@ -3336,10 +3336,10 @@ genome = {
               }
           }
       },
-      "lidar" : {
+      "proximity" : {
         "growth_path" : "",
         "group_id" : "IPU",
-        "sub_group_id" : "IPU_lidar",
+        "sub_group_id" : "IPU_proximity",
         "plot_index" : 3,
         "orientation_selectivity_pattern" : "",
         "location" : "",
@@ -3393,10 +3393,10 @@ genome = {
             }
         }
     },
-    "lidar_memory" : {
+    "proximity_memory" : {
         "growth_path" : "",
         "group_id" : "Memory",
-        "sub_group_id" : "lidar",
+        "sub_group_id" : "proximity",
         "plot_index" : 1,
         "orientation_selectivity_pattern" : "",
         "location" : "",
