@@ -3,7 +3,7 @@ from evo.neuron import neuron_finder
 from inf import runtime_data
 
 
-def convert_detections_to_coords(proximity_data, proximity_type):
+def detections_to_coords(proximity_data, proximity_type):
     """ Converts coordinates from various types of proximity detections 
     (LIDAR, SONAR, etc.) to modified Cartesian plane.
 
@@ -30,7 +30,7 @@ def convert_detections_to_coords(proximity_data, proximity_type):
     return detection_locations
 
 
-def convert_locations_to_neuron_ids(detection_locations, cortical_area):
+def locations_to_neuron_ids(detection_locations, cortical_area):
     """ Converts proximity detection locations (x, y, z) to neuron IDs in
     the cortical area.
 
@@ -50,14 +50,3 @@ def convert_locations_to_neuron_ids(detection_locations, cortical_area):
                 neuron_ids.append(neuron)
     
     return neuron_ids
-
-
-# should this be done via fcl_injector.py?
-def add_to_fcl_queue(neuron_ids):
-    """ Add neuron IDs to firing queue so burst engine will fire them.
-
-    :param neuron_ids:
-    :return:
-    """
-    for neuron in neuron_ids:
-        runtime_data.fcl_queue.put(neuron)
