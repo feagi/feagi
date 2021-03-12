@@ -4,8 +4,8 @@ from inf import runtime_data
 
 
 def detections_to_coords(proximity_data, proximity_type):
-    """ Converts coordinates from various types of proximity detections 
-    (LIDAR, SONAR, etc.) to modified Cartesian plane.
+    """ Converts coordinates from LIDAR detections to modified 
+    Cartesian plane.
 
     :param proximity_data:
     :param proximity_type:
@@ -31,8 +31,8 @@ def detections_to_coords(proximity_data, proximity_type):
 
 
 def locations_to_neuron_ids(detection_locations, cortical_area):
-    """ Converts proximity detection locations (x, y, z) to neuron IDs in
-    the cortical area.
+    """ Converts LIDAR detection locations (x, y, z) to neuron IDs in
+    the corresponding cortical area.
 
     :param detection_locations:
     :param cortical_area:
