@@ -3354,7 +3354,7 @@ genome = {
         "neighbor_locator_rule_id" : "rule_1",
         "neighbor_locator_rule_param_id" : "param_2",
         "cortical_mapping_dst" : {
-            "lidar_memory" : {
+            "proximity_memory" : {
                 "neighbor_locator_rule_id" : "rule_6",
                 "neighbor_locator_rule_param_id" : "param_2"
             }
