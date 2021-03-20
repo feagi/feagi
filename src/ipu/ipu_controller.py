@@ -80,12 +80,10 @@ def proximity_load_queue(source_queue, target_queue):
     """ Gets data from source queue, modifies it and places
     it in the target queue.
     """
-
-    proximity_data = data_queue.get()
-    coordinates = detections_to_coords(proximity_data, 'LIDAR')
-     # ^^ subject to change based on the data structure received from source
+    proximity_data = source_queue.get()
+    coordinates = detections_to_coords(proximity_data)
     
-    prox_cortical_area = cortical_sub_group_members('proximity')
+    prox_cortical_area = cortical_sub_group_members('IPU_proximity')[0]
     neuron_list = locations_to_neuron_ids(coordinates, prox_cortical_area)
 
     target_queue.put(neuron_list)
@@ -95,16 +93,31 @@ def proximity_load_queue(source_queue, target_queue):
 def ipu_controller(watchdoq_queue, fcl_queue, proximity_queue):
     print("<> <> <> <> <> <> <> <> <>        <> <> <> <> <> <>      <> <> <> <> <> <> <>")
     while not runtime_data.exit_condition:
-        if runtime_data.parameters['IPU']['mnist']:
-            try:
-                mnist_load_queue(fcl_queue)
-            except Exception as e:
-                traceback.print_exc()       
+        # if runtime_data.parameters['IPU']['mnist']:
+        #     try:
+        #         mnist_load_queue(fcl_queue)
+        #     except Exception as e:
+        #         traceback.print_exc()       
         # use only one IPU per run?
-        elif runtime_data.parameters['IPU']['proximity']:
-            while not proximity_queue.empty():
+        if runtime_data.parameters['IPU']['proximity']:
+            # test_data = {
+            #     '00001': {
+            #         'time_stamp': 'standard_time_format',
+            #         'LIDAR': [
+            #             (0.800449, 1.677809, 1.51879),
+            #             (0.776234, 1.67566, 1.5092),
+            #             (0.659975, 1.598715, 1.127146),
+            #             (0.235554, 1.011994, 1.974555),
+            #             (0.129994, 1.090115, 1.879664)
+            #         ]
+            #     }
+            # }
+
+            # tdq = Queue()
+            # tdq.put(test_data)
+            while not tdq.empty():
                 try:
                     proximity_load_queue(proximity_queue, fcl_queue)
                 except Exception as e:
-                    print(str(e))
+                    traceback.print_exc()
         time.sleep(2)

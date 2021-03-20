@@ -3339,7 +3339,7 @@ genome = {
       "proximity" : {
         "growth_path" : "",
         "group_id" : "IPU",
-        "sub_group_id" : "proximity",
+        "sub_group_id" : "IPU_proximity",
         "plot_index" : 3,
         "orientation_selectivity_pattern" : "",
         "location" : "",
