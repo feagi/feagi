@@ -1,8 +1,17 @@
+"""
+This module reads LIDAR data from a message queue and makes them available to the proximity processor.
+"""
+
 import zmq
+
+from ipu.processor import proximity
+from inf import runtime_data
+
+socket_address = runtime_data.parameters["Sockets"]["lidar_socket"]
 
 context = zmq.Context()
 socket = context.socket(zmq.SUB)
-socket.connect('tcp://127.0.0.1:2000')
+socket.connect(socket_address)
 socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
 
 listener = 0
@@ -27,3 +36,5 @@ while True:
         print("scan_time:", message.scan_time)
         print("time_increment:", message.time_increment)
         print("-----")
+
+    # todo: feed the lidar range data to the proximity processor functions
