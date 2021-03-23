@@ -33,17 +33,17 @@ def initialize():
 
     # IPU feeder thread processes input stimuli and pass it along to the corresponding IPU module.
     if runtime_data.parameters['IPU']['mnist']:
-        ipu_controller_thread = Thread(
-            target=ipu_controller, 
+        mnist_controller_thread = Thread(
+            target=mnist_controller, 
             args=(
                 runtime_data.watchdog_queue, 
                 runtime_data.fcl_queue, 
             ), 
-            name="IPU_Controller", 
+            name="MNIST_Controller", 
             daemon=True
         )
         ipu_controller_thread.start()
-        print(">> >> IPU Controller thread has started.")
+        print(">> >> MNIST Controller thread has started.")
 
     if runtime_data.parameters['IPU']['proximity']:
         proximity_controller_thread = Thread(
@@ -91,7 +91,7 @@ def proximity_load_queue(source_queue, target_queue):
 
 
 # todo: most likely this function needs to run on its own thread and not block other operations...maybe!
-def ipu_controller(watchdoq_queue, fcl_queue):
+def mnist_controller(watchdoq_queue, fcl_queue):
     print("<> <> <> <> <> <> <> <> <>        <> <> <> <> <> <>      <> <> <> <> <> <> <>")
     while not runtime_data.exit_condition:
         try:
