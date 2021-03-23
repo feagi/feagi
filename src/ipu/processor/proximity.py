@@ -1,5 +1,5 @@
-from math import sin, cos
-from evo.neuron import neuron_finder
+from math import sin, cos, sqrt, inf
+from evo.neuron import block_reference_builder
 from inf import runtime_data
 
 
@@ -26,7 +26,7 @@ def detections_to_coords(proximity_data, proximity_type='LIDAR'):
     return detection_locations
 
 
-def locations_to_neuron_ids(detection_locations, cortical_area):
+def coords_to_neuron_ids(detection_locations, cortical_area):
     """ Converts LIDAR detection locations (x, y, z) to neuron IDs in
     the corresponding cortical area.
 
@@ -36,26 +36,48 @@ def locations_to_neuron_ids(detection_locations, cortical_area):
     """
     neuron_ids = []
     for i in range(len(detection_locations)):
-        # found_neurons = neuron_finder(
-        #     cortical_area, 
-        #     detection_locations[i], 
-        #     runtime_data.genome["location_tolerance"]
-        # )    
-        # if found_neurons:
-        #     for neuron in found_neurons:
-        #         neuron_ids.append(neuron)
-        block_ref = block_ref_builder(detection_locations[i])
+        block_ref = coords_to_block_ref(detection_locations[i], cortical_area)
         if block_ref in runtime_data.block_dic[cortical_area]:
             block_neurons = runtime_data.block_dic[cortical_area][block_ref]
             for neuron in block_neurons:
                 if neuron is not None and neuron not in neuron_ids:
                     neuron_ids.append(neuron)
-
     return neuron_ids
 
 
-def block_ref_builder(locations):
-    block_ref = ''
-    for loc in locations:
-        block_ref += str(round(loc))
-    return '-'.join(block_ref)
+def coords_to_block_ref(location, cortical_area):
+    """ Finds neuron closest to provided location and returns neuron's
+    block reference.
+
+    :param location:
+    :param cortical_area:
+    :return:
+    """
+    # could instead sort neurons by soma location
+    # then perform binary search
+    brain = runtime_data.brain
+    closest_neuron = None
+    min_distance = inf
+    for neuron in brain[cortical_area]:
+        soma_loc = brain[cortical_area][neuron]['soma_location'][0]
+        soma_diff = distance_3d(soma_loc, location)
+        if soma_diff < min_distance:
+            closest_neuron = neuron
+            min_distance = soma_diff
+    try:
+        closest_block_ref = block_reference_builder(
+            brain[cortical_area][closest_neuron]['soma_location'][1]
+        )
+        return closest_block_ref
+    except KeyError:
+        return None
+
+
+def distance_3d(p1, p2):
+    """ Calculates distance between two points ([x, y, z]) in 3D space.
+
+    :param p1:
+    :param p2:
+    :return:
+    """
+    return sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2 + (p2[2]-p1[2])**2)
