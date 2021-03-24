@@ -6,6 +6,13 @@ from inf import runtime_data
 
 # TODO: make detection threshold part of config
 def detections_to_coords(proximity_data, threshold=5):
+    """ Converts turtlebot3 (burger) LIDAR data to
+    coordinates in the proximity cortical area.
+
+    :param proximity_data:
+    :param threshold:
+    :return:
+    """
     brain_xyz_max = cortical_xyz_range()
     proximity_z_max = brain_xyz_max['proximity'][-1]
 
@@ -13,36 +20,14 @@ def detections_to_coords(proximity_data, threshold=5):
     for sweep in proximity_data:
         for i, distance in enumerate(sweep.ranges):
             if distance not in range(proximity_z_max + 1):
-                distance = map_value(distance)
+                # set arbitrary/finite max for LIDAR detection?
+                distance = map_value(distance, 0, proximity_z_max, 0, 100)
             if distance < threshold:
                 x = i
                 y = 90
                 z = distance
                 detection_locations.append((x, y, z))
     return detection_locations
-
-
-# def detections_to_coords(proximity_data, proximity_type='LIDAR'):
-#     """ Converts coordinates from LIDAR detections to modified 
-#     Cartesian plane.
-
-#     :param proximity_data:
-#     :return:
-#     """
-#     detection_locations = []
-#     for sweep in proximity_data:
-#         for point in proximity_data[sweep][proximity_type]:
-#             h_angle = point[0]
-#             v_angle = point[1]
-#             distance = point[2]
-
-#             x = distance * sin(v_angle) * cos(h_angle)
-#             y = distance * sin(v_angle) * sin(h_angle)
-#             z = distance * cos(v_angle)
-
-#             detection_locations.append((x, y, z))
-    
-#     return detection_locations
 
 
 def coords_to_neuron_ids(detection_locations, cortical_area):
@@ -92,8 +77,18 @@ def coords_to_block_ref(location, cortical_area):
         return None
 
 
-def map_value():
-    pass
+def map_value(val, min1, max1, min2, max2):
+    """ Performs linear transformation to map value from
+    range [min1, max1] to a value in range [min2, max2].
+
+    :param val:
+    :param min1:
+    :param max1:
+    :param min2:
+    :param max2:
+    :return:
+    """
+    return (val-min1) * ((max2-min2) / (max1-min1)) + min2
 
 
 def distance_3d(p1, p2):
@@ -104,3 +99,26 @@ def distance_3d(p1, p2):
     :return:
     """
     return sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2 + (p2[2]-p1[2])**2)
+
+
+# def detections_to_coords(proximity_data, proximity_type='LIDAR'):
+#     """ Converts coordinates from LIDAR detections to modified 
+#     Cartesian plane.
+
+#     :param proximity_data:
+#     :return:
+#     """
+#     detection_locations = []
+#     for sweep in proximity_data:
+#         for point in proximity_data[sweep][proximity_type]:
+#             h_angle = point[0]
+#             v_angle = point[1]
+#             distance = point[2]
+
+#             x = distance * sin(v_angle) * cos(h_angle)
+#             y = distance * sin(v_angle) * sin(h_angle)
+#             z = distance * cos(v_angle)
+
+#             detection_locations.append((x, y, z))
+    
+#     return detection_locations
