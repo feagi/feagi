@@ -3344,7 +3344,7 @@ genome = {
         "orientation_selectivity_pattern" : "",
         "location" : "",
         "kernel_size" : 7,
-        "cortical_neuron_count" : 500,
+        "cortical_neuron_count" : 50000,
         "location_generation_type" : "random",
         "synapse_attractivity" : 80,
         "init_synapse_needed" : False,
@@ -3373,22 +3373,22 @@ genome = {
             "consecutive_fire_cnt_max" : 0,
             "snooze_length" : 1.02467266,
             "block_boundaries" : [
-                10,
-                10,
-                10
+                360,
+                180,
+                20
             ],
             "geometric_boundaries" : {
                 "x" : [
                     0,
-                    100
+                    3600
                 ],
                 "y" : [
                     0,
-                    100
+                    1800
                 ],
                 "z" : [
                     0,
-                    100
+                    10
                 ]
             }
         }
