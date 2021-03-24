@@ -19,6 +19,8 @@ listener = 0
 message = socket.recv_pyobj()
 method_list = [method for method in dir(message) if method.startswith('_') is False]
 
+runtime_data.proximity_queue = Queue()
+
 while True:
     message = socket.recv_pyobj()
 
@@ -36,5 +38,7 @@ while True:
         print("scan_time:", message.scan_time)
         print("time_increment:", message.time_increment)
         print("-----")
+
+        runtime_data.proximity_queue.put(message)
 
     # todo: feed the lidar range data to the proximity processor functions
