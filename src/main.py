@@ -19,7 +19,6 @@ todo: create a process for burst_engine
 if __name__ == '__main__':
     import logging.config
     import json
-    from art import text2art
     from inf import initialize
     from evo import neuroembryogenesis, death
     from npu import burst_engine
@@ -35,8 +34,14 @@ if __name__ == '__main__':
         logging.config.dictConfig(LOGGING_CONFIG)
 
     def splash_screen():
-        # FEAGI Word Art
-        print(text2art("FEAGI", font='block'))
+        print("""\n
+              _________           _________               __                ______               _____    
+             |_   ___  |         |_   ___  |             /  \             .' ___  |             |_   _|   
+               | |_  \_|           | |_  \_|            / /\ \           / .'   \_|               | |     
+               |  _|               |  _|  _            / ____ \          | |    ____              | |     
+              _| |_               _| |___/ |         _/ /    \ \_        \ `.___]  _|            _| |_    
+             |_____|             |_________|        |____|  |____|        `._____.'             |_____|   
+        """)
 
     splash_screen()
 
