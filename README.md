@@ -20,6 +20,9 @@ Here are some key highlights of the framework differentiating it from others:
 * Designed with a highly modular architecture making it easy to adapt to new hardware environments
 * Built-in tooling for powerful data visualization and functional insights 
 
+# Deployment
+For deployment instructions, please refer to the ***![Deployment Guide](./DEPLOY.md)***.
+
 # Framework Overview
 There are a few key aspects to FEAGI: the evolutionary aspect, the maturity aspect, and the brain-inspired anatomical 
 aspects. The process begins with what we call a "*seed genome*." The seed genome is a densely coded data structure that 
