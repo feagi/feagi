@@ -1,29 +1,48 @@
 from math import sin, cos, sqrt, inf
 from evo.neuron import block_reference_builder
+from evo.stats import cortical_xyz_range
 from inf import runtime_data
 
 
-def detections_to_coords(proximity_data, proximity_type='LIDAR'):
-    """ Converts coordinates from LIDAR detections to modified 
-    Cartesian plane.
+# TODO: make detection threshold part of config
+def detections_to_coords(proximity_data, threshold=5):
+    brain_xyz_max = cortical_xyz_range()
+    proximity_z_max = brain_xyz_max['proximity'][-1]
 
-    :param proximity_data:
-    :return:
-    """
     detection_locations = []
     for sweep in proximity_data:
-        for point in proximity_data[sweep][proximity_type]:
-            h_angle = point[0]
-            v_angle = point[1]
-            distance = point[2]
-
-            x = distance * sin(v_angle) * cos(h_angle)
-            y = distance * sin(v_angle) * sin(h_angle)
-            z = distance * cos(v_angle)
-
-            detection_locations.append((x, y, z))
-    
+        for i, distance in enumerate(sweep.ranges):
+            if distance not in range(proximity_z_max + 1):
+                distance = map_value(distance)
+            if distance < threshold:
+                x = i
+                y = 90
+                z = distance
+                detection_locations.append((x, y, z))
     return detection_locations
+
+
+# def detections_to_coords(proximity_data, proximity_type='LIDAR'):
+#     """ Converts coordinates from LIDAR detections to modified 
+#     Cartesian plane.
+
+#     :param proximity_data:
+#     :return:
+#     """
+#     detection_locations = []
+#     for sweep in proximity_data:
+#         for point in proximity_data[sweep][proximity_type]:
+#             h_angle = point[0]
+#             v_angle = point[1]
+#             distance = point[2]
+
+#             x = distance * sin(v_angle) * cos(h_angle)
+#             y = distance * sin(v_angle) * sin(h_angle)
+#             z = distance * cos(v_angle)
+
+#             detection_locations.append((x, y, z))
+    
+#     return detection_locations
 
 
 def coords_to_neuron_ids(detection_locations, cortical_area):
@@ -71,6 +90,10 @@ def coords_to_block_ref(location, cortical_area):
         return closest_block_ref
     except KeyError:
         return None
+
+
+def map_value():
+    pass
 
 
 def distance_3d(p1, p2):
