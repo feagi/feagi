@@ -1,5 +1,5 @@
 Cython==0.29.21
 numpy==1.19.5
 watchdog==1.0.2
-# pymongo==3.11.2
-# influxdb==5.3.1
+pymongo==3.11.2
+influxdb==5.3.1
