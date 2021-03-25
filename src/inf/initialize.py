@@ -71,11 +71,9 @@ def init_working_directory():
 
 
 def init_genome():
-    print("\nInitializing genome...")
-    print("************")
+    print("\nInitializing genome...\n")
     # The following stages the genome in the proper connectome path and loads it into the memory
     disk_ops.genome_handler(runtime_data.connectome_path)
-    print("************\n")
 
 
 def init_cortical_list():
@@ -103,10 +101,12 @@ def init_genome_db():
 def init_data_sources():
     """To validate and initialize all data sources and databases"""
     print("\nInitializing databases...")
-    print("************")
-    init_timeseries_db()
-    init_genome_db()
-    print("************\n")
+    if runtime_data.parameters['Data_Management']['genome_db']:
+        init_genome_db()
+
+    if runtime_data.parameters['Data_Management']['timeseries_db']:
+        init_timeseries_db()
+
     log.info("All data sources have been initialized.")
     return
 
