@@ -12,9 +12,6 @@ from inf import db_handler, settings, runtime_data
 from math import floor
 
 
-print(settings.Bcolors.YELLOW + "Module loaded: genethesizer" + settings.Bcolors.ENDC)
-
-
 def selection():
 
     return
