@@ -30,7 +30,6 @@ from inf.db_handler import InfluxManagement
 
 
 log = logging.getLogger(__name__)
-print(settings.Bcolors.YELLOW + "Module loaded: brain_gen" + settings.Bcolors.ENDC)
 
 # influxdb = InfluxManagement()
 
@@ -372,7 +371,7 @@ def develop():
 
     print("Neuronal mapping across all Cortical areas has been completed!!\n")
     print("Total brain neuron count:\t\t", connectome_neuron_count)
-    print("Total brain neuron count:\t\t", connectome_synapse_count)
+    print("Total brain synapse count:\t\t", connectome_synapse_count)
     print("Total brain est. size on disk:\t", connectome_size_on_disk, 'MB')
 
     brain_structural_fitness = connectome_structural_fitness()
