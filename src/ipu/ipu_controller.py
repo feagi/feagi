@@ -12,6 +12,7 @@ from queue import Queue
 from threading import Thread
 from inf import runtime_data
 from ipu.source import folder_monitor
+from ipu.source import lidar
 from ipu.source.mnist import MNIST, print_mnist_img_raw
 from ipu.processor.image import Image
 from ipu.processor.proximity import detections_to_coords, coords_to_neuron_ids
@@ -48,10 +49,6 @@ def initialize():
     if runtime_data.parameters['IPU']['proximity']:
         proximity_controller_thread = Thread(
             target=proximity_controller,
-            args=(
-                runtime_data.proximity_queue,
-                runtime_data.fcl_queue,
-            ),
             name="Proximity_Controller",
             daemon=True
         )
@@ -77,19 +74,6 @@ def mnist_load_queue(target_queue):
     runtime_data.parameters["Switches"]["ready_to_exit_burst"] = True
 
 
-def proximity_load_queue(source_queue, target_queue):
-    """ Gets data from source queue, modifies it and places
-    it in the target queue.
-    """
-    proximity_data = source_queue.get()
-    coordinates = detections_to_coords(proximity_data)
-    
-    prox_cortical_area = cortical_sub_group_members('IPU_proximity')[0]
-    neuron_list = coords_to_neuron_ids(coordinates, prox_cortical_area)
-
-    target_queue.put(neuron_list)
-
-
 # todo: most likely this function needs to run on its own thread and not block other operations...maybe!
 def mnist_controller(watchdoq_queue, fcl_queue):
     print("<> <> <> <> <> <> <> <> <>        <> <> <> <> <> <>      <> <> <> <> <> <> <>")
@@ -101,12 +85,9 @@ def mnist_controller(watchdoq_queue, fcl_queue):
     time.sleep(2)
 
 
-def proximity_controller(proximity_queue, fcl_queue):
-    """ 
-
-    """
+def proximity_controller():
     while not runtime_data.exit_condition:
         try:
-            proximity_load_queue(proximity_queue, fcl_queue)
+            lidar()
         except Exception as e:
             traceback.print_exc()

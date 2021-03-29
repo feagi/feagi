@@ -32,7 +32,6 @@ paths = {}
 watchdog_queue = ''
 exit_condition = False
 fcl_queue = ''
-proximity_queue = ''
 last_ipu_activity = ''
 last_alertness_trigger = ''
 influxdb = ''
