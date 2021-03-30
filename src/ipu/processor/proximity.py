@@ -13,26 +13,24 @@ def detections_to_coords(proximity_data, threshold=5):
     :param threshold:
     :return:
     """
-    # from turtlebot3 documentation/specs
-    LASER_MIN = 0.12
-    LASER_MAX = 3.5
+    # turtlebot3 specs/documentation
+    DETECT_MIN = 0.12
+    DETECT_MAX = 3.5
 
     # need a way to find cortical area z-block range
     # brain_xyz_max = cortical_xyz_range()
     # proximity_z_max = brain_xyz_max['proximity'][-1]
 
     detection_locations = []
-    for sweep in proximity_data:
-        for i, distance in enumerate(sweep.ranges):
-            # if distance not in range(proximity_z_max + 1):
-                # set arbitrary/finite max for LIDAR detection?
-                # distance = map_value(distance, 0, proximity_z_max, 0, 100)
-            distance_map = map_value(distance, LASER_MIN, LASER_MAX, 0, 20)
-            if distance_map < threshold:
-                x = i
-                y = 90
-                z = distance_map
-                detection_locations.append((x, y, z))
+    for i, distance in enumerate(proximity_data):
+        # if distance not in range(proximity_z_max + 1):
+            # distance = map_value(distance, 0, proximity_z_max, 0, 100)
+        distance_map = map_value(distance, DETECT_MIN, DETECT_MAX, 0, 20)
+        if distance_map < threshold:
+            x = i
+            y = 90
+            z = distance_map
+            detection_locations.append((x, y, z))
     return detection_locations
 
 
