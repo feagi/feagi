@@ -26,8 +26,8 @@ def initialize():
     areas via FCL injection.
     """
     print("\n\n\n\n\n**** *** **  Initializing the IPU Controller  **** * * **** ** ** * * *** ** *** *\n\n\n\n ")
-    # todo: figure it its best to enable devices using the following if statements or using class instantiation within
-    #           ipu_controller function
+    # todo: figure it its best to enable devices using the following if statements or using class instantiation within...
+    # ...ipu_controller function
     # Initialize IPU devices
     if runtime_data.parameters['IPU']['folder_monitor']:
         folder_monitor.initialize()
@@ -43,7 +43,7 @@ def initialize():
             name="MNIST_Controller", 
             daemon=True
         )
-        ipu_controller_thread.start()
+        mnist_controller_thread.start()
         print(">> >> MNIST Controller thread has started.")
 
     if runtime_data.parameters['IPU']['proximity']:
@@ -74,7 +74,6 @@ def mnist_load_queue(target_queue):
     runtime_data.parameters["Switches"]["ready_to_exit_burst"] = True
 
 
-# todo: most likely this function needs to run on its own thread and not block other operations...maybe!
 def mnist_controller(watchdoq_queue, fcl_queue):
     print("<> <> <> <> <> <> <> <> <>        <> <> <> <> <> <>      <> <> <> <> <> <> <>")
     while not runtime_data.exit_condition:
@@ -88,6 +87,6 @@ def mnist_controller(watchdoq_queue, fcl_queue):
 def proximity_controller():
     while not runtime_data.exit_condition:
         try:
-            lidar()
+            lidar.get_and_translate()
         except Exception as e:
             traceback.print_exc()
