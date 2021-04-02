@@ -43,4 +43,5 @@ def get_and_translate():
             neurons = proximity.coords_to_neuron_ids(
                 detections, cortical_area='proximity'
             )
+            # TODO: Add proximity feeder function in fcl_injector
             runtime_data.fcl_queue.put({'proximity': set(neurons)})

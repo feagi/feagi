@@ -1,46 +1,45 @@
-from math import sin, cos, sqrt, inf
+from math import sqrt, inf
 from evo.neuron import block_reference_builder
-# from evo.stats import cortical_xyz_range
 from inf import runtime_data
 
 
 # TODO: make detection threshold part of config
 def detections_to_coords(proximity_data, threshold=5):
-    """ Converts turtlebot3 (burger) LIDAR data to
-    coordinates in the proximity cortical area.
+    """ Converts turtlebot3 LIDAR data to coordinates in 
+    the proximity cortical area.
 
-    :param proximity_data:
-    :param threshold:
-    :return:
+    :param proximity_data: float array of detection distances
+    :param threshold: int threshold for detection distance
+    :return: list of tuple detection locations (x, y, z)
     """
     # turtlebot3 specs/documentation
     DETECT_MIN = 0.12
     DETECT_MAX = 3.5
 
-    # need a way to find cortical area z-block range
-    # brain_xyz_max = cortical_xyz_range()
-    # proximity_z_max = brain_xyz_max['proximity'][-1]
+    Z_MAX = runtime_data.genome['blueprint'] \
+                               ['proximity'] \
+                               ['neuron_params'] \
+                               ['block_boundaries'][-1]
 
     detection_locations = []
-    for i, distance in enumerate(proximity_data):
-        # if distance not in range(proximity_z_max + 1):
-            # distance = map_value(distance, 0, proximity_z_max, 0, 100)
-        distance_map = map_value(distance, DETECT_MIN, DETECT_MAX, 0, 20)
-        if distance_map < threshold:
-            x = i
-            y = 90
-            z = distance_map
-            detection_locations.append((x, y, z))
+    for idx, dist in enumerate(proximity_data):
+        if dist != inf:
+            dist_map = map_value(dist, DETECT_MIN, DETECT_MAX, 0, Z_MAX)
+            if dist_map <= threshold:
+                x = idx
+                y = 90
+                z = dist_map
+                detection_locations.append((x, y, int(z)))
     return detection_locations
 
 
 def coords_to_neuron_ids(detection_locations, cortical_area):
-    """ Converts LIDAR detection locations (x, y, z) to neuron IDs in
-    the corresponding cortical area.
+    """ Converts LIDAR detection locations to neuron IDs in
+    the corresponding cortical area block.
 
-    :param detection_locations:
-    :param cortical_area:
-    :return:
+    :param detection_locations: list of tuple (x, y, z) detections
+    :param cortical_area: name of cortical area (str)
+    :return: list of neuron IDs (str)
     """
     neuron_ids = []
     for i in range(len(detection_locations)):
@@ -57,16 +56,16 @@ def coords_to_block_ref(location, cortical_area):
     """ Finds neuron closest to provided location and returns neuron's
     block reference.
 
-    :param location:
-    :param cortical_area:
-    :return:
+    :param location: iterable containing x, y, z coordinate values
+    :param cortical_area: name of cortical area (str)
+    :return: block reference (str) of block closest to location
     """
     brain = runtime_data.brain
     closest_neuron = None
     min_distance = inf
     for neuron in brain[cortical_area]:
         soma_loc = brain[cortical_area][neuron]['soma_location'][0]
-        soma_diff = distance_3d(soma_loc, location)
+        soma_diff = distance_3d(soma_loc, location) 
         if soma_diff < min_distance:
             closest_neuron = neuron
             min_distance = soma_diff
@@ -81,24 +80,24 @@ def coords_to_block_ref(location, cortical_area):
 
 def map_value(val, min1, max1, min2, max2):
     """ Performs linear transformation to map value from
-    range [min1, max1] to a value in range [min2, max2].
+    range 1 [min1, max1] to a value in range 2 [min2, max2].
 
-    :param val:
-    :param min1:
-    :param max1:
-    :param min2:
-    :param max2:
-    :return:
+    :param val: value (int/float) being mapped
+    :param min1: min (int/float) of range 1
+    :param max1: max (int/float) of range 1
+    :param min2: min (int/float) of range 2
+    :param max2: max (int/float) of range 2
+    :return: value (int/float) mapped from range 1 to range 2 
     """
     return (val-min1) * ((max2-min2) / (max1-min1)) + min2
 
 
 def distance_3d(p1, p2):
-    """ Calculates distance between two points ([x, y, z]) in 3D space.
+    """ Calculates distance between two points in 3D space.
 
-    :param p1:
-    :param p2:
-    :return:
+    :param p1: iterable cointaining point1 x, y, z values
+    :param p2: iterable cointaining point2 x, y, z values
+    :return: distance between 2 points (float)
     """
     return sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2 + (p2[2]-p1[2])**2)
 
