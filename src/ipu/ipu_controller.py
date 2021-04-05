@@ -8,6 +8,7 @@ todo: convert IPU library to a plug-in based architecture
 """
 import time
 import traceback
+from datetime import datetime
 from queue import Queue
 from threading import Thread
 from inf import runtime_data
@@ -55,6 +56,8 @@ def initialize():
         proximity_controller_thread.start()
         print(">> >> Proximity Controller thread has started.")
 
+    runtime_data.last_ipu_activity = datetime.now()
+
 
 def mnist_load_queue(target_queue):
     # todo: The following is experimental and needs to be rebuilt
@@ -81,6 +84,8 @@ def mnist_controller(watchdoq_queue, fcl_queue):
             mnist_load_queue(fcl_queue)
         except Exception as e:
             traceback.print_exc()
+        finally:
+            runtime_data.last_ipu_activity = datetime.now()
     time.sleep(2)
 
 
@@ -90,3 +95,5 @@ def proximity_controller():
             lidar.get_and_translate()
         except Exception as e:
             traceback.print_exc()
+        finally:
+            runtime_data.last_ipu_activity = datetime.now()

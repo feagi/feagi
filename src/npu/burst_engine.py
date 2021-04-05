@@ -50,7 +50,8 @@ def burst_manager():
         elapsed_time = datetime.now() - runtime_data.last_alertness_trigger
         alert_condition = elapsed_time.seconds > int(runtime_data.parameters['Timers']['alert_mode_duration'])
         if alert_condition:
-            if datetime.now() - runtime_data.last_ipu_activity > runtime_data.parameters['IPU']['idle_threshold']:
+            time_delta = datetime.now() - runtime_data.last_ipu_activity
+            if time_delta.seconds > int(runtime_data.parameters['IPU']['idle_threshold']):
                 # Go to sleep by stopping IPU/OPU threads
                 # todo: instead of turning off the IPU, reduce IPU responsiveness so via an trigger brain can awake
                 print(">> >> Brain going to sleep..")
