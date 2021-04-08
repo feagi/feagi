@@ -6,7 +6,6 @@ This library is responsible for MNIST related operations from reading, plotting,
 import os
 import struct
 import numpy as np
-import matplotlib.pyplot as plt
 from inf.db_handler import MongoManagement
 from inf.disk_ops import save_processed_mnist_to_disk
 from inf import runtime_data

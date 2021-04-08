@@ -16,7 +16,6 @@ import json
 from datetime import datetime
 from inf import runtime_data, settings
 from ipu.source.mnist import MNIST
-from art import text2art
 from inf.initialize import exit_burst_process
 from evo.stats import candidate_list_counter, list_upstream_neuron_count_for_digits
 

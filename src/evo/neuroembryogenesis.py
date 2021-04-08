@@ -25,12 +25,11 @@ from inf import disk_ops
 from inf import settings
 from inf import runtime_data
 from inf.db_handler import InfluxManagement
-from igraph import *
-from vis.directed_graph import DirectGraph
+# from igraph import *
+# from igraph.directed_graph import DirectGraph
 
 
 log = logging.getLogger(__name__)
-print(settings.Bcolors.YELLOW + "Module loaded: brain_gen" + settings.Bcolors.ENDC)
 
 # influxdb = InfluxManagement()
 
@@ -372,17 +371,17 @@ def develop():
 
     print("Neuronal mapping across all Cortical areas has been completed!!\n")
     print("Total brain neuron count:\t\t", connectome_neuron_count)
-    print("Total brain neuron count:\t\t", connectome_synapse_count)
+    print("Total brain synapse count:\t\t", connectome_synapse_count)
     print("Total brain est. size on disk:\t", connectome_size_on_disk, 'MB')
 
     brain_structural_fitness = connectome_structural_fitness()
     print("Brain structural fitness was evaluated as: ", brain_structural_fitness)
 
-    # Visualize the connectome
-    if runtime_data.parameters['Visualization']['connectome_visualizer']:
-        graph_edges, graph_weights, graph_labels = build_cortical_map()
-        graph = Graph(directed=True)
-        graph_instance = DirectGraph(graph, edges=graph_edges, weights=graph_weights, labels=graph_labels)
-        graph_instance.graph_in_color()
+    # # Visualize the connectome
+    # if runtime_data.parameters['Visualization']['connectome_visualizer']:
+    #     graph_edges, graph_weights, graph_labels = build_cortical_map()
+    #     graph = Graph(directed=True)
+    #     graph_instance = DirectGraph(graph, edges=graph_edges, weights=graph_weights, labels=graph_labels)
+    #     graph_instance.graph_in_color()
 
     return brain_structural_fitness
