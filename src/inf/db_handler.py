@@ -6,8 +6,6 @@ from influxdb import InfluxDBClient
 from inf import runtime_data, settings
 import random
 
-print(settings.Bcolors.YELLOW + "Module loaded: db_handler" + settings.Bcolors.ENDC)
-
 
 class MongoManagement:
     def __init__(self):
