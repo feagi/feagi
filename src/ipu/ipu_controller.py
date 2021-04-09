@@ -8,10 +8,12 @@ todo: convert IPU library to a plug-in based architecture
 """
 import time
 import traceback
+from datetime import datetime
 from queue import Queue
 from threading import Thread
 from inf import runtime_data
 from ipu.source import folder_monitor
+from ipu.source import lidar
 from ipu.source.mnist import MNIST, print_mnist_img_raw
 from ipu.processor.image import Image
 from ipu.processor.proximity import detections_to_coords, coords_to_neuron_ids
@@ -25,8 +27,8 @@ def initialize():
     areas via FCL injection.
     """
     print("\n\n\n\n\n**** *** **  Initializing the IPU Controller  **** * * **** ** ** * * *** ** *** *\n\n\n\n ")
-    # todo: figure it its best to enable devices using the following if statements or using class instantiation within
-    #           ipu_controller function
+    # todo: figure it its best to enable devices using the following if statements or using class instantiation within...
+    # ...ipu_controller function
     # Initialize IPU devices
     if runtime_data.parameters['IPU']['folder_monitor']:
         folder_monitor.initialize()
@@ -42,21 +44,19 @@ def initialize():
             name="MNIST_Controller", 
             daemon=True
         )
-        ipu_controller_thread.start()
+        mnist_controller_thread.start()
         print(">> >> MNIST Controller thread has started.")
 
     if runtime_data.parameters['IPU']['proximity']:
         proximity_controller_thread = Thread(
             target=proximity_controller,
-            args=(
-                runtime_data.proximity_queue,
-                runtime_data.fcl_queue,
-            ),
             name="Proximity_Controller",
             daemon=True
         )
         proximity_controller_thread.start()
         print(">> >> Proximity Controller thread has started.")
+
+    runtime_data.last_ipu_activity = datetime.now()
 
 
 def mnist_load_queue(target_queue):
@@ -77,20 +77,6 @@ def mnist_load_queue(target_queue):
     runtime_data.parameters["Switches"]["ready_to_exit_burst"] = True
 
 
-def proximity_load_queue(source_queue, target_queue):
-    """ Gets data from source queue, modifies it and places
-    it in the target queue.
-    """
-    proximity_data = source_queue.get()
-    coordinates = detections_to_coords(proximity_data)
-    
-    prox_cortical_area = cortical_sub_group_members('IPU_proximity')[0]
-    neuron_list = coords_to_neuron_ids(coordinates, prox_cortical_area)
-
-    target_queue.put(neuron_list)
-
-
-# todo: most likely this function needs to run on its own thread and not block other operations...maybe!
 def mnist_controller(watchdoq_queue, fcl_queue):
     print("<> <> <> <> <> <> <> <> <>        <> <> <> <> <> <>      <> <> <> <> <> <> <>")
     while not runtime_data.exit_condition:
@@ -98,15 +84,16 @@ def mnist_controller(watchdoq_queue, fcl_queue):
             mnist_load_queue(fcl_queue)
         except Exception as e:
             traceback.print_exc()
+        finally:
+            runtime_data.last_ipu_activity = datetime.now()
     time.sleep(2)
 
 
-def proximity_controller(proximity_queue, fcl_queue):
-    """ 
-
-    """
+def proximity_controller():
     while not runtime_data.exit_condition:
         try:
-            proximity_load_queue(proximity_queue, fcl_queue)
+            lidar.get_and_translate()
         except Exception as e:
             traceback.print_exc()
+        finally:
+            runtime_data.last_ipu_activity = datetime.now()
