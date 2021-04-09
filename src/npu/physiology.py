@@ -1,6 +1,7 @@
 
 import json
 from opu import utf8
+from opu.processor import movement
 from collections import deque
 from evo.synapse import synapse
 from inf import runtime_data, settings
@@ -141,6 +142,7 @@ def neuron_fire(cortical_area, neuron_id):
                           % (dst_cortical_area, dst_cortical_area)
                           + settings.Bcolors.ENDC)
 
+
         # Adding up all update times within a burst_manager span
         # total_update_time = datetime.now() - update_start_time
         # runtime_data.time_neuron_update = total_update_time + runtime_data.time_neuron_update
@@ -193,7 +195,9 @@ def neuron_fire(cortical_area, neuron_id):
     # runtime_data.fire_candidate_list[cortical_area].remove(neuron_id)
 
     # todo: add a check that if the firing neuron is part of OPU to perform an action
-
+    if cortical_area == 'movement_opu':
+        movement.convert_neuronal_activity_to_movement(cortical_area, neuron_id)
+        print('Movement OPU Neuron fired *** ** *** ** *** **** *')
     return
 
 
