@@ -1,9 +1,11 @@
 
-Placeholder for ROS related documentation
+***Placeholder for ROS related documentation***
 
+*To monitor active topics*
+>>ros2 run rqt_graph rqt_graph
 
-ros2 run rqt_graph rqt_graph
-
+---
+*To activate FEAGI <> ROS laser_scan interface*
 
 1. mkdir -p ~/ros2_ws/src     # Create a ros2 workspace
 2. cd ~/ros2_ws/src
@@ -22,4 +24,10 @@ ros2 run rqt_graph rqt_graph
 9. ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py  #in one terminal run Turtlebot3
 10.  . # In another terminal, source your ros
 11. ros2 run py_topic ros_laser_scan
+
+
+----
+
+*For manually moving the Turtlebot in Gazebo*
+>>ros2 run turtlebot3_teleop teleop_keyboard
 
