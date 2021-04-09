@@ -55,7 +55,7 @@ socket = context.socket(zmq.PUB)
 
 # todo: Figure a way to externalize the binding port. feagi_configuration.ini captures it on FEAGI side.
 socket.bind('tcp://127.0.0.1:2000')
-
+print("Laser scanner message queue has been activated...")
 
 class MinimalSubscriber(Node):
 
@@ -69,7 +69,7 @@ class MinimalSubscriber(Node):
         self.subscription  # prevent unused variable warning
 
     def listener_callback(self, msg):
-        self.get_logger().info("I heard: {}".format(msg)) #put .format(msg) to display the data
+        # self.get_logger().info("I heard: {}".format(msg)) #put .format(msg) to display the data
         socket.send_pyobj(msg)
 
 
