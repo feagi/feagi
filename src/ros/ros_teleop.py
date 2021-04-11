@@ -44,6 +44,7 @@ import select
 import sys
 import rclpy
 import zmq
+import time
 
 from geometry_msgs.msg import Twist
 from rclpy.qos import QoSProfile
@@ -59,6 +60,7 @@ else:
 
 # todo: export socket address to config file
 socket_address = 'tcp://127.0.0.1:21000'
+print("Connecting to socket ", socket_address)
 
 # Setting up the message queue to receive navigation data from the teleop OPU.
 context = zmq.Context()
@@ -66,7 +68,7 @@ socket = context.socket(zmq.SUB)
 socket.connect(socket_address)
 socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
 listener = 0
-message = socket.recv_pyobj()
+message = socket.recv_string()
 method_list = [method for method in dir(message) if method.startswith('_') is False]
 
 print("*******\n********\n", message, "*******\n********\n")
@@ -169,9 +171,9 @@ def main():
         print(msg)
         while 1:
             # key = get_key(settings)
-            key = message
-            if message:
-                print('Message received from FEAGI was: ', message)
+            key = socket.recv_string()
+            if key:
+                print(time.ctime(time.time()), 'Message received from FEAGI was: ', key)
                 # print('\n')
             if key == 'w':
                 target_linear_velocity =\
