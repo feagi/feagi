@@ -48,16 +48,22 @@ import zmq
 from geometry_msgs.msg import Twist
 from rclpy.qos import QoSProfile
 
+print("Starting FEAGI-ROS Teleop Interface...")
+
 if os.name == 'nt':
     import msvcrt
 else:
     import termios
     import tty
 
+
+# todo: export socket address to config file
+socket_address = 'tcp://127.0.0.1:21000'
+
 # Setting up the message queue to receive navigation data from the teleop OPU.
 context = zmq.Context()
 socket = context.socket(zmq.SUB)
-socket.bind('tcp://127.0.0.1:2001')
+socket.connect(socket_address)
 socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
 listener = 0
 message = socket.recv_pyobj()
@@ -142,6 +148,7 @@ def check_angular_limit_velocity(velocity):
 
 
 def main():
+    print('OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO')
     settings = None
     if os.name != 'nt':
         settings = termios.tcgetattr(sys.stdin)
@@ -160,10 +167,12 @@ def main():
 
     try:
         print(msg)
-        while(1):
+        while 1:
             # key = get_key(settings)
             key = message
-            print('Message received from FEAGI was: ', message)
+            if message:
+                print('Message received from FEAGI was: ', message)
+                # print('\n')
             if key == 'w':
                 target_linear_velocity =\
                     check_linear_limit_velocity(target_linear_velocity + LIN_VEL_STEP_SIZE)
@@ -191,7 +200,7 @@ def main():
                 control_angular_velocity = 0.0
                 print_vels(target_linear_velocity, target_angular_velocity)
             else:
-                if (key == '\x03'):
+                if key == '\x03':
                     break
 
             if status == 20:

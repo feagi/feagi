@@ -195,7 +195,7 @@ def neuron_fire(cortical_area, neuron_id):
     # runtime_data.fire_candidate_list[cortical_area].remove(neuron_id)
 
     # todo: add a check that if the firing neuron is part of OPU to perform an action
-    if cortical_area == 'movement_opu':
+    if cortical_area == 'movement_opu' or 1==1:
         movement.convert_neuronal_activity_to_movement(cortical_area, neuron_id)
         print('Movement OPU Neuron fired *** ** *** ** *** **** *')
     return
