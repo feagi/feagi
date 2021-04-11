@@ -11,6 +11,8 @@ from inf import runtime_data
 def get_and_translate():
     socket_address = runtime_data.parameters["Sockets"]["lidar_socket"]
 
+    print("Attempting to subscribe to socket ", socket_address)
+
     context = zmq.Context()
     socket = context.socket(zmq.SUB)
     socket.connect(socket_address)

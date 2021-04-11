@@ -8,11 +8,14 @@ to its corresponding message that can be passed to an output device so actual mo
 import zmq
 import inf.runtime_data as runtime_data
 
+# todo: export socket address to config file
+socket_address = 'tcp://127.0.0.1:21000'
+
 context = zmq.Context()
 socket = context.socket(zmq.PUB)
 
 # todo: Figure a way to externalize the binding port. feagi_configuration.ini captures it on FEAGI side.
-socket.bind('tcp://127.0.0.1:2001')
+socket.bind(socket_address)
 
 
 def convert_neuronal_activity_to_movement(cortical_area, neuron_id):
