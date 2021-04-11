@@ -77,6 +77,8 @@ class MinimalSubscriber(Node):
 
     def listener_callback(self, msg):
         # self.get_logger().info("I heard: {}".format(msg)) #put .format(msg) to display the data
+        self.get_logger().info("angle_max: {}".format(msg.angle_max)) #put .format(msg) to display the data
+
         socket.send_pyobj(msg)
 
 
