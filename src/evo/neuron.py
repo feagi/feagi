@@ -39,7 +39,7 @@ def block_id_gen(cortical_area, coordinate):
             location / ((cortical_area_dim[index] / (block_boundaries[index] + 0.00001)) + 0.00001))
         block_id.append(block_number)
         index += 1
-    if block_id[0] > 100:
+    if block_id[0] > 500:
         print("large block detected")
     return block_id
 

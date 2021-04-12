@@ -50,11 +50,18 @@ from sensor_msgs.msg import LaserScan #to call laserscan so it can convert the d
 from rclpy.qos import QoSProfile
 from rclpy.qos import qos_profile_sensor_data #this is required to have a full data
 
+print("Starting FEAGI-ROS Laser Scan Interface...")
+
+# todo: export socket address to config file
+socket_address = 'tcp://127.0.0.1:2000'
+
 context = zmq.Context()
 socket = context.socket(zmq.PUB)
+print("Binding to socket", socket_address)
 
 # todo: Figure a way to externalize the binding port. feagi_configuration.ini captures it on FEAGI side.
-socket.bind('tcp://127.0.0.1:2000')
+socket.bind(socket_address)
+print("Laser scanner message queue has been activated...")
 
 
 class MinimalSubscriber(Node):
@@ -69,7 +76,9 @@ class MinimalSubscriber(Node):
         self.subscription  # prevent unused variable warning
 
     def listener_callback(self, msg):
-        self.get_logger().info("I heard: {}".format(msg)) #put .format(msg) to display the data
+        # self.get_logger().info("I heard: {}".format(msg)) #put .format(msg) to display the data
+        self.get_logger().info("angle_max: {}".format(msg.angle_max)) #put .format(msg) to display the data
+
         socket.send_pyobj(msg)
 
 
