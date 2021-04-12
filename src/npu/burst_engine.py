@@ -282,7 +282,7 @@ def burst_manager():
 
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
-        sleep(1)
+        sleep(0.5)
 
         burst_start_time = datetime.now()
         log_burst_activity_influx()
