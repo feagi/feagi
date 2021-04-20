@@ -40,12 +40,14 @@ ___
 ### **Install turtlebot3 repositories**
 ___
 
-Install a tool for enabling batch commands on vcs repositories:
+Install a tool for enabling batch commands on VCS repositories:
 * `$ sudo apt install python3-vcstool`
 
-Download and build the turtlebot3 repositories:
+Create and navigate to a turtlebot3 workspace:
 * `$ mkdir -p ~/turtlebot3_ws/src`
 * `$ cd ~/turtlebot3_ws`
+
+Download and build the turtlebot3 repositories:
 * `$ wget https://raw.githubusercontent.com/ROBOTIS-GIT/turtlebot3/ros2/turtlebot3.repos`
 * `$ vcs import src < turtlebot3.repos`
 * `$ colcon build --symlink-install`
@@ -57,8 +59,28 @@ ___
 * `$ echo 'export TURTLEBOT3_MODEL=waffle_pi' >> ~/.bashrc`
 * `$ source ~/.bashrc`
 
-### **Set up FEAGI <==> ROS interface**
+### **Activate FEAGI <==> ROS interface**
 ___
 
-In a terminal, navigate to `feagi-core/src/ros` and run:
+In a terminal, create a ROS workspace by navigating to `feagi-core/src/ros` and running:
 * `$ ./ws_setup.sh`
+
+### **Update FEAGI configuration file**
+___
+
+Configure FEAGI to listen for streaming LIDAR data by editing `feagi-core/src/feagi_configuration.ini`. Under the `[IPU]` heading in the configuration file, ensure that the `proximity` parameter is set to `True`.
+
+## **Execution**
+If the commands in the preceding sections completed successfully, test that LIDAR data is flowing from the turtlebot3 in the virtual environment to FEAGI. Confirm that the contents of FEAGI's fire candidate list (visible in FEAGI output during bursting phase) is changing (i.e. different neurons within the proximity cortical area are being activated) as the turtlebot3 moves around its environment.
+
+In a _**new**_ terminal, initialize the Gazebo environment and turtlebot3:
+* `$ ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py`
+
+In another _**new**_ terminal, start the ROS laser scan topic:
+* `$ ros2 run py_topic py_laser_scan`
+
+In yet another _**new**_ terminal, activate manual, keyboard-based control of the turtlebot3:
+* `$ ros2 run turtlebot3_teleop teleop_keyboard`
+
+Now that the turtlebot3 is active and generating LIDAR data in the virtual environment, start FEAGI to complete the interface by navigating to `feagi-core/src` in a separate terminal and running:
+* `$ python3 main.py`
