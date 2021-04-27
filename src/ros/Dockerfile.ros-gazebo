@@ -1,0 +1,35 @@
+FROM ros:foxy-ros-base
+
+# use bash
+SHELL ["/bin/bash", "-c"]
+
+# install gazebo and tools
+RUN apt-get update && \
+    apt-get install -y \
+        wget \
+        xterm \
+        python3-vcstool \
+        python3-colcon-common-extensions \
+        gazebo11 \
+        ros-foxy-gazebo-ros-pkgs && \
+    mkdir -p ~/turtlebot3_ws/src
+
+# download/build turtlebot3 repos and update environment
+WORKDIR /turtlebot3_ws
+RUN wget https://raw.githubusercontent.com/ROBOTIS-GIT/turtlebot3/ros2/turtlebot3.repos && \
+    vcs import ~/turtlebot3_ws/src < turtlebot3.repos && \
+    colcon build --symlink-install && \
+    echo "source /install/setup.bash" >> /root/.bashrc && \
+    echo "export GAZEBO_MODEL_PATH=$GAZEBO_MODEL_PATH:src/turtlebot3/turtlebot3_simulations/turtlebot3_gazebo/models" >> /root/.bashrc && \
+    echo "export TURTLEBOT3_MODEL=waffle_pi" >> /root/.bashrc && \
+    echo "source /opt/ros/foxy/setup.bash" >> /root/.bashrc && \
+    source /root/.bashrc
+
+# set up ros workspace
+WORKDIR /root/
+COPY ws_setup.sh run.sh ros_laser_scan.py ros_teleop.py /root/
+RUN ./ws_setup.sh
+WORKDIR /ros_ws
+RUN colcon build && \
+    chmod +x /root/run.sh && \
+    /root/run.sh

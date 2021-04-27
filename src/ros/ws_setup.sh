@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source /opt/ros/foxy/setup.bash
 mypath=`pwd`
 mkdir -p ~/ros2_ws/src
 cd ~/ros2_ws/src || exit

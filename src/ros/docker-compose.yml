@@ -1,0 +1,19 @@
+version: "3"
+
+services:
+  ros-gazebo:
+    build: ./
+    # command: /bin/bash -c "source /opt/ros/foxy/setup.bash && ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py && ros2 run py_topic py_laser_scan && ros2 run turtlebot3_teleop teleop_keyboard"
+    networks:
+      - tb_net
+
+  feagi:
+    build: ./
+    depends_on: 
+      - ros-gazebo
+    networks:
+      - tb_net
+
+networks:
+  tb_net:
+    driver: bridge
