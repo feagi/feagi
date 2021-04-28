@@ -1,5 +1,6 @@
 import logging
 import os
+import psutil
 import string
 import random
 from queue import Queue
@@ -14,8 +15,25 @@ from configparser import ConfigParser
 from shutil import copyfile
 from evo.stats import list_top_n_utf_memory_neurons
 
-
 log = logging.getLogger(__name__)
+
+
+def assess_max_thread_count():
+    """
+    FEAGI requires approxiately 1GB of memory per process. This function determines the proper number of max threads
+    used by FEAGI by taking into consideration the number of CPU core count as well as available memory on the system.
+    """
+    cpu_core_count = psutil.cpu_count()
+    print("Device CPU Core Count = ", cpu_core_count)
+    free_mem = psutil.virtual_memory().available
+    print("Device Free Memory = ", free_mem)
+
+    max_thread_count = min(int(free_mem / 1024 ** 3), cpu_core_count)
+
+    if max_thread_count == 0:
+        max_thread_count = 1
+
+    return max_thread_count
 
 
 def run_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
@@ -111,6 +129,15 @@ def init_data_sources():
     return
 
 
+def init_resources():
+
+    if runtime_data.parameters['System']['max_core']:
+        print("Max thread count was overwritten to:", runtime_data.parameters['System']['max_core'])
+    else:
+        runtime_data.parameters['System']['max_core'] = assess_max_thread_count()
+        print("Max thread count was set to ", runtime_data.parameters['System']['max_core'])
+
+
 def initialize():
     runtime_data.last_alertness_trigger = datetime.now()
     run_id_gen()
@@ -119,7 +146,9 @@ def initialize():
     init_data_sources()
     init_genome()
     init_cortical_list()
+    init_resources()
     runtime_data.fcl_queue = Queue()
+
 
 
 def init_burst_engine():
