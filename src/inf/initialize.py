@@ -24,7 +24,9 @@ def assess_max_thread_count():
     used by FEAGI by taking into consideration the number of CPU core count as well as available memory on the system.
     """
     cpu_core_count = psutil.cpu_count()
+    print("Device CPU Core Count = ", cpu_core_count)
     free_mem = psutil.virtual_memory().available
+    print("Device Free Memory = ", free_mem)
 
     max_thread_count = min(int(free_mem / 1024 ** 3), cpu_core_count)
 
