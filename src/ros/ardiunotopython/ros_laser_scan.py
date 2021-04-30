@@ -44,18 +44,15 @@ import sensor_msgs.msg #this is needed to read lidar or any related to lidar.
 import rclpy
 import zmq
 import serial
-
+import time
 
 from time import sleep
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan #to call laserscan so it can convert the data or provide the data
 from rclpy.qos import QoSProfile
 from rclpy.qos import qos_profile_sensor_data #this is required to have a full data
-from example_interfaces.msg import Int64
 
-
-
-#print("Finding the /scann topic..")
+print("Starting FEAGI-ROS Laser Scan Interface...")
 
 # todo: export socket address to config file
 socket_address = 'tcp://127.0.0.1:2000'
@@ -66,58 +63,43 @@ print("Binding to socket", socket_address)
 
 # todo: Figure a way to externalize the binding port. feagi_configuration.ini captures it on FEAGI side.
 socket.bind(socket_address)
+print("Laser scanner message queue has been activated...")
 serialcomm = serial.Serial('/dev/ttyACM0', 9600) #connect to ardiuno port.
 serialcomm.timeout = 1
-print("Found the ardiuno board.")
-print("Creating the /scann topic..")
 
 
-class MinimalPublisher(Node):
+
+class MinimalSubscriber(Node):
 
 	def __init__(self):
-		super().__init__('minimal_publisher')
-		self.publisher_  = self.create_publisher(
-			Int64,
-			"scann",
-			10)
-		timer_period = 0  # seconds
-		self.timer = self.create_timer(timer_period, self.timer_callback)
-		self.i = 0
-		#self.subscription  # prevent unused variable warning
+		super().__init__('minimal_subscriber')
+		self.subscription = self.create_subscription(
+			LaserScan,
+			'scan',
+			self.listener_callback,
+			qos_profile=qos_profile_sensor_data)
+		self.subscription  # prevent unused variable warning
 
-	def timer_callback(self):
-		msg = int()
-		data_chunk = serialcomm.readline().decode('ascii')
-		msg = self.get_logger().info("I heard: {}".format(serialcomm.readline().decode('ascii')))
-		#msg.data = self.get_logger().info("I heard: {}").format(serialcomm.readline().decode('ascii'))
-		#test=str()
-		#test=test.info("I heard: {}".format(serialcomm.readline().decode('ascii')))
-		print(type(msg))
-		self.publisher_.publish(msg)
+	def listener_callback(self, msg):
+		# self.get_logger().info("I heard: {}".format(msg)) #put .format(msg) to display the data
+		self.get_logger().info("I heard:{}".serialcomm.readline().decode('ascii'))
+		#self.get_logger().info(serialcomm.readline().decode('ascii'))
+		print("test")
 		socket.send_pyobj(msg)
-		#self.get_logger().info('Publishing: "%s"' % msg.data)
-		self.i += 1
-
-#	def listener_callback(self, msg):
-#		# self.get_logger().info("I heard: {}".format(msg)) #put .format(msg) to display the data
-#		self.get_logger().info("I heard:".serialcomm.readline().decode('ascii'))
-#		#self.get_logger().info(serialcomm.readline().decode('ascii'))
-#		print("test")
-#		socket.send_pyobj(msg)
 
 
 def main(args=None):
 	rclpy.init(args=args)
 
-	minimal_publisher = MinimalPublisher()
+	minimal_subscriber = MinimalSubscriber()
 
-	rclpy.spin(minimal_publisher)
+	rclpy.spin(minimal_subscriber)
 
 
 	# Destroy the node explicitly
 	# (optional - otherwise it will be done automatically
 	# when the garbage collector destroys the node object)
-	minimal_publisher.destroy_node()
+	minimal_subscriber.destroy_node()
 	rclpy.shutdown()
 	serialcomm.close()
 
