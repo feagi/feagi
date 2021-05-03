@@ -5,17 +5,14 @@ SHELL ["/bin/bash", "-c"]
 
 # install gazebo and tools
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    apt-get install -y --no-install-recommends \
         wget \
         build-essential \
-        gnome-terminal \
         python3-pip \
         python3-vcstool \
         python3-colcon-common-extensions \
         gazebo11 \
-        ros-foxy-gazebo-ros-pkgs && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+        ros-foxy-gazebo-ros-pkgs
 
 # set up workspaces and run
 WORKDIR /root/
