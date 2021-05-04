@@ -7,11 +7,6 @@ wget https://raw.githubusercontent.com/ROBOTIS-GIT/turtlebot3/ros2/turtlebot3.re
 vcs import ~/turtlebot3_ws/src < turtlebot3.repos
 source /opt/ros/foxy/setup.bash
 colcon build --symlink-install --continue-on-error
-# echo "source /install/setup.bash" >> /root/.bashrc
-# echo "export GAZEBO_MODEL_PATH=$GAZEBO_MODEL_PATH:src/turtlebot3/turtlebot3_simulations/turtlebot3_gazebo/models" >> /root/.bashrc
-# echo "export TURTLEBOT3_MODEL=burger" >> /root/.bashrc
-# echo "source /opt/ros/foxy/setup.bash" >> /root/.bashrc
-# source /root/.bashrc
 source install/setup.bash
 export GAZEBO_MODEL_PATH=$GAZEBO_MODEL_PATH:src/turtlebot3/turtlebot3_simulations/turtlebot3_gazebo/models
 export TURTLEBOT3_MODEL=burger
@@ -31,9 +26,10 @@ sed '23i\             "ros_laser_scan = py_topic.ros_laser_scan:main",\n        
 cd ~/ros2_ws || exit
 colcon build
 source /opt/ros/foxy/setup.bash
-source ros2_ws/install/setup.bash
+source ~/ros2_ws/install/setup.bash
 
-# run ros processes
-# ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py
-# ros2 run py_topic py_laser_scan
-# gnome-terminal ros2 run turtlebot3_teleop teleop_keyboard
+# spawn terminal prompts for running ros processes in container
+# for ((i = 0; i < 3; i++ ))
+# do
+#     xterm -hold -e bash &
+# done
