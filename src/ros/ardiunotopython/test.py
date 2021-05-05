@@ -1,26 +1,15 @@
 import serial
-
 import time
 
-serialcomm = serial.Serial('/dev/ttyACM0', 9600)
-
-serialcomm.timeout = 1
-
-while True:
-
-    # i = input("Enter Input: ").strip()
-    # 
-    # if i == "Done":
-    # 
-    #     print('finished')
-    # 
-    #     break
-    # 
-    # serialcomm.write(i.encode())
-    # 
-    # time.sleep(0.5)
-
-    print(serialcomm.readline().decode('ascii'))
-
-serialcomm.close()
-
+#ser = serial.Serial("/dev/ttyACM0", 9600)
+ser = serial.Serial(
+        port="/dev/ttyACM0",
+        baudrate=9600,
+        parity=serial.PARITY_NONE,
+        stopbits=serial.STOPBITS_ONE,
+        bytesize=serial.EIGHTBITS
+    )
+while (1):
+	#h1=ser.readline()
+    print(int(ser.readline()))
+    time.sleep(0.1)
