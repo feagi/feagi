@@ -1,4 +1,3 @@
-
 import sensor_msgs.msg  # this is needed to read lidar or any related to lidar.
 import rclpy
 import zmq
@@ -46,7 +45,7 @@ class MinimalPublisher(Node):
 			print("Skipped the ' '") #in #44 line, it kept recieving a string ' '
 		else:
 			sensorvalue=float(ser.readline()) #posts the value
-		#msg=float()
+		msg=float()
 		msg=sensorvalue
 		print(msg)
 		#msg.data=self.get_logger().info("distance: ".format(float(ser.readline())))
