@@ -1,14 +1,11 @@
-FROM python:3.7-buster
+FROM python:3.8-buster
 LABEL maintainer="Eric Miller"
-ARG REPO
+ARG REPO="https://github.com/feagi/feagi-core.git"
 
 # Git 
 RUN apt-get update && \
     apt-get install -y git && \
     apt-get install wget
-
-# Cairo graphics library
-RUN apt-get install libcairo2-dev
 
 # FEAGI
 RUN mkdir -p /opt/source-code/feagi-core/ && \

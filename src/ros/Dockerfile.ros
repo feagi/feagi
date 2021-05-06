@@ -1,23 +1,18 @@
-FROM ros:foxy-ros-base
+FROM tiryoh/ros2-desktop-vnc:foxy
 
 # use bash
 SHELL ["/bin/bash", "-c"]
 
-# install gazebo and tools
+# install tools
 RUN apt-get update && \
     apt-get install -y \
-        wget \
         xterm \
-        build-essential \
-        python3-pip \
-        python3-vcstool \
-        python3-colcon-common-extensions \
-        gazebo11 \
-        ros-foxy-gazebo-ros-pkgs && \
-    apt-get clean
+        python3-pip && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # set up workspaces and run
-WORKDIR /root/
-COPY run_in_container.sh ros_laser_scan.py ros_teleop.py /root/
-RUN chmod +x run_in_container.sh && \
-    ./run_in_container.sh
+WORKDIR /home/ubuntu/
+COPY setup_container.sh ros_laser_scan.py ros_teleop.py /home/ubuntu/
+RUN chmod +x setup_container.sh && \
+    ./setup_container.sh

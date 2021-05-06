@@ -2,15 +2,16 @@
 
 # turtlebot3 setup
 mkdir -p ~/turtlebot3_ws/src
-cd turtlebot3_ws || exit
+cd ~/turtlebot3_ws || exit
 wget https://raw.githubusercontent.com/ROBOTIS-GIT/turtlebot3/ros2/turtlebot3.repos
 vcs import ~/turtlebot3_ws/src < turtlebot3.repos
 source /opt/ros/foxy/setup.bash
 colcon build --symlink-install --continue-on-error
 source install/setup.bash
-export GAZEBO_MODEL_PATH=$GAZEBO_MODEL_PATH:src/turtlebot3/turtlebot3_simulations/turtlebot3_gazebo/models
-export TURTLEBOT3_MODEL=burger
-source /opt/ros/foxy/setup.bash
+echo 'export GAZEBO_MODEL_PATH=$GAZEBO_MODEL_PATH:src/turtlebot3/turtlebot3_simulations/turtlebot3_gazebo/models' >> ~/.bashrc
+echo 'export TURTLEBOT3_MODEL=burger' >> ~/.bashrc
+echo 'source /opt/ros/foxy/setup.bash' >> ~/.bashrc
+echo 'source ~/ros2_ws/install/setup.bash' >> ~/.bashrc
 
 # ros workspace setup
 cd ~
@@ -27,9 +28,3 @@ cd ~/ros2_ws || exit
 colcon build
 source /opt/ros/foxy/setup.bash
 source ~/ros2_ws/install/setup.bash
-
-# spawn terminal prompts for running ros processes in container
-# for ((i = 0; i < 3; i++ ))
-# do
-#     xterm -hold -e bash &
-# done
