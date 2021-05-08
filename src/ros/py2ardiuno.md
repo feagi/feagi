@@ -51,13 +51,13 @@ To update/test the modified by you on the code:
 
 # Problem section:
 
-**Problem #1: **
+** Problem #1: **
 Traceback (most recent call last):
   File "./py2ardiuno", line 3, in <module>
     import pyfirmata
 ModuleNotFoundError: No module named 'pyfirmata'
 
-**Solution: **
+** Solution: **
 pip3 install pyfirmata
 
 ** Problem #2: **
@@ -67,7 +67,8 @@ pip3 install pyfirmata
 
 ** Problem #2: ** Python doesn't recieve anything from ardiuno. No error output.
 ** Solution: **
-This has a lot of things that could cause this.
+This has a lot of things that could cause this:
+```
 1. Is sonar sensor working properly? Verify it with only ardiuno. You can obtain it from (Sonar Sensor example (link))
 2. Is sonar sensor connected properly? Are pins secured? 
 3. Does sonar sensor connected to 5v?
@@ -75,7 +76,7 @@ This has a lot of things that could cause this.
 5. is /dev/ttyACM0 in dialout group? Is it with root? Can it read/write? (Winodws 8 and 10 need to follow this link:https://www.isunshare.com/windows-8/how-to-disable-or-enable-driver-signature-enforcement-in-windows-8-and-8.1.html and https://www.howtogeek.com/167723/how-to-disable-driver-signature-verification-on-64-bit-windows-8.1-so-that-you-can-install-unsigned-drivers/ ) as for linux, sudo chmod 777 /dev/ttyACM0
 6.  is ardiuno connected properly?
 7. Does wiring match the number as variable set on the Trig and Echo on your code?
-
+```
 
 ** Problem #3: **
 Traceback (most recent call last):
