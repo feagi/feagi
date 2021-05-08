@@ -4,15 +4,14 @@ This document is for sonar sensor (HC-0SR04)
 
 
 ## Set up with hardware:
-> VCC connects to 5V on the board.
+```
+VCC connects to 5V on the board.
+Trig connects to pin #9
+Echo connects to pin #11
+GND connnects to GND
+```
 
-> Trig connects to pin #9
-
-> Echo connects to pin #11
-
-> GND connnects to GND
-
-**IMPORTANT INFORMATION:** be sure that your board can take the 5v output. For example: DUE, ZERO, and other 32bit ardiuno boards REQUIRE resistors in the output values. 8bits ardiuno boards such as UNO doesn't need a resistor. 
+**IMPORTANT INFORMATION:** be sure that your board can take the 5v output. For example: DUE, ZERO, and other 32bit ardiuno boards _REQUIRE_ resistors in the output values. 8bits ardiuno boards such as UNO doesn't need a resistor. 
 
 
 # To verify ardiuno/python3 only by doing this steps:
