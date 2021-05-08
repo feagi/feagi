@@ -1,3 +1,18 @@
+// ---------------------------------------------------------------------------
+// NewPing Library - v1.5 - 08/15/2012
+//
+// AUTHOR/LICENSE:
+// Created by Tim Eckel - teckel@leethost.com
+// Copyright 2012 License: GNU GPL v3 http://www.gnu.org/licenses/gpl-3.0.html
+//
+// LINKS:
+// Project home: http://code.google.com/p/arduino-new-ping/
+// Blog: http://arduino.cc/forum/index.php/topic,106043.0.html
+//
+// DISCLAIMER:
+// This software is furnished "as is", without technical support, and with no
+// warranty, express or implied, as to its usefulness for any purpose.
+
 #include <NewPing.h>
 
 #define TRIGGER_PIN  9  // Arduino pin tied to trigger pin on the ultrasonic sensor.
