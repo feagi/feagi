@@ -39,7 +39,7 @@ First time only:
 
 To update/test the modified by you on the code:
 1. Source ~/ros_ws/install/setup.bash
-2. ./update.sh (do this in the root of ros2_ws when you update the code in ~/ros_ws/src/py_topic/py_topic/ros_laser_scan.py)
+2. ./update.sh (do this in the root of ros2_ws when you update the code in ~/ros_ws/src/py_topic/py_topic/HC_SR04_Foxy.py)
 3. ros2 run py_topic sonar_sensor
 
 
