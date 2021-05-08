@@ -51,7 +51,7 @@ To update/test the modified by you on the code:
 
 # Problem section:
 
-** Problem #1: **
+## Problem #1:
 Traceback (most recent call last):
   File "./py2ardiuno", line 3, in <module>
     import pyfirmata
