@@ -57,16 +57,17 @@ Traceback (most recent call last):
     import pyfirmata
 ModuleNotFoundError: No module named 'pyfirmata'
 
-### Solution:
+### Solution #1:
 pip3 install pyfirmata
 
-** Problem #2: **
+### Problem #2:
  No respond or stuck in Ardiuno() in Python3 code
-** Solution: **
+### Solution:
  Use this line: board = Arduino("/dev/ttyACM0",baudrate=9600, timeout=3.0)
 
-** Problem #2: ** Python doesn't recieve anything from ardiuno. No error output.
-** Solution: **
+### Problem #2: 
+Python doesn't recieve anything from ardiuno. No error output.
+### Solution:
 This has a lot of things that could cause this:
 ```
 1. Is sonar sensor working properly? Verify it with only ardiuno. You can obtain it from (Sonar Sensor example (link))
@@ -78,26 +79,26 @@ This has a lot of things that could cause this:
 7. Does wiring match the number as variable set on the Trig and Echo on your code?
 ```
 
-** Problem #3: **
+###  Problem #3:
 Traceback (most recent call last):
   File "py2ardiuno", line 11, in <module>
     board = Arduino("/dev/ttyACM0", baudrate = 9600, timeout=2) # plugged in via USB, serial com at rate 115200
 TypeError: __init__() got an unexpected keyword argument 'baudrate'
 
-** Solution #3: **
+###  Solution #3:
 import serial in the python file. Such as;
 import serial
 
-** Problem #4: **
+### Problem #4: 
 Sonar sensor outputs "???????????" instead of values.
 
-** Solution #4: **
+### Solution #4:
 Is baudrate or Serial.begin(#) in 9600?
 
-** Problem #5: **
+### Problem #5:
 Sonar sensor kept outputs zero.
 
-** Solution #5: **
+###  Solution #5:
 It's likely defective sonar sensor but verify it with the newping's example first and see if it works. 
 
 
