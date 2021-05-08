@@ -18,10 +18,10 @@ GND connnects to GND
 1. Navigate to ros/ardiunotopython/
 2. chmod a+x test.py
 3. Click ardiunotopython.ino
-4. Set board to your type of board and set the port up as well too.
+4. Set board to your type of board and set the port up as well too on the official ardiuno IDE.
 5. Upload it to your board.
 6. On your terminal and type this; python3 test.py
-7. If Python recieves value from ardiuno, it means you are ready to do it on ardiuno/python to ROS2.
+7. If Python recieves value from ardiuno, it means you are ready to move to the ardiuno/python to ROS2 section.
 
 # Ardiuno/python to ROS2
 
@@ -51,13 +51,13 @@ To update/test the modified by you on the code:
 
 # Problem section:
 
-## Problem #1: 
+Problem #1: 
 Traceback (most recent call last):
   File "./py2ardiuno", line 3, in <module>
     import pyfirmata
 ModuleNotFoundError: No module named 'pyfirmata'
 
-## Solution: 
+Solution: 
 pip3 install pyfirmata
 
 Problem #2: No respond or stuck in Ardiuno() in Python3 code
