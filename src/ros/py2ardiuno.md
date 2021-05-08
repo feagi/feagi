@@ -51,56 +51,59 @@ To update/test the modified by you on the code:
 
 # Problem section:
 
-Problem #1: 
+**Problem #1: **
 Traceback (most recent call last):
   File "./py2ardiuno", line 3, in <module>
     import pyfirmata
 ModuleNotFoundError: No module named 'pyfirmata'
 
-Solution: 
+**Solution: **
 pip3 install pyfirmata
 
-Problem #2: No respond or stuck in Ardiuno() in Python3 code
-Solution: Use this line: board = Arduino("/dev/ttyACM0",baudrate=9600, timeout=3.0)
+** Problem #2: **
+ No respond or stuck in Ardiuno() in Python3 code
+** Solution: **
+ Use this line: board = Arduino("/dev/ttyACM0",baudrate=9600, timeout=3.0)
 
-Problem #2: Python doesn't recieve anything from ardiuno. No error output.
-Solution: This has a lot of things that could cause this.
-1) Is sonar sensor working properly? Verify it with only ardiuno. You can obtain it from (Sonar Sensor example (link))
-2) Is sonar sensor connected properly? Are pins secured? 
-3) Does sonar sensor connected to 5v?
-4) Is Python listening to the same port address as ardiuno board in? (Such as /dev/ttyACM0 for Ubutnu, COM1 for windows) You can verify the port from ardiuno ide's bottom right corner on any platform.
-5) is /dev/ttyACM0 in dialout group? Is it with root? Can it read/write? (Winodws 8 and 10 need to follow this link:https://www.isunshare.com/windows-8/how-to-disable-or-enable-driver-signature-enforcement-in-windows-8-and-8.1.html and https://www.howtogeek.com/167723/how-to-disable-driver-signature-verification-on-64-bit-windows-8.1-so-that-you-can-install-unsigned-drivers/ ) as for linux, sudo chmod 777 /dev/ttyACM0
-6)  is ardiuno connected properly?
-7) Does wiring match the number as variable set on the Trig and Echo on your code?
+** Problem #2: ** Python doesn't recieve anything from ardiuno. No error output.
+** Solution: **
+This has a lot of things that could cause this.
+1. Is sonar sensor working properly? Verify it with only ardiuno. You can obtain it from (Sonar Sensor example (link))
+2. Is sonar sensor connected properly? Are pins secured? 
+3. Does sonar sensor connected to 5v?
+4. Is Python listening to the same port address as ardiuno board in? (Such as /dev/ttyACM0 for Ubutnu, COM1 for windows) You can verify the port from ardiuno ide's bottom right corner on any platform.
+5. is /dev/ttyACM0 in dialout group? Is it with root? Can it read/write? (Winodws 8 and 10 need to follow this link:https://www.isunshare.com/windows-8/how-to-disable-or-enable-driver-signature-enforcement-in-windows-8-and-8.1.html and https://www.howtogeek.com/167723/how-to-disable-driver-signature-verification-on-64-bit-windows-8.1-so-that-you-can-install-unsigned-drivers/ ) as for linux, sudo chmod 777 /dev/ttyACM0
+6.  is ardiuno connected properly?
+7. Does wiring match the number as variable set on the Trig and Echo on your code?
 
 
-Problem #3:
+** Problem #3: **
 Traceback (most recent call last):
   File "py2ardiuno", line 11, in <module>
     board = Arduino("/dev/ttyACM0", baudrate = 9600, timeout=2) # plugged in via USB, serial com at rate 115200
 TypeError: __init__() got an unexpected keyword argument 'baudrate'
 
-Solution #3: import serial in the python file. Such as;
+** Solution #3: **
+import serial in the python file. Such as;
 import serial
 
-Problem #4:
+** Problem #4: **
 Sonar sensor outputs "???????????" instead of values.
 
-Solution #4: 
+** Solution #4: **
 Is baudrate or Serial.begin(#) in 9600?
 
-Problem #5:
+** Problem #5: **
 Sonar sensor kept outputs zero.
 
-Solution #5: 
+** Solution #5: **
 It's likely defective sonar sensor but verify it with the newping's example first and see if it works. 
 
-Solution #6: 
 
 
 
-
-More detail information: 
+# More detail information: 
+```
 https://realpython.com/arduino-python/
 https://www.arduino.cc/reference/en/libraries/newping/
 https://riptutorial.com/arduino/example/22868/first-serial-communication-between-arduino-and-python
@@ -108,3 +111,4 @@ https://www.makeuseof.com/tag/program-control-arduino-python/
 https://create.arduino.cc/projecthub/ansh2919/serial-communication-between-python-and-arduino-e7cce0
 https://www.tutorialspoint.com/python/file_readline.htm
 https://github.com/pyserial/pyserial/tree/master/serial
+```
