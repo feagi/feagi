@@ -21,8 +21,7 @@ RUN git checkout feature-dockerize-lidar
 
 # Python
 RUN pip3 install --upgrade pip && \
-    pip3 install -r /opt/source-code/feagi-core/requirements.txt && \
-    pip3 install zmq
+    pip3 install -r /opt/source-code/feagi-core/requirements.txt
 
 # Cythonize
 WORKDIR /opt/source-code/feagi-core
