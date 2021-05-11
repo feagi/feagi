@@ -41,21 +41,22 @@ def get_and_translate():
             # print("time_increment:", message.time_increment)
             # print("-----")
 
-            try:
-                detections = proximity.detections_to_coords(message.ranges)
+            # try:
+            #     detections = proximity.detections_to_coords(message.ranges)
+            #     neurons = proximity.coords_to_neuron_ids(
+            #         detections, cortical_area='proximity'
+            #     )
+            #     # TODO: Add proximity feeder function in fcl_injector
+            #     runtime_data.fcl_queue.put({'proximity': set(neurons)})
+            # except Exception as e:
+            #     import random
+            #     print(str(e))
+            for i in range(10000):
+                test_ranges = [random.uniform(0.12, 3.5) for _ in range(360)]
+                detections = proximity.detections_to_coords(test_ranges)
                 neurons = proximity.coords_to_neuron_ids(
                     detections, cortical_area='proximity'
                 )
                 # TODO: Add proximity feeder function in fcl_injector
                 runtime_data.fcl_queue.put({'proximity': set(neurons)})
-            except Exception as e:
-                import random
-                print(str(e))
-                for i in range(1000):
-                    test_ranges = [random.uniform(0.12, 3.5) for _ in range(100)]
-                    detections = proximity.detections_to_coords(test_ranges)
-                    neurons = proximity.coords_to_neuron_ids(
-                        detections, cortical_area='proximity'
-                    )
-                    # TODO: Add proximity feeder function in fcl_injector
-                    runtime_data.fcl_queue.put({'proximity': set(neurons)})
+            break
