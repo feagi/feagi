@@ -1,7 +1,7 @@
 """
 This module reads LIDAR data from a message queue and makes them available to the proximity processor.
 """
-import random
+
 import zmq
 
 from ipu.processor import proximity
@@ -13,20 +13,20 @@ def get_and_translate():
 
     print("Attempting to subscribe to socket ", socket_address)
 
-    # context = zmq.Context()
-    # socket = context.socket(zmq.SUB)
-    # socket.connect(socket_address)
-    # socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
+    context = zmq.Context()
+    socket = context.socket(zmq.SUB)
+    socket.connect(socket_address)
+    socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
 
-    # listener = 0
+    listener = 0
 
-    # message = socket.recv_pyobj()
-    # method_list = [method for method in dir(message) if method.startswith('_') is False]
+    message = socket.recv_pyobj()
+    method_list = [method for method in dir(message) if method.startswith('_') is False]
 
     while True:
-        # message = socket.recv_pyobj()
+        message = socket.recv_pyobj()
 
-        # if message is not None:
+        if message is not None:
             # print("SLOT_TYPES", message.SLOT_TYPES)
             # print("angle_increment:", message.angle_increment)
             # print("angle_max:", message.angle_max)
@@ -41,22 +41,9 @@ def get_and_translate():
             # print("time_increment:", message.time_increment)
             # print("-----")
 
-            # try:
-            #     detections = proximity.detections_to_coords(message.ranges)
-            #     neurons = proximity.coords_to_neuron_ids(
-            #         detections, cortical_area='proximity'
-            #     )
-            #     # TODO: Add proximity feeder function in fcl_injector
-            #     runtime_data.fcl_queue.put({'proximity': set(neurons)})
-            # except Exception as e:
-            #     import random
-            #     print(str(e))
-        for i in range(10000):
-            test_ranges = [random.uniform(0.12, 3.5) for _ in range(360)]
-            detections = proximity.detections_to_coords(test_ranges)
+            detections = proximity.detections_to_coords(message.ranges)
             neurons = proximity.coords_to_neuron_ids(
                 detections, cortical_area='proximity'
             )
             # TODO: Add proximity feeder function in fcl_injector
             runtime_data.fcl_queue.put({'proximity': set(neurons)})
-        break
