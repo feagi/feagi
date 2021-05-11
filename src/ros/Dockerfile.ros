@@ -1,7 +1,7 @@
 FROM tiryoh/ros2-desktop-vnc:foxy
 
-# use bash
 SHELL ["/bin/bash", "-c"]
+ENV TURTLEBOT3_MODEL=waffle_pi
 
 # install tools
 RUN apt-get update && \
