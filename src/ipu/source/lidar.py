@@ -1,7 +1,7 @@
 """
 This module reads LIDAR data from a message queue and makes them available to the proximity processor.
 """
-
+import random
 import zmq
 
 from ipu.processor import proximity
