@@ -1,42 +1,28 @@
+# ROS <--> FEAGI turtlebot3/LIDAR inteface
 
-***Placeholder for ROS related documentation***
+## **Local build**
 
-.
+To build the turtlebot3 and ROS workspaces necessary for running the turtlebot3/LIDAR demonstration locally on your machine (Ubuntu 20.04), run the shell script (`ws_setup.sh`) found in `feagi-core/src/ros/` (it is assumed that FEAGI is already installed and configured).
 
-*To monitor active topics*
+Next, open a new terminal window and run:
+- `$ ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py`
 
-```ros2 run rqt_graph rqt_graph```
+This will open a Gazebo world complete with turtlebot and obstacles. To start the laser scan interface, open another (new) terminal window and run:
+- `$ ros2 run py_topic ros_laser_scan`
 
----
-*To activate FEAGI <> ROS laser_scan interface*
+If you want to control the turtlebot via keyboard, run (in another new terminal window):
+- `$ ros2 run turtlebot3_teleop teleop_keyboard`
+- **Note:** this terminal window must be the active/top-level window on the display for keyboard input to control the turtlebot.
+___
+## **Containerized build**
 
-1. ./ros2_ws_setup.sh 
-   1. ```mkdir -p ~/ros2_ws/src```     # Create a ros2 workspace
-   2. ```cd ~/ros2_ws/src```
-   3. ```ros2 pkg create --build-type ament_python py_topic```    # Create a ros2 package
-   4. ```cp /src/ipu/source/ros/py_laser_scan.py ~/ros2_ws/src/py_topic/py_topic/```
-2. edit ```~/ros2_ws/src/py_topic/package.xml``` and add the following 3 lines after the license declaration line:
-```
-  <buildtool_depend>ament_python</buildtool_depend>
-  <exec_depend>rclpy</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
-```
+This build deploys FEAGI and ROS as networked Docker containers, which eliminates the need for manual installation and configuration. In the `feagi-core/src/ros/` directory, run:
+- `$ docker-compose build`
 
+Once the build successfully completes, run:
+- `$ docker-compose up`
 
-3. Edit `````~/ros2_ws/src/py_topic/setup.py````` entry point as follows:
-   
-       'console_scripts': ['py_laser_scan = py_topic.ros_laser_scan:main']
- 
-7. ```cd ~/ros2_ws```
-8. ```colcon build```
-9. in one terminal run Turtlebot3 ```ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py```
-10. In another terminal, source your ros
-11. start the laser scan topic ```ros2 run py_topic py_laser_scan```
+To access the VNC ros-foxy desktop, open a web browser and, in the address bar, enter:
+- `http://127.0.0.1:6080`
 
-
-----
-
-*For manually moving the Turtlebot in Gazebo*
-
-```ros2 run turtlebot3_teleop teleop_keyboard```
-
+Run the commands listed above in separate terminal windows to launch the demonstration in the virtual desktop.
