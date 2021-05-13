@@ -62,5 +62,5 @@ curl https://raw.githubusercontent.com/micro-ROS/micro_ros_arduino/foxy/extras/p
 1. https://www.youtube.com/watch?v=ze-HiCr5s60&ab_channel=pk
 2. https://www.pjrc.com/teensy/td_download.html
 3. https://github.com/micro-ROS/micro_ros_arduino
-4. 
+4. https://docs.ros.org/en/foxy/Tutorials/Topics/Understanding-ROS2-Topics.html
 
