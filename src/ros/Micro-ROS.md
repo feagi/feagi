@@ -26,8 +26,24 @@ sudo ./install
 3. Click Sketch > Include library > Add Zip > [the zip you downloaded] 
 4. cd [Ardiuno PATH]/hardware/teensy/avr/
 5. curl https://raw.githubusercontent.com/micro-ROS/micro_ros_arduino/foxy/extras/patching_boards/platform_teensy.txt > platform.txt
-6. Click Download in Arduino IDE 
-7. 
+6. Open a file called "Micro-ros_publisher.ino" from example in Micro-ros library 
+7. Paste this part under the comment says // create node
+```
+  rcl_node_options_t node_ops = rcl_node_get_default_options();
+  node_ops.domain_id = 30;
+  RCCHECK(rclc_node_init_with_options(&node, "micro_ros_arduino_node", "", &support, &node_ops));
+  //RCCHECK(rclc_node_init_default(&node, "micro_ros_arduino_node", "", &support));
+```
+8. Click Download in Arduino IDE 
+9. Wait until it uploaded to the board then unplug the board.
+10. Open two terminals then run in one of terminals: mkdir micro_ros_arduino 
+11. cd micro_ros_arduino && git clone git@github.com:micro-ROS/micro_ros_arduino.git
+12. colcon build
+13. source install/setup.bash
+14. Plug the board in
+15. In #1 terminal: ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/ttyACM0 -b 115200 -v 6
+16. in #2 terminal, source micro_ros_arduino/install/setup.bash then ros2 topic list
+17. If you are able to see the node appears, it means you are able to communicating between arduino and ROS2.
 
 
 
