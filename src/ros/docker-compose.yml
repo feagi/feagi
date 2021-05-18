@@ -1,0 +1,27 @@
+version: "3"
+
+services:
+  ros:
+    build:
+      context: ./
+      dockerfile: Dockerfile.ros
+    ports:
+      - "6080:80"
+      - "2000"
+    networks:
+      - tb_net
+
+  feagi:
+    build:
+      context: ./
+      dockerfile: ../../docker/Dockerfile
+    depends_on: 
+      - ros
+    ports:
+      - "2000"
+    networks:
+      - tb_net
+
+networks:
+  tb_net:
+    driver: bridge
