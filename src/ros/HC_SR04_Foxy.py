@@ -36,7 +36,7 @@ class MinimalPublisher(Node):
             sensorvalue = float(ser.readline())  # posts the value
         msg = sensorvalue
         print(msg)
-        msg = self.get_logger().info("distance: ".format(float(ser.readline())))
+        self.get_logger().info("distance: {}".format(sensorvalue))
         print(type(msg))  # this is to verify the type of the value. It should be float only
         self.publisher_.publish(check)  # this is to publish the data to topic 'scann'. It can change to 'scan' in #34 line
         self.i += 1
