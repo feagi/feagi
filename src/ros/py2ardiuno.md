@@ -15,7 +15,7 @@ GND connnects to GND
 
 
 # To verify ardiuno/python3 only by doing this steps:
-1. Navigate to ros/ardiunotopython/
+1. Navigate to /src/ros/ardiunotopython/
 2. chmod a+x test.py
 3. Click ardiunotopython.ino
 4. Set board to your type of board and set the port up as well too on the official ardiuno IDE.
