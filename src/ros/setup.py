@@ -21,8 +21,8 @@ setup(
     entry_points={
         'console_scripts': [
              'listener = py_topic.ros_laser_scan:main',
-             'sonar_sensor = py_topic.HC_SR04_Foxy:main',
-		'py_laser_scan = py_topic.ros_laser_scan:main'
-        ],
-    },
+             'sonar_sensor = py_topic.HC_SR04_Foxy:main', #This is the one you use the sonar sensor.
+		'py_laser_scan = py_topic.ros_laser_scan:main' #This is the original ros_laser_scan
+        ], #Once you add this in your setup.py in ros_ws/src/py_topic/ and update your workspace.
+    }, #Then you can run like ros2 run py_topic 
 )
