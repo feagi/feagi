@@ -1,4 +1,4 @@
-# Python to ardiuno/ros2 using sonar sensor only
+# Publishing sonar sensor data through ROS2
 
 This document is for sonar sensor (HC-0SR04)
 
