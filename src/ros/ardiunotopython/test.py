@@ -1,8 +1,7 @@
-import serial
+import serial # This allows the Python to read the serial output from the specific address.  More information: https://pyserial.readthedocs.io/en/latest/pyserial.html
 import time
 import struct
 
-#ser = serial.Serial("/dev/ttyACM0", 9600)
 ser = serial.Serial(
         port="/dev/ttyACM0",
         baudrate=9600,
