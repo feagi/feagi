@@ -1,4 +1,5 @@
-#include <NewPing.h>
+#include <NewPing.h> //This code is designed for HC-SR04 sensor specifically to get the better output. This is author of Tim Eckel - teckel@leethost.com.
+//This code is to use the code and do the sample only. 
 
 #define TRIGGER_PIN  9  // Arduino pin tied to trigger pin on the ultrasonic sensor.
 #define ECHO_PIN     11  // Arduino pin tied to echo pin on the ultrasonic sensor.
@@ -7,7 +8,7 @@
 NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE); // NewPing setup of pins and maximum distance.
 
 void setup() {
-  Serial.begin(9600); // Open serial monitor at 115200 baud to see ping results.
+  Serial.begin(9600); // Change 9600 so it can works well with the sensor
 }
 
 void loop() {
