@@ -15,8 +15,8 @@ std_msgs //to use float/int
 This document is for sonar sensor (HC-0SR04)
 
 
-## Set up with hardware:
-# 8bit board such as Arduino UNO.
+# Set up with hardware:
+## 8bit board such as Arduino UNO.
 Wiring on the board
 ```
 VCC connects to 5V on the board.
@@ -25,7 +25,7 @@ Echo connects to pin #11
 GND connnects to GND
 ```
 
-# 32bit board such as Teensy, Arduino ZERO, or Arduino DUE
+## 32bit board such as Teensy, Arduino ZERO, or Arduino DUE
 Wiring:
 ```
 VCC connects to 5V on the board
@@ -39,7 +39,7 @@ GND connects to GND, and 2k resistor (series)
 More information is in the section, "More detail information" in the bottom of the file.
 
 
-# To verify ardiuno/python3 only by doing this steps:
+## To verify ardiuno/python3 only by doing this steps:
 1. Navigate to /src/ros/ardiunotopython/ in terminal
 2. chmod a+x test.py in terminal
 3. Click ardiunotopython.ino to open arduino IDE
