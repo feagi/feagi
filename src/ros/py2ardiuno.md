@@ -34,6 +34,7 @@ Echo connects to pin #11
 GND connects to GND, and 2k resistor (series)
 ```
 Schematic for 32bit:
+
 ![schematic](https://user-images.githubusercontent.com/65916520/119182601-5ad46e80-ba30-11eb-9e26-878c47a0a311.png)
 
 
