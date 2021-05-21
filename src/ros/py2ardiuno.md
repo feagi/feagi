@@ -138,6 +138,7 @@ https://www.makeuseof.com/tag/program-control-arduino-python/
 https://create.arduino.cc/projecthub/ansh2919/serial-communication-between-python-and-arduino-e7cce0
 https://www.tutorialspoint.com/python/file_readline.htm
 https://github.com/pyserial/pyserial/tree/master/serial
+https://learn.sparkfun.com/tutorials/voltage-dividers/all
 ```
 
 32bit boards has a 3.3v maximum with 1% tolerance (3.5v). We can use the equation to determine the specific series voltage output:
