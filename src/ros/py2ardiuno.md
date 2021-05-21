@@ -2,6 +2,13 @@
 This method allows you to customize heavily using Python only and able to read ardiuno, obtain the value and output the value as well. So, Python can run on Foxy. The picture below displays how the py2ardiuno works:
 ![image](https://user-images.githubusercontent.com/65916520/119179001-a3d5f400-ba2b-11eb-8266-7dc10cf026d0.png)
 
+modules being used in this method:
+```
+rclpy //for ros2
+serial //to read arduino's output
+time //timeout 
+std_msgs //to use float/int
+```
 
 # Publishing sonar sensor data through ROS2
 
