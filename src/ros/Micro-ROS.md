@@ -24,7 +24,7 @@ sudo ./install
 1. Download latest zip from (Micro-ROS)[https://github.com/micro-ROS/micro_ros_arduino/releases/tag/v1.0.0]
 2. Open Arduino IDE
 3. Click Sketch > Include library > Add Zip > [add the zip you downloaded] 
-4. 
+4. Patch boards in terminal
 ```
 Teensy- cd [Ardiuno PATH]/hardware/teensy/avr/
 Ardiuno ZERO/DUE- cd ~/.arduino15/packages/arduino/hardware/sam/1.6.11 
