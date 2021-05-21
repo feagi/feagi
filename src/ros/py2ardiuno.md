@@ -34,6 +34,8 @@ Echo connects to pin #11
 GND connects to GND, and 2k resistor (series)
 ```
 Schematic for 32bit:
+![schematic](https://user-images.githubusercontent.com/65916520/119182601-5ad46e80-ba30-11eb-9e26-878c47a0a311.png)
+
 
 **IMPORTANT INFORMATION:** be sure that your board can take the 5v output. For example: DUE, ZERO, and other 32bit ardiuno boards _REQUIRE_ resistors in the output values. 8bits ardiuno boards such as UNO doesn't need a resistor. 
 
