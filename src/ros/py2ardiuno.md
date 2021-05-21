@@ -1,3 +1,7 @@
+#Set up with py2arduino
+This method allows you to customize heavily using Python only and able to read ardiuno, obtain the value and output the value as well. So, Python can run on Foxy. The picture below displays how the py2ardiuno works:
+
+
 # Publishing sonar sensor data through ROS2
 
 This document is for sonar sensor (HC-0SR04)
