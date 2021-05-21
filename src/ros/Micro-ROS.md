@@ -1,4 +1,4 @@
-# Micro-ROS on FEAGI
+# Micro-ROS set up
 ## Setup on linux on Teensy and Arduino
 1. Plug the micro USB to Teensy 4.1 (the board should have an orange blinking)
 2. Press the button on the board.(The blinking should stop)
@@ -17,14 +17,19 @@ cd ~/arduino-1.8.13/
 sudo ./install
 ```
 4. Open and test with Teensy.
-5. If it runs without any issue, you are good with Teensy and Arduino.
+5. If it runs without any issue, you are clear to start the section, "Add Micro-ROS to Arduino".
 
 
 ## Add Micro-ROS to Ardiuno
 1. Download latest zip from (Micro-ROS)[https://github.com/micro-ROS/micro_ros_arduino/releases/tag/v1.0.0]
 2. Open Arduino IDE
-3. Click Sketch > Include library > Add Zip > [the zip you downloaded] 
-4. cd [Ardiuno PATH]/hardware/teensy/avr/
+3. Click Sketch > Include library > Add Zip > [add the zip you downloaded] 
+4. 
+```
+Teensy- cd [Ardiuno PATH]/hardware/teensy/avr/
+Ardiuno ZERO/DUE- cd ~/.arduino15/packages/arduino/hardware/sam/1.6.11 
+
+```
 5. curl https://raw.githubusercontent.com/micro-ROS/micro_ros_arduino/foxy/extras/patching_boards/platform_teensy.txt > platform.txt
 6. Open a file called "Micro-ros_publisher.ino" from example in Micro-ros library 
 7. Paste this part under the comment says // create node
