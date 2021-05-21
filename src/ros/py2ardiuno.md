@@ -142,7 +142,7 @@ https://learn.sparkfun.com/tutorials/voltage-dividers/all
 ```
 
 32bit boards has a 3.3v maximum with 1% tolerance (3.5v). We can use the equation to determine the specific series voltage output:
-Equation picture
+![image](https://user-images.githubusercontent.com/65916520/119181148-6c1c7b80-ba2e-11eb-950b-37d242122bd1.png)
 
 So, we have 1k and 2k resistors.
 The output will be 3.3v which is under 3.5v. This will be safe to use on 32bit.
