@@ -1,0 +1,17 @@
+FROM tiryoh/ros2-desktop-vnc:foxy
+
+SHELL ["/bin/bash", "-c"]
+
+# install tools
+RUN apt-get update && \
+    apt-get install -y \
+        xterm \
+        python3-pip && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# set up workspaces and run
+WORKDIR /home/ubuntu/
+COPY setup_container.sh ros_laser_scan.py ros_teleop.py /home/ubuntu/
+RUN chmod +x setup_container.sh && \
+    ./setup_container.sh
