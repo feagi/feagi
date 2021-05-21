@@ -3,7 +3,6 @@ Micro-ROS Arduino is one of few methods to communicate between ROS2 and Ardiuno 
 ![image](https://user-images.githubusercontent.com/65916520/119174506-e72d6400-ba25-11eb-83ab-c0aa27963636.png)
 
 
-
 ## Setup on linux on Teensy and Arduino
 1. Plug the micro USB to Teensy 4.1 (the board should have an orange blinking)
 2. Press the button on the board.(The blinking should stop)
