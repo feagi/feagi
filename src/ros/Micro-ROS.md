@@ -40,15 +40,16 @@ Ardiuno ZERO/DUE- cd ~/.arduino15/packages/arduino/hardware/sam/1.6.11
   //RCCHECK(rclc_node_init_default(&node, "micro_ros_arduino_node", "", &support));
 ```
 8. Click Download in Arduino IDE 
-9. Wait until it uploaded to the board then unplug the board.
-10. Open two terminals then run in one of terminals: mkdir micro_ros_arduino 
-11. cd micro_ros_arduino && git clone git@github.com:micro-ROS/micro_ros_arduino.git
-12. colcon build
-13. source install/setup.bash
-14. Plug the board in
-15. In #1 terminal: ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/ttyACM0 -b 115200 -v 6
-16. in #2 terminal, source micro_ros_arduino/install/setup.bash then ros2 topic list
-17. If you are able to see the node appears, it means you are able to communicating between arduino and ROS2.
+9. Wait until it uploaded to the board.
+10. Unplug the board.
+11. Open two terminals then run in one of terminals: mkdir micro_ros_arduino 
+12. cd micro_ros_arduino && git clone git@github.com:micro-ROS/micro_ros_arduino.git
+13. colcon build
+14. source install/setup.bash
+15. Plug the board in
+16. In #1 terminal: ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/ttyACM0 -b 115200 -v 6
+17. in #2 terminal, source micro_ros_arduino/install/setup.bash then ros2 topic list
+18. If you are able to see the node appears, it means you are able to communicating between arduino and ROS2.
 
 
 
