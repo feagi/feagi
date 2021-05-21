@@ -74,7 +74,7 @@ To update/test the modified by you on the code:
 
 
 ## Py2arduino on FEAGI
-You are ready to test it on FEAGI.
+More information: (FEAGI)[https://github.com/feagi/feagi-core/blob/feature-ros2foxy-feagi/src/ros/py2ardiuno_FEAGI.md]
 
 
 
