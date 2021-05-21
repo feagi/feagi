@@ -1,5 +1,5 @@
 # Micro-ROS arduino set up
-Micro-ROS Arduino is one of few methods to communicate between ROS2 and Ardiuno effectively. This method is not fully developed yet. It's currently work in process by Micro-ROS. They design and add the middleware between two things. It relies on Micro XRCE-DDS to communicate between ROS2 and Arduino. Their link is in the section, "More information" on the bottom of this document. 
+Micro-ROS Arduino is one of few methods to communicate between ROS2 and Ardiuno effectively. This method is not fully developed yet. It's currently work in process by Micro-ROS. They design and add the middleware between two things. It relies on Micro XRCE-DDS to communicate between ROS2 and Arduino. Their link is in the section, "More information" on the bottom of this document. The picture below displays how things work using Micro-ROS arduino:
 
 
 ## Setup on linux on Teensy and Arduino
