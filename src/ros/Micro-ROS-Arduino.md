@@ -1,4 +1,7 @@
-# Micro-ROS set up
+# Micro-ROS arduino set up
+Micro-ROS Arduino is one of few methods to communicate between ROS2 and Ardiuno effectively. This method is not fully developed yet. It's currently work in process by Micro-ROS. They design and add the middleware between two things. It relies on Micro XRCE-DDS to communicate between ROS2 and Arduino. Their link is in the section, "More information" on the bottom of this document. 
+
+
 ## Setup on linux on Teensy and Arduino
 1. Plug the micro USB to Teensy 4.1 (the board should have an orange blinking)
 2. Press the button on the board.(The blinking should stop)
