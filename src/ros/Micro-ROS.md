@@ -62,6 +62,13 @@ Go to arduino-1.8.13/hardware/teensy/avr
 Then paste this, 
 curl https://raw.githubusercontent.com/micro-ROS/micro_ros_arduino/foxy/extras/patching_boards/platform_teensy.txt > platform.txt
 
+## Problem 2:
+Node isn't visible. 
+
+## Solution 2:
+Be sure to run this line in terminal:
+`export ROS_DOMAIN=30`
+You can change the number as long as you match the code's domain_id and the domain in ros2. 
 
 # More information:
 1. https://www.youtube.com/watch?v=ze-HiCr5s60&ab_channel=pk
