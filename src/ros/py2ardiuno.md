@@ -16,6 +16,8 @@ This document is for sonar sensor (HC-0SR04)
 
 
 ## Set up with hardware:
+# 8bit board such as Arduino UNO.
+Wiring on the board
 ```
 VCC connects to 5V on the board.
 Trig connects to pin #9
@@ -23,7 +25,18 @@ Echo connects to pin #11
 GND connnects to GND
 ```
 
+# 32bit board such as Teensy, Arduino ZERO, or Arduino DUE
+Wiring:
+```
+VCC connects to 5V on the board
+Trig connects to pin #9, 1k resistor, and 2k resistor (series)
+Echo connects to pin #11
+GND connects to GND, and 2k resistor (series)
+```
+
 **IMPORTANT INFORMATION:** be sure that your board can take the 5v output. For example: DUE, ZERO, and other 32bit ardiuno boards _REQUIRE_ resistors in the output values. 8bits ardiuno boards such as UNO doesn't need a resistor. 
+
+More information is in the section, "More detail information" in the bottom of the file.
 
 
 # To verify ardiuno/python3 only by doing this steps:
@@ -126,3 +139,10 @@ https://create.arduino.cc/projecthub/ansh2919/serial-communication-between-pytho
 https://www.tutorialspoint.com/python/file_readline.htm
 https://github.com/pyserial/pyserial/tree/master/serial
 ```
+
+32bit boards has a 3.3v maximum with 1% tolerance (3.5v). We can use the equation to determine the specific series voltage output:
+Equation picture
+
+So, we have 1k and 2k resistors.
+The output will be 3.3v which is under 3.5v. This will be safe to use on 32bit.
+
