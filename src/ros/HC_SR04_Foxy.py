@@ -34,11 +34,12 @@ class MinimalPublisher(Node):
             print("Skipped the ' '")  # in #44 line, it kept recieving a string ' '
         else:
             sensorvalue = float(ser.readline())  # posts the value
-        msg = sensorvalue
+        msg = Int64()
+        msg.data= int(sensorvalue)
         print(msg)
         self.get_logger().info("distance: {}".format(sensorvalue))
         print(type(msg))  # this is to verify the type of the value. It should be float only
-        self.publisher_.publish(check)  # this is to publish the data to topic 'scann'. It can change to 'scan' in #34 line
+        self.publisher_.publish(msg)  # this is to publish the data to topic 'scann'. It can change to 'scan' in #34 line
         self.i += 1
 
 
