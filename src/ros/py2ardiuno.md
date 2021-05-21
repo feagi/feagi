@@ -26,13 +26,14 @@ GND connnects to GND
 ```
 
 ## 32bit board such as Teensy, Arduino ZERO, or Arduino DUE
-Wiring:
+Wiring on the board:
 ```
 VCC connects to 5V on the board
 Trig connects to pin #9, 1k resistor, and 2k resistor (series)
 Echo connects to pin #11
 GND connects to GND, and 2k resistor (series)
 ```
+Schematic for 32bit:
 
 **IMPORTANT INFORMATION:** be sure that your board can take the 5v output. For example: DUE, ZERO, and other 32bit ardiuno boards _REQUIRE_ resistors in the output values. 8bits ardiuno boards such as UNO doesn't need a resistor. 
 
