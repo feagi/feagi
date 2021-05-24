@@ -131,6 +131,16 @@ Sonar sensor kept outputs zero.
 ###  Solution #6:
 It's likely defective sonar sensor but verify it with the newping's example first and see if it works. 
 
+### Problem #7:
+No executable found response when running ros2 run py_topic sonar_sensor
+
+### Solution #7
+is setup.py configured properly in ~/ros_ws/src/py_topic/ ?
+
+Alternate option: 
+cp ~/feagi-core/src/ros/setup.py ~/ros2_ws/src/py_topic/
+
+
 
 
 
