@@ -56,7 +56,7 @@ Ardiuno ZERO/DUE- cd ~/.arduino15/packages/arduino/hardware/sam/1.6.11
 18. If you are able to see the node appears, it means you are able to communicating between arduino and ROS2.
 
 # Go to Micro-ROS on FEAGI
-Once you complete this, you should be able to continue for the Micro-ROS on FEAGI document. 
+Once you complete this, you should be able to continue for the Micro-ROS on FEAGI document. More information: [FEAGI](py2ardiuno_FEAGI.md)
 
 
 # Problem section:
