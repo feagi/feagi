@@ -4,3 +4,4 @@ This is to test the sample on FEAGI. You will learn that FEAGI will react to son
 # Test with FEAGI
 1. Follow the document from [this](https://github.com/feagi/feagi-core/blob/develop/DEPLOY.md)
 2. Once you have FEAGI running, open a new terminal
+
