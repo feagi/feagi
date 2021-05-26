@@ -19,6 +19,8 @@ ros2 run py_topic sonar_reader1
 ```
 4. Verify if FEAGI reacting to it. Once you verify it, it's working.
 
+**Information information:** This using the file called ardiunotopython.ino. This file has to be upload to the board from Arduino IDE. This **will** not work on Micro-ROS.
+
 # Micro-ROS on FEAGI
 1. Have FEAGI running already.
 2. Open a new terminal then do those lines:
@@ -30,3 +32,4 @@ ros2 run py_topic sonar_reader
 4. Plug the usb to the board where you uploaded micro-ros sample from and run in the terminal; ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/ttyACM0 -b 115200 -v 6
 5. See FEAGI's output changes as the sonar sensor reads the distance.
 
+**Important Information:** This using the file called micro-ros_publisher.ino. This file has to be upload to the board from Arduino IDE. This will not work on ardiunotopython. 
