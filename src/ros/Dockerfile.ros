@@ -1,17 +1,24 @@
-FROM tiryoh/ros2-desktop-vnc:foxy
+# FROM tiryoh/ros2-desktop-vnc:foxy
+FROM ros:foxy
 
-SHELL ["/bin/bash", "-c"]
+# SHELL ["/bin/bash", "-c"]
 
 # install tools
 RUN apt-get update && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
+        wget \
         xterm \
+        ros-foxy-gazebo-ros-pkgs \
         python3-pip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# set up workspaces and run
-WORKDIR /home/ubuntu/
-COPY setup_container.sh ros_laser_scan.py ros_teleop.py /home/ubuntu/
+# set up workspaces
+WORKDIR /root/
+COPY setup_container.sh ros_laser_scan.py launch_in_container.sh ros_teleop.py /root/
 RUN chmod +x setup_container.sh && \
+    chmod +x launch_in_container.sh && \
     ./setup_container.sh
+
+ENV TURTLEBOT3_MODEL=burger
+# CMD [ "./launch_in_container.sh" ]

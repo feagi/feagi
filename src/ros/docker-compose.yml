@@ -8,6 +8,12 @@ services:
     ports:
       - "6080:80"
       - "2000"
+    # restart: on-failure
+    command: >
+      /bin/bash -c "source ~/ros2_ws/install/setup.bash 
+      && ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py 
+      && ros2 run py_topic ros_laser_scan"
+    #   && ros2 run py_topic ros_laser_scan"
     networks:
       - tb_net
 
@@ -17,6 +23,8 @@ services:
       dockerfile: ../../docker/Dockerfile
     depends_on: 
       - ros
+    logging:
+      driver: "none"
     ports:
       - "2000"
     networks:

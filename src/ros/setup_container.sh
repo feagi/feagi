@@ -3,7 +3,7 @@
 # turtlebot3 setup
 mkdir -p ~/turtlebot3_ws/src
 cd ~/turtlebot3_ws || exit
-wget https://raw.githubusercontent.com/ROBOTIS-GIT/turtlebot3/ros2/turtlebot3.repos
+wget https://raw.githubusercontent.com/ROBOTIS-GIT/turtlebot3/foxy-devel/turtlebot3.repos
 vcs import ~/turtlebot3_ws/src < turtlebot3.repos
 source /opt/ros/foxy/setup.bash
 colcon build --symlink-install --continue-on-error
