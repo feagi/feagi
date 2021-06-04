@@ -1,14 +1,14 @@
 # FROM tiryoh/ros2-desktop-vnc:foxy
 FROM ros:foxy
 
-# SHELL ["/bin/bash", "-c"]
+SHELL ["/bin/bash", "-c"]
 
 # install tools
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         wget \
-        xterm \
         ros-foxy-gazebo-ros-pkgs \
+        gazebo11 \
         python3-pip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -21,4 +21,4 @@ RUN chmod +x setup_container.sh && \
     ./setup_container.sh
 
 ENV TURTLEBOT3_MODEL=burger
-# CMD [ "./launch_in_container.sh" ]
+CMD [ "./launch_in_container.sh" ]
