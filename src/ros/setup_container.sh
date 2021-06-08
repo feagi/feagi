@@ -6,12 +6,12 @@ wget https://raw.githubusercontent.com/ROBOTIS-GIT/robotis_tools/master/install_
 sudo chmod 755 ./install_ros2_foxy.sh
 bash ./install_ros2_foxy.sh
 sudo apt-get install ros-foxy-gazebo-*
-sudo apt install ros-foxy-cartographer
-sudo apt install ros-foxy-cartographer-ros
-sudo apt install ros-foxy-navigation2
-sudo apt install ros-foxy-nav2-bringup
-sudo apt install ros-foxy-dynamixel-sdk
-sudo apt install ros-foxy-turtlebot3
+sudo apt install -y ros-foxy-cartographer
+sudo apt install -y  ros-foxy-cartographer-ros
+sudo apt install -y  ros-foxy-navigation2
+sudo apt install -y  ros-foxy-nav2-bringup
+sudo apt install -y  ros-foxy-dynamixel-sdk
+sudo apt install -y  ros-foxy-turtlebot3
 mkdir -p ~/turtlebot3_ws/src
 cd ~/turtlebot3_ws/src/
 git clone -b foxy-devel https://github.com/ROBOTIS-GIT/turtlebot3_msgs.git
@@ -35,14 +35,14 @@ sudo mount -t tmpfs -o rw,size=1000M tmpfs /mnt/ramdisk
 python3 ./src/cython_libs/cython_setup.py build_ext --inplace
 sudo wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo apt-key add -
 echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
-sudo apt-get update
-sudo apt-get install -y mongodb-org
-sudo apt-get install libatlas-base-dev
+apt-get update
+apt-get install -y mongodb-org
+apt-get install libatlas-base-dev
 
 # Install Terminator
 sudo add-apt-repository ppa:gnome-terminator
 sudo apt-get update
-sudo apt-get install terminator
+sudo apt-get -y  install terminator
 
 #Install arduino
 cd ~
