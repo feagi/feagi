@@ -5,7 +5,7 @@ cd ~
 wget https://raw.githubusercontent.com/ROBOTIS-GIT/robotis_tools/master/install_ros2_foxy.sh
 sudo chmod 755 ./install_ros2_foxy.sh
 bash ./install_ros2_foxy.sh
-sudo apt-get install ros-foxy-gazebo-*
+sudo apt-get install -y ros-foxy-gazebo-*
 sudo apt install -y ros-foxy-cartographer
 sudo apt install -y  ros-foxy-cartographer-ros
 sudo apt install -y  ros-foxy-navigation2
