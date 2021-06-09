@@ -22,22 +22,6 @@ colcon build --symlink-install
 echo 'source ~/turtlebot3_ws/install/setup.bash' >> ~/.bashrc
 source ~/.bashrc
 
-# FEAGI setup
-cd ~
-git clone git@github.com:feagi/feagi-core.git
-cd feagi-core/
-pip3 install virtualenv
-virtualenv -p /usr/bin/python3 environName
-source ./environName/bin/activate
-pip3 install -r requirements.txt
-sudo mkdir /mnt/ramdisk
-sudo mount -t tmpfs -o rw,size=1000M tmpfs /mnt/ramdisk
-python3 ./src/cython_libs/cython_setup.py build_ext --inplace
-sudo wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo apt-key add -
-echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
-apt-get update
-apt-get install -y mongodb-org
-apt-get install libatlas-base-dev
 
 # Install Terminator
 sudo add-apt-repository ppa:gnome-terminator
@@ -76,7 +60,7 @@ git clone -b main https://github.com/micro-ROS/micro_ros_setup.git src/micro_ros
 rosdep update && rosdep install --from-path src --ignore-src -y
 cd ~/micro_ros_arduino || exit
 sudo rm -R log/ build/ install/
-colcon build
+colcon build --symlink-install
 source install/local_setup.bash
 ros2 run micro_ros_setup create_agent_ws.sh
 ros2 run micro_ros_setup build_agent.sh
