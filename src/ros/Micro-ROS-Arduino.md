@@ -2,6 +2,20 @@
 Micro-ROS Arduino is one of few methods to communicate between ROS2 and Ardiuno effectively. This method is not fully developed yet. It's currently work in process by Micro-ROS. They design and add the middleware between two things. It relies on Micro XRCE-DDS to communicate between ROS2 and Arduino. Their link is in the section, "More information" on the bottom of this document. The picture below displays how things work using Micro-ROS arduino:
 ![image](https://user-images.githubusercontent.com/65916520/119174506-e72d6400-ba25-11eb-83ab-c0aa27963636.png)
 
+## Setup with the Micro XRCE-DDS
+1. cd ~
+2. mkdir micro_ros_arduino
+3. cd ~/micro_ros_arduino
+4. source /opt/ros/foxy/setup.bash
+5. git clone -b foxy https://github.com/micro-ROS/micro_ros_setup.git src/micro_ros_setup
+6. rosdep update && rosdep install --from-path src --ignore-src -y
+7. cd ~/micro_ros_arduino
+8. colcon build
+9. source install/local_setup.bash
+10. ros2 run micro_ros_setup create_agent_ws.sh
+11. ros2 run micro_ros_setup build_agent.sh
+12. source install/local_setup.sh
+
 
 ## Setup on linux on Teensy and Arduino
 1. Plug the micro USB to Teensy 4.1 (the board should have an orange blinking)
