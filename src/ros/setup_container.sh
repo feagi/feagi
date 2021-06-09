@@ -20,7 +20,7 @@ git clone -b foxy-devel https://github.com/ROBOTIS-GIT/turtlebot3_msgs.git
 git clone -b foxy-devel https://github.com/ROBOTIS-GIT/turtlebot3.git
 git clone -b foxy-devel https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git
 cd ~/turtlebot3_ws
-colcon build --symlink-install
+colcon build
 echo 'source ~/turtlebot3_ws/install/setup.bash' >> ~/.bashrc
 source ~/.bashrc
 
@@ -57,11 +57,11 @@ cd ~
 mkdir micro_ros_arduino
 cd ~/micro_ros_arduino
 source /opt/ros/$ROS_DISTRO/setup.bash
-git clone -b main https://github.com/micro-ROS/micro_ros_setup.git src/micro_ros_setup
+git clone -b foxy https://github.com/micro-ROS/micro_ros_setup.git src/micro_ros_setup
 rosdep update && rosdep install --from-path src --ignore-src -y
 cd ~/micro_ros_arduino || exit
 sudo rm -R log/ build/ install/
-colcon build --symlink-install
+colcon build
 source install/local_setup.bash
 ros2 run micro_ros_setup create_agent_ws.sh
 ros2 run micro_ros_setup build_agent.sh
