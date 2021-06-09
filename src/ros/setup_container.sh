@@ -19,7 +19,8 @@ cd ~/turtlebot3_ws/src/
 git clone -b foxy-devel https://github.com/ROBOTIS-GIT/turtlebot3_msgs.git
 git clone -b foxy-devel https://github.com/ROBOTIS-GIT/turtlebot3.git
 git clone -b foxy-devel https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git
-cd ~/turtlebot3_ws
+cd ~/turtlebot3_ws/ || exit
+source /opt/ros/foxy/setup.bash
 colcon build
 echo 'source ~/turtlebot3_ws/install/setup.bash' >> ~/.bashrc
 source ~/.bashrc
@@ -47,7 +48,7 @@ ros2 pkg create --build-type ament_python py_topic
 cp $mypath/ros_laser_scan.py $mypath/ros_teleop.py ~/ros2_ws/src/py_topic/py_topic/
 sed '9i\  <buildtool_depend>ament_python</buildtool_depend>\n  <exec_depend>rclpy</exec_depend>\n  <exec_depend>geometry_msgs</exec_depend>' ~/ros2_ws/src/py_topic/package.xml > changed.txt && mv changed.txt ~/ros2_ws/src/py_topic/package.xml
 sed '23i\             "ros_laser_scan = py_topic.ros_laser_scan:main",\n             "ros_teleop = py_topic.ros_teleop:main"' ~/ros2_ws/src/py_topic/setup.py > changed.txt && mv changed.txt ~/ros2_ws/src/py_topic/setup.py
-cd ~/ros2_ws || exit
+cd ~/ros2_ws/ || exit
 pip3 install zmq
 colcon build
 source /opt/ros/foxy/setup.bash
