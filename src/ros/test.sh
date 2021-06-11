@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#sudo apt-get install xterm	
+sudo apt-get install xterm	
 xterm*allowTitleOps: false
 name="FEAGI ARDIUNO FOXY TOPIC" #easier to remember which to run on.
 echo $name
