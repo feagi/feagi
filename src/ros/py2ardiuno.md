@@ -140,7 +140,24 @@ is setup.py configured properly in ~/ros_ws/src/py_topic/ ?
 Alternate option: 
 cp ~/feagi-core/src/ros/setup.py ~/ros2_ws/src/py_topic/
 
+### Problem #8:
+Traceback (most recent call last):
+  File "/home/ubuntu/ros2_ws/install/py_topic/lib/py_topic/sonar_sensor", line 11, in <module>
+    load_entry_point('py-topic==0.0.0', 'console_scripts', 'sonar_sensor')()
+  File "/usr/lib/python3/dist-packages/pkg_resources/__init__.py", line 490, in load_entry_point
+    return get_distribution(dist).load_entry_point(group, name)
+  File "/usr/lib/python3/dist-packages/pkg_resources/__init__.py", line 2854, in load_entry_point
+    return ep.load()
+  File "/usr/lib/python3/dist-packages/pkg_resources/__init__.py", line 2445, in load
+    return self.resolve()
+  File "/usr/lib/python3/dist-packages/pkg_resources/__init__.py", line 2451, in resolve
+    module = __import__(self.module_name, fromlist=['__name__'], level=0)
+  File "/home/ubuntu/ros2_ws/install/py_topic/lib/python3.8/site-packages/py_topic/HC_SR04_Foxy.py", line 2, in <module>
+    import serial
+ModuleNotFoundError: No module named 'serial'
 
+### Solution #8:
+pip3 install pyserial
 
 
 
