@@ -36,10 +36,6 @@ cd ~
 wget https://downloads.arduino.cc/arduino-1.8.13-linux64.tar.xz
 tar -xf arduino-1.8.13-linux64.tar.xz
 
-#install ros stuff to ros2_ws/
-cd ~
-git clone -b feature-ros2foxy-feagi git@github.com:feagi/feagi-core.git
-
 # ros workspace setup
 cd ~
 mypath=`pwd`
@@ -53,9 +49,7 @@ sed '9i\  <buildtool_depend>ament_python</buildtool_depend>\n  <exec_depend>rclp
 sed '23i\             "ros_laser_scan = py_topic.ros_laser_scan:main",\n             "ros_teleop = py_topic.ros_teleop:main"' ~/ros2_ws/src/py_topic/setup.py > changed.txt && mv changed.txt ~/ros2_ws/src/py_topic/setup.py
 cp ~/setup.py ~/ros2_ws/src/py_topic/
 cd ~/ros2_ws/ || exit
-cp ~/feagi-core/src/ros/setup.py ~/ros2_ws/src/py_topic/
-cp ~/feagi-core/src/ros/* ~/ros2_ws/src/py_topic/py_topic/
-sudo rm -R ~/feagi-core/
+
 pip3 install zmq
 pip3 install pyserial
 colcon build
