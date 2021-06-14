@@ -1,8 +1,22 @@
 #!/bin/bash
 
 sudo apt-get install xterm	
-xterm*allowTitleOps: false
+#xterm*allowTitleOps: false
 name="FEAGI ARDIUNO FOXY TOPIC" #easier to remember which to run on.
+check="xterm"
+dpkg -s $name &> /dev/null  
+if [ $? -ne 0 ]
+
+then
+	echo "not installed"  
+	sudo apt-get update
+	sudo apt-get install $check
+
+else
+	echo    "installed"
+fi
+
+
 echo $name
 for name in $name
 do
