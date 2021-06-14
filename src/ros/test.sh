@@ -4,9 +4,9 @@ sudo apt-get install xterm
 #xterm*allowTitleOps: false
 name="FEAGI ARDIUNO FOXY TOPIC" #easier to remember which to run on.
 check="xterm"
+DIRECTORY="$HOME/feagi-core/"
 dpkg -s $check &> /dev/null  
 if [ $check -ne 0 ]
-
 then
 	echo "not installed"  
 	sudo apt-get update
@@ -18,18 +18,20 @@ fi
 
 
 echo $name
+
 for name in $name
 do
 if [[ "$name" == 'FEAGI' ]]; then
-#	if [ -d "~/feagi-core/" ]
-#	then
-#		feagi_title="FEAGI"
-#		xterm -hold -e "echo -e '\033]2;'$feagi_title'\007' && cd ~/feagi-core/ && source ./environName/bin/activate && cd src/ && python3 main.py" &
-#	else
-#		echo $
-#	fi	
-feagi_title="FEAGI"
-xterm -hold -e "echo -e '\033]2;'$feagi_title'\007' && cd ~/feagi-core/ && source ./environName/bin/activate && cd src/ && python3 main.py" &
+	if [ -d "$DIRECTORY" ]
+	then
+		feagi_title="FEAGI"
+		xterm -hold -e "echo -e '\033]2;'$feagi_title'\007' && cd ~/feagi-core/ && source ./environName/bin/activate && cd src/ && python3 main.py" &
+	else
+		echo "no FEAGI directory"
+		echo $DIRECTORY
+	fi	
+#feagi_title="FEAGI"
+#xterm -hold -e "echo -e '\033]2;'$feagi_title'\007' && cd ~/feagi-core/ && source ./environName/bin/activate && cd src/ && python3 main.py" &
 elif [[ "$name" == 'ARDIUNO' ]]; then
 arduino_title="Arduino"
 xterm -hold -e "echo -e '\033]2;'$arduino_title'\007' && cd ~/ros2_ws && source install/setup.bash && ros2 run py_topic sonar_sensor" &
