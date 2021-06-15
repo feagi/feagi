@@ -69,3 +69,14 @@ source install/local_setup.bash
 ros2 run micro_ros_setup create_agent_ws.sh
 ros2 run micro_ros_setup build_agent.sh
 source install/local_setup.sh
+
+#Install Arduino CLI
+cd
+git@github.com:arduino/arduino-cli.git
+cd arduino-cli/
+./install.sh
+export PATH=$PATH:/home/ubuntu/arduino-cli/bin
+arduino-cli config init
+arduino-cli core update-index
+arduino-cli upload -p /dev/ttyACM0 --fqbn arduino:samd:arduino_zero_edbg micro-ros_publisher
+
