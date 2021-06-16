@@ -77,5 +77,9 @@ cd arduino-cli/
 export PATH=$PATH:/home/ubuntu/arduino-cli/bin
 arduino-cli config init
 arduino-cli core update-index
+mkdir micro-ros_publisher
+cd micro-ros_publisher
+mv ~/micro-ros-publisher.ino .
+cd ..
 arduino-cli upload -p /dev/ttyACM0 --fqbn arduino:samd:arduino_zero_edbg micro-ros_publisher
 
