@@ -71,8 +71,8 @@ ros2 run micro_ros_setup build_agent.sh
 source install/local_setup.sh
 
 #Install Arduino CLI
-cd
-git@github.com:arduino/arduino-cli.git
+cd ~
+git clone https://github.com/arduino/arduino-cli.git
 cd arduino-cli/
 ./install.sh
 export PATH=$PATH:/home/ubuntu/arduino-cli/bin
