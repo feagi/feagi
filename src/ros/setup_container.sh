@@ -63,7 +63,6 @@ source /opt/ros/$ROS_DISTRO/setup.bash
 git clone -b foxy https://github.com/micro-ROS/micro_ros_setup.git src/micro_ros_setup
 rosdep update && rosdep install --from-path src --ignore-src -y
 cd ~/micro_ros_arduino || exit
-sudo rm -R log/ build/ install/
 colcon build
 source install/local_setup.bash
 ros2 run micro_ros_setup create_agent_ws.sh
