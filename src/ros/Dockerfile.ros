@@ -13,7 +13,6 @@ RUN apt-get update && \
 # set up workspaces and run
 WORKDIR /home/ubuntu/
 COPY setup_container.sh /home/ubuntu/
-COPY test.sh /home/ubuntu/
 COPY setup.py /home/ubuntu/
 COPY ros_laser_scan.py /home/ubuntu/
 COPY ros_teleop.py /home/ubuntu/
