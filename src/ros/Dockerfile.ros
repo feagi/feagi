@@ -12,6 +12,15 @@ RUN apt-get update && \
 
 # set up workspaces and run
 WORKDIR /home/ubuntu/
-COPY setup_container.sh test.sh setup.py ros_laser_scan.py ros_teleop.py HC_SR04_Foxy.py Sonar_reader1.py Sonar_reader.py ardiunotopython/ micro-ros_publisher/  /home/ubuntu/
+COPY setup_container.sh /home/ubuntu/
+COPY test.sh /home/ubuntu/
+COPY setup.py /home/ubuntu/
+COPY ros_laser_scan.py /home/ubuntu/
+COPY ros_teleop.py /home/ubuntu/
+COPY HC_SR04_Foxy.py /home/ubuntu/
+COPY Sonar_reader1.py /home/ubuntu/
+COPY Sonar_reader.py /home/ubuntu/
+COPY ardiunotopython/ /home/ubuntu/
+COPY micro-ros_publisher/ /home/ubuntu/
 RUN chmod +x setup_container.sh && \
     ./setup_container.sh
