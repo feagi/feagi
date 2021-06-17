@@ -22,7 +22,7 @@ COPY Sonar_reader1.py /home/ubuntu/
 COPY Sonar_reader.py /home/ubuntu/
 COPY ardiunotopython/ /home/ubuntu/
 COPY micro-ros_publisher/ /home/ubuntu/
-COPY linux_py2arduino.sh
-COPY linux_Micro-ros.sh
+COPY linux_py2arduino.sh /home/ubuntu/
+COPY linux_Micro-ros.sh /home/ubuntu/
 RUN chmod +x setup_container.sh && \
     ./setup_container.sh
