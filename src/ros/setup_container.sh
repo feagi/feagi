@@ -79,6 +79,8 @@ export PATH=$PATH:/home/ubuntu/arduino-cli/bin
 export PATH=$PATH:/home/ubuntu/arduino-cli/bin
 arduino-cli config init
 arduino-cli core update-index
+arduino-cli core install arduino:samd
+arduino-cli core install arduino:sam
 mkdir micro-ros_publisher
 cd micro-ros_publisher
 cp ~/micro-ros_publisher.ino ~/arduino-cli/micro-ros_publisher/
