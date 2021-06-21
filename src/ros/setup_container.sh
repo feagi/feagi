@@ -84,5 +84,7 @@ arduino-cli core install arduino:sam
 mkdir micro-ros_publisher
 cd micro-ros_publisher
 cp ~/micro-ros_publisher.ino ~/arduino-cli/micro-ros_publisher/
+cd ~/.arduino15/packages/arduino/hardware/sam/1.6.12/
+curl https://raw.githubusercontent.com/micro-ROS/micro_ros_arduino/foxy/extras/patching_boards/platform_arduinocore_sam.txt > platform.txt
 
 
