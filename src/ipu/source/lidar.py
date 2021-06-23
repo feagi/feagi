@@ -41,9 +41,14 @@ def get_and_translate():
             # print("time_increment:", message.time_increment)
             # print("-----")
 
-            detections = proximity.detections_to_coords(message.ranges)
+            # differentiate between LIDAR/SONAR data
+            try:
+                detections = proximity.lidar_to_coords(message.ranges)
+            except AttributeError:
+                detections = proximity.sonar_to_coords(message)
+
             neurons = proximity.coords_to_neuron_ids(
-                detections, cortical_area='proximity'
+                    detections, cortical_area='proximity'
             )
             # TODO: Add proximity feeder function in fcl_injector
             runtime_data.fcl_queue.put({'proximity': set(neurons)})
