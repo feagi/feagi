@@ -59,7 +59,7 @@ else:
 
 
 # todo: export socket address to config file
-socket_address = 'tcp://127.0.0.1:21000'
+socket_address = 'tcp://0.0.0.0:21000'
 print("Connecting to socket ", socket_address)
 
 # Setting up the message queue to receive navigation data from the teleop OPU.
