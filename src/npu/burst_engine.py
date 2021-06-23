@@ -98,7 +98,7 @@ def burst_manager():
     #         sleep(0.5)
 
     def capture_cortical_activity_stats():
-        print('@@@--- Activity Stats:', runtime_data.activity_stats)
+        # print('@@@--- Activity Stats:', runtime_data.activity_stats)
         for cortical_area_ in runtime_data.fire_candidate_list:
             if cortical_area_ in runtime_data.activity_stats:
                 cortical_neuron_count = len(runtime_data.fire_candidate_list[cortical_area_])
@@ -114,9 +114,14 @@ def burst_manager():
 
                 if runtime_data.parameters["Switches"]["global_logger"] and \
                         runtime_data.parameters["Logs"]["print_cortical_activity_counters"]:
-                    print(settings.Bcolors.YELLOW + '    %s : %i  '
-                          % (cortical_area_, cortical_neuron_count)
-                          + settings.Bcolors.ENDC)
+                    if cortical_neuron_count > 0:
+                        print(settings.Bcolors.RED + '    %s : %i  '
+                              % (cortical_area_, cortical_neuron_count)
+                              + settings.Bcolors.ENDC)
+                    elif runtime_data.parameters["Logs"]["print_cortical_activity_counters_all"]:
+                        print(settings.Bcolors.YELLOW + '    %s : %i  '
+                              % (cortical_area_, cortical_neuron_count)
+                              + settings.Bcolors.ENDC)
 
             else:
                 try:
@@ -152,7 +157,7 @@ def burst_manager():
         runtime_data.comprehension_queue.popleft()
 
         counter_list = {}
-        print("~~~~~~..... Burst detection list: ", runtime_data.burst_detection_list)
+        # print("~~~~~~..... Burst detection list: ", runtime_data.burst_detection_list)
         if runtime_data.parameters["Logs"]["print_comprehension_queue"]:
             if runtime_data.burst_detection_list != {}:
                 print(settings.Bcolors.RED + "<><><><><><><><><><><><><><>"
@@ -298,7 +303,7 @@ def burst_manager():
             # todo: the following is not properly feeding data to FCL -- investigate --
             runtime_data.fire_candidate_list = runtime_data.fcl_queue.get()
 
-        print("Fire Candidate List:\n", runtime_data.fire_candidate_list)
+        # print("Fire Candidate List:\n", runtime_data.fire_candidate_list)
 
         # logging neuron activities to the influxdb
         log_neuron_activity_influx()
