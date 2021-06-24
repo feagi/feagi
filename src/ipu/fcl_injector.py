@@ -21,8 +21,6 @@ class Injector:
     def __init__(self):
         self.something = 'something'
 
-
-
     def utf8_feeder(self):
         # inject label to FCL
         runtime_data.training_neuron_list_utf = set()

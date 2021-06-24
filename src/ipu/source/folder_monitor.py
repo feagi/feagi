@@ -13,6 +13,7 @@ from threading import Thread
 from watchdog.observers import Observer
 from watchdog.events import PatternMatchingEventHandler
 from inf import runtime_data
+from ipu.processor import utf
 
 
 # todo: combine all of this module into a single class
@@ -55,17 +56,18 @@ class FolderWatchdog(PatternMatchingEventHandler):
         """
         self.queue.put(event)
 
-    # def on_moved(self, event):
-    #     self.process(event)
+    def on_moved(self, event):
+        print("IPU detected a modification to ", event.src_path)
+        self.process(event)
 
     def on_created(self, event):
-        file_processor(event.src_path)
-
-
-def file_processor(file_path):
-    if str(file_path).endswith('.png'):
-        pass
-    if str(file_path).endswith('.txt'):
-        with open(file_path, 'r') as txt_file:
-            for _ in txt_file.read():
-                print(_)
+        file_path = event.src_path
+        if str(file_path).endswith('.png'):
+            print('IPU detected the presence of a new --PNG-- file @', file_path)
+            pass
+        if str(file_path).endswith('.txt'):
+            print('Detected the presence of a new --TXT-- file @', file_path)
+            with open(file_path, 'r') as txt_file:
+                for _ in txt_file.read():
+                    print(_)
+                    runtime_data.fire_candidate_list['utf8'].update(utf.convert_char_to_fire_list(_))

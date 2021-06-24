@@ -16,6 +16,10 @@ from ipu.source import folder_monitor
 from ipu.source import lidar
 from ipu.source.mnist import MNIST, print_mnist_img_raw
 from ipu.processor.image import Image
+<<<<<<< HEAD
+=======
+from ipu.processor.proximity import lidar_to_coords, coords_to_neuron_ids
+>>>>>>> develop
 from evo.neuroembryogenesis import cortical_sub_group_members
 
 
