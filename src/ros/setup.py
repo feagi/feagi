@@ -23,8 +23,8 @@ setup(
              'listener = py_topic.ros_laser_scan:main',
              'sonar_sensor = py_topic.HC_SR04_Foxy:main', #This is the one you use the sonar sensor.
 		'py_laser_scan = py_topic.ros_laser_scan:main', #This is the original ros_laser_scan
-		'sonar_reader = py_topic.Sonar_reader:main',
-		'sonar_reader1 = py_topic.Sonar_reader1:main'
+		'micro_ros = py_topic.micro_ros:main',
+		'py2arduino = py_topic.py2arduino:main'
         ], #Once you add this in your setup.py in ros_ws/src/py_topic/ and update your workspace.
     }, #Then you can run like ros2 run py_topic 
 )

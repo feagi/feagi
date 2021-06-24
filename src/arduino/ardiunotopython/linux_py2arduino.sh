@@ -37,7 +37,7 @@ arduino_title="Arduino"
 xterm -hold -e "echo -e '\033]2;'$arduino_title'\007' && cd ~/ros2_ws && source install/setup.bash && ros2 run py_topic sonar_sensor" &
 elif [[ "$name" == 'FOXY' ]]; then
 foxy_title="FOXY"
-xterm -hold -e "echo -e '\033]2;'$foxy_title'\007' && cd ~/ros2_ws && source install/setup.bash && ros2 run py_topic sonar_reader1" &
+xterm -hold -e "echo -e '\033]2;'$foxy_title'\007' && cd ~/ros2_ws && source install/setup.bash && ros2 run py_topic py2arduino" &
 fi
 sleep 3
 done

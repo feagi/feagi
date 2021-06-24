@@ -17,14 +17,6 @@ COPY setup.py /home/ubuntu/
 COPY ros_laser_scan.py /home/ubuntu/
 COPY ros_teleop.py /home/ubuntu/
 COPY HC_SR04_Foxy.py /home/ubuntu/
-COPY Sonar_reader1.py /home/ubuntu/
-COPY Sonar_reader.py /home/ubuntu/
-COPY ardiunotopython/ /home/ubuntu/
-COPY micro-ros_publisher/ /home/ubuntu/
-COPY linux_py2arduino.sh /home/ubuntu/
-COPY first_time_only.sh /home/ubuntu/
-COPY test.sh /home/ubuntu/
-COPY linux_Micro-ros.sh /home/ubuntu/
+COPY Micro-ROS/ /home/ubuntu/
 RUN chmod +x setup_container.sh && \
     ./setup_container.sh
-

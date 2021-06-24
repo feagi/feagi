@@ -34,7 +34,7 @@ if [[ "$name" == 'FEAGI' ]]; then
 #xterm -hold -e "echo -e '\033]2;'$feagi_title'\007' && cd ~/feagi-core/ && source ./environName/bin/activate && cd src/ && python3 main.py" &
 elif [[ "$name" == 'ARDIUNO' ]]; then
 arduino_title="Arduino"
-xterm -hold -e "echo -e '\033]2;'$arduino_title'\007' && cd ~/ros2_ws && export ROS_DOMAIN_ID=30 && source install/setup.bash && ros2 run py_topic sonar_reader" &
+xterm -hold -e "echo -e '\033]2;'$arduino_title'\007' && cd ~/ros2_ws && export ROS_DOMAIN_ID=30 && source install/setup.bash && ros2 run py_topic micro_ros" &
 elif [[ "$name" == 'AGENT' ]]; then
 agent_title="AGENT"
 xterm -hold -e "echo -e '\033]2;'$agent_title'\007' && cd ~/micro_ros_arduino && source install/setup.bash && ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/ttyACM0 -b 115200 -v 6" &

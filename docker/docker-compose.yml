@@ -26,3 +26,16 @@ services:
 networks:
   db_net:
     driver: bridge
+
+ros:
+    build:
+      context: ./
+      dockerfile: Dockerfile.ros
+    ports:
+      - "6080:80"
+      - "2000"
+    privileged: true
+    devices:
+      - "/dev:/dev"
+    networks:
+      - tb_net
