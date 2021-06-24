@@ -52,7 +52,7 @@ cd ~/ros2_ws/ || exit
 pip3 install zmq
 pip3 install pyserial
 colcon build
-source /opt/ros/foxy/setup.bash
+source /opt/ros/foxy/setup.bash #
 
 #Install micro-ros
 cd ~

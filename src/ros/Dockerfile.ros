@@ -19,5 +19,6 @@ COPY ros_teleop.py /home/ubuntu/
 COPY HC_SR04_Foxy.py /home/ubuntu/
 COPY Micro-ROS/ /home/ubuntu/
 COPY ardiunotopython/ /home/ubuntu/
+COPY test.sh /home/ubuntu
 RUN chmod +x setup_container.sh && \
     ./setup_container.sh

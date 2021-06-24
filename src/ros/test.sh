@@ -5,7 +5,8 @@ echo "This will start in 5 seconds. "
 echo "To cancel this process, press ctrl C"
 sleep 5
 export PATH=$PATH:/home/ubuntu/arduino-cli/bin
-mv ardiunotopython/ arduino-cli/
+mkdir ~/arduino-cli/ardiunotopython/
+mv ardiunotopython.ino ~/arduino-cli/ardiunotopython/
 arduino-cli core install arduino:avr
 arduino-cli lib search newping
 arduino-cli lib install newping
