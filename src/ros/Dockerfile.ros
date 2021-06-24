@@ -1,4 +1,4 @@
-FROM tiryoh/ros2-desktop-vnc:foxy
+FROM ros:foxy
 
 SHELL ["/bin/bash", "-c"]
 
