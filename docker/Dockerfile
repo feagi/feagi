@@ -11,7 +11,7 @@ RUN apt-get update && \
 RUN mkdir -p /opt/source-code/feagi-core/ && \
     git clone $REPO /opt/source-code/feagi-core
 WORKDIR /opt/source-code/feagi-core/
-RUN git checkout feature-dockerize-lidar
+RUN git checkout develop
 
 # MNIST
 # RUN wget http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz -P /opt/source-code/feagi-core/raw/MNIST/ -q && \
