@@ -8,6 +8,8 @@ services:
     ports:
       - "6080:80"
       - "2000"
+    devices:
+      - "/dev/ttyACM0:/dev/ttyACM0"
     networks:
       - tb_net
 
