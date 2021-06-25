@@ -1,40 +1,4 @@
 #!/bin/bash
-###
-# turtlebot3 setup
-#cd ~
-#wget https://raw.githubusercontent.com/ROBOTIS-GIT/robotis_tools/master/install_ros2_foxy.sh
-#sudo chmod 755 ./install_ros2_foxy.sh
-#bash ./install_ros2_foxy.sh
-#sudo apt install -y libpython3-dev python3-pip
-#pip3 install -U argcomplete
-#sudo apt-get install -y ros-foxy-gazebo-*
-#sudo apt install -y ros-foxy-cartographer
-#sudo apt install -y  ros-foxy-cartographer-ros
-#sudo apt install -y  ros-foxy-navigation2
-#sudo apt install -y  ros-foxy-nav2-bringup
-#sudo apt install -y  ros-foxy-dynamixel-sdk
-#sudo apt install -y  ros-foxy-turtlebot3
-#mkdir -p ~/turtlebot3_ws/src
-#cd ~/turtlebot3_ws/src/
-#git clone -b foxy-devel https://github.com/ROBOTIS-GIT/turtlebot3_msgs.git
-#git clone -b foxy-devel https://github.com/ROBOTIS-GIT/turtlebot3.git
-#git clone -b foxy-devel https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git
-#cd ~/turtlebot3_ws/ || exit
-#source /opt/ros/foxy/setup.bash
-#colcon build
-#echo 'source ~/turtlebot3_ws/install/setup.bash' >> ~/.bashrc
-#source ~/.bashrc
-
-
-# Install Terminator
-sudo add-apt-repository ppa:gnome-terminator
-sudo apt-get update
-sudo apt-get -y  install terminator
-
-#Install arduino
-#cd ~
-#wget https://downloads.arduino.cc/arduino-1.8.13-linux64.tar.xz
-#tar -xf arduino-1.8.13-linux64.tar.xz
 
 # ros workspace setup
 cd ~
@@ -52,7 +16,7 @@ cd ~/ros2_ws/ || exit
 pip3 install zmq
 pip3 install pyserial
 colcon build
-source /opt/ros/foxy/setup.bash #
+source /opt/ros/foxy/setup.bash 
 
 #Install micro-ros
 cd ~
