@@ -20,3 +20,4 @@ arduino-cli board attach serial:///dev/cu.usbserial-1430 ardiunotopython
 arduino-cli compile --port /dev/cu.usbserial-1430 ardiunotopython
 arduino-cli upload --port /dev/cu.usbserial-1430 ardiunotopython
 #/bin/bash ~/linux_py2arduino.sh
+cd ~/ros2_ws && source install/setup.bash && ros2 run py_topic sonar_sensor
