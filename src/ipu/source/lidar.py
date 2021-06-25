@@ -21,7 +21,7 @@ def get_and_translate():
     listener = 0
 
     # message = socket.recv_pyobj()
-    method_list = [method for method in dir(message) if method.startswith('_') is False]
+    # method_list = [method for method in dir(message) if method.startswith('_') is False]
 
     while True:
         message = socket.recv_pyobj()
