@@ -16,7 +16,7 @@ git clone -b foxy https://github.com/micro-ROS/micro_ros_arduino.git
 cd ~
 cd arduino-cli/
 export PATH=$PATH:/home/ubuntu/arduino-cli/bin
-arduino-cli board attach serial:///dev/ttyACM0 ardiunotopython
-arduino-cli compile --port /dev/ttyACM0 ardiunotopython
-arduino-cli upload --port /dev/ttyACM0 ardiunotopython
-/bin/bash ~/linux_py2arduino.sh
+arduino-cli board attach serial:///dev/cu.usbserial-1430 ardiunotopython
+arduino-cli compile --port /dev/cu.usbserial-1430 ardiunotopython
+arduino-cli upload --port /dev/cu.usbserial-1430 ardiunotopython
+#/bin/bash ~/linux_py2arduino.sh
