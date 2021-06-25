@@ -20,8 +20,8 @@ def get_and_translate():
 
     listener = 0
 
-    # message = socket.recv_pyobj()
-    # method_list = [method for method in dir(message) if method.startswith('_') is False]
+    message = socket.recv_pyobj()
+    method_list = [method for method in dir(message) if method.startswith('_') is False]
 
     while True:
         message = socket.recv_pyobj()
@@ -53,5 +53,6 @@ def get_and_translate():
             neurons = proximity.coords_to_neuron_ids(
                     detections, cortical_area='proximity'
             )
+            print(neurons)
             # TODO: Add proximity feeder function in fcl_injector
             runtime_data.fcl_queue.put({'proximity': set(neurons)})
