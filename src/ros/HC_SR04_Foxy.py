@@ -9,7 +9,7 @@ from rclpy.qos import QoSProfile
 from rclpy.qos import qos_profile_sensor_data  # this is required to have a full data
 
 ser = serial.Serial(
-    port="/dev/ttyACM0",
+    port="/dev/cu.usbserial-1430",
     baudrate=9600,
     parity=serial.PARITY_NONE,
     stopbits=serial.STOPBITS_ONE,
