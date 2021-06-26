@@ -119,10 +119,10 @@ def init_genome_db():
 def init_data_sources():
     """To validate and initialize all data sources and databases"""
     print("\nInitializing databases...")
-    if runtime_data.parameters['Data_Management']['genome_db']:
+    if runtime_data.parameters['Database']['mongodb_enabled']:
         init_genome_db()
 
-    if runtime_data.parameters['Data_Management']['timeseries_db']:
+    if runtime_data.parameters['Database']['influxdb_enabled']:
         init_timeseries_db()
 
     log.info("All data sources have been initialized.")
