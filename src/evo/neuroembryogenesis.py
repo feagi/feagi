@@ -31,7 +31,7 @@ from inf.db_handler import InfluxManagement
 
 log = logging.getLogger(__name__)
 
-# influxdb = InfluxManagement()
+influxdb = InfluxManagement()
 
 
 # Resets the in-memory brain for each cortical area
@@ -248,8 +248,8 @@ def synaptogenesis():
     # stats.brain_total_synapse_cnt()
 
     # Build Synapses across various Cortical areas
-    func2 = partial(build_synapse_intercortical, runtime_data.genome, runtime_data.brain,
-                    runtime_data.parameters, runtime_data.block_dic)
+    func2 = partial(build_synapse_intercortical, runtime_data.genome, runtime_data.brain, runtime_data.parameters,
+                    runtime_data.block_dic, runtime_data.connectome_path)
     pool2 = Pool(processes=int(runtime_data.parameters['System']['max_core']))
 
     intercortical_mapping = pool2.map(func2, runtime_data.cortical_list)
@@ -291,9 +291,10 @@ def build_synapse_intracortical(genome, brain, parameters, key):
     disk_ops.save_brain_to_disk(cortical_area=key, brain=runtime_data.brain, parameters=parameters)
 
 
-def build_synapse_intercortical(genome, brain, parameters, block_dic, src_cortical_area):
+def build_synapse_intercortical(genome, brain, parameters, block_dic, connectome_path, src_cortical_area):
     runtime_data.block_dic = block_dic
     intercortical_mapping = []
+    runtime_data.connectome_path = connectome_path
     # Read Genome data
     for mapped_cortical_area in genome["blueprint"][src_cortical_area]["cortical_mapping_dst"]:
         timer = datetime.datetime.now()
@@ -311,11 +312,11 @@ def build_synapse_intercortical(genome, brain, parameters, block_dic, src_cortic
                                                    ["neighbor_locator_rule_param_id"]],
                                                    postsynaptic_current=genome["blueprint"]
                                                    [src_cortical_area]["postsynaptic_current"])
-        if parameters["Switches"]["influx_brain_gen_stats"]:
+        if parameters["Database"]["influx_brain_gen_stats"]:
             influxdb.insert_inter_cortical_stats(connectome_path=parameters["InitData"]["connectome_path"],
                                                  cortical_area_src=src_cortical_area,
                                                  cortical_area_dst=mapped_cortical_area,
-                                                 synapse_count=synapse_count)
+                                                 synapse_count=synapse_count_)
         if parameters["Logs"]["print_brain_gen_activities"]:
             rule = runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'][mapped_cortical_area]['neighbor_locator_rule_id']
             rule_param = runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'][mapped_cortical_area]['neighbor_locator_rule_param_id']

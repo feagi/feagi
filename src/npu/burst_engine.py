@@ -40,7 +40,7 @@ def cortical_group_members(group):
 
 def burst_manager():
     """This function behaves as instance of Neuronal activities"""
-    # influxdb = db_handler.InfluxManagement()
+    influxdb = db_handler.InfluxManagement()
 
     def consciousness_manager():
         """responsible for start and stop of all non-main threads based on various conditions"""
@@ -241,7 +241,7 @@ def burst_manager():
             print('Evolution phase reached...')
             for area in runtime_data.cortical_list:
                 neuron_count, synapse_count = connectome_total_synapse_cnt(area)
-                if runtime_data.parameters["Switches"]["influx_stat_logger"]:
+                if runtime_data.parameters["Database"]["influx_stat_logger"]:
                     runtime_data.influxdb.insert_connectome_stats(connectome_path=connectome_path,
                                                      cortical_area=area,
                                                      neuron_count=neuron_count,
@@ -272,7 +272,7 @@ def burst_manager():
                 runtime_data.future_fcl[_] = set()
 
     def log_neuron_activity_influx():
-        if runtime_data.parameters["Switches"]["influx_stat_logger"]:
+        if runtime_data.parameters["Database"]["influx_stat_logger"]:
             for _ in runtime_data.fire_candidate_list:
                 for neuron in runtime_data.fire_candidate_list[_]:
                     runtime_data.influxdb.insert_neuron_activity(connectome_path=connectome_path,
@@ -282,7 +282,7 @@ def burst_manager():
                                                     runtime_data.brain[_][neuron]["membrane_potential"] /1)
 
     def log_burst_activity_influx():
-        if runtime_data.parameters["Switches"]["influx_stat_logger"]:
+        if runtime_data.parameters["Database"]["influx_stat_logger"]:
             runtime_data.influxdb.insert_burst_checkpoints(connectome_path, runtime_data.burst_count)
 
     def burst():
