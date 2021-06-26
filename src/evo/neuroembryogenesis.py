@@ -28,10 +28,7 @@ from inf.db_handler import InfluxManagement
 # from igraph import *
 # from igraph.directed_graph import DirectGraph
 
-
 log = logging.getLogger(__name__)
-
-influxdb = InfluxManagement()
 
 
 # Resets the in-memory brain for each cortical area
@@ -201,7 +198,6 @@ def develop_brain(reincarnation_mode=False):
     Returns:
 
     """
-
     if bool(reincarnation_mode):
         log.info('Reincarnating...')
         reuse()
@@ -229,16 +225,16 @@ def neurogenesis():
 
 
 def synaptogenesis():
-    func1 = partial(build_synapse_intracortical, runtime_data.genome, runtime_data.brain, runtime_data.parameters)
-    pool1 = Pool(processes=int(runtime_data.parameters['System']['max_core']))
-
     synapse_creation_candidates = []
     for key in runtime_data.genome["blueprint"]:
         if runtime_data.genome["blueprint"][key]["init_synapse_needed"]:
             synapse_creation_candidates.append(key)
         else:
             if runtime_data.parameters["Logs"]["print_brain_gen_activities"]:
-                print("Synapse creation for Cortical area %s has been skipped." % key)
+                print("Synapse creation for Cortical area %s will be skipped." % key)
+
+    func1 = partial(build_synapse_intracortical, runtime_data.genome, runtime_data.brain, runtime_data.parameters)
+    pool1 = Pool(processes=int(runtime_data.parameters['System']['max_core']))
 
     pool1.map(func1, synapse_creation_candidates)
     pool1.close()
@@ -292,6 +288,9 @@ def build_synapse_intracortical(genome, brain, parameters, key):
 
 
 def build_synapse_intercortical(genome, brain, parameters, block_dic, connectome_path, src_cortical_area):
+    # if runtime_data.parameters["Database"]["influxdb_enabled"]:
+    #     from inf import db_handler
+    #     influxdb = db_handler.InfluxManagement()
     runtime_data.block_dic = block_dic
     intercortical_mapping = []
     runtime_data.connectome_path = connectome_path
@@ -312,11 +311,12 @@ def build_synapse_intercortical(genome, brain, parameters, block_dic, connectome
                                                    ["neighbor_locator_rule_param_id"]],
                                                    postsynaptic_current=genome["blueprint"]
                                                    [src_cortical_area]["postsynaptic_current"])
-        if parameters["Database"]["influx_brain_gen_stats"]:
-            influxdb.insert_inter_cortical_stats(connectome_path=parameters["InitData"]["connectome_path"],
-                                                 cortical_area_src=src_cortical_area,
-                                                 cortical_area_dst=mapped_cortical_area,
-                                                 synapse_count=synapse_count_)
+        # print("------------------------------Influxdb:", type(influxdb))
+        # if parameters["Database"]["influx_brain_gen_stats"]:
+        #     influxdb.insert_inter_cortical_stats(connectome_path=parameters["InitData"]["connectome_path"],
+        #                                          cortical_area_src=src_cortical_area,
+        #                                          cortical_area_dst=mapped_cortical_area,
+        #                                          synapse_count=synapse_count_)
         if parameters["Logs"]["print_brain_gen_activities"]:
             rule = runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'][mapped_cortical_area]['neighbor_locator_rule_id']
             rule_param = runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'][mapped_cortical_area]['neighbor_locator_rule_param_id']
@@ -355,13 +355,10 @@ def develop():
 
     # --Reset Connectome--
     reset_connectome_files()
-
     # --Neurogenesis-- Creation of all Neurons across all cortical areas
     neurogenesis()
-
     # --Synaptogenesis-- Build Synapses within all cortical areas
     synaptogenesis()
-
     # Loading connectome data from disk to memory
     runtime_data.brain = disk_ops.load_brain_in_memory()
 

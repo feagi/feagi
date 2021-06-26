@@ -40,7 +40,6 @@ def cortical_group_members(group):
 
 def burst_manager():
     """This function behaves as instance of Neuronal activities"""
-    influxdb = db_handler.InfluxManagement()
 
     def consciousness_manager():
         """responsible for start and stop of all non-main threads based on various conditions"""
@@ -105,7 +104,7 @@ def burst_manager():
                 runtime_data.activity_stats[cortical_area_] = \
                     max(runtime_data.activity_stats[cortical_area_], cortical_neuron_count)
 
-                if runtime_data.parameters["Switches"]["influx_stat_logger"]:
+                if runtime_data.parameters["Database"]["influx_stat_logger"]:
                     runtime_data.influxdb.insert_burst_activity(
                         connectome_path=runtime_data.parameters['InitData']['connectome_path'],
                         burst_id=runtime_data.burst_count,

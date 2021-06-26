@@ -150,7 +150,6 @@ def initialize():
     runtime_data.fcl_queue = Queue()
 
 
-
 def init_burst_engine():
     print("\n\n")
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
