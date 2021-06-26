@@ -1,5 +1,5 @@
 # Copyright (c) 2019 Mohammad Nadji-Tehrani <m.nadji.tehrani@gmail.com>
-from requests.exceptions import ConnectionError
+
 from pymongo.errors import ServerSelectionTimeoutError
 from pymongo import MongoClient, DESCENDING, ASCENDING
 import influxdb_client
@@ -183,22 +183,13 @@ class MongoManagement:
 
 class InfluxManagement:
     def __init__(self):
-        # self.host = runtime_data.parameters["Database"]["influxdb_client"]
-        # self.port = runtime_data.parameters["Database"]["influxdb_port"]
-        # self.user_name = runtime_data.parameters["Database"]["influxdb_user"]
-        # self.user_password = runtime_data.parameters["Database"]["influxdb_password"]
-        # self.stat_db = runtime_data.parameters["Database"]["influxdb_stat_database"]
-        # self.evo_db = runtime_data.parameters["Database"]["influxdb_evo_database"]
-        # self.container_host = 'influx'
-        #
-        # self.client = InfluxDBClient(self.host, self.port, username=self.user_name, password=self.user_password,
-        #                              database='feagi')
 
-        self.stat_bucket = "feagi"
-        self.evo_bucket = "evo"
-        self.org = "neuraville"
-        self.token = "KbyV5yF6rVRUSNjlfF63ZqglbW7uYjhw6K24X9PPCLkFMao0ZDG8ixRQCoqCmP25RaFgY7vWT7Rjw7weLidP6w=="
-        self.url = "http://127.0.0.1:8086"
+        print("parameters", runtime_data.parameters)
+        self.evo_bucket = runtime_data.parameters["Database"]["influxdb_evolutionary_bucket"]
+        self.stats_bucket = runtime_data.parameters["Database"]["influxdb_stats_bucket"]
+        self.org = runtime_data.parameters["Database"]["influxdb_organization"]
+        self.token = runtime_data.parameters["Database"]["influxdb_token"]
+        self.url = runtime_data.parameters["Database"]["influxdb_url"]
 
         self.client = influxdb_client.InfluxDBClient(
             url=self.url,
@@ -263,7 +254,7 @@ class InfluxManagement:
             }
         ]
 
-        self.write_client.write(bucket=self.stat_bucket, org=self.org, record=raw_data)
+        self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
 
     def insert_burst_activity(self, connectome_path, burst_id, cortical_area, neuron_count):
         raw_data = [
@@ -279,7 +270,7 @@ class InfluxManagement:
                 }
             }
         ]
-        self.write_client.write(bucket=self.stat_bucket, org=self.org, record=raw_data)
+        self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
 
     def insert_burst_checkpoints(self, connectome_path, burst_id):
         raw_data = [
@@ -293,7 +284,7 @@ class InfluxManagement:
                 }
             }
         ]
-        self.write_client.write(bucket=self.stat_bucket, org=self.org, record=raw_data)
+        self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
 
     def insert_connectome_stats(self, connectome_path, cortical_area, neuron_count, synapse_count):
         raw_data = [
@@ -309,7 +300,7 @@ class InfluxManagement:
                 }
             }
         ]
-        self.write_client.write(bucket=self.stat_bucket, org=self.org, record=raw_data)
+        self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
 
     def insert_inter_cortical_stats(self, connectome_path, cortical_area_src, cortical_area_dst, synapse_count):
         raw_data = [
@@ -326,7 +317,7 @@ class InfluxManagement:
             }
         ]
 
-        self.write_client.write(bucket=self.stat_bucket, org=self.org, record=raw_data)
+        self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
 
     def insert_evolutionary_fitness_stats(self, connectome_path, fitness_score,
                                           training_sets, test_sets, training_exposure, test_exposure):
@@ -365,7 +356,7 @@ class InfluxManagement:
         print(">>>>>--------->>>>--------->>> Evolutionary stats logged in influx")
 
     def drop_neuron_activity(self):
-        self.client.buckets_api().delete_bucket(self.stat_bucket)
+        self.client.buckets_api().delete_bucket(self.stats_bucket)
 
 
 if __name__ == "__main__":
