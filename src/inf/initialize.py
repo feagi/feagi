@@ -10,7 +10,7 @@ from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
 from datetime import datetime
 from collections import deque
-from inf import runtime_data, disk_ops, settings, db_handler
+from inf import runtime_data, disk_ops, settings
 from configparser import ConfigParser
 from shutil import copyfile
 from evo.stats import list_top_n_utf_memory_neurons
@@ -107,11 +107,14 @@ def init_timeseries_db():
 
     Utilizing InfluxDb as the time-series database
     """
+    from inf import db_handler
     runtime_data.influxdb = db_handler.InfluxManagement()
+    runtime_data.influxdb.test_influxdb()
     return
 
 
 def init_genome_db():
+    from inf import db_handler
     runtime_data.mongodb = db_handler.MongoManagement()
     return
 
@@ -119,13 +122,20 @@ def init_genome_db():
 def init_data_sources():
     """To validate and initialize all data sources and databases"""
     print("\nInitializing databases...")
-    if runtime_data.parameters['Database']['mongodb_enabled']:
-        init_genome_db()
 
-    if runtime_data.parameters['Database']['influxdb_enabled']:
-        init_timeseries_db()
+    if not runtime_data.parameters['Switches']['light_mode']:
+        if runtime_data.parameters['Database']['mongodb_enabled']:
+            init_genome_db()
 
-    log.info("All data sources have been initialized.")
+        if runtime_data.parameters['Database']['influxdb_enabled']:
+            init_timeseries_db()
+        else:
+            print("    InfluxDb:", settings.Bcolors.RED + "Disabled" + settings.Bcolors.ENDC)
+
+        log.info("All data sources have been initialized.")
+    else:
+        print("FEAGI is operating in LIGHT MODE where no database is utilized.")
+
     return
 
 
