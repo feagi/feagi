@@ -179,9 +179,12 @@ def burst_manager():
                 print(settings.Bcolors.HEADER + "UTF8 out was stimulated with the following character: <<< %s >>>"
                       % runtime_data.parameters["Input"]["comprehended_char"] + settings.Bcolors.ENDC)
                 # In the event that the comprehended UTF character is not matching the injected one pain is triggered
-                if runtime_data.parameters["Input"]["comprehended_char"] != str(runtime_data.labeled_image[1]):
-                    trigger_pain()
-                    runtime_data.pain_flag = True
+                try:
+                    if runtime_data.parameters["Input"]["comprehended_char"] != str(runtime_data.labeled_image[1]):
+                        trigger_pain()
+                        runtime_data.pain_flag = True
+                finally:
+                    pass
             else:
                 if list_length >= 2:
                     runtime_data.parameters["Input"]["comprehended_char"] = ''
