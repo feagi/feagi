@@ -2,8 +2,7 @@
 
 from pymongo.errors import ServerSelectionTimeoutError
 from pymongo import MongoClient, DESCENDING, ASCENDING
-import influxdb_client
-from influxdb_client.client.write_api import SYNCHRONOUS
+
 from inf import runtime_data, settings
 import random
 
@@ -183,21 +182,26 @@ class MongoManagement:
 
 class InfluxManagement:
     def __init__(self):
+        import influxdb_client
+        from influxdb_client.client.write_api import SYNCHRONOUS
 
-        print("parameters", runtime_data.parameters)
-        self.evo_bucket = runtime_data.parameters["Database"]["influxdb_evolutionary_bucket"]
-        self.stats_bucket = runtime_data.parameters["Database"]["influxdb_stats_bucket"]
-        self.org = runtime_data.parameters["Database"]["influxdb_organization"]
-        self.token = runtime_data.parameters["Database"]["influxdb_token"]
-        self.url = runtime_data.parameters["Database"]["influxdb_url"]
+        if runtime_data.parameters:
+            self.evo_bucket = runtime_data.parameters["Database"]["influxdb_evolutionary_bucket"]
+            self.stats_bucket = runtime_data.parameters["Database"]["influxdb_stats_bucket"]
+            self.org = runtime_data.parameters["Database"]["influxdb_organization"]
+            self.token = runtime_data.parameters["Database"]["influxdb_token"]
+            self.url = runtime_data.parameters["Database"]["influxdb_url"]
 
-        self.client = influxdb_client.InfluxDBClient(
-            url=self.url,
-            token=self.token,
-            org=self.org
-        )
+            self.client = influxdb_client.InfluxDBClient(
+                url=self.url,
+                token=self.token,
+                org=self.org
+            )
 
-        self.write_client = self.client.write_api(write_options=SYNCHRONOUS)
+            self.write_client = self.client.write_api(write_options=SYNCHRONOUS)
+
+        else:
+            print("ERROR: Parameters are not set for InfluxDb configuration!")
 
         # # check if running in a container
         # try:
@@ -233,11 +237,6 @@ class InfluxManagement:
         # except Exception as e:
         #     print(settings.Bcolors.RED +
         #           "ERROR: Cannot connect to << InfluxDb >> Database \n ::: %s" % str(repr(e)) + settings.Bcolors.ENDC)
-
-    # todo: Add a db availability test
-
-    def get_db_list(self):
-        print(self.client.get_list_database())
 
     def insert_neuron_activity(self, connectome_path, cortical_area, neuron_id, membrane_potential):
         raw_data = [
@@ -358,6 +357,13 @@ class InfluxManagement:
     def drop_neuron_activity(self):
         self.client.buckets_api().delete_bucket(self.stats_bucket)
 
+    def test_influxdb(self):
+        try:
+            if self.client.buckets_api().find_buckets(name=self.stats_bucket):
+                print("    InfluxDb: ", settings.Bcolors.OKGREEN + "Enabled" + settings.Bcolors.ENDC)
+        except:
+            print("    InfluxDb:", settings.Bcolors.RED + "Disabled" + settings.Bcolors.ENDC)
+
 
 if __name__ == "__main__":
 
@@ -384,10 +390,12 @@ if __name__ == "__main__":
 
     influx_client = InfluxManagement()
 
-    influx_client.insert_connectome_stats(connectome_path='/asf/fwef/ee',
-                                     cortical_area='vision_v8',
-                                     neuron_count=4000,
-                                     synapse_count=10000)
+    influx_client.test_influxdb()
+
+    # influx_client.insert_connectome_stats(connectome_path='/asf/fwef/ee',
+    #                                  cortical_area='vision_v8',
+    #                                  neuron_count=4000,
+    #                                  synapse_count=10000)
 
 
 
