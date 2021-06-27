@@ -284,7 +284,8 @@ def burst_manager():
                                                     runtime_data.brain[_][neuron]["membrane_potential"] /1)
 
     def log_burst_activity_influx():
-        if runtime_data.parameters["Database"]["influx_stat_logger"]:
+        if runtime_data.parameters["Database"]["influxdb_enabled"] and \
+                runtime_data.parameters["Database"]["influx_stat_logger"]:
             runtime_data.influxdb.insert_burst_checkpoints(connectome_path, runtime_data.burst_count)
 
     def burst():
