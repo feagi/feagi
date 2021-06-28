@@ -45,7 +45,7 @@ def get_and_translate():
             try:
                 detections = proximity.lidar_to_coords(message.ranges)
             except AttributeError:
-                detections = proximity.sonar_to_coords(message)
+                detections = proximity.sonar_to_coords(int(message))
 
             neurons = proximity.coords_to_neuron_ids(
                     detections, cortical_area='proximity'
