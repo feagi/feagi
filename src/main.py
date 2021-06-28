@@ -56,7 +56,6 @@ if __name__ == '__main__':
         # Process of artificial neuroembryogenesis that leads to connectome development
         neuroembryogenesis.develop_brain(reincarnation_mode=
                                          runtime_data.parameters['Brain_Development']['reincarnation_mode'])
-
         # Initialize Input/Output Processing Units
         ipu_controller.initialize()
         opu_controller.initialize()
