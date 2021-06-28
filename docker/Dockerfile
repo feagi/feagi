@@ -4,13 +4,16 @@ ARG REPO="https://github.com/feagi/feagi-core.git"
 
 # Git 
 RUN apt-get update && \
-    apt-get install -y git && \
-    apt-get install wget
+    apt-get install -y  --no-install-recommends \
+        git \
+        wget \
+        net-tools
 
 # FEAGI
 RUN mkdir -p /opt/source-code/feagi-core/ && \
     git clone $REPO /opt/source-code/feagi-core
 WORKDIR /opt/source-code/feagi-core/
+RUN git checkout feature-dockerize-lidar-updates
 
 # MNIST
 # RUN wget http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz -P /opt/source-code/feagi-core/raw/MNIST/ -q && \
@@ -28,4 +31,5 @@ RUN python3 ./src/cython_libs/cython_setup.py build_ext --inplace && \
     mkdir /opt/source-code/feagi-core/connectome
 
 WORKDIR /opt/source-code/feagi-core/src
+
 CMD ["python3", "main.py"]

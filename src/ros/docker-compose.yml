@@ -6,29 +6,19 @@ services:
       context: ./
       dockerfile: ./Dockerfile
     ports:
-      - "6080:80"
       - "2000"
-    privileged: true
-    stdin_open: true
-    tty: true
-    devices:
-      - "/dev:/dev"
-    networks:
-      - tb_net
+    # stdin_open: true
+    # tty: true
+    # networks:
+    #   - tb_net
 
   feagi:
     build:
       context: ./
       dockerfile: ../../docker/Dockerfile
-    depends_on: 
-      - ros
-    logging:
-      driver: "none"
-    ports:
-      - "2000"
-    networks:
-      - tb_net
+    # networks:
+    #   - tb_net
 
-networks:
-  tb_net:
-    driver: bridge
+# networks:
+#   tb_net:
+#     driver: bridge

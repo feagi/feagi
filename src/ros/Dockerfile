@@ -1,4 +1,3 @@
-# FROM tiryoh/ros2-desktop-vnc:foxy
 FROM ros:foxy
 
 SHELL ["/bin/bash", "-c"]
@@ -9,9 +8,10 @@ RUN apt-get update && \
         wget \
         ros-foxy-gazebo-ros-pkgs \
         gazebo11 \
-        python3-pip && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+        python3-pip \
+        iproute2 \
+        iputils-ping \
+        net-tools
 
 # set up workspaces
 WORKDIR /root/
@@ -21,4 +21,5 @@ RUN chmod +x setup_container.sh && \
     ./setup_container.sh
 
 ENV TURTLEBOT3_MODEL=burger
-CMD [ "./launch_in_container.sh" ]
+EXPOSE 2000/tcp
+ENTRYPOINT [ "./launch_in_container.sh" ]
