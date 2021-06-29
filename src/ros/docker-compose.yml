@@ -1,24 +1,25 @@
 version: "3"
 
+networks:
+  tb:
+    driver: bridge
+
 services:
   ros:
     build:
       context: ./
       dockerfile: ./Dockerfile
-    ports:
-      - "2000"
     # stdin_open: true
     # tty: true
-    # networks:
-    #   - tb_net
+    networks:
+      - tb
 
   feagi:
     build:
       context: ./
       dockerfile: ../../docker/Dockerfile
-    # networks:
-    #   - tb_net
-
-# networks:
-#   tb_net:
-#     driver: bridge
+    tty: True
+    ports:
+      - "21000"
+    networks:
+      - tb

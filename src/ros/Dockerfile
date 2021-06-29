@@ -11,7 +11,12 @@ RUN apt-get update && \
         python3-pip \
         iproute2 \
         iputils-ping \
-        net-tools
+        net-tools \
+        telnet \
+        lsof \
+        tcpdump \
+        netcat \
+        libzmq3-dev
 
 # set up workspaces
 WORKDIR /root/
@@ -21,5 +26,5 @@ RUN chmod +x setup_container.sh && \
     ./setup_container.sh
 
 ENV TURTLEBOT3_MODEL=burger
-EXPOSE 2000/tcp
+
 ENTRYPOINT [ "./launch_in_container.sh" ]

@@ -53,7 +53,7 @@ from rclpy.qos import qos_profile_sensor_data #this is required to have a full d
 print("Starting FEAGI-ROS Laser Scan Interface...")
 
 # todo: export socket address to config file
-socket_address = 'tcp://0.0.0.0:2000'
+socket_address = 'tcp://feagi:21000'
 
 context = zmq.Context()
 socket = context.socket(zmq.PUB)
