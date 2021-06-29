@@ -9,7 +9,7 @@ services:
       - "6080:80"
       - "2000"
     devices:
-      - "/dev/cu.usbserial-1430:/dev/cu.usbserial-1430"
+      - "/dev/ttyACM0:/dev/ttyACM0"
     networks:
       - tb_net
 
