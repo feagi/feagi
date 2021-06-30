@@ -1,0 +1,22 @@
+version: "3"
+
+services:
+  talk:
+    build:
+      context: ./talk
+      dockerfile: ./Dockerfile
+    ports:
+      - "21001:21000/tcp"
+    networks:
+      - test
+
+  listen:
+    build:
+      context: ./listen
+      dockerfile: ./Dockerfile
+    networks:
+      - test
+
+networks:
+  test:
+    driver: bridge
