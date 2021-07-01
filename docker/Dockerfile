@@ -6,14 +6,14 @@ ARG REPO="https://github.com/feagi/feagi-core.git"
 RUN apt-get update && \
     apt-get install -y  --no-install-recommends \
         git \
-        wget \
-        net-tools \
-        ncat \
-        lsof \
-        tcpdump \
-        curl \
-        telnet \
-        libzmq3-dev
+        wget
+        # net-tools \
+        # ncat \
+        # lsof \
+        # tcpdump \
+        # curl \
+        # telnet \
+        # libzmq3-dev
 
 # FEAGI
 RUN mkdir -p /opt/source-code/feagi-core/ && \
@@ -37,5 +37,4 @@ RUN python3 ./src/cython_libs/cython_setup.py build_ext --inplace && \
     mkdir /opt/source-code/feagi-core/connectome
 
 WORKDIR /opt/source-code/feagi-core/src
-EXPOSE 21000
 CMD ["python3", "main.py"]

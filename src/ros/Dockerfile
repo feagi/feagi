@@ -3,20 +3,21 @@ FROM ros:foxy
 SHELL ["/bin/bash", "-c"]
 
 # install tools
-RUN apt-get update && \
+RUN groupadd -r ros_gazebo && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
         wget \
         ros-foxy-gazebo-ros-pkgs \
         gazebo11 \
-        python3-pip \
-        iproute2 \
-        iputils-ping \
-        net-tools \
-        telnet \
-        lsof \
-        tcpdump \
-        netcat \
-        libzmq3-dev
+        python3-pip
+        # iproute2 \
+        # iputils-ping \
+        # net-tools \
+        # telnet \
+        # lsof \
+        # tcpdump \
+        # netcat \
+        # libzmq3-dev
 
 # set up workspaces
 WORKDIR /root/
