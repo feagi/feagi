@@ -6,20 +6,13 @@ networks:
 
 services:
   ros:
-    build:
-      context: ./
-      dockerfile: ./Dockerfile
+    build: ./
     # stdin_open: true
     # tty: true
     networks:
       - tb
 
   feagi:
-    build:
-      context: ./
-      dockerfile: ../../docker/Dockerfile
-    tty: True
-    ports:
-      - "21000"
+    build: ../../docker/
     networks:
       - tb
