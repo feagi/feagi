@@ -4,7 +4,7 @@ echo "This will erase everything in your board."
 echo "This will start in 5 seconds. "
 echo "To cancel this process, press ctrl C"
 sleep 5
-export PATH=$PATH:/home/ubuntu/arduino-cli/bin
+export PATH=$PATH:/home/$USER/arduino-cli/bin
 mkdir ~/arduino-cli/ardiunotopython/
 mv ardiunotopython.ino ~/arduino-cli/ardiunotopython/
 arduino-cli core install arduino:avr
@@ -15,7 +15,7 @@ cd Arduino/libraries/
 git clone -b foxy https://github.com/micro-ROS/micro_ros_arduino.git
 cd ~
 cd arduino-cli/
-export PATH=$PATH:/home/ubuntu/arduino-cli/bin
+export PATH=$PATH:/home/$USER/arduino-cli/bin
 arduino-cli board attach serial:///dev/ttyACM0 ardiunotopython
 arduino-cli compile --port /dev/ttyACM0 ardiunotopython
 arduino-cli upload --port /dev/ttyACM0 ardiunotopython
