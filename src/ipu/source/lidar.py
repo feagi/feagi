@@ -1,7 +1,6 @@
 """
 This module reads LIDAR data from a message queue and makes them available to the proximity processor.
 """
-
 import zmq
 
 from ipu.processor import proximity
@@ -9,6 +8,7 @@ from inf import runtime_data
 
 
 def get_and_translate():
+    # TODO: need to add check to resolve correct interface/hostname for LIDAR
     socket_address = runtime_data.parameters["Sockets"]["lidar_socket"]
 
     print("Attempting to subscribe to socket ", socket_address)
@@ -18,13 +18,11 @@ def get_and_translate():
     socket.connect(socket_address)
     socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
 
-    message = socket.recv_pyobj()
-    method_list = [method for method in dir(message) if method.startswith('_') is False]
+    # message = socket.recv_pyobj()
+    # method_list = [method for method in dir(message) if method.startswith('_') is False]
 
     while True:
         message = socket.recv_pyobj()
-
-        print(message, flush=True)
 
         if message is not None:
             # print("SLOT_TYPES", message.SLOT_TYPES)
@@ -50,8 +48,6 @@ def get_and_translate():
             neurons = proximity.coords_to_neuron_ids(
                     detections, cortical_area='proximity'
             )
-
-            print(neurons, flush=True)
 
             # TODO: Add proximity feeder function in fcl_injector
             runtime_data.fcl_queue.put({'proximity': set(neurons)})
