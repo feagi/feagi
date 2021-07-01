@@ -73,11 +73,13 @@ class MinimalSubscriber(Node):
         self.subscription  # prevent unused variable warning
 
     def listener_callback(self, msg):
-        # self.get_logger().info("I heard: {}".format(msg)) #put .format(msg) to display the data
-        self.get_logger().info("angle_max: {}".format(msg.angle_max)) #put .format(msg) to display the data
-
-        socket.send_pyobj(msg)
-
+        try:
+            ranges = msg.ranges
+            socket.send_pyobj(ranges)
+            self.get_logger().info("angle_max: {}".format(ranges)) #put .format(msg) to display the data
+        except AttributeError:
+            socket.send_pyobj(msg)
+            self.get_logger().info("angle_max: {}".format(ranges)) #put .format(msg) to display the data
 
 def main(args=None):
     rclpy.init(args=args)

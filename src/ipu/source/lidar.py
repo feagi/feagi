@@ -18,9 +18,6 @@ def get_and_translate():
     socket.connect(socket_address)
     socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
 
-    # message = socket.recv_pyobj()
-    # method_list = [method for method in dir(message) if method.startswith('_') is False]
-
     while True:
         message = socket.recv_pyobj()
 
@@ -40,9 +37,9 @@ def get_and_translate():
             # print("-----")
 
             # differentiate between LIDAR/SONAR data
-            try:
-                detections = proximity.lidar_to_coords(message.ranges)
-            except AttributeError:
+            if hasattr(message, '__iter__'):
+                detections = proximity.lidar_to_coords(message)
+            else:
                 detections = proximity.sonar_to_coords(int(message))
 
             neurons = proximity.coords_to_neuron_ids(
