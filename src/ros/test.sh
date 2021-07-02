@@ -6,7 +6,7 @@ echo "To cancel this process, press ctrl C"
 sleep 5
 export PATH=$PATH:/home/$USER/arduino-cli/bin
 mkdir ~/arduino-cli/ardiunotopython/
-mv ~/feagi-core/src/arduino/ardiunotopython/ardiunotopython.ino ~/arduino-cli/ardiunotopython/
+cp ~/feagi-core/src/arduino/ardiunotopython/ardiunotopython.ino ~/arduino-cli/ardiunotopython/
 arduino-cli core install arduino:avr
 arduino-cli lib search newping
 arduino-cli lib install newping
