@@ -1,8 +1,14 @@
+# ROS <--> FEAGI using Sonar sensor on the local interface
+## Local build
+To set up with everything at once to run sonar_sensor:
+1) Plug the UNO arduino board in.
+2) Type it in your terminal, `./test.sh` in the `feagi-core/src/ros/`
+
 # ROS <--> FEAGI turtlebot3/LIDAR inteface
 
 ## **Local build**
 
-To build the turtlebot3 and ROS workspaces necessary for running the turtlebot3/LIDAR demonstration locally on your machine (Ubuntu 20.04), run the shell script (`ws_setup.sh`) found in `feagi-core/src/ros/` (it is assumed that FEAGI is already installed and configured).
+To build the turtlebot3 and ROS workspaces necessary for running the turtlebot3/LIDAR demonstration locally on your machine (Ubuntu 20.04), run the shell script (`ws_setup.sh`) found in `feagi-core/src/>
 
 Next, open a new terminal window and run:
 - `$ ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py`
