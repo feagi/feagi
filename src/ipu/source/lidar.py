@@ -1,7 +1,7 @@
 """
 This module reads LIDAR data from a message queue and makes them available to the proximity processor.
 """
-import os
+# import os
 
 import zmq
 
@@ -9,12 +9,15 @@ from ipu.processor import proximity
 from inf import runtime_data
 
 
-def get_and_translate(interface, port):
-    try:
-        if os.environ['CONTAINERIZED']:
-            socket_address = f"tcp://{interface}:{port}"
-    except KeyError:
-        socket_address = runtime_data.parameters["Sockets"]["lidar_socket"]
+def get_and_translate():
+    # TODO: resolve interface to differentiate between running in container vs locally
+    # try:
+    #     if os.environ['CONTAINERIZED']:
+    #         socket_address = f"tcp://{interface}:{port}"
+    # except KeyError:
+    #     socket_address = runtime_data.parameters["Sockets"]["lidar_socket"]
+
+    socket_address = runtime_data.parameters["Sockets"]["lidar_socket"]
 
     print("Attempting to subscribe to socket ", socket_address)
 

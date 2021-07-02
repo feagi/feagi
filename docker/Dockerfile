@@ -1,5 +1,5 @@
 FROM python:3.8-buster
-LABEL maintainer="Eric Miller "
+
 ARG REPO="https://github.com/feagi/feagi-core.git"
 
 # Git 

@@ -91,7 +91,7 @@ def mnist_controller(watchdoq_queue, fcl_queue):
 def proximity_controller():
     while not runtime_data.exit_condition:
         try:
-            lidar.get_and_translate("ros", 2000)
+            lidar.get_and_translate()
         except Exception as e:
             traceback.print_exc()
         finally:
