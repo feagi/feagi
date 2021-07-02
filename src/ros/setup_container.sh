@@ -37,9 +37,9 @@ source install/local_setup.sh
 cd ~
 git clone https://github.com/arduino/arduino-cli.git
 cd arduino-cli/
-export PATH=$PATH:/home/ubuntu/arduino-cli/bin
+export PATH=$PATH:/home/$USER/arduino-cli/bin
 ./install.sh
-export PATH=$PATH:/home/ubuntu/arduino-cli/bin
+export PATH=$PATH:/home/$USER/arduino-cli/bin
 arduino-cli config init
 arduino-cli core update-index
 arduino-cli core install arduino:samd
