@@ -1,6 +1,7 @@
 """
 This module reads LIDAR data from a message queue and makes them available to the proximity processor.
 """
+# import os
 
 import zmq
 
@@ -9,6 +10,13 @@ from inf import runtime_data
 
 
 def get_and_translate():
+    # TODO: resolve interface to differentiate between running in container vs locally
+    # try:
+    #     if os.environ['CONTAINERIZED']:
+    #         socket_address = f"tcp://{interface}:{port}"
+    # except KeyError:
+    #     socket_address = runtime_data.parameters["Sockets"]["lidar_socket"]
+
     socket_address = runtime_data.parameters["Sockets"]["lidar_socket"]
 
     print("Attempting to subscribe to socket ", socket_address)
@@ -17,11 +25,6 @@ def get_and_translate():
     socket = context.socket(zmq.SUB)
     socket.connect(socket_address)
     socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
-
-    listener = 0
-
-    message = socket.recv_pyobj()
-    method_list = [method for method in dir(message) if method.startswith('_') is False]
 
     while True:
         message = socket.recv_pyobj()
@@ -42,13 +45,14 @@ def get_and_translate():
             # print("-----")
 
             # differentiate between LIDAR/SONAR data
-            try:
-                detections = proximity.lidar_to_coords(message.ranges)
-            except AttributeError:
-                detections = proximity.sonar_to_coords(message)
+            if hasattr(message, '__iter__'):
+                detections = proximity.lidar_to_coords(message)
+            else:
+                detections = proximity.sonar_to_coords(int(message))
 
             neurons = proximity.coords_to_neuron_ids(
                     detections, cortical_area='proximity'
             )
+
             # TODO: Add proximity feeder function in fcl_injector
             runtime_data.fcl_queue.put({'proximity': set(neurons)})

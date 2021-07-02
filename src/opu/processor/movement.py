@@ -9,7 +9,7 @@ import zmq
 import inf.runtime_data as runtime_data
 
 # todo: export socket address to config file
-socket_address = 'tcp://127.0.0.1:21000'
+socket_address = 'tcp://0.0.0.0:21000'
 print("Binding to socket ", socket_address)
 
 context = zmq.Context()
