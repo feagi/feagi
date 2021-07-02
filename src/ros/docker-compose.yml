@@ -1,29 +1,20 @@
 version: "3"
 
+networks:
+  tb:
+    driver: bridge
+
 services:
   ros:
-    build:
-      context: ./
-      dockerfile: Dockerfile.ros
-    ports:
-      - "6080:80"
-      - "2000"
-    devices:
-      - "/dev/ttyACM0:/dev/ttyACM0"
+    build: ./
+    # stdin_open: true
+    # tty: true
     networks:
-      - tb_net
+      - tb
 
   feagi:
-    build:
-      context: ./
-      dockerfile: ../../docker/Dockerfile
-    depends_on: 
-      - ros
-    ports:
-      - "2000"
+    build: ../../docker/
+    environment:
+      - CONTAINERIZED=true
     networks:
-      - tb_net
-
-networks:
-  tb_net:
-    driver: bridge
+      - tb
