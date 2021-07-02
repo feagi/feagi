@@ -14,5 +14,7 @@ services:
 
   feagi:
     build: ../../docker/
+    environment:
+      - CONTAINERIZED=true
     networks:
       - tb
