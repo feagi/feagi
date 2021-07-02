@@ -4,6 +4,9 @@ echo "This will erase everything in your board."
 echo "This will start in 5 seconds. "
 echo "To cancel this process, press ctrl C"
 sleep 5
+/bin/bash ./setup_container.sh
+/bin/bash ./ws_setup.sh
+/bin/bash ./sonar_setup.sh
 export PATH=$PATH:/home/$USER/arduino-cli/bin
 mkdir ~/arduino-cli/ardiunotopython/
 cp ~/feagi-core/src/arduino/ardiunotopython/ardiunotopython.ino ~/arduino-cli/ardiunotopython/
