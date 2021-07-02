@@ -1,0 +1,23 @@
+FROM ros:foxy
+
+SHELL ["/bin/bash", "-c"]
+
+# install tools
+RUN groupadd -r ros_gazebo && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        wget \
+        ros-foxy-gazebo-ros-pkgs \
+        gazebo11 \
+        python3-pip
+
+# set up workspaces
+WORKDIR /root/
+COPY setup_container.sh ros_laser_scan.py launch_in_container.sh ros_teleop.py /root/
+RUN chmod +x setup_container.sh && \
+    chmod +x launch_in_container.sh && \
+    ./setup_container.sh
+
+ENV TURTLEBOT3_MODEL=burger
+
+ENTRYPOINT [ "./launch_in_container.sh" ]
