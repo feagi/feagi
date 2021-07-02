@@ -1,5 +1,5 @@
 FROM python:3.8-buster
-LABEL maintainer="Eric Miller"
+LABEL maintainer="Eric Miller "
 ARG REPO="https://github.com/feagi/feagi-core.git"
 
 # Git 
@@ -7,13 +7,6 @@ RUN apt-get update && \
     apt-get install -y  --no-install-recommends \
         git \
         wget
-        # net-tools \
-        # ncat \
-        # lsof \
-        # tcpdump \
-        # curl \
-        # telnet \
-        # libzmq3-dev
 
 # FEAGI
 RUN mkdir -p /opt/source-code/feagi-core/ && \

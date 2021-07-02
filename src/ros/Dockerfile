@@ -10,14 +10,6 @@ RUN groupadd -r ros_gazebo && \
         ros-foxy-gazebo-ros-pkgs \
         gazebo11 \
         python3-pip
-        # iproute2 \
-        # iputils-ping \
-        # net-tools \
-        # telnet \
-        # lsof \
-        # tcpdump \
-        # netcat \
-        # libzmq3-dev
 
 # set up workspaces
 WORKDIR /root/
