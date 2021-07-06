@@ -1,0 +1,20 @@
+version: "3"
+
+networks:
+  tb:
+    driver: bridge
+
+services:
+  ros:
+    build: ../3rd_party/ros/
+    # stdin_open: true
+    # tty: true
+    networks:
+      - tb
+
+  feagi:
+    build: ./
+    environment:
+      - CONTAINERIZED=true
+    networks:
+      - tb
