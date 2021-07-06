@@ -35,9 +35,6 @@ ENV Running_In_CONTAINER Yes
 RUN pip3 install --upgrade pip && \
     pip3 install -r /opt/source-code/feagi-core/requirements.txt
 
-RUN pip3 install pyzmq
-
-
 # Cythonize
 WORKDIR /opt/source-code/feagi-core
 RUN python3 ./src/cython/cython_setup.py build_ext --inplace && \
