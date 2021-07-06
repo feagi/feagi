@@ -35,12 +35,12 @@ ENV Running_In_CONTAINER Yes
 RUN pip3 install --upgrade pip && \
     pip3 install -r /opt/source-code/feagi-core/requirements.txt
 
-RUN apk del build-base musl-dev python3-dev zeromq-dev
-
 # Cythonize
 WORKDIR /opt/source-code/feagi-core
 RUN python3 ./src/cython/cython_setup.py build_ext --inplace && \
     mkdir /opt/source-code/feagi-core/connectome
+
+RUN apk del build-base musl-dev python3-dev zeromq-dev
 
 WORKDIR /opt/source-code/feagi-core/src
 CMD ["python3", "main.py"]
