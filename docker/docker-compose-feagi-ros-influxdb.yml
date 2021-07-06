@@ -19,6 +19,8 @@ services:
       - influxdb=true
     networks:
       - tb
+    depends_on:
+      - influxdb
 
   influxdb:
     image: library/influxdb:2.0.7-alpine
