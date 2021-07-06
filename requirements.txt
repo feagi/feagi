@@ -3,3 +3,4 @@ numpy==1.19.5
 watchdog==2.1.2
 pymongo==3.11.2
 influxdb_client==1.18.0
+zmq==22.1.0
