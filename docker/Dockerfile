@@ -19,6 +19,8 @@ WORKDIR /opt/source-code/feagi-core/
 #     wget http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz -P /opt/source-code/feagi-core/raw/MNIST/ -q && \
 #     wget http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz -P /opt/source-code/feagi-core/raw/MNIST/ -q
 
+ENV Running_In_CONTAINER Yes
+
 # Python
 RUN pip3 install --upgrade pip && \
     pip3 install -r /opt/source-code/feagi-core/requirements.txt

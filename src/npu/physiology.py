@@ -5,7 +5,7 @@ from opu.processor import movement
 from collections import deque
 from evo.synapse import synapse
 from inf import runtime_data, settings
-from cython_libs import neuron_functions_cy as cy
+from cython import neuron_functions_cy as cy
 
 
 def activation_function(postsynaptic_current):
