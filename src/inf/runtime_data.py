@@ -37,6 +37,7 @@ last_ipu_activity = ''
 last_alertness_trigger = ''
 influxdb = ''
 mongodb = ''
+running_in_container = False
 
 # rules = ""
 brain_is_running = False

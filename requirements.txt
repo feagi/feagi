@@ -2,6 +2,6 @@ Cython==0.29.21
 numpy==1.19.5
 watchdog==2.1.2
 pymongo==3.11.2
-influxdb==5.3.1
+influxdb_client==1.18.0
 pyzmq==22.0.3
 psutil==5.8.0
