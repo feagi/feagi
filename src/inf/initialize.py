@@ -18,6 +18,22 @@ from evo.stats import list_top_n_utf_memory_neurons
 log = logging.getLogger(__name__)
 
 
+def running_in_container():
+    """
+    Identifies if FEAGI is running in a container or not based on the ENV variable set during the container creation
+
+    Warning: This method of detection is not reliable as it will fail if during container formation ENV is not set
+
+    """
+    container_check = os.environ.get('AM_I_IN_A_DOCKER_CONTAINER', False)
+
+    if container_check:
+        print("FEAGI is running in a Docker container")
+    else:
+        print("FEAGI is not running outside container")
+    return container_check
+
+
 def assess_max_thread_count():
     """
     FEAGI requires approxiately 1GB of memory per process. This function determines the proper number of max threads
@@ -158,6 +174,7 @@ def initialize():
     init_cortical_list()
     init_resources()
     runtime_data.fcl_queue = Queue()
+    runtime_data.running_in_container = running_in_container()
 
 
 def init_burst_engine():
