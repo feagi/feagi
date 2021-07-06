@@ -1,12 +1,21 @@
-FROM python:3.8-buster
+FROM diefans/python3.8-alpine-cython:0.1.0
 
 ARG REPO="https://github.com/feagi/feagi-core.git"
 
-# Git 
-RUN apt-get update && \
-    apt-get install -y  --no-install-recommends \
-        git \
-        wget
+# Git
+
+# For Debian Image
+#RUN apt-get update && \
+#    apt-get install -y  --no-install-recommends \
+#        git \
+#        wget
+
+# For Alpine Image
+ENV PATH="${PATH}:/sbin;/bin"
+RUN apk update
+RUN apk add wget
+RUN apk add git
+
 
 # FEAGI
 RUN mkdir -p /opt/source-code/feagi-core/ && \
