@@ -13,9 +13,8 @@ ARG REPO="https://github.com/feagi/feagi-core.git"
 # For Alpine Image
 ENV PATH="${PATH}:/sbin;/bin"
 RUN apk update
-RUN apk add wget
+RUN apk add wget git build-base libzmq musl-dev python3 python3-dev zeromq-dev
 RUN apk add git
-RUN apk add py3-zmq
 
 
 # FEAGI
@@ -36,9 +35,11 @@ ENV Running_In_CONTAINER Yes
 RUN pip3 install --upgrade pip && \
     pip3 install -r /opt/source-code/feagi-core/requirements.txt
 
+RUN apk del build-base musl-dev python3-dev zeromq-dev
+
 # Cythonize
 WORKDIR /opt/source-code/feagi-core
-RUN python3 ./src/cython_libs/cython_setup.py build_ext --inplace && \
+RUN python3 ./src/cython/cython_setup.py build_ext --inplace && \
     mkdir /opt/source-code/feagi-core/connectome
 
 WORKDIR /opt/source-code/feagi-core/src
