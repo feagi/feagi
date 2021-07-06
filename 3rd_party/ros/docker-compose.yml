@@ -13,7 +13,7 @@ services:
       - tb
 
   feagi:
-    build: ../../../docker
+    build: ../../docker
     environment:
       - CONTAINERIZED=true
     networks:
