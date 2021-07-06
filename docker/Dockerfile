@@ -15,12 +15,14 @@ ENV PATH="${PATH}:/sbin;/bin"
 RUN apk update
 RUN apk add wget
 RUN apk add git
+RUN apk add py3-zmq
 
 
 # FEAGI
 RUN mkdir -p /opt/source-code/feagi-core/ && \
     git clone $REPO /opt/source-code/feagi-core
 WORKDIR /opt/source-code/feagi-core/
+RUN git checkout feature-dockerized-mongo
 
 # MNIST
 # RUN wget http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz -P /opt/source-code/feagi-core/raw/MNIST/ -q && \
