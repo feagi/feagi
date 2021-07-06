@@ -6,14 +6,14 @@ networks:
 
 services:
   ros:
-    build: ./
+    build: ""
     # stdin_open: true
     # tty: true
     networks:
       - tb
 
   feagi:
-    build: ../../docker/
+    build: ../../../docker
     environment:
       - CONTAINERIZED=true
     networks:
