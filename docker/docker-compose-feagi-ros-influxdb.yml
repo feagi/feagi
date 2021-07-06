@@ -6,14 +6,21 @@ networks:
 
 services:
   ros:
-    build: ""
+    build: ../3rd_party/ros/
     # stdin_open: true
     # tty: true
     networks:
       - tb
 
   feagi:
-    build: ../../docker
+    build: ./
+    environment:
+      - CONTAINERIZED=true
+    networks:
+      - tb
+
+  influxdb:
+    build: ../3rd_party/influxdb/
     environment:
       - CONTAINERIZED=true
     networks:
