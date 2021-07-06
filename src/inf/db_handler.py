@@ -2,7 +2,6 @@
 
 from pymongo.errors import ServerSelectionTimeoutError
 from pymongo import MongoClient, DESCENDING, ASCENDING
-
 from inf import runtime_data, settings
 import random
 
@@ -10,13 +9,15 @@ import random
 class MongoManagement:
     def __init__(self):
         # print("*** Connecting to database ***")
-        host = '127.0.0.1'
-        container_host = 'mongo'
+        if runtime_data.running_in_container:
+            host = 'mongo'
+        else:
+            host = '127.0.0.1'
         port = 27017
 
         # check if running in a container
         try:
-            self.client = MongoClient(container_host, port, serverSelectionTimeoutMS=1)
+            self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
             self.client.server_info()
         except ServerSelectionTimeoutError:
             self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
