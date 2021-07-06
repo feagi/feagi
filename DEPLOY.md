@@ -43,7 +43,7 @@ Eject/unmount ramdisk (all data on the disk will be lost):
 
 ## Cythonize Code
 The directory `/FEAGI/src/cython_libs` contains a Python function (`neuron_functions_cy.pyx`) for updating postsynaptic neuron membrane potential, which is used extensively throughout FEAGI artificial brain creation and learning. Heavy usage of this function requires performance specifications that exceed those of Python in order for FEAGI to run efficiently. This Python code must be compiled into C-like code (i.e. Cythonized) to achieve the necessary performance optimization. To Cythonize the code, run (assuming the working directory is `~/FEAGI/`): 
-* `$ python3 ./src/cython_libs/cython_setup.py build_ext --inplace`
+* `$ python3 ./src/cython/cython_setup.py build_ext --inplace`
 
 ## Database Setup
 FEAGI relies on [MongoDB](https://www.mongodb.com/) and [InfluxDB](https://www.influxdata.com/) to store/retrieve genome and time series data, respectively.
