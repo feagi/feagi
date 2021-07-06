@@ -18,6 +18,19 @@ from evo.stats import list_top_n_utf_memory_neurons
 log = logging.getLogger(__name__)
 
 
+def init_container_variables():
+    """
+    Identifies variables set by containers and sets them in FEAGI runime parameters
+    """
+
+    if os.environ.get('AM_I_IN_A_DOCKER_CONTAINER', False):
+        runtime_data.running_in_container = True
+    if os.environ.get('influxdb', False):
+        runtime_data.influxdb = True
+    if os.environ.get('mongodb', False):
+        runtime_data.mongodb = True
+
+
 def running_in_container():
     """
     Identifies if FEAGI is running in a container or not based on the ENV variable set during the container creation
@@ -174,12 +187,12 @@ def initialize():
     run_id_gen()
     init_parameters()
     init_working_directory()
+    init_container_variables()
     init_data_sources()
     init_genome()
     init_cortical_list()
     init_resources()
     runtime_data.fcl_queue = Queue()
-    runtime_data.running_in_container = running_in_container()
 
 
 def init_burst_engine():
