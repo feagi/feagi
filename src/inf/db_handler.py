@@ -192,13 +192,14 @@ class InfluxManagement:
             self.org = runtime_data.parameters["Database"]["influxdb_organization"]
             self.token = runtime_data.parameters["Database"]["influxdb_token"]
 
+            # todo: db address needs to be def from a config file instead
             if runtime_data.running_in_container:
-                self.url = "http://influxdb:8086"
+                self.url = "http://host.docker.internal:8086"
             else:
                 self.url = "http://127.0.0.1:8086"
 
             try:
-                print("\n\n\nAttempting to connect to influxDb service...\n\n\n")
+                print("\n\n\nAttempting to connect to influxDb service on %s...\n\n\n" % self.url)
                 self.client = influxdb_client.InfluxDBClient(
                     url=self.url,
                     token=self.token,
