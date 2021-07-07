@@ -193,6 +193,7 @@ class InfluxManagement:
             self.token = runtime_data.parameters["Database"]["influxdb_token"]
 
             # todo: db address needs to be def from a config file instead
+            print('Running in container: ', runtime_data.running_in_container)
             if runtime_data.running_in_container:
                 self.url = "http://host.docker.internal:8086"
             else:
