@@ -191,16 +191,22 @@ class InfluxManagement:
             self.stats_bucket = runtime_data.parameters["Database"]["influxdb_stats_bucket"]
             self.org = runtime_data.parameters["Database"]["influxdb_organization"]
             self.token = runtime_data.parameters["Database"]["influxdb_token"]
-            self.url = runtime_data.parameters["Database"]["influxdb_url"]
 
-            self.client = influxdb_client.InfluxDBClient(
-                url=self.url,
-                token=self.token,
-                org=self.org
-            )
+            if runtime_data.running_in_container:
+                self.url = "http://influxdb:8086"
+            else:
+                self.url = "http://127.0.0.1:8086"
 
-            self.write_client = self.client.write_api(write_options=SYNCHRONOUS)
-
+            try:
+                print("\n\n\nAttempting to connect to influxDb service...\n\n\n")
+                self.client = influxdb_client.InfluxDBClient(
+                    url=self.url,
+                    token=self.token,
+                    org=self.org
+                )
+                self.write_client = self.client.write_api(write_options=SYNCHRONOUS)
+            except:
+                print("ERROR: Influx service is not running!!!")
         else:
             print("ERROR: Parameters are not set for InfluxDb configuration!")
 
