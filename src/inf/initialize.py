@@ -23,7 +23,7 @@ def init_container_variables():
     Identifies variables set by containers and sets them in FEAGI runime parameters
     """
 
-    if os.environ.get('AM_I_IN_A_DOCKER_CONTAINER', False):
+    if os.environ.get('CONTAINERIZED', False):
         runtime_data.running_in_container = True
     if os.environ.get('influxdb', False):
         runtime_data.influxdb = True
