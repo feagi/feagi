@@ -38,7 +38,7 @@ def running_in_container():
     Warning: This method of detection is not reliable as it will fail if during container formation ENV is not set
 
     """
-    container_check = os.environ.get('AM_I_IN_A_DOCKER_CONTAINER', False)
+    container_check = os.environ.get('CONTAINERIZED', False)
 
     if container_check:
         print("FEAGI is running in a Docker container")

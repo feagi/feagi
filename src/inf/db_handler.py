@@ -10,7 +10,7 @@ class MongoManagement:
     def __init__(self):
         # print("*** Connecting to database ***")
         if runtime_data.running_in_container:
-            host = 'mongo'
+            host = 'host.docker.internal'
         else:
             host = '127.0.0.1'
         port = 27017
