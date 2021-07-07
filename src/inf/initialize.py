@@ -150,6 +150,7 @@ def init_timeseries_db():
 def init_genome_db():
     from inf import db_handler
     runtime_data.mongodb = db_handler.MongoManagement()
+    runtime_data.mongodb.test_mongodb()
     return
 
 

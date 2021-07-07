@@ -34,7 +34,6 @@ if __name__ == '__main__':
         logging.config.dictConfig(LOGGING_CONFIG)
 
     def splash_screen():
-        print("\n*\n**\n***")
         print("""\n
               _________           _________               __                ______               _____    
              |_   ___  |         |_   ___  |             /  \             .' ___  |             |_   _|   

@@ -180,6 +180,13 @@ class MongoManagement:
         return self.collection_mnist.find({"mnist_type": mnist_type, 'digit': str(digit), 'kernel_size': kernel_size}).sort(
             "mnist_seq", 1).skip(n).limit(1)[0]
 
+    def test_mongodb(self):
+        try:
+            if True:
+                print("    MongoDb: ", settings.Bcolors.OKGREEN + "Enabled???" + settings.Bcolors.ENDC)
+        except:
+            print("    MongoDb:", settings.Bcolors.RED + "Disabled???" + settings.Bcolors.ENDC)
+
 
 class InfluxManagement:
     def __init__(self):
