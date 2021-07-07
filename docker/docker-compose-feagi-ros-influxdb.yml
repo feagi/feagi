@@ -23,7 +23,8 @@ services:
       - influxdb
 
   influxdb:
-    image: library/influxdb:2.0.7-alpine
+#    image: library/influxdb:2.0.7-alpine
+    build: ../3rd_party/influxdb/
     environment:
       - CONTAINERIZED=true
     networks:
