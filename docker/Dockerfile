@@ -1,12 +1,7 @@
-FROM python:3.8-buster
+FROM neuraville/feagi:0.0.1
 
+# Git
 ARG REPO="https://github.com/feagi/feagi-core.git"
-
-# Git 
-RUN apt-get update && \
-    apt-get install -y  --no-install-recommends \
-        git \
-        wget
 
 # FEAGI
 RUN mkdir -p /opt/source-code/feagi-core/ && \
@@ -21,13 +16,9 @@ WORKDIR /opt/source-code/feagi-core/
 
 ENV Running_In_CONTAINER Yes
 
-# Python
-RUN pip3 install --upgrade pip && \
-    pip3 install -r /opt/source-code/feagi-core/requirements.txt
-
 # Cythonize
 WORKDIR /opt/source-code/feagi-core
-RUN python3 ./src/cython_libs/cython_setup.py build_ext --inplace && \
+RUN python3 ./src/cython/cython_setup.py build_ext --inplace && \
     mkdir /opt/source-code/feagi-core/connectome
 
 WORKDIR /opt/source-code/feagi-core/src
