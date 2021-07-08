@@ -1,10 +1,8 @@
-FROM diefans/python3.8-alpine-cython:0.1.0
+FROM python:3.8-buster
 
-# For Alpine Image
 ENV PATH="${PATH}:/sbin;/bin"
-RUN apk update
-RUN apk add wget git build-base libzmq musl-dev python3 python3-dev zeromq-dev
-RUN apk add git
+RUN apt-get update
+RUN apt-get install wget git
 
 # Python
 RUN pip3 install --upgrade pip && \
@@ -15,5 +13,3 @@ RUN pip3 install --upgrade pip && \
     pip3 install pymongo==3.11.2 && \
     pip3 install influxdb_client==1.18.0 && \
     pip3 install pyzmq==22.1.0
-
-#RUN apk del build-base musl-dev python3-dev zeromq-dev
