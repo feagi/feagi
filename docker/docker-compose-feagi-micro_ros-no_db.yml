@@ -8,7 +8,7 @@ services:
   ros:
     build: 
       context: ../3rd_party/ros/
-      dockerfile: Dockerfile.ros_turtlebot
+      dockerfile: Dockerfile.micro_ros
     # stdin_open: true
     # tty: true
     networks:
