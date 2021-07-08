@@ -1,6 +1,6 @@
 import logging
 import os
-# import psutil
+import psutil
 import string
 import random
 from queue import Queue
@@ -53,13 +53,10 @@ def assess_max_thread_count():
     used by FEAGI by taking into consideration the number of CPU core count as well as available memory on the system.
     """
 
-    # todo: temporarily removing psutil usage due to alpine linux not supporting it
-    # cpu_core_count = psutil.cpu_count()
-    cpu_core_count = 1
+    cpu_core_count = psutil.cpu_count()
     print("Device CPU Core Count = ", cpu_core_count)
 
-    # free_mem = psutil.virtual_memory().available
-    free_mem = 1000000
+    free_mem = psutil.virtual_memory().available
     print("Device Free Memory = ", free_mem)
 
     max_thread_count = min(int(free_mem / 1024 ** 3), cpu_core_count)
