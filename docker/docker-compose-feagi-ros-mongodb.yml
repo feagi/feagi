@@ -20,8 +20,11 @@ services:
       - tb
 
   mongodb:
-    build: ../3rd_party/mongodb/
+    image: mongo:5.0.0-rc4-focal
+    restart: always
     environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=example
       - CONTAINERIZED=true
     networks:
       - tb

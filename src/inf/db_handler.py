@@ -10,7 +10,7 @@ class MongoManagement:
     def __init__(self):
         # print("*** Connecting to database ***")
         if runtime_data.running_in_container:
-            host = 'mongo'
+            host = 'host.docker.internal'
         else:
             host = '127.0.0.1'
         port = 27017
@@ -180,6 +180,13 @@ class MongoManagement:
         return self.collection_mnist.find({"mnist_type": mnist_type, 'digit': str(digit), 'kernel_size': kernel_size}).sort(
             "mnist_seq", 1).skip(n).limit(1)[0]
 
+    def test_mongodb(self):
+        try:
+            if True:
+                print("    MongoDb: ", settings.Bcolors.OKGREEN + "Enabled???" + settings.Bcolors.ENDC)
+        except:
+            print("    MongoDb:", settings.Bcolors.RED + "Disabled???" + settings.Bcolors.ENDC)
+
 
 class InfluxManagement:
     def __init__(self):
@@ -191,16 +198,24 @@ class InfluxManagement:
             self.stats_bucket = runtime_data.parameters["Database"]["influxdb_stats_bucket"]
             self.org = runtime_data.parameters["Database"]["influxdb_organization"]
             self.token = runtime_data.parameters["Database"]["influxdb_token"]
-            self.url = runtime_data.parameters["Database"]["influxdb_url"]
 
-            self.client = influxdb_client.InfluxDBClient(
-                url=self.url,
-                token=self.token,
-                org=self.org
-            )
+            # todo: db address needs to be def from a config file instead
+            print('Running in container: ', runtime_data.running_in_container)
+            if runtime_data.running_in_container:
+                self.url = "http://host.docker.internal:8086"
+            else:
+                self.url = "http://127.0.0.1:8086"
 
-            self.write_client = self.client.write_api(write_options=SYNCHRONOUS)
-
+            try:
+                print("\n\n\nAttempting to connect to influxDb service on %s...\n\n\n" % self.url)
+                self.client = influxdb_client.InfluxDBClient(
+                    url=self.url,
+                    token=self.token,
+                    org=self.org
+                )
+                self.write_client = self.client.write_api(write_options=SYNCHRONOUS)
+            except:
+                print("ERROR: Influx service is not running!!!")
         else:
             print("ERROR: Parameters are not set for InfluxDb configuration!")
 

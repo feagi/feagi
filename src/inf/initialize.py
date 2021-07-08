@@ -1,6 +1,6 @@
 import logging
 import os
-import psutil
+# import psutil
 import string
 import random
 from queue import Queue
@@ -18,6 +18,19 @@ from evo.stats import list_top_n_utf_memory_neurons
 log = logging.getLogger(__name__)
 
 
+def init_container_variables():
+    """
+    Identifies variables set by containers and sets them in FEAGI runime parameters
+    """
+
+    if os.environ.get('CONTAINERIZED', False):
+        runtime_data.running_in_container = True
+    if os.environ.get('influxdb', False):
+        runtime_data.influxdb = True
+    if os.environ.get('mongodb', False):
+        runtime_data.mongodb = True
+
+
 def running_in_container():
     """
     Identifies if FEAGI is running in a container or not based on the ENV variable set during the container creation
@@ -25,7 +38,7 @@ def running_in_container():
     Warning: This method of detection is not reliable as it will fail if during container formation ENV is not set
 
     """
-    container_check = os.environ.get('AM_I_IN_A_DOCKER_CONTAINER', False)
+    container_check = os.environ.get('CONTAINERIZED', False)
 
     if container_check:
         print("FEAGI is running in a Docker container")
@@ -39,9 +52,14 @@ def assess_max_thread_count():
     FEAGI requires approxiately 1GB of memory per process. This function determines the proper number of max threads
     used by FEAGI by taking into consideration the number of CPU core count as well as available memory on the system.
     """
-    cpu_core_count = psutil.cpu_count()
+
+    # todo: temporarily removing psutil usage due to alpine linux not supporting it
+    # cpu_core_count = psutil.cpu_count()
+    cpu_core_count = 1
     print("Device CPU Core Count = ", cpu_core_count)
-    free_mem = psutil.virtual_memory().available
+
+    # free_mem = psutil.virtual_memory().available
+    free_mem = 1000000
     print("Device Free Memory = ", free_mem)
 
     max_thread_count = min(int(free_mem / 1024 ** 3), cpu_core_count)
@@ -132,6 +150,7 @@ def init_timeseries_db():
 def init_genome_db():
     from inf import db_handler
     runtime_data.mongodb = db_handler.MongoManagement()
+    runtime_data.mongodb.test_mongodb()
     return
 
 
@@ -169,12 +188,12 @@ def initialize():
     run_id_gen()
     init_parameters()
     init_working_directory()
+    init_container_variables()
     init_data_sources()
     init_genome()
     init_cortical_list()
     init_resources()
     runtime_data.fcl_queue = Queue()
-    runtime_data.running_in_container = running_in_container()
 
 
 def init_burst_engine():

@@ -5,21 +5,25 @@ networks:
     driver: bridge
 
 services:
-  ros:
-    build: ../3rd_party/ros/
-    # stdin_open: true
-    # tty: true
-    networks:
-      - tb
+#  ros:
+#    build: ../3rd_party/ros/
+#    # stdin_open: true
+#    # tty: true
+#    networks:
+#      - tb
 
   feagi:
     build: ./
     environment:
       - CONTAINERIZED=true
+      - influxdb=true
     networks:
       - tb
+    depends_on:
+      - influxdb
 
   influxdb:
+#    image: library/influxdb:2.0.7-alpine
     build: ../3rd_party/influxdb/
     environment:
       - CONTAINERIZED=true
