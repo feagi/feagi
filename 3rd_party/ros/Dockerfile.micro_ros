@@ -1,0 +1,17 @@
+FROM ros:foxy
+
+SHELL ["/bin/bash", "-c"]
+
+# install tools
+RUN groupadd -r micro_ros && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends python3-pip
+
+# set up workspaces
+WORKDIR /root/
+COPY Raspberry_PI/ Micro-ROS/ ros_topics/ setup_ros_workspace.sh setup.py /root/
+RUN chmod +x setup_ros_workspace.sh && \
+    chmod +x setup_micro_ros.sh && \
+    ./setup_micro_ros.sh
+
+ENTRYPOINT [ "/bin/bash" ]

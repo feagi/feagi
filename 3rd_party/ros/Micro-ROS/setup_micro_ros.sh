@@ -17,6 +17,7 @@ source install/local_setup.sh
 
 #Install Arduino CLI
 cd ~
+pip3 install pyserial
 git clone https://github.com/arduino/arduino-cli.git
 cd arduino-cli/
 export PATH=$PATH:/home/$USER/arduino-cli/bin

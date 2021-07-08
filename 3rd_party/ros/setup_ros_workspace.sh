@@ -12,6 +12,5 @@ sed '9i\  <buildtool_depend>ament_python</buildtool_depend>\n  <exec_depend>rclp
 sed '23i\             "ros_laser_scan = py_topic.ros_laser_scan:main",\n             "ros_teleop = py_topic.ros_teleop:main"' ~/ros2_ws/src/py_topic/setup.py > changed.txt && mv changed.txt ~/ros2_ws/src/py_topic/setup.py
 cp ~/setup.py ~/ros2_ws/src/py_topic/
 cd ~/ros2_ws/ || exit
-# pip3 install pyserial
 colcon build
 source /opt/ros/foxy/setup.bash
