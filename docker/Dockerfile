@@ -1,11 +1,12 @@
-FROM neuraville/feagi:0.0.1
+FROM neuraville/feagi:0.0.2
 
 # Git
 ARG REPO="https://github.com/feagi/feagi-core.git"
 
 # FEAGI
-RUN mkdir -p /opt/source-code/feagi-core/ && \
-    git clone $REPO /opt/source-code/feagi-core
+RUN ls
+RUN mkdir -p /opt/source-code/feagi-core/
+RUN git clone $REPO /opt/source-code/feagi-core
 WORKDIR /opt/source-code/feagi-core/
 
 # MNIST
