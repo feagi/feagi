@@ -76,6 +76,7 @@ class MinimalSubscriber(Node):
         try:
             ranges = msg.ranges
             socket.send_pyobj(ranges)
+            self.get_logger().info("angle_max: {}".format(msg.angle_max))
         except AttributeError:
             socket.send_pyobj(msg)
             self.get_logger().info("angle_max: {}".format(msg.angle_max))
