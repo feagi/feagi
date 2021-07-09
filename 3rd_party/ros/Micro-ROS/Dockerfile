@@ -9,9 +9,10 @@ RUN groupadd -r micro_ros && \
 
 # set up workspaces
 WORKDIR /root/
-COPY Raspberry_PI/ Micro-ROS/ ros_topics/ setup_ros_workspace.sh setup.py /root/
-RUN chmod +x setup_ros_workspace.sh && \
-    chmod +x setup_micro_ros.sh && \
+COPY ./ /root/
+RUN chmod u+x setup_ros_workspace.sh && \
+    chmod u+x setup_micro_ros.sh && \
+    chmod u+x test.sh && \
     ./setup_micro_ros.sh
 
-ENTRYPOINT [ "/bin/bash" ]
+ENTRYPOINT [ "./test.sh" ]

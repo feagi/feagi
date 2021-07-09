@@ -15,11 +15,11 @@ RUN groupadd -r ros_gazebo && \
 
 # set up workspaces
 WORKDIR /root/
-COPY turtlebot/ ros_topics/ setup_ros_workspace.sh setup.py /root/
-RUN chmod +x setup_turtlebot.sh && \
-    chmod +x launch_turtlebot.sh && \
-    chmod +x setup_ros_workspace.sh && \
+COPY ./ /root/
+RUN chmod u+x setup_turtlebot.sh && \
+    chmod u+x start_turtlebot.sh && \
+    chmod u+x setup_ros_workspace.sh && \
     ./setup_ros_workspace.sh && \
     ./setup_turtlebot.sh
 
-ENTRYPOINT [ "./launch_turtlebot.sh" ]
+ENTRYPOINT [ "./start_turtlebot.sh" ]
