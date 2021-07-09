@@ -9,7 +9,7 @@ sleep 5
 /bin/bash ./sonar_setup.sh
 export PATH=$PATH:/root/$USER/arduino-cli/bin
 mkdir ~/arduino-cli/ardiunotopython/
-cp ~/feagi-core/src/arduino/ardiunotopython/ardiunotopython.ino ~/arduino-cli/ardiunotopython/
+cp ~/ardiunotopython.ino ~/arduino-cli/ardiunotopython/
 arduino-cli core install arduino:avr
 arduino-cli lib search newping
 arduino-cli lib install newping
@@ -23,4 +23,5 @@ arduino-cli board attach serial:///dev/ttyACM0 ardiunotopython
 arduino-cli compile --port /dev/ttyACM0 ardiunotopython
 arduino-cli upload --port /dev/ttyACM0 ardiunotopython
 #/bin/bash ~/linux_py2arduino.sh
+source /opt/ros/foxy/setup.bash
 cd ~/ros2_ws && source install/setup.bash && ros2 run py_topic sonar_sensor

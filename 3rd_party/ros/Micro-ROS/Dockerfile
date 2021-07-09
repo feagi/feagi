@@ -12,7 +12,8 @@ WORKDIR /root/
 COPY ./ /root/
 RUN chmod u+x setup_ros_workspace.sh && \
     chmod u+x setup_micro_ros.sh && \
-    chmod u+x test.sh && \
+    chmod u+x start_sonar.sh && \
+    ./setup_ros_workspace.sh && \
     ./setup_micro_ros.sh
 
-ENTRYPOINT [ "./test.sh" ]
+ENTRYPOINT [ "./start_sonar.sh" ]
