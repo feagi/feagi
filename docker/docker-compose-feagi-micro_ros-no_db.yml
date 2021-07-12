@@ -8,7 +8,10 @@ services:
   ros:
     build: ../3rd_party/ros/Micro-ROS
     # stdin_open: true
-    # tty: true
+    privileged: true
+    tty: true
+    devices:
+      - "/dev:/dev"
     networks:
       - net
 
