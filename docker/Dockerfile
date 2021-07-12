@@ -4,7 +4,6 @@ FROM neuraville/feagi:0.0.2
 ARG REPO="https://github.com/feagi/feagi-core.git"
 
 # FEAGI
-RUN ls
 RUN mkdir -p /opt/source-code/feagi-core/
 RUN git clone $REPO /opt/source-code/feagi-core
 WORKDIR /opt/source-code/feagi-core/
