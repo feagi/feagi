@@ -4,19 +4,16 @@ SHELL ["/bin/bash", "-c"]
 # install tools
 RUN groupadd -r micro_ros && \
     apt-get update && \
-    apt-get install -y --no-install-recommends python3-pip
+    apt-get install -y --no-install-recommends python3-pip wget
 
 WORKDIR /root/
 COPY ./ /root/
-RUN ls
-RUN pwd
-RUN chmod u+x setup_ros_workspace.sh && \
-    chmod u+x start_sonar.sh
 
-RUN cd ~  && \
-    mypath=`pwd`
-RUN pip3 install zmq
-RUN source /opt/ros/foxy/setup.bash && \
+RUN chmod u+x start_sonar.sh && \
+    cd ~  && \
+    mypath=`pwd` && \
+    pip3 install zmq && \
+    source /opt/ros/foxy/setup.bash && \
     mkdir -p ~/ros2_ws/src && \
     cd ~/ros2_ws/src || exit && \
     ros2 pkg create --build-type ament_python py_topic && \
@@ -29,7 +26,7 @@ RUN source /opt/ros/foxy/setup.bash && \
     source /opt/ros/foxy/setup.bash
 
 #Install Arduino CLI
-FROM python:3.8-buster
+#FROM foxy-ws AS arduino-cli
 RUN echo '                                                                       **** Installing Arduino CLI ****' && \
     date && \
     cd ~ && \
@@ -38,12 +35,16 @@ RUN echo '                                                                      
     cd arduino-cli/ && \
     export PATH=$PATH:/root/$USER/arduino-cli/bin && \
     ./install.sh && \
-    export PATH=$PATH:/root/$USER/arduino-cli/bin && \
     arduino-cli config init && \
     arduino-cli core update-index && \
     arduino-cli core install arduino:samd && \
     arduino-cli core install arduino:sam && \
     arduino-cli core install arduino:avr && \
     cd ~/.arduino15/packages/arduino/hardware/sam/1.6.12/ && \
+    date
+
+#FROM ubuntu:focal
+#COPY --from=foxy-ws
+#COPY --from=arduino-cli
 
 ENTRYPOINT [ "./start_sonar.sh" ]
