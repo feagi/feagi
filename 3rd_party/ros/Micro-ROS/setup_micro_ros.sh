@@ -1,6 +1,8 @@
 #!/bin/bash
 
 #Install micro-ros
+echo '**** Installing Micro ROS ****'
+date
 cd ~
 mkdir micro_ros_arduino
 cd ~/micro_ros_arduino
@@ -16,6 +18,8 @@ source install/local_setup.sh
 
 
 #Install Arduino CLI
+echo '**** Installing Arduino CLI ****'
+date
 cd ~
 pip3 install pyserial
 git clone https://github.com/arduino/arduino-cli.git
