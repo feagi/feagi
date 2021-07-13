@@ -14,9 +14,9 @@ arduino-cli core install arduino:avr
 arduino-cli lib search newping
 arduino-cli lib install newping
 cd ~
-cd Arduino/libraries/
-git clone -b foxy https://github.com/micro-ROS/micro_ros_arduino.git
-cd ~
+# cd Arduino/libraries/
+# git clone -b foxy https://github.com/micro-ROS/micro_ros_arduino.git
+# cd ~
 cd arduino-cli/
 export PATH=$PATH:/root/$USER/arduino-cli/bin
 arduino-cli board attach serial:///dev/ttyACM0 ardiunotopython
