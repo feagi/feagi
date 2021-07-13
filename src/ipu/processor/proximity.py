@@ -37,7 +37,7 @@ def lidar_to_coords(lidar_data, threshold=5):
     return detection_locations
 
 
-def sonar_to_coords(sonar_data, threshold=None):
+def sonar_to_coords(sonar_data, threshold=10):
     """ Converts SONAR data from sensor to coordinates in 
     the proximity cortical area.
 
