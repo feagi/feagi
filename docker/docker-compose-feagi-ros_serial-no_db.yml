@@ -8,7 +8,8 @@ services:
   ros:
     build: ../3rd_party/ros/serial
     # stdin_open: true
-    # tty: true
+    privileged: true
+    tty: true
     networks:
       - net
     devices:
