@@ -37,9 +37,10 @@ class MinimalPublisher(Node):
     def timer_callback(self):
         bytes = ser.readline()
         data = bytes.decode(encoding="utf-8").strip("\r\n")
-        distance = int(data)
-        self.get_logger().info("MESSAGE: {}".format(distance))
-        socket.send_pyobj(distance)
+        if data is not None or data is not '':
+            distance = int(data)
+            self.get_logger().info("MESSAGE: {}".format(distance))
+            socket.send_pyobj(distance)
 
 
 def main(args=None):
