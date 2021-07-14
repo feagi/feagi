@@ -50,7 +50,10 @@ class MinimalPublisher(Node):
         bytes = ser.readline()
         data = bytes.decode(encoding="utf-8").strip("\r\n")
         if data is not None and data != '':
-            distance = int(data)
+            if data[:4] == 'Ping':
+                data = data[5:]
+                data = data[:-2]
+            distance = int(float(data))
             # self.get_logger().info(str(distance))
             socket.send_pyobj(distance)
 
