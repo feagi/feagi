@@ -27,4 +27,4 @@ RUN chmod u+x start_sonar.sh && \
 
 RUN chmod u+x start_sonar.sh
 
-#ENTRYPOINT [ "./start_sonar.sh" ]
+ENTRYPOINT [ "./start_sonar.sh" ]
