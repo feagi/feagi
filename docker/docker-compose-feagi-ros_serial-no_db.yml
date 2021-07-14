@@ -1,0 +1,23 @@
+version: "3"
+
+networks:
+  net:
+    driver: bridge
+
+services:
+  ros:
+    build: ../3rd_party/ros/serial
+    # stdin_open: true
+    privileged: true
+    tty: true
+    networks:
+      - net
+    devices:
+      - "/dev/ttyACM0:/dev/ttyACM0"
+
+  feagi:
+    build: ./
+    environment:
+      - CONTAINERIZED=true
+    networks:
+      - net

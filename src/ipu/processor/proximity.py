@@ -37,7 +37,7 @@ def lidar_to_coords(lidar_data, threshold=5):
     return detection_locations
 
 
-def sonar_to_coords(sonar_data, threshold=None):
+def sonar_to_coords(sonar_data, threshold=5):
     """ Converts SONAR data from sensor to coordinates in 
     the proximity cortical area.
 
@@ -47,7 +47,7 @@ def sonar_to_coords(sonar_data, threshold=None):
     """
     # HC-SR04 datasheet specs (in cm)
     SONAR_MIN = 2
-    SONAR_MAX = 400
+    SONAR_MAX = 200
 
     Z_MAX = runtime_data.genome['blueprint'] \
                                ['proximity'] \
@@ -59,7 +59,7 @@ def sonar_to_coords(sonar_data, threshold=None):
         x = 180
         y = 90
         z = dist_map
-    return [(x, y, int(z))]
+        return [(x, y, int(z))]
     
 
 def coords_to_neuron_ids(detection_locations, cortical_area):
@@ -71,13 +71,14 @@ def coords_to_neuron_ids(detection_locations, cortical_area):
     :return: list of neuron IDs (str)
     """
     neuron_ids = []
-    for i in range(len(detection_locations)):
-        block_ref = coords_to_block_ref(detection_locations[i], cortical_area)
-        if block_ref in runtime_data.block_dic[cortical_area]:
-            block_neurons = runtime_data.block_dic[cortical_area][block_ref]
-            for neuron in block_neurons:
-                if neuron is not None and neuron not in neuron_ids:
-                    neuron_ids.append(neuron)
+    if detection_locations is not None:
+        for i in range(len(detection_locations)):
+            block_ref = coords_to_block_ref(detection_locations[i], cortical_area)
+            if block_ref in runtime_data.block_dic[cortical_area]:
+                block_neurons = runtime_data.block_dic[cortical_area][block_ref]
+                for neuron in block_neurons:
+                    if neuron is not None and neuron not in neuron_ids:
+                        neuron_ids.append(neuron)
     return neuron_ids
 
 
@@ -118,7 +119,7 @@ def map_value(val, min1, max1, min2, max2):
     :param max2: max of range 2
     :return: value mapped from range 1 to range 2 
     """
-    return (val-min1) * ((max2-min2) / (max1-min1)) + min2
+    return abs((val-min1) * ((max2-min2) / (max1-min1)) + min2)
 
 
 def distance_3d(p1, p2):
