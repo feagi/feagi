@@ -12,8 +12,7 @@ services:
     networks:
       - net
     devices:
-      - "/dev/ttyUSB0:/dev/ttyUSB0"
-      - "/dev/ttyUSB0:/dev/ttyASM0"
+      - "/dev/ttyACM0:/dev/ttyACM0"
 
   feagi:
     build: ./
