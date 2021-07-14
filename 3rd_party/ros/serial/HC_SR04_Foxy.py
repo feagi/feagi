@@ -2,6 +2,7 @@ import rclpy
 import serial
 import time
 import std_msgs
+import zmq
 
 from example_interfaces.msg import Int64
 from rclpy.node import Node
