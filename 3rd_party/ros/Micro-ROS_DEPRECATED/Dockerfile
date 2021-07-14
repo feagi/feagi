@@ -5,7 +5,7 @@ SHELL ["/bin/bash", "-c"]
 # install tools
 RUN groupadd -r micro_ros && \
     apt-get update && \
-    apt-get install -y --no-install-recommends python3-pip
+    apt-get install -y --no-install-recommends python3-pip curl
 
 # set up workspaces
 WORKDIR /root/
