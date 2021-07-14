@@ -12,7 +12,7 @@ services:
     networks:
       - net
     devices:
-      - "/dev:/dev"
+      - "/dev/ttyACM0:/dev/ttyACM0"
 
   feagi:
     build: ./
