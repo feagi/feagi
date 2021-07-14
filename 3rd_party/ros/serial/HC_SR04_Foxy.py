@@ -49,9 +49,9 @@ class MinimalPublisher(Node):
         # self.i += 1
         bytes = ser.readline()
         data = bytes.decode(encoding="utf-8").strip("\r\n")
-        if data is not None or data != '':
+        if data is not None and data != '':
             distance = int(data)
-            self.get_logger().info(str(distance))
+            # self.get_logger().info(str(distance))
             socket.send_pyobj(distance)
 
 
