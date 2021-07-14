@@ -16,6 +16,8 @@
 
 
 #Install Arduino CLI
+echo '**** Installing Arduino CLI ****'
+date
 cd ~
 pip3 install pyserial
 git clone https://github.com/arduino/arduino-cli.git

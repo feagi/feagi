@@ -2,7 +2,6 @@ import rclpy
 import serial
 import time
 import std_msgs
-import zmq
 
 from example_interfaces.msg import Int64
 from rclpy.node import Node
@@ -10,7 +9,7 @@ from rclpy.qos import QoSProfile
 from rclpy.qos import qos_profile_sensor_data  # this is required to have a full data
 
 ser = serial.Serial(
-    port="/dev/ttyUSB0",
+    port="/dev/ttyACM0",
     baudrate=9600,
     parity=serial.PARITY_NONE,
     stopbits=serial.STOPBITS_ONE,
@@ -19,11 +18,6 @@ ser = serial.Serial(
 # serialcomm.timeout = 1
 print("Found the ardiuno board.")
 print("Creating the /scan topic..")
-
-socket_address = "tcp://0.0.0.0:2000"
-context = zmq.Context()
-socket = context.socket(zmq.PUB)
-socket.bind(socket_address)
 
 class MinimalPublisher(Node):
 
@@ -34,12 +28,19 @@ class MinimalPublisher(Node):
         self.timer = self.create_timer(timer_period, self.timer_callback)
         self.i = 0
 
-    def timer_callback(self):
-        bytes = ser.readline()
-        data = bytes.decode(encoding="utf-8").strip("\r\n")
-        distance = int(data)
-        self.get_logger().info("MESSAGE: {}".format(distance))
-        socket.send_pyobj(distance)
+    def timer_callback(self):  # this is the part where we need to get it keep running
+        check = ser.readline()
+        if check == ' ':  # this if statement is to skip string id. It doesn't seem like it works
+            print("Skipped the ' '")  # in #44 line, it kept recieving a string ' '
+        else:
+            sensorvalue = float(ser.readline())  # posts the value
+        msg = Int64()
+        msg.data= int(sensorvalue)
+        print(msg)
+        self.get_logger().info("distance: {}".format(sensorvalue))
+        print(type(msg))  # this is to verify the type of the value. It should be float only
+        self.publisher_.publish(msg)  # this is to publish the data to topic 'scann'. It can change to 'scan' in #34 line
+        self.i += 1
 
 
 def main(args=None):
@@ -54,7 +55,7 @@ def main(args=None):
     # when the garbage collector destroys the node object)
     minimal_publisher.destroy_node()
     rclpy.shutdown()
-    # serialcomm.close()
+    serialcomm.close()
 
 
 if __name__ == '__main__':
