@@ -71,7 +71,6 @@ def coords_to_neuron_ids(detection_locations, cortical_area):
     :param cortical_area: name of cortical area (str)
     :return: list of neuron IDs (str)
     """
-    print(detection_locations)
     neuron_ids = []
     for i in range(len(detection_locations)):
         block_ref = coords_to_block_ref(detection_locations[i], cortical_area)
@@ -120,7 +119,7 @@ def map_value(val, min1, max1, min2, max2):
     :param max2: max of range 2
     :return: value mapped from range 1 to range 2 
     """
-    return (val-min1) * ((max2-min2) / (max1-min1)) + min2
+    return abs((val-min1) * ((max2-min2) / (max1-min1)) + min2)
 
 
 def distance_3d(p1, p2):
