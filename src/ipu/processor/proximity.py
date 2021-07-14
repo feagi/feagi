@@ -37,7 +37,7 @@ def lidar_to_coords(lidar_data, threshold=5):
     return detection_locations
 
 
-def sonar_to_coords(sonar_data, threshold=10):
+def sonar_to_coords(sonar_data, threshold=5):
     """ Converts SONAR data from sensor to coordinates in 
     the proximity cortical area.
 
@@ -47,7 +47,7 @@ def sonar_to_coords(sonar_data, threshold=10):
     """
     # HC-SR04 datasheet specs (in cm)
     SONAR_MIN = 2
-    SONAR_MAX = 400
+    SONAR_MAX = 200
 
     Z_MAX = runtime_data.genome['blueprint'] \
                                ['proximity'] \
