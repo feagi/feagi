@@ -25,27 +25,6 @@ RUN chmod u+x start_sonar.sh && \
     colcon build && \
     source /opt/ros/foxy/setup.bash
 
-#Install Arduino CLI
-#FROM foxy-ws AS arduino-cli
+RUN chmod u+x start_sonar.sh
 
-#RUN echo '                                                                       **** Installing Arduino CLI ****' && \
-#    date && \
-#    cd ~ && \
-#    pip3 install pyserial && \
-#    git clone https://github.com/arduino/arduino-cli.git && \
-#    cd arduino-cli/ && \
-#    export PATH=$PATH:/root/$USER/arduino-cli/bin && \
-#    ./install.sh && \
-#    arduino-cli config init && \
-#    arduino-cli core update-index && \
-#    arduino-cli core install arduino:samd && \
-#    arduino-cli core install arduino:sam && \
-#    arduino-cli core install arduino:avr && \
-#    cd ~/.arduino15/packages/arduino/hardware/sam/1.6.12/ && \
-#    date
-
-#FROM ubuntu:focal
-#COPY --from=foxy-ws
-#COPY --from=arduino-cli
-
-ENTRYPOINT [ "./start_sonar.sh" ]
+#ENTRYPOINT [ "./start_sonar.sh" ]

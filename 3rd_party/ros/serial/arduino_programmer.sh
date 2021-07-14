@@ -10,11 +10,11 @@ export PATH=$PATH:/root/$USER/arduino-cli/bin
 export PATH=$PATH:/root/$USER/arduino-cli/bin
 arduino-cli config init
 arduino-cli core update-index
-arduino-cli core install arduino:samd
-arduino-cli core install arduino:sam
+#arduino-cli core install arduino:samd
+#arduino-cli core install arduino:sam
 arduino-cli core install arduino:avr
 #mkdir micro-ros_publisher
 #cd micro-ros_publisher
 #cp ~/micro-ros_publisher.ino ~/arduino-cli/micro-ros_publisher/
-cd ~/.arduino15/packages/arduino/hardware/sam/1.6.12/
+#cd ~/.arduino15/packages/arduino/hardware/sam/1.6.12/
 curl https://raw.githubuse
