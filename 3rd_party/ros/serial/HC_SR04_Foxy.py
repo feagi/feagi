@@ -47,15 +47,12 @@ class MinimalPublisher(Node):
         # print(type(msg))  # this is to verify the type of the value. It should be float only
         # self.publisher_.publish(msg)  # this is to publish the data to topic 'scann'. It can change to 'scan' in #34 line
         # self.i += 1
-        try:
-            bytes = ser.readline()
-            data = bytes.decode(encoding="utf-8").strip("\r\n")
-            if data is not None or data is not '':
-                distance = int(data)
-                self.get_logger().info(distance)
-                socket.send_pyobj(distance)
-        except Exception as e:
-            print(str(e))
+        bytes = ser.readline()
+        data = bytes.decode(encoding="utf-8").strip("\r\n")
+        if data is not None or data != '':
+            distance = int(data)
+            self.get_logger().info(str(distance))
+            socket.send_pyobj(distance)
 
 
 def main(args=None):
