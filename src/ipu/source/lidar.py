@@ -48,7 +48,7 @@ def get_and_translate():
             if hasattr(message, '__iter__'):
                 detections = proximity.lidar_to_coords(message)
             else:
-                detections = proximity.sonar_to_coords(int(message))
+                detections = proximity.sonar_to_coords(message)
 
             neurons = proximity.coords_to_neuron_ids(
                     detections, cortical_area='proximity'
