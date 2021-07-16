@@ -55,7 +55,7 @@ def sonar_to_coords(sonar_data, threshold=5):
                                ['block_boundaries'][-1]
 
     dist_map = map_value(sonar_data, SONAR_MIN, SONAR_MAX, 0, Z_MAX)
-    if dist_map <= threshold:
+    if dist_map != 0 and dist_map <= threshold:
         x = 180
         y = 90
         z = dist_map
