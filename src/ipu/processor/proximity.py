@@ -55,6 +55,7 @@ def sonar_to_coords(sonar_data, threshold=5):
                                ['block_boundaries'][-1]
 
     dist_map = map_value(sonar_data, SONAR_MIN, SONAR_MAX, 0, Z_MAX)
+    print(dist_map)
     if dist_map != 0 and dist_map <= threshold:
         x = 180
         y = 90
@@ -79,6 +80,7 @@ def coords_to_neuron_ids(detection_locations, cortical_area):
                 for neuron in block_neurons:
                     if neuron is not None and neuron not in neuron_ids:
                         neuron_ids.append(neuron)
+    print(neuron_ids)
     return neuron_ids
 
 
