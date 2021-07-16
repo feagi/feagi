@@ -56,7 +56,7 @@ from rclpy.qos import qos_profile_sensor_data #this is required to have a full d
 print("Starting FEAGI-ROS Laser Scan Interface...")
 
 # todo: export socket address to config file
-socket_address = 'tcp://127.0.0.1:2000'
+socket_address = 'tcp://0.0.0.0:2000'
 
 context = zmq.Context()
 socket = context.socket(zmq.PUB)
@@ -76,13 +76,11 @@ class MinimalSubscriber(Node):
             'scan',
             self.listener_callback,
             qos_profile=qos_profile_sensor_data)
-        self.subscription  # prevent unused variable warning
+        self.subscription
 
     def listener_callback(self, msg):
-        # self.get_logger().info("I heard: {}".format(msg)) #put .format(msg) to display the data
-        self.get_logger().info("Distance: {}".format(msg)) #put .format(msg) to display the data
-
-        socket.send_pyobj(msg)
+        self.get_logger().info("SUBSCRIBER: {}".format(msg.data))
+        socket.send_pyobj(msg.data)
 
 
 def main(args=None):
