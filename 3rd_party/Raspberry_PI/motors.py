@@ -2,6 +2,8 @@
 #This is a tutorial where the freenove board is being used with motors using PCA9685 (PWN controller)
 # PCA9685.py must be in the same directory as this file. 
 
+#!/usr/bin/python3
+
 import time
 from PCA9685 import PCA9685
 class Motor:
@@ -78,24 +80,51 @@ class Motor:
         self.left_Lower_Wheel(duty2)
         self.right_Upper_Wheel(duty3)
         self.right_Lower_Wheel(duty4)
-            
-            
-PWM=Motor()          
-def loop(): 
-    PWM.setMotorModel(2000,2000,2000,2000)       #Forward
-    time.sleep(3)
-    PWM.setMotorModel(-2000,-2000,-2000,-2000)   #Back
-    time.sleep(3)
-    PWM.setMotorModel(-500,-500,2000,2000)       #Left 
-    time.sleep(3)
-    PWM.setMotorModel(2000,2000,-500,-500)       #Right    
-    time.sleep(3)
-    PWM.setMotorModel(0,0,0,0)                   #Stop
-    
-def destroy():
-    PWM.setMotorModel(0,0,0,0)                   
-if __name__=='__main__':
-    try:
-        loop()
-    except KeyboardInterrupt:  # When 'Ctrl+C' is pressed, the child program destroy() will be  executed.
-        destroy()
+    def stop():
+    	PWM.setMotorModel(0,0,0,0)
+
+
+def Backward():
+	PWM.setMotorModel(2000,2000,2000,2000)
+
+PWM=Motor()
+
+def stop():
+	PWM.setMotorModel(0,0,0,0)
+
+def Forward():
+	PWM.setMotorModel(-2000,-2000,-2000,-2000)
+
+def Right_Backward():
+	PWM.setMotorModel(-500,-500,2000,2000)
+
+def Left_Backward():
+	PWM.setMotorModel(2000,2000,-500,-500)       #Right
+
+def Left_Forward():
+	PWM.setMotorModel(-2000,-2000,-500,-500)
+
+def Right_Forward():
+        PWM.setMotorModel(-500,-500,-2000,-2000)
+
+def M3F(): 
+        PWM.setMotorModel(0,0,0,-2000) #M3 forward
+def M3B():
+        PWM.setMotorModel(0,0,0,2000) #M3 backward
+
+def M1F():
+        PWM.setMotorModel(-2000,0,0,0) #M1 forward
+
+def M1B():
+        PWM.setMotorModel(2000,0,0,0) #M1 backward
+
+def M2F():
+        PWM.setMotorModel(0,-2000,0,0) #M2 forward
+
+def M2B():
+        PWM.setMotorModel(0,2000,0,0) #M2 backward
+
+def M4F(): 
+        PWM.setMotorModel(0,0,-2000,0) #M4 forward
+def M4B():
+        PWM.setMotorModel(0,0,2000,0) #M4 backward
