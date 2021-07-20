@@ -30,8 +30,8 @@ void loop() {
  // i.e. motor1APin = HIGH and motor2APin = LOW
  
   if (Serial.available()) {
-    val = Serial.readString(); 
-    int b = val.toInt();
+    val = Serial.readString(); //This reads value from python using USB
+    int b = val.toInt(); //Because serial sends char so I convert from string to int
     Serial.println(b);
     // control the speed 0- 255
     speed_value_motor1 = b; // half speed
