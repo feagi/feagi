@@ -1,3 +1,6 @@
+#The class is designed by Freenove using PCA9685: https://github.com/Freenove/Freenove_4WD_Smart_Car_Kit_for_Raspberry_Pi/blob/master/Code/Server/servo.py
+# The code is modified to meet the requirement on FEAGI using Freenove 4WD robot
+
 import time
 from PCA9685 import PCA9685
 class Servo:
@@ -27,16 +30,17 @@ class Servo:
 
 # Main program logic follows:
 if __name__ == '__main__':
-    print("Now servos will rotate to 90°.") 
+    print("Now servos will rotate to 90° by default.")
     print("If they have already been at 90°, nothing will be observed.")
     print("Please keep the program running when installing the servos.")
-    print("After that, you can press ctrl-C to end the program.")
+    print("Exit the program by press Ctrl + C")
     pwm=Servo()
-    angle=0
-    while (angle < 1800):
-        pwm.setServoPwm('0',angle)
-        angle=angle + 1
-        print (angle)
-        time.sleep(3)
+    while True:
+        angle = input()
+        pwm.setServoPwm('1', angle=angle) #Change the channel to '0' from '1' if you want to tilt up and down. '1' is for right and left
+
+
+
+
 #       pwm.setServoPwm('0',90)
 #       pwm.setServoPwm('1',90)
