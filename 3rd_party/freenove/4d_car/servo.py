@@ -1,7 +1,6 @@
 #The class is designed by Freenove using PCA9685: https://github.com/Freenove/Freenove_4WD_Smart_Car_Kit_for_Raspberry_Pi/blob/master/Code/Server/servo.py
 # The code is modified to meet the requirement on FEAGI using Freenove 4WD robot
 
-import time
 from PCA9685 import PCA9685
 class Servo:
     def __init__(self):
