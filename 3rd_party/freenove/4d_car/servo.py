@@ -27,19 +27,8 @@ class Servo:
         elif channel=='7':
             self.PwmServo.setServoPulse(15,500+int((angle+error)/0.09))
 
-# Main program logic follows:
-if __name__ == '__main__':
-    print("Now servos will rotate to 90° by default.")
-    print("If they have already been at 90°, nothing will be observed.")
-    print("Please keep the program running when installing the servos.")
-    print("Exit the program by press Ctrl + C")
-    pwm=Servo()
-    while True:
-        angle = input()
-        pwm.setServoPwm('1', angle=angle) #Change the channel to '0' from '1' if you want to tilt up and down. '1' is for right and left
+    def head_UP_DOWN(self, num):
+        pwm.setServoPwm('1', num) #90 to 0 degree is turn the head down. 90 to 180 is to turn the head up
 
-
-
-
-#       pwm.setServoPwm('0',90)
-#       pwm.setServoPwm('1',90)
+    def head_RIGHT_LEFT(self, num):
+        pwm.setServoPwm('0', num) #90 to 0 degree is turn the head left. 90 to 180 is to turn the head right
