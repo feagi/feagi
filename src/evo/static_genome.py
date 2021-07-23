@@ -1224,6 +1224,11 @@ genome = {
       "mnist_view_cnt": 0,
       "mnist_correct_detection_cnt": 0
   },
+  "species": {
+      "class": "toy",
+      "brand": "Freenove",
+      "model": "4D-Car"
+  },
   "blueprint": {
       "thalamus_vision_1": {
           "growth_path": "",
