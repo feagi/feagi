@@ -225,7 +225,7 @@ class Motor:
     def Backward(self):
         self.setMotorModel(2000, 2000, 2000, 2000)
 
-    def stop(self:
+    def stop(self):
         self.setMotorModel(0, 0, 0, 0)
 
     def Forward(self):
