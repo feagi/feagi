@@ -65,7 +65,7 @@ def convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id):
     # Speed is defined as a value between -100 and 100 with 100 being the fastest in one direction and -100 the other
     zero_speed_block_offset = floor(cortical_y_block/2)
     speed_offset = neuron_y_block - zero_speed_block_offset
-    speed = int(speed_offset / zero_speed_block_offset)
+    speed = int(speed_offset / (zero_speed_block_offset+00000.1))
 
     # todo: need to define the mapping between motor cortex and a set of motor ids
     """
@@ -78,11 +78,12 @@ def convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id):
         "motor_cortex_1" : "M4", 
     }
     """
+    if runtime_data.hardware == 'raspberry_pi':
+        # todo: remove hardcoded parameters
+        motor.motor_operator(motor_brand="Freenove", motor_model="", motor_id="", speed="", power="")
 
-    motor.set_motor_speed(motor_id= "", speed= "")
-
-    # Power is defined as a value between 0 and 100 driven from Z direction
-    power = int(neuron_z_block / cortical_z_block)
+        # Power is defined as a value between 0 and 100 driven from Z direction
+        power = int(neuron_z_block / cortical_z_block)
 
 
 

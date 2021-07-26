@@ -6,7 +6,7 @@ networks:
 
 services:
   ros:
-    build: ../3rd_party/ros/
+    build: ../third_party/ros/
     # stdin_open: true
     # tty: true
     networks:

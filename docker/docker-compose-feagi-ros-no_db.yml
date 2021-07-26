@@ -6,7 +6,7 @@ networks:
 
 services:
   ros:
-    build: ../3rd_party/ros/turtlebot
+    build: ../third_party/ros/turtlebot
     # stdin_open: true
     # tty: true
     networks:

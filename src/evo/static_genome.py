@@ -3146,6 +3146,10 @@ genome = {
               "utf8_out": {
                   "neighbor_locator_rule_id": "rule_0",
                   "neighbor_locator_rule_param_id": "param_2"
+              },
+              "motor_1": {
+                  "neighbor_locator_rule_id": "rule_0",
+                  "neighbor_locator_rule_param_id": "param_2"
               }
           },
           "neuron_params": {
@@ -3515,7 +3519,7 @@ genome = {
           "orientation_selectivity_pattern": "",
           "location": "",
           "kernel_size": 7,
-          "cortical_neuron_count": 4,
+          "cortical_neuron_count": 500,
           "location_generation_type": "sequential",
           "synapse_attractivity": 100,
           "init_synapse_needed": False,
@@ -3529,7 +3533,7 @@ genome = {
               "activation_function_id": "",
               "orientation_selectivity_id": "",
               "depolarization_threshold": 20,
-              "firing_threshold": 10,
+              "firing_threshold": 1,
               "firing_pattern_id": "",
               "refractory_period": 0,
               "axon_avg_length": "",
@@ -3540,21 +3544,21 @@ genome = {
               "snooze_length": 0,
               "block_boundaries": [
                   1,
-                  11,
-                  1
+                  1,
+                  300
               ],
               "geometric_boundaries": {
                   "x": [
                       0,
-                      10
+                      1
                   ],
                   "y": [
                       0,
-                      110
+                      1
                   ],
                   "z": [
                       0,
-                      10
+                      300
                   ]
               }
           }
@@ -3567,8 +3571,8 @@ genome = {
           "orientation_selectivity_pattern": "",
           "location": "",
           "kernel_size": 7,
-          "cortical_neuron_count": 4,
-          "location_generation_type": "sequential",
+          "cortical_neuron_count": 500,
+          "location_generation_type": "random",
           "synapse_attractivity": 100,
           "init_synapse_needed": False,
           "postsynaptic_current": 0.51,
@@ -3581,7 +3585,7 @@ genome = {
               "activation_function_id": "",
               "orientation_selectivity_id": "",
               "depolarization_threshold": 20,
-              "firing_threshold": 10,
+              "firing_threshold": 1,
               "firing_pattern_id": "",
               "refractory_period": 0,
               "axon_avg_length": "",
