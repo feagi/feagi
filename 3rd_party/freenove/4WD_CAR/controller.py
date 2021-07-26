@@ -32,14 +32,14 @@ class LED:
             self.led.ledIndex(0x80, 255, 255, 255)  # white'''
             print("The LED has been lit, the color is red orange yellow green cyan-blue blue white")
             time.sleep(3)  # wait 3s
-            self.led.colorWipe(led.strip, Color(0, 0, 0))  # turn off the light
+            self.led.colorWipe("", Color(0, 0, 0))  # turn off the light
             print("\nEnd of program")
         except KeyboardInterrupt:
-            self.led.colorWipe(led.strip, Color(0, 0, 0))  # turn off the light
+            self.led.colorWipe("", Color(0, 0, 0))  # turn off the light
             print("\nEnd of program")
 
     def leds_off(self):
-        self.led.colorWipe(led.strip, Color(0, 0, 0))  ##This is to turn all leds off/
+        self.led.colorWipe("", Color(0, 0, 0))  ##This is to turn all leds off/
 
 
 class IR:
