@@ -35,7 +35,7 @@ class Led:
         if order in Led_type:
             return color[Led_type.index(order)]
 
-    def colorWipe(self,strip, color, wait_ms=50):
+    def colorWipe(self, strip, color, wait_ms=50):
         """Wipe color across display a pixel at a time."""
         color=self.LED_TYPR(self.ORDER,color)
         for i in range(self.strip.numPixels()):
