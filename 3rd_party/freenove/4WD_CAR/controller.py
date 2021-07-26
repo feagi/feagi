@@ -7,40 +7,39 @@ FEAGI IPU/OPU directly interact with this module to operate the 4WD CAR
 
 import RPi.GPIO as GPIO
 from PCA9685 import PCA9685
-from LED import *
+from Led import *
 
 
 class LED:
     def __init__(self):
-        led = Led()
-
+        self.led = Led()
 
     def LED_on(self, led_ID, Red_Intensity, Blue_Intensity, Green_intensity):
         try:
-            led.ledIndex(led_ID, Red_Intensity, Blue_Intensity, Green_intensity)
+            self.led.ledIndex(led_ID, Red_Intensity, Blue_Intensity, Green_intensity)
         except KeyboardInterrupt:
-            led.colorWipe(led.strip, Color(0, 0, 0))  ##This is to turn all leds off/
+            self.led.colorWipe(led.strip, Color(0, 0, 0))  ##This is to turn all leds off/
 
     def test_Led(self):
         try:
-            led.ledIndex(0x01, 255, 0, 0)  # Red
-            led.ledIndex(0x02, 255, 125, 0)  # orange
-            led.ledIndex(0x04, 255, 255, 0)  # yellow
-            led.ledIndex(0x08, 0, 255, 0)  # green
-            led.ledIndex(0x10, 0, 255, 255)  # cyan-blue
-            led.ledIndex(0x20, 0, 0, 255)  # blue
-            led.ledIndex(0x40, 128, 0, 128)  # purple
-            led.ledIndex(0x80, 255, 255, 255)  # white'''
+            self.led.ledIndex(0x01, 255, 0, 0)  # Red
+            self.led.ledIndex(0x02, 255, 125, 0)  # orange
+            self.led.ledIndex(0x04, 255, 255, 0)  # yellow
+            self.led.ledIndex(0x08, 0, 255, 0)  # green
+            self.led.ledIndex(0x10, 0, 255, 255)  # cyan-blue
+            self.led.ledIndex(0x20, 0, 0, 255)  # blue
+            self.led.ledIndex(0x40, 128, 0, 128)  # purple
+            self.led.ledIndex(0x80, 255, 255, 255)  # white'''
             print("The LED has been lit, the color is red orange yellow green cyan-blue blue white")
             time.sleep(3)  # wait 3s
-            led.colorWipe(led.strip, Color(0, 0, 0))  # turn off the light
+            self.led.colorWipe(led.strip, Color(0, 0, 0))  # turn off the light
             print("\nEnd of program")
         except KeyboardInterrupt:
-            led.colorWipe(led.strip, Color(0, 0, 0))  # turn off the light
+            self.led.colorWipe(led.strip, Color(0, 0, 0))  # turn off the light
             print("\nEnd of program")
 
     def leds_off(self):
-        led.colorWipe(led.strip, Color(0, 0, 0))  ##This is to turn all leds off/
+        self.led.colorWipe(led.strip, Color(0, 0, 0))  ##This is to turn all leds off/
 
 
 class IR:
@@ -139,13 +138,13 @@ class Servo:
         pwm.setServoPwm('0', num) #90 to 0 degree is turn the head left. 90 to 180 is to turn the head right
 
 
-
 class Motor:
     def __init__(self):
         self.pwm = PCA9685(0x40, debug=True)
         self.pwm.setPWMFreq(50)
 
-    def duty_range(self, duty1, duty2, duty3, duty4):
+    @staticmethod
+    def duty_range(duty1, duty2, duty3, duty4):
         if duty1 > 4095:
             duty1 = 4095
         elif duty1 < -4095:
@@ -218,5 +217,71 @@ class Motor:
         self.right_Upper_Wheel(duty3)
         self.right_Lower_Wheel(duty4)
 
-    def stop():
-        PWM.setMotorModel(0, 0, 0, 0)
+    def stop(self):
+        self.setMotorModel(0, 0, 0, 0)
+
+    # Test Functions
+    @staticmethod
+    def Backward(self):
+        self.setMotorModel(2000, 2000, 2000, 2000)
+
+    def stop(self:
+        self.setMotorModel(0, 0, 0, 0)
+
+    def Forward(self):
+        self.setMotorModel(-2000, -2000, -2000, -2000)
+
+    def Right_Backward(self):
+        self.setMotorModel(-500, -500, 2000, 2000)
+
+    def Left_Backward(self):
+        self.setMotorModel(2000, 2000, -500, -500)  # Right
+
+    def Left_Forward(self):
+        self.setMotorModel(-2000, -2000, -500, -500)
+
+    def Right_Forward(self):
+        self.setMotorModel(-500, -500, -2000, -2000)
+
+    def M3F(self):
+        self.setMotorModel(0, 0, 0, -2000)  # M3 forward
+
+    def M3B(self):
+        self.setMotorModel(0, 0, 0, 2000)  # M3 backward
+
+    def M1F(self):
+        self.setMotorModel(-2000, 0, 0, 0)  # M1 forward
+
+    def M1B(self):
+        self.setMotorModel(2000, 0, 0, 0)  # M1 backward
+
+    def M2F(self):
+        self.setMotorModel(0, -2000, 0, 0)  # M2 forward
+
+    def M2B(self):
+        self.setMotorModel(0, 2000, 0, 0)  # M2 backward
+
+    def M4F(self):
+        self.setMotorModel(0, 0, -2000, 0)  # M4 forward
+
+    def M4B(self):
+        self.setMotorModel(0, 0, 2000, 0)  # M4 backward
+
+    def motor_test_all(self):
+        self.M1F()
+        time.sleep(3)
+        self.M1B()
+        time.sleep(3)
+        self.M2F()
+        time.sleep(3)
+        self.M2B()
+        time.sleep(3)
+        self.M3F()
+        time.sleep(3)
+        self.M3B()
+        time.sleep(3)
+        self.M4F()
+        time.sleep(3)
+        self.M4B()
+        time.sleep(3)
+        self.stop()
