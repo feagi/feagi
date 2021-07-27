@@ -28,7 +28,7 @@ def lidar_to_coords(lidar_data, threshold=5):
     detection_locations = []
     for idx, dist in enumerate(lidar_data):
         if dist != inf:
-            dist_map = map_value(dist, LIDAR_MIN, LIDAR_MAX, 1, Z_MAX)
+            dist_map = map_value(dist, LIDAR_MIN, LIDAR_MAX, 0, Z_MAX)
             if dist_map <= threshold:
                 x = idx
                 y = 90
@@ -53,8 +53,6 @@ def sonar_to_coords(sonar_data, threshold=5):
                                ['proximity'] \
                                ['neuron_params'] \
                                ['block_boundaries'][-1]
-
-    print("***Z_MAX***: ", Z_MAX)
 
     dist_map = map_value(sonar_data, SONAR_MIN, SONAR_MAX, 0, Z_MAX)
     print(dist_map)
@@ -101,9 +99,7 @@ def coords_to_block_ref(location, cortical_area):
     min_distance = inf
     for neuron in brain[cortical_area]:
         soma_loc = brain[cortical_area][neuron]['soma_location'][0]
-        print("***SOMA_LOC***: ", soma_loc)
         soma_diff = distance_3d(soma_loc, location)
-        print("***SOMA_DIFF***: ", soma_diff)
         if soma_diff < min_distance:
             closest_neuron = neuron
             min_distance = soma_diff
