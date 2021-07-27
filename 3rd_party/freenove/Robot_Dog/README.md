@@ -10,59 +10,21 @@ There are six classes:
 
 Each class has their own functions. There is a multiple functions. Few of them are very similar as 4WD functions yet there's a huge difference on hardware side. 
 
-## Functions on Python
-###### LED_on(self, led_ID, Red_Intensity, Blue_Intensity, Green_intensity):
-```
-	Intensity in the parameter from dimmest to brightest. This is using the RGB color combination: h
-	ttps://www.w3schools.com/colors/colors_rgb.asp
-	
-	led ID is available from 1 to 8.
-```
+## Controller.py
+Controller.py allows you to control the buzzer, led, servo. You will be able to obtain the data from IMU, battery reader, and HC-SR04.
 
-###### leds_off()
-```
-	Turn all leds off.
-```
+## Servos on the robot dog
 
-###### test_Led()
-```
-        Test all leds.
-```
+The full map of servos:
 
-###### getDistance()
-```
-	Measure the distance in Centimeter.
-```
-###### buzz(self, pitch, duration):
-```
-	Beep sound.
-```
-###### play(self, pitch_level, seconds):
-```
-	Play a note/piano.
-```
-
-###### battery(channel)
-```
-        Channel: 1 to 8 to read the battery
-```
-###### imuUpdate()
-```
-	Update with x,y,z in realtime.
-```
-
-##### Functions in the Servo class:
-Functions: 
-```
 head(degree) (HEAD)
 FL1(degree), FL2(degree), FL3(degree) #Front left
 RL1(degree), RL2(degree), RL3(degree) #Rear left
 FR1(degree), FR2(degree), FR3(degree) #Front right
 RR1(degree), RR2(degree), RR3(degree) #Rear right
-```
-```
-	Can move between 0 to 180 degree. Any number go past 180 or 0 will be ignored by the safety detector. 
-	The map of robot is on the picture below.
-```
+
+
+
+
 ![image](https://user-images.githubusercontent.com/65916520/127222119-cf8c231f-684c-4797-9098-c85750a9f6fb.png)
 
