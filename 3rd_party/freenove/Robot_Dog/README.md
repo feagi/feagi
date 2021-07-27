@@ -16,13 +16,14 @@ Controller.py allows you to control the buzzer, led, servo. You will be able to 
 ## Servos on the robot dog
 
 The full map of servos:
-
+```
 head(degree) (HEAD)
 FL1(degree), FL2(degree), FL3(degree) #Front left
 RL1(degree), RL2(degree), RL3(degree) #Rear left
 FR1(degree), FR2(degree), FR3(degree) #Front right
 RR1(degree), RR2(degree), RR3(degree) #Rear right
-
+```
+The degree on the servo can move from 0 to 180 degree. It's mechanically limited to 180 degree only. The code is implemented to keep it between 0 to 180 degree. If it's more than 180 degree or less than 0 degree, it will be prevented by the code. 
 
 
 
