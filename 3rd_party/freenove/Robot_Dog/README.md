@@ -97,11 +97,11 @@ Each class has their own functions. There is a multiple functions. Few of them a
 ##### Functions in the Servo class:
 Functions: 
 ```
+head (HEAD)
 FL1, FL2, FL3 (Front left)
 RL1, RL2, RL3 (Rear left)
 FR1, FR2, FR3 (Front right)
 RR1, RR2, RR3 (Rear right)
-head
 ```
 ```
         """
