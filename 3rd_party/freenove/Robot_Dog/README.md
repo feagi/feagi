@@ -54,7 +54,7 @@ Each class has their own functions. There is a multiple functions. Few of them a
 ##### Functions in the Servo class:
 Functions: 
 ```
-head (HEAD)
+head(degree) (HEAD)
 FL1(degree), FL2(degree), FL3(degree) #Front left
 RL1(degree), RL2(degree), RL3(degree) #Rear left
 FR1(degree), FR2(degree), FR3(degree) #Front right
