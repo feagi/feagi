@@ -26,71 +26,43 @@ Each class has their own functions. There is a multiple functions. Few of them a
 
 ###### leds_off()
 ```
-        """
-        No parameters
-        ----------
-	Turn all leds off
+	Turn all leds off.
 ```
 
 ###### test_Led()
 ```
-        """
-        No parameters
-        ----------
-        Test all leds
+        Test all leds.
 ```
 
 ###### getDistance()
 ```
         """
-
-        Returns distance_cm in INT value
-        -------
-
+	Measure the distance in Centimeter.
         """
 ```
 ###### buzz(self, pitch, duration):
 ```
         """
-
-        Parameters
-        ----------
-        pitch: pitch level
-        duration: Seconds
-        -------
-
+	Beep sound.
         """
 ```
 ###### play(self, pitch_level, seconds):
 ```
         """
-
-        Parameters
-        ----------
-        pitch_level: pitch level
-        seconds: duration
-        -------
-
+	Play a note/piano.
         """
 ```
 
 ###### battery(channel)
 ```
         """
-
-        Parameters
-        ----------
-        channel: 1 to 8
-        -------
+        Channel: 1 to 8 to read the battery
         """
 ```
 ###### imuUpdate()
 ```
         """
-
-        Returns z,x, and y
-        -------
-
+	Update with x,y,z in realtime.
         """
 ```
 
@@ -105,10 +77,7 @@ RR1, RR2, RR3 (Rear right)
 ```
 ```
         """
-        Parameters
-        ----------
-        degree: 0 to 180 degree
-        -------
+	Can move between 0 to 180 degree. Any number go past 180 or 0 will be ignored by the safety detector. The map of robot is on the picture below.
         """
 ```
 ![image](https://user-images.githubusercontent.com/65916520/127222119-cf8c231f-684c-4797-9098-c85750a9f6fb.png)
