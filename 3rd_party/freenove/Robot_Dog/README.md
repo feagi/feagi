@@ -11,25 +11,103 @@ There is six classes:
 Each class has their own functions. There is a multiple functions. Few of them are very similar as 4WD functions yet there's a huge difference on hardware side. 
 
 ## Functions on Python
-###Led class:
+###### LED_on(self, led_ID, Red_Intensity, Blue_Intensity, Green_intensity):
 ```
-LED_on(led_ID, Red_Intensity, Blue_Intensity, Green_intensity)
-leds_off()
-test_leds()
+        """
+        Parameters
+        ----------
+        led_ID: This is the ID of leds. It can be from 1 to 8
+        Red_Intensity: 1 to 255, from dimmest to brightest
+        Blue_Intensity: 1 to 255, from dimmest to brightest
+        Green_intensity: 1 to 255, from dimmest to brightest
+        -------
+        """
 ```
 
-LED_on is using the RGB combination. 
-If you put like this:
-`new.LED_on(1,1,0,0)`
-The red in #1 led will dim.
-If you put 100 in the red intensity like this:
-`new.LED_on(1,255,0,0)`
-The red in the #1 led will be very bright. 
+###### leds_off()
+```
+        """
+        No parameters
+        ----------
+	Turn all leds off
+```
 
-So, if you put `LED_on(1,204,204,255)`, it will be lavender blue color ish. It's using the RGB rule as well.
+###### test_Led()
+```
+        """
+        No parameters
+        ----------
+        Test all leds
+```
 
-`leds_off()` will turn all leds off so be sure to add this in the code.
+###### getDistance()
+```
+        """
 
-`test_leds()` is designed by Freenove. It's good to test and see if all leds are working properly. 
+        Returns distance_cm in INT value
+        -------
 
+        """
+```
+###### buzz(self, pitch, duration):
+```
+        """
 
+        Parameters
+        ----------
+        pitch: pitch level
+        duration: Seconds
+        -------
+
+        """
+```
+###### play(self, pitch_level, seconds):
+```
+        """
+
+        Parameters
+        ----------
+        pitch_level: pitch level
+        seconds: duration
+        -------
+
+        """
+```
+
+###### battery(channel)
+```
+        """
+
+        Parameters
+        ----------
+        channel: 1 to 8
+        -------
+        """
+```
+###### imuUpdate()
+```
+        """
+
+        Returns z,x, and y
+        -------
+
+        """
+```
+
+##### Class of servo:
+Function: 
+```
+FL1, FL2, FL3 (Front left)
+RL1, RL2, RL3 (Rear left)
+FR1, FR2, FR3 (Front right)
+RR1, RR2, RR3 (Rear right)
+head
+```
+```
+        """
+        Parameters
+        ----------
+        degree: 0 to 180 degree
+        -------
+        """
+```
