@@ -31,34 +31,24 @@ Each class has their own functions. There is a multiple functions. Few of them a
 
 ###### getDistance()
 ```
-        """
 	Measure the distance in Centimeter.
-        """
 ```
 ###### buzz(self, pitch, duration):
 ```
-        """
 	Beep sound.
-        """
 ```
 ###### play(self, pitch_level, seconds):
 ```
-        """
 	Play a note/piano.
-        """
 ```
 
 ###### battery(channel)
 ```
-        """
         Channel: 1 to 8 to read the battery
-        """
 ```
 ###### imuUpdate()
 ```
-        """
 	Update with x,y,z in realtime.
-        """
 ```
 
 ##### Functions in the Servo class:
