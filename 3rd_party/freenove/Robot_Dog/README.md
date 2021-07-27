@@ -94,8 +94,8 @@ Each class has their own functions. There is a multiple functions. Few of them a
         """
 ```
 
-##### Class of servo:
-Function: 
+##### Functions in the Servo class:
+Functions: 
 ```
 FL1, FL2, FL3 (Front left)
 RL1, RL2, RL3 (Rear left)
@@ -111,3 +111,5 @@ head
         -------
         """
 ```
+![image](https://user-images.githubusercontent.com/65916520/127222119-cf8c231f-684c-4797-9098-c85750a9f6fb.png)
+
