@@ -14,13 +14,8 @@ Each class has their own functions. There is a multiple functions. Few of them a
 ###### LED_on(self, led_ID, Red_Intensity, Blue_Intensity, Green_intensity):
 ```
         """
-        Parameters
-        ----------
-        led_ID: This is the ID of leds. It can be from 1 to 8
-        Red_Intensity: 1 to 255, from dimmest to brightest
-        Blue_Intensity: 1 to 255, from dimmest to brightest
-        Green_intensity: 1 to 255, from dimmest to brightest
-        -------
+	Intensity in the parameter from dimmest to brightest. This is using the RGB color combination: https://www.w3schools.com/colors/colors_rgb.asp
+	led ID is available from 1 to 8.
         """
 ```
 
