@@ -13,10 +13,8 @@ Each class has their own functions. There is a multiple functions. Few of them a
 ## Functions on Python
 ###### LED_on(self, led_ID, Red_Intensity, Blue_Intensity, Green_intensity):
 ```
-        """
 	Intensity in the parameter from dimmest to brightest. This is using the RGB color combination: https://www.w3schools.com/colors/colors_rgb.asp
 	led ID is available from 1 to 8.
-        """
 ```
 
 ###### leds_off()
@@ -71,9 +69,7 @@ FR1, FR2, FR3 (Front right)
 RR1, RR2, RR3 (Rear right)
 ```
 ```
-        """
 	Can move between 0 to 180 degree. Any number go past 180 or 0 will be ignored by the safety detector. The map of robot is on the picture below.
-        """
 ```
 ![image](https://user-images.githubusercontent.com/65916520/127222119-cf8c231f-684c-4797-9098-c85750a9f6fb.png)
 
