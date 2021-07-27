@@ -1,6 +1,6 @@
 # Robot dog's functions in Python
-## Classes
-There is six classes:
+## Classes in controller.py
+There are six classes:
 1. LED class
 2. Ultrasonic class
 3. Buzzer class
