@@ -20,10 +20,20 @@ class LED:
         self.led = Led()
 
     def LED_on(self, led_ID, Red_Intensity, Blue_Intensity, Green_intensity):
+        """
+        Parameters
+        ----------
+        led_ID: This is the ID of leds. It can be from 1 to 8
+        Red_Intensity: 1 to 255, from dimmest to brightest
+        Blue_Intensity: 1 to 255, from dimmest to brightest
+        Green_intensity: 1 to 255, from dimmest to brightest
+        -------
+        """
         try:
             self.led.ledIndex(led_ID, Red_Intensity, Blue_Intensity, Green_intensity)
         except KeyboardInterrupt:
             self.led.colorWipe(led.strip, Color(0, 0, 0))  ##This is to turn all leds off/
+
 
     def test_Led(self):
         try:
@@ -46,30 +56,6 @@ class LED:
     def leds_off(self):
         self.led.colorWipe("", Color(0, 0, 0))  ##This is to turn all leds off/
 
-
-class IR:
-    def __init__(self):
-        self.IR01 = 14
-        self.IR02 = 15
-        self.IR03 = 23
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(self.IR01, GPIO.IN)
-        GPIO.setup(self.IR02, GPIO.IN)
-        GPIO.setup(self.IR03, GPIO.IN)
-
-    def read(self, position):
-        if position == 1:
-            if GPIO.input(self.IR01):
-                print("Left has been detected on bright")
-        elif position == 2:
-            if GPIO.input(self.IR02):
-                print("Middle has been detected on bright")
-        elif position == 3:
-            if GPIO.input(self.IR03):
-                print("Right has been detected on bright")
-        else:
-            print("Nothing has been detected.")
-
 class Ultrasonic:
     def __init__(self):
         GPIO.setwarnings(False)
@@ -88,6 +74,12 @@ class Ultrasonic:
         while GPIO.input(self.echo_pin) != value and count>0:
             count = count-1
     def getDistance(self):
+        """
+
+        Returns distance_cm in INT value
+        -------
+
+        """
         distance_cm=[0,0,0]
         for i in range(3):
             self.send_trigger_pulse()
@@ -99,8 +91,6 @@ class Ultrasonic:
             distance_cm[i] = pulse_len/0.000058
         distance_cm=sorted(distance_cm)
         return int(distance_cm[1])
-
-
 
 class Buzzer(object):
     def __init__(self):
@@ -115,6 +105,13 @@ class Buzzer(object):
         print(class_name, "finished")
 
     def buzz(self, pitch, duration):  # create the function “buzz” and feed it the pitch and duration)
+        """
+        Parameters
+        ----------
+        pitch: pitch level
+        duration: Seconds
+        -------
+        """
 
         if pitch == 0:
             time.sleep(duration)
@@ -130,6 +127,15 @@ class Buzzer(object):
             time.sleep(delay)  # wait with pin 18 low
 
     def play(self, pitch_level, seconds): # The higher number, the higher pitch. The lower number, the lower pitch.
+        """
+
+        Parameters
+        ----------
+        pitch_level: pitch level
+        seconds: duration
+        -------
+
+        """
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.buzzer_pin, GPIO.OUT)
         x = 0
@@ -140,7 +146,6 @@ class Buzzer(object):
             time.sleep(duration * 0.5)
 
         GPIO.setup(self.buzzer_pin, GPIO.IN)
-
 
 class ADS7830: ##This is to read the current battery level.
 	def __init__(self):
@@ -235,6 +240,12 @@ class IMU:
         return accel_data, gyro_data
 
     def imuUpdate(self):
+        """
+
+        Returns z,x, and y
+        -------
+
+        """
         accel_data = self.sensor.get_accel_data()
         gyro_data = self.sensor.get_gyro_data()
         ax = self.kalman_filter_AX.kalman(accel_data['x'] - self.Error_value_accel_data['x'])
@@ -389,10 +400,15 @@ class Servo:
         else:
             print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
     def head(self, degree):
+        """
+        Parameters
+        ----------
+        degree: 0 to 180 degree
+        -------
+        """
         degree = int(degree)
         servo = Servo()
         if degree >= 0 or degree <= 180:
             servo.setServoAngle(15, degree)  # Head
         else:
             print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
-
