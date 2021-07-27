@@ -28,7 +28,7 @@ def lidar_to_coords(lidar_data, threshold=5):
     detection_locations = []
     for idx, dist in enumerate(lidar_data):
         if dist != inf:
-            dist_map = map_value(dist, LIDAR_MIN, LIDAR_MAX, 0, Z_MAX)
+            dist_map = map_value(dist, LIDAR_MIN, LIDAR_MAX, 1, Z_MAX)
             if dist_map <= threshold:
                 x = idx
                 y = 90
@@ -77,12 +77,14 @@ def coords_to_neuron_ids(detection_locations, cortical_area):
     if detection_locations is not None:
         for i in range(len(detection_locations)):
             block_ref = coords_to_block_ref(detection_locations[i], cortical_area)
+            print("***BLOCK_REF***: ", block_ref)
             if block_ref in runtime_data.block_dic[cortical_area]:
                 block_neurons = runtime_data.block_dic[cortical_area][block_ref]
+                print("***BLOCK_NEURONS***: ", block_neurons)
                 for neuron in block_neurons:
                     if neuron is not None and neuron not in neuron_ids:
                         neuron_ids.append(neuron)
-    print(neuron_ids)
+    print("***NEURONS***: ", neuron_ids)
     return neuron_ids
 
 
@@ -99,7 +101,9 @@ def coords_to_block_ref(location, cortical_area):
     min_distance = inf
     for neuron in brain[cortical_area]:
         soma_loc = brain[cortical_area][neuron]['soma_location'][0]
-        soma_diff = distance_3d(soma_loc, location) 
+        print("***SOMA_LOC***: ", soma_loc)
+        soma_diff = distance_3d(soma_loc, location)
+        print("***SOMA_DIFF***: ", soma_diff)
         if soma_diff < min_distance:
             closest_neuron = neuron
             min_distance = soma_diff
@@ -107,6 +111,7 @@ def coords_to_block_ref(location, cortical_area):
         closest_block_ref = block_reference_builder(
             brain[cortical_area][closest_neuron]['soma_location'][1]
         )
+        print("***CLOSEST_BLOCK***: ", closest_block_ref)
         return closest_block_ref
     except KeyError:
         return None
