@@ -55,10 +55,10 @@ Each class has their own functions. There is a multiple functions. Few of them a
 Functions: 
 ```
 head (HEAD)
-FL1, FL2, FL3 (Front left)
-RL1, RL2, RL3 (Rear left)
-FR1, FR2, FR3 (Front right)
-RR1, RR2, RR3 (Rear right)
+FL1(degree), FL2(degree), FL3(degree) #Front left
+RL1(degree), RL2(degree), RL3(degree) #Rear left
+FR1(degree), FR2(degree), FR3(degree) #Front right
+RR1(degree), RR2(degree), RR3(degree) #Rear right
 ```
 ```
 	Can move between 0 to 180 degree. Any number go past 180 or 0 will be ignored by the safety detector. 
