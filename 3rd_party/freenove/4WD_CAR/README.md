@@ -12,7 +12,7 @@ There are seven classes:
 Each class has their own functions. There is a multiple functions. Few of them are very similar as Robot Dog functions yet there's a huge difference on hardware side. 
 
 ## Controller.py
-Controller.py allows you to control the buzzer, led, servo, and motors through PCA9685. You will be able to obtain the data from battery reader, and HC-SR04.
+Controller.py allows you to control the buzzer, led, servo, and motors through PCA9685. You will be able to obtain the data from battery reader, IR and HC-SR04.
 
 ## Motors
 There is either invidiual motor, one side  or a full motors.
