@@ -3375,7 +3375,7 @@ genome = {
             "block_boundaries" : [
                 360,
                 180,
-                1
+                2
             ],
             "geometric_boundaries" : {
                 "x" : [
