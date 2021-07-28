@@ -78,7 +78,7 @@ def coords_to_neuron_ids(detection_locations, cortical_area):
             print("***BLOCK_REF***: ", block_ref)
             if block_ref in runtime_data.block_dic[cortical_area]:
                 block_neurons = runtime_data.block_dic[cortical_area][block_ref]
-                print("***TEST***: ", runtime_data.block_dic['proximity'])
+                print("***TEST***: ", len(runtime_data.block_dic['proximity']))
                 for neuron in block_neurons:
                     if neuron is not None and neuron not in neuron_ids:
                         neuron_ids.append(neuron)
