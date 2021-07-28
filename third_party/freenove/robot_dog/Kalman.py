@@ -16,7 +16,7 @@ class Kalman_filter:
         if (abs(self.kalman_adc_old-ADC_Value)>=60):
             self.x_k1_k1= ADC_Value*0.400 + self.kalman_adc_old*0.600
         else:
-            self.x_k1_k1 = self.kalman_adc_old;
+            self.x_k1_k1 = self.kalman_adc_old
         self.x_k_k1 = self.x_k1_k1
         self.P_k_k1 = self.P_k1_k1 + self.Q
         self.Kg = self.P_k_k1/(self.P_k_k1 + self.R)

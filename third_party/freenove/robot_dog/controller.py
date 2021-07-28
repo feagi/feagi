@@ -32,8 +32,7 @@ class LED:
         try:
             self.led.ledIndex(led_ID, Red_Intensity, Blue_Intensity, Green_intensity)
         except KeyboardInterrupt:
-            self.led.colorWipe(led.strip, Color(0, 0, 0))  ##This is to turn all leds off/
-
+            self.led.colorWipe(led.strip, Color(0, 0, 0))  # This is to turn all leds off/
 
     def test_Led(self):
         try:
@@ -54,7 +53,8 @@ class LED:
             print("\nEnd of program")
 
     def leds_off(self):
-        self.led.colorWipe("", Color(0, 0, 0))  ##This is to turn all leds off/
+        self.led.colorWipe("", Color(0, 0, 0))  # This is to turn all LEDs off/
+
 
 class Ultrasonic:
     def __init__(self):
@@ -117,7 +117,7 @@ class Buzzer(object):
             time.sleep(duration)
             return
         period = 1.0 / pitch  # in physics, the period (sec/cyc) is the inverse of the frequency (cyc/sec)
-        delay = period / 2  # calcuate the time for half of the wave
+        delay = period / 2  # calculate the time for half of the wave
         cycles = int(duration * pitch)  # the number of waves to produce is the duration times the frequency
 
         for i in range(cycles):  # start a loop from 0 to the variable “cycles” calculated above
@@ -126,7 +126,7 @@ class Buzzer(object):
             GPIO.output(self.buzzer_pin, False)  # set pin 18 to low
             time.sleep(delay)  # wait with pin 18 low
 
-    def play(self, pitch_level, seconds): # The higher number, the higher pitch. The lower number, the lower pitch.
+    def play(self, pitch_level, seconds):   # The higher number, the higher pitch. The lower number, the lower pitch.
         """
 
         Parameters
@@ -147,27 +147,31 @@ class Buzzer(object):
 
         GPIO.setup(self.buzzer_pin, GPIO.IN)
 
-class ADS7830: ##This is to read the current battery level.
-	def __init__(self):
-		# Get I2C bus
-		self.bus = smbus.SMBus(1)
-		# I2C address of the device
-		self.ADS7830_DEFAULT_ADDRESS			= 0x48
-		# ADS7830 Command Set
-		self.ADS7830_CMD				= 0x84 # Single-Ended Inputs
-	def readAdc(self,channel):
-		"""Select the Command data from the given provided value above"""
-		COMMAND_SET = self.ADS7830_CMD | ((((channel<<2)|(channel>>1))&0x07)<<4)
-		self.bus.write_byte(self.ADS7830_DEFAULT_ADDRESS, COMMAND_SET)
-		data = self.bus.read_byte(self.ADS7830_DEFAULT_ADDRESS)
-		return data
-	def battery(self,channel):
-		data=['','','','','','','','','']
-		for i in range(9):
-			data[i]=self.readAdc(channel)
-		data.sort()
-		battery_voltage=data[4]/255.0*5.0*3
-		return battery_voltage
+
+class ADS7830:  # This is to read the current battery level.
+    def __init__(self):
+        # Get I2C bus
+        self.bus = smbus.SMBus(1)
+        # I2C address of the device
+        self.ADS7830_DEFAULT_ADDRESS = 0x48
+        # ADS7830 Command Set
+        self.ADS7830_CMD = 0x84 # Single-Ended Inputs
+
+    def readAdc(self, channel):
+        """Select the Command data from the given provided value above"""
+        command_set = self.ADS7830_CMD | ((((channel<<2)|(channel>>1))&0x07)<<4)
+        self.bus.write_byte(self.ADS7830_DEFAULT_ADDRESS, command_set)
+        data = self.bus.read_byte(self.ADS7830_DEFAULT_ADDRESS)
+        return data
+
+    def battery(self, channel):
+        data=['','','','','','','','','']
+        for i in range(9):
+            data[i] = self.readAdc(channel)
+        data.sort()
+        battery_voltage = data[4]/255.0*5.0*3
+        return battery_voltage
+
 
 class IMU:
     def __init__(self):
@@ -298,37 +302,43 @@ class IMU:
         self.yaw = yaw
         return self.pitch, self.roll, self.yaw
 
+
 class Servo:
     def __init__(self):
-        self.angleMin=18
-        self.angleMax=162
+        self.angleMin = 18
+        self.angleMax = 162
         self.pwm = Adafruit_PCA9685.PCA9685()
         self.pwm.set_pwm_freq(50)               # Set the cycle frequency of PWM
-    #Convert the input angle to the value of pca9685
-    def map(self,value,fromLow,fromHigh,toLow,toHigh):
+    # Convert the input angle to the value of pca9685
+
+    def map(self, value, fromLow, fromHigh, toLow, toHigh):
         return (toHigh-toLow)*(value-fromLow) / (fromHigh-fromLow) + toLow
+
     def setServoAngle(self,channel, angle):
         if angle < self.angleMin:
             angle = self.angleMin
-        elif angle >self.angleMax:
-            angle=self.angleMax
-        date=self.map(angle,0,180,102,512)
-        #print(date,date/4096*0.02)
+        elif angle > self.angleMax:
+            angle = self.angleMax
+        date = self.map(angle,0,180,102,512)
+        # print(date,date/4096*0.02)
         self.pwm.set_pwm(channel, 0, int(date))
+
     def FL1(self,degree):
         degree = int(degree)
-        servo=Servo()
+        servo = Servo()
         if degree >= 0 or degree <= 180:
-            servo.setServoAngle(4,degree) #front left of the top leg
+            servo.setServoAngle(4,degree)   # front left of the top leg
         else:
-            print ("Error, 0 to 180 degree only") #A protection to not damage the servos.
+            print ("Error, 0 to 180 degree only") # A protection to not damage the servos.
+
     def FL2(self, degree):
         degree = int(degree)
         servo = Servo()
         if degree >= 0 or degree <= 180:
-            servo.setServoAngle(3, degree)  #front left of the middle leg
+            servo.setServoAngle(3, degree)  # front left of the middle leg
         else:
             print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
+
     def FL3(self, degree):
         degree = int(degree)
         servo = Servo()
@@ -336,69 +346,79 @@ class Servo:
             servo.setServoAngle(2, degree)  # front left of the bottom leg
         else:
             print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
+
     def RL1(self, degree):
         servo = Servo()
         degree = int(degree)
         if degree >= 0 or degree <= 180:
-            servo.setServoAngle(7, degree)  #rear left of the top leg
+            servo.setServoAngle(7, degree)  # rear left of the top leg
         else:
             print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
+
     def RL2(self, degree):
         degree = int(degree)
         servo = Servo()
         if degree >= 0 or degree <= 180:
-            servo.setServoAngle(6, degree)  #rear left of the middle leg
+            servo.setServoAngle(6, degree)  # rear left of the middle leg
         else:
             print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
+
     def RL3(self, degree):
         degree = int(degree)
         servo = Servo()
         if degree >= 0 or degree <= 180:
-            servo.setServoAngle(5, degree)  #rear left of the top leg
+            servo.setServoAngle(5, degree)  # rear left of the top leg
         else:
             print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
+
     def FR1(self, degree):
         degree = int(degree)
         servo = Servo()
         if degree >= 0 or degree <= 180:
-            servo.setServoAngle(11, degree)  #front right of the top leg
+            servo.setServoAngle(11, degree)  # front right of the top leg
         else:
             print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
+
     def FR2(self, degree):
         degree = int(degree)
         servo = Servo()
         if degree >= 0 or degree <= 180:
-            servo.setServoAngle(12, degree)  #front right of the middle leg
+            servo.setServoAngle(12, degree)  # front right of the middle leg
         else:
             print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
+
     def FR3(self, degree):
         degree = int(degree)
         servo = Servo()
         if degree >= 0 or degree <= 180:
-            servo.setServoAngle(13, degree)  #rear left of the bottom leg
+            servo.setServoAngle(13, degree)  # rear left of the bottom leg
         else:
             print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
+
     def RR1(self, degree):
         degree = int(degree)
         servo = Servo()
         if degree >= 0 or degree <= 180:
-            servo.setServoAngle(10, degree)  #rear right of the top leg
+            servo.setServoAngle(10, degree)  # rear right of the top leg
         else:
             print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
+
     def RR2(self, degree):
         degree = int(degree)
         servo = Servo()
         if degree >= 0 or degree <= 180:
-            servo.setServoAngle(9, degree)  #rear right of the top leg
+            servo.setServoAngle(9, degree)  # rear right of the top leg
         else:
             print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
+
     def RR3(self, degree):
         degree = int(degree)
         servo = Servo()
         if degree >= 0 or degree <= 180:
-            servo.setServoAngle(8, degree)  #rear right of the top leg
+            servo.setServoAngle(8, degree)  # rear right of the top leg
         else:
             print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
+
     def head(self, degree):
         """
         Parameters
