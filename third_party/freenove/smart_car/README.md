@@ -1,13 +1,44 @@
-# Raspberry PI on freenove
-## Setup with pins in software
-1. Open terminal and navigate to `feagi-core/3rd_party/Raspberry_PI`
-2. run `./setup_GPIO.sh` to set up everything to work with GPIO on RPI.
+# 4WD car's functions in Python
+## Classes in controller.py
+There are eight classes:
+1. LED class
+2. Ultrasonic class
+3. Buzzer class
+4. Motor class
+5. Servo class
+6. IR class
+7. Photoresistor class
+8. Battery class
 
-## To test HC-SR04
-1. To test sonar_sensor, run `python3 HC-SR04_GPIO.py`
+Each class has their own functions. There is a multiple functions. Few of them are very similar as Robot Dog functions yet there's a huge difference on hardware side. 
 
+## Controller.py
+Controller.py allows you to control the buzzer, led, servo, and motors through PCA9685. You will be able to obtain the data from battery reader, IR and HC-SR04.
 
-## To test motors
-1. Run `python3 motors_RPI.py`
+## Modulues
+ADC.py, Led.py and PCA9685.py are modules. ADC is designed to work with photoresistor and battery to obtain the data. LED.py is defined system on the board and able to translate into the correct state. 
+PCA9685 handles Servo and Motors classes by write the output into them.
 
-** Be sure to have PCA9685.py in the same directory as motors_RPI.py in. **
+## Motors
+There is either invidiual motor, one side  or a full motors.
+Functions for invidiual:
+```
+M3F() M3B()
+M1F() M1B()
+M2F() M2B()
+M4F() M4B()
+```
+Those name are on the board as well.
+
+There's extra functions for motors such as:
+```
+Backward()
+Forward()
+Right_Backward()
+Left_Backward()
+Left_Forward()
+Right_Forward()
+stop()
+```
+
+You can test all motors by using `motor_test_all()`
