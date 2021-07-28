@@ -15,6 +15,15 @@ class LED:
         self.led = Led()
 
     def LED_on(self, led_ID, Red_Intensity, Blue_Intensity, Green_intensity):
+        """
+        Parameters
+        ----------
+        led_ID: This is the ID of leds. It can be from 1 to 8
+        Red_Intensity: 1 to 255, from dimmest to brightest
+        Blue_Intensity: 1 to 255, from dimmest to brightest
+        Green_intensity: 1 to 255, from dimmest to brightest
+        -------
+        """
         try:
             self.led.ledIndex(led_ID, Red_Intensity, Blue_Intensity, Green_intensity)
         except KeyboardInterrupt:
@@ -53,6 +62,12 @@ class IR:
         GPIO.setup(self.IR03, GPIO.IN)
 
     def read(self, position):
+        """
+        Parameters
+        ----------
+        position: 1 to 3, There's number on the board.
+        -------
+        """
         if position == 1:
             if GPIO.input(self.IR01):
                 print("Left has been detected on bright")
@@ -79,6 +94,13 @@ class Buzzer(object):
         print(class_name, "finished")
 
     def buzz(self, pitch, duration):  # create the function “buzz” and feed it the pitch and duration)
+        """
+        Parameters
+        ----------
+        pitch: pitch level
+        duration: Seconds
+        -------
+        """
 
         if pitch == 0:
             time.sleep(duration)
@@ -94,6 +116,13 @@ class Buzzer(object):
             time.sleep(delay)  # wait with pin 18 low
 
     def play(self, pitch_level, seconds): # The higher number, the higher pitch. The lower number, the lower pitch.
+        """
+        Parameters
+        ----------
+        pitch_level: pitch level
+        seconds: duration
+        -------
+        """
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.buzzer_pin, GPIO.OUT)
         x = 0
@@ -133,9 +162,21 @@ class Servo:
             self.PwmServo.setServoPulse(15,500+int((angle+error)/0.09))
 
     def head_UP_DOWN(self, num):
+        """
+        Parameters
+        ----------
+        num: degree from 0 to 180.
+        -------
+        """
         self.setServoPwm('1', num) #90 to 0 degree is turn the head down. 90 to 180 is to turn the head up
 
     def head_RIGHT_LEFT(self, num):
+        """
+        Parameters
+        ----------
+        num: degree from 0 to 180.
+        -------
+        """
         self.setServoPwm('0', num) #90 to 0 degree is turn the head left. 90 to 180 is to turn the head right
 
 
