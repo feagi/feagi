@@ -1,12 +1,13 @@
 # 4WD car's functions in Python
 ## Classes in controller.py
-There are six classes:
+There are seven classes:
 1. LED class
 2. Ultrasonic class
 3. Buzzer class
 4. PCA9685 (PWM controller) class
 5. Motor class
 6. Servo class
+7. IR class
 
 Each class has their own functions. There is a multiple functions. Few of them are very similar as Robot Dog functions yet there's a huge difference on hardware side. 
 
