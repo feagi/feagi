@@ -69,20 +69,7 @@ class Adc:
     def i2cClose(self):
         self.bus.close()
 
-    def photoresistor(self, number): #0 is the left photoressitor and 1 is the right photoresistor
-        adc = Adc()
-        if number > 2 or number < 0:
-            print ("Please put 1 or 0 as an input only")
-        elif number < 2 or number <= 0:
-            output = adc.recvADC(number)
-            #print(output)
-            return output
 
-    def battery_total(self): ##It gives a full volt remain of battery
-        adc = Adc()
-        Power = adc.recvADC(2) * 3
-        # print(Power)
-        return Power
 
 
 
