@@ -397,6 +397,8 @@ class Photoresistor:
             # print(output)
             return output
 
+
+class Battery:
     def battery_total(self):  ##It gives a full volt remain of battery
         """
         It reads the battery total. It will return the battery value.
