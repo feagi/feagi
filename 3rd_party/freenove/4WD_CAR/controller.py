@@ -8,6 +8,7 @@ FEAGI IPU/OPU directly interact with this module to operate the 4WD CAR
 import RPi.GPIO as GPIO
 from PCA9685 import PCA9685
 from Led import *
+from ADC import *
 
 
 class LED:
@@ -30,6 +31,9 @@ class LED:
             self.led.colorWipe(led.strip, Color(0, 0, 0))  ##This is to turn all leds off/
 
     def test_Led(self):
+        """
+        This is to test all leds and do several different leds.
+        """
         try:
             self.led.ledIndex(0x01, 255, 0, 0)  # Red
             self.led.ledIndex(0x02, 255, 125, 0)  # orange
@@ -136,6 +140,10 @@ class Buzzer(object):
 
 
 class Servo:
+    """
+    Functions: head_UP_DOWN and head_RIGHT_LEFT only. Other functions are just a support and defined system for Servo
+    class to work with functions.
+    """
     def __init__(self):
         self.PwmServo = PCA9685(0x40, debug=True)
         self.PwmServo.setPWMFreq(50)
@@ -265,51 +273,99 @@ class Motor:
     # Test Functions
     @staticmethod
     def Backward(self):
+        """
+        This will go backward only
+        """
         self.setMotorModel(2000, 2000, 2000, 2000)
 
     def stop(self):
+        """
+        This will halt all motors.
+        """
         self.setMotorModel(0, 0, 0, 0)
 
     def Forward(self):
+        """
+        this will go forward.
+        """
         self.setMotorModel(-2000, -2000, -2000, -2000)
 
     def Right_Backward(self):
+        """
+        Right side goes backward
+        """
         self.setMotorModel(-500, -500, 2000, 2000)
 
     def Left_Backward(self):
+        """
+        The left side go backward.
+        """
         self.setMotorModel(2000, 2000, -500, -500)  # Right
 
     def Left_Forward(self):
+        """
+        The left side will go forward
+        """
         self.setMotorModel(-2000, -2000, -500, -500)
 
     def Right_Forward(self):
+        """
+        The right side will go forward
+        """
         self.setMotorModel(-500, -500, -2000, -2000)
 
     def M3F(self):
+        """
+        The rear left forward
+        """
         self.setMotorModel(0, 0, 0, -2000)  # M3 forward
 
     def M3B(self):
+        """
+        The rear left backward
+        """
         self.setMotorModel(0, 0, 0, 2000)  # M3 backward
 
     def M1F(self):
+        """
+        The front right motor goes forward
+        """
         self.setMotorModel(-2000, 0, 0, 0)  # M1 forward
 
     def M1B(self):
+        """
+        The front left motor goes forward
+        """
         self.setMotorModel(2000, 0, 0, 0)  # M1 backward
 
     def M2F(self):
+        """
+        The rear right motor goes forward
+        """
         self.setMotorModel(0, -2000, 0, 0)  # M2 forward
 
     def M2B(self):
+        """
+        The rear right motor goes backward
+        """
         self.setMotorModel(0, 2000, 0, 0)  # M2 backward
 
     def M4F(self):
+        """
+        The front left motor goes forward
+        """
         self.setMotorModel(0, 0, -2000, 0)  # M4 forward
 
     def M4B(self):
+        """
+        The front left motor goes backward
+        """
         self.setMotorModel(0, 0, 2000, 0)  # M4 backward
 
     def motor_test_all(self):
+        """
+        This will test all motor individually per 3 seconds.
+        """
         self.M1F()
         time.sleep(3)
         self.M1B()
@@ -327,3 +383,27 @@ class Motor:
         self.M4B()
         time.sleep(3)
         self.stop()
+
+class Photoresistor:
+    """
+    Photoresistor has two photoresistors. 0 is the left photoresistor and 1 is the right photoresistor on the board.
+    """
+    def photoresistor(self, number):  # 0 is the left photoressitor and 1 is the right photoresistor
+        adc = Adc()
+        if number > 2 or number < 0:
+            print("Please put 1 or 0 as an input only")
+        elif number < 2 or number <= 0:
+            output = adc.recvADC(number)
+            # print(output)
+            return output
+
+    def battery_total(self):  ##It gives a full volt remain of battery
+        """
+        It reads the battery total. It will return the battery value.
+        -------
+
+        """
+        adc = Adc()
+        Power = adc.recvADC(2) * 3
+        # print(Power)
+        return Power
