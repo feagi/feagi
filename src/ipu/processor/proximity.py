@@ -76,13 +76,12 @@ def coords_to_neuron_ids(detection_locations, cortical_area):
     neuron_ids = []
     if detection_locations is not None:
         for i in range(len(detection_locations)):
-            block_ref = coords_to_block_ref(detection_locations[i], cortical_area)
-            print("***BLOCK_REF***: ", block_ref)
-            if block_ref in runtime_data.block_dic[cortical_area]:
-                block_neurons = runtime_data.block_dic[cortical_area][block_ref]
-                for neuron in block_neurons:
-                    if neuron is not None and neuron not in neuron_ids:
-                        neuron_ids.append(neuron)
+            # block_ref = coords_to_block_ref(detection_locations[i], cortical_area)
+            block_ref = block_reference_builder(detection_locations[i])
+            block_neurons = runtime_data.block_dic[cortical_area][block_ref]
+            for neuron in block_neurons:
+                if neuron is not None and neuron not in neuron_ids:
+                    neuron_ids.append(neuron)
     print("***NEURONS***: ", neuron_ids)
     return neuron_ids
 
@@ -109,7 +108,6 @@ def coords_to_block_ref(location, cortical_area):
             brain[cortical_area][closest_neuron]['soma_location'][1]
         )
 
-        print("***CLOSEST_BLOCK_REF***: ", closest_block_ref)
         return closest_block_ref
 
 
