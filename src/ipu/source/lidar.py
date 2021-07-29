@@ -3,6 +3,7 @@ This module reads LIDAR data from a message queue and makes them available to th
 """
 # import os
 
+from typing_extensions import runtime
 import zmq
 
 from ipu.processor import proximity
@@ -54,7 +55,7 @@ def get_and_translate():
                     detections, cortical_area='proximity'
             )
 
-            print("***NEURON_LIST***: ", neurons)
+            print(runtime_data.block_dic['proximity'])
 
             # TODO: Add proximity feeder function in fcl_injector
             runtime_data.fcl_queue.put({'proximity': set(neurons)})

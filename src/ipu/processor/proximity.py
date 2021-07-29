@@ -2,7 +2,7 @@
 This module processes LIDAR data from a message queue and converts it to neuronal activity
 within the proximity cortical area.
 """
-from math import sqrt, inf
+from math import inf
 from evo.neuron import block_reference_builder
 from inf import runtime_data
 
@@ -54,6 +54,8 @@ def sonar_to_coords(sonar_data, threshold=10):
                                ['neuron_params'] \
                                ['block_boundaries'][-1]
 
+    print("***Z_MAX***: ", Z_MAX)
+
     dist_map = map_value(sonar_data, SONAR_MIN, SONAR_MAX, 0, Z_MAX)
     print("***DIST_MAP***: ", dist_map)
     if dist_map != 0 and dist_map <= threshold:
@@ -74,13 +76,12 @@ def coords_to_neuron_ids(detection_locations, cortical_area):
     neuron_ids = []
     if detection_locations is not None:
         for i in range(len(detection_locations)):
-            print("***DETECTIONS***: ", detection_locations[i])
             block_ref = block_reference_builder(detection_locations[i])
             block_neurons = runtime_data.block_dic[cortical_area][block_ref]
             for neuron in block_neurons:
                 if neuron is not None and neuron not in neuron_ids:
                     neuron_ids.append(neuron)
-    print("***NEURONS***: ", neuron_ids)
+    print("***NEURONS***: ", len(neuron_ids))
     return neuron_ids
 
 
