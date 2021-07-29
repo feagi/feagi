@@ -54,7 +54,7 @@ def get_and_translate():
                     detections, cortical_area='proximity'
             )
 
-            print(runtime_data.block_dic['proximity'])
+            print("***LEN_PROX_BLOX***: ", len(runtime_data.block_dic['proximity']))
 
             # TODO: Add proximity feeder function in fcl_injector
             runtime_data.fcl_queue.put({'proximity': set(neurons)})
