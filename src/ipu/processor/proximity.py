@@ -54,8 +54,6 @@ def sonar_to_coords(sonar_data, threshold=10):
                                ['neuron_params'] \
                                ['block_boundaries'][-1]
 
-    print("***Z_MAX***: ", Z_MAX)
-
     dist_map = map_value(sonar_data, SONAR_MIN, SONAR_MAX, 0, Z_MAX)
     print("***DIST_MAP***: ", dist_map)
     if dist_map != 0 and dist_map <= threshold:
@@ -73,6 +71,7 @@ def coords_to_neuron_ids(detection_locations, cortical_area):
     :param cortical_area: name of cortical area (str)
     :return: list of neuron IDs (str)
     """
+    print(runtime_data.block_dic[cortical_area])
     neuron_ids = []
     if detection_locations is not None:
         for i in range(len(detection_locations)):
