@@ -3,7 +3,6 @@ This module reads LIDAR data from a message queue and makes them available to th
 """
 # import os
 
-from typing_extensions import runtime
 import zmq
 
 from ipu.processor import proximity
