@@ -69,13 +69,14 @@ def convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id):
 
     # todo: need to define the mapping between motor cortex and a set of motor ids
     """
-    Some sort of mapping needs to be defined such as the one below and most likely to be part of genome.
+    Some sort of mapping needs to be defined such as the one below and most likely to be part of genome. This mapping
+    will connect a particular motor cortical column to a corresponding motor identifier on the hardware side.
     
     motor_mapping = {
-        "motor_cortex_1" : "M1", 
-        "motor_cortex_1" : "M2", 
-        "motor_cortex_1" : "M3", 
-        "motor_cortex_1" : "M4", 
+        "motor_1" : "M1", 
+        "motor_2" : "M2", 
+        "motor_3" : "M3", 
+        "motor_4" : "M4", 
     }
     """
     if runtime_data.hardware == 'raspberry_pi':
@@ -84,13 +85,3 @@ def convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id):
 
         # Power is defined as a value between 0 and 100 driven from Z direction
         power = int(neuron_z_block / cortical_z_block)
-
-
-
-
-
-
-
-
-
-

@@ -64,6 +64,7 @@ class Ultrasonic:
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.trigger_pin,GPIO.OUT)
         GPIO.setup(self.echo_pin,GPIO.IN)
+
     def send_trigger_pulse(self):
         GPIO.output(self.trigger_pin,True)
         time.sleep(0.00015)
@@ -73,6 +74,7 @@ class Ultrasonic:
         count = timeout
         while GPIO.input(self.echo_pin) != value and count>0:
             count = count-1
+
     def getDistance(self):
         """
 
@@ -91,6 +93,7 @@ class Ultrasonic:
             distance_cm[i] = pulse_len/0.000058
         distance_cm=sorted(distance_cm)
         return int(distance_cm[1])
+
 
 class Buzzer(object):
     def __init__(self):
@@ -314,7 +317,7 @@ class Servo:
     def map(self, value, fromLow, fromHigh, toLow, toHigh):
         return (toHigh-toLow)*(value-fromLow) / (fromHigh-fromLow) + toLow
 
-    def setServoAngle(self,channel, angle):
+    def setServoAngle(self, channel, angle):
         if angle < self.angleMin:
             angle = self.angleMin
         elif angle > self.angleMax:
@@ -323,112 +326,32 @@ class Servo:
         # print(date,date/4096*0.02)
         self.pwm.set_pwm(channel, 0, int(date))
 
-    def FL1(self,degree):
-        degree = int(degree)
-        servo = Servo()
-        if degree >= 0 or degree <= 180:
-            servo.setServoAngle(4,degree)   # front left of the top leg
-        else:
-            print ("Error, 0 to 180 degree only") # A protection to not damage the servos.
-
-    def FL2(self, degree):
-        degree = int(degree)
-        servo = Servo()
-        if degree >= 0 or degree <= 180:
-            servo.setServoAngle(3, degree)  # front left of the middle leg
-        else:
-            print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
-
-    def FL3(self, degree):
-        degree = int(degree)
-        servo = Servo()
-        if degree >= 0 or degree <= 180:
-            servo.setServoAngle(2, degree)  # front left of the bottom leg
-        else:
-            print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
-
-    def RL1(self, degree):
-        servo = Servo()
-        degree = int(degree)
-        if degree >= 0 or degree <= 180:
-            servo.setServoAngle(7, degree)  # rear left of the top leg
-        else:
-            print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
-
-    def RL2(self, degree):
-        degree = int(degree)
-        servo = Servo()
-        if degree >= 0 or degree <= 180:
-            servo.setServoAngle(6, degree)  # rear left of the middle leg
-        else:
-            print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
-
-    def RL3(self, degree):
-        degree = int(degree)
-        servo = Servo()
-        if degree >= 0 or degree <= 180:
-            servo.setServoAngle(5, degree)  # rear left of the top leg
-        else:
-            print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
-
-    def FR1(self, degree):
-        degree = int(degree)
-        servo = Servo()
-        if degree >= 0 or degree <= 180:
-            servo.setServoAngle(11, degree)  # front right of the top leg
-        else:
-            print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
-
-    def FR2(self, degree):
-        degree = int(degree)
-        servo = Servo()
-        if degree >= 0 or degree <= 180:
-            servo.setServoAngle(12, degree)  # front right of the middle leg
-        else:
-            print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
-
-    def FR3(self, degree):
-        degree = int(degree)
-        servo = Servo()
-        if degree >= 0 or degree <= 180:
-            servo.setServoAngle(13, degree)  # rear left of the bottom leg
-        else:
-            print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
-
-    def RR1(self, degree):
-        degree = int(degree)
-        servo = Servo()
-        if degree >= 0 or degree <= 180:
-            servo.setServoAngle(10, degree)  # rear right of the top leg
-        else:
-            print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
-
-    def RR2(self, degree):
-        degree = int(degree)
-        servo = Servo()
-        if degree >= 0 or degree <= 180:
-            servo.setServoAngle(9, degree)  # rear right of the top leg
-        else:
-            print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
-
-    def RR3(self, degree):
-        degree = int(degree)
-        servo = Servo()
-        if degree >= 0 or degree <= 180:
-            servo.setServoAngle(8, degree)  # rear right of the top leg
-        else:
-            print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
-
-    def head(self, degree):
+    def move_servo(self, servo_id, degree):
         """
-        Parameters
-        ----------
-        degree: 0 to 180 degree
-        -------
+        Servo_id mapping table:
+        1:
+        2:
+        3:
+        4:  front left top servo
+        5:  front left middle servo
+        6:  rear left middle servo
+        7:
+        8:  rear right top servo?
+        9:  rear right top servo?
+        10: rear right top servo?
+        11: front right top servo
+        12: front right middle servo
+        13:
+        14:
+        15: Head
+
         """
         degree = int(degree)
         servo = Servo()
         if degree >= 0 or degree <= 180:
-            servo.setServoAngle(15, degree)  # Head
+            try:
+                servo.setServoAngle(servo_id, degree)   # front left of the top leg
+            except:
+                print("ERROR with setServoAngle")
         else:
-            print("Error, 0 to 180 degree only")  # A protection to not damage the servos.
+            print("Error: Servo can operate within 0 to 180 degree only")   # A protection to not damage the servos.

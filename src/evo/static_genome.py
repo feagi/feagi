@@ -1226,8 +1226,8 @@ genome = {
   },
   "species": {
       "class": "toy",
-      "brand": "Freenove",
-      "model": "4D-Car"
+      "brand": "freenove",
+      "model": "robot_dog"
   },
   "blueprint": {
       "thalamus_vision_1": {
