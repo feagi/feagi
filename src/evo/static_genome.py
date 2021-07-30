@@ -3401,7 +3401,7 @@ genome = {
         "orientation_selectivity_pattern" : "",
         "location" : "",
         "kernel_size" : 7,
-        "cortical_neuron_count" : 5000,
+        "cortical_neuron_count" : 5000000,
         "location_generation_type" : "random",
         "synapse_attractivity" : 10,
         "init_synapse_needed" : False,
