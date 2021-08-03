@@ -73,16 +73,20 @@ def coords_to_neuron_ids(detection_locations, cortical_area):
     :param cortical_area: name of cortical area (str)
     :return: list of neuron IDs (str)
     """
-    neuron_ids = []
-    if detection_locations is not None:
-        for i in range(len(detection_locations)):
-            block_ref = block_reference_builder(detection_locations[i])
-            block_neurons = runtime_data.block_dic[cortical_area][block_ref]
-            for neuron in block_neurons:
-                if neuron is not None and neuron not in neuron_ids:
-                    neuron_ids.append(neuron)
-    print("***NEURONS***: ", neuron_ids)
-    return neuron_ids
+    try:
+        neuron_ids = []
+        if detection_locations is not None:
+            for i in range(len(detection_locations)):
+                block_ref = block_reference_builder(detection_locations[i])
+                block_neurons = runtime_data.block_dic[cortical_area][block_ref]
+                for neuron in block_neurons:
+                    if neuron is not None and neuron not in neuron_ids:
+                        neuron_ids.append(neuron)
+        print("***NEURONS***: ", neuron_ids)
+        return neuron_ids
+    except KeyError:
+        sorted_keys = sorted(list(runtime_data.block_dic[cortical_area].keys()))
+        print(sorted_keys)
 
 
 # def coords_to_block_ref(location, cortical_area):
