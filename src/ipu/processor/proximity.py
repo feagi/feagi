@@ -50,16 +50,27 @@ def sonar_to_coords(sonar_data, threshold=10):
     SONAR_MIN = 2
     SONAR_MAX = 200
 
+    X_MAX = runtime_data.genome['blueprint'] \
+                               ['proximity'] \
+                               ['neuron_params'] \
+                               ['block_boundaries'][0]
+
+    Y_MAX = runtime_data.genome['blueprint'] \
+                               ['proximity'] \
+                               ['neuron_params'] \
+                               ['block_boundaries'][1]
+
+
     Z_MAX = runtime_data.genome['blueprint'] \
                                ['proximity'] \
                                ['neuron_params'] \
-                               ['block_boundaries'][-1]
+                               ['block_boundaries'][2]
 
     dist_map = round(map_value(sonar_data, SONAR_MIN, SONAR_MAX, 0, Z_MAX))
     print("***DIST_MAP***: ", dist_map)
     if dist_map != 0:
-        x = 180
-        y = 90
+        x = X_MAX // 2
+        y = Y_MAX // 2
         z = dist_map
         return [(x, y, z)]
     
