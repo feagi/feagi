@@ -81,7 +81,7 @@ def coords_to_neuron_ids(detection_locations, cortical_area):
             for neuron in block_neurons:
                 if neuron is not None and neuron not in neuron_ids:
                     neuron_ids.append(neuron)
-    print("***NEURONS***: ", len(neuron_ids))
+    print("***NEURONS***: ", neuron_ids)
     return neuron_ids
 
 
