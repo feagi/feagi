@@ -52,7 +52,7 @@ def sonar_to_coords(sonar_data, threshold=10):
     Z_MAX = runtime_data.genome['blueprint'] \
                                ['proximity'] \
                                ['neuron_params'] \
-                               ['geometric_boundaries']['z'][1]
+                               ['block_boundaries'][-1]
 
     print("***Z_MAX***: ", Z_MAX)
 
