@@ -122,7 +122,9 @@ def map_value(val, min1, max1, min2, max2):
     :param max2: max of range 2
     :return: value mapped from range 1 to range 2 
     """
-    return round(abs((val-min1) * ((max2-min2) / (max1-min1)) + min2))
+    mapped_value = abs((val-min1) * ((max2-min2) / (max1-min1)) + min2)
+    if mapped_value <= max2 and mapped_value >= min2:
+        return abs((val-min1) * ((max2-min2) / (max1-min1)) + min2)
 
 
 # def distance_3d(p1, p2):
