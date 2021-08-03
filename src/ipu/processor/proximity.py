@@ -55,7 +55,7 @@ def sonar_to_coords(sonar_data, threshold=10):
                                ['neuron_params'] \
                                ['block_boundaries'][-1]
 
-    dist_map = map_value(sonar_data, SONAR_MIN, SONAR_MAX, 0, Z_MAX)
+    dist_map = round(map_value(sonar_data, SONAR_MIN, SONAR_MAX, 0, Z_MAX))
     print("***DIST_MAP***: ", dist_map)
     if dist_map != 0:
         x = 180
