@@ -4,6 +4,7 @@ within the proximity cortical area.
 """
 from math import inf
 from evo.neuron import block_reference_builder
+from evo.synapse import neurons_in_the_block
 from inf import runtime_data
 
 
@@ -54,8 +55,6 @@ def sonar_to_coords(sonar_data, threshold=10):
                                ['neuron_params'] \
                                ['block_boundaries'][-1]
 
-    print("***Z_MAX***: ", Z_MAX)
-
     dist_map = map_value(sonar_data, SONAR_MIN, SONAR_MAX, 0, Z_MAX)
     print("***DIST_MAP***: ", dist_map)
     if dist_map != 0:
@@ -77,8 +76,7 @@ def coords_to_neuron_ids(detection_locations, cortical_area):
     if detection_locations is not None:
         for i in range(len(detection_locations)):
             block_ref = block_reference_builder(detection_locations[i])
-            print("***BLOCK_REF***: ", block_ref)
-            block_neurons = runtime_data.block_dic[cortical_area][block_ref]
+            block_neurons = neurons_in_the_block(cortical_area, block_ref)
             for neuron in block_neurons:
                 if neuron is not None and neuron not in neuron_ids:
                     neuron_ids.append(neuron)
