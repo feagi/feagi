@@ -28,7 +28,7 @@ class MinimalPublisher(Node):
 
     def timer_callback(self):
         sensor_val = ser.readline()
-        if sensor_val is not ' ':
+        if sensor_val != ' ':
             msg = Int64()
             msg.data= int(sensor_val)
             # self.get_logger().info("PUBLISHER: {}".format(msg.data))
