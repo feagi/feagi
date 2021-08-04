@@ -99,31 +99,6 @@ def coords_to_neuron_ids(detection_locations, cortical_area):
     return neuron_ids
 
 
-# def coords_to_block_ref(location, cortical_area):
-#     """ Finds neuron closest to provided location and returns neuron's
-#     block reference.
-
-#     :param location: iterable containing x, y, z coordinate values
-#     :param cortical_area: name of cortical area (str)
-#     :return: block reference (str) of block closest to location
-#     """
-#     brain = runtime_data.brain
-#     closest_neuron = None
-#     min_distance = inf
-#     for neuron in brain[cortical_area]:
-#         soma_loc = brain[cortical_area][neuron]['soma_location'][0]
-#         soma_diff = distance_3d(soma_loc, location)
-#         if soma_diff < min_distance:
-#             closest_neuron = neuron
-#             min_distance = soma_diff
-
-#         closest_block_ref = block_reference_builder(
-#             brain[cortical_area][closest_neuron]['soma_location'][1]
-#         )
-
-#         return closest_block_ref
-
-
 def map_value(val, min1, max1, min2, max2):
     """ Performs linear transformation to map value from
     range 1 [min1, max1] to a value in range 2 [min2, max2].
@@ -138,36 +113,3 @@ def map_value(val, min1, max1, min2, max2):
     mapped_value = abs((val-min1) * ((max2-min2) / (max1-min1)) + min2)
     if mapped_value <= max2 and mapped_value >= min2:
         return abs((val-min1) * ((max2-min2) / (max1-min1)) + min2)
-
-
-# def distance_3d(p1, p2):
-#     """ Calculates distance between two points in 3D space.
-
-#     :param p1: iterable cointaining point1 x, y, z values
-#     :param p2: iterable cointaining point2 x, y, z values
-#     :return: distance between 2 points (float)
-#     """
-#     return sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2 + (p2[2]-p1[2])**2)
-
-
-# def detections_to_coords(proximity_data, proximity_type='LIDAR'):
-#     """ Converts coordinates from LIDAR detections to modified 
-#     Cartesian plane.
-
-#     :param proximity_data:
-#     :return:
-#     """
-#     detection_locations = []
-#     for sweep in proximity_data:
-#         for point in proximity_data[sweep][proximity_type]:
-#             h_angle = point[0]
-#             v_angle = point[1]
-#             distance = point[2]
-
-#             x = distance * sin(v_angle) * cos(h_angle)
-#             y = distance * sin(v_angle) * sin(h_angle)
-#             z = distance * cos(v_angle)
-
-#             detection_locations.append((x, y, z))
-    
-#     return detection_locations
