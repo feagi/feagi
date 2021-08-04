@@ -88,7 +88,6 @@ def main(args=None):
 
     rclpy.spin(minimal_subscriber)
 
-
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
