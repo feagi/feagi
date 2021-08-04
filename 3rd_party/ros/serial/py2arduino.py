@@ -79,7 +79,7 @@ class MinimalSubscriber(Node):
         self.subscription
 
     def listener_callback(self, msg):
-        self.get_logger().info("SUBSCRIBER: {}".format(msg.data))
+        # self.get_logger().info("SUBSCRIBER: {}".format(msg.data))
         socket.send_pyobj(msg.data)
 
 

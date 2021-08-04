@@ -16,9 +16,6 @@ ser = serial.Serial(
     bytesize=serial.EIGHTBITS
 )
 
-print("Found the ardiuno board.")
-print("Creating the /scan topic..")
-
 
 class MinimalPublisher(Node):
 
@@ -30,18 +27,12 @@ class MinimalPublisher(Node):
         self.i = 0
 
     def timer_callback(self):
-        # check = ser.readline()
-        # if check == ' ':
-        #     print("Skipped the ' '")
-        # else:
-        #     sensorvalue = float(ser.readline())
         sensor_val = ser.readline()
         if sensor_val is not ' ':
             msg = Int64()
             msg.data= int(sensor_val)
-            self.get_logger().info("PUBLISHER: {}".format(msg.data))
+            # self.get_logger().info("PUBLISHER: {}".format(msg.data))
             self.publisher_.publish(msg)
-
 
 
 def main(args=None):
@@ -61,4 +52,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-
