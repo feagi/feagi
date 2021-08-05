@@ -1,4 +1,4 @@
-FROM neuraville/feagi:0.0.2
+FROM neuraville/feagi-base-os
 
 # Git
 ARG REPO="https://github.com/feagi/feagi-core.git"

@@ -39,24 +39,22 @@ Note: This module is a modified version of the code from OSRF
 # limitations under the License.
 
 """
-
-import sensor_msgs.msg #this is needed to read lidar or any related to lidar.
+import sensor_msgs.msg
 import rclpy
 import zmq
 import std_msgs
 
-#from std_msgs.msg import Int32
 from example_interfaces.msg import Int64
 from time import sleep
 from rclpy.node import Node
-from sensor_msgs.msg import LaserScan #to call laserscan so it can convert the data or provide the data
+from sensor_msgs.msg import LaserScan
 from rclpy.qos import QoSProfile
-from rclpy.qos import qos_profile_sensor_data #this is required to have a full data
+from rclpy.qos import qos_profile_sensor_data
 
 print("Starting FEAGI-ROS Laser Scan Interface...")
 
 # todo: export socket address to config file
-socket_address = 'tcp://127.0.0.1:2000'
+socket_address = 'tcp://0.0.0.0:2000'
 
 context = zmq.Context()
 socket = context.socket(zmq.PUB)
@@ -76,13 +74,11 @@ class MinimalSubscriber(Node):
             'scan',
             self.listener_callback,
             qos_profile=qos_profile_sensor_data)
-        self.subscription  # prevent unused variable warning
+        self.subscription
 
     def listener_callback(self, msg):
-        # self.get_logger().info("I heard: {}".format(msg)) #put .format(msg) to display the data
-        self.get_logger().info("Distance: {}".format(msg)) #put .format(msg) to display the data
-
-        socket.send_pyobj(msg)
+        # self.get_logger().info("SUBSCRIBER: {}".format(msg.data))
+        socket.send_pyobj(msg.data)
 
 
 def main(args=None):
@@ -91,7 +87,6 @@ def main(args=None):
     minimal_subscriber = MinimalSubscriber()
 
     rclpy.spin(minimal_subscriber)
-
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
