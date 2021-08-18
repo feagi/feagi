@@ -3351,16 +3351,16 @@ genome = {
         "postsynaptic_current" : 501,
         "plasticity_constant" : 0.05,
         "postsynaptic_current_max" : 3501,
-        "neighbor_locator_rule_id" : "rule_0",
+        "neighbor_locator_rule_id" : "rule_1",
         "neighbor_locator_rule_param_id" : "param_1",
         "cortical_mapping_dst" : {
             "proximity_memory" : {
-                "neighbor_locator_rule_id" : "rule_0",
-                "neighbor_locator_rule_param_id" : "param_2"
+                "neighbor_locator_rule_id" : "rule_1",
+                "neighbor_locator_rule_param_id" : "param_1"
             },
             "thalamus_motor" : {
-                "neighbor_locator_rule_id" : "rule_0",
-                "neighbor_locator_rule_param_id" : "param_2"
+                "neighbor_locator_rule_id" : "rule_1",
+                "neighbor_locator_rule_param_id" : "param_1"
             }
         },
         "neuron_params" : {
@@ -3412,16 +3412,16 @@ genome = {
         "postsynaptic_current" : 11.2,
         "plasticity_constant" : 1,
         "postsynaptic_current_max" : 11.2,
-        "neighbor_locator_rule_id" : "rule_0",
+        "neighbor_locator_rule_id" : "rule_1",
         "neighbor_locator_rule_param_id" : "param_1",
         "cortical_mapping_dst" : {
             "movement_opu" : {
-                "neighbor_locator_rule_id": "rule_0",
-                "neighbor_locator_rule_param_id": "param_2"
+                "neighbor_locator_rule_id": "rule_1",
+                "neighbor_locator_rule_param_id": "param_1"
             },
             "thalamus_motor" : {
-                "neighbor_locator_rule_id" : "rule_0",
-                "neighbor_locator_rule_param_id" : "param_2"
+                "neighbor_locator_rule_id" : "rule_1",
+                "neighbor_locator_rule_param_id" : "param_1"
             }
         },
         "neuron_params" : {
