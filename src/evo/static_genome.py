@@ -3418,10 +3418,6 @@ genome = {
             "movement_opu" : {
                 "neighbor_locator_rule_id": "rule_1",
                 "neighbor_locator_rule_param_id": "param_1"
-            },
-            "thalamus_motor" : {
-                "neighbor_locator_rule_id" : "rule_1",
-                "neighbor_locator_rule_param_id" : "param_1"
             }
         },
         "neuron_params" : {
@@ -3521,7 +3517,7 @@ genome = {
         "orientation_selectivity_pattern": "",
         "location": "",
         "kernel_size": 5,
-        "cortical_neuron_count": 1000,
+        "cortical_neuron_count": 200,
         "location_generation_type": "random",
         "synapse_attractivity": 100,
         "init_synapse_needed": False,
@@ -3545,8 +3541,8 @@ genome = {
             "consecutive_fire_cnt_max": 0,
             "snooze_length": 1.659231437448,
             "block_boundaries": [
-                1,
-                1,
+                5,
+                5,
                 20
             ],
             "geometric_boundaries": {
