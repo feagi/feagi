@@ -3419,8 +3419,8 @@ genome = {
         "neuron_params" : {
             "activation_function_id" : "",
             "orientation_selectivity_id" : "",
-            "depolarization_threshold" : 5,
-            "firing_threshold" : 1,
+            "depolarization_threshold" : 20,
+            "firing_threshold" : 20,
             "firing_pattern_id" : "",
             "refractory_period" : 0,
             "axon_avg_length" : "",
