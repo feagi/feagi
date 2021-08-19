@@ -22,6 +22,8 @@ def neuron_fire(cortical_area, neuron_id):
 
     # if cortical_area == 'utf8_memory':
     #     print(">>> *** ... Firing...", neuron_id)
+    print(">>> *** ... Firing... ID=", neuron_id, "BLK=",
+          runtime_data.brain[cortical_area][neuron_id]['soma_location'][1])
 
     # Setting Destination to the list of Neurons connected to the firing Neuron
     try:
