@@ -3351,12 +3351,12 @@ genome = {
         "postsynaptic_current" : 501,
         "plasticity_constant" : 0.05,
         "postsynaptic_current_max" : 3501,
-        "neighbor_locator_rule_id" : "rule_1",
-        "neighbor_locator_rule_param_id" : "param_1",
+        "neighbor_locator_rule_id" : "rule_5",
+        "neighbor_locator_rule_param_id" : "param_3",
         "cortical_mapping_dst" : {
             "proximity_memory" : {
-                "neighbor_locator_rule_id" : "rule_1",
-                "neighbor_locator_rule_param_id" : "param_1"
+                "neighbor_locator_rule_id" : "rule_5",
+                "neighbor_locator_rule_param_id" : "param_3"
             }
         },
         "neuron_params" : {
