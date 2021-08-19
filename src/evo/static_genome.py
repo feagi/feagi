@@ -3348,15 +3348,15 @@ genome = {
         "location_generation_type" : "random",
         "synapse_attractivity" : 100,
         "init_synapse_needed" : False,
-        "postsynaptic_current" : 501,
+        "postsynaptic_current" : 50001,
         "plasticity_constant" : 0.05,
         "postsynaptic_current_max" : 3501,
         "neighbor_locator_rule_id" : "rule_5",
         "neighbor_locator_rule_param_id" : "param_3",
         "cortical_mapping_dst" : {
             "proximity_memory" : {
-                "neighbor_locator_rule_id" : "rule_5",
-                "neighbor_locator_rule_param_id" : "param_3"
+                "neighbor_locator_rule_id" : "rule_6",
+                "neighbor_locator_rule_param_id" : "param_2"
             }
         },
         "neuron_params" : {
@@ -3420,15 +3420,15 @@ genome = {
             "activation_function_id" : "",
             "orientation_selectivity_id" : "",
             "depolarization_threshold" : 5,
-            "firing_threshold" : 1,
+            "firing_threshold" : 0.001,
             "firing_pattern_id" : "",
             "refractory_period" : 0,
             "axon_avg_length" : "",
-            "leak_coefficient" : 5,
+            "leak_coefficient" : 1,
             "axon_avg_connections" : "",
             "axon_orientation function" : "",
             "consecutive_fire_cnt_max" : 100000,
-            "snooze_length" : 2,
+            "snooze_length" : 1,
             "block_boundaries" : [
                 5,
                 5,
