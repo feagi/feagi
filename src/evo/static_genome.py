@@ -3344,19 +3344,19 @@ genome = {
         "orientation_selectivity_pattern" : "",
         "location" : "",
         "kernel_size" : 7,
-        "cortical_neuron_count" : 5000,
+        "cortical_neuron_count" : 1000,
         "location_generation_type" : "random",
         "synapse_attractivity" : 100,
         "init_synapse_needed" : False,
         "postsynaptic_current" : 501,
         "plasticity_constant" : 0.05,
         "postsynaptic_current_max" : 3501,
-        "neighbor_locator_rule_id" : "rule_1",
+        "neighbor_locator_rule_id" : "rule_0",
         "neighbor_locator_rule_param_id" : "param_1",
         "cortical_mapping_dst" : {
             "proximity_memory" : {
-                "neighbor_locator_rule_id" : "rule_1",
-                "neighbor_locator_rule_param_id" : "param_1"
+                "neighbor_locator_rule_id" : "rule_0",
+                "neighbor_locator_rule_param_id" : "param_2"
             }
         },
         "neuron_params" : {
@@ -3401,19 +3401,19 @@ genome = {
         "orientation_selectivity_pattern" : "",
         "location" : "",
         "kernel_size" : 7,
-        "cortical_neuron_count" : 5000,
+        "cortical_neuron_count" : 1000,
         "location_generation_type" : "random",
         "synapse_attractivity" : 100,
         "init_synapse_needed" : False,
         "postsynaptic_current" : 11.2,
         "plasticity_constant" : 1,
         "postsynaptic_current_max" : 11.2,
-        "neighbor_locator_rule_id" : "rule_1",
+        "neighbor_locator_rule_id" : "rule_0",
         "neighbor_locator_rule_param_id" : "param_1",
         "cortical_mapping_dst" : {
             "movement_opu" : {
-                "neighbor_locator_rule_id": "rule_1",
-                "neighbor_locator_rule_param_id": "param_1"
+                "neighbor_locator_rule_id": "rule_0",
+                "neighbor_locator_rule_param_id": "param_2"
             }
         },
         "neuron_params" : {
