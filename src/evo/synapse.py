@@ -94,8 +94,7 @@ class SynaptogenesisRuleManager:
             try:
                 for neuron in runtime_data.block_dic[self.dst_cortical_area][src_neuron_block_ref]:
                     candidate_list.append(neuron)
-            except KeyError as error:
-                print("***********", error)
+            except KeyError:
                 pass
         elif self.rule_param in [3, 5, 7, 9]:
             candidate_list = neurons_in_block_neighborhood(cortical_area=self.dst_cortical_area,
@@ -104,7 +103,10 @@ class SynaptogenesisRuleManager:
         else:
             print(self.rule_param, "is an invalid parameter for block to block mapping")
 
-        print("************SYNAPSE_CANDIDATES**********", candidate_list)
+        if runtime_data.block_dic[self.src_cortical_area] == 'proximity':
+            print("SOURCE_BLOCK_REF: ", src_neuron_block_ref)
+            print("DESTINATION: ", self.dst_cortical_area)
+            print("SYNAPSE_CANDIDATES: ", candidate_list)
         return candidate_list
 
 
