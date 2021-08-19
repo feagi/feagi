@@ -303,6 +303,7 @@ def burst_manager():
         # Feeding FCL queue content into the FCL
         while not runtime_data.fcl_queue.empty():
             # todo: the following is not properly feeding data to FCL -- investigate --
+            print(runtime_data.fcl_queue.get())
             runtime_data.fire_candidate_list = runtime_data.fcl_queue.get()
 
         # print("Fire Candidate List:\n", runtime_data.fire_candidate_list)
