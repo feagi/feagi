@@ -3373,8 +3373,8 @@ genome = {
             "consecutive_fire_cnt_max" : 3,
             "snooze_length" : 0,
             "block_boundaries" : [
-                1,
-                1,
+                5,
+                5,
                 20
             ],
             "geometric_boundaries" : {
@@ -3537,8 +3537,8 @@ genome = {
             "consecutive_fire_cnt_max": 0,
             "snooze_length": 1.659231437448,
             "block_boundaries": [
-                1,
-                1,
+                5,
+                5,
                 20
             ],
             "geometric_boundaries": {
