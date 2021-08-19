@@ -103,10 +103,10 @@ class SynaptogenesisRuleManager:
         else:
             print(self.rule_param, "is an invalid parameter for block to block mapping")
 
-        print("SOURCE: ", self.src_cortical_area)
-        print("SOURCE BLOCK_REF: ", src_neuron_block_ref)
-        print("DESTINATION: ", self.dst_cortical_area)
-        print("SYNAPSE_CANDIDATES: ", candidate_list)
+        # print("SOURCE: ", self.src_cortical_area)
+        # print("SOURCE BLOCK_REF: ", src_neuron_block_ref)
+        # print("DESTINATION: ", self.dst_cortical_area)
+        # print("SYNAPSE_CANDIDATES: ", candidate_list)
         return candidate_list
 
 

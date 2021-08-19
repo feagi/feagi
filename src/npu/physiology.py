@@ -3,7 +3,8 @@ import json
 from opu import utf8
 from opu.processor import movement
 from collections import deque
-from evo.synapse import synapse
+from evo.neuron import block_reference_builder
+from evo.synapse import synapse, neurons_in_the_block
 from inf import runtime_data, settings
 from cython import neuron_functions_cy as cy
 
@@ -22,8 +23,13 @@ def neuron_fire(cortical_area, neuron_id):
 
     # if cortical_area == 'utf8_memory':
     #     print(">>> *** ... Firing...", neuron_id)
+    block_ref = block_reference_builder(runtime_data.brain[cortical_area][neuron_id]['soma_location'][1])
+    block_neurons = runtime_data.block_dic[cortical_area][block_ref]
     print(">>> *** ... Firing... ID=", neuron_id, "BLK=",
           runtime_data.brain[cortical_area][neuron_id]['soma_location'][1])
+
+    print(">>> BLK_NEURONS: ", len(block_neurons), block_neurons)
+    print(">>> SYNAPSES: ", len(runtime_data.brain[cortical_area][neuron_id]['neighbors']), runtime_data.brain[cortical_area][neuron_id]['neighbors'])
 
     # Setting Destination to the list of Neurons connected to the firing Neuron
     try:
