@@ -28,7 +28,7 @@ def neuron_fire(cortical_area, neuron_id):
     print(">>> FIRING ID: ", neuron_id)
     print(">>> BLOCK: ", block_ref)
     print(">>> BLOCK_NEURONS: ", len(block_neurons))
-    print(">>> SRC_CORTICAL_AREA: ", runtime_data.brain[cortical_area])
+    print(">>> SRC_CORTICAL_AREA: ", cortical_area)
     print(">>> SYNAPSES: ", len(runtime_data.brain[cortical_area][neuron_id]['neighbors']), runtime_data.brain[cortical_area][neuron_id]['neighbors'])
 
     # Setting Destination to the list of Neurons connected to the firing Neuron
