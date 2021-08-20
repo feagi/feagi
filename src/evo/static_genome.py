@@ -3357,6 +3357,10 @@ genome = {
             "proximity_memory" : {
                 "neighbor_locator_rule_id" : "rule_6",
                 "neighbor_locator_rule_param_id" : "param_2"
+            },
+            "thalamus_motor": {
+                "neighbor_locator_rule_id" : "rule_6",
+                "neighbor_locator_rule_param_id" : "param_2"
             }
         },
         "neuron_params" : {
