@@ -3524,9 +3524,26 @@ genome = {
         "postsynaptic_current": 20,
         "plasticity_constant": 0,
         "postsynaptic_current_max": 1000,
-        "neighbor_locator_rule_id": "rule_1",
-        "neighbor_locator_rule_param_id": "param_1",
-        "cortical_mapping_dst": {},
+        "neighbor_locator_rule_id": "rule_5",
+        "neighbor_locator_rule_param_id": "param_3",
+        "cortical_mapping_dst": {
+            "motor_1": {
+                "neighbor_locator_rule_id" : "rule_6",
+                "neighbor_locator_rule_param_id" : "param_2"
+            },
+            "motor_2": {
+                "neighbor_locator_rule_id" : "rule_6",
+                "neighbor_locator_rule_param_id" : "param_2"
+            },
+            "motor_3": {
+                "neighbor_locator_rule_id" : "rule_6",
+                "neighbor_locator_rule_param_id" : "param_2"
+            },
+            "motor_4": {
+                "neighbor_locator_rule_id" : "rule_6",
+                "neighbor_locator_rule_param_id" : "param_2"
+            }
+        },
         "neuron_params": {
             "activation_function_id": "",
             "depolarization_threshold": 1.633575495825,
@@ -3557,6 +3574,58 @@ genome = {
                 "z": [
                     0,
                     200
+                ]
+            }
+        }
+    },
+    "motor_1": {
+        "growth_path": "",
+        "group_id": "OPU",
+        "sub_group_id": "OPU_motor",
+        "plot_index": 1,
+        "orientation_selectivity_pattern": "",
+        "location": "",
+        "kernel_size": 7,
+        "cortical_neuron_count": 500,
+        "location_generation_type": "sequential",
+        "synapse_attractivity": 100,
+        "init_synapse_needed": False,
+        "postsynaptic_current": 0.51,
+        "plasticity_constant": 0.05,
+        "postsynaptic_current_max": 1,
+        "neighbor_locator_rule_id": "rule_0",
+        "neighbor_locator_rule_param_id": "param_1",
+        "cortical_mapping_dst": {},
+        "neuron_params": {
+            "activation_function_id": "",
+            "orientation_selectivity_id": "",
+            "depolarization_threshold": 20,
+            "firing_threshold": 1,
+            "firing_pattern_id": "",
+            "refractory_period": 0,
+            "axon_avg_length": "",
+            "leak_coefficient": 1,
+            "axon_avg_connections": "",
+            "axon_orientation function": "",
+            "consecutive_fire_cnt_max": 1,
+            "snooze_length": 0,
+            "block_boundaries": [
+                1,
+                200,
+                100
+            ],
+            "geometric_boundaries": {
+                "x": [
+                    0,
+                    1
+                ],
+                "y": [
+                    0,
+                    200
+                ],
+                "z": [
+                    0,
+                    100
                 ]
             }
         }
