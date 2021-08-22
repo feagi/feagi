@@ -19,5 +19,9 @@ services:
     build: ./
     environment:
       - CONTAINERIZED=true
+    volumes:
+      - /home/eric/static_genome.py:/opt/source-code/feagi-core/src/evo/static_genome.py
+      - /home/eric/physiology.py:/opt/source-code/feagi-core/src/npu/physiology.py
+      - /home/eric/synapse.py:/opt/source-code/feagi-core/src/evo/synapse.py
     networks:
       - net
