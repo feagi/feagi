@@ -1224,6 +1224,11 @@ genome = {
       "mnist_view_cnt": 0,
       "mnist_correct_detection_cnt": 0
   },
+  "species": {
+      "class": "toy",
+      "brand": "freenove",
+      "model": "robot_dog"
+  },
   "blueprint": {
       "thalamus_vision_1": {
           "growth_path": "",
@@ -3141,6 +3146,10 @@ genome = {
               "utf8_out": {
                   "neighbor_locator_rule_id": "rule_0",
                   "neighbor_locator_rule_param_id": "param_2"
+              },
+              "motor_1": {
+                  "neighbor_locator_rule_id": "rule_0",
+                  "neighbor_locator_rule_param_id": "param_2"
               }
           },
           "neuron_params": {
@@ -3411,7 +3420,7 @@ genome = {
         "neighbor_locator_rule_id" : "rule_1",
         "neighbor_locator_rule_param_id" : "param_1",
         "cortical_mapping_dst" : {
-            "movement_opu" : {
+            "direction_opu" : {
                 "neighbor_locator_rule_id": "rule_1",
                 "neighbor_locator_rule_param_id": "param_1"
             }

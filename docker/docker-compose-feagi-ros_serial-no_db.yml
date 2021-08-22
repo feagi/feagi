@@ -6,7 +6,7 @@ networks:
 
 services:
   ros:
-    build: ../3rd_party/ros/serial
+    build: ../third_party/ros/serial
     # stdin_open: true
     privileged: true
     tty: true

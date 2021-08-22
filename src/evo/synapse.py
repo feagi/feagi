@@ -24,7 +24,6 @@ def cortical_area_lengths(cortical_area):
 class SynaptogenesisRuleManager:
     """
     Manages the rules involved with neuron synaptogenesis process.
-
     Needed info: Rule and rule params
     return: the func for the rule
 

@@ -6,7 +6,7 @@ networks:
 
 services:
 #  ros:
-#    build: ../3rd_party/ros/
+#    build: ../third_party/ros/
 #    # stdin_open: true
 #    # tty: true
 #    networks:
@@ -24,7 +24,7 @@ services:
 
   influxdb:
 #    image: library/influxdb:2.0.7-alpine
-    build: ../3rd_party/influxdb/
+    build: ../third_party/influxdb/
     environment:
       - CONTAINERIZED=true
     networks:
