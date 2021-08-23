@@ -3,12 +3,15 @@
 from opu.destination.output_matrix import motor_list
 from inf import runtime_data
 
-hw_brand = runtime_data.genome['species']['brand']
-hw_model = runtime_data.genome['species']['model']
+# hw_brand = runtime_data.genome['species']['brand']
+# hw_model = runtime_data.genome['species']['model']
+hw_brand = 'freenove'
+hw_model = 'smart_car'
 
 print("Operating on %s %s" % (hw_model, hw_brand))
 
-import_path  = '../third_part/' + hw_brand + '/' + hw_model
+import_path  = '../third_party/' + hw_brand + '/' + hw_model
+print("IMPORT PATH: ", import_path)
 
 try:
     import time
@@ -25,5 +28,6 @@ try:
             motor.stop()
         except:
             print("ERROR: Requested controller not available for %s %s" % (hw_model, hw_brand))
-except:
-    print("Error: Some Exception occurred")
+except Exception as e:
+    # print("Error: Some Exception occurred")
+    print(e)
