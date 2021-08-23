@@ -20,7 +20,7 @@ ENV Running_In_CONTAINER Yes
 
 # Cythonize
 WORKDIR /opt/source-code/feagi-core
-RUN python3 ./src/cython/cython_setup.py build_ext --inplace && \
+RUN python3 ./src/cython_lib/cython_setup.py build_ext --inplace && \
     mkdir /opt/source-code/feagi-core/connectome
 
 WORKDIR /opt/source-code/feagi-core/src
