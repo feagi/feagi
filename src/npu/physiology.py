@@ -6,7 +6,7 @@ from collections import deque
 from evo.neuron import block_reference_builder
 from evo.synapse import synapse, neurons_in_the_block
 from inf import runtime_data, settings
-from cython import neuron_functions_cy as cy
+from cython_lib import neuron_functions_cy as cy
 
 
 def activation_function(postsynaptic_current):
