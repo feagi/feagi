@@ -1,6 +1,6 @@
 
 
-from opu.destination.output_matrix import motor_list
+# from opu.destination.output_matrix import motor_list
 from inf import runtime_data
 
 # hw_brand = runtime_data.genome['species']['brand']
