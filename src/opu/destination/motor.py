@@ -1,5 +1,4 @@
-
-
+import os
 # from opu.destination.output_matrix import motor_list
 from inf import runtime_data
 
@@ -8,10 +7,11 @@ from inf import runtime_data
 hw_brand = 'freenove'
 hw_model = 'smart_car'
 
-print("Operating on %s %s" % (hw_model, hw_brand))
+# print("Operating on %s %s" % (hw_model, hw_brand))
 
-import_path  = '../third_party/' + hw_brand + '/' + hw_model
-print("IMPORT PATH: ", import_path)
+import_path  = 'third_party/' + hw_brand + '/' + hw_model
+print("IMPORT_PATH: ", import_path)
+print("CURRENT_DIR: ", os.getcwd())
 
 try:
     import time
@@ -29,5 +29,4 @@ try:
         except:
             print("ERROR: Requested controller not available for %s %s" % (hw_model, hw_brand))
 except Exception as e:
-    # print("Error: Some Exception occurred")
     print(e)
