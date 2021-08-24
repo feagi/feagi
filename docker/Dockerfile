@@ -1,5 +1,4 @@
-# FROM neuraville/feagi-base-os
-FROM neuraville/feagi
+FROM neuraville/feagi-base-os
 
 # Git
 ARG REPO="https://github.com/feagi/feagi-core.git"
@@ -19,9 +18,11 @@ RUN git checkout feature-motor-opu-fresh
 ENV Running_In_CONTAINER Yes
 
 # Cythonize
+WORKDIR /opt/source-code/feagi-core/src/cython_lib
+RUN python3 ./cython_setup.py build_ext --inplace
+
 WORKDIR /opt/source-code/feagi-core
-RUN python3 ./src/cython_lib/cython_setup.py build_ext --inplace && \
-    mkdir /opt/source-code/feagi-core/connectome
+RUN mkdir /opt/source-code/feagi-core/connectome
 
 WORKDIR /opt/source-code/feagi-core/src
 CMD ["python3", "main.py"]
