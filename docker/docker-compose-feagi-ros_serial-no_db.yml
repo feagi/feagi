@@ -19,9 +19,8 @@ services:
     build: ./
     environment:
       - CONTAINERIZED=true
-    # volumes:
-    #   - /home/eric/static_genome.py:/opt/source-code/feagi-core/src/evo/static_genome.py
-    #   - /home/eric/physiology.py:/opt/source-code/feagi-core/src/npu/physiology.py
-    #   - /home/eric/synapse.py:/opt/source-code/feagi-core/src/evo/synapse.py
+    volumes:
+      - /home/ubuntu/feagi-core/src/opu/destination/motor.py:/opt/source-code/feagi-core/src/opu/destination/motor.py
+      - /home/ubuntu/feagi-core/src/opu/processor/movement.py:/opt/source-code/feagi-core/src/opu/processor/movement.py
     networks:
       - net
