@@ -58,7 +58,6 @@ def convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id):
     reflect negative speeds. The further the neuron is from the center point of y access the faster the speed
     - Z direction captures the POWER. The higher the neuron is located in Z direction, the higher the power it trigger
     """
-
     cortical_x_block, cortical_y_block, cortical_z_block = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries']
     neuron_x_block, neuron_y_block, neuron_z_block = runtime_data.brain[cortical_area][neuron_id]['soma_location'][1]
 
@@ -79,9 +78,19 @@ def convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id):
         "motor_4" : "M4", 
     }
     """
-    if runtime_data.hardware == 'raspberry_pi':
-        # todo: remove hardcoded parameters
-        motor.motor_operator(motor_brand="Freenove", motor_model="", motor_id="", speed="", power="")
+    motor_mapping = {
+        "motor_1" : "M1", 
+        "motor_2" : "M2", 
+        "motor_3" : "M3", 
+        "motor_4" : "M4", 
+    }
 
-        # Power is defined as a value between 0 and 100 driven from Z direction
-        power = int(neuron_z_block / cortical_z_block)
+    print("$$$$ CORTICAL AREA: ", cortical_area)
+    neuron_to_motor_id = motor_mapping[cortical_area]
+
+    # if runtime_data.hardware == 'raspberry_pi':
+    # todo: remove hardcoded parameters
+    motor.motor_operator(motor_brand="Freenove", motor_model="", motor_id=neuron_to_motor_id, speed="", power="")
+
+    # Power is defined as a value between 0 and 100 driven from Z direction
+    # power = int(neuron_z_block / cortical_z_block)
