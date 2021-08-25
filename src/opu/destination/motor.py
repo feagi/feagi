@@ -1,26 +1,28 @@
 import os
-# from opu.destination.output_matrix import motor_list
+import sys
 from inf import runtime_data
 
-# hw_brand = runtime_data.genome['species']['brand']
-# hw_model = runtime_data.genome['species']['model']
-hw_brand = 'freenove'
-hw_model = 'smart_car'
+if runtime_data.hardware == 'raspberry_pi':
+    sys.path.insert(1, '../third_party/freenove/smart_car/')
+    import controller
 
-# print("Operating on %s %s" % (hw_model, hw_brand))
+    # from opu.destination.output_matrix import motor_list
 
-import_path  = 'third_party/' + hw_brand + '/' + hw_model
-print("IMPORT_PATH: ", import_path)
-print("CURRENT_DIR: ", os.getcwd())
+    #
+    # hw_brand = runtime_data.genome['species']['brand']
+    # hw_model = runtime_data.genome['species']['model']
 
-try:
-    import time
-    controller = __import__(import_path)
+    hw_brand = 'freenove'
+    hw_model = 'smart_car'
 
-    def motor_operator(motor_brand, motor_model, motor_id, speed, power):
+    motor = controller.Motor()
+
+
+def motor_operator(motor_brand, motor_model, motor_id, speed, power):
+    try:
+        import time
         print("Operating a motor on %s %s" % (hw_model, hw_brand))
         try:
-            motor = controller.Motor()
             # todo: Generalize the following section. using specifics for test only
 
             motor.M3F()
@@ -28,5 +30,5 @@ try:
             motor.stop()
         except:
             print("ERROR: Requested controller not available for %s %s" % (hw_model, hw_brand))
-except Exception as e:
-    print(e)
+    except Exception as e:
+        print(e)
