@@ -22,5 +22,7 @@ services:
     volumes:
       - /home/ubuntu/feagi-core/src/opu/destination/motor.py:/opt/source-code/feagi-core/src/opu/destination/motor.py
       - /home/ubuntu/feagi-core/src/opu/processor/movement.py:/opt/source-code/feagi-core/src/opu/processor/movement.py
+    devices:
+      - "/dev/i2c-1:/dev/i2c-1"
     networks:
       - net
