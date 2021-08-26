@@ -38,6 +38,22 @@ def convert_neuronal_activity_to_directions(cortical_area, neuron_id):
     socket.send_string(movement_direction)
 
 
+def map_value(val, min1, max1, min2, max2):
+    """ Performs linear transformation to map value from
+    range 1 [min1, max1] to a value in range 2 [min2, max2].
+
+    :param val: value (int/float) being mapped
+    :param min1: min of range 1
+    :param max1: max of range 1
+    :param min2: min of range 2
+    :param max2: max of range 2
+    :return: value mapped from range 1 to range 2 
+    """
+    mapped_value = (val-min1) * ((max2-min2) / (max1-min1)) + min2
+    if mapped_value <= max2 and mapped_value >= min2:
+        return mapped_value
+
+
 def convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id):
     """
     This function creates a mapping between neurons from a motor cortex region to values suitable for motor operation -
@@ -62,9 +78,9 @@ def convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id):
     neuron_x_block, neuron_y_block, neuron_z_block = runtime_data.brain[cortical_area][neuron_id]['soma_location'][1]
 
     # Speed is defined as a value between -100 and 100 with 100 being the fastest in one direction and -100 the other
-    zero_speed_block_offset = floor(cortical_y_block/2)
-    speed_offset = neuron_y_block - zero_speed_block_offset
-    speed = int(speed_offset / (zero_speed_block_offset+00000.1))
+    # zero_speed_block_offset = floor(cortical_y_block/2)
+    # speed_offset = neuron_y_block - zero_speed_block_offset
+    # speed = int(speed_offset / (zero_speed_block_offset+00000.1))
 
     # todo: need to define the mapping between motor cortex and a set of motor ids
     """
@@ -85,12 +101,14 @@ def convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id):
         "motor_4" : "M4", 
     }
 
-    print("$$$$ CORTICAL AREA: ", cortical_area)
-    neuron_to_motor_id = motor_mapping[cortical_area]
+    print(">>>>>>>>>>>>>>>>>>>>>>>>>>> CORTICAL AREA: ", cortical_area)
+    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> NEURON Z_BLOCK: ", neuron_z_block)
+    motor_id = motor_mapping.get(cortical_area)
+    motor_speed = round(map_value(neuron_z_block, 1, 20, -4095, 0))
 
     # if runtime_data.hardware == 'raspberry_pi':
     # todo: remove hardcoded parameters
-    motor.motor_operator(motor_brand="Freenove", motor_model="", motor_id=neuron_to_motor_id, speed="", power="")
+    motor.motor_operator(motor_brand="Freenove", motor_model="", motor_id=motor_id, speed=motor_speed, power="")
 
     # Power is defined as a value between 0 and 100 driven from Z direction
     # power = int(neuron_z_block / cortical_z_block)
