@@ -110,4 +110,4 @@ def map_value(val, min1, max1, min2, max2):
     """
     mapped_value = abs((val-min1) * ((max2-min2) / (max1-min1)) + min2)
     if mapped_value <= max2 and mapped_value >= min2:
-        return abs((val-min1) * ((max2-min2) / (max1-min1)) + min2)
+        return mapped_value
