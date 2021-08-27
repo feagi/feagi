@@ -20,7 +20,7 @@ def motor_operator(motor_brand, motor_model, motor_id, speed, power):
     # print("Operating a motor on %s %s" % (hw_model, hw_brand))
     try:
         # todo: Generalize the following section. using specifics for test only
-        motor = controller.Motor()
+        # motor = controller.Motor()
 
         # motor.M3F()
         # time.sleep(3)
@@ -28,21 +28,21 @@ def motor_operator(motor_brand, motor_model, motor_id, speed, power):
         # print(f">>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
 
         if motor_id == 'M1':
-            motor.left_Upper_Wheel(duty=speed)
+            # motor.left_Upper_Wheel(duty=speed)
             # motor.stop()
             print(f">>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
         elif motor_id == 'M2':
-            motor.left_Lower_Wheel(duty=speed)
+            # motor.left_Lower_Wheel(duty=speed)
             # motor.stop()
-            print(f">>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
+            print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
         elif motor_id == 'M3':
-            motor.right_Upper_Wheel(duty=speed)
+            # motor.right_Upper_Wheel(duty=speed)
             # motor.stop()
-            print(f">>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
+            print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
         elif motor_id == 'M4':
-            motor.right_Lower_Wheel(duty=speed)
+            # motor.right_Lower_Wheel(duty=speed)
             # motor.stop()
-            print(f">>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
+            print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>s {motor_id} ACTIVATED AT SPEED {speed}")
 
     except Exception as e:
         # print("ERROR: Requested controller not available for %s %s" % (hw_model, hw_brand))

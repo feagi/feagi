@@ -8,6 +8,7 @@ to its corresponding message that can be passed to an output device so actual mo
 import zmq
 import inf.runtime_data as runtime_data
 from math import floor
+from ipu.processor.proximity import map_value
 from opu.destination import motor
 
 # todo: export socket address to config file
@@ -36,22 +37,6 @@ def convert_neuronal_activity_to_directions(cortical_area, neuron_id):
 
     print("\nMovement direction was detected as: ", movement_direction)
     socket.send_string(movement_direction)
-
-
-def map_value(val, min1, max1, min2, max2):
-    """ Performs linear transformation to map value from
-    range 1 [min1, max1] to a value in range 2 [min2, max2].
-
-    :param val: value (int/float) being mapped
-    :param min1: min of range 1
-    :param max1: max of range 1
-    :param min2: min of range 2
-    :param max2: max of range 2
-    :return: value mapped from range 1 to range 2 
-    """
-    mapped_value = (val-min1) * ((max2-min2) / (max1-min1)) + min2
-    if mapped_value <= max2 and mapped_value >= min2:
-        return mapped_value
 
 
 def convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id):
@@ -104,11 +89,12 @@ def convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id):
     print(">>>>>>>>>>>>>>>>>>>>>>>>>>> CORTICAL AREA: ", cortical_area)
     print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> NEURON Z_BLOCK: ", neuron_z_block)
     motor_id = motor_mapping.get(cortical_area)
-    motor_speed = round(map_value(neuron_z_block, 1, 20, -4095, 0))
+    motor_speed = round(map_value(neuron_z_block, 1, 20, 0, 4095))
+    # scaled_motor_spd = int(-motor_speed * 0.75)
 
     # if runtime_data.hardware == 'raspberry_pi':
     # todo: remove hardcoded parameters
-    motor.motor_operator(motor_brand="Freenove", motor_model="", motor_id=motor_id, speed=motor_speed, power="")
+    motor.motor_operator(motor_brand="Freenove", motor_model="", motor_id=motor_id, speed=-motor_speed, power="")
 
     # Power is defined as a value between 0 and 100 driven from Z direction
     # power = int(neuron_z_block / cortical_z_block)
