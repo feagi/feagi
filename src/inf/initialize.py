@@ -26,7 +26,7 @@ def detect_hardware():
 
     try:
         with open('/sys/firmware/devicetree/base/model', "r") as file:
-            if "Raspberry" in file:
+            if "Raspberry" in file.read():
                 runtime_data.hardware = "raspberry_pi"
     except:
         print("Need to figure how other platforms can be detected")
