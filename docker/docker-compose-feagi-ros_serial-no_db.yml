@@ -5,23 +5,28 @@ networks:
     driver: bridge
 
 services:
-  ros:
-    build: ../third_party/ros/serial
-    # stdin_open: true
-    privileged: true
-    tty: true
-    networks:
-      - net
-    devices:
-      - "/dev/ttyACM0:/dev/ttyACM0"
+  # ros:
+  #   build: ../third_party/ros/serial
+  #   # stdin_open: true
+  #   privileged: true
+  #   tty: true
+  #   networks:
+  #     - net
+  #   devices:
+  #     - "/dev/ttyACM0:/dev/ttyACM0"
 
   feagi:
     build: ./
+    privileged: true
     environment:
       - CONTAINERIZED=true
     volumes:
       - /home/ubuntu/feagi-core/src/opu/destination/motor.py:/opt/source-code/feagi-core/src/opu/destination/motor.py
       - /home/ubuntu/feagi-core/src/opu/processor/movement.py:/opt/source-code/feagi-core/src/opu/processor/movement.py
+      - /home/ubuntu/feagi-core/src/npu/physiology.py:/opt/source-code/feagi-core/src/npu/physiology.py
+      - /home/ubuntu/feagi-core/src/evo/synapse.py:/opt/source-code/feagi-core/src/evo/synapse.py
+      - /home/ubuntu/feagi-core/src/ipu/source/lidar.py:/opt/source-code/feagi-core/src/ipu/source/lidar.py
+      - /home/ubuntu/feagi-core/third_party/freenove/smart_car/controller.py:/opt/source-code/feagi-core/third_party/freenove/smart_car/controller.py
     devices:
       - "/dev/i2c-1:/dev/i2c-1"
     networks:
