@@ -316,8 +316,8 @@ def burst_manager():
         log_neuron_activity_influx()
 
         # # todo  ****** * ** **  FOR DEBUGGING *****
-        neuron_list = runtime_data.block_dic['proximity']['2-2-3']
-        runtime_data.fcl_queue.put({'proximity': set(neuron_list)})
+        # neuron_list = runtime_data.block_dic['proximity']['2-2-3']
+        # runtime_data.fcl_queue.put({'proximity': set(neuron_list)})
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
