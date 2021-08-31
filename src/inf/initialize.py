@@ -18,9 +18,24 @@ from evo.stats import list_top_n_utf_memory_neurons
 log = logging.getLogger(__name__)
 
 
+def detect_hardware():
+    """
+    Identifies the type of hardware the brain is running on so the right capabilities can be utilized
+    """
+    # todo
+
+    try:
+        with open('/sys/firmware/devicetree/base/model', "r") as file:
+            if "Raspberry" in file.read():
+                runtime_data.hardware = "raspberry_pi"
+    except:
+        print("Need to figure how other platforms can be detected")
+
+
+
 def init_container_variables():
     """
-    Identifies variables set by containers and sets them in FEAGI runime parameters
+    Identifies variables set by containers and sets them in FEAGI runtime parameters
     """
 
     if os.environ.get('CONTAINERIZED', False):

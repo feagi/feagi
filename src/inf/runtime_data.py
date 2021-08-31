@@ -38,6 +38,7 @@ last_alertness_trigger = ''
 influxdb = ''
 mongodb = ''
 running_in_container = False
+hardware = ''
 
 # rules = ""
 brain_is_running = False

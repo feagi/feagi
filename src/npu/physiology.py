@@ -3,9 +3,10 @@ import json
 from opu import utf8
 from opu.processor import movement
 from collections import deque
-from evo.synapse import synapse
+from evo.neuron import block_reference_builder
+from evo.synapse import synapse, neurons_in_the_block
 from inf import runtime_data, settings
-from cython import neuron_functions_cy as cy
+from cython_lib import neuron_functions_cy as cy
 
 
 def activation_function(postsynaptic_current):
@@ -22,6 +23,13 @@ def neuron_fire(cortical_area, neuron_id):
 
     # if cortical_area == 'utf8_memory':
     #     print(">>> *** ... Firing...", neuron_id)
+    block_ref = block_reference_builder(runtime_data.brain[cortical_area][neuron_id]['soma_location'][1])
+    block_neurons = runtime_data.block_dic[cortical_area][block_ref]
+    # print(">>> FIRING ID: ", neuron_id)
+    # print(">>> BLOCK: ", block_ref)
+    # print(">>> BLOCK_NEURONS: ", len(block_neurons))
+    # print(">>> SRC_CORTICAL_AREA: ", cortical_area)
+    # print(">>> SYNAPSES: ", len(runtime_data.brain[cortical_area][neuron_id]['neighbors']))
 
     # Setting Destination to the list of Neurons connected to the firing Neuron
     try:
@@ -91,7 +99,6 @@ def neuron_fire(cortical_area, neuron_id):
         # After destination neurons are updated, the following checks are performed to assess if the neuron should fire
         if dst_neuron_obj["membrane_potential"] > dst_neuron_obj["firing_threshold"]:
             # if dst_cortical_area == 'utf8_memory':
-            # print('++++++ The membrane potential passed the firing threshold')
             # Refractory period check
             if dst_neuron_obj["last_burst_num"] + \
                     runtime_data.genome["blueprint"][dst_cortical_area]["neuron_params"]["refractory_period"] <= \
@@ -100,7 +107,6 @@ def neuron_fire(cortical_area, neuron_id):
                 if dst_neuron_obj["snooze_till_burst_num"] <= runtime_data.burst_count:
                     # Adding neuron to fire candidate list for firing in the next round
                     runtime_data.future_fcl[dst_cortical_area].add(dst_neuron_id)
-
                     # todo: not sure what's being done here. Why this is too generic on all cortical layers? !!
                     # todo: Why this needs to happen on each synapse update?? !! VERY EXPENSIVE OPERATION!!!!
                     # todo: Based on the initial test results, removing the following section can make the code run
@@ -195,9 +201,14 @@ def neuron_fire(cortical_area, neuron_id):
     # runtime_data.fire_candidate_list[cortical_area].remove(neuron_id)
 
     # todo: add a check that if the firing neuron is part of OPU to perform an action
-    if cortical_area == 'movement_opu':
-        movement.convert_neuronal_activity_to_movement(cortical_area, neuron_id)
-        print('Movement OPU Neuron fired *** ** *** ** *** **** *')
+    if cortical_area == 'direction_opu':
+        movement.convert_neuronal_activity_to_directions(cortical_area, neuron_id)
+        # print('Movement OPU Neuron fired *** ** *** ** *** **** *')
+
+    if "motor_" in cortical_area:
+        movement.convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id)
+        # print('Movement OPU Neuron fired *** ** *** ** *** **** *')
+
     return
 
 

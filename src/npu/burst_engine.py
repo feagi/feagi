@@ -266,7 +266,6 @@ def burst_manager():
                 while runtime_data.fire_candidate_list[_]:
                     neuron_to_fire = runtime_data.fire_candidate_list[_].pop()
                     neuron_fire(_, neuron_to_fire)
-
             # Transferring future_fcl to current one and resetting the future one in process
             for _ in runtime_data.future_fcl:
                 runtime_data.fire_candidate_list[_] = \
@@ -300,15 +299,25 @@ def burst_manager():
         for _ in runtime_data.fire_candidate_list:
             runtime_data.previous_fcl[_] = set([item for item in runtime_data.fire_candidate_list[_]])
 
+        fcl_tmp = set()
+
         # Feeding FCL queue content into the FCL
         while not runtime_data.fcl_queue.empty():
-            # todo: the following is not properly feeding data to FCL -- investigate --
-            runtime_data.fire_candidate_list = runtime_data.fcl_queue.get()
+            fcl_tmp = runtime_data.fcl_queue.get()
+
+        for _ in fcl_tmp:
+            runtime_data.fire_candidate_list[_] = \
+                set([item for item in fcl_tmp[_]])
+            fcl_tmp = set()
 
         # print("Fire Candidate List:\n", runtime_data.fire_candidate_list)
 
         # logging neuron activities to the influxdb
         log_neuron_activity_influx()
+
+        # # todo  ****** * ** **  FOR DEBUGGING *****
+        # neuron_list = runtime_data.block_dic['proximity']['2-2-3']
+        # runtime_data.fcl_queue.put({'proximity': set(neuron_list)})
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
@@ -353,7 +362,6 @@ def burst_manager():
         # For performance reasons, running this function not on every single burst
         if runtime_data.burst_count % 10 == 0:
             consciousness_manager()
-
         # burst()
 
     print('runtime_data.genome_id = ', runtime_data.genome_id)
