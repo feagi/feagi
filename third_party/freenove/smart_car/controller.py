@@ -72,17 +72,41 @@ class IR:
         position: 1 to 3, There's number on the board.
         -------
         """
-        if position == 1:
-            if GPIO.input(self.IR01):
-                print("Left has been detected on bright")
-        elif position == 2:
-            if GPIO.input(self.IR02):
-                print("Middle has been detected on bright")
-        elif position == 3:
-            if GPIO.input(self.IR03):
-                print("Right has been detected on bright")
+        # if position == 1:
+        #     if GPIO.input(self.IR01):
+        #         print("Left has been detected on bright")
+        # elif position == 2:
+        #     if GPIO.input(self.IR02):
+        #         print("Middle has been detected on bright")
+        # elif position == 3:
+        #     if GPIO.input(self.IR03):
+        #         print("Right has been detected on bright")
+        # else:
+        #     print("Nothing has been detected.")
+        if GPIO.input(self.IR01) and GPIO.input(self.IR02) and GPIO.input(self.IR03):
+            print('LMR')
+            return 'LMR'
+        elif GPIO.input(self.IR01) and GPIO.input(self.IR02):
+            print('LM')
+            return 'LM'
+        elif GPIO.input(self.IR01) and GPIO.input(self.IR03):
+            print('LR')
+            return 'LR'
+        elif GPIO.input(self.IR02) and GPIO.input(self.IR03):
+            print('MR')
+            return 'MR'
+        elif GPIO.input(self.IR01):
+            print('L')
+            return 'L'
+        elif GPIO.input(self.IR02):
+            print('M')
+            return 'M'
+        elif GPIO.input(self.IR03):
+            print('R')
+            return 'R'
         else:
-            print("Nothing has been detected.")
+            print('NONE')
+            return None
 
 
 class Buzzer(object):
