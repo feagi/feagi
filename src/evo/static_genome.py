@@ -1224,6 +1224,11 @@ genome = {
       "mnist_view_cnt": 0,
       "mnist_correct_detection_cnt": 0
   },
+  "species": {
+      "class": "toy",
+      "brand": "freenove",
+      "model": "robot_dog"
+  },
   "blueprint": {
       "thalamus_vision_1": {
           "growth_path": "",
@@ -3141,6 +3146,10 @@ genome = {
               "utf8_out": {
                   "neighbor_locator_rule_id": "rule_0",
                   "neighbor_locator_rule_param_id": "param_2"
+              },
+              "motor_1": {
+                  "neighbor_locator_rule_id": "rule_0",
+                  "neighbor_locator_rule_param_id": "param_2"
               }
           },
           "neuron_params": {
@@ -3344,18 +3353,18 @@ genome = {
         "orientation_selectivity_pattern" : "",
         "location" : "",
         "kernel_size" : 7,
-        "cortical_neuron_count" : 5000,
+        "cortical_neuron_count" : 1000,
         "location_generation_type" : "random",
         "synapse_attractivity" : 100,
         "init_synapse_needed" : False,
-        "postsynaptic_current" : 501,
+        "postsynaptic_current" : 50001,
         "plasticity_constant" : 0.05,
         "postsynaptic_current_max" : 3501,
-        "neighbor_locator_rule_id" : "rule_0",
-        "neighbor_locator_rule_param_id" : "param_1",
+        "neighbor_locator_rule_id" : "rule_5",
+        "neighbor_locator_rule_param_id" : "param_3",
         "cortical_mapping_dst" : {
-            "proximity_memory" : {
-                "neighbor_locator_rule_id" : "rule_0",
+            "thalamus_motor": {
+                "neighbor_locator_rule_id" : "rule_6",
                 "neighbor_locator_rule_param_id" : "param_2"
             }
         },
@@ -3401,34 +3410,34 @@ genome = {
         "orientation_selectivity_pattern" : "",
         "location" : "",
         "kernel_size" : 7,
-        "cortical_neuron_count" : 5000,
+        "cortical_neuron_count" : 1000,
         "location_generation_type" : "random",
         "synapse_attractivity" : 100,
         "init_synapse_needed" : False,
         "postsynaptic_current" : 11.2,
         "plasticity_constant" : 1,
         "postsynaptic_current_max" : 11.2,
-        "neighbor_locator_rule_id" : "rule_0",
+        "neighbor_locator_rule_id" : "rule_1",
         "neighbor_locator_rule_param_id" : "param_1",
         "cortical_mapping_dst" : {
-            "movement_opu" : {
-                "neighbor_locator_rule_id": "rule_0",
-                "neighbor_locator_rule_param_id": "param_2"
+            "direction_opu" : {
+                "neighbor_locator_rule_id": "rule_1",
+                "neighbor_locator_rule_param_id": "param_1"
             }
         },
         "neuron_params" : {
             "activation_function_id" : "",
             "orientation_selectivity_id" : "",
-            "depolarization_threshold" : 20,
-            "firing_threshold" : 20,
+            "depolarization_threshold" : 5,
+            "firing_threshold" : 0.001,
             "firing_pattern_id" : "",
             "refractory_period" : 0,
             "axon_avg_length" : "",
-            "leak_coefficient" : 5,
+            "leak_coefficient" : 1,
             "axon_avg_connections" : "",
             "axon_orientation function" : "",
             "consecutive_fire_cnt_max" : 100000,
-            "snooze_length" : 2,
+            "snooze_length" : 1,
             "block_boundaries" : [
                 5,
                 5,
@@ -3450,57 +3459,335 @@ genome = {
             }
         }
     },
-      "movement_opu": {
-          "growth_path": "",
-          "group_id": "OPU",
-          "sub_group_id": "OPU_movement",
-          "plot_index": 1,
-          "orientation_selectivity_pattern": "",
-          "location": "",
-          "kernel_size": 7,
-          "cortical_neuron_count": 4,
-          "location_generation_type": "sequential",
-          "synapse_attractivity": 100,
-          "init_synapse_needed": False,
-          "postsynaptic_current": 0.51,
-          "plasticity_constant": 0.05,
-          "postsynaptic_current_max": 1,
-          "neighbor_locator_rule_id": "rule_0",
-          "neighbor_locator_rule_param_id": "param_1",
-          "cortical_mapping_dst": {},
-          "neuron_params": {
-              "activation_function_id": "",
-              "orientation_selectivity_id": "",
-              "depolarization_threshold": 20,
-              "firing_threshold": 10,
-              "firing_pattern_id": "",
-              "refractory_period": 0,
-              "axon_avg_length": "",
-              "leak_coefficient": 1,
-              "axon_avg_connections": "",
-              "axon_orientation function": "",
-              "consecutive_fire_cnt_max": 1,
-              "snooze_length": 0,
-              "block_boundaries": [
-                  1,
-                  1,
-                  4
-              ],
-              "geometric_boundaries": {
-                  "x": [
-                      0,
-                      1
-                  ],
-                  "y": [
-                      0,
-                      1
-                  ],
-                  "z": [
-                      0,
-                      4
-                  ]
-              }
-          }
-      }
+    "movement_opu": {
+        "growth_path": "",
+        "group_id": "OPU",
+        "sub_group_id": "OPU_movement",
+        "plot_index": 1,
+        "orientation_selectivity_pattern": "",
+        "location": "",
+        "kernel_size": 7,
+        "cortical_neuron_count": 4,
+        "location_generation_type": "sequential",
+        "synapse_attractivity": 100,
+        "init_synapse_needed": False,
+        "postsynaptic_current": 0.51,
+        "plasticity_constant": 0.05,
+        "postsynaptic_current_max": 1,
+        "neighbor_locator_rule_id": "rule_0",
+        "neighbor_locator_rule_param_id": "param_1",
+        "cortical_mapping_dst": {},
+        "neuron_params": {
+            "activation_function_id": "",
+            "orientation_selectivity_id": "",
+            "depolarization_threshold": 20,
+            "firing_threshold": 10,
+            "firing_pattern_id": "",
+            "refractory_period": 0,
+            "axon_avg_length": "",
+            "leak_coefficient": 1,
+            "axon_avg_connections": "",
+            "axon_orientation function": "",
+            "consecutive_fire_cnt_max": 1,
+            "snooze_length": 0,
+            "block_boundaries": [
+                1,
+                1,
+                4
+            ],
+            "geometric_boundaries": {
+                "x": [
+                    0,
+                    1
+                ],
+                "y": [
+                    0,
+                    1
+                ],
+                "z": [
+                    0,
+                    4
+                ]
+            }
+        }
+    },
+    "thalamus_motor": {
+        "growth_path": "",
+        "direction_sensitivity": "/",
+        "group_id": "thalamus",
+        "sub_group_id": "motor",
+        "plot_index": 1,
+        "orientation_selectivity_pattern": "",
+        "location": "",
+        "kernel_size": 7,
+        "cortical_neuron_count": 1000,
+        "location_generation_type": "random",
+        "synapse_attractivity": 100,
+        "init_synapse_needed": False,
+        "postsynaptic_current": 50000,
+        "plasticity_constant": 0,
+        "postsynaptic_current_max": 5000,
+        "neighbor_locator_rule_id": "rule_5",
+        "neighbor_locator_rule_param_id": "param_3",
+        "cortical_mapping_dst": {
+            "motor_1": {
+                "neighbor_locator_rule_id" : "rule_6",
+                "neighbor_locator_rule_param_id" : "param_2"
+            },
+            "motor_2": {
+                "neighbor_locator_rule_id" : "rule_6",
+                "neighbor_locator_rule_param_id" : "param_2"
+            },
+            "motor_3": {
+                "neighbor_locator_rule_id" : "rule_6",
+                "neighbor_locator_rule_param_id" : "param_2"
+            },
+            "motor_4": {
+                "neighbor_locator_rule_id" : "rule_6",
+                "neighbor_locator_rule_param_id" : "param_2"
+            }
+        },
+        "neuron_params": {
+            "activation_function_id": "",
+            "depolarization_threshold": 1.633575495825,
+            "orientation_selectivity_id": "",
+            "firing_threshold": 2.89235403072,
+            "firing_pattern_id": "",
+            "refractory_period": 0,
+            "axon_avg_length": "",
+            "leak_coefficient": 10,
+            "axon_avg_connections": "",
+            "axon_orientation function": "",
+            "consecutive_fire_cnt_max": 3,
+            "snooze_length": 0,
+            "block_boundaries": [
+                5,
+                5,
+                20
+            ],
+            "geometric_boundaries": {
+                "x": [
+                    0,
+                    3600
+                ],
+                "y": [
+                    0,
+                    1800
+                ],
+                "z": [
+                    0,
+                    200
+                ]
+            }
+        }
+    },
+    "motor_1": {
+        "growth_path": "",
+        "group_id": "OPU",
+        "sub_group_id": "OPU_motor",
+        "plot_index": 1,
+        "orientation_selectivity_pattern": "",
+        "location": "",
+        "kernel_size": 7,
+        "cortical_neuron_count": 1000,
+        "location_generation_type": "random",
+        "synapse_attractivity": 100,
+        "init_synapse_needed": False,
+        "postsynaptic_current": 0.51,
+        "plasticity_constant": 0.05,
+        "postsynaptic_current_max": 1,
+        "neighbor_locator_rule_id": "rule_1",
+        "neighbor_locator_rule_param_id": "param_1",
+        "cortical_mapping_dst": {},
+        "neuron_params": {
+            "activation_function_id": "",
+            "orientation_selectivity_id": "",
+            "depolarization_threshold": 20,
+            "firing_threshold": 1,
+            "firing_pattern_id": "",
+            "refractory_period": 0,
+            "axon_avg_length": "",
+            "leak_coefficient": 1,
+            "axon_avg_connections": "",
+            "axon_orientation function": "",
+            "consecutive_fire_cnt_max": 1,
+            "snooze_length": 0,
+            "block_boundaries": [
+                5,
+                5,
+                20
+            ],
+            "geometric_boundaries": {
+                "x": [
+                    0,
+                    5
+                ],
+                "y": [
+                    0,
+                    5
+                ],
+                "z": [
+                    0,
+                    20
+                ]
+            }
+        }
+    },
+    "motor_2": {
+        "growth_path": "",
+        "group_id": "OPU",
+        "sub_group_id": "OPU_motor",
+        "plot_index": 1,
+        "orientation_selectivity_pattern": "",
+        "location": "",
+        "kernel_size": 7,
+        "cortical_neuron_count": 1000,
+        "location_generation_type": "random",
+        "synapse_attractivity": 100,
+        "init_synapse_needed": False,
+        "postsynaptic_current": 0.51,
+        "plasticity_constant": 0.05,
+        "postsynaptic_current_max": 1,
+        "neighbor_locator_rule_id": "rule_1",
+        "neighbor_locator_rule_param_id": "param_1",
+        "cortical_mapping_dst": {},
+        "neuron_params": {
+            "activation_function_id": "",
+            "orientation_selectivity_id": "",
+            "depolarization_threshold": 20,
+            "firing_threshold": 1,
+            "firing_pattern_id": "",
+            "refractory_period": 0,
+            "axon_avg_length": "",
+            "leak_coefficient": 1,
+            "axon_avg_connections": "",
+            "axon_orientation function": "",
+            "consecutive_fire_cnt_max": 1,
+            "snooze_length": 0,
+            "block_boundaries": [
+                5,
+                5,
+                20
+            ],
+            "geometric_boundaries": {
+                "x": [
+                    0,
+                    5
+                ],
+                "y": [
+                    0,
+                    5
+                ],
+                "z": [
+                    0,
+                    20
+                ]
+            }
+        }
+    },
+    "motor_3": {
+        "growth_path": "",
+        "group_id": "OPU",
+        "sub_group_id": "OPU_motor",
+        "plot_index": 1,
+        "orientation_selectivity_pattern": "",
+        "location": "",
+        "kernel_size": 7,
+        "cortical_neuron_count": 1000,
+        "location_generation_type": "random",
+        "synapse_attractivity": 100,
+        "init_synapse_needed": False,
+        "postsynaptic_current": 0.51,
+        "plasticity_constant": 0.05,
+        "postsynaptic_current_max": 1,
+        "neighbor_locator_rule_id": "rule_1",
+        "neighbor_locator_rule_param_id": "param_1",
+        "cortical_mapping_dst": {},
+        "neuron_params": {
+            "activation_function_id": "",
+            "orientation_selectivity_id": "",
+            "depolarization_threshold": 20,
+            "firing_threshold": 1,
+            "firing_pattern_id": "",
+            "refractory_period": 0,
+            "axon_avg_length": "",
+            "leak_coefficient": 1,
+            "axon_avg_connections": "",
+            "axon_orientation function": "",
+            "consecutive_fire_cnt_max": 1,
+            "snooze_length": 0,
+            "block_boundaries": [
+                5,
+                5,
+                20
+            ],
+            "geometric_boundaries": {
+                "x": [
+                    0,
+                    5
+                ],
+                "y": [
+                    0,
+                    5
+                ],
+                "z": [
+                    0,
+                    20
+                ]
+            }
+        }
+    },
+    "motor_4": {
+        "growth_path": "",
+        "group_id": "OPU",
+        "sub_group_id": "OPU_motor",
+        "plot_index": 1,
+        "orientation_selectivity_pattern": "",
+        "location": "",
+        "kernel_size": 7,
+        "cortical_neuron_count": 1000,
+        "location_generation_type": "random",
+        "synapse_attractivity": 100,
+        "init_synapse_needed": False,
+        "postsynaptic_current": 0.51,
+        "plasticity_constant": 0.05,
+        "postsynaptic_current_max": 1,
+        "neighbor_locator_rule_id": "rule_1",
+        "neighbor_locator_rule_param_id": "param_1",
+        "cortical_mapping_dst": {},
+        "neuron_params": {
+            "activation_function_id": "",
+            "orientation_selectivity_id": "",
+            "depolarization_threshold": 20,
+            "firing_threshold": 1,
+            "firing_pattern_id": "",
+            "refractory_period": 0,
+            "axon_avg_length": "",
+            "leak_coefficient": 1,
+            "axon_avg_connections": "",
+            "axon_orientation function": "",
+            "consecutive_fire_cnt_max": 1,
+            "snooze_length": 0,
+            "block_boundaries": [
+                5,
+                5,
+                20
+            ],
+            "geometric_boundaries": {
+                "x": [
+                    0,
+                    5
+                ],
+                "y": [
+                    0,
+                    5
+                ],
+                "z": [
+                    0,
+                    20
+                ]
+            }
+        }
+    }
   }
 }

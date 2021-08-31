@@ -6,7 +6,7 @@ networks:
 
 services:
   ros:
-    build: ../3rd_party/ros/
+    build: ../third_party/ros/
     # stdin_open: true
     # tty: true
     networks:
@@ -20,14 +20,14 @@ services:
       - tb
 
   mongodb:
-    build: ../3rd_party/mongodb/
+    build: ../third_party/mongodb/
     environment:
       - CONTAINERIZED=true
     networks:
       - tb
 
   influxdb:
-    build: ../3rd_party/influxdb/
+    build: ../third_party/influxdb/
     environment:
       - CONTAINERIZED=true
     networks:

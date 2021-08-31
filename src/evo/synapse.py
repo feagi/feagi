@@ -24,7 +24,6 @@ def cortical_area_lengths(cortical_area):
 class SynaptogenesisRuleManager:
     """
     Manages the rules involved with neuron synaptogenesis process.
-
     Needed info: Rule and rule params
     return: the func for the rule
 
@@ -103,6 +102,11 @@ class SynaptogenesisRuleManager:
         else:
             print(self.rule_param, "is an invalid parameter for block to block mapping")
 
+        # if self.src_cortical_area in ('proximity', 'thalamus_motor'):
+        #     print("SOURCE: ", self.src_cortical_area)
+        #     print("SOURCE BLOCK_REF: ", src_neuron_block_ref)
+        #     print("DESTINATION: ", self.dst_cortical_area)
+        #     print("SYNAPSE_CANDIDATES: ", candidate_list)
         return candidate_list
 
 
