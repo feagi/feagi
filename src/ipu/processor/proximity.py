@@ -4,7 +4,7 @@ within the proximity cortical area.
 """
 from math import inf
 from evo.neuron import block_reference_builder
-from evo.synapse import neurons_in_the_block
+from evo.blocks import neurons_in_the_block
 from inf import runtime_data
 
 

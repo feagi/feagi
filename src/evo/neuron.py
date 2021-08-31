@@ -7,41 +7,7 @@ import string
 import datetime
 import collections
 import numpy as np
-from math import floor
-from inf import runtime_data
-
-
-def block_reference_builder(block):
-    return str(block[0]) + '-' + str(block[1]) + '-' + str(block[2])
-
-
-def block_id_gen(cortical_area, coordinate):
-    """
-    Generating a block id so it can be used for faster neighbor detection
-
-    Args:
-
-
-    Returns:
-        Something
-
-    """
-    cortical_area_dim = []
-    geometric_boundaries = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']
-    for axis in geometric_boundaries:
-        cortical_area_dim.append(geometric_boundaries[axis][1] - geometric_boundaries[axis][0])
-    block_boundaries = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries']
-
-    block_id = []
-    index = 0
-    for location in coordinate:
-        block_number = floor(
-            location / ((cortical_area_dim[index] / (block_boundaries[index] + 0.00001)) + 0.00001))
-        block_id.append(block_number)
-        index += 1
-    if block_id[0] > 500:
-        print("large block detected")
-    return block_id
+from evo.blocks import *
 
 
 def neuron_location_gen(x1, y1, z1, x2, y2, z2):
