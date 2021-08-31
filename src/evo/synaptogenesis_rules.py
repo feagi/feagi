@@ -1,5 +1,5 @@
 
-import blocks
+from evo import blocks
 from inf import runtime_data
 
 def rule_neuron_to_neuron(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset):
@@ -24,7 +24,7 @@ def rule_block_to_block(rule_param, src_cortical_area, dst_cortical_area, src_ne
     """
     candidate_list = list()
     src_neuron_block_ref = \
-        blocks.blocks.block_reference_builder(runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1])
+        blocks.block_reference_builder(runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1])
 
     src_neuron_block_ref = blocks.block_z_offset(block_ref=src_neuron_block_ref, offset=z_offset)
 
