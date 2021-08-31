@@ -65,7 +65,7 @@ class IR:
         GPIO.setup(self.IR02, GPIO.IN)
         GPIO.setup(self.IR03, GPIO.IN)
 
-    def read(self, position):
+    def read(self):
         """
         Parameters
         ----------
@@ -85,25 +85,25 @@ class IR:
         #     print("Nothing has been detected.")
         if GPIO.input(self.IR01) and GPIO.input(self.IR02) and GPIO.input(self.IR03):
             print('LMR')
-            return 'LMR'
+            return [0, 1, 2]
         elif GPIO.input(self.IR01) and GPIO.input(self.IR02):
             print('LM')
-            return 'LM'
+            return [0, 1]
         elif GPIO.input(self.IR01) and GPIO.input(self.IR03):
             print('LR')
-            return 'LR'
+            return [0, 2]
         elif GPIO.input(self.IR02) and GPIO.input(self.IR03):
             print('MR')
-            return 'MR'
+            return [1, 2]
         elif GPIO.input(self.IR01):
             print('L')
-            return 'L'
+            return [0]
         elif GPIO.input(self.IR02):
             print('M')
-            return 'M'
+            return [1]
         elif GPIO.input(self.IR03):
             print('R')
-            return 'R'
+            return [2]
         else:
             print('NONE')
             return None
