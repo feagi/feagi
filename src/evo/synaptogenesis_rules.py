@@ -62,7 +62,7 @@ def rule_bock_one_to_all(rule_param, src_cortical_area, dst_cortical_area, src_n
     return candidate_list
 
 
-def rule_block_fan_out_combinations(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset):
+def rule_block_distributor(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset):
     """
     This rule helps to take a set of unique inputs from one cortical area and develop synaptic projections that can
     lead to a comprehensive set of unique connections that covers all the combinations of the input values.
@@ -71,11 +71,16 @@ def rule_block_fan_out_combinations(rule_param, src_cortical_area, dst_cortical_
     direction
     """
     candidate_list = list()
-    block_list = blocks.x_block_refs(0, 0, z_offset)
+    block_list = blocks.x_block_refs(cortical_area=dst_cortical_area, y_ref=0, z_ref=0)
+    # print("Block list:", block_list)
 
-    for offset in range(z_offset):
+    source_z_depth = runtime_data.genome['blueprint'][src_cortical_area]['neuron_params']['block_boundaries'][2]
+
+    # print("source_z_depth", source_z_depth, type(source_z_depth))
+    for offset in range(source_z_depth):
         for block_ref in block_list:
-            if blocks.block_ref_2_id(block_ref)[0] // (2 ^ offset) % 2 == 0:
-                candidate_list.append(
-                    blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=block_ref))
+            if blocks.block_ref_2_id(block_ref)[0] // (2 ** offset) % 2 == 0:
+                for neuron in blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=block_ref):
+                    candidate_list.append(neuron)
+                # print("++++++++    Block Distributor: ", block_ref, offset)
     return candidate_list
