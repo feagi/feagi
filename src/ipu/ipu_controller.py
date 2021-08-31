@@ -16,7 +16,7 @@ from ipu.source import folder_monitor
 from ipu.source import lidar
 from ipu.source.mnist import MNIST, print_mnist_img_raw
 from ipu.processor.image import Image
-from ipu.processor.ir import convert_ir_to_fire_list
+from ipu.processor import ir
 from evo.neuroembryogenesis import cortical_sub_group_members
 
 
@@ -111,7 +111,8 @@ def proximity_controller():
 def ir_controller():
     while not runtime_data.exit_condition:
         try:
-            convert_ir_to_fire_list()
+            ir.convert_ir_to_fire_list()
+            time.sleep(0.01)
         except Exception as e:
             traceback.print_exc()
         finally:

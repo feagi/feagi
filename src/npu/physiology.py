@@ -23,8 +23,8 @@ def neuron_fire(cortical_area, neuron_id):
 
     # if cortical_area == 'utf8_memory':
     #     print(">>> *** ... Firing...", neuron_id)
-    block_ref = block_reference_builder(runtime_data.brain[cortical_area][neuron_id]['soma_location'][1])
-    block_neurons = runtime_data.block_dic[cortical_area][block_ref]
+    # block_ref = block_reference_builder(runtime_data.brain[cortical_area][neuron_id]['soma_location'][1])
+    # block_neurons = runtime_data.block_dic[cortical_area][block_ref]
     # print(">>> FIRING ID: ", neuron_id)
     # print(">>> BLOCK: ", block_ref)
     # print(">>> BLOCK_NEURONS: ", len(block_neurons))

@@ -84,28 +84,28 @@ class IR:
         # else:
         #     print("Nothing has been detected.")
         if GPIO.input(self.IR01) and GPIO.input(self.IR02) and GPIO.input(self.IR03):
-            print('LMR')
+            # print('LMR')
             return [0, 1, 2]
         elif GPIO.input(self.IR01) and GPIO.input(self.IR02):
-            print('LM')
+            # print('LM')
             return [0, 1]
         elif GPIO.input(self.IR01) and GPIO.input(self.IR03):
-            print('LR')
+            # print('LR')
             return [0, 2]
         elif GPIO.input(self.IR02) and GPIO.input(self.IR03):
-            print('MR')
+            # print('MR')
             return [1, 2]
         elif GPIO.input(self.IR01):
-            print('L')
+            # print('L')
             return [0]
         elif GPIO.input(self.IR02):
-            print('M')
+            # print('M')
             return [1]
         elif GPIO.input(self.IR03):
-            print('R')
+            # print('R')
             return [2]
         else:
-            print('NONE')
+            # print('NONE')
             return None
 
 
