@@ -3789,10 +3789,10 @@ genome = {
             }
         }
     },
-    "line_tracking": {
+    "infrared_sensor": {
         "growth_path": "",
         "group_id": "IPU",
-        "sub_group_id": "IPU_line_tracking",
+        "sub_group_id": "IPU_infrared_sensor",
         "plot_index": 1,
         "orientation_selectivity_pattern": "",
         "location": "",

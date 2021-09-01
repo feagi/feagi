@@ -11,5 +11,4 @@ def convert_ir_to_fire_list():
             for key in runtime_data.brain["line_tracking"]:
                 if sensor_idx == runtime_data.brain['line_tracking'][key]['soma_location'][0][0]:
                     fire_list.append(key)
-        print('>>>>>>>>>> FIRE_LIST: ', fire_list)
         runtime_data.fcl_queue.put({'line_tracking': fire_list})
