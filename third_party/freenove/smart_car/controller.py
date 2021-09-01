@@ -65,24 +65,13 @@ class IR:
         GPIO.setup(self.IR02, GPIO.IN)
         GPIO.setup(self.IR03, GPIO.IN)
 
-    def read(self, position):
-        """
-        Parameters
-        ----------
-        position: 1 to 3, There's number on the board.
-        -------
-        """
-        if position == 1:
-            if GPIO.input(self.IR01):
-                print("Left has been detected on bright")
-        elif position == 2:
-            if GPIO.input(self.IR02):
-                print("Middle has been detected on bright")
-        elif position == 3:
-            if GPIO.input(self.IR03):
-                print("Right has been detected on bright")
-        else:
-            print("Nothing has been detected.")
+    def read(self):
+        gpio_state = []
+        ir_sensors = [self.IR01, self.IR02, self.IR03]
+        for idx, sensor in enumerate(ir_sensors):
+            if GPIO.input(sensor):
+                gpio_state.append(idx)
+        return gpio_state
 
 
 class Buzzer(object):
