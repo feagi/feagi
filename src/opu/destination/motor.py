@@ -2,9 +2,9 @@ import sys
 import traceback
 from inf import runtime_data
 
-# if runtime_data.hardware == 'raspberry_pi':
-sys.path.insert(1, '../third_party/freenove/smart_car/')
-import controller
+if runtime_data.hardware == 'raspberry_pi':
+    sys.path.insert(1, '../third_party/freenove/smart_car/')
+    import controller
 
 # hw_brand = runtime_data.genome['species']['brand']
 # hw_model = runtime_data.genome['species']['model']

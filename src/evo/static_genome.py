@@ -43,6 +43,10 @@ genome = {
       "rule_6": {
           "param_1": 1,
           "param_2": 1
+      },
+      "rule_7": {
+          "param_1": 1,
+          "param_2": 1
       }
   },
   "orientation_blocks": {
