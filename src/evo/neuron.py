@@ -102,8 +102,9 @@ def neuron_location_collector(cortical_area):
         return
 
     neuron_loc_list = []
+    location_generation_type = genome["blueprint"][cortical_area]["location_generation_type"]
 
-    if genome["blueprint"][cortical_area]["location_generation_type"] == "random":
+    if location_generation_type == "random":
         for _ in range(0, genome["blueprint"][cortical_area]["cortical_neuron_count"] *
                        int(runtime_data.parameters['Brain_Development']['neuron_multiplier'])):
             neuron_loc_list.append(neuron_location_gen(
@@ -113,76 +114,95 @@ def neuron_location_collector(cortical_area):
                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][1],
                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][1],
                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][1]))
-    elif genome["blueprint"][cortical_area]["location_generation_type"] == "sequential":
-        x_lenght = (genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][1] -
-                    genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][0])
-        y_lenght = (genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][1] -
-                    genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][0])
-        z_lenght = (genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][1] -
-                    genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][0])
+    elif location_generation_type == "sequential":
+        # x_lenght = (genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][1] -
+        #             genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][0])
+        # y_lenght = (genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][1] -
+        #             genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][0])
+        # z_lenght = (genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][1] -
+        #             genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][0])
 
         # Following formula calculates the proper distance between neurons to be used to have n number of them
         # evenly distributed within the given cortical area
 
         # Note: Sequential cortical is assumed to be 1 dimensional
 
+        # Determine which block has the largest block count.
         dominant_dimension = runtime_data.genome['blueprint'][cortical_area]['dimension_dominance']
 
         dimension_map = {0: "x", 1: "y", 2: "z"}
+        dominant_index = dimension_map[dominant_dimension]
+        non_dominant_axis = list(filter(lambda x: x != dominant_dimension, dimension_map))
         neuron_count = genome["blueprint"][cortical_area]["cortical_neuron_count"]
         dominant_distance = \
-            runtime_data.genome['blueprint'][cortical_area]["geometric_boundaries"][dimension_map[dominant_dimension]]
+            runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"][dominant_index][1]\
+            - runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"][dominant_index][0]
 
         neuron_gap = dominant_distance / neuron_count
 
+        starting_point = int(neuron_gap / 2)
+        location_pointer = starting_point
+        dominant_neuron_locations = []
 
+        for _ in range(neuron_count):
+            dominant_neuron_locations.append(location_pointer)
+            location_pointer += neuron_gap
+            coordinate_value = [0, 0, 0]
+            for coordinate in dimension_map:
+                if coordinate == dominant_dimension:
+                    coordinate_value[coordinate] = starting_point
+                    starting_point += neuron_gap
+                else:
+                    # todo: store the midpoint values in a list once
+                    coordinate_value[coordinate] = \
+                        (genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"][dimension_map[coordinate]][1] -
+                         genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"][dimension_map[coordinate]][0]) / 2
 
+                neuron_loc_list.append([int(coordinate_value[0]), int(coordinate_value[1]), int(coordinate_value[2])])
 
+        # none_zero_axis = list(filter(lambda axis_width: axis_width > 1, [x_lenght, y_lenght, z_lenght]))
+        #
+        # dimension = len(none_zero_axis)
+        #
+        # area = 1
+        # for _ in none_zero_axis:
+        #     area = area * _
+        #
+        # neuron_gap = int((area / neuron_count) ** (1 / dimension))
+        #
+        # if cortical_area == 'infrared_sensor':
+        #     print("&&&", dimension, neuron_count, neuron_gap, area, dominant_dimension)
+        #
+        # # Number of neurons in each axis
+        # xn = int(x_lenght / neuron_gap)
+        # yn = int(y_lenght / neuron_gap)
+        # zn = int(z_lenght / neuron_gap)
+        #
+        # if xn == 0:
+        #     xn = 1
+        # if yn == 0:
+        #     yn = 1
+        # if zn == 0:
+        #     zn = 1
+        #
+        # x_coordinate = genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][0]
+        # y_coordinate = genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][0]
+        # z_coordinate = genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][0]
+        #
+        # for i in range(xn):
+        #     for ii in range(yn):
+        #         for iii in range(zn):
+        #             neuron_loc_list.append([int(x_coordinate), int(y_coordinate), int(z_coordinate)])
+        #             if cortical_area == 'infrared_sensor':
+        #                 print("??????", int(x_coordinate), int(y_coordinate), int(z_coordinate))
+        #             z_coordinate += neuron_gap
+        #         y_coordinate += neuron_gap
+        #     x_coordinate += neuron_gap
 
-
-
-        none_zero_axis = list(filter(lambda axis_width: axis_width > 1, [x_lenght, y_lenght, z_lenght]))
-
-        dimension = len(none_zero_axis)
-
-        area = 1
-        for _ in none_zero_axis:
-            area = area * _
-
-        neuron_gap = int((area / neuron_count) ** (1 / dimension))
-
-        if cortical_area == 'infrared_sensor':
-            print("&&&", dimension, neuron_count, neuron_gap, area, dominant_dimension)
-
-        # Number of neurons in each axis
-        xn = int(x_lenght / neuron_gap)
-        yn = int(y_lenght / neuron_gap)
-        zn = int(z_lenght / neuron_gap)
-
-        if xn == 0:
-            xn = 1
-        if yn == 0:
-            yn = 1
-        if zn == 0:
-            zn = 1
-
-        x_coordinate = genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][0]
-        y_coordinate = genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][0]
-        z_coordinate = genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][0]
-
-        for i in range(xn):
-            for ii in range(yn):
-                for iii in range(zn):
-                    neuron_loc_list.append([int(x_coordinate), int(y_coordinate), int(z_coordinate)])
-                    if cortical_area == 'infrared_sensor':
-                        print("??????", int(x_coordinate), int(y_coordinate), int(z_coordinate))
-                    z_coordinate += neuron_gap
-                y_coordinate += neuron_gap
-            x_coordinate += neuron_gap
-
-        else:
-            print("Warning: Unsupported location_generation_type was detected within Genome")
-            neuron_loc_list = []
+    else:
+        print("Warning: Unsupported location_generation_type was detected within Genome for %s as %s "
+              % (cortical_area, location_generation_type))
+        neuron_loc_list = []
 
     return neuron_loc_list
 

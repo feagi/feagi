@@ -320,7 +320,7 @@ def burst_manager():
         # runtime_data.fcl_queue.put({'proximity': set(neuron_list)})
         print(runtime_data.block_dic['infrared_sensor'])
         neuron_list = runtime_data.block_dic['infrared_sensor']['0-0-0']
-        neuron_list.append(runtime_data.block_dic['infrared_sensor']['1-0-0'])
+        # neuron_list.append(runtime_data.block_dic['infrared_sensor']['1-0-0'])
         runtime_data.fcl_queue.put({'infrared_sensor': set(neuron_list)})
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty

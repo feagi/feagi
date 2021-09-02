@@ -216,9 +216,12 @@ def neurogenesis():
         neuron_count_ = neuron.neuron_genesis_3d(cortical_area=cortical_area)
         if runtime_data.parameters["Logs"]["print_brain_gen_activities"]:
             duration = datetime.datetime.now() - timer
-            print("Neuron creation completed for Cortical area: \t%s   Count: \t%i  "
-                  "Duration: \t%s  Per Neuron Avg.: \t%s"
-                  % (cortical_area, neuron_count_, duration, duration / neuron_count_))
+            if neuron_count_!= 0:
+                print("Neuron creation completed for cortical area: \t%s   Count: \t%i  "
+                      "Duration: \t%s  Per Neuron Avg.: \t%s"
+                      % (cortical_area, neuron_count_, duration, duration / neuron_count_))
+            else:
+                print("No neuron was created for cortical area: \t%s" % cortical_area)
 
     disk_ops.save_brain_to_disk(brain=runtime_data.brain, parameters=runtime_data.parameters)
     disk_ops.save_block_dic_to_disk(block_dic=runtime_data.block_dic, parameters=runtime_data.parameters)

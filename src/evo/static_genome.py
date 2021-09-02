@@ -1517,11 +1517,11 @@ genome = {
               "geometric_boundaries": {
                   "x": [
                       0,
-                      32
+                      280
                   ],
                   "y": [
                       0,
-                      32
+                      280
                   ],
                   "z": [
                       0,
