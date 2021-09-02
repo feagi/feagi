@@ -20,6 +20,7 @@ def block_id_gen(cortical_area, coordinate):
         Something
 
     """
+
     cortical_area_dim = []
     geometric_boundaries = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']
     for axis in geometric_boundaries:
@@ -29,12 +30,18 @@ def block_id_gen(cortical_area, coordinate):
     block_id = []
     index = 0
     for location in coordinate:
-        block_number = floor(
-            location / ((cortical_area_dim[index] / (block_boundaries[index] + 0.00001)) + 0.00001))
+        if block_boundaries[index] != 0:
+            block_number = int(location // (cortical_area_dim[index] / block_boundaries[index]))
+
+        # block_number = floor(
+        #     location / ((cortical_area_dim[index] / (block_boundaries[index] + 0.00001)) + 0.00001))
+
         block_id.append(block_number)
         index += 1
     if block_id[0] > 500:
         print("large block detected")
+    if cortical_area == 'infrared_sensor':
+        print("@@@@@@@@", coordinate, block_id)
     return block_id
 
 
@@ -154,6 +161,6 @@ def z_block_refs(cortical_area, x_ref, y_ref):
     """
     block_ref_list = list()
     block_boundaries = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries']
-    for z in range(block_boundaries[0]):
+    for z in range(block_boundaries[2]):
         block_ref_list.append(block_reference_builder([x_ref, y_ref, z]))
     return block_ref_list
