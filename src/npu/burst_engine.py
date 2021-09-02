@@ -24,7 +24,7 @@ from npu.physiology import *
 from mem.memory import form_memories
 from npu.comprehension import utf_detection_logic
 # from npu.feeder import Feeder
-from evo.blocks import block_reference_builder, block_ref_2_id
+from evo.blocks import active_neurons_in_blocks, block_reference_builder, block_ref_2_id
 from ipu.processor.proximity import map_value
 from opu.processor import led
 from evo.stats import *
@@ -320,37 +320,42 @@ def burst_manager():
         
         # # todo  ****** * ** **  FOR DEBUGGING *****
         # inject mock data to fire neurons in LED cortical area
-        neuron_list1 = runtime_data.block_dic['led']['0-0-1']
-        runtime_data.fcl_queue.put({'led': set(neuron_list1)})
+        neuron_list = runtime_data.block_dic['led']['5-0-2'] + runtime_data.block_dic['led']['1-0-0'] + runtime_data.block_dic['led']['7-0-1']
+        runtime_data.fcl_queue.put({'led': set(neuron_list)})
 
         ###############################################################################################################################
         # LED OPU work (to be refactored)
 
-        neuron_fcl_dict = {}
-        for neuron in runtime_data.fire_candidate_list['led']:
-            neuron_block_ref = block_reference_builder(runtime_data.brain['led'][neuron]['soma_location'][1])
-            if neuron_block_ref in neuron_fcl_dict:
-                neuron_fcl_dict[neuron_block_ref].append(neuron)
-            else:
-                neuron_fcl_dict[neuron_block_ref] = [neuron]
+        if runtime_data.fire_candidate_list['led']:
+            active_led_neurons = active_neurons_in_blocks(cortical_area='led')
+            led_data = led.convert_neuron_activity_to_led_intensities(active_led_neurons, cortical_area='led')
+            led.trigger_leds(led_data)
 
-        led_x_dim = runtime_data.genome['blueprint']['led']['neuron_params']['block_boundaries'][0]
-        led_z_dim = runtime_data.genome['blueprint']['led']['neuron_params']['block_boundaries'][-1]
-        led_data = {led_id: [0] * led_z_dim for led_id in range(led_x_dim)}
+        # neuron_fcl_dict = {}
+        # for neuron in runtime_data.fire_candidate_list['led']:
+        #     neuron_block_ref = block_reference_builder(runtime_data.brain['led'][neuron]['soma_location'][1])
+        #     if neuron_block_ref in neuron_fcl_dict:
+        #         neuron_fcl_dict[neuron_block_ref].append(neuron)
+        #     else:
+        #         neuron_fcl_dict[neuron_block_ref] = [neuron]
+
+        # led_x_dim = runtime_data.genome['blueprint']['led']['neuron_params']['block_boundaries'][0]
+        # led_z_dim = runtime_data.genome['blueprint']['led']['neuron_params']['block_boundaries'][-1]
+        # led_data = {led_id: [0] * led_z_dim for led_id in range(led_x_dim)}
         
-        for block_ref in neuron_fcl_dict:
-            block_id = block_ref_2_id(block_ref)
-            block_z = block_id[-1]
-            active_block_neurons = len(neuron_fcl_dict[block_ref])
-            total_block_neurons = len(runtime_data.block_dic['led'][block_ref])
-            percent_active_neurons = round(active_block_neurons / total_block_neurons * 100)
+        # for block_ref in neuron_fcl_dict:
+        #     block_id = block_ref_2_id(block_ref)
+        #     block_z = block_id[-1]
+        #     active_block_neurons = len(neuron_fcl_dict[block_ref])
+        #     total_block_neurons = len(runtime_data.block_dic['led'][block_ref])
+        #     percent_active_neurons = round(active_block_neurons / total_block_neurons * 100)
 
-            mapped_value = round(map_value(percent_active_neurons, 0, 100, 1, 255))
-            led_id = block_id[0]
-            if led_id in led_data:
-                led_data[led_id][block_z] = mapped_value
-
-        led.trigger_leds(led_data)
+        #     mapped_value = round(map_value(percent_active_neurons, 0, 100, 1, 255))
+        #     led_id = block_id[0]
+        #     if led_id in led_data:
+        #         led_data[led_id][block_z] = mapped_value
+ 
+        # led.trigger_leds(led_data)
 
         ###############################################################################################################################
 
