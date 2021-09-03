@@ -24,6 +24,8 @@ from npu.physiology import *
 from mem.memory import form_memories
 from npu.comprehension import utf_detection_logic
 # from npu.feeder import Feeder
+from evo.blocks import active_neurons_in_blocks
+from opu.processor import led
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
 from edu.trainer import Trainer
@@ -314,11 +316,17 @@ def burst_manager():
 
         # logging neuron activities to the influxdb
         log_neuron_activity_influx()
-
+        
         # # todo  ****** * ** **  FOR DEBUGGING *****
-        # neuron_list = runtime_data.block_dic['proximity']['2-2-3']
-        # runtime_data.fcl_queue.put({'proximity': set(neuron_list)})
+        # inject mock data to fire neurons in LED cortical area
+        # neuron_list = runtime_data.block_dic['led']['6-0-2'] + runtime_data.block_dic['led']['6-0-0']
+        # runtime_data.fcl_queue.put({'led': set(neuron_list)})
 
+        if runtime_data.fire_candidate_list['led']:
+            active_led_neurons = active_neurons_in_blocks(cortical_area='led')
+            led_data = led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)
+            led.activate_leds(led_data)
+        
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
 
@@ -436,9 +444,9 @@ def fire_candidate_locations(fire_cnd_list):
     # Add neuron locations under each cortical area
     for cortical_area in fire_cnd_list:
         for neuron in fire_cnd_list[cortical_area]:
-            neuron_locations[cortical_area].append([runtime_data.brain[cortical_area][neuron]["location"][0],
-                                                    runtime_data.brain[cortical_area][neuron]["location"][1],
-                                                    runtime_data.brain[cortical_area][neuron]["location"][2]])
+            neuron_locations[cortical_area].append([runtime_data.brain[cortical_area][neuron]["soma_location"][0],
+                                                    runtime_data.brain[cortical_area][neuron]["soma_location"][1],
+                                                    runtime_data.brain[cortical_area][neuron]["soma_location"][2]])
 
     return neuron_locations
 
