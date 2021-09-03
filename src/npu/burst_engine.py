@@ -318,7 +318,7 @@ def burst_manager():
         # # todo  ****** * ** ** Uncomment FOR DEBUGGING and manually feed data to IPU *****
         # neuron_list = runtime_data.block_dic['proximity']['2-2-3']
         # runtime_data.fcl_queue.put({'proximity': set(neuron_list)})
-        print(runtime_data.block_dic['infrared_sensor'])
+        print("> >>  >>>", runtime_data.block_dic['infrared_terminal'])
         neuron_list = runtime_data.block_dic['infrared_sensor']['0-0-0']
         # neuron_list.append(runtime_data.block_dic['infrared_sensor']['1-0-0'])
         runtime_data.fcl_queue.put({'infrared_sensor': set(neuron_list)})

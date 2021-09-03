@@ -86,10 +86,11 @@ def convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id):
         "motor_4" : "M4", 
     }
 
-    print(">>>>>>>>>>>>>>>>>>>>>>>>>>> CORTICAL AREA: ", cortical_area)
-    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> NEURON Z_BLOCK: ", neuron_z_block)
+    # print(">>>>>>>>>>>>>>>>>>>>>>>>>>> CORTICAL AREA: ", cortical_area)
+    # print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> NEURON Z_BLOCK: ", neuron_z_block)
     motor_id = motor_mapping.get(cortical_area)
-    motor_speed = round(map_value(neuron_z_block, 1, 20, 0, 4095))
+    mapped_value = map_value(neuron_z_block, 0, 19, 0, 4095)
+    motor_speed = int(mapped_value)
     # scaled_motor_spd = int(-motor_speed * 0.75)
 
     # if runtime_data.hardware == 'raspberry_pi':

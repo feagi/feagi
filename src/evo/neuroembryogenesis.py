@@ -277,16 +277,19 @@ def build_synapse_intracortical(genome, brain, parameters, key):
     # Read Genome data
     timer = datetime.datetime.now()
     synapse_count, runtime_data.brain = \
-        synapse.neighbor_builder(brain=brain, genome=genome, brain_gen=True, cortical_area=key,
-                                   rule_id=genome["blueprint"][key]["neighbor_locator_rule_id"],
-                                   rule_param=genome["neighbor_locator_rule"]
-                                   [genome["blueprint"][key]["neighbor_locator_rule_id"]]
-                                   [genome["blueprint"][key]["neighbor_locator_rule_param_id"]],
-                                   postsynaptic_current=genome["blueprint"][key]["postsynaptic_current"])
+        synapse.neighbor_builder(brain=brain, genome=genome, brain_gen=True, cortical_area=key, cortical_area_dst=key,
+                                 rule=genome["blueprint"][key]["neighbor_locator_rule_id"],
+                                 rule_param=genome["neighbor_locator_rule"]
+                                 [genome["blueprint"][key]["neighbor_locator_rule_id"]]
+                                 [genome["blueprint"][key]["neighbor_locator_rule_param_id"]],
+                                 postsynaptic_current=genome["blueprint"][key]["postsynaptic_current"])
     if parameters["Logs"]["print_brain_gen_activities"]:
         duration = datetime.datetime.now() - timer
-        print("Synapse creation for Cortical area %s is now complete. Count: %i  Duration: %s  Per Synapse Avg.: %s"
-              % (key, synapse_count, duration, duration / synapse_count))
+        if synapse_count != 0:
+            print("Synapse creation for Cortical area %s is now complete. Count: %i  Duration: %s  Per Synapse Avg.: %s"
+                  % (key, synapse_count, duration, duration / synapse_count))
+        else:
+            print("Synapse creation for Cortical area %s is now complete. Count: 0 Duration: 0 " % key)
     disk_ops.save_brain_to_disk(cortical_area=key, brain=runtime_data.brain, parameters=parameters)
 
 
@@ -301,19 +304,16 @@ def build_synapse_intercortical(genome, brain, parameters, block_dic, connectome
     for mapped_cortical_area in genome["blueprint"][src_cortical_area]["cortical_mapping_dst"]:
         timer = datetime.datetime.now()
         synapse_count_, runtime_data.brain = \
-            synapse.neighbor_builder_intercortical(cortical_area=src_cortical_area, brain=brain, genome=genome,
-                                                   brain_gen=True,
-                                                   cortical_area_dst=mapped_cortical_area,
-                                                   rule=genome["blueprint"][src_cortical_area]["cortical_mapping_dst"]
-                                                   [mapped_cortical_area]["neighbor_locator_rule_id"],
-                                                   rule_param=genome["neighbor_locator_rule"]
-                                                   [genome["blueprint"][src_cortical_area]
-                                                   ["cortical_mapping_dst"][mapped_cortical_area]
-                                                   ["neighbor_locator_rule_id"]][genome["blueprint"][src_cortical_area]
-                                                   ["cortical_mapping_dst"][mapped_cortical_area]
-                                                   ["neighbor_locator_rule_param_id"]],
-                                                   postsynaptic_current=genome["blueprint"]
-                                                   [src_cortical_area]["postsynaptic_current"])
+            synapse.neighbor_builder(cortical_area=src_cortical_area, brain=brain, genome=genome, brain_gen=True,
+                                     cortical_area_dst=mapped_cortical_area,
+                                     rule=genome["blueprint"][src_cortical_area]["cortical_mapping_dst"]
+                                     [mapped_cortical_area]["neighbor_locator_rule_id"],
+                                     rule_param=genome["neighbor_locator_rule"][genome["blueprint"][src_cortical_area]
+                                     ["cortical_mapping_dst"][mapped_cortical_area]
+                                     ["neighbor_locator_rule_id"]][genome["blueprint"][src_cortical_area]
+                                     ["cortical_mapping_dst"][mapped_cortical_area]
+                                     ["neighbor_locator_rule_param_id"]], postsynaptic_current=genome["blueprint"]
+                                        [src_cortical_area]["postsynaptic_current"])
         # print("------------------------------Influxdb:", type(influxdb))
         # if parameters["Database"]["influx_brain_gen_stats"]:
         #     influxdb.insert_inter_cortical_stats(connectome_path=parameters["InitData"]["connectome_path"],

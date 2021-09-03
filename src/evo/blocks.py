@@ -40,8 +40,6 @@ def block_id_gen(cortical_area, coordinate):
         index += 1
     if block_id[0] > 500:
         print("large block detected")
-    if cortical_area == 'infrared_sensor':
-        print("@@@@@@@@", coordinate, block_id)
     return block_id
 
 

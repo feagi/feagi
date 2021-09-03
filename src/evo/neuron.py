@@ -10,6 +10,7 @@ import numpy as np
 from evo.blocks import *
 
 
+
 def neuron_location_gen(x1, y1, z1, x2, y2, z2):
     """
     Function responsible to generate a pseudo-random location for a Neuron given some constraints
@@ -115,13 +116,6 @@ def neuron_location_collector(cortical_area):
                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][1],
                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][1]))
     elif location_generation_type == "sequential":
-        # x_lenght = (genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][1] -
-        #             genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][0])
-        # y_lenght = (genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][1] -
-        #             genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][0])
-        # z_lenght = (genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][1] -
-        #             genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][0])
-
         # Following formula calculates the proper distance between neurons to be used to have n number of them
         # evenly distributed within the given cortical area
 
@@ -138,16 +132,17 @@ def neuron_location_collector(cortical_area):
             runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"][dominant_index][1]\
             - runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"][dominant_index][0]
 
-        neuron_gap = dominant_distance / neuron_count
+        neuron_gap = int(dominant_distance / neuron_count)
 
         starting_point = int(neuron_gap / 2)
         location_pointer = starting_point
-        dominant_neuron_locations = []
+        # dominant_neuron_locations = []
 
         for _ in range(neuron_count):
-            dominant_neuron_locations.append(location_pointer)
+            # dominant_neuron_locations.append(location_pointer)
             location_pointer += neuron_gap
             coordinate_value = [0, 0, 0]
+
             for coordinate in dimension_map:
                 if coordinate == dominant_dimension:
                     coordinate_value[coordinate] = starting_point
@@ -158,46 +153,7 @@ def neuron_location_collector(cortical_area):
                         (genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"][dimension_map[coordinate]][1] -
                          genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"][dimension_map[coordinate]][0]) / 2
 
-                neuron_loc_list.append([int(coordinate_value[0]), int(coordinate_value[1]), int(coordinate_value[2])])
-
-        # none_zero_axis = list(filter(lambda axis_width: axis_width > 1, [x_lenght, y_lenght, z_lenght]))
-        #
-        # dimension = len(none_zero_axis)
-        #
-        # area = 1
-        # for _ in none_zero_axis:
-        #     area = area * _
-        #
-        # neuron_gap = int((area / neuron_count) ** (1 / dimension))
-        #
-        # if cortical_area == 'infrared_sensor':
-        #     print("&&&", dimension, neuron_count, neuron_gap, area, dominant_dimension)
-        #
-        # # Number of neurons in each axis
-        # xn = int(x_lenght / neuron_gap)
-        # yn = int(y_lenght / neuron_gap)
-        # zn = int(z_lenght / neuron_gap)
-        #
-        # if xn == 0:
-        #     xn = 1
-        # if yn == 0:
-        #     yn = 1
-        # if zn == 0:
-        #     zn = 1
-        #
-        # x_coordinate = genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][0]
-        # y_coordinate = genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][0]
-        # z_coordinate = genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][0]
-        #
-        # for i in range(xn):
-        #     for ii in range(yn):
-        #         for iii in range(zn):
-        #             neuron_loc_list.append([int(x_coordinate), int(y_coordinate), int(z_coordinate)])
-        #             if cortical_area == 'infrared_sensor':
-        #                 print("??????", int(x_coordinate), int(y_coordinate), int(z_coordinate))
-        #             z_coordinate += neuron_gap
-        #         y_coordinate += neuron_gap
-        #     x_coordinate += neuron_gap
+            neuron_loc_list.append([int(coordinate_value[0]), int(coordinate_value[1]), int(coordinate_value[2])])
 
     else:
         print("Warning: Unsupported location_generation_type was detected within Genome for %s as %s "
@@ -223,8 +179,6 @@ def neuron_genesis_3d(cortical_area):
         dendrite_locations = neuron_dendrite_location_generator(cortical_area=cortical_area,
                                                                 neuron_location=candidate_neuron_location)
 
-        if cortical_area == 'infrared_sensor':
-            print("@@@@@@@@", candidate_neuron_location)
         candidate_neuron_location_block = block_id_gen(coordinate=candidate_neuron_location,
                                                        cortical_area=cortical_area)
         # Create a new Neuron in target destination
@@ -297,23 +251,25 @@ def neuron_dendrite_location_generator(cortical_area, neuron_location):
     """
     dendrite_location_blocks = list()
 
-    neuron_location = np.array(neuron_location)
-
-    # dendrite_growth_rule = runtime_data.genome["blueprint"][cortical_area]["dendrite_growth_rule"]
-
-    # todo: build the function to generate dendrite locations based on dendrite_growth_rule
-    try:
-        direction_sensitivity = runtime_data.genome['blueprint'][cortical_area]['direction_sensitivity']
-    except KeyError:
-        direction_sensitivity = ''
-    dendrite_locations = abs(neuron_dendrite_template(direction_sensitivity) + neuron_location)
-
-    if cortical_area == 'infrared_sensor':
-        print("*********", dendrite_locations)
-
-    for dendrite_location in dendrite_locations.tolist():
-        dendrite_location_block = block_id_gen(cortical_area=cortical_area, coordinate=dendrite_location)
+    if runtime_data.genome["blueprint"][cortical_area]["location_generation_type"] == 'sequential':
+        dendrite_location = neuron_location
+        dendrite_location_block = block_id_gen(cortical_area=cortical_area, coordinate=neuron_location)
         dendrite_location_blocks.append([dendrite_location, dendrite_location_block])
+    else:
+        neuron_location = np.array(neuron_location)
+
+        # dendrite_growth_rule = runtime_data.genome["blueprint"][cortical_area]["dendrite_growth_rule"]
+
+        # todo: build the function to generate dendrite locations based on dendrite_growth_rule
+        try:
+            direction_sensitivity = runtime_data.genome['blueprint'][cortical_area]['direction_sensitivity']
+        except KeyError:
+            direction_sensitivity = ''
+        dendrite_locations = abs(neuron_dendrite_template(direction_sensitivity) + neuron_location)
+
+        for dendrite_location in dendrite_locations.tolist():
+            dendrite_location_block = block_id_gen(cortical_area=cortical_area, coordinate=dendrite_location)
+            dendrite_location_blocks.append([dendrite_location, dendrite_location_block])
 
     return dendrite_location_blocks
 
