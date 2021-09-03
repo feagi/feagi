@@ -162,3 +162,35 @@ def z_block_refs(cortical_area, x_ref, y_ref):
     for z in range(block_boundaries[2]):
         block_ref_list.append(block_reference_builder([x_ref, y_ref, z]))
     return block_ref_list
+
+
+def percent_active_neurons_in_block(block_ref, cortical_area):
+    """
+    Returns a rounded, integer percentage of active (i.e. present in FCL at execution) 
+    neurons for a block in a cortical area
+    """
+    blocks_with_active_neurons = active_neurons_in_blocks(cortical_area)
+    active_block_neurons = len(blocks_with_active_neurons[block_ref])
+    total_block_neurons = len(runtime_data.block_dic[cortical_area][block_ref])
+    percent_active_neurons = round(active_block_neurons / total_block_neurons * 100)
+    return percent_active_neurons
+
+
+def active_neurons_in_blocks(cortical_area):
+    """
+    Returns a dict of block_refs and their corresponding active (i.e. currently present 
+    in FCL) neurons for a given cortical area
+
+    ex: {'1-0-1': [active_neuron_id1, active_neuron_id2, ...], '1-0-0': [ ... ]}
+
+    """
+    blocks_with_active_neurons = {}
+    for neuron in runtime_data.fire_candidate_list[cortical_area]:
+        neuron_block_ref = block_reference_builder(
+            runtime_data.brain[cortical_area][neuron]['soma_location'][1]
+        )
+        if neuron_block_ref in blocks_with_active_neurons:
+            blocks_with_active_neurons[neuron_block_ref].append(neuron)
+        else:
+            blocks_with_active_neurons[neuron_block_ref] = [neuron]
+    return blocks_with_active_neurons
