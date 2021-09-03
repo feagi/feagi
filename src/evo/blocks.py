@@ -159,11 +159,12 @@ def z_block_refs(cortical_area, x_ref, y_ref):
     return block_ref_list
 
 
-def percent_active_neurons_in_block(cortical_area, block_ref, blocks_with_active_neurons):
+def percent_active_neurons_in_block(block_ref, cortical_area):
     """
     Returns a rounded, integer percentage of active (i.e. present in FCL at execution) 
     neurons for a block in a cortical area
     """
+    blocks_with_active_neurons = active_neurons_in_blocks(cortical_area)
     active_block_neurons = len(blocks_with_active_neurons[block_ref])
     total_block_neurons = len(runtime_data.block_dic[cortical_area][block_ref])
     percent_active_neurons = round(active_block_neurons / total_block_neurons * 100)
@@ -175,7 +176,7 @@ def active_neurons_in_blocks(cortical_area):
     Returns a dict of block_refs and their corresponding active (i.e. currently present 
     in FCL) neurons for a given cortical area
 
-    ex: {'1-0-1': [active_neuron_id1, active_neuron_id2, ...]}
+    ex: {'1-0-1': [active_neuron_id1, active_neuron_id2, ...], '1-0-0': [ ... ]}
 
     """
     blocks_with_active_neurons = {}
