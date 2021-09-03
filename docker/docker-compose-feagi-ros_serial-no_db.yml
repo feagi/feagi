@@ -22,5 +22,11 @@ services:
       - CONTAINERIZED=true
     devices:
       - "/dev/i2c-1:/dev/i2c-1"
+    volumes:
+      - /home/ubuntu/feagi-core/src/ipu/processor/ir.py:/opt/source-code/feagi-core/src/ipu/processor/ir.py
+      - /home/ubuntu/feagi-core/src/feagi_configuration.ini:/opt/source-code/feagi-core/src/feagi_configuration.ini
+      - /home/ubuntu/feagi-core/src/evo/static_genome.py:/opt/source-code/feagi-core/src/evo/static_genome.py
+      - /home/ubuntu/feagi-core/src/ipu/source/lidar.py:/opt/source-code/feagi-core/src/ipu/source/lidar.py
+      - /home/ubuntu/feagi-core/src/npu/burst_engine.py:/opt/source-code/feagi-core/src/npu/burst_engine.py
     networks:
       - net
