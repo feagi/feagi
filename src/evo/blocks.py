@@ -164,28 +164,37 @@ def z_block_refs(cortical_area, x_ref, y_ref):
     return block_ref_list
 
 
-def percent_active_neurons_in_block(block_ref, cortical_area):
+def percent_active_neurons_in_block(block_ref, cortical_area, current_fcl=True):
     """
-    Returns a rounded, integer percentage of active (i.e. present in FCL at execution) 
+    Returns a rounded, integer percentage of active (i.e. present in FCL at execution)
     neurons for a block in a cortical area
+
+    Note: If the current_fcl flag is not True then the function returns the results against the previous FCL list
     """
-    blocks_with_active_neurons = active_neurons_in_blocks(cortical_area)
+    blocks_with_active_neurons = active_neurons_in_blocks(cortical_area, current_fcl=current_fcl)
     active_block_neurons = len(blocks_with_active_neurons[block_ref])
     total_block_neurons = len(runtime_data.block_dic[cortical_area][block_ref])
     percent_active_neurons = round(active_block_neurons / total_block_neurons * 100)
-    return percent_active_neurons
+    return percent_active_neurons, active_block_neurons, total_block_neurons
 
 
-def active_neurons_in_blocks(cortical_area):
+def active_neurons_in_blocks(cortical_area, current_fcl=True):
     """
-    Returns a dict of block_refs and their corresponding active (i.e. currently present 
+    Returns a dict of block_refs and their corresponding active (i.e. currently present
     in FCL) neurons for a given cortical area
 
     ex: {'1-0-1': [active_neuron_id1, active_neuron_id2, ...], '1-0-0': [ ... ]}
 
+    Note: If the current_fcl flag is not True then the function returns the results against the previous FCL list
     """
+
+    if current_fcl:
+        fcl = runtime_data.fire_candidate_list
+    else:
+        fcl = runtime_data.previous_fcl
+
     blocks_with_active_neurons = {}
-    for neuron in runtime_data.fire_candidate_list[cortical_area]:
+    for neuron in fcl[cortical_area]:
         neuron_block_ref = block_reference_builder(
             runtime_data.brain[cortical_area][neuron]['soma_location'][1]
         )
