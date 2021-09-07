@@ -321,13 +321,13 @@ def burst_manager():
         # inject mock data to fire neurons in LED cortical area
         # neuron_list = runtime_data.block_dic['led']['6-0-2'] + runtime_data.block_dic['led']['6-0-0']
         # runtime_data.fcl_queue.put({'led': set(neuron_list)})
-        neuron_list = runtime_data.block_dic['infrared_sensor']['2-0-0'] + runtime_data.block_dic['infrared_sensor']['1-0-0']
-        runtime_data.fcl_queue.put({'infrared_sensor': set(neuron_list)})
+        neuron_list = runtime_data.block_dic['ir_ipu']['2-0-0'] + runtime_data.block_dic['ir_ipu']['1-0-0']
+        runtime_data.fcl_queue.put({'ir_ipu': set(neuron_list)})
 
         # todo: make this a function
         # LED neuron activation
-        if runtime_data.fire_candidate_list['led']:
-            active_led_neurons = active_neurons_in_blocks(cortical_area='led')
+        if runtime_data.fire_candidate_list['led_opu']:
+            active_led_neurons = active_neurons_in_blocks(cortical_area='led_opu')
             led_data = led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)
             led.activate_leds(led_data)
 

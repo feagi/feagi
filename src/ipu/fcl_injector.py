@@ -33,7 +33,7 @@ class Injector:
                 convert_char_to_fire_list(str(runtime_data.labeled_image[1]))
             print("!!! Image label: ", runtime_data.labeled_image[1])
 
-        runtime_data.fire_candidate_list['utf8'].update(runtime_data.training_neuron_list_utf)
+        runtime_data.fire_candidate_list['utf8_ipu'].update(runtime_data.training_neuron_list_utf)
 
     @staticmethod
     def img_neuron_list_feeder():
