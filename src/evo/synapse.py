@@ -134,8 +134,7 @@ def neighbor_finder_intercortical(cortical_area, cortical_area_dst, src_neuron_i
     return candidate_list
 
 
-def neighbor_builder_intercortical(cortical_area, brain, genome, brain_gen, cortical_area_dst, rule, rule_param,
-                                   postsynaptic_current=1.1):
+def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst, rule, rule_param, postsynaptic_current=1.1):
     """
     Crawls thru a Cortical area/layer and builds Synapses with another Cortical area/layer
 
@@ -154,6 +153,10 @@ def neighbor_builder_intercortical(cortical_area, brain, genome, brain_gen, cort
         neighbor_candidates = neighbor_finder_intercortical(cortical_area=cortical_area,
                                                             cortical_area_dst=cortical_area_dst,
                                                             src_neuron_id=src_id)
+
+        # if cortical_area == "infrared_reducer":
+        #     print(neighbor_candidates)
+
         for dst_id in neighbor_candidates:
             # Throw a dice to decide for synapse creation. This is to limit the amount of synapses.
             if random.randrange(1, 100) < \

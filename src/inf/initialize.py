@@ -32,7 +32,6 @@ def detect_hardware():
         print("Need to figure how other platforms can be detected")
 
 
-
 def init_container_variables():
     """
     Identifies variables set by containers and sets them in FEAGI runtime parameters
@@ -147,6 +146,17 @@ def init_cortical_list():
     runtime_data.cortical_list = cortical_list
 
 
+def init_genome_post_processes():
+    """
+    Augments genome with details that can improve the run-time performance by reducing frequent operations
+    """
+    # Augment cortical dimension dominance e.g. is it longer in x dimension or z
+    for cortical_area in runtime_data.cortical_list:
+        block_boundaries = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"]
+        dominance = block_boundaries.index(max(block_boundaries))
+        runtime_data.genome['blueprint'][cortical_area]['dimension_dominance'] = dominance
+
+
 def init_timeseries_db():
     """
     Conducts needed checks to ensure the time-series database is ready
@@ -204,6 +214,7 @@ def initialize():
     init_data_sources()
     init_genome()
     init_cortical_list()
+    init_genome_post_processes()
     init_resources()
     runtime_data.fcl_queue = Queue()
 

@@ -206,10 +206,6 @@ def neuron_fire(cortical_area, neuron_id):
         movement.convert_neuronal_activity_to_directions(cortical_area, neuron_id)
         # print('Movement OPU Neuron fired *** ** *** ** *** **** *')
 
-    if "motor_" in cortical_area:
-        movement.convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id)
-        # print('Movement OPU Neuron fired *** ** *** ** *** **** *')
-
     return
 
 
