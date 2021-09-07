@@ -3626,9 +3626,9 @@ genome = {
               }
           }
         },
-    "motor_terminal": {
+    "motor_memory": {
           "growth_path": "",
-          "group_id": "OPU",
+          "group_id": "Memory",
           "sub_group_id": "Motor_Cortex",
           "plot_index": 1,
           "orientation_selectivity_pattern": "",
@@ -3871,7 +3871,7 @@ genome = {
                   "neighbor_locator_rule_id": "rule_6",
                   "neighbor_locator_rule_param_id": "param_1"
               },
-              "infrared_terminal": {
+              "infrared_memory": {
                   "neighbor_locator_rule_id": "rule_6",
                   "neighbor_locator_rule_param_id": "param_1"
               }
@@ -3910,7 +3910,7 @@ genome = {
               }
           }
       },
-    "infrared_terminal": {
+    "infrared_memory": {
           "growth_path": "",
           "group_id": "IPU",
           "sub_group_id": "IPU_infrared_sensor",
@@ -3928,7 +3928,7 @@ genome = {
           "neighbor_locator_rule_id": "rule_0",
           "neighbor_locator_rule_param_id": "param_1",
           "cortical_mapping_dst": {
-              "motor_terminal": {
+              "motor_memory": {
                   "neighbor_locator_rule_id": "rule_6",
                   "neighbor_locator_rule_param_id": "param_1"
               }
