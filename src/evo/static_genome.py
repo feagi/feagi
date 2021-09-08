@@ -3753,9 +3753,9 @@ genome = {
         "neighbor_locator_rule_id": "rule_0",
         "neighbor_locator_rule_param_id": "param_1",
         "cortical_mapping_dst": {
-            "motor_opu": {
-                "neighbor_locator_rule_id": "rule_6",
-                "neighbor_locator_rule_param_id": "param_2"
+            "infrared_mapper": {
+                "neighbor_locator_rule_id": "rule_7",
+                "neighbor_locator_rule_param_id": "param_1"
             }
         },
         "neuron_params": {

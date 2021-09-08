@@ -95,11 +95,8 @@ def convert_neuronal_activity_to_motor_actions(motor_stats):
     previous_motor_speeds = dict()
 
     for motor_id in motor_stats['current']:
-        print(">>>>>>>>>>>> MOTOR STATS CURRENT ID: ", motor_stats['current'][motor_id])
         dominant_speed = dominant_block_selector(motor_stats['current'][motor_id])
-        print(">>>>>>>>>>>>>>>>>>>>>>>>> DOMINANT MOTOR SPEED:   ", dominant_speed)
         mapped_value = map_value(dominant_speed, 0, 19, 0, 4095)
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> MAPPED VAL:   ", mapped_value)
         motor_speed = int(mapped_value)
         current_motor_speeds[motor_id] = motor_speed
 
