@@ -326,8 +326,8 @@ def burst_manager():
 
         # todo: make this a function
         # LED neuron activation
-        if runtime_data.fire_candidate_list['led']:
-            active_led_neurons = active_neurons_in_blocks(cortical_area='led')
+        if runtime_data.fire_candidate_list['led_opu']:
+            active_led_neurons = active_neurons_in_blocks(cortical_area='led_opu')
             led_data = led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)
             led.activate_leds(led_data)
 
