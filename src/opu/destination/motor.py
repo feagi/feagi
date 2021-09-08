@@ -1,4 +1,5 @@
 import sys
+import time
 import traceback
 from inf import runtime_data
 
@@ -21,24 +22,26 @@ def motor_operator(motor_brand, motor_model, motor_id, speed, power):
         # todo: Generalize the following section. using specifics for test only
         motor = controller.Motor()
 
-        print(f">>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
-
         if motor_id == 0:
             motor.left_Upper_Wheel(duty=speed)
+            time.sleep(1)
             motor.stop()
             print(f">>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
         elif motor_id == 1:
             motor.left_Lower_Wheel(duty=speed)
+            time.sleep(1)
             motor.stop()
             print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
         elif motor_id == 2:
             motor.right_Upper_Wheel(duty=speed)
+            time.sleep(1)
             motor.stop()
             print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
         elif motor_id == 3:
             motor.right_Lower_Wheel(duty=speed)
+            time.sleep(1)
             motor.stop()
-            print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>s {motor_id} ACTIVATED AT SPEED {speed}")
+            print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
 
     except Exception as e:
         # print("ERROR: Requested controller not available for %s %s" % (hw_model, hw_brand))

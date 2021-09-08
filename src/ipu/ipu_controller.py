@@ -62,7 +62,7 @@ def initialize():
             while not runtime_data.exit_condition:
                 try:
                     ir.convert_ir_to_fire_list()
-                    time.sleep(0.01)
+                    time.sleep(0.1)
                 except Exception as e:
                     traceback.print_exc()
                 finally:

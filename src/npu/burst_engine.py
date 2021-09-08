@@ -335,6 +335,7 @@ def burst_manager():
         if runtime_data.fire_candidate_list['motor_opu']:
 
             motor_opu_active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
+            print(">>>>> > > > >>>>>>>>>> > > > >>>>>>>>>>> > > > MOTOR OPU ACTIVE: ", motor_opu_active_neurons)
             motor_opu_active_neurons_previous = active_neurons_in_blocks(cortical_area='motor_opu', current_fcl=False)
             motor_stats = dict()
             motor_stats['current'] = dict()
@@ -348,6 +349,7 @@ def burst_manager():
                     list(percent_active_neurons_in_block(block_ref=key, cortical_area='motor_opu', current_fcl=False))
 
             for key in motor_opu_active_neurons:
+                print(">>>>>>>>>>>>>>>>>>>>>>>>>> KEY: ", key)
                 motor_id = block_ref_2_id(key)[0]
                 if motor_id not in motor_stats['current']:
                     motor_stats['current'][motor_id] = dict()
