@@ -10,8 +10,8 @@ def convert_ir_to_fire_list():
     if active_sensors is not None:
         fire_list = list()
         for sensor_idx in active_sensors:
-            for key in runtime_data.brain['infrared_sensor']:
-                if sensor_idx == runtime_data.brain['infrared_sensor'][key]['soma_location'][0][0]:
+            for key in runtime_data.brain['ir_ipu']:
+                if sensor_idx == runtime_data.brain['ir_ipu'][key]['soma_location'][0][0]:
                     fire_list.append(key)
         print(">>>>>>>>>>>>>>>> IR FIRE LIST: ", fire_list)
-        runtime_data.fcl_queue.put({'infrared_sensor': fire_list})
+        runtime_data.fcl_queue.put({'ir_ipu': fire_list})

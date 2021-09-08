@@ -58,11 +58,11 @@ def get_and_translate():
             else:
                 detections = proximity.sonar_to_coords(distance)
 
-            print(">>>>>>>>>>>>> DISTANCE: ", distance)
+            # print(">>>>>>>>>>>>> DISTANCE: ", distance)
 
             neurons = proximity.coords_to_neuron_ids(
-                    detections, cortical_area='proximity'
+                    detections, cortical_area='proximity_ipu'
             )
 
             # TODO: Add proximity feeder function in fcl_injector
-            runtime_data.fcl_queue.put({'proximity': set(neurons)})
+            runtime_data.fcl_queue.put({'proximity_ipu': set(neurons)})
