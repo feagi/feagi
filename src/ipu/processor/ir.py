@@ -13,4 +13,5 @@ def convert_ir_to_fire_list():
             for key in runtime_data.brain['infrared_sensor']:
                 if sensor_idx == runtime_data.brain['infrared_sensor'][key]['soma_location'][0][0]:
                     fire_list.append(key)
+        print(">>>>>>>>>>>>>>>> IR FIRE LIST: ", fire_list)
         runtime_data.fcl_queue.put({'infrared_sensor': fire_list})

@@ -3357,7 +3357,7 @@ genome = {
         "location_generation_type" : "random",
         "synapse_attractivity" : 100,
         "init_synapse_needed" : False,
-        "postsynaptic_current" : 50001,
+        "postsynaptic_current" : -50001,
         "plasticity_constant" : 0.05,
         "postsynaptic_current_max" : 3501,
         "neighbor_locator_rule_id" : "rule_5",
@@ -3747,15 +3747,15 @@ genome = {
         "location_generation_type": "sequential",
         "synapse_attractivity": 100,
         "init_synapse_needed": False,
-        "postsynaptic_current": 501,
+        "postsynaptic_current": 50000,
         "plasticity_constant": 0.05,
         "postsynaptic_current_max": 501,
         "neighbor_locator_rule_id": "rule_0",
         "neighbor_locator_rule_param_id": "param_1",
         "cortical_mapping_dst": {
-            "infrared_mapper": {
-                "neighbor_locator_rule_id" : "rule_7",
-                "neighbor_locator_rule_param_id" : "param_1"
+            "motor_opu": {
+                "neighbor_locator_rule_id": "rule_6",
+                "neighbor_locator_rule_param_id": "param_2"
             }
         },
         "neuron_params": {
@@ -3779,15 +3779,15 @@ genome = {
             "geometric_boundaries": {
                 "x": [
                     0,
-                    30
+                    3
                 ],
                 "y": [
                     0,
-                    10
+                    1
                 ],
                 "z": [
                     0,
-                    10
+                    1
                 ]
             }
         }

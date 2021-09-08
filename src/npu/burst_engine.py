@@ -321,8 +321,8 @@ def burst_manager():
         # inject mock data to fire neurons in LED cortical area
         # neuron_list = runtime_data.block_dic['led']['6-0-2'] + runtime_data.block_dic['led']['6-0-0']
         # runtime_data.fcl_queue.put({'led': set(neuron_list)})
-        neuron_list = runtime_data.block_dic['infrared_sensor']['2-0-0'] + runtime_data.block_dic['infrared_sensor']['1-0-0']
-        runtime_data.fcl_queue.put({'infrared_sensor': set(neuron_list)})
+        # neuron_list = runtime_data.block_dic['infrared_sensor']['2-0-0'] + runtime_data.block_dic['infrared_sensor']['1-0-0']
+        # runtime_data.fcl_queue.put({'infrared_sensor': set(neuron_list)})
 
         # todo: make this a function
         # LED neuron activation
@@ -353,6 +353,8 @@ def burst_manager():
                     motor_stats['current'][motor_id] = dict()
                 motor_stats['current'][motor_id][block_ref_2_id(key)[2]] = \
                     list(percent_active_neurons_in_block(block_ref=key, cortical_area='motor_opu', current_fcl=True))
+
+            print(">>>>>>>>>>> MOTOR STATS: ", motor_stats)
 
             movement.convert_neuronal_activity_to_motor_actions(motor_stats=motor_stats)
 

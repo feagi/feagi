@@ -23,10 +23,12 @@ services:
     devices:
       - "/dev/i2c-1:/dev/i2c-1"
     volumes:
+      - /home/ubuntu/feagi-core/src/opu/processor/movement.py:/opt/source-code/feagi-core/src/opu/processor/movement.py
+      - /home/ubuntu/feagi-core/src/opu/destination/motor.py:/opt/source-code/feagi-core/src/opu/destination/motor.py
       - /home/ubuntu/feagi-core/src/ipu/processor/ir.py:/opt/source-code/feagi-core/src/ipu/processor/ir.py
+      - /home/ubuntu/feagi-core/src/ipu/ipu_controller.py:/opt/source-code/feagi-core/src/ipu/ipu_controller.py
       - /home/ubuntu/feagi-core/src/feagi_configuration.ini:/opt/source-code/feagi-core/src/feagi_configuration.ini
       - /home/ubuntu/feagi-core/src/evo/static_genome.py:/opt/source-code/feagi-core/src/evo/static_genome.py
-      - /home/ubuntu/feagi-core/src/ipu/source/lidar.py:/opt/source-code/feagi-core/src/ipu/source/lidar.py
       - /home/ubuntu/feagi-core/src/npu/burst_engine.py:/opt/source-code/feagi-core/src/npu/burst_engine.py
     networks:
       - net
