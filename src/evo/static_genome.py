@@ -3357,7 +3357,7 @@ genome = {
         "location_generation_type" : "random",
         "synapse_attractivity" : 100,
         "init_synapse_needed" : False,
-        "postsynaptic_current" : -50001,
+        "postsynaptic_current" : -5000,
         "plasticity_constant" : 0.05,
         "postsynaptic_current_max" : 3501,
         "neighbor_locator_rule_id" : "rule_5",

@@ -354,7 +354,7 @@ def burst_manager():
                 motor_stats['current'][motor_id][block_ref_2_id(key)[2]] = \
                     list(percent_active_neurons_in_block(block_ref=key, cortical_area='motor_opu', current_fcl=True))
 
-            print(">>>>>>>>>>> MOTOR STATS: ", motor_stats)
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>>> M O T O R   S T A T S: ", motor_stats)
 
             movement.convert_neuronal_activity_to_motor_actions(motor_stats=motor_stats)
 
