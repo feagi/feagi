@@ -43,14 +43,14 @@ def stats_utf_memory_membrane_potentials():
             if runtime_data.brain['utf8_memory'][neuron[1]]['membrane_potential'] > \
                     runtime_data.genome['blueprint']['utf8_memory']['neuron_params']['firing_threshold']:
                 print(settings.Bcolors.RED + '>>> ', neuron[0], '   >>> ',
-                      str(runtime_data.brain['utf8'][utf_neurons[int(neuron[0])][1]]['membrane_potential']), '   >>> ',
+                      str(runtime_data.brain['utf8_ipu'][utf_neurons[int(neuron[0])][1]]['membrane_potential']), '   >>> ',
                       str(runtime_data.brain['utf8_memory'][neuron[1]]['membrane_potential']),
                       '   >>>',
                       str(runtime_data.genome['blueprint']['utf8_memory']['neuron_params']['firing_threshold']) +
                       settings.Bcolors.ENDC)
             else:
                 print('>>> ', neuron[0], '   >>> ',
-                      str(runtime_data.brain['utf8'][utf_neurons[int(neuron[0])][1]]['membrane_potential']), '   >>> ',
+                      str(runtime_data.brain['utf8_ipu'][utf_neurons[int(neuron[0])][1]]['membrane_potential']), '   >>> ',
                       runtime_data.brain['utf8_memory'][neuron[1]]['membrane_potential'],
                       '   >>>',
                       runtime_data.genome['blueprint']['utf8_memory']['neuron_params']['firing_threshold'])

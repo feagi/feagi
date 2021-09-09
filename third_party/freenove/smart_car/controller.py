@@ -260,7 +260,7 @@ class Motor:
         self.setMotorModel(0, 0, 0, 0)
 
     # Test Functions
-    @staticmethod
+    # @staticmethod
     def Backward(self):
         """
         This will go backward only

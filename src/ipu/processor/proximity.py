@@ -22,12 +22,12 @@ def lidar_to_coords(lidar_data, threshold=5):
     LIDAR_MAX = 3.5
 
     Y_MAX = runtime_data.genome['blueprint'] \
-                               ['proximity'] \
+                               ['proximity_ipu'] \
                                ['neuron_params'] \
                                ['block_boundaries'][1]
     
     Z_MAX = runtime_data.genome['blueprint'] \
-                               ['proximity'] \
+                               ['proximity_ipu'] \
                                ['neuron_params'] \
                                ['block_boundaries'][2]
 
@@ -56,21 +56,25 @@ def sonar_to_coords(sonar_data, threshold=10):
     SONAR_MAX = 200
 
     X_MAX = runtime_data.genome['blueprint'] \
-                               ['proximity'] \
+                               ['proximity_ipu'] \
                                ['neuron_params'] \
                                ['block_boundaries'][0]
 
     Y_MAX = runtime_data.genome['blueprint'] \
-                               ['proximity'] \
+                               ['proximity_ipu'] \
                                ['neuron_params'] \
                                ['block_boundaries'][1]
 
     Z_MAX = runtime_data.genome['blueprint'] \
-                               ['proximity'] \
+                               ['proximity_ipu'] \
                                ['neuron_params'] \
                                ['block_boundaries'][2]
 
-    dist_map = round(map_value(sonar_data, SONAR_MIN, SONAR_MAX, 0, Z_MAX))
+    try:
+        dist_map = round(map_value(sonar_data, SONAR_MIN, SONAR_MAX, 0, Z_MAX))
+    except TypeError:
+        dist_map = 0
+    
     if dist_map != 0:
         x = X_MAX // 2
         y = Y_MAX // 2
