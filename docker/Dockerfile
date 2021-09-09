@@ -7,7 +7,6 @@ ARG REPO="https://github.com/feagi/feagi-core.git"
 RUN mkdir -p /opt/source-code/feagi-core/
 RUN git clone $REPO /opt/source-code/feagi-core
 WORKDIR /opt/source-code/feagi-core/
-RUN git checkout feature-combine-sonar-ir
 
 # MNIST
 # RUN wget http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz -P /opt/source-code/feagi-core/raw/MNIST/ -q && \
