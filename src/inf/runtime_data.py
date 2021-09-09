@@ -39,6 +39,7 @@ influxdb = ''
 mongodb = ''
 running_in_container = False
 hardware = ''
+gazebo = False
 
 # rules = ""
 brain_is_running = False

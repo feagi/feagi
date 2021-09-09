@@ -288,6 +288,31 @@ def burst_manager():
         if runtime_data.influxdb and runtime_data.parameters["Database"]["influx_stat_logger"]:
             runtime_data.influxdb.insert_burst_checkpoints(connectome_path, runtime_data.burst_count)
 
+    def fake_cortical_stimulation(input_instruction):
+        """
+        It fakes cortical stimulation for the purpose of testing
+
+        The following data format is used for input_instruction as the function input:
+
+        input_instructions receives a dictionary as input with keys as the name of the ipu cortical name and the value
+        being a list of block locations that needs to be activated in the block-ref format e.g. xBlock-yBlock-zBlock.
+
+        Note: all of the blocks outlined in the data structure will be activated at the same time during the same
+        burst.
+
+        input_instruction_example = {
+            ir_ipu: ["0-0-0", "1-0-0"],
+            proximity_ipu: ["0-0-0", "0-0-3", "0-0-10", "0-0-20"]
+            led_opu: ["5-0-0"]
+        }
+        """
+        neuron_list = []
+        for cortical_area_ in input_instruction:
+            for block_ref in input_instruction[cortical_area_]:
+                neuron_list.append(runtime_data.block_dic[cortical_area_][block_ref])
+            runtime_data.fcl_queue.put({cortical_area_: set(neuron_list)})
+            neuron_list = []
+
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
         sleep(0.5)
@@ -317,11 +342,11 @@ def burst_manager():
         # logging neuron activities to the influxdb
         log_neuron_activity_influx()
         
-        # # todo  ****** * ** **  FOR DEBUGGING *****
-        # inject mock data to fire neurons in LED cortical area
-        # neuron_list = runtime_data.block_dic['led']['6-0-2'] + runtime_data.block_dic['led']['6-0-0']
-        # runtime_data.fcl_queue.put({'led': set(neuron_list)})
+        # ****** * ** **  FOR DEBUGGING ***********
+        if runtime_data.parameters['Input']['fake_stimulation_flag']:
+            fake_cortical_stimulation(input_instruction=dict(runtime_data.parameters['Input']['fake_stimulation']))
 
+        # todo: handle differently
         if runtime_data.fire_candidate_list['led']:
             active_led_neurons = active_neurons_in_blocks(cortical_area='led')
             led_data = led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)

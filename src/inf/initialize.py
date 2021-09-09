@@ -32,7 +32,6 @@ def detect_hardware():
         print("Need to figure how other platforms can be detected")
 
 
-
 def init_container_variables():
     """
     Identifies variables set by containers and sets them in FEAGI runtime parameters
@@ -44,6 +43,8 @@ def init_container_variables():
         runtime_data.influxdb = True
     if os.environ.get('mongodb', False):
         runtime_data.mongodb = True
+    if os.environ.get('gazebo', False):
+        runtime_data.gazebo = True
 
 
 def running_in_container():
