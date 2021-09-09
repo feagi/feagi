@@ -1,0 +1,22 @@
+version: "3"
+
+networks:
+  net:
+    driver: bridge
+
+services:
+  ros_gazebo:
+    build: ../third_party/ros/ignition_gazebo
+    stdin_open: true
+    privileged: true
+    tty: true
+    networks:
+      - net
+
+  feagi:
+    build: ./
+    privileged: true
+    environment:
+      - CONTAINERIZED=true
+    networks:
+      - net
