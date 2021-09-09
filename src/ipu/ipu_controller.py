@@ -16,7 +16,6 @@ from ipu.source import folder_monitor
 from ipu.source import lidar
 from ipu.source.mnist import MNIST, print_mnist_img_raw
 from ipu.processor.image import Image
-from ipu.processor import ir
 from evo.neuroembryogenesis import cortical_sub_group_members
 
 
@@ -57,6 +56,18 @@ def initialize():
         print(">> >> Proximity Controller thread has started.")
 
     if runtime_data.parameters['IPU']['ir']:
+        from ipu.processor import ir
+
+        def ir_controller():
+            while not runtime_data.exit_condition:
+                try:
+                    ir.convert_ir_to_fire_list()
+                    time.sleep(0.1)
+                except Exception as e:
+                    traceback.print_exc()
+                finally:
+                    runtime_data.last_ipu_activity = datetime.now()
+
         ir_controller_thread = Thread(
             target=ir_controller,
             name="IR_Controller",
@@ -102,17 +113,6 @@ def proximity_controller():
     while not runtime_data.exit_condition:
         try:
             lidar.get_and_translate()
-        except Exception as e:
-            traceback.print_exc()
-        finally:
-            runtime_data.last_ipu_activity = datetime.now()
-
-
-def ir_controller():
-    while not runtime_data.exit_condition:
-        try:
-            ir.convert_ir_to_fire_list()
-            time.sleep(0.01)
         except Exception as e:
             traceback.print_exc()
         finally:

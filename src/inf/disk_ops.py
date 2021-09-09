@@ -224,10 +224,13 @@ def save_block_dic_to_disk(cortical_area='all', block_dic=runtime_data.block_dic
     else:
         for cortical_area in runtime_data.cortical_list:
             with open(connectome_path+cortical_area+'_blk_dic.json', "w") as data_file:
-                data = block_dic[cortical_area]
-                data_file.seek(0)  # rewind
-                data_file.write(json.dumps(data, indent=3))
-                data_file.truncate()
+                try:
+                    data = block_dic[cortical_area]
+                    data_file.seek(0)  # rewind
+                    data_file.write(json.dumps(data, indent=3))
+                    data_file.truncate()
+                except KeyError:
+                    print("Warning: %s was not present in the block_dic")
     return
 
 

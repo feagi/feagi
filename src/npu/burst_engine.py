@@ -24,7 +24,7 @@ from npu.physiology import *
 from mem.memory import form_memories
 from npu.comprehension import utf_detection_logic
 # from npu.feeder import Feeder
-from evo.blocks import active_neurons_in_blocks
+from evo.blocks import active_neurons_in_blocks, percent_active_neurons_in_block, block_ref_2_id
 from opu.processor import led
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
@@ -316,17 +316,50 @@ def burst_manager():
 
         # logging neuron activities to the influxdb
         log_neuron_activity_influx()
-        
+
         # # todo  ****** * ** **  FOR DEBUGGING *****
         # inject mock data to fire neurons in LED cortical area
         # neuron_list = runtime_data.block_dic['led']['6-0-2'] + runtime_data.block_dic['led']['6-0-0']
         # runtime_data.fcl_queue.put({'led': set(neuron_list)})
+        # neuron_list = runtime_data.block_dic['infrared_sensor']['2-0-0'] + runtime_data.block_dic['infrared_sensor']['1-0-0']
+        # runtime_data.fcl_queue.put({'infrared_sensor': set(neuron_list)})
 
-        if runtime_data.fire_candidate_list['led']:
-            active_led_neurons = active_neurons_in_blocks(cortical_area='led')
+        # todo: make this a function
+        # LED neuron activation
+        if runtime_data.fire_candidate_list['led_opu']:
+            active_led_neurons = active_neurons_in_blocks(cortical_area='led_opu')
             led_data = led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)
             led.activate_leds(led_data)
-        
+
+        # todo: make this a function
+        if runtime_data.fire_candidate_list['motor_opu']:
+
+            motor_opu_active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
+            print(">>>>> > > > >>>>>>>>>> > > > >>>>>>>>>>> > > > MOTOR OPU ACTIVE: ", motor_opu_active_neurons)
+            motor_opu_active_neurons_previous = active_neurons_in_blocks(cortical_area='motor_opu', current_fcl=False)
+            motor_stats = dict()
+            motor_stats['current'] = dict()
+            motor_stats['previous'] = dict()
+
+            for key in motor_opu_active_neurons_previous:
+                motor_id = block_ref_2_id(key)[0]
+                if motor_id not in motor_stats['previous']:
+                    motor_stats['previous'][motor_id] = dict()
+                motor_stats['previous'][motor_id][block_ref_2_id(key)[2]] = \
+                    list(percent_active_neurons_in_block(block_ref=key, cortical_area='motor_opu', current_fcl=False))
+
+            for key in motor_opu_active_neurons:
+                print(">>>>>>>>>>>>>>>>>>>>>>>>>> KEY: ", key)
+                motor_id = block_ref_2_id(key)[0]
+                if motor_id not in motor_stats['current']:
+                    motor_stats['current'][motor_id] = dict()
+                motor_stats['current'][motor_id][block_ref_2_id(key)[2]] = \
+                    list(percent_active_neurons_in_block(block_ref=key, cortical_area='motor_opu', current_fcl=True))
+
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>>> M O T O R   S T A T S: ", motor_stats)
+
+            movement.convert_neuronal_activity_to_motor_actions(motor_stats=motor_stats)
+
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
 

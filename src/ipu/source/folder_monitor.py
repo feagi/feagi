@@ -70,4 +70,4 @@ class FolderWatchdog(PatternMatchingEventHandler):
             with open(file_path, 'r') as txt_file:
                 for _ in txt_file.read():
                     print(_)
-                    runtime_data.fire_candidate_list['utf8'].update(utf.convert_char_to_fire_list(_))
+                    runtime_data.fire_candidate_list['utf8_ipu'].update(utf.convert_char_to_fire_list(_))
