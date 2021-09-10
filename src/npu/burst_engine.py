@@ -324,6 +324,18 @@ def burst_manager():
             else:
                 print("Warning: Cortical area %s not found within the block_dic" % cortical_area_)
 
+    def opu_handler():
+        """
+        This function is inteded to handle all the OPU processing that needs to be addressed in burst level as opposed
+        to individual neuron fire
+        """
+
+        # LED handler
+        if runtime_data.fire_candidate_list['led_opu'] and runtime_data.hardware == 'raspberry_pi':
+            active_led_neurons = active_neurons_in_blocks(cortical_area='led_opu')
+            led_data = led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)
+            led.activate_leds(led_data)
+
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
         sleep(0.5)
@@ -355,17 +367,12 @@ def burst_manager():
         
         # Fake Stimuli
         if runtime_data.parameters['Switches']['fake_stimulation_flag']:
-            for block in runtime_data.block_dic['ir_ipu']:
-                print(block, len(block))
             if runtime_data.burst_count in runtime_data.stimulation_data:
                 fake_cortical_stimulation(input_instruction=runtime_data.stimulation_data,
                                           burst_count=runtime_data.burst_count)
 
-        # todo: handle differently
-        if runtime_data.fire_candidate_list['led_opu'] and runtime_data.hardware == 'raspberry_pi':
-            active_led_neurons = active_neurons_in_blocks(cortical_area='led_opu')
-            led_data = led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)
-            led.activate_leds(led_data)
+        # Process neuron stimulation that ties to OPU
+        opu_handler()
         
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
