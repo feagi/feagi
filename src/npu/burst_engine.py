@@ -288,7 +288,7 @@ def burst_manager():
         if runtime_data.influxdb and runtime_data.parameters["Database"]["influx_stat_logger"]:
             runtime_data.influxdb.insert_burst_checkpoints(connectome_path, runtime_data.burst_count)
 
-    def fake_cortical_stimulation(input_instruction):
+    def fake_cortical_stimulation(input_instruction, burst_count):
         """
         It fakes cortical stimulation for the purpose of testing
 
@@ -305,11 +305,16 @@ def burst_manager():
             proximity_ipu: ["0-0-0", "0-0-3", "0-0-10", "0-0-20"]
             led_opu: ["5-0-0"]
         }
+
+        # todo: Currently we can only inject data from the first index on each burst. change it so it goes thru all
         """
         neuron_list = []
-        for cortical_area_ in input_instruction:
-            for block_ref in input_instruction[cortical_area_]:
-                neuron_list.append(runtime_data.block_dic[cortical_area_][block_ref])
+
+        for cortical_area_ in input_instruction[burst_count]:
+            for block_ref in input_instruction[burst_count][cortical_area_]:
+                if cortical_area_ in runtime_data.block_dic:
+                    if block_ref in runtime_data.block_dic[cortical_area_]:
+                        neuron_list.append(runtime_data.block_dic[cortical_area_][block_ref])
             runtime_data.fcl_queue.put({cortical_area_: set(neuron_list)})
             neuron_list = []
 
@@ -342,9 +347,11 @@ def burst_manager():
         # logging neuron activities to the influxdb
         log_neuron_activity_influx()
         
-        # ****** * ** **  FOR DEBUGGING ***********
-        if runtime_data.parameters['Input']['fake_stimulation_flag']:
-            fake_cortical_stimulation(input_instruction=dict(runtime_data.parameters['Input']['fake_stimulation']))
+        # Fake Stimuli
+        if runtime_data.parameters['Switches']['fake_stimulation_flag']:
+            if runtime_data.burst_count in runtime_data.stimulation_data:
+                fake_cortical_stimulation(input_instruction=runtime_data.stimulation_data,
+                                          burst_count=runtime_data.burst_count)
 
         # todo: handle differently
         if runtime_data.fire_candidate_list['led']:

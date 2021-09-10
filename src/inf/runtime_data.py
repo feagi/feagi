@@ -40,6 +40,7 @@ mongodb = ''
 running_in_container = False
 hardware = ''
 gazebo = False
+stimulation_data = {}
 
 # rules = ""
 brain_is_running = False

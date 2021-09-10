@@ -196,6 +196,12 @@ def init_resources():
         print("Max thread count was set to ", runtime_data.parameters['System']['max_core'])
 
 
+def init_fake_stimulation():
+    if runtime_data.parameters['Switches']['fake_stimulation_flag']:
+        import inf.fake_stimulation as fake_stimulation
+        runtime_data.stimulation_data = fake_stimulation.stimulation_data
+
+
 def initialize():
     runtime_data.last_alertness_trigger = datetime.now()
     run_id_gen()
@@ -206,6 +212,7 @@ def initialize():
     init_genome()
     init_cortical_list()
     init_resources()
+    init_fake_stimulation()
     runtime_data.fcl_queue = Queue()
 
 
