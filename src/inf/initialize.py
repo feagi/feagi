@@ -13,7 +13,7 @@ from collections import deque
 from inf import runtime_data, disk_ops, settings
 from configparser import ConfigParser
 from shutil import copyfile
-from evo.stats import list_top_n_utf_memory_neurons
+from evo.stats import list_top_n_utf_memory_neurons, block_dict_summary
 
 log = logging.getLogger(__name__)
 
@@ -237,8 +237,12 @@ def init_burst_engine():
     runtime_data.parameters["Auto_injector"]["injector_status"] = False
     runtime_data.termination_flag = False
     runtime_data.top_10_utf_memory_neurons = list_top_n_utf_memory_neurons("utf8_memory", 10)
-    runtime_data.top_10_utf_neurons = list_top_n_utf_memory_neurons("utf8", 10)
+    runtime_data.top_10_utf_neurons = list_top_n_utf_memory_neurons("utf8_ipu", 10)
     runtime_data.v1_members = []
+
+    if runtime_data.parameters["Logs"]["print_block_dict_report"]:
+        print("Block Dictionary Report:")
+        block_dict_summary(runtime_data.block_dic, verbose=True)
 
     for item in runtime_data.cortical_list:
         if runtime_data.genome['blueprint'][item]['sub_group_id'] == "vision_v1":

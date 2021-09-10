@@ -9,7 +9,7 @@ if runtime_data.hardware == 'raspberry_pi':
     import controller
 
 
-def convert_neuron_activity_to_rgb_intensities(blocks_with_active_neurons, cortical_area='led'):
+def convert_neuron_activity_to_rgb_intensities(blocks_with_active_neurons, cortical_area='led_opu'):
     led_x_dim = runtime_data.genome['blueprint'] \
                                    [cortical_area] \
                                    ['neuron_params'] \
@@ -28,7 +28,7 @@ def convert_neuron_activity_to_rgb_intensities(blocks_with_active_neurons, corti
         block_z_idx = block_id[-1]
         led_id = block_id[0]
         
-        percent_active = percent_active_neurons_in_block(block_ref, cortical_area='led')
+        percent_active = percent_active_neurons_in_block(block_ref, cortical_area='led_opu')
         mapped_intensity = round(map_value(percent_active, 0, 100, 1, 255))
         if led_id in led_data:
             led_data[led_id][block_z_idx] = mapped_intensity

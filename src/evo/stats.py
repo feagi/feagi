@@ -217,6 +217,32 @@ def list_common_upstream_neurons(neuron_a, neuron_b):
         pass
 
 
+def block_dict_summary(block_dict, cortical_area=[], verbose=False):
+    """
+    Returns a summary report of block_dict contents
+
+    {
+    cortical_area_1: ((block_ref_1, neuron_count), (block_ref_2, neuron_count), (block_ref_3, neuron_count),...),
+    cortical_area_2: ((block_ref_1, neuron_count), (block_ref_2, neuron_count), (block_ref_3, neuron_count),...),
+    ...
+    }
+    """
+
+    stats = dict()
+
+    for area in block_dict:
+        if area in cortical_area or not cortical_area:
+            stats[area] = set()
+            for block in block_dict[area]:
+                stats[area].add((block, len(block)))
+
+    if verbose:
+        for area in stats:
+            print(area)
+            for block in stats[area]:
+                print("----", block[0], block[1])
+
+    return stats
 
 
 # def tbd():

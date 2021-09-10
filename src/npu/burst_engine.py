@@ -311,12 +311,18 @@ def burst_manager():
         neuron_list = []
 
         for cortical_area_ in input_instruction[burst_count]:
-            for block_ref in input_instruction[burst_count][cortical_area_]:
-                if cortical_area_ in runtime_data.block_dic:
+            if cortical_area_ in runtime_data.block_dic:
+                for block_ref in input_instruction[burst_count][cortical_area_]:
                     if block_ref in runtime_data.block_dic[cortical_area_]:
-                        neuron_list.append(runtime_data.block_dic[cortical_area_][block_ref])
-            runtime_data.fcl_queue.put({cortical_area_: set(neuron_list)})
-            neuron_list = []
+                        for neuron in runtime_data.block_dic[cortical_area_][block_ref]:
+                            neuron_list.append(neuron)
+                    else:
+                        print("Warning: Block ref %s was not found for %s" % (block_ref, cortical_area_))
+                print("neuron list:", cortical_area_, neuron_list)
+                runtime_data.fcl_queue.put({cortical_area_: set(neuron_list)})
+                neuron_list = []
+            else:
+                print("Warning: Cortical area %s not found within the block_dic" % cortical_area_)
 
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
@@ -349,13 +355,15 @@ def burst_manager():
         
         # Fake Stimuli
         if runtime_data.parameters['Switches']['fake_stimulation_flag']:
+            for block in runtime_data.block_dic['ir_ipu']:
+                print(block, len(block))
             if runtime_data.burst_count in runtime_data.stimulation_data:
                 fake_cortical_stimulation(input_instruction=runtime_data.stimulation_data,
                                           burst_count=runtime_data.burst_count)
 
         # todo: handle differently
-        if runtime_data.fire_candidate_list['led']:
-            active_led_neurons = active_neurons_in_blocks(cortical_area='led')
+        if runtime_data.fire_candidate_list['led_opu'] and runtime_data.hardware == 'raspberry_pi':
+            active_led_neurons = active_neurons_in_blocks(cortical_area='led_opu')
             led_data = led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)
             led.activate_leds(led_data)
         
