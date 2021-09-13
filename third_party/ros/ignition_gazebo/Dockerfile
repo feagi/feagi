@@ -6,8 +6,8 @@ ARG BRANCH="feature-ign-foxy"
 
 # define container environment variables
 ENV CONTAINERIZED=true
-ENV DEBIAN_FRONTEND=noninteractive
-ENV QT_DEBUG_PLUGINS=1
+# ENV DEBIAN_FRONTEND=noninteractive
+# ENV QT_DEBUG_PLUGINS=1
 
 # install initial tools/dependencies
 RUN apt-get update && \
