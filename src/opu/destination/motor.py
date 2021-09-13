@@ -14,9 +14,11 @@ def motor_operator(motor_id, speed, power):
         # todo: Generalize the following section. using specifics for test only
         motor = controller.Motor()
 
-        motor.M3F()
+        # Starts the third motor with speed 2000
+        motor.move(motor_index=2, speed=2000)
         time.sleep(3)
-        motor.stop()
+        # Stops the third motor
+        motor.move(motor_index=2, speed=0)
         print(f">>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
 
         if motor_id == 'M1':
