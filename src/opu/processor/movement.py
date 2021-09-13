@@ -80,21 +80,24 @@ def convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id):
     }
     """
     motor_mapping = {
-        "motor_1" : "M1", 
-        "motor_2" : "M2", 
-        "motor_3" : "M3", 
-        "motor_4" : "M4", 
+        "motor_1": "M1",
+        "motor_2": "M2",
+        "motor_3": "M3",
+        "motor_4": "M4",
     }
 
     print(">>>>>>>>>>>>>>>>>>>>>>>>>>> CORTICAL AREA: ", cortical_area)
     print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> NEURON Z_BLOCK: ", neuron_z_block)
     motor_id = motor_mapping.get(cortical_area)
-    motor_speed = round(map_value(neuron_z_block, 1, 20, 0, 4095))
+
+    # todo: Move map value function out of proximity and to a more generic location
+    print("$$>>", neuron_z_block, map_value(neuron_z_block, 1, 20, 0, 4095))
+    mapped_value = map_value(neuron_z_block, 1, 20, 0, 4095)
+    motor_speed = round(mapped_value)
     # scaled_motor_spd = int(-motor_speed * 0.75)
 
-    # if runtime_data.hardware == 'raspberry_pi':
-    # todo: remove hardcoded parameters
-    motor.motor_operator(motor_brand="Freenove", motor_model="", motor_id=motor_id, speed=-motor_speed, power="")
+    motor.motor_operator(motor_id=motor_id, speed=-motor_speed, power="")
 
+    # todo: placeholder for handling motor power
     # Power is defined as a value between 0 and 100 driven from Z direction
     # power = int(neuron_z_block / cortical_z_block)

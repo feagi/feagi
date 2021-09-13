@@ -18,6 +18,16 @@ from evo.stats import list_top_n_utf_memory_neurons, block_dict_summary
 log = logging.getLogger(__name__)
 
 
+# def init_hw_controller():
+#     """
+#     Loads the proper controller module based on the robot species defined within genome
+#     """
+#     import sys
+#     print("controller path:", runtime_data.hw_controller_path)
+#     sys.path.insert(1, runtime_data.hw_controller_path)
+#     import controller
+
+
 def detect_hardware():
     """
     Identifies the type of hardware the brain is running on so the right capabilities can be utilized
@@ -30,6 +40,11 @@ def detect_hardware():
                 runtime_data.hardware = "raspberry_pi"
     except:
         print("Need to figure how other platforms can be detected")
+
+    runtime_data.hw_controller_path = '../third_party/' + \
+                                      runtime_data.genome['species']['brand'] + '/' +\
+                                      runtime_data.genome['species']['model'] + '/controller.py'
+    print("Hardware controller path: ", runtime_data.hw_controller_path)
 
 
 def init_container_variables():
@@ -210,6 +225,7 @@ def initialize():
     init_container_variables()
     init_data_sources()
     init_genome()
+    detect_hardware()
     init_cortical_list()
     init_resources()
     init_fake_stimulation()
@@ -257,4 +273,3 @@ def exit_burst_process():
     runtime_data.parameters["Auto_injector"]["injector_status"] = False
     if runtime_data.parameters["Switches"]["capture_brain_activities"]:
         disk_ops.save_fcl_to_disk()
-

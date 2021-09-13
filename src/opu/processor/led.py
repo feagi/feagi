@@ -1,12 +1,10 @@
 from evo.blocks import block_ref_2_id, percent_active_neurons_in_block
 from inf import runtime_data
 from ipu.processor.proximity import map_value
+# from inf.initialize import init_hw_controller
+from importlib.machinery import SourceFileLoader
 
-
-if runtime_data.hardware == 'raspberry_pi':
-    import sys
-    sys.path.insert(1, '../third_party/freenove/smart_car/')
-    import controller
+# init_hw_controller()
 
 
 def convert_neuron_activity_to_rgb_intensities(blocks_with_active_neurons, cortical_area='led_opu'):
@@ -37,6 +35,7 @@ def convert_neuron_activity_to_rgb_intensities(blocks_with_active_neurons, corti
 
 
 def activate_leds(led_data):
+    controller = SourceFileLoader("controller.py", runtime_data.hw_controller_path).load_module()
     led = controller.LED()
     for led_id in led_data:
         R = led_data[led_id][0]
