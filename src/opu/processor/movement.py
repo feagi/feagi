@@ -68,30 +68,14 @@ def convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id):
     # speed = int(speed_offset / (zero_speed_block_offset+00000.1))
 
     # todo: need to define the mapping between motor cortex and a set of motor ids
-    """
-    Some sort of mapping needs to be defined such as the one below and most likely to be part of genome. This mapping
-    will connect a particular motor cortical column to a corresponding motor identifier on the hardware side.
-    
-    motor_mapping = {
-        "motor_1" : "M1", 
-        "motor_2" : "M2", 
-        "motor_3" : "M3", 
-        "motor_4" : "M4", 
-    }
-    """
-    motor_mapping = {
-        "motor_1": "M1",
-        "motor_2": "M2",
-        "motor_3": "M3",
-        "motor_4": "M4",
-    }
 
     print(">>>>>>>>>>>>>>>>>>>>>>>>>>> CORTICAL AREA: ", cortical_area)
     print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> NEURON Z_BLOCK: ", neuron_z_block)
-    motor_id = motor_mapping.get(cortical_area)
 
+    motor_id = neuron_x_block
+    print(motor_id, type(motor_id))
     # todo: Move map value function out of proximity and to a more generic location
-    print("$$>>", neuron_z_block, map_value(neuron_z_block, 1, 20, 0, 4095))
+    print("$$>>", neuron_z_block, map_value(neuron_z_block, 1, 20, 0, 4095), motor_id)
     mapped_value = map_value(neuron_z_block, 1, 20, 0, 4095)
     motor_speed = round(mapped_value)
     # scaled_motor_spd = int(-motor_speed * 0.75)

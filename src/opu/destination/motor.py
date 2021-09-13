@@ -15,28 +15,11 @@ def motor_operator(motor_id, speed, power):
         motor = controller.Motor()
 
         # Starts the third motor with speed 2000
-        motor.move(motor_index=2, speed=2000)
+        motor.move(motor_index=motor_id, speed=speed)
         time.sleep(3)
         # Stops the third motor
-        motor.move(motor_index=2, speed=0)
+        motor.move(motor_index=motor_id, speed=0)
         print(f">>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
-
-        if motor_id == 'M1':
-            # motor.left_Upper_Wheel(duty=speed)
-            # motor.stop()
-            print(f">>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
-        elif motor_id == 'M2':
-            # motor.left_Lower_Wheel(duty=speed)
-            # motor.stop()
-            print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
-        elif motor_id == 'M3':
-            # motor.right_Upper_Wheel(duty=speed)
-            # motor.stop()
-            print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
-        elif motor_id == 'M4':
-            # motor.right_Lower_Wheel(duty=speed)
-            # motor.stop()
-            print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>s {motor_id} ACTIVATED AT SPEED {speed}")
 
     except Exception as e:
         # print("ERROR: Requested controller not available for %s %s" % (hw_model, hw_brand))
