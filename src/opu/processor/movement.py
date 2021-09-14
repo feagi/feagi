@@ -39,7 +39,6 @@ def convert_neuronal_activity_to_directions(cortical_area, neuron_id):
     socket.send_string(movement_direction)
 
 
-
 def activate_motor(cortical_area, motor_id, speed_reference):
     """
     This function creates a mapping between neurons from a motor cortex region to values suitable for motor operation -

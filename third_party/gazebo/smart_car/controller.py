@@ -110,162 +110,64 @@ class Motor:
     def __init__(self):
         rclpy.init()
         node = rclpy.create_node('Controller_py')
-        M4 = node.create_publisher(geometry_msgs.msg.Twist, '/M4', 10)
-        M3 = node.create_publisher(geometry_msgs.msg.Twist, '/M3', 10)
-        M2 = node.create_publisher(geometry_msgs.msg.Twist, '/M2', 10)
-        M1 = node.create_publisher(geometry_msgs.msg.Twist, '/M1', 10)
+
+        # Assuming 4 motors
+        # todo: generalize to extract number of motors from gazebo robot model
+        motor_count = 4
+
+        self.motor_node = []
+        for motor in range(motor_count):
+            motor_string = '/M' + str(motor)
+            self.motor_node[motor] = node.create_publisher(geometry_msgs.msg.Twist, motor_string, 10)
+
+        self.pub = node.create_publisher(geometry_msgs.msg.Twist, '/model/vehicle_green/cmd_vel', 10)
+        self.pub1 = node.create_publisher(geometry_msgs.msg.Twist, '/cmd_vel', 10)  # Might delete this line
+
+        # todo: figure a way to extract wheel parameters from the model
+        self.wheel_diameter = 1
+
+    def move(self, motor_index, speed):
+
+        # Convert speed to linear
+        # todo: fix the following formula to properly calculate the velocities in 3d axis
+        linear_velocity = [speed, 0, 0]
+        angular_velocity = [0, 0, speed]
+
+        twist = geometry_msgs.msg.Twist()
+        twist.linear.x = linear_velocity[0]  # positive goes backward, negative goes forward
+        twist.angular.z = angular_velocity[2]
+        self.motor_node[motor_index].publish(twist)
+
+
+class Servo:
+    def __init__(self):
+        rclpy.init()
+        node = rclpy.create_node('Controller_py')
+
+        # Assuming 4 motors
+        servo_count = 4
+        # todo: generalize to support any number of motors
+        self.servo_node = []
+        for servo in range(servo_count):
+            motor_string = '/servo' + str(servo)
+            self.motor_node[servo] = node.create_publisher(geometry_msgs.msg.Twist, motor_string, 10)
+
         servo = node.create_publisher(geometry_msgs.msg.Twist, '/servo', 10)
         servo1 = node.create_publisher(geometry_msgs.msg.Twist, '/servo1', 10)
-        pub = node.create_publisher(geometry_msgs.msg.Twist, '/model/vehicle_green/cmd_vel', 10)
-        pub1 = node.create_publisher(geometry_msgs.msg.Twist, '/cmd_vel', 10)  # Might delete this line
 
-    def M1T(num, num1):
+        self.pub = node.create_publisher(geometry_msgs.msg.Twist, '/model/vehicle_green/cmd_vel', 10)
+        self.pub1 = node.create_publisher(geometry_msgs.msg.Twist, '/cmd_vel', 10)  # Might delete this line
+
+        # todo: figure a way to extract wheel parameters from the model
+        self.servo_range = [0, 180]
+
+    def move(self, servo_index, angle):
+
         twist = geometry_msgs.msg.Twist()
-        twist.linear.x = num  # positive goes backward, negative goes forward
-        twist.angular.z = num1
-        M1.publish(twist)
-        time.sleep(0.5)
-        twist.linear.x = 0.0
-        twist.angular.z = 0.0
-        M1.publish(twist)
 
-    def M2T(num, num1):
-        twist = geometry_msgs.msg.Twist()
-        twist.linear.x = num  # positive goes backward, negative goes forward
-        twist.angular.z = num1
-        M2.publish(twist)
-        time.sleep(0.5)
-        twist.linear.x = 0.0
-        twist.angular.z = 0.0
-        M2.publish(twist)
+        # todo: linear and angular speed does not make sense in the case of servo. To be fixed
+        twist.linear.x = angle  # positive goes backward, negative goes forward
+        twist.angular.z = angle
 
-    def M3T(num, num1):
-        twist = geometry_msgs.msg.Twist()
-        twist.linear.x = num  # positive goes backward, negative goes forward
-        twist.angular.z = num1
-        M3.publish(twist)
-        time.sleep(0.5)
-        twist.linear.x = 0.0
-        twist.angular.z = 0.0
-        M3.publish(twist)
-
-    def M4T(num, num1):
-        twist = geometry_msgs.msg.Twist()
-        twist.linear.x = num  # positive goes backward, negative goes forward
-        twist.angular.z = num1
-        M4.publish(twist)
-        time.sleep(0.5)
-        twist.linear.x = 0.0
-        twist.angular.z = 0.0
-        M4.publish(twist)
-
-    def setMotorModel(speed, speed1):
-        """
-
-        Parameters
-        ----------
-        self
-        speed = -10 to 10 to move forward/backward. Negative is backward at the moment.
-        speed1 = -10 to 10 to move right/left. Negative is left at the moment.
-
-        Returns
-        -------
-
-        """
-        twist = geometry_msgs.msg.Twist()
-        twist.linear.x = speed  # positive goes backward, negative goes forward
-        twist.angular.z = speed1
-        M1T(speed, speed1)
-        M2T(speed, speed1)
-        M3T(speed, speed1)
-        M4T(speed, speed1)
-
-    def backward():
-        twist = geometry_msgs.msg.Twist()
-        twist.linear.x = 0.5  # positive goes backward, negative goes forward
-        twist.angular.z = 0.0
-        print("Backward.")
-        M1.publish(twist)
-        M2.publish(twist)
-        M4.publish(twist)
-        M3.publish(twist)
-        time.sleep(0.5)
-        twist.linear.x = 0.0
-        twist.angular.z = 0.0
-        M1.publish(twist)
-        M2.publish(twist)
-        M4.publish(twist)
-        M3.publish(twist)
-
-    def forward():
-        twist = geometry_msgs.msg.Twist()
-        twist.linear.x = -0.5  # positive goes backward, negative goes forward
-        twist.angular.z = 0.0
-        print("Forward.")
-        M1.publish(twist)
-        M2.publish(twist)
-        M4.publish(twist)
-        M3.publish(twist)
-        time.sleep(0.5)
-        twist.linear.x = 0.0
-        twist.angular.z = 0.0
-        M1.publish(twist)
-        M2.publish(twist)
-        M4.publish(twist)
-        M3.publish(twist)
-
-    def left():
-        twist = geometry_msgs.msg.Twist()
-        twist.linear.x = 0.0  # positive goes backward, negative goes forward
-        twist.angular.z = 4.0
-        print("Left.")
-        M1.publish(twist)
-        M2.publish(twist)
-        M4.publish(twist)
-        M3.publish(twist)
-        time.sleep(0.5)
-        twist.linear.x = 0.0
-        twist.angular.z = 0.0
-        M1.publish(twist)
-        M2.publish(twist)
-        M4.publish(twist)
-        M3.publish(twist)
-
-    def right():
-        twist = geometry_msgs.msg.Twist()
-        twist.linear.x = 0.0  # positive goes backward, negative goes forward
-        twist.angular.z = -4.0
-        print("Right.")
-        M1.publish(twist)
-        M2.publish(twist)
-        M4.publish(twist)
-        M3.publish(twist)
-        time.sleep(0.5)
-        twist.linear.x = 0.0
-        twist.angular.z = 0.0
-        M1.publish(twist)
-        M2.publish(twist)
-        M4.publish(twist)
-        M3.publish(twist)
-
-    def head_UP_DOWN(num, num1):
-        twist = geometry_msgs.msg.Twist()
-        twist.linear.x = num  # positive goes backward, negative goes forward
-        twist.angular.z = num1
         print("HEAD_UP_DOWN")
-        servo.publish(twist)
-        time.sleep(0.5)
-        twist.linear.x = 0.0
-        twist.angular.z = 0.0
-        servo.publish(twist)
-
-    def head_RIGHT_LEFT(num, num1):
-        twist = geometry_msgs.msg.Twist()
-        twist.linear.x = num  # positive goes backward, negative goes forward
-        twist.angular.z = num1
-        print("HEAD_RIGHT_LEFT")
-        servo1.publish(twist)
-        time.sleep(0.5)
-        twist.linear.x = 0.0
-        twist.angular.z = 0.0
-        servo1.publish(twist)
+        self.servo_node.publish(twist)
