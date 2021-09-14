@@ -165,10 +165,13 @@ def percent_active_neurons_in_block(block_ref, cortical_area):
     neurons for a block in a cortical area
     """
     blocks_with_active_neurons = active_neurons_in_blocks(cortical_area)
-    active_block_neurons = len(blocks_with_active_neurons[block_ref])
-    total_block_neurons = len(runtime_data.block_dic[cortical_area][block_ref])
-    percent_active_neurons = round(active_block_neurons / total_block_neurons * 100)
-    return percent_active_neurons
+    if block_ref not in blocks_with_active_neurons:
+        return 0
+    else:
+        active_block_neurons = len(blocks_with_active_neurons[block_ref])
+        total_block_neurons = len(runtime_data.block_dic[cortical_area][block_ref])
+        percent_active_neurons = round(active_block_neurons / total_block_neurons * 100)
+        return percent_active_neurons
 
 
 def active_neurons_in_blocks(cortical_area):

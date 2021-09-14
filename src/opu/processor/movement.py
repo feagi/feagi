@@ -39,7 +39,8 @@ def convert_neuronal_activity_to_directions(cortical_area, neuron_id):
     socket.send_string(movement_direction)
 
 
-def convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id):
+
+def activate_motor(cortical_area, motor_id, speed_reference):
     """
     This function creates a mapping between neurons from a motor cortex region to values suitable for motor operation -
     such as direction, speed, duration, and power.
@@ -59,24 +60,15 @@ def convert_neuronal_activity_to_motor_actions(cortical_area, neuron_id):
     reflect negative speeds. The further the neuron is from the center point of y access the faster the speed
     - Z direction captures the POWER. The higher the neuron is located in Z direction, the higher the power it trigger
     """
-    cortical_x_block, cortical_y_block, cortical_z_block = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries']
-    neuron_x_block, neuron_y_block, neuron_z_block = runtime_data.brain[cortical_area][neuron_id]['soma_location'][1]
 
     # Speed is defined as a value between -100 and 100 with 100 being the fastest in one direction and -100 the other
     # zero_speed_block_offset = floor(cortical_y_block/2)
     # speed_offset = neuron_y_block - zero_speed_block_offset
     # speed = int(speed_offset / (zero_speed_block_offset+00000.1))
 
-    # todo: need to define the mapping between motor cortex and a set of motor ids
-
-    print(">>>>>>>>>>>>>>>>>>>>>>>>>>> CORTICAL AREA: ", cortical_area)
-    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> NEURON Z_BLOCK: ", neuron_z_block)
-
-    motor_id = neuron_x_block
-    print(motor_id, type(motor_id))
     # todo: Move map value function out of proximity and to a more generic location
-    print("$$>>", neuron_z_block, map_value(neuron_z_block, 1, 20, 0, 4095), motor_id)
-    mapped_value = map_value(neuron_z_block, 1, 20, 0, 4095)
+    mapped_value = map_value(speed_reference, 1, 20, 0, 4095)
+    print("$$>>", motor_id, mapped_value, motor_id)
     motor_speed = round(mapped_value)
     # scaled_motor_spd = int(-motor_speed * 0.75)
 

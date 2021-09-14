@@ -2,8 +2,9 @@
 """
 Provides functions performing statistical analysis on the Connectome and Cortical behavior
 """
-
+from evo.blocks import *
 from inf import runtime_data, db_handler
+
 
 
 def cortical_area_neuron_count(cortical_area):
@@ -243,6 +244,28 @@ def block_dict_summary(block_dict, cortical_area=[], verbose=False):
                 print("----", block[0], block[1])
 
     return stats
+
+
+def opu_activity_report(cortical_area):
+    """
+    Returns percentage of neuronal activity in each block
+    """
+    block_boundaries = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries']
+    report = dict()
+    # The X axis of the OPU cortical areas are designated as device indicators
+    for device in range(block_boundaries[0]):
+        device_activity_report = []
+        # The Y axis of OPU is reserved for capturing second dimension of OPU property
+        for secondary_variable in range(block_boundaries[1]):
+            z_report = []
+            # The Z axis is captures the primary property of the OPU such as speed, color, angle, etc
+            for primary_variable in range(block_boundaries[2]):
+                block_ref = block_reference_builder([device, secondary_variable, primary_variable])
+                z_report.append(percent_active_neurons_in_block(block_ref=block_ref,
+                                                                cortical_area=cortical_area))
+            device_activity_report.append(z_report)
+        report[device] = device_activity_report
+    return report
 
 
 # def tbd():

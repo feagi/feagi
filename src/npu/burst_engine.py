@@ -329,12 +329,27 @@ def burst_manager():
         This function is inteded to handle all the OPU processing that needs to be addressed in burst level as opposed
         to individual neuron fire
         """
+        # todo: Introduce a generalized approach to cover all OPUs
 
         # LED handler
         if runtime_data.fire_candidate_list['led_opu'] and runtime_data.hardware == 'raspberry_pi':
             active_led_neurons = active_neurons_in_blocks(cortical_area='led_opu')
             led_data = led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)
             led.activate_leds(led_data)
+
+        # todo: need a better differentiation between movement and motor modules
+        # Movement handler
+        if runtime_data.fire_candidate_list['motor_opu']:
+            # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
+            # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
+            # movement.activate_motor(data)
+            activity_report = opu_activity_report(cortical_area='motor_opu')
+            print("&& Activity Report:", activity_report)
+            for device in activity_report:
+                block_with_max_activity = activity_report[device].index(max(activity_report[device]))
+                movement.activate_motor(cortical_area='motor_opu', motor_id=device,
+                                        speed_reference=block_with_max_activity)
+                print("$$ $$ $$:", device, block_with_max_activity)
 
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
