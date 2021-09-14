@@ -2,7 +2,7 @@ FROM tiryoh/ros2-desktop-vnc:foxy
 # FROM ros:foxy
 
 ARG REPO="https://github.com/feagi/feagi-simulate.git"
-ARG BRANCH="feature-ign-foxy"
+ARG BRANCH="testing-ign-foxy"
 
 # define container environment variables
 ENV CONTAINERIZED=true

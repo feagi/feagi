@@ -22,22 +22,22 @@ def get_and_translate():
     # except KeyError:
     #     socket_address = runtime_data.parameters["Sockets"]["lidar_socket"]
 
-    # socket_address = runtime_data.parameters["Sockets"]["lidar_socket"]
+    socket_address = runtime_data.parameters["Sockets"]["lidar_socket"]
 
-    # print("Attempting to subscribe to socket ", socket_address)
+    print("Attempting to subscribe to socket ", socket_address)
 
-    # context = zmq.Context()
-    # socket = context.socket(zmq.SUB)
-    # socket.connect(socket_address)
-    # socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
+    context = zmq.Context()
+    socket = context.socket(zmq.SUB)
+    socket.connect(socket_address)
+    socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
 
-    sonar = controller.Ultrasonic()
+    # sonar = controller.Ultrasonic()
 
     while True:
-        # message = socket.recv_pyobj()
-        distance = sonar.getDistance()
+        message = socket.recv_pyobj()
+        # distance = sonar.getDistance()
 
-        if distance is not None:
+        if message is not None:
             # print("SLOT_TYPES", message.SLOT_TYPES)
             # print("angle_increment:", message.angle_increment)
             # print("angle_max:", message.angle_max)
@@ -52,13 +52,13 @@ def get_and_translate():
             # print("time_increment:", message.time_increment)
             # print("-----")
 
-            # differentiate between LIDAR/SONAR data
-            if hasattr(distance, '__iter__'):
-                detections = proximity.lidar_to_coords(distance)
-            else:
-                detections = proximity.sonar_to_coords(distance)
+            print(">>>>>>>>>>>>> MESSAGE: ", message)
 
-            # print(">>>>>>>>>>>>> DISTANCE: ", distance)
+            # differentiate between LIDAR/SONAR data
+            if hasattr(message, '__iter__'):
+                detections = proximity.lidar_to_coords(message)
+            else:
+                detections = proximity.sonar_to_coords(message)
 
             neurons = proximity.coords_to_neuron_ids(
                     detections, cortical_area='proximity_ipu'
