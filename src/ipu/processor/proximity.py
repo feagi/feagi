@@ -52,8 +52,10 @@ def sonar_to_coords(sonar_data, threshold=10):
     :return: list containing single tuple detection location (x, y, z)
     """
     # HC-SR04 datasheet specs (in cm)
-    SONAR_MIN = 2
-    SONAR_MAX = 200
+    # TODO: parameterize min max vals for various sensors/scenarios
+    # updated these min/max values to reflect those in gazebo simulation
+    SONAR_MIN = 0
+    SONAR_MAX = 4
 
     X_MAX = runtime_data.genome['blueprint'] \
                                ['proximity_ipu'] \

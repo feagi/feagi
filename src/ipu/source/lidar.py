@@ -1,8 +1,6 @@
 """
 This module reads LIDAR data from a message queue and makes them available to the proximity processor.
 """
-import sys
-
 import zmq
 
 from ipu.processor import proximity
@@ -10,7 +8,6 @@ from inf import runtime_data
 
 
 if runtime_data.hardware == 'raspberry_pi':
-    # sys.path.insert(1, '../third_party/freenove/smart_car/')
     import controller
 
 
@@ -52,14 +49,14 @@ def get_and_translate():
             # print("time_increment:", message.time_increment)
             # print("-----")
 
-            print(">>>>>>>>>>>>> MESSAGE: ", message)
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ULTRASONIC DATA: ", message)
 
             # differentiate between LIDAR/SONAR data
             if hasattr(message, '__iter__'):
                 detections = proximity.lidar_to_coords(message)
             else:
                 detections = proximity.sonar_to_coords(message)
-
+            
             neurons = proximity.coords_to_neuron_ids(
                     detections, cortical_area='proximity_ipu'
             )
