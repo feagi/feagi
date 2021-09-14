@@ -1,15 +1,10 @@
 
 """
-This module contains all the needed functions to control the Freenove 4WD Car
+This module contains a virtual set of hardware controllers used for simulation and testing
 
-FEAGI IPU/OPU directly interact with this module to operate the 4WD CAR
+todo: Need to have all of the controller.py modules follow the same convention and be consistent especially input data
 """
-
-import RPi.GPIO as GPIO
-from PCA9685 import PCA9685
-from Led import *
-from ADC import *
-
+from time import time
 
 class LED:
     def __init__(self):
@@ -134,10 +129,7 @@ class Servo:
     class to work with functions.
     """
     def __init__(self):
-        self.PwmServo = PCA9685(0x40, debug=True)
-        self.PwmServo.setPWMFreq(50)
-        self.PwmServo.setServoPulse(8,1500)
-        self.PwmServo.setServoPulse(9,1500)
+        print("Neuraville virtual servo has been initialized...")
 
     def setServoPwm(self,channel,angle,error=10):
         angle = int(angle)
@@ -179,20 +171,10 @@ class Servo:
 
 class Motor:
     def __init__(self):
-        self.pwm = PCA9685(0x40, debug=True)
-        self.pwm.setPWMFreq(50)
-        self.motor_channels = [[0, 1], [3, 2], [4, 5], [6, 7]]
+        print("Neuraville virtual motor has been initialized...")
 
     def move(self, motor_index, speed):
-        if speed > 0:
-            self.pwm.setMotorPwm(self.motor_channels[motor_index][0], 0)
-            self.pwm.setMotorPwm(self.motor_channels[motor_index][1], speed)
-        elif speed < 0:
-            self.pwm.setMotorPwm(self.motor_channels[motor_index][1], 0)
-            self.pwm.setMotorPwm(self.motor_channels[motor_index][0], abs(speed))
-        else:
-            self.pwm.setMotorPwm(self.motor_channels[motor_index][0], 4095)
-            self.pwm.setMotorPwm(self.motor_channels[motor_index][1], 4095)
+        print("<< < ...Speed of motor %s is set to %s... > >>" % (motor_index, speed))
 
 
 class Photoresistor:

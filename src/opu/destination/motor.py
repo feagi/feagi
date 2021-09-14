@@ -1,47 +1,26 @@
 import sys
 import time
 import traceback
+# from inf.initialize import init_hw_controller
 from inf import runtime_data
-
-# if runtime_data.hardware == 'raspberry_pi':
-sys.path.insert(1, '../third_party/freenove/smart_car/')
-import controller
-
-# hw_brand = runtime_data.genome['species']['brand']
-# hw_model = runtime_data.genome['species']['model']
-
-# hw_brand = 'freenove'
-# hw_model = 'smart_car'
-
-# motor = controller.Motor()
+from importlib.machinery import SourceFileLoader
 
 
-def motor_operator(motor_brand, motor_model, motor_id, speed, power):
-    # print("Operating Motor %s as a %s %s motor with %s speed" % (motor_id, motor_brand, motor_model, speed))
+def motor_operator(motor_id, speed, power):
+    controller = SourceFileLoader("controller.py", runtime_data.hw_controller_path).load_module()
+
+    import time
+    # print("Operating a motor on %s %s" % (hw_model, hw_brand))
     try:
         # todo: Generalize the following section. using specifics for test only
         motor = controller.Motor()
 
-        if motor_id == 0:
-            motor.left_Upper_Wheel(duty=speed)
-            time.sleep(1)
-            motor.stop()
-            print(f">>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
-        elif motor_id == 1:
-            motor.left_Lower_Wheel(duty=speed)
-            time.sleep(1)
-            motor.stop()
-            print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
-        elif motor_id == 2:
-            motor.right_Upper_Wheel(duty=speed)
-            time.sleep(1)
-            motor.stop()
-            print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
-        elif motor_id == 3:
-            motor.right_Lower_Wheel(duty=speed)
-            time.sleep(1)
-            motor.stop()
-            print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
+        # Starts the third motor with speed 2000
+        motor.move(motor_index=motor_id, speed=speed)
+        time.sleep(3)
+        # Stops the third motor
+        motor.move(motor_index=motor_id, speed=0)
+        print(f">>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
 
     except Exception as e:
         # print("ERROR: Requested controller not available for %s %s" % (hw_model, hw_brand))

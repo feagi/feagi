@@ -40,35 +40,8 @@ def convert_neuronal_activity_to_directions(cortical_area, neuron_id):
     socket.send_string(movement_direction)
 
 
-# todo: generalize and move to the block module
-def dominant_block_selector(block_data):
-    """
-    Receives a dictionary of blocks with various levels of activity and selects the dominant one
 
-    Input Sample: block_data is fed in the form of:
-
-    {
-        1: [percentage of activity, number of active neurons, total number of neurons],
-        0: [94, 49, 52],
-        6: [98, 48, 49],
-        2: [100, 28, 28]
-    }
-
-    """
-    # todo: need to find a reasonable algorithm to detect the dominant block.
-
-    # Selects the block with highest level of activity percentage. Due to the randomness nature of the dict data, if
-    # multiple blocks has the max percentage of activity one is randomly selected.
-    dominant_block = False
-    pointer = 0
-    for block in block_data:
-        if block_data[block][0] > pointer:
-            pointer = block_data[block][0]
-            dominant_block = block
-    return dominant_block
-
-
-def convert_neuronal_activity_to_motor_actions(motor_stats):
+def activate_motor(cortical_area, motor_id, speed_reference):
     """
     This function creates a mapping between neurons from a motor cortex region to values suitable for motor operation -
     such as direction, speed, duration, and power.
@@ -89,30 +62,19 @@ def convert_neuronal_activity_to_motor_actions(motor_stats):
     reflect negative speeds. The further the neuron is from the center point of y access the faster the speed
     """
 
-    # The dominant block is the reference to the block that represents the motor speed
+    # Speed is defined as a value between -100 and 100 with 100 being the fastest in one direction and -100 the other
+    # zero_speed_block_offset = floor(cortical_y_block/2)
+    # speed_offset = neuron_y_block - zero_speed_block_offset
+    # speed = int(speed_offset / (zero_speed_block_offset+00000.1))
 
-    current_motor_speeds = dict()
-    previous_motor_speeds = dict()
+    # todo: Move map value function out of proximity and to a more generic location
+    mapped_value = map_value(speed_reference, 1, 20, 0, 4095)
+    print("$$>>", motor_id, mapped_value, motor_id)
+    motor_speed = round(mapped_value)
+    # scaled_motor_spd = int(-motor_speed * 0.75)
 
-    for motor_id in motor_stats['current']:
-        dominant_speed = dominant_block_selector(motor_stats['current'][motor_id])
-        mapped_value = map_value(dominant_speed, 0, 19, 0, 4095)
-        motor_speed = int(mapped_value)
-        current_motor_speeds[motor_id] = motor_speed
+    motor.motor_operator(motor_id=motor_id, speed=-motor_speed, power="")
 
-    for motor_id in motor_stats['previous']:
-        dominant_speed = dominant_block_selector(motor_stats['previous'][motor_id])
-        mapped_value = map_value(dominant_speed, 0, 19, 0, 4095)
-        motor_speed = int(mapped_value)
-        previous_motor_speeds[motor_id] = motor_speed
-
-    print("previous_motor_speeds:", previous_motor_speeds)
-    print("current_motor_speeds:", current_motor_speeds)
-
-    for motor_id in current_motor_speeds:
-        current_motor_speed = current_motor_speeds[motor_id]
-        previous_motor_speed = previous_motor_speeds[motor_id]
-        # if current_motor_speed != previous_motor_speed:
-            # todo: remove hardcoded parameters
-        motor.motor_operator(motor_brand="Freenove", motor_model="",
-                                motor_id=motor_id, speed=-current_motor_speed, power="")
+    # todo: placeholder for handling motor power
+    # Power is defined as a value between 0 and 100 driven from Z direction
+    # power = int(neuron_z_block / cortical_z_block)

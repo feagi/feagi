@@ -288,6 +288,69 @@ def burst_manager():
         if runtime_data.influxdb and runtime_data.parameters["Database"]["influx_stat_logger"]:
             runtime_data.influxdb.insert_burst_checkpoints(connectome_path, runtime_data.burst_count)
 
+    def fake_cortical_stimulation(input_instruction, burst_count):
+        """
+        It fakes cortical stimulation for the purpose of testing
+
+        The following data format is used for input_instruction as the function input:
+
+        input_instructions receives a dictionary as input with keys as the name of the ipu cortical name and the value
+        being a list of block locations that needs to be activated in the block-ref format e.g. xBlock-yBlock-zBlock.
+
+        Note: all of the blocks outlined in the data structure will be activated at the same time during the same
+        burst.
+
+        input_instruction_example = {
+            ir_ipu: ["0-0-0", "1-0-0"],
+            proximity_ipu: ["0-0-0", "0-0-3", "0-0-10", "0-0-20"]
+            led_opu: ["5-0-0"]
+        }
+
+        # todo: Currently we can only inject data from the first index on each burst. change it so it goes thru all
+        """
+        neuron_list = []
+
+        for cortical_area_ in input_instruction[burst_count]:
+            if cortical_area_ in runtime_data.block_dic:
+                for block_ref in input_instruction[burst_count][cortical_area_]:
+                    if block_ref in runtime_data.block_dic[cortical_area_]:
+                        for neuron in runtime_data.block_dic[cortical_area_][block_ref]:
+                            neuron_list.append(neuron)
+                    else:
+                        print("Warning: Block ref %s was not found for %s" % (block_ref, cortical_area_))
+                print("neuron list:", cortical_area_, neuron_list)
+                runtime_data.fcl_queue.put({cortical_area_: set(neuron_list)})
+                neuron_list = []
+            else:
+                print("Warning: Cortical area %s not found within the block_dic" % cortical_area_)
+
+    def opu_handler():
+        """
+        This function is inteded to handle all the OPU processing that needs to be addressed in burst level as opposed
+        to individual neuron fire
+        """
+        # todo: Introduce a generalized approach to cover all OPUs
+
+        # LED handler
+        if runtime_data.fire_candidate_list['led_opu'] and runtime_data.hardware == 'raspberry_pi':
+            active_led_neurons = active_neurons_in_blocks(cortical_area='led_opu')
+            led_data = led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)
+            led.activate_leds(led_data)
+
+        # todo: need a better differentiation between movement and motor modules
+        # Movement handler
+        if runtime_data.fire_candidate_list['motor_opu']:
+            # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
+            # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
+            # movement.activate_motor(data)
+            activity_report = opu_activity_report(cortical_area='motor_opu')
+            print("&& Activity Report:", activity_report)
+            for device in activity_report:
+                block_with_max_activity = activity_report[device].index(max(activity_report[device]))
+                movement.activate_motor(cortical_area='motor_opu', motor_id=device,
+                                        speed_reference=block_with_max_activity)
+                print("$$ $$ $$:", device, block_with_max_activity)
+
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
         sleep(0.5)
@@ -316,50 +379,16 @@ def burst_manager():
 
         # logging neuron activities to the influxdb
         log_neuron_activity_influx()
+        
+        # Fake Stimuli
+        if runtime_data.parameters['Switches']['fake_stimulation_flag']:
+            if runtime_data.burst_count in runtime_data.stimulation_data:
+                fake_cortical_stimulation(input_instruction=runtime_data.stimulation_data,
+                                          burst_count=runtime_data.burst_count)
 
-        # # todo  ****** * ** **  FOR DEBUGGING *****
-        # inject mock data to fire neurons in LED cortical area
-        # neuron_list = runtime_data.block_dic['led']['6-0-2'] + runtime_data.block_dic['led']['6-0-0']
-        # runtime_data.fcl_queue.put({'led': set(neuron_list)})
-        # neuron_list = runtime_data.block_dic['infrared_sensor']['2-0-0'] + runtime_data.block_dic['infrared_sensor']['1-0-0']
-        # runtime_data.fcl_queue.put({'infrared_sensor': set(neuron_list)})
-
-        # todo: make this a function
-        # LED neuron activation
-        if runtime_data.fire_candidate_list['led_opu']:
-            active_led_neurons = active_neurons_in_blocks(cortical_area='led_opu')
-            led_data = led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)
-            led.activate_leds(led_data)
-
-        # todo: make this a function
-        if runtime_data.fire_candidate_list['motor_opu']:
-
-            motor_opu_active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
-            print(">>>>> > > > >>>>>>>>>> > > > >>>>>>>>>>> > > > MOTOR OPU ACTIVE: ", motor_opu_active_neurons)
-            motor_opu_active_neurons_previous = active_neurons_in_blocks(cortical_area='motor_opu', current_fcl=False)
-            motor_stats = dict()
-            motor_stats['current'] = dict()
-            motor_stats['previous'] = dict()
-
-            for key in motor_opu_active_neurons_previous:
-                motor_id = block_ref_2_id(key)[0]
-                if motor_id not in motor_stats['previous']:
-                    motor_stats['previous'][motor_id] = dict()
-                motor_stats['previous'][motor_id][block_ref_2_id(key)[2]] = \
-                    list(percent_active_neurons_in_block(block_ref=key, cortical_area='motor_opu', current_fcl=False))
-
-            for key in motor_opu_active_neurons:
-                print(">>>>>>>>>>>>>>>>>>>>>>>>>> KEY: ", key)
-                motor_id = block_ref_2_id(key)[0]
-                if motor_id not in motor_stats['current']:
-                    motor_stats['current'][motor_id] = dict()
-                motor_stats['current'][motor_id][block_ref_2_id(key)[2]] = \
-                    list(percent_active_neurons_in_block(block_ref=key, cortical_area='motor_opu', current_fcl=True))
-
-            print(">>>>>>>>>>>>>>>>>>>>>>>>>>> M O T O R   S T A T S: ", motor_stats)
-
-            movement.convert_neuronal_activity_to_motor_actions(motor_stats=motor_stats)
-
+        # Process neuron stimulation that ties to OPU
+        opu_handler()
+        
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
 
