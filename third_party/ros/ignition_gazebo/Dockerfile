@@ -16,7 +16,7 @@ RUN apt-get update && \
         lsb-release \
         wget \
         git \
-        python3-pip
+        python3-zmq
 
 # install Ignition Citadel and dependencies
 RUN echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_release -cs` main" > /etc/apt/sources.list.d/gazebo-stable.list && \
