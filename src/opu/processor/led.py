@@ -1,10 +1,7 @@
 from evo.blocks import block_ref_2_id, percent_active_neurons_in_block
 from inf import runtime_data
 from ipu.processor.proximity import map_value
-# from inf.initialize import init_hw_controller
 from importlib.machinery import SourceFileLoader
-
-# init_hw_controller()
 
 
 def convert_neuron_activity_to_rgb_intensities(blocks_with_active_neurons, cortical_area='led_opu'):

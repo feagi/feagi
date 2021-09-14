@@ -1,17 +1,10 @@
-<<<<<<< HEAD
-import sys
-sys.path.insert(1, '../third_party/freenove/smart_car/')
-import controller
-=======
->>>>>>> feature-environment-handler
+
 from inf import runtime_data
-if runtime_data.hardware == 'raspberry_pi':
-    import sys
-    sys.path.insert(1, '../third_party/freenove/smart_car/')
-    import controller
+from importlib.machinery import SourceFileLoader
 
 
 def convert_ir_to_fire_list():
+    controller = SourceFileLoader("controller.py", runtime_data.hw_controller_path).load_module()
     ir_controller = controller.IR()
     active_sensors = ir_controller.read()
     if active_sensors is not None:
