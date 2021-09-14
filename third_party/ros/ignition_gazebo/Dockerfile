@@ -15,7 +15,8 @@ RUN apt-get update && \
         python3-colcon-common-extensions \
         lsb-release \
         wget \
-        git
+        git \
+        python3-pip
 
 # install Ignition Citadel and dependencies
 RUN echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_release -cs` main" > /etc/apt/sources.list.d/gazebo-stable.list && \

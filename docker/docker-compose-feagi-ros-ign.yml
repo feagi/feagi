@@ -7,6 +7,8 @@ networks:
 services:
   ros_gazebo:
     build: ../third_party/ros/ignition_gazebo
+    ports:
+      - "6080:80"
     stdin_open: true
     privileged: true
     tty: true
