@@ -14,12 +14,7 @@ def motor_operator(motor_id, speed, power):
     try:
         # todo: Generalize the following section. using specifics for test only
         motor = controller.Motor()
-
-        # Starts the third motor with speed 2000
         motor.move(motor_index=motor_id, speed=speed)
-        time.sleep(3)
-        # Stops the third motor
-        motor.move(motor_index=motor_id, speed=0)
         print(f">>>>>>>>>>>>>>>>>>>>>>>> {motor_id} ACTIVATED AT SPEED {speed}")
 
     except Exception as e:

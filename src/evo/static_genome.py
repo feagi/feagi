@@ -1230,8 +1230,8 @@ genome = {
   },
   "species": {
       "class": "toy",
-      "brand": "neuraville",
-      "model": "virtual"
+      "brand": "gazebo",
+      "model": "smart_car"
   },
   "blueprint": {
       "vision_thalamus_1": {
