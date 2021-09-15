@@ -6,7 +6,7 @@ networks:
 
 services:
   ros_gazebo:
-    build: ../third_party/ros/ignition_gazebo
+    build: ../third_party/gazebo/smart_car/
     ports:
       - "6080:80"
     stdin_open: true
@@ -20,5 +20,9 @@ services:
     privileged: true
     environment:
       - CONTAINERIZED=true
+    # volumes:
+    #   - /Users/neuraville/Desktop/feagi-core/src/feagi_configuration.ini:/opt/source-code/feagi-core/src/feagi_configuration.ini
+    #   - /Users/neuraville/Desktop/feagi-core/src/inf/fake_stimulation.py:/opt/source-code/feagi-core/src/inf/fake_stimulation.py
+    #   - /Users/neuraville/Desktop/feagi-core/src/opu/destination/motor.py:/opt/source-code/feagi-core/src/opu/destination/motor.py
     networks:
       - net

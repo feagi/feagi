@@ -27,5 +27,9 @@ stimulation_data = {
     20: {"proximity_ipu": ["2-1-13"]},
     21: {"proximity_ipu": ["2-1-13"]},
     22: {"proximity_ipu": ["2-1-13"]},
-    23: {"proximity_ipu": ["2-1-13"]}
+    23: {"proximity_ipu": ["2-1-13"]},
+    400: {"motor_opu": ["0-0-10"]},
+    401: {"motor_opu": ["1-0-16"]},
+    402: {"motor_opu": ["2-0-8"]},
+    403: {"motor_opu": ["3-0-0"]},
     }
