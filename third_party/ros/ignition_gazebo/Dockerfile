@@ -1,13 +1,10 @@
-FROM tiryoh/ros2-desktop-vnc:foxy
-# FROM ros:foxy
+# FROM tiryoh/ros2-desktop-vnc:foxy
+FROM ros:foxy
 
 ARG REPO="https://github.com/feagi/feagi-simulate.git"
 ARG BRANCH="testing-ign-foxy"
 
-# define container environment variables
-ENV CONTAINERIZED=true
-# ENV DEBIAN_FRONTEND=noninteractive
-# ENV QT_DEBUG_PLUGINS=1
+ENV GAZEBO_CONTAINER=true
 
 # install initial tools/dependencies
 RUN apt-get update && \
@@ -16,7 +13,8 @@ RUN apt-get update && \
         lsb-release \
         wget \
         git \
-        python3-zmq
+        python3-zmq \
+        xvfb
 
 # install Ignition Citadel and dependencies
 RUN echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_release -cs` main" > /etc/apt/sources.list.d/gazebo-stable.list && \
@@ -34,7 +32,9 @@ WORKDIR /opt/source-code/feagi-simulate
 RUN git checkout $BRANCH
 
 WORKDIR /opt/source-code/feagi-simulate/Gazebo-ign/freenove_4wd_car_description
-COPY ./start_simulation.sh ./
-RUN chmod u+x start_simulation.sh
+COPY ./start_simulation.sh ./xvfb_setup.sh ./
+RUN chmod u+x start_simulation.sh && \
+    chmod u+x xvfb_setup.sh
 
-# ENTRYPOINT ["./start_simulation.sh"]
+# setup/start virtual frame buffer
+ENTRYPOINT ["./xvfb_setup.sh"]
