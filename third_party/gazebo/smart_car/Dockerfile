@@ -1,5 +1,5 @@
-# FROM tiryoh/ros2-desktop-vnc:foxy
-FROM ros:foxy
+FROM tiryoh/ros2-desktop-vnc:foxy
+# FROM ros:foxy
 
 ARG REPO="https://github.com/feagi/feagi-simulate.git"
 ARG BRANCH="testing-ign-foxy"
@@ -21,7 +21,7 @@ RUN echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_releas
     wget http://packages.osrfoundation.org/gazebo.key -O - | sudo apt-key add - && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        ignition-citadel \
+        ignition-citadel \ 
         ros-foxy-ros-ign
 
 # clone simulation repo, copy files and set up environment 
@@ -32,9 +32,9 @@ WORKDIR /opt/source-code/feagi-simulate
 RUN git checkout $BRANCH
 
 WORKDIR /opt/source-code/feagi-simulate/Gazebo-ign/freenove_4wd_car_description
-COPY ./start_simulation.sh ./xvfb_setup.sh ./
-RUN chmod u+x start_simulation.sh && \
-    chmod u+x xvfb_setup.sh
+# COPY ./start_simulation.sh ./xvfb_setup.sh ./
+# RUN chmod u+x start_simulation.sh && \
+#     chmod u+x xvfb_setup.sh
 
 # setup/start virtual frame buffer
-ENTRYPOINT ["./xvfb_setup.sh"]
+# ENTRYPOINT ["./xvfb_setup.sh"]

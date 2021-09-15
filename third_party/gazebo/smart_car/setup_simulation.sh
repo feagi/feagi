@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# create virtual frame buffer to handle 
+
+
 source /opt/ros/foxy/setup.bash
 colcon build
 source install/setup.bash
