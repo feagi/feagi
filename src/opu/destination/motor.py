@@ -5,7 +5,7 @@ import traceback
 import zmq
 
 # from inf.initialize import init_hw_controller
-from inf import runtime_data
+# from inf import runtime_data
 from importlib.machinery import SourceFileLoader
 
 
@@ -30,11 +30,14 @@ def motor_operator(motor_id, speed, power):
 def publish_motor_data(motor_id, motor_speed):
     context = zmq.Context()
     socket = context.socket(zmq.PUB)
-    socket.bind("tcp://0.0.0.0:22000")
+    socket.bind("tcp://0.0.0.0:2500")
 
     motor_data = {motor_id: motor_speed}
-    print(">>>>>>>>>>>>>>>>>>>> MOTOR DATA SENDING: ", motor_data)
     try:
         socket.send_pyobj(motor_data)
     except Exception as e:
-        print(e)
+        traceback.print_exc()
+
+
+if __name__ == '__main__':
+    publish_motor_data(3, 500.0)

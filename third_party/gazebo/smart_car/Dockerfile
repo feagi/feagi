@@ -14,7 +14,8 @@ RUN apt-get update && \
         wget \
         git \
         python3-zmq \
-        xvfb
+        xvfb \
+        iputils-ping
 
 # install Ignition Citadel and dependencies
 RUN echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_release -cs` main" > /etc/apt/sources.list.d/gazebo-stable.list && \
@@ -31,8 +32,12 @@ RUN mkdir -p /opt/source-code/feagi-simulate && \
 WORKDIR /opt/source-code/feagi-simulate
 RUN git checkout $BRANCH
 
-WORKDIR /opt/source-code/feagi-simulate/Gazebo-ign/freenove_4wd_car_description
-# COPY ./start_simulation.sh ./xvfb_setup.sh ./
+WORKDIR /home/ubuntu/ 
+COPY ./setup_simulation.sh ./
+RUN chmod a+x setup_simulation.sh
+
+# WORKDIR /opt/source-code/feagi-simulate/Gazebo-ign/freenove_4wd_car_description
+# COPY ./setup_simulation.sh ./
 # RUN chmod u+x start_simulation.sh && \
 #     chmod u+x xvfb_setup.sh
 
