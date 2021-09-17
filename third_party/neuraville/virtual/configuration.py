@@ -6,9 +6,10 @@ Properties.mode [stand_alone, ros, virtual]
 
 
 controller_settings = {
-    'FEAGI_sockets': {
+    'sockets': {
         'general': {
-            'burst_beacon': 'tcp://127.0.0.1:30000'
+            'burst_beacon': 'tcp://127.0.0.1:30000',
+            'opu_channel': 'tcp://127.0.0.1:23000'
         },
         'pub': {
             'ultrasonic': 'tcp://0.0.0.0:23000',

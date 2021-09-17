@@ -56,7 +56,7 @@ class Sub:
 
 def find_feagi():
     print('Awaiting connection with FEAGI...')
-    subscriber = Sub(address=controller_settings['FEAGI_sockets']['general']['burst_beacon'], flags=zmq.SUB)
+    subscriber = Sub(address=controller_settings['sockets']['general']['burst_beacon'], flags=zmq.SUB)
     message = subscriber.receive()
     print("Connection to FEAGI has been established")
 
@@ -75,35 +75,47 @@ def register_with_feagi():
 
 
 if __name__ == '__main__':
-
     find_feagi()
     register_with_feagi()
 
     # todo: to obtain this info directly from FEAGI as part of registration
-    opu_channel_address = 'tcp://127.0.0.1:23000'
+    opu_channel_address = controller_settings['sockets']['general']['opu_channel']
     feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
     print("Connecting to FEAGI resources...")
-    #
-    # # Establish the needed zmq connections for FEAGI communications
-    # for entry in controller_settings['FEAGI_sockets']['pub']:
-    #     publisher = Pub(address=controller_settings['FEAGI_sockets']['pub'][entry])
-    #     print("   Building publisher connections for %s" % entry)
-    #
-    # for entry in controller_settings['FEAGI_sockets']['sub']:
-    #     subscriber = Sub(address=controller_settings['FEAGI_sockets']['sub'][entry])
-    #     print("   Building subscriber connections for %s" % entry)
+
+    # todo: identify a method to instantiate all classes without doing it one by one
+    # Instantiate Controller Classes
+    motor = controller.Motor()
+    # ir = controller.IR()
 
     # Listen and route
     print("Starting the routing engine for ", controller_settings['properties']['mode'])
     print("Communication frequency is set once every %f seconds" % controller_settings['timers']['global_timer'])
+
     while True:
         if controller_settings['properties']['mode'] == 'rpi':
             print("<< Incomplete RPI Code >>")
 
         elif controller_settings['properties']['mode'] == 'virtual':
+            # Process OPU data received from FEAGI and pass it along to the controller.py
             opu_data = feagi_opu_channel.receive()
             print(opu_data)
+            if opu_data is not None:
+                if 'motor' in opu_data:
+                    for motor_id in opu_data['motor']:
+                        motor.move(motor_id, opu_data['motor'][motor_id])
+
+            # Process IPU data received from controller.py and pass it along to FEAGI
+            ipu_data = dict()
+            ipu_data['ultrasonic'] = {}
+            ipu_data['ir'] = {}
+
+            # todo: need to figure how to correlate the flow on incoming data with the rate data is passed to FEAGI
+
+
+
+
 
         elif controller_settings['properties']['mode'] == 'ros':
             # Cycle through all subscribed ROS topics and publish them to the corresponding FEAGI channel

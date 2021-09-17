@@ -174,7 +174,7 @@ class Motor:
         print("Neuraville virtual motor has been initialized...")
 
     def move(self, motor_index, speed):
-        print("<< < ...Speed of motor %s is set to %s... > >>" % (motor_index, speed))
+        print("<< < .$.Speed of motor %s is set to %s.$. > >>" % (motor_index, speed))
 
 
 class Photoresistor:
