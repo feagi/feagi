@@ -17,29 +17,20 @@ from inf.runtime_data import parameters
 
 class Pub:
     def __init__(self, address):
+        context = zmq.Context()
+        self.socket = context.socket(zmq.PUB)
+        self.socket.bind(address)
 
-
-    def send(self, id, message):
-
-
+    def send(self, message):
+        self.socket.send_pyobj(message)
+        print("<< Incomplete Code >>")
 
 
 class Sub:
     def __init__(self, address):
-        # TODO: resolve interface to differentiate between running in container vs locally
-        # try:
-        #     if os.environ['CONTAINERIZED']:
-        #         socket_address = f"tcp://{interface}:{port}"
-        # except KeyError:
-        #     socket_address = runtime_data.parameters["Sockets"]["lidar_socket"]
-
-        socket_address = parameters["Sockets"]["lidar_socket"]
-
-        print("Attempting to subscribe to socket ", socket_address)
-
         context = zmq.Context()
         self.socket = context.socket(zmq.SUB)
-        self.socket.connect(socket_address)
+        self.socket.connect(address)
         self.socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
 
     @staticmethod
@@ -48,13 +39,11 @@ class Sub:
         This function endures the received payload meets a certain expectations
         """
         try:
-            # todo
+            print("<< Incomplete TRY Code >>")
             return True
         except:
-            # todo
+            print("<< Incomplete EXCEPTION Code >>")
             return False
-
-
 
     def receive(self):
         payload = self.socket.recv_pyobj()

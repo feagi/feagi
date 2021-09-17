@@ -28,6 +28,7 @@ from evo.blocks import active_neurons_in_blocks, percent_active_neurons_in_block
 from opu.processor import led
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
+from inf.messenger import Pub
 from edu.trainer import Trainer
 from edu.evaluator import Tester
 
@@ -434,10 +435,18 @@ def burst_manager():
             consciousness_manager()
         # burst()
 
+        # Broadcasts a TCP message on each burst
+        if runtime_data.parameters['Switches']['burst_beacon']:
+            burst_beacon.send(message=runtime_data.burst_count)
+
     print('runtime_data.genome_id = ', runtime_data.genome_id)
 
     # Initializing the burst_manager engine parameters
     init_burst_engine()
+
+    # Initialize a broadcaster
+    burst_beacon = Pub(address=runtime_data.parameters['Sockets']['burst_engine_socket'])
+
 
     # todo: need to figure how to incorporate FCL injection
     # feeder = Feeder()

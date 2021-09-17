@@ -8,10 +8,14 @@ Properties.mode [stand_alone, ros, virtual]
 controller_settings = {
     'FEAGI_sockets': {
         'pub': {
-            'ultrasonic': 20000
+            'ultrasonic': 'tcp://0.0.0.0:21000',
+            'IR1': 'tcp://0.0.0.0:21001',
+            'IR2': 'tcp://0.0.0.0:21002',
+            'IR3': 'tcp://0.0.0.0:21003',
             },
         'sub': {
-            'motor': "feagi:20003"
+            'M1': 'tcp://0.0.0.0:21003',
+            'M2': "tcp://feagi:20003"
             }
         },
     'ros_topics': {
