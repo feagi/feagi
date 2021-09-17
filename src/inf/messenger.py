@@ -1,13 +1,22 @@
 """
-This module provides the messaging and communication backbone for FEAGI. All of the OPU and IPU interactions with FEAGI
-needs to leverage this module to maintain a consistent method of communication across the board.
+This module provides a common method for IPU and OPU to interact with FEAGI.
+
+Payload template:
+
+All communications to and from FEAGI to follow the standard below:
+
+{'device_id', 'message'}
+
+
+
 """
 
 import zmq
 from inf.runtime_data import parameters
 
+
 class Pub:
-    def __init__(self, catagory, topic):
+    def __init__(self, address):
 
 
     def send(self, id, message):
@@ -16,7 +25,7 @@ class Pub:
 
 
 class Sub:
-    def __init__(self, catagory, topic):
+    def __init__(self, address):
         # TODO: resolve interface to differentiate between running in container vs locally
         # try:
         #     if os.environ['CONTAINERIZED']:
@@ -29,15 +38,26 @@ class Sub:
         print("Attempting to subscribe to socket ", socket_address)
 
         context = zmq.Context()
-        socket = context.socket(zmq.SUB)
-        socket.connect(socket_address)
-        socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
+        self.socket = context.socket(zmq.SUB)
+        self.socket.connect(socket_address)
+        self.socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
 
-    def receive(self, id):
-        message = socket.recv_pyobj()
+    @staticmethod
+    def validate(payload):
+        """
+        This function endures the received payload meets a certain expectations
+        """
+        try:
+            # todo
+            return True
+        except:
+            # todo
+            return False
 
 
 
+    def receive(self):
+        payload = self.socket.recv_pyobj()
 
-
-        return message
+        if self.validate(payload):
+            return payload

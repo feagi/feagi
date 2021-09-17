@@ -9,10 +9,13 @@ import time
 from ipu.processor import proximity
 from inf import runtime_data
 from inf import messenger
-
 from importlib.machinery import SourceFileLoader
 
-feagi_subscriber = messenger.Sub('lidar', '')
+try:
+    feagi_subscriber = messenger.Sub(address=runtime_data.parameters["Sockets"]["lidar_socket"])
+except Exception as e:
+    print("ERROR:", e)
+
 
 
 def get_and_translate():
