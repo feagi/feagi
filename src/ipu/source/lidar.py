@@ -1,45 +1,27 @@
 """
 This module reads LIDAR data from a message queue and makes them available to the proximity processor.
+
+# todo: have this module read settings from feagi_configuration.ini and automatically subscribe to Lidar channel(s)
+
 """
 import time
-import zmq
 
 from ipu.processor import proximity
 from inf import runtime_data
+from inf import messenger
 
 from importlib.machinery import SourceFileLoader
+
+feagi_subscriber = messenger.Sub('lidar', '')
 
 
 def get_and_translate():
     controller = SourceFileLoader("controller.py", runtime_data.hw_controller_path).load_module()
-
-    # TODO: resolve interface to differentiate between running in container vs locally
-    # try:
-    #     if os.environ['CONTAINERIZED']:
-    #         socket_address = f"tcp://{interface}:{port}"
-    # except KeyError:
-    #     socket_address = runtime_data.parameters["Sockets"]["lidar_socket"]
-
-    socket_address = runtime_data.parameters["Sockets"]["lidar_socket"]
-
-    print("Attempting to subscribe to socket ", socket_address)
-
-    context = zmq.Context()
-    socket = context.socket(zmq.SUB)
-    socket.connect(socket_address)
-    socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
-
     sonar = controller.Ultrasonic()
 
     while True:
-        if socket_address:
-            message = socket.recv_pyobj()
-            translate(message=message)
-
-        elif sonar:
-            message = sonar.getDistance()
-            translate(message=message)
-
+        message = feagi_subscriber.receive()
+        translate(message=message)
         # todo: need to have a formula to come up with the sleep time here
         time.sleep(1)
 
