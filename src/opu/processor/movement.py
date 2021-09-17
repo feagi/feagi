@@ -4,6 +4,8 @@ Functions in this module will help translate neuronal activities associated with
 to its corresponding message that can be passed to an output device so actual movement can be facilitated.
 """
 
+import os
+
 from statistics import mode
 import zmq
 import inf.runtime_data as runtime_data
@@ -66,14 +68,25 @@ def activate_motor(cortical_area, motor_id, speed_reference):
     # speed_offset = neuron_y_block - zero_speed_block_offset
     # speed = int(speed_offset / (zero_speed_block_offset+00000.1))
 
-    # todo: Move map value function out of proximity and to a more generic location
-    mapped_value = map_value(speed_reference, 1, 20, 0, 4095)
-    print("$$>>", motor_id, mapped_value, motor_id)
-    motor_speed = round(mapped_value)
-    # scaled_motor_spd = int(-motor_speed * 0.75)
+    try:
+        if os.environ['GAZEBO_CONTAINER']:
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>> IN A GAZEBO CONTAINER! ! ! ! !")
+            twist_msg = convert_motor_speed_to_twist_msg(speed_reference)
+            print(">>>>>>> > >> >>> >> > A TWIST MSG: ", twist_msg)
+            motor.motor_operator(motor_id=motor_id, speed=twist_msg, power="")
+    except KeyError:
+        # todo: Move map value function out of proximity and to a more generic location
+        mapped_value = map_value(speed_reference, 1, 20, 0, 4095)
+        motor_speed = round(mapped_value)
+        # scaled_motor_spd = int(-motor_speed * 0.75)
 
-    motor.motor_operator(motor_id=motor_id, speed=-motor_speed, power="")
+        motor.motor_operator(motor_id=motor_id, speed=-motor_speed, power="")
 
     # todo: placeholder for handling motor power
     # Power is defined as a value between 0 and 100 driven from Z direction
     # power = int(neuron_z_block / cortical_z_block)
+
+
+def convert_motor_speed_to_twist_msg(motor_speed):
+    twist_msg = round(map_value(motor_speed, 0, 4095, 0, 10))
+    return -twist_msg

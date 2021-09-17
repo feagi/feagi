@@ -346,7 +346,8 @@ def burst_manager():
             activity_report = opu_activity_report(cortical_area='motor_opu')
             print("&& Activity Report:", activity_report)
             for device in activity_report:
-                block_with_max_activity = activity_report[device].index(max(activity_report[device]))
+                # if there are "ties" w/r/t block activity, this will select the first index in the list w/ the tie value
+                block_with_max_activity = activity_report[device][0].index(max(activity_report[device][0]))
                 movement.activate_motor(cortical_area='motor_opu', motor_id=device,
                                         speed_reference=block_with_max_activity)
                 print("$$ $$ $$:", device, block_with_max_activity)

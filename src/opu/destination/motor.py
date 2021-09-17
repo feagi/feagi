@@ -8,6 +8,9 @@ import zmq
 # from inf import runtime_data
 from importlib.machinery import SourceFileLoader
 
+context = zmq.Context()
+socket = context.socket(zmq.PUB)
+socket.bind("tcp://0.0.0.0:2500")
 
 def motor_operator(motor_id, speed, power):
     # controller = SourceFileLoader("controller.py", runtime_data.hw_controller_path).load_module()
@@ -28,16 +31,8 @@ def motor_operator(motor_id, speed, power):
 
 
 def publish_motor_data(motor_id, motor_speed):
-    context = zmq.Context()
-    socket = context.socket(zmq.PUB)
-    socket.bind("tcp://0.0.0.0:2500")
-
     motor_data = {motor_id: motor_speed}
     try:
         socket.send_pyobj(motor_data)
     except Exception as e:
         traceback.print_exc()
-
-
-if __name__ == '__main__':
-    publish_motor_data(3, 500.0)
