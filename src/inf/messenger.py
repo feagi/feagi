@@ -14,7 +14,6 @@ All communications to and from FEAGI to follow the standard below:
 import zmq
 from inf.runtime_data import parameters
 
-
 class Pub:
     def __init__(self, address):
         context = zmq.Context()

@@ -447,7 +447,6 @@ def burst_manager():
     # Initialize a broadcaster
     burst_beacon = Pub(address=runtime_data.parameters['Sockets']['burst_engine_socket'])
 
-
     # todo: need to figure how to incorporate FCL injection
     # feeder = Feeder()
     # mongo = db_handler.MongoManagement()

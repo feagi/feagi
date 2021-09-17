@@ -1,3 +1,7 @@
+"""
+
+"""
+
 from time import sleep
 import zmq
 import controller
@@ -16,11 +20,12 @@ class Pub:
 
 
 class Sub:
-    def __init__(self, address):
+    def __init__(self, address, flags=None):
         context = zmq.Context()
         self.socket = context.socket(zmq.SUB)
         self.socket.connect(address)
         self.socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
+        self.flag = flags
 
     @staticmethod
     def validate(payload):
@@ -28,53 +33,66 @@ class Sub:
         This function endures the received payload meets a certain expectations
         """
         try:
-            print("<< Incomplete TRY Code >>")
+            # todo: define validation criterias
+            # print("<< Incomplete TRY Code >>")
             return True
         except:
             print("<< Incomplete EXCEPTION Code >>")
             return False
 
     def receive(self):
-        payload = self.socket.recv_pyobj()
+        try:
+            payload = self.socket.recv_pyobj(self.flag)
 
-        if self.validate(payload):
-            return payload
+            if self.validate(payload):
+                return payload
+
+        except zmq.ZMQError as e:
+            if e.errno == zmq.EAGAIN:
+                pass
+            else:
+                print(e)
 
 
-def pub_tester():
-    publisher = Pub('tcp://0.0.0.0:11000')
-    for i in range(10):
-        publisher.send(message={"A", "Hello!"})
-        sleep(1)
+def find_feagi():
+    print('Awaiting connection with FEAGI...')
+    subscriber = Sub(address=controller_settings['FEAGI_sockets']['general']['burst_beacon'], flags=zmq.SUB)
+    message = subscriber.receive()
+    print("Connection to FEAGI has been established")
+
+    # todo: What information is useful to receive from FEAGI in this message? IPU/OPU list?
+    print("Current FEAGI state is at burst number ", message)
 
 
-def sub_tester():
-    subscriber = Sub('tcp://127.0.0.1:30000')
-    for _ in range(10):
-        message = subscriber.receive()
-        print(message)
-        sleep(1)
+def register_with_feagi():
+    print("Registering router with FEAGI")
+    publisher_ = Pub('tcp://0.0.0.0:11000')
+
+    # todo: need to send a set of capabilities to FEAGI
+    publisher_.send(message={"A", "Hello!"})
+
+    print("Router registration has successfully completed!")
 
 
 if __name__ == '__main__':
 
-    print("Testing pub-sub")
-    # print("Turning on the Subscriber...")
-    sub_tester()
-    print("Turning on the Publisher...")
-    # pub_tester()
+    find_feagi()
+    register_with_feagi()
 
+    # todo: to obtain this info directly from FEAGI as part of registration
+    opu_channel_address = 'tcp://127.0.0.1:23000'
+    feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
     print("Connecting to FEAGI resources...")
-
-    # Establish the needed zmq connections for FEAGI communications
-    for entry in controller_settings['FEAGI_sockets']['pub']:
-        publisher = Pub(address=controller_settings['FEAGI_sockets']['pub'][entry])
-        print("   Building publisher connections for %s" % entry)
-
-    for entry in controller_settings['FEAGI_sockets']['sub']:
-        publisher = Sub(address=controller_settings['FEAGI_sockets']['sub'][entry])
-        print("   Building subscriber connections for %s" % entry)
+    #
+    # # Establish the needed zmq connections for FEAGI communications
+    # for entry in controller_settings['FEAGI_sockets']['pub']:
+    #     publisher = Pub(address=controller_settings['FEAGI_sockets']['pub'][entry])
+    #     print("   Building publisher connections for %s" % entry)
+    #
+    # for entry in controller_settings['FEAGI_sockets']['sub']:
+    #     subscriber = Sub(address=controller_settings['FEAGI_sockets']['sub'][entry])
+    #     print("   Building subscriber connections for %s" % entry)
 
     # Listen and route
     print("Starting the routing engine for ", controller_settings['properties']['mode'])
@@ -84,7 +102,8 @@ if __name__ == '__main__':
             print("<< Incomplete RPI Code >>")
 
         elif controller_settings['properties']['mode'] == 'virtual':
-            print("<< Incomplete Virtual Code >>")
+            opu_data = feagi_opu_channel.receive()
+            print(opu_data)
 
         elif controller_settings['properties']['mode'] == 'ros':
             # Cycle through all subscribed ROS topics and publish them to the corresponding FEAGI channel

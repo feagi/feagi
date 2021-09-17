@@ -7,15 +7,18 @@ Properties.mode [stand_alone, ros, virtual]
 
 controller_settings = {
     'FEAGI_sockets': {
+        'general': {
+            'burst_beacon': 'tcp://127.0.0.1:30000'
+        },
         'pub': {
-            'ultrasonic': 'tcp://0.0.0.0:21000',
-            'IR1': 'tcp://0.0.0.0:21001',
-            'IR2': 'tcp://0.0.0.0:21002',
-            'IR3': 'tcp://0.0.0.0:21003',
+            'ultrasonic': 'tcp://0.0.0.0:23000',
+            'IR1': 'tcp://0.0.0.0:23101',
+            'IR2': 'tcp://0.0.0.0:23102',
+            'IR3': 'tcp://0.0.0.0:23103',
             },
         'sub': {
-            'M1': 'tcp://0.0.0.0:21003',
-            'M2': "tcp://feagi:20003"
+            'M1': 'tcp://127.0.0.1:22001',
+            'M2': "tcp://127.0.0.1:22002"
             }
         },
     'ros_topics': {
