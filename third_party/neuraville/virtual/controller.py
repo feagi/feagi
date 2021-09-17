@@ -241,3 +241,4 @@ class Ultrasonic:
             distance_cm[i] = pulse_len/0.000058
         distance_cm=sorted(distance_cm)
         return int(distance_cm[1])
+

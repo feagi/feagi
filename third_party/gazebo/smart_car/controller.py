@@ -171,3 +171,16 @@ class Servo:
 
         print("HEAD_UP_DOWN")
         self.servo_node.publish(twist)
+
+
+
+def main(args=None):
+    while True:
+        listen on ZMq
+        translate message
+        call the right function
+
+
+
+if __name__ == '__main__':
+    main()
