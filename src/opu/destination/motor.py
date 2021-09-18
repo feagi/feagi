@@ -6,7 +6,7 @@ from inf import runtime_data
 from importlib.machinery import SourceFileLoader
 
 
-def motor_operator(motor_id, speed, power):
+def motor_operator(motor_id, speed, power=None):
     # controller = SourceFileLoader("controller.py", runtime_data.hw_controller_path).load_module()
 
     import time

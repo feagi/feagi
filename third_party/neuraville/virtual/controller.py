@@ -1,10 +1,13 @@
 
 """
-This module contains a virtual set of hardware controllers used for simulation and testing
+This module contains a virtual set of hardware controllers used for simulation and testing only
 
 todo: Need to have all of the controller.py modules follow the same convention and be consistent especially input data
 """
-from time import time
+from time import time, sleep
+from router import *
+from random import randrange
+
 
 class LED:
     def __init__(self):
@@ -52,21 +55,11 @@ class LED:
 
 class IR:
     def __init__(self):
-        self.IR01 = 14
-        self.IR02 = 15
-        self.IR03 = 23
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(self.IR01, GPIO.IN)
-        GPIO.setup(self.IR02, GPIO.IN)
-        GPIO.setup(self.IR03, GPIO.IN)
+        print("Infrared module has ben activated...")
 
     def read(self):
-        gpio_state = []
-        ir_sensors = [self.IR01, self.IR02, self.IR03]
-        for idx, sensor in enumerate(ir_sensors):
-            if GPIO.input(sensor):
-                gpio_state.append(idx)
-        return gpio_state
+        ir_reading = randrange(0, 10, 1)
+        return ir_reading
 
 
 class Buzzer(object):
@@ -194,14 +187,12 @@ class Photoresistor:
 class Battery:
     def battery_total(self):  ##It gives a full volt remain of battery
         """
-        It reads the battery total. It will return the battery value.
+        Returns a fake battery value
         -------
 
         """
-        adc = Adc()
-        Power = adc.recvADC(2) * 3
-        # print(Power)
-        return Power
+        power = 2.3
+        return power
 
 
 class Ultrasonic:
@@ -242,3 +233,56 @@ class Ultrasonic:
         distance_cm=sorted(distance_cm)
         return int(distance_cm[1])
 
+
+def main():
+    address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_port']
+    feagi_state = find_feagi(address=address)
+
+    print("** **", feagi_state)
+    sockets = feagi_state['sockets']
+
+    print("--->> >> >> ", sockets)
+
+    # todo: to obtain this info directly from FEAGI as part of registration
+    ipu_channel_address = 'tcp://0.0.0.0:' + sockets['ipu_port']
+    opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['opu_port']
+
+    feagi_ipu_channel = Pub(address=ipu_channel_address)
+    feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+
+    print("Connecting to FEAGI resources...")
+
+    # todo: identify a method to instantiate all classes without doing it one by one
+    # Instantiate Controller Classes
+    motor = Motor()
+    ir = IR()
+
+    # Listen and route
+    print("Starting the routing engine")
+    print("Communication frequency is set once every %f seconds" % router_settings['global_timer'])
+
+    while True:
+
+        # Process OPU data received from FEAGI and pass it along to the controller.py
+        opu_data = feagi_opu_channel.receive()
+        print("Received:", opu_data)
+        if opu_data is not None:
+            if 'motor' in opu_data:
+                for motor_id in opu_data['motor']:
+                    motor.move(motor_id, opu_data['motor'][motor_id])
+
+        # Process IPU data received from controller.py and pass it along to FEAGI
+        ipu_data = dict()
+        ipu_data['ultrasonic'] = {}
+        ipu_data['ir'] = ir.read()
+
+        feagi_ipu_channel.send(ipu_data)
+
+
+        # todo: need to figure how to correlate the flow on incoming data with the rate data is passed to FEAGI
+
+        sleep(router_settings['global_timer'])
+
+
+if __name__ == '__main__':
+    main()

@@ -14,6 +14,7 @@ All communications to and from FEAGI to follow the standard below:
 import zmq
 from inf.runtime_data import parameters
 
+
 class Pub:
     def __init__(self, address):
         context = zmq.Context()
@@ -22,7 +23,6 @@ class Pub:
 
     def send(self, message):
         self.socket.send_pyobj(message)
-        print("<< Incomplete Code >>")
 
 
 class Sub:
@@ -35,7 +35,7 @@ class Sub:
     @staticmethod
     def validate(payload):
         """
-        This function endures the received payload meets a certain expectations
+        This function ensures the received payload meets a certain expectations
         """
         try:
             print("<< Incomplete TRY Code >>")
@@ -45,7 +45,18 @@ class Sub:
             return False
 
     def receive(self):
-        payload = self.socket.recv_pyobj()
-
-        if self.validate(payload):
+        try:
+            print("listening for ipu data...")
+            payload = self.socket.recv_pyobj(flags=zmq.NOBLOCK)
+            print("ipu data received:", payload)
             return payload
+
+        # if self.validate(payload):
+        #     return payload
+
+        except zmq.ZMQError as e:
+            print("Error: ", e)
+            if e.errno == zmq.EAGAIN:
+                pass
+            else:
+                print(e)

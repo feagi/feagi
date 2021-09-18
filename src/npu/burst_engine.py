@@ -28,7 +28,7 @@ from evo.blocks import active_neurons_in_blocks, percent_active_neurons_in_block
 from opu.processor import led
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
-from inf.messenger import Pub
+from inf.messenger import Pub, Sub
 from edu.trainer import Trainer
 from edu.evaluator import Tester
 
@@ -352,6 +352,20 @@ def burst_manager():
                                         speed_reference=block_with_max_activity)
                 print("$$ $$ $$:", device, block_with_max_activity)
 
+    def message_router():
+        # Broadcasts a TCP message on each burst
+        if runtime_data.parameters['Switches']['burst_beacon']:
+            if runtime_data.burst_count % 10 == 0:
+                broadcast_message = dict()
+                broadcast_message['burst_counter'] = runtime_data.burst_count
+                broadcast_message['sockets'] = runtime_data.parameters['Sockets']
+                burst_beacon.send(message=broadcast_message)
+
+        # IPU listener: Receives IPU data through ZMQ channel
+        if runtime_data.router_address is not None:
+            ipu_data = ipu_listener.receive()
+            print(">> >> >> IPU Messages:\n", ipu_data)
+
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
         sleep(0.5)
@@ -433,11 +447,9 @@ def burst_manager():
         # For performance reasons, running this function not on every single burst
         if runtime_data.burst_count % 10 == 0:
             consciousness_manager()
-        # burst()
 
-        # Broadcasts a TCP message on each burst
-        if runtime_data.parameters['Switches']['burst_beacon']:
-            burst_beacon.send(message=runtime_data.burst_count)
+        # Manage ZMQ communication from and to FEAGI
+        message_router()
 
     print('runtime_data.genome_id = ', runtime_data.genome_id)
 
@@ -446,6 +458,11 @@ def burst_manager():
 
     # Initialize a broadcaster
     burst_beacon = Pub(address=runtime_data.parameters['Sockets']['burst_engine_socket'])
+
+    # Initialize IPU listener
+    if runtime_data.router_address is not None:
+        print("subscribing to ", runtime_data.router_address)
+        ipu_listener = Sub(address=runtime_data.router_address)
 
     # todo: need to figure how to incorporate FCL injection
     # feeder = Feeder()

@@ -289,16 +289,15 @@ def exit_burst_process():
 
 
 def init_io_channels():
-    init_opu_zmq_channel()
-
-
-def init_opu_zmq_channel():
-
-    # Establish connection channel for motor commands
+    # Initialize ZMQ connections
     try:
-        runtime_data.opu_pub = Pub(runtime_data.parameters['Sockets']['opu_socket'])
+        opu_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['opu_port']
+        runtime_data.opu_pub = Pub(opu_socket)
         print("OPU channel as been successfully established at ",
-              runtime_data.parameters['Sockets']['opu_socket'])
+              runtime_data.parameters['Sockets']['opu_port'])
+
+        runtime_data.router_address = runtime_data.parameters['Sockets']['router_socket']
+        print("Router address is set to:", runtime_data.router_address)
     except KeyError as e:
         print('ERROR: OPU socket is not properly defined as part of feagi_configuration.ini\n', e)
 

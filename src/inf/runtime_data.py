@@ -44,6 +44,7 @@ stimulation_data = {}
 hw_controller_path = ''
 hw_controller = None
 opu_pub = None
+router_address = None
 
 # rules = ""
 brain_is_running = False
