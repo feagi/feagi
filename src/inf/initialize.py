@@ -297,7 +297,8 @@ def init_io_channels():
         print("OPU channel as been successfully established at ",
               runtime_data.parameters['Sockets']['opu_port'])
 
-        runtime_data.router_address = runtime_data.parameters['Sockets']['router_socket']
+        runtime_data.router_address = 'tcp://' + runtime_data.parameters['Sockets']['sensory_router_ip'] + ':' + \
+                                      runtime_data.parameters['Sockets']['sensory_router_port']
         print("Router address is set to:", runtime_data.router_address)
     except KeyError as e:
         print('ERROR: OPU socket is not properly defined as part of feagi_configuration.ini\n', e)

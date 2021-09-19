@@ -8,30 +8,14 @@ import time
 
 from ipu.processor import proximity
 from inf import runtime_data
-from inf import messenger
-from importlib.machinery import SourceFileLoader
-
-# try:
-#     feagi_subscriber = messenger.Sub(address=runtime_data.parameters["Sockets"]["lidar_socket"])
-# except Exception as e:
-#     print("ERROR in Lidar:", e)
-
-
-def get_and_translate():
-    controller = SourceFileLoader("controller.py", runtime_data.hw_controller_path).load_module()
-    sonar = controller.Ultrasonic()
-
-    while True:
-        # print("TODO: code temporarily commented out")
-        # message = feagi_subscriber.receive()
-        # translate(message=message)
-        # todo: need to have a formula to come up with the sleep time here
-        time.sleep(1)
 
 
 def translate(message, type=None):
     """
     Translate the lidar messages based on its type.
+
+    todo: add details here about the message format and expectations
+
 
     Type is not needed at this point given the lidar vs sonar data is automatically differentiated within the func.
     """
@@ -50,7 +34,7 @@ def translate(message, type=None):
         # print("time_increment:", message.time_increment)
         # print("-----")
 
-        print(">>>>>>>>>>>>> MESSAGE: ", message)
+        print(">>>>>>>>>>>>> Lidar MESSAGE: ", message)
 
         # differentiate between LIDAR/SONAR data
         if hasattr(message, '__iter__'):

@@ -29,6 +29,7 @@ from opu.processor import led
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
 from inf.messenger import Pub, Sub
+from ipu.source import lidar
 from edu.trainer import Trainer
 from edu.evaluator import Tester
 
@@ -325,6 +326,44 @@ def burst_manager():
             else:
                 print("Warning: Cortical area %s not found within the block_dic" % cortical_area_)
 
+    def ipu_handler(ipu_data):
+        """
+        Decodes the message received from the ipu router and distribute the sub-messages to corresponding IPU modules
+
+        expected ipu_data structure:
+
+        ipu_data = {
+            sensor_type: {
+                sensor_name: sensor_data,
+                sensor_name: sensor_data,
+                ...
+                },
+            sensor_type: {
+                sensor_name: sensor_data,
+                sensor_name: sensor_data,
+                ...
+                },
+            ...
+            }
+        }
+        """
+        print(">> >> >> IPU Messages:\n", ipu_data)
+
+        if type(ipu_data) == dict:
+            for sensor_type in ipu_data:
+                for sensor in ipu_data[sensor_type]:
+                    if sensor_type == 'ir':
+                        print("Calling the Infrared IPU...")
+                    if sensor_type == 'ultrasonic':
+                        print("Calling the Lidar IPU...")
+                        try:
+                            lidar.translate(ipu_data[sensor_type][sensor])
+                        except:
+                            print("ERROR: While calling lidar function")
+
+        else:
+            print("ERROR: IPU handler encountered non-compliant data")
+
     def opu_handler():
         """
         This function is inteded to handle all the OPU processing that needs to be addressed in burst level as opposed
@@ -364,7 +403,8 @@ def burst_manager():
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.router_address is not None:
             ipu_data = ipu_listener.receive()
-            print(">> >> >> IPU Messages:\n", ipu_data)
+            if ipu_data:
+                ipu_handler(ipu_data)
 
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
@@ -457,7 +497,8 @@ def burst_manager():
     init_burst_engine()
 
     # Initialize a broadcaster
-    burst_beacon = Pub(address=runtime_data.parameters['Sockets']['burst_engine_socket'])
+    burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['burst_engine_pub']
+    burst_beacon = Pub(address=burst_engine_pub_address)
 
     # Initialize IPU listener
     if runtime_data.router_address is not None:

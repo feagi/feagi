@@ -234,6 +234,46 @@ class Ultrasonic:
         return int(distance_cm[1])
 
 
+def ipu_message_builder():
+    """
+    This function encodes the sensory information in a dictionary that can be decoded on the FEAGI end.
+
+    expected ipu_data structure:
+
+        ipu_data = {
+            sensor_type: {
+                sensor_name: sensor_data,
+                sensor_name: sensor_data,
+                ...
+                },
+            sensor_type: {
+                sensor_name: sensor_data,
+                sensor_name: sensor_data,
+                ...
+                },
+            ...
+            }
+        }
+    """
+    # Process IPU data received from controller.py and pass it along to FEAGI
+    # todo: move class instantiations to outside function
+    ir = IR()
+
+    # todo: figure a better way of obtaining the device count
+    ir_count = 3
+
+    ipu_data = dict()
+    ipu_data['ultrasonic'] = {
+        1: [0.5, 1, 1.20, 1.700, 1.20, 0.50]
+    }
+    ipu_data['ir'] = {}
+
+    for _ in range(ir_count):
+        ipu_data['ir'][_] = ir.read()
+
+    return ipu_data
+
+
 def main():
     address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_port']
     feagi_state = find_feagi(address=address)
@@ -244,7 +284,7 @@ def main():
     print("--->> >> >> ", sockets)
 
     # todo: to obtain this info directly from FEAGI as part of registration
-    ipu_channel_address = 'tcp://0.0.0.0:' + sockets['ipu_port']
+    ipu_channel_address = 'tcp://0.0.0.0:' + router_settings['ipu_port']
     print("IPU_channel_address=", ipu_channel_address)
     opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['opu_port']
 
@@ -256,7 +296,6 @@ def main():
     # todo: identify a method to instantiate all classes without doing it one by one
     # Instantiate Controller Classes
     motor = Motor()
-    ir = IR()
 
     # Listen and route
     print("Starting the routing engine")
@@ -272,11 +311,7 @@ def main():
                 for motor_id in opu_data['motor']:
                     motor.move(motor_id, opu_data['motor'][motor_id])
 
-        # Process IPU data received from controller.py and pass it along to FEAGI
-        ipu_data = dict()
-        ipu_data['ultrasonic'] = {}
-        ipu_data['ir'] = ir.read()
-
+        ipu_data = ipu_message_builder()
         feagi_ipu_channel.send(ipu_data)
 
 
