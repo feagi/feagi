@@ -292,6 +292,7 @@ def init_io_channels():
     # Initialize ZMQ connections
     try:
         opu_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['opu_port']
+        print("OPU socket is:", opu_socket)
         runtime_data.opu_pub = Pub(opu_socket)
         print("OPU channel as been successfully established at ",
               runtime_data.parameters['Sockets']['opu_port'])

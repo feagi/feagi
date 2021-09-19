@@ -11,11 +11,10 @@ from inf import runtime_data
 from inf import messenger
 from importlib.machinery import SourceFileLoader
 
-try:
-    feagi_subscriber = messenger.Sub(address=runtime_data.parameters["Sockets"]["lidar_socket"])
-except Exception as e:
-    print("ERROR:", e)
-
+# try:
+#     feagi_subscriber = messenger.Sub(address=runtime_data.parameters["Sockets"]["lidar_socket"])
+# except Exception as e:
+#     print("ERROR in Lidar:", e)
 
 
 def get_and_translate():
@@ -23,8 +22,9 @@ def get_and_translate():
     sonar = controller.Ultrasonic()
 
     while True:
-        message = feagi_subscriber.receive()
-        translate(message=message)
+        # print("TODO: code temporarily commented out")
+        # message = feagi_subscriber.receive()
+        # translate(message=message)
         # todo: need to have a formula to come up with the sleep time here
         time.sleep(1)
 

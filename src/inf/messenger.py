@@ -55,7 +55,7 @@ class Sub:
         #     return payload
 
         except zmq.ZMQError as e:
-            print("Error: ", e)
+            print("Error in messenger module receive: ", e)
             if e.errno == zmq.EAGAIN:
                 pass
             else:
