@@ -9,10 +9,9 @@ todo: convert IPU library to a plug-in based architecture
 import time
 import traceback
 from datetime import datetime
-from queue import Queue
 from threading import Thread
 from inf import runtime_data
-from ipu.source import folder_monitor
+from ipu.source import folder_monitor, ir
 from ipu.source import lidar
 from ipu.source.mnist import MNIST, print_mnist_img_raw
 from ipu.processor.image import Image
@@ -46,35 +45,34 @@ def initialize():
         mnist_controller_thread.start()
         print(">> >> MNIST Controller thread has started.")
 
-    if runtime_data.parameters['IPU']['proximity']:
-        proximity_controller_thread = Thread(
-            target=proximity_controller,
-            name="Proximity_Controller",
-            daemon=True
-        )
-        proximity_controller_thread.start()
-        print(">> >> Proximity Controller thread has started.")
+    # if runtime_data.parameters['IPU']['proximity']:
+    #     proximity_controller_thread = Thread(
+    #         target=proximity_controller,
+    #         name="Proximity_Controller",
+    #         daemon=True
+    #     )
+    #     proximity_controller_thread.start()
+    #     print(">> >> Proximity Controller thread has started.")
 
-    if runtime_data.parameters['IPU']['ir']:
-        from ipu.processor import ir
-
-        def ir_controller():
-            while not runtime_data.exit_condition:
-                try:
-                    ir.convert_ir_to_fire_list()
-                    time.sleep(0.1)
-                except Exception as e:
-                    traceback.print_exc()
-                finally:
-                    runtime_data.last_ipu_activity = datetime.now()
-
-        ir_controller_thread = Thread(
-            target=ir_controller,
-            name="IR_Controller",
-            daemon=True
-        )
-        ir_controller_thread.start()
-        print(">> >> IR Controller thread has started.")
+    # if runtime_data.parameters['IPU']['ir']:
+    #
+    #     def ir_controller():
+    #         while not runtime_data.exit_condition:
+    #             try:
+    #                 ir.convert_ir_to_fire_list(ir_data=ir_data)
+    #                 time.sleep(0.1)
+    #             except Exception as e:
+    #                 traceback.print_exc()
+    #             finally:
+    #                 runtime_data.last_ipu_activity = datetime.now()
+    #
+    #     ir_controller_thread = Thread(
+    #         target=ir_controller,
+    #         name="IR_Controller",
+    #         daemon=True
+    #     )
+    #     ir_controller_thread.start()
+    #     print(">> >> IR Controller thread has started.")
 
     runtime_data.last_ipu_activity = datetime.now()
 

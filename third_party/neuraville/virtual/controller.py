@@ -6,7 +6,7 @@ todo: Need to have all of the controller.py modules follow the same convention a
 """
 from time import time, sleep
 from router import *
-from random import randrange
+from random import randrange, getrandbits
 
 
 class LED:
@@ -58,7 +58,7 @@ class IR:
         print("Infrared module has ben activated...")
 
     def read(self):
-        ir_reading = randrange(0, 10, 1)
+        ir_reading = bool(getrandbits(1))
         return ir_reading
 
 
@@ -264,7 +264,8 @@ def ipu_message_builder():
 
     ipu_data = dict()
     ipu_data['ultrasonic'] = {
-        1: [0.5, 1, 1.20, 1.700, 1.20, 0.50]
+        1: [randrange(0, 30) / 10, randrange(0, 30) / 10, randrange(0, 30) / 10, randrange(0, 30) / 10,
+            randrange(0, 30) / 10, randrange(0, 30) / 10]
     }
     ipu_data['ir'] = {}
 

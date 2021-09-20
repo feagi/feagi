@@ -29,7 +29,7 @@ from opu.processor import led
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
 from inf.messenger import Pub, Sub
-from ipu.source import lidar
+from ipu.source import lidar, ir
 from edu.trainer import Trainer
 from edu.evaluator import Tester
 
@@ -351,15 +351,22 @@ def burst_manager():
 
         if type(ipu_data) == dict:
             for sensor_type in ipu_data:
-                for sensor in ipu_data[sensor_type]:
-                    if sensor_type == 'ir':
-                        print("Calling the Infrared IPU...")
-                    if sensor_type == 'ultrasonic':
+                # Infrared Handler
+                if sensor_type == 'ir':
+                    print("Calling the Infrared IPU...")
+                    try:
+                        ir.convert_ir_to_fire_list(ir_data=ipu_data[sensor_type])
+                    except:
+                        print("ERROR while processing Infrared IPU")
+
+                # Ultrasonic / Lidar Handler
+                if sensor_type == 'ultrasonic':
+                    for sensor in ipu_data[sensor_type]:
                         print("Calling the Lidar IPU...")
                         try:
                             lidar.translate(ipu_data[sensor_type][sensor])
                         except:
-                            print("ERROR: While calling lidar function")
+                            print("ERROR while processing lidar function")
 
         else:
             print("ERROR: IPU handler encountered non-compliant data")
@@ -441,6 +448,9 @@ def burst_manager():
                 fake_cortical_stimulation(input_instruction=runtime_data.stimulation_data,
                                           burst_count=runtime_data.burst_count)
 
+        # Manage ZMQ communication from and to FEAGI
+        message_router()
+
         # Process neuron stimulation that ties to OPU
         opu_handler()
         
@@ -487,9 +497,6 @@ def burst_manager():
         # For performance reasons, running this function not on every single burst
         if runtime_data.burst_count % 10 == 0:
             consciousness_manager()
-
-        # Manage ZMQ communication from and to FEAGI
-        message_router()
 
     print('runtime_data.genome_id = ', runtime_data.genome_id)
 

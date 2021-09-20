@@ -42,9 +42,10 @@ def translate(message, type=None):
         else:
             detections = proximity.sonar_to_coords(message)
 
+        print("*** *** ** Lidar detections: ", detections)
         neurons = proximity.coords_to_neuron_ids(
             detections, cortical_area='proximity_ipu'
         )
-
+        print("*** *** ** Lidar neurons: ", neurons)
         # TODO: Add proximity feeder function in fcl_injector
         runtime_data.fcl_queue.put({'proximity_ipu': set(neurons)})
