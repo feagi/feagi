@@ -14,6 +14,7 @@ from inf import runtime_data, disk_ops, settings
 from configparser import ConfigParser
 from shutil import copyfile
 from evo.stats import list_top_n_utf_memory_neurons, block_dict_summary
+from inf.messenger import Pub
 
 log = logging.getLogger(__name__)
 
@@ -231,6 +232,7 @@ def initialize():
     runtime_data.last_alertness_trigger = datetime.now()
     run_id_gen()
     init_parameters()
+    init_io_channels()
     init_working_directory()
     init_container_variables()
     init_data_sources()
@@ -284,3 +286,21 @@ def exit_burst_process():
     runtime_data.parameters["Auto_injector"]["injector_status"] = False
     if runtime_data.parameters["Switches"]["capture_brain_activities"]:
         disk_ops.save_fcl_to_disk()
+
+
+def init_io_channels():
+    # Initialize ZMQ connections
+    try:
+        opu_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['opu_port']
+        print("OPU socket is:", opu_socket)
+        runtime_data.opu_pub = Pub(opu_socket)
+        print("OPU channel as been successfully established at ",
+              runtime_data.parameters['Sockets']['opu_port'])
+
+        runtime_data.router_address = 'tcp://' + runtime_data.parameters['Sockets']['sensory_router_ip'] + ':' + \
+                                      runtime_data.parameters['Sockets']['sensory_router_port']
+        print("Router address is set to:", runtime_data.router_address)
+    except KeyError as e:
+        print('ERROR: OPU socket is not properly defined as part of feagi_configuration.ini\n', e)
+
+

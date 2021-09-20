@@ -7,22 +7,21 @@ to its corresponding message that can be passed to an output device so actual mo
 import os
 
 from statistics import mode
-import zmq
 import inf.runtime_data as runtime_data
 from math import floor
 from ipu.processor.proximity import map_value
 from opu.destination import motor
 
 
-# todo: export socket address to config file
-socket_address = 'tcp://0.0.0.0:21000'
-print("Binding to socket ", socket_address)
-
-context = zmq.Context()
-socket = context.socket(zmq.PUB)
-
-# todo: Figure a way to externalize the binding port. feagi_configuration.ini captures it on FEAGI side.
-socket.bind(socket_address)
+# # todo: export socket address to config file
+# socket_address = 'tcp://0.0.0.0:21000'
+# print("Binding to socket ", socket_address)
+#
+# context = zmq.Context()
+# socket = context.socket(zmq.PUB)
+#
+# # todo: Figure a way to externalize the binding port. feagi_configuration.ini captures it on FEAGI side.
+# socket.bind(socket_address)
 
 
 def convert_neuronal_activity_to_directions(cortical_area, neuron_id):
@@ -39,7 +38,7 @@ def convert_neuronal_activity_to_directions(cortical_area, neuron_id):
         movement_direction = ''
 
     print("\nMovement direction was detected as: ", movement_direction)
-    socket.send_string(movement_direction)
+    # socket.send_string(movement_direction)
 
 
 def activate_motor(cortical_area, motor_id, speed_reference):
