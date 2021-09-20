@@ -1,8 +1,8 @@
 FROM tiryoh/ros2-desktop-vnc:foxy
 # FROM ros:foxy
 
-ARG REPO="https://github.com/feagi/feagi-simulate.git"
-ARG BRANCH="testing-ign-foxy"
+# ARG REPO="https://github.com/feagi/feagi-simulate.git"
+# ARG BRANCH="testing-ign-foxy"
 
 ENV GAZEBO_CONTAINER=true
 
@@ -26,20 +26,12 @@ RUN echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_releas
         ros-foxy-ros-ign
 
 # clone simulation repo, copy files and set up environment 
-RUN mkdir -p /opt/source-code/feagi-simulate && \
-    git clone $REPO /opt/source-code/feagi-simulate
+# RUN mkdir -p /opt/source-code/feagi-simulate && \
+#     git clone $REPO /opt/source-code/feagi-simulate
 
-WORKDIR /opt/source-code/feagi-simulate
-RUN git checkout $BRANCH
+# WORKDIR /opt/source-code/feagi-simulate
+# RUN git checkout $BRANCH
 
-WORKDIR /home/ubuntu/ 
-COPY ./setup_simulation.sh ./
-RUN chmod a+x setup_simulation.sh
-
-# WORKDIR /opt/source-code/feagi-simulate/Gazebo-ign/freenove_4wd_car_description
-# COPY ./setup_simulation.sh ./
-# RUN chmod u+x start_simulation.sh && \
-#     chmod u+x xvfb_setup.sh
-
-# setup/start virtual frame buffer
-# ENTRYPOINT ["./xvfb_setup.sh"]
+RUN mkdir -p /opt/source-code/freenove_4wd_car_description
+WORKDIR /opt/source-code/freenove_4wd_car_description
+COPY ./freenove_4wd_car_description/ ./
