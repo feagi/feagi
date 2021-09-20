@@ -5,7 +5,7 @@ Properties.mode [stand_alone, ros, virtual]
 """
 
 router_settings = {
-    "feagi_ip": "192.168.1.163",
+    "feagi_ip": "127.0.0.1",
     "feagi_port": "30000",
     "ipu_port": "30001",
     'ros_topics': {

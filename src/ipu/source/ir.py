@@ -13,12 +13,10 @@ def convert_ir_to_fire_list(ir_data):
         2: False
     }
     """
-    print("IR data is:", ir_data)
-    fire_list = list()
+    fire_list = set()
     for sensor_idx in ir_data:
         if ir_data[sensor_idx]:
             for key in runtime_data.brain['ir_ipu']:
                 if sensor_idx == runtime_data.brain['ir_ipu'][key]['soma_location'][0][0]:
-                    fire_list.append(key)
-    print(">>>>>>>>>>>>>>>> IR FIRE LIST: ", fire_list)
+                    fire_list.add(key)
     runtime_data.fcl_queue.put({'ir_ipu': fire_list})

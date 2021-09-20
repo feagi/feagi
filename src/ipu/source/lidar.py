@@ -10,7 +10,7 @@ from ipu.processor import proximity
 from inf import runtime_data
 
 
-def translate(message, type=None):
+def translate(proximity_data, type=None):
     """
     Translate the lidar messages based on its type.
 
@@ -19,7 +19,8 @@ def translate(message, type=None):
 
     Type is not needed at this point given the lidar vs sonar data is automatically differentiated within the func.
     """
-    if message is not None:
+
+    if proximity_data is not None:
         # print("SLOT_TYPES", message.SLOT_TYPES)
         # print("angle_increment:", message.angle_increment)
         # print("angle_max:", message.angle_max)
@@ -34,18 +35,14 @@ def translate(message, type=None):
         # print("time_increment:", message.time_increment)
         # print("-----")
 
-        print(">>>>>>>>>>>>> Lidar MESSAGE: ", message)
+        for sensor in proximity_data:
+            # differentiate between LIDAR/SONAR data
+            if hasattr(proximity_data[sensor], '__iter__'):
+                detections = proximity.lidar_to_coords(proximity_data[sensor])
+            else:
+                detections = proximity.sonar_to_coords(proximity_data[sensor])
 
-        # differentiate between LIDAR/SONAR data
-        if hasattr(message, '__iter__'):
-            detections = proximity.lidar_to_coords(message)
-        else:
-            detections = proximity.sonar_to_coords(message)
-
-        print("*** *** ** Lidar detections: ", detections)
-        neurons = proximity.coords_to_neuron_ids(
-            detections, cortical_area='proximity_ipu'
-        )
-        print("*** *** ** Lidar neurons: ", neurons)
-        # TODO: Add proximity feeder function in fcl_injector
-        runtime_data.fcl_queue.put({'proximity_ipu': set(neurons)})
+            neurons = proximity.coords_to_neuron_ids(
+                detections, cortical_area='proximity_ipu'
+            )
+            runtime_data.fcl_queue.put({'proximity_ipu': set(neurons)})

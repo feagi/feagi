@@ -347,26 +347,24 @@ def burst_manager():
             }
         }
         """
-        print(">> >> >> IPU Messages:\n", ipu_data)
 
         if type(ipu_data) == dict:
             for sensor_type in ipu_data:
+                # Ultrasonic / Lidar Handler
+                # todo: need a more consistent naming convention when it comes to lidar vs ultrasonic vs proximity
+                if sensor_type == 'ultrasonic':
+                    try:
+                        lidar.translate(proximity_data=ipu_data['ultrasonic'])
+
+                    except:
+                        print("ERROR while processing lidar function")
+
                 # Infrared Handler
                 if sensor_type == 'ir':
-                    print("Calling the Infrared IPU...")
                     try:
                         ir.convert_ir_to_fire_list(ir_data=ipu_data[sensor_type])
                     except:
                         print("ERROR while processing Infrared IPU")
-
-                # Ultrasonic / Lidar Handler
-                if sensor_type == 'ultrasonic':
-                    for sensor in ipu_data[sensor_type]:
-                        print("Calling the Lidar IPU...")
-                        try:
-                            lidar.translate(ipu_data[sensor_type][sensor])
-                        except:
-                            print("ERROR while processing lidar function")
 
         else:
             print("ERROR: IPU handler encountered non-compliant data")
@@ -391,16 +389,16 @@ def burst_manager():
             # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
             # movement.activate_motor(data)
             activity_report = opu_activity_report(cortical_area='motor_opu')
-            print("&& Activity Report:", activity_report)
             for device in activity_report:
                 block_with_max_activity = activity_report[device].index(max(activity_report[device]))
                 movement.activate_motor(cortical_area='motor_opu', motor_id=device,
                                         speed_reference=block_with_max_activity)
-                print("$$ $$ $$:", device, block_with_max_activity)
 
-    def message_router():
+    def sensory_message_router():
         # Broadcasts a TCP message on each burst
         if runtime_data.parameters['Switches']['burst_beacon']:
+            # Limiting the broadcast messages to one in every 10 burst
+            # todo: externalize this parameter to ini
             if runtime_data.burst_count % 10 == 0:
                 broadcast_message = dict()
                 broadcast_message['burst_counter'] = runtime_data.burst_count
@@ -428,16 +426,17 @@ def burst_manager():
 
         fcl_tmp = set()
 
+        # Manage ZMQ communication from and to FEAGI
+        sensory_message_router()
+
         # Feeding FCL queue content into the FCL
         while not runtime_data.fcl_queue.empty():
             fcl_tmp = runtime_data.fcl_queue.get()
 
-        for _ in fcl_tmp:
-            runtime_data.fire_candidate_list[_] = \
-                set([item for item in fcl_tmp[_]])
-            fcl_tmp = set()
-
-        # print("Fire Candidate List:\n", runtime_data.fire_candidate_list)
+            for _ in fcl_tmp:
+                runtime_data.fire_candidate_list[_] = \
+                    set([item for item in fcl_tmp[_]])
+                fcl_tmp = set()
 
         # logging neuron activities to the influxdb
         log_neuron_activity_influx()
@@ -447,9 +446,6 @@ def burst_manager():
             if runtime_data.burst_count in runtime_data.stimulation_data:
                 fake_cortical_stimulation(input_instruction=runtime_data.stimulation_data,
                                           burst_count=runtime_data.burst_count)
-
-        # Manage ZMQ communication from and to FEAGI
-        message_router()
 
         # Process neuron stimulation that ties to OPU
         opu_handler()
