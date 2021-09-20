@@ -2,7 +2,7 @@ FROM tiryoh/ros2-desktop-vnc:foxy
 # FROM ros:foxy
 
 # ARG REPO="https://github.com/feagi/feagi-simulate.git"
-# ARG BRANCH="testing-ign-foxy"
+# ARG BRANCH="feature-ign-foxy"
 
 ENV GAZEBO_CONTAINER=true
 
