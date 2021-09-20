@@ -70,9 +70,7 @@ def activate_motor(cortical_area, motor_id, speed_reference):
 
     try:
         if os.environ['GAZEBO_CONTAINER']:
-            print(">>>>>>>>>>>>>>>>>>>>>>>>>> IN A GAZEBO CONTAINER! ! ! ! !")
             twist_msg = convert_motor_speed_to_twist_msg(speed_reference)
-            print(">>>>>>> > >> >>> >> > A TWIST MSG: ", twist_msg)
             motor.motor_operator(motor_id=motor_id, speed=twist_msg, power="")
     except KeyError:
         # todo: Move map value function out of proximity and to a more generic location
@@ -88,5 +86,5 @@ def activate_motor(cortical_area, motor_id, speed_reference):
 
 
 def convert_motor_speed_to_twist_msg(motor_speed):
-    twist_msg = round(map_value(motor_speed, 0, 4095, 0, 10))
+    twist_msg = round(map_value(motor_speed, 0, 20, 0, 10))
     return -twist_msg
