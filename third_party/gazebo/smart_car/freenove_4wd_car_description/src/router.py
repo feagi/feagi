@@ -1,6 +1,4 @@
-"""
-
-"""
+#!/usr/bin/env python3
 
 import zmq
 from configuration import router_settings

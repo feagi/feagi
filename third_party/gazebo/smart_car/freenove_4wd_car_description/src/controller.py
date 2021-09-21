@@ -2,15 +2,13 @@
 
 import sys
 import time
-import traceback
-
-import zmq
+from router import *
+from random import randrange, getrandbits
 
 import geometry_msgs.msg
 import rclpy
-
 from rclpy.node import Node
-from sensor_msgs.msg import LaserScan
+from sensor_msgs.msg import LaserScan, Image
 from rclpy.qos import QoSProfile
 from rclpy.qos import qos_profile_sensor_data
 
@@ -21,37 +19,49 @@ else:
     import termios
     import tty
 
+address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_port']
+feagi_state = find_feagi(address=address)
 
-class Ultrasonic:
+print("** **", feagi_state)
+sockets = feagi_state['sockets']
+
+print("--->> >> >> ", sockets)
+
+# todo: to obtain this info directly from FEAGI as part of registration
+ipu_channel_address = 'tcp://0.0.0.0:' + router_settings['ipu_port']
+print("IPU_channel_address=", ipu_channel_address)
+opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['opu_port']
+
+feagi_ipu_channel = Pub(address=ipu_channel_address)
+feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+
+
+class UltraSonicSubscriber(Node):
+
     def __init__(self):
-        print("Gazebo Ultrasonic has been initialized...")
+        super().__init__('ultrasonic_subscriber')
+        self.subscription = self.create_subscription(
+            LaserScan,
+            'ultrasonic',
+            self.listener_callback,
+            qos_profile=qos_profile_sensor_data)
+        self.subscription  # prevent unused variable warning
 
-    class MinimalSubscriber(Node):
+    def listener_callback(self, msg):
+        self.get_logger().info("distance: {}".format(msg.ranges[1]))
+        try:
+            formatted_msg = self.format_ultrasonic_msg([msg.ranges[1]])
+            print(">>>>>>>>>>>> MSG (formatted): ", formatted_msg)
+            send_to_feagi(message=formatted_msg)
+        except Exception as e:
+            print(">>>>>>>>>>>> ERROR: ", e)
 
-        def __init__(self):
-            super().__init__('ultrasonic_subscriber')
-            self.subscription = self.create_subscription(
-                LaserScan,
-                'ultrasonic',
-                self.listener_callback,
-                qos_profile=qos_profile_sensor_data)
-            self.subscription  # prevent unused variable warning
-
-        def listener_callback(self, msg):
-            self.get_logger().info("distance: {}".format(msg.ranges[1]))
-
-    def main(args=None):
-        rclpy.init(args=args)
-
-        minimal_subscriber = MinimalSubscriber()
-
-        rclpy.spin(minimal_subscriber)
-
-        # Destroy the node explicitly
-        # (optional - otherwise it will be done automatically
-        # when the garbage collector destroys the node object)
-        minimal_subscriber.destroy_node()
-        rclpy.shutdown()
+    def format_ultrasonic_msg(self, msg, sensor_type='ultrasonic'):
+        return {
+            sensor_type: {
+                idx: val for idx, val in enumerate(msg)
+            }
+        }
 
 
 class Teleop:
@@ -106,6 +116,39 @@ class Teleop:
         pub.publish(twist)
 
 
+class IR:
+    def __init__(self):
+        print("Gazebo Ultrasonic has been initialized...")
+
+    class MinimalSubscriber(Node):
+
+        def __init__(self):
+            super().__init__('ultrasonic_subscriber')
+            for _ in ['IR1', 'IR2', 'IR3']:
+                self.subscription = self.create_subscription(
+                    Image,
+                    _,
+                    self.listener_callback,
+                    qos_profile=qos_profile_sensor_data)
+                self.subscription  # prevent unused variable warning
+
+        def listener_callback(self, msg):
+            self.get_logger().info("distance: {}".format(msg.ranges[1]))
+
+    def read(args=None):
+        rclpy.init(args=args)
+
+        minimal_subscriber = MinimalSubscriber()
+
+        rclpy.spin(minimal_subscriber)
+
+        # Destroy the node explicitly
+        # (optional - otherwise it will be done automatically
+        # when the garbage collector destroys the node object)
+        minimal_subscriber.destroy_node()
+        rclpy.shutdown()
+
+
 class Motor:
     def __init__(self):
         rclpy.init()
@@ -115,7 +158,7 @@ class Motor:
         # todo: generalize to extract number of motors from gazebo robot model
         motor_count = 4
 
-        self.motor_node = {}
+        self.motor_node = []
         for motor in range(motor_count):
             motor_string = '/M' + str(motor)
             self.motor_node[motor] = node.create_publisher(geometry_msgs.msg.Twist, motor_string, 10)
@@ -126,29 +169,16 @@ class Motor:
         # todo: figure a way to extract wheel parameters from the model
         self.wheel_diameter = 1
 
-    def receive_motor_data(self, socket):
-        try:
-            motor_data = socket.recv_pyobj()
-            print(">>>>>>>>>> >>>>>> >>>>>>>>>>> MOTOR DATA RECEIVED: ", motor_data)
-            
-            (motor_id, motor_speed), = motor_data.items()
-            return (motor_id, motor_speed)
-        except Exception as e:
-            if e.errno == zmq.EAGAIN:
-                pass
-            else:
-                traceback.print_exc()
-
     def move(self, motor_index, speed):
 
         # Convert speed to linear
         # todo: fix the following formula to properly calculate the velocities in 3d axis
-        linear_velocity = [0, 0, 0]
+        linear_velocity = [speed, 0, 0]
         angular_velocity = [0, 0, speed]
 
         twist = geometry_msgs.msg.Twist()
-        twist.linear.x = float(linear_velocity[0])  # positive goes backward, negative goes forward
-        twist.angular.z = float(angular_velocity[2])
+        twist.linear.x = linear_velocity[0]  # positive goes backward, negative goes forward
+        twist.angular.z = angular_velocity[2]
         self.motor_node[motor_index].publish(twist)
 
 
@@ -186,16 +216,93 @@ class Servo:
         self.servo_node.publish(twist)
 
 
+def send_to_feagi(message):
+    print("Sending message to FEAGI...")
+    print("Original message:", message)
+
+    feagi_ipu_channel.send(message)
+
+
+def ipu_message_builder():
+    """
+    This function encodes the sensory information in a dictionary that can be decoded on the FEAGI end.
+
+    expected ipu_data structure:
+
+        ipu_data = {
+            sensor_type: {
+                sensor_name: sensor_data,
+                sensor_name: sensor_data,
+                ...
+                },
+            sensor_type: {
+                sensor_name: sensor_data,
+                sensor_name: sensor_data,
+                ...
+                },
+            ...
+            }
+        }
+    """
+    # Process IPU data received from controller.py and pass it along to FEAGI
+    # todo: move class instantiations to outside function
+    # ir = IR()
+
+    # todo: figure a better way of obtaining the device count
+    # ir_count = 3
+
+    ipu_data = dict()
+    ipu_data['ultrasonic'] = {
+        1: [randrange(0, 30) / 10, randrange(0, 30) / 10, randrange(0, 30) / 10, randrange(0, 30) / 10,
+            randrange(0, 30) / 10, randrange(0, 30) / 10]
+    }
+
+    # ipu_data['ir'] = {}
+    # for _ in range(ir_count):
+    #     ipu_data['ir'][_] = ir.read()
+
+    return ipu_data
+
+
+def main(args=None):
+    print("Connecting to FEAGI resources...")
+
+    # todo: identify a method to instantiate all classes without doing it one by one
+    # Instantiate Controller Classes
+    # motor = Motor()
+
+    # Listen and route
+    # print("Starting the routing engine")
+    # print("Communication frequency is set once every %f seconds" % router_settings['global_timer'])
+
+    # while True:
+    #     # Process OPU data received from FEAGI and pass it along to the controller.py
+    #     # opu_data = feagi_opu_channel.receive()
+    #     # print("Received:", opu_data)
+    #     # if opu_data is not None:
+    #     #     if 'motor' in opu_data:
+    #     #         for motor_id in opu_data['motor']:
+    #     #             motor.move(motor_id, opu_data['motor'][motor_id])
+    #
+    #     ipu_data = ipu_message_builder()
+    #     feagi_ipu_channel.send(ipu_data)
+    #
+    #     # todo: need to figure how to correlate the flow on incoming data with the rate data is passed to FEAGI
+    #
+    #     time.sleep(router_settings['global_timer'])
+
+    rclpy.init(args=args)
+
+    ultrasonic_feed = UltraSonicSubscriber()
+
+    rclpy.spin(ultrasonic_feed)
+
+    # Destroy the node explicitly
+    # (optional - otherwise it will be done automatically
+    # when the garbage collector destroys the node object)
+    ultrasonic_feed.destroy_node()
+    rclpy.shutdown()
+
+
 if __name__ == '__main__':
-    context = zmq.Context()
-    socket = context.socket(zmq.SUB)
-    socket.connect("tcp://feagi:2500")
-    socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
-
-    motor = Motor()
-
-    while True:
-        (motor_id, motor_speed) = motor.receive_motor_data(socket)
-        # motor_speed += 2
-        motor.move(motor_id, float(motor_speed))
-        # time.sleep(0.1)
+    main()

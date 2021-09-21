@@ -12,9 +12,9 @@ services:
     stdin_open: true
     privileged: true
     tty: true
-    volumes:
-      - /Users/neuraville/Desktop/feagi-simulate/Gazebo-ign/freenove_4wd_car_description/src/controller.py:/opt/source-code/feagi-simulate/Gazebo-ign/freenove_4wd_car_description/src/controller.py
-      - /Users/neuraville/Desktop/feagi-simulate/Gazebo-ign/freenove_4wd_car_description/setup.py:/opt/source-code/feagi-simulate/Gazebo-ign/freenove_4wd_car_description/setup.py
+    # volumes:
+    #   - /Users/neuraville/Desktop/feagi-simulate/Gazebo-ign/freenove_4wd_car_description/src/controller.py:/opt/source-code/feagi-simulate/Gazebo-ign/freenove_4wd_car_description/src/controller.py
+    #   - /Users/neuraville/Desktop/feagi-simulate/Gazebo-ign/freenove_4wd_car_description/setup.py:/opt/source-code/feagi-simulate/Gazebo-ign/freenove_4wd_car_description/setup.py
     networks:
       - net
 
@@ -23,9 +23,9 @@ services:
     privileged: true
     environment:
       - GAZEBO_CONTAINER=true
-    volumes:
-      - /Users/neuraville/Desktop/feagi-core/src/feagi_configuration.ini:/opt/source-code/feagi-core/src/feagi_configuration.ini
-      - /Users/neuraville/Desktop/feagi-core/src/inf/fake_stimulation.py:/opt/source-code/feagi-core/src/inf/fake_stimulation.py
-      - /Users/neuraville/Desktop/feagi-core/third_party/gazebo/smart_car/configuration.py:/opt/source-code/feagi-core/third_party/gazebo/smart_car/configuration.py
+    # volumes:
+    #   - /Users/neuraville/Desktop/feagi-core/src/feagi_configuration.ini:/opt/source-code/feagi-core/src/feagi_configuration.ini
+    #   - /Users/neuraville/Desktop/feagi-core/src/inf/fake_stimulation.py:/opt/source-code/feagi-core/src/inf/fake_stimulation.py
+    #   - /Users/neuraville/Desktop/feagi-core/third_party/gazebo/smart_car/configuration.py:/opt/source-code/feagi-core/third_party/gazebo/smart_car/configuration.py
     networks:
       - net
