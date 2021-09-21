@@ -269,27 +269,7 @@ def main(args=None):
 
     # todo: identify a method to instantiate all classes without doing it one by one
     # Instantiate Controller Classes
-    # motor = Motor()
-
-    # Listen and route
-    # print("Starting the routing engine")
-    # print("Communication frequency is set once every %f seconds" % router_settings['global_timer'])
-
-    # while True:
-    #     # Process OPU data received from FEAGI and pass it along to the controller.py
-    #     # opu_data = feagi_opu_channel.receive()
-    #     # print("Received:", opu_data)
-    #     # if opu_data is not None:
-    #     #     if 'motor' in opu_data:
-    #     #         for motor_id in opu_data['motor']:
-    #     #             motor.move(motor_id, opu_data['motor'][motor_id])
-    #
-    #     ipu_data = ipu_message_builder()
-    #     feagi_ipu_channel.send(ipu_data)
-    #
-    #     # todo: need to figure how to correlate the flow on incoming data with the rate data is passed to FEAGI
-    #
-    #     time.sleep(router_settings['global_timer'])
+    motor = Motor()
 
     rclpy.init(args=args)
 
@@ -300,6 +280,18 @@ def main(args=None):
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
+
+    while True:
+        # Process OPU data received from FEAGI and pass it along
+        opu_data = feagi_opu_channel.receive()
+        print("Received:", opu_data)
+        if opu_data is not None:
+            if 'motor' in opu_data:
+                for motor_id in opu_data['motor']:
+                    motor.move(motor_id, opu_data['motor'][motor_id])
+
+        time.sleep(router_settings['global_timer'])
+
     ultrasonic_feed.destroy_node()
     rclpy.shutdown()
 

@@ -303,7 +303,6 @@ def main():
     print("Communication frequency is set once every %f seconds" % router_settings['global_timer'])
 
     while True:
-
         # Process OPU data received from FEAGI and pass it along to the controller.py
         opu_data = feagi_opu_channel.receive()
         print("Received:", opu_data)
