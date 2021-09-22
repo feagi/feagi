@@ -166,7 +166,10 @@ class IR:
 
 
 class Motor:
-    def __init__(self, count, identifier, model):
+    # def __init__(self, count, identifier, model):
+    def __init__(self):
+        rclpy.init()
+        node = rclpy.create_node('Controller_py')
 
         # Assuming 4 motors
         # todo: generalize to extract number of motors from gazebo robot model
