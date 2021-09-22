@@ -1,20 +1,4 @@
 <?xml version="1.0" ?>
-<!--
-  Ignition Gazebo differential drive plugin demo
-
-  Try sending commands:
-
-    ign topic -t "/model/vehicle_blue/cmd_vel" -m ignition.msgs.Twist -p "linear: {x: 0.5}, angular: {z: 0.05}"
-
-    ign topic -t "/model/vehicle_green/cmd_vel" -m ignition.msgs.Twist -p "linear: {x: 1.0}, angular: {z: -0.1}"
-
-  Listen to odometry:
-
-    ign topic -e -t /model/vehicle_blue/odometry
-
-    ign topic -e -t /model/vehicle_green/odometry
-
--->
 <sdf version="1.6">
   <world name="diff_drive">
 
@@ -64,16 +48,20 @@
           <geometry>
             <plane>
               <normal>0 0 1</normal>
-              <size>100 100</size>
+              <size>10 10</size>
             </plane>
           </geometry>
-            <material>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <specular>1 0.8 0.8 1</specular>
             <pbr>
                 <metal>
-                    <albedo_map>floor.png</albedo_map>
+                  <albedo_map>floor.png</albedo_map>
+                  <normal_map>floor.png</normal_map>
                 </metal>
-            </pbr>
-            </material>
+              </pbr>
+          </material>
         </visual>
       </link>
 
@@ -144,7 +132,7 @@
 
 
 
-    <model name='vehicle_green'>
+    <model name='freenove_smart_car'>
       <pose>0 -2 0.325 0 -0 0</pose>
 
     <!--     BODY PARTS        -->
@@ -492,7 +480,7 @@
           <plugin
             filename="libRosIgnPointCloud.so"
             name="ros_ign_point_cloud::PointCloud">
-            <namespace>vehicle_green</namespace>
+            <namespace>freenove_smart_car</namespace>
             <topic>pc2</topic>
             <frame_id>/sensor</frame_id>
           </plugin>
@@ -526,17 +514,17 @@
             <emissive>0 0 0 0</emissive>
       </material>
       </visual>
-      <sensor name="depth_camera_right" type="depth_camera">
+      <sensor name="rgbd_camera" type="rgbd_camera">
           <update_rate>17</update_rate>
           <visualize>true</visualize>
           <always_on>1</always_on>
-          <topic>depth_camera_right</topic>
+          <topic>IR1</topic>
           <camera>
             <horizontal_fov>1.2</horizontal_fov>
             <image>
               <width>5</width>
               <height>5</height>
-              <format>RGB_INT8</format>
+              <format>L_INT8</format>
             </image>
             <clip>
               <near>0.0001</near>
@@ -573,15 +561,15 @@
             <emissive>0 0 0 0</emissive>
       </material>
       </visual>
-        <sensor name="depth_camera_left" type="depth_camera">
+        <sensor name="rgbd_camera" type="rgbd_camera">
           <update_rate>10</update_rate>
-          <topic>depth_camera_left</topic>
+          <topic>IR3</topic>
           <camera>
             <horizontal_fov>1.2</horizontal_fov>
             <image>
               <width>5</width>
               <height>5</height>
-              <format>RGB_INT8</format>
+              <format>L_INT8</format>
             </image>
             <clip>
               <near>0.0001</near>
@@ -618,15 +606,15 @@
             <emissive>0 0 0 0</emissive>
       </material>
       </visual>
-      <sensor name="depth_camera1" type="depth_camera">
+      <sensor name="rgbd_camera" type="rgbd_camera">
           <update_rate>10</update_rate>
-          <topic>depth_camera_middle</topic>
+          <topic>IR2</topic>
            <camera>
             <horizontal_fov>1.2</horizontal_fov>
             <image>
               <width>5</width>
               <height>5</height>
-              <format>RGB_INT8</format>
+              <format>L_INT8</format>
             </image>
             <clip>
               <near>0.0001</near>
@@ -920,7 +908,7 @@
     <right_joint>front_right_wheel_joint_inv</right_joint>
     <wheel_separation>1.25</wheel_separation>
     <wheel_radius>0.3</wheel_radius>
-    <topic>M1</topic>
+    <topic>M0</topic>
   </plugin>
 
     <plugin
@@ -930,7 +918,7 @@
     <right_joint>front_right_wheel_joint</right_joint>
     <wheel_separation>1.25</wheel_separation>
     <wheel_radius>0.3</wheel_radius>
-    <topic>M3</topic>
+    <topic>M2</topic>
   </plugin>
 
    <plugin
@@ -940,7 +928,7 @@
     <right_joint>rear_right_wheel_joint</right_joint>
     <wheel_separation>1.25</wheel_separation>
     <wheel_radius>0.3</wheel_radius>
-    <topic>M4</topic>
+    <topic>M3</topic>
   </plugin>
 
    <plugin
@@ -950,7 +938,7 @@
     <right_joint>rear_right_wheel_joint_inv</right_joint>
     <wheel_separation>1.25</wheel_separation>
     <wheel_radius>0.3</wheel_radius>
-    <topic>M2</topic>
+    <topic>M1</topic>
   </plugin>
 
    <plugin
@@ -966,7 +954,7 @@
     <right_joint>head_attach_inv</right_joint>
     <wheel_separation>1.25</wheel_separation>
     <wheel_radius>0.3</wheel_radius>
-    <topic>servo</topic>
+    <topic>S0</topic>
   </plugin>
 
   <plugin
@@ -976,7 +964,7 @@
     <right_joint>head_attach_inv</right_joint>
     <wheel_separation>1.25</wheel_separation>
     <wheel_radius>0.3</wheel_radius>
-    <topic>servo1</topic>
+    <topic>S1</topic>
   </plugin>
 
     <plugin filename="ImageDisplay" name="Image Display 1">

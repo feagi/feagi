@@ -59,18 +59,18 @@ def generate_launch_description():
         package='ros_ign_bridge',
         executable='parameter_bridge',
         arguments=['/model/freenove_smart_car/cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist',
+                   '/M0@geometry_msgs/msg/Twist@ignition.msgs.Twist',
                    '/M1@geometry_msgs/msg/Twist@ignition.msgs.Twist',
                    '/M2@geometry_msgs/msg/Twist@ignition.msgs.Twist',
                    '/M3@geometry_msgs/msg/Twist@ignition.msgs.Twist',
-                   '/M4@geometry_msgs/msg/Twist@ignition.msgs.Twist',
-                   '/servo@geometry_msgs/msg/Twist@ignition.msgs.Twist',
-                   '/servo1@geometry_msgs/msg/Twist@ignition.msgs.Twist',
+                   '/S0@geometry_msgs/msg/Twist@ignition.msgs.Twist',
+                   '/S1@geometry_msgs/msg/Twist@ignition.msgs.Twist',
                    '/cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist',
                    '/model/freenove_smart_car/odometry@nav_msgs/msg/Odometry@ignition.msgs.Odometry',
                    '/ultrasonic@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan',
-                   '/IR_middle/image@sensor_msgs/msg/Image@ignition.msgs.Image',
-                   '/IR_left/image@sensor_msgs/msg/Image@ignition.msgs.Image',
-                   '/IR_right/image@sensor_msgs/msg/Image@ignition.msgs.Image'],
+                   '/IR1/image@sensor_msgs/msg/Image@ignition.msgs.Image',
+                   '/IR2/image@sensor_msgs/msg/Image@ignition.msgs.Image',
+                   '/IR0/image@sensor_msgs/msg/Image@ignition.msgs.Image'],
         output='screen'
     )
 
@@ -79,5 +79,5 @@ def generate_launch_description():
         DeclareLaunchArgument('rviz', default_value='true',
                               description='Open RViz.'),
         bridge,
-        #rviz,  #This is a lot of issues right now. Needs to troubleshoot
+        #rviz,
     ])

@@ -67,161 +67,93 @@
               <size>100 100</size>
             </plane>
           </geometry>
-            <material>
-            <pbr>
-                <metal>
-                    <albedo_map>floor.png</albedo_map>
-                </metal>
-            </pbr>
-            </material>
-        </visual>
-      </link>
-
-    <link name='plate1'>
-        <pose>0.065 0 0 0 0 0</pose>
-        <inertial>
-          <mass>0.01</mass>
-          <inertia>
-            <ixx>0.126164</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.416519</iyy>
-            <iyz>0</iyz>
-            <izz>0.481014</izz>
-          </inertia>
-        </inertial>
-        <visual name='visual'>
-          <geometry>
-            <box>
-              <size>10 0.05 0.005</size>
-            </box>
-          </geometry>
           <material>
-            <ambient>0 0 0 1</ambient>
-            <diffuse>0 0 0 1</diffuse>
-            <specular>0 0 0 1</specular>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <specular>0.8 0.8 0.8 1</specular>
           </material>
         </visual>
       </link>
-
-      <link name='plate2'>
-        <pose>5 2.5 0 0 0 0</pose>
-        <inertial>
-          <mass>0.01</mass>
-          <inertia>
-            <ixx>0.126164</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.416519</iyy>
-            <iyz>0</iyz>
-            <izz>0.481014</izz>
-          </inertia>
-        </inertial>
-        <visual name='visual'>
-          <geometry>
-            <box>
-              <size>0.05 5 0.005</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0 0 0 1</ambient>
-            <diffuse>0 0 0 1</diffuse>
-            <specular>0 0 0 1</specular>
-          </material>
-        </visual>
-      </link>
-
-       <joint name='glue' type='fixed'>
-        <parent>link</parent>
-        <child>plate1</child>
-      </joint>
-
-      <joint name='glue1' type='fixed'>
-        <parent>plate1</parent>
-        <child>plate2</child>
-      </joint>
     </model>
-
-
 
     <model name='vehicle_green'>
       <pose>0 -2 0.325 0 -0 0</pose>
 
     <!--     BODY PARTS        -->
-        <link name='chassis'>
-            <pose>0 0 .1 0 0 0</pose>
-            <inertial>
-              <mass>4</mass>
-              <inertia>
-                <ixx>0.005</ixx>
-                <ixy>0</ixy>
-                <ixz>0</ixz>
-                <iyy>0.005</iyy>
-                <iyz>0</iyz>
-                <izz>0.005</izz>
-              </inertia>
-            </inertial>
-            <visual name='visual'>
-              <geometry>
-                <box>
-                  <size>0.2159 0.1524 0.10795</size>
-                </box>
-              </geometry>
-              <material>
-                <ambient>0.5 1.0 0.5 1</ambient>
-                <diffuse>0.5 1.0 0.5 1</diffuse>
-                <specular>0.0 1.0 0.0 1</specular>
-              </material>
-            </visual>
-            <collision name='collision'>
-              <geometry>
-                <box>
-                  <size>0.2159 0.1524 0.10795</size>
-                </box>
-              </geometry>
-            </collision>
-          </link>
+      <link name='chassis'>
+        <pose>0 0 .1 0 0 0</pose>
+        <inertial>
+          <mass>1</mass>
+          <inertia>
+            <ixx>0.126164</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.416519</iyy>
+            <iyz>0</iyz>
+            <izz>0.481014</izz>
+          </inertia>
+        </inertial>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.2159 0.1524 0.10795</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 1.0 0.5 1</ambient>
+            <diffuse>0.5 1.0 0.5 1</diffuse>
+            <specular>0.0 1.0 0.0 1</specular>
+          </material>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <box>
+              <size>0.2159 0.1524 0.10795</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
 
-        <link name='plate'>
-            <pose>0.065 0 0.045 0 0 0</pose>
-            <inertial>
-              <mass>.01</mass>
-              <inertia>
-                <ixx>0.001</ixx>
-                <ixy>0</ixy>
-                <ixz>0</ixz>
-                <iyy>0.001</iyy>
-                <iyz>0</iyz>
-                <izz>0.001</izz>
-              </inertia>
-            </inertial>
-            <visual name='visual'>
-              <geometry>
-                <box>
-                  <size>0.1 0.05 0.005</size>
-                </box>
-              </geometry>
-              <material>
-                <ambient>0.8 2.0 0.5 1</ambient>
-                <diffuse>0.5 2.0 0.5 1</diffuse>
-                <specular>100 100.0 100.0 1</specular>
-              </material>
-            </visual>
-          </link>
+         <link name='plate'>
+        <pose>0.065 0 0.045 0 0 0</pose>
+        <inertial>
+          <mass>1</mass>
+          <inertia>
+            <ixx>0.126164</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.416519</iyy>
+            <iyz>0</iyz>
+            <izz>0.481014</izz>
+          </inertia>
+        </inertial>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.1 0.05 0.005</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.8 2.0 0.5 1</ambient>
+            <diffuse>0.5 2.0 0.5 1</diffuse>
+            <specular>0.0 5.0 0.0 1</specular>
+          </material>
+        </visual>
+      </link>
 
     <!--        Wheel section   -->
 
       <link name='rear_left_wheel'>
         <pose>-0.1 0.088 0.05 0 1.5707 1.5707</pose>
         <inertial>
-          <mass>1</mass>
+          <mass>2</mass>
           <inertia>
-            <ixx>0.001</ixx>
+            <ixx>0.145833</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.001</iyy>
+            <iyy>0.145833</iyy>
             <iyz>0</iyz>
-            <izz>0.001</izz>
+            <izz>0.125</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
@@ -250,14 +182,14 @@
       <link name='rear_right_wheel'>
         <pose> -0.1 -0.088 0.05 0 1.5707 1.5707 </pose>
         <inertial>
-          <mass>1</mass>
+          <mass>2</mass>
           <inertia>
-            <ixx>0.001</ixx>
+            <ixx>0.145833</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.001</iyy>
+            <iyy>0.145833</iyy>
             <iyz>0</iyz>
-            <izz>0.001</izz>
+            <izz>0.125</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
@@ -286,14 +218,14 @@
       <link name='front_left_wheel'>
         <pose>0.1 0.088 0.05 0 1.5707 1.5707</pose>
         <inertial>
-          <mass>1</mass>
+          <mass>2</mass>
           <inertia>
-            <ixx>0.001</ixx>
+            <ixx>0.145833</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.001</iyy>
+            <iyy>0.145833</iyy>
             <iyz>0</iyz>
-            <izz>0.001</izz>
+            <izz>0.125</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
@@ -322,14 +254,14 @@
       <link name='front_right_wheel'>
         <pose>0.1 -0.088 0.05 0 1.5707 1.5707</pose>
         <inertial>
-          <mass>1</mass>
+          <mass>2</mass>
           <inertia>
-            <ixx>0.001</ixx>
+            <ixx>0.145833</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.001</iyy>
+            <iyy>0.145833</iyy>
             <iyz>0</iyz>
-            <izz>0.001</izz>
+            <izz>0.125</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
@@ -361,14 +293,14 @@
       <link name='head'>
         <pose>0.090 0 0.16 0 0 0</pose>
         <inertial>
-          <mass>0.03</mass>
+          <mass>0.3</mass>
           <inertia>
-            <ixx>0.001</ixx>
+            <ixx>0.145833</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.001</iyy>
+            <iyy>0.145833</iyy>
             <iyz>0</iyz>
-            <izz>0.001</izz>
+            <izz>0.125</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
@@ -397,14 +329,14 @@
       <link name='head2'>
         <pose>0.090 0 0.18 0 1.6 0</pose>
         <inertial>
-          <mass>0.03</mass>
+          <mass>0.3</mass>
           <inertia>
-            <ixx>0.001</ixx>
+            <ixx>0.145833</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.001</iyy>
+            <iyy>0.145833</iyy>
             <iyz>0</iyz>
-            <izz>0.001</izz>
+            <izz>0.125</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
@@ -435,14 +367,14 @@
       <link name='sensor'>
       <pose>0.11 0 0.18 0 0 0</pose>
      <inertial>
-          <mass>0.02</mass>
+          <mass>0.2</mass>
           <inertia>
-            <ixx>0.001</ixx>
+            <ixx>0.126164</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.001</iyy>
+            <iyy>0.416519</iyy>
             <iyz>0</iyz>
-            <izz>0.001</izz>
+            <izz>0.481014</izz>
           </inertia>
         </inertial>
       <visual name='visual'>
@@ -480,7 +412,7 @@
               </scan>
           <range>
             <min>0.120000</min>
-            <max>4</max>
+            <max>3.5</max>
             <resolution>0.015000</resolution>
           </range>
           <noise>
@@ -500,7 +432,7 @@
     </link>
 
       <link name='right_IR'>
-      <pose>0.115 0.020 0.042 0 1.6 0</pose>
+      <pose>0.115 0.020 0.042 0 1 0</pose>
      <inertial>
           <mass>0.01</mass>
           <inertia>
@@ -526,28 +458,10 @@
             <emissive>0 0 0 0</emissive>
       </material>
       </visual>
-      <sensor name="depth_camera_right" type="depth_camera">
-          <update_rate>17</update_rate>
-          <visualize>true</visualize>
-          <always_on>1</always_on>
-          <topic>depth_camera_right</topic>
-          <camera>
-            <horizontal_fov>1.2</horizontal_fov>
-            <image>
-              <width>5</width>
-              <height>5</height>
-              <format>RGB_INT8</format>
-            </image>
-            <clip>
-              <near>0.0001</near>
-              <far>10.0</far>
-            </clip>
-          </camera>
-      </sensor>
     </link>
 
       <link name='left_IR'>
-      <pose>0.115 -0.020 0.042 0 1.6 0</pose>
+      <pose>0.115 -0.020 0.042 0 1 0</pose>
      <inertial>
           <mass>0.01</mass>
           <inertia>
@@ -573,67 +487,6 @@
             <emissive>0 0 0 0</emissive>
       </material>
       </visual>
-        <sensor name="depth_camera_left" type="depth_camera">
-          <update_rate>10</update_rate>
-          <topic>depth_camera_left</topic>
-          <camera>
-            <horizontal_fov>1.2</horizontal_fov>
-            <image>
-              <width>5</width>
-              <height>5</height>
-              <format>RGB_INT8</format>
-            </image>
-            <clip>
-              <near>0.0001</near>
-              <far>10.0</far>
-            </clip>
-          </camera>
-        </sensor>
-    </link>
-
-      <link name='middle_IR'>
-      <pose>0.115 0 0.042 0 1.6 0</pose>
-     <inertial>
-          <mass>0.01</mass>
-          <inertia>
-            <ixx>0.126164</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.416519</iyy>
-            <iyz>0</iyz>
-            <izz>0.481014</izz>
-          </inertia>
-        </inertial>
-      <visual name='visual'>
-        <pose>0 0 0 0 0 0</pose>
-        <geometry>
-          <box>
-            <size>0.001 0.004 0.001</size>
-          </box>
-        </geometry>
-        <material>
-            <ambient>1 0 0 1</ambient>
-            <diffuse>1 0 0 1</diffuse>
-            <specular>0.1 0.1 0.1 1</specular>
-            <emissive>0 0 0 0</emissive>
-      </material>
-      </visual>
-      <sensor name="depth_camera1" type="depth_camera">
-          <update_rate>10</update_rate>
-          <topic>depth_camera_middle</topic>
-           <camera>
-            <horizontal_fov>1.2</horizontal_fov>
-            <image>
-              <width>5</width>
-              <height>5</height>
-              <format>RGB_INT8</format>
-            </image>
-            <clip>
-              <near>0.0001</near>
-              <far>10.0</far>
-            </clip>
-          </camera>
-      </sensor>
     </link>
 
 
@@ -831,11 +684,6 @@
     <child>left_IR</child>
   </joint>
 
-   <joint name='IR_middle' type='fixed'>
-    <parent>plate</parent>
-    <child>middle_IR</child>
-  </joint>
-
 
 
     <!--        Invisible joint section        -->
@@ -978,33 +826,6 @@
     <wheel_radius>0.3</wheel_radius>
     <topic>servo1</topic>
   </plugin>
-
-    <plugin filename="ImageDisplay" name="Image Display 1">
-    <ignition-gui>
-      <title>RGBD: depth</title>
-      <property key="state" type="string">floating</property>
-      <property type="double" key="width">5.0</property>
-      <property type="double" key="height">5.0</property>
-      <property type="double" key="x">5.0</property>
-      <property type="double" key="y">5.0</property>
-    </ignition-gui>
-    <topic>depth_camera_left</topic>
-    <topic_picker>true</topic_picker>
-    </plugin>
-
-      <plugin filename="ImageDisplay" name="Image Display 3">
-        <ignition-gui>
-          <title>RGBD: image</title>
-          <property key="state" type="string">floating</property>
-          <property type="double" key="width">350</property>
-          <property type="double" key="height">315</property>
-          <property type="double" key="y">400</property>
-        </ignition-gui>
-        <topic>rgbd_camera/image</topic>
-        <topic_picker>false</topic_picker>
-      </plugin>
-
-
 
 
 

@@ -1,0 +1,31 @@
+<?xml version='1.0'?>
+<sdf version='1.6'>
+    <model name='conde_world'>
+      <static>true</static>
+      <link name='link_ground'>
+        <collision name='collision'>
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>174 417</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name='visual_ground'>
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>174 417</size>
+            </plane>
+          </geometry>
+          <material>
+            <pbr>
+            	<metal>
+              		<uri>model://conde_world/materials/textures</uri>
+              	</metal>
+            </pbr>
+          </material>
+        </visual>
+      </link>
+    </model>
+</sdf>

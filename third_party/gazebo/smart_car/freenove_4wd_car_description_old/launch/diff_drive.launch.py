@@ -34,7 +34,7 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(pkg_ros_ign_gazebo, 'launch', 'ign_gazebo.launch.py')),
         launch_arguments={
-            'ign_args': '-r models/sdf/freenove_smart_car.sdf'
+            'ign_args': '-r models/sdf/diff_drive.sdf'
         }.items(),
     )
 
@@ -42,23 +42,17 @@ def generate_launch_description():
     rviz = Node(
         package='rviz2',
         executable='rviz2',
-        arguments=['-d', os.path.join(pkg_ros_ign_gazebo_demos, 'rviz', 'freenove_smart_car.rviz')],
+        arguments=['-d', os.path.join(pkg_ros_ign_gazebo_demos, 'rviz', 'diff_drive.rviz')],
         condition=IfCondition(LaunchConfiguration('rviz'))
-    )
-    
-        # RQt
-    rqt = Node(
-        package='rqt_image_view',
-        executable='rqt_image_view',
-        arguments=['/camera'],
-        condition=IfCondition(LaunchConfiguration('rqt'))
     )
 
     # Bridge
     bridge = Node(
         package='ros_ign_bridge',
         executable='parameter_bridge',
-        arguments=['/model/freenove_smart_car/cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist',
+        arguments=['/model/vehicle_blue/cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist',
+                   '/model/vehicle_blue/odometry@nav_msgs/msg/Odometry@ignition.msgs.Odometry',
+                   '/model/vehicle_green/cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist',
                    '/M1@geometry_msgs/msg/Twist@ignition.msgs.Twist',
                    '/M2@geometry_msgs/msg/Twist@ignition.msgs.Twist',
                    '/M3@geometry_msgs/msg/Twist@ignition.msgs.Twist',
@@ -66,11 +60,8 @@ def generate_launch_description():
                    '/servo@geometry_msgs/msg/Twist@ignition.msgs.Twist',
                    '/servo1@geometry_msgs/msg/Twist@ignition.msgs.Twist',
                    '/cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist',
-                   '/model/freenove_smart_car/odometry@nav_msgs/msg/Odometry@ignition.msgs.Odometry',
-                   '/ultrasonic@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan',
-                   '/IR_middle/image@sensor_msgs/msg/Image@ignition.msgs.Image',
-                   '/IR_left/image@sensor_msgs/msg/Image@ignition.msgs.Image',
-                   '/IR_right/image@sensor_msgs/msg/Image@ignition.msgs.Image'],
+                   '/model/vehicle_green/odometry@nav_msgs/msg/Odometry@ignition.msgs.Odometry',
+                   '/ultrasonic@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan'],
         output='screen'
     )
 
@@ -79,5 +70,5 @@ def generate_launch_description():
         DeclareLaunchArgument('rviz', default_value='true',
                               description='Open RViz.'),
         bridge,
-        #rviz,  #This is a lot of issues right now. Needs to troubleshoot
+        rviz
     ])

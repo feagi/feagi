@@ -39,10 +39,6 @@
   <exec_depend>rviz2</exec_depend>
   <exec_depend>xacro</exec_depend>
   
-  
-  <depend condition="$IGNITION_VERSION == citadel">ignition-msgs5</depend>
-  <depend condition="$IGNITION_VERSION == citadel">ignition-transport8</depend>
-  
 
   <export>
     <build_type>ament_cmake</build_type>
