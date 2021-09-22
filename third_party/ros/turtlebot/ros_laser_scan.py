@@ -43,7 +43,7 @@ import rclpy
 import zmq
 
 from rclpy.node import Node
-from sensor_msgs.msg import LaserScan
+from sensor_msgs.msg import LaserScan, Image
 from rclpy.qos import QoSProfile
 from rclpy.qos import qos_profile_sensor_data
 

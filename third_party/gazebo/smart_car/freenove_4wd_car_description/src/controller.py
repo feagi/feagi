@@ -37,7 +37,7 @@ feagi_ipu_channel = Pub(address=ipu_channel_address)
 feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
 
-def node_initializer(model_name, topic_count, topic_identifier):
+def publisher_initializer(model_name, topic_count, topic_identifier):
     rclpy.init()
     node = rclpy.create_node('Controller_py')
 
@@ -50,6 +50,42 @@ def node_initializer(model_name, topic_count, topic_identifier):
     # pub1 = node.create_publisher(geometry_msgs.msg.Twist, '/cmd_vel', 10)  # Might delete this line
 
     return target_node
+
+
+class ScalableSubscriber(Node):
+    def __init__(self, subscription_name, msg_type, topic):
+        super().__init__(subscription_name)
+        self.subscription = self.create_subscription(
+            msg_type,
+            topic,
+            self.listener_callback,
+            qos_profile=qos_profile_sensor_data)
+        self.subscription  # prevent unused variable warning
+        self.msg_type = msg_type
+
+    def listener_callback(self, msg):
+        self.get_logger().info("distance: {}".format(msg.ranges[1]))
+        try:
+            formatted_msg = self.msg_processor(msg, self.msg_type)
+            print(">>>>>>>>>>>> MSG (formatted): ", formatted_msg)
+            send_to_feagi(message=formatted_msg)
+        except Exception as e:
+            print(">>>>>>>>>>>> ERROR: ", e)
+
+    def msg_processor(self, msg, sensor_type):
+        if sensor_type == 'ultrasonic':
+            return {
+                sensor_type: {
+                    idx: val for idx, val in enumerate(msg.ranges[1])
+                }
+            }
+        elif sensor_type == 'infrared':
+            return {
+                # todo: need a different processing for IR data since its an image
+                sensor_type: {
+                    idx: val for idx, val in enumerate(msg)
+                }
+            }
 
 
 class UltraSonicSubscriber(Node):
@@ -79,51 +115,42 @@ class UltraSonicSubscriber(Node):
         }
 
 
-class IR:
+class IRSubscriber(Node):
     def __init__(self):
-        print("Gazebo Ultrasonic has been initialized...")
+        super().__init__('ir_subscriber')
+        self.subscription = self.create_subscription(
+            LaserScan,
+            'ultrasonic',
+            self.listener_callback,
+            qos_profile=qos_profile_sensor_data)
+        self.subscription  # prevent unused variable warning
 
-    class MinimalSubscriber(Node):
+    def listener_callback(self, msg):
+        self.get_logger().info("distance: {}".format(msg.ranges[1]))
+        try:
+            formatted_msg = self.format_ultrasonic_msg([msg.ranges[1]])
+            print(">>>>>>>>>>>> MSG (formatted): ", formatted_msg)
+            send_to_feagi(message=formatted_msg)
+        except Exception as e:
+            print(">>>>>>>>>>>> ERROR: ", e)
 
-        def __init__(self):
-            super().__init__('ultrasonic_subscriber')
-            for _ in ['IR1', 'IR2', 'IR3']:
-                self.subscription = self.create_subscription(
-                    Image,
-                    _,
-                    self.listener_callback,
-                    qos_profile=qos_profile_sensor_data)
-                self.subscription  # prevent unused variable warning
-
-        def listener_callback(self, msg):
-            self.get_logger().info("distance: {}".format(msg.ranges[1]))
-
-    def read(args=None):
-        rclpy.init(args=args)
-
-        minimal_subscriber = MinimalSubscriber()
-
-        rclpy.spin(minimal_subscriber)
-
-        # Destroy the node explicitly
-        # (optional - otherwise it will be done automatically
-        # when the garbage collector destroys the node object)
-        minimal_subscriber.destroy_node()
-        rclpy.shutdown()
+    def format_ir_msg(self, msg, sensor_type='ultrasonic'):
+        return {
+            sensor_type: {
+                idx: val for idx, val in enumerate(msg)
+            }
+        }
 
 
 class Motor:
     def __init__(self, count, identifier, model):
 
-        self.motor_node = node_initializer(model_name= model,
-                                                     topic_count=count,
-                                                     topic_identifier=identifier)
+        self.motor_node = publisher_initializer(model_name=model, topic_count=count, topic_identifier=identifier)
 
         # todo: figure a way to extract wheel parameters from the model
         self.wheel_diameter = 1
 
     def move(self, motor_index, speed):
-
         # Convert speed to linear
         # todo: fix the following formula to properly calculate the velocities in 3d axis
         linear_velocity = [speed, 0, 0]
@@ -268,7 +295,12 @@ def main(args=None):
     rclpy.init(args=args)
 
     ultrasonic_feed = UltraSonicSubscriber()
+    ir_feed = IRSubscriber()
+
     rclpy.spin(ultrasonic_feed)
+
+    for ir in ir_list:
+        rclpy.spin(ir_feed)
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
@@ -286,6 +318,9 @@ def main(args=None):
         time.sleep(router_settings['global_timer'])
 
     ultrasonic_feed.destroy_node()
+    for ir in ir_list:
+        ir_feed.destroy_node()
+
     rclpy.shutdown()
 
 
