@@ -7,7 +7,7 @@ router_settings = {
     'global_timer': 0.5
 }
 
-models_properties = {
+model_properties = {
     'motor': {
         'count': 4,
         'topic_identifier': '/M'
@@ -15,5 +15,9 @@ models_properties = {
     'servo': {
         'count': 2,
         'topic_identifier': '/S'
+    },
+    'Infrared': {
+        'count': 3,
+        'topic_identifier': 'IR'
     }
 }

@@ -37,7 +37,7 @@ feagi_ipu_channel = Pub(address=ipu_channel_address)
 feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
 
-def publisher_node_initializer(model_name, topic_count, topic_identifier):
+def node_initializer(model_name, topic_count, topic_identifier):
     rclpy.init()
     node = rclpy.create_node('Controller_py')
 
@@ -50,7 +50,6 @@ def publisher_node_initializer(model_name, topic_count, topic_identifier):
     # pub1 = node.create_publisher(geometry_msgs.msg.Twist, '/cmd_vel', 10)  # Might delete this line
 
     return target_node
-
 
 
 class UltraSonicSubscriber(Node):
@@ -78,6 +77,84 @@ class UltraSonicSubscriber(Node):
                 idx: val for idx, val in enumerate(msg)
             }
         }
+
+
+class IR:
+    def __init__(self):
+        print("Gazebo Ultrasonic has been initialized...")
+
+    class MinimalSubscriber(Node):
+
+        def __init__(self):
+            super().__init__('ultrasonic_subscriber')
+            for _ in ['IR1', 'IR2', 'IR3']:
+                self.subscription = self.create_subscription(
+                    Image,
+                    _,
+                    self.listener_callback,
+                    qos_profile=qos_profile_sensor_data)
+                self.subscription  # prevent unused variable warning
+
+        def listener_callback(self, msg):
+            self.get_logger().info("distance: {}".format(msg.ranges[1]))
+
+    def read(args=None):
+        rclpy.init(args=args)
+
+        minimal_subscriber = MinimalSubscriber()
+
+        rclpy.spin(minimal_subscriber)
+
+        # Destroy the node explicitly
+        # (optional - otherwise it will be done automatically
+        # when the garbage collector destroys the node object)
+        minimal_subscriber.destroy_node()
+        rclpy.shutdown()
+
+
+class Motor:
+    def __init__(self, count, identifier, model):
+
+        self.motor_node = node_initializer(model_name= model,
+                                                     topic_count=count,
+                                                     topic_identifier=identifier)
+
+        # todo: figure a way to extract wheel parameters from the model
+        self.wheel_diameter = 1
+
+    def move(self, motor_index, speed):
+
+        # Convert speed to linear
+        # todo: fix the following formula to properly calculate the velocities in 3d axis
+        linear_velocity = [speed, 0, 0]
+        angular_velocity = [0, 0, speed]
+
+        twist = geometry_msgs.msg.Twist()
+        twist.linear.x = linear_velocity[0]  # positive goes backward, negative goes forward
+        twist.angular.z = angular_velocity[2]
+        self.motor_node[motor_index].publish(twist)
+
+
+class Servo:
+    def __init__(self, count, identifier, model):
+
+        self.servo_node = publisher_node_initializer(model_name=model,
+                                                     topic_count=count,
+                                                     topic_identifier=identifier)
+
+        # todo: figure a way to extract servo parameters from the model
+        self.servo_range = [0, 180]
+
+    def move(self, servo_index, angle):
+
+        twist = geometry_msgs.msg.Twist()
+
+        # todo: linear and angular speed does not make sense in the case of servo. To be fixed
+        twist.linear.x = angle  # positive goes backward, negative goes forward
+        twist.angular.z = angle
+
+        print("HEAD_UP_DOWN")
+        self.servo_node.publish(twist)
 
 
 class Teleop:
@@ -130,84 +207,6 @@ class Teleop:
         twist.linear.x = 0.0
         twist.angular.z = 0.0
         pub.publish(twist)
-
-
-class IR:
-    def __init__(self):
-        print("Gazebo Ultrasonic has been initialized...")
-
-    class MinimalSubscriber(Node):
-
-        def __init__(self):
-            super().__init__('ultrasonic_subscriber')
-            for _ in ['IR1', 'IR2', 'IR3']:
-                self.subscription = self.create_subscription(
-                    Image,
-                    _,
-                    self.listener_callback,
-                    qos_profile=qos_profile_sensor_data)
-                self.subscription  # prevent unused variable warning
-
-        def listener_callback(self, msg):
-            self.get_logger().info("distance: {}".format(msg.ranges[1]))
-
-    def read(args=None):
-        rclpy.init(args=args)
-
-        minimal_subscriber = MinimalSubscriber()
-
-        rclpy.spin(minimal_subscriber)
-
-        # Destroy the node explicitly
-        # (optional - otherwise it will be done automatically
-        # when the garbage collector destroys the node object)
-        minimal_subscriber.destroy_node()
-        rclpy.shutdown()
-
-
-class Motor:
-    def __init__(self, count, identifier, model):
-
-        self.motor_node = publisher_node_initializer(model_name= model,
-                                                     topic_count=count,
-                                                     topic_identifier=identifier)
-
-        # todo: figure a way to extract wheel parameters from the model
-        self.wheel_diameter = 1
-
-    def move(self, motor_index, speed):
-
-        # Convert speed to linear
-        # todo: fix the following formula to properly calculate the velocities in 3d axis
-        linear_velocity = [speed, 0, 0]
-        angular_velocity = [0, 0, speed]
-
-        twist = geometry_msgs.msg.Twist()
-        twist.linear.x = linear_velocity[0]  # positive goes backward, negative goes forward
-        twist.angular.z = angular_velocity[2]
-        self.motor_node[motor_index].publish(twist)
-
-
-class Servo:
-    def __init__(self, count, identifier, model):
-
-        self.servo_node = publisher_node_initializer(model_name=model,
-                                                     topic_count=count,
-                                                     topic_identifier=identifier)
-
-        # todo: figure a way to extract servo parameters from the model
-        self.servo_range = [0, 180]
-
-    def move(self, servo_index, angle):
-
-        twist = geometry_msgs.msg.Twist()
-
-        # todo: linear and angular speed does not make sense in the case of servo. To be fixed
-        twist.linear.x = angle  # positive goes backward, negative goes forward
-        twist.angular.z = angle
-
-        print("HEAD_UP_DOWN")
-        self.servo_node.publish(twist)
 
 
 def send_to_feagi(message):
@@ -263,8 +262,8 @@ def main(args=None):
 
     # todo: identify a method to instantiate all classes without doing it one by one
     # Instantiate Controller Classes
-    motor = Motor(count=models_properties['motor']['count'], identifier=models_properties['motor']['topic_identifier'])
-    servo = Servo(count=models_properties['servo']['count'], identifier=models_properties['servo']['topic_identifier'])
+    motor = Motor(count=model_properties['motor']['count'], identifier=model_properties['motor']['topic_identifier'])
+    servo = Servo(count=model_properties['servo']['count'], identifier=model_properties['servo']['topic_identifier'])
 
     rclpy.init(args=args)
 
