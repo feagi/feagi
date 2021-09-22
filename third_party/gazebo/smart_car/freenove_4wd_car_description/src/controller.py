@@ -158,7 +158,7 @@ class Motor:
         # todo: generalize to extract number of motors from gazebo robot model
         motor_count = 4
 
-        self.motor_node = []
+        self.motor_node = {}
         for motor in range(motor_count):
             motor_string = '/M' + str(motor)
             self.motor_node[motor] = node.create_publisher(geometry_msgs.msg.Twist, motor_string, 10)
@@ -271,7 +271,7 @@ def main(args=None):
     # Instantiate Controller Classes
     motor = Motor()
 
-    rclpy.init(args=args)
+    # rclpy.init(args=args)
 
     ultrasonic_feed = UltraSonicSubscriber()
 

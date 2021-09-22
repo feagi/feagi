@@ -2,6 +2,7 @@ FROM tiryoh/ros2-desktop-vnc:foxy
 # FROM ros:foxy
 
 ENV GAZEBO_CONTAINER=true
+# ENV OPENBOX_ARGS='--startup "/root/setup_simulation.sh"'
 
 # install initial tools/dependencies
 RUN apt-get update && \

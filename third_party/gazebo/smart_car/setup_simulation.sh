@@ -7,5 +7,5 @@ source /opt/ros/foxy/setup.bash
 cd /opt/source-code/freenove_4wd_car_description/
 colcon build
 source install/setup.bash
-ros2 launch freenove_4wd_car_description diff_drive.launch.py &
+ros2 launch freenove_4wd_car_description freenove_smart_car.launch.py &
 xterm -e ./start_controller.sh
