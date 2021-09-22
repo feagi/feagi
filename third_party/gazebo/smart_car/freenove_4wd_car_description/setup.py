@@ -29,9 +29,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'motor = motor:main',
             'joint_state_publisher = joint_state_publisher.joint_state_publisher:main',
-            'range = range.range:main',
             'controller = controller:main',
             'router = router:main',
             'configuration = configuration:main'

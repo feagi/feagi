@@ -71,14 +71,6 @@ ament_python_install_package(src/)
 
 # Install Python executables
 install(PROGRAMS
-  src/motor.py
-  DESTINATION lib/${PROJECT_NAME}
-)
-install(PROGRAMS
-  src/range.py
-  DESTINATION lib/${PROJECT_NAME}
-)
-install(PROGRAMS
   src/controller.py
   DESTINATION lib/${PROJECT_NAME}
 )
