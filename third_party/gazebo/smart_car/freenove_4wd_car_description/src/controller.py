@@ -9,8 +9,9 @@ import geometry_msgs.msg
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan, Image
-from rclpy.qos import QoSProfile
+# from rclpy.qos import QoSProfile
 from rclpy.qos import qos_profile_sensor_data
+from configuration import *
 
 
 if sys.platform == 'win32':
@@ -36,8 +37,23 @@ feagi_ipu_channel = Pub(address=ipu_channel_address)
 feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
 
-class UltraSonicSubscriber(Node):
+def publisher_node_initializer(model_name, topic_count, topic_identifier):
+    rclpy.init()
+    node = rclpy.create_node('Controller_py')
 
+    target_node = []
+    for target in range(topic_count):
+        topic_string = topic_identifier + str(target)
+        target_node[target] = node.create_publisher(geometry_msgs.msg.Twist, topic_string, 10)
+
+    pub = node.create_publisher(geometry_msgs.msg.Twist, model_name, 10)
+    # pub1 = node.create_publisher(geometry_msgs.msg.Twist, '/cmd_vel', 10)  # Might delete this line
+
+    return target_node
+
+
+
+class UltraSonicSubscriber(Node):
     def __init__(self):
         super().__init__('ultrasonic_subscriber')
         self.subscription = self.create_subscription(
@@ -150,21 +166,11 @@ class IR:
 
 
 class Motor:
-    def __init__(self):
-        rclpy.init()
-        node = rclpy.create_node('Controller_py')
+    def __init__(self, count, identifier, model):
 
-        # Assuming 4 motors
-        # todo: generalize to extract number of motors from gazebo robot model
-        motor_count = 4
-
-        self.motor_node = []
-        for motor in range(motor_count):
-            motor_string = '/M' + str(motor)
-            self.motor_node[motor] = node.create_publisher(geometry_msgs.msg.Twist, motor_string, 10)
-
-        self.pub = node.create_publisher(geometry_msgs.msg.Twist, '/model/vehicle_green/cmd_vel', 10)
-        self.pub1 = node.create_publisher(geometry_msgs.msg.Twist, '/cmd_vel', 10)  # Might delete this line
+        self.motor_node = publisher_node_initializer(model_name= model,
+                                                     topic_count=count,
+                                                     topic_identifier=identifier)
 
         # todo: figure a way to extract wheel parameters from the model
         self.wheel_diameter = 1
@@ -183,25 +189,13 @@ class Motor:
 
 
 class Servo:
-    def __init__(self):
-        rclpy.init()
-        node = rclpy.create_node('Controller_py')
+    def __init__(self, count, identifier, model):
 
-        # Assuming 4 motors
-        servo_count = 4
-        # todo: generalize to support any number of motors
-        self.servo_node = []
-        for servo in range(servo_count):
-            motor_string = '/servo' + str(servo)
-            self.motor_node[servo] = node.create_publisher(geometry_msgs.msg.Twist, motor_string, 10)
+        self.servo_node = publisher_node_initializer(model_name=model,
+                                                     topic_count=count,
+                                                     topic_identifier=identifier)
 
-        servo = node.create_publisher(geometry_msgs.msg.Twist, '/servo', 10)
-        servo1 = node.create_publisher(geometry_msgs.msg.Twist, '/servo1', 10)
-
-        self.pub = node.create_publisher(geometry_msgs.msg.Twist, '/model/vehicle_green/cmd_vel', 10)
-        self.pub1 = node.create_publisher(geometry_msgs.msg.Twist, '/cmd_vel', 10)  # Might delete this line
-
-        # todo: figure a way to extract wheel parameters from the model
+        # todo: figure a way to extract servo parameters from the model
         self.servo_range = [0, 180]
 
     def move(self, servo_index, angle):
@@ -269,12 +263,12 @@ def main(args=None):
 
     # todo: identify a method to instantiate all classes without doing it one by one
     # Instantiate Controller Classes
-    motor = Motor()
+    motor = Motor(count=models_properties['motor']['count'], identifier=models_properties['motor']['topic_identifier'])
+    servo = Servo(count=models_properties['servo']['count'], identifier=models_properties['servo']['topic_identifier'])
 
     rclpy.init(args=args)
 
     ultrasonic_feed = UltraSonicSubscriber()
-
     rclpy.spin(ultrasonic_feed)
 
     # Destroy the node explicitly
