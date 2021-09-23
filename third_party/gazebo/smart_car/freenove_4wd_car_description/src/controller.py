@@ -64,7 +64,7 @@ class ScalableSubscriber(Node):
         self.msg_type = msg_type
 
     def listener_callback(self, msg):
-        self.get_logger().info("distance: {}".format(msg.ranges[1]))
+        self.get_logger().info("Raw Message: {}".format(msg.ranges[1]))
         try:
             formatted_msg = self.msg_processor(msg, self.msg_type)
             print(">>>>>>>>>>>> MSG (formatted): ", formatted_msg)
@@ -86,6 +86,13 @@ class ScalableSubscriber(Node):
                     idx: val for idx, val in enumerate(msg)
                 }
             }
+
+
+
+class UltrasonicSubscriber(ScalableSubscriber):
+    def __init__(self):
+        super().__init__(, )
+
 
 
 class UltraSonicSubscriber(Node):
@@ -165,7 +172,7 @@ class Motor:
 class Servo:
     def __init__(self, count, identifier, model):
 
-        self.servo_node = publisher_node_initializer(model_name=model,
+        self.servo_node = publisher_initializer(model_name=model,
                                                      topic_count=count,
                                                      topic_identifier=identifier)
 
@@ -180,8 +187,7 @@ class Servo:
         twist.linear.x = angle  # positive goes backward, negative goes forward
         twist.angular.z = angle
 
-        print("HEAD_UP_DOWN")
-        self.servo_node.publish(twist)
+        self.servo_node[servo_index].publish(twist)
 
 
 class Teleop:
@@ -288,12 +294,13 @@ def main(args=None):
     print("Connecting to FEAGI resources...")
 
     # todo: identify a method to instantiate all classes without doing it one by one
-    # Instantiate Controller Classes
+    # Instantiate controller classes with Publisher nature
     motor = Motor(count=model_properties['motor']['count'], identifier=model_properties['motor']['topic_identifier'])
     servo = Servo(count=model_properties['servo']['count'], identifier=model_properties['servo']['topic_identifier'])
 
     rclpy.init(args=args)
 
+    # Instantiate controller classes with Subscriber nature
     ultrasonic_feed = UltraSonicSubscriber()
     ir_feed = IRSubscriber()
 
