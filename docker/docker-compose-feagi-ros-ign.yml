@@ -9,9 +9,11 @@ services:
     build: ../third_party/gazebo/smart_car/
     ports:
       - "6080:80"
-    stdin_open: true
+    environment:
+      - OPENBOX_ARGS=--startup /root/setup_simulation.sh
     privileged: true
-    tty: true
+    # stdin_open: true
+    # tty: true
     networks:
       - net
 
