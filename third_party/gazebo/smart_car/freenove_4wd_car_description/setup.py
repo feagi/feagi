@@ -32,7 +32,8 @@ setup(
             'joint_state_publisher = joint_state_publisher.joint_state_publisher:main',
             'controller = controller:main',
             'router = router:main',
-            'configuration = configuration:main'
+            'configuration = configuration:main',
+            'ultrasonic = ultrasonic:main',
         ],
     },
 )

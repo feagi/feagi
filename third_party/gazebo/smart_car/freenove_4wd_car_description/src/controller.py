@@ -29,11 +29,11 @@ sockets = feagi_state['sockets']
 print("--->> >> >> ", sockets)
 
 # todo: to obtain this info directly from FEAGI as part of registration
-ipu_channel_address = 'tcp://0.0.0.0:' + router_settings['ipu_port']
-print("IPU_channel_address=", ipu_channel_address)
+# ipu_channel_address = 'tcp://0.0.0.0:' + router_settings['ipu_port']
+# print("IPU_channel_address=", ipu_channel_address)
 opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['opu_port']
 
-feagi_ipu_channel = Pub(address=ipu_channel_address)
+# feagi_ipu_channel = Pub(address=ipu_channel_address)
 feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
 
@@ -53,31 +53,31 @@ def publisher_node_initializer(model_name, topic_count, topic_identifier):
 
 
 
-class UltraSonicSubscriber(Node):
-    def __init__(self):
-        super().__init__('ultrasonic_subscriber')
-        self.subscription = self.create_subscription(
-            LaserScan,
-            'ultrasonic',
-            self.listener_callback,
-            qos_profile=qos_profile_sensor_data)
-        self.subscription  # prevent unused variable warning
+# class UltraSonicSubscriber(Node):
+#     def __init__(self):
+#         super().__init__('ultrasonic_subscriber')
+#         self.subscription = self.create_subscription(
+#             LaserScan,
+#             'ultrasonic',
+#             self.listener_callback,
+#             qos_profile=qos_profile_sensor_data)
+#         self.subscription  # prevent unused variable warning
 
-    def listener_callback(self, msg):
-        self.get_logger().info("distance: {}".format(msg.ranges[1]))
-        try:
-            formatted_msg = self.format_ultrasonic_msg([msg.ranges[1]])
-            print(">>>>>>>>>>>> MSG (formatted): ", formatted_msg)
-            send_to_feagi(message=formatted_msg)
-        except Exception as e:
-            print(">>>>>>>>>>>> ERROR: ", e)
+#     def listener_callback(self, msg):
+#         self.get_logger().info("distance: {}".format(msg.ranges[1]))
+#         try:
+#             formatted_msg = self.format_ultrasonic_msg([msg.ranges[1]])
+#             print(">>>>>>>>>>>> MSG (formatted): ", formatted_msg)
+#             send_to_feagi(message=formatted_msg)
+#         except Exception as e:
+#             print(">>>>>>>>>>>> ERROR: ", e)
 
-    def format_ultrasonic_msg(self, msg, sensor_type='ultrasonic'):
-        return {
-            sensor_type: {
-                idx: val for idx, val in enumerate(msg)
-            }
-        }
+#     def format_ultrasonic_msg(self, msg, sensor_type='ultrasonic'):
+#         return {
+#             sensor_type: {
+#                 idx: val for idx, val in enumerate(msg)
+#             }
+#         }
 
 
 class Teleop:
@@ -198,8 +198,8 @@ class Motor:
         angular_velocity = [0, 0, speed]
 
         twist = geometry_msgs.msg.Twist()
-        twist.linear.x = linear_velocity[0]  # positive goes backward, negative goes forward
-        twist.angular.z = angular_velocity[2]
+        twist.linear.x = float(linear_velocity[0])  # positive goes backward, negative goes forward
+        twist.angular.z = float(angular_velocity[2])
         self.motor_node[motor_index].publish(twist)
 
 
@@ -225,11 +225,11 @@ class Servo:
         self.servo_node.publish(twist)
 
 
-def send_to_feagi(message):
-    print("Sending message to FEAGI...")
-    print("Original message:", message)
+# def send_to_feagi(message):
+#     print("Sending message to FEAGI...")
+#     print("Original message:", message)
 
-    feagi_ipu_channel.send(message)
+#     feagi_ipu_channel.send(message)
 
 
 def ipu_message_builder():
@@ -284,8 +284,8 @@ def main(args=None):
 
     # rclpy.init(args=args)
 
-    ultrasonic_feed = UltraSonicSubscriber()
-    rclpy.spin(ultrasonic_feed)
+    # ultrasonic_feed = UltraSonicSubscriber()
+    # rclpy.spin(ultrasonic_feed)
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
@@ -302,7 +302,7 @@ def main(args=None):
 
         time.sleep(router_settings['global_timer'])
 
-    ultrasonic_feed.destroy_node()
+    # ultrasonic_feed.destroy_node()
     rclpy.shutdown()
 
 
