@@ -33,10 +33,11 @@ def translate(proximity_data, type=None):
         # print("ranges:", message.ranges)
         # print("scan_time:", message.scan_time)
         # print("time_increment:", message.time_increment)
-        # print("-----")
+        print("-----")
 
         for sensor in proximity_data:
             # differentiate between LIDAR/SONAR data
+            print("$ $", proximity_data[sensor])
             if hasattr(proximity_data[sensor], '__iter__'):
                 detections = proximity.lidar_to_coords(proximity_data[sensor])
                 print("** ^^^ **")
