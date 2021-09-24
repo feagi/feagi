@@ -13,9 +13,20 @@ from collections import deque
 from inf import runtime_data, disk_ops, settings
 from configparser import ConfigParser
 from shutil import copyfile
-from evo.stats import list_top_n_utf_memory_neurons
+from evo.stats import list_top_n_utf_memory_neurons, block_dict_summary
+from inf.messenger import Pub
 
 log = logging.getLogger(__name__)
+
+
+# def init_hw_controller():
+#     """
+#     Loads the proper controller module based on the robot species defined within genome
+#     """
+#     import sys
+#     print("controller path:", runtime_data.hw_controller_path)
+#     sys.path.insert(1, runtime_data.hw_controller_path)
+#     import controller
 
 
 def detect_hardware():
@@ -31,6 +42,10 @@ def detect_hardware():
     except:
         print("Need to figure how other platforms can be detected")
 
+    runtime_data.hw_controller_path = '../third_party/' + \
+                                      runtime_data.genome['species']['brand'] + '/' +\
+                                      runtime_data.genome['species']['model'] + '/controller.py'
+    print("Hardware controller path: ", runtime_data.hw_controller_path)
 
 def init_container_variables():
     """
@@ -43,6 +58,8 @@ def init_container_variables():
         runtime_data.influxdb = True
     if os.environ.get('mongodb', False):
         runtime_data.mongodb = True
+    if os.environ.get('gazebo', False):
+        runtime_data.gazebo = True
 
 
 def running_in_container():
@@ -205,17 +222,26 @@ def init_resources():
         print("Max thread count was set to ", runtime_data.parameters['System']['max_core'])
 
 
+def init_fake_stimulation():
+    if runtime_data.parameters['Switches']['fake_stimulation_flag']:
+        import inf.fake_stimulation as fake_stimulation
+        runtime_data.stimulation_data = fake_stimulation.stimulation_data
+
+
 def initialize():
     runtime_data.last_alertness_trigger = datetime.now()
     run_id_gen()
     init_parameters()
+    init_io_channels()
     init_working_directory()
     init_container_variables()
     init_data_sources()
     init_genome()
+    detect_hardware()
     init_cortical_list()
     init_genome_post_processes()
     init_resources()
+    init_fake_stimulation()
     runtime_data.fcl_queue = Queue()
 
 
@@ -243,6 +269,10 @@ def init_burst_engine():
     runtime_data.top_10_utf_neurons = list_top_n_utf_memory_neurons("utf8_ipu", 10)
     runtime_data.v1_members = []
 
+    if runtime_data.parameters["Logs"]["print_block_dict_report"]:
+        print("Block Dictionary Report:")
+        block_dict_summary(runtime_data.block_dic, verbose=True)
+
     for item in runtime_data.cortical_list:
         if runtime_data.genome['blueprint'][item]['sub_group_id'] == "vision_v1":
             runtime_data.v1_members.append(item)
@@ -256,4 +286,21 @@ def exit_burst_process():
     runtime_data.parameters["Auto_injector"]["injector_status"] = False
     if runtime_data.parameters["Switches"]["capture_brain_activities"]:
         disk_ops.save_fcl_to_disk()
+
+
+def init_io_channels():
+    # Initialize ZMQ connections
+    try:
+        opu_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['opu_port']
+        print("OPU socket is:", opu_socket)
+        runtime_data.opu_pub = Pub(opu_socket)
+        print("OPU channel as been successfully established at ",
+              runtime_data.parameters['Sockets']['opu_port'])
+
+        runtime_data.router_address = 'tcp://' + runtime_data.parameters['Sockets']['sensory_router_ip'] + ':' + \
+                                      runtime_data.parameters['Sockets']['sensory_router_port']
+        print("Router address is set to:", runtime_data.router_address)
+    except KeyError as e:
+        print('ERROR: OPU socket is not properly defined as part of feagi_configuration.ini\n', e)
+
 
