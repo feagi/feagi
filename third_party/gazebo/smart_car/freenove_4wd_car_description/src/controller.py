@@ -194,7 +194,7 @@ class Motor:
 
         # Convert speed to linear
         # todo: fix the following formula to properly calculate the velocities in 3d axis
-        linear_velocity = [speed, 0, 0]
+        linear_velocity = [0, 0, 0]
         angular_velocity = [0, 0, speed]
 
         twist = geometry_msgs.msg.Twist()
