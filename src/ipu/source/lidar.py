@@ -39,6 +39,7 @@ def translate(proximity_data, type=None):
             # differentiate between LIDAR/SONAR data
             if hasattr(proximity_data[sensor], '__iter__'):
                 detections = proximity.lidar_to_coords(proximity_data[sensor])
+                print("** ^^^ **")
             else:
                 detections = proximity.sonar_to_coords(proximity_data[sensor])
 
