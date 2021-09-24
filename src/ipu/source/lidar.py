@@ -43,6 +43,7 @@ def translate(proximity_data, type=None):
                 print("** ^^^ **")
             else:
                 detections = proximity.sonar_to_coords(proximity_data[sensor])
+                print("** ^...^ **")
 
             neurons = proximity.coords_to_neuron_ids(
                 detections, cortical_area='proximity_ipu'

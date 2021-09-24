@@ -76,6 +76,7 @@ def sonar_to_coords(sonar_data, threshold=10):
         dist_map = round(map_value(sonar_data, SONAR_MIN, SONAR_MAX, 0, Z_MAX))
     except TypeError:
         dist_map = 0
+        print("Type Error in sonar_to_coords...")
     
     if dist_map != 0:
         # x = X_MAX // 2
