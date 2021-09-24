@@ -4,7 +4,9 @@ router_settings = {
     "feagi_ip": "feagi",
     "feagi_port": "30000",
     "ipu_port": "30001",
-    'global_timer': 0.5
+    'global_timer': 0.5,
+    'TTL': 1,
+    'last_message': None
 }
 
 models_properties = {
