@@ -48,6 +48,7 @@ class Sub:
         try:
             print("listening for ipu data...")
             payload = self.socket.recv_pyobj(flags=zmq.NOBLOCK)
+            print("FEAGI received:")
             return payload
 
         # if self.validate(payload):
