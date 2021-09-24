@@ -354,6 +354,7 @@ def burst_manager():
                 # todo: need a more consistent naming convention when it comes to lidar vs ultrasonic vs proximity
                 if sensor_type == 'ultrasonic':
                     try:
+                        print("&& &&")
                         lidar.translate(proximity_data=ipu_data['ultrasonic'])
 
                     except:
