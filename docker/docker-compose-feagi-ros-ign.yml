@@ -10,11 +10,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: 2
+          cpus: '2'
     ports:
       - "6080:80"
-    environment:
-      - OPENBOX_ARGS=--startup /root/setup_simulation.sh
+    # environment:
+    #   - OPENBOX_ARGS=--startup /home/ubuntu/setup_simulation.sh
     privileged: true
     # stdin_open: true
     # tty: true

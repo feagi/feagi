@@ -78,8 +78,10 @@ def sonar_to_coords(sonar_data, threshold=10):
         dist_map = 0
     
     if dist_map != 0:
-        x = X_MAX // 2
-        y = Y_MAX // 2
+        # x = X_MAX // 2
+        # y = Y_MAX // 2
+        x = X_MAX
+        y = Y_MAX
         z = dist_map
         return [(x, y, z)]
     
