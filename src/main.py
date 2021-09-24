@@ -2,7 +2,7 @@
 """
 Copyright (c) 2019 Mohammad Nadji-Tehrani <m.nadji.tehrani@gmail.com>
 
-FEAGI is a brain inspired evolutionary framework capable of growing and artificial brain from a
+FEAGI is a brain inspired evolutionary framework capable of growing an artificial brain from a
 genome and helping it evolve over generations.
 
 This main module is responsible for driving the lifecycle of a single generation of an

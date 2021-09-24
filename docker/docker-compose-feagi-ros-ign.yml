@@ -1,0 +1,26 @@
+version: "3"
+
+networks:
+  net:
+    driver: bridge
+
+services:
+  ros_gazebo:
+    build: ../third_party/gazebo/smart_car/
+    ports:
+      - "6080:80"
+    # environment:
+    #   - OPENBOX_ARGS=--startup /root/setup_simulation.sh
+    privileged: true
+    # stdin_open: true
+    # tty: true
+    networks:
+      - net
+
+  feagi:
+    build: ./
+    privileged: true
+    environment:
+      - GAZEBO_CONTAINER=true
+    networks:
+      - net

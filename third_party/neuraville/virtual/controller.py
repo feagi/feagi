@@ -1,14 +1,12 @@
 
 """
-This module contains all the needed functions to control the Freenove 4WD Car
+This module contains a virtual set of hardware controllers used for simulation and testing only
 
-FEAGI IPU/OPU directly interact with this module to operate the 4WD CAR
+todo: Need to have all of the controller.py modules follow the same convention and be consistent especially input data
 """
-
-import RPi.GPIO as GPIO
-from PCA9685 import PCA9685
-from Led import *
-from ADC import *
+from time import time, sleep
+from router import *
+from random import randrange, getrandbits
 
 
 class LED:
@@ -57,21 +55,11 @@ class LED:
 
 class IR:
     def __init__(self):
-        self.IR01 = 14
-        self.IR02 = 15
-        self.IR03 = 23
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(self.IR01, GPIO.IN)
-        GPIO.setup(self.IR02, GPIO.IN)
-        GPIO.setup(self.IR03, GPIO.IN)
+        print("Infrared module has ben activated...")
 
     def read(self):
-        gpio_state = []
-        ir_sensors = [self.IR01, self.IR02, self.IR03]
-        for idx, sensor in enumerate(ir_sensors):
-            if GPIO.input(sensor):
-                gpio_state.append(idx)
-        return gpio_state
+        ir_reading = bool(getrandbits(1))
+        return ir_reading
 
 
 class Buzzer(object):
@@ -134,10 +122,7 @@ class Servo:
     class to work with functions.
     """
     def __init__(self):
-        self.PwmServo = PCA9685(0x40, debug=True)
-        self.PwmServo.setPWMFreq(50)
-        self.PwmServo.setServoPulse(8,1500)
-        self.PwmServo.setServoPulse(9,1500)
+        print("Neuraville virtual servo has been initialized...")
 
     def setServoPwm(self,channel,angle,error=10):
         angle = int(angle)
@@ -179,20 +164,10 @@ class Servo:
 
 class Motor:
     def __init__(self):
-        self.pwm = PCA9685(0x40, debug=True)
-        self.pwm.setPWMFreq(50)
-        self.motor_channels = [[0, 1], [3, 2], [4, 5], [6, 7]]
+        print("Neuraville virtual motor has been initialized...")
 
     def move(self, motor_index, speed):
-        if speed > 0:
-            self.pwm.setMotorPwm(self.motor_channels[motor_index][0], 0)
-            self.pwm.setMotorPwm(self.motor_channels[motor_index][1], speed)
-        elif speed < 0:
-            self.pwm.setMotorPwm(self.motor_channels[motor_index][1], 0)
-            self.pwm.setMotorPwm(self.motor_channels[motor_index][0], abs(speed))
-        else:
-            self.pwm.setMotorPwm(self.motor_channels[motor_index][0], 4095)
-            self.pwm.setMotorPwm(self.motor_channels[motor_index][1], 4095)
+        print("<< < .$.Speed of motor %s is set to %s.$. > >>" % (motor_index, speed))
 
 
 class Photoresistor:
@@ -212,14 +187,12 @@ class Photoresistor:
 class Battery:
     def battery_total(self):  ##It gives a full volt remain of battery
         """
-        It reads the battery total. It will return the battery value.
+        Returns a fake battery value
         -------
 
         """
-        adc = Adc()
-        Power = adc.recvADC(2) * 3
-        # print(Power)
-        return Power
+        power = 2.3
+        return power
 
 
 class Ultrasonic:
@@ -259,3 +232,93 @@ class Ultrasonic:
             distance_cm[i] = pulse_len/0.000058
         distance_cm=sorted(distance_cm)
         return int(distance_cm[1])
+
+
+def ipu_message_builder():
+    """
+    This function encodes the sensory information in a dictionary that can be decoded on the FEAGI end.
+
+    expected ipu_data structure:
+
+        ipu_data = {
+            sensor_type: {
+                sensor_name: sensor_data,
+                sensor_name: sensor_data,
+                ...
+                },
+            sensor_type: {
+                sensor_name: sensor_data,
+                sensor_name: sensor_data,
+                ...
+                },
+            ...
+            }
+        }
+    """
+    # Process IPU data received from controller.py and pass it along to FEAGI
+    # todo: move class instantiations to outside function
+    ir = IR()
+
+    # todo: figure a better way of obtaining the device count
+    ir_count = 3
+
+    ipu_data = dict()
+    ipu_data['ultrasonic'] = {
+        1: [randrange(0, 30) / 10, randrange(0, 30) / 10, randrange(0, 30) / 10, randrange(0, 30) / 10,
+            randrange(0, 30) / 10, randrange(0, 30) / 10]
+    }
+    ipu_data['ir'] = {}
+
+    for _ in range(ir_count):
+        ipu_data['ir'][_] = ir.read()
+
+    return ipu_data
+
+
+def main():
+    address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_port']
+    feagi_state = find_feagi(address=address)
+
+    print("** **", feagi_state)
+    sockets = feagi_state['sockets']
+
+    print("--->> >> >> ", sockets)
+
+    # todo: to obtain this info directly from FEAGI as part of registration
+    ipu_channel_address = 'tcp://0.0.0.0:' + router_settings['ipu_port']
+    print("IPU_channel_address=", ipu_channel_address)
+    opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['opu_port']
+
+    feagi_ipu_channel = Pub(address=ipu_channel_address)
+    feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+
+    print("Connecting to FEAGI resources...")
+
+    # todo: identify a method to instantiate all classes without doing it one by one
+    # Instantiate Controller Classes
+    motor = Motor()
+
+    # Listen and route
+    print("Starting the routing engine")
+    print("Communication frequency is set once every %f seconds" % router_settings['global_timer'])
+
+    while True:
+        # Process OPU data received from FEAGI and pass it along to the controller.py
+        opu_data = feagi_opu_channel.receive()
+        print("Received:", opu_data)
+        if opu_data is not None:
+            if 'motor' in opu_data:
+                for motor_id in opu_data['motor']:
+                    motor.move(motor_id, opu_data['motor'][motor_id])
+
+        ipu_data = ipu_message_builder()
+        feagi_ipu_channel.send(ipu_data)
+
+
+        # todo: need to figure how to correlate the flow on incoming data with the rate data is passed to FEAGI
+
+        sleep(router_settings['global_timer'])
+
+
+if __name__ == '__main__':
+    main()

@@ -1230,8 +1230,8 @@ genome = {
   },
   "species": {
       "class": "toy",
-      "brand": "freenove",
-      "model": "robot_dog"
+      "brand": "gazebo",
+      "model": "smart_car"
   },
   "blueprint": {
       "vision_thalamus_1": {
@@ -3382,18 +3382,18 @@ genome = {
             "consecutive_fire_cnt_max" : 3,
             "snooze_length" : 0,
             "block_boundaries" : [
-                5,
-                5,
+                1,
+                1,
                 20
             ],
             "geometric_boundaries" : {
                 "x" : [
                     0,
-                    3600
+                    10
                 ],
                 "y" : [
                     0,
-                    1800
+                    10
                 ],
                 "z" : [
                     0,
