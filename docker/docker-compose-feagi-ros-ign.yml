@@ -7,6 +7,10 @@ networks:
 services:
   ros_gazebo:
     build: ../third_party/gazebo/smart_car/
+    deploy:
+      resources:
+        limits:
+          cpus: 2
     ports:
       - "6080:80"
     environment:
