@@ -1,6 +1,6 @@
-	<?xml version="1.0" ?>
+<?xml version="1.0" ?>
 <sdf version="1.6">
-  <world name="diff_drive">
+  <world name="free_world">
 
     <physics name="1ms" type="ignored">
       <max_step_size>0.001</max_step_size>
@@ -289,12 +289,12 @@
         <inertial>
           <mass>1</mass>
           <inertia>
-            <ixx>0.001</ixx>
+            <ixx>0.01</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.001</iyy>
+            <iyy>0.01</iyy>
             <iyz>0</iyz>
-            <izz>0.001</izz>
+            <izz>0.01</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
@@ -325,12 +325,12 @@
         <inertial>
           <mass>1</mass>
           <inertia>
-            <ixx>0.001</ixx>
+            <ixx>0.01</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.001</iyy>
+            <iyy>0.01</iyy>
             <iyz>0</iyz>
-            <izz>0.001</izz>
+            <izz>0.01</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
@@ -361,12 +361,12 @@
         <inertial>
           <mass>1</mass>
           <inertia>
-            <ixx>0.001</ixx>
+            <ixx>0.01</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.001</iyy>
+            <iyy>0.01</iyy>
             <iyz>0</iyz>
-            <izz>0.001</izz>
+            <izz>0.01</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
@@ -397,12 +397,12 @@
         <inertial>
           <mass>1</mass>
           <inertia>
-            <ixx>0.001</ixx>
+            <ixx>0.01</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.001</iyy>
+            <iyy>0.01</iyy>
             <iyz>0</iyz>
-            <izz>0.001</izz>
+            <izz>0.01</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
@@ -603,16 +603,16 @@
           <update_rate>17</update_rate>
           <visualize>true</visualize>
           <always_on>1</always_on>
-          <topic>IR1</topic>
+          <topic>IR0</topic>
           <camera>
             <horizontal_fov>1.2</horizontal_fov>
             <image>
-              <width>5</width>
-              <height>5</height>
+              <width>1</width>
+              <height>1</height>
               <format>L_INT8</format>
             </image>
             <clip>
-              <near>0.0001</near>
+              <near>0.02</near>
               <far>10.0</far>
             </clip>
           </camera>
@@ -648,16 +648,16 @@
       </visual>
         <sensor name="rgbd_camera" type="rgbd_camera">
           <update_rate>10</update_rate>
-          <topic>IR3</topic>
+          <topic>IR2</topic>
           <camera>
             <horizontal_fov>1.2</horizontal_fov>
             <image>
-              <width>5</width>
-              <height>5</height>
+              <width>1</width>
+              <height>1</height>
               <format>L_INT8</format>
             </image>
             <clip>
-              <near>0.0001</near>
+              <near>0.02</near>
               <far>10.0</far>
             </clip>
           </camera>
@@ -693,16 +693,16 @@
       </visual>
       <sensor name="rgbd_camera" type="rgbd_camera">
           <update_rate>10</update_rate>
-          <topic>IR2</topic>
-           <camera>
+          <topic>IR1</topic>
+          <camera>
             <horizontal_fov>1.2</horizontal_fov>
             <image>
-              <width>5</width>
-              <height>5</height>
+              <width>1</width>
+              <height>1</height>
               <format>L_INT8</format>
             </image>
             <clip>
-              <near>0.0001</near>
+              <near>0.02</near>
               <far>10.0</far>
             </clip>
           </camera>
@@ -986,23 +986,21 @@
   </joint>
 
       <!--     PLUGIN PARTS        -->
-  <plugin
+   <plugin
     filename="ignition-gazebo-diff-drive-system"
     name="ignition::gazebo::systems::DiffDrive">
     <left_joint>front_left_wheel_joint</left_joint>
     <right_joint>front_right_wheel_joint_inv</right_joint>
     <wheel_separation>1.25</wheel_separation>
-    <wheel_radius>0.3</wheel_radius>
     <topic>M0</topic>
   </plugin>
 
-    <plugin
+   <plugin
     filename="ignition-gazebo-diff-drive-system"
     name="ignition::gazebo::systems::DiffDrive">
     <left_joint>front_left_wheel_joint_inv</left_joint>
     <right_joint>front_right_wheel_joint</right_joint>
     <wheel_separation>1.25</wheel_separation>
-    <wheel_radius>0.3</wheel_radius>
     <topic>M2</topic>
   </plugin>
 
@@ -1012,7 +1010,6 @@
     <left_joint>rear_left_wheel_joint_inv</left_joint>
     <right_joint>rear_right_wheel_joint</right_joint>
     <wheel_separation>1.25</wheel_separation>
-    <wheel_radius>0.3</wheel_radius>
     <topic>M3</topic>
   </plugin>
 
@@ -1022,7 +1019,6 @@
     <left_joint>rear_left_wheel_joint</left_joint>
     <right_joint>rear_right_wheel_joint_inv</right_joint>
     <wheel_separation>1.25</wheel_separation>
-    <wheel_radius>0.3</wheel_radius>
     <topic>M1</topic>
   </plugin>
 
@@ -1052,20 +1048,9 @@
     <topic>S1</topic>
   </plugin>
 
-    <plugin filename="ImageDisplay" name="Image Display 1">
-    <ignition-gui>
-      <title>RGBD: depth</title>
-      <property key="state" type="string">floating</property>
-      <property type="double" key="width">5.0</property>
-      <property type="double" key="height">5.0</property>
-      <property type="double" key="x">5.0</property>
-      <property type="double" key="y">5.0</property>
-    </ignition-gui>
-    <topic>depth_camera_left</topic>
-    <topic_picker>true</topic_picker>
-    </plugin>
+   <gui fullscreen="0">
 
-      <plugin filename="ImageDisplay" name="Image Display 3">
+      <plugin filename="ImageDisplay" name="Image Display 0">
         <ignition-gui>
           <title>RGBD: image</title>
           <property key="state" type="string">floating</property>
@@ -1073,18 +1058,41 @@
           <property type="double" key="height">315</property>
           <property type="double" key="y">400</property>
         </ignition-gui>
-        <topic>rgbd_camera/image</topic>
+        <topic>/IR0/image</topic>
         <topic_picker>false</topic_picker>
       </plugin>
 
 
+      <plugin filename="ImageDisplay" name="Image Display 1">
+        <ignition-gui>
+          <title>RGBD: image</title>
+          <property key="state" type="string">floating</property>
+          <property type="double" key="width">350</property>
+          <property type="double" key="height">315</property>
+          <property type="double" key="y">400</property>
+        </ignition-gui>
+        <topic>/IR1/image</topic>
+        <topic_picker>false</topic_picker>
+      </plugin>
+
+       <plugin filename="ImageDisplay" name="Image Display 2">
+        <ignition-gui>
+          <title>RGBD: image</title>
+          <property key="state" type="string">floating</property>
+          <property type="double" key="width">350</property>
+          <property type="double" key="height">315</property>
+          <property type="double" key="y">400</property>
+        </ignition-gui>
+        <topic>/IR2/image</topic>
+        <topic_picker>false</topic_picker>
+      </plugin>
+
+
+   </gui>
 
 
 
-    <!--        SENSOR SECTION   -->
-
-
-    </model>
+  </model>
 
   </world>
 </sdf>
