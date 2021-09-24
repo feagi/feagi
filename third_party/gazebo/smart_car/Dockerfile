@@ -28,5 +28,4 @@ RUN chmod a+x ./setup_simulation.sh
 RUN mkdir -p /opt/source-code/freenove_4wd_car_description
 WORKDIR /opt/source-code/freenove_4wd_car_description
 COPY ./freenove_4wd_car_description/ ./start_controller.sh ./
-RUN chmod a+x ./ && \
-    chmod a+x ./start_controller.sh
+RUN chmod a+x ./start_controller.sh
