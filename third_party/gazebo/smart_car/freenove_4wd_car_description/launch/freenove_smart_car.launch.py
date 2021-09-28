@@ -70,7 +70,13 @@ def generate_launch_description():
                    '/ultrasonic@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan',
                    '/IR1/image@sensor_msgs/msg/Image@ignition.msgs.Image',
                    '/IR2/image@sensor_msgs/msg/Image@ignition.msgs.Image',
-                   '/IR0/image@sensor_msgs/msg/Image@ignition.msgs.Image'],
+                   '/IR0/image@sensor_msgs/msg/Image@ignition.msgs.Image',
+                   '/S0_controller@std_msgs/msg/Float64@ignition.msgs.Double',
+                   '/S1_controller@std_msgs/msg/Float64@ignition.msgs.Double',
+                   '/M0_controller@std_msgs/msg/Float64@ignition.msgs.Double',
+                   '/M1_controller@std_msgs/msg/Float64@ignition.msgs.Double',
+                   '/M2_controller@std_msgs/msg/Float64@ignition.msgs.Double',
+                   '/M3_controller@std_msgs/msg/Float64@ignition.msgs.Double',],
         output='screen'
     )
 
@@ -81,3 +87,4 @@ def generate_launch_description():
         bridge,
         #rviz,
     ])
+
