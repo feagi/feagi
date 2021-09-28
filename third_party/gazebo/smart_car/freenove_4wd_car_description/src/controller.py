@@ -46,6 +46,7 @@ def publisher_initializer(model_name, topic_count, topic_identifier):
         topic_string = topic_identifier + str(target)
         target_node[target] = node.create_publisher(geometry_msgs.msg.Twist, topic_string, 10)
 
+    # is this used for anything?
     node.create_publisher(geometry_msgs.msg.Twist, model_name, 10)
 
     return target_node
@@ -62,7 +63,7 @@ class ScalableSubscriber(Node):
         self.topic = topic
 
     def listener_callback(self, msg):
-        self.get_logger().info("Raw Message: {}".format(msg))
+        self.get_logger().info("Raw Message: {}".format(msg.ranges[1]))
         try:
             formatted_msg = self.msg_processor(msg, self.topic)
             send_to_feagi(message=formatted_msg)
@@ -86,13 +87,13 @@ class ScalableSubscriber(Node):
 
 
 class UltrasonicSubscriber(ScalableSubscriber):
-    def __init__(self):
-        super().__init__('ultrasonic_subscriber', LaserScan, 'ultrasonic')
+    def __init__(self, subscription_name, msg_type, topic):
+        super().__init__(subscription_name, msg_type, topic)
 
 
 class IRSubscriber(ScalableSubscriber):
-    def __init__(self):
-        super().__init__('ir_subscriber', LaserScan, 'infrared')
+    def __init__(self, subscription_name, msg_type, topic):
+        super().__init__(subscription_name, msg_type, topic)
 
 
 class Motor:
@@ -192,6 +193,8 @@ def send_to_feagi(message):
     print("Sending message to FEAGI...")
     print("Original message:", message)
 
+    # pause before sending to FEAGI IPU SUB (avoid losing connection)
+    time.sleep(router_settings['global_timer'])
     feagi_ipu_channel.send(message)
 
 
@@ -206,15 +209,16 @@ def main(args=None):
 
     # Instantiate controller classes with Subscriber nature
     ultrasonic_feed = UltrasonicSubscriber()
-    # ir_feed = IRSubscriber()
 
     # rclpy.spin(ultrasonic_feed)
 
     ultrasonic_spin = Thread(target=rclpy.spin, args=(ultrasonic_feed, ))
     ultrasonic_spin.start()
 
-    # for ir in ir_list:
-    #     rclpy.spin(ir_feed)
+    # for ir_sensor_num in range(model_properties['infrared']['count']):
+    #   ir_feed = IRSubscriber(f'infrared_{ir_sensor_num}', Image, f'IR{ir_sensor_num}')
+    #   ir_spin = Thread(target=rclpy.spin, args=(ir_feed, ))
+    #   ir_spin.start()
 
     while True:
         # Process OPU data received from FEAGI and pass it along

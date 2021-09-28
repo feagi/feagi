@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import time
 
 import zmq
 from datetime import datetime
@@ -12,10 +13,10 @@ class Pub:
         self.socket.bind(address)
 
     def send(self, message):
-        if datetime.now().second - router_settings['last_message'] > router_settings['TTL']:
-            self.socket.send_pyobj(message)
-            print("Sent:", message)
-            router_settings['last_message'] = datetime.now().second
+        # if datetime.now().second - router_settings['last_message'] > router_settings['TTL']:
+        self.socket.send_pyobj(message)
+        print("Sent:", message)
+        router_settings['last_message'] = datetime.now().second
 
 class Sub:
     def __init__(self, address, flags=None):
