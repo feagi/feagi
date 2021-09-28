@@ -2,6 +2,7 @@ FROM tiryoh/ros2-desktop-vnc:foxy
 # FROM ros:foxy
 
 ENV GAZEBO_CONTAINER=true
+# ENV OPENBOX_ARGS='--startup "/root/setup_simulation.sh"'
 
 # install initial tools/dependencies
 RUN apt-get update && \
@@ -21,11 +22,10 @@ RUN echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_releas
         ignition-citadel \ 
         ros-foxy-ros-ign
 
-COPY ./setup_simulation.sh ./
-RUN chmod a+x ./setup_simulation.sh
+COPY ./setup_simulation.sh /home/ubuntu
+RUN chmod a+x /home/ubuntu/setup_simulation.sh
 
 RUN mkdir -p /opt/source-code/freenove_4wd_car_description
 WORKDIR /opt/source-code/freenove_4wd_car_description
-COPY ./freenove_4wd_car_description/ ./start_controller.sh ./
-RUN chmod a+x ./ && \
-    chmod a+x ./start_controller.sh
+COPY ./freenove_4wd_car_description/ ./start_controller.sh ./start_ultrasonic.sh ./
+RUN chmod a+x ./start_controller.sh

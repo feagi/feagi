@@ -7,14 +7,17 @@ networks:
 services:
   ros_gazebo:
     build: ../third_party/gazebo/smart_car/
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
     ports:
       - "6080:80"
-    stdin_open: true
+    # environment:
+    #   - OPENBOX_ARGS=--startup /home/ubuntu/setup_simulation.sh
     privileged: true
-    tty: true
-    # volumes:
-    #   - /Users/neuraville/Desktop/feagi-simulate/Gazebo-ign/freenove_4wd_car_description/src/controller.py:/opt/source-code/feagi-simulate/Gazebo-ign/freenove_4wd_car_description/src/controller.py
-    #   - /Users/neuraville/Desktop/feagi-simulate/Gazebo-ign/freenove_4wd_car_description/setup.py:/opt/source-code/feagi-simulate/Gazebo-ign/freenove_4wd_car_description/setup.py
+    # stdin_open: true
+    # tty: true
     networks:
       - net
 
@@ -23,9 +26,6 @@ services:
     privileged: true
     environment:
       - GAZEBO_CONTAINER=true
-    # volumes:
-    #   - /Users/neuraville/Desktop/feagi-core/src/feagi_configuration.ini:/opt/source-code/feagi-core/src/feagi_configuration.ini
-    #   - /Users/neuraville/Desktop/feagi-core/src/inf/fake_stimulation.py:/opt/source-code/feagi-core/src/inf/fake_stimulation.py
-    #   - /Users/neuraville/Desktop/feagi-core/third_party/gazebo/smart_car/configuration.py:/opt/source-code/feagi-core/third_party/gazebo/smart_car/configuration.py
+      - "PYTHONUNBUFFERED=1"
     networks:
       - net

@@ -1,4 +1,4 @@
-<?xml version="1.0" ?>
+	<?xml version="1.0" ?>
 <sdf version="1.6">
   <world name="diff_drive">
 
@@ -35,7 +35,8 @@
 
     <model name="ground_plane">
       <static>true</static>
-      <link name="link">
+
+    <link name="link">
         <collision name="collision">
           <geometry>
             <plane>
@@ -64,9 +65,8 @@
           </material>
         </visual>
       </link>
-
     <link name='plate1'>
-        <pose>0.065 0 0 0 0 0</pose>
+        <pose>0.03 5 0.25 0 0 0</pose>
         <inertial>
           <mass>0.01</mass>
           <inertia>
@@ -81,7 +81,7 @@
         <visual name='visual'>
           <geometry>
             <box>
-              <size>10 0.05 0.005</size>
+              <size>10 0.05 .5</size>
             </box>
           </geometry>
           <material>
@@ -90,10 +90,16 @@
             <specular>0 0 0 1</specular>
           </material>
         </visual>
+        <collision name='visual'>
+          <geometry>
+            <box>
+              <size>10 0.05 .5</size>
+            </box>
+          </geometry>
+        </collision>
       </link>
-
-      <link name='plate2'>
-        <pose>5 2.5 0 0 0 0</pose>
+    <link name='plate2'>
+        <pose>5 0 0.25 0 0 0</pose>
         <inertial>
           <mass>0.01</mass>
           <inertia>
@@ -108,7 +114,7 @@
         <visual name='visual'>
           <geometry>
             <box>
-              <size>0.05 5 0.005</size>
+              <size>0.055 10 .5</size>
             </box>
           </geometry>
           <material>
@@ -117,19 +123,98 @@
             <specular>0 0 0 1</specular>
           </material>
         </visual>
+        <collision name='visual'>
+          <geometry>
+            <box>
+              <size>0.055 10 .5</size>
+            </box>
+          </geometry>
+        </collision>
       </link>
+    <link name='plate3'>
+        <pose>-4.95 0 0.25 0 0 0</pose>
+        <inertial>
+          <mass>0.01</mass>
+          <inertia>
+            <ixx>0.126164</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.416519</iyy>
+            <iyz>0</iyz>
+            <izz>0.481014</izz>
+          </inertia>
+        </inertial>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.06 10 .5</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+            <specular>0 0 0 1</specular>
+          </material>
+        </visual>
+        <collision name='visual'>
+          <geometry>
+            <box>
+              <size>0.06 10 .5</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    <link name='plate4'>
+        <pose>0.03 -5 0.25 0 0 0</pose>
+        <inertial>
+          <mass>0.01</mass>
+          <inertia>
+            <ixx>0.126164</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.416519</iyy>
+            <iyz>0</iyz>
+            <izz>0.481014</izz>
+          </inertia>
+        </inertial>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>10 0.05 .5</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+            <specular>0 0 0 1</specular>
+          </material>
+        </visual>
+        <collision name='visual'>
+          <geometry>
+            <box>
+              <size>10 0.05 .5</size>
+            </box>
+          </geometry>
+        </collision>
+    </link>
 
-       <joint name='glue' type='fixed'>
+     <joint name='wall' type='fixed'>
         <parent>link</parent>
         <child>plate1</child>
       </joint>
-
-      <joint name='glue1' type='fixed'>
-        <parent>plate1</parent>
+     <joint name='wall1' type='fixed'>
+        <parent>link</parent>
         <child>plate2</child>
       </joint>
+     <joint name='wall2' type='fixed'>
+        <parent>link</parent>
+        <child>plate3</child>
+      </joint>
+     <joint name='wall3' type='fixed'>
+        <parent>link</parent>
+        <child>plate4</child>
+      </joint>
     </model>
-
 
 
     <model name='freenove_smart_car'>

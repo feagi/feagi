@@ -28,6 +28,11 @@
   <exec_depend>rclcpp</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>configuration</exec_depend>
+  <exec_depend>sys</exec_depend>
+  <exec_depend>random</exec_depend>
+  <exec_depend>router</exec_depend>
+
   
   
   

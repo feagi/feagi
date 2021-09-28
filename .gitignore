@@ -8,7 +8,6 @@
 *.orig
 *.log
 *.pot
-*.png
 __pycache__/*
 .cache/*
 .*.swp
