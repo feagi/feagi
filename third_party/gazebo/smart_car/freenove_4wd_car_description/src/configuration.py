@@ -6,10 +6,10 @@ router_settings = {
     "ipu_port": "30001",
     'global_timer': 0.5,
     'TTL': 2,
-    'last_message': None
+    'last_message': 0
 }
 
-models_properties = {
+model_properties = {
     'motor': {
         'count': 4,
         'topic_identifier': '/M'
