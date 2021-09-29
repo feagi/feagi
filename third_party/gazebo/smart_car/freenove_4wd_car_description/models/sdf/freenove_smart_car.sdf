@@ -818,38 +818,15 @@
             <upper>1.79769e+308</upper>
           </limit>
         </axis>
-          <dynamics>
-          <damping>0.1</damping>
-          <friction>0</friction>
-          <spring_reference>0</spring_reference>
-          <spring_stiffness>0</spring_stiffness>
-        </dynamics>
-        <use_parent_model_frame>1</use_parent_model_frame>
-      <physics>
-        <ode>
-          <implicit_spring_damper>1</implicit_spring_damper>
-          <cfm_damping>1</cfm_damping>
-          <limit>
-            <cfm>0</cfm>
-            <erp>0.2</erp>
-          </limit>
-        </ode>
-      </physics>
       </joint>
-              <!--      M3 controller-->
-<!--            <plugin-->
-<!--          filename="ignition-gazebo-joint-position-controller-system"-->
-<!--          name="ignition::gazebo::systems::JointPositionController">-->
-<!--          <joint_name>rear_right_wheel_joint</joint_name>-->
-<!--                <topic>M3_controller</topic>-->
-<!--                <p_gain>10</p_gain>-->
-<!--                <i_gain>0.1</i_gain>-->
-<!--                <d_gain>0.01</d_gain>-->
-<!--                <i_max>1</i_max>-->
-<!--                <i_min>-1</i_min>-->
-<!--                <cmd_max>1000</cmd_max>-->
-<!--                <cmd_min>-1000</cmd_min>-->
-<!--    </plugin>-->
+      <!--      M2 controller-->
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>rear_left_wheel_joint</joint_name>
+                <topic>M2_controller</topic>
+    </plugin>
+
 
     <joint name='rear_right_wheel_joint' type='revolute'>
         <parent>chassis</parent>
@@ -861,39 +838,15 @@
             <upper>1.79769e+308</upper>
           </limit>
           </axis>
-          <dynamics>
-          <damping>0.1</damping>
-          <friction>0</friction>
-          <spring_reference>0</spring_reference>
-          <spring_stiffness>0</spring_stiffness>
-        </dynamics>
-        <use_parent_model_frame>1</use_parent_model_frame>
-
-      <physics>
-        <ode>
-          <implicit_spring_damper>1</implicit_spring_damper>
-          <cfm_damping>1</cfm_damping>
-          <limit>
-            <cfm>0</cfm>
-            <erp>0.2</erp>
-          </limit>
-        </ode>
-      </physics>
       </joint>
-                  <!--      M3 controller-->
-<!--            <plugin-->
-<!--          filename="ignition-gazebo-joint-position-controller-system"-->
-<!--          name="ignition::gazebo::systems::JointPositionController">-->
-<!--          <joint_name>rear_right_wheel_joint</joint_name>-->
-<!--                <topic>M3_controller</topic>-->
-<!--                <p_gain>10</p_gain>-->
-<!--                <i_gain>0.1</i_gain>-->
-<!--                <d_gain>0.01</d_gain>-->
-<!--                <i_max>1</i_max>-->
-<!--                <i_min>-1</i_min>-->
-<!--                <cmd_max>1000</cmd_max>-->
-<!--                <cmd_min>-1000</cmd_min>-->
-<!--    </plugin>-->
+      <!--      M3 controller-->
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>rear_right_wheel_joint</joint_name>
+                <topic>M3_controller</topic>
+    </plugin>
+
 
 
     <joint name='front_left_wheel_joint' type='revolute'>
@@ -906,38 +859,15 @@
             <upper>1.79769e+308</upper>
           </limit>
         </axis>
-          <dynamics>
-          <damping>0.1</damping>
-          <friction>0</friction>
-          <spring_reference>0</spring_reference>
-          <spring_stiffness>0</spring_stiffness>
-        </dynamics>
-        <use_parent_model_frame>1</use_parent_model_frame>
-      <physics>
-        <ode>
-          <implicit_spring_damper>1</implicit_spring_damper>
-          <cfm_damping>1</cfm_damping>
-          <limit>
-            <cfm>0</cfm>
-            <erp>0.2</erp>
-          </limit>
-        </ode>
-      </physics>
       </joint>
-            <!--      M0 controller-->
-<!--            <plugin-->
-<!--          filename="ignition-gazebo-joint-position-controller-system"-->
-<!--          name="ignition::gazebo::systems::JointPositionController">-->
-<!--          <joint_name>front_left_wheel_joint</joint_name>-->
-<!--                <topic>M0_controller</topic>-->
-<!--                <p_gain>10</p_gain>-->
-<!--                <i_gain>0.1</i_gain>-->
-<!--                <d_gain>0.01</d_gain>-->
-<!--                <i_max>1</i_max>-->
-<!--                <i_min>-1</i_min>-->
-<!--                <cmd_max>1000</cmd_max>-->
-<!--                <cmd_min>-1000</cmd_min>-->
-<!--    </plugin>-->
+      <!--      M0 controller-->
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>front_left_wheel_joint</joint_name>
+                <topic>M0_controller</topic>
+    </plugin>
+
 
     <joint name='front_right_wheel_joint' type='revolute'>
         <parent>chassis</parent>
@@ -949,38 +879,15 @@
             <upper>1.79769e+308</upper>
           </limit>
         </axis>
-          <dynamics>
-          <damping>0.1</damping>
-          <friction>0</friction>
-          <spring_reference>0</spring_reference>
-          <spring_stiffness>0</spring_stiffness>
-        </dynamics>
-        <use_parent_model_frame>1</use_parent_model_frame>
-      <physics>
-        <ode>
-          <implicit_spring_damper>1</implicit_spring_damper>
-          <cfm_damping>1</cfm_damping>
-          <limit>
-            <cfm>0</cfm>
-            <erp>0.2</erp>
-          </limit>
-        </ode>
-      </physics>
       </joint>
       <!--      M1 controller-->
-<!--            <plugin-->
-<!--          filename="ignition-gazebo-joint-position-controller-system"-->
-<!--          name="ignition::gazebo::systems::JointPositionController">-->
-<!--          <joint_name>front_right_wheel_joint</joint_name>-->
-<!--                <topic>M1_controller</topic>-->
-<!--                <p_gain>10</p_gain>-->
-<!--                <i_gain>0.1</i_gain>-->
-<!--                <d_gain>0.01</d_gain>-->
-<!--                <i_max>1</i_max>-->
-<!--                <i_min>-1</i_min>-->
-<!--                <cmd_max>1000</cmd_max>-->
-<!--                <cmd_min>-1000</cmd_min>-->
-<!--    </plugin>-->
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>front_right_wheel_joint</joint_name>
+                <topic>M1_controller</topic>
+    </plugin>
+
 
     <joint name='ultrasonic' type='fixed'>
         <parent>head2</parent>
@@ -1022,7 +929,7 @@
         </ode>
       </physics>
       </joint>
-      <!--      S0 controller-->
+            <!--      S0 controller-->
     <plugin
           filename="ignition-gazebo-joint-position-controller-system"
           name="ignition::gazebo::systems::JointPositionController">
@@ -1037,6 +944,7 @@
                 <cmd_min>-1000</cmd_min>
     </plugin>
 
+
     <joint name='head_attach2' type='revolute'>
     <parent>head</parent>
     <child>head2</child>
@@ -1048,7 +956,7 @@
       </limit>
     </axis>
   </joint>
-      <!--      S1 controller-->
+            <!--      S1 controller-->
       <plugin
           filename="ignition-gazebo-joint-position-controller-system"
           name="ignition::gazebo::systems::JointPositionController">
@@ -1062,6 +970,7 @@
                 <cmd_max>1000</cmd_max>
                 <cmd_min>-1000</cmd_min>
     </plugin>
+
 
     <joint name='board' type='fixed'>
     <parent>chassis</parent>
@@ -1274,6 +1183,8 @@
         </ignition-gui>
         <model_name>/freenove_smart_car</model_name>
       </plugin>
+
+
 
 
    </gui>
