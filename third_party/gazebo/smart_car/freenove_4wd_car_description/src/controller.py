@@ -208,7 +208,7 @@ def main(args=None):
     servo = Servo(count=model_properties['servo']['count'], identifier=model_properties['servo']['topic_identifier'], model='freenove_servo')
 
     # Instantiate controller classes with Subscriber nature
-    ultrasonic_feed = UltrasonicSubscriber()
+    ultrasonic_feed = UltrasonicSubscriber('ultrasonic_subscriber', LaserScan, 'ultrasonic')
 
     # rclpy.spin(ultrasonic_feed)
 

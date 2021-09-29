@@ -33,7 +33,6 @@ setup(
             'controller = controller:main',
             'router = router:main',
             'configuration = configuration:main',
-            'ultrasonic = ultrasonic:main',
         ],
     },
 )
