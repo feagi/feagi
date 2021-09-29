@@ -258,7 +258,7 @@
         <link name='plate'>
             <pose>0.065 0 0.045 0 0 0</pose>
             <inertial>
-              <mass>.01</mass>
+              <mass>.0001</mass>
               <inertia>
                 <ixx>0.001</ixx>
                 <ixy>0</ixy>
@@ -812,12 +812,29 @@
         <parent>chassis</parent>
         <child>rear_left_wheel</child>
         <axis>
-          <xyz>0 0 1</xyz>
+          <xyz>0 1 0</xyz>
           <limit>
-            <lower>-1.79769e+308</lower>
-            <upper>1.79769e+308</upper>
+            <lower>-200</lower>
+            <upper>200</upper>
           </limit>
+        <dynamics>
+          <damping>0.1</damping>
+          <friction>0</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
         </axis>
+      <physics>
+        <ode>
+          <implicit_spring_damper>1</implicit_spring_damper>
+          <cfm_damping>1</cfm_damping>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+        </ode>
+      </physics>
       </joint>
       <!--      M2 controller-->
     <plugin
@@ -832,12 +849,29 @@
         <parent>chassis</parent>
         <child>rear_right_wheel</child>
         <axis>
-          <xyz>0 0 1</xyz>
+          <xyz>0 1 0</xyz>
           <limit>
-            <lower>-1.79769e+308</lower>
-            <upper>1.79769e+308</upper>
+            <lower>-200</lower>
+            <upper>200</upper>
           </limit>
-          </axis>
+        <dynamics>
+          <damping>0.1</damping>
+          <friction>0</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
+        </axis>
+      <physics>
+        <ode>
+          <implicit_spring_damper>1</implicit_spring_damper>
+          <cfm_damping>1</cfm_damping>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+        </ode>
+      </physics>
       </joint>
       <!--      M3 controller-->
     <plugin
@@ -853,12 +887,29 @@
         <parent>chassis</parent>
         <child>front_left_wheel</child>
         <axis>
-          <xyz>0 0 1</xyz>
+          <xyz>0 1 0</xyz>
           <limit>
-            <lower>-1.79769e+308</lower>
-            <upper>1.79769e+308</upper>
+            <lower>-200</lower>
+            <upper>200</upper>
           </limit>
+        <dynamics>
+          <damping>0.1</damping>
+          <friction>0</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
         </axis>
+      <physics>
+        <ode>
+          <implicit_spring_damper>1</implicit_spring_damper>
+          <cfm_damping>1</cfm_damping>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+        </ode>
+      </physics>
       </joint>
       <!--      M0 controller-->
     <plugin
@@ -873,12 +924,29 @@
         <parent>chassis</parent>
         <child>front_right_wheel</child>
         <axis>
-          <xyz>0 0 1</xyz>
+          <xyz>0 1 0</xyz>
           <limit>
-            <lower>-1.79769e+308</lower>
-            <upper>1.79769e+308</upper>
+            <lower>-200</lower>
+            <upper>200</upper>
           </limit>
+        <dynamics>
+          <damping>0.1</damping>
+          <friction>0</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
         </axis>
+      <physics>
+        <ode>
+          <implicit_spring_damper>1</implicit_spring_damper>
+          <cfm_damping>1</cfm_damping>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+        </ode>
+      </physics>
       </joint>
       <!--      M1 controller-->
     <plugin
@@ -1068,7 +1136,7 @@
     </axis>
   </joint>
 
-      <!--     PLUGIN PARTS        -->
+      <!--     DIFF DRIVER PARTS        -->
    <plugin
     filename="ignition-gazebo-diff-drive-system"
     name="ignition::gazebo::systems::DiffDrive">
@@ -1105,12 +1173,6 @@
     <topic>M1</topic>
   </plugin>
 
-   <plugin
-      filename="ignition-gazebo-sensors-system"
-      name="ignition::gazebo::systems::Sensors">
-      <render_engine>ogre2</render_engine>
-    </plugin>
-
   <plugin
     filename="ignition-gazebo-diff-drive-system"
     name="ignition::gazebo::systems::DiffDrive">
@@ -1130,6 +1192,13 @@
     <wheel_radius>0.3</wheel_radius>
     <topic>S1</topic>
   </plugin>
+
+<!--      Ign plugin physics-->
+  <plugin
+      filename="ignition-gazebo-sensors-system"
+      name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
 
    <gui fullscreen="0">
 
