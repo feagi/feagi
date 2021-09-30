@@ -860,13 +860,7 @@
         </ode>
       </physics>
       </joint>
-      <!--      M2 controller-->
-    <plugin
-          filename="ignition-gazebo-joint-position-controller-system"
-          name="ignition::gazebo::systems::JointPositionController">
-          <joint_name>rear_left_wheel_joint</joint_name>
-                <topic>M2_controller</topic>
-    </plugin>
+
 
 
     <joint name='rear_right_wheel_joint' type='revolute'>
@@ -897,13 +891,7 @@
         </ode>
       </physics>
       </joint>
-      <!--      M3 controller-->
-    <plugin
-          filename="ignition-gazebo-joint-position-controller-system"
-          name="ignition::gazebo::systems::JointPositionController">
-          <joint_name>rear_right_wheel_joint</joint_name>
-                <topic>M3_controller</topic>
-    </plugin>
+
 
 
 
@@ -935,13 +923,7 @@
         </ode>
       </physics>
       </joint>
-      <!--      M0 controller-->
-    <plugin
-          filename="ignition-gazebo-joint-position-controller-system"
-          name="ignition::gazebo::systems::JointPositionController">
-          <joint_name>front_left_wheel_joint</joint_name>
-                <topic>M0_controller</topic>
-    </plugin>
+
 
 
     <joint name='front_right_wheel_joint' type='revolute'>
@@ -972,13 +954,7 @@
         </ode>
       </physics>
       </joint>
-      <!--      M1 controller-->
-    <plugin
-          filename="ignition-gazebo-joint-position-controller-system"
-          name="ignition::gazebo::systems::JointPositionController">
-          <joint_name>front_right_wheel_joint</joint_name>
-                <topic>M1_controller</topic>
-    </plugin>
+
 
 
     <joint name='ultrasonic' type='fixed'>
