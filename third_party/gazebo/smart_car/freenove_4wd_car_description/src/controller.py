@@ -63,7 +63,7 @@ class ScalableSubscriber(Node):
         self.topic = topic
 
     def listener_callback(self, msg):
-        self.get_logger().info("Raw Message: {}".format(msg.ranges[1]))
+        # self.get_logger().info("Raw Message: {}".format(msg))
         try:
             formatted_msg = self.msg_processor(msg, self.topic)
             send_to_feagi(message=formatted_msg)
@@ -71,19 +71,33 @@ class ScalableSubscriber(Node):
             print(">>>>>>>>>>>> ERROR: ", e)
 
     def msg_processor(self, msg, msg_type):
+        # TODO: give each subclass a specific msg processor method?
+        # TODO: add an attribute that explicitly defines message type (instead of parsing topic name)?
         if msg_type == 'ultrasonic':
             return {
                 msg_type: {
                     idx: val for idx, val in enumerate([msg.ranges[1]])
                 }
             }
-        elif msg_type == 'infrared':
-            return {
-                # todo: need a different processing for IR data since its an image
-                msg_type: {
-                    idx: val for idx, val in enumerate([msg])
+        elif 'IR' in msg_type:
+            rgb_vals = list(msg.data)
+            avg_intensity = sum(rgb_vals) // len(rgb_vals)
+            
+            sensor_topic = msg_type.split('/')[0]
+            sensor_id = int(''.join(filter(str.isdigit, sensor_topic)))
+
+            if avg_intensity < 100:
+                return {
+                    'ir': {
+                        sensor_id: True
+                    }
                 }
-            }
+            else:
+                return {
+                    'ir': {
+                        sensor_id: False
+                    }
+                }
 
 
 class UltrasonicSubscriber(ScalableSubscriber):
@@ -202,6 +216,8 @@ def main(args=None):
     print("Connecting to FEAGI resources...")
     rclpy.init(args=args)
 
+    executor = rclpy.executors.MultiThreadedExecutor()
+
     # todo: identify a method to instantiate all classes without doing it one by one
     # Instantiate controller classes with Publisher nature
     motor = Motor(count=model_properties['motor']['count'], identifier=model_properties['motor']['topic_identifier'], model='freenove_motor')
@@ -209,32 +225,34 @@ def main(args=None):
 
     # Instantiate controller classes with Subscriber nature
     ultrasonic_feed = UltrasonicSubscriber('ultrasonic_subscriber', LaserScan, 'ultrasonic')
+    executor.add_node(ultrasonic_feed)
+    
+    ir_feeds = {}
+    for sensor_num in range(model_properties['infrared']['count']):
+        ir_feeds[sensor_num] = IRSubscriber(f'infrared_{sensor_num}', Image, f'IR{sensor_num}/image')
+        executor.add_node(ir_feeds[sensor_num])
 
-    # rclpy.spin(ultrasonic_feed)
+    executor_thread = Thread(target=executor.spin, daemon=True)
+    executor_thread.start()
 
-    ultrasonic_spin = Thread(target=rclpy.spin, args=(ultrasonic_feed, ))
-    ultrasonic_spin.start()
+    try:
+        while True:
+            # Process OPU data received from FEAGI and pass it along
+            opu_data = feagi_opu_channel.receive()
+            print("Received:", opu_data)
+            if opu_data is not None:
+                if 'motor' in opu_data:
+                    for motor_id in opu_data['motor']:
+                        motor.move(motor_id, opu_data['motor'][motor_id])
 
-    # for ir_sensor_num in range(model_properties['infrared']['count']):
-    #   ir_feed = IRSubscriber(f'infrared_{ir_sensor_num}', Image, f'IR{ir_sensor_num}')
-    #   ir_spin = Thread(target=rclpy.spin, args=(ir_feed, ))
-    #   ir_spin.start()
-
-    while True:
-        # Process OPU data received from FEAGI and pass it along
-        opu_data = feagi_opu_channel.receive()
-        print("Received:", opu_data)
-        if opu_data is not None:
-            if 'motor' in opu_data:
-                for motor_id in opu_data['motor']:
-                    motor.move(motor_id, opu_data['motor'][motor_id])
-
-        time.sleep(router_settings['global_timer'])
+            time.sleep(router_settings['global_timer'])
+    except KeyboardInterrupt:
+        pass
 
     ultrasonic_feed.destroy_node()
     
-    for ir in ir_list:
-        ir_feed.destroy_node()
+    for node in ir_feeds:
+        ir_feeds[node].destroy_node()
 
     rclpy.shutdown()
 
