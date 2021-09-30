@@ -860,7 +860,13 @@
         </ode>
       </physics>
       </joint>
-
+      <!--      M2 controller-->
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>rear_left_wheel_joint</joint_name>
+                <topic>M2_controller</topic>
+    </plugin>
 
 
     <joint name='rear_right_wheel_joint' type='revolute'>
@@ -891,7 +897,13 @@
         </ode>
       </physics>
       </joint>
-
+      <!--      M3 controller-->
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>rear_right_wheel_joint</joint_name>
+                <topic>M3_controller</topic>
+    </plugin>
 
 
 
@@ -923,7 +935,13 @@
         </ode>
       </physics>
       </joint>
-
+      <!--      M0 controller-->
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>front_left_wheel_joint</joint_name>
+                <topic>M0_controller</topic>
+    </plugin>
 
 
     <joint name='front_right_wheel_joint' type='revolute'>
@@ -954,7 +972,13 @@
         </ode>
       </physics>
       </joint>
-
+      <!--      M1 controller-->
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>front_right_wheel_joint</joint_name>
+                <topic>M1_controller</topic>
+    </plugin>
 
 
     <joint name='ultrasonic' type='fixed'>
@@ -1022,7 +1046,24 @@
         <lower>-1.6</lower>
         <upper>1.6</upper>
       </limit>
-    </axis>
+          <dynamics>
+          <damping>0.1</damping>
+          <friction>0</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
+        </axis>
+      <physics>
+        <ode>
+          <implicit_spring_damper>1</implicit_spring_damper>
+          <cfm_damping>1</cfm_damping>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+        </ode>
+      </physics>
   </joint>
             <!--      S1 controller-->
       <plugin
