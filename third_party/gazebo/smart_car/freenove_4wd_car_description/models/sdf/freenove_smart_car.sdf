@@ -308,6 +308,12 @@
             <ambient>0.2 0.2 0.2 1</ambient>
             <diffuse>0.2 0.2 0.2 1</diffuse>
             <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+                <metal>
+                  <albedo_map>wheel_cover.png</albedo_map>
+                  <normal_map>wheel_cover.png</normal_map>
+                </metal>
+            </pbr>
           </material>
         </visual>
         <collision name='collision'>
@@ -344,6 +350,12 @@
             <ambient>0.2 0.2 0.2 1</ambient>
             <diffuse>0.2 0.2 0.2 1</diffuse>
             <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+                <metal>
+                  <albedo_map>wheel_cover.png</albedo_map>
+                  <normal_map>wheel_cover.png</normal_map>
+                </metal>
+            </pbr>
           </material>
         </visual>
         <collision name='collision'>
@@ -380,6 +392,12 @@
             <ambient>0.2 0.2 0.2 1</ambient>
             <diffuse>0.2 0.2 0.2 1</diffuse>
             <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+                <metal>
+                  <albedo_map>wheel_cover.png</albedo_map>
+                  <normal_map>wheel_cover.png</normal_map>
+                </metal>
+            </pbr>
           </material>
         </visual>
         <collision name='collision'>
@@ -416,6 +434,12 @@
             <ambient>0.2 0.2 0.2 1</ambient>
             <diffuse>0.2 0.2 0.2 1</diffuse>
             <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+                <metal>
+                  <albedo_map>wheel_cover.png</albedo_map>
+                  <normal_map>wheel_cover.png</normal_map>
+                </metal>
+            </pbr>
           </material>
         </visual>
         <collision name='collision'>
