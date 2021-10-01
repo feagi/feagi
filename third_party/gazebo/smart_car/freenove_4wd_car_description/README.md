@@ -16,7 +16,7 @@ The version of Ignition A.K.A IGN is Citadel. Citadel is highly recommended and 
 
 This will be using an SDF file which is located in the __models/__ directory. The model has multiple plugins included in each wheel, servo, and ultrasonic. The image will display in the Foxy section of all plugins that is being sent to Foxy.
 
-In Ignition gazebo perspective, each joint is being controlled by the plugin called (joint_controller)[https://ignitionrobotics.org/api/gazebo/4.1/classignition_1_1gazebo_1_1systems_1_1JointController.html]. 
+In Ignition gazebo perspective, each joint is being controlled by the plugin called [joint_controller](https://ignitionrobotics.org/api/gazebo/4.1/classignition_1_1gazebo_1_1systems_1_1JointController.html). 
 
 ## Foxy
 This is the latest Ros2 and everything has been designed in Foxy. **Galactic hasn't been tested by this project.**
@@ -138,9 +138,9 @@ def send_to_feagi(message):
 
 
 ## Create topics from SDF model
-Under the "Plugin parts" comment  in sdf file, there's a multiple plugins where it says the variable after `<topic></topic>`. Not only that, it is also created by sensors as well. With those, you can create a topic after you add the plugin. All available plugins are (here on their doc)[https://ignitionrobotics.org/api/gazebo/4.1/namespaceignition_1_1gazebo_1_1systems.html] 
+Under the "Plugin parts" comment  in sdf file, there's a multiple plugins where it says the variable after `<topic></topic>`. Not only that, it is also created by sensors as well. With those, you can create a topic after you add the plugin. All available plugins are [here on their doc](https://ignitionrobotics.org/api/gazebo/4.1/namespaceignition_1_1gazebo_1_1systems.html)
 
-As for the sensor part, the current available sensors are (here on their github)[https://github.com/ignitionrobotics/ros_ign/tree/foxy/ros_ign_gazebo_demos]
+As for the sensor part, the current available sensors are [here on their github](https://github.com/ignitionrobotics/ros_ign/tree/foxy/ros_ign_gazebo_demos)
 
 There will be new sensors added to ignition one day. As Oct 1st 2021, this is the current resources we have.
 
