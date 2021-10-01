@@ -59,7 +59,7 @@ Publishers:
 /ultrasonic0
 ```
 Here is the full diagram of Foxy/Citadel:
-![image](https://user-images.githubusercontent.com/65916520/132761385-42e3c8c0-43e9-4e9c-9a52-96142438b023.png)
+![image](https://user-images.githubusercontent.com/65916520/135670895-86912742-d4b6-45d4-adb5-b8a6996193e0.png)
 
 
 The parameter is actually double data type. Since there is no double data type in ROS2, so IGN, ROS2 and Python using Float64.
