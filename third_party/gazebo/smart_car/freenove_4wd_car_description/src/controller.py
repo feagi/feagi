@@ -16,6 +16,10 @@ from sensor_msgs.msg import LaserScan, Image
 from rclpy.qos import qos_profile_sensor_data
 from configuration import *
 
+try:
+    checkpoint_number = checkpoint
+except NameError:
+    checkpoint_number = 0.0
 
 if sys.platform == 'win32':
     import msvcrt
@@ -84,7 +88,7 @@ class ScalableSubscriber(Node):
         elif 'IR' in msg_type:
             rgb_vals = list(msg.data)
             avg_intensity = sum(rgb_vals) // len(rgb_vals)
-            
+
             sensor_topic = msg_type.split('/')[0]
             sensor_id = int(''.join(filter(str.isdigit, sensor_topic)))
 
@@ -114,7 +118,6 @@ class IRSubscriber(ScalableSubscriber):
 
 class Motor:
     def __init__(self, count, identifier, model):
-
         self.motor_node = publisher_initializer(model_name=model, topic_count=count, topic_identifier=identifier)
 
         # todo: figure a way to extract wheel parameters from the model
@@ -123,42 +126,55 @@ class Motor:
     def move(self, motor_index, speed):
         # Convert speed to linear
         # todo: fix the following formula to properly calculate the velocities in 3d axis
-        linear_velocity = [speed, 0, 0]
-        angular_velocity = [0, 0, speed]
+        # linear_velocity = [speed, 0, 0]
+        # angular_velocity = [0, 0, speed]
+        #
+        # twist = geometry_msgs.msg.Twist()
+        # twist.linear.x = float(linear_velocity[0])  # positive goes backward, negative goes forward
+        # twist.angular.z = float(angular_velocity[2])
+        # self.motor_node[motor_index].publish(twist)
+        #Comment this out due to diff driver removal
 
-        twist = geometry_msgs.msg.Twist()
-        twist.linear.x = float(linear_velocity[0])  # positive goes backward, negative goes forward
-        twist.angular.z = float(angular_velocity[2])
-        self.motor_node[motor_index].publish(twist)
-
-        # output_speed = std_msgs.msg.Float64()
-        # output_speed.data = float(speed)
-        # target = output_speed.data
-        # start = 0.0
-        # while start < target:
-        #     self.motor_node[motor_index].publish(start)
-        #     start += 0.1
+        global bank_number
+        output_speed = std_msgs.msg.Float64()
+        output_speed.data = float(speed)
+        hold_number = checkpoint_number #So hold_number can hold the current position.
+        target = output_speed.data
+        start = 0.0
+        while start < target:
+            #We need to have a variable to hold/increase/decrease a value so that robot won't tied to a specific area.
+            #If the value reset to 0, the robot will move to target position 0. We don't want it to tied to the spot.
+            # I added checkpoint_number as a global variable to hold the value. By default, it starts with 0.
+            self.motor_node[motor_index].publish(start)
+            start += 0.1 #if you want it to be faster, adjust from 0.1 to 0.5 to make the robot move faster
+            hold_number = hold_number + start ##Add to the value in the local
+            checkpoint_number += hold_number #to add the value in global so we can call it at anytime without reset the 
+            #robot's position
+            time.sleep(0.5) #This is important to make robot move.
 
 
 class Servo:
     def __init__(self, count, identifier, model):
-
         self.servo_node = publisher_initializer(model_name=model,
-                                                     topic_count=count,
-                                                     topic_identifier=identifier)
+                                                topic_count=count,
+                                                topic_identifier=identifier)
 
         # todo: figure a way to extract servo parameters from the model
         self.servo_range = [0, 180]
 
     def move(self, servo_index, angle):
-
-        twist = geometry_msgs.msg.Twist()
-
-        # todo: linear and angular speed does not make sense in the case of servo. To be fixed
-        twist.linear.x = angle  # positive goes backward, negative goes forward
-        twist.angular.z = angle
-
-        self.servo_node[servo_index].publish(twist)
+        # twist = geometry_msgs.msg.Twist()
+        #
+        # # todo: linear and angular speed does not make sense in the case of servo. To be fixed
+        # twist.linear.x = angle  # positive goes backward, negative goes forward
+        # twist.angular.z = angle
+        #
+        # self.servo_node[servo_index].publish(twist)
+        #Comment this whole section out due to diff_drive removal-Kevin
+        twist = std_msgs.msg.Float64()
+        degree = angle * 3.14159265359 / 180
+        twist.data = float(degree)
+        self.servo_node[servo_index].publish(twist)  # -1.6 to 1.6 which is -90 to 90
 
 
 class Teleop:
@@ -232,19 +248,21 @@ def main(args=None):
 
     # todo: identify a method to instantiate all classes without doing it one by one
     # Instantiate controller classes with Publisher nature
-    motor = Motor(count=model_properties['motor']['count'], identifier=model_properties['motor']['topic_identifier'], model='freenove_motor')
-    servo = Servo(count=model_properties['servo']['count'], identifier=model_properties['servo']['topic_identifier'], model='freenove_servo')
+    motor = Motor(count=model_properties['motor']['count'], identifier=model_properties['motor']['topic_identifier'],
+                  model='freenove_motor')
+    servo = Servo(count=model_properties['servo']['count'], identifier=model_properties['servo']['topic_identifier'],
+                  model='freenove_servo')
 
     # Instantiate controller classes with Subscriber nature
     ultrasonic_feed = UltrasonicSubscriber('ultrasonic_subscriber', LaserScan, 'ultrasonic')
     executor.add_node(ultrasonic_feed)
-    
+
     ir_feeds = {}
     ir_topic_id = model_properties['infrared']['topic_identifier']
     for ir_node in range(model_properties['infrared']['count']):
-        ir_feeds[ir_node] = IRSubscriber(f'infrared_{ir_node}', 
-                                        Image, 
-                                        f'{ir_topic_id}{ir_node}/image')
+        ir_feeds[ir_node] = IRSubscriber(f'infrared_{ir_node}',
+                                         Image,
+                                         f'{ir_topic_id}{ir_node}/image')
         executor.add_node(ir_feeds[ir_node])
 
     executor_thread = Thread(target=executor.spin, daemon=True)
@@ -265,7 +283,7 @@ def main(args=None):
         pass
 
     ultrasonic_feed.destroy_node()
-    
+
     for ir_node in ir_feeds:
         ir_feeds[ir_node].destroy_node()
 
