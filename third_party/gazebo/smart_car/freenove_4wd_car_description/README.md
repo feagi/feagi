@@ -112,3 +112,59 @@ If you want to move it using the python, do it on a different terminal
 1. Navigate to __freenove_4wd_car_description/__ again
 2. source install/setup.bash
 3. ros2 run freenove_4wd_car_description motor.py
+
+# Extra information + customize model using FEAGI
+
+## Connects with ROS2/Ignition
+The file called `freenove_smart_car.launch.py` inside the `launch/`. It's the bridge where you allows ros2 and ign to communicate with each other.
+
+This example is from #65 in the file;
+`/M3@geometry_msgs/msg/Twist@ignition.msgs.Twist` 
+
+`/M3` is created in `models/sdf/freenove_smart_car.sdf`
+
+So, Ignition and ros2 needs to know what it is for. You add @ after `/M3` which is `/M3@geometry_msgs/msg/Twist` to let ros2 know that it's used by ros2 with geometry/msgs/msg.Twist. You will need to convert ros2 to ignition which is also `/M3@geometry_msgs/msg/Twist@ignition.msgs.Twist`
+
+This allows you to convert and communicate between ros2 and ign. 
+
+
+## Connects with FEAGI using Ign/Ros2
+Unlike Launch file, FEAGI comes from the `controller.py`
+
+You can insert this snippet code in your customize code:
+```
+address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_port']
+feagi_state = find_feagi(address=address)
+
+print("** **", feagi_state)
+sockets = feagi_state['sockets']
+
+print("--->> >> >> ", sockets)
+
+# todo: to obtain this info directly from FEAGI as part of registration
+ipu_channel_address = 'tcp://0.0.0.0:' + router_settings['ipu_port']
+print("IPU_channel_address=", ipu_channel_address)
+opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['opu_port']
+
+feagi_ipu_channel = Pub(address=ipu_channel_address)
+feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+```
+
+before your code.
+
+Be sure to include this function as well
+```
+def send_to_feagi(message):
+    print("Sending message to FEAGI...")
+    print("Original message:", message)
+
+    feagi_ipu_channel.send(message)
+```
+
+Take a look at controller.py and see how it's done.
+
+## Create topics from SDF model
+Under the "Plugin parts" in sdf file, there's a multiple plugins where it says the variable after `<topic></topic>`. Not only that, it is also created by sensors as well. With those, you can create a topic. 
+
+As for the sensor part, the current 
+
