@@ -10,6 +10,7 @@ All communications to and from FEAGI to follow the standard below:
 
 
 """
+from datetime import datetime
 
 import zmq
 from inf.runtime_data import parameters
@@ -48,6 +49,10 @@ class Sub:
         try:
             print("listening for ipu data...")
             payload = self.socket.recv_pyobj(flags=zmq.NOBLOCK)
+            timestamp_recv = datetime.now()
+            diff = str(timestamp_recv - payload['timestamp'])
+            print(">>>>>> >>>>>> PAYLOAD RECEIVED: ", payload)
+            print(">>>>>>> >>>>>>>> >>>>>>> >>>>>>>>> >>>>>>>>>> TIME DIFF: ", diff)
             return payload
 
         # if self.validate(payload):

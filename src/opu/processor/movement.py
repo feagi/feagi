@@ -86,4 +86,4 @@ def activate_motor(cortical_area, motor_id, speed_reference):
 
 def convert_motor_speed_to_twist_msg(motor_speed):
     twist_msg = round(map_value(motor_speed, 0, 20, 0, 10))
-    return -twist_msg
+    return twist_msg

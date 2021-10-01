@@ -2,12 +2,14 @@
 
 import sys
 import time
+from datetime import datetime
 from router import *
 from random import randrange
 from threading import Thread
 
 import geometry_msgs.msg
 import rclpy
+import std_msgs.msg
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan, Image
 # from rclpy.qos import QoSProfile
@@ -89,13 +91,13 @@ class ScalableSubscriber(Node):
             if avg_intensity < 100:
                 return {
                     'ir': {
-                        sensor_id: True
+                        sensor_id: False
                     }
                 }
             else:
                 return {
                     'ir': {
-                        sensor_id: False
+                        sensor_id: True
                     }
                 }
 
@@ -128,6 +130,14 @@ class Motor:
         twist.linear.x = float(linear_velocity[0])  # positive goes backward, negative goes forward
         twist.angular.z = float(angular_velocity[2])
         self.motor_node[motor_index].publish(twist)
+
+        # output_speed = std_msgs.msg.Float64()
+        # output_speed.data = float(speed)
+        # target = output_speed.data
+        # start = 0.0
+        # while start < target:
+        #     self.motor_node[motor_index].publish(start)
+        #     start += 0.1
 
 
 class Servo:
@@ -207,6 +217,8 @@ def send_to_feagi(message):
     print("Sending message to FEAGI...")
     print("Original message:", message)
 
+    message['timestamp'] = datetime.now()
+
     # pause before sending to FEAGI IPU SUB (avoid losing connection)
     time.sleep(router_settings['global_timer'])
     feagi_ipu_channel.send(message)
@@ -228,9 +240,12 @@ def main(args=None):
     executor.add_node(ultrasonic_feed)
     
     ir_feeds = {}
-    for sensor_num in range(model_properties['infrared']['count']):
-        ir_feeds[sensor_num] = IRSubscriber(f'infrared_{sensor_num}', Image, f'IR{sensor_num}/image')
-        executor.add_node(ir_feeds[sensor_num])
+    ir_topic_id = model_properties['infrared']['topic_identifier']
+    for ir_node in range(model_properties['infrared']['count']):
+        ir_feeds[ir_node] = IRSubscriber(f'infrared_{ir_node}', 
+                                        Image, 
+                                        f'{ir_topic_id}{ir_node}/image')
+        executor.add_node(ir_feeds[ir_node])
 
     executor_thread = Thread(target=executor.spin, daemon=True)
     executor_thread.start()
@@ -251,8 +266,8 @@ def main(args=None):
 
     ultrasonic_feed.destroy_node()
     
-    for node in ir_feeds:
-        ir_feeds[node].destroy_node()
+    for ir_node in ir_feeds:
+        ir_feeds[ir_node].destroy_node()
 
     rclpy.shutdown()
 
