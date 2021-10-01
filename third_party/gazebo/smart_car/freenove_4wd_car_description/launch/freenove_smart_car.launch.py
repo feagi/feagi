@@ -60,7 +60,7 @@ def generate_launch_description():
         executable='parameter_bridge',
         arguments=['/model/freenove_smart_car/cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist',
                    '/model/freenove_smart_car/odometry@nav_msgs/msg/Odometry@ignition.msgs.Odometry',
-                   '/ultrasonic@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan',
+                   '/ultrasonic0@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan',
                    '/IR1/image@sensor_msgs/msg/Image@ignition.msgs.Image',
                    '/IR2/image@sensor_msgs/msg/Image@ignition.msgs.Image',
                    '/IR0/image@sensor_msgs/msg/Image@ignition.msgs.Image',
