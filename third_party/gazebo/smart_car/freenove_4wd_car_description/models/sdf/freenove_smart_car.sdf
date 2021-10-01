@@ -567,7 +567,7 @@
       <sensor name='gpu_lidar' type='gpu_lidar'>
           <always_on>1</always_on>
           <visualize>true</visualize>
-          <topic>ultrasonic</topic>
+          <topic>ultrasonic0</topic>
           <update_rate>10</update_rate>
           <lidar>
               <scan>
