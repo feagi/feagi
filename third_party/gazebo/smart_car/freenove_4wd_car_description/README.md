@@ -284,3 +284,280 @@ The command is called `<pose>` where it allows you to put it wherever you want
 So,
 <pose> X, Y, Z, R, P, Y </pose>
  
+ 
+# Create from scratch on your own robot. 
+
+## Create a world in Citadel
+This is usually the best way to start the world so you can create a model inside the <world>. 
+
+Here is the empty template:
+```
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="template">
+
+  </world>
+</sdf>
+```
+
+SDF file should always have the start line with `<?xml version="1.0" ?>` so the program can know that you are using the xml format. After that, you should also have this line under the first line, `<sdf version="1.6"></sdf>`
+
+
+Finally, you can add the world like this:
+`<world name="template"></world>`
+
+You can always change the name "template" to any name you want. Once you complete that, you can add some parameters of physics, sun and GUI. You can take a look at our current SDF file.
+[More information about some detailed physics and GUI](https://ignitionrobotics.org/docs/citadel/sdf_worlds)
+
+To start with the floor, you will need to create a model. I'm using the snippet code from our current file:
+```
+    <model name="ground_plane">
+      <static>true</static>
+
+    <link name="ground">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>10 10</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <specular>1 0.8 0.8 1</specular>
+            <pbr>
+                <metal>
+                  <albedo_map>floor.png</albedo_map>
+                  <normal_map>floor.png</normal_map>
+                </metal>
+              </pbr>
+          </material>
+        </visual>
+      </link>
+      </model>
+```
+
+This is the code snippet from our file.
+
+Here is the empty template for you to use:
+```
+    <model name="ground_plane">
+        <static>true</static>
+        <link name="link">
+        </link>
+    </model>
+```
+
+Be sure this has to be inside the `<world></world>`
+like this:
+```
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="template">
+
+    <model name="ground_plane">
+        <static>true</static>
+        <link name="link">
+            
+        </link>
+    </model>
+      
+      
+  </world>
+</sdf>
+```
+
+As you can see that I put TRUE inside the `<static>`,
+So that way, it won't move at all. 
+
+So the model will need to have two things: <visual> and <collision>. Model needs this to illustrate the object. <material> (visual only), <geometry> and <pose>.
+<Material> is pretty much sum up in the "Upload image in Ignition Citadel" sub-section.
+
+There is a [lot of stuff](http://sdformat.org/spec?ver=1.8&elem=geometry) can be made within <geometry>. For the floor, we use <plane> like this:
+```
+<visual name="visual">
+  <geometry>
+    <plane>
+      <normal>0 0 1</normal>
+      <size>10 10</size>
+    </plane>
+  </geometry>
+```
+
+The line is called `<pose>` where it allows you to put it wherever you want
+So,
+<pose> X, Y, Z, R, P, Y </pose>
+
+
+## Create a robot inside the <world>
+
+You can have more than one model inside the <world>. The freenove_smart_car.sdf using 2 models, a robot and a track.
+
+The robot will need joints. Each robot has various number of joints. A wheel, servo, arm, or motor. They all are the same thing to Gazebo's perspective. 
+
+Freenove_smartcar has 6 joints total, 4 wheels and two servos.
+
+Here is the example with the Two wheels on the floor:
+```
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="template">
+
+    <model name="ground_plane">
+        <static>true</static>
+        <link name="link">
+
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>10 10</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.2 0.2 0.2 1</ambient>
+            <diffuse>0.2 0.2 0.2 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+        </link>
+    </model>
+
+    <model name="my_custom_robot">
+        <link name="wheel_1">
+        <pose>0 0 0 0 0 0 </pose>
+        <visual name='visual'>
+          <geometry>
+            <cylinder>
+              <radius>0.0325</radius>
+              <length>.02</length>
+            </cylinder>
+          </geometry>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <cylinder>
+              <radius>0.0325</radius>
+              <length>.02</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        </link>
+
+        <link name="wheel_2">
+        <pose>0 0.2 0 0 0 0 </pose>
+        <visual name='visual'>
+          <geometry>
+            <cylinder>
+              <radius>0.0325</radius>
+              <length>.02</length>
+            </cylinder>
+          </geometry>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <cylinder>
+              <radius>0.0325</radius>
+              <length>.02</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        </link>
+
+      <joint name='two_wheel_together' type='revolute'>
+        <parent>wheel_1</parent>
+        <child>wheel_2</child>
+        <axis>
+          <xyz>0 1 0</xyz>
+        </axis>
+      </joint>
+
+    </model>
+  </world>
+</sdf>
+```
+
+As you can see this created two objects on the floor. If you get one of the wheel move, other wheel will be also moving due to the `<joint>`
+
+
+# Set up with the ignition and ROS2 FOXY on your robot
+There is several things you need to set up with ROS/IGN with your own robot:
+1) Launch file
+2) CMakeLists.txt
+3) Package.xml
+4) SDF file
+5) setup.py
+6) setup.py
+
+## Launch file:
+Here is the empty template using IGN/Foxy:
+```
+import os
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.actions import IncludeLaunchDescription
+from launch.conditions import IfCondition
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
+
+from launch_ros.actions import Node
+
+
+def generate_launch_description():
+    pkg_ros_ign_gazebo_demos = get_package_share_directory('[YOUR_CUSTOMIZE_FILE]')
+    pkg_ros_ign_gazebo = get_package_share_directory('[YOUR_CUSTOMIZE_FILE]')
+
+    ign_gazebo = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_ros_ign_gazebo, 'launch', 'ign_gazebo.launch.py')),
+        launch_arguments={
+            'ign_args': '-r [YOUR_CUSTOMIZE_FILE].sdf'
+        }.items(),
+    )
+
+    # Bridge
+    bridge = Node(
+        package='ros_ign_bridge',
+        executable='parameter_bridge',
+        arguments=[],
+        output='screen'
+    )
+
+    return LaunchDescription([
+        ign_gazebo,
+
+        bridge,
+    ])
+
+```
+
+Replace the `[YOUR_CUSTOMIZE_FILE]` include brackets with your directory. Replace the `[YOUR_CUSTOMIZE_FILE].sdf` to your current sdf file. 
+
+`bridge` is the conversion which is already mentioned in "Connects with ROS2/Ignition" sub-section. 
+You can add your topic @ ros2 @ ign
+
+You can add as many as you want. There is no limit on topics so IGN and ROS2 can handle as many topics as you need. 
+
+The current file we have are 11 topics being used at once. 
+
+
+
+
