@@ -101,9 +101,14 @@ So, Ignition and ros2 needs to know what it is for. You add @ after `/M3` which 
 
 This allows you to convert and communicate between ros2 and ign. 
 
+**Important information: Everytime you add the new topic, be sure to add this on the launch file**
+
 
 ## Connects with FEAGI using Ign/Ros2
-Unlike Launch file, FEAGI comes from the `controller.py`
+Unlike Launch file, FEAGI comes from the `Router.py` where this is the middle between ROS2/IGN and FEAGI. `Controller.py` is the one handles ROS2 topics.
+
+Here is the diagram:
+
 
 You can insert this snippet code in your customize code:
 ```
@@ -149,7 +154,50 @@ In our case, freenove_smart_car are using Infrared, ultrasonic HC-SR04, motors, 
 In Servo, it using 90 degree only. The image illustrate what servo can do in degree.
 ![image(16)(1)](https://user-images.githubusercontent.com/65916520/135889076-fc3cb87c-6fef-4a96-a0f6-b46f58d4cb60.png)
 
+Servo using the degree formula: `rad * 3.14159265359 / 180`
+
+RGB is using 1x1 so the data will be simply [RGB](https://www.rapidtables.com/web/color/RGB_Color.html).
+
+Motors are using joint_controller so it moves by a double data type value. 
+
+Ultrasonic using the range so it's going to measure up to 4.5 meters. It can be seen in rviz as well.
 
 
-## 
+## Upload image in Ignition Citadel
+The floor is actually using the customize Neuraville's image. The wheels are also using the image as well too. 
+The image has to be inside the `/model/sdf/` along with the [freenove_smart_car.sdf](https://github.com/feagi/feagi-core/tree/feature-controller-cleanup/third_party/gazebo/smart_car/freenove_4wd_car_description/models/sdf)
 
+The file can be JPG or PNG. 
+
+Unlike Ignition, Classic Gazebo using `<script></script>`. It's no longer supported by Iginiton so we use `<pbr>` now. This is how you upload the image on an object:
+```
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <specular>1 0.8 0.8 1</specular>
+            <pbr>
+                <metal>
+                  <albedo_map>floor.png</albedo_map>
+                  <normal_map>floor.png</normal_map>
+                </metal>
+              </pbr>
+          </material>
+```
+After the `<geometry></geometry>`, add this above. **Do not put this in the <collision> or your ignition will crash immediately**
+
+## Add Joint_controller inside your sdf
+You will need to add the joint_controller after the `</joint>`
+
+In our sdf, it is set up as a joint_controller like this:
+```
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>rear_right_wheel_joint</joint_name>
+                <topic>M3</topic>
+    </plugin>
+```
+
+Plugin is needed as you let ignition to know which plugin wil it use. Be sure that the `<joint_name>` is using the joint's name. `<topic>` is the topic where you can name anything you want for ROS2. 
+
+## Add the 
