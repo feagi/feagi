@@ -147,6 +147,7 @@ There will be new sensors added to ignition one day. As Oct 1st 2021, this is th
 In our case, freenove_smart_car are using Infrared, ultrasonic HC-SR04, motors, and servo. So, we have to use RGB camera to act like IR in ign, joint_controllers for servo and motors using their own mathematical formula convert in python, and lidar to act like ultrasonic.
 
 In Servo, it using 90 degree only. The image illustrate what servo can do in degree.
+![image(16)(1)](https://user-images.githubusercontent.com/65916520/135889076-fc3cb87c-6fef-4a96-a0f6-b46f58d4cb60.png)
 
 
 
