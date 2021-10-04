@@ -278,6 +278,8 @@ The line 221 allows you to move anywhere. It's highly encouraged to use X, Y onl
 
 Using the picture below, the X and Y coordiation is this:
 
+![image(16)(3)](https://user-images.githubusercontent.com/65916520/135904575-e05df68d-319f-4b47-905e-7823d988261b.png)
+
 The command is called `<pose>` where it allows you to put it wherever you want
 So,
 <pose> X, Y, Z, R, P, Y </pose>
