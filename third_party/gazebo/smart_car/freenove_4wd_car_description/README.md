@@ -108,6 +108,8 @@ This allows you to convert and communicate between ros2 and ign.
 Unlike Launch file, FEAGI comes from the `Router.py` where this is the middle between ROS2/IGN and FEAGI. `Controller.py` is the one handles ROS2 topics.
 
 Here is the diagram:
+![image](https://user-images.githubusercontent.com/65916520/135898503-6236157b-193b-4d05-9e01-d1f49c156375.png)
+
 
 
 You can insert this snippet code in your customize code:
