@@ -2,7 +2,7 @@
 
 import sys
 import time
-from datetime import datetime
+# from datetime import datetime
 from router import *
 from random import randrange
 from threading import Thread
@@ -79,7 +79,7 @@ class ScalableSubscriber(Node):
     def msg_processor(self, msg, msg_type):
         # TODO: give each subclass a specific msg processor method?
         # TODO: add an attribute that explicitly defines message type (instead of parsing topic name)?
-        if msg_type == 'ultrasonic':
+        if 'ultrasonic' in msg_type:
             return {
                 msg_type: {
                     idx: val for idx, val in enumerate([msg.ranges[1]])
@@ -233,7 +233,7 @@ def send_to_feagi(message):
     print("Sending message to FEAGI...")
     print("Original message:", message)
 
-    message['timestamp'] = datetime.now()
+    # message['timestamp'] = datetime.now()
 
     # pause before sending to FEAGI IPU SUB (avoid losing connection)
     time.sleep(router_settings['global_timer'])
@@ -254,7 +254,7 @@ def main(args=None):
                   model='freenove_servo')
 
     # Instantiate controller classes with Subscriber nature
-    ultrasonic_feed = UltrasonicSubscriber('ultrasonic_subscriber', LaserScan, 'ultrasonic')
+    ultrasonic_feed = UltrasonicSubscriber('ultrasonic0', LaserScan, 'ultrasonic0')
     executor.add_node(ultrasonic_feed)
 
     ir_feeds = {}

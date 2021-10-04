@@ -49,10 +49,10 @@ class Sub:
         try:
             print("listening for ipu data...")
             payload = self.socket.recv_pyobj(flags=zmq.NOBLOCK)
-            timestamp_recv = datetime.now()
-            diff = str(timestamp_recv - payload['timestamp'])
+            # timestamp_recv = datetime.now()
+            # diff = str(timestamp_recv - payload['timestamp'])
             print(">>>>>> >>>>>> PAYLOAD RECEIVED: ", payload)
-            print(">>>>>>> >>>>>>>> >>>>>>> >>>>>>>>> >>>>>>>>>> TIME DIFF: ", diff)
+            # print(">>>>>>> >>>>>>>> >>>>>>> >>>>>>>>> >>>>>>>>>> TIME DIFF: ", diff)
             return payload
 
         # if self.validate(payload):
