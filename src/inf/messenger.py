@@ -20,6 +20,7 @@ class Pub:
     def __init__(self, address):
         context = zmq.Context()
         self.socket = context.socket(zmq.PUB)
+        self.socket.setsockopt(zmq.SNDHWM, 1)
         self.socket.bind(address)
 
     def send(self, message):
@@ -30,6 +31,7 @@ class Sub:
     def __init__(self, address):
         context = zmq.Context()
         self.socket = context.socket(zmq.SUB)
+        self.socket.setsockopt(zmq.RCVHWM, 1)
         self.socket.connect(address)
         self.socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
 
@@ -49,10 +51,10 @@ class Sub:
         try:
             print("listening for ipu data...")
             payload = self.socket.recv_pyobj(flags=zmq.NOBLOCK)
-            # timestamp_recv = datetime.now()
-            # diff = str(timestamp_recv - payload['timestamp'])
+            timestamp_recv = datetime.now()
+            diff = str(timestamp_recv - payload['timestamp'])
             print(">>>>>> >>>>>> PAYLOAD RECEIVED: ", payload)
-            # print(">>>>>>> >>>>>>>> >>>>>>> >>>>>>>>> >>>>>>>>>> TIME DIFF: ", diff)
+            print(">>>>>>> >>>>>>>> >>>>>>> >>>>>>>>> >>>>>>>>>> TIME DIFF: ", diff)
             return payload
 
         # if self.validate(payload):

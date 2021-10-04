@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-import time
-
 import zmq
 from datetime import datetime
 from configuration import router_settings
@@ -10,6 +8,7 @@ class Pub:
     def __init__(self, address):
         context = zmq.Context()
         self.socket = context.socket(zmq.PUB)
+        self.socket.setsockopt(zmq.SNDHWM, 1)
         self.socket.bind(address)
 
     def send(self, message):
@@ -22,6 +21,7 @@ class Sub:
     def __init__(self, address, flags=None):
         context = zmq.Context()
         self.socket = context.socket(zmq.SUB)
+        self.socket.setsockopt(zmq.RCVHWM, 1)
         self.socket.connect(address)
         self.socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
         self.flag = flags

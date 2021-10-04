@@ -352,9 +352,9 @@ def burst_manager():
             for sensor_type in ipu_data:
                 # Ultrasonic / Lidar Handler
                 # todo: need a more consistent naming convention when it comes to lidar vs ultrasonic vs proximity
-                if sensor_type == 'ultrasonic':
+                if sensor_type == 'ultrasonic0':
                     try:
-                        lidar.translate(proximity_data=ipu_data['ultrasonic'])
+                        lidar.translate(proximity_data=ipu_data['ultrasonic0'])
 
                     except:
                         print("ERROR while processing lidar function")
