@@ -202,4 +202,83 @@ In our sdf, it is set up as a joint_controller like this:
 
 Plugin is needed as you let ignition to know which plugin wil it use. Be sure that the `<joint_name>` is using the joint's name. `<topic>` is the topic where you can name anything you want for ROS2. 
 
-## Add the 
+## Add the RGB camera plugin
+When you add the camera inside the infrared sensor, you will see that you have a lot of different types and settings to modify the data. The format we are using is `L_INT8`.
+
+There is a lot of format such as:
+```
+UNKNOWN_PIXEL_FORMAT 	
+L_INT8 	
+L_INT16 	
+RGB_INT8 	
+RGBA_INT8 	
+BGRA_INT8 	
+RGB_INT16 	
+RGB_INT32 	
+BGR_INT8 	
+BGR_INT16 	
+BGR_INT32 	
+R_FLOAT16 	
+RGB_FLOAT16 	
+R_FLOAT32 	
+RGB_FLOAT32 	
+BAYER_RGGB8 	
+BAYER_RGGR8 	
+BAYER_GBRG8 	
+BAYER_GRBG8 	
+PIXEL_FORMAT_COUNT 
+```
+You can find one of those to meet your needs in the `<format>`. As the setting inside the camera, it focus on 1x1 which will generates the data output of RGB value.
+
+```
+      <sensor name="rgbd_camera" type="rgbd_camera">
+          <update_rate>5</update_rate>
+          <topic>IR1</topic>
+          <camera>
+            <horizontal_fov>1.2</horizontal_fov>
+            <image>
+              <width>1</width>
+              <height>1</height>
+              <format>L_INT8</format>
+            </image>
+            <clip>
+              <near>0.02</near>
+              <far>10.0</far>
+            </clip>
+          </camera>
+      </sensor>
+```
+
+Using the ROS2 output:
+```
+header:
+  stamp:
+    sec: 1398
+    nanosec: 177000000
+  frame_id: freenove_smart_car/right_IR/rgbd_camera
+height: 1
+width: 1
+encoding: rgb8
+is_bigendian: 0
+step: 3
+data:
+- 36
+- 48
+- 27
+---
+```
+
+The data is in an array output. 
+
+## Change the pose/move the model to anywhere.
+
+Let's use our [model.](https://github.com/feagi/feagi-core/blob/feature-controller-cleanup/third_party/gazebo/smart_car/freenove_4wd_car_description/models/sdf/freenove_smart_car.sdf#L221)
+
+The line 221 allows you to move anywhere. It's highly encouraged to use X, Y only.
+
+Using the picture below, the X and Y coordiation is this:
+
+The command is called `<pose>` where it allows you to put it wherever you want
+So,
+<pose> X, Y, Z, R, P, Y </pose>
+ 
