@@ -129,6 +129,7 @@ class Motor:
             except KeyError:
                 model_properties['motor']['motor_statuses'][motor_index] = 0
                 output_speed.data = float(speed)
+            model_properties['motor']['motor_statuses'][motor_index] += output_speed.data
             self.motor_node[motor_index].publish(output_speed)
         except Exception:
             exc_info = sys.exc_info()
