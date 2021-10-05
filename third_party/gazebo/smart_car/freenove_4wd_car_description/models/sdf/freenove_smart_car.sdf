@@ -744,10 +744,6 @@
         <child>rear_left_wheel</child>
         <axis>
           <xyz>0 1 0</xyz>
-          <limit>
-            <lower>-1.79769e+308</lower>
-            <upper>1.79769e+308</upper>
-          </limit>
         <dynamics>
           <damping>0.1</damping>
           <friction>0</friction>
@@ -781,10 +777,6 @@
         <child>rear_right_wheel</child>
         <axis>
           <xyz>0 1 0</xyz>
-          <limit>
-            <lower>-1.79769e+308</lower>
-            <upper>1.79769e+308</upper>
-          </limit>
         <dynamics>
           <damping>0.1</damping>
           <friction>0</friction>
@@ -819,10 +811,6 @@
         <child>front_left_wheel</child>
         <axis>
           <xyz>0 1 0</xyz>
-          <limit>
-            <lower>-1.79769e+308</lower>
-            <upper>1.79769e+308</upper>
-          </limit>
         <dynamics>
           <damping>0.1</damping>
           <friction>0</friction>
@@ -856,10 +844,6 @@
         <child>front_right_wheel</child>
         <axis>
           <xyz>0 1 0</xyz>
-          <limit>
-            <lower>-1.79769e+308</lower>
-            <upper>1.79769e+308</upper>
-          </limit>
         <dynamics>
           <damping>0.1</damping>
           <friction>0</friction>
