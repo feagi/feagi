@@ -17,7 +17,7 @@ If you want to move it using the python, do it on a different terminal
 ## A model information:
 This model was designed to look as closely as the real life robot named [Freenove 4wd smart car](https://www.amazon.com/Freenove-Raspberry-Tracking-Avoidance-Ultrasonic/dp/B07YD2LT9D).
 The purpose for this was to allow the robot to understand the enviroment it is in and illustrate the situation in a rviz/gazebo.  This is using several inttegrations between Igniton Gazebo Version Citadel, Ros2 Foxy and FEAGI. This robot has 3 infrared sensors, Ultrasonic (HC-SR04), two servos, and four wheels. This model is controllable too.
-(Picture included)
+![image](https://user-images.githubusercontent.com/65916520/136081103-f7f106e7-5e22-4b15-b3e9-cbfbc75b89fd.png)
 
 
 # How to build the simulation car
@@ -56,6 +56,9 @@ So our model has four wheels, front_left, front_right, rear_left, and rear_right
 # Extra and detailed information:
 ## Information about the FEAGI and ROS2/IGN
 ROS2/IGN communicate with FEAGI agent which is `Controller.py` and `Router.py`. The conversion between IGN and ROS2 is in the launch file. 
+Here is the diagram between them:
+![image](https://user-images.githubusercontent.com/65916520/136081295-5c9e09d0-7a95-4743-9294-c975038d8924.png)
+
 
 ## Ignition Gazebo
 The version of Ignition A.K.A IGN is Citadel. Citadel is highly recommended and has been largely supported by the IGN Gazebo team. It is not the same as the classic Gazebo (Version 11 or less). IGN is designed to work with the Ros2 Foxy and newer versions. **This will not include ROS1 nor Python2.7**
