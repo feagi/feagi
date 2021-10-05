@@ -1,3 +1,20 @@
+# Building a robot simulation using ROS2 and Gazebo Igition
+## Requirements for this project:
+1. Ros2 Foxy
+2. Citadel for ign gazebo
+3. Python3 
+4. Linux (Currently supported on Linux. Windows/Macs will eventually be added)
+
+## To start with a car in simulation
+There is two important aspect of SDF file. One is the world and the model. The world is more likely the enviroment you created for the robot. A model is the object (in our case, a robotic car)
+To learn more about the world and a model, they are available on the ignition tutorials:
+[World](https://ignitionrobotics.org/docs/citadel/sdf_worlds)
+[Model](https://ignitionrobotics.org/docs/citadel/building_robot)
+
+## A link vs A joint
+A `<link>` is the part where you create new. Our model has four wheels, front_left, front_right, rear_left, and rear_right. So, with the <joint>, this allows you to put two parts (or link) together. I added all wheels to attach on the body (chassis). 
+
+
 # FEAGI on a car model
 ## Instruction to start with this project:
 
@@ -19,25 +36,6 @@ This model was designed to look as closely as the real life robot named [Freenov
 The purpose for this was to allow the robot to understand the enviroment it is in and illustrate the situation in a rviz/gazebo.  This is using several inttegrations between Igniton Gazebo Version Citadel, Ros2 Foxy and FEAGI. This robot has 3 infrared sensors, Ultrasonic (HC-SR04), two servos, and four wheels. This model is controllable too.
 
 ![image](https://user-images.githubusercontent.com/65916520/136081103-f7f106e7-5e22-4b15-b3e9-cbfbc75b89fd.png)
-
-
-# How to build the simulation car
-## Requirements for this project:
-1. Ros2 Foxy
-2. Citadel for ign gazebo
-3. Python3 
-4. Linux (Currently supported on Linux. Windows/Macs will eventually be added)
-
-## To start with a car in simulation
-There is two important aspect of SDF file. One is the world and the model. The world is more likely the enviroment you created for the robot. A model is the object (in our case, a robotic car)
-To learn more about the world and a model, they are available on the ignition tutorials:
-[World](https://ignitionrobotics.org/docs/citadel/sdf_worlds)
-[Model](https://ignitionrobotics.org/docs/citadel/building_robot)
-
-## A link vs A joint
-A `<link>` is the part where you create new. Our model has four wheels, front_left, front_right, rear_left, and rear_right. So, with the <joint>, this allows you to put two parts (or link) together. I added all wheels to attach on the body (chassis). 
-
-
 
 ## Add more than two wheels
 You can have as many wheels as you want. You can even start with the one wheel too. This section will teach you how to add more wheels. 
