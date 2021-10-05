@@ -63,12 +63,14 @@ class ScalableSubscriber(Node):
             self.listener_callback,
             qos_profile=qos_profile_sensor_data)
         self.topic = topic
+        self.counter = 0
 
     def listener_callback(self, msg):
         # self.get_logger().info("Raw Message: {}".format(msg))
         try:
             formatted_msg = self.msg_processor(msg, self.topic)
-            send_to_feagi(message=formatted_msg)
+            send_to_feagi(message=formatted_msg, counter=self.counter)
+            self.counter += 1
         except Exception as e:
             exc_info = sys.exc_info()
             traceback.print_exception(*exc_info)
@@ -211,13 +213,14 @@ class Teleop:
         self.pub.publish(twist)
 
 
-def send_to_feagi(message):
+def send_to_feagi(message, counter):
     print("Sending message to FEAGI...")
     print("Original message:", message)
 
     # pause before sending to FEAGI IPU SUB (avoid losing connection)
     time.sleep(router_settings['global_timer'])
     message['timestamp'] = datetime.now()
+    message['counter'] = counter
     feagi_ipu_channel.send(message)
 
 
