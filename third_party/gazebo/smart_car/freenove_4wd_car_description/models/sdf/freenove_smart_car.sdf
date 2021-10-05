@@ -994,6 +994,7 @@
 
 <!--      Ign plugin physics-->
   <plugin
+
       filename="ignition-gazebo-sensors-system"
       name="ignition::gazebo::systems::Sensors">
       <render_engine>ogre2</render_engine>
@@ -1012,7 +1013,6 @@
         <topic>/IR0/image</topic>
         <topic_picker>false</topic_picker>
       </plugin>
-
 
       <plugin filename="ImageDisplay" name="Image Display 1">
         <ignition-gui>
@@ -1038,6 +1038,17 @@
         <topic_picker>false</topic_picker>
       </plugin>
 
+      <plugin filename="ImageDisplay" name="Image Display 1">
+        <ignition-gui>
+          <title>RGBD: image</title>
+          <property key="state" type="string">floating</property>
+          <property type="double" key="width">350</property>
+          <property type="double" key="height">315</property>
+          <property type="double" key="y">400</property>
+        </ignition-gui>
+        <topic>/IR1/image</topic>
+        <topic_picker>false</topic_picker>
+      </plugin>
 
          <plugin filename="JointPositionController" name="JointPositionController">
         <ignition-gui>
@@ -1056,6 +1067,7 @@
 
 
    </gui>
+
 
 
 
