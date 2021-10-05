@@ -17,6 +17,7 @@ If you want to move it using the python, do it on a different terminal
 ## A model information:
 This model was designed to look as closely as the real life robot named [Freenove 4wd smart car](https://www.amazon.com/Freenove-Raspberry-Tracking-Avoidance-Ultrasonic/dp/B07YD2LT9D).
 The purpose for this was to allow the robot to understand the enviroment it is in and illustrate the situation in a rviz/gazebo.  This is using several inttegrations between Igniton Gazebo Version Citadel, Ros2 Foxy and FEAGI. This robot has 3 infrared sensors, Ultrasonic (HC-SR04), two servos, and four wheels. This model is controllable too.
+
 ![image](https://user-images.githubusercontent.com/65916520/136081103-f7f106e7-5e22-4b15-b3e9-cbfbc75b89fd.png)
 
 
