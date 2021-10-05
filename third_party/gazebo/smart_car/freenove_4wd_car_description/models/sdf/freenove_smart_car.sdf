@@ -745,8 +745,8 @@
         <axis>
           <xyz>0 1 0</xyz>
           <limit>
-            <lower>-200</lower>
-            <upper>200</upper>
+            <lower>-1.79769e+308</lower>
+            <upper>1.79769e+308</upper>
           </limit>
         <dynamics>
           <damping>0.1</damping>
@@ -782,8 +782,8 @@
         <axis>
           <xyz>0 1 0</xyz>
           <limit>
-            <lower>-200</lower>
-            <upper>200</upper>
+            <lower>-1.79769e+308</lower>
+            <upper>1.79769e+308</upper>
           </limit>
         <dynamics>
           <damping>0.1</damping>
@@ -820,8 +820,8 @@
         <axis>
           <xyz>0 1 0</xyz>
           <limit>
-            <lower>-200</lower>
-            <upper>200</upper>
+            <lower>-1.79769e+308</lower>
+            <upper>1.79769e+308</upper>
           </limit>
         <dynamics>
           <damping>0.1</damping>
@@ -857,8 +857,8 @@
         <axis>
           <xyz>0 1 0</xyz>
           <limit>
-            <lower>-200</lower>
-            <upper>200</upper>
+            <lower>-1.79769e+308</lower>
+            <upper>1.79769e+308</upper>
           </limit>
         <dynamics>
           <damping>0.1</damping>
@@ -1007,7 +1007,7 @@
     <parent>plate</parent>
     <child>middle_IR</child>
   </joint>
-      
+
 <!--      Ign plugin physics-->
   <plugin
       filename="ignition-gazebo-sensors-system"
