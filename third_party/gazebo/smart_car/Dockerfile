@@ -22,8 +22,8 @@ RUN echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_releas
         ignition-citadel \ 
         ros-foxy-ros-ign
 
-COPY ./setup_simulation.sh ./
-RUN chmod a+x ./setup_simulation.sh
+COPY ./setup_simulation.sh /home/ubuntu
+RUN chmod a+x /home/ubuntu/setup_simulation.sh
 
 RUN mkdir -p /opt/source-code/freenove_4wd_car_description
 WORKDIR /opt/source-code/freenove_4wd_car_description

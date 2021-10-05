@@ -69,8 +69,8 @@ def activate_motor(cortical_area, motor_id, speed_reference):
 
     try:
         if os.environ['GAZEBO_CONTAINER']:
-            twist_msg = convert_motor_speed_to_twist_msg(speed_reference)
-            motor.motor_operator(motor_id=motor_id, speed=twist_msg, power="")
+            mapped_speed = map_motor_speed(speed_reference)
+            motor.motor_operator(motor_id=motor_id, speed=mapped_speed, power="")
     except KeyError:
         # todo: Move map value function out of proximity and to a more generic location
         mapped_value = map_value(speed_reference, 1, 20, 0, 4095)
@@ -84,6 +84,6 @@ def activate_motor(cortical_area, motor_id, speed_reference):
     # power = int(neuron_z_block / cortical_z_block)
 
 
-def convert_motor_speed_to_twist_msg(motor_speed):
-    twist_msg = round(map_value(motor_speed, 0, 20, 0, 10))
-    return -twist_msg
+def map_motor_speed(motor_speed):
+    mapped_speed = round(map_value(motor_speed, 0, 20, 0, 10))
+    return mapped_speed

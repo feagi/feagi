@@ -258,7 +258,7 @@
         <link name='plate'>
             <pose>0.065 0 0.045 0 0 0</pose>
             <inertial>
-              <mass>.01</mass>
+              <mass>.0001</mass>
               <inertia>
                 <ixx>0.001</ixx>
                 <ixy>0</ixy>
@@ -308,6 +308,12 @@
             <ambient>0.2 0.2 0.2 1</ambient>
             <diffuse>0.2 0.2 0.2 1</diffuse>
             <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+                <metal>
+                  <albedo_map>wheel_cover.png</albedo_map>
+                  <normal_map>wheel_cover.png</normal_map>
+                </metal>
+            </pbr>
           </material>
         </visual>
         <collision name='collision'>
@@ -344,6 +350,12 @@
             <ambient>0.2 0.2 0.2 1</ambient>
             <diffuse>0.2 0.2 0.2 1</diffuse>
             <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+                <metal>
+                  <albedo_map>wheel_cover.png</albedo_map>
+                  <normal_map>wheel_cover.png</normal_map>
+                </metal>
+            </pbr>
           </material>
         </visual>
         <collision name='collision'>
@@ -380,6 +392,12 @@
             <ambient>0.2 0.2 0.2 1</ambient>
             <diffuse>0.2 0.2 0.2 1</diffuse>
             <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+                <metal>
+                  <albedo_map>wheel_cover.png</albedo_map>
+                  <normal_map>wheel_cover.png</normal_map>
+                </metal>
+            </pbr>
           </material>
         </visual>
         <collision name='collision'>
@@ -416,6 +434,12 @@
             <ambient>0.2 0.2 0.2 1</ambient>
             <diffuse>0.2 0.2 0.2 1</diffuse>
             <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+                <metal>
+                  <albedo_map>wheel_cover.png</albedo_map>
+                  <normal_map>wheel_cover.png</normal_map>
+                </metal>
+            </pbr>
           </material>
         </visual>
         <collision name='collision'>
@@ -434,15 +458,15 @@
       <link name='head'>
         <pose>0.090 0 0.16 0 0 0</pose>
         <inertial>
-          <mass>0.03</mass>
-          <inertia>
-            <ixx>0.001</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.001</iyy>
-            <iyz>0</iyz>
-            <izz>0.001</izz>
-          </inertia>
+        <mass>0.06442</mass>
+        <inertia>
+          <ixx>7.4993e-05</ixx>
+          <ixy>1.57e-09</ixy>
+          <ixz>-1.834e-08</ixz>
+          <iyy>7.6e-05</iyy>
+          <iyz>-5.295e-08</iyz>
+          <izz>5.53373e-06</izz>
+        </inertia>
         </inertial>
         <visual name='visual'>
           <geometry>
@@ -457,6 +481,9 @@
             <specular>0.2 0.2 0.2 1</specular>
           </material>
         </visual>
+      <gravity>1</gravity>
+      <velocity_decay/>
+      <self_collide>0</self_collide>
         <collision name='collision'>
           <geometry>
           <cylinder>
@@ -540,7 +567,7 @@
       <sensor name='gpu_lidar' type='gpu_lidar'>
           <always_on>1</always_on>
           <visualize>true</visualize>
-          <topic>ultrasonic</topic>
+          <topic>ultrasonic0</topic>
           <update_rate>10</update_rate>
           <lidar>
               <scan>
@@ -600,7 +627,7 @@
       </material>
       </visual>
       <sensor name="rgbd_camera" type="rgbd_camera">
-          <update_rate>17</update_rate>
+          <update_rate>5</update_rate>
           <visualize>true</visualize>
           <always_on>1</always_on>
           <topic>IR0</topic>
@@ -647,7 +674,7 @@
       </material>
       </visual>
         <sensor name="rgbd_camera" type="rgbd_camera">
-          <update_rate>10</update_rate>
+          <update_rate>5</update_rate>
           <topic>IR2</topic>
           <camera>
             <horizontal_fov>1.2</horizontal_fov>
@@ -692,7 +719,7 @@
       </material>
       </visual>
       <sensor name="rgbd_camera" type="rgbd_camera">
-          <update_rate>10</update_rate>
+          <update_rate>5</update_rate>
           <topic>IR1</topic>
           <camera>
             <horizontal_fov>1.2</horizontal_fov>
@@ -710,148 +737,140 @@
     </link>
 
 
-
-     <!--    Invisible section-->
-      <link name='rear_left_wheel_inv'>
-        <pose>-0.1 0.088 0.05 0 1.5707 1.5707</pose>
-        <inertial>
-          <mass>2</mass>
-          <inertia>
-            <ixx>0.145833</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.145833</iyy>
-            <iyz>0</iyz>
-            <izz>0.125</izz>
-          </inertia>
-        </inertial>
-      </link>
-
-      <link name='rear_right_wheel_inv'>
-        <pose> -0.1 -0.088 0.05 0 1.5707 1.5707 </pose>
-        <inertial>
-          <mass>2</mass>
-          <inertia>
-            <ixx>0.145833</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.145833</iyy>
-            <iyz>0</iyz>
-            <izz>0.125</izz>
-          </inertia>
-        </inertial>
-      </link>
-
-      <link name='front_left_wheel_inv'>
-        <pose>0.1 0.088 0.05 0 1.5707 1.5707</pose>
-        <inertial>
-          <mass>2</mass>
-          <inertia>
-            <ixx>0.145833</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.145833</iyy>
-            <iyz>0</iyz>
-            <izz>0.125</izz>
-          </inertia>
-        </inertial>
-      </link>
-
-      <link name='front_right_wheel_inv'>
-        <pose>0.1 -0.088 0.05 0 1.5707 1.5707</pose>
-        <inertial>
-          <mass>2</mass>
-          <inertia>
-            <ixx>0.145833</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.145833</iyy>
-            <iyz>0</iyz>
-            <izz>0.125</izz>
-          </inertia>
-        </inertial>
-      </link>
-
-      <link name='head_inv'>
-        <pose>0 0 0.16 0 0 0</pose>
-        <inertial>
-          <mass>0.3</mass>
-          <inertia>
-            <ixx>0.145833</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.145833</iyy>
-            <iyz>0</iyz>
-            <izz>0.125</izz>
-          </inertia>
-        </inertial>
-      </link>
-
-      <link name='head2_inv'>
-        <pose>0.090 0 0.18 0 1.6 0</pose>
-        <inertial>
-          <mass>0.3</mass>
-          <inertia>
-            <ixx>0.145833</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.145833</iyy>
-            <iyz>0</iyz>
-            <izz>0.125</izz>
-          </inertia>
-        </inertial>
-      </link>
-
-
     <!--        Joint section        -->
 
     <joint name='rear_left_wheel_joint' type='revolute'>
         <parent>chassis</parent>
         <child>rear_left_wheel</child>
         <axis>
-          <xyz>0 0 1</xyz>
-          <limit>
-            <lower>-1.79769e+308</lower>
-            <upper>1.79769e+308</upper>
-          </limit>
+          <xyz>0 1 0</xyz>
+        <dynamics>
+          <damping>0.1</damping>
+          <friction>0</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
         </axis>
+      <physics>
+        <ode>
+          <implicit_spring_damper>1</implicit_spring_damper>
+          <cfm_damping>1</cfm_damping>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+        </ode>
+      </physics>
       </joint>
+      <!--      M2 topic-->
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>rear_left_wheel_joint</joint_name>
+                <topic>M2</topic>
+    </plugin>
+
 
     <joint name='rear_right_wheel_joint' type='revolute'>
         <parent>chassis</parent>
         <child>rear_right_wheel</child>
         <axis>
-          <xyz>0 0 1</xyz>
-          <limit>
-            <lower>-1.79769e+308</lower>
-            <upper>1.79769e+308</upper>
-          </limit>
+          <xyz>0 1 0</xyz>
+        <dynamics>
+          <damping>0.1</damping>
+          <friction>0</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
         </axis>
+      <physics>
+        <ode>
+          <implicit_spring_damper>1</implicit_spring_damper>
+          <cfm_damping>1</cfm_damping>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+        </ode>
+      </physics>
       </joint>
+      <!--      M3 topic-->
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>rear_right_wheel_joint</joint_name>
+                <topic>M3</topic>
+    </plugin>
+
+
 
     <joint name='front_left_wheel_joint' type='revolute'>
         <parent>chassis</parent>
         <child>front_left_wheel</child>
         <axis>
-          <xyz>0 0 1</xyz>
-          <limit>
-            <lower>-1.79769e+308</lower>
-            <upper>1.79769e+308</upper>
-          </limit>
+          <xyz>0 1 0</xyz>
+        <dynamics>
+          <damping>0.1</damping>
+          <friction>0</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
         </axis>
+      <physics>
+        <ode>
+          <implicit_spring_damper>1</implicit_spring_damper>
+          <cfm_damping>1</cfm_damping>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+        </ode>
+      </physics>
       </joint>
+      <!--      M0 topic-->
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>front_left_wheel_joint</joint_name>
+                <topic>M0</topic>
+    </plugin>
+
 
     <joint name='front_right_wheel_joint' type='revolute'>
         <parent>chassis</parent>
         <child>front_right_wheel</child>
         <axis>
-          <xyz>0 0 1</xyz>
-          <limit>
-            <lower>-1.79769e+308</lower>
-            <upper>1.79769e+308</upper>
-          </limit>
+          <xyz>0 1 0</xyz>
+        <dynamics>
+          <damping>0.1</damping>
+          <friction>0</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
         </axis>
+      <physics>
+        <ode>
+          <implicit_spring_damper>1</implicit_spring_damper>
+          <cfm_damping>1</cfm_damping>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+        </ode>
+      </physics>
       </joint>
+      <!--      M1 topic-->
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>front_right_wheel_joint</joint_name>
+                <topic>M1</topic>
+    </plugin>
+
 
     <joint name='ultrasonic' type='fixed'>
         <parent>head2</parent>
@@ -874,8 +893,40 @@
             <lower>-1.6</lower>
             <upper>1.6</upper>
           </limit>
+          <dynamics>
+          <damping>0.1</damping>
+          <friction>0</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
         </axis>
+      <physics>
+        <ode>
+          <implicit_spring_damper>1</implicit_spring_damper>
+          <cfm_damping>1</cfm_damping>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+        </ode>
+      </physics>
       </joint>
+            <!--      S0 topic-->
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>head_attach</joint_name>
+                <topic>S0</topic>
+                <p_gain>10</p_gain>
+                <i_gain>0.1</i_gain>
+                <d_gain>0.01</d_gain>
+                <i_max>1</i_max>
+                <i_min>-1</i_min>
+                <cmd_max>1000</cmd_max>
+                <cmd_min>-1000</cmd_min>
+    </plugin>
+
 
     <joint name='head_attach2' type='revolute'>
     <parent>head</parent>
@@ -886,8 +937,40 @@
         <lower>-1.6</lower>
         <upper>1.6</upper>
       </limit>
-    </axis>
+          <dynamics>
+          <damping>0.1</damping>
+          <friction>0</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
+        </axis>
+      <physics>
+        <ode>
+          <implicit_spring_damper>1</implicit_spring_damper>
+          <cfm_damping>1</cfm_damping>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+        </ode>
+      </physics>
   </joint>
+            <!--      S1 topic-->
+      <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>head_attach2</joint_name>
+                <topic>S1</topic>
+                <p_gain>10</p_gain>
+                <i_gain>0.1</i_gain>
+                <d_gain>0.01</d_gain>
+                <i_max>1</i_max>
+                <i_min>-1</i_min>
+                <cmd_max>1000</cmd_max>
+                <cmd_min>-1000</cmd_min>
+    </plugin>
+
 
     <joint name='board' type='fixed'>
     <parent>chassis</parent>
@@ -909,144 +992,13 @@
     <child>middle_IR</child>
   </joint>
 
+<!--      Ign plugin physics-->
+  <plugin
 
-
-    <!--        Invisible joint section        -->
-
-    <joint name='rear_left_wheel_joint_inv' type='revolute'>
-        <parent>chassis</parent>
-        <child>rear_left_wheel_inv</child>
-        <axis>
-          <xyz>0 0 1</xyz>
-          <limit>
-            <lower>-1.79769e+308</lower>
-            <upper>1.79769e+308</upper>
-          </limit>
-        </axis>
-      </joint>
-
-    <joint name='rear_right_wheel_joint_inv' type='revolute'>
-        <parent>chassis</parent>
-        <child>rear_right_wheel_inv</child>
-        <axis>
-          <xyz>0 0 1</xyz>
-          <limit>
-            <lower>-1.79769e+308</lower>
-            <upper>1.79769e+308</upper>
-          </limit>
-        </axis>
-      </joint>
-
-    <joint name='front_left_wheel_joint_inv' type='revolute'>
-        <parent>chassis</parent>
-        <child>front_left_wheel_inv</child>
-        <axis>
-          <xyz>0 0 1</xyz>
-          <limit>
-            <lower>-1.79769e+308</lower>
-            <upper>1.79769e+308</upper>
-          </limit>
-        </axis>
-      </joint>
-
-    <joint name='front_right_wheel_joint_inv' type='revolute'>
-        <parent>chassis</parent>
-        <child>front_right_wheel_inv</child>
-        <axis>
-          <xyz>0 0 1</xyz>
-          <limit>
-            <lower>-1.79769e+308</lower>
-            <upper>1.79769e+308</upper>
-          </limit>
-        </axis>
-      </joint>
-
-    <joint name='head_attach_inv' type='revolute'>
-        <parent>head_inv</parent>
-        <child>chassis</child>
-        <axis>
-          <xyz>0 0 1</xyz>
-          <limit>
-            <lower>-1.6</lower>
-            <upper>1.6</upper>
-          </limit>
-        </axis>
-      </joint>
-
-    <joint name='head_attach2_inv' type='revolute'>
-    <parent>head2_inv</parent>
-    <child>head_inv</child>
-    <axis>
-      <xyz>0 0 1</xyz>
-      <limit>
-        <lower>-1.6</lower>
-        <upper>1.6</upper>
-      </limit>
-    </axis>
-  </joint>
-
-      <!--     PLUGIN PARTS        -->
-   <plugin
-    filename="ignition-gazebo-diff-drive-system"
-    name="ignition::gazebo::systems::DiffDrive">
-    <left_joint>front_left_wheel_joint</left_joint>
-    <right_joint>front_right_wheel_joint_inv</right_joint>
-    <wheel_separation>1.25</wheel_separation>
-    <topic>M0</topic>
-  </plugin>
-
-   <plugin
-    filename="ignition-gazebo-diff-drive-system"
-    name="ignition::gazebo::systems::DiffDrive">
-    <left_joint>front_left_wheel_joint_inv</left_joint>
-    <right_joint>front_right_wheel_joint</right_joint>
-    <wheel_separation>1.25</wheel_separation>
-    <topic>M2</topic>
-  </plugin>
-
-   <plugin
-    filename="ignition-gazebo-diff-drive-system"
-    name="ignition::gazebo::systems::DiffDrive">
-    <left_joint>rear_left_wheel_joint_inv</left_joint>
-    <right_joint>rear_right_wheel_joint</right_joint>
-    <wheel_separation>1.25</wheel_separation>
-    <topic>M3</topic>
-  </plugin>
-
-   <plugin
-    filename="ignition-gazebo-diff-drive-system"
-    name="ignition::gazebo::systems::DiffDrive">
-    <left_joint>rear_left_wheel_joint</left_joint>
-    <right_joint>rear_right_wheel_joint_inv</right_joint>
-    <wheel_separation>1.25</wheel_separation>
-    <topic>M1</topic>
-  </plugin>
-
-   <plugin
       filename="ignition-gazebo-sensors-system"
       name="ignition::gazebo::systems::Sensors">
       <render_engine>ogre2</render_engine>
     </plugin>
-
-  <plugin
-    filename="ignition-gazebo-diff-drive-system"
-    name="ignition::gazebo::systems::DiffDrive">
-    <left_joint>head_attach</left_joint>
-    <right_joint>head_attach_inv</right_joint>
-    <wheel_separation>1.25</wheel_separation>
-    <wheel_radius>0.3</wheel_radius>
-    <topic>S0</topic>
-  </plugin>
-
-  <plugin
-    filename="ignition-gazebo-diff-drive-system"
-    name="ignition::gazebo::systems::DiffDrive">
-    <left_joint>head_attach2</left_joint>
-    <right_joint>head_attach_inv</right_joint>
-    <wheel_separation>1.25</wheel_separation>
-    <wheel_radius>0.3</wheel_radius>
-    <topic>S1</topic>
-  </plugin>
 
    <gui fullscreen="0">
 
@@ -1061,7 +1013,6 @@
         <topic>/IR0/image</topic>
         <topic_picker>false</topic_picker>
       </plugin>
-
 
       <plugin filename="ImageDisplay" name="Image Display 1">
         <ignition-gui>
@@ -1087,8 +1038,36 @@
         <topic_picker>false</topic_picker>
       </plugin>
 
+      <plugin filename="ImageDisplay" name="Image Display 1">
+        <ignition-gui>
+          <title>RGBD: image</title>
+          <property key="state" type="string">floating</property>
+          <property type="double" key="width">350</property>
+          <property type="double" key="height">315</property>
+          <property type="double" key="y">400</property>
+        </ignition-gui>
+        <topic>/IR1/image</topic>
+        <topic_picker>false</topic_picker>
+      </plugin>
+
+         <plugin filename="JointPositionController" name="JointPositionController">
+        <ignition-gui>
+          <property type="double" key="height">600</property>
+          <property type="double" key="width">400</property>
+          <property type="string" key="state">floating</property>
+          <anchors target="3D View">
+            <line own="right" target="right"/>
+            <line own="top" target="top"/>
+          </anchors>
+        </ignition-gui>
+        <model_name>/freenove_smart_car</model_name>
+      </plugin>
+
+
+
 
    </gui>
+
 
 
 
@@ -1096,3 +1075,4 @@
 
   </world>
 </sdf>
+
