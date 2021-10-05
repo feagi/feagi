@@ -20,7 +20,7 @@ class Pub:
     def __init__(self, address):
         context = zmq.Context()
         self.socket = context.socket(zmq.PUB)
-        self.socket.setsockopt(zmq.SNDHWM, 1)
+        # self.socket.setsockopt(zmq.SNDHWM, 0)
         self.socket.bind(address)
 
     def send(self, message):
@@ -31,7 +31,8 @@ class Sub:
     def __init__(self, address):
         context = zmq.Context()
         self.socket = context.socket(zmq.SUB)
-        self.socket.setsockopt(zmq.RCVHWM, 1)
+        self.socket.setsockopt(zmq.CONFLATE, 1)
+        # self.socket.setsockopt(zmq.RCVHWM, 0)
         self.socket.connect(address)
         self.socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
 
@@ -55,6 +56,7 @@ class Sub:
             diff = str(timestamp_recv - payload['timestamp'])
             print(">>>>>> >>>>>> PAYLOAD RECEIVED: ", payload)
             print(">>>>>>> >>>>>>>> >>>>>>> >>>>>>>>> >>>>>>>>>> TIME DIFF: ", diff)
+            print(">>>>>>>>> >>>>>>>>>>> >>>>>>>>>>> >>>>>>> >>>>>> SEQUENCE VAL: ", payload['counter'])
             return payload
 
         # if self.validate(payload):
