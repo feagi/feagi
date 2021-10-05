@@ -1,8 +1,5 @@
 """
 This module reads LIDAR data from a message queue and makes them available to the proximity processor.
-
-# todo: have this module read settings from feagi_configuration.ini and automatically subscribe to Lidar channel(s)
-
 """
 import time
 
@@ -45,4 +42,6 @@ def translate(proximity_data, type=None):
             neurons = proximity.coords_to_neuron_ids(
                 detections, cortical_area='proximity_ipu'
             )
+
+            # TODO: Add proximity feeder function in fcl_injector
             runtime_data.fcl_queue.put({'proximity_ipu': set(neurons)})

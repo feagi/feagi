@@ -59,18 +59,17 @@ def generate_launch_description():
         package='ros_ign_bridge',
         executable='parameter_bridge',
         arguments=['/model/freenove_smart_car/cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist',
-                   '/M0@geometry_msgs/msg/Twist@ignition.msgs.Twist',
-                   '/M1@geometry_msgs/msg/Twist@ignition.msgs.Twist',
-                   '/M2@geometry_msgs/msg/Twist@ignition.msgs.Twist',
-                   '/M3@geometry_msgs/msg/Twist@ignition.msgs.Twist',
-                   '/S0@geometry_msgs/msg/Twist@ignition.msgs.Twist',
-                   '/S1@geometry_msgs/msg/Twist@ignition.msgs.Twist',
-                   '/cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist',
                    '/model/freenove_smart_car/odometry@nav_msgs/msg/Odometry@ignition.msgs.Odometry',
-                   '/ultrasonic@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan',
+                   '/ultrasonic0@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan',
                    '/IR1/image@sensor_msgs/msg/Image@ignition.msgs.Image',
                    '/IR2/image@sensor_msgs/msg/Image@ignition.msgs.Image',
-                   '/IR0/image@sensor_msgs/msg/Image@ignition.msgs.Image'],
+                   '/IR0/image@sensor_msgs/msg/Image@ignition.msgs.Image',
+                   '/S0@std_msgs/msg/Float64@ignition.msgs.Double',
+                   '/S1@std_msgs/msg/Float64@ignition.msgs.Double',
+                   '/M0@std_msgs/msg/Float64@ignition.msgs.Double',
+                   '/M1@std_msgs/msg/Float64@ignition.msgs.Double',
+                   '/M2@std_msgs/msg/Float64@ignition.msgs.Double',
+                   '/M3@std_msgs/msg/Float64@ignition.msgs.Double',],
         output='screen'
     )
 
@@ -81,3 +80,4 @@ def generate_launch_description():
         bridge,
         rviz,
     ])
+

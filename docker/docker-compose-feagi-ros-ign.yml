@@ -7,10 +7,14 @@ networks:
 services:
   ros_gazebo:
     build: ../third_party/gazebo/smart_car/
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
     ports:
       - "6080:80"
     # environment:
-    #   - OPENBOX_ARGS=--startup /root/setup_simulation.sh
+    #   - OPENBOX_ARGS=--startup /home/ubuntu/setup_simulation.sh
     privileged: true
     # stdin_open: true
     # tty: true
@@ -22,5 +26,6 @@ services:
     privileged: true
     environment:
       - GAZEBO_CONTAINER=true
+      - "PYTHONUNBUFFERED=1"
     networks:
       - net
