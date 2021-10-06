@@ -56,7 +56,7 @@ class Sub:
             diff = str(timestamp_recv - payload['timestamp'])
             print(">>>>>> >>>>>> PAYLOAD RECEIVED: ", payload)
             print(">>>>>>> >>>>>>>> >>>>>>> >>>>>>>>> >>>>>>>>>> TIME DIFF: ", diff)
-            print(">>>>>>>>> >>>>>>>>>>> >>>>>>>>>>> >>>>>>> >>>>>> SEQUENCE VAL: ", payload['counter'])
+            # print(">>>>>>>>> >>>>>>>>>>> >>>>>>>>>>> >>>>>>> >>>>>> SEQUENCE VAL: ", payload['counter'])
             return payload
 
         # if self.validate(payload):
