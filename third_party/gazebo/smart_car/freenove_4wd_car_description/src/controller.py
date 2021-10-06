@@ -28,6 +28,7 @@ feagi_state = find_feagi(address=address)
 
 print("** **", feagi_state)
 sockets = feagi_state['sockets']
+router_settings['feagi_burst_speed'] = feagi_state['burst_frequency']
 
 print("--->> >> >> ", sockets)
 
@@ -124,15 +125,17 @@ class Motor:
 
     def move(self, motor_index, speed):
         try:
-            output_speed = std_msgs.msg.Float64()
+            motor_position = std_msgs.msg.Float64()
             try:
-                motor_status = model_properties['motor']['motor_statuses'][motor_index]
-                output_speed.data = float(speed + motor_status)
+                motor_current_position = model_properties['motor']['motor_statuses'][motor_index]
+                motor_position.data = float(speed * router_settings['feagi_burst_speed'] + motor_current_position)
             except KeyError:
                 model_properties['motor']['motor_statuses'][motor_index] = 0
-                output_speed.data = float(speed)
-            model_properties['motor']['motor_statuses'][motor_index] += output_speed.data
-            self.motor_node[motor_index].publish(output_speed)
+                motor_position.data = float(speed)
+
+            model_properties['motor']['motor_statuses'][motor_index] += motor_position.data
+            print("Motor index + position = ", motor_index, motor_position)
+            self.motor_node[motor_index].publish(motor_position)
         except Exception:
             exc_info = sys.exc_info()
             traceback.print_exception(*exc_info)
