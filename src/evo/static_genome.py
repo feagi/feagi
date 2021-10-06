@@ -47,6 +47,10 @@ genome = {
       "rule_7": {
           "param_1": 1,
           "param_2": 1
+      },
+      "rule_8": {
+          "param_1": 1,
+          "param_2": 1
       }
   },
   "orientation_blocks": {
@@ -3709,7 +3713,7 @@ genome = {
             #     "neighbor_locator_rule_param_id": "param_1"
             # }
             "motor_opu": {
-                "neighbor_locator_rule_id": "rule_7",
+                "neighbor_locator_rule_id": "rule_8",
                 "neighbor_locator_rule_param_id": "param_1"
             }
         },
