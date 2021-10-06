@@ -320,7 +320,7 @@ def burst_manager():
                             neuron_list.append(neuron)
                     else:
                         print("Warning: Block ref %s was not found for %s" % (block_ref, cortical_area_))
-                print("neuron list:", cortical_area_, neuron_list)
+                # print("neuron list:", cortical_area_, neuron_list)
                 runtime_data.fcl_queue.put({cortical_area_: set(neuron_list)})
                 neuron_list = []
             else:
