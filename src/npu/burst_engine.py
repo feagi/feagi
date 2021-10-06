@@ -347,7 +347,6 @@ def burst_manager():
             }
         }
         """
-
         if type(ipu_data) == dict:
             for sensor_type in ipu_data:
                 # Ultrasonic / Lidar Handler
@@ -360,7 +359,7 @@ def burst_manager():
                         print("ERROR while processing lidar function")
 
                 # Infrared Handler
-                if 'ir' in sensor_type and runtime_data.parameters['IPU']['IR']:
+                if 'ir' in sensor_type and runtime_data.parameters['IPU']['ir']:
                     try:
                         ir.convert_ir_to_fire_list(ir_data=ipu_data[sensor_type])
                     except:
