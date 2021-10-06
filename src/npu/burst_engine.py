@@ -404,6 +404,7 @@ def burst_manager():
                 broadcast_message = dict()
                 broadcast_message['burst_counter'] = runtime_data.burst_count
                 broadcast_message['sockets'] = runtime_data.parameters['Sockets']
+                broadcast_message['burst_frequency'] = runtime_data.burst_timer
                 burst_beacon.send(message=broadcast_message)
 
         # IPU listener: Receives IPU data through ZMQ channel
