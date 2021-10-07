@@ -221,7 +221,7 @@ def send_to_feagi(message, counter):
     print("Original message:", message)
 
     # pause before sending to FEAGI IPU SUB (avoid losing connection)
-    time.sleep(router_settings['global_timer'])
+    time.sleep(router_settings['feagi_burst_speed'])
     message['timestamp'] = datetime.now()
     message['counter'] = counter
     feagi_ipu_channel.send(message)
@@ -265,7 +265,7 @@ def main(args=None):
                     for motor_id in opu_data['motor']:
                         motor.move(motor_id, opu_data['motor'][motor_id])
 
-            time.sleep(router_settings['global_timer'])
+            time.sleep(router_settings['feagi_burst_speed'])
     except KeyboardInterrupt:
         pass
 
