@@ -126,16 +126,16 @@ class Motor:
     def move(self, motor_index, speed):
         try:
             motor_position = std_msgs.msg.Float64()
-            try:
-                motor_current_position = model_properties['motor']['motor_statuses'][motor_index]
-                motor_position.data = float(speed * router_settings['feagi_burst_speed'] / 10000 + motor_current_position)
-            except KeyError:
+
+            if motor_index not in model_properties['motor']['motor_statuses']:
                 model_properties['motor']['motor_statuses'][motor_index] = 0
-                motor_position.data = float(speed * router_settings['feagi_burst_speed'] / 10000)
+
+            motor_current_position = model_properties['motor']['motor_statuses'][motor_index]
+            motor_position.data = float((speed * router_settings['feagi_burst_speed']) + motor_current_position)
 
             model_properties['motor']['motor_statuses'][motor_index] += motor_position.data
             print("Motor index + position = ", motor_index, motor_position.data)
-            self.motor_node[motor_index].publish(motor_position.data)
+            self.motor_node[motor_index].publish(motor_position)
         except Exception:
             exc_info = sys.exc_info()
             traceback.print_exception(*exc_info)
