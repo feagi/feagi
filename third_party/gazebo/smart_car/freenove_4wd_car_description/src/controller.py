@@ -131,10 +131,10 @@ class Motor:
                 model_properties['motor']['motor_statuses'][motor_index] = 0
 
             motor_current_position = model_properties['motor']['motor_statuses'][motor_index]
-            motor_position.data = float(((speed * router_settings['feagi_burst_speed']) / 1000) +
+            motor_position.data = float(((speed * router_settings['feagi_burst_speed']) / 100) +
                                         motor_current_position)
 
-            model_properties['motor']['motor_statuses'][motor_index] += motor_position.data
+            model_properties['motor']['motor_statuses'][motor_index] = motor_position.data
             print("Motor index + position = ", motor_index, motor_position.data)
             self.motor_node[motor_index].publish(motor_position)
         except Exception:
