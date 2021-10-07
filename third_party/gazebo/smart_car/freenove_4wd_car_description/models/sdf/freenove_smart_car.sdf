@@ -326,7 +326,7 @@
           <surface>
             <friction>
               <ode>
-                <mu>0.1</mu>
+                <mu>0.4</mu>
               </ode>
             </friction>
           </surface>
@@ -375,7 +375,7 @@
           <surface>
             <friction>
               <ode>
-                <mu>0.1</mu>
+                <mu>0.4</mu>
               </ode>
             </friction>
           </surface>
@@ -424,7 +424,7 @@
           <surface>
             <friction>
               <ode>
-                <mu>0.1</mu>
+                <mu>0.4</mu>
               </ode>
             </friction>
           </surface>
@@ -473,7 +473,7 @@
           <surface>
             <friction>
               <ode>
-                <mu>0.1</mu>
+                <mu>0.4</mu>
               </ode>
             </friction>
           </surface>
@@ -772,8 +772,12 @@
         <child>rear_left_wheel</child>
         <axis>
           <xyz>0 1 0</xyz>
+        <limit>
+            <lower>-1.79769e+308</lower>    <!--negative infinity-->
+            <upper>1.79769e+308</upper>     <!--positive infinity-->
+        </limit>
         <dynamics>
-          <damping>0.1</damping>
+          <damping>0.01</damping>
           <friction>1</friction>
           <spring_reference>0</spring_reference>
           <spring_stiffness>0</spring_stiffness>
@@ -784,10 +788,10 @@
         <ode>
           <implicit_spring_damper>1</implicit_spring_damper>
           <cfm_damping>1</cfm_damping>
-          <limit>
-            <cfm>0</cfm>
-            <erp>0.2</erp>
-          </limit>
+<!--          <limit>-->
+<!--            <cfm>0</cfm>-->
+<!--            <erp>0.2</erp>-->
+<!--          </limit>-->
         </ode>
       </physics>
       </joint>
@@ -805,8 +809,12 @@
         <child>rear_right_wheel</child>
         <axis>
           <xyz>0 1 0</xyz>
+        <limit>
+            <lower>-1.79769e+308</lower>    <!--negative infinity-->
+            <upper>1.79769e+308</upper>     <!--positive infinity-->
+        </limit>
         <dynamics>
-          <damping>0.1</damping>
+          <damping>0.01</damping>
           <friction>1</friction>
           <spring_reference>0</spring_reference>
           <spring_stiffness>0</spring_stiffness>
@@ -817,10 +825,10 @@
         <ode>
           <implicit_spring_damper>1</implicit_spring_damper>
           <cfm_damping>1</cfm_damping>
-          <limit>
-            <cfm>0</cfm>
-            <erp>0.2</erp>
-          </limit>
+<!--          <limit>-->
+<!--            <cfm>0</cfm>-->
+<!--            <erp>0.2</erp>-->
+<!--          </limit>-->
         </ode>
       </physics>
       </joint>
@@ -839,8 +847,12 @@
         <child>front_left_wheel</child>
         <axis>
           <xyz>0 1 0</xyz>
+        <limit>
+            <lower>-1.79769e+308</lower>    <!--negative infinity-->
+            <upper>1.79769e+308</upper>     <!--positive infinity-->
+        </limit>
         <dynamics>
-          <damping>0.1</damping>
+          <damping>0.01</damping>
           <friction>1</friction>
           <spring_reference>0</spring_reference>
           <spring_stiffness>0</spring_stiffness>
@@ -851,10 +863,10 @@
         <ode>
           <implicit_spring_damper>1</implicit_spring_damper>
           <cfm_damping>1</cfm_damping>
-          <limit>
-            <cfm>0</cfm>
-            <erp>0.2</erp>
-          </limit>
+<!--          <limit>-->
+<!--            <cfm>0</cfm>-->
+<!--            <erp>0.2</erp>-->
+<!--          </limit>-->
         </ode>
       </physics>
       </joint>
@@ -872,8 +884,12 @@
         <child>front_right_wheel</child>
         <axis>
           <xyz>0 1 0</xyz>
+        <limit>
+            <lower>-1.79769e+308</lower>    <!--negative infinity-->
+            <upper>1.79769e+308</upper>     <!--positive infinity-->
+        </limit>
         <dynamics>
-          <damping>0.1</damping>
+          <damping>0.01</damping>
           <friction>1</friction>
           <spring_reference>0</spring_reference>
           <spring_stiffness>0</spring_stiffness>
@@ -884,10 +900,10 @@
         <ode>
           <implicit_spring_damper>1</implicit_spring_damper>
           <cfm_damping>1</cfm_damping>
-          <limit>
-            <cfm>0</cfm>
-            <erp>0.2</erp>
-          </limit>
+<!--          <limit>-->
+<!--            <cfm>0</cfm>-->
+<!--            <erp>0.2</erp>-->
+<!--          </limit>-->
         </ode>
       </physics>
       </joint>
