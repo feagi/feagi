@@ -289,12 +289,12 @@
         <inertial>
           <mass>1</mass>
           <inertia>
-            <ixx>0.01</ixx>
+            <ixx>0.02467</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.01</iyy>
+            <iyy>0.04411</iyy>
             <iyz>0</iyz>
-            <izz>0.01</izz>
+            <izz>0.02467</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
@@ -338,12 +338,12 @@
         <inertial>
           <mass>1</mass>
           <inertia>
-            <ixx>0.01</ixx>
+            <ixx>0.02467</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.01</iyy>
+            <iyy>0.04411</iyy>
             <iyz>0</iyz>
-            <izz>0.01</izz>
+            <izz>0.02467</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
@@ -387,12 +387,12 @@
         <inertial>
           <mass>1</mass>
           <inertia>
-            <ixx>0.01</ixx>
+            <ixx>0.02467</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.01</iyy>
+            <iyy>0.04411</iyy>
             <iyz>0</iyz>
-            <izz>0.01</izz>
+            <izz>0.02467</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
@@ -436,12 +436,12 @@
         <inertial>
           <mass>1</mass>
           <inertia>
-            <ixx>0.01</ixx>
+            <ixx>0.02467</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.01</iyy>
+            <iyy>0.04411</iyy>
             <iyz>0</iyz>
-            <izz>0.01</izz>
+            <izz>0.02467</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
