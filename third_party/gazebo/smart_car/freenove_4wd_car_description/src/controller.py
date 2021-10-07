@@ -131,8 +131,7 @@ class Motor:
                 model_properties['motor']['motor_statuses'][motor_index] = 0
 
             motor_current_position = model_properties['motor']['motor_statuses'][motor_index]
-            motor_position.data = float(((speed * router_settings['feagi_burst_speed']) / 100) +
-                                        motor_current_position)
+            motor_position.data = float((speed * router_settings['feagi_burst_speed']) + motor_current_position)
 
             model_properties['motor']['motor_statuses'][motor_index] = motor_position.data
             print("Motor index + position = ", motor_index, motor_position.data)
