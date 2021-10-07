@@ -393,7 +393,7 @@ def burst_manager():
                 # if there are "ties" w/r/t block activity, this will select the first index in the list w/ the tie value
                 block_with_max_activity = activity_report[device][0].index(max(activity_report[device][0]))
                 movement.activate_motor(cortical_area='motor_opu', motor_id=device,
-                                        speed_reference=block_with_max_activity)
+                                        motor_output=block_with_max_activity)
 
     def sensory_message_router():
         # Broadcasts a TCP message on each burst
