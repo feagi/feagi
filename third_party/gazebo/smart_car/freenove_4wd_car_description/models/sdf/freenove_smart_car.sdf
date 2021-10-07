@@ -323,6 +323,13 @@
               <length>.02</length>
             </cylinder>
           </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.1</mu>
+              </ode>
+            </friction>
+          </surface>
         </collision>
       </link>
 
@@ -365,6 +372,13 @@
               <length>.02</length>
             </cylinder>
           </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.1</mu>
+              </ode>
+            </friction>
+          </surface>
         </collision>
       </link>
 
@@ -407,6 +421,13 @@
               <length>.02</length>
             </cylinder>
           </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.1</mu>
+              </ode>
+            </friction>
+          </surface>
         </collision>
       </link>
 
@@ -449,6 +470,13 @@
               <length>.02</length>
             </cylinder>
           </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.1</mu>
+              </ode>
+            </friction>
+          </surface>
         </collision>
       </link>
 
