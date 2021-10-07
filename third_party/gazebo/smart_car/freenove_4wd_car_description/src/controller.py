@@ -28,7 +28,7 @@ feagi_state = find_feagi(address=address)
 
 print("** **", feagi_state)
 sockets = feagi_state['sockets']
-router_settings['feagi_burst_speed'] = feagi_state['burst_frequency']
+router_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
 
 print("--->> >> >> ", sockets)
 
