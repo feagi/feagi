@@ -134,8 +134,8 @@ class Motor:
                 motor_position.data = float(speed * router_settings['feagi_burst_speed'] / 10000)
 
             model_properties['motor']['motor_statuses'][motor_index] += motor_position.data
-            print("Motor index + position = ", motor_index, motor_position)
-            self.motor_node[motor_index].publish(motor_position)
+            print("Motor index + position = ", motor_index, motor_position.data)
+            self.motor_node[motor_index].publish(motor_position.data)
         except Exception:
             exc_info = sys.exc_info()
             traceback.print_exception(*exc_info)
