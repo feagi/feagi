@@ -83,8 +83,8 @@ def rule_block_distributor(rule_param, src_cortical_area, dst_cortical_area, src
 def rule_selective_block_to_block(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset):
     """
     This ad hoc rule allows for selective synaptogenesis between block neurons in the IR IPU and motor OPU
-    cortical areas. The IR IPU cortical area consists of 3 blocks (each containing 1 neuron). Each IR IPU 
-    neuron stimulates a different subset of the blocks in the motor OPU to facilitate appropriate motor 
+    cortical areas. The IR IPU cortical area currently consists of 3 blocks (each containing 1 neuron). Each 
+    IR IPU neuron stimulates a different subset of the blocks in the motor OPU to facilitate appropriate motor 
     activation for line-tracking purposes without using neuroplasticity.
     """
     dst_block_refs = blocks.all_block_refs(dst_cortical_area)
@@ -95,7 +95,7 @@ def rule_selective_block_to_block(rule_param, src_cortical_area, dst_cortical_ar
 
     candidate_list = list()
     if src_neuron_block_id[0] is 0:
-        filtered_dst_block_refs = filter(lambda x: x[0] == '0' or x[0] == '1', dst_block_refs)
+        filtered_dst_block_refs = filter(lambda x: x[0] in ('0', '1'), dst_block_refs)
         for dst_block_ref in filtered_dst_block_refs:
             dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=dst_block_ref)
             for dst_neuron in dst_block_neurons:
@@ -108,7 +108,7 @@ def rule_selective_block_to_block(rule_param, src_cortical_area, dst_cortical_ar
                 candidate_list.append(dst_neuron)
 
     elif src_neuron_block_id[0] is 2:
-        filtered_dst_block_refs = filter(lambda x: x[0] == '2' or x[0] == '3', dst_block_refs)
+        filtered_dst_block_refs = filter(lambda x: x[0] in ('2', '3'), dst_block_refs)
         for dst_block_ref in filtered_dst_block_refs:
             dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=dst_block_ref)
             for dst_neuron in dst_block_neurons:
