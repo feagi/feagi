@@ -131,7 +131,7 @@ class Motor:
                 motor_position.data = float(speed * router_settings['feagi_burst_speed'] / 10000 + motor_current_position)
             except KeyError:
                 model_properties['motor']['motor_statuses'][motor_index] = 0
-                motor_position.data = float(speed)
+                motor_position.data = float(speed * router_settings['feagi_burst_speed'] / 10000)
 
             model_properties['motor']['motor_statuses'][motor_index] += motor_position.data
             print("Motor index + position = ", motor_index, motor_position)
@@ -263,7 +263,7 @@ def main(args=None):
             if opu_data is not None:
                 if 'motor' in opu_data:
                     for motor_id in opu_data['motor']:
-                        motor.move(motor_id, opu_data['motor'][motor_id])
+                        motor.move(motor_index=motor_id, speed=opu_data['motor'][motor_id])
 
             time.sleep(router_settings['feagi_burst_speed'])
     except KeyboardInterrupt:
