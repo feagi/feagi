@@ -128,7 +128,7 @@ class Motor:
             motor_position = std_msgs.msg.Float64()
             try:
                 motor_current_position = model_properties['motor']['motor_statuses'][motor_index]
-                motor_position.data = float(speed * router_settings['feagi_burst_speed'] / 10 + motor_current_position)
+                motor_position.data = float(speed * router_settings['feagi_burst_speed'] / 1000 + motor_current_position)
             except KeyError:
                 model_properties['motor']['motor_statuses'][motor_index] = 0
                 motor_position.data = float(speed)
