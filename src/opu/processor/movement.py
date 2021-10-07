@@ -41,7 +41,7 @@ def convert_neuronal_activity_to_directions(cortical_area, neuron_id):
     # socket.send_string(movement_direction)
 
 
-def activate_motor(cortical_area, motor_id, speed_reference):
+def activate_motor(cortical_area, motor_id, motor_output):
     """
     This function creates a mapping between neurons from a motor cortex region to values suitable for motor operation -
     such as direction, speed, duration, and power.
@@ -67,23 +67,9 @@ def activate_motor(cortical_area, motor_id, speed_reference):
     # speed_offset = neuron_y_block - zero_speed_block_offset
     # speed = int(speed_offset / (zero_speed_block_offset+00000.1))
 
-    try:
-        if os.environ['GAZEBO_CONTAINER']:
-            mapped_speed = map_motor_speed(speed_reference)
-            motor.motor_operator(motor_id=motor_id, speed=mapped_speed, power="")
-    except KeyError:
-        # todo: Move map value function out of proximity and to a more generic location
-        mapped_value = map_value(speed_reference, 1, 20, 0, 4095)
-        motor_speed = round(mapped_value)
-        # scaled_motor_spd = int(-motor_speed * 0.75)
-
-        motor.motor_operator(motor_id=motor_id, speed=-motor_speed, power="")
-
     # todo: placeholder for handling motor power
     # Power is defined as a value between 0 and 100 driven from Z direction
     # power = int(neuron_z_block / cortical_z_block)
 
-
-def map_motor_speed(motor_speed):
-    mapped_speed = round(map_value(motor_speed, 0, 20, 0, 10))
-    return mapped_speed
+    print(">>>>>>>> >>>>>>>>>> >>>>>>>> FEAGI MOTOR OUTPUT: ", motor_output)
+    motor.motor_operator(motor_id=motor_id, motor_output=motor_output, power="")
