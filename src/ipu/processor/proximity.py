@@ -104,6 +104,7 @@ def coords_to_neuron_ids(detection_locations, cortical_area):
     return neuron_ids
 
 
+# todo: Move map value function out of proximity and to a more generic location
 def map_value(val, min1, max1, min2, max2):
     """ Performs linear transformation to map value from
     range 1 [min1, max1] to a value in range 2 [min2, max2].
