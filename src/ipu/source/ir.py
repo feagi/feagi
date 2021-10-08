@@ -23,7 +23,7 @@ def convert_ir_to_fire_list(ir_data):
     # runtime_data.fcl_queue.put({'ir_ipu': fire_list})
     #
     print("%%$%%")
-    temp = runtime_data.fcl_queue.get()
+    temp = runtime_data.fire_candidate_list
     print(type(temp['ir_ipu']), temp['ir_ipu'])
     temp['ir_ipu'].add(fire_list)
-    runtime_data.fcl_queue.put(temp)
+    runtime_data.fcl_queue.put({'ir_ipu': temp['ir_ipu']})
