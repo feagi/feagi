@@ -41,7 +41,7 @@ def convert_neuronal_activity_to_directions(cortical_area, neuron_id):
     # socket.send_string(movement_direction)
 
 
-def activate_motor(cortical_area, motor_id, motor_output):
+def activate_motor(cortical_area, motor_id, speed):
     """
     This function creates a mapping between neurons from a motor cortex region to values suitable for motor operation -
     such as direction, speed, duration, and power.
@@ -71,5 +71,4 @@ def activate_motor(cortical_area, motor_id, motor_output):
     # Power is defined as a value between 0 and 100 driven from Z direction
     # power = int(neuron_z_block / cortical_z_block)
 
-    print(">>>>>>>> >>>>>>>>>> >>>>>>>> FEAGI MOTOR OUTPUT: ", motor_output)
-    motor.motor_operator(motor_id=motor_id, motor_output=motor_output, power="")
+    motor.motor_operator(motor_id=motor_id, speed=speed, power="")
