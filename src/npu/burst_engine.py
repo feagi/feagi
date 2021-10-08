@@ -320,7 +320,7 @@ def burst_manager():
                             neuron_list.append(neuron)
                     else:
                         print("Warning: Block ref %s was not found for %s" % (block_ref, cortical_area_))
-                print("neuron list:", cortical_area_, neuron_list)
+                # print("neuron list:", cortical_area_, neuron_list)
                 runtime_data.fcl_queue.put({cortical_area_: set(neuron_list)})
                 neuron_list = []
             else:
@@ -347,12 +347,11 @@ def burst_manager():
             }
         }
         """
-
         if type(ipu_data) == dict:
             for sensor_type in ipu_data:
                 # Ultrasonic / Lidar Handler
                 # todo: need a more consistent naming convention when it comes to lidar vs ultrasonic vs proximity
-                if 'ultrasonic' in sensor_type:
+                if 'ultrasonic' in sensor_type and runtime_data.parameters['IPU']['proximity']:
                     try:
                         lidar.translate(proximity_data=ipu_data[sensor_type])
 
@@ -360,7 +359,7 @@ def burst_manager():
                         print("ERROR while processing lidar function")
 
                 # Infrared Handler
-                if 'ir' in sensor_type:
+                if 'ir' in sensor_type and runtime_data.parameters['IPU']['ir']:
                     try:
                         ir.convert_ir_to_fire_list(ir_data=ipu_data[sensor_type])
                     except:
@@ -404,6 +403,7 @@ def burst_manager():
                 broadcast_message = dict()
                 broadcast_message['burst_counter'] = runtime_data.burst_count
                 broadcast_message['sockets'] = runtime_data.parameters['Sockets']
+                broadcast_message['burst_frequency'] = runtime_data.burst_timer
                 burst_beacon.send(message=broadcast_message)
 
         # IPU listener: Receives IPU data through ZMQ channel

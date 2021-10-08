@@ -45,6 +45,8 @@ hw_controller_path = ''
 hw_controller = None
 opu_pub = None
 router_address = None
+burst_timer = 1
+
 
 # rules = ""
 brain_is_running = False

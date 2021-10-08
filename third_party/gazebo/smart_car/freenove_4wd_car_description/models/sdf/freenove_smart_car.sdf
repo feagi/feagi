@@ -289,12 +289,12 @@
         <inertial>
           <mass>1</mass>
           <inertia>
-            <ixx>0.01</ixx>
+            <ixx>0.02467</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.01</iyy>
+            <iyy>0.04411</iyy>
             <iyz>0</iyz>
-            <izz>0.01</izz>
+            <izz>0.02467</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
@@ -323,6 +323,13 @@
               <length>.02</length>
             </cylinder>
           </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.4</mu>
+              </ode>
+            </friction>
+          </surface>
         </collision>
       </link>
 
@@ -331,12 +338,12 @@
         <inertial>
           <mass>1</mass>
           <inertia>
-            <ixx>0.01</ixx>
+            <ixx>0.02467</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.01</iyy>
+            <iyy>0.04411</iyy>
             <iyz>0</iyz>
-            <izz>0.01</izz>
+            <izz>0.02467</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
@@ -365,6 +372,13 @@
               <length>.02</length>
             </cylinder>
           </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.4</mu>
+              </ode>
+            </friction>
+          </surface>
         </collision>
       </link>
 
@@ -373,12 +387,12 @@
         <inertial>
           <mass>1</mass>
           <inertia>
-            <ixx>0.01</ixx>
+            <ixx>0.02467</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.01</iyy>
+            <iyy>0.04411</iyy>
             <iyz>0</iyz>
-            <izz>0.01</izz>
+            <izz>0.02467</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
@@ -407,6 +421,13 @@
               <length>.02</length>
             </cylinder>
           </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.4</mu>
+              </ode>
+            </friction>
+          </surface>
         </collision>
       </link>
 
@@ -415,12 +436,12 @@
         <inertial>
           <mass>1</mass>
           <inertia>
-            <ixx>0.01</ixx>
+            <ixx>0.02467</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>0.01</iyy>
+            <iyy>0.04411</iyy>
             <iyz>0</iyz>
-            <izz>0.01</izz>
+            <izz>0.02467</izz>
           </inertia>
         </inertial>
         <visual name='visual'>
@@ -449,6 +470,13 @@
               <length>.02</length>
             </cylinder>
           </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.4</mu>
+              </ode>
+            </friction>
+          </surface>
         </collision>
       </link>
 
@@ -744,9 +772,13 @@
         <child>rear_left_wheel</child>
         <axis>
           <xyz>0 1 0</xyz>
+        <limit>
+            <lower>-1.79769e+308</lower>    <!--negative infinity-->
+            <upper>1.79769e+308</upper>     <!--positive infinity-->
+        </limit>
         <dynamics>
-          <damping>0.1</damping>
-          <friction>0</friction>
+          <damping>0.01</damping>
+          <friction>1</friction>
           <spring_reference>0</spring_reference>
           <spring_stiffness>0</spring_stiffness>
         </dynamics>
@@ -756,10 +788,10 @@
         <ode>
           <implicit_spring_damper>1</implicit_spring_damper>
           <cfm_damping>1</cfm_damping>
-          <limit>
-            <cfm>0</cfm>
-            <erp>0.2</erp>
-          </limit>
+<!--          <limit>-->
+<!--            <cfm>0</cfm>-->
+<!--            <erp>0.2</erp>-->
+<!--          </limit>-->
         </ode>
       </physics>
       </joint>
@@ -777,9 +809,13 @@
         <child>rear_right_wheel</child>
         <axis>
           <xyz>0 1 0</xyz>
+        <limit>
+            <lower>-1.79769e+308</lower>    <!--negative infinity-->
+            <upper>1.79769e+308</upper>     <!--positive infinity-->
+        </limit>
         <dynamics>
-          <damping>0.1</damping>
-          <friction>0</friction>
+          <damping>0.01</damping>
+          <friction>1</friction>
           <spring_reference>0</spring_reference>
           <spring_stiffness>0</spring_stiffness>
         </dynamics>
@@ -789,10 +825,10 @@
         <ode>
           <implicit_spring_damper>1</implicit_spring_damper>
           <cfm_damping>1</cfm_damping>
-          <limit>
-            <cfm>0</cfm>
-            <erp>0.2</erp>
-          </limit>
+<!--          <limit>-->
+<!--            <cfm>0</cfm>-->
+<!--            <erp>0.2</erp>-->
+<!--          </limit>-->
         </ode>
       </physics>
       </joint>
@@ -811,9 +847,13 @@
         <child>front_left_wheel</child>
         <axis>
           <xyz>0 1 0</xyz>
+        <limit>
+            <lower>-1.79769e+308</lower>    <!--negative infinity-->
+            <upper>1.79769e+308</upper>     <!--positive infinity-->
+        </limit>
         <dynamics>
-          <damping>0.1</damping>
-          <friction>0</friction>
+          <damping>0.01</damping>
+          <friction>1</friction>
           <spring_reference>0</spring_reference>
           <spring_stiffness>0</spring_stiffness>
         </dynamics>
@@ -823,10 +863,10 @@
         <ode>
           <implicit_spring_damper>1</implicit_spring_damper>
           <cfm_damping>1</cfm_damping>
-          <limit>
-            <cfm>0</cfm>
-            <erp>0.2</erp>
-          </limit>
+<!--          <limit>-->
+<!--            <cfm>0</cfm>-->
+<!--            <erp>0.2</erp>-->
+<!--          </limit>-->
         </ode>
       </physics>
       </joint>
@@ -844,9 +884,13 @@
         <child>front_right_wheel</child>
         <axis>
           <xyz>0 1 0</xyz>
+        <limit>
+            <lower>-1.79769e+308</lower>    <!--negative infinity-->
+            <upper>1.79769e+308</upper>     <!--positive infinity-->
+        </limit>
         <dynamics>
-          <damping>0.1</damping>
-          <friction>0</friction>
+          <damping>0.01</damping>
+          <friction>1</friction>
           <spring_reference>0</spring_reference>
           <spring_stiffness>0</spring_stiffness>
         </dynamics>
@@ -856,10 +900,10 @@
         <ode>
           <implicit_spring_damper>1</implicit_spring_damper>
           <cfm_damping>1</cfm_damping>
-          <limit>
-            <cfm>0</cfm>
-            <erp>0.2</erp>
-          </limit>
+<!--          <limit>-->
+<!--            <cfm>0</cfm>-->
+<!--            <erp>0.2</erp>-->
+<!--          </limit>-->
         </ode>
       </physics>
       </joint>
