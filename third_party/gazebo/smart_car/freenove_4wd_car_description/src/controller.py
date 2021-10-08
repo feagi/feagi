@@ -70,7 +70,7 @@ class ScalableSubscriber(Node):
         # self.get_logger().info("Raw Message: {}".format(msg))
         try:
             formatted_msg = self.msg_processor(msg, self.topic)
-            send_to_feagi(message=formatted_msg, counter=self.counter)
+            compose_message_to_feagi(message=formatted_msg, counter=self.counter)
             self.counter += 1
         except Exception as e:
             exc_info = sys.exc_info()
@@ -217,15 +217,18 @@ class Teleop:
         self.pub.publish(twist)
 
 
-def send_to_feagi(message, counter):
-    print("Sending message to FEAGI...")
-    print("Original message:", message)
+def compose_message_to_feagi(message, counter):
+    """
+    accumulates multiple messages in a data structure that can be sent to feagi
+    """
 
     # pause before sending to FEAGI IPU SUB (avoid losing connection)
     time.sleep(router_settings['feagi_burst_speed'])
     message['timestamp'] = datetime.now()
     message['counter'] = counter
-    feagi_ipu_channel.send(message)
+
+    message_to_feagi.append(message)
+    feagi_ipu_channel.send(message_to_feagi)
 
 
 def main(args=None):
