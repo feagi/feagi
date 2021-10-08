@@ -72,7 +72,7 @@
         </visual>
       </link>
     <link name='plate1'>
-        <pose>0.03 1 0.25 0 0 0</pose>
+        <pose>0.03 5 0.25 0 0 0</pose>
         <inertial>
           <mass>0.01</mass>
           <inertia>
@@ -224,7 +224,7 @@
 
 
     <model name='freenove_smart_car'>
-      <pose>0 4.28 0.325 0 -0 0</pose>
+      <pose>0 0.28 0.325 0 -0 0</pose>
 
     <!--     BODY PARTS        -->
         <link name='chassis'>
