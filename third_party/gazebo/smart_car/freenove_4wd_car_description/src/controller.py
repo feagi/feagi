@@ -92,7 +92,8 @@ class ScalableSubscriber(Node):
             sensor_topic = msg_type.split('/')[0]
             sensor_id = int(''.join(filter(str.isdigit, sensor_topic)))
 
-            if avg_intensity < 100:
+            print("\n***\nAverage Intensity = ", avg_intensity)
+            if avg_intensity > 25:
                 return {
                     'ir': {
                         sensor_id: False
