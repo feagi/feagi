@@ -75,7 +75,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         ign_gazebo,
-        DeclareLaunchArgument('rviz', default_value='true',
+        DeclareLaunchArgument('rviz', default_value='false',
                               description='Open RViz.'),
         bridge,
         rviz,

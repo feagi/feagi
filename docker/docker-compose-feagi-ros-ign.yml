@@ -29,3 +29,6 @@ services:
       - "PYTHONUNBUFFERED=1"
     networks:
       - net
+    volumes:
+      - /Users/mnadji/PycharmProjects/feagi-core/src/evo/static_genome.py:/opt/source-code/feagi-core/src/evo/static_genome.py
+      - /Users/mnadji/PycharmProjects/feagi-core/src/feagi_configuration.ini:/opt/source-code/feagi-core/src/feagi_configuration.ini
