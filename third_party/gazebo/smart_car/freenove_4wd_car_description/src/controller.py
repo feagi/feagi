@@ -15,6 +15,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import LaserScan, Image
 from rclpy.qos import qos_profile_sensor_data
 from configuration import *
+from configuration import message_to_feagi
 
 
 if sys.platform == 'win32':
@@ -222,8 +223,8 @@ def compose_message_to_feagi(message, counter):
     accumulates multiple messages in a data structure that can be sent to feagi
     """
 
-    # pause before sending to FEAGI IPU SUB (avoid losing connection)
-    time.sleep(router_settings['feagi_burst_speed'])
+    # # pause before sending to FEAGI IPU SUB (avoid losing connection)
+    # time.sleep(router_settings['feagi_burst_speed'])
     message['timestamp'] = datetime.now()
     message['counter'] = counter
 
@@ -269,7 +270,7 @@ def main(args=None):
                         motor.move(motor_index=motor_id, speed=opu_data['motor'][motor_id])
 
             feagi_ipu_channel.send(message_to_feagi)
-            message_to_feagi = []
+            message_to_feagi.clear()
             time.sleep(router_settings['feagi_burst_speed'])
     except KeyboardInterrupt:
         pass
