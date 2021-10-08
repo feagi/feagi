@@ -44,6 +44,13 @@
               <size>100 100</size>
             </plane>
           </geometry>
+          <surface>
+            <friction>
+                <ode>
+                    <mu>10</mu>
+                </ode>
+            </friction>
+          </surface>
         </collision>
         <visual name="visual">
           <geometry>
@@ -55,7 +62,6 @@
           <material>
             <ambient>0.8 0.8 0.8 1</ambient>
             <diffuse>0.8 0.8 0.8 1</diffuse>
-            <specular>1 0.8 0.8 1</specular>
             <pbr>
                 <metal>
                   <albedo_map>floor.png</albedo_map>
@@ -218,7 +224,7 @@
 
 
     <model name='freenove_smart_car'>
-      <pose>0 -2 0.325 0 -0 0</pose>
+      <pose>0 4.202 0.325 0 -0 0</pose>
 
     <!--     BODY PARTS        -->
         <link name='chassis'>
@@ -325,9 +331,10 @@
           </geometry>
           <surface>
             <friction>
-              <ode>
-                <mu>0.4</mu>
-              </ode>
+                <ode>
+                    <mu>10</mu>
+                    <mu2>100</mu2>
+                </ode>
             </friction>
           </surface>
         </collision>
@@ -374,9 +381,10 @@
           </geometry>
           <surface>
             <friction>
-              <ode>
-                <mu>0.4</mu>
-              </ode>
+                <ode>
+                    <mu>10</mu>
+                    <mu2>100</mu2>
+                </ode>
             </friction>
           </surface>
         </collision>
@@ -423,9 +431,10 @@
           </geometry>
           <surface>
             <friction>
-              <ode>
-                <mu>0.4</mu>
-              </ode>
+                <ode>
+                    <mu>10</mu>
+                    <mu2>100</mu2>
+                </ode>
             </friction>
           </surface>
         </collision>
@@ -472,9 +481,10 @@
           </geometry>
           <surface>
             <friction>
-              <ode>
-                <mu>0.4</mu>
-              </ode>
+                <ode>
+                    <mu>10</mu>
+                    <mu2>100</mu2>
+                </ode>
             </friction>
           </surface>
         </collision>
@@ -655,7 +665,7 @@
       </material>
       </visual>
       <sensor name="rgbd_camera" type="rgbd_camera">
-          <update_rate>5</update_rate>
+          <update_rate>10</update_rate>
           <visualize>true</visualize>
           <always_on>1</always_on>
           <topic>IR0</topic>
@@ -702,7 +712,7 @@
       </material>
       </visual>
         <sensor name="rgbd_camera" type="rgbd_camera">
-          <update_rate>5</update_rate>
+          <update_rate>10</update_rate>
           <topic>IR2</topic>
           <camera>
             <horizontal_fov>1.2</horizontal_fov>
@@ -747,7 +757,7 @@
       </material>
       </visual>
       <sensor name="rgbd_camera" type="rgbd_camera">
-          <update_rate>5</update_rate>
+          <update_rate>10</update_rate>
           <topic>IR1</topic>
           <camera>
             <horizontal_fov>1.2</horizontal_fov>
