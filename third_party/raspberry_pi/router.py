@@ -58,7 +58,6 @@ def find_feagi(address):
     subscriber = Sub(address=address, flags=zmq.SUB)
     message = subscriber.receive()
     print("Connection to FEAGI has been established")
-    print(">>>>>>>>>>>>> >>>>>>>>>>>>> >>>>>>>>>>>>>>> FIND FEAGI: ", message)
 
     # todo: What information is useful to receive from FEAGI in this message? IPU/OPU list?
     print("Current FEAGI state is at burst number ", message['burst_counter'])
