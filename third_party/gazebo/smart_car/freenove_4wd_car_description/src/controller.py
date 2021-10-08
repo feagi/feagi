@@ -28,6 +28,7 @@ feagi_state = find_feagi(address=address)
 
 print("** **", feagi_state)
 sockets = feagi_state['sockets']
+router_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
 
 print("--->> >> >> ", sockets)
 
@@ -124,15 +125,17 @@ class Motor:
 
     def move(self, motor_index, speed):
         try:
-            output_speed = std_msgs.msg.Float64()
-            try:
-                motor_status = model_properties['motor']['motor_statuses'][motor_index]
-                output_speed.data = float(speed + motor_status)
-            except KeyError:
+            motor_position = std_msgs.msg.Float64()
+
+            if motor_index not in model_properties['motor']['motor_statuses']:
                 model_properties['motor']['motor_statuses'][motor_index] = 0
-                output_speed.data = float(speed)
-            model_properties['motor']['motor_statuses'][motor_index] += output_speed.data
-            self.motor_node[motor_index].publish(output_speed)
+
+            motor_current_position = model_properties['motor']['motor_statuses'][motor_index]
+            motor_position.data = float((speed * router_settings['feagi_burst_speed']) + motor_current_position)
+
+            model_properties['motor']['motor_statuses'][motor_index] = motor_position.data
+            print("Motor index + position = ", motor_index, motor_position.data)
+            self.motor_node[motor_index].publish(motor_position)
         except Exception:
             exc_info = sys.exc_info()
             traceback.print_exception(*exc_info)
@@ -218,7 +221,7 @@ def send_to_feagi(message, counter):
     print("Original message:", message)
 
     # pause before sending to FEAGI IPU SUB (avoid losing connection)
-    time.sleep(router_settings['global_timer'])
+    time.sleep(router_settings['feagi_burst_speed'])
     message['timestamp'] = datetime.now()
     message['counter'] = counter
     feagi_ipu_channel.send(message)
@@ -260,9 +263,9 @@ def main(args=None):
             if opu_data is not None:
                 if 'motor' in opu_data:
                     for motor_id in opu_data['motor']:
-                        motor.move(motor_id, opu_data['motor'][motor_id])
+                        motor.move(motor_index=motor_id, speed=opu_data['motor'][motor_id])
 
-            time.sleep(router_settings['global_timer'])
+            time.sleep(router_settings['feagi_burst_speed'])
     except KeyboardInterrupt:
         pass
 

@@ -268,6 +268,7 @@ def init_burst_engine():
     runtime_data.top_10_utf_memory_neurons = list_top_n_utf_memory_neurons("utf8_memory", 10)
     runtime_data.top_10_utf_neurons = list_top_n_utf_memory_neurons("utf8_ipu", 10)
     runtime_data.v1_members = []
+    runtime_data.burst_timer = runtime_data.parameters["Timers"]["burst_timer"]
 
     if runtime_data.parameters["Logs"]["print_block_dict_report"]:
         print("Block Dictionary Report:")
