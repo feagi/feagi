@@ -20,9 +20,10 @@ def convert_ir_to_fire_list(ir_data):
                 if sensor_idx == runtime_data.brain['ir_ipu'][key]['soma_location'][0][0]:
                     fire_list.add(key)
 
-    runtime_data.fcl_queue.put({'ir_ipu': fire_list})
+    # runtime_data.fcl_queue.put({'ir_ipu': fire_list})
     #
-    # temp = runtime_data.fcl_queue.get()
-    # print(type(temp['ir_ipu']), temp['ir_ipu'])
-    # temp['ir_ipu'].add(fire_list)
-    # runtime_data.fcl_queue.put(temp)
+    print("%%$%%")
+    temp = runtime_data.fcl_queue.get()
+    print(type(temp['ir_ipu']), temp['ir_ipu'])
+    temp['ir_ipu'].add(fire_list)
+    runtime_data.fcl_queue.put(temp)
