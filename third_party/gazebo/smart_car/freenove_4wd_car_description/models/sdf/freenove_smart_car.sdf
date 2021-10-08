@@ -72,7 +72,7 @@
         </visual>
       </link>
     <link name='plate1'>
-        <pose>0.03 5 0.25 0 0 0</pose>
+        <pose>0.03 1 0.25 0 0 0</pose>
         <inertial>
           <mass>0.01</mass>
           <inertia>
