@@ -361,6 +361,7 @@ def burst_manager():
                 # Infrared Handler
                 if 'ir' in sensor_type and runtime_data.parameters['IPU']['ir']:
                     try:
+                        print("+_+_+ipu_data[sensor_type]: ", ipu_data[sensor_type])
                         ir.convert_ir_to_fire_list(ir_data=ipu_data[sensor_type])
                     except:
                         print("ERROR while processing Infrared IPU")

@@ -64,8 +64,8 @@
             <diffuse>0.8 0.8 0.8 1</diffuse>
             <pbr>
                 <metal>
-                  <albedo_map>floor.png</albedo_map>
-                  <normal_map>floor.png</normal_map>
+                  <albedo_map>Track4.png</albedo_map>
+                  <normal_map>Track4.png</normal_map>
                 </metal>
               </pbr>
           </material>
