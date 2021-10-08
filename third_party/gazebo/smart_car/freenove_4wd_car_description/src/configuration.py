@@ -24,3 +24,5 @@ model_properties = {
         'topic_identifier': 'IR'
     }
 }
+
+message_to_feagi = []
