@@ -138,7 +138,7 @@ class Motor:
             motor_position.data = float((speed * router_settings['feagi_burst_speed']) + motor_current_position)
 
             model_properties['motor']['motor_statuses'][motor_index] = motor_position.data
-            print("Motor index + position = ", motor_index, motor_position.data)
+            print("Motor index, position, speed = ", motor_index, motor_position.data, speed)
             self.motor_node[motor_index].publish(motor_position)
         except Exception:
             exc_info = sys.exc_info()
@@ -270,7 +270,7 @@ def main(args=None):
             if opu_data is not None:
                 if 'motor' in opu_data:
                     for motor_id in opu_data['motor']:
-                        motor.move(motor_index=motor_id, speed=opu_data['motor'][motor_id])
+                        motor.move(motor_index=motor_id, speed=opu_data['motor'][motor_id]['speed'])
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             feagi_ipu_channel.send(message_to_feagi)
