@@ -411,6 +411,7 @@ def burst_manager():
         if runtime_data.router_address is not None:
             ipu_data = ipu_listener.receive()
             if ipu_data:
+                print("FEAGI received message from router as:", ipu_data)
                 ipu_handler(ipu_data)
 
     def burst():
