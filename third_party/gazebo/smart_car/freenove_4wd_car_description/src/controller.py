@@ -71,13 +71,16 @@ class ScalableSubscriber(Node):
         # self.get_logger().info("Raw Message: {}".format(msg))
         try:
             formatted_msg = self.msg_processor(msg, self.topic)
-            compose_message_to_feagi(message=formatted_msg, counter=self.counter)
+            print("---+___")
+            compose_message_to_feagi(message=formatted_msg)
             self.counter += 1
         except Exception as e:
+            print("Error in listener callback...", e)
             exc_info = sys.exc_info()
             traceback.print_exception(*exc_info)
 
-    def msg_processor(self, msg, msg_type):
+    @staticmethod
+    def msg_processor(msg, msg_type):
         # TODO: give each subclass a specific msg processor method?
         # TODO: add an attribute that explicitly defines message type (instead of parsing topic name)?
         if 'ultrasonic' in msg_type:
@@ -218,16 +221,11 @@ class Teleop:
         self.pub.publish(twist)
 
 
-def compose_message_to_feagi(message, counter):
+def compose_message_to_feagi(message):
     """
     accumulates multiple messages in a data structure that can be sent to feagi
     """
-
-    # # pause before sending to FEAGI IPU SUB (avoid losing connection)
-    # time.sleep(router_settings['feagi_burst_speed'])
-    message_to_feagi['timestamp'] = datetime.now()
-    message_to_feagi['counter'] = counter
-
+    print("pre-compose message:", message)
     for key in message:
         if key not in message_to_feagi:
             message_to_feagi[key] = dict()
@@ -261,6 +259,7 @@ def main(args=None):
 
     executor_thread = Thread(target=executor.spin, daemon=True)
     executor_thread.start()
+    msg_counter = 0
 
     try:
         while True:
@@ -272,8 +271,11 @@ def main(args=None):
                     for motor_id in opu_data['motor']:
                         motor.move(motor_index=motor_id, speed=opu_data['motor'][motor_id])
             print("Sending message to FEAGI as:", message_to_feagi)
+            message_to_feagi['timestamp'] = datetime.now()
+            message_to_feagi['counter'] = msg_counter
             feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
+            msg_counter += 1
             time.sleep(router_settings['feagi_burst_speed'])
     except KeyboardInterrupt:
         pass
