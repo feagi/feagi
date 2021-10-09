@@ -25,4 +25,4 @@ model_properties = {
     }
 }
 
-message_to_feagi = []
+message_to_feagi = {}
