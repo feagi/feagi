@@ -71,7 +71,6 @@ class ScalableSubscriber(Node):
         # self.get_logger().info("Raw Message: {}".format(msg))
         try:
             formatted_msg = self.msg_processor(msg, self.topic)
-            print("---+___")
             compose_message_to_feagi(message=formatted_msg)
             self.counter += 1
         except Exception as e:
@@ -225,11 +224,13 @@ def compose_message_to_feagi(message):
     """
     accumulates multiple messages in a data structure that can be sent to feagi
     """
-    print("pre-compose message:", message)
     for key in message:
         if key not in message_to_feagi:
             message_to_feagi[key] = dict()
-        message_to_feagi[key] = message[key]
+        for item in message[key]:
+            if item not in message_to_feagi[key]:
+                message_to_feagi[key][item] = ""
+            message_to_feagi[key][item] = message[key][item]
 
 
 def main(args=None):
@@ -270,7 +271,6 @@ def main(args=None):
                 if 'motor' in opu_data:
                     for motor_id in opu_data['motor']:
                         motor.move(motor_index=motor_id, speed=opu_data['motor'][motor_id])
-            print("Sending message to FEAGI as:", message_to_feagi)
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             feagi_ipu_channel.send(message_to_feagi)
