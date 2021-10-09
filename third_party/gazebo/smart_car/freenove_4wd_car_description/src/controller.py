@@ -225,10 +225,13 @@ def compose_message_to_feagi(message, counter):
 
     # # pause before sending to FEAGI IPU SUB (avoid losing connection)
     # time.sleep(router_settings['feagi_burst_speed'])
-    message['timestamp'] = datetime.now()
-    message['counter'] = counter
+    message_to_feagi['timestamp'] = datetime.now()
+    message_to_feagi['counter'] = counter
 
-    message_to_feagi.append(message)
+    for key in message:
+        if key not in message_to_feagi:
+            message_to_feagi[key] = dict()
+        message_to_feagi[key] = message[key]
 
 
 def main(args=None):
