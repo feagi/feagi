@@ -371,7 +371,7 @@ def burst_manager():
 
     def opu_handler():
         """
-        This function is inteded to handle all the OPU processing that needs to be addressed in burst level as opposed
+        This function is intended to handle all the OPU processing that needs to be addressed in burst level as opposed
         to individual neuron fire
         """
         # todo: Introduce a generalized approach to cover all OPUs
@@ -389,11 +389,15 @@ def burst_manager():
             # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
             # movement.activate_motor(data)
             activity_report = opu_activity_report(cortical_area='motor_opu')
+            motor_data = dict()
             for device in activity_report:
                 # if there are "ties" w/r/t block activity, this will select the first index in the list w/ the tie value
                 block_with_max_activity = activity_report[device][0].index(max(activity_report[device][0]))
-                movement.activate_motor(cortical_area='motor_opu', motor_id=device,
-                                        speed=block_with_max_activity)
+                if device not in motor_data:
+                    motor_data[device] = dict()
+                motor_data[device]['speed'] = block_with_max_activity
+
+            movement.activate_motor(movement_data=motor_data)
 
     def sensory_message_router():
         # Broadcasts a TCP message on each burst
