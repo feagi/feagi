@@ -224,7 +224,7 @@
 
 
     <model name='freenove_smart_car'>
-      <pose>0 0.28 0.325 0 -0 0</pose>
+      <pose>0 4.28 0.325 0 -0 0</pose>
 
     <!--     BODY PARTS        -->
         <link name='chassis'>

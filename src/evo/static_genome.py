@@ -3363,7 +3363,7 @@ genome = {
         "init_synapse_needed" : False,
         "postsynaptic_current" : -500,
         "plasticity_constant" : 0.05,
-        "postsynaptic_current_max" : 3501,
+        "postsynaptic_current_max" : 35,
         "neighbor_locator_rule_id" : "rule_5",
         "neighbor_locator_rule_param_id" : "param_3",
         "cortical_mapping_dst" : {
@@ -3476,7 +3476,7 @@ genome = {
         "location_generation_type": "random",
         "synapse_attractivity": 100,
         "init_synapse_needed": False,
-        "postsynaptic_current": 50000,
+        "postsynaptic_current": 5,
         "plasticity_constant": 0,
         "postsynaptic_current_max": 5000,
         "neighbor_locator_rule_id": "rule_5",
