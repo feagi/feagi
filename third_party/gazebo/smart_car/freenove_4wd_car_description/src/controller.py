@@ -271,7 +271,7 @@ def main(args=None):
                 if 'motor' in opu_data:
                     for motor_id in opu_data['motor']:
                         motor.move(motor_index=motor_id, speed=opu_data['motor'][motor_id])
-
+            print("Sending message to FEAGI as:", message_to_feagi)
             feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
             time.sleep(router_settings['feagi_burst_speed'])
