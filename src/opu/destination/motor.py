@@ -17,7 +17,8 @@ def motor_operator(motor_data):
     """
     try:
         # todo: Generalize the following section. using specifics for test only
-        runtime_data.opu_pub.send(message=motor_data)
+        message_to_router = {"motor": motor_data}
+        runtime_data.opu_pub.send(message=message_to_router)
         for motor_id in motor_data:
             print(f">>>>>>>>>>>>>>>>>>>>>>>> {motor_id} "
                   f"activation command sent to router with speed {motor_data[motor_id]['speed']}")
