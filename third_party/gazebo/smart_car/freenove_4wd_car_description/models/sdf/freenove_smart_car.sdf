@@ -44,13 +44,6 @@
               <size>100 100</size>
             </plane>
           </geometry>
-          <surface>
-            <friction>
-                <ode>
-                    <mu>10</mu>
-                </ode>
-            </friction>
-          </surface>
         </collision>
         <visual name="visual">
           <geometry>
@@ -329,14 +322,23 @@
               <length>.02</length>
             </cylinder>
           </geometry>
-          <surface>
-            <friction>
-                <ode>
-                    <mu>10</mu>
-                    <mu2>100</mu2>
-                </ode>
-            </friction>
-          </surface>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1.0</mu>
+              <mu2>1.0</mu2>
+              <fdir1>0 0 1</fdir1>
+              <slip1>0.0</slip1>
+              <slip2>0.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <min_depth>0.005</min_depth>
+              <kp>1e8</kp>
+            </ode>
+          </contact>
+        </surface>
         </collision>
       </link>
 
@@ -379,14 +381,23 @@
               <length>.02</length>
             </cylinder>
           </geometry>
-          <surface>
-            <friction>
-                <ode>
-                    <mu>10</mu>
-                    <mu2>100</mu2>
-                </ode>
-            </friction>
-          </surface>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1.0</mu>
+              <mu2>1.0</mu2>
+              <fdir1>0 0 1</fdir1>
+              <slip1>0.0</slip1>
+              <slip2>0.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <min_depth>0.005</min_depth>
+              <kp>1e8</kp>
+            </ode>
+          </contact>
+        </surface>
         </collision>
       </link>
 
@@ -429,14 +440,23 @@
               <length>.02</length>
             </cylinder>
           </geometry>
-          <surface>
-            <friction>
-                <ode>
-                    <mu>10</mu>
-                    <mu2>100</mu2>
-                </ode>
-            </friction>
-          </surface>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1.0</mu>
+              <mu2>1.0</mu2>
+              <fdir1>0 0 1</fdir1>
+              <slip1>0.0</slip1>
+              <slip2>0.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <min_depth>0.005</min_depth>
+              <kp>1e8</kp>
+            </ode>
+          </contact>
+        </surface>
         </collision>
       </link>
 
@@ -479,14 +499,23 @@
               <length>.02</length>
             </cylinder>
           </geometry>
-          <surface>
-            <friction>
-                <ode>
-                    <mu>10</mu>
-                    <mu2>100</mu2>
-                </ode>
-            </friction>
-          </surface>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1.0</mu>
+              <mu2>1.0</mu2>
+              <fdir1>0 0 1</fdir1>
+              <slip1>0.0</slip1>
+              <slip2>0.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <min_depth>0.005</min_depth>
+              <kp>1e8</kp>
+            </ode>
+          </contact>
+        </surface>
         </collision>
       </link>
 
@@ -798,10 +827,10 @@
         <ode>
           <implicit_spring_damper>1</implicit_spring_damper>
           <cfm_damping>1</cfm_damping>
-<!--          <limit>-->
-<!--            <cfm>0</cfm>-->
-<!--            <erp>0.2</erp>-->
-<!--          </limit>-->
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
         </ode>
       </physics>
       </joint>
@@ -835,10 +864,10 @@
         <ode>
           <implicit_spring_damper>1</implicit_spring_damper>
           <cfm_damping>1</cfm_damping>
-<!--          <limit>-->
-<!--            <cfm>0</cfm>-->
-<!--            <erp>0.2</erp>-->
-<!--          </limit>-->
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
         </ode>
       </physics>
       </joint>
@@ -873,10 +902,10 @@
         <ode>
           <implicit_spring_damper>1</implicit_spring_damper>
           <cfm_damping>1</cfm_damping>
-<!--          <limit>-->
-<!--            <cfm>0</cfm>-->
-<!--            <erp>0.2</erp>-->
-<!--          </limit>-->
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
         </ode>
       </physics>
       </joint>
@@ -910,10 +939,10 @@
         <ode>
           <implicit_spring_damper>1</implicit_spring_damper>
           <cfm_damping>1</cfm_damping>
-<!--          <limit>-->
-<!--            <cfm>0</cfm>-->
-<!--            <erp>0.2</erp>-->
-<!--          </limit>-->
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
         </ode>
       </physics>
       </joint>
