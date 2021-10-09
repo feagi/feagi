@@ -97,7 +97,8 @@ def rule_selective_block_to_block(rule_param, src_cortical_area, dst_cortical_ar
     if src_neuron_block_id[0] is 0:
         filtered_dst_block_refs = filter(lambda x: x[0] in ('0', '1'), dst_block_refs)
         filtered_dst_block_refs = filter(lambda z: z[2] == '15', filtered_dst_block_refs)
-        print("IR0 dest blocks in motor", filtered_dst_block_refs)
+        for block in filtered_dst_block_refs:
+            print("IR0 dest blocks in motor", block)
         for dst_block_ref in filtered_dst_block_refs:
             dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=dst_block_ref)
             for dst_neuron in dst_block_neurons:
@@ -105,7 +106,8 @@ def rule_selective_block_to_block(rule_param, src_cortical_area, dst_cortical_ar
 
     elif src_neuron_block_id[0] is 1:
         filtered_dst_block_refs = filter(lambda z: z[2] == '10', dst_block_refs)
-        print("IR1 dest blocks in motor", filtered_dst_block_refs)
+        for block in filtered_dst_block_refs:
+            print("IR1 dest blocks in motor", block)
         for dst_block_ref in filtered_dst_block_refs:
             dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=dst_block_ref)
             for dst_neuron in dst_block_neurons:
@@ -114,7 +116,8 @@ def rule_selective_block_to_block(rule_param, src_cortical_area, dst_cortical_ar
     elif src_neuron_block_id[0] is 2:
         filtered_dst_block_refs = filter(lambda x: x[0] in ('2', '3'), dst_block_refs)
         filtered_dst_block_refs = filter(lambda z: z[2] == '15', filtered_dst_block_refs)
-        print("IR2 dest blocks in motor", filtered_dst_block_refs)
+        for block in filtered_dst_block_refs:
+            print("IR2 dest blocks in motor", block)
         for dst_block_ref in filtered_dst_block_refs:
             dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=dst_block_ref)
             for dst_neuron in dst_block_neurons:
