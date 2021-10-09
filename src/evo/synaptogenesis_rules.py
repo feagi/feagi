@@ -95,7 +95,9 @@ def rule_selective_block_to_block(rule_param, src_cortical_area, dst_cortical_ar
 
     candidate_list = list()
     if src_neuron_block_id[0] is 0:
+        print("dst_block_refs", dst_block_refs)
         filtered_dst_block_refs = filter(lambda x: x[0] in ('0', '1'), dst_block_refs)
+        print("filtered_dst_block_refs", filtered_dst_block_refs)
         filtered_dst_block_refs = filter(lambda z: z[2] == '15', filtered_dst_block_refs)
         for block in filtered_dst_block_refs:
             print("IR0 dest blocks in motor", block)
