@@ -95,21 +95,21 @@ def rule_selective_block_to_block(rule_param, src_cortical_area, dst_cortical_ar
 
     candidate_list = list()
     if src_neuron_block_id[0] is 0:
-        dst_block_refs = ["1-0-5", "3-0-5"]
+        dst_block_refs = ["1-0-6", "3-0-4"]
         for block in dst_block_refs:
             dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=block)
             for dst_neuron in dst_block_neurons:
                 candidate_list.append(dst_neuron)
 
     elif src_neuron_block_id[0] is 1:
-        dst_block_refs = ["0-0-2", "1-0-2", "2-0-2", "3-0-2"]
+        dst_block_refs = ["0-0-3", "1-0-3", "2-0-3", "3-0-3"]
         for block in dst_block_refs:
             dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=block)
             for dst_neuron in dst_block_neurons:
                 candidate_list.append(dst_neuron)
 
     elif src_neuron_block_id[0] is 2:
-        dst_block_refs = ["0-0-5", "2-0-5"]
+        dst_block_refs = ["0-0-6", "2-0-4"]
         for block in dst_block_refs:
             dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=block)
             for dst_neuron in dst_block_neurons:

@@ -361,7 +361,7 @@ def burst_manager():
                 # Infrared Handler
                 if 'ir' in sensor_type and runtime_data.parameters['IPU']['ir']:
                     try:
-                        print("+_+_+ipu_data[sensor_type]: ", ipu_data[sensor_type])
+                        # print("+_+_+ipu_data[sensor_type]: ", ipu_data[sensor_type])
                         ir.convert_ir_to_fire_list(ir_data=ipu_data[sensor_type])
                     except:
                         print("ERROR while processing Infrared IPU")
@@ -424,8 +424,10 @@ def burst_manager():
         if runtime_data.router_address is not None:
             ipu_data = ipu_listener.receive()
             if ipu_data:
-                print("FEAGI received message from router as:", ipu_data)
                 ipu_handler(ipu_data)
+                if runtime_data.parameters["Logs"]["print_burst_info"]:
+                    print("FEAGI received message from router as:", ipu_data)
+
 
     def burst():
         # todo: the following sleep value should be tied to Autopilot status

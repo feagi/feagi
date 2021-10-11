@@ -69,7 +69,7 @@ def generate_launch_description():
                    '/M0@std_msgs/msg/Float64@ignition.msgs.Double',
                    '/M1@std_msgs/msg/Float64@ignition.msgs.Double',
                    '/M2@std_msgs/msg/Float64@ignition.msgs.Double',
-                   '/M3@std_msgs/msg/Float64@ignition.msgs.Double',],
+                   '/M3@std_msgs/msg/Float64@ignition.msgs.Double'],
         output='screen'
     )
 

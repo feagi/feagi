@@ -82,8 +82,7 @@ class ScalableSubscriber(Node):
     def msg_processor(msg, msg_type):
         # TODO: give each subclass a specific msg processor method?
         # TODO: add an attribute that explicitly defines message type (instead of parsing topic name)?
-        if 'ultrasonic' in msg_type:
-            print(">> >> >> msg.ranges", msg.ranges)
+        if 'ultrasonic' in msg_type and msg.ranges[1]:
             return {
                 msg_type: {
                     idx: val for idx, val in enumerate([msg.ranges[1]])
@@ -96,7 +95,7 @@ class ScalableSubscriber(Node):
             sensor_topic = msg_type.split('/')[0]
             sensor_id = int(''.join(filter(str.isdigit, sensor_topic)))
 
-            print("\n***\nAverage Intensity = ", avg_intensity)
+            # print("\n***\nAverage Intensity = ", avg_intensity)
             if avg_intensity > 25:
                 return {
                     'ir': {
@@ -136,10 +135,10 @@ class Motor:
                 model_properties['motor']['motor_statuses'][motor_index] = 0
 
             motor_current_position = model_properties['motor']['motor_statuses'][motor_index]
-            motor_position.data = float((speed * router_settings['feagi_burst_speed'] / 2) + motor_current_position)
+            motor_position.data = float((speed * router_settings['feagi_burst_speed']) + motor_current_position)
 
             model_properties['motor']['motor_statuses'][motor_index] = motor_position.data
-            print("Motor index, position, speed = ", motor_index, motor_position.data, speed)
+            # print("Motor index, position, speed = ", motor_index, motor_position.data, speed)
             self.motor_node[motor_index].publish(motor_position)
         except Exception:
             exc_info = sys.exc_info()
@@ -267,7 +266,7 @@ def main(args=None):
         while True:
             # Process OPU data received from FEAGI and pass it along
             opu_data = feagi_opu_channel.receive()
-            print("Received:", opu_data)
+            # print("Received:", opu_data)
             if opu_data is not None:
                 if 'motor' in opu_data:
                     for motor_id in opu_data['motor']:
