@@ -3,7 +3,7 @@
   <world name="free_world">
 
     <physics name="1ms" type="ignored">
-      <max_step_size>0.001</max_step_size>
+      <max_step_size>0.01</max_step_size>
       <real_time_factor>1.0</real_time_factor>
     </physics>
     <plugin
@@ -223,7 +223,7 @@
         <link name='chassis'>
             <pose>0 0 .1 0 0 0</pose>
             <inertial>
-              <mass>10</mass>
+              <mass>4</mass>
               <inertia>
                 <ixx>0.005</ixx>
                 <ixy>0</ixy>
@@ -286,7 +286,7 @@
       <link name='rear_left_wheel'>
         <pose>-0.1 0.088 0.05 0 1.5707 1.5707</pose>
         <inertial>
-          <mass>1</mass>
+          <mass>0.5</mass>
           <inertia>
             <ixx>0.02467</ixx>
             <ixy>0</ixy>
@@ -326,8 +326,8 @@
           <friction>
             <ode>
               <mu>1.0</mu>
-              <mu2>10.0</mu2>
-              <fdir1>0 0 1</fdir1>
+              <mu2>50.0</mu2>
+              <fdir1>1 1 1</fdir1>
               <slip1>0.0</slip1>
               <slip2>0.0</slip2>
             </ode>
@@ -345,7 +345,7 @@
       <link name='rear_right_wheel'>
         <pose> -0.1 -0.088 0.05 0 1.5707 1.5707 </pose>
         <inertial>
-          <mass>1</mass>
+          <mass>0.5</mass>
           <inertia>
             <ixx>0.02467</ixx>
             <ixy>0</ixy>
@@ -385,8 +385,8 @@
           <friction>
             <ode>
               <mu>1.0</mu>
-              <mu2>10.0</mu2>
-              <fdir1>0 0 1</fdir1>
+              <mu2>50.0</mu2>
+              <fdir1>1 1 1</fdir1>
               <slip1>0.0</slip1>
               <slip2>0.0</slip2>
             </ode>
@@ -404,7 +404,7 @@
       <link name='front_left_wheel'>
         <pose>0.1 0.088 0.05 0 1.5707 1.5707</pose>
         <inertial>
-          <mass>1</mass>
+          <mass>0.5</mass>
           <inertia>
             <ixx>0.02467</ixx>
             <ixy>0</ixy>
@@ -444,8 +444,8 @@
           <friction>
             <ode>
               <mu>1.0</mu>
-              <mu2>10.0</mu2>
-              <fdir1>0 0 1</fdir1>
+              <mu2>50.0</mu2>
+              <fdir1>1 1 1</fdir1>
               <slip1>0.0</slip1>
               <slip2>0.0</slip2>
             </ode>
@@ -463,7 +463,7 @@
       <link name='front_right_wheel'>
         <pose>0.1 -0.088 0.05 0 1.5707 1.5707</pose>
         <inertial>
-          <mass>1</mass>
+          <mass>0.5</mass>
           <inertia>
             <ixx>0.02467</ixx>
             <ixy>0</ixy>
@@ -503,8 +503,8 @@
           <friction>
             <ode>
               <mu>1.0</mu>
-              <mu2>10.0</mu2>
-              <fdir1>0 0 1</fdir1>
+              <mu2>50.0</mu2>
+              <fdir1>1 1 1</fdir1>
               <slip1>0.0</slip1>
               <slip2>0.0</slip2>
             </ode>
@@ -635,7 +635,7 @@
           <always_on>1</always_on>
           <visualize>true</visualize>
           <topic>ultrasonic0</topic>
-          <update_rate>10</update_rate>
+          <update_rate>20</update_rate>
           <lidar>
               <scan>
                   <vertical>
@@ -694,7 +694,7 @@
       </material>
       </visual>
       <sensor name="rgbd_camera" type="rgbd_camera">
-          <update_rate>10</update_rate>
+          <update_rate>20</update_rate>
           <visualize>true</visualize>
           <always_on>1</always_on>
           <topic>IR0</topic>
@@ -741,7 +741,7 @@
       </material>
       </visual>
         <sensor name="rgbd_camera" type="rgbd_camera">
-          <update_rate>10</update_rate>
+          <update_rate>20</update_rate>
           <topic>IR2</topic>
           <camera>
             <horizontal_fov>1.2</horizontal_fov>
@@ -786,7 +786,7 @@
       </material>
       </visual>
       <sensor name="rgbd_camera" type="rgbd_camera">
-          <update_rate>10</update_rate>
+          <update_rate>20</update_rate>
           <topic>IR1</topic>
           <camera>
             <horizontal_fov>1.2</horizontal_fov>
