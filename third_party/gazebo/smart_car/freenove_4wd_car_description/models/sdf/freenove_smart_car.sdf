@@ -694,7 +694,7 @@
       </material>
       </visual>
       <sensor name="rgbd_camera" type="rgbd_camera">
-          <update_rate>20</update_rate>
+          <update_rate>100</update_rate>
           <visualize>true</visualize>
           <always_on>1</always_on>
           <topic>IR0</topic>
@@ -741,7 +741,7 @@
       </material>
       </visual>
         <sensor name="rgbd_camera" type="rgbd_camera">
-          <update_rate>20</update_rate>
+          <update_rate>100</update_rate>
           <topic>IR2</topic>
           <camera>
             <horizontal_fov>1.2</horizontal_fov>
@@ -786,7 +786,7 @@
       </material>
       </visual>
       <sensor name="rgbd_camera" type="rgbd_camera">
-          <update_rate>20</update_rate>
+          <update_rate>100</update_rate>
           <topic>IR1</topic>
           <camera>
             <horizontal_fov>1.2</horizontal_fov>
