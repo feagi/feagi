@@ -50,12 +50,12 @@ class Sub:
 
     def receive(self):
         try:
-            print("listening for ipu data...")
+            # print("listening for ipu data...")
             payload = self.socket.recv_pyobj(flags=zmq.NOBLOCK)
-            timestamp_recv = datetime.now()
-            diff = str(timestamp_recv - payload['timestamp'])
-            print(">>>>>> >>>>>> PAYLOAD RECEIVED: ", payload)
-            print(">>>>>>> >>>>>>>> >>>>>>> >>>>>>>>> >>>>>>>>>> TIME DIFF: ", diff)
+            # timestamp_recv = datetime.now()
+            # diff = str(timestamp_recv - payload['timestamp'])
+            # print(">>>>>> >>>>>> PAYLOAD RECEIVED: ", payload)
+            # print(">>>>>>> >>>>>>>> >>>>>>> >>>>>>>>> >>>>>>>>>> TIME DIFF: ", diff)
             # print(">>>>>>>>> >>>>>>>>>>> >>>>>>>>>>> >>>>>>> >>>>>> SEQUENCE VAL: ", payload['counter'])
             return payload
 

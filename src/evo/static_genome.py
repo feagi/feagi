@@ -47,6 +47,10 @@ genome = {
       "rule_7": {
           "param_1": 1,
           "param_2": 1
+      },
+      "rule_8": {
+          "param_1": 1,
+          "param_2": 1
       }
   },
   "orientation_blocks": {
@@ -3359,7 +3363,7 @@ genome = {
         "init_synapse_needed" : False,
         "postsynaptic_current" : -500,
         "plasticity_constant" : 0.05,
-        "postsynaptic_current_max" : 3501,
+        "postsynaptic_current_max" : 35,
         "neighbor_locator_rule_id" : "rule_5",
         "neighbor_locator_rule_param_id" : "param_3",
         "cortical_mapping_dst" : {
@@ -3472,7 +3476,7 @@ genome = {
         "location_generation_type": "random",
         "synapse_attractivity": 100,
         "init_synapse_needed": False,
-        "postsynaptic_current": 50000,
+        "postsynaptic_current": 5,
         "plasticity_constant": 0,
         "postsynaptic_current_max": 5000,
         "neighbor_locator_rule_id": "rule_5",
@@ -3665,15 +3669,15 @@ genome = {
             "geometric_boundaries": {
                 "x": [
                     0,
-                    5
+                    40
                 ],
                 "y": [
                     0,
-                    5
+                    10
                 ],
                 "z": [
                     0,
-                    20
+                    200
                 ]
             }
         }
@@ -3709,7 +3713,7 @@ genome = {
             #     "neighbor_locator_rule_param_id": "param_1"
             # }
             "motor_opu": {
-                "neighbor_locator_rule_id": "rule_7",
+                "neighbor_locator_rule_id": "rule_8",
                 "neighbor_locator_rule_param_id": "param_1"
             }
         },

@@ -60,7 +60,8 @@ class SynaptogenesisRuleManager:
             "rule_1": rule_block_to_block,
             "rule_5": rule_block_to_block,
             "rule_6": rule_block_to_block,
-            "rule_7": rule_block_distributor
+            "rule_7": rule_block_distributor,
+            "rule_8": rule_selective_block_to_block
         }
         # Get the function from switcher dictionary
         rule_func = switcher.get(self.rule, lambda: "Invalid rule")

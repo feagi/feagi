@@ -15,6 +15,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import LaserScan, Image
 from rclpy.qos import qos_profile_sensor_data
 from configuration import *
+from configuration import message_to_feagi
 
 
 if sys.platform == 'win32':
@@ -70,16 +71,18 @@ class ScalableSubscriber(Node):
         # self.get_logger().info("Raw Message: {}".format(msg))
         try:
             formatted_msg = self.msg_processor(msg, self.topic)
-            send_to_feagi(message=formatted_msg, counter=self.counter)
+            compose_message_to_feagi(message=formatted_msg)
             self.counter += 1
         except Exception as e:
+            print("Error in listener callback...", e)
             exc_info = sys.exc_info()
             traceback.print_exception(*exc_info)
 
-    def msg_processor(self, msg, msg_type):
+    @staticmethod
+    def msg_processor(msg, msg_type):
         # TODO: give each subclass a specific msg processor method?
         # TODO: add an attribute that explicitly defines message type (instead of parsing topic name)?
-        if 'ultrasonic' in msg_type:
+        if 'ultrasonic' in msg_type and msg.ranges[1]:
             return {
                 msg_type: {
                     idx: val for idx, val in enumerate([msg.ranges[1]])
@@ -92,7 +95,8 @@ class ScalableSubscriber(Node):
             sensor_topic = msg_type.split('/')[0]
             sensor_id = int(''.join(filter(str.isdigit, sensor_topic)))
 
-            if avg_intensity < 100:
+            # print("\n***\nAverage Intensity = ", avg_intensity)
+            if avg_intensity > 25:
                 return {
                     'ir': {
                         sensor_id: False
@@ -131,10 +135,10 @@ class Motor:
                 model_properties['motor']['motor_statuses'][motor_index] = 0
 
             motor_current_position = model_properties['motor']['motor_statuses'][motor_index]
-            motor_position.data = float((speed * router_settings['feagi_burst_speed']) + motor_current_position)
+            motor_position.data = float((speed * router_settings['feagi_burst_speed'] * 100) + motor_current_position)
 
             model_properties['motor']['motor_statuses'][motor_index] = motor_position.data
-            print("Motor index + position = ", motor_index, motor_position.data)
+            # print("Motor index, position, speed = ", motor_index, motor_position.data, speed)
             self.motor_node[motor_index].publish(motor_position)
         except Exception:
             exc_info = sys.exc_info()
@@ -216,15 +220,17 @@ class Teleop:
         self.pub.publish(twist)
 
 
-def send_to_feagi(message, counter):
-    print("Sending message to FEAGI...")
-    print("Original message:", message)
-
-    # pause before sending to FEAGI IPU SUB (avoid losing connection)
-    time.sleep(router_settings['feagi_burst_speed'])
-    message['timestamp'] = datetime.now()
-    message['counter'] = counter
-    feagi_ipu_channel.send(message)
+def compose_message_to_feagi(message):
+    """
+    accumulates multiple messages in a data structure that can be sent to feagi
+    """
+    for key in message:
+        if key not in message_to_feagi:
+            message_to_feagi[key] = dict()
+        for item in message[key]:
+            if item not in message_to_feagi[key]:
+                message_to_feagi[key][item] = ""
+            message_to_feagi[key][item] = message[key][item]
 
 
 def main(args=None):
@@ -254,17 +260,22 @@ def main(args=None):
 
     executor_thread = Thread(target=executor.spin, daemon=True)
     executor_thread.start()
+    msg_counter = 0
 
     try:
         while True:
             # Process OPU data received from FEAGI and pass it along
             opu_data = feagi_opu_channel.receive()
-            print("Received:", opu_data)
+            # print("Received:", opu_data)
             if opu_data is not None:
                 if 'motor' in opu_data:
                     for motor_id in opu_data['motor']:
-                        motor.move(motor_index=motor_id, speed=opu_data['motor'][motor_id])
-
+                        motor.move(motor_index=motor_id, speed=opu_data['motor'][motor_id]['speed'])
+            message_to_feagi['timestamp'] = datetime.now()
+            message_to_feagi['counter'] = msg_counter
+            feagi_ipu_channel.send(message_to_feagi)
+            message_to_feagi.clear()
+            msg_counter += 1
             time.sleep(router_settings['feagi_burst_speed'])
     except KeyboardInterrupt:
         pass
