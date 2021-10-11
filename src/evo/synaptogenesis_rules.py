@@ -87,7 +87,7 @@ def rule_selective_block_to_block(rule_param, src_cortical_area, dst_cortical_ar
     IR IPU neuron stimulates a different subset of the blocks in the motor OPU to facilitate appropriate motor 
     activation for line-tracking purposes without using neuroplasticity.
     """
-    dst_block_refs = blocks.all_block_refs(dst_cortical_area)
+
     src_neuron_block_ref = blocks.block_reference_builder(
         runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1]
     )
@@ -95,7 +95,6 @@ def rule_selective_block_to_block(rule_param, src_cortical_area, dst_cortical_ar
 
     candidate_list = list()
     if src_neuron_block_id[0] is 0:
-        print("dst_block_refs", dst_block_refs)
         dst_block_refs = ["0-1-15", "1-1-15"]
         for block in dst_block_refs:
             dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=block)
@@ -103,7 +102,6 @@ def rule_selective_block_to_block(rule_param, src_cortical_area, dst_cortical_ar
                 candidate_list.append(dst_neuron)
 
     elif src_neuron_block_id[0] is 1:
-        print("dst_block_refs", dst_block_refs)
         dst_block_refs = ["0-1-10", "1-1-10", "2-1-10", "3-1-10"]
         for block in dst_block_refs:
             dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=block)
@@ -111,7 +109,6 @@ def rule_selective_block_to_block(rule_param, src_cortical_area, dst_cortical_ar
                 candidate_list.append(dst_neuron)
 
     elif src_neuron_block_id[0] is 2:
-        print("dst_block_refs", dst_block_refs)
         dst_block_refs = ["2-1-15", "3-1-15"]
         for block in dst_block_refs:
             dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=block)
