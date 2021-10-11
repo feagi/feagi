@@ -14,7 +14,7 @@ class Pub:
     def send(self, message):
         # if datetime.now().second - router_settings['last_message'] > router_settings['TTL']:
         self.socket.send_pyobj(message)
-        # print("Sent:", message)
+        print("Sent:", message)
         router_settings['last_message'] = datetime.now().second
 
 class Sub:

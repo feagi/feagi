@@ -3,7 +3,7 @@
   <world name="free_world">
 
     <physics name="1ms" type="ignored">
-      <max_step_size>0.001</max_step_size>
+      <max_step_size>0.01</max_step_size>
       <real_time_factor>1.0</real_time_factor>
     </physics>
     <plugin
@@ -55,11 +55,10 @@
           <material>
             <ambient>0.8 0.8 0.8 1</ambient>
             <diffuse>0.8 0.8 0.8 1</diffuse>
-            <specular>1 0.8 0.8 1</specular>
             <pbr>
                 <metal>
-                  <albedo_map>floor.png</albedo_map>
-                  <normal_map>floor.png</normal_map>
+                  <albedo_map>Track4.png</albedo_map>
+                  <normal_map>Track4.png</normal_map>
                 </metal>
               </pbr>
           </material>
@@ -218,7 +217,7 @@
 
 
     <model name='freenove_smart_car'>
-      <pose>0 -2 0.325 0 -0 0</pose>
+      <pose>0 4.12 0.325 0 -0 0</pose>
 
     <!--     BODY PARTS        -->
         <link name='chassis'>
@@ -271,7 +270,7 @@
             <visual name='visual'>
               <geometry>
                 <box>
-                  <size>0.1 0.05 0.005</size>
+                  <size>0.1 0.07 0.005</size>
                 </box>
               </geometry>
               <material>
@@ -287,7 +286,7 @@
       <link name='rear_left_wheel'>
         <pose>-0.1 0.088 0.05 0 1.5707 1.5707</pose>
         <inertial>
-          <mass>1</mass>
+          <mass>0.5</mass>
           <inertia>
             <ixx>0.02467</ixx>
             <ixy>0</ixy>
@@ -323,20 +322,30 @@
               <length>.02</length>
             </cylinder>
           </geometry>
-          <surface>
-            <friction>
-              <ode>
-                <mu>0.4</mu>
-              </ode>
-            </friction>
-          </surface>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1.0</mu>
+              <mu2>50.0</mu2>
+              <fdir1>1 1 1</fdir1>
+              <slip1>0.0</slip1>
+              <slip2>0.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <min_depth>0.005</min_depth>
+              <kp>1e8</kp>
+            </ode>
+          </contact>
+        </surface>
         </collision>
       </link>
 
       <link name='rear_right_wheel'>
         <pose> -0.1 -0.088 0.05 0 1.5707 1.5707 </pose>
         <inertial>
-          <mass>1</mass>
+          <mass>0.5</mass>
           <inertia>
             <ixx>0.02467</ixx>
             <ixy>0</ixy>
@@ -372,20 +381,30 @@
               <length>.02</length>
             </cylinder>
           </geometry>
-          <surface>
-            <friction>
-              <ode>
-                <mu>0.4</mu>
-              </ode>
-            </friction>
-          </surface>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1.0</mu>
+              <mu2>50.0</mu2>
+              <fdir1>1 1 1</fdir1>
+              <slip1>0.0</slip1>
+              <slip2>0.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <min_depth>0.005</min_depth>
+              <kp>1e8</kp>
+            </ode>
+          </contact>
+        </surface>
         </collision>
       </link>
 
       <link name='front_left_wheel'>
         <pose>0.1 0.088 0.05 0 1.5707 1.5707</pose>
         <inertial>
-          <mass>1</mass>
+          <mass>0.5</mass>
           <inertia>
             <ixx>0.02467</ixx>
             <ixy>0</ixy>
@@ -421,20 +440,30 @@
               <length>.02</length>
             </cylinder>
           </geometry>
-          <surface>
-            <friction>
-              <ode>
-                <mu>0.4</mu>
-              </ode>
-            </friction>
-          </surface>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1.0</mu>
+              <mu2>50.0</mu2>
+              <fdir1>1 1 1</fdir1>
+              <slip1>0.0</slip1>
+              <slip2>0.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <min_depth>0.005</min_depth>
+              <kp>1e8</kp>
+            </ode>
+          </contact>
+        </surface>
         </collision>
       </link>
 
       <link name='front_right_wheel'>
         <pose>0.1 -0.088 0.05 0 1.5707 1.5707</pose>
         <inertial>
-          <mass>1</mass>
+          <mass>0.5</mass>
           <inertia>
             <ixx>0.02467</ixx>
             <ixy>0</ixy>
@@ -470,13 +499,23 @@
               <length>.02</length>
             </cylinder>
           </geometry>
-          <surface>
-            <friction>
-              <ode>
-                <mu>0.4</mu>
-              </ode>
-            </friction>
-          </surface>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1.0</mu>
+              <mu2>50.0</mu2>
+              <fdir1>1 1 1</fdir1>
+              <slip1>0.0</slip1>
+              <slip2>0.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <min_depth>0.005</min_depth>
+              <kp>1e8</kp>
+            </ode>
+          </contact>
+        </surface>
         </collision>
       </link>
 
@@ -596,7 +635,7 @@
           <always_on>1</always_on>
           <visualize>true</visualize>
           <topic>ultrasonic0</topic>
-          <update_rate>10</update_rate>
+          <update_rate>20</update_rate>
           <lidar>
               <scan>
                   <vertical>
@@ -628,7 +667,7 @@
     </link>
 
       <link name='right_IR'>
-      <pose>0.115 0.020 0.042 0 1.6 0</pose>
+      <pose>0.115 0.033 0.042 0 1.6 0</pose>
      <inertial>
           <mass>0.01</mass>
           <inertia>
@@ -655,7 +694,7 @@
       </material>
       </visual>
       <sensor name="rgbd_camera" type="rgbd_camera">
-          <update_rate>5</update_rate>
+          <update_rate>100</update_rate>
           <visualize>true</visualize>
           <always_on>1</always_on>
           <topic>IR0</topic>
@@ -675,7 +714,7 @@
     </link>
 
       <link name='left_IR'>
-      <pose>0.115 -0.020 0.042 0 1.6 0</pose>
+      <pose>0.115 -0.033 0.042 0 1.6 0</pose>
      <inertial>
           <mass>0.01</mass>
           <inertia>
@@ -702,7 +741,7 @@
       </material>
       </visual>
         <sensor name="rgbd_camera" type="rgbd_camera">
-          <update_rate>5</update_rate>
+          <update_rate>100</update_rate>
           <topic>IR2</topic>
           <camera>
             <horizontal_fov>1.2</horizontal_fov>
@@ -747,7 +786,7 @@
       </material>
       </visual>
       <sensor name="rgbd_camera" type="rgbd_camera">
-          <update_rate>5</update_rate>
+          <update_rate>100</update_rate>
           <topic>IR1</topic>
           <camera>
             <horizontal_fov>1.2</horizontal_fov>
@@ -788,10 +827,10 @@
         <ode>
           <implicit_spring_damper>1</implicit_spring_damper>
           <cfm_damping>1</cfm_damping>
-<!--          <limit>-->
-<!--            <cfm>0</cfm>-->
-<!--            <erp>0.2</erp>-->
-<!--          </limit>-->
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
         </ode>
       </physics>
       </joint>
@@ -825,10 +864,10 @@
         <ode>
           <implicit_spring_damper>1</implicit_spring_damper>
           <cfm_damping>1</cfm_damping>
-<!--          <limit>-->
-<!--            <cfm>0</cfm>-->
-<!--            <erp>0.2</erp>-->
-<!--          </limit>-->
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
         </ode>
       </physics>
       </joint>
@@ -863,10 +902,10 @@
         <ode>
           <implicit_spring_damper>1</implicit_spring_damper>
           <cfm_damping>1</cfm_damping>
-<!--          <limit>-->
-<!--            <cfm>0</cfm>-->
-<!--            <erp>0.2</erp>-->
-<!--          </limit>-->
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
         </ode>
       </physics>
       </joint>
@@ -900,10 +939,10 @@
         <ode>
           <implicit_spring_damper>1</implicit_spring_damper>
           <cfm_damping>1</cfm_damping>
-<!--          <limit>-->
-<!--            <cfm>0</cfm>-->
-<!--            <erp>0.2</erp>-->
-<!--          </limit>-->
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
         </ode>
       </physics>
       </joint>
