@@ -392,10 +392,19 @@ def burst_manager():
             motor_data = dict()
             for device in activity_report:
                 # if there are "ties" w/r/t block activity, this will select the first index in the list w/ the tie value
-                block_with_max_activity = activity_report[device][0].index(max(activity_report[device][0]))
+                # todo: need a better method
+                # block_with_max_activity = activity_report[device][0].index(max(activity_report[device][0]))
+                try:
+                    block_with_max_z = activity_report[device][0].index(max(activity_report[device][0]))
+                    tmp_list = set(activity_report[device][0])
+                    tmp_list.remove(max(activity_report[device][0]))
+                    block_with_2nd_max = activity_report[device][0].index(max(tmp_list))
+                    chosen_block = max(block_with_max_z, block_with_2nd_max)
+                except ValueError:
+                    chosen_block = 0
                 if device not in motor_data:
                     motor_data[device] = dict()
-                motor_data[device]['speed'] = block_with_max_activity
+                motor_data[device]['speed'] = chosen_block
 
             movement.activate_motor(movement_data=motor_data)
 
