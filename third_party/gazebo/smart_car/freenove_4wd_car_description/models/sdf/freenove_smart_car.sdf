@@ -223,7 +223,7 @@
         <link name='chassis'>
             <pose>0 0 .1 0 0 0</pose>
             <inertial>
-              <mass>4</mass>
+              <mass>10</mass>
               <inertia>
                 <ixx>0.005</ixx>
                 <ixy>0</ixy>
@@ -326,7 +326,7 @@
           <friction>
             <ode>
               <mu>1.0</mu>
-              <mu2>1.0</mu2>
+              <mu2>10.0</mu2>
               <fdir1>0 0 1</fdir1>
               <slip1>0.0</slip1>
               <slip2>0.0</slip2>
@@ -385,7 +385,7 @@
           <friction>
             <ode>
               <mu>1.0</mu>
-              <mu2>1.0</mu2>
+              <mu2>10.0</mu2>
               <fdir1>0 0 1</fdir1>
               <slip1>0.0</slip1>
               <slip2>0.0</slip2>
@@ -444,7 +444,7 @@
           <friction>
             <ode>
               <mu>1.0</mu>
-              <mu2>1.0</mu2>
+              <mu2>10.0</mu2>
               <fdir1>0 0 1</fdir1>
               <slip1>0.0</slip1>
               <slip2>0.0</slip2>
@@ -503,7 +503,7 @@
           <friction>
             <ode>
               <mu>1.0</mu>
-              <mu2>1.0</mu2>
+              <mu2>10.0</mu2>
               <fdir1>0 0 1</fdir1>
               <slip1>0.0</slip1>
               <slip2>0.0</slip2>
