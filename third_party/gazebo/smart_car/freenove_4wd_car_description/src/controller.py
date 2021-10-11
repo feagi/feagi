@@ -83,6 +83,7 @@ class ScalableSubscriber(Node):
         # TODO: give each subclass a specific msg processor method?
         # TODO: add an attribute that explicitly defines message type (instead of parsing topic name)?
         if 'ultrasonic' in msg_type:
+            print(">> >> >> msg.ranges", msg.ranges)
             return {
                 msg_type: {
                     idx: val for idx, val in enumerate([msg.ranges[1]])
