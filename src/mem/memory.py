@@ -1,6 +1,6 @@
 
 from inf import runtime_data
-from npu.physiology import apply_plasticity, apply_plasticity_ext
+from npu.physiology import apply_plasticity, apply_plasticity_ext, list_upstream_neurons
 
 
 def form_memories(cfcl, pain_flag):
@@ -24,7 +24,6 @@ def form_memories(cfcl, pain_flag):
                 }
         }
         """
-
         print("Memory is being formed....")
 
         # print("+++++++++cfcl_utf8_memory_neurons:", cfcl_utf8_memory_neurons)
@@ -73,3 +72,54 @@ def form_memories(cfcl, pain_flag):
                                                      long_term_depression=True, impact_multiplier=4)
                 tmp_plasticity_list.append(source_neuron)
 
+
+def form_memories_restructured(cfcl, pain_flag):
+    # temporary function for restructuring form_memories
+
+    if runtime_data.parameters["Switches"]["memory_formation"]:
+        print("Memory is being formed....")
+
+        # us_plasticity_targets = {}
+        # previous_fcl = runtime_data.previous_fcl
+        # filtered_cfcl = filter(lambda x: runtime_data.genome['blueprint'][x]['cortical_mapping_dst']['plasticity'], previous_fcl)
+        # for cortical_area in previous_fcl:
+        #     try:
+        #         if runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']['plasticity']:
+        #             us_plasticity_targets[cortical_area] = previous_fcl[cortical_area]
+        #     except KeyError:
+        #         pass
+
+        # filtered_cfcl = filter(lambda x: runtime_data.genome['blueprint'][x]['cortical_mapping_dst']['plasticity'], cfcl)
+
+        ds_plasticity_targets = {}
+        for cortical_area in cfcl:
+            # assume all cortical areas will have "plasticity" parameter (True/False), so this try-catch...
+            # ...will be unnecessary
+            try:
+                if runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']['plasticity']:
+                    ds_plasticity_targets[cortical_area] = cfcl[cortical_area]
+            except KeyError:
+                pass
+
+        temp_plasticity_list = []
+        
+        # this is a nested-for-loop-nightmare - just trying to make it work at this point...
+        # ...but there has to be a more efficient way than this (if this is even correct)
+        for ds_cortical_area in ds_plasticity_targets:
+            downstream_neurons = ds_plasticity_targets[ds_cortical_area]
+            
+            for ds_neuron in downstream_neurons:
+                upstream_neurons = list_upstream_neurons(cortical_area, ds_neuron)
+
+                for us_cortical_area in upstream_neurons:
+                    previous_fcl = runtime_data.previous_fcl[us_cortical_area]
+                    
+                    for us_neuron in upstream_neurons[us_cortical_area]:
+                        if us_neuron in previous_fcl:
+                            if not pain_flag:
+                                apply_plasticity_ext(src_cortical_area=us_cortical_area, src_neuron_id=us_neuron,
+                                                     dst_cortical_area=ds_cortical_area, dst_neuron_id=ds_neuron)
+                            elif pain_flag:
+                                apply_plasticity_ext(src_cortical_area=us_cortical_area, src_neuron_id=us_neuron,
+                                                     dst_cortical_area=ds_cortical_area, dst_neuron_id=ds_neuron,
+                                                     long_term_depression=True, impact_multiplier=4)

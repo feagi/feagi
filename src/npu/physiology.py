@@ -32,6 +32,8 @@ def neuron_fire(cortical_area, neuron_id):
     # print(">>> SRC_CORTICAL_AREA: ", cortical_area)
     # print(">>> SYNAPSES: ", len(runtime_data.brain[cortical_area][neuron_id]['neighbors']))
 
+    print(">>>>>> >>>>>>>>> >>>>>>>> UPSTREAM NEURONS: ", list_upstream_neurons(cortical_area, neuron_id))
+
     # Setting Destination to the list of Neurons connected to the firing Neuron
     try:
         neighbor_list = runtime_data.brain[cortical_area][neuron_id]["neighbors"]
