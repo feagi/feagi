@@ -11,7 +11,22 @@ def form_memories(cfcl, pain_flag):
     """
     if runtime_data.parameters["Switches"]["memory_formation"]:
         # todo: The following section to be generalized
+        """
+        Todo: Add a new key to genome under each mapping destination to set the plasticity on/off. Use this key to know 
+        where the plasticity needs to be applied. 
+        
+        Example:
+        "cortical_mapping_dst": {
+            "motor_opu": {
+                    "neighbor_locator_rule_id": "rule_8",
+                    "neighbor_locator_rule_param_id": "param_1"
+                    "plasticity": True
+                }
+        }
+        """
+
         print("Memory is being formed....")
+
         # print("+++++++++cfcl_utf8_memory_neurons:", cfcl_utf8_memory_neurons)
         utf8_memory_count = len(cfcl['utf8_memory'])
         if cfcl['vision_memory'] and runtime_data.parameters["Auto_injector"]["injector_status"]:
