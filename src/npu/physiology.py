@@ -233,7 +233,7 @@ def neuron_neighbors(cortical_area, neuron_id):
     return data[neuron_id]["neighbors"]
 
 
-def apply_plasticity(cortical_area, src_neuron, dst_neuron):
+def form_memories(cortical_area, src_neuron, dst_neuron):
     """
     This function simulates neuron plasticity in a sense that when neurons in a given cortical area fire in the
      same burst_manager they wire together. This is done by increasing the postsynaptic_current associated with a link between
@@ -281,8 +281,8 @@ def apply_plasticity(cortical_area, src_neuron, dst_neuron):
     return
 
 
-def apply_plasticity_ext(src_cortical_area, src_neuron_id, dst_cortical_area,
-                         dst_neuron_id, long_term_depression=False, impact_multiplier=1):
+def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_cortical_area,
+                                     dst_neuron_id, long_term_depression=False, impact_multiplier=1):
 
     if runtime_data.parameters["Auto_injector"]["injector_status"]:
         plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"]

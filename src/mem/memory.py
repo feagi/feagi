@@ -1,9 +1,8 @@
 
 from inf import runtime_data
-from npu.physiology import apply_plasticity, apply_plasticity_ext, list_upstream_neurons
+from npu.physiology import form_memories, list_upstream_neurons, longterm_potentiation_depression
 
-
-def form_memories(cfcl, pain_flag):
+def neuroplasticity(cfcl, pain_flag):
     """
     This function provides logics related to memory formation as follows:
     - Logic to wire memory neurons together when they fire together
@@ -38,20 +37,20 @@ def form_memories(cfcl, pain_flag):
                 # Every visual memory neuron in CFCL is going to wire to evey other vision memory neuron
                 # for destination_neuron in cfcl_vision_memory_neurons:
                 #     if destination_neuron != source_neuron and destination_neuron not in tmp_plasticity_list:
-                #         apply_plasticity(cortical_area='vision_memory',
-                #                          src_neuron=source_neuron,
-                #                          dst_neuron=destination_neuron)
+                #         form_memories(cortical_area='vision_memory',
+                #                       src_neuron=source_neuron,
+                #                       dst_neuron=destination_neuron)
 
                 # Wiring visual memory neurons to the utf_memory ones
                 for destination_neuron in cfcl['utf8_memory']:
                     if not pain_flag:
-                        apply_plasticity_ext(src_cortical_area='vision_memory', src_neuron_id=source_neuron,
-                                             dst_cortical_area='utf8_memory', dst_neuron_id=destination_neuron)
+                        longterm_potentiation_depression(src_cortical_area='vision_memory', src_neuron_id=source_neuron,
+                                                         dst_cortical_area='utf8_memory', dst_neuron_id=destination_neuron)
                         # print("wiring visual to utf:", source_neuron, destination_neuron)
                     if pain_flag:
-                        apply_plasticity_ext(src_cortical_area='vision_memory', src_neuron_id=source_neuron,
-                                             dst_cortical_area='utf8_memory', dst_neuron_id=destination_neuron,
-                                             long_term_depression=True, impact_multiplier=4)
+                        longterm_potentiation_depression(src_cortical_area='vision_memory', src_neuron_id=source_neuron,
+                                                         dst_cortical_area='utf8_memory', dst_neuron_id=destination_neuron,
+                                                         long_term_depression=True, impact_multiplier=4)
                         # print("un-wiring visual to utf:", source_neuron, destination_neuron)
 
                 # Reducing synaptic connectivity when a single memory neuron is associated with more than one utf_memory one
@@ -67,13 +66,13 @@ def form_memories(cfcl, pain_flag):
                             runtime_data.temp_neuron_list.append(synapse_)
                         if synapse_to_utf >= 2:
                             for dst_neuron in runtime_data.temp_neuron_list:
-                                apply_plasticity_ext(src_cortical_area='vision_memory', src_neuron_id=source_neuron,
-                                                     dst_cortical_area='utf8_memory', dst_neuron_id=dst_neuron,
-                                                     long_term_depression=True, impact_multiplier=4)
+                                longterm_potentiation_depression(src_cortical_area='vision_memory', src_neuron_id=source_neuron,
+                                                                 dst_cortical_area='utf8_memory', dst_neuron_id=dst_neuron,
+                                                                 long_term_depression=True, impact_multiplier=4)
                 tmp_plasticity_list.append(source_neuron)
 
 
-def form_memories_restructured(cfcl, pain_flag):
+def neuroplasticity_restructured(cfcl, pain_flag):
     # temporary function for restructuring form_memories
 
     if runtime_data.parameters["Switches"]["memory_formation"]:
@@ -117,9 +116,9 @@ def form_memories_restructured(cfcl, pain_flag):
                     for us_neuron in upstream_neurons[us_cortical_area]:
                         if us_neuron in previous_fcl:
                             if not pain_flag:
-                                apply_plasticity_ext(src_cortical_area=us_cortical_area, src_neuron_id=us_neuron,
-                                                     dst_cortical_area=ds_cortical_area, dst_neuron_id=ds_neuron)
+                                longterm_potentiation_depression(src_cortical_area=us_cortical_area, src_neuron_id=us_neuron,
+                                                                 dst_cortical_area=ds_cortical_area, dst_neuron_id=ds_neuron)
                             elif pain_flag:
-                                apply_plasticity_ext(src_cortical_area=us_cortical_area, src_neuron_id=us_neuron,
-                                                     dst_cortical_area=ds_cortical_area, dst_neuron_id=ds_neuron,
-                                                     long_term_depression=True, impact_multiplier=4)
+                                longterm_potentiation_depression(src_cortical_area=us_cortical_area, src_neuron_id=us_neuron,
+                                                                 dst_cortical_area=ds_cortical_area, dst_neuron_id=ds_neuron,
+                                                                 long_term_depression=True, impact_multiplier=4)
