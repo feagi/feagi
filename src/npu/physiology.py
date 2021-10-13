@@ -127,10 +127,10 @@ def neuron_fire(cortical_area, neuron_id):
                             for src_neuron in upstream_data[src_cortical_area]:
                                 if src_cortical_area != dst_cortical_area and \
                                         src_neuron in runtime_data.previous_fcl[src_cortical_area]:
-                                    apply_plasticity_ext(src_cortical_area=src_cortical_area,
-                                                         src_neuron_id=src_neuron,
-                                                         dst_cortical_area=dst_cortical_area,
-                                                         dst_neuron_id=dst_neuron_id, impact_multiplier=1)
+                                    longterm_potentiation_depression(src_cortical_area=src_cortical_area,
+                                                                     src_neuron_id=src_neuron,
+                                                                     dst_cortical_area=dst_cortical_area,
+                                                                     dst_neuron_id=dst_neuron_id, impact_multiplier=1)
 
         # Resetting last time neuron was updated to the current burst_manager id
         runtime_data.brain[dst_cortical_area][dst_neuron_id]["last_burst_num"] = runtime_data.burst_count
@@ -141,9 +141,9 @@ def neuron_fire(cortical_area, neuron_id):
         # Partial implementation of neuro-plasticity associated with LTD or Long Term Depression
         if cortical_area not in ['vision_memory']:
             if dst_neuron_id in runtime_data.previous_fcl[dst_cortical_area] and dst_cortical_area in ['vision_memory']:
-                apply_plasticity_ext(src_cortical_area=cortical_area, src_neuron_id=neuron_id,
-                                     dst_cortical_area=dst_cortical_area, dst_neuron_id=dst_neuron_id,
-                                     long_term_depression=True)
+                longterm_potentiation_depression(src_cortical_area=cortical_area, src_neuron_id=neuron_id,
+                                                 dst_cortical_area=dst_cortical_area, dst_neuron_id=dst_neuron_id,
+                                                 long_term_depression=True)
 
                 if runtime_data.parameters["Logs"]["print_plasticity_info"]:
                     print(settings.Bcolors.RED + "--------- Neuron Fire ---------"
@@ -171,10 +171,10 @@ def neuron_fire(cortical_area, neuron_id):
             for src_neuron in upstream_data[src_cortical_area]:
                 if src_cortical_area != cortical_area and \
                         src_neuron in runtime_data.previous_fcl[src_cortical_area]:
-                    apply_plasticity_ext(src_cortical_area=src_cortical_area,
-                                         src_neuron_id=src_neuron,
-                                         dst_cortical_area=cortical_area,
-                                         dst_neuron_id=neuron_id, impact_multiplier=1)
+                    longterm_potentiation_depression(src_cortical_area=src_cortical_area,
+                                                     src_neuron_id=src_neuron,
+                                                     dst_cortical_area=cortical_area,
+                                                     dst_neuron_id=neuron_id, impact_multiplier=1)
 
     # Condition to snooze the neuron if consecutive fire count reaches threshold
     if runtime_data.brain[cortical_area][neuron_id]["consecutive_fire_cnt"] > \
