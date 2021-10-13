@@ -109,7 +109,7 @@ def form_memories_restructured(cfcl, pain_flag):
             downstream_neurons = ds_plasticity_targets[ds_cortical_area]
             
             for ds_neuron in downstream_neurons:
-                upstream_neurons = list_upstream_neurons(cortical_area, ds_neuron)
+                upstream_neurons = list_upstream_neurons(ds_cortical_area, ds_neuron)
 
                 for us_cortical_area in upstream_neurons:
                     previous_fcl = runtime_data.previous_fcl[us_cortical_area]
