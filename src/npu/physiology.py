@@ -428,8 +428,8 @@ def generate_plasticity_dict():
             try:
                 if cortical_areas[area]['cortical_mapping_dst'][mapping_dst]['plasticity']:
                     try:
-                        runtime_data.plasticity_dict[area].append(mapping_dst)
+                        runtime_data.plasticity_dict[area].add(mapping_dst)
                     except KeyError:
-                        runtime_data.plasticity_dict[area] = [mapping_dst]
+                        runtime_data.plasticity_dict[area] = set(mapping_dst)
             except KeyError:
                 pass
