@@ -81,7 +81,9 @@ from npu.physiology import form_memories, list_upstream_neurons, longterm_potent
 
 
 def neuroplasticity(cfcl, pain_flag):
-
+    """
+    
+    """
     if runtime_data.parameters["Switches"]["memory_formation"]:
         print("Memory is being formed....")
 
@@ -100,27 +102,26 @@ def neuroplasticity(cfcl, pain_flag):
                                     mapping_dst, 
                                     neuron2
                                 )
-                    # at this indentation level, neuron1 variable is now outside the scope of the following code...
-                    # if mapping_dst in previous_fcl:
-                    #     neuron1_upstream_neurons = list_upstream_neurons(cortical_area, neuron1)
-                    #     if mapping_dst in neuron1_upstream_neurons:
-                    #         if neuron2 in neuron1_upstream_neurons[mapping_dst]:
-                    #             for neuron in previous_fcl[mapping_dst]:
-                    #                 longterm_potentiation_depression(
-                    #                     src_cortical_area=cortical_area, 
-                    #                     src_neuron_id=neuron1,
-                    #                     dst_cortical_area=mapping_dst, 
-                    #                     dst_neuron_id=neuron
-                    #                 )
-                    # neuron1_downstream_neurons = runtime_data.brain[cortical_area][neuron1]['neighbors']
-                    # if mapping_dst in neuron1_downstream_neurons:
-                    #     if neuron2 in neuron1_downstream_neurons:
-                    #         for neuron in previous_fcl[mapping_dst]:
-                    #             longterm_potentiation_depression(
-                    #                 src_cortical_area=cortical_area,
-                    #                 src_neuron_id=neuron1,
-                    #                 dst_cortical_area=mapping_dst,
-                    #                 dst_neuron_id=neuron2,
-                    #                 long_term_depression=True,
-                    #                 impact_multiplier=4
-                    #             )
+                            if mapping_dst in previous_fcl:
+                                neuron1_upstream_neurons = list_upstream_neurons(cortical_area, neuron1)
+                                if mapping_dst in neuron1_upstream_neurons:
+                                    for neuron in previous_fcl[mapping_dst]:
+                                        if neuron in neuron1_upstream_neurons[mapping_dst]:
+                                            longterm_potentiation_depression(
+                                                src_cortical_area=cortical_area, 
+                                                src_neuron_id=neuron1,
+                                                dst_cortical_area=mapping_dst, 
+                                                dst_neuron_id=neuron
+                                            )
+                            neuron1_downstream_neurons = runtime_data.brain[cortical_area][neuron1]['neighbors']
+                            if mapping_dst in neuron1_downstream_neurons:
+                                for neuron in previous_fcl[mapping_dst]:
+                                    if neuron in neuron1_downstream_neurons[mapping_dst]:
+                                        longterm_potentiation_depression(
+                                            src_cortical_area=cortical_area,
+                                            src_neuron_id=neuron1,
+                                            dst_cortical_area=mapping_dst,
+                                            dst_neuron_id=neuron,
+                                            long_term_depression=True,
+                                            impact_multiplier=4
+                                        )
