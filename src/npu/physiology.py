@@ -32,8 +32,6 @@ def neuron_fire(cortical_area, neuron_id):
     # print(">>> SRC_CORTICAL_AREA: ", cortical_area)
     # print(">>> SYNAPSES: ", len(runtime_data.brain[cortical_area][neuron_id]['neighbors']))
 
-    print(">>>>>> >>>>>>>>> >>>>>>>> UPSTREAM NEURONS: ", list_upstream_neurons(cortical_area, neuron_id))
-
     # Setting Destination to the list of Neurons connected to the firing Neuron
     try:
         neighbor_list = runtime_data.brain[cortical_area][neuron_id]["neighbors"]
@@ -409,3 +407,29 @@ def update_upstream_db(src_cortical_area, src_neuron_id, dst_cortical_area, dst_
         runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id][src_cortical_area] = set()
     if src_neuron_id not in runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id][src_cortical_area]:
         runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id][src_cortical_area].add(src_neuron_id)
+
+
+def generate_plasticity_dict():
+    """
+    Extracts data from the genome and creates a dictionary of source cortical areas 
+    and their mapping destinations targeted for implementing neuroplasticity. 
+        
+        ex:    {
+                    'motor_memory': [
+                        'vision_memory',
+                        'auditory_memory'
+                    ]
+                }
+
+    """
+    cortical_areas = runtime_data.genome['blueprint']
+    for area in cortical_areas:
+        for mapping_dst in cortical_areas[area]['cortical_mapping_dst']:
+            try:
+                if cortical_areas[area]['cortical_mapping_dst'][mapping_dst]['plasticity']:
+                    try:
+                        runtime_data.plasticity_dict[area].append(mapping_dst)
+                    except KeyError:
+                        runtime_data.plasticity_dict[area] = [mapping_dst]
+            except KeyError:
+                pass
