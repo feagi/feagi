@@ -415,10 +415,10 @@ def generate_plasticity_dict():
     and their mapping destinations targeted for implementing neuroplasticity. 
         
         ex:    {
-                    'motor_memory': [
+                    'motor_memory': {
                         'vision_memory',
                         'auditory_memory'
-                    ]
+                    }
                 }
 
     """
