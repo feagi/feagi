@@ -21,7 +21,7 @@ from datetime import datetime
 from inf import disk_ops
 from time import sleep
 from npu.physiology import *
-from mem.memory import form_memories
+from mem.memory import neuroplasticity
 from npu.comprehension import utf_detection_logic
 # from npu.feeder import Feeder
 from evo.blocks import active_neurons_in_blocks, percent_active_neurons_in_block, block_ref_2_id
@@ -493,7 +493,7 @@ def burst_manager():
 
         # Forming memories through creation of cell assemblies
         # todo: instead of passing a pain flag simply detect of pain neuron is activated
-        form_memories(runtime_data.fire_candidate_list, runtime_data.pain_flag)
+        neuroplasticity(runtime_data.fire_candidate_list, runtime_data.pain_flag)
 
         # Resetting burst_manager detection list
         runtime_data.burst_detection_list = {}
