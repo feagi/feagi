@@ -15,7 +15,7 @@ from configparser import ConfigParser
 from shutil import copyfile
 from evo.stats import list_top_n_utf_memory_neurons, block_dict_summary
 from inf.messenger import Pub
-from npu.physiology import generate_plasticity_dict
+# from npu.physiology import generate_plasticity_dict
 
 
 log = logging.getLogger(__name__)
@@ -244,7 +244,7 @@ def initialize():
     init_genome_post_processes()
     init_resources()
     init_fake_stimulation()
-    generate_plasticity_dict()
+    # generate_plasticity_dict()
     runtime_data.fcl_queue = Queue()
 
 
