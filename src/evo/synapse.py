@@ -94,6 +94,16 @@ def synapse(cortical_area, src_id, dst_cortical_area, dst_id, postsynaptic_curre
     return
 
 
+def bidirectional_synapse(cortical_area1, neuron1, cortical_area2, neuron2):
+    postsynaptic_current1 = runtime_data.genome['blueprint'][cortical_area1]['postsynaptic_current']
+    postsynaptic_current2 = runtime_data.genome['blueprint'][cortical_area2]['postsynaptic_current']
+
+    synapse(cortical_area1, neuron1, cortical_area2, neuron2, postsynaptic_current1)
+    synapse(cortical_area2, neuron2, cortical_area1, neuron1, postsynaptic_current2)
+
+    return
+
+
 def neighbor_reset(cortical_area):
     """
     This function deletes all the neighbor relationships in the connectome

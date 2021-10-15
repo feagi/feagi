@@ -71,6 +71,7 @@ time_neuron_update = ''
 time_apply_plasticity_ext = ''
 plasticity_time_total = None
 plasticity_time_total_p1 = None
+plasticity_dict = {}
 
 tester_test_stats = {}
 

@@ -386,3 +386,29 @@ def develop():
     #     graph_instance.graph_in_color()
 
     return brain_structural_fitness
+
+
+def generate_plasticity_dict():
+    """
+    Extracts data from the genome and creates a dictionary of source cortical areas 
+    and their mapping destinations targeted for implementing neuroplasticity. 
+        
+        ex:    {
+                    'motor_memory': {
+                        'vision_memory',
+                        'auditory_memory'
+                    }
+                }
+
+    """
+    cortical_areas = runtime_data.genome['blueprint']
+    for area in cortical_areas:
+        for mapping_dst in cortical_areas[area]['cortical_mapping_dst']:
+            try:
+                if cortical_areas[area]['cortical_mapping_dst'][mapping_dst]['plasticity']:
+                    try:
+                        runtime_data.plasticity_dict[area].add(mapping_dst)
+                    except KeyError:
+                        runtime_data.plasticity_dict[area] = set(mapping_dst)
+            except KeyError:
+                pass

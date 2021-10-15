@@ -125,10 +125,10 @@ def neuron_fire(cortical_area, neuron_id):
                             for src_neuron in upstream_data[src_cortical_area]:
                                 if src_cortical_area != dst_cortical_area and \
                                         src_neuron in runtime_data.previous_fcl[src_cortical_area]:
-                                    apply_plasticity_ext(src_cortical_area=src_cortical_area,
-                                                         src_neuron_id=src_neuron,
-                                                         dst_cortical_area=dst_cortical_area,
-                                                         dst_neuron_id=dst_neuron_id, impact_multiplier=1)
+                                    longterm_potentiation_depression(src_cortical_area=src_cortical_area,
+                                                                     src_neuron_id=src_neuron,
+                                                                     dst_cortical_area=dst_cortical_area,
+                                                                     dst_neuron_id=dst_neuron_id, impact_multiplier=1)
 
         # Resetting last time neuron was updated to the current burst_manager id
         runtime_data.brain[dst_cortical_area][dst_neuron_id]["last_burst_num"] = runtime_data.burst_count
@@ -139,9 +139,9 @@ def neuron_fire(cortical_area, neuron_id):
         # Partial implementation of neuro-plasticity associated with LTD or Long Term Depression
         if cortical_area not in ['vision_memory']:
             if dst_neuron_id in runtime_data.previous_fcl[dst_cortical_area] and dst_cortical_area in ['vision_memory']:
-                apply_plasticity_ext(src_cortical_area=cortical_area, src_neuron_id=neuron_id,
-                                     dst_cortical_area=dst_cortical_area, dst_neuron_id=dst_neuron_id,
-                                     long_term_depression=True)
+                longterm_potentiation_depression(src_cortical_area=cortical_area, src_neuron_id=neuron_id,
+                                                 dst_cortical_area=dst_cortical_area, dst_neuron_id=dst_neuron_id,
+                                                 long_term_depression=True)
 
                 if runtime_data.parameters["Logs"]["print_plasticity_info"]:
                     print(settings.Bcolors.RED + "--------- Neuron Fire ---------"
@@ -169,10 +169,10 @@ def neuron_fire(cortical_area, neuron_id):
             for src_neuron in upstream_data[src_cortical_area]:
                 if src_cortical_area != cortical_area and \
                         src_neuron in runtime_data.previous_fcl[src_cortical_area]:
-                    apply_plasticity_ext(src_cortical_area=src_cortical_area,
-                                         src_neuron_id=src_neuron,
-                                         dst_cortical_area=cortical_area,
-                                         dst_neuron_id=neuron_id, impact_multiplier=1)
+                    longterm_potentiation_depression(src_cortical_area=src_cortical_area,
+                                                     src_neuron_id=src_neuron,
+                                                     dst_cortical_area=cortical_area,
+                                                     dst_neuron_id=neuron_id, impact_multiplier=1)
 
     # Condition to snooze the neuron if consecutive fire count reaches threshold
     if runtime_data.brain[cortical_area][neuron_id]["consecutive_fire_cnt"] > \
@@ -231,7 +231,7 @@ def neuron_neighbors(cortical_area, neuron_id):
     return data[neuron_id]["neighbors"]
 
 
-def apply_plasticity(cortical_area, src_neuron, dst_neuron):
+def form_memories(cortical_area, src_neuron, dst_neuron):
     """
     This function simulates neuron plasticity in a sense that when neurons in a given cortical area fire in the
      same burst_manager they wire together. This is done by increasing the postsynaptic_current associated with a link between
@@ -279,8 +279,8 @@ def apply_plasticity(cortical_area, src_neuron, dst_neuron):
     return
 
 
-def apply_plasticity_ext(src_cortical_area, src_neuron_id, dst_cortical_area,
-                         dst_neuron_id, long_term_depression=False, impact_multiplier=1):
+def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_cortical_area,
+                                     dst_neuron_id, long_term_depression=False, impact_multiplier=1):
 
     if runtime_data.parameters["Auto_injector"]["injector_status"]:
         plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"]
