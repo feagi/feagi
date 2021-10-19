@@ -12,27 +12,29 @@ class MongoManagement:
         # todo": connection info to come from the ini
         if runtime_data.running_in_container:
             host = 'host.docker.internal'
-            print("MongoDb was connected through the container")
+            print("Attempting to connect to MongoDb via the container")
         else:
             host = runtime_data.parameters['Database']['mongodb_ip']
-            print("MongoDb was connected through direct host access")
+            print("Attempting to connect to MongoDb via direct host access")
         port = int(runtime_data.parameters['Database']['mongodb_port'])
 
         # check if running in a container
         try:
             self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
-            self.client.server_info()
+            print(self.client.server_info())
         except ServerSelectionTimeoutError:
             self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
 
         try:
             self.client.server_info()
+            # todo: all of the below details to be externalized to the ini
             self.db = self.client['metis']
             self.collection_genome = self.db['genomes']
             self.collection_mnist = self.db['mnist2']
             self.collection_test_stats = self.db['test_stats']
             self.collection_membrane_potentials = self.db['membrane_potentials']
             self.collection_neuron_activities = self.db['neuron_activities']
+            print("Number of the available genomes in the Genome database is: ", self.collection_genome.count())
             print(
                 settings.Bcolors.OKGREEN + "Success: Connection to << MongoDb >> has been established." + settings.Bcolors.ENDC)
         except:
@@ -185,8 +187,9 @@ class MongoManagement:
 
     def test_mongodb(self):
         try:
-            if True:
-                print("    MongoDb: ", settings.Bcolors.OKGREEN + "Enabled???" + settings.Bcolors.ENDC)
+            # todo: Add test for establishment of successful db connection
+            # todo: Add test to check the availability of the database and genomes
+            print("    MongoDb: ", settings.Bcolors.OKGREEN + "****** TODO ********" + settings.Bcolors.ENDC)
         except:
             print("    MongoDb:", settings.Bcolors.RED + "Disabled???" + settings.Bcolors.ENDC)
 
