@@ -1,10 +1,13 @@
 
 import json
 from opu import utf8
+from opu.processor import movement
 from collections import deque
+from evo.neuron import block_reference_builder
 from evo.synapse import synapse
+from evo.blocks import neurons_in_the_block
 from inf import runtime_data, settings
-from cython_libs import neuron_functions_cy as cy
+from cython_lib import neuron_functions_cy as cy
 
 
 def activation_function(postsynaptic_current):
@@ -21,6 +24,13 @@ def neuron_fire(cortical_area, neuron_id):
 
     # if cortical_area == 'utf8_memory':
     #     print(">>> *** ... Firing...", neuron_id)
+    # block_ref = block_reference_builder(runtime_data.brain[cortical_area][neuron_id]['soma_location'][1])
+    # block_neurons = runtime_data.block_dic[cortical_area][block_ref]
+    # print(">>> FIRING ID: ", neuron_id)
+    # print(">>> BLOCK: ", block_ref)
+    # print(">>> BLOCK_NEURONS: ", len(block_neurons))
+    # print(">>> SRC_CORTICAL_AREA: ", cortical_area)
+    # print(">>> SYNAPSES: ", len(runtime_data.brain[cortical_area][neuron_id]['neighbors']))
 
     # Setting Destination to the list of Neurons connected to the firing Neuron
     try:
@@ -90,7 +100,6 @@ def neuron_fire(cortical_area, neuron_id):
         # After destination neurons are updated, the following checks are performed to assess if the neuron should fire
         if dst_neuron_obj["membrane_potential"] > dst_neuron_obj["firing_threshold"]:
             # if dst_cortical_area == 'utf8_memory':
-            # print('++++++ The membrane potential passed the firing threshold')
             # Refractory period check
             if dst_neuron_obj["last_burst_num"] + \
                     runtime_data.genome["blueprint"][dst_cortical_area]["neuron_params"]["refractory_period"] <= \
@@ -99,7 +108,6 @@ def neuron_fire(cortical_area, neuron_id):
                 if dst_neuron_obj["snooze_till_burst_num"] <= runtime_data.burst_count:
                     # Adding neuron to fire candidate list for firing in the next round
                     runtime_data.future_fcl[dst_cortical_area].add(dst_neuron_id)
-
                     # todo: not sure what's being done here. Why this is too generic on all cortical layers? !!
                     # todo: Why this needs to happen on each synapse update?? !! VERY EXPENSIVE OPERATION!!!!
                     # todo: Based on the initial test results, removing the following section can make the code run
@@ -117,10 +125,10 @@ def neuron_fire(cortical_area, neuron_id):
                             for src_neuron in upstream_data[src_cortical_area]:
                                 if src_cortical_area != dst_cortical_area and \
                                         src_neuron in runtime_data.previous_fcl[src_cortical_area]:
-                                    apply_plasticity_ext(src_cortical_area=src_cortical_area,
-                                                         src_neuron_id=src_neuron,
-                                                         dst_cortical_area=dst_cortical_area,
-                                                         dst_neuron_id=dst_neuron_id, impact_multiplier=1)
+                                    longterm_potentiation_depression(src_cortical_area=src_cortical_area,
+                                                                     src_neuron_id=src_neuron,
+                                                                     dst_cortical_area=dst_cortical_area,
+                                                                     dst_neuron_id=dst_neuron_id, impact_multiplier=1)
 
         # Resetting last time neuron was updated to the current burst_manager id
         runtime_data.brain[dst_cortical_area][dst_neuron_id]["last_burst_num"] = runtime_data.burst_count
@@ -131,15 +139,16 @@ def neuron_fire(cortical_area, neuron_id):
         # Partial implementation of neuro-plasticity associated with LTD or Long Term Depression
         if cortical_area not in ['vision_memory']:
             if dst_neuron_id in runtime_data.previous_fcl[dst_cortical_area] and dst_cortical_area in ['vision_memory']:
-                apply_plasticity_ext(src_cortical_area=cortical_area, src_neuron_id=neuron_id,
-                                     dst_cortical_area=dst_cortical_area, dst_neuron_id=dst_neuron_id,
-                                     long_term_depression=True)
+                longterm_potentiation_depression(src_cortical_area=cortical_area, src_neuron_id=neuron_id,
+                                                 dst_cortical_area=dst_cortical_area, dst_neuron_id=dst_neuron_id,
+                                                 long_term_depression=True)
 
                 if runtime_data.parameters["Logs"]["print_plasticity_info"]:
                     print(settings.Bcolors.RED + "--------- Neuron Fire ---------"
                                                  "...........LTD between %s and %s occurred"
                           % (dst_cortical_area, dst_cortical_area)
                           + settings.Bcolors.ENDC)
+
 
         # Adding up all update times within a burst_manager span
         # total_update_time = datetime.now() - update_start_time
@@ -160,10 +169,10 @@ def neuron_fire(cortical_area, neuron_id):
             for src_neuron in upstream_data[src_cortical_area]:
                 if src_cortical_area != cortical_area and \
                         src_neuron in runtime_data.previous_fcl[src_cortical_area]:
-                    apply_plasticity_ext(src_cortical_area=src_cortical_area,
-                                         src_neuron_id=src_neuron,
-                                         dst_cortical_area=cortical_area,
-                                         dst_neuron_id=neuron_id, impact_multiplier=1)
+                    longterm_potentiation_depression(src_cortical_area=src_cortical_area,
+                                                     src_neuron_id=src_neuron,
+                                                     dst_cortical_area=cortical_area,
+                                                     dst_neuron_id=neuron_id, impact_multiplier=1)
 
     # Condition to snooze the neuron if consecutive fire count reaches threshold
     if runtime_data.brain[cortical_area][neuron_id]["consecutive_fire_cnt"] > \
@@ -193,6 +202,9 @@ def neuron_fire(cortical_area, neuron_id):
     # runtime_data.fire_candidate_list[cortical_area].remove(neuron_id)
 
     # todo: add a check that if the firing neuron is part of OPU to perform an action
+    if cortical_area == 'direction_opu':
+        movement.convert_neuronal_activity_to_directions(cortical_area, neuron_id)
+        # print('Movement OPU Neuron fired *** ** *** ** *** **** *')
 
     return
 
@@ -219,7 +231,7 @@ def neuron_neighbors(cortical_area, neuron_id):
     return data[neuron_id]["neighbors"]
 
 
-def apply_plasticity(cortical_area, src_neuron, dst_neuron):
+def form_memories(cortical_area, src_neuron, dst_neuron):
     """
     This function simulates neuron plasticity in a sense that when neurons in a given cortical area fire in the
      same burst_manager they wire together. This is done by increasing the postsynaptic_current associated with a link between
@@ -267,8 +279,8 @@ def apply_plasticity(cortical_area, src_neuron, dst_neuron):
     return
 
 
-def apply_plasticity_ext(src_cortical_area, src_neuron_id, dst_cortical_area,
-                         dst_neuron_id, long_term_depression=False, impact_multiplier=1):
+def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_cortical_area,
+                                     dst_neuron_id, long_term_depression=False, impact_multiplier=1):
 
     if runtime_data.parameters["Auto_injector"]["injector_status"]:
         plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"]
