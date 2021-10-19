@@ -12,9 +12,11 @@ class MongoManagement:
         # todo": connection info to come from the ini
         if runtime_data.running_in_container:
             host = 'host.docker.internal'
+            print("MongoDb was connected through the container")
         else:
-            host = '127.0.0.1'
-        port = 27017
+            host = runtime_data.parameters['Database']['mongodb_ip']
+            print("MongoDb was connected through direct host access")
+        port = int(runtime_data.parameters['Database']['mongodb_port'])
 
         # check if running in a container
         try:
