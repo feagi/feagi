@@ -29,7 +29,7 @@ from opu.processor import led
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
 from inf.messenger import Pub, Sub
-from ipu.source import lidar, ir
+from ipu.source import lidar, ir, battery
 from edu.trainer import Trainer
 from edu.evaluator import Tester
 
@@ -351,6 +351,7 @@ def burst_manager():
             for sensor_type in ipu_data:
                 # Ultrasonic / Lidar Handler
                 # todo: need a more consistent naming convention when it comes to lidar vs ultrasonic vs proximity
+                # todo: find a way to generalize the handling of all IPU data instead of using all the if statements
                 if 'ultrasonic' in sensor_type and runtime_data.parameters['IPU']['proximity']:
                     try:
                         lidar.translate(proximity_data=ipu_data[sensor_type])
@@ -359,12 +360,19 @@ def burst_manager():
                         print("ERROR while processing lidar function")
 
                 # Infrared Handler
-                if 'ir' in sensor_type and runtime_data.parameters['IPU']['ir']:
+                elif 'ir' in sensor_type and runtime_data.parameters['IPU']['ir']:
                     try:
                         # print("+_+_+ipu_data[sensor_type]: ", ipu_data[sensor_type])
                         ir.convert_ir_to_fire_list(ir_data=ipu_data[sensor_type])
                     except:
                         print("ERROR while processing Infrared IPU")
+
+                elif 'battery' in sensor_type and runtime_data.parameters['IPU']['battery']:
+                    try:
+                        battery.translate(battery_data=ipu_data[sensor_type])
+                    except:
+                        print("ERROR while processing Battery IPU")
+
 
         else:
             print("ERROR: IPU handler encountered non-compliant data")

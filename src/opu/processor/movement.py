@@ -9,7 +9,7 @@ import os
 from statistics import mode
 import inf.runtime_data as runtime_data
 from math import floor
-from ipu.processor.proximity import map_value
+from ipu.processor.range import map_value
 from opu.destination import motor
 
 
