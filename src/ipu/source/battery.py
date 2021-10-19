@@ -2,8 +2,8 @@
 This module will provide the methods to receive information about embodiment battery level and have it passed along to
 the artificial brain.
 
-Battery level is broken down into 20% increments and be represented in the form of a range in a single cortical block
-with the dimensions of 1x1x5 where x represents the battery index, y is unused, and z reflects the range. In the event
+Battery level is broken down into 10% increments and be represented in the form of a range in a single cortical block
+with the dimensions of 1x1x10 where x represents the battery index, y is unused, and z reflects the range. In the event
 that the embodiment consists of multiple battery backs the x axis will be used to capture it e.g. 4x2x5 for the case of
 four battery packs.
 """

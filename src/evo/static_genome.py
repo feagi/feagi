@@ -3349,6 +3349,63 @@ genome = {
               }
           }
       },
+      "battery_ipu": {
+          "growth_path": "",
+          "group_id": "IPU",
+          "sub_group_id": "IPU_range",
+          "plot_index": 1,
+          "orientation_selectivity_pattern": "",
+          "location": "",
+          "kernel_size": 7,
+          "cortical_neuron_count": 1000,
+          "location_generation_type": "random",
+          "synapse_attractivity": 100,
+          "init_synapse_needed": False,
+          "postsynaptic_current": -500,
+          "plasticity_constant": 0.05,
+          "postsynaptic_current_max": 35,
+          "neighbor_locator_rule_id": "rule_5",
+          "neighbor_locator_rule_param_id": "param_3",
+          "cortical_mapping_dst": {
+              "motor_thalamus": {
+                  "neighbor_locator_rule_id": "rule_6",
+                  "neighbor_locator_rule_param_id": "param_2"
+              }
+          },
+          "neuron_params": {
+              "activation_function_id": "",
+              "orientation_selectivity_id": "",
+              "depolarization_threshold": 5,
+              "firing_threshold": 1,
+              "firing_pattern_id": "",
+              "refractory_period": 0,
+              "axon_avg_length": "",
+              "leak_coefficient": 10,
+              "axon_avg_connections": "",
+              "axon_orientation function": "",
+              "consecutive_fire_cnt_max": 3,
+              "snooze_length": 0,
+              "block_boundaries": [
+                  1,
+                  1,
+                  10
+              ],
+              "geometric_boundaries": {
+                  "x": [
+                      0,
+                      10
+                  ],
+                  "y": [
+                      0,
+                      10
+                  ],
+                  "z": [
+                      0,
+                      100
+                  ]
+              }
+          }
+      },
       "proximity_ipu": {
         "growth_path" : "",
         "group_id" : "IPU",
