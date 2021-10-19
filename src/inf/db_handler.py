@@ -9,6 +9,7 @@ import random
 class MongoManagement:
     def __init__(self):
         # print("*** Connecting to database ***")
+        # todo": connection info to come from the ini
         if runtime_data.running_in_container:
             host = 'host.docker.internal'
         else:
