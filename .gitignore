@@ -8,7 +8,6 @@
 *.orig
 *.log
 *.pot
-*.png
 __pycache__/*
 .cache/*
 .*.swp
@@ -49,3 +48,6 @@ MANIFEST
 
 # Per-project virtualenvs
 .venv*/
+
+# Compiled code
+*.c

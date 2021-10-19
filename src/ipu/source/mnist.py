@@ -6,7 +6,6 @@ This library is responsible for MNIST related operations from reading, plotting,
 import os
 import struct
 import numpy as np
-import matplotlib.pyplot as plt
 from inf.db_handler import MongoManagement
 from inf.disk_ops import save_processed_mnist_to_disk
 from inf import runtime_data
@@ -127,13 +126,13 @@ class MNIST:
 
         path = runtime_data.parameters["Paths"]["mnist_path"]
 
-        if dataset_type is "training":
+        if dataset_type == "training":
                 fname_img = os.path.join(path, 'train-images.idx3-ubyte')
                 fname_lbl = os.path.join(path, 'train-labels.idx1-ubyte')
                 # fname_img2 = os.path.join(path2, 'train-images.idx3-ubyte')
                 # fname_lbl2 = os.path.join(path2, 'train-labels.idx1-ubyte')
 
-        elif dataset_type is "testing":
+        elif dataset_type == "testing":
             fname_img = os.path.join(path, 't10k-images.idx3-ubyte')
             fname_lbl = os.path.join(path, 't10k-labels.idx1-ubyte')
             # fname_img2 = os.path.join(path2, 't10k-images.idx3-ubyte')
@@ -281,9 +280,9 @@ def read_mnist_labels(dataset="training"):
     """
     path = runtime_data.parameters['Paths']['mnist_path']
 
-    if dataset is "training":
+    if dataset == "training":
         fname_lbl = os.path.join(path, 'train-labels.idx1-ubyte')
-    elif dataset is "testing":
+    elif dataset == "testing":
         fname_lbl = os.path.join(path, 't10k-labels.idx1-ubyte')
     else:
         raise Exception(ValueError, "data set must be 'testing' or 'training'")

@@ -1,24 +1,23 @@
 # Copyright (c) 2019 Mohammad Nadji-Tehrani <m.nadji.tehrani@gmail.com>
-from requests.exceptions import ConnectionError
+
 from pymongo.errors import ServerSelectionTimeoutError
 from pymongo import MongoClient, DESCENDING, ASCENDING
-from influxdb import InfluxDBClient
 from inf import runtime_data, settings
 import random
-
-print(settings.Bcolors.YELLOW + "Module loaded: db_handler" + settings.Bcolors.ENDC)
 
 
 class MongoManagement:
     def __init__(self):
         # print("*** Connecting to database ***")
-        host = '127.0.0.1'
-        container_host = 'mongo'
+        if runtime_data.running_in_container:
+            host = 'host.docker.internal'
+        else:
+            host = '127.0.0.1'
         port = 27017
 
         # check if running in a container
         try:
-            self.client = MongoClient(container_host, port, serverSelectionTimeoutMS=1)
+            self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
             self.client.server_info()
         except ServerSelectionTimeoutError:
             self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
@@ -181,52 +180,79 @@ class MongoManagement:
         return self.collection_mnist.find({"mnist_type": mnist_type, 'digit': str(digit), 'kernel_size': kernel_size}).sort(
             "mnist_seq", 1).skip(n).limit(1)[0]
 
+    def test_mongodb(self):
+        try:
+            if True:
+                print("    MongoDb: ", settings.Bcolors.OKGREEN + "Enabled???" + settings.Bcolors.ENDC)
+        except:
+            print("    MongoDb:", settings.Bcolors.RED + "Disabled???" + settings.Bcolors.ENDC)
+
 
 class InfluxManagement:
     def __init__(self):
-        host = '127.0.0.1'
-        container_host = 'influx'
-        port = 8086
+        import influxdb_client
+        from influxdb_client.client.write_api import SYNCHRONOUS
 
-        # check if running in a container
-        try:
-            self.client = InfluxDBClient(container_host, port)
-            self.client.ping()
-            host = container_host
-        except ConnectionError:
-            self.client = InfluxDBClient(host, port)
+        if runtime_data.parameters:
+            self.evo_bucket = runtime_data.parameters["Database"]["influxdb_evolutionary_bucket"]
+            self.stats_bucket = runtime_data.parameters["Database"]["influxdb_stats_bucket"]
+            self.org = runtime_data.parameters["Database"]["influxdb_organization"]
+            self.token = runtime_data.parameters["Database"]["influxdb_token"]
 
-        try:
-            print("Connected to Influxdb client %s on %s:%s" % (self.client.ping(), host, port))
-            print(runtime_data.parameters["InitData"])
-            self.stats_database = runtime_data.parameters["InitData"]["influxdb_stat_db"]
-            self.evolutionary_database = runtime_data.parameters["InitData"]["influxdb_evolutionary_db"]
+            # todo: db address needs to be def from a config file instead
+            print('Running in container: ', runtime_data.running_in_container)
+            if runtime_data.running_in_container:
+                self.url = "http://host.docker.internal:8086"
+            else:
+                self.url = "http://127.0.0.1:8086"
 
-            print("Using %s as stat collection database" % self.stats_database)
-            print("Using %s as evolutionary data collection database" % self.evolutionary_database)
+            try:
+                print("\n\n\nAttempting to connect to influxDb service on %s...\n\n\n" % self.url)
+                self.client = influxdb_client.InfluxDBClient(
+                    url=self.url,
+                    token=self.token,
+                    org=self.org
+                )
+                self.write_client = self.client.write_api(write_options=SYNCHRONOUS)
+            except:
+                print("ERROR: Influx service is not running!!!")
+        else:
+            print("ERROR: Parameters are not set for InfluxDb configuration!")
 
-            if not runtime_data.parameters["Switches"]["influx_keep_stats"]:
-                self.client.drop_database(self.stats_database)
-                print("Warning: Data from previous stat database was dropped!")
+        # # check if running in a container
+        # try:
+        #     print(self.client.ping())
+        #     host = self.container_host
+        #
+        # except ConnectionError:
+        #     print("InfluxDB ERROR!!!")
 
-            def db_existence_check(db_name):
-                """Checks the existence of a database and creates it if it doesnt exist."""
-                self.db_list = self.client.get_list_database()
-                if db_name not in [db['name'] for db in self.db_list]:
-                    print("Creating InfluxDb database named ", db_name)
-                    self.client.create_database(db_name)
-                else:
-                    print("InfluxDB %s exists" % db_name)
-
-            db_existence_check(self.stats_database)
-            db_existence_check(self.evolutionary_database)
-
-        except Exception as e:
-            print(settings.Bcolors.RED +
-                  "ERROR: Cannot connect to << InfluxDb >> Database \n ::: %s" % str(repr(e)) + settings.Bcolors.ENDC)
-
-    def get_db_list(self):
-        print(self.client.get_list_database())
+        # try:
+        #     print("Connected to Influxdb client %s on %s:%s" % (self.client.ping(), self.host, self.port))
+        #     print(runtime_data.parameters["InitData"])
+        #     print("Using %s as stat collection database" % self.stat_db)
+        #     print("Using %s as evolutionary data collection database" % self.evo_db)
+        #
+        #     def db_existence_check(db_name):
+        #         """Checks the existence of a database and creates it if it doesnt exist."""
+        #         self.db_list = self.client.get_list_database()
+        #         if db_name not in [db['name'] for db in self.db_list]:
+        #             print("Creating InfluxDb database named ", db_name)
+        #             self.client.create_database(db_name)
+        #         else:
+        #             print("InfluxDB %s exists" % db_name)
+        #             return True
+        #
+        #     stat_db = db_existence_check(self.stat_db)
+        #     evo_db = db_existence_check(self.evolutionary_database)
+        #
+        #     if not runtime_data.parameters["Database"]["influx_keep_stats"] and stat_db:
+        #         self.client.drop_database(self.stat_db)
+        #         print("Warning: Data from previous stat database was dropped!")
+        #
+        # except Exception as e:
+        #     print(settings.Bcolors.RED +
+        #           "ERROR: Cannot connect to << InfluxDb >> Database \n ::: %s" % str(repr(e)) + settings.Bcolors.ENDC)
 
     def insert_neuron_activity(self, connectome_path, cortical_area, neuron_id, membrane_potential):
         raw_data = [
@@ -242,8 +268,8 @@ class InfluxManagement:
                 }
             }
         ]
-        self.client.switch_database(self.stats_database)
-        self.client.write_points(raw_data)
+
+        self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
 
     def insert_burst_activity(self, connectome_path, burst_id, cortical_area, neuron_count):
         raw_data = [
@@ -259,8 +285,7 @@ class InfluxManagement:
                 }
             }
         ]
-        self.client.switch_database(self.stats_database)
-        self.client.write_points(raw_data)
+        self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
 
     def insert_burst_checkpoints(self, connectome_path, burst_id):
         raw_data = [
@@ -274,8 +299,7 @@ class InfluxManagement:
                 }
             }
         ]
-        self.client.switch_database(self.stats_database)
-        self.client.write_points(raw_data)
+        self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
 
     def insert_connectome_stats(self, connectome_path, cortical_area, neuron_count, synapse_count):
         raw_data = [
@@ -291,8 +315,7 @@ class InfluxManagement:
                 }
             }
         ]
-        self.client.switch_database(self.stats_database)
-        self.client.write_points(raw_data)
+        self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
 
     def insert_inter_cortical_stats(self, connectome_path, cortical_area_src, cortical_area_dst, synapse_count):
         raw_data = [
@@ -308,8 +331,8 @@ class InfluxManagement:
                 }
             }
         ]
-        self.client.switch_database(self.stats_database)
-        self.client.write_points(raw_data)
+
+        self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
 
     def insert_evolutionary_fitness_stats(self, connectome_path, fitness_score,
                                           training_sets, test_sets, training_exposure, test_exposure):
@@ -328,8 +351,7 @@ class InfluxManagement:
                 }
             }
         ]
-        self.client.switch_database(self.evolutionary_database)
-        self.client.write_points(raw_data)
+        self.write_client.write(bucket=self.evo_bucket, org=self.org, record=raw_data)
 
     def insert_evolutionary_connectome_stats(self, connectome_path, cortical_area, neuron_count, synapse_count):
         raw_data = [
@@ -345,12 +367,18 @@ class InfluxManagement:
                 }
             }
         ]
-        self.client.switch_database(self.evolutionary_database)
-        self.client.write_points(raw_data)
+        self.write_client.write(bucket=self.evo_bucket, org=self.org, record=raw_data)
         print(">>>>>--------->>>>--------->>> Evolutionary stats logged in influx")
 
     def drop_neuron_activity(self):
-        self.client.drop_database(self.stats_database)
+        self.client.buckets_api().delete_bucket(self.stats_bucket)
+
+    def test_influxdb(self):
+        try:
+            if self.client.buckets_api().find_buckets(name=self.stats_bucket):
+                print("    InfluxDb: ", settings.Bcolors.OKGREEN + "Enabled" + settings.Bcolors.ENDC)
+        except:
+            print("    InfluxDb:", settings.Bcolors.RED + "Disabled" + settings.Bcolors.ENDC)
 
 
 if __name__ == "__main__":
@@ -362,21 +390,28 @@ if __name__ == "__main__":
     # disk_ops.genome_handler("./connectome/")
 
     # mnist = IPU_vision.MNIST()
-    import numpy as np
+    # import numpy as np
+    #
+    # mongo = MongoManagement()
+    #
+    # for i in range(10):
+    #     # results = mongo.mnist_read_single_digit(mnist_type='training', seq=60, kernel=3)
+    #     results = mongo.mnist_read_nth_digit(mnist_type='test', n=i, kernel_size=3, digit=4)
+    #
+    #     image = results['original_image']
+    #     npimage = np.array(image)
+    #
+    #     for _ in npimage:
+    #         print(_)
 
-    mongo = MongoManagement()
+    influx_client = InfluxManagement()
 
-    for i in range(10):
-        # results = mongo.mnist_read_single_digit(mnist_type='training', seq=60, kernel=3)
-        results = mongo.mnist_read_nth_digit(mnist_type='test', n=i, kernel_size=3, digit=4)
+    influx_client.test_influxdb()
 
-        image = results['original_image']
-        npimage = np.array(image)
-
-        for _ in npimage:
-            print(_)
-
-
+    # influx_client.insert_connectome_stats(connectome_path='/asf/fwef/ee',
+    #                                  cortical_area='vision_v8',
+    #                                  neuron_count=4000,
+    #                                  synapse_count=10000)
 
 
 

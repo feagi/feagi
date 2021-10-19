@@ -1,0 +1,20 @@
+version: "3"
+
+networks:
+  net:
+    driver: bridge
+
+services:
+  ros:
+    build: ../third_party/ros/turtlebot
+    # stdin_open: true
+    # tty: true
+    networks:
+      - net
+
+  feagi:
+    build: ./
+    environment:
+      - CONTAINERIZED=true
+    networks:
+      - net

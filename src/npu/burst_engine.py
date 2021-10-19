@@ -21,11 +21,15 @@ from datetime import datetime
 from inf import disk_ops
 from time import sleep
 from npu.physiology import *
-from mem.memory import form_memories
+from mem.memory import neuroplasticity
 from npu.comprehension import utf_detection_logic
 # from npu.feeder import Feeder
+from evo.blocks import active_neurons_in_blocks, percent_active_neurons_in_block, block_ref_2_id
+from opu.processor import led
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
+from inf.messenger import Pub, Sub
+from ipu.source import lidar, ir
 from edu.trainer import Trainer
 from edu.evaluator import Tester
 
@@ -40,7 +44,6 @@ def cortical_group_members(group):
 
 def burst_manager():
     """This function behaves as instance of Neuronal activities"""
-    # influxdb = db_handler.InfluxManagement()
 
     def consciousness_manager():
         """responsible for start and stop of all non-main threads based on various conditions"""
@@ -50,7 +53,8 @@ def burst_manager():
         elapsed_time = datetime.now() - runtime_data.last_alertness_trigger
         alert_condition = elapsed_time.seconds > int(runtime_data.parameters['Timers']['alert_mode_duration'])
         if alert_condition:
-            if datetime.now() - runtime_data.last_ipu_activity > runtime_data.parameters['IPU']['idle_threshold']:
+            time_delta = datetime.now() - runtime_data.last_ipu_activity
+            if time_delta.seconds > int(runtime_data.parameters['IPU']['idle_threshold']):
                 # Go to sleep by stopping IPU/OPU threads
                 # todo: instead of turning off the IPU, reduce IPU responsiveness so via an trigger brain can awake
                 print(">> >> Brain going to sleep..")
@@ -97,14 +101,14 @@ def burst_manager():
     #         sleep(0.5)
 
     def capture_cortical_activity_stats():
-        print('@@@--- Activity Stats:', runtime_data.activity_stats)
+        # print('@@@--- Activity Stats:', runtime_data.activity_stats)
         for cortical_area_ in runtime_data.fire_candidate_list:
             if cortical_area_ in runtime_data.activity_stats:
                 cortical_neuron_count = len(runtime_data.fire_candidate_list[cortical_area_])
                 runtime_data.activity_stats[cortical_area_] = \
                     max(runtime_data.activity_stats[cortical_area_], cortical_neuron_count)
 
-                if runtime_data.parameters["Switches"]["influx_stat_logger"]:
+                if runtime_data.influxdb and runtime_data.parameters["Database"]["influx_stat_logger"]:
                     runtime_data.influxdb.insert_burst_activity(
                         connectome_path=runtime_data.parameters['InitData']['connectome_path'],
                         burst_id=runtime_data.burst_count,
@@ -113,9 +117,14 @@ def burst_manager():
 
                 if runtime_data.parameters["Switches"]["global_logger"] and \
                         runtime_data.parameters["Logs"]["print_cortical_activity_counters"]:
-                    print(settings.Bcolors.YELLOW + '    %s : %i  '
-                          % (cortical_area_, cortical_neuron_count)
-                          + settings.Bcolors.ENDC)
+                    if cortical_neuron_count > 0:
+                        print(settings.Bcolors.RED + '    %s : %i  '
+                              % (cortical_area_, cortical_neuron_count)
+                              + settings.Bcolors.ENDC)
+                    elif runtime_data.parameters["Logs"]["print_cortical_activity_counters_all"]:
+                        print(settings.Bcolors.YELLOW + '    %s : %i  '
+                              % (cortical_area_, cortical_neuron_count)
+                              + settings.Bcolors.ENDC)
 
             else:
                 try:
@@ -151,7 +160,7 @@ def burst_manager():
         runtime_data.comprehension_queue.popleft()
 
         counter_list = {}
-        print("~~~~~~..... Burst detection list: ", runtime_data.burst_detection_list)
+        # print("~~~~~~..... Burst detection list: ", runtime_data.burst_detection_list)
         if runtime_data.parameters["Logs"]["print_comprehension_queue"]:
             if runtime_data.burst_detection_list != {}:
                 print(settings.Bcolors.RED + "<><><><><><><><><><><><><><>"
@@ -174,9 +183,12 @@ def burst_manager():
                 print(settings.Bcolors.HEADER + "UTF8 out was stimulated with the following character: <<< %s >>>"
                       % runtime_data.parameters["Input"]["comprehended_char"] + settings.Bcolors.ENDC)
                 # In the event that the comprehended UTF character is not matching the injected one pain is triggered
-                if runtime_data.parameters["Input"]["comprehended_char"] != str(runtime_data.labeled_image[1]):
-                    trigger_pain()
-                    runtime_data.pain_flag = True
+                try:
+                    if runtime_data.parameters["Input"]["comprehended_char"] != str(runtime_data.labeled_image[1]):
+                        trigger_pain()
+                        runtime_data.pain_flag = True
+                finally:
+                    pass
             else:
                 if list_length >= 2:
                     runtime_data.parameters["Input"]["comprehended_char"] = ''
@@ -235,7 +247,7 @@ def burst_manager():
             print('Evolution phase reached...')
             for area in runtime_data.cortical_list:
                 neuron_count, synapse_count = connectome_total_synapse_cnt(area)
-                if runtime_data.parameters["Switches"]["influx_stat_logger"]:
+                if runtime_data.influxdb and runtime_data.parameters["Database"]["influx_stat_logger"]:
                     runtime_data.influxdb.insert_connectome_stats(connectome_path=connectome_path,
                                                      cortical_area=area,
                                                      neuron_count=neuron_count,
@@ -258,7 +270,6 @@ def burst_manager():
                 while runtime_data.fire_candidate_list[_]:
                     neuron_to_fire = runtime_data.fire_candidate_list[_].pop()
                     neuron_fire(_, neuron_to_fire)
-
             # Transferring future_fcl to current one and resetting the future one in process
             for _ in runtime_data.future_fcl:
                 runtime_data.fire_candidate_list[_] = \
@@ -266,7 +277,7 @@ def burst_manager():
                 runtime_data.future_fcl[_] = set()
 
     def log_neuron_activity_influx():
-        if runtime_data.parameters["Switches"]["influx_stat_logger"]:
+        if runtime_data.influxdb and runtime_data.parameters["Database"]["influx_stat_logger"]:
             for _ in runtime_data.fire_candidate_list:
                 for neuron in runtime_data.fire_candidate_list[_]:
                     runtime_data.influxdb.insert_neuron_activity(connectome_path=connectome_path,
@@ -276,12 +287,151 @@ def burst_manager():
                                                     runtime_data.brain[_][neuron]["membrane_potential"] /1)
 
     def log_burst_activity_influx():
-        if runtime_data.parameters["Switches"]["influx_stat_logger"]:
+        if runtime_data.influxdb and runtime_data.parameters["Database"]["influx_stat_logger"]:
             runtime_data.influxdb.insert_burst_checkpoints(connectome_path, runtime_data.burst_count)
+
+    def fake_cortical_stimulation(input_instruction, burst_count):
+        """
+        It fakes cortical stimulation for the purpose of testing
+
+        The following data format is used for input_instruction as the function input:
+
+        input_instructions receives a dictionary as input with keys as the name of the ipu cortical name and the value
+        being a list of block locations that needs to be activated in the block-ref format e.g. xBlock-yBlock-zBlock.
+
+        Note: all of the blocks outlined in the data structure will be activated at the same time during the same
+        burst.
+
+        input_instruction_example = {
+            ir_ipu: ["0-0-0", "1-0-0"],
+            proximity_ipu: ["0-0-0", "0-0-3", "0-0-10", "0-0-20"]
+            led_opu: ["5-0-0"]
+        }
+
+        # todo: Currently we can only inject data from the first index on each burst. change it so it goes thru all
+        """
+        neuron_list = []
+
+        for cortical_area_ in input_instruction[burst_count]:
+            if cortical_area_ in runtime_data.block_dic:
+                for block_ref in input_instruction[burst_count][cortical_area_]:
+                    if block_ref in runtime_data.block_dic[cortical_area_]:
+                        for neuron in runtime_data.block_dic[cortical_area_][block_ref]:
+                            neuron_list.append(neuron)
+                    else:
+                        print("Warning: Block ref %s was not found for %s" % (block_ref, cortical_area_))
+                # print("neuron list:", cortical_area_, neuron_list)
+                runtime_data.fcl_queue.put({cortical_area_: set(neuron_list)})
+                neuron_list = []
+            else:
+                print("Warning: Cortical area %s not found within the block_dic" % cortical_area_)
+
+    def ipu_handler(ipu_data):
+        """
+        Decodes the message received from the ipu router and distribute the sub-messages to corresponding IPU modules
+
+        expected ipu_data structure:
+
+        ipu_data = {
+            sensor_type: {
+                sensor_name: sensor_data,
+                sensor_name: sensor_data,
+                ...
+                },
+            sensor_type: {
+                sensor_name: sensor_data,
+                sensor_name: sensor_data,
+                ...
+                },
+            ...
+            }
+        }
+        """
+        if type(ipu_data) == dict:
+            for sensor_type in ipu_data:
+                # Ultrasonic / Lidar Handler
+                # todo: need a more consistent naming convention when it comes to lidar vs ultrasonic vs proximity
+                if 'ultrasonic' in sensor_type and runtime_data.parameters['IPU']['proximity']:
+                    try:
+                        lidar.translate(proximity_data=ipu_data[sensor_type])
+
+                    except:
+                        print("ERROR while processing lidar function")
+
+                # Infrared Handler
+                if 'ir' in sensor_type and runtime_data.parameters['IPU']['ir']:
+                    try:
+                        # print("+_+_+ipu_data[sensor_type]: ", ipu_data[sensor_type])
+                        ir.convert_ir_to_fire_list(ir_data=ipu_data[sensor_type])
+                    except:
+                        print("ERROR while processing Infrared IPU")
+
+        else:
+            print("ERROR: IPU handler encountered non-compliant data")
+
+    def opu_handler():
+        """
+        This function is intended to handle all the OPU processing that needs to be addressed in burst level as opposed
+        to individual neuron fire
+        """
+        # todo: Introduce a generalized approach to cover all OPUs
+
+        # LED handler
+        if runtime_data.fire_candidate_list['led_opu'] and runtime_data.hardware == 'raspberry_pi':
+            active_led_neurons = active_neurons_in_blocks(cortical_area='led_opu')
+            led_data = led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)
+            led.activate_leds(led_data)
+
+        # todo: need a better differentiation between movement and motor modules
+        # Movement handler
+        if runtime_data.fire_candidate_list['motor_opu']:
+            # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
+            # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
+            # movement.activate_motor(data)
+            activity_report = opu_activity_report(cortical_area='motor_opu')
+            motor_data = dict()
+            for device in activity_report:
+                # if there are "ties" w/r/t block activity, this will select the first index in the list w/ the tie value
+                # todo: need a better method
+                # block_with_max_activity = activity_report[device][0].index(max(activity_report[device][0]))
+                try:
+                    block_with_max_z = activity_report[device][0].index(max(activity_report[device][0]))
+                    tmp_list = set(activity_report[device][0])
+                    tmp_list.remove(max(activity_report[device][0]))
+                    block_with_2nd_max = activity_report[device][0].index(max(tmp_list))
+                    chosen_block = max(block_with_max_z, block_with_2nd_max)
+                except ValueError:
+                    chosen_block = 0
+                if device not in motor_data:
+                    motor_data[device] = dict()
+                motor_data[device]['speed'] = chosen_block
+
+            movement.activate_motor(movement_data=motor_data)
+
+    def sensory_message_router():
+        # Broadcasts a TCP message on each burst
+        if runtime_data.parameters['Switches']['burst_beacon']:
+            # Limiting the broadcast messages to one in every 10 burst
+            # todo: externalize this parameter to ini
+            if runtime_data.burst_count % 10 == 0:
+                broadcast_message = dict()
+                broadcast_message['burst_counter'] = runtime_data.burst_count
+                broadcast_message['sockets'] = runtime_data.parameters['Sockets']
+                broadcast_message['burst_frequency'] = runtime_data.burst_timer
+                burst_beacon.send(message=broadcast_message)
+
+        # IPU listener: Receives IPU data through ZMQ channel
+        if runtime_data.router_address is not None:
+            ipu_data = ipu_listener.receive()
+            if ipu_data:
+                ipu_handler(ipu_data)
+                if runtime_data.parameters["Logs"]["print_burst_info"]:
+                    print("FEAGI received message from router as:", ipu_data)
+
 
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
-        sleep(1)
+        sleep(0.5)
 
         burst_start_time = datetime.now()
         log_burst_activity_influx()
@@ -292,16 +442,32 @@ def burst_manager():
         for _ in runtime_data.fire_candidate_list:
             runtime_data.previous_fcl[_] = set([item for item in runtime_data.fire_candidate_list[_]])
 
+        fcl_tmp = set()
+
+        # Manage ZMQ communication from and to FEAGI
+        sensory_message_router()
+
         # Feeding FCL queue content into the FCL
         while not runtime_data.fcl_queue.empty():
-            # todo: the following is not properly feeding data to FCL -- investigate --
-            runtime_data.fire_candidate_list = runtime_data.fcl_queue.get()
+            fcl_tmp = runtime_data.fcl_queue.get()
 
-        print("Fire Candidate List:\n", runtime_data.fire_candidate_list)
+            for _ in fcl_tmp:
+                runtime_data.fire_candidate_list[_] = \
+                    set([item for item in fcl_tmp[_]])
+                fcl_tmp = set()
 
         # logging neuron activities to the influxdb
         log_neuron_activity_influx()
+        
+        # Fake Stimuli
+        if runtime_data.parameters['Switches']['fake_stimulation_flag']:
+            if runtime_data.burst_count in runtime_data.stimulation_data:
+                fake_cortical_stimulation(input_instruction=runtime_data.stimulation_data,
+                                          burst_count=runtime_data.burst_count)
 
+        # Process neuron stimulation that ties to OPU
+        opu_handler()
+        
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
 
@@ -327,7 +493,7 @@ def burst_manager():
 
         # Forming memories through creation of cell assemblies
         # todo: instead of passing a pain flag simply detect of pain neuron is activated
-        form_memories(runtime_data.fire_candidate_list, runtime_data.pain_flag)
+        neuroplasticity(runtime_data.fire_candidate_list, runtime_data.pain_flag)
 
         # Resetting burst_manager detection list
         runtime_data.burst_detection_list = {}
@@ -346,12 +512,19 @@ def burst_manager():
         if runtime_data.burst_count % 10 == 0:
             consciousness_manager()
 
-        # burst()
-
     print('runtime_data.genome_id = ', runtime_data.genome_id)
 
     # Initializing the burst_manager engine parameters
     init_burst_engine()
+
+    # Initialize a broadcaster
+    burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['burst_engine_pub']
+    burst_beacon = Pub(address=burst_engine_pub_address)
+
+    # Initialize IPU listener
+    if runtime_data.router_address is not None:
+        print("subscribing to ", runtime_data.router_address)
+        ipu_listener = Sub(address=runtime_data.router_address)
 
     # todo: need to figure how to incorporate FCL injection
     # feeder = Feeder()
@@ -420,9 +593,9 @@ def fire_candidate_locations(fire_cnd_list):
     # Add neuron locations under each cortical area
     for cortical_area in fire_cnd_list:
         for neuron in fire_cnd_list[cortical_area]:
-            neuron_locations[cortical_area].append([runtime_data.brain[cortical_area][neuron]["location"][0],
-                                                    runtime_data.brain[cortical_area][neuron]["location"][1],
-                                                    runtime_data.brain[cortical_area][neuron]["location"][2]])
+            neuron_locations[cortical_area].append([runtime_data.brain[cortical_area][neuron]["soma_location"][0],
+                                                    runtime_data.brain[cortical_area][neuron]["soma_location"][1],
+                                                    runtime_data.brain[cortical_area][neuron]["soma_location"][2]])
 
     return neuron_locations
 

@@ -32,10 +32,21 @@ paths = {}
 watchdog_queue = ''
 exit_condition = False
 fcl_queue = ''
+proximity_queue = ''
 last_ipu_activity = ''
 last_alertness_trigger = ''
 influxdb = ''
 mongodb = ''
+running_in_container = False
+hardware = ''
+gazebo = False
+stimulation_data = {}
+hw_controller_path = ''
+hw_controller = None
+opu_pub = None
+router_address = None
+burst_timer = 1
+
 
 # rules = ""
 brain_is_running = False
@@ -60,6 +71,7 @@ time_neuron_update = ''
 time_apply_plasticity_ext = ''
 plasticity_time_total = None
 plasticity_time_total_p1 = None
+plasticity_dict = {}
 
 tester_test_stats = {}
 

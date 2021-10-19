@@ -2,7 +2,7 @@
 """
 Copyright (c) 2019 Mohammad Nadji-Tehrani <m.nadji.tehrani@gmail.com>
 
-FEAGI is a brain inspired evolutionary framework capable of growing and artificial brain from a
+FEAGI is a brain inspired evolutionary framework capable of growing an artificial brain from a
 genome and helping it evolve over generations.
 
 This main module is responsible for driving the lifecycle of a single generation of an
@@ -19,7 +19,6 @@ todo: create a process for burst_engine
 if __name__ == '__main__':
     import logging.config
     import json
-    from art import text2art
     from inf import initialize
     from evo import neuroembryogenesis, death
     from npu import burst_engine
@@ -35,8 +34,14 @@ if __name__ == '__main__':
         logging.config.dictConfig(LOGGING_CONFIG)
 
     def splash_screen():
-        # FEAGI Word Art
-        print(text2art("FEAGI", font='block'))
+        print("""\n
+              _________           _________               __                ______               _____    
+             |_   ___  |         |_   ___  |             /  \             .' ___  |             |_   _|   
+               | |_  \_|           | |_  \_|            / /\ \           / .'   \_|               | |     
+               |  _|               |  _|  _            / ____ \          | |    ____              | |     
+              _| |_               _| |___/ |         _/ /    \ \_        \ `.___]  _|            _| |_    
+             |_____|             |_________|        |____|  |____|        `._____.'             |_____|   
+        """)
 
     splash_screen()
 
@@ -51,7 +56,6 @@ if __name__ == '__main__':
         # Process of artificial neuroembryogenesis that leads to connectome development
         neuroembryogenesis.develop_brain(reincarnation_mode=
                                          runtime_data.parameters['Brain_Development']['reincarnation_mode'])
-
         # Initialize Input/Output Processing Units
         ipu_controller.initialize()
         opu_controller.initialize()
