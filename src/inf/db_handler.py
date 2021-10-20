@@ -19,16 +19,17 @@ class MongoManagement:
         port = int(runtime_data.parameters['Database']['mongodb_port'])
 
         # check if running in a container
-        try:
-            self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
-            print(self.client.server_info())
-        except ServerSelectionTimeoutError:
-            self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
+        # try:
+        #     self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
+        #     print(self.client.server_info())
+        # except ServerSelectionTimeoutError:
+        #     self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
 
         try:
-            self.client.server_info()
+            self.client = MongoClient("somebadhost", port, serverSelectionTimeoutMS=1)
+            print(self.client.server_info())
             # todo: all of the below details to be externalized to the ini
-            self.db = self.client['metis']
+            self.db = self.client['local']
             self.collection_genome = self.db['genomes']
             self.collection_mnist = self.db['mnist2']
             self.collection_test_stats = self.db['test_stats']
@@ -37,7 +38,7 @@ class MongoManagement:
             print("Number of the available genomes in the Genome database is: ", self.collection_genome.count())
             print(
                 settings.Bcolors.OKGREEN + "Success: Connection to << MongoDb >> has been established." + settings.Bcolors.ENDC)
-        except:
+        except ServerSelectionTimeoutError:
             print(settings.Bcolors.RED + "ERROR: Cannot connect to << MongoDb >> Database" + settings.Bcolors.ENDC)
 
     def insert_test_stats(self, stats_data):
@@ -189,8 +190,10 @@ class MongoManagement:
         try:
             # todo: Add test for establishment of successful db connection
             # todo: Add test to check the availability of the database and genomes
+            # self.client = MongoClient(self.host, self.port, serverSelectionTimeoutMS=1)
+            # self.client.server_info()
             print("    MongoDb: ", settings.Bcolors.OKGREEN + "****** TODO ********" + settings.Bcolors.ENDC)
-        except:
+        except ServerSelectionTimeoutError:
             print("    MongoDb:", settings.Bcolors.RED + "Disabled???" + settings.Bcolors.ENDC)
 
 
