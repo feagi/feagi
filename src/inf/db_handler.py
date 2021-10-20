@@ -26,7 +26,7 @@ class MongoManagement:
         #     self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
 
         try:
-            self.client = MongoClient("somebadhost", port, serverSelectionTimeoutMS=1)
+            self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
             print(self.client.server_info())
             # todo: all of the below details to be externalized to the ini
             self.db = self.client['local']
