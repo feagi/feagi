@@ -34,7 +34,7 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(pkg_ros_ign_gazebo, 'launch', 'ign_gazebo.launch.py')),
         launch_arguments={
-            'ign_args': '--force-version 3.9.0 -r models/sdf/freenove_smart_car.sdf'
+            'ign_args': '-r models/sdf/freenove_smart_car.sdf'
         }.items(),
     )
     
