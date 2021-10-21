@@ -1086,7 +1086,7 @@
 <!--        <charging_time>3.0</charging_time>-->
 <!--        <soc_threshold>0.51</soc_threshold>-->
         <!-- Consumer-specific -->
-        <power_load>0.5</power_load>
+        <power_load>0.2</power_load>
         <start_on_motion>true</start_on_motion>
       </plugin>
 
