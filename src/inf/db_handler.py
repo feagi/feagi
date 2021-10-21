@@ -1,43 +1,35 @@
 # Copyright (c) 2019 Mohammad Nadji-Tehrani <m.nadji.tehrani@gmail.com>
-
+import random
 from pymongo.errors import ServerSelectionTimeoutError
 from pymongo import MongoClient, DESCENDING, ASCENDING
 from inf import runtime_data, settings
-import random
 
 
 class MongoManagement:
     def __init__(self):
-        # print("*** Connecting to database ***")
-        # todo": connection info to come from the ini
+
+        # resolve host environment
+        self.db_params = runtime_data.parameters['Database']
+        self.port = int(self.db_params['mongodb_port'])
         if runtime_data.running_in_container:
-            host = 'host.docker.internal'
+            self.host = self.db_params['mongodb_container_host']
             print("Attempting to connect to MongoDb via the container")
         else:
-            host = runtime_data.parameters['Database']['mongodb_ip']
+            self.host = self.db_params['mongodb_local_host']
             print("Attempting to connect to MongoDb via direct host access")
-        port = int(runtime_data.parameters['Database']['mongodb_port'])
-
-        # check if running in a container
-        # try:
-        #     self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
-        #     print(self.client.server_info())
-        # except ServerSelectionTimeoutError:
-        #     self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
 
         try:
-            self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
-            print(self.client.server_info())
-            # todo: all of the below details to be externalized to the ini
-            self.db = self.client['local']
-            self.collection_genome = self.db['genomes']
-            self.collection_mnist = self.db['mnist2']
-            self.collection_test_stats = self.db['test_stats']
-            self.collection_membrane_potentials = self.db['membrane_potentials']
-            self.collection_neuron_activities = self.db['neuron_activities']
-            print("Number of the available genomes in the Genome database is: ", self.collection_genome.count())
+            self.client = MongoClient(self.host, self.port, serverSelectionTimeoutMS=1)
+            self.client.server_info()
+            self.db = self.client[self.db_params['mongodb_db']]
+            self.collection_genome = self.db[self.db_params['mongodb_genomes']]
+            self.collection_mnist = self.db[self.db_params['mongodb_mnist']]
+            self.collection_test_stats = self.db[self.db_params['mongodb_stats']]
+            self.collection_membrane_potentials = self.db[self.db_params['mongodb_potentials']]
+            self.collection_neuron_activities = self.db[self.db_params['mongodb_neurons']]
             print(
                 settings.Bcolors.OKGREEN + "Success: Connection to << MongoDb >> has been established." + settings.Bcolors.ENDC)
+            print("Number of the available genomes in the Genome database is: ", self.collection_genome.count())
         except ServerSelectionTimeoutError:
             print(settings.Bcolors.RED + "ERROR: Cannot connect to << MongoDb >> Database" + settings.Bcolors.ENDC)
 
@@ -188,13 +180,13 @@ class MongoManagement:
 
     def test_mongodb(self):
         try:
-            # todo: Add test for establishment of successful db connection
-            # todo: Add test to check the availability of the database and genomes
-            # self.client = MongoClient(self.host, self.port, serverSelectionTimeoutMS=1)
-            # self.client.server_info()
+            # collections = self.db.list_collection_names()
+            # print(">>>>>> >>>>>> COLLECTIONS: ", collections)
+            # assert 'genomes' in collections
             print("    MongoDb: ", settings.Bcolors.OKGREEN + "****** TODO ********" + settings.Bcolors.ENDC)
-        except ServerSelectionTimeoutError:
-            print("    MongoDb:", settings.Bcolors.RED + "Disabled???" + settings.Bcolors.ENDC)
+        except Exception as e:
+            print(e)
+            print("    MongoDb:", settings.Bcolors.RED + "UNABLE TO DO STUFF!!!!" + settings.Bcolors.ENDC)
 
 
 class InfluxManagement:
