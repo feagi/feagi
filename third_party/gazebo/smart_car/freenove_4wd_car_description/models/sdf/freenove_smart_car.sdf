@@ -19,6 +19,7 @@
       name="ignition::gazebo::systems::SceneBroadcaster">
     </plugin>
 
+
     <light type="directional" name="sun">
       <cast_shadows>true</cast_shadows>
       <pose>0 0 10 0 0 0</pose>
@@ -274,9 +275,9 @@
                 </box>
               </geometry>
               <material>
-                <ambient>0.8 2.0 0.5 1</ambient>
-                <diffuse>0.5 2.0 0.5 1</diffuse>
-                <specular>100 100.0 100.0 1</specular>
+                <ambient>0.8 0.0 0.5 0.0</ambient>
+                <diffuse>0.5 0.0 0.5 1</diffuse>
+                <specular>0.2 0.3 0.4 0.5</specular>
               </material>
             </visual>
           </link>
@@ -656,13 +657,6 @@
             <stddev>0.01</stddev>
           </noise>
         </lidar>
-          <plugin
-            filename="libRosIgnPointCloud.so"
-            name="ros_ign_point_cloud::PointCloud">
-            <namespace>freenove_smart_car</namespace>
-            <topic>pc2</topic>
-            <frame_id>/sensor</frame_id>
-          </plugin>
     </sensor>
     </link>
 
@@ -1075,23 +1069,44 @@
     <child>middle_IR</child>
   </joint>
 
-<!--      Ign plugin physics-->
-  <plugin
+    <plugin filename="ignition-gazebo-linearbatteryplugin-system"
+        name="ignition::gazebo::systems::LinearBatteryPlugin">
+        <!--Li-ion battery spec from LIR18650 datasheet-->
+        <battery_name>linear_battery</battery_name>
+        <voltage>8.40</voltage>
+        <open_circuit_voltage_constant_coef>8.40</open_circuit_voltage_constant_coef>
+        <open_circuit_voltage_linear_coef>-2.0</open_circuit_voltage_linear_coef>
+        <initial_charge>2.5</initial_charge>
+        <capacity>2.5</capacity>
+        <resistance>0.07</resistance>
+        <smooth_current_tau>2.0</smooth_current_tau>
+        <enable_recharge>false</enable_recharge>
+        <!-- charging I = c / t, discharging I = P / V,
+          charging I should be > discharging I -->
+<!--        <charging_time>3.0</charging_time>-->
+<!--        <soc_threshold>0.51</soc_threshold>-->
+        <!-- Consumer-specific -->
+        <power_load>0.5</power_load>
+        <start_on_motion>true</start_on_motion>
+      </plugin>
 
+    <plugin
       filename="ignition-gazebo-sensors-system"
       name="ignition::gazebo::systems::Sensors">
       <render_engine>ogre2</render_engine>
     </plugin>
 
+
+<!--      Ign plugin physics-->
    <gui fullscreen="0">
 
       <plugin filename="ImageDisplay" name="Image Display 0">
         <ignition-gui>
           <title>RGBD: image</title>
           <property key="state" type="string">floating</property>
-          <property type="double" key="width">350</property>
-          <property type="double" key="height">315</property>
-          <property type="double" key="y">400</property>
+          <property type="double" key="width">100</property>
+          <property type="double" key="height">100</property>
+          <property type="double" key="y">200</property>
         </ignition-gui>
         <topic>/IR0/image</topic>
         <topic_picker>false</topic_picker>
@@ -1133,7 +1148,7 @@
         <topic_picker>false</topic_picker>
       </plugin>
 
-         <plugin filename="JointPositionController" name="JointPositionController">
+      <plugin filename="JointPositionController" name="JointPositionController">
         <ignition-gui>
           <property type="double" key="height">600</property>
           <property type="double" key="width">400</property>
@@ -1145,10 +1160,6 @@
         </ignition-gui>
         <model_name>/freenove_smart_car</model_name>
       </plugin>
-
-
-
-
    </gui>
 
 

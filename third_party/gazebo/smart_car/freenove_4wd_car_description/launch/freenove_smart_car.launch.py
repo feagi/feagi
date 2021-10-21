@@ -34,8 +34,18 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(pkg_ros_ign_gazebo, 'launch', 'ign_gazebo.launch.py')),
         launch_arguments={
-            'ign_args': '-r models/sdf/freenove_smart_car.sdf'
+            'ign_args': '--force-version 3.9.0 -r models/sdf/freenove_smart_car.sdf'
         }.items(),
+    )
+    
+    # RQt
+    rqt = Node(
+        package='rqt_plot',
+        executable='rqt_plot',
+        # FIXME: Why isn't the topic being populated on the UI? RQt issue?
+        arguments=['--force-discover',
+                   '/model/freenove_smart_car/battery/linear_battery/state'],
+        condition=IfCondition(LaunchConfiguration('rqt'))
     )
 
     # RViz
@@ -69,7 +79,8 @@ def generate_launch_description():
                    '/M0@std_msgs/msg/Float64@ignition.msgs.Double',
                    '/M1@std_msgs/msg/Float64@ignition.msgs.Double',
                    '/M2@std_msgs/msg/Float64@ignition.msgs.Double',
-                   '/M3@std_msgs/msg/Float64@ignition.msgs.Double'],
+                   '/M3@std_msgs/msg/Float64@ignition.msgs.Double',
+                   '/model/freenove_smart_car/battery/linear_battery/state@sensor_msgs/msg/BatteryState@ignition.msgs.BatteryState'],
         output='screen'
     )
 
@@ -77,7 +88,10 @@ def generate_launch_description():
         ign_gazebo,
         DeclareLaunchArgument('rviz', default_value='false',
                               description='Open RViz.'),
+	DeclareLaunchArgument('rqt', default_value='true',
+                              description='Open RQt.'),
         bridge,
-        rviz,
+        #rviz,
+        #rqt
     ])
 
