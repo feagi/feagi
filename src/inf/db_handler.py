@@ -180,13 +180,15 @@ class MongoManagement:
 
     def test_mongodb(self):
         try:
-            # collections = self.db.list_collection_names()
-            # print(">>>>>> >>>>>> COLLECTIONS: ", collections)
-            # assert 'genomes' in collections
-            print("    MongoDb: ", settings.Bcolors.OKGREEN + "****** TODO ********" + settings.Bcolors.ENDC)
+            dbs = self.client.list_database_names()
+            collections = self.db.list_collection_names()
+            if self.db_params['mongodb_db'] not in dbs:
+                self.db = self.client[self.db_params['mongodb_db']]
+            if self.db_params['mongodb_genomes'] not in collections:
+                self.db.create_collection(self.db_params['mongodb_genomes'])
+            print("    MongoDb: ", settings.Bcolors.OKGREEN + "<< Database and collections OK >>" + settings.Bcolors.ENDC)
         except Exception as e:
-            print(e)
-            print("    MongoDb:", settings.Bcolors.RED + "UNABLE TO DO STUFF!!!!" + settings.Bcolors.ENDC)
+            print("    MongoDb:", settings.Bcolors.RED + str(e) + settings.Bcolors.ENDC)
 
 
 class InfluxManagement:
