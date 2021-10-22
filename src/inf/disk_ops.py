@@ -117,22 +117,22 @@ def save_genome_to_db():
 
     runtime_data.mongodb.insert_genome(genome_db)
 
-    mail_body = "Genome " + str(genome_id) + " has been evaluated to have a fitness of " + str(brain_fitness)
+    # mail_body = "Genome " + str(genome_id) + " has been evaluated to have a fitness of " + str(brain_fitness)
 
     # Sending out email
     # if brain_fitness > runtime_data.parameters["Alerts"]["email_fitness_threshold"]:
     #     alerts.send_email(mail_body)
 
-    print(">>>Genome test stats: >", runtime_data.genome_test_stats)
-    print(">>>Genome_id: >", runtime_data.genome_id)
+    # print(">>>Genome test stats: >", runtime_data.genome_test_stats)
+    # print(">>>Genome_id: >", runtime_data.genome_id)
 
-    for stat in runtime_data.genome_test_stats:
-        stat_to_save = stat
+    # for stat in runtime_data.genome_test_stats:
+        # stat_to_save = stat
         # todo: The following is leading to duplicate db record ---> Investigate
         # runtime_data.mongodb.insert_test_stats(stat_to_save)
 
     print("Genome %s has been preserved for future generations!" % genome_id)
-    stats.print_fcl_stats(genome_id)
+    # stats.print_fcl_stats(genome_id)
 
     return
 
