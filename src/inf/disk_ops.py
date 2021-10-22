@@ -5,7 +5,7 @@ from datetime import datetime
 import os.path
 import json
 import pickle
-from bson import json_util
+from bson import json_util, ObjectId
 from inf import db_handler
 from evo import stats
 from inf import runtime_data, settings
@@ -35,7 +35,14 @@ def load_genome_in_memory(connectome_path, static=False):
         print("Genome from local connectome folder was chosen: ", connectome_path)
         with open(runtime_data.working_directory + '/genome_tmp.json', "r") as genome_file:
             genome_data = json.load(genome_file)
-            runtime_data.genome = genome_data
+            try:
+                del genome_data["_id"]
+            except KeyError:
+                pass
+            try:
+                runtime_data.genome = genome_data["properties"]
+            except KeyError:
+                runtime_data.genome = genome_data
     else:
         runtime_data.genome = genome
         print("Static genome was loaded in memory")
@@ -65,46 +72,46 @@ def save_genome_to_db():
     genome_db["parameters"] = runtime_data.parameters
     genome_db["activity_stats"] = runtime_data.activity_stats
 
-    if not runtime_data.termination_flag:
-        brain_fitness = calculate_brain_cognitive_fitness(runtime_data.genome_test_stats)
-        genome_db["fitness"] = brain_fitness
-        print("\n\n\n")
-        print(" **********")
-        print(" ********** ********")
-        print(" ********** ******** ********")
-        print(" ********** ******** ******** ***** *** ** * Brain fitness: ", brain_fitness)
-        print(" ********** ******** ********")
-        print(" ********** ********")
-        print(" **********")
-        print("\n\n\n")
-        runtime_data.influxdb.insert_evolutionary_fitness_stats(connectome_path=runtime_data.parameters["InitData"]
-        ["connectome_path"],
-                                                   fitness_score=brain_fitness/1,
-                                                   training_sets=runtime_data.parameters["Auto_injector"]
-                                                   ["variation_default"],
-                                                   test_sets=runtime_data.parameters["Auto_tester"]
-                                                   ["variation_default"],
-                                                   training_exposure=runtime_data.parameters["Auto_injector"]
-                                                   ["exposure_default"],
-                                                   test_exposure=runtime_data.parameters["Auto_tester"]
-                                                   ["exposure_default"]
-                                                   )
-    else:
-        brain_fitness = ''
-        print("\n\n\n")
-        print("       ****")
-        print(" **********")
-        print(" **** Brain was terminated prematurely ******")
-        print(" **********")
-        print("       ****")
+    # if not runtime_data.termination_flag:
+    #     brain_fitness = calculate_brain_cognitive_fitness(runtime_data.genome_test_stats)
+    #     genome_db["fitness"] = brain_fitness
+    #     print("\n\n\n")
+    #     print(" **********")
+    #     print(" ********** ********")
+    #     print(" ********** ******** ********")
+    #     print(" ********** ******** ******** ***** *** ** * Brain fitness: ", brain_fitness)
+    #     print(" ********** ******** ********")
+    #     print(" ********** ********")
+    #     print(" **********")
+    #     print("\n\n\n")
+    #     runtime_data.influxdb.insert_evolutionary_fitness_stats(connectome_path=runtime_data.parameters["InitData"]
+    #     ["connectome_path"],
+    #                                                fitness_score=brain_fitness/1,
+    #                                                training_sets=runtime_data.parameters["Auto_injector"]
+    #                                                ["variation_default"],
+    #                                                test_sets=runtime_data.parameters["Auto_tester"]
+    #                                                ["variation_default"],
+    #                                                training_exposure=runtime_data.parameters["Auto_injector"]
+    #                                                ["exposure_default"],
+    #                                                test_exposure=runtime_data.parameters["Auto_tester"]
+    #                                                ["exposure_default"]
+    #                                                )
+    # else:
+    #     brain_fitness = ''
+    #     print("\n\n\n")
+    #     print("       ****")
+    #     print(" **********")
+    #     print(" **** Brain was terminated prematurely ******")
+    #     print(" **********")
+    #     print("       ****")
 
-    # Logging cortical stats in the InfluxDb
-    for cortical_area in runtime_data.brain:
-        neuron_count, synapse_count = stats.connectome_total_synapse_cnt(cortical_area)
-        runtime_data.influxdb.insert_evolutionary_connectome_stats(connectome_path=runtime_data.parameters["InitData"]["connectome_path"],
-                                                      cortical_area=cortical_area,
-                                                      neuron_count=neuron_count,
-                                                      synapse_count=synapse_count)
+    # # Logging cortical stats in the InfluxDb
+    # for cortical_area in runtime_data.brain:
+    #     neuron_count, synapse_count = stats.connectome_total_synapse_cnt(cortical_area)
+    #     runtime_data.influxdb.insert_evolutionary_connectome_stats(connectome_path=runtime_data.parameters["InitData"]["connectome_path"],
+    #                                                   cortical_area=cortical_area,
+    #                                                   neuron_count=neuron_count,
+    #                                                   synapse_count=synapse_count)
 
     # print("*** @@@ *** @@@ *** \n ", genome_db)
 
