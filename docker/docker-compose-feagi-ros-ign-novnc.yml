@@ -6,6 +6,8 @@ networks:
 
 services:
   ros_gazebo:
+    user: root
+    #image: ros:foxy
     build: ../third_party/gazebo/smart_car/
     deploy:
       resources:
@@ -13,9 +15,10 @@ services:
           cpus: '2'
     ports:
       - "6080:80"
-    #environment:
-     # - OPENBOX_ARGS='--startup "/opt/source-code/freenove_4wd_car_description/start_controller.sh	"'
     privileged: true
+    entrypoint: "/opt/source-code/freenove_4wd_car_description/start_controller.sh"
+    #environment:
+     # - OPENBOX_ARGS='--startup "./opt/source-code/freenove_4wd_car_description/start_controller.sh"'
     # stdin_open: true
     # tty: true
     networks:
@@ -29,8 +32,3 @@ services:
       - "PYTHONUNBUFFERED=1"
     networks:
       - net
-#    volumes:
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/evo/static_genome.py:/opt/source-code/feagi-core/src/evo/static_genome.py
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/evo/synaptogenesis_rules.py:/opt/source-code/feagi-core/src/evo/synaptogenesis_rules.py
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/feagi_configuration.ini:/opt/source-code/feagi-core/src/feagi_configuration.ini
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/npu/burst_engine.py:/opt/source-code/feagi-core/src/npu/burst_engine.py
