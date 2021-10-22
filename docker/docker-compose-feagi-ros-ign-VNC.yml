@@ -1,0 +1,36 @@
+version: "3"
+
+networks:
+  net:
+    driver: bridge
+
+services:
+  ros_gazebo:
+    build: ../third_party/gazebo/smart_car/
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+    ports:
+      - "6080:80"
+     #environment:
+     #  - OPENBOX_ARGS='--startup "/opt/source-code/freenove_4wd_car_description/setup_container.sh"'
+    privileged: true
+    # stdin_open: true
+    # tty: true
+    networks:
+      - net
+
+  feagi:
+    build: ./
+    privileged: true
+    environment:
+      - GAZEBO_CONTAINER=true
+      - "PYTHONUNBUFFERED=1"
+    networks:
+      - net
+#    volumes:
+#      - /Users/mnadji/PycharmProjects/feagi-core/src/evo/static_genome.py:/opt/source-code/feagi-core/src/evo/static_genome.py
+#      - /Users/mnadji/PycharmProjects/feagi-core/src/evo/synaptogenesis_rules.py:/opt/source-code/feagi-core/src/evo/synaptogenesis_rules.py
+#      - /Users/mnadji/PycharmProjects/feagi-core/src/feagi_configuration.ini:/opt/source-code/feagi-core/src/feagi_configuration.ini
+#      - /Users/mnadji/PycharmProjects/feagi-core/src/npu/burst_engine.py:/opt/source-code/feagi-core/src/npu/burst_engine.py
