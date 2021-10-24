@@ -36,7 +36,6 @@ def select_a_genome():
     6. TBD
     """
     random_selector = random.randrange(1, 10, 1)
-    # random_selector = 3
 
     if random_selector == 1:
         print("Crossover is happening...")
@@ -308,8 +307,8 @@ def crossover():
     original_genome_id.append(genome_1['genome_id'])
     original_genome_id.append(genome_2['genome_id'])
 
-    # genome_1 = genome_1["properties"]
-    # genome_2 = genome_2["properties"]
+    genome_1 = genome_1["properties"]
+    genome_2 = genome_2["properties"]
 
     genome_1_keys = []
     for key in genome_1["blueprint"].keys():
@@ -336,8 +335,7 @@ def random_genome():
     # print("this is the random genome", genome)
     original_genome_id = []
     original_genome_id.append(genome['genome_id'])
-    # return genome['properties'], original_genome_id
-    return genome, original_genome_id
+    return genome['properties'], original_genome_id
 
 
 def latest_genome():
@@ -350,17 +348,16 @@ def latest_genome():
         original_genome_id.append(genome['genome_id'])
     except KeyError:
         print("\n\n\nERROR: KeyError while appending genome_id to original_genome_id\n\n\n")
-    # return genome['properties'], original_genome_id
-    return genome, original_genome_id
+    return genome['properties'], original_genome_id
 
 
 def highest_fitness_genome():
     # db = db_handler.MongoManagement()
     genome = runtime_data.mongodb.highest_fitness_genome()
+    genome['genome_id'] = runtime_data.genome_id
     original_genome_id = []
     original_genome_id.append(genome['genome_id'])
-    # return genome['properties'], original_genome_id
-    return genome, original_genome_id
+    return genome['properties'], original_genome_id
 
 
 def translate_genotype2phenotype():

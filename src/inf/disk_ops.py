@@ -35,14 +35,7 @@ def load_genome_in_memory(connectome_path, static=False):
         print("Genome from local connectome folder was chosen: ", connectome_path)
         with open(runtime_data.working_directory + '/genome_tmp.json', "r") as genome_file:
             genome_data = json.load(genome_file)
-            try:
-                del genome_data["_id"]
-            except KeyError:
-                pass
-            try:
-                runtime_data.genome = genome_data["properties"]
-            except KeyError:
-                runtime_data.genome = genome_data
+            runtime_data.genome = genome_data
     else:
         runtime_data.genome = genome
         print("Static genome was loaded in memory")
