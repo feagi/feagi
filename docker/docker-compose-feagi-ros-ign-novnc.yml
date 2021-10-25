@@ -16,9 +16,9 @@ services:
     ports:
       - "6080:80"
     privileged: true
-    entrypoint: "/opt/source-code/freenove_4wd_car_description/start_controller.sh"
+    entrypoint: "bash start_simulation_no-vnc.sh"
     #environment:
-     # - OPENBOX_ARGS='--startup "./opt/source-code/freenove_4wd_car_description/start_controller.sh"'
+    #  - OPENBOX_ARGS='--startup "./opt/source-code/freenove_4wd_car_description/nonvnc_start.sh"'
     # stdin_open: true
     # tty: true
     networks:
