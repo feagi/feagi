@@ -32,7 +32,6 @@ from inf.messenger import Pub, Sub
 from ipu.source import lidar, ir
 from edu.trainer import Trainer
 from edu.evaluator import Tester
-from inf.disk_ops import save_genome_to_db
 
 
 def cortical_group_members(group):
