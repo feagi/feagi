@@ -5,7 +5,6 @@ from datetime import datetime
 import os.path
 import json
 import pickle
-from bson import json_util, ObjectId
 from inf import db_handler
 from evo import stats
 from inf import runtime_data, settings
@@ -145,8 +144,7 @@ def stage_genome(connectome_path, dynamic_selection_mode=True):
     with open(runtime_data.working_directory+'/genome_tmp.json', "w") as staged_genome:
         # Saving changes to the connectome
         staged_genome.seek(0)  # rewind
-        # staged_genome.write(json.dumps(genome_data, indent=3))
-        staged_genome.write(json_util.dumps(genome_data, indent=3))
+        staged_genome.write(json.dumps(genome_data, indent=3))
         staged_genome.truncate()
         # print("\n*\n**\n***\ngenome_tmp.json was just staged...vvv ^^^ vvv\n***\n**\n*", connectome_path)
 
