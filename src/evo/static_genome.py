@@ -1227,7 +1227,7 @@ genome = {
   "location_tolerance": 2,
   "image_color_intensity_tolerance": 100,
   "max_burst_count": 3,
-  "evolution_burst_count": 20,
+  "evolution_burst_count": 50,
   "performance_stats": {
       "mnist_view_cnt": 0,
       "mnist_correct_detection_cnt": 0
