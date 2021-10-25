@@ -1,0 +1,46 @@
+version: "3"
+
+networks:
+  net:
+    driver: bridge
+
+services:
+  ros_gazebo:
+    build: ../third_party/gazebo/smart_car/
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+    ports:
+      - "6080:80"
+    privileged: true
+    networks:
+      - net
+
+  feagi:
+    build: ./
+    environment:
+      - CONTAINERIZED=true
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - /Users/neuraville/Desktop/feagi-core/src/feagi_configuration.ini:/opt/source-code/feagi-core/src/feagi_configuration.ini
+      - /Users/neuraville/Desktop/feagi-core/src/npu/burst_engine.py:/opt/source-code/feagi-core/src/npu/burst_engine.py
+      - /Users/neuraville/Desktop/feagi-core/src/inf/db_handler.py:/opt/source-code/feagi-core/src/inf/db_handler.py
+      - /Users/neuraville/Desktop/feagi-core/src/inf/disk_ops.py:/opt/source-code/feagi-core/src/inf/disk_ops.py
+    networks:
+      - net
+
+  mongodb:
+    image: mongo:5.0.0-rc4-focal
+    # command: --wiredTigerCacheSizeGB 1.0
+    ports:
+      - "27017:27017"
+    restart: always
+    environment:
+      # - MONGO_INITDB_ROOT_USERNAME=root
+      # - MONGO_INITDB_ROOT_PASSWORD=example
+      - CONTAINERIZED=true
+    volumes:
+      - /usr/local/var/mongodb:/data/db
+    networks:
+      - net
