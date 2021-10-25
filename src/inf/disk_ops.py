@@ -64,67 +64,67 @@ def save_genome_to_db():
     genome_db["parameters"] = runtime_data.parameters
     genome_db["activity_stats"] = runtime_data.activity_stats
 
-    # if not runtime_data.termination_flag:
-    #     brain_fitness = calculate_brain_cognitive_fitness(runtime_data.genome_test_stats)
-    #     genome_db["fitness"] = brain_fitness
-    #     print("\n\n\n")
-    #     print(" **********")
-    #     print(" ********** ********")
-    #     print(" ********** ******** ********")
-    #     print(" ********** ******** ******** ***** *** ** * Brain fitness: ", brain_fitness)
-    #     print(" ********** ******** ********")
-    #     print(" ********** ********")
-    #     print(" **********")
-    #     print("\n\n\n")
-    #     runtime_data.influxdb.insert_evolutionary_fitness_stats(connectome_path=runtime_data.parameters["InitData"]
-    #     ["connectome_path"],
-    #                                                fitness_score=brain_fitness/1,
-    #                                                training_sets=runtime_data.parameters["Auto_injector"]
-    #                                                ["variation_default"],
-    #                                                test_sets=runtime_data.parameters["Auto_tester"]
-    #                                                ["variation_default"],
-    #                                                training_exposure=runtime_data.parameters["Auto_injector"]
-    #                                                ["exposure_default"],
-    #                                                test_exposure=runtime_data.parameters["Auto_tester"]
-    #                                                ["exposure_default"]
-    #                                                )
-    # else:
-    #     brain_fitness = ''
-    #     print("\n\n\n")
-    #     print("       ****")
-    #     print(" **********")
-    #     print(" **** Brain was terminated prematurely ******")
-    #     print(" **********")
-    #     print("       ****")
+    if not runtime_data.termination_flag:
+        brain_fitness = calculate_brain_cognitive_fitness(runtime_data.genome_test_stats)
+        genome_db["fitness"] = brain_fitness
+        print("\n\n\n")
+        print(" **********")
+        print(" ********** ********")
+        print(" ********** ******** ********")
+        print(" ********** ******** ******** ***** *** ** * Brain fitness: ", brain_fitness)
+        print(" ********** ******** ********")
+        print(" ********** ********")
+        print(" **********")
+        print("\n\n\n")
+        runtime_data.influxdb.insert_evolutionary_fitness_stats(connectome_path=runtime_data.parameters["InitData"]
+        ["connectome_path"],
+                                                   fitness_score=brain_fitness/1,
+                                                   training_sets=runtime_data.parameters["Auto_injector"]
+                                                   ["variation_default"],
+                                                   test_sets=runtime_data.parameters["Auto_tester"]
+                                                   ["variation_default"],
+                                                   training_exposure=runtime_data.parameters["Auto_injector"]
+                                                   ["exposure_default"],
+                                                   test_exposure=runtime_data.parameters["Auto_tester"]
+                                                   ["exposure_default"]
+                                                   )
+    else:
+        brain_fitness = ''
+        print("\n\n\n")
+        print("       ****")
+        print(" **********")
+        print(" **** Brain was terminated prematurely ******")
+        print(" **********")
+        print("       ****")
 
-    # # Logging cortical stats in the InfluxDb
-    # for cortical_area in runtime_data.brain:
-    #     neuron_count, synapse_count = stats.connectome_total_synapse_cnt(cortical_area)
-    #     runtime_data.influxdb.insert_evolutionary_connectome_stats(connectome_path=runtime_data.parameters["InitData"]["connectome_path"],
-    #                                                   cortical_area=cortical_area,
-    #                                                   neuron_count=neuron_count,
-    #                                                   synapse_count=synapse_count)
+    # Logging cortical stats in the InfluxDb
+    for cortical_area in runtime_data.brain:
+        neuron_count, synapse_count = stats.connectome_total_synapse_cnt(cortical_area)
+        runtime_data.influxdb.insert_evolutionary_connectome_stats(connectome_path=runtime_data.parameters["InitData"]["connectome_path"],
+                                                      cortical_area=cortical_area,
+                                                      neuron_count=neuron_count,
+                                                      synapse_count=synapse_count)
 
-    # print("*** @@@ *** @@@ *** \n ", genome_db)
+    print("*** @@@ *** @@@ *** \n ", genome_db)
 
     runtime_data.mongodb.insert_genome(genome_db)
 
-    # mail_body = "Genome " + str(genome_id) + " has been evaluated to have a fitness of " + str(brain_fitness)
+    mail_body = "Genome " + str(genome_id) + " has been evaluated to have a fitness of " + str(brain_fitness)
 
     # Sending out email
     # if brain_fitness > runtime_data.parameters["Alerts"]["email_fitness_threshold"]:
     #     alerts.send_email(mail_body)
 
-    # print(">>>Genome test stats: >", runtime_data.genome_test_stats)
-    # print(">>>Genome_id: >", runtime_data.genome_id)
+    print(">>>Genome test stats: >", runtime_data.genome_test_stats)
+    print(">>>Genome_id: >", runtime_data.genome_id)
 
-    # for stat in runtime_data.genome_test_stats:
-        # stat_to_save = stat
+    for stat in runtime_data.genome_test_stats:
+        stat_to_save = stat
         # todo: The following is leading to duplicate db record ---> Investigate
         # runtime_data.mongodb.insert_test_stats(stat_to_save)
 
     print("Genome %s has been preserved for future generations!" % genome_id)
-    # stats.print_fcl_stats(genome_id)
+    stats.print_fcl_stats(genome_id)
 
     return
 
