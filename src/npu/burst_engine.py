@@ -32,6 +32,7 @@ from inf.messenger import Pub, Sub
 from ipu.source import lidar, ir
 from edu.trainer import Trainer
 from edu.evaluator import Tester
+from inf.disk_ops import save_genome_to_db
 
 
 def cortical_group_members(group):
@@ -245,6 +246,7 @@ def burst_manager():
     def evolutionary_checkpoint():
         if runtime_data.burst_count % runtime_data.genome['evolution_burst_count'] == 0:
             print('Evolution phase reached...')
+            save_genome_to_db()
             for area in runtime_data.cortical_list:
                 neuron_count, synapse_count = connectome_total_synapse_cnt(area)
                 if runtime_data.influxdb and runtime_data.parameters["Database"]["influx_stat_logger"]:
