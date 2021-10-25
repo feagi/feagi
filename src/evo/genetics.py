@@ -36,7 +36,6 @@ def select_a_genome():
     6. TBD
     """
     random_selector = random.randrange(1, 10, 1)
-    # random_selector = 4
 
     if random_selector == 1:
         print("Crossover is happening...")
