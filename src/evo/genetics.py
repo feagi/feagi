@@ -354,7 +354,6 @@ def latest_genome():
 def highest_fitness_genome():
     # db = db_handler.MongoManagement()
     genome = runtime_data.mongodb.highest_fitness_genome()
-    genome['genome_id'] = runtime_data.genome_id
     original_genome_id = []
     original_genome_id.append(genome['genome_id'])
     return genome['properties'], original_genome_id
