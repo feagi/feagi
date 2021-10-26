@@ -14,7 +14,7 @@ class MongoManagement:
         if runtime_data.running_in_container:
             self.host = self.db_params['mongodb_container_host']
             print("Attempting to connect to MongoDb via the container")
-            self.client = MongoClient(self.host, self.port, serverSelectionTimeoutMS=3000)
+            self.client = MongoClient(self.host, self.port, serverSelectionTimeoutMS=5000)
         else:
             self.host = self.db_params['mongodb_local_host']
             print("Attempting to connect to MongoDb via direct host access")
