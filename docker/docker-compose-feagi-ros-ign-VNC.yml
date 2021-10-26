@@ -13,8 +13,8 @@ services:
           cpus: '2'
     ports:
       - "6080:80"
-    # environment:
-    #   - OPENBOX_ARGS=--startup /home/ubuntu/setup_simulation.sh
+     #environment:
+     #  - OPENBOX_ARGS='--startup "/opt/source-code/freenove_4wd_car_description/setup_container.sh"'
     privileged: true
     # stdin_open: true
     # tty: true
