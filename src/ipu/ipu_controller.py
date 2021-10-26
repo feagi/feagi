@@ -159,7 +159,7 @@ def ipu_handler(ipu_data):
 
                 elif 'battery' in sensor_type and runtime_data.parameters['IPU']['battery']:
                     try:
-                        battery.translate(battery_data=ipu_data[sensor_type])
+                        battery.translate(sensor_data=ipu_data[sensor_type])
                     except:
                         print("ERROR while processing Battery IPU")
 
