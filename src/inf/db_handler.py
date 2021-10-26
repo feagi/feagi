@@ -14,12 +14,13 @@ class MongoManagement:
         if runtime_data.running_in_container:
             self.host = self.db_params['mongodb_container_host']
             print("Attempting to connect to MongoDb via the container")
+            self.client = MongoClient(self.host, self.port, serverSelectionTimeoutMS=3000)
         else:
             self.host = self.db_params['mongodb_local_host']
             print("Attempting to connect to MongoDb via direct host access")
+            self.client = MongoClient(self.host, self.port, serverSelectionTimeoutMS=1)
 
         try:
-            self.client = MongoClient(self.host, self.port, serverSelectionTimeoutMS=1)
             self.client.server_info()
             self.db = self.client[self.db_params['mongodb_db']]
             self.collection_genome = self.db[self.db_params['mongodb_genomes']]
@@ -181,9 +182,9 @@ class MongoManagement:
     def test_mongodb(self):
         try:
             dbs = self.client.list_database_names()
-            collections = self.db.list_collection_names()
             if self.db_params['mongodb_db'] not in dbs:
                 self.db = self.client[self.db_params['mongodb_db']]
+            collections = self.db.list_collection_names()
             if self.db_params['mongodb_genomes'] not in collections:
                 self.db.create_collection(self.db_params['mongodb_genomes'])
             print("    MongoDb: ", settings.Bcolors.OKGREEN + "<< Database and collections OK >>" + settings.Bcolors.ENDC)
