@@ -51,3 +51,6 @@ MANIFEST
 
 # Compiled code
 *.c
+
+# Containerized DB data
+data/
