@@ -163,6 +163,5 @@ def ipu_handler(ipu_data):
                     except:
                         print("ERROR while processing Battery IPU")
 
-
         else:
             print("ERROR: IPU handler encountered non-compliant data")

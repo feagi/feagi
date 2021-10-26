@@ -32,7 +32,7 @@ def translate(sensor_data):
     if sensor_data is not None:
         for sensor in sensor_data:
             detections = range.range_to_coords(cortical_area=cortical_area,
-                                               range_data=sensor_data[sensor]*100,
+                                               range_data=float(sensor_data[sensor])*100,
                                                range_min=0,
                                                range_max=100,
                                                threshold=0)
