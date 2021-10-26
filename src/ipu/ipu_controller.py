@@ -11,8 +11,7 @@ import traceback
 from datetime import datetime
 from threading import Thread
 from inf import runtime_data
-from ipu.source import folder_monitor, ir
-from ipu.source import lidar
+from ipu.source import lidar, ir, battery, folder_monitor
 from ipu.source.mnist import MNIST, print_mnist_img_raw
 from ipu.processor.image import Image
 from evo.neuroembryogenesis import cortical_sub_group_members
@@ -115,3 +114,54 @@ def proximity_controller():
             traceback.print_exc()
         finally:
             runtime_data.last_ipu_activity = datetime.now()
+
+
+def ipu_handler(ipu_data):
+        """
+        Decodes the message received from the ipu router and distribute the sub-messages to corresponding IPU modules
+
+        expected ipu_data structure:
+
+        ipu_data = {
+            sensor_type: {
+                sensor_name: sensor_data,
+                sensor_name: sensor_data,
+                ...
+                },
+            sensor_type: {
+                sensor_name: sensor_data,
+                sensor_name: sensor_data,
+                ...
+                },
+            ...
+            }
+        }
+        """
+        if type(ipu_data) == dict:
+            for sensor_type in ipu_data:
+                # Ultrasonic / Lidar Handler
+                # todo: need a more consistent naming convention when it comes to lidar vs ultrasonic vs proximity
+                # todo: find a way to generalize the handling of all IPU data instead of using all the if statements
+                if 'ultrasonic' in sensor_type and runtime_data.parameters['IPU']['proximity']:
+                    try:
+                        lidar.translate(proximity_data=ipu_data[sensor_type])
+
+                    except:
+                        print("ERROR while processing lidar function")
+
+                # Infrared Handler
+                elif 'ir' in sensor_type and runtime_data.parameters['IPU']['ir']:
+                    try:
+                        # print("+_+_+ipu_data[sensor_type]: ", ipu_data[sensor_type])
+                        ir.convert_ir_to_fire_list(ir_data=ipu_data[sensor_type])
+                    except:
+                        print("ERROR while processing Infrared IPU")
+
+                elif 'battery' in sensor_type and runtime_data.parameters['IPU']['battery']:
+                    try:
+                        battery.translate(sensor_data=ipu_data[sensor_type])
+                    except:
+                        print("ERROR while processing Battery IPU")
+
+        else:
+            print("ERROR: IPU handler encountered non-compliant data")
