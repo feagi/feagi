@@ -31,15 +31,14 @@ def translate(sensor_data):
     cortical_area = 'battery_ipu'
     if sensor_data is not None:
         for sensor in sensor_data:
+            print("----------------->>>> Battery data:", sensor_data[sensor])
             detections = range.range_to_coords(cortical_area=cortical_area,
-                                               range_data=float(sensor_data[sensor])*100,
+                                               range_data=int(float(sensor_data[sensor])*100),
                                                range_min=0,
                                                range_max=100,
-                                               threshold=0)
-            print("Battery detections:", detections)
-            neurons = range.coords_to_neuron_ids(
-                detections, cortical_area=cortical_area
-            )
+                                               threshold=10)
 
+            neurons = range.coords_to_neuron_ids(detections,
+                                                 cortical_area=cortical_area)
             # TODO: Add proximity feeder function in fcl_injector
             runtime_data.fcl_queue.put({'battery_ipu': set(neurons)})

@@ -18,19 +18,33 @@ def range_to_coords(cortical_area, range_data, range_min, range_max, threshold):
     :param threshold: threshold for detection distance (int)
     :return: list of tuple detection locations (x, y, z)
     """
+    x_max = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][0]
     y_max = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][1]
     z_max = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][2]
-
+    print("MMMMMMM", range_data, type(range_data))
     detection_locations = list
-    for idx, dist in enumerate(range_data):
-        if dist != inf:
-            dist_map = map_value(dist, range_min, range_max, 0, z_max)
-            if dist_map <= threshold:
-                x = idx
-                y = y_max // 2
-                z = dist_map
-                detection_locations.append((x, y, int(z)))
-    return detection_locations
+    if hasattr(range_data, '__iter__'):
+        for idx, dist in enumerate(range_data):
+            if dist != inf:
+                dist_map = map_value(dist, range_min, range_max, 0, z_max)
+                if dist_map <= threshold:
+                    x = idx
+                    y = y_max // 2
+                    z = dist_map
+                    detection_locations.append((x, y, int(z)))
+        return detection_locations
+    else:
+        try:
+            dist_map = round(map_value(range_data, range_min, range_max, 0, z_max))
+        except TypeError:
+            dist_map = 0
+            print("Type Error in sonar_to_coords...")
+
+        if dist_map != 0:
+            x = x_max // 2
+            y = y_max // 2
+            z = dist_map
+            return [(x, y, z-1)]
 
 
 # TODO: make detection threshold part of config
