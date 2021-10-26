@@ -189,19 +189,24 @@ def init_timeseries_db():
 
 
 def init_genome_db():
+    print("- Starting MongoDb initialization...")
     from inf import db_handler
     runtime_data.mongodb = db_handler.MongoManagement()
     runtime_data.mongodb.test_mongodb()
+    print("+ MondoDb has been successfully initialized")
     return
 
 
 def init_data_sources():
     """To validate and initialize all data sources and databases"""
     print("\nInitializing databases...")
-
+    # Light mode is a switch to help globally turn off some of the resource intensive processes
+    # todo: Light mode needs better definition as currently it is more db centric and not serving the key purpose
     if not runtime_data.parameters['Switches']['light_mode']:
         if runtime_data.parameters['Database']['mongodb_enabled']:
             init_genome_db()
+        else:
+            print("    MongoDb:", settings.Bcolors.RED + "Disabled" + settings.Bcolors.ENDC)
 
         if runtime_data.parameters['Database']['influxdb_enabled']:
             init_timeseries_db()

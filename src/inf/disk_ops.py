@@ -105,7 +105,7 @@ def save_genome_to_db():
                                                       neuron_count=neuron_count,
                                                       synapse_count=synapse_count)
 
-    # print("*** @@@ *** @@@ *** \n ", genome_db)
+    print("*** @@@ *** @@@ *** \n ", genome_db)
 
     runtime_data.mongodb.insert_genome(genome_db)
 
