@@ -36,7 +36,7 @@ def translate(sensor_data):
                                                range_min=0,
                                                range_max=100,
                                                threshold=0)
-
+            print("Battery detections:", detections)
             neurons = range.coords_to_neuron_ids(
                 detections, cortical_area=cortical_area
             )
