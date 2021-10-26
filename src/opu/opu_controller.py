@@ -46,7 +46,7 @@ def opu_handler():
             motor_data[device]['speed'] = chosen_block
         movement.activate_device(device_type='motor', device_data=motor_data)
 
-    elif runtime_data.fire_candidate_list['servo_opu']:
+    if runtime_data.fire_candidate_list['servo_opu']:
         # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
         # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
         # movement.activate_motor(data)
