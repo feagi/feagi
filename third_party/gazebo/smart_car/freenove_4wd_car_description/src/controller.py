@@ -172,7 +172,7 @@ class Servo:
                 model_properties['servo'][servo_index] = 0
 
             servo_current_position = model_properties['servo'][servo_index]
-            servo_position.data = float((angle * router_settings['feagi_burst_speed'] * 1) + servo_current_position)
+            servo_position.data = float(((angle * 3.1416/180)-1.6 * router_settings['feagi_burst_speed']) + servo_current_position)
 
             model_properties['servo'][servo_index] = servo_position.data
             # print("Motor index, position, speed = ", motor_index, motor_position.data, speed)
