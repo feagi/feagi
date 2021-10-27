@@ -165,6 +165,21 @@ class Servo:
         self.servo_range = [0, 180]
 
     def move(self, servo_index, angle):
+        try:
+            servo_position = std_msgs.msg.Float64()
+
+            if servo_index not in model_properties['servo']:
+                model_properties['servo'][servo_index] = 0
+
+            servo_current_position = model_properties['servo'][servo_index]
+            servo_position.data = float((angle * router_settings['feagi_burst_speed'] * 1) + servo_current_position)
+
+            model_properties['servo'][servo_index] = servo_position.data
+            # print("Motor index, position, speed = ", motor_index, motor_position.data, speed)
+            self.servo_node[servo_index].publish(servo_position)
+        except Exception:
+            exc_info = sys.exc_info()
+            traceback.print_exception(*exc_info)
         # twist = geometry_msgs.msg.Twist()
         #
         # # todo: linear and angular speed does not make sense in the case of servo. To be fixed
@@ -172,10 +187,11 @@ class Servo:
         # twist.angular.z = angle
         #
         # self.servo_node[servo_index].publish(twist)
-        twist = std_msgs.msg.Float64()
-        degree = angle * 3.14159265359 / 180
-        twist.data = float(degree)
-        self.servo_node[servo_index].publish(twist)  # -1.6 to 1.6 which is -90 to 90
+        # twist = std_msgs.msg.Float64()
+        # degree = angle * 3.14159265359 / 180
+        # twist.data = float(degree)
+        # self.servo_node[servo_index].publish(twist)  # -1.6 to 1.6 which is -90 to 90
+
 
 
 class Teleop:
@@ -286,6 +302,9 @@ def main(args=None):
                 if 'motor' in opu_data:
                     for motor_id in opu_data['motor']:
                         motor.move(motor_index=motor_id, speed=opu_data['motor'][motor_id]['speed'])
+                elif 'servo' in opu_data:
+                    for servo_id in opu_data['servo']:
+                        servo.move(servo_index=servo_id, angle=opu_data['servo'][servo_id]['angle']) ##Try this
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             feagi_ipu_channel.send(message_to_feagi)
