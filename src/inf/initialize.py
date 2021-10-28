@@ -49,6 +49,7 @@ def detect_hardware():
                                       runtime_data.genome['species']['model'] + '/controller.py'
     print("Hardware controller path: ", runtime_data.hw_controller_path)
 
+
 def init_container_variables():
     """
     Identifies variables set by containers and sets them in FEAGI runtime parameters
@@ -276,7 +277,8 @@ def init_burst_engine():
     runtime_data.top_10_utf_memory_neurons = list_top_n_utf_memory_neurons("utf8_memory", 10)
     runtime_data.top_10_utf_neurons = list_top_n_utf_memory_neurons("utf8_ipu", 10)
     runtime_data.v1_members = []
-    runtime_data.burst_timer = runtime_data.parameters["Timers"]["burst_timer"]
+    runtime_data.burst_timer = float(runtime_data.parameters["Timers"]["burst_timer"])
+    print("Burst time has been set to:", runtime_data.burst_timer)
 
     if runtime_data.parameters["Logs"]["print_block_dict_report"]:
         print("Block Dictionary Report:")
