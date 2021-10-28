@@ -252,7 +252,7 @@ def burst_manager():
         # todo: replace the hardcoded vision memory statement
         if candidate_list_counter(runtime_data.fire_candidate_list) == \
                 0 and not runtime_data.parameters["Auto_injector"]["injector_status"]:
-            sleep(float(runtime_data.parameters["Timers"]["idle_burst_timer"]))
+            # sleep(float(runtime_data.parameters["Timers"]["idle_burst_timer"]))
             runtime_data.empty_fcl_counter += 1
             print("FCL is empty!")
         else:
@@ -319,7 +319,6 @@ def burst_manager():
             else:
                 print("Warning: Cortical area %s not found within the block_dic" % cortical_area_)
 
-
     def sensory_message_router():
         # Broadcasts a TCP message on each burst
         if runtime_data.parameters['Switches']['burst_beacon']:
@@ -340,10 +339,9 @@ def burst_manager():
                 if runtime_data.parameters["Logs"]["print_burst_info"]:
                     print("FEAGI received message from router as:", ipu_data)
 
-
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
-        sleep(0.5)
+        sleep(runtime_data.burst_timer)
 
         burst_start_time = datetime.now()
         log_burst_activity_influx()
