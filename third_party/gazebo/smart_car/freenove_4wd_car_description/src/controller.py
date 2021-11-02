@@ -7,6 +7,7 @@ from datetime import datetime
 from router import *
 from random import randrange
 from threading import Thread
+import math
 
 import geometry_msgs.msg
 import rclpy
@@ -172,7 +173,7 @@ class Servo:
                 model_properties['servo'][servo_index] = 0
 
             servo_current_position = model_properties['servo'][servo_index]
-            servo_position.data = float(((angle * 3.1416/180)-1.6 * router_settings['feagi_burst_speed']) + servo_current_position)
+            servo_position.data = float((math.radians(angle) * router_settings['feagi_burst_speed']) + servo_current_position)
 
             model_properties['servo'][servo_index] = servo_position.data
             # print("Motor index, position, speed = ", motor_index, motor_position.data, speed)
@@ -325,3 +326,4 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
