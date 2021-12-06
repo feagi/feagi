@@ -14,24 +14,17 @@ todo: need a higher level mechanism to switch between life mode and autopilot mo
 import os
 import csv
 import glob
-import random
-import string
-from queue import Queue
 from datetime import datetime
 from inf import disk_ops
 from time import sleep
 from npu.physiology import *
 from mem.memory import neuroplasticity
 from npu.comprehension import utf_detection_logic
-# from npu.feeder import Feeder
-from evo.blocks import active_neurons_in_blocks, percent_active_neurons_in_block, block_ref_2_id
-from opu.processor import led
+from ipu.ipu_controller import ipu_handler
+from opu.opu_controller import opu_handler
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
 from inf.messenger import Pub, Sub
-from ipu.source import lidar, ir
-from edu.trainer import Trainer
-from edu.evaluator import Tester
 
 
 def cortical_group_members(group):
@@ -259,7 +252,7 @@ def burst_manager():
         # todo: replace the hardcoded vision memory statement
         if candidate_list_counter(runtime_data.fire_candidate_list) == \
                 0 and not runtime_data.parameters["Auto_injector"]["injector_status"]:
-            sleep(float(runtime_data.parameters["Timers"]["idle_burst_timer"]))
+            # sleep(float(runtime_data.parameters["Timers"]["idle_burst_timer"]))
             runtime_data.empty_fcl_counter += 1
             print("FCL is empty!")
         else:
@@ -267,9 +260,15 @@ def burst_manager():
             capture_cortical_activity_stats()
 
             for _ in runtime_data.fire_candidate_list:
-                while runtime_data.fire_candidate_list[_]:
-                    neuron_to_fire = runtime_data.fire_candidate_list[_].pop()
-                    neuron_fire(_, neuron_to_fire)
+                if runtime_data.genome['blueprint'][_].get('degeneration'):
+                    degeneration_val = runtime_data.genome['blueprint'][_]['degeneration']
+                    while runtime_data.fire_candidate_list[_]:
+                        neuron_to_fire = runtime_data.fire_candidate_list[_].pop()
+                        neuron_fire(_, neuron_to_fire, degenerate=degeneration_val)
+                else:
+                    while runtime_data.fire_candidate_list[_]:
+                        neuron_to_fire = runtime_data.fire_candidate_list[_].pop()
+                        neuron_fire(_, neuron_to_fire)
             # Transferring future_fcl to current one and resetting the future one in process
             for _ in runtime_data.future_fcl:
                 runtime_data.fire_candidate_list[_] = \
@@ -326,87 +325,6 @@ def burst_manager():
             else:
                 print("Warning: Cortical area %s not found within the block_dic" % cortical_area_)
 
-    def ipu_handler(ipu_data):
-        """
-        Decodes the message received from the ipu router and distribute the sub-messages to corresponding IPU modules
-
-        expected ipu_data structure:
-
-        ipu_data = {
-            sensor_type: {
-                sensor_name: sensor_data,
-                sensor_name: sensor_data,
-                ...
-                },
-            sensor_type: {
-                sensor_name: sensor_data,
-                sensor_name: sensor_data,
-                ...
-                },
-            ...
-            }
-        }
-        """
-        if type(ipu_data) == dict:
-            for sensor_type in ipu_data:
-                # Ultrasonic / Lidar Handler
-                # todo: need a more consistent naming convention when it comes to lidar vs ultrasonic vs proximity
-                if 'ultrasonic' in sensor_type and runtime_data.parameters['IPU']['proximity']:
-                    try:
-                        lidar.translate(proximity_data=ipu_data[sensor_type])
-
-                    except:
-                        print("ERROR while processing lidar function")
-
-                # Infrared Handler
-                if 'ir' in sensor_type and runtime_data.parameters['IPU']['ir']:
-                    try:
-                        # print("+_+_+ipu_data[sensor_type]: ", ipu_data[sensor_type])
-                        ir.convert_ir_to_fire_list(ir_data=ipu_data[sensor_type])
-                    except:
-                        print("ERROR while processing Infrared IPU")
-
-        else:
-            print("ERROR: IPU handler encountered non-compliant data")
-
-    def opu_handler():
-        """
-        This function is intended to handle all the OPU processing that needs to be addressed in burst level as opposed
-        to individual neuron fire
-        """
-        # todo: Introduce a generalized approach to cover all OPUs
-
-        # LED handler
-        if runtime_data.fire_candidate_list['led_opu'] and runtime_data.hardware == 'raspberry_pi':
-            active_led_neurons = active_neurons_in_blocks(cortical_area='led_opu')
-            led_data = led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)
-            led.activate_leds(led_data)
-
-        # todo: need a better differentiation between movement and motor modules
-        # Movement handler
-        if runtime_data.fire_candidate_list['motor_opu']:
-            # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
-            # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
-            # movement.activate_motor(data)
-            activity_report = opu_activity_report(cortical_area='motor_opu')
-            motor_data = dict()
-            for device in activity_report:
-                # if there are "ties" w/r/t block activity, this will select the first index in the list w/ the tie value
-                # todo: need a better method
-                # block_with_max_activity = activity_report[device][0].index(max(activity_report[device][0]))
-                try:
-                    block_with_max_z = activity_report[device][0].index(max(activity_report[device][0]))
-                    tmp_list = set(activity_report[device][0])
-                    tmp_list.remove(max(activity_report[device][0]))
-                    block_with_2nd_max = activity_report[device][0].index(max(tmp_list))
-                    chosen_block = max(block_with_max_z, block_with_2nd_max)
-                except ValueError:
-                    chosen_block = 0
-                if device not in motor_data:
-                    motor_data[device] = dict()
-                motor_data[device]['speed'] = chosen_block
-
-            movement.activate_motor(movement_data=motor_data)
 
     def sensory_message_router():
         # Broadcasts a TCP message on each burst
@@ -431,7 +349,7 @@ def burst_manager():
 
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
-        sleep(0.5)
+        sleep(float(runtime_data.burst_timer))
 
         burst_start_time = datetime.now()
         log_burst_activity_influx()

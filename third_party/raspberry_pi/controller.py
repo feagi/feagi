@@ -2,16 +2,17 @@
 
 import sys
 import time
+from collections import deque
 from datetime import datetime
 
 import RPi.GPIO as GPIO
 
+from ADC import *
 from configuration import *
 from Led import *
 from PCA9685 import PCA9685
 from router import *
-# from src.inf import runtime_data
-# from src.ipu.processor.proximity import map_value
+
 
 if sys.platform == 'win32':
     import msvcrt
@@ -48,16 +49,17 @@ def send_to_feagi(message):
     feagi_ipu_channel.send(message)
 
 
-def map_value(val, min1, max1, min2, max2):
-    if val < min1:
-        return min2
-    if val > max1:
-        return max2
+def window_average(sequence):
+    return abs(sum(sequence) // len(sequence))
 
-    mapped_value = (val - min1) * ((max2 - min2) / (max1 - min1)) + min2
 
-    if max2 >= mapped_value >= min2:
-        return mapped_value
+def format_data_msg(data_type, data):
+    # return {
+    #     data_type: {
+    #         idx: data for idx, data in enumerate([data])
+    #     }
+    # }
+    pass
 
 
 class LED:
@@ -252,12 +254,28 @@ class Ultrasonic:
         return int(distance_cm[1])
 
 
+class Battery:
+    def battery_total(self):
+        adc = Adc()
+        Power = adc.recvADC(2) * 3
+        # print(Power)
+        return Power
+
+
 def main(args=None):
     print("Connecting to FEAGI resources...")
 
     motor = Motor()
     ir = IR()
     ultrasonic = Ultrasonic()
+    battery = Battery()
+
+    rolling_window_len = model_properties['motor']['rolling_window_len']
+    motor_count = model_properties['motor']['count']
+    
+    rolling_window = {}
+    for motor_id in range(motor_count):
+        rolling_window[motor_id] = deque([0] * rolling_window_len)
 
     try:
         while True:
@@ -278,7 +296,19 @@ def main(args=None):
             else:
                 formatted_ultrasonic_data = {}
 
-            send_to_feagi({**formatted_ir_data, **formatted_ultrasonic_data})
+            battery_data = battery.battery_total()
+            if battery_data:
+                formatted_battery_data = {
+                    'battery': {
+                        sensor: data for sensor, data in enumerate([battery_data])
+                    }
+                }
+            else:
+                formatted_battery_data = {}
+
+            send_to_feagi(
+                {**formatted_ir_data, **formatted_ultrasonic_data, **formatted_battery_data}
+            )
 
             # Process OPU data received from FEAGI and pass it along
             opu_data = feagi_opu_channel.receive()
@@ -286,10 +316,23 @@ def main(args=None):
             if opu_data is not None:
                 if 'motor' in opu_data:
                     for motor_id in opu_data['motor']:
-                        motor_speed = opu_data['motor'][motor_id]
-                        mapped_speed = round(map_value(motor_speed, 0, 20, 0, 4095))
-                        print(">>>>>>>>> >>>>>>>>>>>> MAPPED SPEED: ", mapped_speed)
-                        motor.move(motor_id, -mapped_speed)
+                        direction = opu_data['motor'][motor_id]
+                        direction_val = 100 if direction == 'F' else -100
+                        
+                        rolling_window[motor_id].append(direction_val)
+                        rolling_window[motor_id].popleft()
+                        avg_motor_activity = window_average(rolling_window[motor_id]) * 100
+                        
+                        motor_val = -avg_motor_activity if direction == 'F' else avg_motor_activity
+                        if motor_val < -4095:
+                            motor_val = -4095
+                        elif motor_val > 4095:
+                            motor_val = 4095
+                        motor.move(motor_id, motor_val)
+                        # print(">>>>>>>>>>>>>>>>>>>>>>>>>>>> AVG MOTOR ACTIVITY: ", avg_motor_activity)
+                        # print(">>>>>>>>>>>>>>>>>>>>>>> DIRECTION RECEIVED: ", direction)
+                        # print(">>>>>>>>>>>>>>>>>> MOTOR VAL: ", motor_val)
+                        # print(">>>>>>>>>>>>> SCALED MOTOR VAL: ", motor_val * 100)
             else:
                 motor.stop()
             time.sleep(router_settings['feagi_burst_speed'])

@@ -1,6 +1,6 @@
 from evo.blocks import block_ref_2_id, percent_active_neurons_in_block
 from inf import runtime_data
-from ipu.processor.proximity import map_value
+from ipu.processor.range import map_value
 from importlib.machinery import SourceFileLoader
 
 

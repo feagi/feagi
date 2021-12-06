@@ -3,7 +3,7 @@ This module reads LIDAR data from a message queue and makes them available to th
 """
 import time
 
-from ipu.processor import proximity
+from ipu.processor import range
 from inf import runtime_data
 
 
@@ -35,11 +35,11 @@ def translate(proximity_data, type=None):
         for sensor in proximity_data:
             # differentiate between LIDAR/SONAR data
             if hasattr(proximity_data[sensor], '__iter__'):
-                detections = proximity.lidar_to_coords(proximity_data[sensor])
+                detections = range.lidar_to_coords(proximity_data[sensor])
             else:
-                detections = proximity.sonar_to_coords(proximity_data[sensor])
+                detections = range.sonar_to_coords(proximity_data[sensor])
 
-            neurons = proximity.coords_to_neuron_ids(
+            neurons = range.coords_to_neuron_ids(
                 detections, cortical_area='proximity_ipu'
             )
 

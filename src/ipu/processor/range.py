@@ -7,6 +7,45 @@ from evo.neuron import block_reference_builder
 from evo.blocks import neurons_in_the_block
 from inf import runtime_data
 
+# TODO: Generalize this module to process any data with a linear range e.g. lidar, battery, sonar, temperature, etc.
+
+
+def range_to_coords(cortical_area, range_data, range_min, range_max, threshold):
+    """
+    This multi purpose function converts data in a linear range format to coordinates in target cortical area.
+
+    :param range_data: float array of detection distances
+    :param threshold: threshold for detection distance (int)
+    :return: list of tuple detection locations (x, y, z)
+    """
+    x_max = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][0]
+    y_max = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][1]
+    z_max = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][2]
+    print("MMMMMMM", range_data, type(range_data))
+    detection_locations = list
+    if hasattr(range_data, '__iter__'):
+        for idx, dist in enumerate(range_data):
+            if dist != inf:
+                dist_map = map_value(dist, range_min, range_max, 0, z_max)
+                if dist_map <= threshold:
+                    x = idx
+                    y = y_max // 2
+                    z = dist_map
+                    detection_locations.append((x, y, int(z)))
+        return detection_locations
+    else:
+        try:
+            dist_map = round(map_value(range_data, range_min, range_max, 0, z_max))
+        except TypeError:
+            dist_map = 0
+            print("Type Error in sonar_to_coords...")
+
+        if dist_map != 0:
+            x = x_max // 2
+            y = y_max // 2
+            z = dist_map
+            return [(x, y, z-1)]
+
 
 # TODO: make detection threshold part of config
 def lidar_to_coords(lidar_data, threshold=5):
@@ -54,8 +93,8 @@ def sonar_to_coords(sonar_data, threshold=10):
     # HC-SR04 datasheet specs (in cm)
     # TODO: parameterize min max vals for various sensors/scenarios
     # updated these min/max values to reflect those in gazebo simulation
-    SONAR_MIN = 0
-    SONAR_MAX = 4
+    SONAR_MIN = 2
+    SONAR_MAX = 400
 
     X_MAX = runtime_data.genome['blueprint'] \
                                ['proximity_ipu'] \
@@ -73,7 +112,7 @@ def sonar_to_coords(sonar_data, threshold=10):
                                ['block_boundaries'][2]
 
     try:
-        dist_map = round(map_value(sonar_data, SONAR_MIN, SONAR_MAX, 0, Z_MAX))
+        dist_map = round(map_value(sonar_data, SONAR_MIN, SONAR_MAX, 0, Z_MAX-1))
     except TypeError:
         dist_map = 0
         print("Type Error in sonar_to_coords...")

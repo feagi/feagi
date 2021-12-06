@@ -1,38 +1,37 @@
 # Copyright (c) 2019 Mohammad Nadji-Tehrani <m.nadji.tehrani@gmail.com>
-
+import random
 from pymongo.errors import ServerSelectionTimeoutError
 from pymongo import MongoClient, DESCENDING, ASCENDING
 from inf import runtime_data, settings
-import random
 
 
 class MongoManagement:
     def __init__(self):
-        # print("*** Connecting to database ***")
+
+        # resolve host environment
+        self.db_params = runtime_data.parameters['Database']
+        self.port = int(self.db_params['mongodb_port'])
         if runtime_data.running_in_container:
-            host = 'host.docker.internal'
+            self.host = self.db_params['mongodb_container_host']
+            print("Attempting to connect to MongoDb via the container")
+            self.client = MongoClient(self.host, self.port, serverSelectionTimeoutMS=5000)
         else:
-            host = '127.0.0.1'
-        port = 27017
-
-        # check if running in a container
-        try:
-            self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
-            self.client.server_info()
-        except ServerSelectionTimeoutError:
-            self.client = MongoClient(host, port, serverSelectionTimeoutMS=1)
+            self.host = self.db_params['mongodb_local_host']
+            print("Attempting to connect to MongoDb via direct host access")
+            self.client = MongoClient(self.host, self.port, serverSelectionTimeoutMS=1)
 
         try:
             self.client.server_info()
-            self.db = self.client['metis']
-            self.collection_genome = self.db['genomes']
-            self.collection_mnist = self.db['mnist2']
-            self.collection_test_stats = self.db['test_stats']
-            self.collection_membrane_potentials = self.db['membrane_potentials']
-            self.collection_neuron_activities = self.db['neuron_activities']
+            self.db = self.client[self.db_params['mongodb_db']]
+            self.collection_genome = self.db[self.db_params['mongodb_genomes']]
+            self.collection_mnist = self.db[self.db_params['mongodb_mnist']]
+            self.collection_test_stats = self.db[self.db_params['mongodb_stats']]
+            self.collection_membrane_potentials = self.db[self.db_params['mongodb_potentials']]
+            self.collection_neuron_activities = self.db[self.db_params['mongodb_neurons']]
             print(
                 settings.Bcolors.OKGREEN + "Success: Connection to << MongoDb >> has been established." + settings.Bcolors.ENDC)
-        except:
+            print("Number of the available genomes in the Genome database is: ", self.collection_genome.count())
+        except ServerSelectionTimeoutError:
             print(settings.Bcolors.RED + "ERROR: Cannot connect to << MongoDb >> Database" + settings.Bcolors.ENDC)
 
     def insert_test_stats(self, stats_data):
@@ -182,10 +181,15 @@ class MongoManagement:
 
     def test_mongodb(self):
         try:
-            if True:
-                print("    MongoDb: ", settings.Bcolors.OKGREEN + "Enabled???" + settings.Bcolors.ENDC)
-        except:
-            print("    MongoDb:", settings.Bcolors.RED + "Disabled???" + settings.Bcolors.ENDC)
+            dbs = self.client.list_database_names()
+            if self.db_params['mongodb_db'] not in dbs:
+                self.db = self.client[self.db_params['mongodb_db']]
+            collections = self.db.list_collection_names()
+            if self.db_params['mongodb_genomes'] not in collections:
+                self.db.create_collection(self.db_params['mongodb_genomes'])
+            print("    MongoDb: ", settings.Bcolors.OKGREEN + "<< Database and collections OK >>" + settings.Bcolors.ENDC)
+        except Exception as e:
+            print("    MongoDb:", settings.Bcolors.RED + str(e) + settings.Bcolors.ENDC)
 
 
 class InfluxManagement:

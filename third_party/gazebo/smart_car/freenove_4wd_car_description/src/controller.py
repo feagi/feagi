@@ -12,7 +12,7 @@ import geometry_msgs.msg
 import rclpy
 import std_msgs.msg
 from rclpy.node import Node
-from sensor_msgs.msg import LaserScan, Image
+from sensor_msgs.msg import LaserScan, Image, BatteryState
 from rclpy.qos import qos_profile_sensor_data
 from configuration import *
 from configuration import message_to_feagi
@@ -108,9 +108,19 @@ class ScalableSubscriber(Node):
                         sensor_id: True
                     }
                 }
+        elif 'battery' in msg_type and msg.percentage:
+            return {
+                'battery': {
+                    idx: val for idx, val in enumerate([msg.percentage])
+                }
+            }
 
 
 class UltrasonicSubscriber(ScalableSubscriber):
+    def __init__(self, subscription_name, msg_type, topic):
+        super().__init__(subscription_name, msg_type, topic)
+
+class BatterySubscriber(ScalableSubscriber):
     def __init__(self, subscription_name, msg_type, topic):
         super().__init__(subscription_name, msg_type, topic)
 
@@ -250,6 +260,11 @@ def main(args=None):
     ultrasonic_feed = UltrasonicSubscriber('ultrasonic0', LaserScan, 'ultrasonic0')
     executor.add_node(ultrasonic_feed)
 
+    battery_feed = BatterySubscriber('battery', BatteryState,
+                                     'model/freenove_smart_car/battery/linear_battery/state')
+    # todo: Change the topic name and make it scalable
+    executor.add_node(battery_feed)
+
     ir_feeds = {}
     ir_topic_id = model_properties['infrared']['topic_identifier']
     for ir_node in range(model_properties['infrared']['count']):
@@ -281,6 +296,7 @@ def main(args=None):
         pass
 
     ultrasonic_feed.destroy_node()
+    battery_feed.destroy_node()
 
     for ir_node in ir_feeds:
         ir_feeds[ir_node].destroy_node()
