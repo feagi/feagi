@@ -9,8 +9,8 @@ import os
 from statistics import mode
 import inf.runtime_data as runtime_data
 from math import floor
-from ipu.processor.proximity import map_value
-from opu.destination import motor
+from ipu.processor.range import map_value
+from opu.destination import motor, servo
 
 
 # # todo: export socket address to config file
@@ -41,7 +41,7 @@ def convert_neuronal_activity_to_directions(cortical_area, neuron_id):
     # socket.send_string(movement_direction)
 
 
-def activate_motor(movement_data):
+def activate_device(device_type, device_data):
     """
     This function creates a mapping between neurons from a motor cortex region to values suitable for motor operation -
     such as direction, speed, duration, and power.
@@ -71,4 +71,7 @@ def activate_motor(movement_data):
     # Power is defined as a value between 0 and 100 driven from Z direction
     # power = int(neuron_z_block / cortical_z_block)
 
-    motor.motor_operator(motor_data=movement_data)
+    if device_type == 'motor':
+        motor.motor_operator(device_data)
+    elif device_type == 'servo':
+        servo.servo_operator(device_data)

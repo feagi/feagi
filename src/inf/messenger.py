@@ -25,6 +25,7 @@ class Pub:
 
     def send(self, message):
         self.socket.send_pyobj(message)
+        print("Message sent to device is:", message)
 
 
 class Sub:
@@ -54,7 +55,7 @@ class Sub:
             payload = self.socket.recv_pyobj(flags=zmq.NOBLOCK)
             # timestamp_recv = datetime.now()
             # diff = str(timestamp_recv - payload['timestamp'])
-            # print(">>>>>> >>>>>> PAYLOAD RECEIVED: ", payload)
+            print(">>>>>> >>>>>> PAYLOAD RECEIVED: ", payload)
             # print(">>>>>>> >>>>>>>> >>>>>>> >>>>>>>>> >>>>>>>>>> TIME DIFF: ", diff)
             # print(">>>>>>>>> >>>>>>>>>>> >>>>>>>>>>> >>>>>>> >>>>>> SEQUENCE VAL: ", payload['counter'])
             return payload
