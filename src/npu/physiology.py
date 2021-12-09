@@ -101,6 +101,13 @@ def neuron_fire(cortical_area, neuron_id, degenerate=0):
         # Update function
         # todo: (neuron_output/neighbor_count) needs to be moved outside the loop for efficiency
         dst_neuron_obj = runtime_data.brain[dst_cortical_area][dst_neuron_id]
+
+        # if cortical_area == 'battery_ipu':
+        #     print("\n\t>>>>>> >>>>>>>>> DST NEURON CORT AREA: ", dst_cortical_area)
+        #     print("\n\t>>>>>> >>>>>>>>> DST NEURON ID: ", dst_neuron_id)
+        #     print("\n\t>>>>>> >>>>>>>>> DST NEURON MEM POT: ", dst_neuron_obj['membrane_potential'])
+        #     print("\n\t>>>>>> >>>>>>>>> DST NEURON FIRE THRESH: ", dst_neuron_obj['firing_threshold'])
+
         dst_neuron_obj["membrane_potential"] = \
             cy.neuron_update((neuron_output/neighbor_count),
                              runtime_data.burst_count,
@@ -108,6 +115,10 @@ def neuron_fire(cortical_area, neuron_id, degenerate=0):
                              dst_neuron_obj["last_burst_num"]),
                              runtime_data.genome["blueprint"][dst_cortical_area]["neuron_params"]["leak_coefficient"],
                              dst_neuron_obj["membrane_potential"])
+
+        # if cortical_area == 'battery_ipu':
+        #     print("\n\t>>>>>> >>>>>>>>> DST NEURON MEM POT (UPDATED): ", dst_neuron_obj['membrane_potential'])
+        #     print("\n\t>>>>>> >>>>>>>>> MEM POT RESET BURST: ", dst_neuron_obj["last_membrane_potential_reset_burst"])
 
         # todo: Need to figure how to deal with activation function and firing threshold (belongs to fire func)
         # After destination neurons are updated, the following checks are performed to assess if the neuron should fire
@@ -126,6 +137,7 @@ def neuron_fire(cortical_area, neuron_id, degenerate=0):
                     # Inhibitory effect check
                     if dst_neuron_obj["snooze_till_burst_num"] <= runtime_data.burst_count:
                         # Adding neuron to fire candidate list for firing in the next round
+
                         runtime_data.future_fcl[dst_cortical_area].add(dst_neuron_id)
                         # todo: not sure what's being done here. Why this is too generic on all cortical layers? !!
                         # todo: Why this needs to happen on each synapse update?? !! VERY EXPENSIVE OPERATION!!!!
@@ -137,6 +149,7 @@ def neuron_fire(cortical_area, neuron_id, degenerate=0):
                         # LTP or Long Term Potentiation occurs here
                         upstream_data = list_upstream_neurons(dst_cortical_area, dst_neuron_id)
 
+                        # remove the following logic gate since plasticity is defined in the genome?
                         ltp_targets = ['vision_memory', 'utf8_memory']
 
                         if upstream_data and dst_cortical_area in ltp_targets:
