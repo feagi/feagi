@@ -54,7 +54,9 @@ def rule_block_one_to_all(rule_param, src_cortical_area, dst_cortical_area, src_
     # Get the list of all blocks from the destination cortical are
     block_ref_list = blocks.all_block_refs(dst_cortical_area)
     for block_ref in block_ref_list:
-        candidate_list.append(blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=block_ref))
+        block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=block_ref)
+        for neuron in block_neurons:
+            candidate_list.append(neuron)
     return candidate_list
 
 
@@ -80,13 +82,210 @@ def rule_block_distributor(rule_param, src_cortical_area, dst_cortical_area, src
     return candidate_list
 
 
-def rule_selective_block_to_block(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset):
+def decrease_filter_diagonal(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset):
     """
-    This ad hoc rule allows for selective synaptogenesis between block neurons in the IR IPU and motor OPU
-    cortical areas. The IR IPU cortical area currently consists of 3 blocks (each containing 1 neuron). Each 
-    IR IPU neuron stimulates a different subset of the blocks in the motor OPU to facilitate appropriate motor 
-    activation for line-tracking purposes without using neuroplasticity.
+    Creates diagonal (upward, left to right) synapses between blocks within a cortical area
+    (i.e. intracortically), where appropriate.
+
+    ex: A neuron in block 0-0-0 of the source cortical area will have synapse candidates
+    in block 0-1-1 of the same cortical area. If a block corresponding to source block x-y-z
+    (i.e. x-(y+1)-(z+1)) does not exist in the cortical area, no synapses are created.
     """
+    src_neuron_block_ref = blocks.block_reference_builder(
+        runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1]
+    )
+    src_neuron_block_id = blocks.block_ref_2_id(src_neuron_block_ref)
+
+    candidate_list = list()
+    dst_block_id = [
+        src_neuron_block_id[0],
+        src_neuron_block_id[1] + 1,
+        src_neuron_block_id[2] + 1
+    ]
+    dst_block_ref = blocks.block_reference_builder(dst_block_id)
+    dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=dst_block_ref)
+    for neuron in dst_block_neurons:
+        candidate_list.append(neuron)
+
+    return candidate_list
+
+
+def increase_filter_diagonal(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset):
+    """
+    Creates diagonal (upward, right to left) synapses between blocks within a cortical area
+    (i.e. intracortically), where appropriate.
+
+    ex: A neuron in block 0-1-2 of the source cortical area will have synapse candidates
+    in block 0-2-1 of the same cortical area. If a block corresponding to source block x-y-z
+    (i.e. x-(y+1)-(z-1)) does not exist in the cortical area, no synapses are created.
+    """
+    src_neuron_block_ref = blocks.block_reference_builder(
+        runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1]
+    )
+    src_neuron_block_id = blocks.block_ref_2_id(src_neuron_block_ref)
+
+    candidate_list = list()
+    dst_block_id = [
+        src_neuron_block_id[0],
+        src_neuron_block_id[1] + 1,
+        src_neuron_block_id[2] - 1
+    ]
+    dst_block_ref = blocks.block_reference_builder(dst_block_id)
+    dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=dst_block_ref)
+    for neuron in dst_block_neurons:
+        candidate_list.append(neuron)
+
+    return candidate_list
+
+
+def decrease_z_subregion(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset):
+    """
+    Isolates all blocks in the Y plane of the source cortical area's Z axis maximum and
+    creates synapse candidates in a destination cortical area.
+    """
+    src_neuron_block_ref = blocks.block_reference_builder(
+        runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1]
+    )
+    src_neuron_block_id = blocks.block_ref_2_id(src_neuron_block_ref)
+
+    SRC_Z_MAX = runtime_data.genome['blueprint'][src_cortical_area]['neuron_params']['block_boundaries'][2]
+
+    candidate_list = list()
+    if src_neuron_block_id[2] == (SRC_Z_MAX - 1):
+        dst_blocks = runtime_data.block_dic[dst_cortical_area]
+        for block in dst_blocks:
+            for dst_neuron in dst_blocks[block]:
+                candidate_list.append(dst_neuron)
+
+    return candidate_list
+
+
+def increase_z_subregion(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset):
+    """
+    Isolates all blocks in the Y plane of the source cortical area's Z axis minimum and
+    creates synapse candidates in a destination cortical area.
+    """
+    src_neuron_block_ref = blocks.block_reference_builder(
+        runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1]
+    )
+    src_neuron_block_id = blocks.block_ref_2_id(src_neuron_block_ref)
+
+    candidate_list = list()
+    if src_neuron_block_id[2] == 0:
+        dst_blocks = runtime_data.block_dic[dst_cortical_area]
+        for block in dst_blocks:
+            for dst_neuron in dst_blocks[block]:
+                candidate_list.append(dst_neuron)
+
+    return candidate_list
+
+
+def expander_x(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset, dst_y_index=0, dst_z_index=0):
+    """
+    This rule represents a unique combination of all blocks from the source cortical area on the destination side
+    in x dim.
+    """
+    src_cortical_dim_x = \
+        len(runtime_data.genome['blueprint'][src_cortical_area]['neuron_params']['block_boundaries'][0])
+    dst_cortical_dim_x = \
+        len(runtime_data.genome['blueprint'][dst_cortical_area]['neuron_params']['block_boundaries'][0])
+
+    # Note that the destination cortical area is expected to have at least 2 ^ (source block count) to be able to
+    # address all the combinations
+    if dst_cortical_dim_x < 2 ** src_cortical_dim_x:
+        print("Warning: %s does not have enough blocks on x dim to support the needed synaptogenesis!"
+              % dst_cortical_area)
+
+    src_neuron_block_index_x = runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1][0]
+
+    candidate_list = list()
+
+    for dst_x_index in range(dst_cortical_dim_x):
+        if str(bin(dst_x_index))[2:][src_neuron_block_index_x]:
+            block_ref = blocks.block_reference_builder([dst_x_index, dst_y_index, dst_z_index])
+            for dst_neuron in blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=block_ref):
+                candidate_list.append(dst_neuron)
+    return candidate_list
+
+
+def reducer_x(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset, dst_y_index=0, dst_z_index=0):
+    """
+    Acts in reverse of the expander rule. It reduces the combination of various blocks down to its building blocks
+    representation through synaptic connections.
+    """
+    src_cortical_dim_x = runtime_data.genome['blueprint'][src_cortical_area]['neuron_params']['block_boundaries'][0]
+    dst_cortical_dim_x = runtime_data.genome['blueprint'][dst_cortical_area]['neuron_params']['block_boundaries'][0]
+
+    # Note that the destination cortical area is expected to have at least 2 ^ (source block count) to be able to
+    # address all the combinations
+    if src_cortical_dim_x > 2 ** dst_cortical_dim_x:
+        print("Warning: %s does not have enough blocks on x dim to support the needed synaptogenesis!"
+              % dst_cortical_area)
+
+    src_neuron_block_index_x = runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1][0]
+
+    # pad binary string with 0s if it's not long enough
+    src_neuron_bin_str = str(bin(src_neuron_block_index_x))[2:]
+    if len(src_neuron_bin_str) < dst_cortical_dim_x:
+        src_neuron_bin_str = src_neuron_bin_str.rjust(dst_cortical_dim_x, '0')
+
+    candidate_list = list()
+
+    for dst_x_index in range(dst_cortical_dim_x):
+        if int(src_neuron_bin_str[dst_x_index]):
+            block_ref = blocks.block_reference_builder([dst_x_index, dst_y_index, dst_z_index])
+            for dst_neuron in blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=block_ref):
+                candidate_list.append(dst_neuron)
+    return candidate_list
+
+
+# TODO: refactor to combine this with increase/decrease_filter_diagonal to generalize
+# TODO: use rule_params to specify the type of adjacent synapsing desired...
+def intracortical_adjacent(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset):
+    """
+    Creates synapses between adjacent (x-axis) blocks.
+    """
+    src_neuron_block_ref = blocks.block_reference_builder(
+        runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1]
+    )
+    src_neuron_block_id = blocks.block_ref_2_id(src_neuron_block_ref)
+
+    dst_block_id = [
+        src_neuron_block_id[0] + 1,
+        src_neuron_block_id[1],
+        src_neuron_block_id[2]
+    ]
+    dst_block_ref = blocks.block_reference_builder(dst_block_id)
+    dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=dst_block_ref)
+
+    candidate_list = list()
+    for neuron in dst_block_neurons:
+        candidate_list.append(neuron)
+
+    return candidate_list
+
+
+def to_select_block(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset, dst_block_id=[0, 0, 0]):
+    """
+    Creates synapses to neurons in a specific block in dst_cortical_area. Default is the first (i.e. min x,y,z-axis)
+    block.
+    """
+    dst_block_ref = blocks.block_reference_builder(dst_block_id)
+    dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=dst_block_ref)
+
+    candidate_list = list()
+    for neuron in dst_block_neurons:
+        candidate_list.append(neuron)
+
+    return candidate_list
+
+
+def from_last_block_only(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset):
+    """
+    Creates synapses to neurons in blocks in dst_cortical_area from src_cortical_area's last
+    (i.e. max x-axis value) block.
+    """
+    SRC_X_MAX = runtime_data.genome['blueprint'][src_cortical_area]['neuron_params']['block_boundaries'][0]
 
     src_neuron_block_ref = blocks.block_reference_builder(
         runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1]
@@ -94,25 +293,35 @@ def rule_selective_block_to_block(rule_param, src_cortical_area, dst_cortical_ar
     src_neuron_block_id = blocks.block_ref_2_id(src_neuron_block_ref)
 
     candidate_list = list()
-    if src_neuron_block_id[0] == 0:
-        dst_block_refs = ["1-0-6", "3-0-4"]
-        for block in dst_block_refs:
-            dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=block)
-            for dst_neuron in dst_block_neurons:
+    if src_neuron_block_id[0] == (SRC_X_MAX - 1):
+        dst_blocks = runtime_data.block_dic[dst_cortical_area]
+        for block in dst_blocks:
+            for dst_neuron in dst_blocks[block]:
                 candidate_list.append(dst_neuron)
 
-    elif src_neuron_block_id[0] == 1:
-        dst_block_refs = ["0-0-3", "1-0-3", "2-0-3", "3-0-3"]
-        for block in dst_block_refs:
-            dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=block)
-            for dst_neuron in dst_block_neurons:
-                candidate_list.append(dst_neuron)
+    return candidate_list
 
-    elif src_neuron_block_id[0] == 2:
-        dst_block_refs = ["0-0-6", "2-0-4"]
-        for block in dst_block_refs:
-            dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=block)
-            for dst_neuron in dst_block_neurons:
-                candidate_list.append(dst_neuron)
+
+def many_to_one(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset, bin_size=2):
+    """
+    Creates synapses between multiple (defined by bin_size) sequential (x-axis) blocks in src_cortical_area
+    with neurons from a single block in dst_cortical_area.
+    """
+    src_neuron_block_ref = blocks.block_reference_builder(
+        runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1]
+    )
+    src_neuron_block_id = blocks.block_ref_2_id(src_neuron_block_ref)
+
+    dst_block_id = [
+        src_neuron_block_id[0] // bin_size,
+        src_neuron_block_id[1],
+        src_neuron_block_id[2]
+    ]
+    dst_block_ref = blocks.block_reference_builder(dst_block_id)
+    dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=dst_block_ref)
+
+    candidate_list = list()
+    for neuron in dst_block_neurons:
+        candidate_list.append(neuron)
 
     return candidate_list

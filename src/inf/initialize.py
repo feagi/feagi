@@ -17,7 +17,6 @@ from evo.stats import list_top_n_utf_memory_neurons, block_dict_summary
 from inf.messenger import Pub
 from evo.neuroembryogenesis import generate_plasticity_dict
 
-
 log = logging.getLogger(__name__)
 
 
