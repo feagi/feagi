@@ -13,7 +13,8 @@ model_properties = {
     'motor': {
         'count': 4,
         'topic_identifier': '/M',
-        'motor_statuses': {}
+        'motor_statuses': {},
+        'rolling_window_len': 5
     },
     'servo': {
         'count': 2,

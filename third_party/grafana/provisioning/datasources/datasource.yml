@@ -1,0 +1,20 @@
+apiVersion: 1
+
+datasources:
+  - name: InfluxDB_v2_Flux
+    type: influxdb
+    access: proxy
+    orgId: 1
+    url: http://influxdb:8086
+    user: FEAGI
+    isDefault: true
+    editable: true
+    secureJsonData:
+      # need to store these in env variables or something...
+      token: NRHnKLrv7TGOIE2o8X-h7ETOQTcAPelWOS1l5ocgcsMkb4u-7VvR1afqsEBVTCy1frmK_WPxTW_nxptm781XEQ==
+      password: neuraville
+    jsonData:
+      version: Flux
+      organization: Neuraville
+      defaultBucket: data
+      tlsSkipVerify: true

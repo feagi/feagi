@@ -111,7 +111,7 @@ def sonar_to_coords(sonar_data, threshold=10):
                                ['block_boundaries'][2]
 
     try:
-        dist_map = round(map_value(sonar_data, SONAR_MIN, SONAR_MAX, 0, Z_MAX))
+        dist_map = round(map_value(sonar_data, SONAR_MIN, SONAR_MAX, 0, Z_MAX-1))
     except TypeError:
         dist_map = 0
         print("Type Error in sonar_to_coords...")

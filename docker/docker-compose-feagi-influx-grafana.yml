@@ -1,0 +1,45 @@
+version: "3"
+
+networks:
+  net:
+    driver: bridge
+
+services:
+  influxdb:
+    image: influxdb:2.1.1
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=FEAGI
+      - DOCKER_INFLUXDB_INIT_PASSWORD=neuraville
+      - DOCKER_INFLUXDB_INIT_ORG=Neuraville
+      - DOCKER_INFLUXDB_INIT_BUCKET=data
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=NRHnKLrv7TGOIE2o8X-h7ETOQTcAPelWOS1l5ocgcsMkb4u-7VvR1afqsEBVTCy1frmK_WPxTW_nxptm781XEQ==
+    ports:
+      - 8086:8086
+    volumes:
+      - influxdb_data:/var/lib/influxdb
+    networks:
+      - net
+
+  grafana:
+    build: ../third_party/grafana/
+    ports:
+      - 3000:3000
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - net
+
+  feagi:
+    build: ./
+    environment:
+      - CONTAINERIZED=true
+      - "PYTHONUNBUFFERED=1"
+    networks:
+      - net
+
+volumes:
+  grafana_data:
+    external: true
+  influxdb_data:
+    external: true

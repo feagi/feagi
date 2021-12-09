@@ -61,7 +61,17 @@ class SynaptogenesisRuleManager:
             "rule_5": rule_block_to_block,
             "rule_6": rule_block_to_block,
             "rule_7": rule_block_distributor,
-            "rule_8": rule_selective_block_to_block
+            "rule_9": decrease_filter_diagonal,
+            "rule_10": increase_filter_diagonal,
+            "rule_11": decrease_z_subregion,
+            "rule_12": increase_z_subregion,
+            "rule_13": rule_block_one_to_all,
+            "rule_14": expander_x,
+            "rule_15": reducer_x,
+            "rule_16": intracortical_adjacent,
+            "rule_17": to_select_block,
+            "rule_18": from_last_block_only,
+            "rule_19": many_to_one
         }
         # Get the function from switcher dictionary
         rule_func = switcher.get(self.rule, lambda: "Invalid rule")
@@ -87,6 +97,13 @@ def synapse(cortical_area, src_id, dst_cortical_area, dst_id, postsynaptic_curre
     # if src_id not in runtime_data.brain[src_cortical_area]:
     #     print("Source or Destination neuron not found")
     #     return
+
+    try:
+        if runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][dst_cortical_area]['inhibitory']:
+            postsynaptic_current *= -1
+            # print("**** ***** **** *** Inhibitory synapse was created *******")
+    except KeyError:
+        pass
 
     runtime_data.brain[cortical_area][src_id]["neighbors"][dst_id] = \
         {"cortical_area": dst_cortical_area, "postsynaptic_current": postsynaptic_current}
@@ -134,12 +151,12 @@ def neighbor_candidate_generator(src_cortical_area, src_neuron_id, dst_cortical_
     return synapse_candidate_list
 
 
-def neighbor_finder_intercortical(cortical_area, cortical_area_dst, src_neuron_id):
+def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
     """
     Finds a list of candidate Neurons from another Cortical area to build Synapse with for a given Neuron
     """
 
-    rule_manager = SynaptogenesisRuleManager(src_neuron_id=src_neuron_id, src_cortical_area=cortical_area,
+    rule_manager = SynaptogenesisRuleManager(src_neuron_id=src_neuron_id, src_cortical_area=cortical_area_src,
                                              dst_cortical_area=cortical_area_dst)
     candidate_list = rule_manager.growth_rule_selector()
     return candidate_list
@@ -161,9 +178,9 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst,
 
     for src_id in runtime_data.brain[cortical_area]:
         # Cycle thru the neighbor_candidate_list and establish Synapses
-        neighbor_candidates = neighbor_finder_intercortical(cortical_area=cortical_area,
-                                                            cortical_area_dst=cortical_area_dst,
-                                                            src_neuron_id=src_id)
+        neighbor_candidates = neighbor_finder(cortical_area_src=cortical_area,
+                                              cortical_area_dst=cortical_area_dst,
+                                              src_neuron_id=src_id)
 
         # if cortical_area == "infrared_reducer":
         #     print(neighbor_candidates)

@@ -197,6 +197,8 @@ class InfluxManagement:
         import influxdb_client
         from influxdb_client.client.write_api import SYNCHRONOUS
 
+        self.db_params = runtime_data.parameters['Database']
+
         if runtime_data.parameters:
             self.evo_bucket = runtime_data.parameters["Database"]["influxdb_evolutionary_bucket"]
             self.stats_bucket = runtime_data.parameters["Database"]["influxdb_stats_bucket"]
@@ -206,7 +208,7 @@ class InfluxManagement:
             # todo: db address needs to be def from a config file instead
             print('Running in container: ', runtime_data.running_in_container)
             if runtime_data.running_in_container:
-                self.url = "http://host.docker.internal:8086"
+                self.url = self.db_params['influxdb_url']
             else:
                 self.url = "http://127.0.0.1:8086"
 
@@ -289,7 +291,9 @@ class InfluxManagement:
                 }
             }
         ]
+        print("\n\t>>>>>>>>> >>>>>>>>> INSERTING BURST ACTIVITY INTO INFLUXDB <<<<<<<<<<< <<<<<<<<<<<<<")
         self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
+        print("\n\t>>>>>>>>> >>>>>>>>> INSERTING BURST ACTIVITY COMPLETE <<<<<<<<<<< <<<<<<<<<<<<<")
 
     def insert_burst_checkpoints(self, connectome_path, burst_id):
         raw_data = [
@@ -381,7 +385,8 @@ class InfluxManagement:
         try:
             if self.client.buckets_api().find_buckets(name=self.stats_bucket):
                 print("    InfluxDb: ", settings.Bcolors.OKGREEN + "Enabled" + settings.Bcolors.ENDC)
-        except:
+        except Exception as e:
+            print("\n\t>>>>>>>>>>>> ERROR: ", str(e))
             print("    InfluxDb:", settings.Bcolors.RED + "Disabled" + settings.Bcolors.ENDC)
 
 

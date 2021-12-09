@@ -260,9 +260,15 @@ def burst_manager():
             capture_cortical_activity_stats()
 
             for _ in runtime_data.fire_candidate_list:
-                while runtime_data.fire_candidate_list[_]:
-                    neuron_to_fire = runtime_data.fire_candidate_list[_].pop()
-                    neuron_fire(_, neuron_to_fire)
+                if runtime_data.genome['blueprint'][_].get('degeneration'):
+                    degeneration_val = runtime_data.genome['blueprint'][_]['degeneration']
+                    while runtime_data.fire_candidate_list[_]:
+                        neuron_to_fire = runtime_data.fire_candidate_list[_].pop()
+                        neuron_fire(_, neuron_to_fire, degenerate=degeneration_val)
+                else:
+                    while runtime_data.fire_candidate_list[_]:
+                        neuron_to_fire = runtime_data.fire_candidate_list[_].pop()
+                        neuron_fire(_, neuron_to_fire)
             # Transferring future_fcl to current one and resetting the future one in process
             for _ in runtime_data.future_fcl:
                 runtime_data.fire_candidate_list[_] = \
@@ -319,6 +325,7 @@ def burst_manager():
             else:
                 print("Warning: Cortical area %s not found within the block_dic" % cortical_area_)
 
+
     def sensory_message_router():
         # Broadcasts a TCP message on each burst
         if runtime_data.parameters['Switches']['burst_beacon']:
@@ -339,9 +346,10 @@ def burst_manager():
                 if runtime_data.parameters["Logs"]["print_burst_info"]:
                     print("FEAGI received message from router as:", ipu_data)
 
+
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
-        sleep(runtime_data.burst_timer)
+        sleep(float(runtime_data.burst_timer))
 
         burst_start_time = datetime.now()
         log_burst_activity_influx()

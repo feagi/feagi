@@ -236,18 +236,18 @@ def synaptogenesis():
             if runtime_data.parameters["Logs"]["print_brain_gen_activities"]:
                 print("Synapse creation for Cortical area %s will be skipped." % key)
 
-    func1 = partial(build_synapse_intracortical, runtime_data.genome, runtime_data.brain, runtime_data.parameters)
-    pool1 = Pool(processes=int(runtime_data.parameters['System']['max_core']))
-
-    pool1.map(func1, synapse_creation_candidates)
-    pool1.close()
-    pool1.join()
-
-    print('All internal synapse creation has been completed.')
+    # func1 = partial(build_synapse_intracortical, runtime_data.genome, runtime_data.brain, runtime_data.parameters)
+    # pool1 = Pool(processes=int(runtime_data.parameters['System']['max_core']))
+    #
+    # pool1.map(func1, synapse_creation_candidates)
+    # pool1.close()
+    # pool1.join()
+    #
+    # print('All internal synapse creation has been completed.')
     # stats.brain_total_synapse_cnt()
 
     # Build Synapses across various Cortical areas
-    func2 = partial(build_synapse_intercortical, runtime_data.genome, runtime_data.brain, runtime_data.parameters,
+    func2 = partial(build_synapses, runtime_data.genome, runtime_data.brain, runtime_data.parameters,
                     runtime_data.block_dic, runtime_data.connectome_path)
     pool2 = Pool(processes=int(runtime_data.parameters['System']['max_core']))
 
@@ -257,7 +257,7 @@ def synaptogenesis():
 
     # Another implementation using concurrent.futures instead of Pool
     # with concurrent.futures.ProcessPoolExecutor() as executor:
-    #     results = [executor.submit(build_synapse_intercortical, runtime_data.genome, runtime_data.brain,
+    #     results = [executor.submit(build_synapses, runtime_data.genome, runtime_data.brain,
     #                runtime_data.parameters, runtime_data.block_dic, cortical_area)
     #                for cortical_area in runtime_data.cortical_list]
 
@@ -273,27 +273,27 @@ def synaptogenesis():
     print(runtime_data.intercortical_mapping)
 
 
-def build_synapse_intracortical(genome, brain, parameters, key):
-    # Read Genome data
-    timer = datetime.datetime.now()
-    synapse_count, runtime_data.brain = \
-        synapse.neighbor_builder(brain=brain, genome=genome, brain_gen=True, cortical_area=key, cortical_area_dst=key,
-                                 rule=genome["blueprint"][key]["neighbor_locator_rule_id"],
-                                 rule_param=genome["neighbor_locator_rule"]
-                                 [genome["blueprint"][key]["neighbor_locator_rule_id"]]
-                                 [genome["blueprint"][key]["neighbor_locator_rule_param_id"]],
-                                 postsynaptic_current=genome["blueprint"][key]["postsynaptic_current"])
-    if parameters["Logs"]["print_brain_gen_activities"]:
-        duration = datetime.datetime.now() - timer
-        if synapse_count != 0:
-            print("Synapse creation for Cortical area %s is now complete. Count: %i  Duration: %s  Per Synapse Avg.: %s"
-                  % (key, synapse_count, duration, duration / synapse_count))
-        else:
-            print("Synapse creation for Cortical area %s is now complete. Count: 0 Duration: 0 " % key)
-    disk_ops.save_brain_to_disk(cortical_area=key, brain=runtime_data.brain, parameters=parameters)
+# def build_synapse_intracortical(genome, brain, parameters, key):
+#     # Read Genome data
+#     timer = datetime.datetime.now()
+#     synapse_count, runtime_data.brain = \
+#         synapse.neighbor_builder(brain=brain, genome=genome, brain_gen=True, cortical_area=key, cortical_area_dst=key,
+#                                  rule=genome["blueprint"][key]["neighbor_locator_rule_id"],
+#                                  rule_param=genome["neighbor_locator_rule"]
+#                                  [genome["blueprint"][key]["neighbor_locator_rule_id"]]
+#                                  [genome["blueprint"][key]["neighbor_locator_rule_param_id"]],
+#                                  postsynaptic_current=genome["blueprint"][key]["postsynaptic_current"])
+#     if parameters["Logs"]["print_brain_gen_activities"]:
+#         duration = datetime.datetime.now() - timer
+#         if synapse_count != 0:
+#             print("Synapse creation for Cortical area %s is now complete. Count: %i  Duration: %s  Per Synapse Avg.: %s"
+#                   % (key, synapse_count, duration, duration / synapse_count))
+#         else:
+#             print("Synapse creation for Cortical area %s is now complete. Count: 0 Duration: 0 " % key)
+#     disk_ops.save_brain_to_disk(cortical_area=key, brain=runtime_data.brain, parameters=parameters)
 
 
-def build_synapse_intercortical(genome, brain, parameters, block_dic, connectome_path, src_cortical_area):
+def build_synapses(genome, brain, parameters, block_dic, connectome_path, src_cortical_area):
     # if runtime_data.parameters["Database"]["influxdb_enabled"]:
     #     from inf import db_handler
     #     influxdb = db_handler.InfluxManagement()
@@ -409,6 +409,6 @@ def generate_plasticity_dict():
                     try:
                         runtime_data.plasticity_dict[area].add(mapping_dst)
                     except KeyError:
-                        runtime_data.plasticity_dict[area] = set(mapping_dst)
+                        runtime_data.plasticity_dict[area] = set([mapping_dst])
             except KeyError:
                 pass
