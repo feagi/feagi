@@ -138,6 +138,9 @@ To build a FEAGI image for use with other service images using `docker-compose`,
 # Demo available
 Here are some demo using FEAGI:
 [Monitoring artificial brain’s cortical activity](/third_party/godot)
+
 [Neurorobotics with ROS2 and Gazebo Ignition](/third_party/gazebo/smart_car/freenove_4wd_car_description/)
+
 [FEAGI on Raspberry PI](third_party/raspberry_pi/)
+
 [FEAGI on Turtlebot3](third_party/ros/turtlebot/)
