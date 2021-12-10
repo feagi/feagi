@@ -6,15 +6,14 @@ datasources:
     access: proxy
     orgId: 1
     url: http://influxdb:8086
-    user: FEAGI
+    user: $INFLUX_USER
     isDefault: true
     editable: true
     secureJsonData:
-      # need to store these in env variables or something...
-      token: NRHnKLrv7TGOIE2o8X-h7ETOQTcAPelWOS1l5ocgcsMkb4u-7VvR1afqsEBVTCy1frmK_WPxTW_nxptm781XEQ==
-      password: neuraville
+      token: $INFLUX_TOKEN
+      password: $INFLUX_PASSWORD
     jsonData:
       version: Flux
-      organization: Neuraville
-      defaultBucket: data
+      organization: $INFLUX_ORG
+      defaultBucket: $INFLUX_BUCKET
       tlsSkipVerify: true
