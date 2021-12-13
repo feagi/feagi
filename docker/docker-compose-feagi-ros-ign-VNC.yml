@@ -12,7 +12,7 @@ services:
         limits:
           cpus: '2'
     ports:
-      - "6080:80"
+      - "127.0.0.1:6080:80"
      #environment:
      #  - OPENBOX_ARGS='--startup "/opt/source-code/freenove_4wd_car_description/setup_container.sh"'
     privileged: true
@@ -20,6 +20,8 @@ services:
     # tty: true
     networks:
       - net
+    expose:
+      - "30003"
 
   feagi:
     build: ./
@@ -29,13 +31,4 @@ services:
       - "PYTHONUNBUFFERED=1"
     networks:
       - net
-    volumes:
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/evo/static_genome.py:/opt/source-code/feagi-core/src/evo/static_genome.py
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/evo/synaptogenesis_rules.py:/opt/source-code/feagi-core/src/evo/synaptogenesis_rules.py
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/feagi_configuration.ini:/opt/source-code/feagi-core/src/feagi_configuration.ini
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/inf/fake_stimulation.py:/opt/source-code/feagi-core/src/inf/fake_stimulation.py
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/npu/burst_engine.py:/opt/source-code/feagi-core/src/npu/burst_engine.py
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/inf/runtime_data.py:/opt/source-code/feagi-core/src/inf/runtime_data.py
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/inf/initialize.py:/opt/source-code/feagi-core/src/inf/initialize.py
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/ipu/source/battery.py:/opt/source-code/feagi-core/src/ipu/source/battery.py
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/ipu/processor/range.py:/opt/source-code/feagi-core/src/ipu/processor/range.py
+

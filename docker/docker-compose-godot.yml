@@ -1,0 +1,31 @@
+version: "3"
+
+networks:
+  net:
+    driver: bridge
+
+services:
+  godot:
+    build: ../third_party/godot/
+    ports:
+      - "6080:80"
+    privileged: true
+    # stdin_open: true
+    # tty: true
+    networks:
+      - net
+    volumes:
+      - data:/data
+
+  feagi:
+    build: ./
+    privileged: true
+    environment:
+      - "PYTHONUNBUFFERED=1"
+    networks:
+      - net
+    volumes:
+      - data:/data
+volumes:
+ data:
+
