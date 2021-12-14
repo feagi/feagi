@@ -97,22 +97,12 @@ You probably have tried our freeenove smartcar demo in Gazebo using ROS2 and FEA
 1. Navigate to feagi-core/docker/
 2. docker-compose -f docker-compose-feagi-ros-ign-VNC.yml build --no-cache
 3. docker-compose -f docker-compose-feagi-ros-ign-VNC.yml up
+4. Open this in your browser: 127.0.0.1:6080/
 4. Open a new terminal.
 5. Navigate to feagi-core/third_party/godot/
 6. type in the therminal: "python3 bridge_godot_python.py"
 7. Open a new terminal again, then navigate to feagi-core/third_party/godot/
 8. ./FEAGI_activity.x86_64
-```
-
-
-After this, launch FEAGI then:
-```
-1. Navigate to feagi-core/docker/
-2. docker-compose -f docker-compose-feagi-ros-ign-VNC.yml build --no-cache
-3. docker-compose -f docker-compose-feagi-ros-ign-VNC.yml up
-4. Open this in your browser: 127.0.0.1:6080/
-5. Open a seperate terminal, navigate to /feagi-core/src/evo/
-6. ./FEAGI_initalize.sh
 ```
 
 See how ROS2/Gazebo is being controlled by FEAGI as you can see FEAGI's neuron firing
