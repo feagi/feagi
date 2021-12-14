@@ -20,8 +20,6 @@ services:
     # tty: true
     networks:
       - net
-    expose:
-      - "30003"
 
   feagi:
     build: ./
@@ -29,6 +27,7 @@ services:
     environment:
       - GAZEBO_CONTAINER=true
       - "PYTHONUNBUFFERED=1"
+    ports:
+      - 30003:30003
     networks:
       - net
-
