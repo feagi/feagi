@@ -100,7 +100,7 @@ You probably have tried our freeenove smartcar demo in Gazebo using ROS2 and FEA
 4. Open this in your browser: 127.0.0.1:6080/
 4. Open a new terminal.
 5. Navigate to feagi-core/third_party/godot/
-6. type in the therminal: "python3 bridge_godot_python.py"
+6. Type in the therminal: "python3 bridge_godot_python.py"
 7. Open a new terminal again, then navigate to feagi-core/third_party/godot/
 8. ./FEAGI_activity.x86_64
 ```
