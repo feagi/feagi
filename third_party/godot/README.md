@@ -92,9 +92,18 @@ This is the bridge between FEAGI and Godot. Since Godot doesn't support ZMQ and 
 You probably have tried our freeenove smartcar demo in Gazebo using ROS2 and FEAGI. If you haven't seen it, here is the  [documentation](https://github.com/feagi/feagi-core/blob/develop/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md).
 
 
-Container part ##TODO: Needs to complete this part
+**Container:**
+```
+1. Navigate to feagi-core/docker/
+2. docker-compose -f docker-compose-feagi-ros-ign-VNC.yml build --no-cache
+3. docker-compose -f docker-compose-feagi-ros-ign-VNC.yml up
+4. Open a new terminal.
+5. Navigate to feagi-core/third_party/godot/
+6. type in the therminal: "python3 bridge_godot_python.py"
+7. Open a new terminal again, then navigate to feagi-core/third_party/godot/
+8. ./FEAGI_activity.x86_64
+```
 
-Before you start, be sure to copy bridge_godot_python.py, FEAGI_activity.x86_64, FEAGI_initalize.sh and FEAGI_activity.pck from feagi-core/third-party/godot/ to feagi-core/src/evo/.
 
 After this, launch FEAGI then:
 ```
