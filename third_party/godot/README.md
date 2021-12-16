@@ -48,8 +48,22 @@ The FEAGI will read the static_genome.py which is located in `src/evo/static_gen
 This genome will display all the cortical areas, neurons, and information being used in a general robot. You may also add the genome as well which is explained in the Cortical Area Arrangements section.
 
 ## Starting With The Program To View The Neurons Data
+
+If you want to launch the godot in the container, you can do so by doing this:
 ```
-1. FEAGI_initalize.sh
+1. Navigate to feagi-core/docker/
+2. paste this in terminal: docker-compose -f docker-compose-godot.yml build --no-cache
+3. Once this complete the build, paste this: docker-compose -f docker-compose-godot.yml build up
+4. Open http://127.0.0.1:6080/ in your browser
+```
+It should look like this,
+
+![demo](docs/display_godot.png)
+
+If you want to do it on local machine, you can do so by doing this:
+```
+1. Navigate to feagi-core/third_party/godot/local_machine/
+2. FEAGI_initalize.sh
 ```
 
 If you want to do it without a script, you can do so by following these steps:
@@ -58,13 +72,7 @@ If you want to do it without a script, you can do so by following these steps:
 2. python3 bridge_godot_python.py
 3. ./FEAGI_activity.x86_64
 ```
-If you want to launch the godot in the container, you can do so by doing this:
-```
 
-```
-It should look like this,
-
-![demo](docs/display_godot.gif)
 
 
 
@@ -181,3 +189,6 @@ Be sure to put `True` next to visualization so that way, it can tell FEAGI that 
 As for the relative_coordinate, you can put it somewhere you want it to be. 
 
 ![image](https://user-images.githubusercontent.com/65916520/145425693-d5ef2c1a-c9f2-4aed-8e70-bdcb879903d4.png)
+
+
+
