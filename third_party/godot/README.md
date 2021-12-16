@@ -60,6 +60,18 @@ It should look like this,
 
 ![demo](docs/display_godot.png)
 
+Control list for the camera in container:
+### Action   =   keys
+Rotate left = 'A'
+Rotate right = 'D'
+Rotate upward = 'W'
+Rotate backward = 'S'
+Move to left = 'arrow left'
+Move to right = 'arrow right'
+Move to forward = 'arrow up'
+Move to backward = 'arrow back'
+
+
 If you want to do it on local machine, you can do so by doing this:
 ```
 1. Navigate to feagi-core/third_party/godot/local_machine/
@@ -73,6 +85,7 @@ If you want to do it without a script, you can do so by following these steps:
 3. ./FEAGI_activity.x86_64
 ```
 
+On local control for the camera using mouse to freelook and arrow keys as move. 
 
 
 
