@@ -3390,6 +3390,12 @@ genome = {
                   1,
                   10
               ],
+              "relative_coordinate": [
+                100,
+                  0,
+                  0
+              ],
+              "visualization": True,
               "geometric_boundaries": {
                   "x": [
                       0,
@@ -3562,6 +3568,12 @@ genome = {
                 5,
                 20
             ],
+            "relative_coordinate": [
+                50,
+                 0,
+                 0
+            ],
+            "visualization": True,
             "geometric_boundaries": {
                 "x": [
                     0,
@@ -3619,6 +3631,12 @@ genome = {
                   1,
                   8
               ],
+              "relative_coordinate": [
+                30,
+                 0,
+                 0
+              ],
+              "visualization": True,
               "geometric_boundaries": {
                   "x": [
                       0,
@@ -3671,6 +3689,12 @@ genome = {
                   1,
                   20
               ],
+              "relative_coordinate": [
+                 90,
+                  0,
+                  0
+              ],
+              "visualization": True,
               "geometric_boundaries": {
                   "x": [
                       0,
@@ -3723,6 +3747,12 @@ genome = {
                 1,
                 20
             ],
+            "relative_coordinate": [
+                20,
+                 0,
+                 0
+            ],
+            "visualization": True,
             "geometric_boundaries": {
                 "x": [
                     0,
