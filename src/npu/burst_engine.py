@@ -14,6 +14,7 @@ todo: need a higher level mechanism to switch between life mode and autopilot mo
 import os
 import csv
 import glob
+import random
 from datetime import datetime
 from inf import disk_ops
 from time import sleep
@@ -24,7 +25,7 @@ from ipu.ipu_controller import ipu_handler
 from opu.opu_controller import opu_handler
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
-from inf.messenger import Pub, Sub
+from inf.messenger import Pub, Sub, PubBrainActivities
 
 
 def cortical_group_members(group):
@@ -346,6 +347,37 @@ def burst_manager():
                 if runtime_data.parameters["Logs"]["print_burst_info"]:
                     print("FEAGI received message from router as:", ipu_data)
 
+    def brain_activity_message_router():
+        # Broadcasts a TCP message on each burst
+        if runtime_data.parameters['Switches']['zmq_activity_publisher']:
+            # Limiting the broadcast messages to one in every 1 burst
+            # todo: externalize this parameter to ini
+            if runtime_data.burst_count % 1 == 0:
+                broadcast_message = brain_activity_voxelizer()
+                brain_activity_beacon.send(message=broadcast_message)
+
+    def brain_activity_voxelizer():
+        """
+        Convert FCL activities to a set of voxel locations and sends out through the ZMQ publisher
+        """
+        broadcast_message = set()
+
+        for _ in runtime_data.fire_candidate_list:
+            if runtime_data.genome['blueprint'][_]['neuron_params'].get('visualization'):
+                while runtime_data.fire_candidate_list[_]:
+                    firing_neuron = runtime_data.fire_candidate_list[_].pop()
+                    firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location'][1]
+                    relative_coords = runtime_data.genome['blueprint'][_]['neuron_params'].get('relative_coordinate')
+                    broadcast_message.add(
+                        (
+                            runtime_data.burst_count,
+                            firing_neuron_loc[0] + relative_coords[0],
+                            firing_neuron_loc[1] + relative_coords[1],
+                            firing_neuron_loc[2] + relative_coords[2]
+                        )
+                    )
+
+        return broadcast_message
 
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
@@ -385,7 +417,11 @@ def burst_manager():
 
         # Process neuron stimulation that ties to OPU
         opu_handler()
-        
+
+        # Publish brain activities on ZMQ
+        if runtime_data.parameters['Switches']['zmq_activity_publisher']:
+            brain_activity_message_router()
+
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
 
@@ -436,8 +472,12 @@ def burst_manager():
     init_burst_engine()
 
     # Initialize a broadcaster
-    burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['burst_engine_pub']
-    burst_beacon = Pub(address=burst_engine_pub_address)
+    if runtime_data.parameters["Switches"]["burst_beacon"]:
+        burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['burst_engine_pub']
+        burst_beacon = Pub(address=burst_engine_pub_address)
+    if runtime_data.parameters["Switches"]["zmq_activity_publisher"]:
+        brain_activity_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['brain_activities_pub']
+        brain_activity_beacon = PubBrainActivities(address=brain_activity_pub_address)
 
     # Initialize IPU listener
     if runtime_data.router_address is not None:
