@@ -6,8 +6,6 @@ Grafana is an open source web application that provides customizable data visual
 
 As mentioned previously, Grafana uses InfluxDB as a datasource, which stores time series data collected from FEAGI during execution. The aforementioned datasource configuration file for the InfluxDB datasource contains data for authenticating the InfluxDB instance, connecting to the database URL and specifying the target bucket for data storage. For this containerized deployment, it is recommended that users refrain from altering any of the accessible configuration files to avoid corrupting connections amongst services.
 
-<!-- provide instructions for how to create a custom dashboard from scratch and save as JSON?  -->
-
 **NOTE:** This deployment uses InfluxDB version 2 (`v2.0.7`), which relies on the functional data scripting language [Flux](https://docs.influxdata.com/flux/v0.x/get-started/) for querying and other data processing operations instead of the SQL-like [InfluxQL](https://docs.influxdata.com/influxdb/v1.8/query_language/) associated with earlier versions of InfluxDB (`< v2.0`). A sample Flux query is provided below to show the basic structure and highlight differences from InfluxQL syntax.
  
 ```
