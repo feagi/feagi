@@ -8,7 +8,7 @@ from router import *
 from random import randrange
 from threading import Thread
 import math
-import os
+
 
 import geometry_msgs.msg
 import rclpy
@@ -34,7 +34,6 @@ print("** **", feagi_state)
 sockets = feagi_state['sockets']
 router_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
 
-os.system("ros2 topic pub --once /S0 std_msgs/msg/Float64 '{data: 1.6}' && ros2 topic pub --once /S1 std_msgs/msg/Float64 '{data: 1.6}' &")
 print("--->> >> >> ", sockets)
 
 # todo: to obtain this info directly from FEAGI as part of registration
