@@ -14,7 +14,7 @@ services:
     #   - influx_org
     #   - influx_bucket
     environment:
-      # - DOCKER_INFLUXDB_INIT_MODE-setup
+      # - DOCKER_INFLUXDB_INIT_MODE=setup
       # - DOCKER_INFLUXDB_INIT_RETENTION=1w
       # - DOCKER_INFLUXDB_INIT_USERNAME=/run/secrets/influx_user
       # - DOCKER_INFLUXDB_INIT_PASSWORD=/run/secrets/influx_password
