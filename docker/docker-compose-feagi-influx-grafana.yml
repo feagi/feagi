@@ -51,8 +51,6 @@ services:
     environment:
       - CONTAINERIZED=true
       - PYTHONUNBUFFERED=1
-    volumes:
-      - /Users/neuraville/Desktop/feagi-core/src/feagi_configuration.ini:/opt/source-code/feagi-core/src/feagi_configuration.ini
     depends_on:
       influxdb:
         condition: service_healthy
