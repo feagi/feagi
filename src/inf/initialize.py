@@ -14,7 +14,7 @@ from inf import runtime_data, disk_ops, settings
 from configparser import ConfigParser
 from shutil import copyfile
 from evo.stats import list_top_n_utf_memory_neurons, block_dict_summary
-from inf.messenger import Pub
+from inf.messenger import Pub, PubBrainActivities
 from evo.neuroembryogenesis import generate_plasticity_dict
 
 log = logging.getLogger(__name__)
@@ -306,6 +306,11 @@ def init_io_channels():
         runtime_data.opu_pub = Pub(opu_socket)
         print("OPU channel as been successfully established at ",
               runtime_data.parameters['Sockets']['opu_port'])
+
+        # if runtime_data.parameters['Switches']['zmq_activity_publisher']:
+        #     brain_activities_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['brain_activities_pub']
+        #     print("Brain activity publisher socket is:", brain_activities_socket)
+        #     runtime_data.brain_activity_pub = PubBrainActivities(brain_activities_socket)
 
         runtime_data.router_address = 'tcp://' + runtime_data.parameters['Sockets']['sensory_router_ip'] + ':' + \
                                       runtime_data.parameters['Sockets']['sensory_router_port']

@@ -29,9 +29,3 @@ services:
       - "PYTHONUNBUFFERED=1"
     networks:
       - net
-#    volumes:
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/evo/static_genome.py:/opt/source-code/feagi-core/src/evo/static_genome.py
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/evo/synaptogenesis_rules.py:/opt/source-code/feagi-core/src/evo/synaptogenesis_rules.py
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/feagi_configuration.ini:/opt/source-code/feagi-core/src/feagi_configuration.ini
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/ipu/source/battery.py:/opt/source-code/feagi-core/src/ipu/source/battery.py
-#      - /Users/mnadji/PycharmProjects/feagi-core/src/ipu/processor/range.py:/opt/source-code/feagi-core/src/ipu/processor/range.py
