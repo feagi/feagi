@@ -6,24 +6,34 @@ networks:
 
 services:
   influxdb:
-    image: influxdb:2.1.1
-    secrets:
-      - influx_user
-      - influx_password
-      - influx_token
-      - influx_org
-      - influx_bucket
+    image: influxdb:2.0.7
+    # secrets:
+    #   - influx_user
+    #   - influx_password
+    #   - influx_token
+    #   - influx_org
+    #   - influx_bucket
     environment:
+      # - DOCKER_INFLUXDB_INIT_MODE-setup
+      # - DOCKER_INFLUXDB_INIT_RETENTION=1w
+      # - DOCKER_INFLUXDB_INIT_USERNAME=/run/secrets/influx_user
+      # - DOCKER_INFLUXDB_INIT_PASSWORD=/run/secrets/influx_password
+      # - DOCKER_INFLUXDB_INIT_ORG=/run/secrets/influx_org
+      # - DOCKER_INFLUXDB_INIT_BUCKET=/run/secrets/influx_bucket
+      # - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=/run/secrets/influx_token
       - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=/run/secrets/influx_user
-      - DOCKER_INFLUXDB_INIT_PASSWORD=/run/secrets/influx_password
-      - DOCKER_INFLUXDB_INIT_ORG=/run/secrets/influx_org
-      - DOCKER_INFLUXDB_INIT_BUCKET=/run/secrets/influx_bucket
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=/run/secrets/influx_token
+      - DOCKER_INFLUXDB_INIT_RETENTION=1w
+      - DOCKER_INFLUXDB_INIT_USERNAME=FEAGI
+      - DOCKER_INFLUXDB_INIT_PASSWORD=neuraville
+      - DOCKER_INFLUXDB_INIT_ORG=Neuraville
+      - DOCKER_INFLUXDB_INIT_BUCKET=data
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=FBwCQkbiI2I85EaMn95zin00WfR8r22uZ5bjGXeK6uEBiOr2X4cL2pbHUNqjCd5OjVNsg5pkTZ3CrA6tg6frgA==
     ports:
       - 8086:8086
     volumes:
       - influxdb_data:/var/lib/influxdb
+    healthcheck:
+      test: "exit 0"
     networks:
       - net
 
@@ -40,28 +50,27 @@ services:
     build: ./
     environment:
       - CONTAINERIZED=true
-      - "PYTHONUNBUFFERED=1"
+      - PYTHONUNBUFFERED=1
     volumes:
       - /Users/neuraville/Desktop/feagi-core/src/feagi_configuration.ini:/opt/source-code/feagi-core/src/feagi_configuration.ini
     depends_on:
-      - influxdb
+      influxdb:
+        condition: service_healthy
     networks:
       - net
 
 volumes:
   grafana_data:
-    external: true
   influxdb_data:
-    external: true
 
-secrets:
-  influx_user:
-    file: ./secrets/INFLUX_USER
-  influx_password:
-    file: ./secrets/INFLUX_PASSWORD
-  influx_token:
-    file: ./secrets/INFLUX_TOKEN
-  influx_org:
-    file: ./secrets/INFLUX_ORG
-  influx_bucket:
-    file: ./secrets/INFLUX_BUCKET
+# secrets:
+#   influx_user:
+#     file: ./secrets/INFLUX_USER.txt
+#   influx_password:
+#     file: ./secrets/INFLUX_PASSWORD.txt
+#   influx_token:
+#     file: ./secrets/INFLUX_TOKEN.txt
+#   influx_org:
+#     file: ./secrets/INFLUX_ORG.txt
+#   influx_bucket:
+#     file: ./secrets/INFLUX_BUCKET.txt
