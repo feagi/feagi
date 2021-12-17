@@ -7,27 +7,14 @@ networks:
 services:
   influxdb:
     image: influxdb:2.0.7
-    # secrets:
-    #   - influx_user
-    #   - influx_password
-    #   - influx_token
-    #   - influx_org
-    #   - influx_bucket
     environment:
-      # - DOCKER_INFLUXDB_INIT_MODE=setup
-      # - DOCKER_INFLUXDB_INIT_RETENTION=1w
-      # - DOCKER_INFLUXDB_INIT_USERNAME=/run/secrets/influx_user
-      # - DOCKER_INFLUXDB_INIT_PASSWORD=/run/secrets/influx_password
-      # - DOCKER_INFLUXDB_INIT_ORG=/run/secrets/influx_org
-      # - DOCKER_INFLUXDB_INIT_BUCKET=/run/secrets/influx_bucket
-      # - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=/run/secrets/influx_token
-      - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_RETENTION=1w
-      - DOCKER_INFLUXDB_INIT_USERNAME=FEAGI
-      - DOCKER_INFLUXDB_INIT_PASSWORD=neuraville
-      - DOCKER_INFLUXDB_INIT_ORG=Neuraville
-      - DOCKER_INFLUXDB_INIT_BUCKET=data
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=FBwCQkbiI2I85EaMn95zin00WfR8r22uZ5bjGXeK6uEBiOr2X4cL2pbHUNqjCd5OjVNsg5pkTZ3CrA6tg6frgA==
+      - DOCKER_INFLUXDB_INIT_MODE=$INFLUXDB_MODE
+      - DOCKER_INFLUXDB_INIT_RETENTION=$INFLUXDB_RETENTION
+      - DOCKER_INFLUXDB_INIT_USERNAME=$INFLUXDB_USERNAME
+      - DOCKER_INFLUXDB_INIT_PASSWORD=$INFLUXDB_PASSWORD
+      - DOCKER_INFLUXDB_INIT_ORG=$INFLUXDB_ORG
+      - DOCKER_INFLUXDB_INIT_BUCKET=$INFLUXDB_BUCKET
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=$INFLUXDB_TOKEN
     ports:
       - 8086:8086
     volumes:
@@ -39,6 +26,9 @@ services:
 
   grafana:
     build: ../third_party/grafana/
+    environment:
+      - INFLUX_TOKEN=$INFLUXDB_TOKEN
+      - INFLUX_PASSWORD=$INFLUXDB_PASSWORD
     ports:
       - 3000:3000
     volumes:
@@ -60,15 +50,3 @@ services:
 volumes:
   grafana_data:
   influxdb_data:
-
-# secrets:
-#   influx_user:
-#     file: ./secrets/INFLUX_USER.txt
-#   influx_password:
-#     file: ./secrets/INFLUX_PASSWORD.txt
-#   influx_token:
-#     file: ./secrets/INFLUX_TOKEN.txt
-#   influx_org:
-#     file: ./secrets/INFLUX_ORG.txt
-#   influx_bucket:
-#     file: ./secrets/INFLUX_BUCKET.txt
