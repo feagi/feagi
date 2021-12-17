@@ -27,8 +27,11 @@ services:
   grafana:
     build: ../third_party/grafana/
     environment:
-      - INFLUX_TOKEN=$INFLUXDB_TOKEN
-      - INFLUX_PASSWORD=$INFLUXDB_PASSWORD
+      - INFLUXDB_USER=$INFLUXDB_USERNAME
+      - INFLUXDB_PASSWORD=$INFLUXDB_PASSWORD
+      - INFLUXDB_TOKEN=$INFLUXDB_TOKEN
+      - INFLUXDB_ORG=$INFLUXDB_ORG
+      - INFLUXDB_BUCKET=$INFLUXDB_BUCKET
     ports:
       - 3000:3000
     volumes:
