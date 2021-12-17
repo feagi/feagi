@@ -8,6 +8,7 @@ from router import *
 from random import randrange
 from threading import Thread
 import math
+import os
 
 import geometry_msgs.msg
 import rclpy
@@ -17,6 +18,7 @@ from sensor_msgs.msg import LaserScan, Image, BatteryState
 from rclpy.qos import qos_profile_sensor_data
 from configuration import *
 from configuration import message_to_feagi
+
 
 
 if sys.platform == 'win32':
@@ -32,6 +34,7 @@ print("** **", feagi_state)
 sockets = feagi_state['sockets']
 router_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
 
+os.system("ros2 topic pub --once /S0 std_msgs/msg/Float64 '{data: 1.6}' && ros2 topic pub --once /S1 std_msgs/msg/Float64 '{data: 1.6}' &")
 print("--->> >> >> ", sockets)
 
 # todo: to obtain this info directly from FEAGI as part of registration
@@ -146,7 +149,7 @@ class Motor:
                 model_properties['motor']['motor_statuses'][motor_index] = 0
 
             motor_current_position = model_properties['motor']['motor_statuses'][motor_index]
-            motor_position.data = float((speed * router_settings['feagi_burst_speed'] * 1) + motor_current_position)
+            motor_position.data = float((speed * router_settings['feagi_burst_speed'] / 4 ) + motor_current_position)
 
             model_properties['motor']['motor_statuses'][motor_index] = motor_position.data
             # print("Motor index, position, speed = ", motor_index, motor_position.data, speed)

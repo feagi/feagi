@@ -601,7 +601,7 @@
     <!--    sensor section   -->
 
       <link name='sensor'>
-      <pose relative_to='head2'>0 0 0.0201 0 -1.55 0</pose>
+      <pose relative_to='head2'>0 0 0.0201 0 1.55 0</pose>
 <!--      <pose>0.11 0 0.18 0 0 0</pose>-->
      <inertial>
           <mass>0.02</mass>
@@ -631,6 +631,7 @@
         </geometry>
       </collision>
       <frame name="lidar_frame" attached_to='sensor'>
+            <pose>0.8 0 0.5 0 0 0</pose>
         </frame>
       <sensor name='gpu_lidar' type='gpu_lidar'>
           <always_on>1</always_on>
