@@ -9,6 +9,7 @@ from random import randrange
 from threading import Thread
 import math
 
+
 import geometry_msgs.msg
 import rclpy
 import std_msgs.msg
@@ -17,6 +18,7 @@ from sensor_msgs.msg import LaserScan, Image, BatteryState
 from rclpy.qos import qos_profile_sensor_data
 from configuration import *
 from configuration import message_to_feagi
+
 
 
 if sys.platform == 'win32':
@@ -146,7 +148,7 @@ class Motor:
                 model_properties['motor']['motor_statuses'][motor_index] = 0
 
             motor_current_position = model_properties['motor']['motor_statuses'][motor_index]
-            motor_position.data = float((speed * router_settings['feagi_burst_speed'] * 1) + motor_current_position)
+            motor_position.data = float((speed * router_settings['feagi_burst_speed'] / 4 ) + motor_current_position)
 
             model_properties['motor']['motor_statuses'][motor_index] = motor_position.data
             # print("Motor index, position, speed = ", motor_index, motor_position.data, speed)
