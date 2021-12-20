@@ -130,7 +130,18 @@ To build a standalone FEAGI image and start the container, navigate to `~/feagi-
 (where `-t <image_name>` is an optional way to give the image a user-defined name - if this is not specified, Docker will give the resulting image a random name that must be used when running the container in the next step).
 * `docker run -it <image_name>`
 
-To build a FEAGI image for use with other service images using `docker-compose`, navigate to `~/feagi-core/docker` and note the existing `.yml` files - their filenames are indicative of the included services that will be networked with the FEAGI container once started. As an example, building and running `docker-compose-feagi-ros-ign.yml` will create networked FEAGI, ROS2 and Ignition Gazebo containers that can exchange data. To build and start these containers, run:
-* `$ docker-compose -f docker-compose-feagi-ros-ign.yml build`   
-* `$ docker-compose -f docker-compose-feagi-ros-ign.yml up`
+To build a FEAGI image for use with other service images using `docker-compose`, navigate to `~/feagi-core/docker` and note the existing `.yml` files - their filenames are indicative of the included services that will be networked with the FEAGI container once started. As an example, building and running `docker-compose-feagi-ros-ign-VNC.yml` will create networked [FEAGI, ROS2 and Ignition Gazebo](/third_party/gazebo/smart_car/freenove_4wd_car_description/) containers that can exchange data. To build and start these containers, run:
+* `$ docker-compose -f docker-compose-feagi-ros-ign-VNC.yml build`   
+* `$ docker-compose -f docker-compose-feagi-ros-ign-VNC.yml up`
 ***
+
+# Demo available
+Here are some demo using FEAGI:
+
+[Monitoring artificial brain’s cortical activity](/third_party/godot)
+
+[Neurorobotics with ROS2 and Gazebo Ignition](/third_party/gazebo/smart_car/freenove_4wd_car_description/)
+
+[FEAGI on Raspberry PI](third_party/raspberry_pi/)
+
+[FEAGI on Turtlebot3](third_party/ros/turtlebot/)
