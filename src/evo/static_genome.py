@@ -3833,7 +3833,7 @@ genome = {
             #     "neighbor_locator_rule_param_id": "param_1"
             # }
             "motor_opu": {
-                "neighbor_locator_rule_id": "rule_8",
+                "neighbor_locator_rule_id": "rule_9",
                 "neighbor_locator_rule_param_id": "param_1"
             }
         },
