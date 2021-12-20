@@ -9,50 +9,31 @@ genome = {
           "magnitude": "100"
       }
   },
-  "neighbor_locator_rule": {
-      "rule_0": {
-          "param_1": 0,
-          "param_2": 0
-      },
-      "rule_1": {
-          "param_1": 1,
-          "param_2": 1
-      },
-      "rule_2": {
-          "param_1": 5,
-          "param_2": 5,
-          "param_3": 3
-      },
-      "rule_3": {
-          "param_1": 3,
-          "param_2": 3
-      },
-      "rule_4": {
-          "param_1": 3,
-          "param_2": 3
-      },
-      "rule_5": {
-          "param_1": 3,
-          "param_2": 3,
-          "param_3": 3,
-          "param_4": 3,
-          "param_5": 3,
-          "param_6": 3,
-          "param_7": 3
-      },
-      "rule_6": {
-          "param_1": 1,
-          "param_2": 1
-      },
-      "rule_7": {
-          "param_1": 1,
-          "param_2": 1
-      },
-      "rule_8": {
-          "param_1": 1,
-          "param_2": 1
-      }
-  },
+  'neighbor_locator_rule': {'rule_0': {'param_1': 0, 'param_2': 0},
+                            'rule_1': {'param_1': 1, 'param_2': 1},
+                            'rule_10': {'param_1': 1, 'param_2': 1},
+                            'rule_11': {'param_1': 1, 'param_2': 1},
+                            'rule_12': {'param_1': 1, 'param_2': 1},
+                            'rule_13': {'param_1': 1, 'param_2': 1},
+                            'rule_14': {'param_1': 1, 'param_2': 1},
+                            'rule_15': {'param_1': 1, 'param_2': 1},
+                            'rule_16': {'param_1': 1, 'param_2': 1},
+                            'rule_17': {'param_1': 1, 'param_2': 1},
+                            'rule_18': {'param_1': 1, 'param_2': 1},
+                            'rule_19': {'param_1': 1, 'param_2': 1},
+                            'rule_2': {'param_1': 5, 'param_2': 5, 'param_3': 3},
+                            'rule_3': {'param_1': 3, 'param_2': 3},
+                            'rule_4': {'param_1': 3, 'param_2': 3},
+                            'rule_5': {'param_1': 3,
+                                       'param_2': 3,
+                                       'param_3': 3,
+                                       'param_4': 3,
+                                       'param_5': 3,
+                                       'param_6': 3,
+                                       'param_7': 3},
+                            'rule_6': {'param_1': 1, 'param_2': 1},
+                            'rule_7': {'param_1': 1, 'param_2': 1},
+                            'rule_9': {'param_1': 1, 'param_2': 1}},
   "orientation_blocks": {
       "1-": [[-1, 0], [0, 0], [1, 0]],
       "1|": [[0, -1], [0, 0], [0, 1]],
