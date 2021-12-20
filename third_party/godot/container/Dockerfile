@@ -16,7 +16,8 @@ RUN sudo apt-get install -y build-essential scons pkg-config libx11-dev libxcurs
 #RUN scons platform=x11 tools=no target=release bits=64
 RUN mkdir -p ./.local/share/godot/templates/3.2.stable/linux_x11_64_release/
 RUN wget https://downloads.tuxfamily.org/godotengine/3.2.2/Godot_v3.2.2-stable_export_templates.tpz 
-RUN mv Godot_v3.2.2-stable_export_templates.tpz ./.local/share/godot/templates/3.2.stable/linux_x11_64_release/
+#RUN mv Godot_v3.2.2-stable_export_templates.tpz ./.local/share/godot/templates/3.2.stable/linux_x11_64_release/
+#ADD Godot_v3.2-stable_export_templates /root/
 COPY ./* /root/
 RUN chmod a+x /root/*
 
