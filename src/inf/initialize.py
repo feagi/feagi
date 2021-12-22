@@ -1,5 +1,6 @@
 import logging
 import os
+import platform
 import psutil
 import string
 import random
@@ -131,25 +132,41 @@ def init_working_directory():
     as well as folders needed for IPU/OPU to ingress/egress data accordingly.
 
     """
-    runtime_data.working_directory = runtime_data.parameters["InitData"]["working_directory"] + '/' + runtime_data.brain_run_id
+    if platform.system() == 'Windows':
+        runtime_data.working_directory = runtime_data.parameters["InitData"]["working_directory"] + '\\' + runtime_data.brain_run_id
 
-    # Create connectome directory if needed
-    # todo: need to consolidate the connectome path as currently captured in two places
-    runtime_data.connectome_path = runtime_data.working_directory + '/connectome/'
-    runtime_data.parameters["InitData"]["connectome_path"] = runtime_data.connectome_path
-    if not os.path.exists(runtime_data.connectome_path):
-        os.makedirs(runtime_data.connectome_path)
-    # copyfile(runtime_data.parameters["InitData"]["static_genome_path"], runtime_data.connectome_path + '/')
+        # Create connectome directory if needed
+        # todo: need to consolidate the connectome path as currently captured in two places
+        runtime_data.connectome_path = runtime_data.working_directory + '\\connectome\\'
+        runtime_data.parameters["InitData"]["connectome_path"] = runtime_data.connectome_path
 
-    # Create IPU directories if needed
-    # todo: figure best way to obtain the following list. possibly from genome
-    directory_list = ['ipu', 'opu_vision', 'opu_utf', 'opu_auditory']
-    for _ in directory_list:
-        ipu_path = runtime_data.working_directory + '/' + _
-        if not os.path.exists(ipu_path):
-            os.makedirs(ipu_path)
-        runtime_data.paths[_] = runtime_data.working_directory + _
-    # print(runtime_data.paths)
+        if not os.path.exists(runtime_data.connectome_path):
+            os.makedirs(runtime_data.connectome_path)
+
+        # Create IPU directories if needed
+        # todo: figure best way to obtain the following list. possibly from genome
+        directory_list = ['ipu', 'opu_vision', 'opu_utf', 'opu_auditory']
+        for _ in directory_list:
+            ipu_path = runtime_data.working_directory + '\\' + _
+            if not os.path.exists(ipu_path):
+                os.makedirs(ipu_path)
+            runtime_data.paths[_] = runtime_data.working_directory + _
+    else:
+        runtime_data.working_directory = runtime_data.parameters["InitData"]["working_directory"] + '/' + runtime_data.brain_run_id
+        runtime_data.connectome_path = runtime_data.working_directory + '/connectome/'
+        runtime_data.parameters["InitData"]["connectome_path"] = runtime_data.connectome_path
+
+        if not os.path.exists(runtime_data.connectome_path):
+            os.makedirs(runtime_data.connectome_path)
+        # copyfile(runtime_data.parameters["InitData"]["static_genome_path"], runtime_data.connectome_path + '/')
+
+        directory_list = ['ipu', 'opu_vision', 'opu_utf', 'opu_auditory']
+        for _ in directory_list:
+            ipu_path = runtime_data.working_directory + '/' + _
+            if not os.path.exists(ipu_path):
+                os.makedirs(ipu_path)
+            runtime_data.paths[_] = runtime_data.working_directory + _
+        # print(runtime_data.paths)
 
 
 def init_genome():
