@@ -19,6 +19,9 @@ todo: create a process for burst_engine
 if __name__ == '__main__':
     import logging.config
     import json
+    import os
+    import platform
+    import tempfile
     from inf import initialize
     from evo import neuroembryogenesis, death
     from npu import burst_engine
@@ -31,6 +34,9 @@ if __name__ == '__main__':
 
     with open(logging_config_file, 'r') as data_file:
         LOGGING_CONFIG = json.load(data_file)
+        if platform.system() == 'Windows':
+            win_temp_dir = os.path.join(tempfile.gettempdir(), os.urandom(24).hex())
+            LOGGING_CONFIG['handlers']['file']['filename'] = win_temp_dir
         logging.config.dictConfig(LOGGING_CONFIG)
 
     def splash_screen():
