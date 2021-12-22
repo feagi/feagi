@@ -112,7 +112,7 @@ def run_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
     http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
     """
     runtime_data.brain_run_id = \
-        (str(datetime.now()).replace(' ', '_')).replace('.', '_')+'_'+(''.join(random.choice(chars)
+        (str(datetime.now()).replace(' ', '_')).replace('.', '_').replace(':', '-')+'_'+(''.join(random.choice(chars)
                                                                                for _ in range(size)))+'_R'
 
 
