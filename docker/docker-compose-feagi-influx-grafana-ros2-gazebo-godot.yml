@@ -75,9 +75,6 @@ services:
         condition: service_healthy
     networks:
       - net
-    volumes:
-      - /home/bwuk/ko/feagi-core/src/inf/fake_stimulation.py:/opt/source-code/feagi-core/src/inf/fake_stimulation.py
-      - /home/bwuk/ko/feagi-core/src/feagi_configuration.ini:/opt/source-code/feagi-core/src/feagi_configuration.ini
     
 
 
