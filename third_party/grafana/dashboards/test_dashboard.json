@@ -72,12 +72,12 @@
       "steppedLine": false,
       "targets": [
         {
-          "alias": "MOTOR THALAMUS",
+          "alias": "Burst stats",
           "groupBy": [],
           "measurement": "burstStats",
           "orderByTime": "ASC",
           "policy": "autogen",
-          "query": "from(bucket: \"test_data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"burstStats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"neuron_count\")\n  |> filter(fn: (r) => r[\"cortical_area\"] == \"battery_ipu\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
+          "query": "from(bucket: \"data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"burstStats\")\n  |> filter(fn: (r) => r[\"_field\"] == \"neuron_count\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -115,132 +115,6 @@
         "sort": 1,
         "value_type": "individual"
       },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": true,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "InfluxDB",
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 9,
-        "w": 24,
-        "x": 0,
-        "y": 8
-      },
-      "hiddenSeries": false,
-      "id": 4,
-      "legend": {
-        "alignAsTable": true,
-        "avg": true,
-        "current": true,
-        "max": true,
-        "min": true,
-        "rightSide": false,
-        "show": true,
-        "total": true,
-        "values": true
-      },
-      "lines": false,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null as zero",
-      "options": {
-        "alertThreshold": false
-      },
-      "percentage": false,
-      "pluginVersion": "8.2.5",
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "alias": "V1-1 MP",
-          "groupBy": [],
-          "hide": false,
-          "measurement": "membranePotential",
-          "orderByTime": "ASC",
-          "policy": "autogen",
-          "query": "from(bucket: \"test_data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"membranePotential\")\n  |> filter(fn: (r) => r[\"_field\"] == \"membrane_potential\")\n  |> filter(fn: (r) => r[\"_value\"] > 0)\n  |> filter(fn: (r) => r[\"cortical_area\"] == \"motor_babble_delay\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
-          "rawQuery": false,
-          "refId": "B",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "membrane_potential"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "sum"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "cortical_area",
-              "operator": "=",
-              "value": "vision_v1-1"
-            },
-            {
-              "condition": "AND",
-              "key": "connectome",
-              "operator": "=",
-              "value": "./connectome_1/"
-            }
-          ]
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": "5m",
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Membrane Potentials",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "transparent": true,
       "type": "graph",
       "xaxis": {
         "buckets": null,
