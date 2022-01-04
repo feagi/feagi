@@ -1,4 +1,4 @@
-name: Pytest
+name: Testing
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
       run: |
         python setup.py install
         python -m pip install --upgrade pip
-        pip install pytest pytest-cov
+        pip install pytest pytest-cov pylint
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Analyze code using pylint
       run: find . -name '*.py' -exec pylint {} \;
