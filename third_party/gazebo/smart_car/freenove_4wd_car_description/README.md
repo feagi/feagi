@@ -23,151 +23,147 @@ This readme's purpose is to teach you to create your own model along with the ca
 
 ## Steps to build your own robot using ROS2 and Gazebo Ignition
 1. Create your own workspace
-<details>
-  	    <summary></summary>
-            ## Create your own workspace
-            1. `source /opt/ros/foxy/setup.bash`
-            2. `mkdir -p my_first_ws/src`
-            3. `cd my_first_ws/src`
-            4. `ros2 pkg create --build-type ament_python my_first_robot`
-            5. `cd my_first_robot/`
-            6. `cd my_first_robot/` (again)
-            7. `touch helloworld_test.py`
-            8. `chmod a+x helloworld_test.py`
-            9. Paste this inside the helloworld_test.py
-            ```
-            import rclpy
-            from rclpy.node import Node
-            
-            from std_msgs.msg import String
-            
-            
-            class MinimalPublisher(Node):
-            
-                def __init__(self):
-                    super().__init__('minimal_publisher')
-                    self.publisher_ = self.create_publisher(String, 'topic', 10)
-                    timer_period = 0.5  # seconds
-                    self.timer = self.create_timer(timer_period, self.timer_callback)
-                    self.i = 0
-            
-                def timer_callback(self):
-                    msg = String()
-                    msg.data = 'Hello World: %d' % self.i
-                    self.publisher_.publish(msg)
-                    self.get_logger().info('Publishing: "%s"' % msg.data)
-                    self.i += 1
-            
-            
-            def main(args=None):
-                rclpy.init(args=args)
-            
-                minimal_publisher = MinimalPublisher()
-            
-                rclpy.spin(minimal_publisher)
-            
-                # Destroy the node explicitly
-                # (optional - otherwise it will be done automatically
-                # when the garbage collector destroys the node object)
-                minimal_publisher.destroy_node()
-                rclpy.shutdown()
-            
-            
-            if __name__ == '__main__':
-                main()
-            ```
-            10. Update your package.xml with this code inside the package.xml under <license>TODO: License declaration</license>
-            
-            ```
-            <exec_depend>rclpy</exec_depend>
-            <exec_depend>std_msgs</exec_depend>
-            ```
-            
-            Which looks like this:
-            ```
-            <?xml version="1.0"?>
-            <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
-            <package format="3">
-              <name>my_first_robot</name>
-              <version>0.0.0</version>
-              <description>TODO: Package description</description>
-              <maintainer email="your_email">you</maintainer>
-              <license>TODO: License declaration</license>
-            
-              <exec_depend>rclpy</exec_depend>
-              <exec_depend>std_msgs</exec_depend>
-            
-              <test_depend>ament_copyright</test_depend>
-              <test_depend>ament_flake8</test_depend>
-              <test_depend>ament_pep257</test_depend>
-              <test_depend>python3-pytest</test_depend>
-            
-              <export>
-                <build_type>ament_python</build_type>
-              </export>
-            </package>
-            ```
-            
-            11. Add this in the setup.py
-            ```
-                entry_points={
-                    'console_scripts': [
-                        'hello_world = my_first_robot.helloworld_test:main',
-                    ],
-            ```
-            
-            which should look like this;
-            ```
-            from setuptools import setup
-            
-            package_name = 'my_first_robot'
-            
-            setup(
-                name=package_name,
-                version='0.0.0',
-                packages=[package_name],
-                data_files=[
-                    ('share/ament_index/resource_index/packages',
-                        ['resource/' + package_name]),
-                    ('share/' + package_name, ['package.xml']),
-                ],
-                install_requires=['setuptools'],
-                zip_safe=True,
-                maintainer='you',
-                maintainer_email='your email',
-                description='TODO: Package description',
-                license='TODO: License declaration',
-                tests_require=['pytest'],
-                entry_points={
-                    'console_scripts': [
-                        'hello_world = my_first_robot.helloworld_test:main',
-                    ],
-                },
-            )
-            
-            ```
-            12. Check your setup.cfg like this:
-            ```
-            [develop]
-            script-dir=$base/lib/my_first_robot
-            [install]
-            install-scripts=$base/lib/my_first_robot
-            ```
-            If this match your setup.cfg, leave it. If no, copy above and paste it in the setup.cfg
-            
-            13. `colcon build --symlink-install`
-            14. `source install/setup.bash`
-            15. `ros2 run my_first_robot hello_world`
-            
-            Congratulations! You created a Python code using ROS2 only. Next, we will be learning how to control an ign model using ROS2.
-
-</details>
-
-</details>
 2. Create your own robot
 3. Build the bridge between ros2 and ign
 4. Update launch, cmakelist, setup.py, and setup.cfg, package.xml accordingly
 5. Create a simple python code to control ros2/ign.
+
+
+## Create your own workspace
+1. `source /opt/ros/foxy/setup.bash`
+2. `mkdir -p my_first_ws/src`
+3. `cd my_first_ws/src`
+4. `ros2 pkg create --build-type ament_python my_first_robot`
+5. `cd my_first_robot/`
+6. `cd my_first_robot/` (again)
+7. `touch helloworld_test.py`
+8. `chmod a+x helloworld_test.py`
+9. Paste this inside the helloworld_test.py
+```
+import rclpy
+from rclpy.node import Node
+
+from std_msgs.msg import String
+
+
+class MinimalPublisher(Node):
+
+    def __init__(self):
+        super().__init__('minimal_publisher')
+        self.publisher_ = self.create_publisher(String, 'topic', 10)
+        timer_period = 0.5  # seconds
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.i = 0
+
+    def timer_callback(self):
+        msg = String()
+        msg.data = 'Hello World: %d' % self.i
+        self.publisher_.publish(msg)
+        self.get_logger().info('Publishing: "%s"' % msg.data)
+        self.i += 1
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    minimal_publisher = MinimalPublisher()
+
+    rclpy.spin(minimal_publisher)
+
+    # Destroy the node explicitly
+    # (optional - otherwise it will be done automatically
+    # when the garbage collector destroys the node object)
+    minimal_publisher.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+10. Update your package.xml with this code inside the package.xml under <license>TODO: License declaration</license>
+
+```
+<exec_depend>rclpy</exec_depend>
+<exec_depend>std_msgs</exec_depend>
+```
+
+Which looks like this:
+```
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>my_first_robot</name>
+  <version>0.0.0</version>
+  <description>TODO: Package description</description>
+  <maintainer email="your_email">you</maintainer>
+  <license>TODO: License declaration</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
+```
+
+11. Add this in the setup.py
+```
+    entry_points={
+        'console_scripts': [
+            'hello_world = my_first_robot.helloworld_test:main',
+        ],
+```
+
+which should look like this;
+```
+from setuptools import setup
+
+package_name = 'my_first_robot'
+
+setup(
+    name=package_name,
+    version='0.0.0',
+    packages=[package_name],
+    data_files=[
+        ('share/ament_index/resource_index/packages',
+            ['resource/' + package_name]),
+        ('share/' + package_name, ['package.xml']),
+    ],
+    install_requires=['setuptools'],
+    zip_safe=True,
+    maintainer='you',
+    maintainer_email='your email',
+    description='TODO: Package description',
+    license='TODO: License declaration',
+    tests_require=['pytest'],
+    entry_points={
+        'console_scripts': [
+            'hello_world = my_first_robot.helloworld_test:main',
+        ],
+    },
+)
+
+```
+12. Check your setup.cfg like this:
+```
+[develop]
+script-dir=$base/lib/my_first_robot
+[install]
+install-scripts=$base/lib/my_first_robot
+```
+If this match your setup.cfg, leave it. If no, copy above and paste it in the setup.cfg
+
+13. `colcon build --symlink-install`
+14. `source install/setup.bash`
+15. `ros2 run my_first_robot hello_world`
+
+Congratulations! You created a Python code using ROS2 only. Next, we will be learning how to control an ign model using ROS2.
 
 
 ## Starting With A Car In Simulation
