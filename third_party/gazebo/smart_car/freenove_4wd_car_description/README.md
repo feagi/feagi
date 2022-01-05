@@ -23,8 +23,8 @@ This readme's purpose is to teach you to create your own model along with the ca
 
 ## Steps to build your own robot using ROS2 and Gazebo Ignition
 1. Create your own workspace
-<details>
-  <summary></summary>
+	<details>
+  	<summary></summary>
 ## Create your own workspace
     1. `source /opt/ros/foxy/setup.bash`
     2. `mkdir -p my_first_ws/src`
@@ -161,7 +161,7 @@ This readme's purpose is to teach you to create your own model along with the ca
     
     Congratulations! You created a Python code using ROS2 only. Next, we will be learning how to control an ign model using ROS2.
 
-</details>
+	</details>
 2. Create your own robot
 3. Build the bridge between ros2 and ign
 4. Update launch, cmakelist, setup.py, and setup.cfg, package.xml accordingly
