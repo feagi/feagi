@@ -13,10 +13,13 @@ This readme's purpose is to teach you to create your own model along with the ca
 7. [Extra and Detailed information](https://github.com/feagi/feagi-core/blob/feature-feature-doc-ign-foxy-draft-part3/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md#feagi-on-a-car-model)
 8. [Sources](https://github.com/feagi/feagi-core/tree/feature-feature-doc-ign-foxy-draft-part3/third_party/gazebo/smart_car/freenove_4wd_car_description#sources)
 ## Requirements For This Project:
-1. ROS2 Foxy
-2. Citadel for Ign Gazebo
-3. Python3
-4. Linux (Currently supported on Linux. Windows/Macs will eventually be added)
+<details>
+  <summary>Requirements</summary>
+ 1. ROS2 Foxy
+ 2. Citadel for Ign Gazebo
+ 3. Python3
+ 4. Linux (Currently supported on Linux. Windows/Macs will eventually be added)
+</details>
 
 ## Steps to build your own robot using ROS2 and Gazebo Ignition
 1. Create your own workspace
