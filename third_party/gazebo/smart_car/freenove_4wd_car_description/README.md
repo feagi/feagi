@@ -13,13 +13,10 @@ This readme's purpose is to teach you to create your own model along with the ca
 7. [Extra and Detailed information](https://github.com/feagi/feagi-core/blob/feature-feature-doc-ign-foxy-draft-part3/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md#feagi-on-a-car-model)
 8. [Sources](https://github.com/feagi/feagi-core/tree/feature-feature-doc-ign-foxy-draft-part3/third_party/gazebo/smart_car/freenove_4wd_car_description#sources)
 ## Requirements For This Project:
-<details>
-  <summary>Requirements</summary>
- 1. ROS2 Foxy
- 2. Citadel for Ign Gazebo
- 3. Python3
- 4. Linux (Currently supported on Linux. Windows/Macs will eventually be added)
-</details>
+1. ROS2 Foxy
+2. Citadel for Ign Gazebo
+3. Python3
+4. Linux (Currently supported on Linux. Windows/Macs will eventually be added)
 
 ## Steps to build your own robot using ROS2 and Gazebo Ignition
 1. Create your own workspace
@@ -28,9 +25,10 @@ This readme's purpose is to teach you to create your own model along with the ca
 4. Update launch, cmakelist, setup.py, and setup.cfg, package.xml accordingly
 5. Create a simple python code to control ros2/ign.
 
-
 ## Create your own workspace
-    1. `source /opt/ros/foxy/setup.bash`
+<details>
+  <summary>Click here to see the full steps</summary>
+1. `source /opt/ros/foxy/setup.bash`
     2. `mkdir -p my_first_ws/src`
     3. `cd my_first_ws/src`
     4. `ros2 pkg create --build-type ament_python my_first_robot`
@@ -39,7 +37,6 @@ This readme's purpose is to teach you to create your own model along with the ca
     7. `touch helloworld_test.py`
     8. `chmod a+x helloworld_test.py`
     9. Paste this inside the helloworld_test.py
-
     ```
     import rclpy
     from rclpy.node import Node
@@ -166,10 +163,7 @@ This readme's purpose is to teach you to create your own model along with the ca
     
     Congratulations! You created a Python code using ROS2 only. Next, we will be learning how to control an ign model using ROS2.
 
-</details>
-
 ## Starting With A Car In Simulation
-
  There are two important aspects of an SDF file. One is the world and the other is the model. The world is more likely the enviroment you created for the robot. A model is the object (in our case, a robotic car)
 To learn more about the world and a model, here are some Ignition tutorials available:
 1. [World](https://ignitionrobotics.org/docs/citadel/sdf_worlds)
