@@ -171,6 +171,7 @@ This readme's purpose is to teach you to create your own model along with the ca
 ## Starting With A Car In Simulation
 <details>
 <summary> Click here to see the full steps </summary>
+
  There are two important aspects of an SDF file. One is the world and the other is the model. The world is more likely the enviroment you created for the robot. A model is the object (in our case, a robotic car)
 To learn more about the world and a model, here are some Ignition tutorials available:
 1. [World](https://ignitionrobotics.org/docs/citadel/sdf_worlds)
