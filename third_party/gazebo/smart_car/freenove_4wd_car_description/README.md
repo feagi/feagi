@@ -163,7 +163,9 @@ This readme's purpose is to teach you to create your own model along with the ca
     15. `ros2 run my_first_robot hello_world`
     
     Congratulations! You created a Python code using ROS2 only. Next, we will be learning how to control an ign model using ROS2.
+
 </details>
+
 ## Starting With A Car In Simulation
  There are two important aspects of an SDF file. One is the world and the other is the model. The world is more likely the enviroment you created for the robot. A model is the object (in our case, a robotic car)
 To learn more about the world and a model, here are some Ignition tutorials available:
