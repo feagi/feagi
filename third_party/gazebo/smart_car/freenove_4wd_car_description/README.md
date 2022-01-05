@@ -25,7 +25,7 @@ This readme's purpose is to teach you to create your own model along with the ca
 1. Create your own workspace
 <details>
   	    <summary></summary>
-        ## Create your own workspace
+            ## Create your own workspace
             1. `source /opt/ros/foxy/setup.bash`
             2. `mkdir -p my_first_ws/src`
             3. `cd my_first_ws/src`
@@ -160,6 +160,8 @@ This readme's purpose is to teach you to create your own model along with the ca
             15. `ros2 run my_first_robot hello_world`
             
             Congratulations! You created a Python code using ROS2 only. Next, we will be learning how to control an ign model using ROS2.
+
+</details>
 
 </details>
 2. Create your own robot
