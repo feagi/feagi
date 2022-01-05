@@ -4,14 +4,14 @@ This readme's purpose is to teach you to create your own model along with the ca
 
 
 ## Quick click table
-1. [Create your own workspace](https://github.com/feagi/feagi-core/blob/feature-feature-doc-ign-foxy-draft-part3/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md#create-your-own-workspace)
-2. [Starting With A Car In Simulation](https://github.com/feagi/feagi-core/blob/feature-feature-doc-ign-foxy-draft-part3/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md#starting-with-a-car-in-simulation)
-3. [Create the bridge between ros2 and ign](https://github.com/feagi/feagi-core/blob/feature-feature-doc-ign-foxy-draft-part3/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md#create-the-bridge-between-ros2-and-ign)
-4. [Control model in the ign gazebo from Foxy using Python3](https://github.com/feagi/feagi-core/blob/feature-feature-doc-ign-foxy-draft-part3/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md#control-model-in-the-ign-gazebo-from-foxy-using-python3)
-5. [Instructions on detail unique cases](https://github.com/feagi/feagi-core/blob/feature-feature-doc-ign-foxy-draft-part3/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md#control-model-in-the-ign-gazebo-from-foxy-using-python3)
-6. [FEAGI on a car model](https://github.com/feagi/feagi-core/blob/feature-feature-doc-ign-foxy-draft-part3/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md#feagi-on-a-car-model)
-7. [Extra and Detailed information](https://github.com/feagi/feagi-core/blob/feature-feature-doc-ign-foxy-draft-part3/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md#feagi-on-a-car-model)
-8. [Sources](https://github.com/feagi/feagi-core/tree/feature-feature-doc-ign-foxy-draft-part3/third_party/gazebo/smart_car/freenove_4wd_car_description#sources)
+1. [Create your own workspace](https://github.com/feagi/feagi-core/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md#create-your-own-workspace)
+2. [Starting With A Car In Simulation](https://github.com/feagi/feagi-core/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md#starting-with-a-car-in-simulation)
+3. [Create the bridge between ros2 and ign](https://github.com/feagi/feagi-core/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md#create-the-bridge-between-ros2-and-ign)
+4. [Control model in the ign gazebo from Foxy using Python3](https://github.com/feagi/feagi-core/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md#control-model-in-the-ign-gazebo-from-foxy-using-python3)
+5. [Instructions on detail unique cases](https://github.com/feagi/feagi-core/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md#control-model-in-the-ign-gazebo-from-foxy-using-python3)
+6. [FEAGI on a car model](https://github.com/feagi/feagi-core/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md#feagi-on-a-car-model)
+7. [Extra and Detailed information](https://github.com/feagi/feagi-core/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md#feagi-on-a-car-model)
+8. [Sources](https://github.com/feagi/feagi-core/third_party/gazebo/smart_car/freenove_4wd_car_description#sources)
 ## Requirements For This Project:
 1. ROS2 Foxy
 2. Citadel for Ign Gazebo
