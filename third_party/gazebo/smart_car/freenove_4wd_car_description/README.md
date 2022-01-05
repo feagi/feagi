@@ -27,17 +27,19 @@ This readme's purpose is to teach you to create your own model along with the ca
 
 ## Create your own workspace
 <details>
-<summary>Click here to see the full steps</summary> 
+<summary> Click here to see the full steps </summary>
+    
 
-    1. source /opt/ros/foxy/setup.bash
-    2. `mkdir -p my_first_ws/src`
-    3. `cd my_first_ws/src`
-    4. `ros2 pkg create --build-type ament_python my_first_robot`
-    5. `cd my_first_robot/`
-    6. `cd my_first_robot/` (again)
-    7. `touch helloworld_test.py`
-    8. `chmod a+x helloworld_test.py`
-    9. Paste this inside the helloworld_test.py
+ 1. `source /opt/ros/foxy/setup.bash`
+ 2. `mkdir -p my_first_ws/src`
+ 3. `cd my_first_ws/src`
+ 4. `ros2 pkg create --build-type ament_python my_first_robot`
+ 5. `cd my_first_robot/`
+ 6. `cd my_first_robot/` (again)
+ 7. `touch helloworld_test.py`
+ 8. `chmod a+x helloworld_test.py`
+ 9. Paste this inside the helloworld_test.py
+    
     ```
     import rclpy
     from rclpy.node import Node
@@ -79,7 +81,7 @@ This readme's purpose is to teach you to create your own model along with the ca
     if __name__ == '__main__':
         main()
     ```
-    10. Update your package.xml with this code inside the package.xml under <license>TODO: License declaration</license>
+ 10. Update your package.xml with this code inside the package.xml under <license>TODO: License declaration</license>
     
     ```
     <exec_depend>rclpy</exec_depend>
@@ -111,7 +113,7 @@ This readme's purpose is to teach you to create your own model along with the ca
     </package>
     ```
     
-    11. Add this in the setup.py
+ 11. Add this in the setup.py
     ```
         entry_points={
             'console_scripts': [
@@ -149,7 +151,7 @@ This readme's purpose is to teach you to create your own model along with the ca
     )
     
     ```
-    12. Check your setup.cfg like this:
+ 12. Check your setup.cfg like this:
     ```
     [develop]
     script-dir=$base/lib/my_first_robot
@@ -158,15 +160,17 @@ This readme's purpose is to teach you to create your own model along with the ca
     ```
     If this match your setup.cfg, leave it. If no, copy above and paste it in the setup.cfg
     
-    13. `colcon build --symlink-install`
-    14. `source install/setup.bash`
-    15. `ros2 run my_first_robot hello_world`
+ 13. `colcon build --symlink-install`
+ 14. `source install/setup.bash`
+ 15. `ros2 run my_first_robot hello_world`
     
     Congratulations! You created a Python code using ROS2 only. Next, we will be learning how to control an ign model using ROS2.
 
 </details>
 
 ## Starting With A Car In Simulation
+<details>
+<summary> Click here to see the full steps </summary>
  There are two important aspects of an SDF file. One is the world and the other is the model. The world is more likely the enviroment you created for the robot. A model is the object (in our case, a robotic car)
 To learn more about the world and a model, here are some Ignition tutorials available:
 1. [World](https://ignitionrobotics.org/docs/citadel/sdf_worlds)
@@ -212,12 +216,17 @@ To start with create your own robot inside your workspace:
 
 11. It means you made it. Next step will be starting to control a model using ROS2 and Python3.
 
+</details>
+
 ## Create the bridge between ros2 and ign
-1. `cd ~/my_first_ws/src/my_first_robot`
-2. `mkdir launch`
-3. `touch first_robot.launch.py`
-4. `touch ign_gazebo.launch.py`
-5. Paste this into ign_gazebo.launch.py:
+<details>
+<summary> Click here to see the full steps </summary>
+
+ 1. `cd ~/my_first_ws/src/my_first_robot`
+ 2. `mkdir launch`
+ 3. `touch first_robot.launch.py`
+ 4. `touch ign_gazebo.launch.py`
+ 5. Paste this into ign_gazebo.launch.py:
 ```
 # Copyright 2020 Open Source Robotics Foundation, Inc.
 #
@@ -370,7 +379,12 @@ You should see the output like this:
 
 Once you see this, it means you are ready to control ROS2/model!
 
+</details>
+
 ## Control Model In The Ign Gazebo From Foxy Using Python3
+<details>
+<summary> Click here to see the full steps </summary>
+
 1. `cd ~/my_first_ws/src/my_first_robot`
 2. Paste this inside helloworld_test.py:
 ```
@@ -414,9 +428,13 @@ You can see the robot move forth and back over and over. It's due to no mass and
 
 Congraulations! You have learned how to control the wheel using joint_controller and convert between ign and ros2! 
 
+</details>
 
 # Instructions on detail unique cases
 ## Instructions On Adding The Image:
+<details>
+  <summary>Click here to see the full steps</summary>
+
 Igniton Citadel is using `<pbr></pbr>` to allow you upload the image. From our current file:
 ```
 <material>
@@ -434,8 +452,11 @@ Igniton Citadel is using `<pbr></pbr>` to allow you upload the image. From our c
 
 The picture is inside the `models/sdf/` folder since that is where the sdf file is at. It follows the path where the sdf is in. 
 
+</details>
 
 ## Instructions On Adding More Than Two Wheels:
+<details>
+  <summary>Click here to see the full steps</summary>
 You can have as many wheels as you want. You can even start with the one wheel too. This section will teach you how to add more wheels.
 
 So our model has four wheels, front_left, front_right, rear_left, and rear_right. Those are /M0, /M1, /M2, and /M3 respectively to ROS2 perspective. 
@@ -464,23 +485,32 @@ Here is what is being used on our file:
 ```
 Under the `rear_right_wheel_joint` joint. This allows me to assign the plugin on one joint for IGN so IGN can let ros2 know where to control.
 
+</details>
+
 ## To Add Sensors:
-There are several sensors embedded on the robot: Infrared and ultrasonic sensors. Each will be expanded in the `simulation-blog.md` along with the reason as of why.
+<details>
+  <summary>Click here to see the full steps</summary>
 
-**Ultrasonic**: the simulation is designed to mimic ultrasonic as closely as possible. The range is between 2 cm to 400 cm which is 0.02 m to 4.5 m. It is displayed in RVIZ as well. The red line should look like this:
-![image](docs/gazebo_rviz.png)
+ There are several sensors embedded on the robot: Infrared and ultrasonic sensors. Each will be expanded in the `simulation-blog.md` along with the reason as of why.
+
+  **Ultrasonic**: the simulation is designed to mimic ultrasonic as closely as possible. The range is between 2 cm to 400 cm which is 0.02 m to 4.5 m. It is displayed in RVIZ as well. The red line should look like this:
+  ![image](docs/gazebo_rviz.png)
     
-![image](docs/gazebo_rviz2.png)
+  ![image](docs/gazebo_rviz2.png)
 
-**Infrared sensor**: This has three infrared sensors inserted on the purple plate/board. Left, middle, and right which called `/IR0, /IR1, and /IR2` respectively. It's configured as infrared sensors behavior.
+  **Infrared sensor**: This has three infrared sensors inserted on the purple plate/board. Left, middle, and right which called `/IR0, /IR1, and /IR2` respectively. It's configured as infrared sensors behavior.
 
-![image](docs/IR_location_noarrows.png)
+  ![image](docs/IR_location_noarrows.png)
 
 
-![image](docs/IR_location.png)
+ ![image](docs/IR_location.png)
 
+</details>
 
 ## Create topics within SDF for ROS2
+<details>
+  <summary>Click here to see the full steps</summary>
+
  There are many ways to create a topic from the SDF. Inside `<sensor></sensor>` or `<plugin></plugin>`, there is a parameter called `<topic></topic>`. You can create any name you want in it.
  
 From our current code, I created the ultrasonic0 under the `<sensor>` inside the <`link></link>`:
@@ -522,9 +552,12 @@ From our current code, I created the ultrasonic0 under the `<sensor>` inside the
 
 More detail is in simulation-blog.md
 
+</details>
 
 # FEAGI On A Car Model
 ## Instructions On Starting With This Project:
+<details>
+  <summary>Click here to see the full steps</summary>
 
 1. navigate to __freenove_4wd_car_description/__ directory
 2. `source /opt/ros/foxy/setup.bash`
@@ -539,18 +572,25 @@ If you want to move it using the python, do it on a different terminal
 
 ![demo](docs/robot_running.gif)
 
+</details>
+
 ## Instructions on starting with this project in the container
+<details>
+  <summary>Click here to see the full steps</summary>
 
 1. Navigate to __/feagi-core/docker/__
-2. `docker-compose -f docker-compose-feagi-ros-ign.yml build --no-cache`
-3. Until #2 is complete, run this `docker-compose -f docker-compose-feagi-ros-ign.yml up`
-4. [Open this link](127.0.0.1:6080/) to connect from your container with your browser
+2. `docker-compose -f docker-compose-feagi-ros-ign-VNC.yml build --no-cache`
+3. Until #2 is complete, run this `docker-compose -f docker-compose-feagi-ros-ign-VNC.yml up`
+4. [Open this link](http://127.0.0.1:6080/) to connect from your container with your browser
 5. Open terminal inside the container then type this `./setup_simulation.sh`
 ![demo_docker](docs/docker_display.gif)
 
+</details>
 
 # Extra and Detailed Information
 ## Information on Models:
+<details>
+  <summary>Click here to see the full information</summary>
 
 This model was designed to look as closely as the real life robot named [Freenove 4wd smart car](https://www.amazon.com/Freenove-Raspberry-Tracking-Avoidance-Ultrasonic/dp/B07YD2LT9D).
 
@@ -558,7 +598,12 @@ The purpose for this was to allow the robot to understand the enviroment it is i
             
 ![136081103-f7f106e7-5e22-4b15-b3e9-cbfbc75b89fd(1)](docs/pretty_robot.png)
 
+</details>
+
 ## Information About The FEAGI and ROS2/IGN
+<details>
+  <summary>Click here to see the full information</summary>
+
 ROS2/IGN communicate with FEAGI agent which is `Controller.py` and `Router.py`. The conversion between IGN and ROS2 is in the launch file.
 Here is the diagram between them:
 ![image](docs/FEAGI_diagram.png)
@@ -590,8 +635,12 @@ The default measurement is meter. Everything is done in meters so be sure to use
 ## Simulation blog
 [More detail here](simulation-blog.md)
 
+</details>
 
 # Sources
+<details>
+<summary>Click here to see the full sources</summary>
+
 ## Create your own workspace
 1. [Creating your first ROS 2 package using Foxy](https://docs.ros.org/en/foxy/Tutorials/Creating-Your-First-ROS2-Package.html)
 2. [Writing a simple publisher and subscriber (Python)](https://docs.ros.org/en/foxy/Tutorials/Writing-A-Simple-Py-Publisher-And-Subscriber.html)
@@ -617,7 +666,12 @@ The default measurement is meter. Everything is done in meters so be sure to use
 ## FEAGI
 1. [More information about FEAGI](https://github.com/feagi/feagi-core)
 
+</details>
+
 # Troubleshooting Section
+<details>
+<summary>Click here to see the trouble section</summary>
+
 Problem #1: My changes did not update in my ROS2 project.
 
 
@@ -664,3 +718,4 @@ Solution #3: Here is how you do so by navigating to feagi-core/third_party/gazeb
 
 Then replaced from '-r models/sdf/freenove_smart_car.sdf' to --force-version (version number) -r models/sdf/freenove_smart_car.sdf'. Be sure to replace the whole "(version number)" to 3.9.0 (Citadel) or 6.2.0 (Fortress). You can find your own newest version by run ign gazebo --versions`
 
+</details>
