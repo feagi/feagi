@@ -27,8 +27,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install pytest pytest-cov pylint
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Analyze code using pylint
-      run: find . -name '*.py' -exec pylint {} \;
+    # - name: Analyze code using pylint
+    #   run: find . -name '*.py' -exec pylint {} \;
     - name: Run tests using pytest
       run: pytest ../tests
       working-directory: ./src
