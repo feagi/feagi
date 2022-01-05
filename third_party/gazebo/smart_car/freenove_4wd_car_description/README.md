@@ -30,9 +30,6 @@ This readme's purpose is to teach you to create your own model along with the ca
 
 
 ## Create your own workspace
-<details>
-  <summary>Click to expand</summary>
-	
     1. `source /opt/ros/foxy/setup.bash`
     2. `mkdir -p my_first_ws/src`
     3. `cd my_first_ws/src`
