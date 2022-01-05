@@ -176,7 +176,6 @@ This readme's purpose is to teach you to create your own model along with the ca
 To learn more about the world and a model, here are some Ignition tutorials available:
 
 1. [World](https://ignitionrobotics.org/docs/citadel/sdf_worlds)
-
 2. [Model](https://ignitionrobotics.org/docs/citadel/building_robot)
 
 Those tutorials help you to understand how to create a model. In these steps, we will be using the model’s joint_controller only. 
