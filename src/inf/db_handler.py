@@ -200,10 +200,10 @@ class InfluxManagement:
         self.db_params = runtime_data.parameters['Database']
 
         if runtime_data.parameters:
-            self.evo_bucket = runtime_data.parameters["Database"]["influxdb_evolutionary_bucket"]
-            self.stats_bucket = runtime_data.parameters["Database"]["influxdb_stats_bucket"]
-            self.org = runtime_data.parameters["Database"]["influxdb_organization"]
-            self.token = runtime_data.parameters["Database"]["influxdb_token"]
+            self.evo_bucket = self.db_params["influxdb_evolutionary_bucket"]
+            self.stats_bucket = self.db_params["influxdb_stats_bucket"]
+            self.org = self.db_params["influxdb_organization"]
+            self.token = self.db_params["influxdb_token"]
 
             # todo: db address needs to be def from a config file instead
             print('Running in container: ', runtime_data.running_in_container)
@@ -274,7 +274,6 @@ class InfluxManagement:
                 }
             }
         ]
-
         self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
 
     def insert_burst_activity(self, connectome_path, burst_id, cortical_area, neuron_count):
@@ -291,9 +290,7 @@ class InfluxManagement:
                 }
             }
         ]
-        print("\n\t>>>>>>>>> >>>>>>>>> INSERTING BURST ACTIVITY INTO INFLUXDB <<<<<<<<<<< <<<<<<<<<<<<<")
         self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
-        print("\n\t>>>>>>>>> >>>>>>>>> INSERTING BURST ACTIVITY COMPLETE <<<<<<<<<<< <<<<<<<<<<<<<")
 
     def insert_burst_checkpoints(self, connectome_path, burst_id):
         raw_data = [
@@ -339,7 +336,6 @@ class InfluxManagement:
                 }
             }
         ]
-
         self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
 
     def insert_evolutionary_fitness_stats(self, connectome_path, fitness_score,
@@ -385,8 +381,8 @@ class InfluxManagement:
         try:
             if self.client.buckets_api().find_buckets(name=self.stats_bucket):
                 print("    InfluxDb: ", settings.Bcolors.OKGREEN + "Enabled" + settings.Bcolors.ENDC)
-        except Exception as e:
-            print("\n\t>>>>>>>>>>>> ERROR: ", str(e))
+        except Exception:
+            runtime_data.parameters["Database"]["influxdb_enabled"] = False
             print("    InfluxDb:", settings.Bcolors.RED + "Disabled" + settings.Bcolors.ENDC)
 
 
