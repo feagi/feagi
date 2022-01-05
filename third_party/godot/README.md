@@ -3,6 +3,9 @@
 You will learn about this capability that you can use to help you when you troubleshoot. You can use the godot program on a ROS2/Gazebo demo, and learn how to use this capability on a current or future project.
  
 ## The Purpose Of The Artificial Brain's Cortical Activity
+<details>
+  <summary>Click here to expand</summary>
+
 This capability was designed to show you all cortical events being activated. You will have access to a different cortical area where it will display all neurons being fired. Let's use our ROS2/Gazebo demo as an example to highlight this capability. Imagine if your robot is not acting normal like this gif:
 
 
@@ -39,15 +42,23 @@ This is the proper way and as you can see, this tool shows you the difference in
 ![ros2right](docs/right_example.gif)
 
 
+</details>
 
 ## Detailed Information Behind FEAGI
+<details>
+  <summary>Click here to see the full information</summary>
+
 More detailed documentation is [here](https://github.com/feagi/feagi-core#readme)
 
 The FEAGI will read the static_genome.py which is located in `src/evo/static_genome.py`. As the FEAGI reads the `block_boundaries`, `relative_coordinate` and `visualization`, it will focus on the cortical area a.k.a `block_boundaries` to develop and build the model of the cortical area and move this to the coordinate a.k.a `relative_coordinate`. Once it can see the visualization on, it would know you are using it on a component. Let's say, you used IR components on IR_IPU. 
 
 This genome will display all the cortical areas, neurons, and information being used in a general robot. You may also add the genome as well which is explained in the Cortical Area Arrangements section.
 
+</details>
+
 ## Starting With The Program To View The Neurons Data
+<details>
+  <summary>Click here to see the full steps</summary>
 
 If you want to launch the godot in the container, you can do so by doing this:
 ```
@@ -91,7 +102,12 @@ On local control for the camera using mouse to freelook and arrow keys as move.
 
 **Red voxels are done by FEAGI**
 
+</details>
+
 ## The Cortical Activity's job.
+<details>
+  <summary>Click here to expand</summary>
+
 The program is made by Godot. It's designed to illustrate the neurons firing in the cortical area and show what is done from the FEAGI. The purpose of this is to learn the system and easily troubleshoot the system. This will generate all the cortical areas being used and then it will show the firing neurons within the cortical area. Basically, FEAGI created the cortical area in 3d space and allowed Godot to translate every voxel which is translated as a neuron firing from the FEAGI to any robot. The cortical area, a blue block in this instance, will show you which cortical area is being used by FEAGI and have them display all the neurons firing inside the cortical area. 
 
 FEAGI will display like this per one second which is known as a burst. 
@@ -105,10 +121,18 @@ FEAGI will display like this per one second which is known as a burst.
 
 The Godot's role is to read the genome and translate FEAGI into Godot. Red voxel is a neuron being fired.
 
+</details>
+
 ## bridge_godot_python.py's Role
+<details>
+  <summary>Click here to expand</summary>
 This is the bridge between FEAGI and Godot. Since Godot doesn't support ZMQ and doesn't run as Python. Godot runs on the GDnative. The solution was to communicate through the UDP. Python3 can do ZMQ and UDP and FEAGI is made entirely by Python3. Basically, this script fills the gaps and sends data to Godot as FEAGI sends a burst of data in real-time. 
 
+</details>
+
 ## Launch Into A Unique Project
+<details>
+  <summary>Click here to see the full steps</summary>
 
 You probably have tried our freeenove smartcar demo in Gazebo using ROS2 and FEAGI. If you haven't seen it, here is the  [documentation](https://github.com/feagi/feagi-core/blob/develop/third_party/gazebo/smart_car/freenove_4wd_car_description/README.md).
 
@@ -130,7 +154,12 @@ See how ROS2/Gazebo is being controlled by FEAGI as you can see FEAGI's neuron f
 
 ![image](docs/ros_gazebo_godot.png)
 
+</details>
+
 ## Cortical Area Arrangements
+<details>
+  <summary>Click here to see the full steps</summary>
+
 FEAGI uses the Genome's relative coordinates to create a block's location and send the data on it. With the relative coordinate, you are able to lay out the cortical area. Here is from the same example I previously used,
 
 ![image](docs/full_cortical_areas.png)
@@ -165,8 +194,14 @@ To change the relative_coordinate:
 4. Save and launch FEAGI.
 5. Launch FEAGI_initalize.sh
 ```
-	
+
+</details> 
+
 ## Cortical area's size
+
+<details>
+  <summary>Click here to see the full steps</summary>
+
 You can change the cortical area's width, depth and height to match your needs. 
 
 Here is how you change the W,D,H:
@@ -180,8 +215,11 @@ Here is the future reference
 
 ![static_genome](docs/static_genome.png)
 
+</details>
 
 ## Enable The Cortical Area
+<details>
+  <summary>Click here to see the full steps</summary>
  Previously I had to enable proximity IPU to show the ultrasonic. This is done by navigating to `src/evo/static_genome.py`
 
 
@@ -203,5 +241,5 @@ As for the relative_coordinate, you can put it somewhere you want it to be.
 
 ![image](https://user-images.githubusercontent.com/65916520/145425693-d5ef2c1a-c9f2-4aed-8e70-bdcb879903d4.png)
 
-
+</details>
 
