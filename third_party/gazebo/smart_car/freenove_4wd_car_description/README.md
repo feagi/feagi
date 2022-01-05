@@ -28,8 +28,8 @@ This readme's purpose is to teach you to create your own model along with the ca
 ## Create your own workspace
 <details>
    <summary>Click here to see the full steps</summary>
-   
-       1. `source /opt/ros/foxy/setup.bash`
+
+    1. `source /opt/ros/foxy/setup.bash`
     2. `mkdir -p my_first_ws/src`
     3. `cd my_first_ws/src`
     4. `ros2 pkg create --build-type ament_python my_first_robot`
