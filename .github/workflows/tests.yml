@@ -27,6 +27,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install pytest pytest-cov pylint
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        python -c "import sys; print(sys.path)"
     # - name: Analyze code using pylint
     #   run: find . -name '*.py' -exec pylint {} \;
     - name: Run tests using pytest
