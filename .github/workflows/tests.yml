@@ -31,5 +31,5 @@ jobs:
     # - name: Analyze code using pylint
     #   run: find . -name '*.py' -exec pylint {} \;
     - name: Run tests using pytest
-      run: pytest ../tests
+      run: python -m pytest ../tests
       working-directory: ./src
