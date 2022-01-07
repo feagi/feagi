@@ -95,9 +95,10 @@ skin = SubResource( 6 )
 material/0 = SubResource( 7 )
 
 [node name="Spatial" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.973179, -0.23005, 0, 0.23005, 0.973179, 43.7647, 26.3231, 25.7109 )
 script = ExtResource( 2 )
 
 [node name="Camera" type="Camera" parent="Spatial"]
-transform = Transform( 1, 0, 0, 0, -0.24326, 0.969961, 0, -0.969961, -0.24326, 0.31189, 44.9432, -5.13312 )
+transform = Transform( 1, 0, 0, 0, -0.24326, 0.969961, 0, -0.969961, -0.24326, 0, 0, 0 )
 fov = 80.4021
 far = 8192.0
