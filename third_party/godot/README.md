@@ -9,7 +9,7 @@ You will learn about this capability that you can use to help you when you troub
 This capability was designed to show you all cortical events being activated. You will have access to a different cortical area where it will display all neurons being fired. Let's use our ROS2/Gazebo demo as an example to highlight this capability. Imagine if your robot is not acting normal like this gif:
 
 
-![ros2wrong](docs/bug_example.gif)
+![ros2wrong](_static/bug_example.gif)
 
 
 
@@ -20,12 +20,12 @@ Here is what we have implemented as components in those cortical areas. As you c
 
 Like this:
 
-![IR](docs/IR_test.gif)
+![IR](_static/IR_test.gif)
 
 Or proximity data (such as ultrasonic sensor) like this:
 
 
-![proximity](docs/ultrasonic_test.gif)
+![proximity](_static/ultrasonic_test.gif)
 
 
 This capability was designed to show you all the cortical areas at once so that way you can troubleshoot easier. You can see the tools on Ignition Gazebo as I load each sensor one by one. Imagine if this robot would have more than 20 sensors at once. It would be very time consuming to have to load all the troubleshooting tools. With this capability, you can be able to load all the sensors, in real-time, at once. 
@@ -39,7 +39,7 @@ This capability was designed to show you all the cortical areas at once so that 
 This is the proper way and as you can see, this tool shows you the difference in managing time. See the IR_IPU where the three neurons are firing non-stop as the robot follows the black line? This is the purpose of the troubleshooting tool.
 
 
-![ros2right](docs/right_example.gif)
+![ros2right](_static/right_example.gif)
 
 
 </details>
@@ -69,7 +69,7 @@ If you want to launch the godot in the container, you can do so by doing this:
 ```
 It should look like this,
 
-![demo](docs/display_godot.png)
+![demo](_static/display_godot.png)
 
 Control list for the camera in container:
 ### Action   =   keys
@@ -113,7 +113,7 @@ The program is made by Godot. It's designed to illustrate the neurons firing in 
 FEAGI will display like this per one second which is known as a burst. 
 
 
-![voxel](docs/cortical_with_neurons.gif)
+![voxel](_static/cortical_with_neurons.gif)
 
 
  These bursts come from the burst engine. Just think of it as like a cyclical motor that fires regularly. Those neurons will be sent to all the cortical areas and those neurons will display which is belonged to a cortical area which means you are seeing the artificial brain's activity. 
@@ -152,7 +152,7 @@ You probably have tried our freeenove smartcar demo in Gazebo using ROS2 and FEA
 
 See how ROS2/Gazebo is being controlled by FEAGI as you can see FEAGI's neuron firing
 
-![image](docs/ros_gazebo_godot.png)
+![image](_static/ros_gazebo_godot.png)
 
 </details>
 
@@ -162,29 +162,29 @@ See how ROS2/Gazebo is being controlled by FEAGI as you can see FEAGI's neuron f
 
 FEAGI uses the Genome's relative coordinates to create a block's location and send the data on it. With the relative coordinate, you are able to lay out the cortical area. Here is from the same example I previously used,
 
-![image](docs/full_cortical_areas.png)
+![image](_static/full_cortical_areas.png)
 
 
 
 Prior lay out looked like this:
 
-![image](docs/previous1.png)
+![image](_static/previous1.png)
 
 and 
 
 
-![image](docs/previous2.png)
+![image](_static/previous2.png)
 
 
  Cortical area and neuron (red cubes) are on the coordination plane’s quadrant 1 only.
 
 Picture reference: 
 
-![plane_coordination](docs/plane_coordination.png)
+![plane_coordination](_static/plane_coordination.png)
 
 And the cortical area arrangements like this
 
-![plane copy](docs/coordination_on_godot.png)
+![plane copy](_static/coordination_on_godot.png)
 
 To change the relative_coordinate:
 ```
@@ -213,7 +213,7 @@ Here is how you change the W,D,H:
 
 Here is the future reference
 
-![static_genome](docs/static_genome.png)
+![static_genome](_static/static_genome.png)
 
 </details>
 

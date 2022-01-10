@@ -31,7 +31,7 @@ to develop a fully functional artificial brain in the form of a neural network. 
 has the capability of using the seed genome as a starting point and evolving it through time, leading to a more capable 
 and more functional artificial brain over generations.
 
-![evolutionary process](./docs/_static/evolutionary_process.png)
+![evolutionary process](_static/evolutionary_process.png)
 The process of evolving an artificial brain.
 
 We have decided to build integration with [MongoDb](https://www.mongodb.com) as the repository for maintaining 
@@ -39,7 +39,7 @@ artificial genomes. We have also built an integration with [InfluxDb](https://ww
 repository for all the time-bound or sequential statistics that can be collected from the artificial brain. The design 
 is highly modular, and other databases can be utilized as needed.
 
-![ecosystem](./docs/_static/ecosystem.png)
+![ecosystem](_static/ecosystem.png)
 An overview of the FEAGI ecosystem.
 
 # Monitoring
@@ -49,7 +49,7 @@ there, any monitoring software can be utilized to visualize the activities. We h
 as our web-based software of choice to build insightful visualization, but this should not limit you from going with your 
 favorite.
 
-![ecosystem](./docs/_static/monitoring.png)
+![ecosystem](_static/monitoring.png)
 Monitoring the activity of the artificial brain.
 
 # Definitions
