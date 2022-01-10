@@ -3,14 +3,11 @@ name: Testing
 on:
   push:
     branches: 
-      - main
-      - develop
       - staging
       - feature-ci-linting
   pull_request:
     branches: 
-      - main
-      - develop
+      - staging
 
 jobs:
   build:
@@ -28,8 +25,9 @@ jobs:
         pip install pytest pytest-cov pylint
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         python -c "import sys; print(sys.path)"
-    # - name: Analyze code using pylint
+    - name: Analyze code using pylint
     #   run: find . -name '*.py' -exec pylint {} \;
+      run: pylint `git diff --name-only --diff-filter=d HEAD^ | grep -E '\.py$' | tr '\n' ' '`
     - name: Run tests using pytest
       run: python -m pytest ../tests
       working-directory: ./src
