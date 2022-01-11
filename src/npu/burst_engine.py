@@ -371,9 +371,10 @@ def burst_manager():
         broadcast_message = set()
 
         for _ in runtime_data.fire_candidate_list:
+            fire_list = set(runtime_data.fire_candidate_list[_])
             if runtime_data.genome['blueprint'][_]['neuron_params'].get('visualization'):
-                while runtime_data.fire_candidate_list[_]:
-                    firing_neuron = runtime_data.fire_candidate_list[_].pop()
+                while fire_list:
+                    firing_neuron = fire_list.pop()
                     firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location'][1]
                     relative_coords = runtime_data.genome['blueprint'][_]['neuron_params'].get('relative_coordinate')
                     broadcast_message.add(
@@ -430,6 +431,7 @@ def burst_manager():
         if runtime_data.parameters['Switches']['zmq_activity_publisher']:
             brain_activity_message_router()
 
+        print("** * *** ** ** **** ** ** *** *** ** ***** *** ** *** **** ")
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
 
