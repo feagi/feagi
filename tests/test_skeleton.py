@@ -9,7 +9,6 @@ __license__ = "apache"
 
 
 def test_fib():
-    # modifying this file to test CI linting filter
     assert fib(1) == 1
     assert fib(2) == 1
     assert fib(7) == 13
