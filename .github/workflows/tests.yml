@@ -26,8 +26,11 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Analyze code using pylint
     #   run: find . -name '*.py' -exec pylint {} \;
-      run: pylint `git diff --name-only --diff-filter=d "$@" | grep -E '\.py$'`
-      working-directory: feagi-core/
+      # run: pylint `git diff --name-only --diff-filter=d "$@" | grep -E '\.py$'`
+      run: |
+        echo ~
+        echo `git diff --name-only --diff-filter=d "$@" | grep -E '\.py$'`
+      working-directory: ./
     - name: Run tests using pytest
       run: python -m pytest ../tests
       working-directory: ./src
