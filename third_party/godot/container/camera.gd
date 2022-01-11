@@ -5,7 +5,7 @@ export var backward_action = "ui_down"
 export var left_action = "ui_left"
 export var right_action = "ui_right"
 
-var rotation_speed = 1
+var rotation_speed = PI/2
 var _direction = Vector3(0.0, 0.0, 0.0)
 var x = 43.765
 var y = 26.323
