@@ -4,7 +4,6 @@ on:
   push:
     branches: 
       - staging
-      - feature-ci-linting
   pull_request:
     branches: 
       - staging
