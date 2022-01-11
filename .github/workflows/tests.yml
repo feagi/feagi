@@ -13,7 +13,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout repo
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
     - name: Set up Python 3.7
       uses: actions/setup-python@v1
       with:
@@ -30,8 +33,7 @@ jobs:
       run: |
         pwd
         git status
-        git pull
-        git diff --name-only ${{ github.event.before }}..${{ github.event.after }}
+        git diff --name-only HEAD^
       working-directory: ./
     - name: Run tests using pytest
       run: python -m pytest ../tests
