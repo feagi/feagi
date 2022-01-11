@@ -38,7 +38,6 @@ script = ExtResource( 3 )
 transform = Transform( 0.001, 0, 0, 0, 0.001, 0, 0, 0, 0.001, 0, 0, 0 )
 pixel_size = 0.07
 billboard = 2
-transparent = false
 double_sided = false
 texture = SubResource( 1 )
 
@@ -78,7 +77,18 @@ __meta__ = {
 "_editor_clip_": 0
 }
 
+[node name="GridMap3" type="GridMap" parent="."]
+mesh_library = ExtResource( 1 )
+cell_size = Vector3( 1, 1, 1 )
+data = {
+"cells": PoolIntArray( 0, 0, 0 )
+}
+__meta__ = {
+"_editor_clip_": 0
+}
+
 [node name="GridMap2" type="GridMap" parent="."]
+transform = Transform( 0.99991, 0, -0.0134212, 0, 1, 0, 0.0134212, 0, 0.99991, 0, 0, 0 )
 mesh_library = ExtResource( 5 )
 cell_size = Vector3( 1, 1, 1 )
 data = {
@@ -95,9 +105,10 @@ skin = SubResource( 6 )
 material/0 = SubResource( 7 )
 
 [node name="Spatial" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.973179, -0.23005, 0, 0.23005, 0.973179, 47, 26.323, 25.711 )
 script = ExtResource( 2 )
 
 [node name="Camera" type="Camera" parent="Spatial"]
-transform = Transform( 1, 0, 0, 0, -0.24326, 0.969961, 0, -0.969961, -0.24326, 0.31189, 44.9432, -5.13312 )
+transform = Transform( 1, 0, 0, 0, -0.24326, 0.969961, 0, -0.969961, -0.24326, 0, 0, 0 )
 fov = 80.4021
 far = 8192.0
