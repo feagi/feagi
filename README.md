@@ -64,14 +64,15 @@ time-series dashboards that provide an EEG like visualization but much cooler!
 
 
 # Device Integration
-FEAGI acts as the brain and require embodiment to interact with the environment.
+FEAGI acts as the brain and require embodiment to interact with the environment. FEAGI utilizes an open-source universal 
+messaging library called [ZeroMQ](https://zeromq.org/) to communicate with its peripheral devices. 
 
-* Supported integrations:
+![](_static/zmq.png)
+
+* Available integrations:
   * Pyserial
-  * ROS (Robot Operating System)
+  * [ROS (Robot Operating System)](third_party/gazebo/smart_car/README.md)
   
-
-
 
 
 # Definitions
