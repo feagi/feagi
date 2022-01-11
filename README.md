@@ -4,11 +4,11 @@ The Framework for Evolutionary Artificial General Intelligence (FEAGI) is an ope
 ground up as a brain-inspired platform to help develop artificial general intelligence. FEAGI has been under development 
 since 2016 and has been publicly introduced in 2020 through 
 "[A Brain-Inspired Framework for Evolutionary Artificial General Intelligence](https://ieeexplore.ieee.org/document/9034490)", 
-a journal paper published in IEEE Transactions on Neural Networks. [Neuraville LLC](https://neuraville.com) is the 
-primary company behind its development and support efforts.
+a journal paper published in IEEE Transactions on Neural Networks. Thus far, [Neuraville](https://neuraville.com) has 
+been the biggest contributor to this open-source software but we hope others would join in building an amazing solution.
 
-As we move forward, we will update [FEAGI.org](https://feagi.org) with information about applications, use-cases, and 
-deployments. Stay tuned!
+[FEAGI.org](https://feagi.org) is dedicated to this project and intends to capture information about FEAGI applications, 
+use-cases, tutorials, and deployment examples.
 
 Here are some key highlights of the framework differentiating it from others:
 * Inspired by the evolutionary process that developed the human brain over millions of years
@@ -21,7 +21,7 @@ Here are some key highlights of the framework differentiating it from others:
 * Built-in tooling for powerful data visualization and functional insights 
 
 # Deployment
-For deployment instructions, please refer to the ***![Deployment Guide](./DEPLOY.md)***.
+For deployment instructions, please refer to the ***[Deployment Guide](./DEPLOY.md)***.
 
 # Framework Overview
 There are a few key aspects to FEAGI: the evolutionary aspect, the maturity aspect, and the brain-inspired anatomical 
@@ -49,8 +49,30 @@ there, any monitoring software can be utilized to visualize the activities. We h
 as our web-based software of choice to build insightful visualization, but this should not limit you from going with your 
 favorite.
 
-![ecosystem](_static/monitoring.png)
-Monitoring the activity of the artificial brain.
+
+Similar to how fMRI helps us visualize the activities of a functioning brain, we have developed tools to help you gain
+insights into how the artificial brain operates.
+
+![Godot](_static/display_godot.gif)
+
+
+Another powerful tool to help gain insights into how the artificial brain developed by FEAGI operates is the use of 
+time-series dashboards that provide an EEG like visualization but much cooler!
+
+![Grafana](_static/monitoring.png "Monitoring the activity of the artificial brain.")
+
+
+
+# Device Integration
+FEAGI acts as the brain and require embodiment to interact with the environment.
+
+* Supported integrations:
+  * Pyserial
+  * ROS (Robot Operating System)
+  
+
+
+
 
 # Definitions
 Here is a list of terminologies and common terms used throughout the documentation. 

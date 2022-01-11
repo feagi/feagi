@@ -1,5 +1,47 @@
 # Introduction
-The framework is known to run stably on macOS and Ubuntu, with deployment support for more operating systems (Windows, etc.) anticipated in the future, if needed. Users may extensively configure the framework according to their preferences by editing the various parameters in the `/src/feagi_configuration.ini` file. It is important that configuration parameters representing a path to a file or directory relevant to FEAGI execution be updated to accurately reflect the user's local environment (see `InitData` parameters in `feagi_configuration.ini`). FEAGI data output is, by default, stored in the host system's temporary directory. To customize this parameter, enter the desired output path in `working_directory` under `InitData` in `feagi_configuration.ini`.
+FEAGI echo-system has fully embraced Docker containers to bring simplicity in deployment while increasing solution 
+scalability potential. FEAGI source code is primarily written in Python and known as FEAGI-CORE which contains all the 
+needed infrastructure to develop and operate an artificial brain. Many supportive add-ons have been designed to 
+complement FEAGI operations and improve its usability. Some add-ons provide better insights into FEAGI operations and 
+some improve functionality. Even though it is possible to run FEAGI as a stand-alone application outside container, we 
+highly discourage such method of deployment.
+
+
+* Supported Operating systems: 
+  * Windows 10+
+  * Ubuntu 20.04+
+  * OSx w/Intel Arch. 11+
+  
+
+Users may extensively configure the framework according to their preferences by editing the various parameters in the 
+`/src/feagi_configuration.ini` file. It is important that configuration parameters representing a path to a file or 
+directory relevant to FEAGI execution be updated to accurately reflect the user's local environment (see `InitData` 
+parameters in `feagi_configuration.ini`). FEAGI data output is, by default, stored in the host system's temporary 
+directory. To customize this parameter, enter the desired output path in `working_directory` under `InitData` in 
+`feagi_configuration.ini`.
+
+
+# Setup Guide (containerized)
+Containerized deployment is the preferred method of getting up and running with FEAGI and can help save a lot of time 
+and effort.  Containerized deployment creates a relatively lightweight environment containing all of the dependencies 
+needed to run FEAGI and any other integrated services. FEAGI images can be created as standalone or networked with other 
+service images (ex: ROS2, Gazebo, mongoDB, InfluxDB) via `docker-compose`. 
+
+Ensure that Docker and docker-compose are installed on your machine by opening a terminal application and entering: `$ docker --version` and `$ docker-compose --version`. If the outputs of running these commands are **not** _similar_ to `________ version _._._, build _______`, you may need to install Docker and docker-compose. Visit https://www.docker.com/get-started for more information.
+
+**If Docker and docker-compose are installed**:
+
+To build a standalone FEAGI image and start the container, navigate to `~/feagi-core/docker` via the terminal and run:
+* `docker build -f Dockerfile . -t <image_name>`    
+(where `-t <image_name>` is an optional way to give the image a user-defined name - if this is not specified, Docker will give the resulting image a random name that must be used when running the container in the next step).
+* `docker run -it <image_name>`
+
+To build a FEAGI image for use with other service images using `docker-compose`, navigate to `~/feagi-core/docker` and note the existing `.yml` files - their filenames are indicative of the included services that will be networked with the FEAGI container once started. As an example, building and running `docker-compose-feagi-ros-ign-VNC.yml` will create networked [FEAGI, ROS2 and Ignition Gazebo](/third_party/gazebo/smart_car/freenove_4wd_car_description/) containers that can exchange data. To build and start these containers, run:
+* `$ docker-compose -f docker-compose-feagi-ros-ign-VNC.yml build`   
+* `$ docker-compose -f docker-compose-feagi-ros-ign-VNC.yml up`
+***
+
+
 
 # Setup Guide (manual)
 ## Virtual Environment Setup
@@ -118,22 +160,6 @@ Start InfluxDB (via `systemd`):
 To start FEAGI, open a terminal, ensure the FEAGI virtual environment is active and run (assuming the working directory is `~/feagi-core/src/`): 
 * `$ python3 main.py`
 
-# Setup Guide (containerized)
-Users also have the option to deploy FEAGI via a Docker container, thereby automating or eliminating the need for many of the steps listed in the above manual setup. Containerized deployment creates a relatively lightweight environment containing all of the dependencies needed to run FEAGI and any other integrated services. FEAGI images can be created as standalone or networked with other service images (ex: ROS2, Gazebo, mongoDB, InfluxDB) via `docker-compose`. 
-
-Ensure that Docker and docker-compose are installed on your machine by opening a terminal application and entering: `$ docker --version` and `$ docker-compose --version`. If the outputs of running these commands are **not** _similar_ to `________ version _._._, build _______`, you may need to install Docker and docker-compose. Visit https://www.docker.com/get-started for more information.
-
-**If Docker and docker-compose are installed**:
-
-To build a standalone FEAGI image and start the container, navigate to `~/feagi-core/docker` via the terminal and run:
-* `docker build -f Dockerfile . -t <image_name>`    
-(where `-t <image_name>` is an optional way to give the image a user-defined name - if this is not specified, Docker will give the resulting image a random name that must be used when running the container in the next step).
-* `docker run -it <image_name>`
-
-To build a FEAGI image for use with other service images using `docker-compose`, navigate to `~/feagi-core/docker` and note the existing `.yml` files - their filenames are indicative of the included services that will be networked with the FEAGI container once started. As an example, building and running `docker-compose-feagi-ros-ign-VNC.yml` will create networked [FEAGI, ROS2 and Ignition Gazebo](/third_party/gazebo/smart_car/freenove_4wd_car_description/) containers that can exchange data. To build and start these containers, run:
-* `$ docker-compose -f docker-compose-feagi-ros-ign-VNC.yml build`   
-* `$ docker-compose -f docker-compose-feagi-ros-ign-VNC.yml up`
-***
 
 # Demo available
 Here are some demo using FEAGI:

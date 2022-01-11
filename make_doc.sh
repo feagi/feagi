@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-cd docs
+cd api_docs
 sphinx-apidoc -o ./source/ ..
 make clean
 make html
