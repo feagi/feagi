@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+'''
+Sample module docstring
+'''
+
 
 import pytest
 from src.skeleton import fib
@@ -9,6 +13,9 @@ __license__ = "apache"
 
 
 def test_fib():
+    '''
+    Sample function docstring
+    '''
     assert fib(1) == 1
     assert fib(2) == 1
     assert fib(7) == 13
