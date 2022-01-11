@@ -32,5 +32,5 @@ jobs:
         if [[ $files ]]; then pylint --fail-under=5 $files; fi
       working-directory: ./
     - name: Run tests using pytest
-      run: python -m pytest ../tests
+      run: pytest ../tests
       working-directory: ./src
