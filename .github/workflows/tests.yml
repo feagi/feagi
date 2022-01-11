@@ -30,6 +30,7 @@ jobs:
       run: |
         pwd
         git status
+        git pull
         git diff --name-only ${{ github.event.before }}..${{ github.event.after }}
       working-directory: ./
     - name: Run tests using pytest
