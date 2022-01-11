@@ -39,6 +39,7 @@ func _ready():
 		print("setup_local_to_scene loaded.")
 		print("Connection established.")
 		green_light  = true
+
 	
 	var f = File.new() #This is to read each line from the file
 	if f.file_exists('res://csv_data.csv'):
@@ -73,7 +74,33 @@ func _ready():
 					adding_cortical_areas(name,x,y,z,height,width,depth)
 				index += 1
 		f.close()
-		$GridMap.clear()
+		for i in 6:
+			$GridMap3.set_cell_item(i,0,0,0)
+		var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
+		var viewport = create_textbox.get_node("Viewport")
+		create_textbox.set_texture(viewport.get_texture())
+	#	add_child(copy)
+		add_child(create_textbox)#Copied the node to new node
+		create_textbox.scale = Vector3(0.5,0.5,0.5)
+		generate_textbox(create_textbox, 5,0,0,"x")
+		for j in 6:
+			$GridMap3.set_cell_item(0,j,0,0)
+		create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
+		viewport = create_textbox.get_node("Viewport")
+		create_textbox.set_texture(viewport.get_texture())
+		add_child(create_textbox)#Copied the node to new node
+		create_textbox.scale = Vector3(0.5,0.5,0.5)
+		generate_textbox(create_textbox, 0,5,0,"y")
+		for k in 6: 
+			$GridMap3.set_cell_item(0,0,k,0)
+		create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
+		viewport = create_textbox.get_node("Viewport")
+		create_textbox.set_texture(viewport.get_texture())
+		add_child(create_textbox)#Copied the node to new node
+		create_textbox.scale = Vector3(0.5,0.5,0.5)
+		generate_textbox(create_textbox, -2,0.5,6,"z")
+		#$GridMap.clear()
+		
 	
 	while green_light:
 		_callout()
