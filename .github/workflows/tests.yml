@@ -29,6 +29,7 @@ jobs:
       # run: pylint `git diff --name-only --diff-filter=d "$@" | grep -E '\.py$'`
       run: |
         echo ~
+        pwd
         echo `git diff --name-only --diff-filter=d "$@" | grep -E '\.py$'`
       working-directory: ./
     - name: Run tests using pytest
