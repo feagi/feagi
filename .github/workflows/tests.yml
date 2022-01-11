@@ -31,6 +31,7 @@ jobs:
         echo ~
         pwd
         git status
+        git pull
         git diff --name-only --diff-filter=d HEAD^ | grep -E '\.py$'
       working-directory: ./
     - name: Run tests using pytest
