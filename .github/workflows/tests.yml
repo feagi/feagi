@@ -28,10 +28,9 @@ jobs:
     #   run: find . -name '*.py' -exec pylint {} \;
       # run: pylint `git diff --name-only --diff-filter=d "$@" | grep -E '\.py$'`
       run: |
-        echo ~
         pwd
         git status
-        git diff --name-only --diff-filter=d "$@" | grep -E '\.py$'
+        git diff --name-only --diff-filter=d | grep -E '\.py$'
       working-directory: ./
     - name: Run tests using pytest
       run: python -m pytest ../tests
