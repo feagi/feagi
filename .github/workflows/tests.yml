@@ -30,7 +30,7 @@ jobs:
       run: |
         pwd
         git status
-        git diff --name-only --diff-filter=d | grep -E '\.py$'
+        git diff --name-only
       working-directory: ./
     - name: Run tests using pytest
       run: python -m pytest ../tests
