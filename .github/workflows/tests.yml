@@ -30,7 +30,7 @@ jobs:
       run: |
         pwd
         git status
-        git diff --name-only
+        git diff --name-only HEAD
       working-directory: ./
     - name: Run tests using pytest
       run: python -m pytest ../tests
