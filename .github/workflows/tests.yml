@@ -34,6 +34,7 @@ jobs:
         pwd
         git status
         git diff --name-only HEAD^
+        pylint `git diff --name-only --diff-filter=d HEAD^ | grep -E '\.py$' | tr '\n' ' '`
       working-directory: ./
     - name: Run tests using pytest
       run: python -m pytest ../tests
