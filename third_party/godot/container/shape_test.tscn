@@ -105,7 +105,7 @@ skin = SubResource( 6 )
 material/0 = SubResource( 7 )
 
 [node name="Spatial" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 0.973179, -0.23005, 0, 0.23005, 0.973179, 43.7647, 26.3231, 25.7109 )
+transform = Transform( 1, 0, 0, 0, 0.973179, -0.23005, 0, 0.23005, 0.973179, 47, 26.323, 25.711 )
 script = ExtResource( 2 )
 
 [node name="Camera" type="Camera" parent="Spatial"]

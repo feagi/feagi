@@ -7,7 +7,7 @@ export var right_action = "ui_right"
 
 var rotation_speed = PI/2
 var _direction = Vector3(0.0, 0.0, 0.0)
-var x = 43.765
+var x = 47
 var y = 26.323
 var z = 25.711
 var x_rotation = rotate_x(13.3)
