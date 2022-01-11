@@ -24,10 +24,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install pytest pytest-cov pylint
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        python -c "import sys; print(sys.path)"
     - name: Analyze code using pylint
     #   run: find . -name '*.py' -exec pylint {} \;
-      run: pylint `git diff --name-only --diff-filter=d HEAD^ | grep -E '\.py$' | tr '\n' ' '`
+      run: pylint `git diff --name-only --diff-filter=d "$@" | grep -E '\.py$'`
+      working-directory: feagi-core/
     - name: Run tests using pytest
       run: python -m pytest ../tests
       working-directory: ./src
