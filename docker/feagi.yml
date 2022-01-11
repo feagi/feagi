@@ -32,11 +32,7 @@ services:
           cpus: '2'
     ports:
       - "6080:80"
-     #environment:
-     #  - OPENBOX_ARGS='--startup "/opt/source-code/freenove_4wd_car_description/setup_container.sh"'
     privileged: true
-    # stdin_open: true
-    # tty: true
     networks:
       - net
       
@@ -45,8 +41,6 @@ services:
     ports:
       - "6081:80"
     privileged: true
-    # stdin_open: true
-    # tty: true
     networks:
       - net
 
@@ -73,10 +67,10 @@ services:
     depends_on:
       influxdb:
         condition: service_healthy
+    volumes:
+      - ../src/evo/static_genome.py:/opt/source-code/feagi-core/src/evo/static_genome.py
     networks:
       - net
-    
-
 
 volumes:
   grafana_data:
