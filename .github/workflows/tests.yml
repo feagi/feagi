@@ -27,7 +27,9 @@ jobs:
         pip install pytest pytest-cov pylint
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Analyze code using pylint
-      run: pylint --fail-under=5 `git diff --name-only --diff-filter=d HEAD^ | grep -E '\.py$' | tr '\n' ' '`
+      run: |
+        files=`git diff --name-only --diff-filter=d HEAD^ | grep -E '\.py$' | tr '\n' ' '` 
+        if [[ $files ]]; then pylint --fail-under=5 $files; fi
       working-directory: ./
     - name: Run tests using pytest
       run: python -m pytest ../tests
