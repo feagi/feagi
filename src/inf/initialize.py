@@ -290,8 +290,8 @@ def init_burst_engine():
     runtime_data.comprehension_queue = deque(['-'] * comprehension_span)
     runtime_data.parameters["Auto_injector"]["injector_status"] = False
     runtime_data.termination_flag = False
-    runtime_data.top_10_utf_memory_neurons = list_top_n_utf_memory_neurons("utf8_memory", 10)
-    runtime_data.top_10_utf_neurons = list_top_n_utf_memory_neurons("utf8_ipu", 10)
+    # runtime_data.top_10_utf_memory_neurons = list_top_n_utf_memory_neurons("utf8_memory", 10)
+    # runtime_data.top_10_utf_neurons = list_top_n_utf_memory_neurons("utf8_ipu", 10)
     runtime_data.v1_members = []
     runtime_data.burst_timer = float(runtime_data.parameters["Timers"]["burst_timer"])
     print("Burst time has been set to:", runtime_data.burst_timer)

@@ -16,14 +16,14 @@ def opu_handler():
     # todo: Introduce a generalized approach to cover all OPUs
 
     # LED handler
-    if runtime_data.fire_candidate_list['led_opu'] and runtime_data.hardware == 'raspberry_pi':
+    if 'led_opu' in runtime_data.fire_candidate_list and runtime_data.hardware == 'raspberry_pi':
         active_led_neurons = active_neurons_in_blocks(cortical_area='led_opu')
         led_data = led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)
         led.activate_leds(led_data)
 
     # todo: need a better differentiation between movement and motor modules
     # Movement handler
-    if runtime_data.fire_candidate_list['motor_opu']:
+    if 'motor_opu' in runtime_data.fire_candidate_list:
         # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
         # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
         # movement.activate_motor(data)
@@ -46,7 +46,7 @@ def opu_handler():
             motor_data[device]['speed'] = chosen_block
         movement.activate_device(device_type='motor', device_data=motor_data)
 
-    if runtime_data.fire_candidate_list['servo_opu']:
+    if 'servo_opu' in runtime_data.fire_candidate_list:
         # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
         # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
         # movement.activate_motor(data)
