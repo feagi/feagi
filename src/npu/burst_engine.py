@@ -334,7 +334,6 @@ def burst_manager():
             else:
                 print("Warning: Cortical area %s not found within the block_dic" % cortical_area_)
 
-
     def sensory_message_router():
         # Broadcasts a TCP message on each burst
         if runtime_data.parameters['Switches']['burst_beacon']:
@@ -431,7 +430,6 @@ def burst_manager():
         if runtime_data.parameters['Switches']['zmq_activity_publisher']:
             brain_activity_message_router()
 
-        print("** * *** ** ** **** ** ** *** *** ** ***** *** ** *** **** ")
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
 
