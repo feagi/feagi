@@ -31,6 +31,11 @@ def save_genome(file_name='./tmp.py'):
             print("Warning: %s was not present in the block_dic")
 
 
+# def validate_genome():
+#
+#
+#
+
 if __name__ == "__main__":
     add_gene()
     save_genome()
