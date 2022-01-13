@@ -177,9 +177,15 @@ def init_genome():
 
 def init_cortical_list():
     cortical_list = []
-    for key in runtime_data.genome['blueprint']:
-        cortical_list.append(key)
+    # for key in runtime_data.genome['blueprint']:
+    #     cortical_list.append(key)
+
+    for key in runtime_data.genome["genome_2.0"]:
+        cortical_id = key[9:15]
+        if cortical_id not in cortical_list and key[7] == "c":
+            cortical_list.append(cortical_id)
     runtime_data.cortical_list = cortical_list
+    print("Cortical list=", cortical_list)
 
 
 def init_genome_post_processes():
@@ -189,6 +195,7 @@ def init_genome_post_processes():
     # Augment cortical dimension dominance e.g. is it longer in x dimension or z
     for cortical_area in runtime_data.cortical_list:
         block_boundaries = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"]
+        block_boundaries = runtime_data.genome["genome_2.0"][]
         dominance = block_boundaries.index(max(block_boundaries))
         runtime_data.genome['blueprint'][cortical_area]['dimension_dominance'] = dominance
 
@@ -299,10 +306,6 @@ def init_burst_engine():
     if runtime_data.parameters["Logs"]["print_block_dict_report"]:
         print("Block Dictionary Report:")
         block_dict_summary(runtime_data.block_dic, verbose=True)
-
-    for item in runtime_data.cortical_list:
-        if runtime_data.genome['blueprint'][item]['sub_group_id'] == "vision_v1":
-            runtime_data.v1_members.append(item)
 
 
 def exit_burst_process():

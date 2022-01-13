@@ -57,11 +57,7 @@ genome = {
       "model": "smart_car"
     },
     "blueprint": {
-      "battery_i-pu": {
-          "growth_path": "",
-          "group_id": "IPU",
-          "sub_group_id": "IPU_range",
-          "plot_index": 1,
+      "battery_ipu": {
           "orientation_selectivity_pattern": "",
           "location": "",
           "kernel_size": 7,
