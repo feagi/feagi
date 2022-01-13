@@ -33,7 +33,8 @@ def cortical_group_members(group):
     # for item in runtime_data.cortical_list:
     #     if runtime_data.genome['blueprint'][item]['group_id'] == group:
     #         members.append(item)
-    return [item for item in runtime_data.cortical_list if runtime_data.genome['blueprint'][item]['group_id'] == group]
+    return [item for item in runtime_data.cortical_list if runtime_data.genome['blueprint'][item]['group_id'][:1]
+            == group]
 
 
 def burst_manager():
@@ -509,7 +510,8 @@ def burst_manager():
         cortical_list.append(cortical_area)
         init_fcl(cortical_area)
     runtime_data.cortical_list = cortical_list
-    runtime_data.memory_list = cortical_group_members('Memory')
+    runtime_data.memory_list = cortical_group_members('m')
+    print("runtime_data.memory_list=", runtime_data.memory_list)
 
     if runtime_data.parameters["Switches"]["capture_brain_activities"]:
         runtime_data.fcl_history = {}
