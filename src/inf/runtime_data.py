@@ -47,6 +47,7 @@ opu_pub = None
 brain_activity_pub = None
 router_address = None
 burst_timer = None
+genome2 = {}
 
 
 # rules = ""
