@@ -2,6 +2,7 @@ genome = {
     'genome_2.0': {
         "_____10b-_____s-__-__name-t": "smart_car",
         "_____10c-i__bat-cx-__name-t": "battery_opu",
+        "_____10c-i__bat-cx-_group-t": "OPU",
         "_____10c-i__bat-cx-_n_cnt_i": 100,
         "_____10c-i__bat-cx-gd_vis-b": True,
         "_____10c-i__bat-nx-rcordx-i": 100,
