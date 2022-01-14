@@ -103,7 +103,8 @@ genome_2_to_1 = {
     "nx-geo_y0-f": "geometric_boundaries",
     "nx-geo_y1-f": "geometric_boundaries",
     "nx-geo_z0-f": "geometric_boundaries",
-    "nx-geo_z1-f": "geometric_boundaries"
+    "nx-geo_z1-f": "geometric_boundaries",
+    "cx-_group-t": "group_id"
 }
 
 genome_1_to_2 = {
@@ -124,5 +125,6 @@ genome_1_to_2 = {
     "leak_coefficient": "nx-leak_c-f",
     "consecutive_fire_cnt_max": "nx-c_fr_c-i",
     "snooze_length": "nx-snooze-f",
-    "geometric_boundaries": "nx-geo___-i"
+    "geometric_boundaries": "nx-geo___-i",
+    "group_id": "cx-_group-t"
 }

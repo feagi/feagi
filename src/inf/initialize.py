@@ -322,11 +322,16 @@ def genome_2_1_convertor(flat_genome):
                         print("&&&", gene[24])
                         genome['blueprint'][cortical_area]["neuron_params"][genome_2_to_1[exon]] = flat_genome[gene]
 
-
     print("----++++++++________")
     print(json.dumps(genome, sort_keys=True, indent=4))
 
     return genome
+
+
+def init_genome2():
+    genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['genome_2.0'])
+    genome_2_hierarchifier(flat_genome=runtime_data.genome['genome_2.0'])
+    runtime_data.genome['blueprint'] = genome2['blueprint']
 
 
 def init_genome_post_processes():
@@ -409,10 +414,9 @@ def initialize():
     init_container_variables()
     init_data_sources()
     init_genome()
-    genome_2_hierarchifier(flat_genome=runtime_data.genome['genome_2.0'])
-    genome_2_1_convertor(flat_genome=runtime_data.genome['genome_2.0'])
+    init_cortical_list(flat_genome=runtime_data.genome['genome_2.0'])
+    init_genome2()
     detect_hardware()
-    init_cortical_list()
     init_genome_post_processes()
     init_resources()
     init_fake_stimulation()
