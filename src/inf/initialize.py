@@ -4,7 +4,6 @@ import platform
 import psutil
 import string
 import random
-import json
 from queue import Queue
 from tempfile import gettempdir
 from threading import Thread
@@ -18,7 +17,7 @@ from shutil import copyfile
 from evo.stats import list_top_n_utf_memory_neurons, block_dict_summary
 from inf.messenger import Pub, PubBrainActivities
 from evo.neuroembryogenesis import generate_plasticity_dict
-from evo.gene_decoder_ring import genome_2_to_1, genome_1_template, genome_1_to_2
+from evo.genome_processor import *
 
 log = logging.getLogger(__name__)
 
@@ -176,162 +175,18 @@ def init_genome():
     # The following stages the genome in the proper connectome path and loads it into the memory
     disk_ops.genome_handler(runtime_data.connectome_path)
 
-
-def genome_2_cortical_list(flat_genome):
-    """
-    Generates a list of cortical areas inside genome
-    """
-    cortical_list = list()
-    for key in flat_genome:
-        cortical_id = key[9:15]
-        if cortical_id not in cortical_list and key[7] == "c":
-            cortical_list.append(cortical_id)
-    return cortical_list
-
-
-def init_cortical_list(flat_genome):
-    """
-    Stages the genome inside runtime_data
-    """
-    runtime_data.cortical_list = genome_2_cortical_list(flat_genome)
-
-
-def genome_2_print(genome):
-    for cortical_area in genome:
-        print(cortical_area)
-        for gene in genome[cortical_area]:
-            try:
-                print("      ", genome_2_to_1[gene], "\n\t\t\t", genome[cortical_area][gene])
-            except:
-                pass
-
-
-def genome_2_validator(genome_2):
-    """
-    Conducts various test to ensure the stability of the Genome 2.0
-    """
-    standard_gene_length = 27
-
-    def structure_test_gene_lengths():
-        """
-        Check length requirements for each gene
-        """
-        gene_anomalies = 0
-        for key in genome_2:
-            if len(key) != standard_gene_length:
-                print("Warning! Key did not meet length requirement:", key)
-                gene_anomalies += 1
-        if gene_anomalies == 0:
-            print("\nGene length verification...... PASSED!")
-        else:
-            print("\nGene length verification...... Failed!   ", gene_anomalies, " anomalies detected")
-        return gene_anomalies
-
-
-def genome_2_hierarchifier(flat_genome):
-    """
-    Converts Genome 2.0 to a hierarchical data structure
-    """
-    hierarchical_genome = dict()
-    for key in flat_genome:
-        cortical_id = key[9:15]
-        exon = key[16:]
-        if key[7] == "c":
-            if cortical_id not in hierarchical_genome:
-                hierarchical_genome[cortical_id] = dict()
-            if exon not in hierarchical_genome[cortical_id]:
-                hierarchical_genome[cortical_id][exon] = flat_genome[key]
-    genome_2_print(hierarchical_genome)
-    return hierarchical_genome
-
-
-def genome_2_1_convertor(flat_genome):
-    genome = dict()
-    genome['blueprint'] = dict()
-
-    cortical_list = genome_2_cortical_list(flat_genome)
-    # Assign a blank template to each cortical area
-    for cortical_area in cortical_list:
-        genome['blueprint'][cortical_area] = dict.copy(genome_1_template)
-
-    # Populate each cortical area with
-    for cortical_area in genome['blueprint']:
-        for gene in flat_genome:
-            cortical_id = gene[9:15]
-            exon = gene[16:]
-            gene_type = gene[16:18]
-            if cortical_id == cortical_area:
-                if gene_type == 'cx':
-                        try:
-                            genome['blueprint'][cortical_area][genome_2_to_1[exon]] = flat_genome[gene]
-                            print("^^^^")
-                        except:
-                            print("Key not processed: ", cortical_area)
-                if gene_type == 'nx':
-                    print("###", gene)
-                    if genome_2_to_1[exon] == "block_boundaries":
-                        print(gene, "-->", gene[24])
-                        if gene[24] == 'x':
-                            genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][0] = \
-                                flat_genome[gene]
-                        elif gene[24] == 'y':
-                            genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][1] = \
-                                flat_genome[gene]
-                        elif gene[24] == 'z':
-                            genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][2] = \
-                                flat_genome[gene]
-                        else:
-                            print("$$$", gene[24])
-
-                    elif genome_2_to_1[exon] == "relative_coordinate":
-                        print(gene, "-->", gene[24])
-                        if gene[24] == 'x':
-                            genome['blueprint'][cortical_area]["neuron_params"]["relative_coordinate"][0] = \
-                                flat_genome[gene]
-                        elif gene[24] == 'y':
-                            genome['blueprint'][cortical_area]["neuron_params"]["relative_coordinate"][1] = \
-                                flat_genome[gene]
-                        elif gene[24] == 'z':
-                            genome['blueprint'][cortical_area]["neuron_params"]["relative_coordinate"][2] = \
-                                flat_genome[gene]
-
-                    elif genome_2_to_1[exon] == "geometric_boundaries":
-                        print(gene, "-->", gene[23:25])
-                        if gene[23:25] == 'x0':
-                            genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][0] = \
-                                flat_genome[gene]
-                        elif gene[23:25] == 'x1':
-                            genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][1] = \
-                                flat_genome[gene]
-                        elif gene[23:25] == 'y0':
-                            genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][0] = \
-                                flat_genome[gene]
-                        elif gene[23:25] == 'y1':
-                            genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][1] = \
-                                flat_genome[gene]
-                        elif gene[23:25] == 'z0':
-                            genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][0] = \
-                                flat_genome[gene]
-                        elif gene[23:25] == 'z1':
-                            genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][1] = \
-                                flat_genome[gene]
-                        else:
-                            pass
-
-                    else:
-                        print("&&&", gene[24])
-                        genome['blueprint'][cortical_area]["neuron_params"][genome_2_to_1[exon]] = flat_genome[gene]
-
-    print("----++++++++________")
-    print(json.dumps(genome, sort_keys=True, indent=4))
-
-    return genome
-
-
-def init_genome2():
-    genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['genome_2.0'])
-    genome_2_hierarchifier(flat_genome=runtime_data.genome['genome_2.0'])
-    runtime_data.genome['blueprint'] = genome2['blueprint']
+    try:
+        if runtime_data.genome['version'] == "2.0":
+            print("\n\n\n************ Genome Version 2.0 has been detected **************\n\n\n")
+            runtime_data.genome_ver = "2.0"
+            runtime_data.cortical_list = genome_2_cortical_list(runtime_data.genome['blueprint'])
+            genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
+            genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])
+            runtime_data.genome['blueprint'] = genome2['blueprint']
+    except KeyError as e:
+        print("Error:", e)
+        print("Genome version not available; assuming Genome 1.0 procedures.")
+        pass
 
 
 def init_genome_post_processes():
@@ -341,7 +196,7 @@ def init_genome_post_processes():
     # Augment cortical dimension dominance e.g. is it longer in x dimension or z
     for cortical_area in runtime_data.cortical_list:
         block_boundaries = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"]
-        # block_boundaries = runtime_data.genome["genome_2.0"][]
+        # block_boundaries = runtime_data.genome["blueprint"][]
         dominance = block_boundaries.index(max(block_boundaries))
         runtime_data.genome['blueprint'][cortical_area]['dimension_dominance'] = dominance
 
@@ -414,8 +269,6 @@ def initialize():
     init_container_variables()
     init_data_sources()
     init_genome()
-    init_cortical_list(flat_genome=runtime_data.genome['genome_2.0'])
-    init_genome2()
     detect_hardware()
     init_genome_post_processes()
     init_resources()
