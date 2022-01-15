@@ -505,11 +505,13 @@ def burst_manager():
             print(settings.Bcolors.HEADER + " *** Warning!!! *** Brain activities are being recorded!!" +
                   settings.Bcolors.ENDC)
 
-    cortical_list = []
-    for cortical_area in runtime_data.genome['blueprint']:
-        cortical_list.append(cortical_area)
+    # cortical_list = []
+    for cortical_area in runtime_data.cortical_list:
+        # cortical_list.append(cortical_area)
         init_fcl(cortical_area)
-    runtime_data.cortical_list = cortical_list
+        print("%%#$%@$%@$#%@#$% @# $% @#$ % @ % #$% @#$ %@#$ %@ $       ", cortical_area)
+    # runtime_data.cortical_list = cortical_list
+
     runtime_data.memory_list = cortical_group_members('m')
     print("runtime_data.memory_list=", runtime_data.memory_list)
 
