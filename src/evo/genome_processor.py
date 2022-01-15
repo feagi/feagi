@@ -83,9 +83,9 @@ def genome_2_1_convertor(flat_genome):
                     if gene_type == 'cx':
                         if genome_2_to_1[exon] == "location_generation_type":
                             if flat_genome[gene]:
-                                    genome['blueprint'][cortical_area]["neuron_params"][genome_2_to_1[exon]] = "random"
+                                    genome['blueprint'][cortical_area][genome_2_to_1[exon]] = "random"
                             else:
-                                genome['blueprint'][cortical_area]["neuron_params"][genome_2_to_1[exon]] = "sequential"
+                                genome['blueprint'][cortical_area][genome_2_to_1[exon]] = "sequential"
                         else:
                             try:
                                 genome['blueprint'][cortical_area][genome_2_to_1[exon]] = flat_genome[gene]
@@ -227,7 +227,7 @@ genome_1_template = {
       }
 
 genome_2_to_1 = {
-    "cx-_n_cnt-i": "cortical_neuron_count",
+    "cx-_n_cnt_i": "cortical_neuron_count",
     "cx-gd_vis-b": "visualization",
     "cx-__name-t": "cortical_name",
     "nx-rcordx-i": "relative_coordinate",
