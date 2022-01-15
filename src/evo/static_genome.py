@@ -58,10 +58,10 @@ genome = {
         "_____10c-i__bat-nx-c_fr_c-i": 3,
         "_____10c-i__bat-nx-snooze-f": 0,
         "_____10c-i__bat-nx-geo_x0-f": 0,
-        "_____10c-i__bat-nx-geo_x1-f": 0,
+        "_____10c-i__bat-nx-geo_x1-f": 10,
         "_____10c-i__bat-nx-geo_y0-f": 0,
-        "_____10c-i__bat-nx-geo_y1-f": 0,
+        "_____10c-i__bat-nx-geo_y1-f": 10,
         "_____10c-i__bat-nx-geo_z0-f": 0,
-        "_____10c-i__bat-nx-geo_z1-f": 0
+        "_____10c-i__bat-nx-geo_z1-f": 100
     }
 }
