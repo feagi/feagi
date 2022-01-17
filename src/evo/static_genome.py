@@ -34,6 +34,7 @@ genome = {
     },
     "blueprint": {
         "_____10b-_____s-__-__name-t":  "smart_car",
+
         "_____10c-i__bat-cx-__name-t":  "battery_ipu",
         "_____10c-i__bat-cx-_group-t":  "IPU",
         "_____10c-i__bat-cx-_n_cnt_i":  100,
@@ -62,6 +63,36 @@ genome = {
         "_____10c-i__bat-nx-geo_y0-f":  0,
         "_____10c-i__bat-nx-geo_y1-f":  10,
         "_____10c-i__bat-nx-geo_z0-f":  0,
-        "_____10c-i__bat-nx-geo_z1-f":  100
+        "_____10c-i__bat-nx-geo_z1-f":  100,
+
+        "_____10c-o__mot-cx-__name-t": "motor_opu",
+        "_____10c-o__mot-cx-_group-t": "OPU",
+        "_____10c-o__mot-cx-_n_cnt_i": 1000,
+        "_____10c-o__mot-cx-gd_vis-b": True,
+        "_____10c-o__mot-nx-rcordx-i": 20,
+        "_____10c-o__mot-nx-rcordy-i": 0,
+        "_____10c-o__mot-nx-rcordz-i": 0,
+        "_____10c-o__mot-nx-___bbx-i": 4,
+        "_____10c-o__mot-nx-___bby-i": 1,
+        "_____10c-o__mot-nx-___bbz-i": 20,
+        "_____10c-o__mot-cx-__rand-b": True,
+        "_____10c-o__mot-cx-synatt-i": 100,
+        "_____10c-o__mot-cx-init_s-b": False,
+        "_____10c-o__mot-cx-pstcr_-f": -500,
+        "_____10c-o__mot-cx-pstcrm-f": 35,
+        "_____10c-o__mot-cx-plst_c-f": 0.05,
+        "_____10c-o__mot-nx-locr__-t": "rule_1",
+        "_____10c-o__mot-nx-locrp_-t": "param_1",
+        "_____10c-o__mot-nx-fire_t-f": 1,
+        "_____10c-o__mot-nx-refrac-i": 0,
+        "_____10c-o__mot-nx-leak_c-f": 10,
+        "_____10c-o__mot-nx-c_fr_c-i": 3,
+        "_____10c-o__mot-nx-snooze-f": 0,
+        "_____10c-o__mot-nx-geo_x0-f": 0,
+        "_____10c-o__mot-nx-geo_x1-f": 40,
+        "_____10c-o__mot-nx-geo_y0-f": 0,
+        "_____10c-o__mot-nx-geo_y1-f": 10,
+        "_____10c-o__mot-nx-geo_z0-f": 0,
+        "_____10c-o__mot-nx-geo_z1-f": 200
     }
 }

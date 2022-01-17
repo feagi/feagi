@@ -51,6 +51,13 @@ def genome_2_hierarchifier(flat_genome):
     return hierarchical_genome
 
 
+def genome_1_cortical_list(genome):
+    cortical_list = list()
+    for cortical_area in genome:
+        cortical_list.append(cortical_area)
+    return cortical_list
+
+
 def genome_2_cortical_list(flat_genome):
     """
     Generates a list of cortical areas inside genome
