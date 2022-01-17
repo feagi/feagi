@@ -235,9 +235,14 @@ def burst_manager():
 
         burst_duration = datetime.now() - burst_start_time
         if runtime_data.parameters["Logs"]["print_burst_info"]:
-            print(settings.Bcolors.YELLOW +
-                  ">>> Burst duration: %s %i --- ---- ---- ---- ---- ---- ----"
-                  % (burst_duration, runtime_data.burst_count) + settings.Bcolors.ENDC)
+            if runtime_data.genome_ver == "2.0":
+                print(settings.Bcolors.UPDATE +
+                      ">>> Burst duration: %s %i --- ---- ---- ---- ---- ---- ----"
+                      % (burst_duration, runtime_data.burst_count) + settings.Bcolors.ENDC)
+            else:
+                print(settings.Bcolors.YELLOW +
+                      ">>> Burst duration: %s %i --- ---- ---- ---- ---- ---- ----"
+                      % (burst_duration, runtime_data.burst_count) + settings.Bcolors.ENDC)
 
     def evolutionary_checkpoint():
         if runtime_data.burst_count % runtime_data.genome['evolution_burst_count'] == 0:

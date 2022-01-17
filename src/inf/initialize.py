@@ -186,6 +186,7 @@ def init_genome():
     except KeyError as e:
         print("Error:", e)
         print("Genome version not available; assuming Genome 1.0 procedures.")
+        runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome['blueprint'])
         pass
 
 
