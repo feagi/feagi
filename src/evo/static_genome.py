@@ -28,9 +28,11 @@ genome = {
                               'rule_7': {'param_1': 1, 'param_2': 1},
                               'rule_9': {'param_1': 1, 'param_2': 1}},
     "species": {
-      "class": "toy",
-      "brand": "gazebo",
-      "model": "smart_car"
+        "parents": {},
+        "species_id": "",
+        "class": "toy",
+        "brand": "gazebo",
+        "model": "smart_car"
     },
     "blueprint": {
         "_____10b-_____s-__-__name-t":  "smart_car",
