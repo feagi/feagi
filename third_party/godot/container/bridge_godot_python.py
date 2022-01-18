@@ -6,7 +6,8 @@ from static_genome import genome
 import csv
 
 
-host = "feagi"
+
+host = "127.0.0.1"
 port = "30003"
 
 def FEAGI_initalize():
@@ -36,21 +37,70 @@ def UDP(input):
     # close the socket
     s.close()
 
-def CSV_writer():
+def genome_2_cortical_list(flat_genome):
+    """
+    Generates a list of cortical areas inside genome
+    """
+    cortical_list = {}
+    godot_cortical_list =list()
+    for key in flat_genome:
+        #print(key[17:])
+        cortical_id = key[9:15]
+        if key[19:] == "rcordx-i":
+            cortical_list[cortical_id].append(genome["blueprint"][key])
+        if key[19:] == "rcordy-i":
+            cortical_list[cortical_id].append(genome["blueprint"][key])
+        if key[19:] == "rcordz-i":
+            cortical_list[cortical_id].append(genome["blueprint"][key])
+        if cortical_id not in cortical_list and key[7] == "c":
+            cortical_list[cortical_id] = [genome["blueprint"][key]]
+        if key[17:] == "x-gd_vis-b":
+            cortical_list[cortical_id].append(genome["blueprint"][key])
+            #print(genome["blueprint"][key])
+        if key[22:] == "bbx-i":
+            cortical_list[cortical_id].append(genome["blueprint"][key])
+        if key[22:] == "bby-i":
+            cortical_list[cortical_id].append(genome["blueprint"][key])
+        if key[22:] == "bbz-i":
+            cortical_list[cortical_id].append(genome["blueprint"][key])
+    # for key in cortical_list:
+    #     godot_cortical_list.append(cortical_list[key][2])
+    #     godot_cortical_list.append(cortical_list[key][3])
+    #     godot_cortical_list.append(cortical_list[key][4])
+    #     godot_cortical_list.append(cortical_list[key][5])
+    #     godot_cortical_list.append(cortical_list[key][6])
+    #     godot_cortical_list.append(cortical_list[key][7])
+    #     godot_cortical_list.append(cortical_list[key][0])
+    #print(godot_cortical_list)
+    return cortical_list
+
+def CSV_writer(cortical_list):
     f = open('csv_data.csv', 'w', newline='')
     writer = csv.writer(f)
-    for cortical_area in genome["blueprint"]:
-        if "visualization" in genome["blueprint"][cortical_area]["neuron_params"]:
-            if genome['blueprint'][cortical_area]['neuron_params']['visualization']:
-                writer.writerow((
-                    genome['blueprint'][cortical_area]['neuron_params']['relative_coordinate'][0],
-                    genome['blueprint'][cortical_area]['neuron_params']['relative_coordinate'][1],
-                    genome['blueprint'][cortical_area]['neuron_params']['relative_coordinate'][2],
-                    genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][0],
-                    genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][1],
-                    genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][2],
-                    cortical_area
-                ))
+    godot_cortical_list = list()
+    for key in cortical_list:
+        godot_cortical_list.append(cortical_list[key][2])
+        godot_cortical_list.append(cortical_list[key][3])
+        godot_cortical_list.append(cortical_list[key][4])
+        godot_cortical_list.append(cortical_list[key][5])
+        godot_cortical_list.append(cortical_list[key][6])
+        godot_cortical_list.append(cortical_list[key][7])
+        godot_cortical_list.append(cortical_list[key][0])
+        writer.writerow((godot_cortical_list))
+        godot_cortical_list = list()
+
+    # for cortical_area in genome["blueprint"]:
+    #     if "visualization" in genome["blueprint"][cortical_area]["neuron_params"]:
+    #         if genome['blueprint'][cortical_area]['neuron_params']['visualization']:
+    #             writer.writerow((
+    #                 genome['blueprint'][cortical_area]['neuron_params']['relative_coordinate'][0],
+    #                 genome['blueprint'][cortical_area]['neuron_params']['relative_coordinate'][1],
+    #                 genome['blueprint'][cortical_area]['neuron_params']['relative_coordinate'][2],
+    #                 genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][0],
+    #                 genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][1],
+    #                 genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][2],
+    #                 cortical_area
+    #             ))
 
 
 def breakdown(feagi_input): ##add input soon
@@ -76,11 +126,11 @@ def breakdown(feagi_input): ##add input soon
     UDP(str(list1))
 
 
-#TODO: Once client udp recieved the data, add the loop in this
-CSV_writer()
+one_frame = genome_2_cortical_list(genome['blueprint'])
+CSV_writer(one_frame)
 while True:
     one_frame = FEAGI_initalize()
-    #print(type(one_frame))
+    #print(one_frame)
     #UDP("[[0, 5, 90], [0, 4, 91], [0, 2, 93], [0, 3, 92]]")
     breakdown(one_frame)
 
