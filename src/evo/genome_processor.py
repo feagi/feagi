@@ -2,6 +2,7 @@
 import json
 import copy
 
+
 def genome_2_print(genome):
     for cortical_area in genome:
         print(cortical_area)
@@ -47,7 +48,7 @@ def genome_2_hierarchifier(flat_genome):
                 hierarchical_genome[cortical_id] = dict()
             if exon not in hierarchical_genome[cortical_id]:
                 hierarchical_genome[cortical_id][exon] = flat_genome[key]
-    genome_2_print(hierarchical_genome)
+    # genome_2_print(hierarchical_genome)
     return hierarchical_genome
 
 
