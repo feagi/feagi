@@ -1,9 +1,7 @@
-import zmq
-import socket
-import time
-import json
 from static_genome import genome
+import socket
 import csv
+import zmq
 
 host = "feagi"
 port = "30003"
@@ -13,14 +11,10 @@ def feagi_initalize():
     # Getting FEAGI's raw data
     context = zmq.Context()
     socket = context.socket(zmq.SUB)
-    subby = socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
-    # print(subby)
     print('Listening FEAGI...')
     socket.connect("tcp://{}:{}".format(host, port))
     socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
     set_stored = socket.recv_pyobj()
-    # print(set_stored)
-    # print(type(set_stored))
     return set_stored
 
 
@@ -43,7 +37,6 @@ def genome_2_cortical_list(flat_genome):
     Generates a list of cortical areas inside genome
     """
     cortical_list = {}
-    godot_cortical_list = list()
     for key in flat_genome:
         # print(key[17:])
         cortical_id = key[9:15]
@@ -64,15 +57,6 @@ def genome_2_cortical_list(flat_genome):
             cortical_list[cortical_id].append(genome["blueprint"][key])
         if key[22:] == "bbz-i":
             cortical_list[cortical_id].append(genome["blueprint"][key])
-    # for key in cortical_list:
-    #     godot_cortical_list.append(cortical_list[key][2])
-    #     godot_cortical_list.append(cortical_list[key][3])
-    #     godot_cortical_list.append(cortical_list[key][4])
-    #     godot_cortical_list.append(cortical_list[key][5])
-    #     godot_cortical_list.append(cortical_list[key][6])
-    #     godot_cortical_list.append(cortical_list[key][7])
-    #     godot_cortical_list.append(cortical_list[key][0])
-    # print(godot_cortical_list)
     return cortical_list
 
 
@@ -91,19 +75,6 @@ def CSV_writer(cortical_list):
         writer.writerow((godot_cortical_list))
         godot_cortical_list = list()
 
-    # for cortical_area in genome["blueprint"]:
-    #     if "visualization" in genome["blueprint"][cortical_area]["neuron_params"]:
-    #         if genome['blueprint'][cortical_area]['neuron_params']['visualization']:
-    #             writer.writerow((
-    #                 genome['blueprint'][cortical_area]['neuron_params']['relative_coordinate'][0],
-    #                 genome['blueprint'][cortical_area]['neuron_params']['relative_coordinate'][1],
-    #                 genome['blueprint'][cortical_area]['neuron_params']['relative_coordinate'][2],
-    #                 genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][0],
-    #                 genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][1],
-    #                 genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][2],
-    #                 cortical_area
-    #             ))
-
 
 def breakdown(feagi_input):  ##add input soon
     """
@@ -112,17 +83,12 @@ def breakdown(feagi_input):  ##add input soon
     data = feagi_input
     data = list(data)
     increment = 0
-    voxel = []
     list1 = []
-    keys = range(len(data))
 
     while increment < len(data):
         voxel = [data[increment][1], data[increment][2], data[increment][3]]
         list1.append(voxel)
-
-        # print(list1)
         UDP(str(voxel))
-        # time.sleep(1.0)
         increment += 1
     print(list1)
     UDP(str(list1))
