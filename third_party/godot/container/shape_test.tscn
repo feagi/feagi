@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=2]
+[gd_scene load_steps=22 format=2]
 
 [ext_resource path="res://voxel.meshlib" type="MeshLibrary" id=1]
 [ext_resource path="res://camera.gd" type="Script" id=2]
@@ -7,8 +7,6 @@
 [ext_resource path="res://Cortical_area_box.meshlib" type="MeshLibrary" id=5]
 [ext_resource path="res://Glegoo-Bold.ttf" type="DynamicFontData" id=6]
 [ext_resource path="res://Click.gd" type="Script" id=7]
-[ext_resource path="res://crosshair.png" type="Texture" id=8]
-[ext_resource path="res://crosshair.gd" type="Script" id=9]
 [ext_resource path="res://outline.png" type="Texture" id=10]
 
 [sub_resource type="ViewportTexture" id=1]
@@ -158,8 +156,6 @@ enabled = true
 [node name="Sprite" type="Sprite" parent="Spatial/Camera"]
 visible = false
 scale = Vector2( 2, 2 )
-texture = ExtResource( 8 )
-script = ExtResource( 9 )
 
 [node name="GridMap4" type="GridMap" parent="."]
 visible = false
