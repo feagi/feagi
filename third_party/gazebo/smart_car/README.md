@@ -1,11 +1,8 @@
 # Creating a Robot Simulation Using ROS2 and Gazebo
-## Introduction
-This tutorial provides guidance for creating and deploying a virtual robot controlled by FEAGI in a Gazebo simulation environment. 
 
 ## Contents
 - [Creating a Robot Simulation Using ROS2 and Gazebo](#creating-a-robot-simulation-using-ros2-and-gazebo)
   * [Introduction](#introduction)
-  * [Contents](#contents)
   * [Requirements For This Project:](#requirements-for-this-project-)
   * [Create a workspace](#create-a-workspace)
   * [Getting started with the simulation](#getting-started-with-the-simulation)
@@ -30,6 +27,9 @@ This tutorial provides guidance for creating and deploying a virtual robot contr
   * [Control the model using Python](#control-the-model-using-python-1)
   * [FEAGI](#feagi)
 - [Troubleshooting](#troubleshooting)
+
+## Introduction
+This tutorial provides guidance for creating and deploying a virtual robot controlled by FEAGI in a Gazebo simulation environment. 
 
 ## Requirements For This Project:
 1. ROS2 Foxy
