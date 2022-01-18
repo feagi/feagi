@@ -1,5 +1,6 @@
 
 import json
+import copy
 
 
 def genome_2_print(genome):
@@ -47,7 +48,7 @@ def genome_2_hierarchifier(flat_genome):
                 hierarchical_genome[cortical_id] = dict()
             if exon not in hierarchical_genome[cortical_id]:
                 hierarchical_genome[cortical_id][exon] = flat_genome[key]
-    genome_2_print(hierarchical_genome)
+    # genome_2_print(hierarchical_genome)
     return hierarchical_genome
 
 
@@ -77,7 +78,7 @@ def genome_2_1_convertor(flat_genome):
     cortical_list = genome_2_cortical_list(flat_genome)
     # Assign a blank template to each cortical area
     for cortical_area in cortical_list:
-        genome['blueprint'][cortical_area] = dict.copy(genome_1_template)
+        genome['blueprint'][cortical_area] = copy.deepcopy(genome_1_template)
 
     # Populate each cortical area with
     for cortical_area in genome['blueprint']:
@@ -95,10 +96,10 @@ def genome_2_1_convertor(flat_genome):
                                 genome['blueprint'][cortical_area][genome_2_to_1[exon]] = "sequential"
                         elif genome_2_to_1[exon] == "cortical_mapping_dst":
                             for destination in flat_genome[gene]:
-                                if cortical_area not in genome['blueprint'][cortical_area][genome_2_to_1[exon]]:
+                                if destination not in genome['blueprint'][cortical_area][genome_2_to_1[exon]]:
                                     genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination] = dict()
-                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination]["neighbor_locator_rule_id"] = flat_genome[gene][cortical_area][0]
-                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination]["neighbor_locator_rule_param_id"] = flat_genome[gene][cortical_area][1]
+                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination]["neighbor_locator_rule_id"] = flat_genome[gene][destination][0]
+                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination]["neighbor_locator_rule_param_id"] = flat_genome[gene][destination][1]
 
                         else:
                             try:
@@ -129,6 +130,8 @@ def genome_2_1_convertor(flat_genome):
                             elif gene[24] == 'z':
                                 genome['blueprint'][cortical_area]["neuron_params"]["relative_coordinate"][2] = \
                                     flat_genome[gene]
+                            else:
+                                pass
 
                         elif genome_2_to_1[exon] == "geometric_boundaries":
                             if gene[23:25] == 'x0':
@@ -151,11 +154,12 @@ def genome_2_1_convertor(flat_genome):
                                     flat_genome[gene]
                             else:
                                 pass
-
                         else:
                             genome['blueprint'][cortical_area]["neuron_params"][genome_2_to_1[exon]] = flat_genome[gene]
+                    else:
+                        pass
                 except KeyError as e:
-                    print("Error:", e)
+                    print("Error while converting a gene:", e, cortical_area, gene)
 
     print(json.dumps(genome, sort_keys=True, indent=4))
 
@@ -178,8 +182,6 @@ gene_decoder = {
     "_______c-______-nx-pstcr_-f": "postsynaptic_current",
     "_______c-______-nx-pstcrm-f": "postsynaptic_current_max",
     "_______c-______-nx-plst_c-f": "plasticity_constant",
-    "_______c-______-nx-locr__-t": "neighbor_locator_rule_id",
-    "_______c-______-nx-locrp_-t": "neighbor_locator_rule_param_id",
     "_______c-______-nx-fire_t-f": "firing_threshold",
     "_______c-______-nx-refrac-i": "refractory_period",
     "_______c-______-nx-leak_c-f": "leak_coefficient",
@@ -255,8 +257,6 @@ genome_2_to_1 = {
     "cx-pstcr_-f": "postsynaptic_current",
     "cx-pstcrm-f": "postsynaptic_current_max",
     "cx-plst_c-f": "plasticity_constant",
-    "nx-locr__-t": "neighbor_locator_rule_id",
-    "nx-locrp_-t": "neighbor_locator_rule_param_id",
     "nx-fire_t-f": "firing_threshold",
     "nx-refrac-i": "refractory_period",
     "nx-leak_c-f": "leak_coefficient",
