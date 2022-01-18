@@ -81,6 +81,7 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
             runtime_data.fire_queue[cortical_area] = dict()
         if neuron_id not in runtime_data.fire_queue[cortical_area]:
             runtime_data.fire_queue[cortical_area][neuron_id] = list()
+            runtime_data.fire_queue[cortical_area][neuron_id] = [None, None]
         # Storing the membrane potential of the updated neuron
         runtime_data.fire_queue[cortical_area][neuron_id][0] = dst_neuron_obj["membrane_potential"]
         # Storing the firing threshold of the updated neuron
