@@ -3,6 +3,9 @@ extends Spatial
 
 onready var file = 'res://csv_data.csv'
 onready var textbox_display = get_node("Sprite3D")
+onready var raycast = $Spatial/Camera/RayCast
+onready var gridmap_new = get_node("GridMap2")
+
 
 var grid_size = 1000
 var grid_steps = 1000
@@ -31,6 +34,8 @@ var green_light = false
 
 func _ready():
 	Engine.target_fps = 60
+	for _i in self.get_children():
+		print(_i)
 	if(socket.listen(20001, "127.0.0.1") != OK):
 		print("error")
 	else:
@@ -63,6 +68,7 @@ func _ready():
 				var viewport = create_textbox.get_node("Viewport")
 				create_textbox.set_texture(viewport.get_texture())
 	#			add_child(copy)
+				create_textbox.set_name(name + "_textbox")
 				add_child(create_textbox)#Copied the node to new node
 				create_textbox.scale = Vector3(1,1,1)
 				generate_model(create_textbox, x,y,z,width, depth, height, name)
@@ -79,7 +85,7 @@ func _ready():
 		var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
 		var viewport = create_textbox.get_node("Viewport")
 		create_textbox.set_texture(viewport.get_texture())
-	#	add_child(copy)
+		create_textbox.set_name("x_textbox")
 		add_child(create_textbox)#Copied the node to new node
 		create_textbox.scale = Vector3(0.5,0.5,0.5)
 		generate_textbox(create_textbox, 5,0,0,"x")
@@ -88,6 +94,7 @@ func _ready():
 		create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
 		viewport = create_textbox.get_node("Viewport")
 		create_textbox.set_texture(viewport.get_texture())
+		create_textbox.set_name("y_textbox")
 		add_child(create_textbox)#Copied the node to new node
 		create_textbox.scale = Vector3(0.5,0.5,0.5)
 		generate_textbox(create_textbox, 0,5,0,"y")
@@ -96,6 +103,7 @@ func _ready():
 		create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
 		viewport = create_textbox.get_node("Viewport")
 		create_textbox.set_texture(viewport.get_texture())
+		create_textbox.set_name("z_textbox")
 		add_child(create_textbox)#Copied the node to new node
 		create_textbox.scale = Vector3(0.5,0.5,0.5)
 		generate_textbox(create_textbox, -2,0.5,6,"z")
@@ -141,11 +149,14 @@ func _callout():
 	_process(self)
 	
 func generate_model(node, x, y, z, width, depth, height, name):
+	var new_grid = gridmap_new.duplicate()
+	new_grid.set_name(name)
+	add_child(new_grid)
 	for x_increment in width:
 		for y_increment in height:
 			for z_increment in depth:
 				if x_increment == 0 or x_increment == (int(width)-1) or y_increment == 0 or y_increment == (int(height) - 1) or z_increment == 0 or z_increment == (int(depth) - 1):
-					$GridMap2.set_cell_item(x_increment+int(x), y_increment+int(y), z_increment+int(z), 0)
+					new_grid.set_cell_item(x_increment+int(x), y_increment+int(y), z_increment+int(z), 0)
 					generate_textbox(node, x,height,z, name)
 
 func generate_textbox(node, x,height,z, name):
@@ -158,3 +169,18 @@ func adding_cortical_areas(name, x,y,z,width,height,depth):
 	
 func install_voxel_inside(x,y,z):
 	$GridMap.set_cell_item(x,y,z, 0)
+	
+func _camera_process(delta):
+	if raycast.is_colliding():
+		var pos = raycast.get_collision_point()
+		var norm = raycast.get_collision_normal()
+		emit_signal("highlight_block", pos, norm)
+		if Input.is_action_just_pressed("click"):
+			print("Click")
+			emit_signal("destroy_block", pos, norm)
+		elif Input.is_action_just_pressed("right_click"):
+			#emit_signal("place_block", pos, norm, selected_block)
+			pass
+	else:
+		emit_signal("unhighlight_block")
+	
