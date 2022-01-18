@@ -78,9 +78,11 @@ def genome_2_1_convertor(flat_genome):
     # Assign a blank template to each cortical area
     for cortical_area in cortical_list:
         genome['blueprint'][cortical_area] = dict.copy(genome_1_template)
+        genome['blueprint'][cortical_area]['block_boundaries'] = [None, None, None]
 
     # Populate each cortical area with
     for cortical_area in genome['blueprint']:
+        print("%%% @@@ %%%", cortical_area, genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"])
         for gene in flat_genome:
             cortical_id = gene[9:15]
             exon = gene[16:]
@@ -106,16 +108,24 @@ def genome_2_1_convertor(flat_genome):
                             except:
                                 print("Key not processed: ", cortical_area)
                     elif gene_type == 'nx':
+                        print("#------------#", genome['blueprint']["i__bat"]["neuron_params"]["block_boundaries"], gene)
+                        print("+++++++++++++", genome['blueprint']["o__mot"]["neuron_params"]["block_boundaries"],
+                              gene)
                         if genome_2_to_1[exon] == "block_boundaries":
                             if gene[24] == 'x':
                                 genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][0] = \
                                     flat_genome[gene]
+                                print("blk x", cortical_area, gene, genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][0])
                             elif gene[24] == 'y':
                                 genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][1] = \
                                     flat_genome[gene]
+                                print("blk y", cortical_area, gene,
+                                      genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][1])
                             elif gene[24] == 'z':
                                 genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][2] = \
                                     flat_genome[gene]
+                                print("blk z", cortical_area, gene,
+                                      genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][2])
                             else:
                                 pass
 
@@ -129,6 +139,8 @@ def genome_2_1_convertor(flat_genome):
                             elif gene[24] == 'z':
                                 genome['blueprint'][cortical_area]["neuron_params"]["relative_coordinate"][2] = \
                                     flat_genome[gene]
+                            else:
+                                pass
 
                         elif genome_2_to_1[exon] == "geometric_boundaries":
                             if gene[23:25] == 'x0':
@@ -151,11 +163,16 @@ def genome_2_1_convertor(flat_genome):
                                     flat_genome[gene]
                             else:
                                 pass
-
                         else:
                             genome['blueprint'][cortical_area]["neuron_params"][genome_2_to_1[exon]] = flat_genome[gene]
+                    else:
+                        pass
                 except KeyError as e:
-                    print("Error:", e)
+                    print("Error ***:", e, cortical_area)
+                    print("$$$", cortical_area, genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"])
+        print("###", genome['blueprint']["i__bat"]["neuron_params"]["block_boundaries"], "\n",
+              genome['blueprint']["o__mot"]["neuron_params"]["block_boundaries"])
+
 
     print(json.dumps(genome, sort_keys=True, indent=4))
 
