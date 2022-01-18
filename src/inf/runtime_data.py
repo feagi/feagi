@@ -49,6 +49,7 @@ router_address = None
 burst_timer = None
 genome2 = {}
 genome_ver = None
+fire_queue = {}
 
 
 # rules = ""
