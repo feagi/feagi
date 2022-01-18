@@ -134,7 +134,8 @@ def init_working_directory():
 
     """
     if platform.system() == 'Windows':
-        runtime_data.working_directory = runtime_data.parameters["InitData"]["working_directory"] + '\\' + runtime_data.brain_run_id
+        runtime_data.working_directory = runtime_data.parameters["InitData"]["working_directory"] + '\\' + \
+                                         runtime_data.brain_run_id
 
         # Create connectome directory if needed
         # todo: need to consolidate the connectome path as currently captured in two places
@@ -153,7 +154,8 @@ def init_working_directory():
                 os.makedirs(ipu_path)
             runtime_data.paths[_] = runtime_data.working_directory + _
     else:
-        runtime_data.working_directory = runtime_data.parameters["InitData"]["working_directory"] + '/' + runtime_data.brain_run_id
+        runtime_data.working_directory = runtime_data.parameters["InitData"]["working_directory"] + '/' + \
+                                         runtime_data.brain_run_id
         runtime_data.connectome_path = runtime_data.working_directory + '/connectome/'
         runtime_data.parameters["InitData"]["connectome_path"] = runtime_data.connectome_path
 

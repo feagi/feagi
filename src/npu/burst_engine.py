@@ -258,6 +258,37 @@ def burst_manager():
                                                      synapse_count=synapse_count)
             # genethesizer.generation_assessment()
 
+    def refractory_check(cortical_area, neuron_id):
+        # Refractory period check
+        # consider case where last_burst_num = 0 when doing refractory period check
+        # TODO: incorporate (or at least consider) this last_burst_num check in function refactor
+        dst_neuron_obj = runtime_data.brain[cortical_area][neuron_id]
+        if dst_neuron_obj["last_burst_num"] > 0:
+            if dst_neuron_obj["last_burst_num"] + \
+                    runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["refractory_period"] <= \
+                    runtime_data.burst_count:
+                # Inhibitory effect check
+                if dst_neuron_obj["snooze_till_burst_num"] <= runtime_data.burst_count:
+                    # Adding neuron to fire candidate list for firing in the next round
+                    return True
+                else:
+                    return False
+        else:
+            if dst_neuron_obj["snooze_till_burst_num"] <= runtime_data.burst_count:
+                return True
+            else:
+                return False
+
+    def consecutive_fire_threshold_check(cortical_area, neuron_id):
+        # Condition to snooze the neuron if consecutive fire count reaches threshold
+        if runtime_data.brain[cortical_area][neuron_id]["consecutive_fire_cnt"] > \
+                runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["consecutive_fire_cnt_max"]:
+            snooze_till(cortical_area, neuron_id, runtime_data.burst_count +
+                        runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["snooze_length"])
+            return False
+        else:
+            return True
+
     def fire_fcl_contents():
         # time_firing_activities = datetime.now()
         # todo: replace the hardcoded vision memory statement
@@ -270,16 +301,32 @@ def burst_manager():
             # Capture cortical activity stats
             capture_cortical_activity_stats()
 
+            # Develop a final neuron fire queue based on all the neuron membrane potential fluctuations
+
+            # fire_queue holds a temporary list of neurons updated during a single burst to determine which to fire
+            runtime_data.fire_queue = dict()
             for _ in runtime_data.fire_candidate_list:
                 if runtime_data.genome['blueprint'][_].get('degeneration'):
                     degeneration_val = runtime_data.genome['blueprint'][_]['degeneration']
                     while runtime_data.fire_candidate_list[_]:
                         neuron_to_fire = runtime_data.fire_candidate_list[_].pop()
-                        neuron_fire(_, neuron_to_fire, degenerate=degeneration_val)
+                        neuron_pre_fire_processing(_, neuron_to_fire, degenerate=degeneration_val)
                 else:
                     while runtime_data.fire_candidate_list[_]:
                         neuron_to_fire = runtime_data.fire_candidate_list[_].pop()
-                        neuron_fire(_, neuron_to_fire)
+                        neuron_pre_fire_processing(_, neuron_to_fire)
+
+            # Add neurons to future FCL
+            for cortical_area in runtime_data.fire_queue:
+                for neuron_id in runtime_data.fire_queue[cortical_area]:
+                    membrane_potential = runtime_data.fire_queue[cortical_area][neuron_id][0]
+                    fire_threshold = runtime_data.fire_queue[cortical_area][neuron_id][1]
+                    if membrane_potential > fire_threshold and \
+                            refractory_check(cortical_area, neuron_id) and \
+                            consecutive_fire_threshold_check(cortical_area, neuron_id):
+                        # The actual trigger to fire the neuron
+                        runtime_data.future_fcl[cortical_area].add(neuron_id)
+
             # Transferring future_fcl to current one and resetting the future one in process
             for _ in runtime_data.future_fcl:
                 runtime_data.fire_candidate_list[_] = \
@@ -293,10 +340,11 @@ def burst_manager():
             for _ in runtime_data.fire_candidate_list:
                 for neuron in runtime_data.fire_candidate_list[_]:
                     runtime_data.influxdb.insert_neuron_activity(connectome_path=connectome_path,
-                                                    cortical_area=_,
-                                                    neuron_id=neuron,
-                                                    membrane_potential=
-                                                    runtime_data.brain[_][neuron]["membrane_potential"] /1)
+                                                                 cortical_area=_,
+                                                                 neuron_id=neuron,
+                                                                 membrane_potential=
+                                                                 runtime_data.brain[_][neuron]["membrane_potential"] /
+                                                                 1)
 
     def log_burst_activity_influx():
         if (runtime_data.parameters["Database"]["influxdb_enabled"] and 
@@ -514,7 +562,6 @@ def burst_manager():
     for cortical_area in runtime_data.cortical_list:
         # cortical_list.append(cortical_area)
         init_fcl(cortical_area)
-        print("%%#$%@$%@$#%@#$% @# $% @#$ % @ % #$% @#$ %@#$ %@ $       ", cortical_area)
     # runtime_data.cortical_list = cortical_list
 
     runtime_data.memory_list = cortical_group_members('m')
