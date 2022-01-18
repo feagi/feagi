@@ -195,8 +195,6 @@ def neuron_genesis_3d(cortical_area):
                 runtime_data.block_dic[cortical_area][block_reference] = []
             runtime_data.block_dic[cortical_area][block_reference].append(neuron_id)
 
-    for block in runtime_data.block_dic[cortical_area]:
-        print("Block dictionary for ", cortical_area, block)
     return neuron_count
 
 
