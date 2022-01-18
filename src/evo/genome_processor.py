@@ -93,6 +93,13 @@ def genome_2_1_convertor(flat_genome):
                                     genome['blueprint'][cortical_area][genome_2_to_1[exon]] = "random"
                             else:
                                 genome['blueprint'][cortical_area][genome_2_to_1[exon]] = "sequential"
+                        elif genome_2_to_1[exon] == "cortical_mapping_dst":
+                            for destination in flat_genome[gene]:
+                                if cortical_area not in genome['blueprint'][cortical_area][genome_2_to_1[exon]]:
+                                    genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination] = dict()
+                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination]["neighbor_locator_rule_id"] = flat_genome[gene][cortical_area][0]
+                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination]["neighbor_locator_rule_param_id"] = flat_genome[gene][cortical_area][1]
+
                         else:
                             try:
                                 genome['blueprint'][cortical_area][genome_2_to_1[exon]] = flat_genome[gene]
@@ -178,7 +185,8 @@ gene_decoder = {
     "_______c-______-nx-leak_c-f": "leak_coefficient",
     "_______c-______-nx-c_fr_c-i": "consecutive_fire_cnt_max",
     "_______c-______-nx-snooze-f": "snooze_length",
-    "_______c-______-cx-__rand-b": "location_generation_type"
+    "_______c-______-cx-__rand-b": "location_generation_type",
+    "_______c-______-cs-dstmap-d": "cortical_mapping_dst"
 }
 
 genome_1_template = {
@@ -189,8 +197,6 @@ genome_1_template = {
           "postsynaptic_current": None,
           "plasticity_constant": None,
           "postsynaptic_current_max": None,
-          "neighbor_locator_rule_id": None,
-          "neighbor_locator_rule_param_id": None,
           "cortical_mapping_dst": {},
           "neuron_params": {
               "activation_function_id": None,
@@ -262,7 +268,9 @@ genome_2_to_1 = {
     "nx-geo_y1-f": "geometric_boundaries",
     "nx-geo_z0-f": "geometric_boundaries",
     "nx-geo_z1-f": "geometric_boundaries",
-    "cx-_group-t": "group_id"
+    "cx-_group-t": "group_id",
+    "cx-dstmap-d": "cortical_mapping_dst"
+
 }
 
 genome_1_to_2 = {
@@ -284,5 +292,6 @@ genome_1_to_2 = {
     "consecutive_fire_cnt_max": "nx-c_fr_c-i",
     "snooze_length": "nx-snooze-f",
     "geometric_boundaries": "nx-geo___-i",
-    "group_id": "cx-_group-t"
+    "group_id": "cx-_group-t",
+    "cortical_mapping_dst": "cs-dstmap-d"
 }

@@ -53,8 +53,6 @@ genome = {
         "_____10c-i__bat-cx-pstcr_-f":  -500,
         "_____10c-i__bat-cx-pstcrm-f":  35,
         "_____10c-i__bat-cx-plst_c-f":  0.05,
-        "_____10c-i__bat-nx-locr__-t":  "rule_5",
-        "_____10c-i__bat-nx-locrp_-t":  "param_3",
         "_____10c-i__bat-nx-fire_t-f":  1,
         "_____10c-i__bat-nx-refrac-i":  0,
         "_____10c-i__bat-nx-leak_c-f":  10,
@@ -66,6 +64,7 @@ genome = {
         "_____10c-i__bat-nx-geo_y1-f":  10,
         "_____10c-i__bat-nx-geo_z0-f":  0,
         "_____10c-i__bat-nx-geo_z1-f":  100,
+        "_____10c-i__bat-cx-dstmap-d":  {"o__mot": ["rule_5", "param_3"]},
 
         "_____10c-o__mot-cx-__name-t": "motor_opu",
         "_____10c-o__mot-cx-_group-t": "OPU",
@@ -83,8 +82,6 @@ genome = {
         "_____10c-o__mot-cx-pstcr_-f": -500,
         "_____10c-o__mot-cx-pstcrm-f": 35,
         "_____10c-o__mot-cx-plst_c-f": 0.05,
-        "_____10c-o__mot-nx-locr__-t": "rule_1",
-        "_____10c-o__mot-nx-locrp_-t": "param_1",
         "_____10c-o__mot-nx-fire_t-f": 1,
         "_____10c-o__mot-nx-refrac-i": 0,
         "_____10c-o__mot-nx-leak_c-f": 10,
@@ -95,6 +92,7 @@ genome = {
         "_____10c-o__mot-nx-geo_y0-f": 0,
         "_____10c-o__mot-nx-geo_y1-f": 10,
         "_____10c-o__mot-nx-geo_z0-f": 0,
-        "_____10c-o__mot-nx-geo_z1-f": 200
+        "_____10c-o__mot-nx-geo_z1-f": 200,
+        "_____10c-o__mot-cx-dstmap-d":  {"o__mot": ["rule_1", "param_1"]}
     }
 }
