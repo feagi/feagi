@@ -462,6 +462,7 @@ the image (`floor.png`) is located in `/freenove_4wd_car_description/models/sdf/
 <details>
   <summary>Click here to see detailed steps</summary>
 The existing model uses four wheels: front_left, front_right, rear_left, and rear_right, which correspond to /M0, /M1, /M2, and /M3 ROS2 topics.
+
 Those wheels are made from the [Getting started with the simulation](#getting-started-with-the-simulation) tutorial.
 
 So this plugin allows you to connect with ROS2 from ignition. This will display the output of motor from ignition on ROS2 topic list.
