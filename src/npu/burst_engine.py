@@ -33,7 +33,8 @@ def cortical_group_members(group):
     # for item in runtime_data.cortical_list:
     #     if runtime_data.genome['blueprint'][item]['group_id'] == group:
     #         members.append(item)
-    return [item for item in runtime_data.cortical_list if runtime_data.genome['blueprint'][item]['group_id'] == group]
+    return [item for item in runtime_data.cortical_list if runtime_data.genome['blueprint'][item]['group_id'][:1]
+            == group]
 
 
 def burst_manager():
@@ -234,9 +235,14 @@ def burst_manager():
 
         burst_duration = datetime.now() - burst_start_time
         if runtime_data.parameters["Logs"]["print_burst_info"]:
-            print(settings.Bcolors.YELLOW +
-                  ">>> Burst duration: %s %i --- ---- ---- ---- ---- ---- ----"
-                  % (burst_duration, runtime_data.burst_count) + settings.Bcolors.ENDC)
+            if runtime_data.genome_ver == "2.0":
+                print(settings.Bcolors.UPDATE +
+                      ">>> Burst duration: %s %i --- ---- ---- ---- ---- ---- ----"
+                      % (burst_duration, runtime_data.burst_count) + settings.Bcolors.ENDC)
+            else:
+                print(settings.Bcolors.YELLOW +
+                      ">>> Burst duration: %s %i --- ---- ---- ---- ---- ---- ----"
+                      % (burst_duration, runtime_data.burst_count) + settings.Bcolors.ENDC)
 
     def evolutionary_checkpoint():
         if runtime_data.burst_count % runtime_data.genome['evolution_burst_count'] == 0:
@@ -504,12 +510,15 @@ def burst_manager():
             print(settings.Bcolors.HEADER + " *** Warning!!! *** Brain activities are being recorded!!" +
                   settings.Bcolors.ENDC)
 
-    cortical_list = []
-    for cortical_area in runtime_data.genome['blueprint']:
-        cortical_list.append(cortical_area)
+    # cortical_list = []
+    for cortical_area in runtime_data.cortical_list:
+        # cortical_list.append(cortical_area)
         init_fcl(cortical_area)
-    runtime_data.cortical_list = cortical_list
-    runtime_data.memory_list = cortical_group_members('Memory')
+        print("%%#$%@$%@$#%@#$% @# $% @#$ % @ % #$% @#$ %@#$ %@ $       ", cortical_area)
+    # runtime_data.cortical_list = cortical_list
+
+    runtime_data.memory_list = cortical_group_members('m')
+    print("runtime_data.memory_list=", runtime_data.memory_list)
 
     if runtime_data.parameters["Switches"]["capture_brain_activities"]:
         runtime_data.fcl_history = {}
