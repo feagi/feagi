@@ -1,6 +1,6 @@
 
 import json
-
+import copy
 
 def genome_2_print(genome):
     for cortical_area in genome:
@@ -77,12 +77,10 @@ def genome_2_1_convertor(flat_genome):
     cortical_list = genome_2_cortical_list(flat_genome)
     # Assign a blank template to each cortical area
     for cortical_area in cortical_list:
-        genome['blueprint'][cortical_area] = dict.copy(genome_1_template)
-        genome['blueprint'][cortical_area]['block_boundaries'] = [None, None, None]
+        genome['blueprint'][cortical_area] = copy.deepcopy(genome_1_template)
 
     # Populate each cortical area with
     for cortical_area in genome['blueprint']:
-        print("%%% @@@ %%%", cortical_area, genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"])
         for gene in flat_genome:
             cortical_id = gene[9:15]
             exon = gene[16:]
@@ -97,10 +95,10 @@ def genome_2_1_convertor(flat_genome):
                                 genome['blueprint'][cortical_area][genome_2_to_1[exon]] = "sequential"
                         elif genome_2_to_1[exon] == "cortical_mapping_dst":
                             for destination in flat_genome[gene]:
-                                if cortical_area not in genome['blueprint'][cortical_area][genome_2_to_1[exon]]:
+                                if destination not in genome['blueprint'][cortical_area][genome_2_to_1[exon]]:
                                     genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination] = dict()
-                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination]["neighbor_locator_rule_id"] = flat_genome[gene][cortical_area][0]
-                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination]["neighbor_locator_rule_param_id"] = flat_genome[gene][cortical_area][1]
+                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination]["neighbor_locator_rule_id"] = flat_genome[gene][destination][0]
+                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination]["neighbor_locator_rule_param_id"] = flat_genome[gene][destination][1]
 
                         else:
                             try:
@@ -108,24 +106,16 @@ def genome_2_1_convertor(flat_genome):
                             except:
                                 print("Key not processed: ", cortical_area)
                     elif gene_type == 'nx':
-                        print("#------------#", genome['blueprint']["i__bat"]["neuron_params"]["block_boundaries"], gene)
-                        print("+++++++++++++", genome['blueprint']["o__mot"]["neuron_params"]["block_boundaries"],
-                              gene)
                         if genome_2_to_1[exon] == "block_boundaries":
                             if gene[24] == 'x':
                                 genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][0] = \
                                     flat_genome[gene]
-                                print("blk x", cortical_area, gene, genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][0])
                             elif gene[24] == 'y':
                                 genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][1] = \
                                     flat_genome[gene]
-                                print("blk y", cortical_area, gene,
-                                      genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][1])
                             elif gene[24] == 'z':
                                 genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][2] = \
                                     flat_genome[gene]
-                                print("blk z", cortical_area, gene,
-                                      genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][2])
                             else:
                                 pass
 
@@ -168,11 +158,7 @@ def genome_2_1_convertor(flat_genome):
                     else:
                         pass
                 except KeyError as e:
-                    print("Error ***:", e, cortical_area)
-                    print("$$$", cortical_area, genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"])
-        print("###", genome['blueprint']["i__bat"]["neuron_params"]["block_boundaries"], "\n",
-              genome['blueprint']["o__mot"]["neuron_params"]["block_boundaries"])
-
+                    print("Error while converting a gene:", e, cortical_area, gene)
 
     print(json.dumps(genome, sort_keys=True, indent=4))
 
@@ -195,8 +181,6 @@ gene_decoder = {
     "_______c-______-nx-pstcr_-f": "postsynaptic_current",
     "_______c-______-nx-pstcrm-f": "postsynaptic_current_max",
     "_______c-______-nx-plst_c-f": "plasticity_constant",
-    "_______c-______-nx-locr__-t": "neighbor_locator_rule_id",
-    "_______c-______-nx-locrp_-t": "neighbor_locator_rule_param_id",
     "_______c-______-nx-fire_t-f": "firing_threshold",
     "_______c-______-nx-refrac-i": "refractory_period",
     "_______c-______-nx-leak_c-f": "leak_coefficient",
@@ -272,8 +256,6 @@ genome_2_to_1 = {
     "cx-pstcr_-f": "postsynaptic_current",
     "cx-pstcrm-f": "postsynaptic_current_max",
     "cx-plst_c-f": "plasticity_constant",
-    "nx-locr__-t": "neighbor_locator_rule_id",
-    "nx-locrp_-t": "neighbor_locator_rule_param_id",
     "nx-fire_t-f": "firing_threshold",
     "nx-refrac-i": "refractory_period",
     "nx-leak_c-f": "leak_coefficient",

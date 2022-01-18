@@ -16,7 +16,7 @@ def add_gene():
     for cortical_area in genome['blueprint']:
         for _ in genome['blueprint'][cortical_area]:
             if _ == "cortical_mapping_dst":
-                for __ in  genome['blueprint'][cortical_area]["cortical_mapping_dst"]:
+                for __ in genome['blueprint'][cortical_area]["cortical_mapping_dst"]:
                     if "excitatory" not in genome['blueprint'][cortical_area]["cortical_mapping_dst"][__]:
                         genome['blueprint'][cortical_area]["cortical_mapping_dst"][__]["excitatory"] = True
 
