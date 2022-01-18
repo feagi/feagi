@@ -7,7 +7,7 @@ import csv
 
 
 
-host = "127.0.0.1"
+host = "feagi"
 port = "30003"
 
 def FEAGI_initalize():
