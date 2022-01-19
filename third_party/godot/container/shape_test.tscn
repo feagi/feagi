@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=2]
+[gd_scene load_steps=19 format=2]
 
 [ext_resource path="res://voxel.meshlib" type="MeshLibrary" id=1]
 [ext_resource path="res://camera.gd" type="Script" id=2]
@@ -7,11 +7,8 @@
 [ext_resource path="res://Cortical_area_box.meshlib" type="MeshLibrary" id=5]
 [ext_resource path="res://Glegoo-Bold.ttf" type="DynamicFontData" id=6]
 [ext_resource path="res://Click.gd" type="Script" id=7]
-[ext_resource path="res://selected.meshlib" type="MeshLibrary" id=8]
 [ext_resource path="res://Cortical_area.gd" type="Script" id=9]
-[ext_resource path="res://outline.png" type="Texture" id=10]
 [ext_resource path="res://cortical_area.material" type="Material" id=11]
-[ext_resource path="res://selected.material" type="Material" id=12]
 
 [sub_resource type="ViewportTexture" id=1]
 viewport_path = NodePath("Sprite3D/Viewport")
@@ -40,16 +37,6 @@ albedo_color = Color( 0.109804, 0.552941, 0.729412, 0.0235294 )
 [sub_resource type="BoxShape" id=8]
 resource_local_to_scene = true
 extents = Vector3( 0.5, 0.5, 0.5 )
-
-[sub_resource type="CubeMesh" id=12]
-size = Vector3( 1, 1, 1 )
-
-[sub_resource type="SpatialMaterial" id=13]
-flags_transparent = true
-flags_unshaded = true
-params_depth_draw_mode = 3
-albedo_texture = ExtResource( 10 )
-uv1_scale = Vector3( 3, 2, 2 )
 
 [sub_resource type="BoxShape" id=16]
 
@@ -91,7 +78,6 @@ max_lines_visible = 0
 
 [node name="GridMap" type="GridMap" parent="."]
 transform = Transform( 0.893848, 0, 0, 0, 0.893848, 0, 0, 0, 0.893848, 0, 0, 0 )
-visible = false
 mesh_library = ExtResource( 1 )
 cell_size = Vector3( 1, 1, 1 )
 data = {
@@ -103,7 +89,6 @@ __meta__ = {
 }
 
 [node name="GridMap3" type="GridMap" parent="."]
-visible = false
 mesh_library = ExtResource( 1 )
 cell_size = Vector3( 1, 1, 1 )
 data = {
@@ -115,7 +100,6 @@ __meta__ = {
 
 [node name="GridMap2" type="GridMap" parent="."]
 transform = Transform( 0.99991, 0, -0.0134212, 0, 1, 0, 0.0134212, 0, 0.99991, 0, 0, 0 )
-visible = false
 mesh_library = ExtResource( 5 )
 cell_size = Vector3( 1, 1, 1 )
 data = {
@@ -140,29 +124,12 @@ shape = SubResource( 8 )
 
 [node name="Spatial" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 0.973179, -0.23005, 0, 0.23005, 0.973179, 47, 26.323, 25.711 )
-visible = false
 script = ExtResource( 2 )
 
 [node name="Camera" type="Camera" parent="Spatial"]
 transform = Transform( 1, 0, 0, 0, -0.24326, 0.969961, 0, -0.969961, -0.24326, 0, 0, 0 )
 fov = 80.4021
 far = 8192.0
-
-[node name="GridMap4" type="GridMap" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0 )
-visible = false
-mesh_library = ExtResource( 8 )
-data = {
-"cells": PoolIntArray(  )
-}
-__meta__ = {
-"_editor_clip_": 0
-}
-
-[node name="Outline" type="MeshInstance" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1 )
-mesh = SubResource( 12 )
-material/0 = SubResource( 13 )
 
 [node name="Cortical_area" type="CSGBox" parent="."]
 width = 1.0
@@ -178,13 +145,6 @@ transform = Transform( 0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0, 0 )
 shape = SubResource( 16 )
 
 [node name="MeshInstance" type="MeshInstance" parent="Cortical_area"]
-
-[node name="CSGBox" type="CSGBox" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5 )
-width = 1.0
-height = 1.0
-depth = 1.0
-material = ExtResource( 12 )
 
 [connection signal="input_event" from="GridMap2/Area" to="GridMap2" method="_on_Area_input_event"]
 [connection signal="input_event" from="Cortical_area/Area" to="Cortical_area" method="_on_Area_input_event"]
