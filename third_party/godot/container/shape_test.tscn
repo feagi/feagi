@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=2]
+[gd_scene load_steps=25 format=2]
 
 [ext_resource path="res://voxel.meshlib" type="MeshLibrary" id=1]
 [ext_resource path="res://camera.gd" type="Script" id=2]
@@ -8,6 +8,7 @@
 [ext_resource path="res://Glegoo-Bold.ttf" type="DynamicFontData" id=6]
 [ext_resource path="res://Click.gd" type="Script" id=7]
 [ext_resource path="res://selected.meshlib" type="MeshLibrary" id=8]
+[ext_resource path="res://Cortical_area.gd" type="Script" id=9]
 [ext_resource path="res://outline.png" type="Texture" id=10]
 
 [sub_resource type="ViewportTexture" id=1]
@@ -48,12 +49,24 @@ params_depth_draw_mode = 3
 albedo_texture = ExtResource( 10 )
 uv1_scale = Vector3( 3, 2, 2 )
 
+[sub_resource type="SpatialMaterial" id=17]
+
+[sub_resource type="CubeMesh" id=14]
+resource_local_to_scene = true
+material = SubResource( 17 )
+size = Vector3( 1, 1, 1 )
+
+[sub_resource type="SpatialMaterial" id=15]
+flags_transparent = true
+albedo_color = Color( 0.14902, 0.25098, 0.309804, 0.501961 )
+
+[sub_resource type="BoxShape" id=16]
+
 [node name="World" type="Spatial"]
 script = ExtResource( 3 )
 
 [node name="Sprite3D" type="Sprite3D" parent="."]
 transform = Transform( 0.001, 0, 0, 0, 0.001, 0, 0, 0, 0.001, 0, 0, 0 )
-visible = false
 pixel_size = 0.07
 billboard = 2
 double_sided = false
@@ -111,10 +124,11 @@ __meta__ = {
 
 [node name="GridMap2" type="GridMap" parent="."]
 transform = Transform( 0.99991, 0, -0.0134212, 0, 1, 0, 0.0134212, 0, 0.99991, 0, 0, 0 )
+visible = false
 mesh_library = ExtResource( 5 )
 cell_size = Vector3( 1, 1, 1 )
 data = {
-"cells": PoolIntArray(  )
+"cells": PoolIntArray( 65535, 65534, 0 )
 }
 script = ExtResource( 7 )
 __meta__ = {
@@ -159,4 +173,16 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1 )
 mesh = SubResource( 12 )
 material/0 = SubResource( 13 )
 
+[node name="Cortical_area" type="CSGMesh" parent="."]
+mesh = SubResource( 14 )
+material = SubResource( 15 )
+script = ExtResource( 9 )
+
+[node name="Area" type="Area" parent="Cortical_area"]
+
+[node name="CollisionShape" type="CollisionShape" parent="Cortical_area/Area"]
+transform = Transform( 0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0, 0 )
+shape = SubResource( 16 )
+
 [connection signal="input_event" from="GridMap2/Area" to="GridMap2" method="_on_Area_input_event"]
+[connection signal="input_event" from="Cortical_area/Area" to="Cortical_area" method="_on_Area_input_event"]
