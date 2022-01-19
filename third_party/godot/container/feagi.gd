@@ -3,8 +3,9 @@ extends Spatial
 
 onready var file = 'res://csv_data.csv'
 onready var textbox_display = get_node("Sprite3D")
-onready var raycast = $Spatial/Camera/RayCast
 onready var gridmap_new = get_node("GridMap2")
+onready var selected =  preload("res://selected.meshlib")
+onready var deselected = preload("res://Cortical_area_box.meshlib")
 
 
 var grid_size = 1000
@@ -34,6 +35,8 @@ var green_light = false
 
 func _ready():
 	Engine.target_fps = 60
+	$GridMap2.world_to_map(Vector3(1,0,0))
+	$GridMap2.set_cell_item(1,0,0,0)
 	for _i in self.get_children():
 		print(_i)
 	if(socket.listen(20001, "127.0.0.1") != OK):
@@ -45,7 +48,7 @@ func _ready():
 		print("Connection established.")
 		green_light  = true
 
-	
+	$GridMap2.clear()
 	var f = File.new() #This is to read each line from the file
 	if f.file_exists('res://csv_data.csv'):
 		f.open(file, File.READ)
@@ -169,18 +172,5 @@ func adding_cortical_areas(name, x,y,z,width,height,depth):
 	
 func install_voxel_inside(x,y,z):
 	$GridMap.set_cell_item(x,y,z, 0)
-	
-func _camera_process(delta):
-	if raycast.is_colliding():
-		var pos = raycast.get_collision_point()
-		var norm = raycast.get_collision_normal()
-		emit_signal("highlight_block", pos, norm)
-		if Input.is_action_just_pressed("click"):
-			print("Click")
-			emit_signal("destroy_block", pos, norm)
-		elif Input.is_action_just_pressed("right_click"):
-			#emit_signal("place_block", pos, norm, selected_block)
-			pass
-	else:
-		emit_signal("unhighlight_block")
+
 	

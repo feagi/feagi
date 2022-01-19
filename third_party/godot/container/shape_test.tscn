@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=2]
+[gd_scene load_steps=20 format=2]
 
 [ext_resource path="res://voxel.meshlib" type="MeshLibrary" id=1]
 [ext_resource path="res://camera.gd" type="Script" id=2]
@@ -7,8 +7,7 @@
 [ext_resource path="res://Cortical_area_box.meshlib" type="MeshLibrary" id=5]
 [ext_resource path="res://Glegoo-Bold.ttf" type="DynamicFontData" id=6]
 [ext_resource path="res://Click.gd" type="Script" id=7]
-[ext_resource path="res://crosshair.png" type="Texture" id=8]
-[ext_resource path="res://crosshair.gd" type="Script" id=9]
+[ext_resource path="res://selected.meshlib" type="MeshLibrary" id=8]
 [ext_resource path="res://outline.png" type="Texture" id=10]
 
 [sub_resource type="ViewportTexture" id=1]
@@ -39,15 +38,6 @@ albedo_color = Color( 0.109804, 0.552941, 0.729412, 0.0235294 )
 resource_local_to_scene = true
 extents = Vector3( 0.5, 0.5, 0.5 )
 
-[sub_resource type="CubeMesh" id=9]
-size = Vector3( 1, 1, 1 )
-
-[sub_resource type="Skin" id=10]
-
-[sub_resource type="SpatialMaterial" id=11]
-flags_transparent = true
-albedo_color = Color( 0, 0, 0.501961, 1 )
-
 [sub_resource type="CubeMesh" id=12]
 size = Vector3( 1, 1, 1 )
 
@@ -63,6 +53,7 @@ script = ExtResource( 3 )
 
 [node name="Sprite3D" type="Sprite3D" parent="."]
 transform = Transform( 0.001, 0, 0, 0, 0.001, 0, 0, 0, 0.001, 0, 0, 0 )
+visible = false
 pixel_size = 0.07
 billboard = 2
 double_sided = false
@@ -108,6 +99,7 @@ __meta__ = {
 }
 
 [node name="GridMap3" type="GridMap" parent="."]
+visible = false
 mesh_library = ExtResource( 1 )
 cell_size = Vector3( 1, 1, 1 )
 data = {
@@ -135,14 +127,15 @@ mesh = SubResource( 5 )
 skin = SubResource( 6 )
 material/0 = SubResource( 7 )
 
-[node name="Area" type="Area" parent="GridMap2/MeshInstance"]
+[node name="Area" type="Area" parent="GridMap2"]
 transform = Transform( 0.99991, 0, 0.0134212, 0, 1, 0, -0.0134212, 0, 0.99991, 0, 0, 0 )
 
-[node name="CollisionShape" type="CollisionShape" parent="GridMap2/MeshInstance/Area"]
+[node name="CollisionShape" type="CollisionShape" parent="GridMap2/Area"]
 shape = SubResource( 8 )
 
 [node name="Spatial" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 0.973179, -0.23005, 0, 0.23005, 0.973179, 47, 26.323, 25.711 )
+visible = false
 script = ExtResource( 2 )
 
 [node name="Camera" type="Camera" parent="Spatial"]
@@ -150,19 +143,10 @@ transform = Transform( 1, 0, 0, 0, -0.24326, 0.969961, 0, -0.969961, -0.24326, 0
 fov = 80.4021
 far = 8192.0
 
-[node name="RayCast" type="RayCast" parent="Spatial/Camera"]
-transform = Transform( 1, 0, 0, 0, -0.24326, -0.969961, 0, 0.969961, -0.24326, 0, 0, 0 )
-visible = false
-enabled = true
-
-[node name="Sprite" type="Sprite" parent="Spatial/Camera"]
-visible = false
-scale = Vector2( 2, 2 )
-texture = ExtResource( 8 )
-script = ExtResource( 9 )
-
 [node name="GridMap4" type="GridMap" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0 )
 visible = false
+mesh_library = ExtResource( 8 )
 data = {
 "cells": PoolIntArray(  )
 }
@@ -170,13 +154,11 @@ __meta__ = {
 "_editor_clip_": 0
 }
 
-[node name="MeshInstance" type="MeshInstance" parent="GridMap4"]
-mesh = SubResource( 9 )
-skin = SubResource( 10 )
-material/0 = SubResource( 11 )
-
 [node name="Outline" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1 )
 mesh = SubResource( 12 )
 material/0 = SubResource( 13 )
 
-[connection signal="input_event" from="GridMap2/MeshInstance/Area" to="GridMap2" method="_on_Area_input_event"]
+[connection signal="input_event" from="GridMap2/Area" to="GridMap2" method="_on_Area_input_event"]
+[connection signal="mouse_entered" from="GridMap2/Area" to="GridMap2" method="_on_Area_mouse_entered"]
+[connection signal="mouse_exited" from="GridMap2/Area" to="GridMap2" method="_on_Area_mouse_exited"]

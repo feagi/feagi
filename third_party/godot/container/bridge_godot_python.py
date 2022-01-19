@@ -3,7 +3,7 @@ import socket
 import csv
 import zmq
 
-host = "feagi"
+host = "127.0.0.1"
 port = "30003"
 
 
