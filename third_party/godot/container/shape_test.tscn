@@ -160,5 +160,3 @@ mesh = SubResource( 12 )
 material/0 = SubResource( 13 )
 
 [connection signal="input_event" from="GridMap2/Area" to="GridMap2" method="_on_Area_input_event"]
-[connection signal="mouse_entered" from="GridMap2/Area" to="GridMap2" method="_on_Area_mouse_entered"]
-[connection signal="mouse_exited" from="GridMap2/Area" to="GridMap2" method="_on_Area_mouse_exited"]
