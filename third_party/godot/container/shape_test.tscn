@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 [gd_scene load_steps=20 format=2]
+=======
+[gd_scene load_steps=22 format=2]
+>>>>>>> 1436b0e6d827327ca779a7ac18f26e01d1cbd1da
 
 [ext_resource path="res://voxel.meshlib" type="MeshLibrary" id=1]
 [ext_resource path="res://camera.gd" type="Script" id=2]
@@ -7,7 +11,10 @@
 [ext_resource path="res://Cortical_area_box.meshlib" type="MeshLibrary" id=5]
 [ext_resource path="res://Glegoo-Bold.ttf" type="DynamicFontData" id=6]
 [ext_resource path="res://Click.gd" type="Script" id=7]
+<<<<<<< HEAD
 [ext_resource path="res://selected.meshlib" type="MeshLibrary" id=8]
+=======
+>>>>>>> 1436b0e6d827327ca779a7ac18f26e01d1cbd1da
 [ext_resource path="res://outline.png" type="Texture" id=10]
 
 [sub_resource type="ViewportTexture" id=1]
@@ -143,6 +150,18 @@ transform = Transform( 1, 0, 0, 0, -0.24326, 0.969961, 0, -0.969961, -0.24326, 0
 fov = 80.4021
 far = 8192.0
 
+<<<<<<< HEAD
+=======
+[node name="RayCast" type="RayCast" parent="Spatial/Camera"]
+transform = Transform( 1, 0, 0, 0, -0.24326, -0.969961, 0, 0.969961, -0.24326, 0, 0, 0 )
+visible = false
+enabled = true
+
+[node name="Sprite" type="Sprite" parent="Spatial/Camera"]
+visible = false
+scale = Vector2( 2, 2 )
+
+>>>>>>> 1436b0e6d827327ca779a7ac18f26e01d1cbd1da
 [node name="GridMap4" type="GridMap" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0 )
 visible = false
