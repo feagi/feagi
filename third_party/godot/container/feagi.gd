@@ -6,6 +6,7 @@ onready var textbox_display = get_node("Sprite3D")
 onready var gridmap_new = get_node("GridMap2")
 onready var selected =  preload("res://selected.meshlib")
 onready var deselected = preload("res://Cortical_area_box.meshlib")
+onready var duplicate_model = get_node("Cortical_area")
 
 
 var grid_size = 1000
@@ -33,10 +34,9 @@ var green_light = false
 
 
 
+
 func _ready():
 	Engine.target_fps = 60
-	$GridMap2.world_to_map(Vector3(1,0,0))
-	$GridMap2.set_cell_item(1,0,0,0)
 	for _i in self.get_children():
 		print(_i)
 	if(socket.listen(20001, "127.0.0.1") != OK):
@@ -66,11 +66,11 @@ func _ready():
 				height = int(CSV_data[4])
 				depth = int(CSV_data[5])
 				name = CSV_data[6]
-	#			var copy = duplicate_model.duplicate()
+				var copy = duplicate_model.duplicate() ##What is this?
 				var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
 				var viewport = create_textbox.get_node("Viewport")
 				create_textbox.set_texture(viewport.get_texture())
-	#			add_child(copy)
+				add_child(copy) ##Was this previous one?
 				create_textbox.set_name(name + "_textbox")
 				add_child(create_textbox)#Copied the node to new node
 				create_textbox.scale = Vector3(1,1,1)
@@ -84,7 +84,7 @@ func _ready():
 				index += 1
 		f.close()
 		for i in 6:
-			$GridMap3.set_cell_item(i,0,0,0)
+			$GridMap3.set_cell_item(i,0,0,0) ##set the arrow indicator of 3D
 		var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
 		var viewport = create_textbox.get_node("Viewport")
 		create_textbox.set_texture(viewport.get_texture())
@@ -159,7 +159,11 @@ func generate_model(node, x, y, z, width, depth, height, name):
 		for y_increment in height:
 			for z_increment in depth:
 				if x_increment == 0 or x_increment == (int(width)-1) or y_increment == 0 or y_increment == (int(height) - 1) or z_increment == 0 or z_increment == (int(depth) - 1):
-					new_grid.set_cell_item(x_increment+int(x), y_increment+int(y), z_increment+int(z), 0)
+					#new_grid.set_cell_item(x_increment+int(x), y_increment+int(y), z_increment+int(z), 0)
+					var new = get_node("Cortical_area").duplicate()
+					new.set_name(name)
+					add_child(new)
+					new.transform.origin = Vector3(x_increment+int(x), y_increment+int(y), z_increment+int(z))
 					generate_textbox(node, x,height,z, name)
 
 func generate_textbox(node, x,height,z, name):
@@ -168,9 +172,7 @@ func generate_textbox(node, x,height,z, name):
 	node.get_node("Viewport").get_texture()
 
 func adding_cortical_areas(name, x,y,z,width,height,depth):
-	cortical_area[name]=[x,y,z,width,height,depth]
+	cortical_area[name]=[x,y,z,width,height,depth] ##This is just adding the list
 	
 func install_voxel_inside(x,y,z):
 	$GridMap.set_cell_item(x,y,z, 0)
-
-	
