@@ -178,6 +178,7 @@ This tutorial provides guidance for creating and deploying a virtual robot contr
  15. `ros2 run my_first_robot hello_world`
 </details>
 
+&nbsp;
 ## Getting started with the simulation
 <details>
 <summary> Click here to see detailed steps </summary>
@@ -226,6 +227,7 @@ To start with create your own robot inside your workspace:
     ![image](_static/joint_controller_dsplay.png)
 </details>
 
+&nbsp;
 ## Create a bridge between ROS2 and Gazebo
 <details>
 <summary> Click here to see detailed steps </summary>
@@ -388,6 +390,7 @@ The output of the previous command should be similar to:
 ```
 </details>
 
+&nbsp;
 ## Control the model using Python
 <details>
 <summary> Click here to see detailed steps </summary>
@@ -458,6 +461,7 @@ To add an image, use the `<material><pbr></pbr></material>` tags and place the i
 the image (`floor.png`) is located in `/freenove_4wd_car_description/models/sdf/`. 
 </details>
 
+&nbsp;
 ## Adding wheels:
 <details>
   <summary>Click here to see detailed steps</summary>
@@ -478,11 +482,12 @@ connects Gazebo to ROS2, providing data to the latter on how to control a specif
 More information on the joint controller and its parameters can be found [here](https://ignitionrobotics.org/api/gazebo/4.1/classignition_1_1gazebo_1_1systems_1_1JointController.html#System-Parameters)
 </details>
 
+&nbsp;
 ## Adding sensors:
 <details>
   <summary>Click here to see detailed steps</summary>
 
-  **Ultrasonic**: range is 2 cm - 400 cm (0.02 m - 4 m)
+  **Ultrasonic**: range is 2 cm - 400 cm (0.02 m - 4 m)    
   ![image](_static/gazebo_rviz.png)
     
   ![image](_static/gazebo_rviz2.png)
@@ -496,6 +501,7 @@ More information on the joint controller and its parameters can be found [here](
 
 </details>
 
+&nbsp;
 ## Create topics in SDF for ROS2
 <details>
   <summary>Click here to see detailed steps</summary>
@@ -560,6 +566,7 @@ To control using Python, run the following commands in a new terminal:
     ![demo](_static/robot_running.gif)
 </details>
 
+&nbsp;
 ## Running in container
 <details>
   <summary>Click here to see detailed steps</summary>
@@ -584,6 +591,7 @@ This model was designed to functionally resemble the [Freenove 4wd smart car](ht
 
 </details>
 
+&nbsp;
 ## FEAGI, ROS2 and Gazebo networking
 <details>
   <summary>Click here for more information</summary>
