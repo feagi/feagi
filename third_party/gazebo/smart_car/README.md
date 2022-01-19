@@ -440,47 +440,31 @@ The robot should move forward and backward indefinitely due to the lack of mass 
 <details>
   <summary>Click here to see detailed steps</summary>
 
-Gazebo is using `<material><pbr><metal></metal></pbr></material>` tags to facilitate adding images. See the example from our current file:
+Gazebo uses `<material><pbr><metal></metal></pbr></material>` tags to facilitate adding images.
 ```
-          <material>
-            <ambient>0.8 0.8 0.8 1</ambient>
-            <diffuse>0.8 0.8 0.8 1</diffuse>
-            <specular>1 0.8 0.8 1</specular>
-            <pbr>
-                <metal>
-                  <albedo_map>floor.png</albedo_map>
-                  <normal_map>floor.png</normal_map>
-                </metal>
-            </pbr>
-          </material>
+      <material>
+        <ambient>0.8 0.8 0.8 1</ambient>
+        <diffuse>0.8 0.8 0.8 1</diffuse>
+        <specular>1 0.8 0.8 1</specular>
+        <pbr>
+            <metal>
+              <albedo_map>floor.png</albedo_map>
+              <normal_map>floor.png</normal_map>
+            </metal>
+        </pbr>
+      </material>
 ```
-If you want to add your image, be sure to use the `<material><pbr></pbr></material>` in the same folder as your SDF file. For example,
-the image (`floor.png`) is located in `/freenove_4wd_car_description/models/sdf/` (where the SDF file is stored). 
+To add an image, use the `<material><pbr></pbr></material>` tags and place the image file in the same folder as the SDF file. For example,
+the image (`floor.png`) is located in `/freenove_4wd_car_description/models/sdf/`. 
 </details>
 
 ## Adding wheels:
 <details>
   <summary>Click here to see detailed steps</summary>
-The existing model uses four wheels: front_left, front_right, rear_left, and rear_right, which correspond to /M0, /M1, /M2, and /M3 ROS2 topics.
+The existing model uses four wheels: front_left, front_right, rear_left, and rear_right, which correspond to /M0, /M1, /M2, and /M3 ROS2 topics. The joint controller plugin
+connects Gazebo to ROS2, providing data to the latter on how to control a specified component. This plugin requires a `joint_name` tag which corresponds to the 
+`joint` tag in the SDF file.
 
-Those wheels are made from the [Getting started with the simulation](#getting-started-with-the-simulation) tutorial.
-
-So this plugin allows you to connect with ROS2 from ignition. This will display the output of motor from ignition on ROS2 topic list.
-
-
-So, to add the plugin on each of the wheel using this sample:
-```
-    <plugin
-          filename="ignition-gazebo-joint-position-controller-system"
-          name="ignition::gazebo::systems::JointPositionController">
-          <joint_name>your_joint_name</joint_name>
-                <topic>your_custom_topic</topic>
-    </plugin>
-```
-
-There is also some extra information on  [Parameters](https://ignitionrobotics.org/api/gazebo/4.1/classignition_1_1gazebo_1_1systems_1_1JointController.html#System-Parameters)
-
-Here is the example of what is being used in our file:
 ```
     <!--M3 topic-->
     <plugin
@@ -490,8 +474,8 @@ Here is the example of what is being used in our file:
                 <topic>M3</topic>
     </plugin>
 ```
-Under the `rear_right_wheel_joint` joint. This allows me to assign the plugin on one joint for IGN so IGN can let ros2 know where to control.
-This plugin needs a `<joint_name></joint_name>` where you can find your `<joint></joint>` in your SDF file. 
+
+More information on the joint controller and its parameters can be found [here](https://ignitionrobotics.org/api/gazebo/4.1/classignition_1_1gazebo_1_1systems_1_1JointController.html#System-Parameters)
 </details>
 
 ## Adding sensors:
