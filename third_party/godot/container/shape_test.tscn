@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=2]
+[gd_scene load_steps=24 format=2]
 
 [ext_resource path="res://voxel.meshlib" type="MeshLibrary" id=1]
 [ext_resource path="res://camera.gd" type="Script" id=2]
@@ -10,6 +10,8 @@
 [ext_resource path="res://selected.meshlib" type="MeshLibrary" id=8]
 [ext_resource path="res://Cortical_area.gd" type="Script" id=9]
 [ext_resource path="res://outline.png" type="Texture" id=10]
+[ext_resource path="res://cortical_area.material" type="Material" id=11]
+[ext_resource path="res://selected.material" type="Material" id=12]
 
 [sub_resource type="ViewportTexture" id=1]
 viewport_path = NodePath("Sprite3D/Viewport")
@@ -48,17 +50,6 @@ flags_unshaded = true
 params_depth_draw_mode = 3
 albedo_texture = ExtResource( 10 )
 uv1_scale = Vector3( 3, 2, 2 )
-
-[sub_resource type="SpatialMaterial" id=17]
-
-[sub_resource type="CubeMesh" id=14]
-resource_local_to_scene = true
-material = SubResource( 17 )
-size = Vector3( 1, 1, 1 )
-
-[sub_resource type="SpatialMaterial" id=15]
-flags_transparent = true
-albedo_color = Color( 0.14902, 0.25098, 0.309804, 0.501961 )
 
 [sub_resource type="BoxShape" id=16]
 
@@ -173,9 +164,11 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1 )
 mesh = SubResource( 12 )
 material/0 = SubResource( 13 )
 
-[node name="Cortical_area" type="CSGMesh" parent="."]
-mesh = SubResource( 14 )
-material = SubResource( 15 )
+[node name="Cortical_area" type="CSGBox" parent="."]
+width = 1.0
+height = 1.0
+depth = 1.0
+material = ExtResource( 11 )
 script = ExtResource( 9 )
 
 [node name="Area" type="Area" parent="Cortical_area"]
@@ -184,5 +177,16 @@ script = ExtResource( 9 )
 transform = Transform( 0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0, 0 )
 shape = SubResource( 16 )
 
+[node name="MeshInstance" type="MeshInstance" parent="Cortical_area"]
+
+[node name="CSGBox" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5 )
+width = 1.0
+height = 1.0
+depth = 1.0
+material = ExtResource( 12 )
+
 [connection signal="input_event" from="GridMap2/Area" to="GridMap2" method="_on_Area_input_event"]
 [connection signal="input_event" from="Cortical_area/Area" to="Cortical_area" method="_on_Area_input_event"]
+[connection signal="mouse_entered" from="Cortical_area/Area" to="Cortical_area" method="_on_Area_mouse_entered"]
+[connection signal="mouse_exited" from="Cortical_area/Area" to="Cortical_area" method="_on_Area_mouse_exited"]
