@@ -93,6 +93,17 @@ def breakdown(feagi_input):  ##add input soon
     print(list1)
     UDP(str(list1))
 
+def godot_listener():
+    godot_host = "127.0.0.1"
+    godot_port = 20002
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
+    sock.bind((godot_host, godot_port))
+
+    data, addr = sock.recvfrom(1024)  # buffer size is 1024 bytes
+    return data
+
+
 
 one_frame = genome_2_cortical_list(genome['blueprint'])
 CSV_writer(one_frame)
@@ -101,3 +112,5 @@ while True:
     # print(one_frame)
     # UDP("[[0, 5, 90], [0, 4, 91], [0, 2, 93], [0, 3, 92]]")
     breakdown(one_frame)
+    data = godot_listener()
+    print(data)
