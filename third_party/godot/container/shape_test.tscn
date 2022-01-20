@@ -146,7 +146,6 @@ shape = SubResource( 16 )
 
 [node name="MeshInstance" type="MeshInstance" parent="Cortical_area"]
 
-[connection signal="input_event" from="GridMap2/Area" to="GridMap2" method="_on_Area_input_event"]
 [connection signal="input_event" from="Cortical_area/Area" to="Cortical_area" method="_on_Area_input_event"]
 [connection signal="mouse_entered" from="Cortical_area/Area" to="Cortical_area" method="_on_Area_mouse_entered"]
 [connection signal="mouse_exited" from="Cortical_area/Area" to="Cortical_area" method="_on_Area_mouse_exited"]
