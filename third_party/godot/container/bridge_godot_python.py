@@ -120,7 +120,7 @@ while True:
     FEAGI_sub = Sub(address="tcp://{}:{}".format(host, port), flags=zmq.NOBLOCK)
     one_frame = FEAGI_sub.receive()
 
-    if one_frame != "None":
+    if one_frame is not None:
         print(one_frame)
     # one_frame = feagi_initalize() #disable to comment
     # print(one_frame)
