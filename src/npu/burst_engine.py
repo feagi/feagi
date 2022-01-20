@@ -557,9 +557,10 @@ def burst_manager():
         brain_activity_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['brain_activities_pub']
         brain_activity_beacon = PubBrainActivities(address=brain_activity_pub_address)
 
+    # todo: consolidate all the listeners into a class
     # Initialize IPU listener
     if runtime_data.router_address is not None:
-        print("subscribing to ", runtime_data.router_address)
+        print("Subscribing IPU listener @", runtime_data.router_address)
         ipu_listener = Sub(address=runtime_data.router_address)
 
     # todo: need to figure how to incorporate FCL injection
