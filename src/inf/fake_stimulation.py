@@ -1,3 +1,19 @@
+
+# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 """
 The fake_stimulation will provide one or multiple stimulations that can be played in sequence against the brain.
 each instance of the list will be injected to a single burst. if a sequence is left empty then the corresponding burst
@@ -20,13 +36,16 @@ stimulation_data = {
     # 30: {"servo_opu": ["0-0-0", "1-0-90"]},
     # 35: {"servo_opu": ["0-0-90", "1-0-90"]},
     # 40: {"servo_opu": ["0-0-180", "1-0-90"]},
-    # 11: {"battery_ipu": ["0-0-9"]},
-    # 12: {"battery_ipu": ["0-0-8"]},
-    # 13: {"battery_ipu": ["0-0-7"]},
-    # 14: {"battery_ipu": ["0-0-6"]},
-    # 15: {"battery_ipu": ["0-0-5"]},
-    # 16: {"battery_ipu": ["0-0-4"]},
-    # 17: {"battery_ipu": ["0-0-3"]},
+    2: {"i__bat": ["0-0-1", "0-0-2", "0-0-3", "0-0-4", "0-0-5", "0-0-6", "0-0-7", "0-0-8"]},
+    3: {"i__bat": ["0-0-1", "0-0-2", "0-0-3", "0-0-4", "0-0-5", "0-0-6", "0-0-7", "0-0-8"]},
+    4: {"i__bat": ["0-0-1", "0-0-2", "0-0-3", "0-0-4", "0-0-5", "0-0-6", "0-0-7", "0-0-8"]},
+    5: {"i__bat": ["0-0-1", "0-0-2", "0-0-3", "0-0-4", "0-0-5", "0-0-6", "0-0-7", "0-0-8"]},
+    6: {"i__bat": ["0-0-1", "0-0-2", "0-0-3", "0-0-4", "0-0-5", "0-0-6", "0-0-7", "0-0-8"]},
+    7: {"i__bat": ["0-0-3"]},
+    8: {"i__bat": ["0-0-6"]},
+    9: {"i__bat": ["0-0-5"]},
+    10: {"i__bat": ["0-0-4"]},
+    17: {"i__bat": ["0-0-9"]},
     # 18: {"battery_ipu": ["0-0-2"]},
     # 19: {"battery_ipu": ["0-0-1"]},
     # 11: {"battery_ipu": ["0-0-9"]},
@@ -38,13 +57,13 @@ stimulation_data = {
     # 17: {"battery_ipu": ["0-0-3"]},
     # 18: {"battery_ipu": ["0-0-2"]},
     # 19: {"battery_ipu": ["0-0-1"]},
-    11: {"motor_thalamus": ["0-0-5", "3-0-6", "0-0-11", "1-0-15"]},
-    12: {"motor_thalamus": ["2-0-1", "1-0-4", "3-0-5", "0-0-14", "0-0-1", "1-0-10"]},
-    13: {"motor_memory": ["0-0-0", "0-0-1", "0-0-2", "0-0-5", "0-0-6"]},
-    14: {"motor_memory": ["0-0-7", "0-0-5", "0-0-2", "0-0-1", "0-0-0"]},
-    15: {"motor_ipu": ["3-0-1", "0-0-2", "1-0-3", "1-0-4", "2-0-5"]},
-    16: {"motor_ipu": ["0-0-5", "1-0-4", "2-0-3", "3-0-2"]},
-    17: {"motor_opu": ["0-0-1", "0-0-15", "0-0-5", "0-0-0", "0-0-1"]},
+    # 11: {"motor_thalamus": ["0-0-5", "3-0-6", "0-0-11", "1-0-15"]},
+    # 12: {"motor_thalamus": ["2-0-1", "1-0-4", "3-0-5", "0-0-14", "0-0-1", "1-0-10"]},
+    # 13: {"motor_memory": ["0-0-0", "0-0-1", "0-0-2", "0-0-5", "0-0-6"]},
+    # 14: {"motor_memory": ["0-0-7", "0-0-5", "0-0-2", "0-0-1", "0-0-0"]},
+    # 15: {"motor_ipu": ["3-0-1", "0-0-2", "1-0-3", "1-0-4", "2-0-5"]},
+    # 16: {"motor_ipu": ["0-0-5", "1-0-4", "2-0-3", "3-0-2"]},
+    # 17: {"motor_opu": ["0-0-1", "0-0-15", "0-0-5", "0-0-0", "0-0-1"]},
     18: {"motor_opu": ["2-0-15", "0-0-5", "0-0-11", "3-0-0", "1-0-9"]},
     19: {"motor_thalamus": ["0-0-5", "3-0-6", "0-0-11", "1-0-15"]},
     20: {"motor_thalamus": ["2-0-1", "1-0-4", "3-0-5", "0-0-14", "0-0-1", "1-0-10"]},
