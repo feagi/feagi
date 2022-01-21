@@ -39,7 +39,7 @@ def initialize():
     areas via FCL injection.
     """
     print("\n\n\n\n\n**** *** **  Initializing the IPU Controller  **** * * **** ** ** * * *** ** *** *\n\n\n\n ")
-    # todo: figure it its best to enable devices using the following if statements or using class instantiation within...
+    # todo: figure it its best to enable devices using the following if statements or using class instantiation within..
     # ...ipu_controller function
     # Initialize IPU devices
     if runtime_data.parameters['IPU']['folder_monitor']:
@@ -183,8 +183,6 @@ def ipu_handler(ipu_data):
                         print(">>> >> >> > > >> >>>>>>> Stimulation data from Godot is being processed....")
                     except:
                         print("ERROR while processing Stimulation IPU")
-
-
 
         else:
             print("ERROR: IPU handler encountered non-compliant data")
