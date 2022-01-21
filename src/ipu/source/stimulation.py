@@ -29,7 +29,7 @@ Stimulation data received will have the following data structure:
 """
 
 from inf import runtime_data
-from evo.blocks import neurons_in_the_block
+from evo.blocks import neurons_in_the_block, block_reference_builder
 
 
 def stimulation_injector(stimulation_data):
@@ -46,7 +46,8 @@ def stimulation_injector(stimulation_data):
                                   voxel[1] - relative_coords[1],
                                   voxel[2] - relative_coords[2]]
             print("cortical_block_ref", cortical_block_ref)
-            in_the_block = neurons_in_the_block(cortical_area=cortical_area, block_ref=cortical_block_ref)
+            in_the_block = neurons_in_the_block(cortical_area=cortical_area,
+                                                block_ref=block_reference_builder(cortical_block_ref))
             print("--*--*--*--")
             neuron_list.add(in_the_block)
         runtime_data.fcl_queue.put({cortical_area: neuron_list})
