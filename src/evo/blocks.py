@@ -66,6 +66,7 @@ def neurons_in_the_block(cortical_area, block_ref):
     try:
         return runtime_data.block_dic[cortical_area][block_ref]
     except KeyError:
+        print("Error while processing --neurons_in_the_block-- function")
         return []
 
 
