@@ -1,4 +1,4 @@
-# Creating a Robot Simulation Using ROS2 and Gazebo
+# **Creating a Robot Simulation Using ROS2 and Gazebo**
 
 - [Creating a Robot Simulation Using ROS2 and Gazebo](#creating-a-robot-simulation-using-ros2-and-gazebo)
   * [Introduction](#introduction)
@@ -28,7 +28,7 @@
 - [Troubleshooting](#troubleshooting)
 
 &nbsp;
-# Introduction
+# **Introduction**
 This tutorial provides guidance for creating and deploying a virtual robot controlled by FEAGI in a Gazebo simulation environment. 
 
 ## Requirements:
@@ -438,7 +438,7 @@ The robot should move forward and backward indefinitely due to the lack of mass 
 </details>
 
 &nbsp;
-# Customization
+# **Customization**
 ## Adding images to the simulation:
 <details>
   <summary>Click here to see detailed steps</summary>
@@ -547,7 +547,7 @@ More information on the joint controller and its parameters can be found [here](
 </details>
 
 &nbsp;
-# Smart Car Model 
+# **Smart Car Model**
 ## Running natively
 <details>
   <summary>Click here to see detailed steps</summary>
@@ -579,7 +579,7 @@ To control using Python, run the following commands in a new terminal:
 </details>
 
 &nbsp;
-# More information
+# **More information**
 ## Models
 <details>
   <summary>Click here for more information</summary>
@@ -601,7 +601,7 @@ The following diagram illustrates how the services are connected:
 </details>
 
 &nbsp;
-# References
+# **References**
 <details>
 <summary>Click here to see the guide references</summary>
 
@@ -633,7 +633,7 @@ The following diagram illustrates how the services are connected:
 </details>
 
 &nbsp;
-# Troubleshooting
+# **Troubleshooting**
 <details>
 <summary>Click here to expand the troubleshooting section</summary>
 
