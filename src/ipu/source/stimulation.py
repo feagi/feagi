@@ -34,8 +34,10 @@ from evo.blocks import neurons_in_the_block
 
 def stimulation_injector(stimulation_data):
     for cortical_area in stimulation_data:
+        print("stimulating...", cortical_area)
         neuron_list = set()
         for voxel in stimulation_data[cortical_area]:
+            print("      Voxel location:", voxel)
             neuron_list.add(neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel))
         runtime_data.fcl_queue.put({cortical_area: neuron_list})
         print(">>> >> >> > > >> >>>>>>> Stimulation data from Godot has been injected in FCL!")
