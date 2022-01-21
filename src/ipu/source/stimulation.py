@@ -45,10 +45,12 @@ def stimulation_injector(stimulation_data):
             cortical_block_ref = [voxel[0] - relative_coords[0],
                                   voxel[1] - relative_coords[1],
                                   voxel[2] - relative_coords[2]]
-            print("cortical_block_ref", cortical_block_ref)
+
             in_the_block = neurons_in_the_block(cortical_area=cortical_area,
                                                 block_ref=block_reference_builder(cortical_block_ref))
             print("--*--*--*--")
-            neuron_list.add(in_the_block)
+            print("in_the_block", in_the_block)
+            for neuron in in_the_block:
+                neuron_list.add(neuron)
         runtime_data.fcl_queue.put({cortical_area: neuron_list})
         print(">>> >> >> > > >> >>>>>>> Stimulation data from Godot has been injected in FCL!")
