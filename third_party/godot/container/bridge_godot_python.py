@@ -112,25 +112,90 @@ def godot_listener():
     data, addr = sock.recvfrom(1024)  # buffer size is 1024 bytes
     return data
 
+def godot_data(input):
+    """
+    Simply clean the list and remove all unnecessary special characters and deliver with name, xyz only
+    """
+    data = input
+    data = data.split(",")
+    data_holder = data[0]
+    data_holder = ''.join([i for i in data_holder if not i.isdigit()])
+    data[0] = data_holder.replace("@", "")
+    data[0] = data_holder.replace(" @", "")
+    data[1] = data[1].replace("(", "")
+    data[3] = data[3].replace(")", "")
+    return data
+
+def godot_selected_list(outside_list, godot_list):
+    name = outside_list[0]
+    x = outside_list[1]
+    y = outside_list[2]
+    z = outside_list[3]
+    if godot_list:
+        list_to_dict = godot_list
+        #print("experienced")
+    else:
+        list_to_dict = dict()
+        #print(type(list_to_dict))
+        list_to_dict["stimulation"] = dict()
+        #print("newbie")
+    #print("middle", list_to_dict)
+
+    if list_to_dict["stimulation"].get(name) is not None:
+        pass
+        #print("true")
+    else:
+        #print("added ", name)
+        list_to_dict["stimulation"][name] = list()
+    for key in list_to_dict["stimulation"]:
+        #print(key)
+        if key not in list_to_dict["stimulation"]:
+            list_to_dict["stimulation"][name] = list()
+            list_to_dict["stimulation"][name].append([x,y,z])
+            #print("first time")
+        else:
+            list_to_dict["stimulation"][name].append([x,y,z])
+           # print("second or more time")
+    print("end: ", list_to_dict)
+
+    return list_to_dict
+
+def name_to_id(name):
+    list = genome['blueprint']
+    feagi_name_readable = name
+    for key in list:
+        if genome['blueprint'][key] == name:
+            feagi_name_readable = key[9:15]
+    return feagi_name_readable
 
 
+
+Godot_list = {}
 one_frame = genome_2_cortical_list(genome['blueprint'])
 CSV_writer(one_frame)
+FEAGI_pub = Pub(address='tcp://0.0.0.0:' + router_settings['ipu_port'])
+FEAGI_sub = Sub(address="tcp://{}:{}".format(host, port), flags=zmq.NOBLOCK)
 while True:
-    FEAGI_sub = Sub(address="tcp://{}:{}".format(host, port), flags=zmq.NOBLOCK)
     one_frame = FEAGI_sub.receive()
-
     if one_frame is not None:
-        print(one_frame)
+        print(one_frame) #Don't delete this, it worked perfectly
+        UDP(one_frame)
+
+
     # one_frame = feagi_initalize() #disable to comment
     # print(one_frame)
-    #UDP("[[0, 5, 90], [0, 4, 91], [0, 2, 93], [0, 3, 92]]")
+    #UDP("[5,5,5")
     #breakdown(one_frame)
-    # data = godot_listener().decode("utf-8")
-    # data = data.split(",")
-    # data_holder = data[0]
-    # data_holder = ''.join([i for i in data_holder if not i.isdigit()])
-    # data[0] = data_holder.replace("@", "")
-    # data[2] = data[2].replace("(", "")
-    # data[4] = data[4].replace(")", "")
-    # print(data)
+    data = godot_listener().decode("utf-8")
+    if data == "ready":
+        FEAGI_pub.send(Godot_list)
+    else:
+        data = godot_data(data)
+        name = data[0]
+        data[0] = name_to_id(name)
+        if Godot_list:
+            Godot_list = godot_selected_list(data, Godot_list)
+        else:
+            Godot_list = godot_selected_list(data, Godot_list)
+    #godot_confirmation() == True: ## Needs to make this as a function to detect special key from godot
+    #    FEAGI_pub.send(data)

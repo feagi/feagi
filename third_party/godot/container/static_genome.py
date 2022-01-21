@@ -1,3 +1,19 @@
+
+# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 genome = {
     'version': "2.0",
     "max_burst_count": 3,
@@ -40,7 +56,7 @@ genome = {
         "_____10c-i__bat-cx-__name-t":  "battery_ipu",
         "_____10c-i__bat-cx-_group-t":  "IPU",
         "_____10c-i__bat-cx-_n_cnt_i":  500,
-        "_____10c-i__bat-cx-gd_vis-b":  True,
+        "_____10c-i__bat-nx-gd_vis-b":  True,
         "_____10c-i__bat-nx-rcordx-i":  100,
         "_____10c-i__bat-nx-rcordy-i":  0,
         "_____10c-i__bat-nx-rcordz-i":  0,
@@ -69,7 +85,7 @@ genome = {
         "_____10c-o__mot-cx-__name-t": "motor_opu",
         "_____10c-o__mot-cx-_group-t": "OPU",
         "_____10c-o__mot-cx-_n_cnt_i": 1000,
-        "_____10c-o__mot-cx-gd_vis-b": True,
+        "_____10c-o__mot-nx-gd_vis-b": True,
         "_____10c-o__mot-nx-rcordx-i": 20,
         "_____10c-o__mot-nx-rcordy-i": 0,
         "_____10c-o__mot-nx-rcordz-i": 0,
@@ -96,4 +112,3 @@ genome = {
         "_____10c-o__mot-cx-dstmap-d":  {"o__mot": ["rule_1", "param_1"]}
     }
 }
-
