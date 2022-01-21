@@ -52,8 +52,8 @@ To run the tool locally:
 | Rotate right  |      D      | 
 | Rotate up     |      W      |
 | Rotate down   |      S      |
-| Move R to L   | left arrow  |
-| Move L to R   | right arrow |
+| Move Left     | left arrow  |
+| Move Right    | right arrow |
 | Move forward  | up arrow    |
 | Move backward | down arrow  |
 </details>
