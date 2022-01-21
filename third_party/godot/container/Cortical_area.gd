@@ -24,7 +24,7 @@ func _on_Area_input_event(camera, event, position, normal, shape_idx):
 				Gy = transform.origin.y
 				Gz = transform.origin.z
 				location = Vector3(Gx, Gy, Gz)
-				udp.put_packet((text + ",Deselected," + String(location)).to_utf8())
+				udp.put_packet((text + "," + String(location)).to_utf8())
 			material = deselected
 			#print(material)
 		elif event.button_index == BUTTON_LEFT and event.pressed == true:
@@ -38,13 +38,13 @@ func _on_Area_input_event(camera, event, position, normal, shape_idx):
 				location = Vector3(Gx, Gy, Gz)
 				text = get_name().lstrip("@")
 				print("The text is: " , text)
-				udp.put_packet((text + ",Selected," + String(location)).to_utf8())
+				udp.put_packet((text + "," + String(location)).to_utf8())
 			if material == deselected:
 				Gx = transform.origin.x
 				Gy = transform.origin.y
 				Gz = transform.origin.z
 				location = Vector3(Gx, Gy, Gz)
-				udp.put_packet((text + ",Selected," + String(location)).to_utf8())
+				udp.put_packet((text + "," + String(location)).to_utf8())
 			material = selected
 			
 
