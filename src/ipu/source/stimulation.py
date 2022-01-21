@@ -40,9 +40,13 @@ def stimulation_injector(stimulation_data):
             print("      Voxel location:", voxel)
             relative_coords = \
                 runtime_data.genome['blueprint'][cortical_area]['neuron_params'].get('relative_coordinate')
-            in_the_block = neurons_in_the_block(cortical_area=cortical_area, block_ref=[voxel[0] - relative_coords[0],
-                                                                                        voxel[1] - relative_coords[1],
-                                                                                        voxel[2] - relative_coords[2]])
+            print("      Relative coord:", relative_coords)
+            print("--$--$--$--")
+            cortical_block_ref = [voxel[0] - relative_coords[0],
+                                  voxel[1] - relative_coords[1],
+                                  voxel[2] - relative_coords[2]]
+            print("cortical_block_ref", cortical_block_ref)
+            in_the_block = neurons_in_the_block(cortical_area=cortical_area, block_ref=cortical_block_ref)
             print("--*--*--*--")
             neuron_list.add(in_the_block)
         runtime_data.fcl_queue.put({cortical_area: neuron_list})
