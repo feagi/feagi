@@ -404,7 +404,7 @@ def burst_manager():
             else:
                 print("Warning: Cortical area %s not found within the block_dic" % cortical_area_)
 
-    def sensory_message_router():
+    def message_router():
         # Broadcasts a TCP message on each burst
         if runtime_data.parameters['Switches']['burst_beacon']:
             # Limiting the broadcast messages to one in every 10 burst
@@ -437,7 +437,6 @@ def burst_manager():
         Convert FCL activities to a set of voxel locations and sends out through the ZMQ publisher
         """
         broadcast_message = set()
-
         for _ in runtime_data.fire_candidate_list:
             fire_list = set(runtime_data.fire_candidate_list[_])
             if runtime_data.genome['blueprint'][_]['neuron_params'].get('visualization'):
@@ -453,8 +452,7 @@ def burst_manager():
                             firing_neuron_loc[2] + relative_coords[2]
                         )
                     )
-
-        return broadcast_message
+        return {"godot": broadcast_message}
 
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
@@ -472,7 +470,7 @@ def burst_manager():
         fcl_tmp = set()
 
         # Manage ZMQ communication from and to FEAGI
-        sensory_message_router()
+        message_router()
 
         # Feeding FCL queue content into the FCL
         while not runtime_data.fcl_queue.empty():
