@@ -31,7 +31,7 @@
 ## Introduction
 This tutorial provides guidance for creating and deploying a virtual robot controlled by FEAGI in a Gazebo simulation environment. 
 
-## Requirements For This Project:
+## Requirements:
 1. ROS2 Foxy
 2. Ignition Gazebo Citadel
 3. Python (3.8)
@@ -561,9 +561,8 @@ More information on the joint controller and its parameters can be found [here](
 To control using Python, run the following commands in a new terminal:
 1. Navigate to `freenove_4wd_car_description/`
 2. `source install/setup.bash`
-3. `ros2 run freenove_4wd_car_description controller.py`
-<!-- does this need to include steps for starting FEAGI to communicate w/ the controller? -->
-    ![demo](_static/robot_running.gif)
+3. `ros2 run freenove_4wd_car_description controller.py`    
+![demo](_static/robot_running.gif)
 </details>
 
 &nbsp;
@@ -575,7 +574,7 @@ To control using Python, run the following commands in a new terminal:
 2. `docker-compose -f feagi.yml build --no-cache`
 3. `docker-compose -f feagi.yml up`
 4. [Open this link](http://127.0.0.1:6080/) to connect to the container using VNC
-5. Open terminal inside the container and run: `./setup_simulation.sh`
+5. Open terminal inside the container and run: `./setup_simulation.sh`    
 ![demo_docker](_static/docker_display.gif)
 </details>
 
