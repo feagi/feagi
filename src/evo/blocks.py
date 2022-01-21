@@ -64,7 +64,6 @@ def neurons_in_the_block(cortical_area, block_ref):
     block_id to be entered as [x,y,z]
     """
     try:
-        print("block dict for ", cortical_area, block_ref)
         return runtime_data.block_dic[cortical_area][block_ref]
     except Exception as e:
         print("Error while processing --neurons_in_the_block-- function:\n", e)
