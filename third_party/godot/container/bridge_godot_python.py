@@ -174,11 +174,12 @@ Godot_list = {}
 one_frame = genome_2_cortical_list(genome['blueprint'])
 CSV_writer(one_frame)
 FEAGI_pub = Pub(address='tcp://0.0.0.0:' + router_settings['ipu_port'])
+FEAGI_sub = Sub(address="tcp://{}:{}".format(host, port), flags=zmq.NOBLOCK)
 while True:
-    FEAGI_sub = Sub(address="tcp://{}:{}".format(host, port), flags=zmq.NOBLOCK)
     one_frame = FEAGI_sub.receive()
     if one_frame is not None:
         print(one_frame) #Don't delete this, it worked perfectly
+        UDP(one_frame)
 
 
     # one_frame = feagi_initalize() #disable to comment
@@ -186,12 +187,15 @@ while True:
     #UDP("[5,5,5")
     #breakdown(one_frame)
     data = godot_listener().decode("utf-8")
-    data = godot_data(data)
-    name = data[0]
-    data[0] = name_to_id(name)
-    if Godot_list:
-        Godot_list = godot_selected_list(data, Godot_list)
+    if data == "ready":
+        FEAGI_pub.send(Godot_list)
     else:
-        Godot_list = godot_selected_list(data, Godot_list)
+        data = godot_data(data)
+        name = data[0]
+        data[0] = name_to_id(name)
+        if Godot_list:
+            Godot_list = godot_selected_list(data, Godot_list)
+        else:
+            Godot_list = godot_selected_list(data, Godot_list)
     #godot_confirmation() == True: ## Needs to make this as a function to detect special key from godot
     #    FEAGI_pub.send(data)
