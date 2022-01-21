@@ -38,6 +38,11 @@ def stimulation_injector(stimulation_data):
         neuron_list = set()
         for voxel in stimulation_data[cortical_area]:
             print("      Voxel location:", voxel)
-            neuron_list.add(neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel))
+            relative_coords = \
+                runtime_data.genome['blueprint'][cortical_area]['neuron_params'].get('relative_coordinate')
+            neuron_list.add(neurons_in_the_block(cortical_area=cortical_area, block_ref=[voxel[0] - relative_coords[0],
+                                                                                         voxel[1] - relative_coords[1],
+                                                                                         voxel[2] - relative_coords[2],
+                                                                                         ]))
         runtime_data.fcl_queue.put({cortical_area: neuron_list})
         print(">>> >> >> > > >> >>>>>>> Stimulation data from Godot has been injected in FCL!")
