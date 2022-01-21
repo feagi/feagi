@@ -1,6 +1,5 @@
 # Creating a Robot Simulation Using ROS2 and Gazebo
 
-## Contents
 - [Creating a Robot Simulation Using ROS2 and Gazebo](#creating-a-robot-simulation-using-ros2-and-gazebo)
   * [Introduction](#introduction)
   * [Requirements For This Project:](#requirements-for-this-project-)
@@ -28,14 +27,15 @@
   * [FEAGI](#feagi)
 - [Troubleshooting](#troubleshooting)
 
-## Introduction
+&nbsp;
+# Introduction
 This tutorial provides guidance for creating and deploying a virtual robot controlled by FEAGI in a Gazebo simulation environment. 
 
 ## Requirements:
 1. ROS2 Foxy
 2. Ignition Gazebo Citadel
 3. Python (3.8)
-4. Linux (support for Windows and macOS will eventually be added)
+4. Linux
 
 ## Create a workspace
 <details>
@@ -598,15 +598,12 @@ This model was designed to functionally resemble the [Freenove 4wd smart car](ht
 ROS2 and Gazebo communicate with FEAGI using asynchronous messaging defined in `controller.py` and `router.py`. Data transmission between Gazebo and ROS2 is defined in the launch file.
 The following diagram illustrates how the services are connected:
 ![image](_static/FEAGI_diagram.png)
-
-## Simulation blog
-[More detail here](freenove_4wd_car_description/simulation-blog.md)
 </details>
 
 &nbsp;
-# Sources
+# References
 <details>
-<summary>Click here to see the full sources list</summary>
+<summary>Click here to see the guide references</summary>
 
 ## Create a workspace
 1. [Creating your first ROS 2 package using Foxy](https://docs.ros.org/en/foxy/Tutorials/Creating-Your-First-ROS2-Package.html)
@@ -642,8 +639,7 @@ The following diagram illustrates how the services are connected:
 
 **Problem #1**: My changes did not update in my ROS2 project.
 
-
-**Solution #1**: Did you run `colcon build --symlink-install`? This would have allowed you to have it updated automatically after you saved the changes.
+**Solution #1**: Did you run `colcon build --symlink-install`? This updates the project after you save the changes.
 
 **Problem #2**: I don't want to use a container. How do I run FEAGI with the Freenove smart car model on my local machine?
 

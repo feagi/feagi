@@ -19,7 +19,7 @@ Artificial brain cortical areas are represented in Godot in accordance with the 
 In the following example, observe the instances of neuronal activity occurring within the motor thalamus cortical area. The rate at which active (red) voxels appear (i.e. burst frequency) is defined and controlled by FEAGI.    
 ![voxel](_static/cortical_with_neurons.gif)
 
-In these examples, voxels in the cortical areas (`ir_ipu` and `proximity_ipu`, respectively) are activating in response to external stimuli detected by the robot in the virtual environment. As the virtual robot's three IR sensors (located on the bottom/front of the robot facing downward) are exposed to the black line, neurons in the IR IPU cortical area voxels corresponding to the sensors are activated (Left). Similarly, voxels in the proximity IPU cortical area are activated in a manner dependent on the proximity of an object relative to the virtual robot (detected using a proximity sensor).      
+In these examples, voxels in the cortical areas (`ir_ipu` and `proximity_ipu`, respectively) are activating in response to external stimuli detected by the robot in the virtual environment. As the virtual robot's three IR sensors (located on the bottom/front of the robot facing downward) are exposed to the black line, neurons in the IR IPU cortical area voxels corresponding to the sensors are activated (Left). Similarly, voxels in the proximity IPU cortical area are activated in a manner dependent on the proximity of an object relative to the virtual robot (Right).      
 ![IR](_static/IR_test.gif) ![proximity](_static/ultrasonic_test.gif)
 
 &nbsp;
