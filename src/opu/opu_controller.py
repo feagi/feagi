@@ -1,3 +1,19 @@
+
+# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 from inf import runtime_data
 from opu.processor import led, movement
 from evo.blocks import active_neurons_in_blocks, percent_active_neurons_in_block, block_ref_2_id
@@ -16,14 +32,14 @@ def opu_handler():
     # todo: Introduce a generalized approach to cover all OPUs
 
     # LED handler
-    if runtime_data.fire_candidate_list['led_opu'] and runtime_data.hardware == 'raspberry_pi':
+    if 'led_opu' in runtime_data.fire_candidate_list and runtime_data.hardware == 'raspberry_pi':
         active_led_neurons = active_neurons_in_blocks(cortical_area='led_opu')
         led_data = led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)
         led.activate_leds(led_data)
 
     # todo: need a better differentiation between movement and motor modules
     # Movement handler
-    if runtime_data.fire_candidate_list['motor_opu']:
+    if 'motor_opu' in runtime_data.fire_candidate_list:
         # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
         # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
         # movement.activate_motor(data)
@@ -46,7 +62,7 @@ def opu_handler():
             motor_data[device]['speed'] = chosen_block
         movement.activate_device(device_type='motor', device_data=motor_data)
 
-    if runtime_data.fire_candidate_list['servo_opu']:
+    if 'servo_opu' in runtime_data.fire_candidate_list:
         # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
         # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
         # movement.activate_motor(data)

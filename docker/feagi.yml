@@ -25,7 +25,7 @@ services:
       - net
       
   ros_gazebo:
-    build: ../third_party/gazebo/smart_car/
+    image: neuraville/feagi-smart-car
     deploy:
       resources:
         limits:
@@ -37,7 +37,7 @@ services:
       - net
       
   godot:
-    build: ../third_party/godot/container
+    image: neuraville/feagi-godot
     ports:
       - "6081:80"
     privileged: true

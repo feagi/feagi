@@ -1,3 +1,19 @@
+
+# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 import logging
 import os
 import platform
@@ -17,6 +33,7 @@ from shutil import copyfile
 from evo.stats import list_top_n_utf_memory_neurons, block_dict_summary
 from inf.messenger import Pub, PubBrainActivities
 from evo.neuroembryogenesis import generate_plasticity_dict
+from evo.genome_processor import *
 
 log = logging.getLogger(__name__)
 
@@ -133,7 +150,8 @@ def init_working_directory():
 
     """
     if platform.system() == 'Windows':
-        runtime_data.working_directory = runtime_data.parameters["InitData"]["working_directory"] + '\\' + runtime_data.brain_run_id
+        runtime_data.working_directory = runtime_data.parameters["InitData"]["working_directory"] + '\\' + \
+                                         runtime_data.brain_run_id
 
         # Create connectome directory if needed
         # todo: need to consolidate the connectome path as currently captured in two places
@@ -152,7 +170,8 @@ def init_working_directory():
                 os.makedirs(ipu_path)
             runtime_data.paths[_] = runtime_data.working_directory + _
     else:
-        runtime_data.working_directory = runtime_data.parameters["InitData"]["working_directory"] + '/' + runtime_data.brain_run_id
+        runtime_data.working_directory = runtime_data.parameters["InitData"]["working_directory"] + '/' + \
+                                         runtime_data.brain_run_id
         runtime_data.connectome_path = runtime_data.working_directory + '/connectome/'
         runtime_data.parameters["InitData"]["connectome_path"] = runtime_data.connectome_path
 
@@ -174,12 +193,19 @@ def init_genome():
     # The following stages the genome in the proper connectome path and loads it into the memory
     disk_ops.genome_handler(runtime_data.connectome_path)
 
-
-def init_cortical_list():
-    cortical_list = []
-    for key in runtime_data.genome['blueprint']:
-        cortical_list.append(key)
-    runtime_data.cortical_list = cortical_list
+    try:
+        if runtime_data.genome['version'] == "2.0":
+            print("\n\n\n************ Genome Version 2.0 has been detected **************\n\n\n")
+            runtime_data.genome_ver = "2.0"
+            runtime_data.cortical_list = genome_2_cortical_list(runtime_data.genome['blueprint'])
+            genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
+            genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])
+            runtime_data.genome['blueprint'] = genome2['blueprint']
+    except KeyError as e:
+        print("Error:", e)
+        print("Genome version not available; assuming Genome 1.0 procedures.")
+        runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome['blueprint'])
+        pass
 
 
 def init_genome_post_processes():
@@ -189,6 +215,7 @@ def init_genome_post_processes():
     # Augment cortical dimension dominance e.g. is it longer in x dimension or z
     for cortical_area in runtime_data.cortical_list:
         block_boundaries = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"]
+        # block_boundaries = runtime_data.genome["blueprint"][]
         dominance = block_boundaries.index(max(block_boundaries))
         runtime_data.genome['blueprint'][cortical_area]['dimension_dominance'] = dominance
 
@@ -262,7 +289,6 @@ def initialize():
     init_data_sources()
     init_genome()
     detect_hardware()
-    init_cortical_list()
     init_genome_post_processes()
     init_resources()
     init_fake_stimulation()
@@ -290,8 +316,8 @@ def init_burst_engine():
     runtime_data.comprehension_queue = deque(['-'] * comprehension_span)
     runtime_data.parameters["Auto_injector"]["injector_status"] = False
     runtime_data.termination_flag = False
-    runtime_data.top_10_utf_memory_neurons = list_top_n_utf_memory_neurons("utf8_memory", 10)
-    runtime_data.top_10_utf_neurons = list_top_n_utf_memory_neurons("utf8_ipu", 10)
+    # runtime_data.top_10_utf_memory_neurons = list_top_n_utf_memory_neurons("utf8_memory", 10)
+    # runtime_data.top_10_utf_neurons = list_top_n_utf_memory_neurons("utf8_ipu", 10)
     runtime_data.v1_members = []
     runtime_data.burst_timer = float(runtime_data.parameters["Timers"]["burst_timer"])
     print("Burst time has been set to:", runtime_data.burst_timer)
@@ -299,10 +325,6 @@ def init_burst_engine():
     if runtime_data.parameters["Logs"]["print_block_dict_report"]:
         print("Block Dictionary Report:")
         block_dict_summary(runtime_data.block_dic, verbose=True)
-
-    for item in runtime_data.cortical_list:
-        if runtime_data.genome['blueprint'][item]['sub_group_id'] == "vision_v1":
-            runtime_data.v1_members.append(item)
 
 
 def exit_burst_process():
