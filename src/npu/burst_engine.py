@@ -452,7 +452,7 @@ def burst_manager():
                             firing_neuron_loc[2] + relative_coords[2]
                         )
                     )
-        return {"godot": broadcast_message}
+        return {"burst_counter": runtime_data.burst_count, "godot": broadcast_message}
 
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
