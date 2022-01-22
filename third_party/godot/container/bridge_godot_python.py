@@ -3,9 +3,17 @@ import socket
 import zmq
 import csv
 from router import *
+from configuration import *
+from configuration import message_to_feagi
 
 host = "127.0.0.1"
-port = "30003"
+port = "30000"
+
+address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_port']
+feagi_state = find_feagi(address=address) ##I was trying to leverage on router only
+print("** **", feagi_state)
+socket = feagi_state['sockets']
+router_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
 
 # def feagi_initalize():
 #     # Getting FEAGI's raw data
@@ -128,9 +136,9 @@ def godot_data(input):
 
 def godot_selected_list(outside_list, godot_list):
     name = outside_list[0]
-    x = outside_list[1]
-    y = outside_list[2]
-    z = outside_list[3]
+    x = int(outside_list[1])
+    y = int(outside_list[2])
+    z = int(outside_list[3])
     if godot_list:
         list_to_dict = godot_list
         #print("experienced")
@@ -168,27 +176,48 @@ def name_to_id(name):
             feagi_name_readable = key[9:15]
     return feagi_name_readable
 
-
+def feagi_breakdown(data):
+    """
+    Designed for genome 2.0 only
+    """
+    new_list = []
+    new_data = data[10:]
+    new_data = new_data.replace(" ", "")
+    new_data = new_data.replace("{", "")
+    new_data = new_data.replace("}","")
+    new_data = new_data.replace(")", "")
+    new_data = new_data.replace("(","")
+    new_data = new_data.split(",")
+    length_array = len(new_data) / 3
+    for i in range(int(length_array)):
+        new_list.append([int(new_data[i + 1]), int(new_data[i + 2]), int(new_data[i + 3])])
+    return new_list
 
 Godot_list = {}
 one_frame = genome_2_cortical_list(genome['blueprint'])
 CSV_writer(one_frame)
 FEAGI_pub = Pub(address='tcp://0.0.0.0:' + router_settings['ipu_port'])
-FEAGI_sub = Sub(address="tcp://{}:{}".format(host, port), flags=zmq.NOBLOCK)
+opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['opu_port']
+FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 while True:
     one_frame = FEAGI_sub.receive()
+    #one_frame = "{'godot': {(59, 5, 0, 3), (59, 5, 0, 9), (59, 5, 0, 2), (59, 5, 0, 5), (59, 5, 0, 8), (59, 5, 0, 4)}}"
+
     if one_frame is not None:
-        print(one_frame) #Don't delete this, it worked perfectly
-        UDP(one_frame)
+        #print(one_frame) #Don't delete this, it worked perfectly
+        one_frame = feagi_breakdown(one_frame)
+        UDP(str(one_frame))
 
 
     # one_frame = feagi_initalize() #disable to comment
     # print(one_frame)
-    #UDP("[5,5,5")
+    #UDP("[0,0,0")
     #breakdown(one_frame)
     data = godot_listener().decode("utf-8")
     if data == "ready":
         FEAGI_pub.send(Godot_list)
+    elif data == "refresh":
+        Godot_list = {}
     else:
         data = godot_data(data)
         name = data[0]
@@ -197,5 +226,10 @@ while True:
             Godot_list = godot_selected_list(data, Godot_list)
         else:
             Godot_list = godot_selected_list(data, Godot_list)
-    #godot_confirmation() == True: ## Needs to make this as a function to detect special key from godot
-    #    FEAGI_pub.send(data)
+
+
+    # exists = 4 in data
+    # print(exists)
+    # if exists:
+    #     print("deleted")
+    # #    FEAGI_pub.send(data)

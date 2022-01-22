@@ -54,6 +54,9 @@ func get_input_keyboard(delta):
 	if Input.is_action_just_pressed("ui_select"):
 		udp.connect_to_host("127.0.0.1", 20002)
 		udp.put_packet("ready".to_utf8())
+	if Input.is_action_just_pressed("ui_del"):
+		udp.connect_to_host("127.0.0.1", 20002)
+		udp.put_packet("refresh".to_utf8())
 
 func _process(delta):
 	get_input_keyboard(delta)
