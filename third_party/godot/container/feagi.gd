@@ -147,6 +147,10 @@ func _process(delta):
 		data = socket.get_packet().get_string_from_utf8()
 		stored_value = data
 		
+#	if Input.is_action_just_pressed("ui_del"):
+#		var totall = get_tree().get_node_count()
+#		print(totall)
+		
 		
 func _callout():
 	_process(self)
