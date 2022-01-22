@@ -1,20 +1,21 @@
-name: Pytest
+name: Testing
 
 on:
   push:
     branches: 
-      - main
-      - develop
+      - staging
   pull_request:
     branches: 
-      - main
-      - develop
+      - staging
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout repo
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
     - name: Set up Python 3.7
       uses: actions/setup-python@v1
       with:
@@ -23,8 +24,13 @@ jobs:
       run: |
         python setup.py install
         python -m pip install --upgrade pip
-        pip install pytest pytest-cov
+        pip install pytest pytest-cov pylint
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Analyze code using pylint
+      run: |
+        files=`git diff --name-only --diff-filter=d HEAD^ | grep -E '\.py$' | tr '\n' ' '` 
+        if [[ $files ]]; then pylint --fail-under=5 $files; fi
+      working-directory: ./
     - name: Run tests using pytest
       run: pytest ../tests
       working-directory: ./src
