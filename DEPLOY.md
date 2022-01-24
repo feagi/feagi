@@ -17,6 +17,8 @@ To build a FEAGI image for use with other service images (ROS2, Ignition Gazebo,
 * `$ docker-compose -f feagi.yml build`   
 * `$ docker-compose -f feagi.yml up`
 
+Access the accompanying Grafana, ROS/Gazebo and Godot GUIs by opening a web browser and navigating to `http://127.0.0.1:3000`, `http://127.0.0.1:6080` and `http://127.0.0.1:6081`, respectively.
+
 &nbsp;
 # **Setup Guide (manual)**    
 Ensure Python 3 (3.7+) is installed: [Download Python 3](https://www.python.org/downloads/)
