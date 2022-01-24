@@ -2,7 +2,6 @@
 Contributors
 ============
 
-* Mohammad Nadji-Tehrani <m.nadji.tehrani@gmail.com>
-* Eric Miller
-* Kevin Araujo
-
+* Mohammad Nadji-Tehrani <nadji@neuraville.com>
+* Eric Miller <eric.miller@neuraville.com>
+* Kevin Araujo <kevin.araujo@neuraville.com>
