@@ -429,8 +429,8 @@ def burst_manager():
             # Limiting the broadcast messages to one in every 1 burst
             # todo: externalize this parameter to ini
             if runtime_data.burst_count % 1 == 0:
-                broadcast_message = brain_activity_voxelizer()
-                brain_publisher.send(message=broadcast_message)
+                activity_data = brain_activity_voxelizer()
+                runtime_data.opu_pub.send(message=activity_data)
 
     def brain_activity_voxelizer():
         """
