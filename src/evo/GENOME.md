@@ -4,12 +4,12 @@ The genome is a data structure comprised of key-value pairs that provides user-c
 
 ## **Genome structure**    
 
-![genome1](../../docs/_static/genome1.png)   
+![genome1](../../api_docs/_static/genome1.png)   
 **Fig. 1: A section of cortical area data in the genome data structure showing various parameters.**    
 
 The existing genome contains cortical areas for processing image and LIDAR input data, which can be found under the `"blueprint"` key in `src/evo/static_genome.py` and are useful examples for developing new cortical areas. Other keys at the `"blueprint"` level (e.g. `"firing_patterns"`, `"neighbor_locator_rule"`) are used for further defining neurophysiologic and synaptogenic properties within a cortical area. The figure above shows a layer of the vision cortical area. Note the hierarchical nature of the data; properties such as `"growth_path"` are nested under the `"vision_v1-1"` key. Each cortical area belongs to a specific group (`"group_id"`) and subgroup (`"sub_group_id"`), possesses a user-defined cortical neuron count (among other parameters) and is mapped to another region in the artificial brain (`"cortical_mapping_dst"`).
 
-![genome2](../../docs/_static/genome2.png)    
+![genome2](../../api_docs/_static/genome2.png)    
 **Fig. 2: More data from the same cortical area showing geometric and neurophysiologic parameters.**
 
 Cortical areas in the genome have virtual dimensions for accommodating the proliferation of neurons and formation of synapses within the defined area. In **Fig. 2**, note the `"geometric_boundaries"` listed for the _x_, _y_ and _z_ dimensions. Each neuron cell body created via neurogenesis is associated with a point _(x, y, z)_ existing within these boundaries. Users must define boundaries according to the nature of the input data to ensure its appropriate translation to neuronal activity. Users can subdivide cortical areas by setting block boundaries (see the `"block_boundaries"` key in **Fig. 2**), which define the dimensions of a block. Blocks are cortical area subregions that facilitate the localization of neurons for activation following translation of brain input data. To better illustrate the concept, if a user defined a `100x100x100` (_x_, _y_, _z_) cortical area with `10x10x10` block boundaries, the cortical area will be divided into `10` blocks, each containing unique neurons. FEAGI will then create references to these blocks, allowing for faster and more refined stimulation of neurons in the cortical area.
@@ -32,7 +32,7 @@ Cortical areas in the genome have virtual dimensions for accommodating the proli
 
 After adding the desired data to the genome file, users should confirm that FEAGI is able to create the new cortical area(s). Navigate to the `src/` directory in `feagi-core/` and run `python3 main.py` to begin FEAGI execution. During FEAGI initialization, a list of cortical areas loaded from the genome are displayed in the terminal output (see **Fig. 3**). Ensure that the newly-added cortical areas are present in this list.  
 
-![feagi_output](../../docs/_static/feagi_output.png)    
+![feagi_output](../../api_docs/_static/feagi_output.png)    
 **Fig. 3: Output of FEAGI execution showing some of the cortical areas created from the genome file.**    
 
 If newly-created cortical areas are not present in the output of FEAGI initialization or users encounter other runtime errors following genome modification, consider the following:    
