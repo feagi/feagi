@@ -77,9 +77,12 @@ valign = 3
 max_lines_visible = 0
 
 [node name="GridMap" type="GridMap" parent="."]
-transform = Transform( 0.893848, 0, 0, 0, 0.893848, 0, 0, 0, 0.893848, 0, 0, 0 )
 mesh_library = ExtResource( 1 )
 cell_size = Vector3( 1, 1, 1 )
+cell_octant_size = 1
+cell_center_x = false
+cell_center_y = false
+cell_center_z = false
 data = {
 "cells": PoolIntArray( 0, 0, 0 )
 }
