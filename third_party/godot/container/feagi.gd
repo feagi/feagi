@@ -32,13 +32,17 @@ var cortical_area = {}
 var cortical_area_stored = {}
 var green_light = false
 
+var udp := PacketPeerUDP.new()
+var connected = false
+
+
 
 
 
 func _ready():
 	Engine.target_fps = 60
-	for _i in self.get_children():
-		print(_i)
+#	for _i in self.get_children():
+#		print(_i)
 	if(socket.listen(20001, "127.0.0.1") != OK):
 		print("error")
 	else:
@@ -114,8 +118,14 @@ func _ready():
 		
 	
 	while green_light:
+#		$GridMap.set_cell_item(100, 0, 9,0)
+#		$GridMap.set_cell_item(100, 0, 8,0)
+#		$GridMap.set_cell_item(100, 0, 7,0)
+#		$GridMap.set_cell_item(100, 0, 6,0)
+		
 		_callout()
 		## This will build from one frame
+		print(stored_value)
 		if stored_value != "":
 			var array_test = stored_value.replace("[", "")
 			array_test = array_test.replace("]", "")
@@ -139,6 +149,7 @@ func _ready():
 				key+= 1
 			flag = 0 #keep x,y,z in correct place
 			yield(get_tree().create_timer(.5), "timeout")
+		udp.put_packet("None".to_utf8())
 		$GridMap.clear() ##clear the new data
 
 
@@ -146,9 +157,11 @@ func _process(delta):
 	while socket.get_available_packet_count() > 0:
 		data = socket.get_packet().get_string_from_utf8()
 		stored_value = data
+	udp.connect_to_host("127.0.0.1", 20002)
+	
 		
 #	if Input.is_action_just_pressed("ui_del"):
-#		var totall = get_tree().get_node_count()
+#		var totall= get_node_count()
 #		print(totall)
 		
 		

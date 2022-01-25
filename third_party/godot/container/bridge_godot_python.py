@@ -1,10 +1,16 @@
-from static_genome import genome
-import socket
-import zmq
-import csv
+import time
+
 from router import *
 from configuration import *
 from configuration import message_to_feagi
+from static_genome import genome
+from multiprocessing import Process
+
+import sys
+import socket
+import zmq
+import csv
+
 
 host = "127.0.0.1"
 port = "30003"
@@ -105,7 +111,7 @@ def UDP(input):
 
     # while True: ##this must be in loop in order to work with FEAGI
     s.sendto(input.encode('utf-8'), (ip, port))
-    print("\n\n 1. This Sent to Godot with the input: ", input, "\n\n")
+    print("FEAGI: This Sent to Godot with the input: ", input, "\n\n")
     # close the socket
     s.close()
 
@@ -115,13 +121,14 @@ def godot_listener():
     """
     godot_host = "127.0.0.1"
     godot_port = 20002
-
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind((godot_host, godot_port))
+    #sock.setblocking(1)
 
     data, addr = sock.recvfrom(1024)  # buffer size is 1024 bytes
-    return data
+
+    return data.decode("utf-8")
 
 def godot_data(input):
     """
@@ -167,7 +174,7 @@ def godot_selected_list(outside_list, godot_list):
         else:
             list_to_dict["stimulation"][name].append([x,y,z])
            # print("second or more time")
-    print("end: ", list_to_dict)
+    #print("Selected: ", list_to_dict)
 
     return list_to_dict
 
@@ -181,22 +188,12 @@ def name_to_id(name):
 
 def feagi_breakdown(data):
     """
-    Designed for genome 2.0 only
+    Designed for genome 2.0 only. Data is the input from feagi's raw data
     """
     new_list = []
-    print("bwuk", type(data))
-    print(data['godot'],data['godot'])
-
-    new_data = data[37:]
-    new_data = new_data.replace(" ", "")
-    new_data = new_data.replace("{", "")
-    new_data = new_data.replace("}","")
-    new_data = new_data.replace(")", "")
-    new_data = new_data.replace("(","")
-    new_data = new_data.split(",")
-    length_array = len(new_data) / 3
-    for i in range(int(length_array)):
-        new_list.append([int(new_data[i + 1]), int(new_data[i + 2]), int(new_data[i + 3])])
+    for i in data['godot']:
+        xyz = i[1], i[2], i[3]
+        new_list.append(xyz)
     return new_list
 
 Godot_list = {}
@@ -207,6 +204,7 @@ CSV_writer(one_frame)
 FEAGI_pub = Pub(address='tcp://0.0.0.0:' + router_settings['ipu_port'])
 opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['opu_port']
 FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+UDP(str("0,0,0"))
 while True:
     one_frame = FEAGI_sub.receive()
     #one_frame = "{'godot': {(59, 5, 0, 3), (59, 5, 0, 9), (59, 5, 0, 2), (59, 5, 0, 5), (59, 5, 0, 8), (59, 5, 0, 4)}}"
@@ -221,23 +219,25 @@ while True:
     # print(one_frame)
     #UDP("[0,0,0")
     #breakdown(one_frame)
-    data = godot_listener().decode("utf-8")
-    if data == "ready":
-        FEAGI_pub.send(Godot_list)
-    elif data == "refresh":
-        Godot_list = {}
-    else:
-        data = godot_data(data)
-        name = data[0]
-        data[0] = name_to_id(name)
-        if Godot_list:
-            Godot_list = godot_selected_list(data, Godot_list)
+
+
+    ##This stops all processing and force to wait for the return data from FEAGI
+    data = godot_listener()
+    #print("bwukkkk", data)
+    if data != "None":
+        if data == "ready":
+            FEAGI_pub.send(Godot_list)
+        elif data == "refresh":
+            Godot_list = {}
+            FEAGI_pub.send(Godot_list)
         else:
-            Godot_list = godot_selected_list(data, Godot_list)
+            data = godot_data(data)
+            name = data[0]
+            data[0] = name_to_id(name)
+            if Godot_list:
+                Godot_list = godot_selected_list(data, Godot_list)
+            else:
+                Godot_list = godot_selected_list(data, Godot_list)
+    else:
+        pass
 
-
-    # exists = 4 in data
-    # print(exists)
-    # if exists:
-    #     print("deleted")
-    # #    FEAGI_pub.send(data)

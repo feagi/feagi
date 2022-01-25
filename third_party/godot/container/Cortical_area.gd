@@ -29,25 +29,25 @@ func _on_Area_input_event(camera, event, position, normal, shape_idx):
 			#print(material)
 		elif event.button_index == BUTTON_LEFT and event.pressed == true:
 			print(get_node("."))
-			#print(location)
+			print(location)
 			udp.connect_to_host("127.0.0.1", 20002)
 			if material == white:
 				Gx = transform.origin.x
 				Gy = transform.origin.y
 				Gz = transform.origin.z
 				location = Vector3(Gx, Gy, Gz)
+				print(location)
 				text = get_name().lstrip("@")
-				print("The text is: " , text)
+				#print("The text is: " , text)
 				udp.put_packet((text + "," + String(location)).to_utf8())
 			if material == deselected:
 				Gx = transform.origin.x
 				Gy = transform.origin.y
 				Gz = transform.origin.z
 				location = Vector3(Gx, Gy, Gz)
+				print(location)
 				#udp.put_packet((text + "," + String(location)).to_utf8())
 			material = selected
-			
-
 
 func _on_Area_mouse_entered():
 	if material == selected:
@@ -59,5 +59,9 @@ func _on_Area_mouse_exited():
 	if material == selected:
 		material = selected
 	else:
+		material = deselected
+
+func _input(event):
+	if Input.is_action_just_pressed("ui_del"):
 		material = deselected
 
