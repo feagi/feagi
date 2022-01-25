@@ -132,6 +132,7 @@ fov = 80.4021
 far = 8192.0
 
 [node name="Cortical_area" type="CSGBox" parent="."]
+cast_shadow = 0
 width = 1.0
 height = 1.0
 depth = 1.0
