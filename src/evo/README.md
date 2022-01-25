@@ -1,25 +1,35 @@
-# Genome Development
+# **Genome Development**
 
-The genome is a data structure comprised of key-value pairs that provides user-configurable anatomical and physiological parameters to FEAGI for artificial brain development. The neuroembryogenesis unit (`src/evo/neuroembryogenesis.py`) processes genome data and generates virtual anatomical features within the artificial brain, such as cortical areas, cortical layers, neurons and synapses. Users may generate an artificial brain capable of processing various input data types (via the Input Processing Unit - `src/ipu/source/`) solely through modification of the seed genome.
+The genome is a data structure comprised of key-value pairs that provides user-configurable anatomical and physiological parameters to FEAGI for artificial brain development. The neuroembryogenesis module (`src/evo/neuroembryogenesis.py`) processes genome data and generates virtual anatomical features within the artificial brain, such as cortical areas, cortical layers, neurons and synapses. Users may generate an artificial brain capable of processing various input data types (via the Input Processing Unit - `src/ipu/source/`) solely through modification of the seed genome.
 
 ## **Genome structure**     
 
+The existing genome contains cortical areas which can be found under the `"blueprint"` key in `src/evo/static_genome.py` and are useful examples for developing new cortical areas. Other keys at the `"blueprint"` level are used for further defining neurophysiologic and synaptogenic properties within a cortical area. Each cortical area belongs to a specific group (`"...-_group-..."`), possesses a user-defined cortical neuron count (among other parameters) and is mapped to another region in the artificial brain.
+
 ![gene_example](../../_static/gene_id.png)
 
-The existing genome contains cortical areas for processing image and LIDAR input data, which can be found under the `"blueprint"` key in `src/evo/static_genome.py` and are useful examples for developing new cortical areas. Other keys at the `"blueprint"` level (e.g. `"firing_patterns"`, `"neighbor_locator_rule"`) are used for further defining neurophysiologic and synaptogenic properties within a cortical area. The figure above shows a layer of the vision cortical area. Note the hierarchical nature of the data; properties such as `"growth_path"` are nested under the `"vision_v1-1"` key. Each cortical area belongs to a specific group (`"group_id"`) and subgroup (`"sub_group_id"`), possesses a user-defined cortical neuron count (among other parameters) and is mapped to another region in the artificial brain (`"cortical_mapping_dst"`).
+The figure above shows the structure of a single "gene" ID that is associated with a user-defined value and is part of a cortical area. The sections and sub-sections of the gene ID indicate the cortical area property it encodes. As an example, consider the following gene ID:
 
-Cortical areas in the genome have virtual dimensions for accommodating the proliferation of neurons and formation of synapses within the defined area. Note the `"geometric_boundaries"` listed for the _x_, _y_ and _z_ dimensions. Each neuron cell body created via neurogenesis is associated with a point _(x, y, z)_ existing within these boundaries. Users must define boundaries according to the nature of the input data to ensure its appropriate translation to neuronal activity. Users can subdivide cortical areas by setting block boundaries (see the `"block_boundaries"` key), which define the dimensions of a block. Blocks are cortical area subregions that facilitate the localization of neurons for activation following translation of brain input data. To better illustrate the concept, if a user defined a `100x100x100` (_x_, _y_, _z_) cortical area with `10x10x10` block boundaries, the cortical area will be divided into `10` blocks, each containing unique neurons. FEAGI will then create references to these blocks, allowing for faster and more refined stimulation of neurons in the cortical area.
+    "_____10c-i__bat-nx-___bbx-i"
+
+Using the gene ID decoder above, we can determine that this is a non-evolvable, cortical-level battery IPU (`...-i__bat-...`) gene that is associated with an integer (`...-i`) value which represents the battery IPU cortical area block boundary x-dimension magnitude (`...-___bbx-...`). The following image shows the genes comprising the battery IPU cortical area and their corresponding values (note that the gene used in the example above has an integer value of 1):  
+
+![cortical_area](../../_static/cortical_area.png)
+
+Cortical areas in the genome have dimensions for accommodating the proliferation of neurons and formation of synapses within the defined area. Note the genes that encode geometric (`...-geo_...`) and block (`...-___bb...`) boundaries listed for the _x_, _y_ and _z_ dimensions. Geometric boundaries refer to the overall dimensions of the cortical area and consist of min/max values for each dimension (ex: x0 -> x1). Blocks (i.e. voxels) are cortical area subregions that facilitate the localization of neurons for activation following translation of brain input data. Each neuron cell body created via neurogenesis is associated with a point _(x, y, z)_ existing within these boundaries. Users must define boundaries according to the nature of the input data to ensure its appropriate translation to neuronal activity. Users can subdivide cortical areas by setting block boundaries, which define the dimensions of a block. To better illustrate the concept, if a user defined a `100x100x100` (_x_, _y_, _z_) cortical area with `10x10x10` block boundaries, the cortical area will be divided into `10` blocks, each containing unique neurons. FEAGI will then create references to these blocks, allowing for faster and more refined stimulation of neurons in the cortical area.
 
 ## **Editing the genome file**
 
+<!-- TODO: DESCRIBE HOW TO USE THE GENOME TOOL? -->
+
 - Open the genome file (`src/evo/static_genome.py`) using a text editor or IDE.
 - Navigate to the end of the data present under the `"blueprint"` key, which contains all of the existing cortical area definitions, and enter the data defining the new cortical area (it will likely be easier to copy a single existing cortical area definition in the genome, paste it at the end of the file and update the values accordingly).
-  - Give the cortical area a unique name.
-  - Enter a `"group_id"` (typically `"IPU"` if defining an area for processing input data and `"Memory"` when defining a memory area) and `sub_group_id`.
-  - Specify a number (integer) of neurons that will populate the cortical area (`"cortical_neuron_count"`). Note that sparsely populated cortical areas will likely result in diminished neuronal activity.
-  - If the cortical area being created is intended for processing input data, ensure that it is mapped (`"cortical_mapping_dst"`) to a destination area (typically a corresponding memory area - see the `"proximity"` and `"proximity_memory"` areas for an example of this mapping).
-  - Specify `"geometric_boundaries"` and `"block_boundaries"` for the cortical area based on the type/structure of input data.
-  - The other keys in the cortical area (not mentioned above) can be left as-is with existing values (assuming the user copied an existing cortical area to use as a template).
+- Give the cortical area a unique name.
+- Enter a group ID (`...-_group-...` - typically `"IPU"` if defining an area for processing input data and `"Memory"` when defining a memory area).
+- Specify a number (integer) of neurons that will populate the cortical area (`..._n_cnt_...`). Note that sparsely populated cortical areas will likely result in diminished neuronal activity.
+- If the cortical area being created is connected to other areas, ensure that it is mapped (`...-dstmap-...`) to the destination area using appropriate synaptogenesis rules.
+- Specify geometric boundaries (`...-geo_...`) and block boundaries (`...-___bb...`) for the cortical area based on the type/structure of input data.
+- The other keys in the cortical area (not mentioned above) can be left as-is with existing values (assuming the user copied an existing cortical area to use as a template).
 - Save the genome file.
 
 ## **Troubleshooting issues**
