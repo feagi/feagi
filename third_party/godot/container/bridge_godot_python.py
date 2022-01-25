@@ -7,13 +7,16 @@ from configuration import *
 from configuration import message_to_feagi
 
 host = "127.0.0.1"
-port = "30000"
+port = "30003"
 
 address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_port']
 feagi_state = find_feagi(address=address) ##I was trying to leverage on router only
+print("feagi_state: " , feagi_state)
 print("** **", feagi_state)
-socket = feagi_state['sockets']
+sockets = feagi_state['sockets']
 router_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
+
+print("--->> >> >> ", sockets)
 
 # def feagi_initalize():
 #     # Getting FEAGI's raw data
@@ -181,7 +184,10 @@ def feagi_breakdown(data):
     Designed for genome 2.0 only
     """
     new_list = []
-    new_data = data[10:]
+    print("bwuk", type(data))
+    print(data['godot'],data['godot'])
+
+    new_data = data[37:]
     new_data = new_data.replace(" ", "")
     new_data = new_data.replace("{", "")
     new_data = new_data.replace("}","")
@@ -194,6 +200,8 @@ def feagi_breakdown(data):
     return new_list
 
 Godot_list = {}
+#UDP("{'godot': {(59, 5, 0, 3), (59, 5, 0, 9), (59, 5, 0, 2), (59, 5, 0, 5), (59, 5, 0, 8), (59, 5, 0, 4)}}")
+
 one_frame = genome_2_cortical_list(genome['blueprint'])
 CSV_writer(one_frame)
 FEAGI_pub = Pub(address='tcp://0.0.0.0:' + router_settings['ipu_port'])
