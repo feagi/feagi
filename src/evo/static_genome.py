@@ -56,7 +56,7 @@ genome = {
         "_____10c-i__bat-cx-__name-t":  "battery_ipu",
         "_____10c-i__bat-cx-_group-t":  "IPU",
         "_____10c-i__bat-cx-_n_cnt_i":  500,
-        "_____10c-i__bat-nx-gd_vis-b":  True,
+        "_____10c-i__bat-cx-gd_vis-b":  True,
         "_____10c-i__bat-nx-rcordx-i":  100,
         "_____10c-i__bat-nx-rcordy-i":  0,
         "_____10c-i__bat-nx-rcordz-i":  0,
@@ -85,7 +85,7 @@ genome = {
         "_____10c-o__mot-cx-__name-t": "motor_opu",
         "_____10c-o__mot-cx-_group-t": "OPU",
         "_____10c-o__mot-cx-_n_cnt_i": 1000,
-        "_____10c-o__mot-nx-gd_vis-b": True,
+        "_____10c-o__mot-cx-gd_vis-b": True,
         "_____10c-o__mot-nx-rcordx-i": 20,
         "_____10c-o__mot-nx-rcordy-i": 0,
         "_____10c-o__mot-nx-rcordz-i": 0,
@@ -109,6 +109,41 @@ genome = {
         "_____10c-o__mot-nx-geo_y1-f": 10,
         "_____10c-o__mot-nx-geo_z0-f": 0,
         "_____10c-o__mot-nx-geo_z1-f": 200,
-        "_____10c-o__mot-cx-dstmap-d":  {"o__mot": ["rule_1", "param_1"]}
+        "_____10c-o__mot-cx-dstmap-d":  {"o__mot": ["rule_1", "param_1"]},
+        
+
+	"_____10c-i__inf-cx-__name-t": "ir_ipu",
+	"_____10c-i__inf-cx-_group-t": "IPU",
+	"_____10c-i__inf-cx-_n_cnt-i": 3,
+	"_____10c-i__inf-cx-gd_vis-b": True,
+	"_____10c-i__inf-nx-rcordx-i": 25,
+	"_____10c-i__inf-nx-rcordy-i": 0,
+	"_____10c-i__inf-nx-rcordz-i": 5,
+	"_____10c-i__inf-nx-___bbx-i": 3,
+	"_____10c-i__inf-nx-___bby-i": 1,
+	"_____10c-i__inf-nx-___bbz-i": 1,
+	"_____10c-i__inf-cx-__rand-b": True,
+	"_____10c-i__inf-cx-synatt-f": 100,
+	"_____10c-i__inf-cx-init_s-b": False,
+	"_____10c-i__inf-cx-pstcr_-f": 500,
+	"_____10c-i__inf-cx-pstcrm-f": 35,
+	"_____10c-i__inf-cx-plst_c-f": 0.05,
+	"_____10c-i__inf-nx-locr__-t": "rule_0",
+	"_____10c-i__inf-nx-locrp_-t": "param_1",
+	"_____10c-i__inf-nx-fire_t-i": 1,
+	"_____10c-i__inf-nx-refrac-i": 0,
+	"_____10c-i__inf-nx-leak_c-f": 10,
+	"_____10c-i__inf-nx-c_fr_c-i": 3,
+	"_____10c-i__inf-nx-snooze-i": 0,
+	"_____10c-i__inf-nx-geo_x0-i": 0,
+	"_____10c-i__inf-nx-geo_x1-i": 3,
+	"_____10c-i__inf-nx-geo_y0-i": 0,
+	"_____10c-i__inf-nx-geo_y1-i": 1,
+	"_____10c-i__inf-nx-geo_z0-i": 0,
+	"_____10c-i__inf-nx-geo_z1-i": 1,
+	"_____10c-i__inf-cx-dstmap-d": {"i__inf": ["rule_0", "param_1"], "o__mot": ["rule_9" , "param_1"]}
+	
+	
+
     }
 }

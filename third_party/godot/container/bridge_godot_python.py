@@ -197,21 +197,26 @@ def feagi_breakdown(data):
     return new_list
 
 Godot_list = {}
+print("GOdot_list = " , Godot_list)
 #UDP("{'godot': {(59, 5, 0, 3), (59, 5, 0, 9), (59, 5, 0, 2), (59, 5, 0, 5), (59, 5, 0, 8), (59, 5, 0, 4)}}")
 
 one_frame = genome_2_cortical_list(genome['blueprint'])
+print("one_frame: ", one_frame)
 CSV_writer(one_frame)
 FEAGI_pub = Pub(address='tcp://0.0.0.0:' + router_settings['ipu_port'])
 opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['opu_port']
 FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 UDP(str("0,0,0"))
+
 while True:
     one_frame = FEAGI_sub.receive()
+    #print("one_frame after feagi: ", one_frame)
     #one_frame = "{'godot': {(59, 5, 0, 3), (59, 5, 0, 9), (59, 5, 0, 2), (59, 5, 0, 5), (59, 5, 0, 8), (59, 5, 0, 4)}}"
 
     if one_frame is not None:
-        #print(one_frame) #Don't delete this, it worked perfectly
+        print("FEAGI's raw data: " , one_frame) #Don't delete this, it worked perfectly
         one_frame = feagi_breakdown(one_frame)
+        #print("one frame after breakdown: ", one_frame)
         UDP(str(one_frame))
 
 
@@ -222,7 +227,8 @@ while True:
 
 
     ##This stops all processing and force to wait for the return data from FEAGI
-    data = godot_listener()
+    data = "None"
+    #data = godot_listener()
     #print("bwukkkk", data)
     if data != "None":
         if data == "ready":
