@@ -42,7 +42,7 @@ def stimulation_injector(stimulation_data):
             cortical_block_ref = [voxel[0] - relative_coords[0],
                                   voxel[1] - relative_coords[1],
                                   voxel[2] - relative_coords[2]]
-
+            print("FEAGI received stimulation from Godot and processing...", cortical_block_ref)
             in_the_block = neurons_in_the_block(cortical_area=cortical_area,
                                                 block_ref=block_reference_builder(cortical_block_ref))
             for neuron in in_the_block:
