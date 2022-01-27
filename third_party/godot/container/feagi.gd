@@ -114,7 +114,7 @@ func _ready():
 		add_child(create_textbox)#Copied the node to new node
 		create_textbox.scale = Vector3(0.5,0.5,0.5)
 		generate_textbox(create_textbox, -2,0.5,6,"z")
-		#$GridMap.clear()
+		$GridMap.clear()
 		
 	
 	while green_light:
