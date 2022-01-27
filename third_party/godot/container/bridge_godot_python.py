@@ -15,14 +15,7 @@ import csv
 host = "127.0.0.1"
 port = "30003"
 
-address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_port']
-feagi_state = find_feagi(address=address) ##I was trying to leverage on router only
-print("feagi_state: " , feagi_state)
-print("** **", feagi_state)
-sockets = feagi_state['sockets']
-router_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
 
-print("--->> >> >> ", sockets)
 
 # def feagi_initalize():
 #     # Getting FEAGI's raw data
@@ -201,8 +194,16 @@ print("GOdot_list = " , Godot_list)
 #UDP("{'godot': {(59, 5, 0, 3), (59, 5, 0, 9), (59, 5, 0, 2), (59, 5, 0, 5), (59, 5, 0, 8), (59, 5, 0, 4)}}")
 
 one_frame = genome_2_cortical_list(genome['blueprint'])
-print("one_frame: ", one_frame)
+#print("one_frame: ", one_frame)
 CSV_writer(one_frame)
+address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_port']
+feagi_state = find_feagi(address=address) ##I was trying to leverage on router only
+print("feagi_state: " , feagi_state)
+print("** **", feagi_state)
+sockets = feagi_state['sockets']
+router_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
+
+print("--->> >> >> ", sockets)
 FEAGI_pub = Pub(address='tcp://0.0.0.0:' + router_settings['ipu_port'])
 opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['opu_port']
 FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
@@ -227,8 +228,8 @@ while True:
 
 
     ##This stops all processing and force to wait for the return data from FEAGI
-    data = "None"
-    #data = godot_listener()
+    #data = "None"
+    data = godot_listener()
     #print("bwukkkk", data)
     if data != "None":
         if data == "ready":
