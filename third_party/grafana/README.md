@@ -30,7 +30,7 @@ To deploy a containerized setup consisting of FEAGI, InfluxDB and Grafana, navig
 - Navigate to `http://localhost:3000` in a web browser to access the Grafana main menu, where users may select an existing data visualization dashboard (ex: `test_dashbboard` - a simple, one-panel dashboard for visualizing FEAGI neuron burst data to verify connectivity) or create a new, customized dashboard by clicking on the dashboard icon, then `Manage`, followed by `New Dashboard`.
 
   &nbsp;  
-  ![dashboard_mgmt](../../docs/_static/grafana_mgmt.png)  
+  ![dashboard_mgmt](./_static/grafana_mgmt.png)  
   **Access Grafana dashboard management (if needed) via the menu dock**
 
 - To learn more about Grafana dashboards (creation, customization, management, etc.), visit the following resources:
@@ -46,13 +46,13 @@ To deploy a containerized setup consisting of FEAGI, InfluxDB and Grafana, navig
 - After running `docker-compose -f docker-compose-feagi-influx-grafana.yml up`, data should begin flowing from FEAGI (to InfluxDB) to Grafana and, if configured accordingly, appear in the dashboard in the respective panel(s), similar to the figure shown below.
 
   &nbsp;  
-  ![grafana_data](../../docs/_static/grafana_data.gif)  
+  ![grafana_data](./_static/grafana_data.gif)  
   **Example of FEAGI data being displayed in the panel of a Grafana dashboard**
  
 - If no data appears in the dashboard despite appropriate configuration, it may be necessary to change the dashboard's Time Range (upper right corner of dashboard), which controls how far into the past the panel's time scale extends, to one of the values present in the dropdown menu (ex: Last _n_ minutes).
 
   &nbsp;  
-  ![time_range](../../docs/_static/grafana_menu.png)  
+  ![time_range](./_static/grafana_menu.png)  
   **Location of Time Range dropdown menu on a Grafana dashboard**  
 
 - After confirming that data is flowing to the Grafana dashboard, make any desired adjustments to the dashboard's appearance and/or properties using the Grafana dashboard user interface.

@@ -176,8 +176,6 @@ def genome_2_1_convertor(flat_genome):
                 except KeyError as e:
                     print("Error while converting a gene:", e, cortical_area, gene)
 
-    print(json.dumps(genome, sort_keys=True, indent=4))
-
     return genome
 
 
