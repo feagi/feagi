@@ -37,9 +37,11 @@ services:
       - net
       
   godot:
-    image: neuraville/feagi-godot
+    build: ../third_party/godot/container/
     ports:
       - "6081:80"
+      - "20002:20002/udp"
+      - "20003:20003/udp"
     privileged: true
     networks:
       - net
