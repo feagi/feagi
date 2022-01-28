@@ -87,12 +87,12 @@ def neurons_in_the_block(cortical_area, block_ref):
     Generates a list of Neurons in the given block
     block_id to be entered as [x,y,z]
     """
-    # try:
-    return runtime_data.block_dic[cortical_area][block_ref]
-    # except Exception as e:
-    #     a = runtime_data.block_dic
-    #     print("Error while processing --neurons_in_the_block-- function:\n", cortical_area, e)
-    #     return []
+    try:
+        return runtime_data.block_dic[cortical_area][block_ref]
+    except Exception as e:
+        a = runtime_data.block_dic
+        print("Error while processing --neurons_in_the_block-- function:\n", cortical_area, e)
+        return []
 
 
 def block_z_offset(block_ref, offset):
