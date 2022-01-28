@@ -11,6 +11,8 @@ router_settings = {
 
 model_properties = {
     'motor': {
+        'type': "OPU",
+
         'count': 4,
         'topic_identifier': '/M',
         'motor_statuses': {}

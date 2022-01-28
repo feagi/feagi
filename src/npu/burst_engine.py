@@ -37,8 +37,7 @@ from time import sleep
 from npu.physiology import *
 from mem.memory import neuroplasticity
 from npu.comprehension import utf_detection_logic
-from ipu.ipu_controller import ipu_handler
-from opu.opu_controller import opu_handler
+from pns import ipu, opu
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
 from inf.messenger import Pub, Sub
@@ -404,18 +403,19 @@ def burst_manager():
             else:
                 print("Warning: Cortical area %s not found within the block_dic" % cortical_area_)
 
-    def message_router():
-        # Broadcasts a TCP message on each burst
-        if runtime_data.parameters['Switches']['burst_beacon']:
-            # Limiting the broadcast messages to one in every 10 burst
-            # todo: externalize this parameter to ini
-            if runtime_data.burst_count % 10 == 0:
-                broadcast_message = dict()
-                broadcast_message['burst_counter'] = runtime_data.burst_count
-                broadcast_message['sockets'] = runtime_data.parameters['Sockets']
-                broadcast_message['burst_frequency'] = runtime_data.burst_timer
-                brain_publisher.send(message=broadcast_message)
+    def controller_handshake():
+        if not runtime_data.controller_config:
+            print("Awaiting handshake with the controller")
+            # Initialize a broadcaster
+            burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['burst_engine_pub']
+            brain_publisher = Pub(address=burst_engine_pub_address)
+            broadcast_message = dict()
+            broadcast_message['burst_counter'] = runtime_data.burst_count
+            broadcast_message['sockets'] = runtime_data.parameters['Sockets']
+            broadcast_message['burst_frequency'] = runtime_data.burst_timer
+            brain_publisher.send(message=broadcast_message)
 
+    def message_router():
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.router_address is not None:
             ipu_data = ipu_listener.receive()
@@ -425,10 +425,9 @@ def burst_manager():
                     print("FEAGI received message from router as:", ipu_data)
 
         # Broadcasts a TCP message on each burst
-        if runtime_data.parameters['Switches']['zmq_activity_publisher']:
-            # Limiting the broadcast messages to one in every 1 burst
-            # todo: externalize this parameter to ini
-            if runtime_data.burst_count % 1 == 0:
+        if runtime_data.brain_activity_pub:
+            # todo: Obrain the frequency from controller config
+            if runtime_data.burst_count % runtime_data.brain_activity_pub_freq == 0:
                 activity_data = brain_activity_voxelizer()
                 runtime_data.opu_pub.send(message=activity_data)
 
@@ -454,6 +453,9 @@ def burst_manager():
                         )
                     )
         return {"burst_counter": runtime_data.burst_count, "godot": broadcast_message}
+
+    def pns_initializer():
+        print("PNS initialized")
 
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
@@ -485,14 +487,11 @@ def burst_manager():
         # logging neuron activities to the influxdb
         log_neuron_activity_influx()
         
-        # Fake Stimuli
-        if runtime_data.parameters['Switches']['fake_stimulation_flag']:
-            if runtime_data.burst_count in runtime_data.stimulation_data:
-                fake_cortical_stimulation(input_instruction=runtime_data.stimulation_data,
-                                          burst_count=runtime_data.burst_count)
-
-        # Process neuron stimulation that ties to OPU
-        opu_handler()
+        # # Fake Stimuli
+        # if runtime_data.parameters['Switches']['fake_stimulation_flag']:
+        #     if runtime_data.burst_count in runtime_data.stimulation_data:
+        #         fake_cortical_stimulation(input_instruction=runtime_data.stimulation_data,
+        #                                   burst_count=runtime_data.burst_count)
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
@@ -538,15 +537,13 @@ def burst_manager():
         if runtime_data.burst_count % 10 == 0:
             consciousness_manager()
 
+        if not runtime_data.controller_config:
+            controller_handshake()
+
     print('runtime_data.genome_id = ', runtime_data.genome_id)
 
     # Initializing the burst_manager engine parameters
     init_burst_engine()
-
-    # Initialize a broadcaster
-    if runtime_data.parameters["Switches"]["burst_beacon"]:
-        burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['burst_engine_pub']
-        brain_publisher = Pub(address=burst_engine_pub_address)
 
     # todo: consolidate all the listeners into a class
     # Initialize IPU listener

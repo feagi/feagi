@@ -14,10 +14,37 @@
 # limitations under the License.
 # ==============================================================================
 
-ipu_mapper = {
+"""
+model_properties:
+
+
+
+"""
+model_properties = {
+    "motor": {
+        "disabled":
+        ""
+    }
+
+
 
 }
 
-opu_mapper = {
 
+
+device_config = {
+    'motor': {
+        'count': 4,
+        'topic_identifier': '/M',
+        'motor_statuses': {}
+    },
+    'servo': {
+        'count': 2,
+        'topic_identifier': '/S'
+    },
+    'infrared': {
+        'count': 3,
+        'topic_identifier': 'IR'
+    }
 }
+
