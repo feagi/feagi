@@ -14,6 +14,10 @@
 # limitations under the License.
 # ==============================================================================
 
-"""
-To read from a camera and pass along video and audio to the corresponding IPU visual and auditory processing modules.
-"""
+ipu_mapper = {
+
+}
+
+opu_mapper = {
+
+}

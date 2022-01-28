@@ -437,6 +437,7 @@ def burst_manager():
         Convert FCL activities to a set of voxel locations and sends out through the ZMQ publisher
         """
         broadcast_message = set()
+
         for _ in runtime_data.fire_candidate_list:
             fire_list = set(runtime_data.fire_candidate_list[_])
             if runtime_data.genome['blueprint'][_]['neuron_params'].get('visualization'):
