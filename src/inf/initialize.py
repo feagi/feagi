@@ -273,10 +273,10 @@ def init_resources():
         print("Max thread count was set to ", runtime_data.parameters['System']['max_core'])
 
 
-def init_fake_stimulation():
-    if runtime_data.parameters['Switches']['fake_stimulation_flag']:
-        import inf.fake_stimulation as fake_stimulation
-        runtime_data.stimulation_data = fake_stimulation.stimulation_data
+# def init_fake_stimulation():
+#     if runtime_data.parameters['Switches']['fake_stimulation_flag']:
+#         import inf.fake_stimulation as fake_stimulation
+#         runtime_data.stimulation_data = fake_stimulation.stimulation_data
 
 
 def initialize():
@@ -291,7 +291,7 @@ def initialize():
     detect_hardware()
     init_genome_post_processes()
     init_resources()
-    init_fake_stimulation()
+    # init_fake_stimulation()
     generate_plasticity_dict()
     runtime_data.fcl_queue = Queue()
 

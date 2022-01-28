@@ -43,7 +43,7 @@ class Pub:
 
     def send(self, message):
         self.socket.send_pyobj(message)
-        print("Message sent to device is:", message)
+        print("FEAGI published a message:", message)
 
 
 # class PubBrainActivities:

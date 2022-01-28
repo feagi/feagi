@@ -61,11 +61,13 @@ hw_controller_path = ''
 hw_controller = None
 opu_pub = None
 brain_activity_pub = None
+brain_activity_pub_freq = 1
 router_address = None
 burst_timer = None
 genome2 = {}
 genome_ver = None
 fire_queue = {}
+controller_config = None
 
 
 # rules = ""

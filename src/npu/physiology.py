@@ -15,8 +15,7 @@
 # ==============================================================================
 
 import json
-from opu import utf8
-from opu.processor import movement
+from pns import ipu, opu
 from collections import deque
 from evo.neuron import block_reference_builder
 from evo.synapse import synapse
