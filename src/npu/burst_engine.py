@@ -55,6 +55,10 @@ def cortical_group_members(group):
 def burst_manager():
     """This function behaves as instance of Neuronal activities"""
 
+    def init_pns():
+        runtime_data.ipu = ipu.IPU()
+        runtime_data.opu = ipu.OPU()
+
     def consciousness_manager():
         """responsible for start and stop of all non-main threads based on various conditions"""
         # Check flags for IPU activities
@@ -367,60 +371,29 @@ def burst_manager():
                 runtime_data.parameters["Database"]["influx_stat_logger"]):
             runtime_data.influxdb.insert_burst_checkpoints(connectome_path, runtime_data.burst_count)
 
-    def fake_cortical_stimulation(input_instruction, burst_count):
-        """
-        It fakes cortical stimulation for the purpose of testing
 
-        The following data format is used for input_instruction as the function input:
-
-        input_instructions receives a dictionary as input with keys as the name of the ipu cortical name and the value
-        being a list of block locations that needs to be activated in the block-ref format e.g. xBlock-yBlock-zBlock.
-
-        Note: all of the blocks outlined in the data structure will be activated at the same time during the same
-        burst.
-
-        input_instruction_example = {
-            ir_ipu: ["0-0-0", "1-0-0"],
-            proximity_ipu: ["0-0-0", "0-0-3", "0-0-10", "0-0-20"]
-            led_opu: ["5-0-0"]
-        }
-
-        # todo: Currently we can only inject data from the first index on each burst. change it so it goes thru all
-        """
-        neuron_list = []
-
-        for cortical_area_ in input_instruction[burst_count]:
-            if cortical_area_ in runtime_data.block_dic:
-                for block_ref in input_instruction[burst_count][cortical_area_]:
-                    if block_ref in runtime_data.block_dic[cortical_area_]:
-                        for neuron in runtime_data.block_dic[cortical_area_][block_ref]:
-                            neuron_list.append(neuron)
-                    else:
-                        print("Warning: Block ref %s was not found for %s" % (block_ref, cortical_area_))
-                # print("neuron list:", cortical_area_, neuron_list)
-                runtime_data.fcl_queue.put({cortical_area_: set(neuron_list)})
-                neuron_list = []
-            else:
-                print("Warning: Cortical area %s not found within the block_dic" % cortical_area_)
+    def init_burst_pub():
+        # Initialize a broadcaster
+        burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_outbound_port']
+        runtime_data.burst_publisher = Pub(address=burst_engine_pub_address)
+        print("Burst publisher has been initialized @ ", burst_engine_pub_address)
 
     def controller_handshake():
-        if not runtime_data.controller_config:
+        if not runtime_data.controller_config and runtime_data.burst_publisher:
             print("Awaiting handshake with the controller")
-            # Initialize a broadcaster
-            burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['burst_engine_pub']
-            brain_publisher = Pub(address=burst_engine_pub_address)
             broadcast_message = dict()
             broadcast_message['burst_counter'] = runtime_data.burst_count
             broadcast_message['sockets'] = runtime_data.parameters['Sockets']
             broadcast_message['burst_frequency'] = runtime_data.burst_timer
-            brain_publisher.send(message=broadcast_message)
+            runtime_data.burst_publisher.send(message=broadcast_message)
+            print("Message sent to controller:", broadcast_message)
 
     def message_router():
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.router_address is not None:
             ipu_data = ipu_listener.receive()
             if ipu_data:
-                ipu_handler(ipu_data)
+                ipu.IPU.Controller.ipu_handler(ipu_data)
                 if runtime_data.parameters["Logs"]["print_burst_info"]:
                     print("FEAGI received message from router as:", ipu_data)
 
@@ -486,12 +459,6 @@ def burst_manager():
 
         # logging neuron activities to the influxdb
         log_neuron_activity_influx()
-        
-        # # Fake Stimuli
-        # if runtime_data.parameters['Switches']['fake_stimulation_flag']:
-        #     if runtime_data.burst_count in runtime_data.stimulation_data:
-        #         fake_cortical_stimulation(input_instruction=runtime_data.stimulation_data,
-        #                                   burst_count=runtime_data.burst_count)
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
@@ -544,6 +511,8 @@ def burst_manager():
 
     # Initializing the burst_manager engine parameters
     init_burst_engine()
+
+    init_burst_pub()
 
     # todo: consolidate all the listeners into a class
     # Initialize IPU listener

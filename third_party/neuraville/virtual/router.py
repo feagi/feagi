@@ -3,7 +3,6 @@
 """
 
 import zmq
-from configuration import router_settings
 
 
 class Pub:
@@ -14,7 +13,7 @@ class Pub:
 
     def send(self, message):
         self.socket.send_pyobj(message)
-        print("Sent:", message)
+        print("Sent:\n", message, "\n\n")
 
 
 class Sub:
@@ -52,16 +51,28 @@ class Sub:
                 print(e)
 
 
-def find_feagi(address):
+def handshake_with_feagi(address, capabilities):
+    """
+    To trade information between FEAGI and Controller
+
+    Controller                      <--     FEAGI(IPU/OPU socket info)
+    Controller (Capabilities)       -->     FEAGI
+    """
+
     print('Awaiting connection with FEAGI at...', address)
     subscriber = Sub(address=address, flags=zmq.SUB)
-    message = subscriber.receive()
+
+    # Receive FEAGI settings
+    feagi_settings = subscriber.receive()
     print("Connection to FEAGI has been established")
+    print("\nFEAGI settings received as:\n", feagi_settings, "\n\n")
 
-    # todo: What information is useful to receive from FEAGI in this message? IPU/OPU list?
-    print("Current FEAGI state is at burst number ", message['burst_counter'])
+    # Transmit Controller Capabilities
+    pub_address = "tcp://0.0.0.0:" + feagi_settings['sockets']['feagi_inbound_port']
+    publisher = Pub(address=pub_address)
+    publisher.send(capabilities)
 
-    return message
+    return feagi_settings
 
 
 def register_with_feagi():

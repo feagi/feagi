@@ -4,11 +4,200 @@ This module contains a virtual set of hardware controllers used for simulation a
 
 todo: Need to have all of the controller.py modules follow the same convention and be consistent especially input data
 """
+import router
+import configuration
 from time import time, sleep
-from router import *
+from fake_stimulation import stimulation_data
 from random import randrange, getrandbits
 
-# class FakeStimulator:
+
+runtime_params = {
+    "current_burst_id": None,
+    "global_timer": 0.5,
+    "feagi_state": None
+}
+
+
+class FakeStimulator:
+    def __init__(self):
+        print("Fake stimulation initialized")
+
+    @staticmethod
+    def stimulate(burst_id):
+        if burst_id in stimulation_data:
+            return stimulation_data[burst_id]
+
+
+def ipu_message_builder():
+    """
+    This function encodes the sensory information in a dictionary that can be decoded on the FEAGI end.
+
+    expected ipu_data structure:
+
+        ipu_data = {
+            sensor_type: {
+                sensor_name: sensor_data,
+                sensor_name: sensor_data,
+                ...
+                },
+            sensor_type: {
+                sensor_name: sensor_data,
+                sensor_name: sensor_data,
+                ...
+                },
+            ...
+            }
+        }
+    """
+    stimulator = FakeStimulator()
+    # Process IPU data received from controller.py and pass it along to FEAGI
+    # todo: move class instantiations to outside function
+    # ir = IR()
+
+    # todo: figure a better way of obtaining the device count
+    ir_count = 3
+
+    ipu_data = dict()
+
+    ipu_data['stimulation'] = stimulator.stimulate(runtime_params["current_burst_id"])
+
+    # ipu_data['ultrasonic'] = {
+    #     1: [randrange(0, 30) / 10, randrange(0, 30) / 10, randrange(0, 30) / 10, randrange(0, 30) / 10,
+    #         randrange(0, 30) / 10, randrange(0, 30) / 10]
+    # }
+    # ipu_data['ir'] = {}
+
+    # for _ in range(ir_count):
+    #     ipu_data['ir'][_] = ir.read()
+
+    return ipu_data
+
+
+def main():
+    address = 'tcp://' + configuration.network_settings['feagi_ip'] + ':' + \
+              configuration.network_settings['feagi_outbound_port']
+    
+    runtime_params["feagi_state"] = router.handshake_with_feagi(address=address, capabilities=configuration.capabilities)
+
+    print("** **", runtime_params["feagi_state"])
+
+
+    # todo: to obtain this info directly from FEAGI as part of registration
+    ipu_channel_address = 'tcp://0.0.0.0:' + configuration.network_settings['feagi_inbound_port']
+    print("IPU_channel_address=", ipu_channel_address)
+    opu_channel_address = 'tcp://' + configuration.network_settings['feagi_ip'] + ':' + \
+                          runtime_params["feagi_state"]['sockets']['feagi_outbound_port']
+
+    feagi_ipu_channel = router.Pub(address=ipu_channel_address)
+    feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
+
+    print("Connecting to FEAGI resources...")
+
+    # todo: identify a method to instantiate all classes without doing it one by one
+    # Instantiate Controller Classes
+    # motor = Motor()
+
+    # Listen and route
+    print("Starting the routing engine")
+    print("Communication frequency is set once every %f seconds" % runtime_params['global_timer'])
+
+    # todo: need to have a method to sync burst id with the FEAGI
+    current_burst_id = 5
+
+    while True:
+        # Process OPU data received from FEAGI and pass it along to the controller.py
+        opu_data = feagi_opu_channel.receive()
+        print("Received:", opu_data)
+        # if opu_data is not None:
+        #     if 'motor' in opu_data:
+        #         for motor_id in opu_data['motor']:
+        #             motor.move(motor_id, opu_data['motor'][motor_id])
+        #
+
+        ipu_data = ipu_message_builder()
+        feagi_ipu_channel.send(ipu_data)
+
+        # todo: need to figure how to correlate the flow on incoming data with the rate data is passed to FEAGI
+
+        sleep(runtime_params['global_timer'])
+
+
+if __name__ == '__main__':
+    main()
+
+
+
+
+# class Motor:
+#     def __init__(self):
+#         print("Neuraville virtual motor has been initialized...")
+#
+#     def move(self, motor_index, speed):
+#         print("<< < .$.Speed of motor %s is set to %s.$. > >>" % (motor_index, speed))
+
+#
+# class Photoresistor:
+#     """
+#     Photoresistor has two photoresistors. 0 is the left photoresistor and 1 is the right photoresistor on the board.
+#     """
+#     def photoresistor(self, number):  # 0 is the left photoressitor and 1 is the right photoresistor
+#         adc = Adc()
+#         if number > 2 or number < 0:
+#             print("Please put 1 or 0 as an input only")
+#         elif number < 2 or number <= 0:
+#             output = adc.recvADC(number)
+#             # print(output)
+#             return output
+#
+#
+# class Battery:
+#     def battery_total(self):  ##It gives a full volt remain of battery
+#         """
+#         Returns a fake battery value
+#         -------
+#
+#         """
+#         power = 2.3
+#         return power
+#
+#
+# class Ultrasonic:
+#     def __init__(self):
+#         GPIO.setwarnings(False)
+#         self.trigger_pin = 27
+#         self.echo_pin = 22
+#         GPIO.setmode(GPIO.BCM)
+#         GPIO.setup(self.trigger_pin,GPIO.OUT)
+#         GPIO.setup(self.echo_pin,GPIO.IN)
+#
+#     def send_trigger_pulse(self):
+#         GPIO.output(self.trigger_pin,True)
+#         time.sleep(0.00015)
+#         GPIO.output(self.trigger_pin,False)
+#
+#     def wait_for_echo(self,value,timeout):
+#         count = timeout
+#         while GPIO.input(self.echo_pin) != value and count>0:
+#             count = count-1
+#
+#     def getDistance(self):
+#         """
+#
+#         Returns distance_cm in INT value
+#         -------
+#
+#         """
+#         distance_cm=[0,0,0]
+#         for i in range(3):
+#             self.send_trigger_pulse()
+#             self.wait_for_echo(True,10000)
+#             start = time.time()
+#             self.wait_for_echo(False,10000)
+#             finish = time.time()
+#             pulse_len = finish-start
+#             distance_cm[i] = pulse_len/0.000058
+#         distance_cm=sorted(distance_cm)
+#         return int(distance_cm[1])
 #
 #
 # class LED:
@@ -162,165 +351,3 @@ from random import randrange, getrandbits
 #         -------
 #         """
 #         self.setServoPwm('0', num) #90 to 0 degree is turn the head left. 90 to 180 is to turn the head right
-
-
-class Motor:
-    def __init__(self):
-        print("Neuraville virtual motor has been initialized...")
-
-    def move(self, motor_index, speed):
-        print("<< < .$.Speed of motor %s is set to %s.$. > >>" % (motor_index, speed))
-
-#
-# class Photoresistor:
-#     """
-#     Photoresistor has two photoresistors. 0 is the left photoresistor and 1 is the right photoresistor on the board.
-#     """
-#     def photoresistor(self, number):  # 0 is the left photoressitor and 1 is the right photoresistor
-#         adc = Adc()
-#         if number > 2 or number < 0:
-#             print("Please put 1 or 0 as an input only")
-#         elif number < 2 or number <= 0:
-#             output = adc.recvADC(number)
-#             # print(output)
-#             return output
-#
-#
-# class Battery:
-#     def battery_total(self):  ##It gives a full volt remain of battery
-#         """
-#         Returns a fake battery value
-#         -------
-#
-#         """
-#         power = 2.3
-#         return power
-#
-#
-# class Ultrasonic:
-#     def __init__(self):
-#         GPIO.setwarnings(False)
-#         self.trigger_pin = 27
-#         self.echo_pin = 22
-#         GPIO.setmode(GPIO.BCM)
-#         GPIO.setup(self.trigger_pin,GPIO.OUT)
-#         GPIO.setup(self.echo_pin,GPIO.IN)
-#
-#     def send_trigger_pulse(self):
-#         GPIO.output(self.trigger_pin,True)
-#         time.sleep(0.00015)
-#         GPIO.output(self.trigger_pin,False)
-#
-#     def wait_for_echo(self,value,timeout):
-#         count = timeout
-#         while GPIO.input(self.echo_pin) != value and count>0:
-#             count = count-1
-#
-#     def getDistance(self):
-#         """
-#
-#         Returns distance_cm in INT value
-#         -------
-#
-#         """
-#         distance_cm=[0,0,0]
-#         for i in range(3):
-#             self.send_trigger_pulse()
-#             self.wait_for_echo(True,10000)
-#             start = time.time()
-#             self.wait_for_echo(False,10000)
-#             finish = time.time()
-#             pulse_len = finish-start
-#             distance_cm[i] = pulse_len/0.000058
-#         distance_cm=sorted(distance_cm)
-#         return int(distance_cm[1])
-
-
-def ipu_message_builder():
-    """
-    This function encodes the sensory information in a dictionary that can be decoded on the FEAGI end.
-
-    expected ipu_data structure:
-
-        ipu_data = {
-            sensor_type: {
-                sensor_name: sensor_data,
-                sensor_name: sensor_data,
-                ...
-                },
-            sensor_type: {
-                sensor_name: sensor_data,
-                sensor_name: sensor_data,
-                ...
-                },
-            ...
-            }
-        }
-    """
-    # Process IPU data received from controller.py and pass it along to FEAGI
-    # todo: move class instantiations to outside function
-    ir = IR()
-
-    # todo: figure a better way of obtaining the device count
-    ir_count = 3
-
-    ipu_data = dict()
-    ipu_data['ultrasonic'] = {
-        1: [randrange(0, 30) / 10, randrange(0, 30) / 10, randrange(0, 30) / 10, randrange(0, 30) / 10,
-            randrange(0, 30) / 10, randrange(0, 30) / 10]
-    }
-    ipu_data['ir'] = {}
-
-    for _ in range(ir_count):
-        ipu_data['ir'][_] = ir.read()
-
-    return ipu_data
-
-
-def main():
-    address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_port']
-    feagi_state = find_feagi(address=address)
-
-    print("** **", feagi_state)
-    sockets = feagi_state['sockets']
-
-    print("--->> >> >> ", sockets)
-
-    # todo: to obtain this info directly from FEAGI as part of registration
-    ipu_channel_address = 'tcp://0.0.0.0:' + router_settings['ipu_port']
-    print("IPU_channel_address=", ipu_channel_address)
-    opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['opu_port']
-
-    feagi_ipu_channel = Pub(address=ipu_channel_address)
-    feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
-
-    print("Connecting to FEAGI resources...")
-
-    # todo: identify a method to instantiate all classes without doing it one by one
-    # Instantiate Controller Classes
-    motor = Motor()
-
-    # Listen and route
-    print("Starting the routing engine")
-    print("Communication frequency is set once every %f seconds" % router_settings['global_timer'])
-
-    while True:
-        # Process OPU data received from FEAGI and pass it along to the controller.py
-        opu_data = feagi_opu_channel.receive()
-        print("Received:", opu_data)
-        if opu_data is not None:
-            if 'motor' in opu_data:
-                for motor_id in opu_data['motor']:
-                    motor.move(motor_id, opu_data['motor'][motor_id])
-
-        ipu_data = ipu_message_builder()
-        feagi_ipu_channel.send(ipu_data)
-
-
-        # todo: need to figure how to correlate the flow on incoming data with the rate data is passed to FEAGI
-
-        sleep(router_settings['global_timer'])
-
-
-if __name__ == '__main__':
-    main()

@@ -56,7 +56,6 @@ mongodb = ''
 running_in_container = False
 hardware = ''
 gazebo = False
-stimulation_data = {}
 hw_controller_path = ''
 hw_controller = None
 opu_pub = None
@@ -68,6 +67,9 @@ genome2 = {}
 genome_ver = None
 fire_queue = {}
 controller_config = None
+burst_publisher = None
+ipu = None
+opu = None
 
 
 # rules = ""
