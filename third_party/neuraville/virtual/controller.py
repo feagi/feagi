@@ -55,7 +55,7 @@ def ipu_message_builder():
     # ir = IR()
 
     # todo: figure a better way of obtaining the device count
-    ir_count = 3
+    # ir_count = 3
 
     ipu_data = dict()
 
@@ -102,7 +102,7 @@ def main():
     print("Communication frequency is set once every %f seconds" % runtime_params['global_timer'])
 
     # todo: need to have a method to sync burst id with the FEAGI
-    current_burst_id = 5
+    runtime_params["current_burst_id"] = runtime_params["feagi_state"]["burst_counter"]
 
     while True:
         # Process OPU data received from FEAGI and pass it along to the controller.py
@@ -117,9 +117,10 @@ def main():
         ipu_data = ipu_message_builder()
         feagi_ipu_channel.send(ipu_data)
 
-        # todo: need to figure how to correlate the flow on incoming data with the rate data is passed to FEAGI
-
+        # todo: IMPORTANT!!! need to figure how to correlate the flow on incoming data with the rate data is passed to FEAGI
         sleep(runtime_params['global_timer'])
+        if opu_data:
+            runtime_params["current_burst_id"] = opu_data['burst_counter']
 
 
 if __name__ == '__main__':

@@ -12,10 +12,12 @@ network_settings = {
 
 capabilities = {
     "stimulation": {
-        "disabled": False
+        "disabled": False,
+        "delay": 1
     },
     "motor": {
         "disabled": True,
-        "count": 4
+        "count": 4,
+        "delay": 1
     }
 }
