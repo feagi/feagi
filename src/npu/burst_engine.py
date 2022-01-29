@@ -59,6 +59,22 @@ def burst_manager():
         runtime_data.ipu = ipu.IPU()
         runtime_data.opu = ipu.OPU()
 
+    def burst_duration_calculator(controller_capabilities):
+        """
+        Analyzes controller capabilities and sets the burst duration in a way to support the fastest device
+        """
+        # todo: look into more dynamic mechanisms to set the burst duration timer
+        # using the burst_timer as the starting point
+        lowest_delay = runtime_data.burst_timer
+        if controller_capabilities:
+            for device in controller_capabilities:
+                if "delay" in device:
+                    if device["delay"] < lowest_delay:
+                        lowest_delay = device["delay"]
+            return float(lowest_delay)
+        else:
+            return runtime_data.burst_timer
+
     def consciousness_manager():
         """responsible for start and stop of all non-main threads based on various conditions"""
         # Check flags for IPU activities
@@ -371,7 +387,6 @@ def burst_manager():
                 runtime_data.parameters["Database"]["influx_stat_logger"]):
             runtime_data.influxdb.insert_burst_checkpoints(connectome_path, runtime_data.burst_count)
 
-
     def init_burst_pub():
         # Initialize a broadcaster
         burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_outbound_port']
@@ -392,10 +407,14 @@ def burst_manager():
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.router_address is not None:
             ipu_data = ipu_listener.receive()
+            # Dynamically adjusting burst duration based on Controller needs
+            runtime_data.burst_timer = burst_duration_calculator(ipu_data)
             if ipu_data:
                 ipu.IPU.Controller.ipu_handler(ipu_data)
                 if runtime_data.parameters["Logs"]["print_burst_info"]:
                     print("FEAGI received message from router as:", ipu_data)
+        else:
+            print("++----Router address is None----++")
 
         # Broadcasts a TCP message on each burst
         if runtime_data.brain_activity_pub:
@@ -519,6 +538,9 @@ def burst_manager():
     if runtime_data.router_address is not None:
         print("Subscribing IPU listener @", runtime_data.router_address)
         ipu_listener = Sub(address=runtime_data.router_address)
+    else:
+        print("Router address is None!")
+
 
     # todo: need to figure how to incorporate FCL injection
     # feeder = Feeder()
