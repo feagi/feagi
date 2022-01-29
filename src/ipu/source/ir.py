@@ -31,8 +31,8 @@ def convert_ir_to_fire_list(ir_data):
     fire_list = set()
     for sensor_idx in ir_data:
         if ir_data[sensor_idx]:
-            for key in runtime_data.brain['ir_ipu']:
-                if sensor_idx == runtime_data.brain['ir_ipu'][key]['soma_location'][0][0]:
+            for key in runtime_data.brain['i__inf']:
+                if sensor_idx == runtime_data.brain['i__inf'][key]['soma_location'][0][0]:
                     fire_list.add(key)
 
-    runtime_data.fcl_queue.put({'ir_ipu': fire_list})
+    runtime_data.fcl_queue.put({'i__inf': fire_list})
