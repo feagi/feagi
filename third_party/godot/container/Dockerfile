@@ -18,6 +18,6 @@ RUN mkdir -p ./.local/share/godot/templates/3.2.stable/linux_x11_64_release/
 COPY ./* /root/
 RUN chmod a+x /root/*
 RUN wget https://downloads.tuxfamily.org/godotengine/3.4.2/Godot_v3.4.2-stable_x11.64.zip
-RUN unzip Godot_v3.4.2-stable_x11.64.zip
+RUN unzip Godot_v3.4.2-stable_x11.64.zip && rm Godot_v3.4.2-stable_x11.64.zip
 
 ENV OPENBOX_ARGS='--startup "/root/FEAGI_initalize.sh"'
