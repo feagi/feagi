@@ -1,86 +1,250 @@
-import zmq
-import socket
 import time
-import json
+
+from router import *
+from configuration import *
+from configuration import message_to_feagi
 from static_genome import genome
+from multiprocessing import Process
+
+import sys
+import socket
+import zmq
 import csv
 
 
 host = "feagi"
 port = "30003"
 
-def FEAGI_initalize():
-    # Getting FEAGI's raw data
-    context = zmq.Context()
-    socket = context.socket(zmq.SUB)
-    subby = socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
-    #print(subby)
-    print('Listening FEAGI...')
-    socket.connect("tcp://{}:{}".format(host, port))
-    socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
-    set_stored = socket.recv_pyobj()
-    # print(set_stored)
-    # print(type(set_stored))
-    return set_stored
 
-def UDP(input):
-    ip     = "127.0.0.1"
-    port   = 20001
 
-    # Create socket for server
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
+# def feagi_initalize():
+#     # Getting FEAGI's raw data
+#
+#     context = zmq.Context()
+#     socket = context.socket(zmq.SUB)
+#     print('Listening FEAGI...')
+#     socket.connect("tcp://{}:{}".format(host, port))
+#     socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
+#     set_stored = socket.recv_pyobj()
+#
+#     return set_stored
 
-    #while True: ##this must be in loop in order to work with FEAGI
-    s.sendto(input.encode('utf-8'), (ip, port))
-    print("\n\n 1. This Sent to Godot with the input: ", input, "\n\n")
-    # close the socket
-    s.close()
 
-def CSV_writer():
+def genome_2_cortical_list(flat_genome):
+    """
+    Generates a list of cortical areas inside static_genome.py. This will reads the data and add the list if it has
+    "x-gd_vis-b" defined True.
+    """
+    cortical_list = {}
+    for key in flat_genome:
+        # print(key[17:])
+        cortical_id = key[9:15]
+        if key[19:] == "rcordx-i":
+            cortical_list[cortical_id].append(genome["blueprint"][key])
+        if key[19:] == "rcordy-i":
+            cortical_list[cortical_id].append(genome["blueprint"][key])
+        if key[19:] == "rcordz-i":
+            cortical_list[cortical_id].append(genome["blueprint"][key])
+        if cortical_id not in cortical_list and key[7] == "c":
+            cortical_list[cortical_id] = [genome["blueprint"][key]]
+        if key[17:] == "x-gd_vis-b":
+            cortical_list[cortical_id].append(genome["blueprint"][key])
+            # print(genome["blueprint"][key])
+        if key[22:] == "bbx-i":
+            cortical_list[cortical_id].append(genome["blueprint"][key])
+        if key[22:] == "bby-i":
+            cortical_list[cortical_id].append(genome["blueprint"][key])
+        if key[22:] == "bbz-i":
+            cortical_list[cortical_id].append(genome["blueprint"][key])
+    return cortical_list
+
+
+def CSV_writer(cortical_list):
     f = open('csv_data.csv', 'w', newline='')
     writer = csv.writer(f)
-    for cortical_area in genome["blueprint"]:
-        if "visualization" in genome["blueprint"][cortical_area]["neuron_params"]:
-            if genome['blueprint'][cortical_area]['neuron_params']['visualization']:
-                writer.writerow((
-                    genome['blueprint'][cortical_area]['neuron_params']['relative_coordinate'][0],
-                    genome['blueprint'][cortical_area]['neuron_params']['relative_coordinate'][1],
-                    genome['blueprint'][cortical_area]['neuron_params']['relative_coordinate'][2],
-                    genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][0],
-                    genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][1],
-                    genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][2],
-                    cortical_area
-                ))
+    godot_cortical_list = list()
+    for key in cortical_list:
+        godot_cortical_list.append(cortical_list[key][2])
+        godot_cortical_list.append(cortical_list[key][3])
+        godot_cortical_list.append(cortical_list[key][4])
+        godot_cortical_list.append(cortical_list[key][5])
+        godot_cortical_list.append(cortical_list[key][6])
+        godot_cortical_list.append(cortical_list[key][7])
+        godot_cortical_list.append(cortical_list[key][0])
+        writer.writerow((godot_cortical_list))
+        godot_cortical_list = list()
 
 
-def breakdown(feagi_input): ##add input soon
+def breakdown(feagi_input):  ##add input soon
     """
     #TODO: Explain what this is for
     """
     data = feagi_input
     data = list(data)
     increment = 0
-    voxel = []
     list1 = []
-    keys = range(len(data))
 
     while increment < len(data):
         voxel = [data[increment][1], data[increment][2], data[increment][3]]
         list1.append(voxel)
-
-        #print(list1)
         UDP(str(voxel))
-        #time.sleep(1.0)
         increment += 1
     print(list1)
     UDP(str(list1))
 
+def UDP(input):
+    """
+    This allows you to send any data to UDP. This port is what Godot's UDP using to recieve.
+    """
+    ip = "127.0.0.1"
+    port = 20001
 
-#TODO: Once client udp recieved the data, add the loop in this
-CSV_writer()
+    # Create socket for server
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
+
+    # while True: ##this must be in loop in order to work with FEAGI
+    s.sendto(input.encode('utf-8'), (ip, port))
+    print("FEAGI: This Sent to Godot with the input: ", input, "\n\n")
+    # close the socket
+    s.close()
+
+def godot_listener():
+    """
+    This is to recieve data from the Godot's data through UDP. You should expect to get a name,
+    """
+    godot_host = "127.0.0.1"
+    godot_port = 20002
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind((godot_host, godot_port))
+    #sock.setblocking(1)
+
+    data, addr = sock.recvfrom(1024)  # buffer size is 1024 bytes
+
+    return data.decode("utf-8")
+
+def godot_data(input):
+    """
+    Simply clean the list and remove all unnecessary special characters and deliver with name, xyz only
+    """
+    data = input
+    data = data.split(",")
+    data_holder = data[0]
+    data_holder = ''.join([i for i in data_holder if not i.isdigit()])
+    data[0] = data_holder.replace("@", "")
+    data[0] = data_holder.replace(" @", "")
+    data[1] = data[1].replace("(", "")
+    data[3] = data[3].replace(")", "")
+    return data
+
+def godot_selected_list(outside_list, godot_list):
+    name = outside_list[0]
+    x = int(outside_list[1])
+    y = int(outside_list[2])
+    z = int(outside_list[3])
+    if godot_list:
+        list_to_dict = godot_list
+        #print("experienced")
+    else:
+        list_to_dict = dict()
+        #print(type(list_to_dict))
+        list_to_dict["stimulation"] = dict()
+        #print("newbie")
+    #print("middle", list_to_dict)
+
+    if list_to_dict["stimulation"].get(name) is not None:
+        pass
+        #print("true")
+    else:
+        #print("added ", name)
+        list_to_dict["stimulation"][name] = list()
+    for key in list_to_dict["stimulation"]:
+        #print(key)
+        if key not in list_to_dict["stimulation"]:
+            list_to_dict["stimulation"][name] = list()
+            list_to_dict["stimulation"][name].append([x,y,z])
+            #print("first time")
+        else:
+            list_to_dict["stimulation"][name].append([x,y,z])
+           # print("second or more time")
+    #print("Selected: ", list_to_dict)
+
+    return list_to_dict
+
+def name_to_id(name):
+    list = genome['blueprint']
+    feagi_name_readable = name
+    for key in list:
+        if genome['blueprint'][key] == name:
+            feagi_name_readable = key[9:15]
+    return feagi_name_readable
+
+def feagi_breakdown(data):
+    """
+    Designed for genome 2.0 only. Data is the input from feagi's raw data
+    """
+    new_list = []
+    for i in data['godot']:
+        xyz = i[1], i[2], i[3]
+        new_list.append(xyz)
+    return new_list
+
+Godot_list = {}
+print("GOdot_list = " , Godot_list)
+#UDP("{'godot': {(59, 5, 0, 3), (59, 5, 0, 9), (59, 5, 0, 2), (59, 5, 0, 5), (59, 5, 0, 8), (59, 5, 0, 4)}}")
+
+one_frame = genome_2_cortical_list(genome['blueprint'])
+#print("one_frame: ", one_frame)
+CSV_writer(one_frame)
+address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_port']
+feagi_state = find_feagi(address=address) ##I was trying to leverage on router only
+print("feagi_state: " , feagi_state)
+print("** **", feagi_state)
+sockets = feagi_state['sockets']
+router_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
+
+print("--->> >> >> ", sockets)
+FEAGI_pub = Pub(address='tcp://0.0.0.0:' + router_settings['ipu_port'])
+opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['opu_port']
+FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+UDP(str("0,0,0"))
+
 while True:
-    one_frame = FEAGI_initalize()
-    #print(type(one_frame))
-    #UDP("[[0, 5, 90], [0, 4, 91], [0, 2, 93], [0, 3, 92]]")
-    breakdown(one_frame)
+    one_frame = FEAGI_sub.receive()
+    #print("one_frame after feagi: ", one_frame)
+    #one_frame = "{'godot': {(59, 5, 0, 3), (59, 5, 0, 9), (59, 5, 0, 2), (59, 5, 0, 5), (59, 5, 0, 8), (59, 5, 0, 4)}}"
+
+    if one_frame is not None:
+        print("FEAGI's raw data: " , one_frame) #Don't delete this, it worked perfectly
+        one_frame = feagi_breakdown(one_frame)
+        #print("one frame after breakdown: ", one_frame)
+        UDP(str(one_frame))
+
+
+    # one_frame = feagi_initalize() #disable to comment
+    # print(one_frame)
+    #UDP("[0,0,0")
+    #breakdown(one_frame)
+
+
+    ##This stops all processing and force to wait for the return data from FEAGI
+    #data = "None"
+    data = godot_listener()
+    #print("bwukkkk", data)
+    if data != "None":
+        if data == "ready":
+            FEAGI_pub.send(Godot_list)
+        elif data == "refresh":
+            Godot_list = {}
+            FEAGI_pub.send(Godot_list)
+        else:
+            data = godot_data(data)
+            name = data[0]
+            data[0] = name_to_id(name)
+            if Godot_list:
+                Godot_list = godot_selected_list(data, Godot_list)
+            else:
+                Godot_list = godot_selected_list(data, Godot_list)
+    else:
+        pass
 

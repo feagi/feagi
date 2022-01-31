@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=2]
+[gd_scene load_steps=19 format=2]
 
 [ext_resource path="res://voxel.meshlib" type="MeshLibrary" id=1]
 [ext_resource path="res://camera.gd" type="Script" id=2]
@@ -6,6 +6,9 @@
 [ext_resource path="res://Viewport.gd" type="Script" id=4]
 [ext_resource path="res://Cortical_area_box.meshlib" type="MeshLibrary" id=5]
 [ext_resource path="res://Glegoo-Bold.ttf" type="DynamicFontData" id=6]
+[ext_resource path="res://Click.gd" type="Script" id=7]
+[ext_resource path="res://Cortical_area.gd" type="Script" id=9]
+[ext_resource path="res://cortical_area.material" type="Material" id=11]
 
 [sub_resource type="ViewportTexture" id=1]
 viewport_path = NodePath("Sprite3D/Viewport")
@@ -30,6 +33,12 @@ size = Vector3( 1, 1, 1 )
 [sub_resource type="SpatialMaterial" id=7]
 flags_transparent = true
 albedo_color = Color( 0.109804, 0.552941, 0.729412, 0.0235294 )
+
+[sub_resource type="BoxShape" id=8]
+resource_local_to_scene = true
+extents = Vector3( 0.5, 0.5, 0.5 )
+
+[sub_resource type="BoxShape" id=16]
 
 [node name="World" type="Spatial"]
 script = ExtResource( 3 )
@@ -70,14 +79,20 @@ max_lines_visible = 0
 [node name="GridMap" type="GridMap" parent="."]
 mesh_library = ExtResource( 1 )
 cell_size = Vector3( 1, 1, 1 )
+cell_octant_size = 1
+cell_center_x = false
+cell_center_y = false
+cell_center_z = false
 data = {
 "cells": PoolIntArray( 0, 0, 0 )
 }
 __meta__ = {
-"_editor_clip_": 0
+"_editor_clip_": 0,
+"_editor_floor_": Vector3( 0, 0, 0 )
 }
 
 [node name="GridMap3" type="GridMap" parent="."]
+visible = false
 mesh_library = ExtResource( 1 )
 cell_size = Vector3( 1, 1, 1 )
 data = {
@@ -92,17 +107,24 @@ transform = Transform( 0.99991, 0, -0.0134212, 0, 1, 0, 0.0134212, 0, 0.99991, 0
 mesh_library = ExtResource( 5 )
 cell_size = Vector3( 1, 1, 1 )
 data = {
-"cells": PoolIntArray(  )
+"cells": PoolIntArray( 65535, 65534, 0 )
 }
+script = ExtResource( 7 )
 __meta__ = {
 "_editor_clip_": 0,
-"_editor_floor_": Vector3( 0, 1, 0 )
+"_editor_floor_": Vector3( 0, 0, 0 )
 }
 
 [node name="MeshInstance" type="MeshInstance" parent="GridMap2"]
 mesh = SubResource( 5 )
 skin = SubResource( 6 )
 material/0 = SubResource( 7 )
+
+[node name="Area" type="Area" parent="GridMap2"]
+transform = Transform( 0.99991, 0, 0.0134212, 0, 1, 0, -0.0134212, 0, 0.99991, 0, 0, 0 )
+
+[node name="CollisionShape" type="CollisionShape" parent="GridMap2/Area"]
+shape = SubResource( 8 )
 
 [node name="Spatial" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 0.973179, -0.23005, 0, 0.23005, 0.973179, 47, 26.323, 25.711 )
@@ -112,3 +134,23 @@ script = ExtResource( 2 )
 transform = Transform( 1, 0, 0, 0, -0.24326, 0.969961, 0, -0.969961, -0.24326, 0, 0, 0 )
 fov = 80.4021
 far = 8192.0
+
+[node name="Cortical_area" type="CSGBox" parent="."]
+cast_shadow = 0
+width = 1.0
+height = 1.0
+depth = 1.0
+material = ExtResource( 11 )
+script = ExtResource( 9 )
+
+[node name="Area" type="Area" parent="Cortical_area"]
+
+[node name="CollisionShape" type="CollisionShape" parent="Cortical_area/Area"]
+transform = Transform( 0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0, 0 )
+shape = SubResource( 16 )
+
+[node name="MeshInstance" type="MeshInstance" parent="Cortical_area"]
+
+[connection signal="input_event" from="Cortical_area/Area" to="Cortical_area" method="_on_Area_input_event"]
+[connection signal="mouse_entered" from="Cortical_area/Area" to="Cortical_area" method="_on_Area_mouse_entered"]
+[connection signal="mouse_exited" from="Cortical_area/Area" to="Cortical_area" method="_on_Area_mouse_exited"]
