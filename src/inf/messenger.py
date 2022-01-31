@@ -31,7 +31,7 @@ from datetime import datetime
 import zmq
 from inf.runtime_data import parameters
 
-#todo: consolidate the two publishers in a modular fashion
+# todo: consolidate the two publishers in a modular fashion
 
 
 class Pub:
@@ -46,16 +46,16 @@ class Pub:
         print("Message sent to device is:", message)
 
 
-class PubBrainActivities:
-    def __init__(self, address):
-        context = zmq.Context()
-        self.socket = context.socket(zmq.PUB)
-        # self.socket.setsockopt(zmq.SNDHWM, 0)
-        self.socket.bind(address)
-
-    def send(self, message):
-        self.socket.send_pyobj(message)
-        print("Message sent to device is:", message)
+# class PubBrainActivities:
+#     def __init__(self, address):
+#         context = zmq.Context()
+#         self.socket = context.socket(zmq.PUB)
+#         # self.socket.setsockopt(zmq.SNDHWM, 0)
+#         self.socket.bind(address)
+#
+#     def send(self, message):
+#         self.socket.send_pyobj(message)
+#         print("Message sent to device is:", message)
 
 
 class Sub:

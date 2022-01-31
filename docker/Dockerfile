@@ -1,7 +1,7 @@
 FROM neuraville/feagi-base-os
 
 # Git
-ARG REPO="https://github.com/feagi/feagi-core.git"
+ARG REPO="https://github.com/feagi/feagi.git"
 
 # FEAGI
 RUN mkdir -p /opt/source-code/feagi-core/

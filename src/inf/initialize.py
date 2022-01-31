@@ -31,7 +31,7 @@ from inf import runtime_data, disk_ops, settings
 from configparser import ConfigParser
 from shutil import copyfile
 from evo.stats import list_top_n_utf_memory_neurons, block_dict_summary
-from inf.messenger import Pub, PubBrainActivities
+from inf.messenger import Pub
 from evo.neuroembryogenesis import generate_plasticity_dict
 from evo.genome_processor import *
 

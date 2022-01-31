@@ -20,6 +20,37 @@ from inf import runtime_data
 
 # todo: rename block to voxel
 
+
+def block_size_checker(cortical_area, block):
+    """
+    Tests if the given block fits inside the cortical area block boundary
+    """
+    block_boundary = runtime_data.genome["blueprint"][cortical_area]["neuron_parameters"]["block_boundaries"]
+    block_in_list = block_ref_2_id(block)
+
+    for _ in range(3):
+        if block_in_list[_] > block_boundary[_]:
+            return False
+    return True
+
+
+def block_trimmer(cortical_area, block):
+    """
+    limits the size of a block to stay within the block boundary of a cortical area
+    """
+    trimmed_block = [None, None, None]
+    block_boundary = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"]
+    if isinstance(block, list):
+        for _ in range(3):
+            trimmed_block[_] = min(block_boundary[_] - 1, block[_])
+        return trimmed_block
+    else:
+        block_in_list = block_ref_2_id(block)
+        for _ in range(3):
+            trimmed_block[_] = min(block_boundary[_] - 1, block_in_list[_])
+        return block_reference_builder(trimmed_block)
+
+
 def block_reference_builder(block):
     return str(block[0]) + '-' + str(block[1]) + '-' + str(block[2])
 
@@ -27,13 +58,6 @@ def block_reference_builder(block):
 def block_id_gen(cortical_area, coordinate):
     """
     Generating a block id so it can be used for faster neighbor detection
-
-    Args:
-
-
-    Returns:
-        Something
-
     """
 
     cortical_area_dim = []
@@ -65,7 +89,9 @@ def neurons_in_the_block(cortical_area, block_ref):
     """
     try:
         return runtime_data.block_dic[cortical_area][block_ref]
-    except KeyError:
+    except Exception as e:
+        a = runtime_data.block_dic
+        print("Error while processing --neurons_in_the_block-- function:\n", cortical_area, e)
         return []
 
 
@@ -127,7 +153,9 @@ def neurons_in_block_neighborhood(cortical_area, block_ref, kernel_size=3):
     block_list = neighboring_blocks(block_ref, kernel_size)
     # print("Block List: ", block_list)
     for _ in block_list:
-        neurons_in_block = neurons_in_the_block(cortical_area=cortical_area, block_ref=block_reference_builder(_))
+        trimmed_block = block_trimmer(cortical_area, _)
+        neurons_in_block = \
+            neurons_in_the_block(cortical_area=cortical_area, block_ref=block_reference_builder(trimmed_block))
         for __ in neurons_in_block:
             candidate_list.append(__)
     return candidate_list

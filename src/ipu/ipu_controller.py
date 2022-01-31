@@ -26,7 +26,7 @@ import traceback
 from datetime import datetime
 from threading import Thread
 from inf import runtime_data
-from ipu.source import lidar, ir, battery, folder_monitor
+from ipu.source import lidar, ir, battery, folder_monitor, stimulation
 from ipu.source.mnist import MNIST, print_mnist_img_raw
 from ipu.processor.image import Image
 from evo.neuroembryogenesis import cortical_sub_group_members
@@ -39,7 +39,7 @@ def initialize():
     areas via FCL injection.
     """
     print("\n\n\n\n\n**** *** **  Initializing the IPU Controller  **** * * **** ** ** * * *** ** *** *\n\n\n\n ")
-    # todo: figure it its best to enable devices using the following if statements or using class instantiation within...
+    # todo: figure it its best to enable devices using the following if statements or using class instantiation within..
     # ...ipu_controller function
     # Initialize IPU devices
     if runtime_data.parameters['IPU']['folder_monitor']:
@@ -177,6 +177,12 @@ def ipu_handler(ipu_data):
                         battery.translate(sensor_data=ipu_data[sensor_type])
                     except:
                         print("ERROR while processing Battery IPU")
+                elif 'stimulation' in sensor_type:
+                    try:
+                        stimulation.stimulation_injector(stimulation_data=ipu_data[sensor_type])
+                        print(">>> >> >> > > >> >>>>>>> Stimulation data from Godot is being processed....")
+                    except:
+                        print("ERROR while processing Stimulation IPU")
 
         else:
             print("ERROR: IPU handler encountered non-compliant data")

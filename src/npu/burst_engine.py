@@ -41,7 +41,7 @@ from ipu.ipu_controller import ipu_handler
 from opu.opu_controller import opu_handler
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
-from inf.messenger import Pub, Sub, PubBrainActivities
+from inf.messenger import Pub, Sub
 
 
 def cortical_group_members(group):
@@ -404,7 +404,7 @@ def burst_manager():
             else:
                 print("Warning: Cortical area %s not found within the block_dic" % cortical_area_)
 
-    def sensory_message_router():
+    def message_router():
         # Broadcasts a TCP message on each burst
         if runtime_data.parameters['Switches']['burst_beacon']:
             # Limiting the broadcast messages to one in every 10 burst
@@ -414,7 +414,7 @@ def burst_manager():
                 broadcast_message['burst_counter'] = runtime_data.burst_count
                 broadcast_message['sockets'] = runtime_data.parameters['Sockets']
                 broadcast_message['burst_frequency'] = runtime_data.burst_timer
-                burst_beacon.send(message=broadcast_message)
+                brain_publisher.send(message=broadcast_message)
 
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.router_address is not None:
@@ -424,21 +424,19 @@ def burst_manager():
                 if runtime_data.parameters["Logs"]["print_burst_info"]:
                     print("FEAGI received message from router as:", ipu_data)
 
-    def brain_activity_message_router():
         # Broadcasts a TCP message on each burst
         if runtime_data.parameters['Switches']['zmq_activity_publisher']:
             # Limiting the broadcast messages to one in every 1 burst
             # todo: externalize this parameter to ini
             if runtime_data.burst_count % 1 == 0:
-                broadcast_message = brain_activity_voxelizer()
-                brain_activity_beacon.send(message=broadcast_message)
+                activity_data = brain_activity_voxelizer()
+                runtime_data.opu_pub.send(message=activity_data)
 
     def brain_activity_voxelizer():
         """
         Convert FCL activities to a set of voxel locations and sends out through the ZMQ publisher
         """
         broadcast_message = set()
-
         for _ in runtime_data.fire_candidate_list:
             fire_list = set(runtime_data.fire_candidate_list[_])
             if runtime_data.genome['blueprint'][_]['neuron_params'].get('visualization'):
@@ -454,8 +452,7 @@ def burst_manager():
                             firing_neuron_loc[2] + relative_coords[2]
                         )
                     )
-
-        return broadcast_message
+        return {"burst_counter": runtime_data.burst_count, "godot": broadcast_message}
 
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
@@ -473,7 +470,7 @@ def burst_manager():
         fcl_tmp = set()
 
         # Manage ZMQ communication from and to FEAGI
-        sensory_message_router()
+        message_router()
 
         # Feeding FCL queue content into the FCL
         while not runtime_data.fcl_queue.empty():
@@ -495,10 +492,6 @@ def burst_manager():
 
         # Process neuron stimulation that ties to OPU
         opu_handler()
-
-        # Publish brain activities on ZMQ
-        if runtime_data.parameters['Switches']['zmq_activity_publisher']:
-            brain_activity_message_router()
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
@@ -552,14 +545,12 @@ def burst_manager():
     # Initialize a broadcaster
     if runtime_data.parameters["Switches"]["burst_beacon"]:
         burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['burst_engine_pub']
-        burst_beacon = Pub(address=burst_engine_pub_address)
-    if runtime_data.parameters["Switches"]["zmq_activity_publisher"]:
-        brain_activity_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['brain_activities_pub']
-        brain_activity_beacon = PubBrainActivities(address=brain_activity_pub_address)
+        brain_publisher = Pub(address=burst_engine_pub_address)
 
+    # todo: consolidate all the listeners into a class
     # Initialize IPU listener
     if runtime_data.router_address is not None:
-        print("subscribing to ", runtime_data.router_address)
+        print("Subscribing IPU listener @", runtime_data.router_address)
         ipu_listener = Sub(address=runtime_data.router_address)
 
     # todo: need to figure how to incorporate FCL injection

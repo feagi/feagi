@@ -44,6 +44,7 @@ def rule_block_to_block(rule_param, src_cortical_area, dst_cortical_area, src_ne
         blocks.block_reference_builder(runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1])
 
     src_neuron_block_ref = blocks.block_z_offset(block_ref=src_neuron_block_ref, offset=z_offset)
+    src_neuron_block_ref = blocks.block_trimmer(dst_cortical_area, src_neuron_block_ref)
 
     if rule_param == 1:
         try:
@@ -53,7 +54,7 @@ def rule_block_to_block(rule_param, src_cortical_area, dst_cortical_area, src_ne
             pass
     elif rule_param in [3, 5, 7, 9]:
         candidate_list = blocks.neurons_in_block_neighborhood(cortical_area=dst_cortical_area,
-                                                       block_ref=src_neuron_block_ref, kernel_size=rule_param)
+                                                              block_ref=src_neuron_block_ref, kernel_size=rule_param)
 
     else:
         print(rule_param, "is an invalid parameter for block to block mapping")
@@ -115,9 +116,13 @@ def decrease_filter_diagonal(rule_param, src_cortical_area, dst_cortical_area, s
     candidate_list = list()
     dst_block_id = [
         src_neuron_block_id[0],
-        src_neuron_block_id[1] + 1,
-        src_neuron_block_id[2] + 1
+        min(src_neuron_block_id[1] + 1,
+            runtime_data.genome['blueprint'][dst_cortical_area]["neuron_params"]["block_boundaries"][1] - 1),
+        min(src_neuron_block_id[2] + 1,
+            runtime_data.genome['blueprint'][dst_cortical_area]["neuron_params"]["block_boundaries"][2] - 1)
     ]
+    print("%%% %%% %%%", src_neuron_block_id[1] + 1,
+            runtime_data.genome['blueprint'][dst_cortical_area]["neuron_params"]["block_boundaries"][1] - 1)
     dst_block_ref = blocks.block_reference_builder(dst_block_id)
     dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=dst_block_ref)
     for neuron in dst_block_neurons:
@@ -143,8 +148,10 @@ def increase_filter_diagonal(rule_param, src_cortical_area, dst_cortical_area, s
     candidate_list = list()
     dst_block_id = [
         src_neuron_block_id[0],
-        src_neuron_block_id[1] + 1,
-        src_neuron_block_id[2] - 1
+        min(src_neuron_block_id[1] + 1,
+            runtime_data.genome['blueprint'][dst_cortical_area]["neuron_params"]["block_boundaries"][1] - 1),
+        max(src_neuron_block_id[1] - 1,
+            runtime_data.genome['blueprint'][dst_cortical_area]["neuron_params"]["block_boundaries"][0])
     ]
     dst_block_ref = blocks.block_reference_builder(dst_block_id)
     dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=dst_block_ref)
