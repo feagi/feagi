@@ -13,8 +13,10 @@ RUN apt-get update && \
 RUN sudo apt-get install -y build-essential scons pkg-config libx11-dev libxcursor-dev libxinerama-dev \
     libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev libudev-dev libxi-dev libxrandr-dev yasm
 RUN mkdir -p ./.local/share/godot/templates/3.2.stable/linux_x11_64_release/
-RUN wget https://downloads.tuxfamily.org/godotengine/3.2.2/Godot_v3.2.2-stable_export_templates.tpz 
+#RUN wget https://downloads.tuxfamily.org/godotengine/3.2.2/Godot_v3.2.2-stable_export_templates.tpz 
 COPY ./* /root/
 RUN chmod a+x /root/*
+RUN wget https://downloads.tuxfamily.org/godotengine/3.4.2/Godot_v3.4.2-stable_x11.64.zip
+RUN unzip Godot_v3.4.2-stable_x11.64.zip
 
 ENV OPENBOX_ARGS='--startup "/root/FEAGI_initalize.sh"'
