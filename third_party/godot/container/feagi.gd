@@ -1,3 +1,17 @@
+# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 extends Spatial
 
 
@@ -41,8 +55,6 @@ var connected = false
 
 func _ready():
 	Engine.target_fps = 60
-#	for _i in self.get_children():
-#		print(_i)
 	if(socket.listen(20001, "127.0.0.1") != OK):
 		print("error")
 	else:
@@ -118,14 +130,7 @@ func _ready():
 		
 	
 	while green_light:
-#		$GridMap.set_cell_item(100, 0, 9,0)
-#		$GridMap.set_cell_item(100, 0, 8,0)
-#		$GridMap.set_cell_item(100, 0, 7,0)
-#		$GridMap.set_cell_item(100, 0, 6,0)
-		
 		_callout()
-		## This will build from one frame
-		#print(stored_value)
 		if stored_value != "":
 			var array_test = stored_value.replace("[", "")
 			array_test = array_test.replace("]", "")
@@ -158,11 +163,6 @@ func _process(delta):
 		data = socket.get_packet().get_string_from_utf8()
 		stored_value = data
 	udp.connect_to_host("127.0.0.1", 20002)
-	
-		
-#	if Input.is_action_just_pressed("ui_del"):
-#		var totall= get_node_count()
-#		print(totall)
 		
 		
 func _callout():
