@@ -125,7 +125,7 @@ func _ready():
 		
 		_callout()
 		## This will build from one frame
-		print(stored_value)
+		#print(stored_value)
 		if stored_value != "":
 			var array_test = stored_value.replace("[", "")
 			array_test = array_test.replace("]", "")
