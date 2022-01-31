@@ -20,7 +20,7 @@ import struct
 import numpy as np
 from inf.disk_ops import save_processed_mnist_to_disk
 from datetime import datetime
-from evo.blocks import neurons_in_the_block, block_reference_builder
+from evo.blocks import neurons_in_the_block, block_reference_builder, block_ref_2_id
 from queue import Queue
 from inf import runtime_data, settings
 import time
@@ -135,7 +135,8 @@ class IPU:
                     # Ultrasonic / Lidar Handler
                     # todo: need a more consistent naming convention when it comes to lidar vs ultrasonic vs proximity
                     # todo: find a way to generalize the handling of all IPU data instead of using all the if statements
-                    if 'ultrasonic' in sensor_type and runtime_data.parameters['IPU']['proximity']:
+                    if 'ultrasonic' in sensor_type and runtime_data.parameters['IPU']['proximity'] and \
+                            ipu_data[sensor_type] is not None:
                         try:
                             self.Source.Lidar.translate(proximity_data=ipu_data[sensor_type])
 
@@ -143,23 +144,35 @@ class IPU:
                             print("ERROR while processing lidar function")
 
                     # Infrared Handler
-                    elif 'ir' in sensor_type and runtime_data.parameters['IPU']['ir']:
+                    elif 'ir' in sensor_type and ipu_data[sensor_type] is not None:
                         try:
                             # print("+_+_+ipu_data[sensor_type]: ", ipu_data[sensor_type])
                             self.Source.Infrared.convert_ir_to_fire_list(ir_data=ipu_data[sensor_type])
                         except:
                             print("ERROR while processing Infrared IPU")
 
-                    elif 'battery' in sensor_type and runtime_data.parameters['IPU']['battery']:
+                    elif 'battery' in sensor_type and ipu_data[sensor_type] is not None:
                         try:
                             self.Source.Battery.translate(sensor_data=ipu_data[sensor_type])
                         except:
                             print("ERROR while processing Battery IPU")
-                    elif 'stimulation' in sensor_type:
+
+
+                    elif 'godot' in sensor_type and ipu_data[sensor_type] is not None:
+                        print(">>>>> >>>>>    >>> >>>  ip-handler detected godot stimulation data ")
+                        try:
+                            print(">>> >> >> > > >> >>>>>>> Godot Stimulation data is being processed....")
+                            self.Source.Stimulation.godot_injector(stimulation_data=ipu_data[sensor_type])
+                            print(">>> >> >> > > >> >>>>>>> Godot Stimulation data was processed....")
+                        except:
+                            print("ERROR while processing Stimulation IPU")
+
+                    elif 'stimulation' in sensor_type and ipu_data[sensor_type] is not None:
                         print(">>>>> >>>>>    >>> >>>  ip-handler detected stimulation data ")
                         try:
+                            print(">>> >> >> > > >> >>>>>>> Stimulation data is being processed....")
                             self.Source.Stimulation.stimulation_injector(stimulation_data=ipu_data[sensor_type])
-                            print(">>> >> >> > > >> >>>>>>> Stimulation data from Godot is being processed....")
+                            print(">>> >> >> > > >> >>>>>>> Stimulation data was processed....")
                         except:
                             print("ERROR while processing Stimulation IPU")
 
@@ -224,6 +237,21 @@ class IPU:
                         print("stimulating...", cortical_area)
                         neuron_list = set()
                         for voxel in stimulation_data[cortical_area]:
+                            print("FEAGI received stimulation from Godot and processing...", voxel)
+                            in_the_block = neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel)
+                            for neuron in in_the_block:
+                                neuron_list.add(neuron)
+                        runtime_data.fcl_queue.put({cortical_area: neuron_list})
+                        print(">>> >> >> > > >> >>>>>>>  Stimulation has been injected in FCL!")
+
+
+                @staticmethod
+                def godot_injector(stimulation_data):
+                    for cortical_area in stimulation_data:
+                        print("stimulating...", cortical_area)
+                        neuron_list = set()
+                        for voxel in stimulation_data[cortical_area]:
+                            voxel = block_ref_2_id(voxel)
                             relative_coords = \
                                 runtime_data.genome['blueprint'][cortical_area]['neuron_params'].get('relative_coordinate')
                             cortical_block_ref = [voxel[0] - relative_coords[0],
@@ -236,6 +264,9 @@ class IPU:
                                 neuron_list.add(neuron)
                         runtime_data.fcl_queue.put({cortical_area: neuron_list})
                         print(">>> >> >> > > >> >>>>>>> Stimulation data from Godot has been injected in FCL!")
+
+
+
 
             class Battery:
                 """
