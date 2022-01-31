@@ -449,9 +449,6 @@ def burst_manager():
                     )
         return {"burst_counter": runtime_data.burst_count, "godot": broadcast_message}
 
-    def pns_initializer():
-        print("PNS initialized")
-
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
         sleep(float(runtime_data.burst_timer))
