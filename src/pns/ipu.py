@@ -23,11 +23,20 @@ from datetime import datetime
 from evo.blocks import neurons_in_the_block, block_reference_builder
 from queue import Queue
 from inf import runtime_data, settings
+import time
+import traceback
+from datetime import datetime
+from threading import Thread
+from inf import runtime_data
+# from ipu.source import lidar, ir, battery, folder_monitor, stimulation
+# from ipu.source.mnist import MNIST, print_mnist_img_raw
+# from ipu.processor.image import Image
+from evo.neuroembryogenesis import cortical_sub_group_members
 
 
 class IPU:
     def __init__(self):
-        print("IPU initialized...")
+        print("IPU class initialized...")
 
     # class Injector:
     #     """
@@ -87,23 +96,14 @@ class IPU:
         todo: figure how the exposure counter can work in synchrony with the burst engine
         todo: convert IPU library to a plug-in based architecture
         """
-        import time
-        import traceback
-        from datetime import datetime
-        from threading import Thread
-        from inf import runtime_data
-        # from ipu.source import lidar, ir, battery, folder_monitor, stimulation
-        # from ipu.source.mnist import MNIST, print_mnist_img_raw
-        # from ipu.processor.image import Image
-        from evo.neuroembryogenesis import cortical_sub_group_members
 
         def __init__(self):
             print("IPU controller initialized")
 
-        def proximity_controller():
+        def proximity_controller(self):
             while not runtime_data.exit_condition:
                 try:
-                    lidar.get_and_translate()
+                    self.source.Lidar.get_and_translate()
                 except Exception as e:
                     traceback.print_exc()
                 finally:
@@ -156,6 +156,7 @@ class IPU:
                         except:
                             print("ERROR while processing Battery IPU")
                     elif 'stimulation' in sensor_type:
+                        print(">>>>> >>>>>    >>> >>>  ip-handler detected stimulation data ")
                         try:
                             self.Source.Stimulation.stimulation_injector(stimulation_data=ipu_data[sensor_type])
                             print(">>> >> >> > > >> >>>>>>> Stimulation data from Godot is being processed....")

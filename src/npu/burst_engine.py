@@ -77,7 +77,7 @@ def burst_manager():
 
     def consciousness_manager():
         """responsible for start and stop of all non-main threads based on various conditions"""
-        # Check flags for IPU activities
+        # Check flags for IPU activitiesf
         # todo: need mechanism to set the ipu_idle flag if there is no IPU activity for a period
         # Alert condition checks to ensure brain is not in Alert mode which can be triggered via fear or cautiousness
         elapsed_time = datetime.now() - runtime_data.last_alertness_trigger
@@ -410,7 +410,9 @@ def burst_manager():
             # Dynamically adjusting burst duration based on Controller needs
             runtime_data.burst_timer = burst_duration_calculator(ipu_data)
             if ipu_data:
+                # todo: ipu controller has to be instantiated only once
                 ipu_controller = runtime_data.ipu.Controller()
+
                 ipu_controller.ipu_handler(ipu_data)
                 if runtime_data.parameters["Logs"]["print_burst_info"]:
                     print("FEAGI received message from router as:", ipu_data)
