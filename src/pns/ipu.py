@@ -26,55 +26,58 @@ from inf import runtime_data, settings
 
 
 class IPU:
-    class Injector:
-        """
-        This module plays the role of the information gateway to the cortical neurons. After physical stimuli is processed by
-        the Input Processing Unit (IPU), it will be translated to neuronal activation and fed to Fire Candidate List (FCL).
+    def __init__(self):
+        print("IPU initialized...")
 
-        Expectations:
-        - To receive the list of activated IPU neurons from the corresponding IPU module and inject them into FCL
-        - To monitor flow of information and act as needed
+    # class Injector:
+    #     """
+    #     This module plays the role of the information gateway to the cortical neurons. After physical stimuli is processed by
+    #     the Input Processing Unit (IPU), it will be translated to neuronal activation and fed to Fire Candidate List (FCL).
+    #
+    #     Expectations:
+    #     - To receive the list of activated IPU neurons from the corresponding IPU module and inject them into FCL
+    #     - To monitor flow of information and act as needed
+    #
+    #     Q) Why the need for seperate module? Can this be merged with the burst-engine? or, each IPU can directly inject to FCL!
+    #     """
+    #
+    #     def __init__(self):
+    #         self.something = 'something'
 
-        Q) Why the need for seperate module? Can this be merged with the burst-engine? or, each IPU can directly inject to FCL!
-        """
+        # def utf8_feeder(self):
+        #     # inject label to FCL
+        #     runtime_data.training_neuron_list_utf = set()
+        #
+        #     if self.injector_injection_mode == 'c':
+        #         runtime_data.training_neuron_list_utf = \
+        #             convert_char_to_fire_list(self.injector_utf_to_inject)
+        #     else:
+        #         runtime_data.training_neuron_list_utf = \
+        #             convert_char_to_fire_list(str(runtime_data.labeled_image[1]))
+        #         print("!!! Image label: ", runtime_data.labeled_image[1])
+        #
+        #     runtime_data.fire_candidate_list['utf8_ipu'].update(runtime_data.training_neuron_list_utf)
 
-        def __init__(self):
-            self.something = 'something'
+        # @staticmethod
+        # def img_neuron_list_feeder():
+        #     # inject neuron activity to FCL
+        #     if runtime_data.training_neuron_list_img:
+        #         for cortical_area in runtime_data.v1_members:
+        #             if runtime_data.training_neuron_list_img[cortical_area]:
+        #                 # print("Before FCL injection:", candidate_list_counter(runtime_data.fire_candidate_list),
+        #                 # len(runtime_data.training_neuron_list_img[cortical_area]))
+        #                 runtime_data.fire_candidate_list[cortical_area]. \
+        #                     update(runtime_data.training_neuron_list_img[cortical_area])
+        #                 # print("After FCL injection:", candidate_list_counter(runtime_data.fire_candidate_list))0
 
-        def utf8_feeder(self):
-            # inject label to FCL
-            runtime_data.training_neuron_list_utf = set()
-
-            if self.injector_injection_mode == 'c':
-                runtime_data.training_neuron_list_utf = \
-                    convert_char_to_fire_list(self.injector_utf_to_inject)
-            else:
-                runtime_data.training_neuron_list_utf = \
-                    convert_char_to_fire_list(str(runtime_data.labeled_image[1]))
-                print("!!! Image label: ", runtime_data.labeled_image[1])
-
-            runtime_data.fire_candidate_list['utf8_ipu'].update(runtime_data.training_neuron_list_utf)
-
-        @staticmethod
-        def img_neuron_list_feeder():
-            # inject neuron activity to FCL
-            if runtime_data.training_neuron_list_img:
-                for cortical_area in runtime_data.v1_members:
-                    if runtime_data.training_neuron_list_img[cortical_area]:
-                        # print("Before FCL injection:", candidate_list_counter(runtime_data.fire_candidate_list),
-                        # len(runtime_data.training_neuron_list_img[cortical_area]))
-                        runtime_data.fire_candidate_list[cortical_area]. \
-                            update(runtime_data.training_neuron_list_img[cortical_area])
-                        # print("After FCL injection:", candidate_list_counter(runtime_data.fire_candidate_list))0
-
-        @staticmethod
-        def mnist_feeder(num, seq, mnist_type):
-            runtime_data.labeled_image = ['', num]
-
-            # todo: define a function to return mnist image (should already have one)
-            image = {}
-
-            runtime_data.training_neuron_list_img = retina(image=image, polarize=True)
+        # @staticmethod
+        # def mnist_feeder(num, seq, mnist_type):
+        #     runtime_data.labeled_image = ['', num]
+        #
+        #     # todo: define a function to return mnist image (should already have one)
+        #     image = {}
+        #
+        #     runtime_data.training_neuron_list_img = retina(image=image, polarize=True)
 
     class Controller:
         """
@@ -94,92 +97,8 @@ class IPU:
         # from ipu.processor.image import Image
         from evo.neuroembryogenesis import cortical_sub_group_members
 
-        def initialize():
-            """
-            This function will monitor the IPU folder and other possible input devices such as a camera or mic for data and
-            pass them along to the IPU module to have them converted to neuronal activity that in turn can be passed to cortical
-            areas via FCL injection.
-            """
-            print(
-                "\n\n\n\n\n**** *** **  Initializing the IPU Controller  **** * * **** ** ** * * *** ** *** *\n\n\n\n ")
-            # todo: figure it its best to enable devices using the following if statements or using class instantiation within..
-            # ...ipu_controller function
-            # Initialize IPU devices
-            if runtime_data.parameters['IPU']['folder_monitor']:
-                folder_monitor.initialize()
-
-            # IPU feeder thread processes input stimuli and pass it along to the corresponding IPU module.
-            if runtime_data.parameters['IPU']['mnist']:
-                mnist_controller_thread = Thread(
-                    target=mnist_controller,
-                    args=(
-                        runtime_data.watchdog_queue,
-                        runtime_data.fcl_queue,
-                    ),
-                    name="MNIST_Controller",
-                    daemon=True
-                )
-                mnist_controller_thread.start()
-                print(">> >> MNIST Controller thread has started.")
-
-            # if runtime_data.parameters['IPU']['proximity']:
-            #     proximity_controller_thread = Thread(
-            #         target=proximity_controller,
-            #         name="Proximity_Controller",
-            #         daemon=True
-            #     )
-            #     proximity_controller_thread.start()
-            #     print(">> >> Proximity Controller thread has started.")
-
-            # if runtime_data.parameters['IPU']['ir']:
-            #
-            #     def ir_controller():
-            #         while not runtime_data.exit_condition:
-            #             try:
-            #                 ir.convert_ir_to_fire_list(ir_data=ir_data)
-            #                 time.sleep(0.1)
-            #             except Exception as e:
-            #                 traceback.print_exc()
-            #             finally:
-            #                 runtime_data.last_ipu_activity = datetime.now()
-            #
-            #     ir_controller_thread = Thread(
-            #         target=ir_controller,
-            #         name="IR_Controller",
-            #         daemon=True
-            #     )
-            #     ir_controller_thread.start()
-            #     print(">> >> IR Controller thread has started.")
-
-            runtime_data.last_ipu_activity = datetime.now()
-
-        def mnist_load_queue(target_queue):
-            # todo: The following is experimental and needs to be rebuilt
-            mnist = MNIST()
-            mnist_img = mnist.mnist_array['training'][5][1]
-            print_mnist_img_raw(mnist_img)
-            # Building the list of visual corticothalamic layers associated with vision
-            visual_cortical_layers = cortical_sub_group_members('t_vision')
-            fcl_entry = {}
-            for cortical_layer in visual_cortical_layers:
-                neuron_list = Image.convert_image_locations_to_neuron_ids(image_locations=mnist_img,
-                                                                          cortical_area=cortical_layer)
-                fcl_entry[cortical_layer] = neuron_list
-            target_queue.put(fcl_entry)
-            # todo: exiting immediately for test purposes
-            runtime_data.exit_condition = True
-            runtime_data.parameters["Switches"]["ready_to_exit_burst"] = True
-
-        def mnist_controller(watchdoq_queue, fcl_queue):
-            print("<> <> <> <> <> <> <> <> <>        <> <> <> <> <> <>      <> <> <> <> <> <> <>")
-            while not runtime_data.exit_condition:
-                try:
-                    mnist_load_queue(fcl_queue)
-                except Exception as e:
-                    traceback.print_exc()
-                finally:
-                    runtime_data.last_ipu_activity = datetime.now()
-            time.sleep(2)
+        def __init__(self):
+            print("IPU controller initialized")
 
         def proximity_controller():
             while not runtime_data.exit_condition:
@@ -218,7 +137,7 @@ class IPU:
                     # todo: find a way to generalize the handling of all IPU data instead of using all the if statements
                     if 'ultrasonic' in sensor_type and runtime_data.parameters['IPU']['proximity']:
                         try:
-                            lidar.translate(proximity_data=ipu_data[sensor_type])
+                            self.Source.Lidar.translate(proximity_data=ipu_data[sensor_type])
 
                         except:
                             print("ERROR while processing lidar function")
@@ -227,13 +146,13 @@ class IPU:
                     elif 'ir' in sensor_type and runtime_data.parameters['IPU']['ir']:
                         try:
                             # print("+_+_+ipu_data[sensor_type]: ", ipu_data[sensor_type])
-                            ir.convert_ir_to_fire_list(ir_data=ipu_data[sensor_type])
+                            self.Source.Infrared.convert_ir_to_fire_list(ir_data=ipu_data[sensor_type])
                         except:
                             print("ERROR while processing Infrared IPU")
 
                     elif 'battery' in sensor_type and runtime_data.parameters['IPU']['battery']:
                         try:
-                            battery.translate(sensor_data=ipu_data[sensor_type])
+                            self.Source.Battery.translate(sensor_data=ipu_data[sensor_type])
                         except:
                             print("ERROR while processing Battery IPU")
                     elif 'stimulation' in sensor_type:
@@ -247,66 +166,181 @@ class IPU:
                 print("ERROR: IPU handler encountered non-compliant data")
 
         class Source:
-            # class Infrared:
-            #     def convert_ir_to_fire_list(ir_data):
-            #         """
-            #
-            #         The keys in ir_data correlate to the index id of each Infrared Sensor
-            #
-            #         ir_data = {
-            #             0: True,
-            #             1: True,
-            #             2: False
-            #         }
-            #         """
-            #         fire_list = set()
-            #         for sensor_idx in ir_data:
-            #             if ir_data[sensor_idx]:
-            #                 for key in runtime_data.brain['ir_ipu']:
-            #                     if sensor_idx == runtime_data.brain['ir_ipu'][key]['soma_location'][0][0]:
-            #                         fire_list.add(key)
-            #
-            #         runtime_data.fcl_queue.put({'ir_ipu': fire_list})
-            #
-            # class Lidar:
-            #     def translate(proximity_data, type=None):
-            #         """
-            #         Translate the lidar messages based on its type.
-            #
-            #         todo: add details here about the message format and expectations
-            #
-            #
-            #         Type is not needed at this point given the lidar vs sonar data is automatically differentiated within the func.
-            #         """
-            #
-            #         if proximity_data is not None:
-            #             # print("SLOT_TYPES", message.SLOT_TYPES)
-            #             # print("angle_increment:", message.angle_increment)
-            #             # print("angle_max:", message.angle_max)
-            #             # print("angle_min:", message.angle_min)
-            #             # print("get_fields_and_field_types:", message.get_fields_and_field_types)
-            #             # print("header:", message.header)
-            #             # print("intensities:", message.intensities)
-            #             # print("range_max:", message.range_max)
-            #             # print("range_min:", message.range_min)
-            #             # print("ranges:", message.ranges)
-            #             # print("scan_time:", message.scan_time)
-            #             # print("time_increment:", message.time_increment)
-            #             # print("-----")
-            #
-            #             for sensor in proximity_data:
-            #                 # differentiate between LIDAR/SONAR data
-            #                 if hasattr(proximity_data[sensor], '__iter__'):
-            #                     detections = range.lidar_to_coords(proximity_data[sensor])
-            #                 else:
-            #                     detections = range.sonar_to_coords(proximity_data[sensor])
-            #
-            #                 neurons = range.coords_to_neuron_ids(
-            #                     detections, cortical_area='proximity_ipu'
-            #                 )
-            #
-            #                 # TODO: Add proximity feeder function in fcl_injector
-            #                 runtime_data.fcl_queue.put({'proximity_ipu': set(neurons)})
+            class Stimulation:
+                """
+                This module facilitates the translation of cortical stimulation information to actual stimulation within connectome.
+
+                Stimulation data received will have the following data structure:
+                { 'stimulation': {
+                        'motor_opu': [[x1, y1, z1], [x2, y2, z2], .....],
+                        'IR_opu': [[x1, y1, z1], [x2, y2, z2], .....],
+                        ...
+                        ...
+                    }
+                }
+
+                """
+                @staticmethod
+                def fake_cortical_stimulation(input_instruction, burst_count):
+                    """
+                    It fakes cortical stimulation for the purpose of testing
+
+                    The following data format is used for input_instruction as the function input:
+
+                    input_instructions receives a dictionary as input with keys as the name of the ipu cortical name and the value
+                    being a list of block locations that needs to be activated in the block-ref format e.g. xBlock-yBlock-zBlock.
+
+                    Note: all of the blocks outlined in the data structure will be activated at the same time during the same
+                    burst.
+
+                    input_instruction_example = {
+                        ir_ipu: ["0-0-0", "1-0-0"],
+                        proximity_ipu: ["0-0-0", "0-0-3", "0-0-10", "0-0-20"]
+                        led_opu: ["5-0-0"]
+                    }
+
+                    # todo: Currently we can only inject data from the first index on each burst. change it so it goes thru all
+                    """
+                    neuron_list = []
+
+                    for cortical_area_ in input_instruction[burst_count]:
+                        if cortical_area_ in runtime_data.block_dic:
+                            for block_ref in input_instruction[burst_count][cortical_area_]:
+                                if block_ref in runtime_data.block_dic[cortical_area_]:
+                                    for neuron in runtime_data.block_dic[cortical_area_][block_ref]:
+                                        neuron_list.append(neuron)
+                                else:
+                                    print("Warning: Block ref %s was not found for %s" % (block_ref, cortical_area_))
+                            # print("neuron list:", cortical_area_, neuron_list)
+                            runtime_data.fcl_queue.put({cortical_area_: set(neuron_list)})
+                            neuron_list = []
+                        else:
+                            print("Warning: Cortical area %s not found within the block_dic" % cortical_area_)
+
+                @staticmethod
+                def stimulation_injector(stimulation_data):
+                    for cortical_area in stimulation_data:
+                        print("stimulating...", cortical_area)
+                        neuron_list = set()
+                        for voxel in stimulation_data[cortical_area]:
+                            relative_coords = \
+                                runtime_data.genome['blueprint'][cortical_area]['neuron_params'].get('relative_coordinate')
+                            cortical_block_ref = [voxel[0] - relative_coords[0],
+                                                  voxel[1] - relative_coords[1],
+                                                  voxel[2] - relative_coords[2]]
+                            print("FEAGI received stimulation from Godot and processing...", cortical_block_ref)
+                            in_the_block = neurons_in_the_block(cortical_area=cortical_area,
+                                                                block_ref=block_reference_builder(cortical_block_ref))
+                            for neuron in in_the_block:
+                                neuron_list.add(neuron)
+                        runtime_data.fcl_queue.put({cortical_area: neuron_list})
+                        print(">>> >> >> > > >> >>>>>>> Stimulation data from Godot has been injected in FCL!")
+
+            class Battery:
+                """
+                This module will provide the methods to receive information about embodiment battery level and have it passed along to
+                the artificial brain.
+
+                Battery level is broken down into 10% increments and be represented in the form of a range in a single cortical block
+                with the dimensions of 1x1x10 where x represents the battery index, y is unused, and z reflects the range. In the event
+                that the embodiment consists of multiple battery backs the x axis will be used to capture it e.g. 4x2x5 for the case of
+                four battery packs.
+                """
+
+                @staticmethod
+                def translate(sensor_data):
+                    """
+                    Translates battery related data to neuronal activity
+
+                    todo: place the battery data format here
+
+                    sensor_data = {
+
+
+
+                    }
+
+                    """
+
+                    print("Translating Battery data...")
+
+                    cortical_area = 'battery_ipu'
+                    if sensor_data is not None:
+                        for sensor in sensor_data:
+                            print("----------------->>>> Battery data:", sensor_data[sensor])
+                            detections = range.range_to_coords(cortical_area=cortical_area,
+                                                               range_data=int(float(sensor_data[sensor]) * 100),
+                                                               range_min=0,
+                                                               range_max=100,
+                                                               threshold=10)
+
+                            neurons = range.coords_to_neuron_ids(detections,
+                                                                 cortical_area=cortical_area)
+                            # TODO: Add proximity feeder function in fcl_injector
+                            runtime_data.fcl_queue.put({'battery_ipu': set(neurons)})
+
+            class Infrared:
+                @staticmethod
+                def convert_ir_to_fire_list(ir_data):
+                    """
+
+                    The keys in ir_data correlate to the index id of each Infrared Sensor
+
+                    ir_data = {
+                        0: True,
+                        1: True,
+                        2: False
+                    }
+                    """
+                    fire_list = set()
+                    for sensor_idx in ir_data:
+                        if ir_data[sensor_idx]:
+                            for key in runtime_data.brain['ir_ipu']:
+                                if sensor_idx == runtime_data.brain['ir_ipu'][key]['soma_location'][0][0]:
+                                    fire_list.add(key)
+
+                    runtime_data.fcl_queue.put({'ir_ipu': fire_list})
+
+            class Lidar:
+                @staticmethod
+                def translate(proximity_data, type=None):
+                    """
+                    Translate the lidar messages based on its type.
+
+                    todo: add details here about the message format and expectations
+
+
+                    Type is not needed at this point given the lidar vs sonar data is automatically differentiated within the func.
+                    """
+
+                    if proximity_data is not None:
+                        # print("SLOT_TYPES", message.SLOT_TYPES)
+                        # print("angle_increment:", message.angle_increment)
+                        # print("angle_max:", message.angle_max)
+                        # print("angle_min:", message.angle_min)
+                        # print("get_fields_and_field_types:", message.get_fields_and_field_types)
+                        # print("header:", message.header)
+                        # print("intensities:", message.intensities)
+                        # print("range_max:", message.range_max)
+                        # print("range_min:", message.range_min)
+                        # print("ranges:", message.ranges)
+                        # print("scan_time:", message.scan_time)
+                        # print("time_increment:", message.time_increment)
+                        # print("-----")
+
+                        for sensor in proximity_data:
+                            # differentiate between LIDAR/SONAR data
+                            if hasattr(proximity_data[sensor], '__iter__'):
+                                detections = range.lidar_to_coords(proximity_data[sensor])
+                            else:
+                                detections = range.sonar_to_coords(proximity_data[sensor])
+
+                            neurons = range.coords_to_neuron_ids(
+                                detections, cortical_area='proximity_ipu'
+                            )
+
+                            # TODO: Add proximity feeder function in fcl_injector
+                            runtime_data.fcl_queue.put({'proximity_ipu': set(neurons)})
 
             # class FolderMonitor:
             #     """
@@ -326,6 +360,7 @@ class IPU:
             #     from inf import runtime_data
             #     # from ipu.processor import utf
             #
+            #     @staticmethod
             #     def initialize():
             #         runtime_data.watchdog_queue = Queue()
             #         ipu_folder_monitor = Thread(target=folder_mon,
@@ -335,6 +370,7 @@ class IPU:
             #         ipu_folder_monitor.start()
             #         print(">> >> >> Folder monitoring thread has started..")
             #
+            #     @staticmethod
             #     def folder_mon(folder_path, pattern, q):
             #         event_handler = FolderWatchdog(queue_=q, patterns=pattern)
             #         observer = Observer()
@@ -380,117 +416,6 @@ class IPU:
             #                         print(_)
             #                         runtime_data.fire_candidate_list['utf8_ipu'].update(utf.convert_char_to_fire_list(_))
 
-            class Stimulation:
-                """
-                This module facilitates the translation of cortical stimulation information to actual stimulation within connectome.
-
-                Stimulation data received will have the following data structure:
-                { 'stimulation': {
-                        'motor_opu': [[x1, y1, z1], [x2, y2, z2], .....],
-                        'IR_opu': [[x1, y1, z1], [x2, y2, z2], .....],
-                        ...
-                        ...
-                    }
-                }
-
-                """
-
-                def fake_cortical_stimulation(input_instruction, burst_count):
-                    """
-                    It fakes cortical stimulation for the purpose of testing
-
-                    The following data format is used for input_instruction as the function input:
-
-                    input_instructions receives a dictionary as input with keys as the name of the ipu cortical name and the value
-                    being a list of block locations that needs to be activated in the block-ref format e.g. xBlock-yBlock-zBlock.
-
-                    Note: all of the blocks outlined in the data structure will be activated at the same time during the same
-                    burst.
-
-                    input_instruction_example = {
-                        ir_ipu: ["0-0-0", "1-0-0"],
-                        proximity_ipu: ["0-0-0", "0-0-3", "0-0-10", "0-0-20"]
-                        led_opu: ["5-0-0"]
-                    }
-
-                    # todo: Currently we can only inject data from the first index on each burst. change it so it goes thru all
-                    """
-                    neuron_list = []
-
-                    for cortical_area_ in input_instruction[burst_count]:
-                        if cortical_area_ in runtime_data.block_dic:
-                            for block_ref in input_instruction[burst_count][cortical_area_]:
-                                if block_ref in runtime_data.block_dic[cortical_area_]:
-                                    for neuron in runtime_data.block_dic[cortical_area_][block_ref]:
-                                        neuron_list.append(neuron)
-                                else:
-                                    print("Warning: Block ref %s was not found for %s" % (block_ref, cortical_area_))
-                            # print("neuron list:", cortical_area_, neuron_list)
-                            runtime_data.fcl_queue.put({cortical_area_: set(neuron_list)})
-                            neuron_list = []
-                        else:
-                            print("Warning: Cortical area %s not found within the block_dic" % cortical_area_)
-
-                def stimulation_injector(stimulation_data):
-                    for cortical_area in stimulation_data:
-                        print("stimulating...", cortical_area)
-                        neuron_list = set()
-                        for voxel in stimulation_data[cortical_area]:
-                            relative_coords = \
-                                runtime_data.genome['blueprint'][cortical_area]['neuron_params'].get('relative_coordinate')
-                            cortical_block_ref = [voxel[0] - relative_coords[0],
-                                                  voxel[1] - relative_coords[1],
-                                                  voxel[2] - relative_coords[2]]
-                            print("FEAGI received stimulation from Godot and processing...", cortical_block_ref)
-                            in_the_block = neurons_in_the_block(cortical_area=cortical_area,
-                                                                block_ref=block_reference_builder(cortical_block_ref))
-                            for neuron in in_the_block:
-                                neuron_list.add(neuron)
-                        runtime_data.fcl_queue.put({cortical_area: neuron_list})
-                        print(">>> >> >> > > >> >>>>>>> Stimulation data from Godot has been injected in FCL!")
-
-            class Battery:
-                """
-                This module will provide the methods to receive information about embodiment battery level and have it passed along to
-                the artificial brain.
-
-                Battery level is broken down into 10% increments and be represented in the form of a range in a single cortical block
-                with the dimensions of 1x1x10 where x represents the battery index, y is unused, and z reflects the range. In the event
-                that the embodiment consists of multiple battery backs the x axis will be used to capture it e.g. 4x2x5 for the case of
-                four battery packs.
-                """
-
-                def translate(sensor_data):
-                    """
-                    Translates battery related data to neuronal activity
-
-                    todo: place the battery data format here
-
-                    sensor_data = {
-
-
-
-                    }
-
-                    """
-
-                    print("Translating Battery data...")
-
-                    cortical_area = 'battery_ipu'
-                    if sensor_data is not None:
-                        for sensor in sensor_data:
-                            print("----------------->>>> Battery data:", sensor_data[sensor])
-                            detections = range.range_to_coords(cortical_area=cortical_area,
-                                                               range_data=int(float(sensor_data[sensor]) * 100),
-                                                               range_min=0,
-                                                               range_max=100,
-                                                               threshold=10)
-
-                            neurons = range.coords_to_neuron_ids(detections,
-                                                                 cortical_area=cortical_area)
-                            # TODO: Add proximity feeder function in fcl_injector
-                            runtime_data.fcl_queue.put({'battery_ipu': set(neurons)})
-
             # class MNIST:
             #     def __init__(self):
             #         # global mnist_array, mnist_iterator
@@ -507,13 +432,13 @@ class IPU:
             #         # self.mongo = MongoManagement()
             #         # print(len(mnist_array))
             #
-            #     def mnist_plotter(mnist_type="training", subplot_dimension=5, desirable_label=6):
+            #     def mnist_plotter(self, mnist_type="training", subplot_dimension=5, desirable_label=6):
             #         counter = 0
             #         x_counter = 0
             #         y_counter = 0
             #         counter_limit = subplot_dimension * subplot_dimension
             #         f, axarr = plt.subplots(subplot_dimension, subplot_dimension)
-            #         mnist = MNIST()
+            #         mnist = self.MNIST()
             #         for entry in mnist.mnist_array[mnist_type]:
             #
             #             label = entry[0]
@@ -775,7 +700,7 @@ class IPU:
             #                 img = labeledImage[1]
             #                 label = labeledImage[0]
             #                 return img, label
-
+            #
             # class Camera:
             #
             # class Microphone:
@@ -783,6 +708,98 @@ class IPU:
             # class Keyboard:
             #
             # class Mouse:
+            #
+
+
+        # def initialize():
+        #     """
+        #     This function will monitor the IPU folder and other possible input devices such as a camera or mic for data and
+        #     pass them along to the IPU module to have them converted to neuronal activity that in turn can be passed to cortical
+        #     areas via FCL injection.
+        #     """
+        #     print(
+        #         "\n\n\n\n\n**** *** **  Initializing the IPU Controller  **** * * **** ** ** * * *** ** *** *\n\n\n\n ")
+        #     # todo: figure it its best to enable devices using the following if statements or using class instantiation within..
+        #     # ...ipu_controller function
+        #     # Initialize IPU devices
+        #     if runtime_data.parameters['IPU']['folder_monitor']:
+        #         folder_monitor.initialize()
+        #
+        #     # IPU feeder thread processes input stimuli and pass it along to the corresponding IPU module.
+        #     if runtime_data.parameters['IPU']['mnist']:
+        #         mnist_controller_thread = Thread(
+        #             target=mnist_controller,
+        #             args=(
+        #                 runtime_data.watchdog_queue,
+        #                 runtime_data.fcl_queue,
+        #             ),
+        #             name="MNIST_Controller",
+        #             daemon=True
+        #         )
+        #         mnist_controller_thread.start()
+        #         print(">> >> MNIST Controller thread has started.")
+
+
+            # if runtime_data.parameters['IPU']['proximity']:
+            #     proximity_controller_thread = Thread(
+            #         target=proximity_controller,
+            #         name="Proximity_Controller",
+            #         daemon=True
+            #     )
+            #     proximity_controller_thread.start()
+            #     print(">> >> Proximity Controller thread has started.")
+
+            # if runtime_data.parameters['IPU']['ir']:
+            #
+            #     def ir_controller():
+            #         while not runtime_data.exit_condition:
+            #             try:
+            #                 ir.convert_ir_to_fire_list(ir_data=ir_data)
+            #                 time.sleep(0.1)
+            #             except Exception as e:
+            #                 traceback.print_exc()
+            #             finally:
+            #                 runtime_data.last_ipu_activity = datetime.now()
+            #
+            #     ir_controller_thread = Thread(
+            #         target=ir_controller,
+            #         name="IR_Controller",
+            #         daemon=True
+            #     )
+            #     ir_controller_thread.start()
+            #     print(">> >> IR Controller thread has started.")
+
+            # runtime_data.last_ipu_activity = datetime.now()
+
+
+
+        # def mnist_load_queue(target_queue):
+        #     # todo: The following is experimental and needs to be rebuilt
+        #     mnist = MNIST()
+        #     mnist_img = mnist.mnist_array['training'][5][1]
+        #     print_mnist_img_raw(mnist_img)
+        #     # Building the list of visual corticothalamic layers associated with vision
+        #     visual_cortical_layers = cortical_sub_group_members('t_vision')
+        #     fcl_entry = {}
+        #     for cortical_layer in visual_cortical_layers:
+        #         neuron_list = Image.convert_image_locations_to_neuron_ids(image_locations=mnist_img,
+        #                                                                   cortical_area=cortical_layer)
+        #         fcl_entry[cortical_layer] = neuron_list
+        #     target_queue.put(fcl_entry)
+        #     # todo: exiting immediately for test purposes
+        #     runtime_data.exit_condition = True
+        #     runtime_data.parameters["Switches"]["ready_to_exit_burst"] = True
+        #
+        # def mnist_controller(watchdoq_queue, fcl_queue):
+        #     print("<> <> <> <> <> <> <> <> <>        <> <> <> <> <> <>      <> <> <> <> <> <> <>")
+        #     while not runtime_data.exit_condition:
+        #         try:
+        #             mnist_load_queue(fcl_queue)
+        #         except Exception as e:
+        #             traceback.print_exc()
+        #         finally:
+        #             runtime_data.last_ipu_activity = datetime.now()
+        #     time.sleep(2)
 
 
     # class Processor:

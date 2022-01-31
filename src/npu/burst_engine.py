@@ -57,7 +57,7 @@ def burst_manager():
 
     def init_pns():
         runtime_data.ipu = ipu.IPU()
-        runtime_data.opu = ipu.OPU()
+        runtime_data.opu = opu.OPU()
 
     def burst_duration_calculator(controller_capabilities):
         """
@@ -410,7 +410,8 @@ def burst_manager():
             # Dynamically adjusting burst duration based on Controller needs
             runtime_data.burst_timer = burst_duration_calculator(ipu_data)
             if ipu_data:
-                ipu.IPU.Controller.ipu_handler(ipu_data)
+                ipu_controller = runtime_data.ipu.Controller()
+                ipu_controller.ipu_handler(ipu_data)
                 if runtime_data.parameters["Logs"]["print_burst_info"]:
                     print("FEAGI received message from router as:", ipu_data)
         else:
@@ -452,6 +453,9 @@ def burst_manager():
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
         sleep(float(runtime_data.burst_timer))
+
+        # Initialize the peripheral nervous system (PNS)
+        init_pns()
 
         burst_start_time = datetime.now()
         log_burst_activity_influx()
