@@ -11,13 +11,31 @@ network_settings = {
 }
 
 capabilities = {
-    "stimulation": {
-        "disabled": False,
-        "delay": 1
+    "servo": {
+        "type": "opu",
+        "disabled": True,
+        "refresh_rate": 1,
+        "cortical_mapping": "o__ser"
     },
     "motor": {
-        "disabled": True,
+        "type": "opu",
+        "disabled": False,
         "count": 4,
-        "delay": 1
+        "refresh_rate": 1,
+        "cortical_mapping": "o__mot"
+    },
+    "infrared": {
+        "type": "ipu",
+        "disabled": False,
+        "count": 4,
+        "refresh_rate": 1,
+        "cortical_mapping": "i__inf"
+    },
+    "battery": {
+        "type": "ipu",
+        "disabled": False,
+        "count": 4,
+        "refresh_rate": 1,
+        "cortical_mapping": "i__bat"
     }
 }

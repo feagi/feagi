@@ -65,13 +65,13 @@ def burst_manager():
         """
         # todo: look into more dynamic mechanisms to set the burst duration timer
         # using the burst_timer as the starting point
-        lowest_delay = runtime_data.burst_timer
+        lowest_refresh_rate = runtime_data.burst_timer
         if controller_capabilities:
             for device in controller_capabilities:
-                if "delay" in device:
-                    if device["delay"] < lowest_delay:
-                        lowest_delay = device["delay"]
-            return float(lowest_delay)
+                if "refresh_rate" in device:
+                    if device["refresh_rate"] < lowest_refresh_rate:
+                        lowest_refresh_rate = device["refresh_rate"]
+            return float(lowest_refresh_rate)
         else:
             return runtime_data.burst_timer
 
@@ -394,14 +394,13 @@ def burst_manager():
         print("Burst publisher has been initialized @ ", burst_engine_pub_address)
 
     def controller_handshake():
-        if not runtime_data.controller_config and runtime_data.burst_publisher:
-            print("Awaiting handshake with the controller")
-            broadcast_message = dict()
-            broadcast_message['burst_counter'] = runtime_data.burst_count
-            broadcast_message['sockets'] = runtime_data.parameters['Sockets']
-            broadcast_message['burst_frequency'] = runtime_data.burst_timer
-            runtime_data.burst_publisher.send(message=broadcast_message)
-            print("Message sent to controller:", broadcast_message)
+        print("Awaiting handshake with the controller")
+        broadcast_message = dict()
+        broadcast_message['burst_counter'] = runtime_data.burst_count
+        broadcast_message['sockets'] = runtime_data.parameters['Sockets']
+        broadcast_message['burst_frequency'] = runtime_data.burst_timer
+        runtime_data.burst_publisher.send(message=broadcast_message)
+        print("Message sent to controller:", broadcast_message)
 
     def message_router():
         # IPU listener: Receives IPU data through ZMQ channel
@@ -526,7 +525,7 @@ def burst_manager():
         if runtime_data.burst_count % 10 == 0:
             consciousness_manager()
 
-        if not runtime_data.controller_config:
+        if not runtime_data.controller_config and runtime_data.burst_publisher:
             controller_handshake()
 
     print('runtime_data.genome_id = ', runtime_data.genome_id)

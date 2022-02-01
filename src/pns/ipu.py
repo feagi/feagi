@@ -135,47 +135,49 @@ class IPU:
                     # Ultrasonic / Lidar Handler
                     # todo: need a more consistent naming convention when it comes to lidar vs ultrasonic vs proximity
                     # todo: find a way to generalize the handling of all IPU data instead of using all the if statements
-                    if 'ultrasonic' in sensor_type and runtime_data.parameters['IPU']['proximity'] and \
-                            ipu_data[sensor_type] is not None:
-                        try:
-                            self.Source.Lidar.translate(proximity_data=ipu_data[sensor_type])
 
-                        except:
-                            print("ERROR while processing lidar function")
+                    if sensor_type in runtime_data.cortical_list:
+                        if 'ultrasonic' in sensor_type and ipu_data[sensor_type] is not None:
+                            try:
+                                self.Source.Lidar.translate(proximity_data=ipu_data[sensor_type])
 
-                    # Infrared Handler
-                    elif 'ir' in sensor_type and ipu_data[sensor_type] is not None:
-                        try:
-                            # print("+_+_+ipu_data[sensor_type]: ", ipu_data[sensor_type])
-                            self.Source.Infrared.convert_ir_to_fire_list(ir_data=ipu_data[sensor_type])
-                        except:
-                            print("ERROR while processing Infrared IPU")
+                            except:
+                                print("ERROR while processing lidar function")
 
-                    elif 'battery' in sensor_type and ipu_data[sensor_type] is not None:
-                        try:
-                            self.Source.Battery.translate(sensor_data=ipu_data[sensor_type])
-                        except:
-                            print("ERROR while processing Battery IPU")
+                        # Infrared Handler
+                        elif 'ir' in sensor_type and ipu_data[sensor_type] is not None:
+                            try:
+                                # print("+_+_+ipu_data[sensor_type]: ", ipu_data[sensor_type])
+                                self.Source.Infrared.convert_ir_to_fire_list(ir_data=ipu_data[sensor_type])
+                            except:
+                                print("ERROR while processing Infrared IPU")
+
+                        elif 'battery' in sensor_type and ipu_data[sensor_type] is not None:
+                            try:
+                                self.Source.Battery.translate(sensor_data=ipu_data[sensor_type])
+                            except:
+                                print("ERROR while processing Battery IPU")
 
 
-                    elif 'godot' in sensor_type and ipu_data[sensor_type] is not None:
-                        print(">>>>> >>>>>    >>> >>>  ip-handler detected godot stimulation data ")
-                        try:
-                            print(">>> >> >> > > >> >>>>>>> Godot Stimulation data is being processed....")
-                            self.Source.Stimulation.godot_injector(stimulation_data=ipu_data[sensor_type])
-                            print(">>> >> >> > > >> >>>>>>> Godot Stimulation data was processed....")
-                        except:
-                            print("ERROR while processing Stimulation IPU")
+                        elif 'godot' in sensor_type and ipu_data[sensor_type] is not None:
+                            print(">>>>> >>>>>    >>> >>>  ip-handler detected godot stimulation data ")
+                            try:
+                                print(">>> >> >> > > >> >>>>>>> Godot Stimulation data is being processed....")
+                                self.Source.Stimulation.godot_injector(stimulation_data=ipu_data[sensor_type])
+                                print(">>> >> >> > > >> >>>>>>> Godot Stimulation data was processed....")
+                            except:
+                                print("ERROR while processing Stimulation IPU")
 
-                    elif 'stimulation' in sensor_type and ipu_data[sensor_type] is not None:
-                        print(">>>>> >>>>>    >>> >>>  ip-handler detected stimulation data ")
-                        try:
-                            print(">>> >> >> > > >> >>>>>>> Stimulation data is being processed....")
-                            self.Source.Stimulation.stimulation_injector(stimulation_data=ipu_data[sensor_type])
-                            print(">>> >> >> > > >> >>>>>>> Stimulation data was processed....")
-                        except:
-                            print("ERROR while processing Stimulation IPU")
-
+                        elif 'stimuli' in sensor_type and ipu_data[sensor_type] is not None:
+                            print(">>>>> >>>>>    >>> >>>  ip-handler detected stimulation data ")
+                            try:
+                                print(">>> >> >> > > >> >>>>>>> Stimulation data is being processed....")
+                                self.Source.Stimulation.stimulation_injector(stimulation_data=ipu_data[sensor_type])
+                                print(">>> >> >> > > >> >>>>>>> Stimulation data was processed....")
+                            except:
+                                print("ERROR while processing Stimulation IPU")
+                    else:
+                        pass
             else:
                 print("ERROR: IPU handler encountered non-compliant data")
 
@@ -264,9 +266,6 @@ class IPU:
                                 neuron_list.add(neuron)
                         runtime_data.fcl_queue.put({cortical_area: neuron_list})
                         print(">>> >> >> > > >> >>>>>>> Stimulation data from Godot has been injected in FCL!")
-
-
-
 
             class Battery:
                 """

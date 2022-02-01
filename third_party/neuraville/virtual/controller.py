@@ -12,9 +12,10 @@ from random import randrange, getrandbits
 
 
 runtime_params = {
-    "current_burst_id": None,
+    "current_burst_id": 0,
     "global_timer": 0.5,
-    "feagi_state": None
+    "feagi_state": None,
+    "cortical_list": ()
 }
 
 
@@ -24,11 +25,16 @@ class FakeStimulator:
 
     @staticmethod
     def stimulate(burst_id):
+        stimuli = dict()
         if burst_id in stimulation_data:
-            return stimulation_data[burst_id]
+            print("Cortical_list: ", runtime_params["cortical_list"])
+            for cortical_area in stimulation_data[burst_id]:
+                if cortical_area in runtime_params["cortical_list"]:
+                    stimuli[cortical_area] = stimulation_data[burst_id][cortical_area]
+            return stimuli
 
 
-def ipu_message_builder():
+def build_message_to_feagi():
     """
     This function encodes the sensory information in a dictionary that can be decoded on the FEAGI end.
 
@@ -57,9 +63,11 @@ def ipu_message_builder():
     # todo: figure a better way of obtaining the device count
     # ir_count = 3
 
-    ipu_data = dict()
-
-    ipu_data['stimulation'] = stimulator.stimulate(runtime_params["current_burst_id"])
+    message = dict()
+    if runtime_params["current_burst_id"] % 10 == 0:
+        message["capabilities"] = configuration.capabilities
+        message["network"] = configuration.network_settings
+    message['stimuli'] = stimulator.stimulate(runtime_params["current_burst_id"])
 
     # ipu_data['ultrasonic'] = {
     #     1: [randrange(0, 30) / 10, randrange(0, 30) / 10, randrange(0, 30) / 10, randrange(0, 30) / 10,
@@ -70,17 +78,25 @@ def ipu_message_builder():
     # for _ in range(ir_count):
     #     ipu_data['ir'][_] = ir.read()
 
-    return ipu_data
+    return message
+
+
+def cortical_mapping_list_gen(capabilities):
+    cortical_list = set()
+    for device in capabilities:
+        cortical_list.add(capabilities[device]["cortical_mapping"])
+    return cortical_list
 
 
 def main():
+    runtime_params["cortical_list"] = cortical_mapping_list_gen(configuration.capabilities)
+
     address = 'tcp://' + configuration.network_settings['feagi_ip'] + ':' + \
               configuration.network_settings['feagi_outbound_port']
     
     runtime_params["feagi_state"] = router.handshake_with_feagi(address=address, capabilities=configuration.capabilities)
 
     print("** **", runtime_params["feagi_state"])
-
 
     # todo: to obtain this info directly from FEAGI as part of registration
     ipu_channel_address = 'tcp://0.0.0.0:' + configuration.network_settings['feagi_inbound_port']
@@ -114,8 +130,8 @@ def main():
         #             motor.move(motor_id, opu_data['motor'][motor_id])
         #
 
-        ipu_data = ipu_message_builder()
-        feagi_ipu_channel.send(ipu_data)
+        message_to_feagi = build_message_to_feagi()
+        feagi_ipu_channel.send(message_to_feagi)
 
         # todo: IMPORTANT!!! need to figure how to correlate the flow on incoming data with the rate data is passed to FEAGI
         sleep(runtime_params['global_timer'])
