@@ -401,18 +401,38 @@ def burst_manager():
 
     def message_router():
         # IPU listener: Receives IPU data through ZMQ channel
-        if runtime_data.router_address is not None:
-            ipu_data = ipu_listener.receive()
+        if runtime_data.router_address_gazebo is not None:
+            gazebo_data = gazebo_listener.receive()
             # Dynamically adjusting burst duration based on Controller needs
-            runtime_data.burst_timer = burst_duration_calculator(ipu_data)
-            if ipu_data:
+            runtime_data.burst_timer = burst_duration_calculator(gazebo_data)
+            if gazebo_data:
                 # todo: ipu controller has to be instantiated only once
                 ipu_controller = runtime_data.ipu.Controller()
-                print("FEAGI received message from router as:", ipu_data)
-                ipu_controller.ipu_handler(ipu_data)
+                print("FEAGI received message from router as:", gazebo_data)
+                ipu_controller.ipu_handler(gazebo_data)
 
-        else:
-            print("++----Router address is None----++")
+        # IPU listener: Receives IPU data through ZMQ channel
+        if runtime_data.router_address_godot is not None:
+            godot_data = godot_listener.receive()
+            # Dynamically adjusting burst duration based on Controller needs
+            runtime_data.burst_timer = burst_duration_calculator(godot_data)
+            if godot_data:
+                # todo: ipu controller has to be instantiated only once
+                ipu_controller = runtime_data.ipu.Controller()
+                print("FEAGI received message from router as:", godot_data)
+                ipu_controller.ipu_handler(godot_data)
+
+        # IPU listener: Receives IPU data through ZMQ channel
+        if runtime_data.router_address_gazebo is not None:
+            virtual_data = virtual_listener.receive()
+            # Dynamically adjusting burst duration based on Controller needs
+            runtime_data.burst_timer = burst_duration_calculator(virtual_data)
+            if virtual_data:
+                # todo: ipu controller has to be instantiated only once
+                ipu_controller = runtime_data.ipu.Controller()
+                print("FEAGI received message from router as:", virtual_data)
+                ipu_controller.ipu_handler(virtual_data)
+
 
         # Broadcasts a TCP message on each burst
         if runtime_data.brain_activity_pub:
@@ -533,12 +553,20 @@ def burst_manager():
 
     # todo: consolidate all the listeners into a class
     # Initialize IPU listener
-    if runtime_data.router_address is not None:
-        print("Subscribing IPU listener @", runtime_data.router_address)
-        ipu_listener = Sub(address=runtime_data.router_address)
+    if runtime_data.router_address_godot is not None:
+        print("runtime_data.router_address_godot=", runtime_data.router_address_godot)
+        print("Subscribing Godot incoming port...                                             ++++++++++++++++++++++++")
+        godot_listener = Sub(address=runtime_data.router_address_godot)
+    if runtime_data.router_address_gazebo is not None:
+        print("runtime_data.router_address_gazebo=", runtime_data.router_address_gazebo)
+        print("Subscribing Gazebo incoming port...                                            ++++++++++++++++++++++++")
+        gazebo_listener = Sub(address=runtime_data.router_address_gazebo)
+    if runtime_data.router_address_virtual is not None:
+        print("runtime_data.router_address_virtual=", runtime_data.router_address_virtual)
+        print("Subscribing Virtual incoming port...                                           ++++++++++++++++++++++++")
+        virtual_listener = Sub(address=runtime_data.router_address_virtual)
     else:
         print("Router address is None!")
-
 
     # todo: need to figure how to incorporate FCL injection
     # feeder = Feeder()
