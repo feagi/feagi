@@ -8,12 +8,13 @@ import zmq
 class Pub:
     def __init__(self, address):
         context = zmq.Context()
+        self.address = address
         self.socket = context.socket(zmq.PUB)
         self.socket.bind(address)
 
     def send(self, message):
         self.socket.send_pyobj(message)
-        print("Sent:\n", message, "\n\n")
+        print("Sent:\n", message, "... to ", self.address, "\n\n")
 
 
 class Sub:
@@ -68,7 +69,7 @@ def handshake_with_feagi(address, capabilities):
     print("\nFEAGI settings received as:\n", feagi_settings, "\n\n")
 
     # Transmit Controller Capabilities
-    pub_address = "tcp://0.0.0.0:" + feagi_settings['sockets']['feagi_inbound_port']
+    pub_address = "tcp://0.0.0.0:" + feagi_settings['sockets']['feagi_inbound_port_virtual']
     publisher = Pub(address=pub_address)
     publisher.send(capabilities)
 

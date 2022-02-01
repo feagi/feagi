@@ -3,7 +3,7 @@
 router_settings = {
     "feagi_ip": "127.0.0.1",
     "feagi_outbound_port": "30000",
-    "feagi_inbound_port": "30001",
+    "feagi_inbound_port": "30002",
     'TTL': 2,
     'last_message': 0,
     'feagi_burst_speed':  1
