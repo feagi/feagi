@@ -187,13 +187,42 @@ def feagi_breakdown(data):
         new_list.append(xyz)
     return new_list
 
+def convert_absolute_to_relative_coordinate(dict_input, dna_information):
+    """
+    Convert absolute coordinate from godot to relative coordinate for FEAGI. Dna_information is from the
+    genome["blueprint"].
+    """
+    absolute_dict = dict_input
+    print(absolute_dict)
+    relative_coordinate = {}
+    relative_coordinate["data"] = dict()
+    relative_coordinate["data"]["direct_stimulation"] = dict()
+    if absolute_dict:
+        for key in absolute_dict["data"]["direct_stimulation"]:
+            for name_match in dna_information:
+                if name_match == key:
+                    if relative_coordinate["data"]["direct_stimulation"].get(name_match) is not None:
+                        pass
+                    else:
+                        relative_coordinate["data"]["direct_stimulation"][name_match] = list()
+                    for xyz in absolute_dict["data"]["direct_stimulation"][name_match]:
+                        new_xyz =[xyz[0] - dna_information[name_match][2], xyz[1] - dna_information[name_match][3], xyz[2] - dna_information[name_match][4]]
+                        relative_coordinate["data"]["direct_stimulation"][name_match].append(new_xyz)
+                    #absolute_dict["data"]["direct_stimulation"][name_match][0] - dna_information[name_match][5]
+
+            else:
+                pass
+    else:
+        pass
+    return relative_coordinate
+
 Godot_list = {}
 print("Godot_list = ", Godot_list)
 #UDP("{'godot': {(59, 5, 0, 3), (59, 5, 0, 9), (59, 5, 0, 2), (59, 5, 0, 5), (59, 5, 0, 8), (59, 5, 0, 4)}}")
 
-one_frame = genome_2_cortical_list(genome['blueprint'])
+genome_data = genome_2_cortical_list(genome['blueprint'])
 #print("one_frame: ", one_frame)
-CSV_writer(one_frame)
+CSV_writer(genome_data)
 address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_outbound_port']
 feagi_state = find_feagi(address=address) ##I was trying to leverage on router only
 print("feagi_state: " , feagi_state)
@@ -228,12 +257,13 @@ while True:
     ##This stops all processing and force to wait for the return data from FEAGI
     #data = "None"
     data = godot_listener()
-    #print("bwukkkk", data)
     if data != "None":
         if data == "ready":
-            FEAGI_pub.send(Godot_list)
+            converted_data = convert_absolute_to_relative_coordinate(Godot_list, genome_data)
+            FEAGI_pub.send(converted_data)
         elif data == "refresh":
             Godot_list = {}
+            converted_data = {}
             FEAGI_pub.send(Godot_list)
         else:
             data = godot_data(data)
