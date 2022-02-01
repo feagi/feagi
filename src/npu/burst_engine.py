@@ -395,6 +395,7 @@ def burst_manager():
         broadcast_message['burst_counter'] = runtime_data.burst_count
         broadcast_message['sockets'] = runtime_data.parameters['Sockets']
         broadcast_message['burst_frequency'] = runtime_data.burst_timer
+        broadcast_message['godot'] = runtime_data.burst_activities
         runtime_data.burst_publisher.send(message=broadcast_message)
         print("Message sent to controller:", broadcast_message)
 
@@ -410,16 +411,15 @@ def burst_manager():
                 print("FEAGI received message from router as:", ipu_data)
                 ipu_controller.ipu_handler(ipu_data)
 
-
         else:
             print("++----Router address is None----++")
 
         # Broadcasts a TCP message on each burst
         if runtime_data.brain_activity_pub:
-            # todo: Obrain the frequency from controller config
+            # todo: Obtain the frequency from controller config
             if runtime_data.burst_count % runtime_data.brain_activity_pub_freq == 0:
                 activity_data = brain_activity_voxelizer()
-                runtime_data.opu_pub.send(message=activity_data)
+                runtime_data.burst_activities = activity_data
 
     def brain_activity_voxelizer():
         """
@@ -442,7 +442,7 @@ def burst_manager():
                             firing_neuron_loc[2] + relative_coords[2]
                         )
                     )
-        return {"burst_counter": runtime_data.burst_count, "godot": broadcast_message}
+        return broadcast_message
 
     def burst():
         # todo: the following sleep value should be tied to Autopilot status

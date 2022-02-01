@@ -339,7 +339,8 @@ def init_io_channels():
         # print("OPU channel as been successfully established at ",
         #       runtime_data.parameters['Sockets']['feagi_outbound_port'])
 
-        # if runtime_data.parameters['Switches']['zmq_activity_publisher']:
+        if runtime_data.parameters['Switches']['zmq_activity_publisher']:
+            runtime_data.brain_activity_pub = True
         #     brain_activities_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['brain_activities_pub']
         #     print("Brain activity publisher socket is:", brain_activities_socket)
         #     runtime_data.brain_activity_pub = PubBrainActivities(brain_activities_socket)
