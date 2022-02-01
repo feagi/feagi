@@ -241,6 +241,8 @@ class IPU:
                         neuron_list = set()
                         for voxel in stimulation_data[cortical_area]:
                             print("FEAGI received direct stimulation; processing...", voxel)
+                            if type(voxel) is list:
+                                voxel = block_reference_builder(voxel)
                             in_the_block = neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel)
                             for neuron in in_the_block:
                                 neuron_list.add(neuron)
