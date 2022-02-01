@@ -74,7 +74,8 @@ class ScalableSubscriber(Node):
         # self.get_logger().info("Raw Message: {}".format(msg))
         try:
             formatted_msg = self.msg_processor(msg, self.topic)
-            compose_message_to_feagi(message=formatted_msg)
+            msg_to_feagi = {"data": {"sensory_data": formatted_msg}}
+            compose_message_to_feagi(message=msg_to_feagi)
             self.counter += 1
         except Exception as e:
             print("Error in listener callback...", e)

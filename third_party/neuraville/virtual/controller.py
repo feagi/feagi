@@ -151,8 +151,6 @@ if __name__ == '__main__':
     main()
 
 
-
-
 # class Motor:
 #     def __init__(self):
 #         print("Neuraville virtual motor has been initialized...")
