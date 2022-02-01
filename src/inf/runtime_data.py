@@ -56,17 +56,23 @@ mongodb = ''
 running_in_container = False
 hardware = ''
 gazebo = False
-stimulation_data = {}
 hw_controller_path = ''
 hw_controller = None
 opu_pub = None
 brain_activity_pub = None
-router_address = None
+brain_activity_pub_freq = 1
+router_address_gazebo = None
+router_address_godot = None
+router_address_virtual = None
 burst_timer = None
 genome2 = {}
 genome_ver = None
 fire_queue = {}
-
+controller_config = None
+burst_publisher = None
+ipu = None
+opu = None
+burst_activities = {}
 
 # rules = ""
 brain_is_running = False

@@ -3,18 +3,18 @@
 """
 
 import zmq
-from configuration import router_settings
 
 
 class Pub:
     def __init__(self, address):
         context = zmq.Context()
+        self.address = address
         self.socket = context.socket(zmq.PUB)
         self.socket.bind(address)
 
     def send(self, message):
         self.socket.send_pyobj(message)
-        print("Sent:", message)
+        print("Sent:\n", message, "... to ", self.address, "\n\n")
 
 
 class Sub:
@@ -52,26 +52,38 @@ class Sub:
                 print(e)
 
 
-def find_feagi(address):
+def handshake_with_feagi(address, capabilities):
+    """
+    To trade information between FEAGI and Controller
+
+    Controller                      <--     FEAGI(IPU/OPU socket info)
+    Controller (Capabilities)       -->     FEAGI
+    """
+
     print('Awaiting connection with FEAGI at...', address)
     subscriber = Sub(address=address, flags=zmq.SUB)
-    message = subscriber.receive()
+
+    # Receive FEAGI settings
+    feagi_settings = subscriber.receive()
     print("Connection to FEAGI has been established")
+    print("\nFEAGI settings received as:\n", feagi_settings, "\n\n")
 
-    # todo: What information is useful to receive from FEAGI in this message? IPU/OPU list?
-    print("Current FEAGI state is at burst number ", message['burst_counter'])
+    # Transmit Controller Capabilities
+    pub_address = "tcp://0.0.0.0:" + feagi_settings['sockets']['feagi_inbound_port_virtual']
+    publisher = Pub(address=pub_address)
+    publisher.send(capabilities)
 
-    return message
+    return feagi_settings
 
 
-def register_with_feagi():
-    """
-    Provides FEAGI the IP address for the ZMQ IPU channel that the sensory data
-    """
-    print("Registering router with FEAGI")
-    publisher_ = Pub('tcp://0.0.0.0:11000')
-
-    # todo: need to send a set of capabilities to FEAGI
-    publisher_.send(message={"A", "Hello!"})
-
-    print("Router registration has successfully completed!")
+# def register_with_feagi():
+#     """
+#     Provides FEAGI the IP address for the ZMQ IPU channel that the sensory data
+#     """
+#     print("Registering router with FEAGI")
+#     publisher_ = Pub('tcp://0.0.0.0:11000')
+#
+#     # todo: need to send a set of capabilities to FEAGI
+#     publisher_.send(message={"A", "Hello!"})
+#
+#     print("Router registration has successfully completed!")
