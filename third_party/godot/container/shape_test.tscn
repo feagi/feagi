@@ -92,7 +92,6 @@ __meta__ = {
 }
 
 [node name="GridMap3" type="GridMap" parent="."]
-visible = false
 mesh_library = ExtResource( 1 )
 cell_size = Vector3( 1, 1, 1 )
 data = {
