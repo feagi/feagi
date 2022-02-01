@@ -152,24 +152,28 @@ class IPU:
                         # todo: find a way to generalize the handling of all IPU data instead of using all the if statements
 
                         if sensor_type in runtime_data.cortical_list:
-                            if 'ultrasonic' in sensor_type and ipu_data[sensor_type] is not None:
+                            if 'ultrasonic' in sensor_type and \
+                                    ipu_data["data"]["sensory_data"][sensor_type] is not None:
                                 try:
-                                    self.Source.Lidar.translate(proximity_data=ipu_data[sensor_type])
+                                    self.Source.Lidar.translate(proximity_data=
+                                                                ipu_data["data"]["sensory_data"][sensor_type])
 
                                 except:
                                     print("ERROR while processing lidar function")
 
                             # Infrared Handler
-                            elif 'ir' in sensor_type and ipu_data[sensor_type] is not None:
+                            elif 'ir' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
                                 try:
                                     # print("+_+_+ipu_data[sensor_type]: ", ipu_data[sensor_type])
-                                    self.Source.Infrared.convert_ir_to_fire_list(ir_data=ipu_data[sensor_type])
+                                    self.Source.Infrared.convert_ir_to_fire_list(ir_data=ipu_data["data"]
+                                    ["sensory_data"][sensor_type])
                                 except:
                                     print("ERROR while processing Infrared IPU")
 
-                            elif 'battery' in sensor_type and ipu_data[sensor_type] is not None:
+                            elif 'battery' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
                                 try:
-                                    self.Source.Battery.translate(sensor_data=ipu_data[sensor_type])
+                                    self.Source.Battery.translate(sensor_data=ipu_data["data"]["sensory_data"]
+                                    [sensor_type])
                                 except:
                                     print("ERROR while processing Battery IPU")
 
