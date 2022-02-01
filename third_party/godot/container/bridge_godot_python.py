@@ -132,7 +132,8 @@ def godot_data(input):
     data[3] = data[3].replace(")", "")
     return data
 
-def godot_selected_list(outside_list, godot_list):
+def godot_selected_list(outside_list, godot_list): ##This one will get raw forward from feagi so is this right
+
     name = outside_list[0]
     x = int(outside_list[1])
     y = int(outside_list[2])
@@ -143,24 +144,26 @@ def godot_selected_list(outside_list, godot_list):
     else:
         list_to_dict = dict()
         #print(type(list_to_dict))
-        list_to_dict["stimulation"] = dict()
+
+        list_to_dict["data"] = dict()
+        list_to_dict["data"]["direct_stimulation"] = dict()
         #print("newbie")
     #print("middle", list_to_dict)
 
-    if list_to_dict["stimulation"].get(name) is not None:
+    if list_to_dict["data"]["direct_stimulation"].get(name) is not None:
         pass
         #print("true")
     else:
         #print("added ", name)
-        list_to_dict["stimulation"][name] = list()
-    for key in list_to_dict["stimulation"]:
+        list_to_dict["data"]["direct_stimulation"][name] = list()
+    for key in list_to_dict["data"]["direct_stimulation"]:
         #print(key)
-        if key not in list_to_dict["stimulation"]:
-            list_to_dict["stimulation"][name] = list()
-            list_to_dict["stimulation"][name].append([x,y,z])
+        if key not in list_to_dict["data"]["direct_stimulation"]:
+            list_to_dict["data"]["direct_stimulation"][name] = list()
+            list_to_dict["data"]["direct_stimulation"][name].append([x,y,z])
             #print("first time")
         else:
-            list_to_dict["stimulation"][name].append([x,y,z])
+            list_to_dict["data"]["direct_stimulation"][name].append([x,y,z])
            # print("second or more time")
     #print("Selected: ", list_to_dict)
 
