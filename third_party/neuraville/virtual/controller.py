@@ -145,8 +145,6 @@ def main():
         sleep(runtime_params['global_timer'])
         if opu_data:
             runtime_params["current_burst_id"] = opu_data['burst_counter']
-            if opu_data['burst_counter'] == 5:
-                print("5!!!!")
 
 
 if __name__ == '__main__':

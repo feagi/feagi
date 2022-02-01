@@ -136,13 +136,14 @@ class IPU:
 
             if type(ipu_data) == dict:
                 if "direct_stimulation" in ipu_data["data"]:
-                    try:
-                        print(">>> >> >> > > >> >>>>>>> Stimulation data is being processed....")
-                        self.Source.Stimulation.\
-                            stimulation_injector(stimulation_data=ipu_data["data"]["direct_stimulation"])
-                        print(">>> >> >> > > >> >>>>>>> Stimulation data was processed....")
-                    except:
-                        print("ERROR while processing Stimulation IPU")
+                    if ipu_data["data"]["direct_stimulation"] is not None:
+                        try:
+                            print(">>> >> >> > > >> >>>>>>> Stimulation data is being processed....")
+                            self.Source.Stimulation.\
+                                stimulation_injector(stimulation_data=ipu_data["data"]["direct_stimulation"])
+                            print(">>> >> >> > > >> >>>>>>> Stimulation data was processed....")
+                        except:
+                            print("ERROR while processing Stimulation IPU", ipu_data["data"]["direct_stimulation"])
 
                 if "sensory_data" in ipu_data["data"]:
                     for sensor_type in ipu_data:
