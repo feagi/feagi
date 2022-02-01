@@ -190,13 +190,13 @@ def feagi_breakdown(data):
     return new_list
 
 Godot_list = {}
-print("GOdot_list = " , Godot_list)
+print("Godot_list = ", Godot_list)
 #UDP("{'godot': {(59, 5, 0, 3), (59, 5, 0, 9), (59, 5, 0, 2), (59, 5, 0, 5), (59, 5, 0, 8), (59, 5, 0, 4)}}")
 
 one_frame = genome_2_cortical_list(genome['blueprint'])
 #print("one_frame: ", one_frame)
 CSV_writer(one_frame)
-address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_port']
+address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_outbound_port']
 feagi_state = find_feagi(address=address) ##I was trying to leverage on router only
 print("feagi_state: " , feagi_state)
 print("** **", feagi_state)

@@ -296,7 +296,7 @@ class IPU:
 
                     print("Translating Battery data...")
 
-                    cortical_area = 'battery_ipu'
+                    cortical_area = 'i__bat'
                     if sensor_data is not None:
                         for sensor in sensor_data:
                             print("----------------->>>> Battery data:", sensor_data[sensor])
@@ -327,11 +327,11 @@ class IPU:
                     fire_list = set()
                     for sensor_idx in ir_data:
                         if ir_data[sensor_idx]:
-                            for key in runtime_data.brain['ir_ipu']:
-                                if sensor_idx == runtime_data.brain['ir_ipu'][key]['soma_location'][0][0]:
+                            for key in runtime_data.brain['i__inf']:
+                                if sensor_idx == runtime_data.brain['i__inf'][key]['soma_location'][0][0]:
                                     fire_list.add(key)
 
-                    runtime_data.fcl_queue.put({'ir_ipu': fire_list})
+                    runtime_data.fcl_queue.put({'i__inf': fire_list})
 
             class Lidar:
                 @staticmethod
@@ -368,11 +368,11 @@ class IPU:
                                 detections = range.sonar_to_coords(proximity_data[sensor])
 
                             neurons = range.coords_to_neuron_ids(
-                                detections, cortical_area='proximity_ipu'
+                                detections, cortical_area='i__pro'
                             )
 
                             # TODO: Add proximity feeder function in fcl_injector
-                            runtime_data.fcl_queue.put({'proximity_ipu': set(neurons)})
+                            runtime_data.fcl_queue.put({'i__pro': set(neurons)})
 
             # class FolderMonitor:
             #     """
