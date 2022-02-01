@@ -348,10 +348,10 @@ def init_io_channels():
         if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
             runtime_data.router_address_godot = 'tcp://0.0.0.0' + ':' + runtime_data.parameters['Sockets'][
                 'feagi_inbound_port_godot']
-        if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
+        if runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']:
             runtime_data.router_address_gazebo = 'tcp://0.0.0.0' + ':' + runtime_data.parameters['Sockets'][
                 'feagi_inbound_port_gazebo']
-        if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
+        if runtime_data.parameters['Sockets']['feagi_inbound_port_virtual']:
             runtime_data.router_address_virtual = 'tcp://0.0.0.0' + ':' + runtime_data.parameters['Sockets'][
                 'feagi_inbound_port_virtual']
 
