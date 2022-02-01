@@ -423,7 +423,7 @@ def burst_manager():
                 ipu_controller.ipu_handler(godot_data)
 
         # IPU listener: Receives IPU data through ZMQ channel
-        if runtime_data.router_address_gazebo is not None:
+        if runtime_data.router_address_virtual is not None:
             virtual_data = virtual_listener.receive()
             # Dynamically adjusting burst duration based on Controller needs
             runtime_data.burst_timer = burst_duration_calculator(virtual_data)
