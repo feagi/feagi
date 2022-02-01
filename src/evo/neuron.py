@@ -202,6 +202,8 @@ def neuron_genesis_3d(cortical_area):
                                   soma_location=[candidate_neuron_location, candidate_neuron_location_block],
                                   dendrite_locations=dendrite_locations)
         neuron_count += 1
+        if cortical_area == "i__bat":
+            print("building block dic for i__bat")
         # Adding neuron id to the block dictionary
         for dendrite in dendrite_locations:
             block_reference = block_reference_builder(block=[dendrite[1][0], dendrite[1][1], dendrite[1][2]])
@@ -210,7 +212,6 @@ def neuron_genesis_3d(cortical_area):
             if block_reference not in runtime_data.block_dic[cortical_area]:
                 runtime_data.block_dic[cortical_area][block_reference] = []
             runtime_data.block_dic[cortical_area][block_reference].append(neuron_id)
-
     return neuron_count
 
 

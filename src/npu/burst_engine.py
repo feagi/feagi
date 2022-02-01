@@ -133,36 +133,32 @@ def burst_manager():
     def capture_cortical_activity_stats():
         # print('@@@--- Activity Stats:', runtime_data.activity_stats)
         for cortical_area_ in runtime_data.fire_candidate_list:
-            if cortical_area_ in runtime_data.activity_stats:
-                cortical_neuron_count = len(runtime_data.fire_candidate_list[cortical_area_])
-                runtime_data.activity_stats[cortical_area_] = \
-                    max(runtime_data.activity_stats[cortical_area_], cortical_neuron_count)
+            if cortical_area_ not in runtime_data.activity_stats:
+                runtime_data.activity_stats[cortical_area_] = len(runtime_data.fire_candidate_list[cortical_area_])
 
-                if (runtime_data.parameters["Database"]["influxdb_enabled"] and 
-                        runtime_data.influxdb and 
-                        runtime_data.parameters["Database"]["influx_stat_logger"]):
-                    runtime_data.influxdb.insert_burst_activity(
-                        connectome_path=runtime_data.parameters['InitData']['connectome_path'],
-                        burst_id=runtime_data.burst_count,
-                        cortical_area=cortical_area_,
-                        neuron_count=cortical_neuron_count)
+            cortical_neuron_count = len(runtime_data.fire_candidate_list[cortical_area_])
+            runtime_data.activity_stats[cortical_area_] = \
+                max(runtime_data.activity_stats[cortical_area_], cortical_neuron_count)
 
-                if runtime_data.parameters["Switches"]["global_logger"] and \
-                        runtime_data.parameters["Logs"]["print_cortical_activity_counters"]:
-                    if cortical_neuron_count > 0:
-                        print(settings.Bcolors.RED + '    %s : %i  '
-                              % (cortical_area_, cortical_neuron_count)
-                              + settings.Bcolors.ENDC)
-                    elif runtime_data.parameters["Logs"]["print_cortical_activity_counters_all"]:
-                        print(settings.Bcolors.YELLOW + '    %s : %i  '
-                              % (cortical_area_, cortical_neuron_count)
-                              + settings.Bcolors.ENDC)
+            if (runtime_data.parameters["Database"]["influxdb_enabled"] and
+                    runtime_data.influxdb and
+                    runtime_data.parameters["Database"]["influx_stat_logger"]):
+                runtime_data.influxdb.insert_burst_activity(
+                    connectome_path=runtime_data.parameters['InitData']['connectome_path'],
+                    burst_id=runtime_data.burst_count,
+                    cortical_area=cortical_area_,
+                    neuron_count=cortical_neuron_count)
 
-            else:
-                try:
-                    runtime_data.activity_stats[cortical_area_] = len(runtime_data.fire_candidate_list[cortical_area_])
-                except KeyError:
-                    print("Error: Cortical Area not found:", cortical_area_)
+            if runtime_data.parameters["Switches"]["global_logger"] and \
+                    runtime_data.parameters["Logs"]["print_cortical_activity_counters"]:
+                if cortical_neuron_count > 0:
+                    print(settings.Bcolors.RED + '    %s : %i  '
+                          % (cortical_area_, cortical_neuron_count)
+                          + settings.Bcolors.ENDC)
+                elif runtime_data.parameters["Logs"]["print_cortical_activity_counters_all"]:
+                    print(settings.Bcolors.YELLOW + '    %s : %i  '
+                          % (cortical_area_, cortical_neuron_count)
+                          + settings.Bcolors.ENDC)
 
     def training_quality_test():
         upstream_general_stats_ = list_upstream_neuron_count_for_digits()
@@ -411,10 +407,10 @@ def burst_manager():
             if ipu_data:
                 # todo: ipu controller has to be instantiated only once
                 ipu_controller = runtime_data.ipu.Controller()
-
+                print("FEAGI received message from router as:", ipu_data)
                 ipu_controller.ipu_handler(ipu_data)
-                if runtime_data.parameters["Logs"]["print_burst_info"]:
-                    print("FEAGI received message from router as:", ipu_data)
+
+
         else:
             print("++----Router address is None----++")
 
