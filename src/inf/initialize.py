@@ -273,12 +273,6 @@ def init_resources():
         print("Max thread count was set to ", runtime_data.parameters['System']['max_core'])
 
 
-def init_fake_stimulation():
-    if runtime_data.parameters['Switches']['fake_stimulation_flag']:
-        import inf.fake_stimulation as fake_stimulation
-        runtime_data.stimulation_data = fake_stimulation.stimulation_data
-
-
 def initialize():
     runtime_data.last_alertness_trigger = datetime.now()
     run_id_gen()
@@ -291,7 +285,6 @@ def initialize():
     detect_hardware()
     init_genome_post_processes()
     init_resources()
-    init_fake_stimulation()
     generate_plasticity_dict()
     runtime_data.fcl_queue = Queue()
 
@@ -340,20 +333,29 @@ def exit_burst_process():
 def init_io_channels():
     # Initialize ZMQ connections
     try:
-        opu_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['opu_port']
-        print("OPU socket is:", opu_socket)
-        runtime_data.opu_pub = Pub(opu_socket)
-        print("OPU channel as been successfully established at ",
-              runtime_data.parameters['Sockets']['opu_port'])
+        # opu_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_outbound_port']
+        # print("OPU socket is:", opu_socket)
+        # runtime_data.opu_pub = Pub(opu_socket)
+        # print("OPU channel as been successfully established at ",
+        #       runtime_data.parameters['Sockets']['feagi_outbound_port'])
 
-        # if runtime_data.parameters['Switches']['zmq_activity_publisher']:
+        if runtime_data.parameters['Switches']['zmq_activity_publisher']:
+            runtime_data.brain_activity_pub = True
         #     brain_activities_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['brain_activities_pub']
         #     print("Brain activity publisher socket is:", brain_activities_socket)
         #     runtime_data.brain_activity_pub = PubBrainActivities(brain_activities_socket)
 
-        runtime_data.router_address = 'tcp://' + runtime_data.parameters['Sockets']['sensory_router_ip'] + ':' + \
-                                      runtime_data.parameters['Sockets']['sensory_router_port']
-        print("Router address is set to:", runtime_data.router_address)
+        if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
+            runtime_data.router_address_godot = 'tcp://0.0.0.0' + ':' + runtime_data.parameters['Sockets'][
+                'feagi_inbound_port_godot']
+        if runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']:
+            runtime_data.router_address_gazebo = 'tcp://0.0.0.0' + ':' + runtime_data.parameters['Sockets'][
+                'feagi_inbound_port_gazebo']
+        if runtime_data.parameters['Sockets']['feagi_inbound_port_virtual']:
+            runtime_data.router_address_virtual = 'tcp://0.0.0.0' + ':' + runtime_data.parameters['Sockets'][
+                'feagi_inbound_port_virtual']
+
+        print("Router addresses has been set")
     except KeyError as e:
         print('ERROR: OPU socket is not properly defined as part of feagi_configuration.ini\n', e)
 

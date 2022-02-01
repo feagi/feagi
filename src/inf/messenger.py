@@ -36,6 +36,7 @@ from inf.runtime_data import parameters
 
 class Pub:
     def __init__(self, address):
+        self.address = address
         context = zmq.Context()
         self.socket = context.socket(zmq.PUB)
         # self.socket.setsockopt(zmq.SNDHWM, 0)
@@ -43,7 +44,7 @@ class Pub:
 
     def send(self, message):
         self.socket.send_pyobj(message)
-        print("Message sent to device is:", message)
+        print("FEAGI published a message:", message, "on ", self.address)
 
 
 # class PubBrainActivities:
@@ -99,3 +100,14 @@ class Sub:
                 pass
             else:
                 print(e)
+
+
+if __name__ == '__main__':
+    import time
+
+    pub = Pub("tcp://0.0.0.0:30000")
+
+    while True:
+
+        pub.send(message='ABC')
+        time.sleep(1)

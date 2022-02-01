@@ -1,34 +1,15 @@
-# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
-import time
 
 from router import *
 from configuration import *
-from configuration import message_to_feagi
 from static_genome import genome
-from multiprocessing import Process
 
 import sys
 import socket
 import zmq
 import csv
 
-
-host = "feagi"
+host = "127.0.0.1"
 port = "30003"
-
 
 
 # def feagi_initalize():
@@ -151,7 +132,8 @@ def godot_data(input):
     data[3] = data[3].replace(")", "")
     return data
 
-def godot_selected_list(outside_list, godot_list):
+def godot_selected_list(outside_list, godot_list): ##This one will get raw forward from feagi so is this right
+
     name = outside_list[0]
     x = int(outside_list[1])
     y = int(outside_list[2])
@@ -162,24 +144,26 @@ def godot_selected_list(outside_list, godot_list):
     else:
         list_to_dict = dict()
         #print(type(list_to_dict))
-        list_to_dict["stimulation"] = dict()
+
+        list_to_dict["data"] = dict()
+        list_to_dict["data"]["direct_stimulation"] = dict()
         #print("newbie")
     #print("middle", list_to_dict)
 
-    if list_to_dict["stimulation"].get(name) is not None:
+    if list_to_dict["data"]["direct_stimulation"].get(name) is not None:
         pass
         #print("true")
     else:
         #print("added ", name)
-        list_to_dict["stimulation"][name] = list()
-    for key in list_to_dict["stimulation"]:
+        list_to_dict["data"]["direct_stimulation"][name] = list()
+    for key in list_to_dict["data"]["direct_stimulation"]:
         #print(key)
-        if key not in list_to_dict["stimulation"]:
-            list_to_dict["stimulation"][name] = list()
-            list_to_dict["stimulation"][name].append([x,y,z])
+        if key not in list_to_dict["data"]["direct_stimulation"]:
+            list_to_dict["data"]["direct_stimulation"][name] = list()
+            list_to_dict["data"]["direct_stimulation"][name].append([x,y,z])
             #print("first time")
         else:
-            list_to_dict["stimulation"][name].append([x,y,z])
+            list_to_dict["data"]["direct_stimulation"][name].append([x,y,z])
            # print("second or more time")
     #print("Selected: ", list_to_dict)
 
@@ -203,14 +187,43 @@ def feagi_breakdown(data):
         new_list.append(xyz)
     return new_list
 
+def convert_absolute_to_relative_coordinate(dict_input, dna_information):
+    """
+    Convert absolute coordinate from godot to relative coordinate for FEAGI. Dna_information is from the
+    genome["blueprint"].
+    """
+    absolute_dict = dict_input
+    print(absolute_dict)
+    relative_coordinate = {}
+    relative_coordinate["data"] = dict()
+    relative_coordinate["data"]["direct_stimulation"] = dict()
+    if absolute_dict:
+        for key in absolute_dict["data"]["direct_stimulation"]:
+            for name_match in dna_information:
+                if name_match == key:
+                    if relative_coordinate["data"]["direct_stimulation"].get(name_match) is not None:
+                        pass
+                    else:
+                        relative_coordinate["data"]["direct_stimulation"][name_match] = list()
+                    for xyz in absolute_dict["data"]["direct_stimulation"][name_match]:
+                        new_xyz =[xyz[0] - dna_information[name_match][2], xyz[1] - dna_information[name_match][3], xyz[2] - dna_information[name_match][4]]
+                        relative_coordinate["data"]["direct_stimulation"][name_match].append(new_xyz)
+                    #absolute_dict["data"]["direct_stimulation"][name_match][0] - dna_information[name_match][5]
+
+            else:
+                pass
+    else:
+        pass
+    return relative_coordinate
+
 Godot_list = {}
-print("GOdot_list = " , Godot_list)
+print("Godot_list = ", Godot_list)
 #UDP("{'godot': {(59, 5, 0, 3), (59, 5, 0, 9), (59, 5, 0, 2), (59, 5, 0, 5), (59, 5, 0, 8), (59, 5, 0, 4)}}")
 
-one_frame = genome_2_cortical_list(genome['blueprint'])
+genome_data = genome_2_cortical_list(genome['blueprint'])
 #print("one_frame: ", one_frame)
-CSV_writer(one_frame)
-address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_port']
+CSV_writer(genome_data)
+address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_outbound_port']
 feagi_state = find_feagi(address=address) ##I was trying to leverage on router only
 print("feagi_state: " , feagi_state)
 print("** **", feagi_state)
@@ -218,8 +231,8 @@ sockets = feagi_state['sockets']
 router_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
 
 print("--->> >> >> ", sockets)
-FEAGI_pub = Pub(address='tcp://0.0.0.0:' + router_settings['ipu_port'])
-opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['opu_port']
+FEAGI_pub = Pub(address='tcp://0.0.0.0:' + router_settings['feagi_inbound_port_godot'])
+opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
 FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 UDP(str("0,0,0"))
 
@@ -244,12 +257,13 @@ while True:
     ##This stops all processing and force to wait for the return data from FEAGI
     #data = "None"
     data = godot_listener()
-    #print("bwukkkk", data)
     if data != "None":
         if data == "ready":
-            FEAGI_pub.send(Godot_list)
+            converted_data = convert_absolute_to_relative_coordinate(Godot_list, genome_data)
+            FEAGI_pub.send(converted_data)
         elif data == "refresh":
             Godot_list = {}
+            converted_data = {}
             FEAGI_pub.send(Godot_list)
         else:
             data = godot_data(data)

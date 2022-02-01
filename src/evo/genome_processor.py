@@ -175,7 +175,7 @@ def genome_2_1_convertor(flat_genome):
                         pass
                 except KeyError as e:
                     print("Error while converting a gene:", e, cortical_area, gene)
-
+    print(genome)
     return genome
 
 
@@ -275,12 +275,12 @@ genome_2_to_1 = {
     "nx-leak_c-f": "leak_coefficient",
     "nx-c_fr_c-i": "consecutive_fire_cnt_max",
     "nx-snooze-f": "snooze_length",
-    "nx-geo_x0-f": "geometric_boundaries",
-    "nx-geo_x1-f": "geometric_boundaries",
-    "nx-geo_y0-f": "geometric_boundaries",
-    "nx-geo_y1-f": "geometric_boundaries",
-    "nx-geo_z0-f": "geometric_boundaries",
-    "nx-geo_z1-f": "geometric_boundaries",
+    "nx-geo_x0-i": "geometric_boundaries",
+    "nx-geo_x1-i": "geometric_boundaries",
+    "nx-geo_y0-i": "geometric_boundaries",
+    "nx-geo_y1-i": "geometric_boundaries",
+    "nx-geo_z0-i": "geometric_boundaries",
+    "nx-geo_z1-i": "geometric_boundaries",
     "cx-_group-t": "group_id",
     "cx-dstmap-d": "cortical_mapping_dst"
 

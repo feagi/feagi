@@ -1,13 +1,14 @@
-[gd_scene load_steps=18 format=2]
+[gd_scene load_steps=19 format=2]
 
-[ext_resource path="res://Cortical_area.gd" type="Script" id=2]
-[ext_resource path="res://Cortical_area_box.meshlib" type="MeshLibrary" id=3]
+[ext_resource path="res://voxel.meshlib" type="MeshLibrary" id=1]
+[ext_resource path="res://camera.gd" type="Script" id=2]
+[ext_resource path="res://feagi.gd" type="Script" id=3]
 [ext_resource path="res://Viewport.gd" type="Script" id=4]
-[ext_resource path="res://feagi.gd" type="Script" id=5]
-[ext_resource path="res://voxel.meshlib" type="MeshLibrary" id=6]
-[ext_resource path="res://Glegoo-Bold.ttf" type="DynamicFontData" id=7]
-[ext_resource path="res://cortical_area.material" type="Material" id=8]
-[ext_resource path="res://camera.gd" type="Script" id=9]
+[ext_resource path="res://Cortical_area_box.meshlib" type="MeshLibrary" id=5]
+[ext_resource path="res://Glegoo-Bold.ttf" type="DynamicFontData" id=6]
+[ext_resource path="res://Click.gd" type="Script" id=7]
+[ext_resource path="res://Cortical_area.gd" type="Script" id=9]
+[ext_resource path="res://cortical_area.material" type="Material" id=11]
 
 [sub_resource type="ViewportTexture" id=1]
 viewport_path = NodePath("Sprite3D/Viewport")
@@ -17,7 +18,7 @@ viewport_path = NodePath("Sprite3D/Viewport")
 [sub_resource type="DynamicFont" id=3]
 size = 17
 use_filter = true
-font_data = ExtResource( 7 )
+font_data = ExtResource( 6 )
 
 [sub_resource type="SpatialMaterial" id=4]
 flags_transparent = true
@@ -40,7 +41,7 @@ extents = Vector3( 0.5, 0.5, 0.5 )
 [sub_resource type="BoxShape" id=16]
 
 [node name="World" type="Spatial"]
-script = ExtResource( 5 )
+script = ExtResource( 3 )
 
 [node name="Sprite3D" type="Sprite3D" parent="."]
 transform = Transform( 0.001, 0, 0, 0, 0.001, 0, 0, 0, 0.001, 0, 0, 0 )
@@ -76,7 +77,7 @@ valign = 3
 max_lines_visible = 0
 
 [node name="GridMap" type="GridMap" parent="."]
-mesh_library = ExtResource( 6 )
+mesh_library = ExtResource( 1 )
 cell_size = Vector3( 1, 1, 1 )
 cell_octant_size = 1
 cell_center_x = false
@@ -91,7 +92,7 @@ __meta__ = {
 }
 
 [node name="GridMap3" type="GridMap" parent="."]
-mesh_library = ExtResource( 6 )
+mesh_library = ExtResource( 1 )
 cell_size = Vector3( 1, 1, 1 )
 data = {
 "cells": PoolIntArray( 0, 0, 0 )
@@ -102,11 +103,12 @@ __meta__ = {
 
 [node name="GridMap2" type="GridMap" parent="."]
 transform = Transform( 0.99991, 0, -0.0134212, 0, 1, 0, 0.0134212, 0, 0.99991, 0, 0, 0 )
-mesh_library = ExtResource( 3 )
+mesh_library = ExtResource( 5 )
 cell_size = Vector3( 1, 1, 1 )
 data = {
 "cells": PoolIntArray( 65535, 65534, 0 )
 }
+script = ExtResource( 7 )
 __meta__ = {
 "_editor_clip_": 0,
 "_editor_floor_": Vector3( 0, 0, 0 )
@@ -125,7 +127,7 @@ shape = SubResource( 8 )
 
 [node name="Spatial" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 0.973179, -0.23005, 0, 0.23005, 0.973179, 47, 26.323, 25.711 )
-script = ExtResource( 9 )
+script = ExtResource( 2 )
 
 [node name="Camera" type="Camera" parent="Spatial"]
 transform = Transform( 1, 0, 0, 0, -0.24326, 0.969961, 0, -0.969961, -0.24326, 0, 0, 0 )
@@ -137,8 +139,8 @@ cast_shadow = 0
 width = 1.0
 height = 1.0
 depth = 1.0
-material = ExtResource( 8 )
-script = ExtResource( 2 )
+material = ExtResource( 11 )
+script = ExtResource( 9 )
 
 [node name="Area" type="Area" parent="Cortical_area"]
 

@@ -43,8 +43,6 @@ if __name__ == '__main__':
     from npu import burst_engine
     from inf import runtime_data
     from edu import edu_controller
-    from ipu import ipu_controller
-    from opu import opu_controller
 
     logging_config_file = './logging_config.json'
 
@@ -78,9 +76,6 @@ if __name__ == '__main__':
         # Process of artificial neuroembryogenesis that leads to connectome development
         neuroembryogenesis.develop_brain(reincarnation_mode=
                                          runtime_data.parameters['Brain_Development']['reincarnation_mode'])
-        # Initialize Input/Output Processing Units
-        ipu_controller.initialize()
-        opu_controller.initialize()
 
         # Staring the burst_manager engine
         burst_engine.burst_manager()
