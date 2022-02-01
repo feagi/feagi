@@ -1,20 +1,15 @@
-import time
 
 from router import *
 from configuration import *
-from configuration import message_to_feagi
 from static_genome import genome
-from multiprocessing import Process
 
 import sys
 import socket
 import zmq
 import csv
 
-
 host = "127.0.0.1"
 port = "30003"
-
 
 
 # def feagi_initalize():

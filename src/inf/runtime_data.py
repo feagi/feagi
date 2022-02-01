@@ -70,7 +70,7 @@ controller_config = None
 burst_publisher = None
 ipu = None
 opu = None
-
+burst_activities = {}
 
 # rules = ""
 brain_is_running = False
