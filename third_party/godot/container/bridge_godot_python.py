@@ -204,8 +204,8 @@ sockets = feagi_state['sockets']
 router_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
 
 print("--->> >> >> ", sockets)
-FEAGI_pub = Pub(address='tcp://0.0.0.0:' + router_settings['ipu_port'])
-opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['opu_port']
+FEAGI_pub = Pub(address='tcp://0.0.0.0:' + router_settings['feagi_inbound_port'])
+opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
 FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 UDP(str("0,0,0"))
 
