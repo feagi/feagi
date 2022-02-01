@@ -41,20 +41,24 @@ def build_message_to_feagi():
     expected ipu_data structure:
 
         ipu_data = {
-            sensor_type: {
-                sensor_name: sensor_data,
-                sensor_name: sensor_data,
-                ...
-                },
-            sensor_type: {
-                sensor_name: sensor_data,
-                sensor_name: sensor_data,
-                ...
-                },
-            ...
+            "capabilities": {},
+            "network": {},
+            "data": {
+                "direct_stimulation": {
+                    "cortical_area_id": {voxel},
+                    "cortical_area_id": sensor_data,
+                    "cortical_area_id": sensor_data
+                    ...
+                    },
+                "sensory_data": {
+                    "sensor type": sensor data,
+                    "sensor type": sensor data,
+                    "sensor type": sensor data,
+                    ...
+                }
             }
-        }
     """
+
     stimulator = FakeStimulator()
     # Process IPU data received from controller.py and pass it along to FEAGI
     # todo: move class instantiations to outside function
@@ -64,10 +68,14 @@ def build_message_to_feagi():
     # ir_count = 3
 
     message = dict()
+    message["controller_burst_id"] = runtime_params["current_burst_id"]
+    message['data'] = dict()
+    message['data']["direct_stimulation"] = dict()
+    message['data']["sensory_data"] = dict()
+    message['data']["direct_stimulation"] = stimulator.stimulate(runtime_params["current_burst_id"])
     if runtime_params["current_burst_id"] % 10 == 0:
         message["capabilities"] = configuration.capabilities
         message["network"] = configuration.network_settings
-    message['stimuli'] = stimulator.stimulate(runtime_params["current_burst_id"])
 
     # ipu_data['ultrasonic'] = {
     #     1: [randrange(0, 30) / 10, randrange(0, 30) / 10, randrange(0, 30) / 10, randrange(0, 30) / 10,
@@ -137,6 +145,8 @@ def main():
         sleep(runtime_params['global_timer'])
         if opu_data:
             runtime_params["current_burst_id"] = opu_data['burst_counter']
+            if opu_data['burst_counter'] == 5:
+                print("5!!!!")
 
 
 if __name__ == '__main__':
