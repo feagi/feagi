@@ -345,8 +345,17 @@ def init_io_channels():
         #     print("Brain activity publisher socket is:", brain_activities_socket)
         #     runtime_data.brain_activity_pub = PubBrainActivities(brain_activities_socket)
 
-        runtime_data.router_address = 'tcp://0.0.0.0' + ':' + runtime_data.parameters['Sockets']['feagi_inbound_port']
-        print("Router address is set to:", runtime_data.router_address)
+        if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
+            runtime_data.router_address_godot = 'tcp://0.0.0.0' + ':' + runtime_data.parameters['Sockets'][
+                'feagi_inbound_port_godot']
+        if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
+            runtime_data.router_address_gazebo = 'tcp://0.0.0.0' + ':' + runtime_data.parameters['Sockets'][
+                'feagi_inbound_port_gazebo']
+        if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
+            runtime_data.router_address_virtual = 'tcp://0.0.0.0' + ':' + runtime_data.parameters['Sockets'][
+                'feagi_inbound_port_virtual']
+
+        print("Router addresses has been set")
     except KeyError as e:
         print('ERROR: OPU socket is not properly defined as part of feagi_configuration.ini\n', e)
 
