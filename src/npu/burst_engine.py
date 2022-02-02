@@ -433,7 +433,6 @@ def burst_manager():
                 print("FEAGI received message from router as:", virtual_data)
                 ipu_controller.ipu_handler(virtual_data)
 
-
         # Broadcasts a TCP message on each burst
         if runtime_data.brain_activity_pub:
             # todo: Obtain the frequency from controller config
