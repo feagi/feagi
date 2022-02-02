@@ -345,6 +345,7 @@ def init_io_channels():
         #     print("Brain activity publisher socket is:", brain_activities_socket)
         #     runtime_data.brain_activity_pub = PubBrainActivities(brain_activities_socket)
 
+        # todo: Need to change the 0.0.0.0 to dynamic address coming from the target
         if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
             runtime_data.router_address_godot = 'tcp://0.0.0.0' + ':' + runtime_data.parameters['Sockets'][
                 'feagi_inbound_port_godot']
