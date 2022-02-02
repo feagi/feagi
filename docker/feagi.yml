@@ -25,7 +25,7 @@ services:
       - net
       
   ros_gazebo:
-    image: neuraville/feagi-smart-car
+    image: ../third_party/gazebo/smart_car/freenove_4wd_car_description
     deploy:
       resources:
         limits:
