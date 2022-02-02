@@ -27,7 +27,7 @@ else:
     import termios
     import tty
 
-address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_port']
+address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_outbound_port']
 feagi_state = find_feagi(address=address)
 
 print("** **", feagi_state)
