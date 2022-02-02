@@ -37,9 +37,9 @@ router_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
 print("--->> >> >> ", sockets)
 
 # todo: to obtain this info directly from FEAGI as part of registration
-ipu_channel_address = 'tcp://0.0.0.0:' + router_settings['ipu_port']
+ipu_channel_address = 'tcp://0.0.0.0:' + router_settings['feagi_inbound_port']
 print("IPU_channel_address=", ipu_channel_address)
-opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['opu_port']
+opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
 
 feagi_ipu_channel = Pub(address=ipu_channel_address)
 feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
