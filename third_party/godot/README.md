@@ -13,7 +13,7 @@ This tool enables users to visualize neuronal activity produced in the cortical 
 
 &nbsp;
 # **Artificial brain cortical activity**
-Artificial brain cortical areas are represented in Godot in accordance with the dimensions specified in `feagi-core/src/evo/static_genome.py` for each defined area and are comprised of voxels (i.e. blocks), which can be populated with neurons capable of forming synapses. In the Godot environment, red voxels indicate intrinsic neuronal activity. As cortical activity is generated and propagates in the artificial brain, data describing the general dimensions of the area and locations of voxels with active (i.e. firing) neurons are transmitted to Godot for visualization. Cortical areas must have visualization enabled (see [Enable cortical areas for visualization in Godot environment](#enable-cortical-areas-for-visualization-in-godot-environment)) to appear in the Godot environment.
+Artificial brain cortical areas are represented in Godot in accordance with the dimensions specified in `feagi/src/evo/static_genome.py` for each defined area and are comprised of voxels (i.e. blocks), which can be populated with neurons capable of forming synapses. In the Godot environment, red voxels indicate intrinsic neuronal activity. As cortical activity is generated and propagates in the artificial brain, data describing the general dimensions of the area and locations of voxels with active (i.e. firing) neurons are transmitted to Godot for visualization. Cortical areas must have visualization enabled (see [Enable cortical areas for visualization in Godot environment](#enable-cortical-areas-for-visualization-in-godot-environment)) to appear in the Godot environment.
 
 ![plane copy](_static/coordination_on_godot.png)
 
@@ -30,7 +30,7 @@ In these examples, voxels in the cortical areas (`ir_ipu` and `proximity_ipu`, r
 To launch a containerized version of the Godot visualization tool, perform the following steps:
 
 ```
-1. Navigate to feagi-core/docker/
+1. Navigate to feagi/docker/
 2. docker-compose -f feagi.yml build --no-cache
 3. docker-compose -f feagi.yml up
 4. Navigate to http://127.0.0.1:6080/ in a browser
@@ -40,7 +40,7 @@ Browser output should resemble the following image:
 
 To run the tool locally:
 ```
-1. Navigate to feagi-core/third_party/godot/local_machine/
+1. Navigate to feagi/third_party/godot/local_machine/
 2. ./FEAGI_initalize.sh
 ```
 
@@ -77,7 +77,7 @@ Ensure `"visualization"` is set to `True`. Relative coordinates determine the po
 
 To change the relative coordinates:
 ```
-1. Navigate to feagi-core/src/evo/static_genome.py
+1. Navigate to feagi/src/evo/static_genome.py
 2. Search for "relative_coordinate".
 3. Change the values of x,y,z under the "relative_coordinate" key
 4. Save and launch FEAGI.
@@ -93,7 +93,7 @@ To change the relative coordinates:
 To change a cortical area's width, depth and height: 
 
 ```
-1. Navigate to feagi-core/src/evo/static_genome.py
+1. Navigate to feagi/src/evo/static_genome.py
 2. Search for "block_boundaries" under the target cortical area
 3. Change the W,D,H values as needed (see image below)
 ```

@@ -8,12 +8,12 @@ Users have the option to deploy FEAGI via a Docker container, thereby automating
 Ensure that Docker and docker-compose are installed on your machine by opening a terminal application and entering: `$ docker --version` and `$ docker-compose --version`. If the outputs of running these commands are **not** _similar_ to `________ version _._._, build _______`, you may need to install Docker and docker-compose. Visit https://www.docker.com/get-started for more information.
 
 **If Docker and docker-compose are installed**:    
-To build a standalone FEAGI image and start the container, navigate to `~/feagi-core/docker` via the terminal and run:
+To build a standalone FEAGI image and start the container, navigate to `~/feagi/docker` via the terminal and run:
 * `docker build -f Dockerfile . -t <image_name>`    
 (where `-t <image_name>` is an optional way to give the image a user-defined name - if this is not specified, Docker will give the resulting image a random name that must be used when running the container in the next step).
 * `docker run -it <image_name>`
 
-To build a FEAGI image for use with other service images (ROS2, Ignition Gazebo, Grafana, InfluxDB) using `docker-compose`, navigate to `~/feagi-core/docker` and run:
+To build a FEAGI image for use with other service images (ROS2, Ignition Gazebo, Grafana, InfluxDB) using `docker-compose`, navigate to `~/feagi/docker` and run:
 * `$ docker-compose -f feagi.yml build`   
 * `$ docker-compose -f feagi.yml up`
 
@@ -24,7 +24,7 @@ Access the accompanying Grafana, ROS/Gazebo and Godot GUIs by opening a web brow
 Ensure Python 3 (3.7+) is installed: [Download Python 3](https://www.python.org/downloads/)
 
 Assuming `git` is [installed](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git), clone the FEAGI repository by opening a terminal and running:
-* `git clone https://github.com/feagi/feagi-core.git`
+* `git clone https://github.com/feagi/feagi.git`
 * **NOTE:** If using Windows, prior to cloning the FEAGI repository, run the following command to ensure proper conversion of file line-endings when committing:
   * `git config --global core.autocrlf input`
 
@@ -46,14 +46,14 @@ To create a virtual environment in either Ubuntu or macOS (assuming Python 3 and
 To activate the newly-created virtual environment, run (if successful, environment name should appear in parentheses next to terminal command prompt): 
 * `$ source ./<environment_name>/bin/activate`
 
-Install the FEAGI Python dependencies in the active virtual environment (assuming the working directory is `~/feagi-core/`): 
+Install the FEAGI Python dependencies in the active virtual environment (assuming the working directory is `~/feagi/`): 
 * `$ pip3 install -r requirements.txt`
 </details>
 
 <details>
   <summary>Windows</summary>
 
-To create a virtual environment in Windows (assuming `virtualenv` is installed), open a terminal, navigate to `~\feagi-core\` and run (`environment_name` is the desired environment name):    
+To create a virtual environment in Windows (assuming `virtualenv` is installed), open a terminal, navigate to `~\feagi\` and run (`environment_name` is the desired environment name):    
 
 * `$ virtualenv environment_name`
 
@@ -66,7 +66,7 @@ Install the Python dependencies:
 
 &nbsp;
 ## **Cythonize Code**
-  The directory `/feagi-core/src/cython_lib` contains a Python function (`neuron_functions_cy.pyx`) for updating postsynaptic neuron membrane potential, which is used extensively throughout FEAGI artificial brain creation and learning. Heavy usage of this function requires performance specifications that exceed those of Python in order for FEAGI to run efficiently. This Python code must be compiled into C-like code (i.e. Cythonized) to achieve the necessary performance optimization. To Cythonize the code, run (assuming the working directory is `~/feagi-core/src/cython_lib`): 
+  The directory `/feagi/src/cython_lib` contains a Python function (`neuron_functions_cy.pyx`) for updating postsynaptic neuron membrane potential, which is used extensively throughout FEAGI artificial brain creation and learning. Heavy usage of this function requires performance specifications that exceed those of Python in order for FEAGI to run efficiently. This Python code must be compiled into C-like code (i.e. Cythonized) to achieve the necessary performance optimization. To Cythonize the code, run (assuming the working directory is `~/feagi/src/cython_lib`): 
   * `$ python3 cython_setup.py build_ext --inplace`
 
 &nbsp;
@@ -160,5 +160,5 @@ Visit https://portal.influxdata.com/downloads/ and select `Windows Binaries (64-
 
 &nbsp;
 ## **Run FEAGI**
-To start FEAGI, open a terminal, ensure the virtual environment where dependencies were installed is active and run (assuming the working directory is `~/feagi-core/src/`): 
+To start FEAGI, open a terminal, ensure the virtual environment where dependencies were installed is active and run (assuming the working directory is `~/feagi/src/`): 
 * `$ python3 main.py`

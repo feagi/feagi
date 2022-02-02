@@ -570,7 +570,7 @@ To control using Python, run the following commands in a new terminal:
 <details>
   <summary>Click here to see detailed steps</summary>
 
-1. Navigate to `/feagi-core/docker/`
+1. Navigate to `/feagi/docker/`
 2. `docker-compose -f feagi.yml build --no-cache`
 3. `docker-compose -f feagi.yml up`
 4. [Open this link](http://127.0.0.1:6080/) to connect to the container using VNC
@@ -628,7 +628,7 @@ The following diagram illustrates how the services are connected:
 3. [Ign topics](https://ignitionrobotics.org/docs/citadel/moving_robot)
 
 ## FEAGI
-1. [More information about FEAGI](https://github.com/feagi/feagi-core)
+1. [More information about FEAGI](https://github.com/feagi/feagi)
 
 </details>
 
@@ -644,7 +644,7 @@ The following diagram illustrates how the services are connected:
 **Problem #2**: I don't want to use a container. How do I run FEAGI with the Freenove smart car model on my local machine?
 
 **Solution #2**: 
-1. Navigate to `feagi-core/src/`.
+1. Navigate to `feagi/src/`.
 2. Open `feagi_configuration.ini`.
 3. Change the line below:
     ```
@@ -656,7 +656,7 @@ The following diagram illustrates how the services are connected:
     ```
 4. Save the change.
 
-5. Navigate to `feagi-core/third_party/gazebo/smart_car/freenove_4wd_car_description/src/`
+5. Navigate to `feagi/third_party/gazebo/smart_car/freenove_4wd_car_description/src/`
 6. Open `configuration.py`.
 7. Replace
     ```

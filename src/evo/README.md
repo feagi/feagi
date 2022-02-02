@@ -34,7 +34,7 @@ Cortical areas in the genome have dimensions for accommodating the proliferation
 
 ## **Troubleshooting issues**
 
-After adding the desired data to the genome file, users should confirm that FEAGI is able to create the new cortical area(s). Navigate to the `src/` directory in `feagi-core/` and run `python3 main.py` to begin FEAGI execution. During FEAGI initialization, a list of cortical areas loaded from the genome are displayed in the terminal output. Ensure that the newly-added cortical areas are present in this list.    
+After adding the desired data to the genome file, users should confirm that FEAGI is able to create the new cortical area(s). Navigate to the `src/` directory in `feagi/` and run `python3 main.py` to begin FEAGI execution. During FEAGI initialization, a list of cortical areas loaded from the genome are displayed in the terminal output. Ensure that the newly-added cortical areas are present in this list.    
 
 If newly-created cortical areas are not present in the output of FEAGI initialization or users encounter other runtime errors following genome modification, consider the following:    
 

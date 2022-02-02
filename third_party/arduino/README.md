@@ -55,7 +55,7 @@ More information is in the section, "More detail information" in the bottom of t
 # Ardiuno/python to ROS2
 
 First time only:
-1. navigate to ~/feagi-core/src/ros/
+1. navigate to ~/feagi/src/ros/
 2. ./ws_setup.sh
 3. Source ~/ros_ws/install/setup.bash
 4. Be sure to have the setup.py match with this section:
@@ -138,7 +138,7 @@ No executable found response when running ros2 run py_topic sonar_sensor
 is setup.py configured properly in ~/ros_ws/src/py_topic/ ?
 
 Alternate option: 
-cp ~/feagi-core/src/ros/setup.py ~/ros2_ws/src/py_topic/
+cp ~/feagi/src/ros/setup.py ~/ros2_ws/src/py_topic/
 
 ### Problem #8:
 Traceback (most recent call last):
