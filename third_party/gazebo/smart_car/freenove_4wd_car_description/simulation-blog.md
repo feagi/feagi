@@ -180,7 +180,7 @@ I'm a huge advocate on using the newest and latest software where we can continu
 
 FEAGI is actually designed to adapt with any hardware including Raspberry Pi, Arduino, and Gazebo. FEAGI is an artificial intelligence where it can be used on any robot and hardware. ROS2 plays a big role where it allows FEAGI to improve themselves using the hardware as their body. They are created to be affordable for companies or personal households. This can be used on any type of machine as long as it can feed the data to FEAGI. 
 
- If you want to test it on your Arduino or Raspberry Pi, it's located in `feagi-core/third_party/arduino/`
+ If you want to test it on your Arduino or Raspberry Pi, it's located in `feagi/third_party/arduino/`
 
  ## FEAGI troubleshooting tools
  

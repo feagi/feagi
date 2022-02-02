@@ -31,7 +31,7 @@ Work in process
 ## Work with local only
 
 ## Test with FEAGI
-1. Follow the document from [this](https://github.com/feagi/feagi-core/blob/develop/DEPLOY.md)
+1. Follow the document from [this](https://github.com/feagi/feagi/blob/develop/DEPLOY.md)
 2. Once you have FEAGI running, open the new terminal and follow one of two sections below:
 
 ## Py2ardiuno on FEAGI

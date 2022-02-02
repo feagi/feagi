@@ -70,7 +70,7 @@ services:
       influxdb:
         condition: service_healthy
     volumes:
-      - ../src/evo/static_genome.py:/opt/source-code/feagi-core/src/evo/static_genome.py
+      - ../src/evo/static_genome.py:/opt/source-code/feagi/src/evo/static_genome.py
     networks:
       - net
 

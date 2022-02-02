@@ -45,7 +45,7 @@ _______________
 
 
 ## Coding Standards
-FEAGI Python code contributions should adhere to the standards described in [PEP 8](https://www.python.org/dev/peps/pep-0008/). All Python code contributions should be documented in accordance with [PEP 257](https://www.python.org/dev/peps/pep-0257/) conventions. Static code analysis tools like [Pylint](https://pypi.org/project/pylint/) and [flake8](https://pypi.org/project/flake8/) provide configurable, automated solutions for checking and enforcing PEP compliance. The `feagi-core` [repository](https://github.com/feagi/feagi-core) continuous integration (CI) workflow uses Pylint to analyze Python code contributions. A CI workflow job will fail if Pylint code analysis results in a code quality score below a defined threshold.
+FEAGI Python code contributions should adhere to the standards described in [PEP 8](https://www.python.org/dev/peps/pep-0008/). All Python code contributions should be documented in accordance with [PEP 257](https://www.python.org/dev/peps/pep-0257/) conventions. Static code analysis tools like [Pylint](https://pypi.org/project/pylint/) and [flake8](https://pypi.org/project/flake8/) provide configurable, automated solutions for checking and enforcing PEP compliance. The `feagi` [repository](https://github.com/feagi/feagi) continuous integration (CI) workflow uses Pylint to analyze Python code contributions. A CI workflow job will fail if Pylint code analysis results in a code quality score below a defined threshold.
 
 
 ## Writing Documentation
