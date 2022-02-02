@@ -99,6 +99,7 @@ class IPU:
 
         def __init__(self):
             print("IPU controller initialized")
+            runtime_data.last_ipu_activity = datetime.now()
 
         def proximity_controller(self):
             while not runtime_data.exit_condition:
