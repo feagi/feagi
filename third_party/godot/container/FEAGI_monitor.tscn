@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=2]
+[gd_scene load_steps=18 format=2]
 
 [ext_resource path="res://voxel.meshlib" type="MeshLibrary" id=1]
 [ext_resource path="res://camera.gd" type="Script" id=2]
@@ -6,7 +6,6 @@
 [ext_resource path="res://Viewport.gd" type="Script" id=4]
 [ext_resource path="res://Cortical_area_box.meshlib" type="MeshLibrary" id=5]
 [ext_resource path="res://Glegoo-Bold.ttf" type="DynamicFontData" id=6]
-[ext_resource path="res://Click.gd" type="Script" id=7]
 [ext_resource path="res://Cortical_area.gd" type="Script" id=9]
 [ext_resource path="res://cortical_area.material" type="Material" id=11]
 
@@ -108,7 +107,6 @@ cell_size = Vector3( 1, 1, 1 )
 data = {
 "cells": PoolIntArray( 65535, 65534, 0 )
 }
-script = ExtResource( 7 )
 __meta__ = {
 "_editor_clip_": 0,
 "_editor_floor_": Vector3( 0, 0, 0 )
