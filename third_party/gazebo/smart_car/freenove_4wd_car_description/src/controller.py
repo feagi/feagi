@@ -28,7 +28,7 @@ else:
     import tty
 
 address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_outbound_port']
-feagi_state = find_feagi(address=address)
+feagi_state = handshake_with_feagi(address=address, capabilities=capabilities)
 
 print("** **", feagi_state)
 sockets = feagi_state['sockets']
@@ -145,13 +145,13 @@ class Motor:
         try:
             motor_position = std_msgs.msg.Float64()
 
-            if motor_index not in model_properties['motor']['motor_statuses']:
-                model_properties['motor']['motor_statuses'][motor_index] = 0
+            if motor_index not in capabilities['motor']['motor_statuses']:
+                capabilities['motor']['motor_statuses'][motor_index] = 0
 
-            motor_current_position = model_properties['motor']['motor_statuses'][motor_index]
+            motor_current_position = capabilities['motor']['motor_statuses'][motor_index]
             motor_position.data = float((speed * router_settings['feagi_burst_speed'] / 4 ) + motor_current_position)
 
-            model_properties['motor']['motor_statuses'][motor_index] = motor_position.data
+            capabilities['motor']['motor_statuses'][motor_index] = motor_position.data
             # print("Motor index, position, speed = ", motor_index, motor_position.data, speed)
             self.motor_node[motor_index].publish(motor_position)
         except Exception:
@@ -172,13 +172,13 @@ class Servo:
         try:
             servo_position = std_msgs.msg.Float64()
 
-            if servo_index not in model_properties['servo']:
-                model_properties['servo'][servo_index] = 0
+            if servo_index not in capabilities['servo']:
+                capabilities['servo'][servo_index] = 0
 
-            servo_current_position = model_properties['servo'][servo_index]
+            servo_current_position = capabilities['servo'][servo_index]
             servo_position.data = float((math.radians(angle) * router_settings['feagi_burst_speed']) + servo_current_position)
 
-            model_properties['servo'][servo_index] = servo_position.data
+            capabilities['servo'][servo_index] = servo_position.data
             # print("Motor index, position, speed = ", motor_index, motor_position.data, speed)
             self.servo_node[servo_index].publish(servo_position)
         except Exception:
@@ -271,9 +271,9 @@ def main(args=None):
 
     # todo: identify a method to instantiate all classes without doing it one by one
     # Instantiate controller classes with Publisher nature
-    motor = Motor(count=model_properties['motor']['count'], identifier=model_properties['motor']['topic_identifier'],
+    motor = Motor(count=capabilities['motor']['count'], identifier=capabilities['motor']['topic_identifier'],
                   model='freenove_motor')
-    servo = Servo(count=model_properties['servo']['count'], identifier=model_properties['servo']['topic_identifier'],
+    servo = Servo(count=capabilities['servo']['count'], identifier=capabilities['servo']['topic_identifier'],
                   model='freenove_servo')
 
     # Instantiate controller classes with Subscriber nature
@@ -286,8 +286,8 @@ def main(args=None):
     executor.add_node(battery_feed)
 
     ir_feeds = {}
-    ir_topic_id = model_properties['infrared']['topic_identifier']
-    for ir_node in range(model_properties['infrared']['count']):
+    ir_topic_id = capabilities['infrared']['topic_identifier']
+    for ir_node in range(capabilities['infrared']['count']):
         ir_feeds[ir_node] = IRSubscriber(f'infrared_{ir_node}',
                                         Image,
                                         f'{ir_topic_id}{ir_node}/image')

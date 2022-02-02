@@ -9,21 +9,36 @@ router_settings = {
     'feagi_burst_speed':  1
 }
 
-model_properties = {
-    'motor': {
-        'count': 4,
-        'topic_identifier': '/M',
-        'motor_statuses': {}
+capabilities = {
+    "servo": {
+        "type": "opu",
+        "disabled": True,
+        "refresh_rate": 1,
+        "cortical_mapping": "o__ser"
     },
-    'servo': {
-        'count': 2,
-        'topic_identifier': '/S'
+    "motor": {
+        "type": "opu",
+        "disabled": False,
+        "count": 4,
+        "refresh_rate": 1,
+        "cortical_mapping": "o__mot"
     },
-    'infrared': {
-        'count': 3,
-        'topic_identifier': 'IR'
+    "infrared": {
+        "type": "ipu",
+        "disabled": False,
+        "count": 4,
+        "refresh_rate": 1,
+        "cortical_mapping": "i__inf"
+    },
+    "battery": {
+        "type": "ipu",
+        "disabled": False,
+        "count": 4,
+        "refresh_rate": 1,
+        "cortical_mapping": "i__bat"
     }
 }
+
 
 message_to_feagi = {}
 
