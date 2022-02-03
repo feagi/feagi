@@ -346,6 +346,7 @@ def init_io_channels():
         #     runtime_data.brain_activity_pub = PubBrainActivities(brain_activities_socket)
 
         if running_in_container():
+            print(">>>  >>>> >>> >>>> >>> >> > >> > >> > > >   Brain is running in a container")
             if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
                 runtime_data.router_address_godot = runtime_data.parameters['Sockets']['godot_host_name'] + ':' + runtime_data.parameters['Sockets'][
                     'feagi_inbound_port_godot']
@@ -356,6 +357,7 @@ def init_io_channels():
                 runtime_data.router_address_virtual = runtime_data.parameters['Sockets']['virtual_host_name'] + ':' + runtime_data.parameters['Sockets'][
                     'feagi_inbound_port_virtual']
         else:
+            print(">>>  >>>> >>> >>>> >>> >> > >> > >> > > >   Brain is NOT running in a container  ******* ** * * *")
             if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
                 runtime_data.router_address_godot = "tcp://127.0.0.1" + ':' + runtime_data.parameters['Sockets'][
                     'feagi_inbound_port_godot']
