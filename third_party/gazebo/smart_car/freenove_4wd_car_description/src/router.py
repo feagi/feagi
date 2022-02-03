@@ -81,17 +81,3 @@ def handshake_with_feagi(address, capabilities):
     publisher.send(capabilities)
 
     return feagi_settings
-
-
-# def register_with_feagi():
-#     """
-#     Provides FEAGI the IP address for the ZMQ IPU channel that the sensory data
-#     """
-#     print("Registering router with FEAGI")
-#     publisher_ = Pub('tcp://0.0.0.0:11000')
-#
-#     # todo: need to send a set of capabilities to FEAGI
-#     publisher_.send(message={"A", "Hello!"})
-#
-#     print("Router registration has successfully completed!")
-
