@@ -302,7 +302,8 @@ def main(args=None):
     try:
         while True:
             # Process OPU data received from FEAGI and pass it along
-            opu_data = feagi_opu_channel.receive()
+            message_from_feagi = feagi_opu_channel.receive()
+            opu_data = message_from_feagi["opu_data"]
             # print("Received:", opu_data)
             if opu_data is not None:
                 if 'motor' in opu_data:

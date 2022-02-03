@@ -127,8 +127,7 @@ class OPU:
                 try:
                     # todo: Generalize the following section. using specifics for test only
                     if motor_data:
-                        message_to_router = {"motor": motor_data}
-                        runtime_data.burst_publisher.send(message=message_to_router)
+                        runtime_data.opu_data["motor"] = motor_data
                         if runtime_data.parameters["Logs"]["print_burst_info"]:
                             for motor_id in motor_data:
                                 print(f">>>>>>>>>>>>>>>>>>>>>>>> motor {motor_id} "
@@ -156,8 +155,7 @@ class OPU:
                 """
                 try:
                     # todo: Generalize the following section. using specifics for test only
-                    message_to_router = {"servo": servo_data}
-                    runtime_data.opu_pub.send(message=message_to_router)
+                    runtime_data.opu_data["servo"] = servo_data
                     if runtime_data.parameters["Logs"]["print_burst_info"]:
                         for servo_id in servo_data:
                             print(f">>>>>>>>>>>>>>>>>>>>>>>> {servo_id} "
