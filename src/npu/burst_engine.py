@@ -402,6 +402,7 @@ def burst_manager():
     def message_router():
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.router_address_gazebo is not None:
+            print("## #  #     #   Awaiting Gazebo data                                    ### # # # # # # # ")
             gazebo_data = gazebo_listener.receive()
             # Dynamically adjusting burst duration based on Controller needs
             runtime_data.burst_timer = burst_duration_calculator(gazebo_data)
@@ -542,7 +543,6 @@ def burst_manager():
                 consciousness_manager()
             except:
                 print("consciousness_manager encountered an error!!")
-
 
         if not runtime_data.controller_config and runtime_data.burst_publisher:
             controller_handshake()
