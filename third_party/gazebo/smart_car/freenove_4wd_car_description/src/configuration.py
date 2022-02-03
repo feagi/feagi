@@ -3,7 +3,7 @@
 network_settings = {
     "feagi_ip": "feagi",
     "feagi_outbound_port": "30000",
-    "feagi_inbound_port": "30002",
+    "feagi_inbound_port_gazebo": "30002",
     'TTL': 2,
     'last_message': 0,
     'feagi_burst_speed':  1,
