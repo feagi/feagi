@@ -37,7 +37,7 @@ network_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
 print("--->> >> >> ", sockets)
 
 # todo: to obtain this info directly from FEAGI as part of registration
-ipu_channel_address = 'tcp://0.0.0.0:' + network_settings['feagi_inbound_port']
+ipu_channel_address = 'tcp://0.0.0.0:' + network_settings['feagi_inbound_port_gazebo']
 print("IPU_channel_address=", ipu_channel_address)
 opu_channel_address = 'tcp://' + network_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
 
