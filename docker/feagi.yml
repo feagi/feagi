@@ -75,6 +75,7 @@ services:
       - ../src/pns/opu.py:/opt/source-code/feagi/src/pns/opu.py
       - ../src/npu/burst_engine.py:/opt/source-code/feagi/src/npu/burst_engine.py
       - ../src/inf/initialize.py:/opt/source-code/feagi/src/inf/initialize.py
+      - ../src/inf/runtime_data.py:/opt/source-code/feagi/src/inf/runtime_data.py
 #      - ../src/feagi_configuration.ini:/opt/source-code/feagi/src/feagi_configuration.ini
     networks:
       - net
