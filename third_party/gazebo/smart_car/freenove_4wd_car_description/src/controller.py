@@ -311,6 +311,7 @@ def main(args=None):
                 elif 'servo' in opu_data:
                     for servo_id in opu_data['servo']:
                         servo.move(servo_index=servo_id, angle=opu_data['servo'][servo_id]['angle']) ##Try this
+
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             feagi_ipu_channel.send(message_to_feagi)

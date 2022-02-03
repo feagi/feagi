@@ -147,39 +147,35 @@ class IPU:
                             print("ERROR while processing Stimulation IPU", ipu_data["data"]["direct_stimulation"])
 
                 if "sensory_data" in ipu_data["data"]:
-                    for sensor_type in ipu_data:
+                    for sensor_type in ipu_data["data"]["sensory_data"]:
                         # Ultrasonic / Lidar Handler
                         # todo: need a more consistent naming convention when it comes to lidar vs ultrasonic vs proximity
                         # todo: find a way to generalize the handling of all IPU data instead of using all the if statements
 
-                        if sensor_type in runtime_data.cortical_list:
-                            if 'ultrasonic' in sensor_type and \
-                                    ipu_data["data"]["sensory_data"][sensor_type] is not None:
-                                try:
-                                    self.Source.Lidar.translate(proximity_data=
-                                                                ipu_data["data"]["sensory_data"][sensor_type])
+                        if 'ultrasonic' in sensor_type and \
+                                ipu_data["data"]["sensory_data"][sensor_type] is not None:
+                            try:
+                                self.Source.Lidar.translate(proximity_data=
+                                                            ipu_data["data"]["sensory_data"][sensor_type])
+                            except:
+                                print("ERROR while processing lidar function")
 
-                                except:
-                                    print("ERROR while processing lidar function")
+                        # Infrared Handler
+                        if 'ir' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
+                            try:
+                                print("+_+_+ipu_data[sensor_type]: ", ipu_data[sensor_type])
+                                self.Source.Infrared.convert_ir_to_fire_list(ir_data=ipu_data[
+                                    "data"]["sensory_data"][sensor_type])
+                            except:
+                                print("ERROR while processing Infrared IPU")
 
-                            # Infrared Handler
-                            elif 'ir' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
-                                try:
-                                    # print("+_+_+ipu_data[sensor_type]: ", ipu_data[sensor_type])
-                                    self.Source.Infrared.convert_ir_to_fire_list(ir_data=ipu_data["data"]
-                                    ["sensory_data"][sensor_type])
-                                except:
-                                    print("ERROR while processing Infrared IPU")
+                        if 'battery' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
+                            try:
+                                self.Source.Battery.translate(sensor_data=ipu_data["data"]["sensory_data"]
+                                [sensor_type])
+                            except:
+                                print("ERROR while processing Battery IPU")
 
-                            elif 'battery' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
-                                try:
-                                    self.Source.Battery.translate(sensor_data=ipu_data["data"]["sensory_data"]
-                                    [sensor_type])
-                                except:
-                                    print("ERROR while processing Battery IPU")
-
-                        else:
-                            pass
                 else:
                     print("ERROR: IPU handler encountered non-compliant data")
 
