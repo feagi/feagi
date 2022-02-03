@@ -73,6 +73,7 @@ burst_publisher = None
 ipu = None
 opu_controller = None
 burst_activities = {}
+opu_data = {}
 
 # rules = ""
 brain_is_running = False

@@ -396,6 +396,8 @@ def burst_manager():
         broadcast_message['sockets'] = runtime_data.parameters['Sockets']
         broadcast_message['burst_frequency'] = runtime_data.burst_timer
         broadcast_message['godot'] = runtime_data.burst_activities
+        broadcast_message['opu_data'] = runtime_data.opu_data
+
         runtime_data.burst_publisher.send(message=broadcast_message)
         print("Message sent to controller:", broadcast_message)
 
