@@ -348,13 +348,13 @@ def init_io_channels():
         if running_in_container():
             print(">>>  >>>> >>> >>>> >>> >> > >> > >> > > >   Brain is running in a container")
             if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
-                runtime_data.router_address_godot = runtime_data.parameters['Sockets']['godot_host_name'] + ':' + runtime_data.parameters['Sockets'][
+                runtime_data.router_address_godot = "tcp://" + runtime_data.parameters['Sockets']['godot_host_name'] + ':' + runtime_data.parameters['Sockets'][
                     'feagi_inbound_port_godot']
             if runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']:
-                runtime_data.router_address_gazebo = runtime_data.parameters['Sockets']['gazebo_host_name'] + ':' + runtime_data.parameters['Sockets'][
+                runtime_data.router_address_gazebo = "tcp://" + runtime_data.parameters['Sockets']['gazebo_host_name'] + ':' + runtime_data.parameters['Sockets'][
                     'feagi_inbound_port_gazebo']
             if runtime_data.parameters['Sockets']['feagi_inbound_port_virtual']:
-                runtime_data.router_address_virtual = runtime_data.parameters['Sockets']['virtual_host_name'] + ':' + runtime_data.parameters['Sockets'][
+                runtime_data.router_address_virtual = "tcp://" + runtime_data.parameters['Sockets']['virtual_host_name'] + ':' + runtime_data.parameters['Sockets'][
                     'feagi_inbound_port_virtual']
         else:
             print(">>>  >>>> >>> >>>> >>> >> > >> > >> > > >   Brain is NOT running in a container  ******* ** * * *")

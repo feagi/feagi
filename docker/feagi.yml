@@ -71,6 +71,7 @@ services:
         condition: service_healthy
     volumes:
       - ../src/evo/static_genome.py:/opt/source-code/feagi/src/evo/static_genome.py
+      - ../src/inf/initialize.py:/opt/source-code/feagi/src/inf/initialize.py
     networks:
       - net
 

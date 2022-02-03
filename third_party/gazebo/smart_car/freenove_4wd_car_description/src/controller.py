@@ -27,19 +27,19 @@ else:
     import termios
     import tty
 
-address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_outbound_port']
+address = 'tcp://' + network_settings['feagi_ip'] + ':' + network_settings['feagi_outbound_port']
 feagi_state = handshake_with_feagi(address=address, capabilities=capabilities)
 
 print("** **", feagi_state)
 sockets = feagi_state['sockets']
-router_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
+network_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
 
 print("--->> >> >> ", sockets)
 
 # todo: to obtain this info directly from FEAGI as part of registration
-ipu_channel_address = 'tcp://0.0.0.0:' + router_settings['feagi_inbound_port']
+ipu_channel_address = 'tcp://0.0.0.0:' + network_settings['feagi_inbound_port']
 print("IPU_channel_address=", ipu_channel_address)
-opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
+opu_channel_address = 'tcp://' + network_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
 
 feagi_ipu_channel = Pub(address=ipu_channel_address)
 feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
@@ -149,7 +149,7 @@ class Motor:
                 capabilities['motor']['motor_statuses'][motor_index] = 0
 
             motor_current_position = capabilities['motor']['motor_statuses'][motor_index]
-            motor_position.data = float((speed * router_settings['feagi_burst_speed'] / 4 ) + motor_current_position)
+            motor_position.data = float((speed * network_settings['feagi_burst_speed'] / 4 ) + motor_current_position)
 
             capabilities['motor']['motor_statuses'][motor_index] = motor_position.data
             # print("Motor index, position, speed = ", motor_index, motor_position.data, speed)
@@ -176,7 +176,7 @@ class Servo:
                 capabilities['servo'][servo_index] = 0
 
             servo_current_position = capabilities['servo'][servo_index]
-            servo_position.data = float((math.radians(angle) * router_settings['feagi_burst_speed']) + servo_current_position)
+            servo_position.data = float((math.radians(angle) * network_settings['feagi_burst_speed']) + servo_current_position)
 
             capabilities['servo'][servo_index] = servo_position.data
             # print("Motor index, position, speed = ", motor_index, motor_position.data, speed)
@@ -267,6 +267,10 @@ def main(args=None):
     print("Connecting to FEAGI resources...")
     rclpy.init(args=args)
 
+    host_info_ = host_info()
+    network_settings["host_name"] = host_info_["host_name"]
+    network_settings["ip_address"] = host_info_["ip_address"]
+
     executor = rclpy.executors.MultiThreadedExecutor()
 
     # todo: identify a method to instantiate all classes without doing it one by one
@@ -288,9 +292,7 @@ def main(args=None):
     ir_feeds = {}
     ir_topic_id = capabilities['infrared']['topic_identifier']
     for ir_node in range(capabilities['infrared']['count']):
-        ir_feeds[ir_node] = IRSubscriber(f'infrared_{ir_node}',
-                                        Image,
-                                        f'{ir_topic_id}{ir_node}/image')
+        ir_feeds[ir_node] = IRSubscriber(f'infrared_{ir_node}', Image, f'{ir_topic_id}{ir_node}/image')
         executor.add_node(ir_feeds[ir_node])
 
     executor_thread = Thread(target=executor.spin, daemon=True)
@@ -314,7 +316,7 @@ def main(args=None):
             feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
             msg_counter += 1
-            time.sleep(router_settings['feagi_burst_speed'])
+            time.sleep(network_settings['feagi_burst_speed'])
     except KeyboardInterrupt:
         pass
 
