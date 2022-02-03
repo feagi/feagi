@@ -15,10 +15,11 @@
 # ==============================================================================
 
 genome = {
-    'version': "2.0",
+    "version": "2.0",
     "max_burst_count": 3,
     "evolution_burst_count": 50,
-    'neighbor_locator_rule': {'rule_0': {'param_1': 0, 'param_2': 0},
+    "ipu_idle_threshold": 1000,
+    "neighbor_locator_rule": {'rule_0': {'param_1': 0, 'param_2': 0},
                               'rule_1': {'param_1': 1, 'param_2': 1},
                               'rule_10': {'param_1': 1, 'param_2': 1},
                               'rule_11': {'param_1': 1, 'param_2': 1},
