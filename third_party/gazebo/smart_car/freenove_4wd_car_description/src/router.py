@@ -3,6 +3,13 @@
 """
 
 import zmq
+import socket
+
+
+def host_info():
+    host_name = socket.gethostname()
+    ip_address = socket.gethostbyname(socket.gethostname())
+    return {"ip_address": ip_address, "host_name": host_name}
 
 
 class Pub:
@@ -87,3 +94,4 @@ def handshake_with_feagi(address, capabilities):
 #     publisher_.send(message={"A", "Hello!"})
 #
 #     print("Router registration has successfully completed!")
+
