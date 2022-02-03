@@ -16,21 +16,26 @@ capabilities = {
         "type": "opu",
         "disabled": True,
         "refresh_rate": 1,
-        "cortical_mapping": "o__ser"
+        "cortical_mapping": "o__ser",
+        'count': 2,
+        'topic_identifier': '/S'
     },
     "motor": {
         "type": "opu",
         "disabled": False,
         "count": 4,
+        'topic_identifier': '/M',
+        'motor_statuses': {},
         "refresh_rate": 1,
         "cortical_mapping": "o__mot"
     },
     "infrared": {
         "type": "ipu",
         "disabled": False,
-        "count": 4,
+        "count": 3,
         "refresh_rate": 1,
-        "cortical_mapping": "i__inf"
+        "cortical_mapping": "i__inf",
+        'topic_identifier': 'IR'
     },
     "battery": {
         "type": "ipu",
