@@ -7,7 +7,7 @@ Properties.mode [stand_alone, ros, virtual]
 network_settings = {
     "feagi_ip": "127.0.0.1",
     "feagi_outbound_port": "30000",
-    "feagi_inbound_port": "30003",
+    "feagi_inbound_port_virtual": "30003",
     "host_name": "",
     "ip_address": ""
 }
