@@ -4,5 +4,6 @@ services:
   feagi:
     build:
       context: ./
+      dockerfile: ./Dockerfile.private 
       args:
         REPO: $PRIVATE_FEAGI_REPO
