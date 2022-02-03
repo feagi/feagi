@@ -40,7 +40,7 @@ var connected = false
 
 
 func _ready():
-	Engine.target_fps = 60
+	Engine.target_fps = 20
 #	for _i in self.get_children():
 #		print(_i)
 	if(socket.listen(20001, "127.0.0.1") != OK):
