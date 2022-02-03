@@ -122,7 +122,7 @@ genome = {
         "_____10c-i__inf-nx-___bbx-i": 3,
         "_____10c-i__inf-nx-___bby-i": 1,
         "_____10c-i__inf-nx-___bbz-i": 1,
-        "_____10c-i__inf-cx-__rand-b": True,
+        "_____10c-i__inf-cx-__rand-b": False,
         "_____10c-i__inf-cx-synatt-i": 100,
         "_____10c-i__inf-cx-init_s-b": False,
         "_____10c-i__inf-cx-pstcr_-f": 500,

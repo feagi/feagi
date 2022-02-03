@@ -135,7 +135,7 @@ class IPU:
                 }
             """
 
-            if type(ipu_data) == dict:
+            if type(ipu_data) == dict and "data" in ipu_data:
                 if "direct_stimulation" in ipu_data["data"]:
                     if ipu_data["data"]["direct_stimulation"] is not None:
                         try:
@@ -152,6 +152,7 @@ class IPU:
                         # todo: need a more consistent naming convention when it comes to lidar vs ultrasonic vs proximity
                         # todo: find a way to generalize the handling of all IPU data instead of using all the if statements
 
+                        print("-------------------------------------sensor type=", sensor_type)
                         if 'ultrasonic' in sensor_type and \
                                 ipu_data["data"]["sensory_data"][sensor_type] is not None:
                             try:
@@ -161,9 +162,10 @@ class IPU:
                                 print("ERROR while processing lidar function")
 
                         # Infrared Handler
+                        print("<><><>", ipu_data["data"]["sensory_data"])
                         if 'ir' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
                             try:
-                                print("+_+_+ipu_data[sensor_type]: ", ipu_data[sensor_type])
+                                print("+_+_+ipu_data[sensor_type]: ", ipu_data["data"]["sensory_data"][sensor_type])
                                 self.Source.Infrared.convert_ir_to_fire_list(ir_data=ipu_data[
                                     "data"]["sensory_data"][sensor_type])
                             except:
@@ -324,12 +326,13 @@ class IPU:
                     }
                     """
                     fire_list = set()
+                    print("ir_data", ir_data)
                     for sensor_idx in ir_data:
                         if ir_data[sensor_idx]:
                             for key in runtime_data.brain['i__inf']:
                                 if sensor_idx == runtime_data.brain['i__inf'][key]['soma_location'][0][0]:
                                     fire_list.add(key)
-
+                    print("IR processign completed....%%%", fire_list)
                     runtime_data.fcl_queue.put({'i__inf': fire_list})
 
             class Lidar:
