@@ -84,7 +84,7 @@ def burst_manager():
         alert_condition = elapsed_time.seconds > int(runtime_data.parameters['Timers']['alert_mode_duration'])
         if alert_condition:
             time_delta = datetime.now() - runtime_data.last_ipu_activity
-            if time_delta.seconds > int(runtime_data.parameters['IPU']['idle_threshold']):
+            if time_delta.seconds > int(runtime_data.genome['ipu_idle_threshold']):
                 # Go to sleep by stopping IPU/OPU threads
                 # todo: instead of turning off the IPU, reduce IPU responsiveness so via an trigger brain can awake
                 print(">> >> Brain going to sleep..")
@@ -538,7 +538,11 @@ def burst_manager():
         # Manage Threads
         # For performance reasons, running this function not on every single burst
         if runtime_data.burst_count % 10 == 0:
-            consciousness_manager()
+            try:
+                consciousness_manager()
+            except:
+                print("consciousness_manager encountered an error!!")
+
 
         if not runtime_data.controller_config and runtime_data.burst_publisher:
             controller_handshake()
