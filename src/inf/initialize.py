@@ -345,15 +345,30 @@ def init_io_channels():
         #     print("Brain activity publisher socket is:", brain_activities_socket)
         #     runtime_data.brain_activity_pub = PubBrainActivities(brain_activities_socket)
 
-        if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
-            runtime_data.router_address_godot = 'tcp://0.0.0.0' + ':' + runtime_data.parameters['Sockets'][
-                'feagi_inbound_port_godot']
-        if runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']:
-            runtime_data.router_address_gazebo = 'tcp://0.0.0.0' + ':' + runtime_data.parameters['Sockets'][
-                'feagi_inbound_port_gazebo']
-        if runtime_data.parameters['Sockets']['feagi_inbound_port_virtual']:
-            runtime_data.router_address_virtual = 'tcp://0.0.0.0' + ':' + runtime_data.parameters['Sockets'][
-                'feagi_inbound_port_virtual']
+        if running_in_container():
+            print(">>>  >>>> >>> >>>> >>> >> > >> > >> > > >   Brain is running in a container")
+            if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
+                runtime_data.router_address_godot = runtime_data.parameters['Sockets']['godot_host_name'] + ':' + runtime_data.parameters['Sockets'][
+                    'feagi_inbound_port_godot']
+            if runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']:
+                runtime_data.router_address_gazebo = runtime_data.parameters['Sockets']['gazebo_host_name'] + ':' + runtime_data.parameters['Sockets'][
+                    'feagi_inbound_port_gazebo']
+            if runtime_data.parameters['Sockets']['feagi_inbound_port_virtual']:
+                runtime_data.router_address_virtual = runtime_data.parameters['Sockets']['virtual_host_name'] + ':' + runtime_data.parameters['Sockets'][
+                    'feagi_inbound_port_virtual']
+        else:
+            print(">>>  >>>> >>> >>>> >>> >> > >> > >> > > >   Brain is NOT running in a container  ******* ** * * *")
+            if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
+                runtime_data.router_address_godot = "tcp://127.0.0.1" + ':' + runtime_data.parameters['Sockets'][
+                    'feagi_inbound_port_godot']
+            if runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']:
+                runtime_data.router_address_gazebo = "tcp://127.0.0.1" + ':' + runtime_data.parameters['Sockets'][
+                    'feagi_inbound_port_gazebo']
+            if runtime_data.parameters['Sockets']['feagi_inbound_port_virtual']:
+                runtime_data.router_address_virtual = "tcp://127.0.0.1" + ':' + runtime_data.parameters['Sockets'][
+                    'feagi_inbound_port_virtual']
+
+
 
         print("Router addresses has been set")
     except KeyError as e:

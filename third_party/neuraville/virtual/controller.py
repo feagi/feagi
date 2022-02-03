@@ -99,6 +99,10 @@ def cortical_mapping_list_gen(capabilities):
 def main():
     runtime_params["cortical_list"] = cortical_mapping_list_gen(configuration.capabilities)
 
+    host_info = router.host_info()
+    configuration.network_settings["host_name"] = host_info["host_name"]
+    configuration.network_settings["ip_address"] = host_info["ip_address"]
+
     address = 'tcp://' + configuration.network_settings['feagi_ip'] + ':' + \
               configuration.network_settings['feagi_outbound_port']
     
