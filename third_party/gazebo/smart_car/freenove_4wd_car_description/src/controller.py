@@ -305,8 +305,8 @@ def main(args=None):
             opu_data = feagi_opu_channel.receive()
             # print("Received:", opu_data)
             if opu_data is not None:
-                if 'o__mot' in opu_data:
-                    for motor_id in opu_data['o__mot']:
+                if 'motor' in opu_data:
+                    for motor_id in opu_data['motor']:
                         motor.move(motor_index=motor_id, speed=opu_data['motor'][motor_id]['speed'])
                 elif 'servo' in opu_data:
                     for servo_id in opu_data['servo']:

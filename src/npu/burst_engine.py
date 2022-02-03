@@ -57,7 +57,7 @@ def burst_manager():
 
     def init_pns():
         runtime_data.ipu = ipu.IPU()
-        runtime_data.opu = opu.OPU()
+        runtime_data.opu_controller = opu.OPU.Controller()
 
     def burst_duration_calculator(controller_capabilities):
         """
@@ -496,6 +496,10 @@ def burst_manager():
 
         # logging neuron activities to the influxdb
         log_neuron_activity_influx()
+
+        # Process efferent signals
+        print("*********     *********** ********** Efferent processor -------------")
+        runtime_data.opu_controller.opu_handler()
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
