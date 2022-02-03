@@ -8,22 +8,6 @@ import socket
 import zmq
 import csv
 
-host = "127.0.0.1"
-port = "30003"
-
-
-# def feagi_initalize():
-#     # Getting FEAGI's raw data
-#
-#     context = zmq.Context()
-#     socket = context.socket(zmq.SUB)
-#     print('Listening FEAGI...')
-#     socket.connect("tcp://{}:{}".format(host, port))
-#     socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
-#     set_stored = socket.recv_pyobj()
-#
-#     return set_stored
-
 
 def genome_2_cortical_list(flat_genome):
     """
@@ -103,6 +87,7 @@ def UDP(input):
     # close the socket
     s.close()
 
+
 def godot_listener():
     """
     This is to recieve data from the Godot's data through UDP. You should expect to get a name,
@@ -118,6 +103,7 @@ def godot_listener():
 
     return data.decode("utf-8")
 
+
 def godot_data(input):
     """
     Simply clean the list and remove all unnecessary special characters and deliver with name, xyz only
@@ -131,6 +117,7 @@ def godot_data(input):
     data[1] = data[1].replace("(", "")
     data[3] = data[3].replace(")", "")
     return data
+
 
 def godot_selected_list(outside_list, godot_list): ##This one will get raw forward from feagi so is this right
 
@@ -223,16 +210,16 @@ print("Godot_list = ", Godot_list)
 genome_data = genome_2_cortical_list(genome['blueprint'])
 #print("one_frame: ", one_frame)
 CSV_writer(genome_data)
-address = 'tcp://' + router_settings['feagi_ip'] + ':' + router_settings['feagi_outbound_port']
-feagi_state = find_feagi(address=address) ##I was trying to leverage on router only
+address = 'tcp://' + network_settings['feagi_ip'] + ':' + network_settings['feagi_outbound_port']
+feagi_state = handshake_with_feagi(address=address, capabilities=capabilities) ##I was trying to leverage on router only
 print("feagi_state: " , feagi_state)
 print("** **", feagi_state)
 sockets = feagi_state['sockets']
-router_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
+network_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
 
 print("--->> >> >> ", sockets)
-FEAGI_pub = Pub(address='tcp://0.0.0.0:' + router_settings['feagi_inbound_port_godot'])
-opu_channel_address = 'tcp://' + router_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
+FEAGI_pub = Pub(address='tcp://0.0.0.0:' + network_settings['feagi_inbound_port_godot'])
+opu_channel_address = 'tcp://' + network_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
 FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 UDP(str("0,0,0"))
 
