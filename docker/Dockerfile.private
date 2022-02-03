@@ -3,8 +3,12 @@ FROM neuraville/feagi-base-os
 ARG REPO="https://github.com/feagi/feagi.git"
 ENV Running_In_CONTAINER Yes
 
+RUN apt-get install -y openssh-client && \
+    mkdir -p -m 0600 ~/.ssh && \
+    ssh-keyscan github.com >> ~/.ssh/known_hosts
+
 RUN mkdir -p /opt/source-code/feagi/
-RUN git clone $REPO /opt/source-code/feagi
+RUN --mount=type=ssh git clone $REPO /opt/source-code/feagi
 
 WORKDIR /opt/source-code/feagi/src/cython_lib
 RUN python3 ./cython_setup.py build_ext --inplace
