@@ -368,8 +368,6 @@ def init_io_channels():
                 runtime_data.router_address_virtual = "tcp://127.0.0.1" + ':' + runtime_data.parameters['Sockets'][
                     'feagi_inbound_port_virtual']
 
-
-
         print("Router addresses has been set")
     except KeyError as e:
         print('ERROR: OPU socket is not properly defined as part of feagi_configuration.ini\n', e)

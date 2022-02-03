@@ -303,16 +303,18 @@ def main(args=None):
         while True:
             # Process OPU data received from FEAGI and pass it along
             message_from_feagi = feagi_opu_channel.receive()
-            opu_data = message_from_feagi["opu_data"]
-            # print("Received:", opu_data)
-            if opu_data is not None:
-                if 'motor' in opu_data:
-                    for motor_id in opu_data['motor']:
-                        motor.move(motor_index=motor_id, speed=opu_data['motor'][motor_id]['speed'])
-                elif 'servo' in opu_data:
-                    for servo_id in opu_data['servo']:
-                        servo.move(servo_index=servo_id, angle=opu_data['servo'][servo_id]['angle']) ##Try this
-
+            try:
+                opu_data = message_from_feagi["opu_data"]
+                # print("Received:", opu_data)
+                if opu_data is not None:
+                    if 'motor' in opu_data:
+                        for motor_id in opu_data['motor']:
+                            motor.move(motor_index=motor_id, speed=opu_data['motor'][motor_id]['speed'])
+                    elif 'servo' in opu_data:
+                        for servo_id in opu_data['servo']:
+                            servo.move(servo_index=servo_id, angle=opu_data['servo'][servo_id]['angle']) ##Try this
+            except Exception:
+                print("")
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             feagi_ipu_channel.send(message_to_feagi)
