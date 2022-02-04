@@ -74,8 +74,7 @@ class ScalableSubscriber(Node):
         # self.get_logger().info("Raw Message: {}".format(msg))
         try:
             formatted_msg = self.msg_processor(msg, self.topic)
-            msg_to_feagi = {"data": {"sensory_data": formatted_msg}}
-            compose_message_to_feagi(message=msg_to_feagi)
+            compose_message_to_feagi(original_message=formatted_msg)
             self.counter += 1
         except Exception as e:
             print("Error in listener callback...", e)
@@ -250,17 +249,21 @@ class Teleop:
         self.pub.publish(twist)
 
 
-def compose_message_to_feagi(message):
+def compose_message_to_feagi(original_message):
     """
     accumulates multiple messages in a data structure that can be sent to feagi
     """
-    for key in message:
-        if key not in message_to_feagi:
-            message_to_feagi[key] = dict()
-        for item in message[key]:
-            if item not in message_to_feagi[key]:
-                message_to_feagi[key][item] = ""
-            message_to_feagi[key][item] = message[key][item]
+
+    if "data" not in message_to_feagi:
+        message_to_feagi["data"] = dict()
+    if "sensory_data" not in message_to_feagi["data"]:
+        message_to_feagi["data"]["sensory_data"] = dict()
+    for sensor in original_message:
+        if sensor not in message_to_feagi["data"]["sensory_data"]:
+            message_to_feagi["data"]["sensory_data"][sensor] = dict()
+        for sensor_data in original_message[sensor]:
+            if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
+                message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][sensor_data]
 
 
 def main(args=None):
