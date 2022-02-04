@@ -81,7 +81,7 @@ class OPU:
                         chosen_block = 0
                     if device not in motor_data:
                         motor_data[device] = dict()
-                    motor_data[device]['speed'] = chosen_block + 3
+                    motor_data[device]['speed'] = chosen_block
                 self.movement.activate_device(device_type='motor', device_data=motor_data)
 
             if 'o__ser' in runtime_data.fire_candidate_list:
