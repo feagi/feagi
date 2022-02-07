@@ -154,7 +154,7 @@ func _update_movement(delta):
 		_speed.z *= (1.0 - deceleration)
 
 	if local:
-		translate(_speed * delta)
+		battery_translator(_speed * delta)
 	else:
 		global_translate(_speed * delta)
 
@@ -186,7 +186,7 @@ func _update_rotation(delta):
 		set_translation(target)
 		rotate_y(deg2rad(-_yaw))
 		rotate_object_local(Vector3(1,0,0), deg2rad(-_pitch))
-		translate(Vector3(0.0, 0.0, dist))
+		battery_translator(Vector3(0.0, 0.0, dist))
 
 		if rotate_privot:
 			privot.rotate_y(deg2rad(-_yaw))
