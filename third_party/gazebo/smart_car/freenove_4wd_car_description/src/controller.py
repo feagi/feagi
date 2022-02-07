@@ -18,6 +18,7 @@ from sensor_msgs.msg import LaserScan, Image, BatteryState
 from rclpy.qos import qos_profile_sensor_data
 from configuration import *
 from configuration import message_to_feagi
+import os
 
 
 
@@ -43,7 +44,7 @@ opu_channel_address = 'tcp://' + network_settings['feagi_ip'] + ':' + sockets['f
 
 feagi_ipu_channel = Pub(address=ipu_channel_address)
 feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
-
+os.system("(ros2 topic pub --once /S0 std_msgs/msg/Float64 '{data: 1.5}' && ros2 topic pub --once /S1 std_msgs/msg/Float64 '{data: 1.5}')&")
 
 def publisher_initializer(model_name, topic_count, topic_identifier):
     node = rclpy.create_node('Controller_py')
