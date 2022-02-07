@@ -86,7 +86,8 @@ def ipu_handler(ipu_data):
                 if 'ultrasonic' in sensor_type and \
                         ipu_data["data"]["sensory_data"][sensor_type] is not None:
                     try:
-                        stimuli_translator.lidar_translator(proximity_data=ipu_data["data"]["sensory_data"][sensor_type])
+                        stimuli_translator.lidar_translator(
+                            proximity_data=ipu_data["data"]["sensory_data"][sensor_type])
                     except Exception:
                         print("ERROR while processing lidar function", traceback.format_exc())
 
