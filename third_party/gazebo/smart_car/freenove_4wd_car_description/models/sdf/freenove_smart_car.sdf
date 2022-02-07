@@ -287,7 +287,7 @@
       <link name='rear_left_wheel'>
         <pose>-0.1 0.088 0.05 0 1.5707 1.5707</pose>
         <inertial>
-          <mass>0.5</mass>
+          <mass>10</mass>
           <inertia>
             <ixx>0.02467</ixx>
             <ixy>0</ixy>
@@ -336,7 +336,7 @@
           <contact>
             <ode>
               <min_depth>0.005</min_depth>
-              <kp>1e8</kp>
+              <kp>1e7</kp>
             </ode>
           </contact>
         </surface>
@@ -346,7 +346,7 @@
       <link name='rear_right_wheel'>
         <pose> -0.1 -0.088 0.05 0 1.5707 1.5707 </pose>
         <inertial>
-          <mass>0.5</mass>
+          <mass>10</mass>
           <inertia>
             <ixx>0.02467</ixx>
             <ixy>0</ixy>
@@ -395,7 +395,7 @@
           <contact>
             <ode>
               <min_depth>0.005</min_depth>
-              <kp>1e8</kp>
+              <kp>1e7</kp>
             </ode>
           </contact>
         </surface>
@@ -405,7 +405,7 @@
       <link name='front_left_wheel'>
         <pose>0.1 0.088 0.05 0 1.5707 1.5707</pose>
         <inertial>
-          <mass>0.5</mass>
+          <mass>10</mass>
           <inertia>
             <ixx>0.02467</ixx>
             <ixy>0</ixy>
@@ -454,7 +454,7 @@
           <contact>
             <ode>
               <min_depth>0.005</min_depth>
-              <kp>1e8</kp>
+              <kp>1e7</kp>
             </ode>
           </contact>
         </surface>
@@ -464,7 +464,7 @@
       <link name='front_right_wheel'>
         <pose>0.1 -0.088 0.05 0 1.5707 1.5707</pose>
         <inertial>
-          <mass>0.5</mass>
+          <mass>10</mass>
           <inertia>
             <ixx>0.02467</ixx>
             <ixy>0</ixy>
@@ -513,7 +513,7 @@
           <contact>
             <ode>
               <min_depth>0.005</min_depth>
-              <kp>1e8</kp>
+              <kp>1e7</kp>
             </ode>
           </contact>
         </surface>
@@ -811,7 +811,7 @@
             <upper>1.79769e+308</upper>     <!--positive infinity-->
         </limit>
         <dynamics>
-          <damping>0.01</damping>
+          <damping>1</damping>
           <friction>1</friction>
           <spring_reference>0</spring_reference>
           <spring_stiffness>0</spring_stiffness>
@@ -848,7 +848,7 @@
             <upper>1.79769e+308</upper>     <!--positive infinity-->
         </limit>
         <dynamics>
-          <damping>0.01</damping>
+          <damping>1</damping>
           <friction>1</friction>
           <spring_reference>0</spring_reference>
           <spring_stiffness>0</spring_stiffness>
@@ -886,7 +886,7 @@
             <upper>1.79769e+308</upper>     <!--positive infinity-->
         </limit>
         <dynamics>
-          <damping>0.01</damping>
+          <damping>1</damping>
           <friction>1</friction>
           <spring_reference>0</spring_reference>
           <spring_stiffness>0</spring_stiffness>
@@ -923,7 +923,7 @@
             <upper>1.79769e+308</upper>     <!--positive infinity-->
         </limit>
         <dynamics>
-          <damping>0.01</damping>
+          <damping>1</damping>
           <friction>1</friction>
           <spring_reference>0</spring_reference>
           <spring_stiffness>0</spring_stiffness>
@@ -965,7 +965,7 @@
             <upper>3.1</upper>
           </limit>
           <dynamics>
-          <damping>0.1</damping>
+          <damping>1</damping>
           <friction>0</friction>
           <spring_reference>0</spring_reference>
           <spring_stiffness>0</spring_stiffness>
@@ -1009,7 +1009,7 @@
         <upper>1.6</upper>
       </limit>
           <dynamics>
-          <damping>0.1</damping>
+          <damping>1</damping>
           <friction>0</friction>
           <spring_reference>0</spring_reference>
           <spring_stiffness>0</spring_stiffness>
