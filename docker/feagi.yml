@@ -55,7 +55,7 @@ services:
       - INFLUXDB_ORG=$INFLUXDB_ORG
       - INFLUXDB_BUCKET=$INFLUXDB_BUCKET
     ports:
-      - 4000:3000
+      - 3000:3000
     volumes:
       - grafana_data:/var/lib/grafana
     networks:

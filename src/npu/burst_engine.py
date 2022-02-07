@@ -30,7 +30,6 @@ todo: need a higher level mechanism to switch between life mode and autopilot mo
 import os
 import csv
 import glob
-import random
 from datetime import datetime
 from inf import disk_ops
 from time import sleep
