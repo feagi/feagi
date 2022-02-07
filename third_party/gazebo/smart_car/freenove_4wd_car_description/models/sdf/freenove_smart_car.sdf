@@ -287,7 +287,7 @@
       <link name='rear_left_wheel'>
         <pose>-0.1 0.088 0.05 0 1.5707 1.5707</pose>
         <inertial>
-          <mass>10</mass>
+          <mass>20</mass>
           <inertia>
             <ixx>0.02467</ixx>
             <ixy>0</ixy>
@@ -346,7 +346,7 @@
       <link name='rear_right_wheel'>
         <pose> -0.1 -0.088 0.05 0 1.5707 1.5707 </pose>
         <inertial>
-          <mass>10</mass>
+          <mass>20</mass>
           <inertia>
             <ixx>0.02467</ixx>
             <ixy>0</ixy>
@@ -405,7 +405,7 @@
       <link name='front_left_wheel'>
         <pose>0.1 0.088 0.05 0 1.5707 1.5707</pose>
         <inertial>
-          <mass>10</mass>
+          <mass>20</mass>
           <inertia>
             <ixx>0.02467</ixx>
             <ixy>0</ixy>
@@ -464,7 +464,7 @@
       <link name='front_right_wheel'>
         <pose>0.1 -0.088 0.05 0 1.5707 1.5707</pose>
         <inertial>
-          <mass>10</mass>
+          <mass>20</mass>
           <inertia>
             <ixx>0.02467</ixx>
             <ixy>0</ixy>

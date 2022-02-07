@@ -149,7 +149,7 @@ class Motor:
                 capabilities['motor']['motor_statuses'][motor_index] = 0
 
             motor_current_position = capabilities['motor']['motor_statuses'][motor_index]
-            motor_position.data = float((speed * network_settings['feagi_burst_speed'] / 4 ) + motor_current_position)
+            motor_position.data = float((speed * network_settings['feagi_burst_speed']*3) + motor_current_position)
 
             capabilities['motor']['motor_statuses'][motor_index] = motor_position.data
             # print("Motor index, position, speed = ", motor_index, motor_position.data, speed)
