@@ -75,8 +75,8 @@ def lidar_to_coords(lidar_data, threshold=5):
     LIDAR_MIN = 0.12
     LIDAR_MAX = 3.5
 
-    Y_MAX = runtime_data.genome['blueprint']['proximity_ipu']['neuron_params']['block_boundaries'][1]
-    Z_MAX = runtime_data.genome['blueprint']['proximity_ipu']['neuron_params']['block_boundaries'][2]
+    Y_MAX = runtime_data.genome['blueprint']['i__pro']['neuron_params']['block_boundaries'][1]
+    Z_MAX = runtime_data.genome['blueprint']['i__pro']['neuron_params']['block_boundaries'][2]
 
     detection_locations = []
     for idx, dist in enumerate(lidar_data):
@@ -105,17 +105,17 @@ def sonar_to_coords(sonar_data, threshold=10):
     SONAR_MAX = 4
 
     X_MAX = runtime_data.genome['blueprint'] \
-        ['proximity_ipu'] \
+        ['i__pro'] \
         ['neuron_params'] \
         ['block_boundaries'][0]
 
     Y_MAX = runtime_data.genome['blueprint'] \
-        ['proximity_ipu'] \
+        ['i__pro'] \
         ['neuron_params'] \
         ['block_boundaries'][1]
 
     Z_MAX = runtime_data.genome['blueprint'] \
-        ['proximity_ipu'] \
+        ['i__pro'] \
         ['neuron_params'] \
         ['block_boundaries'][2]
 
