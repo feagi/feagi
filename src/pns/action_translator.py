@@ -96,12 +96,12 @@ def convert_neuron_activity_to_rgb_intensities(self, blocks_with_active_neurons,
 
 def activate_leds(led_data):
     controller = SourceFileLoader("controller.py", runtime_data.hw_controller_path).load_module()
-    led = controller.LED()
+
     for led_id in led_data:
         R = led_data[led_id][0]
         G = led_data[led_id][1]
         B = led_data[led_id][2]
-        led.LED_on(led_id, R, G, B)
+        controller.led.LED_on(led_id, R, G, B)
 
 
 def convert_neuron_activity_to_utf8_char(cortical_area, neuron_id):

@@ -21,6 +21,8 @@ from pns import stimuli_processor
 
 
 """
+Translates device specific data into neuronal stimulation
+
 This module facilitates the translation of cortical stimulation information to actual stimulation within connectome.
 
 Stimulation data received will have the following data structure:

@@ -40,7 +40,7 @@ from npu.comprehension import utf_detection_logic
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
 from inf.messenger import Pub, Sub
-from pns import stimuli_router, action_router
+from pns import router
 
 
 def cortical_group_members(group):
@@ -402,7 +402,7 @@ def burst_manager():
             # Dynamically adjusting burst duration based on Controller needs
             runtime_data.burst_timer = burst_duration_calculator(gazebo_data)
             if gazebo_data:
-                stimuli_router.ipu_handler(gazebo_data)
+                router.stimuli_router(gazebo_data)
 
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.router_address_godot is not None:
@@ -410,7 +410,7 @@ def burst_manager():
             # Dynamically adjusting burst duration based on Controller needs
             runtime_data.burst_timer = burst_duration_calculator(godot_data)
             if godot_data:
-                stimuli_router.ipu_handler(godot_data)
+                router.stimuli_router(godot_data)
 
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.router_address_virtual is not None:
@@ -418,7 +418,7 @@ def burst_manager():
             # Dynamically adjusting burst duration based on Controller needs
             runtime_data.burst_timer = burst_duration_calculator(virtual_data)
             if virtual_data:
-                stimuli_router.ipu_handler(virtual_data)
+                router.stimuli_router(virtual_data)
 
         # Broadcasts a TCP message on each burst
         if runtime_data.brain_activity_pub:
@@ -481,7 +481,7 @@ def burst_manager():
         log_neuron_activity_influx()
 
         # Process efferent signals
-        action_router.opu_handler()
+        router.action_router()
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()

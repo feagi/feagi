@@ -19,12 +19,13 @@
 from pns import stimuli_translator
 import traceback
 from datetime import datetime
-from inf import runtime_data
+from evo.blocks import *
+from pns import action_translator, action_processor
+from evo.stats import opu_activity_report
 
 
 """
-
-This module manages all IPU related modules
+This module manages the routing of all IPU/OPU related data
 
 todo: figure how the exposure counter can work in synchrony with the burst engine
 todo: convert IPU library to a plug-in based architecture
@@ -44,7 +45,7 @@ runtime_data.last_ipu_activity = datetime.now()
 #             runtime_data.last_ipu_activity = datetime.now()
 
 
-def ipu_handler(ipu_data):
+def stimuli_router(ipu_data):
     """
     Decodes the message received from the ipu router and distribute the sub-messages to corresponding IPU modules
 
@@ -107,3 +108,66 @@ def ipu_handler(ipu_data):
 
         else:
             print("ERROR: IPU handler encountered non-compliant data")
+
+
+def action_router():
+    """
+    This function is intended to handle all the OPU processing that needs to be addressed in burst level as opposed
+    to individual neuron fire
+    """
+    # todo: Introduce a generalized approach to cover all OPUs
+
+    # LED handler
+    if 'o__led' in runtime_data.fire_candidate_list and runtime_data.hardware == 'raspberry_pi':
+        active_led_neurons = active_neurons_in_blocks(cortical_area='led_opu')
+        led_data = action_translator.led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)
+        action_translator.led.activate_leds(led_data)
+
+    # todo: need a better differentiation between movement and motor modules
+    # Movement handler
+    if 'o__mot' in runtime_data.fire_candidate_list:
+        # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
+        # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
+        # movement.activate_motor(data)
+        activity_report = opu_activity_report(cortical_area='o__mot')
+        # print("motor activity report", activity_report)
+        motor_data = dict()
+        for device in activity_report:
+            # if there are "ties" w/r/t block activity, this will select the first index in the list w/ the tie value
+            # todo: need a better method
+            # block_with_max_activity = activity_report[device][0].index(max(activity_report[device][0]))
+            try:
+                block_with_max_z = activity_report[device][0].index(max(activity_report[device][0]))
+                tmp_list = set(activity_report[device][0])
+                tmp_list.remove(max(activity_report[device][0]))
+                block_with_2nd_max = activity_report[device][0].index(max(tmp_list))
+                chosen_block = max(block_with_max_z, block_with_2nd_max)
+            except ValueError:
+                chosen_block = 0
+            if device not in motor_data:
+                motor_data[device] = dict()
+            motor_data[device]['speed'] = chosen_block
+        action_processor.activate_device(device_type='motor', device_data=motor_data)
+
+    if 'o__ser' in runtime_data.fire_candidate_list:
+        # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
+        # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
+        # movement.activate_motor(data)
+        activity_report = opu_activity_report(cortical_area='servo_opu')
+        device_data = dict()
+        for device in activity_report:
+            # if there are "ties" w/r/t block activity, this will select the first index in the list w/ the tie value
+            # todo: need a better method
+            # block_with_max_activity = activity_report[device][0].index(max(activity_report[device][0]))
+            try:
+                block_with_max_z = activity_report[device][0].index(max(activity_report[device][0]))
+                tmp_list = set(activity_report[device][0])
+                tmp_list.remove(max(activity_report[device][0]))
+                block_with_2nd_max = activity_report[device][0].index(max(tmp_list))
+                chosen_block = max(block_with_max_z, block_with_2nd_max)
+            except ValueError:
+                chosen_block = 0
+            if device not in device_data:
+                device_data[device] = dict()
+            device_data[device]['angle'] = chosen_block
+        action_processor.activate_device(device_type='servo', device_data=device_data)
