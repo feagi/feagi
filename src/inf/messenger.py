@@ -29,7 +29,7 @@ All communications to and from FEAGI to follow the standard below:
 from datetime import datetime
 
 import zmq
-from inf.runtime_data import parameters
+from inf import runtime_data
 
 # todo: consolidate the two publishers in a modular fashion
 
@@ -44,7 +44,8 @@ class Pub:
 
     def send(self, message):
         self.socket.send_pyobj(message)
-        print("FEAGI published a message:", message, "on ", self.address)
+        if runtime_data.parameters["Logs"]["print_messenger_logs"]:
+            print("FEAGI published a message:", message, "on ", self.address)
 
 
 # class PubBrainActivities:
@@ -86,7 +87,8 @@ class Sub:
             payload = self.socket.recv_pyobj(flags=zmq.NOBLOCK)
             # timestamp_recv = datetime.now()
             # diff = str(timestamp_recv - payload['timestamp'])
-            print(">>>>>> >>>>>> PAYLOAD RECEIVED: ", payload)
+            if runtime_data.parameters["Logs"]["print_messenger_logs"]:
+                print(">>>>>> >>>>>> PAYLOAD RECEIVED: ", payload)
             # print(">>>>>>> >>>>>>>> >>>>>>> >>>>>>>>> >>>>>>>>>> TIME DIFF: ", diff)
             # print(">>>>>>>>> >>>>>>>>>>> >>>>>>>>>>> >>>>>>> >>>>>> SEQUENCE VAL: ", payload['counter'])
             return payload
@@ -95,7 +97,8 @@ class Sub:
         #     return payload
 
         except zmq.ZMQError as e:
-            print("Error in messenger module receive: ", e)
+            if runtime_data.parameters["Logs"]["print_debug_logs"]:
+                print("Error in messenger module receive: ", e)
             if e.errno == zmq.EAGAIN:
                 pass
             else:

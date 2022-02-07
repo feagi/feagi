@@ -111,7 +111,7 @@ def main():
     print("** **", runtime_params["feagi_state"])
 
     # todo: to obtain this info directly from FEAGI as part of registration
-    ipu_channel_address = 'tcp://0.0.0.0:' + configuration.network_settings['feagi_inbound_port']
+    ipu_channel_address = 'tcp://0.0.0.0:' + configuration.network_settings['feagi_inbound_port_virtual']
     print("IPU_channel_address=", ipu_channel_address)
     opu_channel_address = 'tcp://' + configuration.network_settings['feagi_ip'] + ':' + \
                           runtime_params["feagi_state"]['sockets']['feagi_outbound_port']

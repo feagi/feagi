@@ -16,7 +16,7 @@ Each class has their own functions. There is a multiple functions. Few of them a
 Controller.py allows you to control the buzzer, led, servo, and motors through PCA9685. You will be able to obtain the data from battery reader, IR and HC-SR04.
 
 ## Modulues
-ADC.py, Led.py and PCA9685.py are modules. ADC is designed to work with photoresistor and battery to obtain the data. LED.py is defined system on the board and able to translate into the correct state. 
+ADC.py, Led.py and PCA9685.py are modules. ADC is designed to work with photoresistor and battery to obtain the data. LED.py is defined system on the board and able to battery_translator into the correct state. 
 PCA9685 handles Servo and Motors classes by write the output into them.
 
 ## Motors
