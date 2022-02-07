@@ -81,7 +81,7 @@ genome = {
         "_____10c-i__bat-nx-geo_y1-i":  10,
         "_____10c-i__bat-nx-geo_z0-i":  0,
         "_____10c-i__bat-nx-geo_z1-i":  100,
-        "_____10c-i__bat-cx-dstmap-d":  {"o__mot": ["rule_6", "param_2"]},
+        "_____10c-i__bat-cx-dstmap-d":  {"i__bat": ["rule_6", "param_2"]},
 
         "_____10c-o__mot-cx-__name-t": "motor_opu",
         "_____10c-o__mot-cx-_group-t": "OPU",
@@ -110,7 +110,7 @@ genome = {
         "_____10c-o__mot-nx-geo_y1-i": 10,
         "_____10c-o__mot-nx-geo_z0-i": 0,
         "_____10c-o__mot-nx-geo_z1-i": 200,
-        "_____10c-o__mot-cx-dstmap-d":  {"o__mot": ["rule_1", "param_1"]},
+        "_____10c-o__mot-cx-dstmap-d":  {},
         
         "_____10c-i__inf-cx-__name-t": "ir_ipu",
         "_____10c-i__inf-cx-_group-t": "IPU",
@@ -139,7 +139,7 @@ genome = {
         "_____10c-i__inf-nx-geo_y1-i": 10,
         "_____10c-i__inf-nx-geo_z0-i": 0,
         "_____10c-i__inf-nx-geo_z1-i": 10,
-        "_____10c-i__inf-cx-dstmap-d":  {"i__inf": ["rule_0", "param_1"], "o__mot": ["rule_9" , "param_1"]},
+        "_____10c-i__inf-cx-dstmap-d":  {"i__inf": ["rule_1" , "param_1"]},
         
         "_____10c-i__mot-cx-__name-t": "motor_ipu",
         "_____10c-i__mot-cx-_group-t": "IPU",
@@ -226,7 +226,7 @@ genome = {
         "_____10c-t__mot-nx-geo_y1-i": 1800,
         "_____10c-t__mot-nx-geo_z0-i": 0,
         "_____10c-t__mot-nx-geo_z1-i": 200,
-        "_____10c-t__mot-cx-dstmap-d":  {"t__mot": ["rule_5", "param_3"], "o__mot": ["rule_6","param_2"]}
+        "_____10c-t__mot-cx-dstmap-d":  {"t__mot": ["rule_5", "param_3"]}
         
         
         
