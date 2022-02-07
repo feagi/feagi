@@ -37,10 +37,10 @@ from time import sleep
 from npu.physiology import *
 from mem.memory import neuroplasticity
 from npu.comprehension import utf_detection_logic
-from pns import ipu, opu
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
 from inf.messenger import Pub, Sub
+from pns import stimuli_router, action_router
 
 
 def cortical_group_members(group):
@@ -54,10 +54,6 @@ def cortical_group_members(group):
 
 def burst_manager():
     """This function behaves as instance of Neuronal activities"""
-
-    def init_pns():
-        runtime_data.ipu = ipu.IPU()
-        runtime_data.opu_controller = opu.OPU.Controller()
 
     def burst_duration_calculator(controller_capabilities):
         """
@@ -390,7 +386,6 @@ def burst_manager():
         print("Burst publisher has been initialized @ ", burst_engine_pub_address)
 
     def controller_handshake():
-        print("Awaiting handshake with the controller")
         broadcast_message = dict()
         broadcast_message['burst_counter'] = runtime_data.burst_count
         broadcast_message['sockets'] = runtime_data.parameters['Sockets']
@@ -399,20 +394,15 @@ def burst_manager():
         broadcast_message['opu_data'] = runtime_data.opu_data
 
         runtime_data.burst_publisher.send(message=broadcast_message)
-        print("Message sent to controller:", broadcast_message)
 
     def message_router():
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.router_address_gazebo is not None:
-            print("## #  #     #   Awaiting Gazebo data                                    ### # # # # # # # ")
             gazebo_data = gazebo_listener.receive()
             # Dynamically adjusting burst duration based on Controller needs
             runtime_data.burst_timer = burst_duration_calculator(gazebo_data)
             if gazebo_data:
-                # todo: ipu controller has to be instantiated only once
-                ipu_controller = runtime_data.ipu.Controller()
-                print("FEAGI received message from router as:", gazebo_data)
-                ipu_controller.ipu_handler(gazebo_data)
+                stimuli_router.ipu_handler(gazebo_data)
 
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.router_address_godot is not None:
@@ -420,10 +410,7 @@ def burst_manager():
             # Dynamically adjusting burst duration based on Controller needs
             runtime_data.burst_timer = burst_duration_calculator(godot_data)
             if godot_data:
-                # todo: ipu controller has to be instantiated only once
-                ipu_controller = runtime_data.ipu.Controller()
-                print("FEAGI received message from router as:", godot_data)
-                ipu_controller.ipu_handler(godot_data)
+                stimuli_router.ipu_handler(godot_data)
 
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.router_address_virtual is not None:
@@ -431,10 +418,7 @@ def burst_manager():
             # Dynamically adjusting burst duration based on Controller needs
             runtime_data.burst_timer = burst_duration_calculator(virtual_data)
             if virtual_data:
-                # todo: ipu controller has to be instantiated only once
-                ipu_controller = runtime_data.ipu.Controller()
-                print("FEAGI received message from router as:", virtual_data)
-                ipu_controller.ipu_handler(virtual_data)
+                stimuli_router.ipu_handler(virtual_data)
 
         # Broadcasts a TCP message on each burst
         if runtime_data.brain_activity_pub:
@@ -470,9 +454,6 @@ def burst_manager():
         # todo: the following sleep value should be tied to Autopilot status
         sleep(float(runtime_data.burst_timer))
 
-        # Initialize the peripheral nervous system (PNS)
-        init_pns()
-
         burst_start_time = datetime.now()
         log_burst_activity_influx()
         runtime_data.pain_flag = False
@@ -500,8 +481,7 @@ def burst_manager():
         log_neuron_activity_influx()
 
         # Process efferent signals
-        print("*********     *********** ********** Efferent processor -------------")
-        runtime_data.opu_controller.opu_handler()
+        action_router.opu_handler()
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
