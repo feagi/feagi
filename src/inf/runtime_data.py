@@ -70,8 +70,6 @@ genome_ver = None
 fire_queue = {}
 controller_config = None
 burst_publisher = None
-ipu = None
-opu_controller = None
 burst_activities = {}
 opu_data = {}
 

@@ -15,7 +15,6 @@
 # ==============================================================================
 
 import json
-from pns import ipu, opu
 from collections import deque
 from evo.neuron import block_reference_builder
 from evo.synapse import synapse
