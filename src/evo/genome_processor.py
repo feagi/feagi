@@ -255,7 +255,7 @@ genome_1_template = {
       }
 
 genome_2_to_1 = {
-    "cx-_n_cnt_i": "cortical_neuron_count",
+    "cx-_n_cnt-i": "cortical_neuron_count",
     "nx-gd_vis-b": "visualization",
     "cx-__name-t": "cortical_name",
     "nx-rcordx-i": "relative_coordinate",
