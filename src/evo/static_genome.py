@@ -83,7 +83,7 @@ genome = {
         "_____10c-i__bat-nx-geo_z1-i":  100,
         "_____10c-i__bat-cx-dstmap-d":  {"i__bat": ["rule_6", "param_2"]},
 
-        "_____10c-o__bat-cx-__name-t": "battery_ipu",
+        "_____10c-o__bat-cx-__name-t": "battery_opu",
         "_____10c-o__bat-cx-_group-t": "IPU",
         "_____10c-o__bat-cx-_n_cnt-i": 500,
         "_____10c-o__bat-nx-gd_vis-b": True,
