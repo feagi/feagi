@@ -153,7 +153,7 @@ def action_router():
         # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
         # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
         # movement.activate_motor(data)
-        activity_report = opu_activity_report(cortical_area='servo_opu')
+        activity_report = opu_activity_report(cortical_area='o__ser')
         device_data = dict()
         for device in activity_report:
             # if there are "ties" w/r/t block activity, this will select the first index in the list w/ the tie value
@@ -173,7 +173,7 @@ def action_router():
         action_processor.activate_device(device_type='servo', device_data=device_data)
 
     if 'o__bat' in runtime_data.fire_candidate_list:
-        activity_report = opu_activity_report(cortical_area='battery_opu')
+        activity_report = opu_activity_report(cortical_area='o__bat')
         device_data = dict()
         for device in activity_report:
             action_processor.activate_device(device_type='battery', device_data=device_data)
