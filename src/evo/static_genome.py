@@ -139,7 +139,7 @@ genome = {
         "_____10c-o__mot-nx-geo_y1-i": 10,
         "_____10c-o__mot-nx-geo_z0-i": 0,
         "_____10c-o__mot-nx-geo_z1-i": 200,
-        "_____10c-o__mot-cx-dstmap-d":  {},
+        "_____10c-o__mot-cx-dstmap-d":  {"o__mot": ["rule_1" , "param_1"]},
         
         "_____10c-i__inf-cx-__name-t": "ir_ipu",
         "_____10c-i__inf-cx-_group-t": "IPU",
@@ -205,14 +205,14 @@ genome = {
         "_____10c-i__pro-nx-gd_vis-b": True,
         "_____10c-i__pro-nx-rcordx-i": 100,
         "_____10c-i__pro-nx-rcordy-i": 0,
-        "_____10c-i__pro-nx-rcordz-i": -15,
+        "_____10c-i__pro-nx-rcordz-i": -35,
         "_____10c-i__pro-nx-___bbx-i": 1,
         "_____10c-i__pro-nx-___bby-i": 1,
         "_____10c-i__pro-nx-___bbz-i": 20,
         "_____10c-i__pro-cx-__rand-b": True,
         "_____10c-i__pro-cx-synatt-i": 100,
         "_____10c-i__pro-cx-init_s-b": False,
-        "_____10c-i__pro-cx-pstcr_-f": -500,
+        "_____10c-i__pro-cx-pstcr_-f": 500,
         "_____10c-i__pro-cx-pstcrm-f": 35,
         "_____10c-i__pro-cx-plst_c-f": 0.05,
         "_____10c-i__pro-nx-fire_t-f": 1,
@@ -226,7 +226,7 @@ genome = {
         "_____10c-i__pro-nx-geo_y1-i": 100,
         "_____10c-i__pro-nx-geo_z0-i": 0,
         "_____10c-i__pro-nx-geo_z1-i": 2000,
-        "_____10c-i__pro-cx-dstmap-d":  {"i__pro": ["rule_5", "param_3"], "t__mot": ["rule_6","param_2"]},
+        "_____10c-i__pro-cx-dstmap-d":  {"i__pro": ["rule_1", "param_1"]},
         
         "_____10c-t__mot-cx-__name-t": "motor_thalamus",
         "_____10c-t__mot-cx-_group-t": "thalamus",
@@ -255,7 +255,7 @@ genome = {
         "_____10c-t__mot-nx-geo_y1-i": 1800,
         "_____10c-t__mot-nx-geo_z0-i": 0,
         "_____10c-t__mot-nx-geo_z1-i": 200,
-        "_____10c-t__mot-cx-dstmap-d":  {"t__mot": ["rule_5", "param_3"]}
+        "_____10c-t__mot-cx-dstmap-d":  {"t__mot": ["rule_1", "param_1"]}
         
         
         

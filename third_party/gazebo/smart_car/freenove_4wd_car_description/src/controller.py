@@ -32,6 +32,8 @@ else:
     import termios
     import tty
 
+
+os.system("(ros2 topic pub --once /S0 std_msgs/msg/Float64 '{data: 1.5}' && ros2 topic pub --once /S1 std_msgs/msg/Float64 '{data: 1.5}')&")
 address = 'tcp://' + network_settings['feagi_ip'] + ':' + network_settings['feagi_outbound_port']
 feagi_state = handshake_with_feagi(address=address, capabilities=capabilities)
 
@@ -48,7 +50,6 @@ opu_channel_address = 'tcp://' + network_settings['feagi_ip'] + ':' + sockets['f
 
 feagi_ipu_channel = Pub(address=ipu_channel_address)
 feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
-os.system("(ros2 topic pub --once /S0 std_msgs/msg/Float64 '{data: 1.5}' && ros2 topic pub --once /S1 std_msgs/msg/Float64 '{data: 1.5}')&")
 
 def publisher_initializer(model_name, topic_count, topic_identifier):
     node = rclpy.create_node('Controller_py')
@@ -103,7 +104,7 @@ class ScalableSubscriber(Node):
             sensor_topic = msg_type.split('/')[0]
             sensor_id = int(''.join(filter(str.isdigit, sensor_topic)))
 
-            # print("\n***\nAverage Intensity = ", avg_intensity)
+            #print("\n***\nAverage Intensity = ", avg_intensity)
             if avg_intensity > 25:
                 return {
                     'ir': {
@@ -356,7 +357,7 @@ def main(args=None):
             feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
             msg_counter += 1
-            time.sleep(network_settings['feagi_burst_speed'])
+            time.sleep(0.1)
     except KeyboardInterrupt:
         pass
 
