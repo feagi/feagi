@@ -171,7 +171,7 @@ class Battery:
 
     @staticmethod
     def consume_battery():
-        print("Consuming battery ")
+        # print("Consuming battery ")
         runtime_params["battery_charge_level"] -= capabilities["battery"]["depletion_per_burst"]
 
 

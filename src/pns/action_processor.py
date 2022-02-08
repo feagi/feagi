@@ -78,4 +78,5 @@ def activate_device(device_type, device_data):
     elif device_type == 'servo':
         action_translator.servo_operator(device_data)
     elif device_type == 'battery':
+        print("activating battery <><><><><><<><><><><>")
         action_translator.battery_charger()

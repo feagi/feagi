@@ -129,6 +129,7 @@ def battery_charger():
     }
     """
     try:
+        print("Charging battery initiated *** *** ***")
         # todo: Generalize the following section. using specifics for test only
         runtime_data.opu_data["battery"] = True
         if runtime_data.parameters["Logs"]["print_opu_info"]:
