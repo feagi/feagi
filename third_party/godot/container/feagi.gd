@@ -148,7 +148,7 @@ func _ready():
 					install_voxel_inside(x,y,z) #install voxel inside cortical area
 				key+= 1
 			flag = 0 #keep x,y,z in correct place
-			yield(get_tree().create_timer(.5), "timeout")
+			yield(get_tree().create_timer(.01), "timeout")
 		udp.put_packet("None".to_utf8())
 		$GridMap.clear() ##clear the new data
 
