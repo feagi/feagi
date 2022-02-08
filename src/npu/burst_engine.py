@@ -392,9 +392,8 @@ def burst_manager():
         broadcast_message['godot'] = runtime_data.burst_activities
         broadcast_message['opu_data'] = runtime_data.opu_data
 
-        runtime_data.opu_data = {}
-
         runtime_data.burst_publisher.send(message=broadcast_message)
+        runtime_data.opu_data = {}
 
     def message_router():
         # IPU listener: Receives IPU data through ZMQ channel

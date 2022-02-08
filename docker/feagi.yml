@@ -77,6 +77,9 @@ services:
       - ../src/inf/messenger.py:/opt/source-code/feagi/src/inf/messenger.py
       - ../src/inf/runtime_data.py:/opt/source-code/feagi/src/inf/runtime_data.py
       - ../src/feagi_configuration.ini:/opt/source-code/feagi/src/feagi_configuration.ini
+      - ../src/pns/action_processor.py:/opt/source-code/feagi/src/pns/action_processor.py
+      - ../src/pns/action_translator.py:/opt/source-code/feagi/src/pns/action_translator.py
+      - ../src/pns/pns_router.py:/opt/source-code/feagi/src/pns/pns_router.py
     networks:
       - net
 
