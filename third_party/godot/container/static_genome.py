@@ -175,7 +175,7 @@ genome = {
         "_____10c-i__pro-cx-gd_vis-b": True,
         "_____10c-i__pro-nx-rcordx-i": 100,
         "_____10c-i__pro-nx-rcordy-i": 0,
-        "_____10c-i__pro-nx-rcordz-i": -15,
+        "_____10c-i__pro-nx-rcordz-i": -35,
         "_____10c-i__pro-nx-___bbx-i": 1,
         "_____10c-i__pro-nx-___bby-i": 1,
         "_____10c-i__pro-nx-___bbz-i": 20,
