@@ -137,7 +137,7 @@ def battery_translator(sensor_data):
     cortical_area = 'i__bat'
     if sensor_data is not None:
         for sensor in sensor_data:
-            print("----------------->>>> Battery data:", sensor_data[sensor])
+            print("----------+++------->>>> Battery data:", sensor_data[sensor])
             detections = stimuli_processor.range_to_coords(
                 cortical_area=cortical_area,
                 range_data=int(float(sensor_data[sensor]) * 100),

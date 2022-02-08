@@ -171,3 +171,9 @@ def action_router():
                 device_data[device] = dict()
             device_data[device]['angle'] = chosen_block
         action_processor.activate_device(device_type='servo', device_data=device_data)
+
+    if 'o__bat' in runtime_data.fire_candidate_list:
+        activity_report = opu_activity_report(cortical_area='battery_opu')
+        device_data = dict()
+        for device in activity_report:
+            action_processor.activate_device(device_type='battery', device_data=device_data)

@@ -116,3 +116,25 @@ def convert_neuron_activity_to_utf8_char(cortical_area, neuron_id):
 
     activity_rank = membrane_potential_total / len(activity_history)
     return chr(char), int(activity_rank)
+
+
+def battery_charger():
+    """
+    battery_data = {
+        battery_id: {
+            "charge": True
+        },
+        2: {},
+        3: {}
+    }
+    """
+    try:
+        # todo: Generalize the following section. using specifics for test only
+        runtime_data.opu_data["battery"] = True
+        if runtime_data.parameters["Logs"]["print_opu_info"]:
+            print(">>>  Battery is charging +++    charge command sent to router ")
+
+    except Exception as e:
+        print("ERROR at Battery module:", e)
+        exc_info = sys.exc_info()
+        traceback.print_exception(*exc_info)

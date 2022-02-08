@@ -165,7 +165,7 @@ class Battery:
 
     @staticmethod
     def charge_battery():
-        print("Charging battery ")
+        print("Charging battery    ^^^^^^^^^^^^   *************    ^^^^^^^^^^^^^^^^^^^")
         runtime_params["battery_charge_level"] += capabilities["battery"]["charge_increment"]
 
     @staticmethod

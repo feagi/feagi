@@ -81,10 +81,10 @@ genome = {
         "_____10c-i__bat-nx-geo_y1-i":  10,
         "_____10c-i__bat-nx-geo_z0-i":  0,
         "_____10c-i__bat-nx-geo_z1-i":  100,
-        "_____10c-i__bat-cx-dstmap-d":  {"i__bat": ["rule_6", "param_2"]},
+        "_____10c-i__bat-cx-dstmap-d":  {},
 
         "_____10c-o__bat-cx-__name-t": "battery_opu",
-        "_____10c-o__bat-cx-_group-t": "IPU",
+        "_____10c-o__bat-cx-_group-t": "OPU",
         "_____10c-o__bat-cx-_n_cnt-i": 500,
         "_____10c-o__bat-nx-gd_vis-b": True,
         "_____10c-o__bat-nx-rcordx-i": 100,
@@ -110,7 +110,7 @@ genome = {
         "_____10c-o__bat-nx-geo_y1-i": 10,
         "_____10c-o__bat-nx-geo_z0-i": 0,
         "_____10c-o__bat-nx-geo_z1-i": 100,
-        "_____10c-o__bat-cx-dstmap-d": {"o__mot": ["rule_6", "param_2"]},
+        "_____10c-o__bat-cx-dstmap-d": {},
 
         "_____10c-o__mot-cx-__name-t": "motor_opu",
         "_____10c-o__mot-cx-_group-t": "OPU",
