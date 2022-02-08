@@ -338,18 +338,18 @@ def main(args=None):
             battery.consume_battery()
             try:
                 opu_data = message_from_feagi["opu_data"]
-                # print("Received:", opu_data)
+                print("Received:", opu_data)
                 if opu_data is not None:
                     if 'motor' in opu_data:
                         for motor_id in opu_data['motor']:
                             motor.move(motor_index=motor_id, speed=opu_data['motor'][motor_id]['speed'])
-                    elif 'servo' in opu_data:
+                    if 'servo' in opu_data:
                         for servo_id in opu_data['servo']:
                             servo.move(servo_index=servo_id, angle=opu_data['servo'][servo_id]['angle'])
 
-                    elif 'battery' in opu_data:
-                        for battery_id in opu_data['battery']:
-                            battery.charge_battery()
+                    if 'battery' in opu_data:
+                        battery.charge_battery()
+
             except Exception:
                 print("")
             message_to_feagi['timestamp'] = datetime.now()

@@ -1,4 +1,3 @@
-
 # Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -52,36 +51,36 @@ genome = {
         "model": "smart_car"
     },
     "blueprint": {
-        "_____10b-_____s-__-__name-t":  "smart_car",
+        "_____10b-_____s-__-__name-t": "smart_car",
 
-        "_____10c-i__bat-cx-__name-t":  "battery_ipu",
-        "_____10c-i__bat-cx-_group-t":  "IPU",
-        "_____10c-i__bat-cx-_n_cnt-i":  500,
-        "_____10c-i__bat-nx-gd_vis-b":  True,
-        "_____10c-i__bat-nx-rcordx-i":  50,
-        "_____10c-i__bat-nx-rcordy-i":  0,
-        "_____10c-i__bat-nx-rcordz-i":  0,
-        "_____10c-i__bat-nx-___bbx-i":  1,
-        "_____10c-i__bat-nx-___bby-i":  1,
-        "_____10c-i__bat-nx-___bbz-i":  10,
-        "_____10c-i__bat-cx-__rand-b":  True,
-        "_____10c-i__bat-cx-synatt-i":  100,
-        "_____10c-i__bat-cx-init_s-b":  False,
-        "_____10c-i__bat-cx-pstcr_-f":  50000,
-        "_____10c-i__bat-cx-pstcrm-f":  35,
-        "_____10c-i__bat-cx-plst_c-f":  0.05,
-        "_____10c-i__bat-nx-fire_t-f":  1,
-        "_____10c-i__bat-nx-refrac-i":  0,
-        "_____10c-i__bat-nx-leak_c-f":  0,
-        "_____10c-i__bat-nx-c_fr_c-i":  3,
-        "_____10c-i__bat-nx-snooze-f":  0,
-        "_____10c-i__bat-nx-geo_x0-i":  0,
-        "_____10c-i__bat-nx-geo_x1-i":  10,
-        "_____10c-i__bat-nx-geo_y0-i":  0,
-        "_____10c-i__bat-nx-geo_y1-i":  10,
-        "_____10c-i__bat-nx-geo_z0-i":  0,
-        "_____10c-i__bat-nx-geo_z1-i":  100,
-        "_____10c-i__bat-cx-dstmap-d":  {},
+        "_____10c-i__bat-cx-__name-t": "battery_ipu",
+        "_____10c-i__bat-cx-_group-t": "IPU",
+        "_____10c-i__bat-cx-_n_cnt-i": 500,
+        "_____10c-i__bat-nx-gd_vis-b": True,
+        "_____10c-i__bat-nx-rcordx-i": 50,
+        "_____10c-i__bat-nx-rcordy-i": 0,
+        "_____10c-i__bat-nx-rcordz-i": 0,
+        "_____10c-i__bat-nx-___bbx-i": 1,
+        "_____10c-i__bat-nx-___bby-i": 1,
+        "_____10c-i__bat-nx-___bbz-i": 10,
+        "_____10c-i__bat-cx-__rand-b": True,
+        "_____10c-i__bat-cx-synatt-i": 100,
+        "_____10c-i__bat-cx-init_s-b": False,
+        "_____10c-i__bat-cx-pstcr_-f": 50000,
+        "_____10c-i__bat-cx-pstcrm-f": 35,
+        "_____10c-i__bat-cx-plst_c-f": 0.05,
+        "_____10c-i__bat-nx-fire_t-f": 1,
+        "_____10c-i__bat-nx-refrac-i": 0,
+        "_____10c-i__bat-nx-leak_c-f": 0,
+        "_____10c-i__bat-nx-c_fr_c-i": 3,
+        "_____10c-i__bat-nx-snooze-f": 0,
+        "_____10c-i__bat-nx-geo_x0-i": 0,
+        "_____10c-i__bat-nx-geo_x1-i": 10,
+        "_____10c-i__bat-nx-geo_y0-i": 0,
+        "_____10c-i__bat-nx-geo_y1-i": 10,
+        "_____10c-i__bat-nx-geo_z0-i": 0,
+        "_____10c-i__bat-nx-geo_z1-i": 100,
+        "_____10c-i__bat-cx-dstmap-d": {},
 
         "_____10c-o__bat-cx-__name-t": "battery_opu",
         "_____10c-o__bat-cx-_group-t": "OPU",
@@ -139,8 +138,8 @@ genome = {
         "_____10c-o__mot-nx-geo_y1-i": 10,
         "_____10c-o__mot-nx-geo_z0-i": 0,
         "_____10c-o__mot-nx-geo_z1-i": 200,
-        "_____10c-o__mot-cx-dstmap-d":  {"o__mot": ["rule_1" , "param_1"]},
-        
+        "_____10c-o__mot-cx-dstmap-d": {"i__mot": ["rule_1", "param_1"]},
+
         "_____10c-i__inf-cx-__name-t": "ir_ipu",
         "_____10c-i__inf-cx-_group-t": "IPU",
         "_____10c-i__inf-cx-_n_cnt-i": 3,
@@ -168,8 +167,8 @@ genome = {
         "_____10c-i__inf-nx-geo_y1-i": 10,
         "_____10c-i__inf-nx-geo_z0-i": 0,
         "_____10c-i__inf-nx-geo_z1-i": 10,
-        "_____10c-i__inf-cx-dstmap-d":  {"i__inf": ["rule_1" , "param_1"]},
-        
+        "_____10c-i__inf-cx-dstmap-d": {"o__bat": ["rule_1", "param_1"]},
+
         "_____10c-i__mot-cx-__name-t": "motor_ipu",
         "_____10c-i__mot-cx-_group-t": "IPU",
         "_____10c-i__mot-cx-_n_cnt-i": 1000,
@@ -197,8 +196,8 @@ genome = {
         "_____10c-i__mot-nx-geo_y1-i": 50,
         "_____10c-i__mot-nx-geo_z0-i": 0,
         "_____10c-i__mot-nx-geo_z1-i": 200,
-        "_____10c-i__mot-cx-dstmap-d":  {"i__mot": ["rule_1", "param_1"]},
-        
+        "_____10c-i__mot-cx-dstmap-d": {},
+
         "_____10c-i__pro-cx-__name-t": "proximity_ipu",
         "_____10c-i__pro-cx-_group-t": "memory",
         "_____10c-i__pro-cx-_n_cnt-i": 1000,
@@ -226,8 +225,8 @@ genome = {
         "_____10c-i__pro-nx-geo_y1-i": 100,
         "_____10c-i__pro-nx-geo_z0-i": 0,
         "_____10c-i__pro-nx-geo_z1-i": 2000,
-        "_____10c-i__pro-cx-dstmap-d":  {"i__pro": ["rule_1", "param_1"]},
-        
+        "_____10c-i__pro-cx-dstmap-d": {},
+
         "_____10c-t__mot-cx-__name-t": "motor_thalamus",
         "_____10c-t__mot-cx-_group-t": "thalamus",
         "_____10c-t__mot-cx-_n_cnt-i": 1000,
@@ -255,9 +254,7 @@ genome = {
         "_____10c-t__mot-nx-geo_y1-i": 1800,
         "_____10c-t__mot-nx-geo_z0-i": 0,
         "_____10c-t__mot-nx-geo_z1-i": 200,
-        "_____10c-t__mot-cx-dstmap-d":  {"t__mot": ["rule_1", "param_1"]}
-        
-        
-        
-   }
+        "_____10c-t__mot-cx-dstmap-d": {}
+
+    }
 }
