@@ -39,7 +39,7 @@ from npu.comprehension import utf_detection_logic
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
 from inf.messenger import Pub, Sub
-from pns.router import action_router, stimuli_router
+from pns.pns_router import action_router, stimuli_router
 
 
 def cortical_group_members(group):
