@@ -72,7 +72,7 @@ def burst_manager():
 
     def consciousness_manager():
         """responsible for start and stop of all non-main threads based on various conditions"""
-        # Check flags for IPU activitiesf
+        # Check flags for IPU activities
         # todo: need mechanism to set the ipu_idle flag if there is no IPU activity for a period
         # Alert condition checks to ensure brain is not in Alert mode which can be triggered via fear or cautiousness
         elapsed_time = datetime.now() - runtime_data.last_alertness_trigger
