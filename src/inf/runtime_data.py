@@ -72,6 +72,7 @@ controller_config = None
 burst_publisher = None
 burst_activities = {}
 opu_data = {}
+cortical_dimensions = {}
 
 # rules = ""
 brain_is_running = False
