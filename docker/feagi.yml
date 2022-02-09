@@ -71,15 +71,7 @@ services:
         condition: service_healthy
     volumes:
       - ../src/evo/static_genome.py:/opt/source-code/feagi/src/evo/static_genome.py
-      - ../src/evo/static_genome.py:/opt/source-code/feagi/third_party/godot/container/static_genome.py
-      - ../src/npu/burst_engine.py:/opt/source-code/feagi/src/npu/burst_engine.py
-      - ../src/inf/initialize.py:/opt/source-code/feagi/src/inf/initialize.py
-      - ../src/inf/messenger.py:/opt/source-code/feagi/src/inf/messenger.py
-      - ../src/inf/runtime_data.py:/opt/source-code/feagi/src/inf/runtime_data.py
-      - ../src/feagi_configuration.ini:/opt/source-code/feagi/src/feagi_configuration.ini
-      - ../src/pns/action_processor.py:/opt/source-code/feagi/src/pns/action_processor.py
-      - ../src/pns/action_translator.py:/opt/source-code/feagi/src/pns/action_translator.py
-      - ../src/pns/pns_router.py:/opt/source-code/feagi/src/pns/pns_router.py
+
     networks:
       - net
 

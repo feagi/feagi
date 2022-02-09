@@ -168,6 +168,8 @@ class Battery:
     def charge_battery():
         print("Charging battery    ^^^^^^^^^^^^   *************    ^^^^^^^^^^^^^^^^^^^")
         runtime_params["battery_charge_level"] += capabilities["battery"]["charge_increment"]
+        if runtime_params["battery_charge_level"] > capabilities["battery"]["capacity"]:
+            runtime_params["battery_charge_level"] = capabilities["battery"]["capacity"]
 
     @staticmethod
     def consume_battery():
