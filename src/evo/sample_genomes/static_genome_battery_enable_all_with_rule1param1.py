@@ -167,7 +167,7 @@ genome = {
         "_____10c-i__inf-nx-geo_y1-i": 10,
         "_____10c-i__inf-nx-geo_z0-i": 0,
         "_____10c-i__inf-nx-geo_z1-i": 10,
-        "_____10c-i__inf-cx-dstmap-d": {"o__bat": ["rule_1", "param_1"]},
+        "_____10c-i__inf-cx-dstmap-d": {"i__inf": ["rule_1", "param_1"]},
 
         "_____10c-i__mot-cx-__name-t": "motor_ipu",
         "_____10c-i__mot-cx-_group-t": "IPU",
