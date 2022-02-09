@@ -21,6 +21,8 @@ from pns import stimuli_processor
 
 
 """
+Translates device specific data into neuronal stimulation
+
 This module facilitates the translation of cortical stimulation information to actual stimulation within connectome.
 
 Stimulation data received will have the following data structure:
@@ -108,6 +110,13 @@ def stimulation_injector(stimulation_data):
 #         print(">>> >> >> > > >> >>>>>>> Stimulation data from Godot has been injected in FCL!")
 
 
+def cortical_area_in_genome(cortical_area):
+    if cortical_area not in runtime_data.cortical_list:
+        return False
+    else:
+        return True
+
+
 def battery_translator(sensor_data):
     """
     This module will provide the methods to receive information about embodiment battery level and have it passed along
@@ -133,17 +142,20 @@ def battery_translator(sensor_data):
     print("Translating Battery data...")
 
     cortical_area = 'i__bat'
-    if sensor_data is not None:
-        for sensor in sensor_data:
-            print("----------------->>>> Battery data:", sensor_data[sensor])
-            detections = stimuli_processor.range_to_coords(
-                cortical_area=cortical_area,
-                range_data=int(float(sensor_data[sensor]) * 100),
-                range_min=0, range_max=100, threshold=10)
+    if cortical_area_in_genome(cortical_area):
+        if sensor_data is not None:
+            for sensor in sensor_data:
+                print("----------+++------->>>> Battery data:", sensor_data[sensor])
+                detections = stimuli_processor.range_to_coords(
+                    cortical_area=cortical_area,
+                    range_data=int(float(sensor_data[sensor]) * 100),
+                    range_min=0, range_max=100, threshold=10)
 
-            neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
-            # TODO: Add proximity feeder function in fcl_injector
-            runtime_data.fcl_queue.put({'i__bat': set(neurons)})
+                neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
+                # TODO: Add proximity feeder function in fcl_injector
+                runtime_data.fcl_queue.put({'i__bat': set(neurons)})
+    else:
+        print("Warning! Cortical stimulation received but genome missing", cortical_area)
 
 
 def convert_ir_to_fire_list(ir_data):
@@ -157,14 +169,18 @@ def convert_ir_to_fire_list(ir_data):
         2: False
     }
     """
-    fire_list = set()
-    # print("runtime_data.brain['i__inf']", runtime_data.brain['i__inf'])
-    for sensor_idx in ir_data:
-        if ir_data[sensor_idx]:
-            for key in runtime_data.brain['i__inf']:
-                if sensor_idx == runtime_data.brain['i__inf'][key]['soma_location'][1][0]:
-                    fire_list.add(key)
-    runtime_data.fcl_queue.put({'i__inf': fire_list})
+    cortical_area = 'i__inf'
+    if cortical_area_in_genome(cortical_area):
+        fire_list = set()
+        # print("runtime_data.brain['i__inf']", runtime_data.brain['i__inf'])
+        for sensor_idx in ir_data:
+            if ir_data[sensor_idx]:
+                for key in runtime_data.brain[cortical_area]:
+                    if sensor_idx == runtime_data.brain[cortical_area][key]['soma_location'][1][0]:
+                        fire_list.add(key)
+        runtime_data.fcl_queue.put({cortical_area: fire_list})
+    else:
+        print("Warning! Cortical stimulation received but genome missing", cortical_area)
 
 
 def lidar_translator(proximity_data):
@@ -177,31 +193,35 @@ def lidar_translator(proximity_data):
     Type is not needed at this point given the lidar vs sonar data is automatically differentiated within the func.
     """
 
-    if proximity_data is not None:
-        # print("SLOT_TYPES", message.SLOT_TYPES)
-        # print("angle_increment:", message.angle_increment)
-        # print("angle_max:", message.angle_max)
-        # print("angle_min:", message.angle_min)
-        # print("get_fields_and_field_types:", message.get_fields_and_field_types)
-        # print("header:", message.header)
-        # print("intensities:", message.intensities)
-        # print("range_max:", message.range_max)
-        # print("range_min:", message.range_min)
-        # print("ranges:", message.ranges)
-        # print("scan_time:", message.scan_time)
-        # print("time_increment:", message.time_increment)
-        # print("-----")
+    cortical_area = 'i__pro'
+    if cortical_area_in_genome(cortical_area):
+        if proximity_data is not None:
+            # print("SLOT_TYPES", message.SLOT_TYPES)
+            # print("angle_increment:", message.angle_increment)
+            # print("angle_max:", message.angle_max)
+            # print("angle_min:", message.angle_min)
+            # print("get_fields_and_field_types:", message.get_fields_and_field_types)
+            # print("header:", message.header)
+            # print("intensities:", message.intensities)
+            # print("range_max:", message.range_max)
+            # print("range_min:", message.range_min)
+            # print("ranges:", message.ranges)
+            # print("scan_time:", message.scan_time)
+            # print("time_increment:", message.time_increment)
+            # print("-----")
 
-        for sensor in proximity_data:
-            # differentiate between LIDAR/SONAR data
-            if hasattr(proximity_data[sensor], '__iter__'):
-                detections = stimuli_processor.lidar_to_coords(proximity_data[sensor])
-            else:
-                detections = stimuli_processor.sonar_to_coords(proximity_data[sensor])
+            for sensor in proximity_data:
+                # differentiate between LIDAR/SONAR data
+                if hasattr(proximity_data[sensor], '__iter__'):
+                    detections = stimuli_processor.lidar_to_coords(proximity_data[sensor])
+                else:
+                    detections = stimuli_processor.sonar_to_coords(proximity_data[sensor])
 
-            neurons = stimuli_processor.coords_to_neuron_ids(
-                detections, cortical_area='i__pro'
-            )
+                neurons = stimuli_processor.coords_to_neuron_ids(
+                    detections, cortical_area=cortical_area
+                )
 
-            # TODO: Add proximity feeder function in fcl_injector
-            runtime_data.fcl_queue.put({'i__pro': set(neurons)})
+                # TODO: Add proximity feeder function in fcl_injector
+                runtime_data.fcl_queue.put({cortical_area: set(neurons)})
+    else:
+        print("Warning! Cortical stimulation received but genome missing", cortical_area)

@@ -96,12 +96,12 @@ def convert_neuron_activity_to_rgb_intensities(self, blocks_with_active_neurons,
 
 def activate_leds(led_data):
     controller = SourceFileLoader("controller.py", runtime_data.hw_controller_path).load_module()
-    led = controller.LED()
+
     for led_id in led_data:
         R = led_data[led_id][0]
         G = led_data[led_id][1]
         B = led_data[led_id][2]
-        led.LED_on(led_id, R, G, B)
+        controller.led.LED_on(led_id, R, G, B)
 
 
 def convert_neuron_activity_to_utf8_char(cortical_area, neuron_id):
@@ -116,3 +116,26 @@ def convert_neuron_activity_to_utf8_char(cortical_area, neuron_id):
 
     activity_rank = membrane_potential_total / len(activity_history)
     return chr(char), int(activity_rank)
+
+
+def battery_charger():
+    """
+    battery_data = {
+        battery_id: {
+            "charge": True
+        },
+        2: {},
+        3: {}
+    }
+    """
+    try:
+        print("Charging battery initiated *** *** ***")
+        # todo: Generalize the following section. using specifics for test only
+        runtime_data.opu_data["battery"] = True
+        if runtime_data.parameters["Logs"]["print_opu_info"]:
+            print(">>>  Battery is charging +++    charge command sent to router ")
+
+    except Exception as e:
+        print("ERROR at Battery module:", e)
+        exc_info = sys.exc_info()
+        traceback.print_exception(*exc_info)

@@ -17,19 +17,12 @@
 # ==============================================================================
 
 """
-
 FEAGI is a brain inspired evolutionary framework capable of growing an artificial brain from a
 genome and helping it evolve over generations.
 
 This main module is responsible for driving the lifecycle of a single generation of an
 artificial brain at a time. To scale up the system to many parallel generations, FEAGI
 is intended to run within a container and scale up to many container instances.
-
-todo: redo brain development with no db dependency
-todo: build Mongodb / local handling for brain development
-todo: test dev
-todo: perf optimization: ...
-todo: create a process for burst_engine
 """
 
 if __name__ == '__main__':
@@ -74,8 +67,8 @@ if __name__ == '__main__':
         initialize.initialize()
 
         # Process of artificial neuroembryogenesis that leads to connectome development
-        neuroembryogenesis.develop_brain(reincarnation_mode=
-                                         runtime_data.parameters['Brain_Development']['reincarnation_mode'])
+        neuroembryogenesis.develop_brain(reincarnation_mode=runtime_data.parameters[
+            'Brain_Development']['reincarnation_mode'])
 
         # Staring the burst_manager engine
         burst_engine.burst_manager()

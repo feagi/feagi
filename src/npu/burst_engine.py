@@ -30,7 +30,6 @@ todo: need a higher level mechanism to switch between life mode and autopilot mo
 import os
 import csv
 import glob
-import random
 from datetime import datetime
 from inf import disk_ops
 from time import sleep
@@ -40,7 +39,7 @@ from npu.comprehension import utf_detection_logic
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
 from inf.messenger import Pub, Sub
-from pns import stimuli_router, action_router
+from pns.pns_router import action_router, stimuli_router
 
 
 def cortical_group_members(group):
@@ -73,7 +72,7 @@ def burst_manager():
 
     def consciousness_manager():
         """responsible for start and stop of all non-main threads based on various conditions"""
-        # Check flags for IPU activitiesf
+        # Check flags for IPU activities
         # todo: need mechanism to set the ipu_idle flag if there is no IPU activity for a period
         # Alert condition checks to ensure brain is not in Alert mode which can be triggered via fear or cautiousness
         elapsed_time = datetime.now() - runtime_data.last_alertness_trigger
@@ -386,7 +385,7 @@ def burst_manager():
         print("Burst publisher has been initialized @ ", burst_engine_pub_address)
 
     def controller_handshake():
-        broadcast_message = dict()
+        broadcast_message = {}
         broadcast_message['burst_counter'] = runtime_data.burst_count
         broadcast_message['sockets'] = runtime_data.parameters['Sockets']
         broadcast_message['burst_frequency'] = runtime_data.burst_timer
@@ -394,6 +393,7 @@ def burst_manager():
         broadcast_message['opu_data'] = runtime_data.opu_data
 
         runtime_data.burst_publisher.send(message=broadcast_message)
+        runtime_data.opu_data = {}
 
     def message_router():
         # IPU listener: Receives IPU data through ZMQ channel
@@ -402,7 +402,7 @@ def burst_manager():
             # Dynamically adjusting burst duration based on Controller needs
             runtime_data.burst_timer = burst_duration_calculator(gazebo_data)
             if gazebo_data:
-                stimuli_router.ipu_handler(gazebo_data)
+                stimuli_router(gazebo_data)
 
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.router_address_godot is not None:
@@ -410,7 +410,7 @@ def burst_manager():
             # Dynamically adjusting burst duration based on Controller needs
             runtime_data.burst_timer = burst_duration_calculator(godot_data)
             if godot_data:
-                stimuli_router.ipu_handler(godot_data)
+                stimuli_router(godot_data)
 
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.router_address_virtual is not None:
@@ -418,7 +418,7 @@ def burst_manager():
             # Dynamically adjusting burst duration based on Controller needs
             runtime_data.burst_timer = burst_duration_calculator(virtual_data)
             if virtual_data:
-                stimuli_router.ipu_handler(virtual_data)
+                stimuli_router(virtual_data)
 
         # Broadcasts a TCP message on each burst
         if runtime_data.brain_activity_pub:
@@ -481,7 +481,7 @@ def burst_manager():
         log_neuron_activity_influx()
 
         # Process efferent signals
-        action_router.opu_handler()
+        action_router()
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
