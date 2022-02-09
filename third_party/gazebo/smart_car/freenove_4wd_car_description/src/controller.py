@@ -359,7 +359,7 @@ def main(args=None):
             feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
             msg_counter += 1
-            time.sleep(0.1)
+            time.sleep(0.01)
     except KeyboardInterrupt:
         pass
 
