@@ -46,15 +46,16 @@ def csv_writer(cortical_dimensions):
     writer = csv.writer(f)
     godot_cortical_dimensions = list()
     for cortical_area in cortical_dimensions:
-        godot_cortical_dimensions.append(cortical_dimensions[cortical_area][0])
-        godot_cortical_dimensions.append(cortical_dimensions[cortical_area][1])
-        godot_cortical_dimensions.append(cortical_dimensions[cortical_area][2])
-        godot_cortical_dimensions.append(cortical_dimensions[cortical_area][4])
-        godot_cortical_dimensions.append(cortical_dimensions[cortical_area][5])
-        godot_cortical_dimensions.append(cortical_dimensions[cortical_area][6])
-        godot_cortical_dimensions.append(cortical_area)
-        writer.writerow(godot_cortical_dimensions)
-        godot_cortical_dimensions = list()
+        if cortical_dimensions[cortical_area][3]:
+            godot_cortical_dimensions.append(cortical_dimensions[cortical_area][0])
+            godot_cortical_dimensions.append(cortical_dimensions[cortical_area][1])
+            godot_cortical_dimensions.append(cortical_dimensions[cortical_area][2])
+            godot_cortical_dimensions.append(cortical_dimensions[cortical_area][4])
+            godot_cortical_dimensions.append(cortical_dimensions[cortical_area][5])
+            godot_cortical_dimensions.append(cortical_dimensions[cortical_area][6])
+            godot_cortical_dimensions.append(cortical_area)
+            writer.writerow(godot_cortical_dimensions)
+            godot_cortical_dimensions = list()
 
 
 def breakdown(feagi_input):  ##add input soon
