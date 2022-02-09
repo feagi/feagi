@@ -51,6 +51,7 @@ opu_channel_address = 'tcp://' + network_settings['feagi_ip'] + ':' + sockets['f
 feagi_ipu_channel = Pub(address=ipu_channel_address)
 feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
+
 def publisher_initializer(model_name, topic_count, topic_identifier):
     node = rclpy.create_node('Controller_py')
 

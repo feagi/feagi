@@ -155,67 +155,6 @@ def burst_manager():
                           % (cortical_area_, cortical_neuron_count)
                           + settings.Bcolors.ENDC)
 
-    def training_quality_test():
-        upstream_general_stats_ = list_upstream_neuron_count_for_digits()
-        for entry in upstream_general_stats_:
-            if entry[1] == 0:
-                print(upstream_general_stats_, "This entry was zero >", entry)
-                return False
-
-    def terminate_on_low_perf():
-        if runtime_data.parameters["Switches"]["evaluation_based_termination"]:
-            if runtime_data.parameters["Auto_injector"]["injector_status"] and \
-                    runtime_data.burst_count > int(runtime_data.parameters["InitData"]["kill_trigger_burst_count"]):
-                if 'vision_memory' not in runtime_data.activity_stats:
-                    runtime_data.activity_stats['vision_memory'] = 0
-                elif runtime_data.activity_stats['vision_memory'] < \
-                        int(runtime_data.parameters["InitData"]["kill_trigger_vision_memory_min"]):
-                    print(settings.Bcolors.RED +
-                          "\n\n\n\n\n\n!!!!! !! !Terminating the brain due to low performance! !! !!!" +
-                          settings.Bcolors.ENDC)
-                    print("vision_memory max activation was:", runtime_data.activity_stats['vision_memory'])
-                    runtime_data.termination_flag = True
-                    exit_burst_process()
-
-    def comprehension_check():
-        detected_char = utf_detection_logic(runtime_data.burst_detection_list)
-        runtime_data.comprehension_queue.append(detected_char)
-        runtime_data.comprehension_queue.popleft()
-
-        counter_list = {}
-        # print("~~~~~~..... Burst detection list: ", runtime_data.burst_detection_list)
-        if runtime_data.parameters["Logs"]["print_comprehension_queue"]:
-            if runtime_data.burst_detection_list != {}:
-                print(settings.Bcolors.RED + "<><><><><><><><><><><><><><>"
-                                             "<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>"
-                      + settings.Bcolors.ENDC)
-            print(">>comprehension_queue  ", runtime_data.comprehension_queue, "  <<")
-
-        for item in runtime_data.comprehension_queue:
-            if item in counter_list:
-                counter_list[item] += 1
-            else:
-                counter_list[item] = 1
-        list_length = len(counter_list)
-
-        if runtime_data.parameters["Logs"]["print_comprehension_queue"]:
-            print("+++++++This is the counter list", counter_list)
-        for item in counter_list:
-            if list_length == 1 and item != '-':
-                runtime_data.parameters["Input"]["comprehended_char"] = item[0]
-                print(settings.Bcolors.HEADER + "UTF8 out was stimulated with the following character: <<< %s >>>"
-                      % runtime_data.parameters["Input"]["comprehended_char"] + settings.Bcolors.ENDC)
-                # In the event that the comprehended UTF character is not matching the injected one pain is triggered
-                try:
-                    if runtime_data.parameters["Input"]["comprehended_char"] != str(runtime_data.labeled_image[1]):
-                        trigger_pain()
-                        runtime_data.pain_flag = True
-                finally:
-                    pass
-            else:
-                if list_length >= 2:
-                    runtime_data.parameters["Input"]["comprehended_char"] = ''
-
     def capture_mem_potential():
         # todo: This is the part to capture the neuron membrane potential values in a file, still need to figure how
         if runtime_data.parameters["Switches"]["capture_neuron_mp"]:
@@ -318,8 +257,7 @@ def burst_manager():
     def fire_fcl_contents():
         # time_firing_activities = datetime.now()
         # todo: replace the hardcoded vision memory statement
-        if candidate_list_counter(runtime_data.fire_candidate_list) == \
-                0 and not runtime_data.parameters["Auto_injector"]["injector_status"]:
+        if candidate_list_counter(runtime_data.fire_candidate_list) == 0:
             # sleep(float(runtime_data.parameters["Timers"]["idle_burst_timer"]))
             runtime_data.empty_fcl_counter += 1
             print("FCL is empty!")
@@ -450,6 +388,10 @@ def burst_manager():
                     )
         return broadcast_message
 
+    def terminate_on_low_perf():
+        # TBD
+        pass
+
     def burst():
         # todo: the following sleep value should be tied to Autopilot status
         sleep(float(runtime_data.burst_timer))
@@ -502,9 +444,6 @@ def burst_manager():
 
         # Pain check
         exhibit_pain()
-
-        # Comprehension check
-        comprehension_check()
 
         # Forming memories through creation of cell assemblies
         # todo: instead of passing a pain flag simply detect of pain neuron is activated
