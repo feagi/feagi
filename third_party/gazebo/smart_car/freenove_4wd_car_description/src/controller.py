@@ -5,11 +5,8 @@ import time
 import traceback
 from datetime import datetime
 from router import *
-from random import randrange
 from threading import Thread
 import math
-
-
 import geometry_msgs.msg
 import rclpy
 import std_msgs.msg
@@ -20,6 +17,13 @@ from configuration import *
 from configuration import message_to_feagi
 import os
 
+runtime_params = {
+    "current_burst_id": 0,
+    "global_timer": 0.5,
+    "feagi_state": None,
+    "cortical_list": (),
+    "battery_charge_level": 1
+}
 
 
 if sys.platform == 'win32':
@@ -113,17 +117,36 @@ class ScalableSubscriber(Node):
                         sensor_id: True
                     }
                 }
-        elif 'battery' in msg_type and msg.percentage:
-            return {
-                'battery': {
-                    idx: val for idx, val in enumerate([msg.percentage])
-                }
-            }
+        # elif 'battery' in msg_type and msg.percentage:
+        #     return {
+        #         'battery': {
+        #             idx: val for idx, val in enumerate([msg.percentage])
+        #         }
+        #     }
+
+
+def compose_message_to_feagi(original_message):
+    """
+    accumulates multiple messages in a data structure that can be sent to feagi
+    """
+
+    if "data" not in message_to_feagi:
+        message_to_feagi["data"] = dict()
+    if "sensory_data" not in message_to_feagi["data"]:
+        message_to_feagi["data"]["sensory_data"] = dict()
+    for sensor in original_message:
+        if sensor not in message_to_feagi["data"]["sensory_data"]:
+            message_to_feagi["data"]["sensory_data"][sensor] = dict()
+        for sensor_data in original_message[sensor]:
+            if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
+                message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][sensor_data]
+    message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_params["battery_charge_level"] / 100}
 
 
 class UltrasonicSubscriber(ScalableSubscriber):
     def __init__(self, subscription_name, msg_type, topic):
         super().__init__(subscription_name, msg_type, topic)
+
 
 class BatterySubscriber(ScalableSubscriber):
     def __init__(self, subscription_name, msg_type, topic):
@@ -133,6 +156,25 @@ class BatterySubscriber(ScalableSubscriber):
 class IRSubscriber(ScalableSubscriber):
     def __init__(self, subscription_name, msg_type, topic):
         super().__init__(subscription_name, msg_type, topic)
+
+
+class Battery:
+    def __init__(self):
+        print("Battery has been initialized")
+        if "battery" in capabilities:
+            runtime_params["battery_charge_level"] = capabilities["battery"]["capacity"]
+
+    @staticmethod
+    def charge_battery():
+        print("Charging battery    ^^^^^^^^^^^^   *************    ^^^^^^^^^^^^^^^^^^^")
+        runtime_params["battery_charge_level"] += capabilities["battery"]["charge_increment"]
+        if runtime_params["battery_charge_level"] > capabilities["battery"]["capacity"]:
+            runtime_params["battery_charge_level"] = capabilities["battery"]["capacity"]
+
+    @staticmethod
+    def consume_battery():
+        # print("Consuming battery ")
+        runtime_params["battery_charge_level"] -= capabilities["battery"]["depletion_per_burst"]
 
 
 class Motor:
@@ -198,7 +240,6 @@ class Servo:
         # self.servo_node[servo_index].publish(twist)  # -1.6 to 1.6 which is -90 to 90
 
 
-
 class Teleop:
     def __init__(self):
         rclpy.init()
@@ -251,23 +292,6 @@ class Teleop:
         self.pub.publish(twist)
 
 
-def compose_message_to_feagi(original_message):
-    """
-    accumulates multiple messages in a data structure that can be sent to feagi
-    """
-
-    if "data" not in message_to_feagi:
-        message_to_feagi["data"] = dict()
-    if "sensory_data" not in message_to_feagi["data"]:
-        message_to_feagi["data"]["sensory_data"] = dict()
-    for sensor in original_message:
-        if sensor not in message_to_feagi["data"]["sensory_data"]:
-            message_to_feagi["data"]["sensory_data"][sensor] = dict()
-        for sensor_data in original_message[sensor]:
-            if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
-                message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][sensor_data]
-
-
 def main(args=None):
     print("Connecting to FEAGI resources...")
     rclpy.init(args=args)
@@ -286,14 +310,19 @@ def main(args=None):
                   model='freenove_servo')
 
     # Instantiate controller classes with Subscriber nature
+
+    # Ultrasonic Sensor
     ultrasonic_feed = UltrasonicSubscriber('ultrasonic0', LaserScan, 'ultrasonic0')
     executor.add_node(ultrasonic_feed)
 
-    battery_feed = BatterySubscriber('battery', BatteryState,
-                                     'model/freenove_smart_car/battery/linear_battery/state')
-    # todo: Change the topic name and make it scalable
-    executor.add_node(battery_feed)
+    # Battery
+    # Moving away from using the Gazebo based battery model and adopting a controller based model instead
+    # battery_feed = BatterySubscriber('battery', BatteryState, 'model/freenove_smart_car/battery/linear_battery/state')
+    # # todo: Change the topic name and make it scalable
+    # executor.add_node(battery_feed)
+    battery = Battery()
 
+    # Infrared Sensor
     ir_feeds = {}
     ir_topic_id = capabilities['infrared']['topic_identifier']
     for ir_node in range(capabilities['infrared']['count']):
@@ -308,16 +337,21 @@ def main(args=None):
         while True:
             # Process OPU data received from FEAGI and pass it along
             message_from_feagi = feagi_opu_channel.receive()
+            battery.consume_battery()
             try:
                 opu_data = message_from_feagi["opu_data"]
-                # print("Received:", opu_data)
+                print("Received:", opu_data)
                 if opu_data is not None:
                     if 'motor' in opu_data:
                         for motor_id in opu_data['motor']:
                             motor.move(motor_index=motor_id, speed=opu_data['motor'][motor_id]['speed'])
-                    elif 'servo' in opu_data:
+                    if 'servo' in opu_data:
                         for servo_id in opu_data['servo']:
-                            servo.move(servo_index=servo_id, angle=opu_data['servo'][servo_id]['angle']) ##Try this
+                            servo.move(servo_index=servo_id, angle=opu_data['servo'][servo_id]['angle'])
+
+                    if 'battery' in opu_data:
+                        battery.charge_battery()
+
             except Exception:
                 print("")
             message_to_feagi['timestamp'] = datetime.now()
@@ -330,7 +364,7 @@ def main(args=None):
         pass
 
     ultrasonic_feed.destroy_node()
-    battery_feed.destroy_node()
+    # battery_feed.destroy_node()
 
     for ir_node in ir_feeds:
         ir_feeds[ir_node].destroy_node()

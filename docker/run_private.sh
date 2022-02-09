@@ -9,7 +9,7 @@ else
     export PRIVATE_FEAGI_REPO=$1
     docker build --ssh default \
                  --build-arg REPO=$1 \
-                 -f Dockerfile.private .
+                 -f Dockerfile.private . --no-cache
     docker build ../third_party/grafana
     docker build ../third_party/godot/container
     docker-compose -f feagi.yml -f feagi.private.yml up
