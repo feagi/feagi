@@ -71,6 +71,7 @@ def breakdown(feagi_input):  ##add input soon
     print(list1)
     UDP(str(list1))
 
+
 def UDP(input):
     """
     This allows you to send any data to UDP. This port is what Godot's UDP using to recieve.
@@ -156,6 +157,7 @@ def godot_selected_list(outside_list, godot_list): ##This one will get raw forwa
 
     return list_to_dict
 
+
 def name_to_id(name):
     list = genome['blueprint']
     feagi_name_readable = name
@@ -163,6 +165,7 @@ def name_to_id(name):
         if genome['blueprint'][key] == name:
             feagi_name_readable = key[9:15]
     return feagi_name_readable
+
 
 def feagi_breakdown(data):
     """
@@ -173,6 +176,7 @@ def feagi_breakdown(data):
         xyz = i[1], i[2], i[3]
         new_list.append(xyz)
     return new_list
+
 
 def convert_absolute_to_relative_coordinate(dict_input, dna_information):
     """
@@ -203,6 +207,7 @@ def convert_absolute_to_relative_coordinate(dict_input, dna_information):
         pass
     return relative_coordinate
 
+
 Godot_list = {}
 print("Godot_list = ", Godot_list)
 #UDP("{'godot': {(59, 5, 0, 3), (59, 5, 0, 9), (59, 5, 0, 2), (59, 5, 0, 5), (59, 5, 0, 8), (59, 5, 0, 4)}}")
@@ -222,6 +227,11 @@ FEAGI_pub = Pub(address='tcp://0.0.0.0:' + network_settings['feagi_inbound_port_
 opu_channel_address = 'tcp://' + network_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
 FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 UDP(str("0,0,0"))
+
+
+# Send a request to FEAGI for cortical dimensions
+FEAGI_pub.send({"godot_init": True})
+
 
 while True:
     one_frame = FEAGI_sub.receive()
