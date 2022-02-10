@@ -96,41 +96,29 @@ def godot_data(input):
     return data
 
 
-def godot_selected_list(outside_list, godot_list): ##This one will get raw forward from feagi so is this right
+def godot_selected_list(outside_list, godot_list):
 
-    print("outside_list", outside_list)
     name = outside_list[0]
     x = int(outside_list[1])
     y = int(outside_list[2])
     z = int(outside_list[3])
     if godot_list:
         list_to_dict = godot_list
-        #print("experienced")
     else:
         list_to_dict = dict()
-        #print(type(list_to_dict))
-
         list_to_dict["data"] = dict()
         list_to_dict["data"]["direct_stimulation"] = dict()
-        #print("newbie")
-    #print("middle", list_to_dict)
 
     if list_to_dict["data"]["direct_stimulation"].get(name) is not None:
         pass
-        #print("true")
     else:
-        #print("added ", name)
         list_to_dict["data"]["direct_stimulation"][name] = list()
     for key in list_to_dict["data"]["direct_stimulation"]:
-        #print(key)
         if key not in list_to_dict["data"]["direct_stimulation"]:
             list_to_dict["data"]["direct_stimulation"][name] = list()
             list_to_dict["data"]["direct_stimulation"][name].append([x,y,z])
-            #print("first time")
         else:
             list_to_dict["data"]["direct_stimulation"][name].append([x,y,z])
-           # print("second or more time")
-    #print("Selected: ", list_to_dict)
 
     return list_to_dict
 
@@ -159,36 +147,33 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
     Convert absolute coordinate from godot to relative coordinate for FEAGI. Dna_information is from the
     genome["blueprint"].
     """
-    
-    print("stimulation_from_godot", stimulation_from_godot)
+
     relative_coordinate = {}
     relative_coordinate["data"] = dict()
     relative_coordinate["data"]["direct_stimulation"] = dict()
     if stimulation_from_godot:
         for key in stimulation_from_godot["data"]["direct_stimulation"]:
             for name_match in cortical_data:
-                print("matching name...", name_match, key)
+                raw_id = name_match
+                name_match = name_to_id(name_match) ##convert the human readable name into feagi name
                 if name_match == key:
                     if relative_coordinate["data"]["direct_stimulation"].get(name_match) is not None:
                         pass
                     else:
                         relative_coordinate["data"]["direct_stimulation"][name_match] = list()
                     for xyz in stimulation_from_godot["data"]["direct_stimulation"][name_match]:
-                        new_xyz =[xyz[0] - cortical_data[name_match][2], xyz[1] - cortical_data[name_match][3], xyz[2] - cortical_data[name_match][4]]
+                        new_xyz =[xyz[0] - cortical_data[raw_id][0], xyz[1] - cortical_data[raw_id][1], xyz[2] - cortical_data[raw_id][2]]
                         relative_coordinate["data"]["direct_stimulation"][name_match].append(new_xyz)
-                    #absolute_dict["data"]["direct_stimulation"][name_match][0] - cortical_data[name_match][5]
 
             else:
                 pass
     else:
         pass
+
     return relative_coordinate
 
 
-Godot_list = {}
-print("Godot_list = ", Godot_list)
-#UDP("{'godot': {(59, 5, 0, 3), (59, 5, 0, 9), (59, 5, 0, 2), (59, 5, 0, 5), (59, 5, 0, 8), (59, 5, 0, 4)}}")
-
+Godot_list = {} ##initalized the list from Godot
 address = 'tcp://' + network_settings['feagi_ip'] + ':' + network_settings['feagi_outbound_port']
 feagi_state = handshake_with_feagi(address=address, capabilities=capabilities) ##I was trying to leverage on router only
 print("feagi_state: " , feagi_state)
@@ -217,36 +202,18 @@ while awaiting_feagi_registration:
                 csv_writer(message_from_feagi["cortical_dimensions"])
                 awaiting_feagi_registration = False
     time.sleep(1)
-
-# time.sleep(2)
+time.sleep(2)
 
 while True:
     one_frame = FEAGI_sub.receive()
-    #print("one_frame after feagi: ", one_frame)
-    #one_frame = "{'godot': {(59, 5, 0, 3), (59, 5, 0, 9), (59, 5, 0, 2), (59, 5, 0, 5), (59, 5, 0, 8), (59, 5, 0, 4)}}"
-
     if one_frame is not None:
-        print("FEAGI's raw data: ", one_frame) #Don't delete this, it worked perfectly
         one_frame = feagi_breakdown(one_frame)
-        #print("one frame after breakdown: ", one_frame)
         UDP(str(one_frame))
-
-
-    # one_frame = feagi_initalize() #disable to comment
-    # print(one_frame)
-    #UDP("[0,0,0")
-    #breakdown(one_frame)
-
-
-    ##This stops all processing and force to wait for the return data from FEAGI
-    #data = "None"
     data = godot_listener()
     if data != "None":
         if data == "ready":
             converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=Godot_list,
                                                                      cortical_data=runtime_data["cortical_data"])
-
-
             print(">>> > > > >> > converted data:", converted_data)
             FEAGI_pub.send(converted_data)
         elif data == "refresh":
@@ -257,7 +224,6 @@ while True:
             data = godot_data(data)
             data[0] = name_to_id(data[0])
             Godot_list = godot_selected_list(data, Godot_list)
-
     else:
         pass
 
