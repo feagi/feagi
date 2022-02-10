@@ -12,34 +12,6 @@ runtime_data = {
     "cortical_data": {}
 }
 
-# def genome_2_cortical_list(flat_genome):
-#     """
-#     Generates a list of cortical areas inside static_genome.py. This will reads the data and add the list if it has
-#     "x-gd_vis-b" defined True.
-#     """
-#     cortical_list = {}
-#     for key in flat_genome:
-#         # print(key[17:])
-#         cortical_id = key[9:15]
-#         if key[19:] == "rcordx-i":
-#             cortical_list[cortical_id].append(genome["blueprint"][key])
-#         if key[19:] == "rcordy-i":
-#             cortical_list[cortical_id].append(genome["blueprint"][key])
-#         if key[19:] == "rcordz-i":
-#             cortical_list[cortical_id].append(genome["blueprint"][key])
-#         if cortical_id not in cortical_list and key[7] == "c":
-#             cortical_list[cortical_id] = [genome["blueprint"][key]]
-#         if key[17:] == "x-gd_vis-b":
-#             cortical_list[cortical_id].append(genome["blueprint"][key])
-#             # print(genome["blueprint"][key])
-#         if key[22:] == "bbx-i":
-#             cortical_list[cortical_id].append(genome["blueprint"][key])
-#         if key[22:] == "bby-i":
-#             cortical_list[cortical_id].append(genome["blueprint"][key])
-#         if key[22:] == "bbz-i":
-#             cortical_list[cortical_id].append(genome["blueprint"][key])
-#     return cortical_list
-
 
 def csv_writer(cortical_dimensions):
     f = open('csv_data.csv', 'w', newline='')
@@ -245,6 +217,7 @@ while awaiting_feagi_registration:
                 awaiting_feagi_registration = False
     time.sleep(1)
 
+time.sleep(2)
 
 while True:
     one_frame = FEAGI_sub.receive()

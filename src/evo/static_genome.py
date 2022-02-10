@@ -88,7 +88,7 @@ genome = {
         "_____10c-o__bat-nx-gd_vis-b": True,
         "_____10c-o__bat-nx-rcordx-i": 60,
         "_____10c-o__bat-nx-rcordy-i": 0,
-        "_____10c-o__bat-nx-rcordz-i": 0,
+        "_____10c-o__bat-nx-rcordz-i": 50,
         "_____10c-o__bat-nx-___bbx-i": 1,
         "_____10c-o__bat-nx-___bby-i": 1,
         "_____10c-o__bat-nx-___bbz-i": 10,
