@@ -7,8 +7,7 @@ RUN apt-get update && \
         git \
         python3-zmq \
         xterm \
-        python3-pip \ 
-        godot3 \
+        python3-pip \
         unzip
         
 RUN sudo apt-get install -y build-essential scons pkg-config libx11-dev libxcursor-dev libxinerama-dev \

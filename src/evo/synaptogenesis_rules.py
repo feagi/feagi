@@ -150,8 +150,8 @@ def increase_filter_diagonal(rule_param, src_cortical_area, dst_cortical_area, s
         src_neuron_block_id[0],
         min(src_neuron_block_id[1] + 1,
             runtime_data.genome['blueprint'][dst_cortical_area]["neuron_params"]["block_boundaries"][1] - 1),
-        max(src_neuron_block_id[1] - 1,
-            runtime_data.genome['blueprint'][dst_cortical_area]["neuron_params"]["block_boundaries"][0])
+        max(src_neuron_block_id[2] - 1,
+            0)
     ]
     dst_block_ref = blocks.block_reference_builder(dst_block_id)
     dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=dst_block_ref)

@@ -104,7 +104,9 @@ def genome_2_1_convertor(flat_genome):
             if cortical_id == cortical_area:
                 try:
                     if gene_type == 'cx':
-                        if genome_2_to_1[exon] == "location_generation_type":
+                        if genome_2_to_1[exon] == "cortical_name":
+                            genome['blueprint'][cortical_area][genome_2_to_1[exon]] = flat_genome[gene]
+                        elif genome_2_to_1[exon] == "location_generation_type":
                             if flat_genome[gene]:
                                     genome['blueprint'][cortical_area][genome_2_to_1[exon]] = "random"
                             else:
