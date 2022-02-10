@@ -136,11 +136,8 @@ def godot_selected_list(outside_list, godot_list): ##This one will get raw forwa
 
 
 def name_to_id(name):
-    print("&&&& input name...")
     for cortical_area in runtime_data["cortical_data"]:
-        print("cortical_area", cortical_area, runtime_data["cortical_data"][cortical_area][7])
         if cortical_area == name:
-            print("name match!!", name, cortical_area)
             return runtime_data["cortical_data"][cortical_area][7]
     else:
         print("*** Failed to find cortical name ***")
@@ -246,9 +243,11 @@ while True:
     data = godot_listener()
     if data != "None":
         if data == "ready":
-            print("Godot_list--ready", Godot_list)
             converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=Godot_list,
                                                                      cortical_data=runtime_data["cortical_data"])
+
+
+            print(">>> > > > >> > converted data:", converted_data)
             FEAGI_pub.send(converted_data)
         elif data == "refresh":
             Godot_list = {}
@@ -256,10 +255,7 @@ while True:
             FEAGI_pub.send(Godot_list)
         else:
             data = godot_data(data)
-            print("raw data from godot ---->>>>>>>>>>>>>", data)
             data[0] = name_to_id(data[0])
-            print("----*******------*******-----", data)
-
             Godot_list = godot_selected_list(data, Godot_list)
 
     else:
