@@ -19,7 +19,7 @@ import os
 
 runtime_params = {
     "current_burst_id": 0,
-    "global_timer": 0.5,
+    "global_timer": 0.2,
     "feagi_state": None,
     "cortical_list": (),
     "battery_charge_level": 1
@@ -33,7 +33,7 @@ else:
     import tty
 
 
-os.system("(ros2 topic pub --once /S0 std_msgs/msg/Float64 '{data: 1.5}' && ros2 topic pub --once /S1 std_msgs/msg/Float64 '{data: 1.5}')&")
+os.system('ign topic -t "/S0" -m ignition.msgs.Double -p "data: 1.6" && ign topic -t "/S1" -m ignition.msgs.Double -p "data: 1.6"')
 address = 'tcp://' + network_settings['feagi_ip'] + ':' + network_settings['feagi_outbound_port']
 feagi_state = handshake_with_feagi(address=address, capabilities=capabilities)
 
@@ -141,7 +141,8 @@ def compose_message_to_feagi(original_message):
         for sensor_data in original_message[sensor]:
             if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
                 message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][sensor_data]
-    message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_params["battery_charge_level"] / 100}
+
+
 
 
 class UltrasonicSubscriber(ScalableSubscriber):
@@ -328,7 +329,7 @@ def main(args=None):
     ir_topic_id = capabilities['infrared']['topic_identifier']
     for ir_node in range(capabilities['infrared']['count']):
         ir_feeds[ir_node] = IRSubscriber(f'infrared_{ir_node}', Image, f'{ir_topic_id}{ir_node}/image')
-        executor.add_node(ir_feeds[ir_node])
+    executor.add_node(ir_feeds[ir_node])
 
     executor_thread = Thread(target=executor.spin, daemon=True)
     executor_thread.start()
@@ -349,18 +350,18 @@ def main(args=None):
                     if 'servo' in opu_data:
                         for servo_id in opu_data['servo']:
                             servo.move(servo_index=servo_id, angle=opu_data['servo'][servo_id]['angle'])
-
                     if 'battery' in opu_data:
                         battery.charge_battery()
 
             except Exception:
-                print("")
+                pass
+                #print("")
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
             msg_counter += 1
-            time.sleep(0.1)
+            time.sleep(network_settings['feagi_burst_speed'])
     except KeyboardInterrupt:
         pass
 
