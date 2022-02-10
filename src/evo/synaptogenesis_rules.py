@@ -114,19 +114,21 @@ def decrease_filter_diagonal(rule_param, src_cortical_area, dst_cortical_area, s
     src_neuron_block_id = blocks.block_ref_2_id(src_neuron_block_ref)
 
     candidate_list = list()
-    dst_block_id = [
-        src_neuron_block_id[0],
-        min(src_neuron_block_id[1] + 1,
-            runtime_data.genome['blueprint'][dst_cortical_area]["neuron_params"]["block_boundaries"][1] - 1),
-        min(src_neuron_block_id[2] + 1,
-            runtime_data.genome['blueprint'][dst_cortical_area]["neuron_params"]["block_boundaries"][2] - 1)
-    ]
-    print("%%% %%% %%%", src_neuron_block_id[1] + 1,
-            runtime_data.genome['blueprint'][dst_cortical_area]["neuron_params"]["block_boundaries"][1] - 1)
-    dst_block_ref = blocks.block_reference_builder(dst_block_id)
-    dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=dst_block_ref)
-    for neuron in dst_block_neurons:
-        candidate_list.append(neuron)
+    # check if destination block id is in bounds, else ignore
+    dst_y = src_neuron_block_id[1] + 1
+    dst_z = src_neuron_block_id[2] + 1
+
+    if (dst_y < runtime_data.genome['blueprint'][dst_cortical_area]["neuron_params"]["block_boundaries"][1]) \
+        and (dst_z < runtime_data.genome['blueprint'][dst_cortical_area]["neuron_params"]["block_boundaries"][2]):
+        dst_block_id = [
+            src_neuron_block_id[0],
+            dst_y,
+            dst_z
+        ]
+        dst_block_ref = blocks.block_reference_builder(dst_block_id)
+        dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=dst_block_ref)
+        for neuron in dst_block_neurons:
+            candidate_list.append(neuron)
 
     return candidate_list
 
@@ -146,17 +148,21 @@ def increase_filter_diagonal(rule_param, src_cortical_area, dst_cortical_area, s
     src_neuron_block_id = blocks.block_ref_2_id(src_neuron_block_ref)
 
     candidate_list = list()
-    dst_block_id = [
-        src_neuron_block_id[0],
-        min(src_neuron_block_id[1] + 1,
-            runtime_data.genome['blueprint'][dst_cortical_area]["neuron_params"]["block_boundaries"][1] - 1),
-        max(src_neuron_block_id[2] - 1,
-            0)
-    ]
-    dst_block_ref = blocks.block_reference_builder(dst_block_id)
-    dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=dst_block_ref)
-    for neuron in dst_block_neurons:
-        candidate_list.append(neuron)
+    dst_y = src_neuron_block_id[1] + 1
+    dst_z = src_neuron_block_id[2] - 1
+
+    if (dst_y < runtime_data.genome['blueprint'][dst_cortical_area]["neuron_params"]["block_boundaries"][1]) \
+        and (dst_z >= 0):
+        dst_block_id = [
+            src_neuron_block_id[0],
+            dst_y,
+            dst_z
+        ]
+
+        dst_block_ref = blocks.block_reference_builder(dst_block_id)
+        dst_block_neurons = blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=dst_block_ref)
+        for neuron in dst_block_neurons:
+            candidate_list.append(neuron)
 
     return candidate_list
 
