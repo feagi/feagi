@@ -19,7 +19,6 @@ import os
 
 runtime_params = {
     "current_burst_id": 0,
-    "global_timer": 0.5,
     "feagi_state": None,
     "cortical_list": (),
     "battery_charge_level": 1
@@ -360,7 +359,7 @@ def main(args=None):
             feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
             msg_counter += 1
-            time.sleep(0.1)
+            time.sleep(network_settings['feagi_burst_speed'])
     except KeyboardInterrupt:
         pass
 
