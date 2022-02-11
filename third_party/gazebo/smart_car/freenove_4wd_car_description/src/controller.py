@@ -19,7 +19,6 @@ import os
 
 runtime_params = {
     "current_burst_id": 0,
-    "global_timer": 0.2,
     "feagi_state": None,
     "cortical_list": (),
     "battery_charge_level": 1
@@ -141,8 +140,7 @@ def compose_message_to_feagi(original_message):
         for sensor_data in original_message[sensor]:
             if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
                 message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][sensor_data]
-
-
+    message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_params["battery_charge_level"] / 100}
 
 
 class UltrasonicSubscriber(ScalableSubscriber):
