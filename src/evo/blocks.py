@@ -224,7 +224,7 @@ def percent_active_neurons_in_block(block_ref, cortical_area, current_fcl=True):
         return percent_active_neurons
 
 
-def active_neurons_in_blocks(cortical_area, current_fcl=True):
+def active_neurons_in_blocks(cortical_area, current_fcl=True, include_neurons=False):
     """
     Returns a dict of block_refs and their corresponding active (i.e. currently present
     in FCL) neurons for a given cortical area
@@ -234,6 +234,7 @@ def active_neurons_in_blocks(cortical_area, current_fcl=True):
     Note: If the current_fcl flag is not True then the function returns the results against the previous FCL list
     """
 
+    neuron_count = 0
     if current_fcl:
         fcl = runtime_data.fire_candidate_list
     else:
@@ -244,8 +245,21 @@ def active_neurons_in_blocks(cortical_area, current_fcl=True):
         neuron_block_ref = block_reference_builder(
             runtime_data.brain[cortical_area][neuron]['soma_location'][1]
         )
-        if neuron_block_ref in blocks_with_active_neurons:
-            blocks_with_active_neurons[neuron_block_ref].append(neuron)
+        if include_neurons:
+            if neuron_block_ref in blocks_with_active_neurons:
+                blocks_with_active_neurons[neuron_block_ref].append(neuron)
+            else:
+                blocks_with_active_neurons[neuron_block_ref] = [neuron]
         else:
-            blocks_with_active_neurons[neuron_block_ref] = [neuron]
+            if neuron_block_ref not in blocks_with_active_neurons:
+                blocks_with_active_neurons[neuron_block_ref] = 1
+            else:
+                neuron_count += 1
+                blocks_with_active_neurons[neuron_block_ref] = neuron_count
     return blocks_with_active_neurons
+
+
+
+
+
+
