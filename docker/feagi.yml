@@ -34,7 +34,8 @@ services:
       - PYTHONUNBUFFERED=1
 
     volumes:
-      - ../../smart-car/genome/proximity_test_genome.py:/opt/source-code/feagi/src/evo/static_genome.py
+      - ../src/evo/static_genome.py:/opt/source-code/feagi/src/evo/static_genome.py
+
     networks:
       - net
 
