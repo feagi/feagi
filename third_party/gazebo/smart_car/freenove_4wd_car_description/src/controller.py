@@ -51,6 +51,12 @@ feagi_ipu_channel = Pub(address=ipu_channel_address)
 feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
 
+def block_to_array(block_ref):
+    block_id_str = block_ref.split('-')
+    array = [int(x) for x in block_id_str]
+    return array
+
+
 def publisher_initializer(model_name, topic_count, topic_identifier):
     node = rclpy.create_node('Controller_py')
 
@@ -184,7 +190,7 @@ class Motor:
         # todo: figure a way to extract wheel parameters from the model
         self.wheel_diameter = 1
 
-    def move(self, motor_index, speed):
+    def move(self, motor_index, power):
         try:
             motor_position = std_msgs.msg.Float64()
 
@@ -192,7 +198,7 @@ class Motor:
                 capabilities['motor']['motor_statuses'][motor_index] = 0
 
             motor_current_position = capabilities['motor']['motor_statuses'][motor_index]
-            motor_position.data = float((speed * network_settings['feagi_burst_speed']*3) + motor_current_position)
+            motor_position.data = float((power * network_settings['feagi_burst_speed']*3) + motor_current_position)
 
             capabilities['motor']['motor_statuses'][motor_index] = motor_position.data
             # print("Motor index, position, speed = ", motor_index, motor_position.data, speed)
@@ -342,13 +348,19 @@ def main(args=None):
                 opu_data = message_from_feagi["opu_data"]
                 print("Received:", opu_data)
                 if opu_data is not None:
-                    if 'motor' in opu_data:
-                        for motor_id in opu_data['motor']:
-                            motor.move(motor_index=motor_id, speed=opu_data['motor'][motor_id]['speed'])
-                    if 'servo' in opu_data:
-                        for servo_id in opu_data['servo']:
-                            servo.move(servo_index=servo_id, angle=opu_data['servo'][servo_id]['angle'])
-                    if 'battery' in opu_data:
+                    if 'o__mot' in opu_data:
+                        for data_point in opu_data['o__mot']:
+                            data_point = block_to_array(data_point)
+                            device_id = data_point[0]
+                            device_power = data_point[2]
+                            motor.move(motor_index=device_id, power=device_power)
+                    if 'o__ser' in opu_data:
+                        for data_point in opu_data['o__ser']:
+                            data_point = block_to_array(data_point)
+                            device_id = data_point[0]
+                            device_power = data_point[2]
+                            motor.move(motor_index=device_id, power=device_power)
+                    if 'o__bat' in opu_data:
                         battery.charge_battery()
 
             except Exception:
