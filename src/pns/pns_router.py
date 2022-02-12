@@ -135,6 +135,19 @@ def generate_godot_registration_data():
     return cortical_information
 
 
+def opu_router():
+    """
+    Relays neuronal activities to the controller.
+    """
+    for cortical_area in runtime_data.fire_candidate_list:
+        if str(cortical_area)[0] == 'o':
+            if cortical_area not in runtime_data.opu_data:
+                runtime_data.opu_data[cortical_area] = {}
+            runtime_data.opu_data[cortical_area] = active_neurons_in_blocks(cortical_area=cortical_area)
+    print("--====>>>>> opu data ready for controller:", runtime_data.opu_data)
+
+
+
 def action_router():
     """
     This function is intended to handle all the OPU processing that needs to be addressed in burst level as opposed

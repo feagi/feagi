@@ -39,7 +39,7 @@ from npu.comprehension import utf_detection_logic
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
 from inf.messenger import Pub, Sub
-from pns.pns_router import action_router, stimuli_router
+from pns.pns_router import opu_router, stimuli_router
 
 
 def cortical_group_members(group):
@@ -424,7 +424,7 @@ def burst_manager():
         log_neuron_activity_influx()
 
         # Process efferent signals
-        action_router()
+        opu_router()
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
