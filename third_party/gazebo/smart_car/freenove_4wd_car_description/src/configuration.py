@@ -25,7 +25,6 @@ capabilities = {
         "disabled": False,
         "count": 4,
         'topic_identifier': '/M',
-        'motor_statuses': {},
         "refresh_rate": 1,
         "cortical_mapping": "o__mot"
     },

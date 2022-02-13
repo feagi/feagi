@@ -21,7 +21,8 @@ runtime_params = {
     "current_burst_id": 0,
     "feagi_state": None,
     "cortical_list": (),
-    "battery_charge_level": 1
+    "battery_charge_level": 1,
+    'motor_statuses': {},
 }
 
 
@@ -190,17 +191,25 @@ class Motor:
         # todo: figure a way to extract wheel parameters from the model
         self.wheel_diameter = 1
 
-    def move(self, motor_index, power):
+    def move(self, feagi_motor_id, power):
         try:
+
+            if feagi_motor_id > 2 * capabilities['motor']['count']:
+                print("Warning! Number of motor channels from FEAGI exceed available Motor count!")
+            # Translate feagi_motor_id to motor backward and forward motion to individual motors
+            motor_index = feagi_motor_id // 2
+            if feagi_motor_id % 2 == 1:
+                power *= -1
+
             motor_position = std_msgs.msg.Float64()
 
-            if motor_index not in capabilities['motor']['motor_statuses']:
-                capabilities['motor']['motor_statuses'][motor_index] = 0
+            if motor_index not in runtime_params['motor_statuses']:
+                runtime_params['motor_statuses'][motor_index] = 0
 
-            motor_current_position = capabilities['motor']['motor_statuses'][motor_index]
+            motor_current_position = runtime_params['motor_statuses'][motor_index]
             motor_position.data = float((power * network_settings['feagi_burst_speed']*3) + motor_current_position)
 
-            capabilities['motor']['motor_statuses'][motor_index] = motor_position.data
+            runtime_params['motor_statuses'][motor_index] = motor_position.data
             # print("Motor index, position, speed = ", motor_index, motor_position.data, speed)
             self.motor_node[motor_index].publish(motor_position)
         except Exception:
