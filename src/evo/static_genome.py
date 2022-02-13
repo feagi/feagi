@@ -130,7 +130,7 @@ genome = {
         "_____10c-i__mot-nx-rcordx-i": 100,
         "_____10c-i__mot-nx-rcordy-i": 0,
         "_____10c-i__mot-nx-rcordz-i": 25,
-        "_____10c-i__mot-nx-___bbx-i": 4,
+        "_____10c-i__mot-nx-___bbx-i": 8,
         "_____10c-i__mot-nx-___bby-i": 1,
         "_____10c-i__mot-nx-___bbz-i": 20,
         "_____10c-i__mot-cx-__rand-b": True,
@@ -247,7 +247,7 @@ genome = {
         "_____10c-o__mot-nx-rcordx-i": 20,
         "_____10c-o__mot-nx-rcordy-i": 0,
         "_____10c-o__mot-nx-rcordz-i": 0,
-        "_____10c-o__mot-nx-___bbx-i": 4,
+        "_____10c-o__mot-nx-___bbx-i": 8,
         "_____10c-o__mot-nx-___bby-i": 1,
         "_____10c-o__mot-nx-___bbz-i": 20,
         "_____10c-o__mot-cx-__rand-b": True,
@@ -267,7 +267,7 @@ genome = {
         "_____10c-o__mot-nx-geo_y1-i": 10,
         "_____10c-o__mot-nx-geo_z0-i": 0,
         "_____10c-o__mot-nx-geo_z1-i": 200,
-        "_____10c-o__mot-cx-dstmap-d": {"o__mot": ["rule_1", "param_1"]}
+        "_____10c-o__mot-cx-dstmap-d": {}
     }
 }
 

@@ -210,7 +210,7 @@ class Motor:
             motor_position.data = float((power * network_settings['feagi_burst_speed']*3) + motor_current_position)
 
             runtime_params['motor_statuses'][motor_index] = motor_position.data
-            # print("Motor index, position, speed = ", motor_index, motor_position.data, speed)
+            print("Motor index, position, speed = ", motor_index, motor_position.data, power)
             self.motor_node[motor_index].publish(motor_position)
         except Exception:
             exc_info = sys.exc_info()
