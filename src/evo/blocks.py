@@ -234,7 +234,7 @@ def active_neurons_in_blocks(cortical_area, current_fcl=True, include_neurons=Fa
     Note: If the current_fcl flag is not True then the function returns the results against the previous FCL list
     """
 
-    neuron_count = 0
+    neuron_count = 1
     if current_fcl:
         fcl = runtime_data.fire_candidate_list
     else:
@@ -257,9 +257,3 @@ def active_neurons_in_blocks(cortical_area, current_fcl=True, include_neurons=Fa
                 neuron_count += 1
                 blocks_with_active_neurons[neuron_block_ref] = neuron_count
     return blocks_with_active_neurons
-
-
-
-
-
-

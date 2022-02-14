@@ -39,7 +39,7 @@ from npu.comprehension import utf_detection_logic
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
 from inf.messenger import Pub, Sub
-from pns.pns_router import action_router, stimuli_router
+from pns.pns_router import opu_router, stimuli_router
 
 
 def cortical_group_members(group):
@@ -147,8 +147,10 @@ def burst_manager():
             if runtime_data.parameters["Switches"]["global_logger"] and \
                     runtime_data.parameters["Logs"]["print_cortical_activity_counters"]:
                 if cortical_neuron_count > 0:
-                    print(settings.Bcolors.RED + '    %s : %i %s  '
-                          % (cortical_area_, cortical_neuron_count, active_neurons_in_blocks(cortical_area_))
+                    print(settings.Bcolors.RED + '    %s : %i/%i %s  '
+                          % (cortical_area_, cortical_neuron_count,
+                             runtime_data.genome['blueprint'][cortical_area]['cortical_neuron_count'],
+                             active_neurons_in_blocks(cortical_area_))
                           + settings.Bcolors.ENDC)
                 elif runtime_data.parameters["Logs"]["print_cortical_activity_counters_all"]:
                     print(settings.Bcolors.YELLOW + '    %s : %i  '
@@ -424,7 +426,7 @@ def burst_manager():
         log_neuron_activity_influx()
 
         # Process efferent signals
-        action_router()
+        opu_router()
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
