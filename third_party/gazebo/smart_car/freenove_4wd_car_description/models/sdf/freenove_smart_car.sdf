@@ -85,9 +85,14 @@
             </box>
           </geometry>
           <material>
-            <ambient>0 0 0 1</ambient>
-            <diffuse>0 0 0 1</diffuse>
-            <specular>0 0 0 1</specular>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <pbr>
+                <metal>
+                  <albedo_map>wall.png</albedo_map>
+                  <normal_map>wall.png</normal_map>
+                </metal>
+              </pbr>
           </material>
         </visual>
         <collision name='visual'>
@@ -117,11 +122,14 @@
               <size>0.055 10 .5</size>
             </box>
           </geometry>
-          <material>
-            <ambient>0 0 0 1</ambient>
-            <diffuse>0 0 0 1</diffuse>
-            <specular>0 0 0 1</specular>
-          </material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <pbr>
+                <metal>
+                  <albedo_map>wall.png</albedo_map>
+                  <normal_map>wall.png</normal_map>
+                </metal>
+              </pbr>
         </visual>
         <collision name='visual'>
           <geometry>
@@ -151,9 +159,14 @@
             </box>
           </geometry>
           <material>
-            <ambient>0 0 0 1</ambient>
-            <diffuse>0 0 0 1</diffuse>
-            <specular>0 0 0 1</specular>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <pbr>
+                <metal>
+                  <albedo_map>wall.png</albedo_map>
+                  <normal_map>wall.png</normal_map>
+                </metal>
+              </pbr>
           </material>
         </visual>
         <collision name='visual'>
@@ -183,11 +196,14 @@
               <size>10 0.05 .5</size>
             </box>
           </geometry>
-          <material>
-            <ambient>0 0 0 1</ambient>
-            <diffuse>0 0 0 1</diffuse>
-            <specular>0 0 0 1</specular>
-          </material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <pbr>
+                <metal>
+                  <albedo_map>wall.png</albedo_map>
+                  <normal_map>wall.png</normal_map>
+                </metal>
+              </pbr>
         </visual>
         <collision name='visual'>
           <geometry>
