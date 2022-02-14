@@ -20,7 +20,6 @@ from pns import stimuli_translator
 import traceback
 from datetime import datetime
 from evo.blocks import *
-from pns import action_translator, action_processor
 from evo.stats import opu_activity_report
 
 
@@ -135,73 +134,90 @@ def generate_godot_registration_data():
     return cortical_information
 
 
-def action_router():
+def opu_router():
     """
-    This function is intended to handle all the OPU processing that needs to be addressed in burst level as opposed
-    to individual neuron fire
+    Relays neuronal activities to the controller.
+    Sample data format for runtime_data.opu_data:
+
+    {'o__bat': {}, 'o__mot': {'0-0-0': 47, '0-0-5': 48, '0-0-15': 50, '0-0-1': 45}}
+
     """
-    # todo: Introduce a generalized approach to cover all OPUs
+    for cortical_area in runtime_data.fire_candidate_list:
+        if str(cortical_area)[0] == 'o':
+            if cortical_area not in runtime_data.opu_data:
+                runtime_data.opu_data[cortical_area] = {}
+            runtime_data.opu_data[cortical_area] = active_neurons_in_blocks(cortical_area=cortical_area)
+    # print("--====>>>>> opu data ready for controller:", runtime_data.opu_data)
 
-    # LED handler
-    if 'o__led' in runtime_data.fire_candidate_list and runtime_data.hardware == 'raspberry_pi':
-        active_led_neurons = active_neurons_in_blocks(cortical_area='led_opu')
-        led_data = action_translator.led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)
-        action_translator.led.activate_leds(led_data)
 
-    # todo: need a better differentiation between movement and motor modules
-    # Movement handler
-    if 'o__mot' in runtime_data.fire_candidate_list:
-        if len(runtime_data.fire_candidate_list["o__mot"]) > 0:
-            # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
-            # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
-            # movement.activate_motor(data)
-            activity_report = opu_activity_report(cortical_area='o__mot')
-            # print("motor activity report", activity_report)
-            motor_data = dict()
-            for device in activity_report:
-                # if there are "ties" w/r/t block activity, this will select the first index in the list w/the tie value
-                # todo: need a better method
-                # block_with_max_activity = activity_report[device][0].index(max(activity_report[device][0]))
-                try:
-                    block_with_max_z = activity_report[device][0].index(max(activity_report[device][0]))
-                    tmp_list = set(activity_report[device][0])
-                    tmp_list.remove(max(activity_report[device][0]))
-                    block_with_2nd_max = activity_report[device][0].index(max(tmp_list))
-                    chosen_block = max(block_with_max_z, block_with_2nd_max)
-                except ValueError:
-                    chosen_block = 0
-                if device not in motor_data:
-                    motor_data[device] = dict()
-                motor_data[device]['speed'] = chosen_block
-            action_processor.activate_device(device_type='motor', device_data=motor_data)
-
-    if 'o__ser' in runtime_data.fire_candidate_list:
-        if len(runtime_data.fire_candidate_list["o__ser"]) > 0:
-            # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
-            # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
-            # movement.activate_motor(data)
-            activity_report = opu_activity_report(cortical_area='o__ser')
-            device_data = dict()
-            for device in activity_report:
-                # if there are "ties" w/r/t block activity, this will select the first index in the list w/the tie value
-                # todo: need a better method
-                # block_with_max_activity = activity_report[device][0].index(max(activity_report[device][0]))
-                try:
-                    block_with_max_z = activity_report[device][0].index(max(activity_report[device][0]))
-                    tmp_list = set(activity_report[device][0])
-                    tmp_list.remove(max(activity_report[device][0]))
-                    block_with_2nd_max = activity_report[device][0].index(max(tmp_list))
-                    chosen_block = max(block_with_max_z, block_with_2nd_max)
-                except ValueError:
-                    chosen_block = 0
-                if device not in device_data:
-                    device_data[device] = dict()
-                device_data[device]['angle'] = chosen_block
-            action_processor.activate_device(device_type='servo', device_data=device_data)
-
-    if 'o__bat' in runtime_data.fire_candidate_list:
-        if len(runtime_data.fire_candidate_list["o__bat"]) > 0:
-            activity_report = opu_activity_report(cortical_area='o__bat')
-            device_data = dict()
-            for device in activity_report:
-                action_processor.activate_device(device_type='battery', device_data=device_data)
+#
+# def action_router():
+#     """
+#     This function is intended to handle all the OPU processing that needs to be addressed in burst level as opposed
+#     to individual neuron fire
+#     """
+#     # todo: Introduce a generalized approach to cover all OPUs
+#
+#     # LED handler
+#     if 'o__led' in runtime_data.fire_candidate_list and runtime_data.hardware == 'raspberry_pi':
+#         active_led_neurons = active_neurons_in_blocks(cortical_area='led_opu')
+#         led_data = action_translator.led.convert_neuron_activity_to_rgb_intensities(active_led_neurons)
+#         action_translator.led.activate_leds(led_data)
+#
+#     # todo: need a better differentiation between movement and motor modules
+#     # Movement handler
+#     if 'o__mot' in runtime_data.fire_candidate_list:
+#         if len(runtime_data.fire_candidate_list["o__mot"]) > 0:
+#             # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
+#             # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
+#             # movement.activate_motor(data)
+#             activity_report = opu_activity_report(cortical_area='o__mot')
+#             # print("motor activity report", activity_report)
+#             motor_data = dict()
+#             for device in activity_report:
+#                 # if there are "ties" w/r/t block activity, this will select the first index in the list w/the tie value
+#                 # todo: need a better method
+#                 # block_with_max_activity = activity_report[device][0].index(max(activity_report[device][0]))
+#                 try:
+#                     block_with_max_z = activity_report[device][0].index(max(activity_report[device][0]))
+#                     tmp_list = set(activity_report[device][0])
+#                     tmp_list.remove(max(activity_report[device][0]))
+#                     block_with_2nd_max = activity_report[device][0].index(max(tmp_list))
+#                     chosen_block = max(block_with_max_z, block_with_2nd_max)
+#                 except ValueError:
+#                     chosen_block = 0
+#                 if device not in motor_data:
+#                     motor_data[device] = dict()
+#                 motor_data[device]['speed'] = chosen_block
+#             action_processor.activate_device(device_type='motor', device_data=motor_data)
+#
+#     if 'o__ser' in runtime_data.fire_candidate_list:
+#         if len(runtime_data.fire_candidate_list["o__ser"]) > 0:
+#             # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
+#             # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
+#             # movement.activate_motor(data)
+#             activity_report = opu_activity_report(cortical_area='o__ser')
+#             device_data = dict()
+#             for device in activity_report:
+#                 # if there are "ties" w/r/t block activity, this will select the first index in the list w/the tie value
+#                 # todo: need a better method
+#                 # block_with_max_activity = activity_report[device][0].index(max(activity_report[device][0]))
+#                 try:
+#                     block_with_max_z = activity_report[device][0].index(max(activity_report[device][0]))
+#                     tmp_list = set(activity_report[device][0])
+#                     tmp_list.remove(max(activity_report[device][0]))
+#                     block_with_2nd_max = activity_report[device][0].index(max(tmp_list))
+#                     chosen_block = max(block_with_max_z, block_with_2nd_max)
+#                 except ValueError:
+#                     chosen_block = 0
+#                 if device not in device_data:
+#                     device_data[device] = dict()
+#                 device_data[device]['angle'] = chosen_block
+#             action_processor.activate_device(device_type='servo', device_data=device_data)
+#
+#     if 'o__bat' in runtime_data.fire_candidate_list:
+#         if len(runtime_data.fire_candidate_list["o__bat"]) > 0:
+#             activity_report = opu_activity_report(cortical_area='o__bat')
+#             device_data = dict()
+#             for device in activity_report:
+#                 action_processor.activate_device(device_type='battery', device_data=device_data)
