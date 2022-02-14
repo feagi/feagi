@@ -193,7 +193,6 @@ class Motor:
 
     def move(self, feagi_motor_id, power):
         try:
-
             if feagi_motor_id > 2 * capabilities['motor']['count']:
                 print("Warning! Number of motor channels from FEAGI exceed available Motor count!")
             # Translate feagi_motor_id to motor backward and forward motion to individual motors
@@ -210,7 +209,7 @@ class Motor:
             motor_position.data = float((power * network_settings['feagi_burst_speed']*3) + motor_current_position)
 
             runtime_params['motor_statuses'][motor_index] = motor_position.data
-            print("Motor index, position, speed = ", motor_index, motor_position.data, power)
+            # print("Motor index, position, speed = ", motor_index, motor_position.data, power)
             self.motor_node[motor_index].publish(motor_position)
         except Exception:
             exc_info = sys.exc_info()
@@ -362,13 +361,13 @@ def main(args=None):
                             data_point = block_to_array(data_point)
                             device_id = data_point[0]
                             device_power = data_point[2]
-                            motor.move(motor_index=device_id, power=device_power)
+                            motor.move(feagi_motor_id=device_id, power=device_power)
                     if 'o__ser' in opu_data:
                         for data_point in opu_data['o__ser']:
                             data_point = block_to_array(data_point)
                             device_id = data_point[0]
                             device_power = data_point[2]
-                            motor.move(motor_index=device_id, power=device_power)
+                            motor.move(feagi_motor_id=device_id, power=device_power)
                     if 'o__bat' in opu_data:
                         battery.charge_battery()
 
