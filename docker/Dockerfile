@@ -7,7 +7,7 @@ RUN mkdir -p /opt/source-code/feagi/
 RUN git clone $REPO /opt/source-code/feagi
 WORKDIR /opt/source-code/feagi
 RUN git fetch --all
-RUN git checkout feature-opu-2
+RUN git checkout main
 
 WORKDIR /opt/source-code/feagi/src/cython_lib
 RUN python3 ./cython_setup.py build_ext --inplace
