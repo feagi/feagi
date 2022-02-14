@@ -22,7 +22,8 @@ runtime_params = {
     "feagi_state": None,
     "cortical_list": (),
     "battery_charge_level": 1,
-    'motor_statuses': {},
+    'motor_status': {},
+    'servo_status': {}
 }
 
 
@@ -32,8 +33,7 @@ else:
     import termios
     import tty
 
-
-os.system('ign topic -t "/S0" -m ignition.msgs.Double -p "data: 1.6" && ign topic -t "/S1" -m ignition.msgs.Double -p "data: 1.6"')
+# os.system('ign topic -t "/S0" -m ignition.msgs.Double -p "data: 1.6" && ign topic -t "/S1" -m ignition.msgs.Double -p "data: 1.6"')
 address = 'tcp://' + network_settings['feagi_ip'] + ':' + network_settings['feagi_outbound_port']
 feagi_state = handshake_with_feagi(address=address, capabilities=capabilities)
 
@@ -191,26 +191,26 @@ class Motor:
         # todo: figure a way to extract wheel parameters from the model
         self.wheel_diameter = 1
 
-    def move(self, feagi_motor_id, power):
+    def move(self, feagi_device_id, power):
         try:
-            if feagi_motor_id > 2 * capabilities['motor']['count']:
-                print("Warning! Number of motor channels from FEAGI exceed available Motor count!")
-            # Translate feagi_motor_id to motor backward and forward motion to individual motors
-            motor_index = feagi_motor_id // 2
-            if feagi_motor_id % 2 == 1:
+            if feagi_device_id > 2 * capabilities['motor']['count']:
+                print("Warning! Number of motor channels from FEAGI exceed available device count!")
+            # Translate feagi_device_id to device backward and forward motion to individual devices
+            device_index = feagi_device_id // 2
+            if feagi_device_id % 2 == 1:
                 power *= -1
 
-            motor_position = std_msgs.msg.Float64()
+            device_position = std_msgs.msg.Float64()
 
-            if motor_index not in runtime_params['motor_statuses']:
-                runtime_params['motor_statuses'][motor_index] = 0
+            if device_index not in runtime_params['motor_status']:
+                runtime_params['motor_status'][device_index] = 0
 
-            motor_current_position = runtime_params['motor_statuses'][motor_index]
-            motor_position.data = float((power * network_settings['feagi_burst_speed']*3) + motor_current_position)
+            device_current_position = runtime_params['motor_status'][device_index]
+            device_position.data = float((power * network_settings['feagi_burst_speed']*3) + device_current_position)
 
-            runtime_params['motor_statuses'][motor_index] = motor_position.data
-            # print("Motor index, position, speed = ", motor_index, motor_position.data, power)
-            self.motor_node[motor_index].publish(motor_position)
+            runtime_params['motor_status'][device_index] = device_position.data
+            # print("device index, position, speed = ", device_index, device_position.data, power)
+            self.motor_node[device_index].publish(device_position)
         except Exception:
             exc_info = sys.exc_info()
             traceback.print_exception(*exc_info)
@@ -221,26 +221,49 @@ class Servo:
         self.servo_node = publisher_initializer(model_name=model,
                                                 topic_count=count,
                                                 topic_identifier=identifier)
-
+        self.device_position = std_msgs.msg.Float64()
         # todo: figure a way to extract servo parameters from the model
         self.servo_range = [0, 180]
 
-    def move(self, servo_index, angle):
+    def set_default_position(self):
         try:
-            servo_position = std_msgs.msg.Float64()
+            # Setting the initial position for the servo
+            servo_0_initial_position = float(1.5708)
+            self.device_position.data = servo_0_initial_position
+            self.servo_node[0].publish(self.device_position)
+            print("Servo 0 was moved to its initial position")
 
-            if servo_index not in capabilities['servo']:
-                capabilities['servo'][servo_index] = 0
+            servo_1_initial_position = float(1.3)
+            self.device_position.data = servo_1_initial_position
+            self.servo_node[1].publish(self.device_position)
+            print("Servo 1 was moved to its initial position")
+        except Exception as e:
+            print("Error while setting initial position for the servo:", e)
 
-            servo_current_position = capabilities['servo'][servo_index]
-            servo_position.data = float((math.radians(angle) * network_settings['feagi_burst_speed']) + servo_current_position)
+    def move(self, feagi_device_id, power):
+        try:
+            if feagi_device_id > 2 * capabilities['servo']['count']:
+                print("Warning! Number of servo channels from FEAGI exceed available Motor count!")
+            # Translate feagi_motor_id to motor backward and forward motion to individual motors
+            device_index = feagi_device_id // 2
+            if feagi_device_id % 2 == 1:
+                power *= -1
 
-            capabilities['servo'][servo_index] = servo_position.data
-            # print("Motor index, position, speed = ", motor_index, motor_position.data, speed)
-            self.servo_node[servo_index].publish(servo_position)
+            if device_index not in runtime_params['servo_status']:
+                runtime_params['servo_status'][device_index] = 0
+
+            device_current_position = runtime_params['servo_status'][device_index]
+            print("servo ", device_index, device_current_position)
+            self.device_position.data = float((power * network_settings['feagi_burst_speed'] / 10) +
+                                              device_current_position)
+
+            runtime_params['servo_status'][device_index] = self.device_position.data
+            # print("device index, position, speed = ", device_index, device_position.data, power)
+            self.servo_node[device_index].publish(self.device_position)
         except Exception:
             exc_info = sys.exc_info()
             traceback.print_exception(*exc_info)
+        
         # twist = geometry_msgs.msg.Twist()
         #
         # # todo: linear and angular speed does not make sense in the case of servo. To be fixed
@@ -347,6 +370,9 @@ def main(args=None):
     executor_thread.start()
     msg_counter = 0
 
+    # Positioning servos to a default position
+    servo.set_default_position()
+
     try:
         while True:
             # Process OPU data received from FEAGI and pass it along
@@ -361,13 +387,13 @@ def main(args=None):
                             data_point = block_to_array(data_point)
                             device_id = data_point[0]
                             device_power = data_point[2]
-                            motor.move(feagi_motor_id=device_id, power=device_power)
+                            motor.move(feagi_device_id=device_id, power=device_power)
                     if 'o__ser' in opu_data:
                         for data_point in opu_data['o__ser']:
                             data_point = block_to_array(data_point)
                             device_id = data_point[0]
                             device_power = data_point[2]
-                            motor.move(feagi_motor_id=device_id, power=device_power)
+                            servo.move(feagi_device_id=device_id, power=device_power)
                     if 'o__bat' in opu_data:
                         battery.charge_battery()
 
