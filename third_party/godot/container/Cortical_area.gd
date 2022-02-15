@@ -24,7 +24,7 @@ var Gx = 0
 var Gy = 0
 var Gz = 0
 var flag = false
-var text = ""
+var cortical_area_name = ""
 
 var udp := PacketPeerUDP.new()
 var connected = false
@@ -38,12 +38,19 @@ func _on_Area_input_event(camera, event, position, normal, shape_idx):
 				Gy = transform.origin.y
 				Gz = transform.origin.z
 				location = Vector3(Gx, Gy, Gz)
-				udp.put_packet((text + "," + String(location)  + ",deselected").to_utf8())
+				cortical_area_name = get_name().lstrip("@")
+				cortical_area_name = cortical_area_name.replace(" ", "")
+				cortical_area_name = cortical_area_name.replace("@", "")
+				for x in range(10):
+					if cortical_area_name.find(x):
+						cortical_area_name = cortical_area_name.replace(x, "")
+				cortical_area_name = "\'{s}\'".format({"s": cortical_area_name})
+#				udp.put_packet((cortical_area_name + "," + String(location)  + ",deselected").to_utf8())
+				for item in Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][cortical_area_name]:
+					if location == item:
+						Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][cortical_area_name].erase(item)
 			material = deselected
-			#print(material)
 		elif event.button_index == BUTTON_LEFT and event.pressed == true:
-			#print(get_node("."))
-			#print(location)
 			udp.connect_to_host("127.0.0.1", 20002)
 			if material == white:
 				Gx = transform.origin.x
@@ -51,16 +58,26 @@ func _on_Area_input_event(camera, event, position, normal, shape_idx):
 				Gz = transform.origin.z
 				location = Vector3(Gx, Gy, Gz)
 				print(location)
-				text = get_name().lstrip("@")
-				#print("The text is: " , text)
-				udp.put_packet((text + "," + String(location)).to_utf8())
+				cortical_area_name = get_name().lstrip("@")
+				cortical_area_name = cortical_area_name.replace(" ", "")
+				cortical_area_name = cortical_area_name.replace("@", "")
+				for x in range(10):
+					if cortical_area_name.find(x):
+						cortical_area_name = cortical_area_name.replace(x, "")
+				cortical_area_name = "\'{s}\'".format({"s": cortical_area_name})
+				if Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"].get(cortical_area_name):
+					Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][cortical_area_name].append(location)
+				else:
+					Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][cortical_area_name] = []
+					Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][cortical_area_name].append(location)
+#				udp.put_packet((cortical_area_name + "," + String(location)).to_utf8())
+				
 			if material == deselected:
 				Gx = transform.origin.x
 				Gy = transform.origin.y
 				Gz = transform.origin.z
 				location = Vector3(Gx, Gy, Gz)
-				#print(location)
-				#udp.put_packet((text + "," + String(location)).to_utf8())
+				#udp.put_packet((cortical_area_name + "," + String(location)).to_utf8())
 			material = selected
 
 func _on_Area_mouse_entered():
