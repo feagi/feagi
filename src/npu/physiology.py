@@ -42,6 +42,9 @@ def reset_cumulative_counters(cortical_area, neuron_id):
 def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
     """This function initiate the firing of Neuron in a given cortical area"""
 
+    if degenerate > 0:
+        print("Degeneracy is applied on %s %s %i" % (cortical_area, neuron_id, degenerate))
+
     neighbor_list = list()
 
     # Setting Destination to the list of Neurons connected to the firing Neuron
