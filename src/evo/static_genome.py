@@ -139,7 +139,6 @@ genome = {
         "_____10c-i__mot-cx-pstcr_-f": 500,
         "_____10c-i__mot-cx-pstcrm-f": 35,
         "_____10c-i__mot-cx-plst_c-f": 0.05,
-        "_____10c-i__mot-cx-de_gen-f": 0.05,
         "_____10c-i__mot-nx-fire_t-f": 1,
         "_____10c-i__mot-nx-refrac-i": 0,
         "_____10c-i__mot-nx-leak_c-f": 1,
