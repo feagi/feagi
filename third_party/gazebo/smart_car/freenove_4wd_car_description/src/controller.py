@@ -33,7 +33,7 @@ else:
     import termios
     import tty
 
-# os.system('ign topic -t "/S0" -m ignition.msgs.Double -p "data: 1.6" && ign topic -t "/S1" -m ignition.msgs.Double -p "data: 1.6"')
+os.system('ign topic -t "/S0" -m ignition.msgs.Double -p "data: 1.6" && ign topic -t "/S1" -m ignition.msgs.Double -p "data: 1.6"')
 address = 'tcp://' + network_settings['feagi_ip'] + ':' + network_settings['feagi_outbound_port']
 feagi_state = handshake_with_feagi(address=address, capabilities=capabilities)
 
@@ -111,7 +111,7 @@ class ScalableSubscriber(Node):
             sensor_topic = msg_type.split('/')[0]
             sensor_id = int(''.join(filter(str.isdigit, sensor_topic)))
 
-            #print("\n***\nAverage Intensity = ", avg_intensity)
+            # print("\n***\nAverage Intensity = ", avg_intensity)
             if avg_intensity > 25:
                 return {
                     'ir': {
@@ -209,7 +209,7 @@ class Motor:
             device_position.data = float((power * network_settings['feagi_burst_speed']*3) + device_current_position)
 
             runtime_params['motor_status'][device_index] = device_position.data
-            # print("device index, position, speed = ", device_index, device_position.data, power)
+            # print("device index, position, power = ", device_index, device_position.data, power)
             self.motor_node[device_index].publish(device_position)
         except Exception:
             exc_info = sys.exc_info()
@@ -223,7 +223,8 @@ class Servo:
                                                 topic_identifier=identifier)
         self.device_position = std_msgs.msg.Float64()
         # todo: figure a way to extract servo parameters from the model
-        self.servo_range = [0, 180]
+        self.servo_ranges = {0: [0, 3.14],
+                             1: [0, 3.14]}
 
     def set_default_position(self):
         try:
@@ -231,14 +232,28 @@ class Servo:
             servo_0_initial_position = float(1.5708)
             self.device_position.data = servo_0_initial_position
             self.servo_node[0].publish(self.device_position)
+            runtime_params['servo_status'][0] = self.device_position.data
             print("Servo 0 was moved to its initial position")
 
             servo_1_initial_position = float(1.3)
             self.device_position.data = servo_1_initial_position
             self.servo_node[1].publish(self.device_position)
+            runtime_params['servo_status'][1] = self.device_position.data
             print("Servo 1 was moved to its initial position")
         except Exception as e:
             print("Error while setting initial position for the servo:", e)
+
+    def keep_boundaries(self, device_id, current_position):
+        """
+        Prevent Servo position to go beyond range
+        """
+        if current_position > self.servo_ranges[device_id][1]:
+            adjusted_position = float(self.servo_ranges[device_id][1])
+        elif current_position < self.servo_ranges[device_id][0]:
+            adjusted_position = float(self.servo_ranges[device_id][0])
+        else:
+            adjusted_position = float(current_position)
+        return adjusted_position
 
     def move(self, feagi_device_id, power):
         try:
@@ -250,15 +265,18 @@ class Servo:
                 power *= -1
 
             if device_index not in runtime_params['servo_status']:
-                runtime_params['servo_status'][device_index] = 0
+                runtime_params['servo_status'][device_index] = device_index
 
             device_current_position = runtime_params['servo_status'][device_index]
-            print("servo ", device_index, device_current_position)
-            self.device_position.data = float((power * network_settings['feagi_burst_speed'] / 10) +
+            # print("servo ", device_index, device_current_position)
+            self.device_position.data = float((power * network_settings['feagi_burst_speed'] / 20) +
                                               device_current_position)
 
+            self.device_position.data = self.keep_boundaries(device_id=device_index,
+                                                             current_position=self.device_position.data)
+
             runtime_params['servo_status'][device_index] = self.device_position.data
-            # print("device index, position, speed = ", device_index, device_position.data, power)
+            # print("device index, position, power = ", device_index, self.device_position.data, power)
             self.servo_node[device_index].publish(self.device_position)
         except Exception:
             exc_info = sys.exc_info()
