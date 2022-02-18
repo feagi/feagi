@@ -42,9 +42,6 @@ def reset_cumulative_counters(cortical_area, neuron_id):
 def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
     """This function initiate the firing of Neuron in a given cortical area"""
 
-    if degenerate > 0:
-        print("Degeneracy is applied on %s %s %i" % (cortical_area, neuron_id, degenerate))
-
     neighbor_list = list()
 
     # Setting Destination to the list of Neurons connected to the firing Neuron
@@ -75,8 +72,14 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
         # conditions being met (ex: postsynaptic current degenerates to 0, exceeds bursting lifespan, etc.)
         # to avoid adding more conditional statements to this function (for performance reasons)"""
 
-        # reduce neuron postsynaptic current by degeneration value defined in genome (if applicable)
-        runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] -= degenerate
+        if degenerate > 0:
+            print("** >> ** >> Applying degeneracy-- ", cortical_area, neuron_id, "<-->", dst_neuron_id)
+
+            # reduce neuron postsynaptic current by degeneration value defined in genome (if applicable)
+            runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] -= \
+                degenerate
+            if runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] < 0:
+                runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] = 0
 
         neuron_output = activation_function(postsynaptic_current)
 
