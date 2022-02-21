@@ -149,7 +149,7 @@ def burst_manager():
                 if cortical_neuron_count > 0:
                     print(settings.Bcolors.RED + '    %s : %i/%i %s  '
                           % (cortical_area_, cortical_neuron_count,
-                             runtime_data.genome['blueprint'][cortical_area]['cortical_neuron_count'],
+                             runtime_data.genome['blueprint'][cortical_area_]['cortical_neuron_count'],
                              active_neurons_in_blocks(cortical_area_))
                           + settings.Bcolors.ENDC)
                 elif runtime_data.parameters["Logs"]["print_cortical_activity_counters_all"]:
@@ -272,8 +272,10 @@ def burst_manager():
             # fire_queue holds a temporary list of neurons updated during a single burst to determine which to fire
             runtime_data.fire_queue = dict()
             for _ in runtime_data.fire_candidate_list:
-                if runtime_data.genome['blueprint'][_].get('degeneration'):
+                if "degeneration" in runtime_data.genome['blueprint'][_]:
                     degeneration_val = runtime_data.genome['blueprint'][_]['degeneration']
+                    if degeneration_val is None:
+                        degeneration_val = 0
                     while runtime_data.fire_candidate_list[_]:
                         neuron_to_fire = runtime_data.fire_candidate_list[_].pop()
                         neuron_pre_fire_processing(_, neuron_to_fire, degenerate=degeneration_val)
@@ -305,12 +307,24 @@ def burst_manager():
                 runtime_data.parameters["Database"]["influx_stat_logger"]):
             for _ in runtime_data.fire_candidate_list:
                 for neuron in runtime_data.fire_candidate_list[_]:
+                    vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[_][neuron]['soma_location'][1]]
                     runtime_data.influxdb.insert_neuron_activity(connectome_path=connectome_path,
                                                                  cortical_area=_,
+                                                                 voxel_x=vox_x,
+                                                                 voxel_y=vox_y,
+                                                                 voxel_z=vox_z,
                                                                  neuron_id=neuron,
                                                                  membrane_potential=
                                                                  runtime_data.brain[_][neuron]["membrane_potential"] /
                                                                  1)
+                    if runtime_data.parameters["Database"]["influx_synapse_stats"]:
+                        for destination_neuron in runtime_data.brain[_][neuron]["neighbors"]:
+                            psc = runtime_data.brain[_][neuron]["neighbors"][destination_neuron]["postsynaptic_current"]
+                            runtime_data.influxdb.insert_synaptic_activity(connectome_path=connectome_path,
+                                                                           cortical_area=_,
+                                                                           src_neuron_id=neuron,
+                                                                           dst_neuron_id=destination_neuron,
+                                                                           post_synaptic_current=psc)
 
     def log_burst_activity_influx():
         if (runtime_data.parameters["Database"]["influxdb_enabled"] and 
@@ -476,6 +490,13 @@ def burst_manager():
             controller_handshake()
 
     print('runtime_data.genome_id = ', runtime_data.genome_id)
+
+    print("--++ Block Dictionary is \n")
+    for _ in runtime_data.block_dic:
+        print(_)
+        for item in runtime_data.block_dic[_]:
+            print("|--", item, "------", len(runtime_data.block_dic[_][item]))
+
 
     # Initializing the burst_manager engine parameters
     init_burst_engine()
