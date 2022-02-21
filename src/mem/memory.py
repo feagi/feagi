@@ -106,51 +106,55 @@ def form_memories(cortical_area, src_neuron, dst_neuron):
 def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_cortical_area,
                                      dst_neuron_id, long_term_depression=False, impact_multiplier=1):
 
-    if runtime_data.parameters["Auto_injector"]["injector_status"]:
-        plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"]
+    plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"]
 
-        if long_term_depression:
-            # When long term depression flag is set, there will be negative synaptic influence caused
-            plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"] * (-1) * \
-                                  impact_multiplier
+    if long_term_depression:
+        # When long term depression flag is set, there will be negative synaptic influence caused
+        plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"] * (-1) * \
+                              impact_multiplier
 
-        try:
-            runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] \
-                += plasticity_constant
+    try:
+        runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id][
+            "postsynaptic_current"] += plasticity_constant
 
-            # Condition to cap the postsynaptic_current and provide prohibitory reaction
-            if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] > runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]:
-                runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] = \
-                    runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]
+        # Condition to cap the postsynaptic_current and provide prohibitory reaction
+        if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id][
+            "postsynaptic_current"] > \
+                runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]:
+            runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id][
+                "postsynaptic_current"] = \
+                runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]
 
-            # Condition to prevent postsynaptic current to become negative
-            # todo: consider setting a postsynaptic_min in genome to be used instead of 0
-            # Condition to prune a synapse if its postsynaptic_current is zero
-            if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] < 0:
-                runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id, dst_cortical_area, dst_neuron_id))
+        # Condition to prevent postsynaptic current to become negative
+        # todo: consider setting a postsynaptic_min in genome to be used instead of 0
+        # Condition to prune a synapse if its postsynaptic_current is zero
+        if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id][
+            "postsynaptic_current"] < 0:
+            runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id,
+                                                  dst_cortical_area, dst_neuron_id))
 
-        except KeyError:
-            synapse(src_cortical_area,
-                    src_neuron_id,
-                    dst_cortical_area,
-                    dst_neuron_id,
-                    max(plasticity_constant, 0))
-            update_upstream_db(src_cortical_area, src_neuron_id, dst_cortical_area, dst_neuron_id)
+    except KeyError:
+        synapse(src_cortical_area,
+                src_neuron_id,
+                dst_cortical_area,
+                dst_neuron_id,
+                max(plasticity_constant, 0))
+        update_upstream_db(src_cortical_area, src_neuron_id, dst_cortical_area, dst_neuron_id)
 
-            runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] += \
-                plasticity_constant
+        runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] \
+            += plasticity_constant
 
-            # Condition to cap the postsynaptic_current and provide prohibitory reaction
-            if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] > \
-                    runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]:
-                runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] = \
-                    runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]
+        # Condition to cap the postsynaptic_current and provide prohibitory reaction
+        if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] > \
+                runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]:
+            runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] = \
+                runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]
 
-            # Condition to prevent postsynaptic current to become negative
-            # todo: consider setting a postsynaptic_min in genome to be used instead of 0
-            # Condition to prune a synapse if its postsynaptic_current is zero
-            if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] < 0:
-                runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id, dst_cortical_area, dst_neuron_id))
+        # Condition to prevent postsynaptic current to become negative
+        # todo: consider setting a postsynaptic_min in genome to be used instead of 0
+        # Condition to prune a synapse if its postsynaptic_current is zero
+        if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] < 0:
+            runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id, dst_cortical_area, dst_neuron_id))
 
 
 def neuroplasticity(cfcl, pain_flag):
@@ -161,7 +165,6 @@ def neuroplasticity(cfcl, pain_flag):
     previous FCL and applies LTP or LTD accordingly.
     """
     if runtime_data.parameters["Switches"]["neuroplasticity"]:
-        print("Memory is being formed....")
 
         plasticity_dict = runtime_data.plasticity_dict
         previous_fcl = runtime_data.previous_fcl
