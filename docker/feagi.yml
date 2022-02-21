@@ -13,7 +13,7 @@ services:
           cpus: '2'
     ports:
       - "6080:80"
-    privileged: true
+    privileged: false
     networks:
       - net
 
