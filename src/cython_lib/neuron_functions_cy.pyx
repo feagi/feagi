@@ -26,7 +26,7 @@ def neuron_update(float presynaptic_current,
     # Leaky behavior
     if leak_coefficient > 0:
         if last_membrane_potential_update < burst_count:
-            leak_window = burst_count - last_membrane_potential_update
+            leak_window = burst_count - last_membrane_potential_update - 1
             leak_value = leak_window * leak_coefficient
             membrane_potential -= leak_value
             if membrane_potential < 0:
