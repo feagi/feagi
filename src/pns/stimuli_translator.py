@@ -18,6 +18,8 @@
 
 from evo.blocks import *
 from pns import stimuli_processor
+import traceback
+import sys
 
 
 """
@@ -76,17 +78,20 @@ def fake_cortical_stimulation(input_instruction, burst_count):
 
 def stimulation_injector(stimulation_data):
     for cortical_area in stimulation_data:
-        print("stimulating...", cortical_area)
-        neuron_list = set()
-        for voxel in stimulation_data[cortical_area]:
-            print("FEAGI received direct stimulation; processing...", voxel)
-            if type(voxel) is list:
-                voxel = block_reference_builder(voxel)
-            in_the_block = neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel)
-            for neuron in in_the_block:
-                neuron_list.add(neuron)
-        runtime_data.fcl_queue.put({cortical_area: neuron_list})
-        print(">>> >> >> > > >> >>>>>>>  Stimulation has been injected in FCL!")
+        if stimulation_data[cortical_area]:
+            print("stimulating...", cortical_area)
+            neuron_list = set()
+            for voxel in stimulation_data[cortical_area]:
+                print("FEAGI received direct stimulation; processing...", voxel)
+                if type(voxel) is list:
+                    voxel = block_reference_builder(voxel)
+                in_the_block = neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel)
+                for neuron in in_the_block:
+                    neuron_list.add(neuron)
+            for _ in neuron_list:
+                runtime_data.fire_candidate_list[cortical_area].add(_)
+
+            print(">>> >> >> > > >> >>>>>>>  Stimulation has been injected in FCL!")
 
 
 # @staticmethod
@@ -153,7 +158,11 @@ def battery_translator(sensor_data):
 
                 neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
                 # TODO: Add proximity feeder function in fcl_injector
-                runtime_data.fcl_queue.put({'i__bat': set(neurons)})
+                if 'i__bat' not in runtime_data.fire_candidate_list:
+                    runtime_data.fire_candidate_list['i__bat'] = set()
+                for neuron in neurons:
+                    runtime_data.fire_candidate_list['i__bat'].add(neuron)
+                # runtime_data.fcl_queue.put({'i__bat': set(neurons)})
     else:
         print("Warning! Cortical stimulation received but genome missing", cortical_area)
 
@@ -178,7 +187,11 @@ def convert_ir_to_fire_list(ir_data):
                 for key in runtime_data.brain[cortical_area]:
                     if sensor_idx == runtime_data.brain[cortical_area][key]['soma_location'][1][0]:
                         fire_list.add(key)
-        runtime_data.fcl_queue.put({cortical_area: fire_list})
+        if 'i__inf' not in runtime_data.fire_candidate_list:
+            runtime_data.fire_candidate_list['i__inf'] = set()
+        for neuron in fire_list:
+            runtime_data.fire_candidate_list['i__inf'].add(neuron)
+        # runtime_data.fcl_queue.put({cortical_area: fire_list})
     else:
         print("Warning! Cortical stimulation received but genome missing", cortical_area)
 
@@ -222,6 +235,10 @@ def lidar_translator(proximity_data):
                 )
 
                 # TODO: Add proximity feeder function in fcl_injector
-                runtime_data.fcl_queue.put({cortical_area: set(neurons)})
+                if 'i__pro' not in runtime_data.fire_candidate_list:
+                    runtime_data.fire_candidate_list['i__pro'] = set()
+                for neuron in neurons:
+                    runtime_data.fire_candidate_list['i__pro'].add(neuron)
+                # runtime_data.fcl_queue.put({cortical_area: set(neurons)})
     else:
         print("Warning! Cortical stimulation received but genome missing", cortical_area)

@@ -66,12 +66,16 @@ func get_input_keyboard(delta):
 	elif Input.is_action_pressed("ui_page_down"):
 		y = y + 1
 		transform.origin=Vector3(x,y,z)
-	if Input.is_action_just_pressed("ui_select"):
+	if Input.is_action_just_pressed("ui_select"): ##It's actually spacebar
 		udp.connect_to_host("127.0.0.1", 20002)
-		udp.put_packet("ready".to_utf8())
+		udp.put_packet(String(Godot_list.godot_list).to_utf8())
+		print(Godot_list.godot_list)
 	if Input.is_action_just_pressed("ui_del"):
 		udp.connect_to_host("127.0.0.1", 20002)
 		udp.put_packet("refresh".to_utf8())
+		for key in Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"]:
+			Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][key] = []
+		print(Godot_list.godot_list)
 
 func _process(delta):
 	get_input_keyboard(delta)

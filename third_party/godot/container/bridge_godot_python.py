@@ -7,6 +7,7 @@ import sys
 import socket
 import zmq
 import csv
+import ast
 
 runtime_data = {
     "cortical_data": {}
@@ -85,15 +86,22 @@ def godot_data(input):
     """
     Simply clean the list and remove all unnecessary special characters and deliver with name, xyz only
     """
-    data = input
-    data = data.split(",")
-    data_holder = data[0]
-    data_holder = ''.join([i for i in data_holder if not i.isdigit()])
-    data[0] = data_holder.replace("@", "")
-    data[0] = data_holder.replace(" @", "")
-    data[1] = data[1].replace("(", "")
-    data[3] = data[3].replace(")", "")
-    return data
+    data = ast.literal_eval(input)
+    dict_with_updated_name = {}
+    dict_with_updated_name["data"] = dict()
+    dict_with_updated_name["data"]["direct_stimulation"] = dict(dict())
+    for key in data["data"]["direct_stimulation"]:
+        Updated_name = name_to_id(key)
+        if dict_with_updated_name["data"]["direct_stimulation"].get(Updated_name) is not None:
+            pass
+        else:
+
+            dict_with_updated_name["data"]["direct_stimulation"][Updated_name] = []
+        for key_01 in data["data"]["direct_stimulation"][key]:
+            dict_with_updated_name["data"]["direct_stimulation"][Updated_name].append(key_01)
+
+    print("godot_data: " , dict_with_updated_name)
+    return dict_with_updated_name
 
 
 def godot_selected_list(outside_list, godot_list):
@@ -122,13 +130,21 @@ def godot_selected_list(outside_list, godot_list):
 
     return list_to_dict
 
+def godot_deselected_list(outside_list, godot_list):
+    for key in godot_list["data"]["direct_stimulation"]:
+        if outside_list[0] == key:
+            for xyz in godot_list["data"]["direct_stimulation"][key]:
+                if xyz[0] == int(outside_list[1]) and xyz[1] == int(outside_list[2]) and xyz[2] == int(outside_list[3]):
+                    godot_list["data"]["direct_stimulation"][key].remove(xyz)
+    return godot_list
 
 def name_to_id(name):
     for cortical_area in runtime_data["cortical_data"]:
         if cortical_area == name:
             return runtime_data["cortical_data"][cortical_area][7]
     else:
-        print("*** Failed to find cortical name ***")
+        pass
+        #print("*** Failed to find cortical name ***" )
 
 
 def feagi_breakdown(data):
@@ -209,21 +225,18 @@ while True:
     if one_frame is not None:
         one_frame = feagi_breakdown(one_frame)
         UDP(str(one_frame))
-    data = godot_listener()
-    if data != "None":
-        if data == "ready":
-            converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=Godot_list,
-                                                                     cortical_data=runtime_data["cortical_data"])
-            print(">>> > > > >> > converted data:", converted_data)
-            FEAGI_pub.send(converted_data)
-        elif data == "refresh":
-            Godot_list = {}
-            converted_data = {}
-            FEAGI_pub.send(Godot_list)
-        else:
-            data = godot_data(data)
-            data[0] = name_to_id(data[0])
-            Godot_list = godot_selected_list(data, Godot_list)
+    data_from_godot = godot_listener()
+    if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != Godot_list and data_from_godot != "refresh"):
+        print(data_from_godot)
+        Godot_list = godot_data(data_from_godot)
+        converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=Godot_list,
+                                                                 cortical_data=runtime_data["cortical_data"])
+        print(">>> > > > >> > converted data:", converted_data)
+        FEAGI_pub.send(converted_data)
+    if data_from_godot == "refresh":
+        Godot_list = {}
+        converted_data = {}
+        FEAGI_pub.send(Godot_list)
     else:
         pass
 

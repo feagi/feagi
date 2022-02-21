@@ -70,6 +70,7 @@ def stimuli_router(ipu_data):
     """
 
     if type(ipu_data) == dict and "data" in ipu_data:
+        print("IPU DATA === ", ipu_data)
         if "direct_stimulation" in ipu_data["data"]:
             if ipu_data["data"]["direct_stimulation"] is not None:
                 try:
@@ -104,9 +105,6 @@ def stimuli_router(ipu_data):
                         stimuli_translator.battery_translator(sensor_data=ipu_data["data"]["sensory_data"][sensor_type])
                     except Exception:
                         print("ERROR while processing Battery IPU", traceback.format_exc())
-
-        else:
-            print("ERROR: IPU handler encountered non-compliant data")
 
     elif "godot_init" in ipu_data:
         runtime_data.cortical_dimensions = generate_godot_registration_data()

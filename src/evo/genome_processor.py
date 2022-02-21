@@ -213,6 +213,7 @@ genome_1_template = {
           "init_synapse_needed": None,
           "postsynaptic_current": None,
           "plasticity_constant": None,
+          "degeneration": None,
           "postsynaptic_current_max": None,
           "cortical_mapping_dst": {},
           "neuron_params": {
@@ -284,8 +285,8 @@ genome_2_to_1 = {
     "nx-geo_z0-i": "geometric_boundaries",
     "nx-geo_z1-i": "geometric_boundaries",
     "cx-_group-t": "group_id",
-    "cx-dstmap-d": "cortical_mapping_dst"
-
+    "cx-dstmap-d": "cortical_mapping_dst",
+    "cx-de_gen-f": "degeneration"
 }
 
 genome_1_to_2 = {
@@ -308,5 +309,6 @@ genome_1_to_2 = {
     "snooze_length": "nx-snooze-f",
     "geometric_boundaries": "nx-geo___-i",
     "group_id": "cx-_group-t",
-    "cortical_mapping_dst": "cs-dstmap-d"
+    "cortical_mapping_dst": "cs-dstmap-d",
+    "degeneration": "cx-de_gen-f"
 }
