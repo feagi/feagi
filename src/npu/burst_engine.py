@@ -274,6 +274,8 @@ def burst_manager():
             for _ in runtime_data.fire_candidate_list:
                 if "degeneration" in runtime_data.genome['blueprint'][_]:
                     degeneration_val = runtime_data.genome['blueprint'][_]['degeneration']
+                    if degeneration_val is None:
+                        degeneration_val = 0
                     while runtime_data.fire_candidate_list[_]:
                         neuron_to_fire = runtime_data.fire_candidate_list[_].pop()
                         neuron_pre_fire_processing(_, neuron_to_fire, degenerate=degeneration_val)

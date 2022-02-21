@@ -214,7 +214,7 @@ def percent_active_neurons_in_block(block_ref, cortical_area, current_fcl=True):
 
     Note: If the current_fcl flag is not True then the function returns the results against the previous FCL list
     """
-    blocks_with_active_neurons = active_neurons_in_blocks(cortical_area)
+    blocks_with_active_neurons = active_neurons_in_blocks(cortical_area, include_neurons=True)
     if block_ref not in blocks_with_active_neurons:
         return 0
     else:
