@@ -16,6 +16,7 @@
 
 from math import floor
 from inf import runtime_data
+import traceback
 
 
 # todo: rename block to voxel
@@ -29,7 +30,7 @@ def block_size_checker(cortical_area, block):
     block_in_list = block_ref_2_id(block)
 
     for _ in range(3):
-        if block_in_list[_] > block_boundary[_]:
+        if block_in_list[_] >= block_boundary[_]:
             return False
     return True
 
@@ -90,8 +91,14 @@ def neurons_in_the_block(cortical_area, block_ref):
     try:
         return runtime_data.block_dic[cortical_area][block_ref]
     except Exception as e:
-        a = runtime_data.block_dic
+        block_dic = runtime_data.block_dic
         print("Error while processing --neurons_in_the_block-- function:\n", cortical_area, e)
+        # print("block_dic:\n", block_dic)
+        # for key in block_dic:
+        #     print("---", key)
+        #     for sub_key in block_dic[key]:
+        #         print("-------", sub_key, len(block_dic[key][sub_key]))
+        print(traceback.format_exc())
         return []
 
 

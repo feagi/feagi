@@ -175,33 +175,37 @@ def neighbor_candidate_generator(src_cortical_area, src_neuron_id, dst_cortical_
 def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar):
     scaled_vector = [prod(x) for x in zip(vector, morphology_scalar)]
     candidate_vector = [sum(x) for x in zip(src_voxel, scaled_vector)]
-    if blocks.block_size_checker(cortical_area=cortical_area_dst,
-                                 block=blocks.block_reference_builder(candidate_vector)):
+    within_limits = blocks.block_size_checker(cortical_area=cortical_area_dst,
+                                              block=blocks.block_reference_builder(candidate_vector))
+    print("within_limits", cortical_area_dst, candidate_vector, within_limits)
+    if within_limits:
         print("Matched vector candidate:", src_voxel, cortical_area_dst, candidate_vector)
         return candidate_vector
 
 
 def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar):
-
-    voxel_list = set()
-    dst_block_boundaries = runtime_data.genome[cortical_area_dst]["neuron_params"]["block_boundaries"]
+    voxel_list = list()
+    dst_block_boundaries = runtime_data.genome["blueprint"][cortical_area_dst]["neuron_params"]["block_boundaries"]
 
     for x in range(dst_block_boundaries[0]):
         for y in range(dst_block_boundaries[1]):
             for z in range(dst_block_boundaries[2]):
-                if (src_voxel[x] == pattern[0] or x == "*") and \
-                        (src_voxel[y] == pattern[1] or x == "*") and \
-                        (src_voxel[z] == pattern[2] or x == "*"):
-                    voxel_list.add([x, y, z])
-    print("Matched voxel list based on pattern:", src_voxel, cortical_area_dst, voxel_list)
+                if (x == pattern[0] or pattern[0] == "*") and \
+                        (y == pattern[1] or pattern[1] == "*") and \
+                        (z == pattern[2] or pattern[2] == "*"):
+                    voxel_list.append([x, y, z])
+    # print("Matched voxel list based on pattern:", src_voxel, cortical_area_dst, voxel_list)
 
     # todo: account for morphology scalar
+    # todo: account for exact match to source using "?"
 
     return voxel_list
 
 
 def voxel_list_to_neuron_list(cortical_area, voxel_list):
     neuron_list = set()
+    print("voxel_list", voxel_list)
+
     for voxel in voxel_list:
         voxel_ref = blocks.block_reference_builder(voxel)
         neurons = blocks.neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel_ref)
@@ -234,13 +238,19 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
         for key in runtime_data.genome["neuron_morphologies"][neuron_morphology]:
             if key == "vectors":
                 for vector in runtime_data.genome["neuron_morphologies"][neuron_morphology]["vectors"]:
-                    candidate_voxel_list.append(match_vectors(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
-                                                           vector=vector, morphology_scalar=morphology_scalar))
+                    matching_vectors = match_vectors(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
+                                                     vector=vector, morphology_scalar=morphology_scalar)
+                    if matching_vectors:
+                        candidate_voxel_list.append(matching_vectors)
 
             elif key == "patterns":
                 for pattern in runtime_data.genome["neuron_morphologies"][neuron_morphology]["patterns"]:
-                    candidate_voxel_list.append(match_patterns(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
-                                                            pattern=pattern, morphology_scalar=morphology_scalar))
+
+                    matching_vectors = match_patterns(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
+                                                      pattern=pattern, morphology_scalar=morphology_scalar)
+                    if matching_vectors:
+                        for item in matching_vectors:
+                            candidate_voxel_list.append(item)
 
             else:
                 print("Warning! Morphology %s did not have any valid definition." % neuron_morphology)
@@ -249,9 +259,10 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
         print("Error during synaptogenesis of %s and %s" % (cortical_area_src, cortical_area_dst))
         print(traceback.format_exc())
 
-    candidate_neuron_list = voxel_list_to_neuron_list(cortical_area=cortical_area_src, voxel_list=candidate_voxel_list)
-
-    return candidate_neuron_list
+    if candidate_voxel_list:
+        candidate_neuron_list = \
+            voxel_list_to_neuron_list(cortical_area=cortical_area_dst, voxel_list=candidate_voxel_list)
+        return candidate_neuron_list
 
 
 def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst):
