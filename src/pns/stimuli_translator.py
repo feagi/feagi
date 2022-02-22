@@ -18,8 +18,6 @@
 
 from evo.blocks import *
 from pns import stimuli_processor
-import traceback
-import sys
 
 
 """

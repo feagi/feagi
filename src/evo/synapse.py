@@ -21,6 +21,8 @@ import random
 from evo.synaptogenesis_rules import *
 from evo.blocks import block_reference_builder
 from inf import runtime_data
+import traceback
+from math import prod
 
 
 def cortical_area_lengths(cortical_area):
@@ -124,7 +126,8 @@ def synapse(cortical_area, src_id, dst_cortical_area, dst_id):
     # PSC with negative value will have an inhibitory effect
     postsynaptic_current = \
         runtime_data.genome['blueprint'][cortical_area]["postsynaptic_current"] * \
-        runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][dst_cortical_area][2]
+        runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][
+            dst_cortical_area]["postSynapticCurrent_multiplier"]
 
     runtime_data.brain[cortical_area][src_id]["neighbors"][dst_id] = \
         {"cortical_area": dst_cortical_area, "postsynaptic_current": postsynaptic_current}
@@ -170,10 +173,11 @@ def neighbor_candidate_generator(src_cortical_area, src_neuron_id, dst_cortical_
 
 
 def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar):
-
-    candidate_vector = src_voxel + (vector * morphology_scalar)
-    if blocks.block_size_checker(cortical_area=cortical_area_dst, block=candidate_vector):
-        print("Matched vector candidate:", cortical_area_dst, candidate_vector)
+    scaled_vector = [prod(x) for x in zip(vector, morphology_scalar)]
+    candidate_vector = [sum(x) for x in zip(src_voxel, scaled_vector)]
+    if blocks.block_size_checker(cortical_area=cortical_area_dst,
+                                 block=blocks.block_reference_builder(candidate_vector)):
+        print("Matched vector candidate:", src_voxel, cortical_area_dst, candidate_vector)
         return candidate_vector
 
 
@@ -189,7 +193,7 @@ def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar):
                         (src_voxel[y] == pattern[1] or x == "*") and \
                         (src_voxel[z] == pattern[2] or x == "*"):
                     voxel_list.add([x, y, z])
-    print("Matched voxel list based on pattern:", cortical_area_dst, voxel_list)
+    print("Matched voxel list based on pattern:", src_voxel, cortical_area_dst, voxel_list)
 
     # todo: account for morphology scalar
 
@@ -200,7 +204,9 @@ def voxel_list_to_neuron_list(cortical_area, voxel_list):
     neuron_list = set()
     for voxel in voxel_list:
         voxel_ref = blocks.block_reference_builder(voxel)
-        neuron_list.add(blocks.neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel_ref))
+        neurons = blocks.neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel_ref)
+        for neuron in neurons:
+            neuron_list.add(neuron)
 
     return neuron_list
 
@@ -210,7 +216,7 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
     Finds a list of candidate Neurons from another Cortical area to build Synapse with for a given Neuron
     """
 
-    candidate_voxel_list = set()
+    candidate_voxel_list = list()
 
     # rule_manager = SynaptogenesisRuleManager(src_neuron_id=src_neuron_id, src_cortical_area=cortical_area_src,
     #                                          dst_cortical_area=cortical_area_dst)
@@ -228,12 +234,12 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
         for key in runtime_data.genome["neuron_morphologies"][neuron_morphology]:
             if key == "vectors":
                 for vector in runtime_data.genome["neuron_morphologies"][neuron_morphology]["vectors"]:
-                    candidate_voxel_list.add(match_vectors(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
+                    candidate_voxel_list.append(match_vectors(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
                                                            vector=vector, morphology_scalar=morphology_scalar))
 
             elif key == "patterns":
                 for pattern in runtime_data.genome["neuron_morphologies"][neuron_morphology]["patterns"]:
-                    candidate_voxel_list.add(match_patterns(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
+                    candidate_voxel_list.append(match_patterns(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
                                                             pattern=pattern, morphology_scalar=morphology_scalar))
 
             else:
@@ -241,6 +247,7 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
 
     except Exception as e:
         print("Error during synaptogenesis of %s and %s" % (cortical_area_src, cortical_area_dst))
+        print(traceback.format_exc())
 
     candidate_neuron_list = voxel_list_to_neuron_list(cortical_area=cortical_area_src, voxel_list=candidate_voxel_list)
 
