@@ -335,8 +335,8 @@ def build_synapses(genome, brain, parameters, block_dic, connectome_path, src_co
         #                                          cortical_area_dst=mapped_cortical_area,
         #                                          synapse_count=synapse_count_)
         if parameters["Logs"]["print_brain_gen_activities"]:
-            morphology = cortical_genes['cortical_mapping_dst'][mapped_cortical_area][0]
-            scalar = cortical_genes['cortical_mapping_dst'][mapped_cortical_area][1]
+            morphology = cortical_genes['cortical_mapping_dst'][mapped_cortical_area]["morphology_id"]
+            scalar = cortical_genes['cortical_mapping_dst'][mapped_cortical_area]["morphology_scalar"]
             duration = datetime.datetime.now() - timer
             print("Synaptogenesis: %s <> %s\t\t| Morphalogy/Scalar: %s -- %s | Synapse Count: %i | Duration: %s\t "
                   "| Per Synapse Avg.: %s"

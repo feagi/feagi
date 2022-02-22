@@ -20,13 +20,13 @@ genome = {
     "ipu_idle_threshold": 1000,
     "neuron_morphologies": {
         "1": {
-            "vectors": {[1, 0, 0], [0, 1, 0]}
+            "vectors": [[1, 0, 0], [0, 1, 0]]
         },
         "2": {
-            "patterns": {['*', '*', '*']}},
+            "patterns": [['*', '*', '*']]},
         "3": {
-            "vectors": {[1, 0, 0], [0, 1, 0]},
-            "patterns": {['*', '*', '*']}
+            "vectors": [[1, 0, 0], [0, 1, 0]],
+            "patterns": [['*', '*', '*']]
         }
     },
     "neighbor_locator_rule": {'rule_0': {'param_1': 0, 'param_2': 0},
