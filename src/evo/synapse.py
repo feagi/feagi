@@ -173,6 +173,7 @@ def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar):
 
     candidate_vector = src_voxel + (vector * morphology_scalar)
     if blocks.block_size_checker(cortical_area=cortical_area_dst, block=candidate_vector):
+        print("Matched vector candidate:", cortical_area_dst, candidate_vector)
         return candidate_vector
 
 
@@ -184,8 +185,13 @@ def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar):
     for x in range(dst_block_boundaries[0]):
         for y in range(dst_block_boundaries[1]):
             for z in range(dst_block_boundaries[2]):
-                if (x == pattern[0] or x == "*") and (y == pattern[1] or x == "*") and (z == pattern[2] or x == "*"):
+                if (src_voxel[x] == pattern[0] or x == "*") and \
+                        (src_voxel[y] == pattern[1] or x == "*") and \
+                        (src_voxel[z] == pattern[2] or x == "*"):
                     voxel_list.add([x, y, z])
+    print("Matched voxel list based on pattern:", cortical_area_dst, voxel_list)
+
+    # todo: account for morphology scalar
 
     return voxel_list
 
@@ -212,9 +218,11 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
 
     src_voxel = runtime_data.brain[cortical_area_src][src_neuron_id]['soma_location'][1]
     neuron_morphology = \
-        runtime_data.genome["blueprint"][cortical_area_src]['cortical_mapping_dst'][cortical_area_dst][0]
+        runtime_data.genome["blueprint"][cortical_area_src]['cortical_mapping_dst'][
+            cortical_area_dst]['morphology_id']
     morphology_scalar = \
-        runtime_data.genome["blueprint"][cortical_area_src]['cortical_mapping_dst'][cortical_area_dst][1]
+        runtime_data.genome["blueprint"][cortical_area_src]['cortical_mapping_dst'][
+            cortical_area_dst]['morphology_scalar']
 
     try:
         for key in runtime_data.genome["neuron_morphologies"][neuron_morphology]:
