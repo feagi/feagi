@@ -25,7 +25,7 @@ def block_size_checker(cortical_area, block):
     """
     Tests if the given block fits inside the cortical area block boundary
     """
-    block_boundary = runtime_data.genome["blueprint"][cortical_area]["neuron_parameters"]["block_boundaries"]
+    block_boundary = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"]
     block_in_list = block_ref_2_id(block)
 
     for _ in range(3):
