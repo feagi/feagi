@@ -180,16 +180,12 @@ def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar):
 
     voxel_list = set()
     dst_block_boundaries = runtime_data.genome[cortical_area_dst]["neuron_params"]["block_boundaries"]
-    if pattern[0] == "*":
-        for x in range(dst_block_boundaries[0]:
-            voxel_list.add()
 
-            ### Todo..
-
-
-
-
-
+    for x in range(dst_block_boundaries[0]):
+        for y in range(dst_block_boundaries[1]):
+            for z in range(dst_block_boundaries[2]):
+                if (x == pattern[0] or x == "*") and (y == pattern[1] or x == "*") and (z == pattern[2] or x == "*"):
+                    voxel_list.add([x, y, z])
 
     return voxel_list
 
