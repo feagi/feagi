@@ -23,10 +23,10 @@ genome = {
             "vectors": {[1, 0, 0], [0, 1, 0]}
         },
         "2": {
-            "patters": {['*', '*', '*']}},
+            "patterns": {['*', '*', '*']}},
         "3": {
             "vectors": {[1, 0, 0], [0, 1, 0]},
-            "patters": {['*', '*', '*']}
+            "patterns": {['*', '*', '*']}
         }
     },
     "neighbor_locator_rule": {'rule_0': {'param_1': 0, 'param_2': 0},
