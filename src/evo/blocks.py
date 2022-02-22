@@ -91,14 +91,8 @@ def neurons_in_the_block(cortical_area, block_ref):
     try:
         return runtime_data.block_dic[cortical_area][block_ref]
     except Exception as e:
-        block_dic = runtime_data.block_dic
-        print("Error while processing --neurons_in_the_block-- function:\n", cortical_area, e)
-        # print("block_dic:\n", block_dic)
-        # for key in block_dic:
-        #     print("---", key)
-        #     for sub_key in block_dic[key]:
-        #         print("-------", sub_key, len(block_dic[key][sub_key]))
-        print(traceback.format_exc())
+        print("Warning! No neuron was detected for ", cortical_area, block_ref)
+        print("..... possibly too sparse of a cortical area.\n")
         return []
 
 

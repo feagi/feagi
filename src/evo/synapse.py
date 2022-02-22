@@ -204,7 +204,6 @@ def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar):
 
 def voxel_list_to_neuron_list(cortical_area, voxel_list):
     neuron_list = set()
-    print("voxel_list", voxel_list)
 
     for voxel in voxel_list:
         voxel_ref = blocks.block_reference_builder(voxel)
@@ -284,18 +283,15 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
         neighbor_candidates = neighbor_finder(cortical_area_src=cortical_area,
                                               cortical_area_dst=cortical_area_dst,
                                               src_neuron_id=src_id)
-
-        # if cortical_area == "infrared_reducer":
-        #     print(neighbor_candidates)
-
-        for dst_id in neighbor_candidates:
-            # Throw a dice to decide for synapse creation. This is to limit the amount of synapses.
-            if random.randrange(1, 100) < \
-                    runtime_data.genome['blueprint'][cortical_area_dst]['synapse_attractivity']:
-                # Connect the source and destination neuron via creating a synapse
-                synapse(cortical_area=cortical_area, src_id=src_id, dst_cortical_area=cortical_area_dst, dst_id=dst_id)
-                synapse_count += 1
-                # print("Made a Synapse between %s and %s" % (src_id, dst_id))
+        if neighbor_candidates:
+            for dst_id in neighbor_candidates:
+                # Throw a die to decide for synapse creation. This is to limit the amount of synapses.
+                if random.randrange(1, 100) < \
+                        runtime_data.genome['blueprint'][cortical_area_dst]['synapse_attractivity']:
+                    # Connect the source and destination neuron via creating a synapse
+                    synapse(cortical_area=cortical_area, src_id=src_id, dst_cortical_area=cortical_area_dst, dst_id=dst_id)
+                    synapse_count += 1
+                    # print("Made a Synapse between %s and %s" % (src_id, dst_id))
 
     if brain_gen:
         brain = runtime_data.brain

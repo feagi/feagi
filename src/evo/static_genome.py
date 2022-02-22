@@ -23,7 +23,7 @@ genome = {
             "vectors": [[1, 0, 0], [0, 1, 0]]
         },
         "2": {
-            "patterns": [['*', '*', '*']]},
+            "patterns": [['*', 0, 0]]},
         "3": {
             "vectors": [[1, 0, 0], [0, 1, 0]],
             "patterns": [['*', '*', '*']]
@@ -75,7 +75,7 @@ genome = {
 
         "_____10c-t__mot-cx-__name-t": "motor_thalamus",
         "_____10c-t__mot-cx-_group-t": "thalamus",
-        "_____10c-t__mot-cx-_n_cnt-i": 400,
+        "_____10c-t__mot-cx-_n_cnt-i": 500,
         "_____10c-t__mot-nx-gd_vis-b": True,
         "_____10c-t__mot-nx-rcordx-i": 80,
         "_____10c-t__mot-nx-rcordy-i": 0,
@@ -101,7 +101,7 @@ genome = {
         "_____10c-t__mot-nx-geo_z0-i": 0,
         "_____10c-t__mot-nx-geo_z1-i": 200,
         "_____10c-t__mot-cx-de_gen-f": 0,
-        "_____10c-t__mot-cx-dstmap-d": {"t__mot": ["1", [1, 1, 1], 1, 0]},
+        "_____10c-t__mot-cx-dstmap-d": {"t__mot": ["2", [1, 1, 1], 1, 0]},
 
         #  vvvvvvv   Input and Output processing related Cortical Areas are all listed below  vvvvvvvv
 
