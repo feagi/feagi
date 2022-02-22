@@ -19,15 +19,55 @@ genome = {
     "evolution_burst_count": 50,
     "ipu_idle_threshold": 1000,
     "neuron_morphologies": {
-        "1": {
-            "vectors": [[1, 0, 0], [0, 1, 0]]
+        "placeholder": {},
+        "block_to_block": {
+            "vectors": [[0, 0, 0], [2, 1, 0]]
         },
-        "2": {
-            "patterns": [['*', 0, 0]]},
-        "3": {
-            "vectors": [[1, 0, 0], [0, 1, 0]],
+        "decrease_filter_diagonal": {
+            "vectors": [[0, 1, 1]]
+        },
+        "decrease_filter_diagonal2": {
+            "vectors": [[0, 2, 1]]
+        },
+        "increase_filter_diagonal": {
+            "vectors": [[0, 1, -1]]
+        },
+        "increase_filter_diagonal2": {
+            "vectors": [[0, 2, -1]]
+        },
+        "y_consolidator": {
+            "patterns": [[6, "*", "?"]]
+        },
+        "lateral_+x": {
+            "vectors": [[1, 0, 0]]
+        },
+        "lateral_-x": {
+            "vectors": [[-1, 0, 0]]
+        },
+        "lateral_+y": {
+            "vectors": [[0, 1, 0]]
+        },
+        "lateral_-y": {
+            "vectors": [[0, -1, 0]]
+        },
+        "lateral_+z": {
+            "vectors": [[0, 0, 1]]
+        },
+        "lateral_-z": {
+            "vectors": [[0, 0, -1]]
+        },
+        "one_to_all": {
             "patterns": [['*', '*', '*']]
-        }
+        },
+        "to_block_[5, 7, 4]": {
+            "patterns": [[5, 7, 4]]
+        },
+        "expander_x": {
+            "functions": True
+        },
+        "reducer_x": {
+            "functions": True
+        },
     },
     "neighbor_locator_rule": {'rule_0': {'param_1': 0, 'param_2': 0},
                               'rule_1': {'param_1': 1, 'param_2': 1},
@@ -75,15 +115,15 @@ genome = {
 
         "_____10c-t__mot-cx-__name-t": "motor_thalamus",
         "_____10c-t__mot-cx-_group-t": "thalamus",
-        "_____10c-t__mot-cx-_n_cnt-i": 500,
+        "_____10c-t__mot-cx-_n_cnt-i": 3,
         "_____10c-t__mot-nx-gd_vis-b": True,
         "_____10c-t__mot-nx-rcordx-i": 80,
         "_____10c-t__mot-nx-rcordy-i": 0,
         "_____10c-t__mot-nx-rcordz-i": 0,
-        "_____10c-t__mot-nx-___bbx-i": 4,
+        "_____10c-t__mot-nx-___bbx-i": 3,
         "_____10c-t__mot-nx-___bby-i": 1,
-        "_____10c-t__mot-nx-___bbz-i": 10,
-        "_____10c-t__mot-cx-__rand-b": True,
+        "_____10c-t__mot-nx-___bbz-i": 1,
+        "_____10c-t__mot-cx-__rand-b": False,
         "_____10c-t__mot-cx-synatt-i": 100,
         "_____10c-t__mot-cx-init_s-b": False,
         "_____10c-t__mot-cx-pstcr_-f": 5,
@@ -101,10 +141,40 @@ genome = {
         "_____10c-t__mot-nx-geo_z0-i": 0,
         "_____10c-t__mot-nx-geo_z1-i": 200,
         "_____10c-t__mot-cx-de_gen-f": 0,
-        "_____10c-t__mot-cx-dstmap-d": {"t__mot": ["2", [1, 1, 1], 1, 0]},
+        "_____10c-t__mot-cx-dstmap-d": {"t__mo2": ["expander_x", [1, 1, 1], 1, False]},
+
+        "_____10c-t__mo2-cx-__name-t": "motor_thalamus",
+        "_____10c-t__mo2-cx-_group-t": "thalamus",
+        "_____10c-t__mo2-cx-_n_cnt-i": 8,
+        "_____10c-t__mo2-nx-gd_vis-b": True,
+        "_____10c-t__mo2-nx-rcordx-i": 80,
+        "_____10c-t__mo2-nx-rcordy-i": 0,
+        "_____10c-t__mo2-nx-rcordz-i": 0,
+        "_____10c-t__mo2-nx-___bbx-i": 8,
+        "_____10c-t__mo2-nx-___bby-i": 1,
+        "_____10c-t__mo2-nx-___bbz-i": 1,
+        "_____10c-t__mo2-cx-__rand-b": False,
+        "_____10c-t__mo2-cx-synatt-i": 100,
+        "_____10c-t__mo2-cx-init_s-b": False,
+        "_____10c-t__mo2-cx-pstcr_-f": 5,
+        "_____10c-t__mo2-cx-pstcrm-f": 35,
+        "_____10c-t__mo2-cx-plst_c-f": 0.05,
+        "_____10c-t__mo2-nx-fire_t-f": 1,
+        "_____10c-t__mo2-nx-refrac-i": 0,
+        "_____10c-t__mo2-nx-leak_c-f": 10,
+        "_____10c-t__mo2-nx-c_fr_c-i": 1,
+        "_____10c-t__mo2-nx-snooze-f": 0,
+        "_____10c-t__mo2-nx-geo_x0-i": 0,
+        "_____10c-t__mo2-nx-geo_x1-i": 3600,
+        "_____10c-t__mo2-nx-geo_y0-i": 0,
+        "_____10c-t__mo2-nx-geo_y1-i": 1800,
+        "_____10c-t__mo2-nx-geo_z0-i": 0,
+        "_____10c-t__mo2-nx-geo_z1-i": 200,
+        "_____10c-t__mo2-cx-de_gen-f": 0,
+        "_____10c-t__mo2-cx-dstmap-d": {},
 
         #  vvvvvvv   Input and Output processing related Cortical Areas are all listed below  vvvvvvvv
-
+        #
         # # +++ Input Processing Units (IPU) +++
         # "_____10c-i__inf-cx-__name-t": "ir_ipu",
         # "_____10c-i__inf-cx-_group-t": "IPU",
@@ -134,7 +204,7 @@ genome = {
         # "_____10c-i__inf-nx-geo_z0-i": 0,
         # "_____10c-i__inf-nx-geo_z1-i": 10,
         # "_____10c-i__inf-cx-de_gen-f": 0.01,
-        # "_____10c-i__inf-cx-dstmap-d": {"i__inf": ["rule_1", "param_1"]},
+        # "_____10c-i__inf-cx-dstmap-d": {"i__inf": ["placeholder", [1, 1, 1], 1, False]},
         #
         # "_____10c-i__mot-cx-__name-t": "motor_ipu",
         # "_____10c-i__mot-cx-_group-t": "IPU",
@@ -164,7 +234,7 @@ genome = {
         # "_____10c-i__mot-nx-geo_z0-i": 0,
         # "_____10c-i__mot-nx-geo_z1-i": 200,
         # "_____10c-i__mot-cx-de_gen-f": 0,
-        # "_____10c-i__mot-cx-dstmap-d": {"i__mot": ["rule_1", "param_1"]},
+        # "_____10c-i__mot-cx-dstmap-d": {"i__mot": ["placeholder", [1, 1, 1], 1, False]},
         #
         # "_____10c-i__pro-cx-__name-t": "proximity_ipu",
         # "_____10c-i__pro-cx-_group-t": "memory",
@@ -194,7 +264,7 @@ genome = {
         # "_____10c-i__pro-nx-geo_z0-i": 0,
         # "_____10c-i__pro-nx-geo_z1-i": 2000,
         # "_____10c-i__pro-cx-de_gen-f": 0,
-        # "_____10c-i__pro-cx-dstmap-d": {"i__pro": ["rule_1", "param_1"]},
+        # "_____10c-i__pro-cx-dstmap-d": {"i__pro": ["placeholder", [1, 1, 1], 1, False]},
         #
         # "_____10c-i__bat-cx-__name-t": "battery_ipu",
         # "_____10c-i__bat-cx-_group-t": "IPU",
@@ -224,7 +294,7 @@ genome = {
         # "_____10c-i__bat-nx-geo_z0-i": 0,
         # "_____10c-i__bat-nx-geo_z1-i": 100,
         # "_____10c-i__bat-cx-de_gen-f": 0,
-        # "_____10c-i__bat-cx-dstmap-d": {"i__bat": ["rule_1", "param_1"]},
+        # "_____10c-i__bat-cx-dstmap-d": {"i__bat": ["placeholder", [1, 1, 1], 1, False]},
         #
         # # +++ Output Processing Units (OPU) +++
         # "_____10c-o__bat-cx-__name-t": "battery_opu",
@@ -255,7 +325,7 @@ genome = {
         # "_____10c-o__bat-nx-geo_z0-i": 0,
         # "_____10c-o__bat-nx-geo_z1-i": 100,
         # "_____10c-o__bat-cx-de_gen-f": 0,
-        # "_____10c-o__bat-cx-dstmap-d": {"o__bat": ["rule_1", "param_1"]},
+        # "_____10c-o__bat-cx-dstmap-d": {"o__bat": ["placeholder", [1, 1, 1], 1, False]},
         #
         # "_____10c-o__mot-cx-__name-t": "motor_opu",
         # "_____10c-o__mot-cx-_group-t": "OPU",

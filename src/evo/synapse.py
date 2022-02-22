@@ -37,73 +37,10 @@ def cortical_area_lengths(cortical_area):
     return length
 
 
-# todo: Externalize all the rules to a separate module
-# class SynaptogenesisRuleManager:
-#     """
-#     Manages the rules involved with neuron synaptogenesis process.
-#     Needed info: Rule and rule params
-#     return: the func for the rule
-#
-#     """
-#     def __init__(self, src_neuron_id, src_cortical_area, dst_cortical_area):
-#         self.is_candidate = False
-#         self.src_neuron_id = src_neuron_id
-#         self.rule = runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'][dst_cortical_area]['neighbor_locator_rule_id']
-#         self.rule_param_key = runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'][dst_cortical_area]['neighbor_locator_rule_param_id']
-#         self.rule_param = runtime_data.genome['neighbor_locator_rule'][self.rule][self.rule_param_key]
-#         self.src_cortical_area = src_cortical_area
-#         self.dst_cortical_area = dst_cortical_area
-#         self.z_offset = 0
-#         # todo: this check is adding ~0.5s to neuroembryogenesis process
-#         if 'layer_index' in runtime_data.genome['blueprint'][src_cortical_area]:
-#             self.z_offset = int(runtime_data.genome['blueprint'][src_cortical_area]['layer_index'])
-#         else:
-#             self.z_offset = 0
-#         self.src_neuron_block_ref = \
-#             block_reference_builder(runtime_data.brain[self.src_cortical_area][self.src_neuron_id]['soma_location'][1])
-#
-#     def growth_rule_selector(self):
-#         """
-#         Provides a mapping table between rules ids defined in genome and the functions driving the rules
-#         Args:
-#             rule_id: as referenced within Genome
-#
-#         Returns:
-#             Function corresponding the rule_id
-#
-#         """
-#         # todo: to fix the rules
-#         switcher = {
-#             "rule_0": rule_neuron_to_neuron,
-#             "rule_1": rule_block_to_block,
-#             "rule_5": rule_block_to_block,
-#             "rule_6": rule_block_to_block,
-#             "rule_7": rule_block_distributor,
-#             "rule_9": decrease_filter_diagonal,
-#             "rule_10": increase_filter_diagonal,
-#             "rule_11": decrease_z_subregion,
-#             "rule_12": increase_z_subregion,
-#             "rule_13": rule_block_one_to_all,
-#             "rule_14": expander_x,
-#             "rule_15": reducer_x,
-#             "rule_16": intracortical_adjacent,
-#             "rule_17": to_select_block,
-#             "rule_18": from_last_block_only,
-#             "rule_19": many_to_one
-#         }
-#         # Get the function from switcher dictionary
-#         rule_func = switcher.get(self.rule, lambda: "Invalid rule")
-#         return rule_func(rule_param=self.rule_param,
-#                          src_cortical_area=self.src_cortical_area,
-#                          dst_cortical_area=self.dst_cortical_area,
-#                          src_neuron_id=self.src_neuron_id,
-#                          z_offset=self.z_offset)
-
 def vector_processor(vector, src_voxel, src_cortical_area, dst_cortical_area):
     """
     Returns the
     """
-
 
 
 def synapse(cortical_area, src_id, dst_cortical_area, dst_id):
@@ -177,9 +114,7 @@ def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar):
     candidate_vector = [sum(x) for x in zip(src_voxel, scaled_vector)]
     within_limits = blocks.block_size_checker(cortical_area=cortical_area_dst,
                                               block=blocks.block_reference_builder(candidate_vector))
-    print("within_limits", cortical_area_dst, candidate_vector, within_limits)
     if within_limits:
-        print("Matched vector candidate:", src_voxel, cortical_area_dst, candidate_vector)
         return candidate_vector
 
 
@@ -250,6 +185,18 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
                     if matching_vectors:
                         for item in matching_vectors:
                             candidate_voxel_list.append(item)
+
+            elif key == "functions":
+                if neuron_morphology == "expander_x":
+                    candidate_list = expander_x(cortical_area_src, cortical_area_dst, src_neuron_id)
+                    for candidate in candidate_list:
+                        candidate_voxel_list.append(candidate)
+                elif neuron_morphology == "reducer_x":
+                    candidate_list = reducer_x(cortical_area_src, cortical_area_dst, src_neuron_id)
+                    for candidate in candidate_list:
+                        candidate_voxel_list.append(candidate)
+            elif key == "placeholder":
+                pass
 
             else:
                 print("Warning! Morphology %s did not have any valid definition." % neuron_morphology)
