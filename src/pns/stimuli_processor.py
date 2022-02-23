@@ -17,7 +17,7 @@
 # ==============================================================================
 
 from math import inf
-from evo.blocks import *
+from evo.voxels import *
 from inf import runtime_data
 
 """

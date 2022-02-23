@@ -19,7 +19,7 @@
 from pns import stimuli_translator
 import traceback
 from datetime import datetime
-from evo.blocks import *
+from evo.voxels import *
 from evo.stats import opu_activity_report
 
 
