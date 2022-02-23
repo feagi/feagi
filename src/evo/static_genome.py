@@ -36,7 +36,7 @@ genome = {
             "vectors": [[0, 2, -1]]
         },
         "y_consolidator": {
-            "patterns": [["?", "?", "?"]]
+            "patterns": [["*", "?", "*"]]
         },
         "lateral_+x": {
             "vectors": [[1, 0, 0]]
