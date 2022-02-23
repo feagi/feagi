@@ -36,7 +36,7 @@ genome = {
             "vectors": [[0, 2, -1]]
         },
         "y_consolidator": {
-            "patterns": [[6, "*", "?"]]
+            "patterns": [["*", "?", "*"]]
         },
         "lateral_+x": {
             "vectors": [[1, 0, 0]]
@@ -69,31 +69,6 @@ genome = {
             "functions": True
         },
     },
-    "neighbor_locator_rule": {'rule_0': {'param_1': 0, 'param_2': 0},
-                              'rule_1': {'param_1': 1, 'param_2': 1},
-                              'rule_10': {'param_1': 1, 'param_2': 1},
-                              'rule_11': {'param_1': 1, 'param_2': 1},
-                              'rule_12': {'param_1': 1, 'param_2': 1},
-                              'rule_13': {'param_1': 1, 'param_2': 1},
-                              'rule_14': {'param_1': 1, 'param_2': 1},
-                              'rule_15': {'param_1': 1, 'param_2': 1},
-                              'rule_16': {'param_1': 1, 'param_2': 1},
-                              'rule_17': {'param_1': 1, 'param_2': 1},
-                              'rule_18': {'param_1': 1, 'param_2': 1},
-                              'rule_19': {'param_1': 1, 'param_2': 1},
-                              'rule_2': {'param_1': 5, 'param_2': 5, 'param_3': 3},
-                              'rule_3': {'param_1': 3, 'param_2': 3},
-                              'rule_4': {'param_1': 3, 'param_2': 3},
-                              'rule_5': {'param_1': 3,
-                                         'param_2': 3,
-                                         'param_3': 3,
-                                         'param_4': 3,
-                                         'param_5': 3,
-                                         'param_6': 3,
-                                         'param_7': 3},
-                              'rule_6': {'param_1': 1, 'param_2': 1},
-                              'rule_7': {'param_1': 1, 'param_2': 1},
-                              'rule_9': {'param_1': 1, 'param_2': 1}},
     "species": {
         "parents": {},
         "species_id": "",
@@ -174,7 +149,7 @@ genome = {
         "_____10c-i__inf-nx-geo_z0-i": 0,
         "_____10c-i__inf-nx-geo_z1-i": 10,
         "_____10c-i__inf-cx-de_gen-f": 0.01,
-        "_____10c-i__inf-cx-dstmap-d": {"i__inf": ["placeholder", [1, 1, 1], 1, False]},
+        "_____10c-i__inf-cx-dstmap-d": {"i__inf": ["y_consolidator", [1, 1, 1], 1, False]},
 
         "_____10c-i__mot-cx-__name-t": "motor_ipu",
         "_____10c-i__mot-cx-_group-t": "IPU",
