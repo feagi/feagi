@@ -61,6 +61,8 @@ def expander_x(src_cortical_area, dst_cortical_area, src_neuron_id, dst_y_index=
     src_cortical_dim_x = runtime_data.genome['blueprint'][src_cortical_area]['neuron_params']['block_boundaries'][0]
     dst_cortical_dim_x = runtime_data.genome['blueprint'][dst_cortical_area]['neuron_params']['block_boundaries'][0]
 
+    cortical_length_binary = len(bin(dst_cortical_dim_x)) - 2
+
     print("***** *** ** * Expander initiated! ")
 
     # Note that the destination cortical area is expected to have at least 2 ^ (source block count) to be able to
@@ -75,7 +77,16 @@ def expander_x(src_cortical_area, dst_cortical_area, src_neuron_id, dst_y_index=
 
     for dst_x_index in range(dst_cortical_dim_x):
         print("dst_x_index", dst_x_index, src_neuron_block_index_x)
-        if str(bin(dst_x_index))[2:][src_neuron_block_index_x]:
+        # converting the destination cortical area x position to a binary number and taking away the nth position that
+        # is the (src_neuron_block_index_x)th position
+
+        position_length_binary = len(str(bin(dst_x_index))[2:])
+        length_difference = cortical_length_binary - position_length_binary
+        padding = "*" * length_difference
+
+        processed_string = padding + str(bin(dst_x_index))[2:]
+
+        if processed_string[src_neuron_block_index_x] == "1":
             voxel = [dst_x_index, dst_y_index, dst_z_index]
             candidate_list.append(voxel)
     return candidate_list
