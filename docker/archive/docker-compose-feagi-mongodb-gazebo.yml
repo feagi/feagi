@@ -5,7 +5,7 @@ networks:
     driver: bridge
 
 services:
-  ros_gazebo:
+  ros-gazebo:
     build: ../third_party/gazebo/smart_car/
     deploy:
       resources:
