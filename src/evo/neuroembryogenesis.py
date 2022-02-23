@@ -243,13 +243,13 @@ def neurogenesis():
 
 
 def synaptogenesis():
-    synapse_creation_candidates = []
-    for key in runtime_data.genome["blueprint"]:
-        if runtime_data.genome["blueprint"][key]["init_synapse_needed"]:
-            synapse_creation_candidates.append(key)
-        else:
-            if runtime_data.parameters["Logs"]["print_brain_gen_activities"]:
-                print("Synapse creation for Cortical area %s will be skipped." % key)
+    # synapse_creation_candidates = []
+    # for key in runtime_data.genome["blueprint"]:
+    #     if runtime_data.genome["blueprint"][key]["init_synapse_needed"]:
+    #         synapse_creation_candidates.append(key)
+    #     else:
+    #         if runtime_data.parameters["Logs"]["print_brain_gen_activities"]:
+    #             print("Synapse creation for Cortical area %s will be skipped." % key)
 
     # func1 = partial(build_synapse_intracortical, runtime_data.genome, runtime_data.brain, runtime_data.parameters)
     # pool1 = Pool(processes=int(runtime_data.parameters['System']['max_core']))
@@ -309,6 +309,10 @@ def synaptogenesis():
 
 
 def build_synapses(genome, brain, parameters, block_dic, connectome_path, src_cortical_area):
+    """
+    Develops all the synapses originated from neurons within a given cortical area which could be both internal and
+    external.
+    """
     # if runtime_data.parameters["Database"]["influxdb_enabled"]:
     #     from inf import db_handler
     #     influxdb = db_handler.InfluxManagement()
@@ -316,19 +320,14 @@ def build_synapses(genome, brain, parameters, block_dic, connectome_path, src_co
     intercortical_mapping = []
     runtime_data.connectome_path = connectome_path
     # Read Genome data
-    for mapped_cortical_area in genome["blueprint"][src_cortical_area]["cortical_mapping_dst"]:
+    cortical_genes = genome["blueprint"][src_cortical_area]
+
+    for mapped_cortical_area in cortical_genes["cortical_mapping_dst"]:
+
         timer = datetime.datetime.now()
         synapse_count_, runtime_data.brain = \
             synapse.neighbor_builder(cortical_area=src_cortical_area, brain=brain, genome=genome, brain_gen=True,
-                                     cortical_area_dst=mapped_cortical_area,
-                                     rule=genome["blueprint"][src_cortical_area]["cortical_mapping_dst"]
-                                     [mapped_cortical_area]["neighbor_locator_rule_id"],
-                                     rule_param=genome["neighbor_locator_rule"][genome["blueprint"][src_cortical_area]
-                                     ["cortical_mapping_dst"][mapped_cortical_area]
-                                     ["neighbor_locator_rule_id"]][genome["blueprint"][src_cortical_area]
-                                     ["cortical_mapping_dst"][mapped_cortical_area]
-                                     ["neighbor_locator_rule_param_id"]], postsynaptic_current=genome["blueprint"]
-                                        [src_cortical_area]["postsynaptic_current"])
+                                     cortical_area_dst=mapped_cortical_area)
         # print("------------------------------Influxdb:", type(influxdb))
         # if parameters["Database"]["influx_brain_gen_stats"]:
         #     influxdb.insert_inter_cortical_stats(connectome_path=parameters["InitData"]["connectome_path"],
@@ -336,12 +335,12 @@ def build_synapses(genome, brain, parameters, block_dic, connectome_path, src_co
         #                                          cortical_area_dst=mapped_cortical_area,
         #                                          synapse_count=synapse_count_)
         if parameters["Logs"]["print_brain_gen_activities"]:
-            rule = runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'][mapped_cortical_area]['neighbor_locator_rule_id']
-            rule_param = runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'][mapped_cortical_area]['neighbor_locator_rule_param_id']
+            morphology = cortical_genes['cortical_mapping_dst'][mapped_cortical_area]["morphology_id"]
+            scalar = cortical_genes['cortical_mapping_dst'][mapped_cortical_area]["morphology_scalar"]
             duration = datetime.datetime.now() - timer
-            print("Synaptogenesis: %s <> %s\t\t| Rule/Param: %s -- %s | Synapse Count: %i | Duration: %s\t "
+            print("Synaptogenesis: %s <> %s\t\t| Morphology:%s Scalar:%s | Synapse Count: %i | Duration: %s\t "
                   "| Per Synapse Avg.: %s"
-                  % (src_cortical_area, mapped_cortical_area, rule, rule_param, synapse_count_, duration, duration /
+                  % (src_cortical_area, mapped_cortical_area, morphology, scalar, synapse_count_, duration, duration /
                      (synapse_count_+1)))
 
         # Adding External Synapse counts to genome for future use
@@ -420,7 +419,7 @@ def generate_plasticity_dict():
     for area in cortical_areas:
         for mapping_dst in cortical_areas[area]['cortical_mapping_dst']:
             try:
-                if cortical_areas[area]['cortical_mapping_dst'][mapping_dst]['plasticity']:
+                if cortical_areas[area]['cortical_mapping_dst'][mapping_dst][3]:
                     try:
                         runtime_data.plasticity_dict[area].add(mapping_dst)
                     except KeyError:

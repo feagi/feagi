@@ -16,6 +16,7 @@
 
 from math import floor
 from inf import runtime_data
+import traceback
 
 
 # todo: rename block to voxel
@@ -25,11 +26,11 @@ def block_size_checker(cortical_area, block):
     """
     Tests if the given block fits inside the cortical area block boundary
     """
-    block_boundary = runtime_data.genome["blueprint"][cortical_area]["neuron_parameters"]["block_boundaries"]
+    block_boundary = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"]
     block_in_list = block_ref_2_id(block)
 
     for _ in range(3):
-        if block_in_list[_] > block_boundary[_]:
+        if block_in_list[_] >= block_boundary[_]:
             return False
     return True
 
@@ -90,8 +91,8 @@ def neurons_in_the_block(cortical_area, block_ref):
     try:
         return runtime_data.block_dic[cortical_area][block_ref]
     except Exception as e:
-        a = runtime_data.block_dic
-        print("Error while processing --neurons_in_the_block-- function:\n", cortical_area, e)
+        print("Warning! No neuron was detected for ", cortical_area, block_ref)
+        print("..... possibly too sparse of a cortical area.\n")
         return []
 
 
