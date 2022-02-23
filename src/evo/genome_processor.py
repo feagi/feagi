@@ -115,8 +115,14 @@ def genome_2_1_convertor(flat_genome):
                             for destination in flat_genome[gene]:
                                 if destination not in genome['blueprint'][cortical_area][genome_2_to_1[exon]]:
                                     genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination] = dict()
-                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination]["neighbor_locator_rule_id"] = flat_genome[gene][destination][0]
-                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination]["neighbor_locator_rule_param_id"] = flat_genome[gene][destination][1]
+                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination][
+                                    "morphology_id"] = flat_genome[gene][destination][0]
+                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination][
+                                    "morphology_scalar"] = flat_genome[gene][destination][1]
+                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination][
+                                    "postSynapticCurrent_multiplier"] = flat_genome[gene][destination][2]
+                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination][
+                                    "plasticity_flag"] = flat_genome[gene][destination][3]
 
                         else:
                             try:
@@ -210,7 +216,7 @@ genome_1_template = {
           "cortical_neuron_count": None,
           "location_generation_type": None,
           "synapse_attractivity": None,
-          "init_synapse_needed": None,
+          # "init_synapse_needed": None,
           "postsynaptic_current": None,
           "plasticity_constant": None,
           "degeneration": None,
@@ -269,7 +275,7 @@ genome_2_to_1 = {
     "nx-___bbz-i": "block_boundaries",
     "cx-__rand-b": "location_generation_type",
     "cx-synatt-i": "synapse_attractivity",
-    "cx-init_s-b": "init_synapse_needed",
+    # "cx-init_s-b": "init_synapse_needed",
     "cx-pstcr_-f": "postsynaptic_current",
     "cx-pstcrm-f": "postsynaptic_current_max",
     "cx-plst_c-f": "plasticity_constant",
@@ -296,7 +302,7 @@ genome_1_to_2 = {
     "block_boundaries": "cx-___bb_-i",
     "location_generation_type": "cx-__rand-b",
     "synapse_attractivity": "cx-synatt-i",
-    "init_synapse_needed": "cx-init_s-b",
+    # "init_synapse_needed": "cx-init_s-b",
     "postsynaptic_current": "nx-pstcr_-f",
     "postsynaptic_current_max": "nx-pstcrm-f",
     "plasticity_constant": "nx-plst_c-f",
