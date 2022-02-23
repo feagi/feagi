@@ -18,7 +18,7 @@
 
 import sys
 import traceback
-from evo.blocks import *
+from evo.voxels import *
 from inf import runtime_data
 from importlib.machinery import SourceFileLoader
 

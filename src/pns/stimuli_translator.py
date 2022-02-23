@@ -16,7 +16,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from evo.blocks import *
+from evo.voxels import *
 from pns import stimuli_processor
 
 

@@ -205,48 +205,48 @@ def serialize_brain_data(brain):
     return brain
 
 
-def load_block_dic_in_memory():
-    # todo: Need error handling added so if there is a corruption in block_dic data it can regenerate
+def load_voxel_dict_in_memory():
+    # todo: Need error handling added so if there is a corruption in voxel_dict data it can regenerate
     connectome_path = runtime_data.parameters["InitData"]["connectome_path"]
-    block_dic = {}
+    voxel_dict = {}
     for item in runtime_data.cortical_list:
-        if os.path.isfile(connectome_path + item + '_blk_dic.json'):
-            with open(connectome_path + item + '_blk_dic.json', "r") as data_file:
+        if os.path.isfile(connectome_path + item + '_vox_dict.json'):
+            with open(connectome_path + item + '_vox_dict.json', "r") as data_file:
                 data = json.load(data_file)
-                block_dic[item] = data
-    return block_dic
+                voxel_dict[item] = data
+    return voxel_dict
 
 
-def save_block_dic_to_disk(cortical_area='all', block_dic=runtime_data.block_dic, parameters=runtime_data.parameters,
+def save_voxel_dict_to_disk(cortical_area='all', voxel_dict=runtime_data.voxel_dict, parameters=runtime_data.parameters,
                            backup=False):
     connectome_path = runtime_data.connectome_path
-    if block_dic == {}:
-        print(">> >> Error: Could not save the brain contents to disk as >> block_dic << was empty!")
+    if voxel_dict == {}:
+        print(">> >> Error: Could not save the brain contents to disk as >> voxel_dict << was empty!")
         return
 
     if cortical_area != 'all':
-        with open(connectome_path+cortical_area+'_blk_dic.json', "w") as data_file:
-            data = block_dic[cortical_area]
+        with open(connectome_path+cortical_area+'_vox_dict.json', "w") as data_file:
+            data = voxel_dict[cortical_area]
             data_file.seek(0)  # rewind
             data_file.write(json.dumps(data, indent=3))
             data_file.truncate()
     elif backup:
         for cortical_area in runtime_data.cortical_list:
-            with open(connectome_path+cortical_area+'_backup_blk_dic.json', "w") as data_file:
-                data = block_dic[cortical_area]
+            with open(connectome_path+cortical_area+'_backup_vox_dict.json', "w") as data_file:
+                data = voxel_dict[cortical_area]
                 data_file.seek(0)  # rewind
                 data_file.write(json.dumps(data, indent=3))
                 data_file.truncate()
     else:
         for cortical_area in runtime_data.cortical_list:
-            with open(connectome_path+cortical_area+'_blk_dic.json', "w") as data_file:
+            with open(connectome_path+cortical_area+'_vox_dict.json', "w") as data_file:
                 try:
-                    data = block_dic[cortical_area]
+                    data = voxel_dict[cortical_area]
                     data_file.seek(0)  # rewind
                     data_file.write(json.dumps(data, indent=3))
                     data_file.truncate()
                 except KeyError:
-                    print("Warning: %s was not present in the block_dic")
+                    print("Warning: %s was not present in the voxel_dict")
     return
 
 

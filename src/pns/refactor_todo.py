@@ -20,7 +20,7 @@ import struct
 import numpy as np
 from inf.disk_ops import save_processed_mnist_to_disk
 from datetime import datetime
-from evo.blocks import neurons_in_the_block, block_reference_builder, block_ref_2_id
+from evo.voxels import neurons_in_the_block, block_reference_builder, block_ref_2_id
 from queue import Queue
 from inf import runtime_data, settings
 import time

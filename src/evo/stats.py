@@ -18,7 +18,7 @@
 """
 Provides functions performing statistical analysis on the Connectome and Cortical behavior
 """
-from evo.blocks import *
+from evo.voxels import *
 from inf import runtime_data, db_handler
 
 
@@ -234,9 +234,9 @@ def list_common_upstream_neurons(neuron_a, neuron_b):
         pass
 
 
-def block_dict_summary(block_dict, cortical_area=[], verbose=False):
+def voxel_dict_summary(voxel_dict, cortical_area=[], verbose=False):
     """
-    Returns a summary report of block_dict contents
+    Returns a summary report of voxel_dict contents
 
     {
     cortical_area_1: ((block_ref_1, neuron_count), (block_ref_2, neuron_count), (block_ref_3, neuron_count),...),
@@ -247,10 +247,10 @@ def block_dict_summary(block_dict, cortical_area=[], verbose=False):
 
     stats = dict()
 
-    for area in block_dict:
+    for area in voxel_dict:
         if area in cortical_area or not cortical_area:
             stats[area] = set()
-            for block in block_dict[area]:
+            for block in voxel_dict[area]:
                 stats[area].add((block, len(block)))
 
     if verbose:

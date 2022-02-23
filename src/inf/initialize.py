@@ -30,7 +30,7 @@ from collections import deque
 from inf import runtime_data, disk_ops, settings
 from configparser import ConfigParser
 from shutil import copyfile
-from evo.stats import list_top_n_utf_memory_neurons, block_dict_summary
+from evo.stats import list_top_n_utf_memory_neurons, voxel_dict_summary
 from inf.messenger import Pub
 from evo.neuroembryogenesis import generate_plasticity_dict
 from evo.genome_processor import *
@@ -309,9 +309,9 @@ def init_burst_engine():
     runtime_data.burst_timer = float(runtime_data.parameters["Timers"]["burst_timer"])
     print("Burst time has been set to:", runtime_data.burst_timer)
 
-    if runtime_data.parameters["Logs"]["print_block_dict_report"]:
+    if runtime_data.parameters["Logs"]["print_voxel_dict_report"]:
         print("Block Dictionary Report:")
-        block_dict_summary(runtime_data.block_dic, verbose=True)
+        voxel_dict_summary(runtime_data.block_dic, verbose=True)
 
 
 def exit_burst_process():

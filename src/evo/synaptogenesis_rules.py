@@ -15,7 +15,7 @@
 # ==============================================================================
 
 
-from evo import blocks
+from evo import voxels
 from inf import runtime_data
 
 

@@ -199,7 +199,7 @@ gene_decoder = {
     "_______c-______-cx-___bby-i": "block_boundary_y",
     "_______c-______-cx-___bbz-i": "block_boundary_z",
     "_______c-______-cx-synatt-i": "synapse_attractivity",
-    "_______c-______-cx-init_s-b": "init_synapse_needed",
+    # "_______c-______-cx-init_s-b": "init_synapse_needed",
     "_______c-______-nx-pstcr_-f": "postsynaptic_current",
     "_______c-______-nx-pstcrm-f": "postsynaptic_current_max",
     "_______c-______-nx-plst_c-f": "plasticity_constant",
@@ -213,7 +213,7 @@ gene_decoder = {
 }
 
 genome_1_template = {
-          "cortical_neuron_count": None,
+          "per_voxel_neuron_cnt": None,
           "location_generation_type": None,
           "synapse_attractivity": None,
           # "init_synapse_needed": None,
@@ -241,7 +241,7 @@ genome_1_template = {
                   None
               ],
               "relative_coordinate": [
-                None,
+                  None,
                   None,
                   None
               ],
@@ -264,7 +264,7 @@ genome_1_template = {
       }
 
 genome_2_to_1 = {
-    "cx-_n_cnt-i": "cortical_neuron_count",
+    "cx-_n_cnt-i": "per_voxel_neuron_cnt",
     "nx-gd_vis-b": "visualization",
     "cx-__name-t": "cortical_name",
     "nx-rcordx-i": "relative_coordinate",
@@ -296,7 +296,7 @@ genome_2_to_1 = {
 }
 
 genome_1_to_2 = {
-    "cortical_neuron_count": "cx-_n_cnt-i",
+    "per_voxel_neuron_cnt": "cx-_n_cnt-i",
     "visualization": "cx-gd_vis-b",
     "relative_coordinate": "cx-rcord_-i",
     "block_boundaries": "cx-___bb_-i",

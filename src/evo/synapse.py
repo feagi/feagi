@@ -19,7 +19,7 @@ This module covers needed tools for synapse creation.
 """
 import random
 from evo.synaptogenesis_rules import *
-from evo.blocks import block_reference_builder
+from evo.voxels import block_reference_builder
 from inf import runtime_data
 import traceback
 from math import prod
@@ -112,8 +112,8 @@ def neighbor_candidate_generator(src_cortical_area, src_neuron_id, dst_cortical_
 def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar):
     scaled_vector = [prod(x) for x in zip(vector, morphology_scalar)]
     candidate_vector = [sum(x) for x in zip(src_voxel, scaled_vector)]
-    within_limits = blocks.block_size_checker(cortical_area=cortical_area_dst,
-                                              block=blocks.block_reference_builder(candidate_vector))
+    within_limits = voxels.block_size_checker(cortical_area=cortical_area_dst,
+                                              block=voxels.block_reference_builder(candidate_vector))
     if within_limits:
         return candidate_vector
 
@@ -141,8 +141,8 @@ def voxel_list_to_neuron_list(cortical_area, voxel_list):
     neuron_list = set()
 
     for voxel in voxel_list:
-        voxel_ref = blocks.block_reference_builder(voxel)
-        neurons = blocks.neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel_ref)
+        voxel_ref = voxels.block_reference_builder(voxel)
+        neurons = voxels.neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel_ref)
         for neuron in neurons:
             neuron_list.add(neuron)
 
