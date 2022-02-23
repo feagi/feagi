@@ -36,7 +36,7 @@ genome = {
             "vectors": [[0, 2, -1]]
         },
         "y_consolidator": {
-            "patterns": [[6, "*", "?"]]
+            "patterns": [["?", "?", "?"]]
         },
         "lateral_+x": {
             "vectors": [[1, 0, 0]]
@@ -174,7 +174,7 @@ genome = {
         "_____10c-i__inf-nx-geo_z0-i": 0,
         "_____10c-i__inf-nx-geo_z1-i": 10,
         "_____10c-i__inf-cx-de_gen-f": 0.01,
-        "_____10c-i__inf-cx-dstmap-d": {"i__inf": ["placeholder", [1, 1, 1], 1, False]},
+        "_____10c-i__inf-cx-dstmap-d": {"i__inf": ["y_consolidator", [1, 1, 1], 1, False]},
 
         "_____10c-i__mot-cx-__name-t": "motor_ipu",
         "_____10c-i__mot-cx-_group-t": "IPU",

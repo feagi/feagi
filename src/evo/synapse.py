@@ -125,14 +125,14 @@ def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar):
     for x in range(dst_block_boundaries[0]):
         for y in range(dst_block_boundaries[1]):
             for z in range(dst_block_boundaries[2]):
-                if (x == pattern[0] or pattern[0] == "*") and \
-                        (y == pattern[1] or pattern[1] == "*") and \
-                        (z == pattern[2] or pattern[2] == "*"):
+                if (x == pattern[0] or pattern[0] == "*" or (pattern[0] == "?" and src_voxel[0] == x)) and \
+                        (y == pattern[1] or pattern[1] == "*" or (pattern[0] == "?" and src_voxel[1] == y)) and \
+                        (z == pattern[2] or pattern[2] == "*" or (pattern[0] == "?" and src_voxel[2] == z)):
                     voxel_list.append([x, y, z])
+
     # print("Matched voxel list based on pattern:", src_voxel, cortical_area_dst, voxel_list)
 
     # todo: account for morphology scalar
-    # todo: account for exact match to source using "?"
 
     return voxel_list
 
