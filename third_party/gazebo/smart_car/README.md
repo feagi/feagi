@@ -648,7 +648,7 @@ The following diagram illustrates how the services are connected:
 2. Open `feagi_configuration.ini`.
 3. Change the line below:
     ```
-    sensory_router_ip = ros_gazebo
+    sensory_router_ip = ros-gazebo
     ```
     to    
     ```

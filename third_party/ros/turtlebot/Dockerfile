@@ -5,7 +5,7 @@ SHELL ["/bin/bash", "-c"]
 ENV TURTLEBOT3_MODEL=burger
 
 # install tools
-RUN groupadd -r ros_gazebo && \
+RUN groupadd -r ros-gazebo && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         wget \
