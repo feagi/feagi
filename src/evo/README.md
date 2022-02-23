@@ -32,6 +32,20 @@ Cortical areas in the genome have dimensions for accommodating the proliferation
 
 <!-- ## **Using the genome editing tool** -->
 
+### Synaptogenesis Rules  --TODO--
+
+Syntax
+```
+"_____10c-______-cx-dstmap-d": {”destination_cortical_id": [”morphology_id",
+      morphology_scalar,                    postSynapticCurrent multiplier, 
+      plasticity flag
+  ]}}
+```
+
+
+
+
+
 ## **Troubleshooting issues**
 
 After adding the desired data to the genome file, users should confirm that FEAGI is able to create the new cortical area(s). Navigate to the `src/` directory in `feagi/` and run `python3 main.py` to begin FEAGI execution. During FEAGI initialization, a list of cortical areas loaded from the genome are displayed in the terminal output. Ensure that the newly-added cortical areas are present in this list.    
@@ -42,3 +56,5 @@ If newly-created cortical areas are not present in the output of FEAGI initializ
   - Were changes made to the correct genome file? Users should add new cortical areas to `src/evo/static_genome.py`.
 - **Genome file syntax**
   - Did the changes made to the genome file introduce syntax errors? Ensure that all new cortical areas are added under the `"blueprint"` key and indented to the appropriate levels. All opening brackets ( `{`, `(`, `[` ) should have a corresponding closing bracket ( `}`, `)`, `]` ), commas ( `,` ) must separate each key-value pair and no values should be empty/blank.
+
+  
