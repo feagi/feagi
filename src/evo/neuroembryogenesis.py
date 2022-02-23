@@ -367,7 +367,7 @@ def develop():
     # Reset in-memory brain data
     reset_connectome_in_mem()
 
-    print("Here is the list of all defined cortical areas: %s " % runtime_data.cortical_list)
+    print("Defined cortical areas: %s " % runtime_data.cortical_list)
     print("::::: connectome path is:", runtime_data.connectome_path)
 
     # --Reset Connectome--
