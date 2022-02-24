@@ -18,7 +18,7 @@ import json
 from collections import deque
 from evo.neuron import block_reference_builder
 from evo.synapse import synapse
-from evo.blocks import neurons_in_the_block
+from evo.voxels import neurons_in_the_block
 from inf import runtime_data, settings
 from cython_lib import neuron_functions_cy as cy
 

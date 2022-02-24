@@ -33,7 +33,7 @@ import logging
 import json
 import datetime
 import concurrent.futures
-from evo import neuron, synapse, stats, genetics
+from evo import neuron, synapse, stats, genetics, voxels
 from functools import partial
 from multiprocessing import Pool, Process
 from inf import disk_ops
@@ -96,10 +96,6 @@ def connectome_backup(src, dst):
             shutil.copy(src, dst)
         else:
             raise
-
-
-def neuron_count(self):
-    return
 
 
 # Reads the list of all Cortical areas defined in Genome
@@ -224,22 +220,73 @@ def develop_brain(reincarnation_mode=False):
         print("\nBrain development lasted %s\n" % (datetime.datetime.now()-start_time))
 
 
+def voxelogenesis():
+    """
+    develop an empty dictionary structure for the entire brain that holds location for each voxel and neuron ids in it
+    
+    voxel_dict = {
+        "cortical_area_1": {
+            0-0-0: {"neuron_1_id", "neuron_2_id"},
+            0-0-1: {"neuron_3_id"},
+            0-0-2: {"neuron_4_id", "neuron_5_id"},
+        },
+        "cortical_area_2: {
+            ...
+        }
+        ...
+    }
+    """
+    runtime_data.voxel_dict = {}
+    for cortical_area in runtime_data.genome["blueprint"]:
+        x_dim = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][0]
+        y_dim = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][1]
+        z_dim = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][2]
+        
+        runtime_data.voxel_dict[cortical_area] = {}
+        
+        for x in range(x_dim):
+            for y in range(y_dim):
+                for z in range(z_dim):
+                    voxel_id = voxels.block_reference_builder([x, y, z])
+                    runtime_data.voxel_dict[cortical_area][voxel_id] = set()
+
+
 def neurogenesis():
-    # Develop Neurons for various cortical areas defined in Genome
+    """
+    Develop Neurons for various cortical areas defined in Genome
+    """
     for cortical_area in runtime_data.genome["blueprint"]:
         timer = datetime.datetime.now()
-        neuron_count_ = neuron.neuron_genesis_3d(cortical_area=cortical_area)
+        neuron_count = 0
+        for voxel in runtime_data.voxel_dict[cortical_area]:
+            neuron.create_neuron(cortical_area=cortical_area, voxel=voxel)
+            neuron_count += runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"]
         if runtime_data.parameters["Logs"]["print_brain_gen_activities"]:
             duration = datetime.datetime.now() - timer
-            if neuron_count_!= 0:
-                print("Neuron creation completed for cortical area: \t%s   Count: \t%i  "
-                      "Duration: \t%s  Per Neuron Avg.: \t%s"
-                      % (cortical_area, neuron_count_, duration, duration / neuron_count_))
-            else:
-                print("No neuron was created for cortical area: \t%s" % cortical_area)
+            print("Neuron creation completed for cortical area: \t%s   Count: \t%i  "
+                  "Duration: \t%s  Per Neuron Avg.: \t%s"
+                  % (cortical_area, neuron_count, duration, duration / neuron_count))
 
     disk_ops.save_brain_to_disk(brain=runtime_data.brain, parameters=runtime_data.parameters)
-    disk_ops.save_block_dic_to_disk(block_dic=runtime_data.block_dic, parameters=runtime_data.parameters)
+    disk_ops.save_voxel_dict_to_disk(voxel_dict=runtime_data.voxel_dict)
+    
+
+# def neurogenesis_old():
+#     # Develop Neurons for various cortical areas defined in Genome
+#     for cortical_area in runtime_data.genome["blueprint"]:
+#         timer = datetime.datetime.now()
+#         neuron_count_ = neuron.neuron_genesis_3d(cortical_area=cortical_area)
+#         if runtime_data.parameters["Logs"]["print_brain_gen_activities"]:
+#             duration = datetime.datetime.now() - timer
+#             if neuron_count_!= 0:
+#                 print("Neuron creation completed for cortical area: \t%s   Count: \t%i  "
+#                       "Duration: \t%s  Per Neuron Avg.: \t%s"
+#                       % (cortical_area, neuron_count_, duration, duration / neuron_count_))
+#             else:
+#                 print("No neuron was created for cortical area: \t%s" % cortical_area)
+#
+#     disk_ops.save_brain_to_disk(brain=runtime_data.brain, parameters=runtime_data.parameters)
+#     disk_ops.save_block_dic_to_disk(block_dic=runtime_data.block_dic, parameters=runtime_data.parameters)
 
 
 def synaptogenesis():
@@ -263,7 +310,7 @@ def synaptogenesis():
 
     # Build Synapses across various Cortical areas
     func2 = partial(build_synapses, runtime_data.genome, runtime_data.brain, runtime_data.parameters,
-                    runtime_data.block_dic, runtime_data.connectome_path)
+                    runtime_data.voxel_dict, runtime_data.connectome_path)
     pool2 = Pool(processes=int(runtime_data.parameters['System']['max_core']))
 
     intercortical_mapping = pool2.map(func2, runtime_data.cortical_list)
@@ -301,14 +348,14 @@ def synaptogenesis():
 #     if parameters["Logs"]["print_brain_gen_activities"]:
 #         duration = datetime.datetime.now() - timer
 #         if synapse_count != 0:
-#             print("Synapse creation for Cortical area %s is now complete. Count: %i  Duration: %s  Per Synapse Avg.: %s"
+#             print("Synapse creation for Cortical area %s is now complete. Count: %i Duration: %s Per Synapse Avg.: %s"
 #                   % (key, synapse_count, duration, duration / synapse_count))
 #         else:
 #             print("Synapse creation for Cortical area %s is now complete. Count: 0 Duration: 0 " % key)
 #     disk_ops.save_brain_to_disk(cortical_area=key, brain=runtime_data.brain, parameters=parameters)
 
 
-def build_synapses(genome, brain, parameters, block_dic, connectome_path, src_cortical_area):
+def build_synapses(genome, brain, parameters, voxel_dict, connectome_path, src_cortical_area):
     """
     Develops all the synapses originated from neurons within a given cortical area which could be both internal and
     external.
@@ -316,7 +363,7 @@ def build_synapses(genome, brain, parameters, block_dic, connectome_path, src_co
     # if runtime_data.parameters["Database"]["influxdb_enabled"]:
     #     from inf import db_handler
     #     influxdb = db_handler.InfluxManagement()
-    runtime_data.block_dic = block_dic
+    runtime_data.voxel_dict = voxel_dict
     intercortical_mapping = []
     runtime_data.connectome_path = connectome_path
     # Read Genome data
@@ -372,10 +419,16 @@ def develop():
 
     # --Reset Connectome--
     reset_connectome_files()
+    
+    # --Voxelogenesis-- Create an empty dictionary for each voxel
+    voxelogenesis()
+    
     # --Neurogenesis-- Creation of all Neurons across all cortical areas
     neurogenesis()
+
     # --Synaptogenesis-- Build Synapses within all cortical areas
     synaptogenesis()
+
     # Loading connectome data from disk to memory
     runtime_data.brain = disk_ops.load_brain_in_memory()
 
