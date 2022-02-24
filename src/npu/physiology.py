@@ -106,9 +106,9 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
         # Storing the firing threshold of the updated neuron
         runtime_data.fire_queue[dst_cortical_area][dst_neuron_id][1] = dst_neuron_obj["firing_threshold"]
 
-        if runtime_data.parameters["Database"]["influx_synapse_stats"]:
+        if runtime_data.parameters["Database"]["influx_neuron_stats"]:
             vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
-            mp = runtime_data.brain[cortical_area][neuron_id]["neighbors"][neuron_id]["membrane_potential"]
+            mp = dst_neuron_obj["membrane_potential"]
             runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
                                                          cortical_area=cortical_area,
                                                          voxel_x=vox_x,
