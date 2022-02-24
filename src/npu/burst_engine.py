@@ -149,9 +149,11 @@ def burst_manager():
                 if cortical_neuron_count > 0:
                     print(settings.Bcolors.RED + '    %s : %i/%i %s  '
                           % (cortical_area_, cortical_neuron_count,
-                             runtime_data.genome['blueprint'][cortical_area_]['cortical_neuron_count'],
-                             active_neurons_in_blocks(cortical_area_))
-                          + settings.Bcolors.ENDC)
+                             runtime_data.genome['blueprint'][cortical_area_]['per_voxel_neuron_cnt'] *
+                             runtime_data.genome['blueprint'][cortical_area_]["neuron_params"]['block_boundaries'][0] *
+                             runtime_data.genome['blueprint'][cortical_area_]["neuron_params"]['block_boundaries'][1] *
+                             runtime_data.genome['blueprint'][cortical_area_]["neuron_params"]['block_boundaries'][2]
+                             , active_neurons_in_blocks(cortical_area_)) + settings.Bcolors.ENDC)
                 elif runtime_data.parameters["Logs"]["print_cortical_activity_counters_all"]:
                     print(settings.Bcolors.YELLOW + '    %s : %i  '
                           % (cortical_area_, cortical_neuron_count)
