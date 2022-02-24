@@ -205,18 +205,18 @@ def list_upstream_neuron_count_for_digits(digit='all', mode=0):
         return results, fcl_results
 
 
-def list_top_n_utf_memory_neurons(cortical_area, n):
-    neuron_list = []
-    counter = ord('0')
-    the_other_counter = 0
-    for neuron_id in runtime_data.brain[cortical_area]:
-        if int(runtime_data.brain[cortical_area][neuron_id]['soma_location'][0][2]) == counter:
-            neuron_list.append([int(runtime_data.brain[cortical_area][neuron_id]['soma_location'][0][2])-48, neuron_id])
-            counter += 1
-            the_other_counter += 1
-            if the_other_counter == n:
-                return neuron_list
-    print("ERROR: Something went wrong in list_top_n_utf_memory_neurons")
+# def list_top_n_utf_memory_neurons(cortical_area, n):
+#     neuron_list = []
+#     counter = ord('0')
+#     the_other_counter = 0
+#     for neuron_id in runtime_data.brain[cortical_area]:
+#         if int(runtime_data.brain[cortical_area][neuron_id]['soma_location'][0][2]) == counter:
+#             neuron_list.append([int(runtime_data.brain[cortical_area][neuron_id]['soma_location'][0][2])-48, neuron_id])
+#             counter += 1
+#             the_other_counter += 1
+#             if the_other_counter == n:
+#                 return neuron_list
+#     print("ERROR: Something went wrong in list_top_n_utf_memory_neurons")
 
 
 def list_common_upstream_neurons(neuron_a, neuron_b):

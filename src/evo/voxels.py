@@ -244,7 +244,7 @@ def active_neurons_in_blocks(cortical_area, current_fcl=True, include_neurons=Fa
     blocks_with_active_neurons = {}
     for neuron in fcl[cortical_area]:
         neuron_block_ref = block_reference_builder(
-            runtime_data.brain[cortical_area][neuron]['soma_location'][1]
+            runtime_data.brain[cortical_area][neuron]['soma_location']
         )
         if include_neurons:
             if neuron_block_ref in blocks_with_active_neurons:

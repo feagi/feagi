@@ -217,8 +217,13 @@ def load_voxel_dict_in_memory():
     return voxel_dict
 
 
-def save_voxel_dict_to_disk(cortical_area='all', voxel_dict=runtime_data.voxel_dict, parameters=runtime_data.parameters,
-                           backup=False):
+def set_default(obj):
+    if isinstance(obj, set):
+        return list(obj)
+    raise TypeError
+
+
+def save_voxel_dict_to_disk(cortical_area='all', voxel_dict=runtime_data.voxel_dict, backup=False):
     connectome_path = runtime_data.connectome_path
     if voxel_dict == {}:
         print(">> >> Error: Could not save the brain contents to disk as >> voxel_dict << was empty!")
@@ -228,14 +233,14 @@ def save_voxel_dict_to_disk(cortical_area='all', voxel_dict=runtime_data.voxel_d
         with open(connectome_path+cortical_area+'_vox_dict.json', "w") as data_file:
             data = voxel_dict[cortical_area]
             data_file.seek(0)  # rewind
-            data_file.write(json.dumps(data, indent=3))
+            data_file.write(json.dumps(data, indent=3, default=set_default))
             data_file.truncate()
     elif backup:
         for cortical_area in runtime_data.cortical_list:
             with open(connectome_path+cortical_area+'_backup_vox_dict.json', "w") as data_file:
                 data = voxel_dict[cortical_area]
                 data_file.seek(0)  # rewind
-                data_file.write(json.dumps(data, indent=3))
+                data_file.write(json.dumps(data, indent=3, default=set_default))
                 data_file.truncate()
     else:
         for cortical_area in runtime_data.cortical_list:
@@ -243,7 +248,7 @@ def save_voxel_dict_to_disk(cortical_area='all', voxel_dict=runtime_data.voxel_d
                 try:
                     data = voxel_dict[cortical_area]
                     data_file.seek(0)  # rewind
-                    data_file.write(json.dumps(data, indent=3))
+                    data_file.write(json.dumps(data, indent=3, default=set_default))
                     data_file.truncate()
                 except KeyError:
                     print("Warning: %s was not present in the voxel_dict")

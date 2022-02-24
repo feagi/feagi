@@ -307,7 +307,7 @@ def burst_manager():
                 runtime_data.parameters["Database"]["influx_stat_logger"]):
             for _ in runtime_data.fire_candidate_list:
                 for neuron in runtime_data.fire_candidate_list[_]:
-                    vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[_][neuron]['soma_location'][1]]
+                    vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[_][neuron]['soma_location']]
                     runtime_data.influxdb.insert_neuron_activity(connectome_path=connectome_path,
                                                                  cortical_area=_,
                                                                  voxel_x=vox_x,
@@ -393,7 +393,7 @@ def burst_manager():
             if runtime_data.genome['blueprint'][_]['neuron_params'].get('visualization'):
                 while fire_list:
                     firing_neuron = fire_list.pop()
-                    firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location'][1]
+                    firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
                     relative_coords = runtime_data.genome['blueprint'][_]['neuron_params'].get('relative_coordinate')
                     broadcast_message.add(
                         (
@@ -490,13 +490,6 @@ def burst_manager():
             controller_handshake()
 
     print('runtime_data.genome_id = ', runtime_data.genome_id)
-
-    print("--++ Block Dictionary is \n")
-    for _ in runtime_data.block_dic:
-        print(_)
-        for item in runtime_data.block_dic[_]:
-            print("|--", item, "------", len(runtime_data.block_dic[_][item]))
-
 
     # Initializing the burst_manager engine parameters
     init_burst_engine()
@@ -626,11 +619,11 @@ def toggle_brain_status():
         print("Brain is now running!!!")
 
 
-def utf_neuron_id(n):
-    # Returns the neuron id associated with a particular digit
-    for neuron_id in runtime_data.brain['utf8_memory']:
-        if int(runtime_data.brain['utf8_memory'][neuron_id]["soma_location"][0][2]) == n+ord('0'):
-            return neuron_id
+# def utf_neuron_id(n):
+#     # Returns the neuron id associated with a particular digit
+#     for neuron_id in runtime_data.brain['utf8_memory']:
+#         if int(runtime_data.brain['utf8_memory'][neuron_id]["soma_location"][0][2]) == n+ord('0'):
+#             return neuron_id
 
 
 def common_neuron_report():
