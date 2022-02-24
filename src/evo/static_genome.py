@@ -36,7 +36,7 @@ genome = {
             "vectors": [[0, 2, -1]]
         },
         "y_consolidator": {
-            "patterns": [["*", "?", "*"]]
+            "patterns": [["*", "*", "*"], ["*", "?", "*"]]
         },
         "lateral_+x": {
             "vectors": [[1, 0, 0]]
@@ -57,10 +57,13 @@ genome = {
             "vectors": [[0, 0, -1]]
         },
         "one_to_all": {
-            "patterns": [['*', '*', '*']]
+            "patterns": [[1, 1, 1], ['*', '*', '*']]
+        },
+        "all_to_one": {
+            "patterns": [['*', '*', '*'], [1, 1, 1]]
         },
         "to_block_[5, 7, 4]": {
-            "patterns": [[5, 7, 4]]
+            "patterns": [["*", "*", "*"], [5, 7, 4]]
         },
         "expander_x": {
             "functions": True
