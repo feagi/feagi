@@ -183,7 +183,7 @@ def convert_ir_to_fire_list(ir_data):
         for sensor_idx in ir_data:
             if ir_data[sensor_idx]:
                 for key in runtime_data.brain[cortical_area]:
-                    if sensor_idx == runtime_data.brain[cortical_area][key]['soma_location'][1][0]:
+                    if sensor_idx == runtime_data.brain[cortical_area][key]['soma_location'][0]:
                         fire_list.add(key)
         if 'i__inf' not in runtime_data.fire_candidate_list:
             runtime_data.fire_candidate_list['i__inf'] = set()
