@@ -18,7 +18,7 @@
 """
 Provides functions performing statistical analysis on the Connectome and Cortical behavior
 """
-from evo.blocks import *
+from evo.voxels import *
 from inf import runtime_data, db_handler
 
 
@@ -205,18 +205,18 @@ def list_upstream_neuron_count_for_digits(digit='all', mode=0):
         return results, fcl_results
 
 
-def list_top_n_utf_memory_neurons(cortical_area, n):
-    neuron_list = []
-    counter = ord('0')
-    the_other_counter = 0
-    for neuron_id in runtime_data.brain[cortical_area]:
-        if int(runtime_data.brain[cortical_area][neuron_id]['soma_location'][0][2]) == counter:
-            neuron_list.append([int(runtime_data.brain[cortical_area][neuron_id]['soma_location'][0][2])-48, neuron_id])
-            counter += 1
-            the_other_counter += 1
-            if the_other_counter == n:
-                return neuron_list
-    print("ERROR: Something went wrong in list_top_n_utf_memory_neurons")
+# def list_top_n_utf_memory_neurons(cortical_area, n):
+#     neuron_list = []
+#     counter = ord('0')
+#     the_other_counter = 0
+#     for neuron_id in runtime_data.brain[cortical_area]:
+#         if int(runtime_data.brain[cortical_area][neuron_id]['soma_location'][0][2]) == counter:
+#             neuron_list.append([int(runtime_data.brain[cortical_area][neuron_id]['soma_location'][0][2])-48, neuron_id])
+#             counter += 1
+#             the_other_counter += 1
+#             if the_other_counter == n:
+#                 return neuron_list
+#     print("ERROR: Something went wrong in list_top_n_utf_memory_neurons")
 
 
 def list_common_upstream_neurons(neuron_a, neuron_b):
@@ -234,9 +234,9 @@ def list_common_upstream_neurons(neuron_a, neuron_b):
         pass
 
 
-def block_dict_summary(block_dict, cortical_area=[], verbose=False):
+def voxel_dict_summary(voxel_dict, cortical_area=[], verbose=False):
     """
-    Returns a summary report of block_dict contents
+    Returns a summary report of voxel_dict contents
 
     {
     cortical_area_1: ((block_ref_1, neuron_count), (block_ref_2, neuron_count), (block_ref_3, neuron_count),...),
@@ -247,10 +247,10 @@ def block_dict_summary(block_dict, cortical_area=[], verbose=False):
 
     stats = dict()
 
-    for area in block_dict:
+    for area in voxel_dict:
         if area in cortical_area or not cortical_area:
             stats[area] = set()
-            for block in block_dict[area]:
+            for block in voxel_dict[area]:
                 stats[area].add((block, len(block)))
 
     if verbose:

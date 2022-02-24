@@ -22,7 +22,6 @@ brain = {}
 cortical_list = []
 cortical_map = {}
 intercortical_mapping = []
-block_dic = {}
 upstream_neurons = {}
 memory_list = {}
 activity_stats = {}
@@ -73,6 +72,7 @@ burst_publisher = None
 burst_activities = {}
 opu_data = {}
 cortical_dimensions = {}
+voxel_dict = {}
 
 # rules = ""
 brain_is_running = False

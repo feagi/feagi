@@ -90,7 +90,7 @@ genome = {
 
         "_____10c-t__mot-cx-__name-t": "motor_thalamus",
         "_____10c-t__mot-cx-_group-t": "thalamus",
-        "_____10c-t__mot-cx-_n_cnt-i": 3,
+        "_____10c-t__mot-cx-_n_cnt-i": 1,
         "_____10c-t__mot-nx-gd_vis-b": True,
         "_____10c-t__mot-nx-rcordx-i": 80,
         "_____10c-t__mot-nx-rcordy-i": 0,
@@ -123,7 +123,7 @@ genome = {
         # +++ Input Processing Units (IPU) +++
         "_____10c-i__inf-cx-__name-t": "ir_ipu",
         "_____10c-i__inf-cx-_group-t": "IPU",
-        "_____10c-i__inf-cx-_n_cnt-i": 3,
+        "_____10c-i__inf-cx-_n_cnt-i": 1,
         "_____10c-i__inf-nx-gd_vis-b": True,
         "_____10c-i__inf-nx-rcordx-i": 100,
         "_____10c-i__inf-nx-rcordy-i": 0,
@@ -153,7 +153,7 @@ genome = {
 
         "_____10c-i__mot-cx-__name-t": "motor_ipu",
         "_____10c-i__mot-cx-_group-t": "IPU",
-        "_____10c-i__mot-cx-_n_cnt-i": 400,
+        "_____10c-i__mot-cx-_n_cnt-i": 1,
         "_____10c-i__mot-nx-gd_vis-b": True,
         "_____10c-i__mot-nx-rcordx-i": 100,
         "_____10c-i__mot-nx-rcordy-i": 0,
@@ -183,7 +183,7 @@ genome = {
 
         "_____10c-i__pro-cx-__name-t": "proximity_ipu",
         "_____10c-i__pro-cx-_group-t": "memory",
-        "_____10c-i__pro-cx-_n_cnt-i": 20,
+        "_____10c-i__pro-cx-_n_cnt-i": 1,
         "_____10c-i__pro-nx-gd_vis-b": True,
         "_____10c-i__pro-nx-rcordx-i": 100,
         "_____10c-i__pro-nx-rcordy-i": 0,
@@ -213,7 +213,7 @@ genome = {
 
         "_____10c-i__bat-cx-__name-t": "battery_ipu",
         "_____10c-i__bat-cx-_group-t": "IPU",
-        "_____10c-i__bat-cx-_n_cnt-i": 20,
+        "_____10c-i__bat-cx-_n_cnt-i": 1,
         "_____10c-i__bat-nx-gd_vis-b": True,
         "_____10c-i__bat-nx-rcordx-i": 50,
         "_____10c-i__bat-nx-rcordy-i": 0,
@@ -244,7 +244,7 @@ genome = {
         # +++ Output Processing Units (OPU) +++
         "_____10c-o__bat-cx-__name-t": "battery_opu",
         "_____10c-o__bat-cx-_group-t": "OPU",
-        "_____10c-o__bat-cx-_n_cnt-i": 20,
+        "_____10c-o__bat-cx-_n_cnt-i": 1,
         "_____10c-o__bat-nx-gd_vis-b": True,
         "_____10c-o__bat-nx-rcordx-i": 60,
         "_____10c-o__bat-nx-rcordy-i": 0,
@@ -274,7 +274,7 @@ genome = {
 
         "_____10c-o__mot-cx-__name-t": "motor_opu",
         "_____10c-o__mot-cx-_group-t": "OPU",
-        "_____10c-o__mot-cx-_n_cnt-i": 400,
+        "_____10c-o__mot-cx-_n_cnt-i": 1,
         "_____10c-o__mot-nx-gd_vis-b": True,
         "_____10c-o__mot-nx-rcordx-i": 20,
         "_____10c-o__mot-nx-rcordy-i": 0,
@@ -304,7 +304,7 @@ genome = {
 
         "_____10c-o__ser-cx-__name-t": "servo_opu",
         "_____10c-o__ser-cx-_group-t": "OPU",
-        "_____10c-o__ser-cx-_n_cnt-i": 80,
+        "_____10c-o__ser-cx-_n_cnt-i": 1,
         "_____10c-o__ser-nx-gd_vis-b": True,
         "_____10c-o__ser-nx-rcordx-i": 35,
         "_____10c-o__ser-nx-rcordy-i": 0,
