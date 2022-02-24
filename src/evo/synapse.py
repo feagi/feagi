@@ -133,7 +133,7 @@ def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar):
 
     if len(pattern) != 2:
         print("Error! Pattern was not defined correctly.. "
-              "should be similar to e.g. [[\"*\", \"?\", 3], [2, \"*\", \"?\"]]")
+              "should be similar to e.g. [[\"*\", \"?\", 3], [2, \"*\", \"?\"]]\n Current is as:", pattern)
 
     src_pattern_x, src_pattern_y, src_pattern_z = pattern[0]
     dst_pattern_x, dst_pattern_y, dst_pattern_z = pattern[1]

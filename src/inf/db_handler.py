@@ -291,14 +291,14 @@ class InfluxManagement:
                     "neuron_id": neuron_id
                 },
                 "fields": {
-                    "membrane_potential": membrane_potential
+                    "membrane_potential": float(membrane_potential)
                 }
             }
         ]
         self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
 
     def insert_synaptic_activity(self, connectome_path, cortical_area,  src_neuron_id, dst_neuron_id,
-                                 post_synaptic_current, membrane_potential):
+                                 post_synaptic_current):
 
         raw_data = [
             {
@@ -310,8 +310,7 @@ class InfluxManagement:
                     "dst_neuron_id": dst_neuron_id
                 },
                 "fields": {
-                    "postSynapticCurrent": float(post_synaptic_current),
-                    "membranePotential": float(membrane_potential),
+                    "postSynapticCurrent": float(post_synaptic_current)
                 }
             }
         ]
