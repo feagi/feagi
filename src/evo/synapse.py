@@ -122,16 +122,48 @@ def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar):
 
 
 def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar):
+    """
+    Matches source voxels to destination voxels
+
+    Expected pattern format:    [source pattern, destination pattern] e.g. [["*", "?", 3], [2, "*", "?"]]
+
+    """
     voxel_list = list()
     dst_block_boundaries = runtime_data.genome["blueprint"][cortical_area_dst]["neuron_params"]["block_boundaries"]
 
-    for x in range(dst_block_boundaries[0]):
-        for y in range(dst_block_boundaries[1]):
-            for z in range(dst_block_boundaries[2]):
-                if (x == pattern[0] or pattern[0] == "*" or (pattern[0] == "?" and src_voxel[0] == x)) and \
-                        (y == pattern[1] or pattern[1] == "*" or (pattern[1] == "?" and src_voxel[1] == y)) and \
-                        (z == pattern[2] or pattern[2] == "*" or (pattern[2] == "?" and src_voxel[2] == z)):
-                    voxel_list.append([x, y, z])
+    if len(pattern) != 2:
+        print("Error! Pattern was not defined correctly.. "
+              "should be similar to e.g. [[\"*\", \"?\", 3], [2, \"*\", \"?\"]]")
+
+    src_pattern_x, src_pattern_y, src_pattern_z = pattern[0]
+    dst_pattern_x, dst_pattern_y, dst_pattern_z = pattern[1]
+
+    src_x, src_y, src_z = src_voxel
+
+    for dst_x in range(dst_block_boundaries[0]):
+        for dst_y in range(dst_block_boundaries[1]):
+            for dst_z in range(dst_block_boundaries[2]):
+
+                matching_condition_x = \
+                    ((dst_pattern_x == "*" and
+                      (src_pattern_x == "*" or src_pattern_x == "?" or src_pattern_x == src_x)) or
+                     (dst_pattern_x == "?" and (src_pattern_x == "*" or src_pattern_x == "?" or src_x == dst_x)) or
+                     (dst_pattern_x == dst_x and (src_pattern_x == "*" or (src_pattern_x == "?" and src_x == dst_x))))
+
+                matching_condition_y = \
+                    ((dst_pattern_y == "*" and
+                      (src_pattern_y == "*" or src_pattern_y == "?" or src_pattern_y == src_y) or
+                      (dst_pattern_y == "?" and (src_pattern_y == "*" or src_pattern_y == "?" or src_y == dst_y)) or
+                      (dst_pattern_y == dst_y and (src_pattern_y == "*" or (src_pattern_y == "?" and src_y == dst_y)))))
+
+                matching_condition_z = \
+                    ((dst_pattern_z == "*" and
+                      (src_pattern_z == "*" or src_pattern_z == "?" or src_pattern_z == src_z) or
+                      (dst_pattern_z == "?" and (src_pattern_z == "*" or src_pattern_z == "?" or src_z == dst_z)) or
+                      (dst_pattern_z == dst_z and (src_pattern_z == "*" or (src_pattern_z == "?" and src_z == dst_z)))))
+
+                if matching_condition_x and matching_condition_y and matching_condition_z:
+                    voxel_list.append([dst_x, dst_y, dst_z])
 
     # print("Matched voxel list based on pattern:", src_voxel, cortical_area_dst, voxel_list)
 
