@@ -267,10 +267,8 @@ def neurogenesis():
                   "Duration: \t%s  Per Neuron Avg.: \t%s"
                   % (cortical_area, neuron_count, duration, duration / neuron_count))
 
-
-
     disk_ops.save_brain_to_disk(brain=runtime_data.brain, parameters=runtime_data.parameters)
-    disk_ops.save_voxel_dict_to_disk(voxel_dict=runtime_data.voxel_dict, parameters=runtime_data.parameters)
+    disk_ops.save_voxel_dict_to_disk(voxel_dict=runtime_data.voxel_dict)
     
 
 # def neurogenesis_old():
@@ -312,7 +310,7 @@ def synaptogenesis():
 
     # Build Synapses across various Cortical areas
     func2 = partial(build_synapses, runtime_data.genome, runtime_data.brain, runtime_data.parameters,
-                    runtime_data.block_dic, runtime_data.connectome_path)
+                    runtime_data.voxel_dict, runtime_data.connectome_path)
     pool2 = Pool(processes=int(runtime_data.parameters['System']['max_core']))
 
     intercortical_mapping = pool2.map(func2, runtime_data.cortical_list)

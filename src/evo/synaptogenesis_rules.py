@@ -71,7 +71,7 @@ def expander_x(src_cortical_area, dst_cortical_area, src_neuron_id, dst_y_index=
         print("Warning: %s does not have enough blocks on x dim to support the needed synaptogenesis!"
               % dst_cortical_area)
 
-    src_neuron_block_index_x = runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1][0]
+    src_neuron_block_index_x = runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][0]
 
     candidate_list = list()
 
@@ -106,7 +106,7 @@ def reducer_x(src_cortical_area, dst_cortical_area, src_neuron_id, dst_y_index=0
         print("Warning: %s does not have enough blocks on x dim to support the needed synaptogenesis!"
               % dst_cortical_area)
 
-    src_neuron_block_index_x = runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1][0]
+    src_neuron_block_index_x = runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][0]
 
     # pad binary string with 0s if it's not long enough
     src_neuron_bin_str = str(bin(src_neuron_block_index_x))[2:]

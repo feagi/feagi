@@ -30,7 +30,7 @@ from collections import deque
 from inf import runtime_data, disk_ops, settings
 from configparser import ConfigParser
 from shutil import copyfile
-from evo.stats import list_top_n_utf_memory_neurons, voxel_dict_summary
+from evo.stats import voxel_dict_summary
 from inf.messenger import Pub
 from evo.neuroembryogenesis import generate_plasticity_dict
 from evo.genome_processor import *

@@ -112,6 +112,9 @@ def neighbor_candidate_generator(src_cortical_area, src_neuron_id, dst_cortical_
 def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar):
     scaled_vector = [prod(x) for x in zip(vector, morphology_scalar)]
     candidate_vector = [sum(x) for x in zip(src_voxel, scaled_vector)]
+    for item in candidate_vector:
+        if item < 0:
+            return None
     within_limits = voxels.block_size_checker(cortical_area=cortical_area_dst,
                                               block=voxels.block_reference_builder(candidate_vector))
     if within_limits:
@@ -160,7 +163,7 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
     #                                          dst_cortical_area=cortical_area_dst)
     # candidate_list = rule_manager.growth_rule_selector()
 
-    src_voxel = runtime_data.brain[cortical_area_src][src_neuron_id]['soma_location'][1]
+    src_voxel = runtime_data.brain[cortical_area_src][src_neuron_id]['soma_location']
     neuron_morphology = \
         runtime_data.genome["blueprint"][cortical_area_src]['cortical_mapping_dst'][
             cortical_area_dst]['morphology_id']
