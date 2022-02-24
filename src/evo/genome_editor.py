@@ -44,7 +44,7 @@ def save_genome(file_name='./tmp.py'):
             print("genome = " + pformat(data, indent=3), file=data_file)
 
         except KeyError:
-            print("Warning: %s was not present in the block_dic")
+            print("Warning: %s was not present in the voxel_dict")
 
 
 # def validate_genome():

@@ -355,7 +355,7 @@ def synaptogenesis():
 #     disk_ops.save_brain_to_disk(cortical_area=key, brain=runtime_data.brain, parameters=parameters)
 
 
-def build_synapses(genome, brain, parameters, block_dic, connectome_path, src_cortical_area):
+def build_synapses(genome, brain, parameters, voxel_dict, connectome_path, src_cortical_area):
     """
     Develops all the synapses originated from neurons within a given cortical area which could be both internal and
     external.
@@ -363,7 +363,7 @@ def build_synapses(genome, brain, parameters, block_dic, connectome_path, src_co
     # if runtime_data.parameters["Database"]["influxdb_enabled"]:
     #     from inf import db_handler
     #     influxdb = db_handler.InfluxManagement()
-    runtime_data.block_dic = block_dic
+    runtime_data.voxel_dict = voxel_dict
     intercortical_mapping = []
     runtime_data.connectome_path = connectome_path
     # Read Genome data

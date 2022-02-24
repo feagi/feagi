@@ -89,7 +89,7 @@ def neurons_in_the_block(cortical_area, block_ref):
     block_id to be entered as [x,y,z]
     """
     try:
-        return runtime_data.block_dic[cortical_area][block_ref]
+        return runtime_data.voxel_dict[cortical_area][block_ref]
     except Exception as e:
         print("Warning! No neuron was detected for ", cortical_area, block_ref)
         print("..... possibly too sparse of a cortical area.\n")
@@ -220,7 +220,7 @@ def percent_active_neurons_in_block(block_ref, cortical_area, current_fcl=True):
         return 0
     else:
         active_block_neurons = len(blocks_with_active_neurons[block_ref])
-        total_block_neurons = len(runtime_data.block_dic[cortical_area][block_ref])
+        total_block_neurons = len(runtime_data.voxel_dict[cortical_area][block_ref])
         percent_active_neurons = round(active_block_neurons / total_block_neurons * 100)
         return percent_active_neurons
 
