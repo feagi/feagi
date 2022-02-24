@@ -311,7 +311,7 @@ def init_burst_engine():
 
     if runtime_data.parameters["Logs"]["print_voxel_dict_report"]:
         print("Block Dictionary Report:")
-        voxel_dict_summary(runtime_data.block_dic, verbose=True)
+        voxel_dict_summary(runtime_data.voxel_dict, verbose=True)
 
 
 def exit_burst_process():

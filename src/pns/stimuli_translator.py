@@ -60,10 +60,10 @@ def fake_cortical_stimulation(input_instruction, burst_count):
     neuron_list = []
 
     for cortical_area_ in input_instruction[burst_count]:
-        if cortical_area_ in runtime_data.block_dic:
+        if cortical_area_ in runtime_data.voxel_dict:
             for block_ref in input_instruction[burst_count][cortical_area_]:
-                if block_ref in runtime_data.block_dic[cortical_area_]:
-                    for neuron in runtime_data.block_dic[cortical_area_][block_ref]:
+                if block_ref in runtime_data.voxel_dict[cortical_area_]:
+                    for neuron in runtime_data.voxel_dict[cortical_area_][block_ref]:
                         neuron_list.append(neuron)
                 else:
                     print("Warning: Block ref %s was not found for %s" % (block_ref, cortical_area_))
@@ -71,7 +71,7 @@ def fake_cortical_stimulation(input_instruction, burst_count):
             runtime_data.fcl_queue.put({cortical_area_: set(neuron_list)})
             neuron_list = []
         else:
-            print("Warning: Cortical area %s not found within the block_dic" % cortical_area_)
+            print("Warning: Cortical area %s not found within the voxel_dict" % cortical_area_)
 
 
 def stimulation_injector(stimulation_data):
