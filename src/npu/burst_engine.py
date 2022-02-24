@@ -303,30 +303,29 @@ def burst_manager():
                     set([item for item in runtime_data.future_fcl[_]])
                 runtime_data.future_fcl[_] = set()
 
-    def log_neuron_activity_influx():
-        if (runtime_data.parameters["Database"]["influxdb_enabled"] and 
-                runtime_data.influxdb and 
-                runtime_data.parameters["Database"]["influx_stat_logger"]):
-            for _ in runtime_data.fire_candidate_list:
-                for neuron in runtime_data.fire_candidate_list[_]:
-                    vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[_][neuron]['soma_location']]
-                    runtime_data.influxdb.insert_neuron_activity(connectome_path=connectome_path,
-                                                                 cortical_area=_,
-                                                                 voxel_x=vox_x,
-                                                                 voxel_y=vox_y,
-                                                                 voxel_z=vox_z,
-                                                                 neuron_id=neuron,
-                                                                 membrane_potential=
-                                                                 runtime_data.brain[_][neuron]["membrane_potential"] /
-                                                                 1)
-                    if runtime_data.parameters["Database"]["influx_synapse_stats"]:
-                        for destination_neuron in runtime_data.brain[_][neuron]["neighbors"]:
-                            psc = runtime_data.brain[_][neuron]["neighbors"][destination_neuron]["postsynaptic_current"]
-                            runtime_data.influxdb.insert_synaptic_activity(connectome_path=connectome_path,
-                                                                           cortical_area=_,
-                                                                           src_neuron_id=neuron,
-                                                                           dst_neuron_id=destination_neuron,
-                                                                           post_synaptic_current=psc)
+    # def log_neuron_activity_influx():
+    #     if (runtime_data.parameters["Database"]["influxdb_enabled"] and
+    #             runtime_data.influxdb and
+    #             runtime_data.parameters["Database"]["influx_stat_logger"]):
+    #         for _ in runtime_data.fire_candidate_list:
+    #             for neuron in runtime_data.fire_candidate_list[_]:
+    #                 vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[_][neuron]['soma_location']]
+    #                 mp = runtime_data.brain[_][neuron]["neighbors"][destination_neuron]["membrane_potential"]
+    #                 runtime_data.influxdb.insert_neuron_activity(connectome_path=connectome_path,
+    #                                                              cortical_area=_,
+    #                                                              voxel_x=vox_x,
+    #                                                              voxel_y=vox_y,
+    #                                                              voxel_z=vox_z,
+    #                                                              neuron_id=neuron,
+    #                                                              membrane_potential=mp / 1)
+    #                 if runtime_data.parameters["Database"]["influx_synapse_stats"]:
+    #                     for destination_neuron in runtime_data.brain[_][neuron]["neighbors"]:
+    #                         psc = runtime_data.brain[_][neuron]["neighbors"][destination_neuron]["postsynaptic_current"]
+    #                         runtime_data.influxdb.insert_synaptic_activity(connectome_path=connectome_path,
+    #                                                                        cortical_area=_,
+    #                                                                        src_neuron_id=neuron,
+    #                                                                        dst_neuron_id=destination_neuron,
+    #                                                                        post_synaptic_current=psc)
 
     def log_burst_activity_influx():
         if (runtime_data.parameters["Database"]["influxdb_enabled"] and 
@@ -439,7 +438,7 @@ def burst_manager():
                 fcl_tmp = set()
 
         # logging neuron activities to the influxdb
-        log_neuron_activity_influx()
+        # log_neuron_activity_influx()
 
         # Process efferent signals
         opu_router()
