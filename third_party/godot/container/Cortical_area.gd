@@ -78,6 +78,18 @@ func _on_Area_input_event(camera, event, position, normal, shape_idx):
 				Gz = transform.origin.z
 				location = Vector3(Gx, Gy, Gz)
 				#udp.put_packet((cortical_area_name + "," + String(location)).to_utf8())
+				cortical_area_name = get_name().lstrip("@")
+				cortical_area_name = cortical_area_name.replace(" ", "")
+				cortical_area_name = cortical_area_name.replace("@", "")
+				for x in range(10):
+					if cortical_area_name.find(x):
+						cortical_area_name = cortical_area_name.replace(x, "")
+				cortical_area_name = "\'{s}\'".format({"s": cortical_area_name})
+				if Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"].get(cortical_area_name):
+					Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][cortical_area_name].append(location)
+				else:
+					Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][cortical_area_name] = []
+					Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][cortical_area_name].append(location)
 			material = selected
 
 func _on_Area_mouse_entered():
