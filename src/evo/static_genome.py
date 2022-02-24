@@ -109,16 +109,10 @@ genome = {
         "_____10c-t__mot-nx-leak_c-f": 10,
         "_____10c-t__mot-nx-c_fr_c-i": 1,
         "_____10c-t__mot-nx-snooze-f": 0,
-        "_____10c-t__mot-nx-geo_x0-i": 0,
-        "_____10c-t__mot-nx-geo_x1-i": 3600,
-        "_____10c-t__mot-nx-geo_y0-i": 0,
-        "_____10c-t__mot-nx-geo_y1-i": 1800,
-        "_____10c-t__mot-nx-geo_z0-i": 0,
-        "_____10c-t__mot-nx-geo_z1-i": 200,
         "_____10c-t__mot-cx-de_gen-f": 0,
         "_____10c-t__mot-cx-dstmap-d": {},
 
-         # vvvvvvv   Input and Output processing related Cortical Areas are all listed below  vvvvvvvv
+        # vvvvvvv   Input and Output processing related Cortical Areas are all listed below  vvvvvvvv
 
         # +++ Input Processing Units (IPU) +++
         "_____10c-i__inf-cx-__name-t": "ir_ipu",
@@ -142,12 +136,6 @@ genome = {
         "_____10c-i__inf-nx-leak_c-f": 10,
         "_____10c-i__inf-nx-c_fr_c-i": 3,
         "_____10c-i__inf-nx-snooze-f": 0,
-        "_____10c-i__inf-nx-geo_x0-i": 0,
-        "_____10c-i__inf-nx-geo_x1-i": 30,
-        "_____10c-i__inf-nx-geo_y0-i": 0,
-        "_____10c-i__inf-nx-geo_y1-i": 10,
-        "_____10c-i__inf-nx-geo_z0-i": 0,
-        "_____10c-i__inf-nx-geo_z1-i": 10,
         "_____10c-i__inf-cx-de_gen-f": 0.01,
         "_____10c-i__inf-cx-dstmap-d": {"i__inf": ["y_consolidator", [1, 1, 1], 1, False]},
 
@@ -172,12 +160,6 @@ genome = {
         "_____10c-i__mot-nx-leak_c-f": 1,
         "_____10c-i__mot-nx-c_fr_c-i": 1,
         "_____10c-i__mot-nx-snooze-f": 0,
-        "_____10c-i__mot-nx-geo_x0-i": 0,
-        "_____10c-i__mot-nx-geo_x1-i": 50,
-        "_____10c-i__mot-nx-geo_y0-i": 0,
-        "_____10c-i__mot-nx-geo_y1-i": 50,
-        "_____10c-i__mot-nx-geo_z0-i": 0,
-        "_____10c-i__mot-nx-geo_z1-i": 200,
         "_____10c-i__mot-cx-de_gen-f": 0,
         "_____10c-i__mot-cx-dstmap-d": {},
 
@@ -202,12 +184,6 @@ genome = {
         "_____10c-i__pro-nx-leak_c-f": 10,
         "_____10c-i__pro-nx-c_fr_c-i": 1,
         "_____10c-i__pro-nx-snooze-f": 0,
-        "_____10c-i__pro-nx-geo_x0-i": 0,
-        "_____10c-i__pro-nx-geo_x1-i": 100,
-        "_____10c-i__pro-nx-geo_y0-i": 0,
-        "_____10c-i__pro-nx-geo_y1-i": 100,
-        "_____10c-i__pro-nx-geo_z0-i": 0,
-        "_____10c-i__pro-nx-geo_z1-i": 2000,
         "_____10c-i__pro-cx-de_gen-f": 0,
         "_____10c-i__pro-cx-dstmap-d": {},
 
@@ -232,12 +208,6 @@ genome = {
         "_____10c-i__bat-nx-leak_c-f": 0,
         "_____10c-i__bat-nx-c_fr_c-i": 3,
         "_____10c-i__bat-nx-snooze-f": 0,
-        "_____10c-i__bat-nx-geo_x0-i": 0,
-        "_____10c-i__bat-nx-geo_x1-i": 10,
-        "_____10c-i__bat-nx-geo_y0-i": 0,
-        "_____10c-i__bat-nx-geo_y1-i": 10,
-        "_____10c-i__bat-nx-geo_z0-i": 0,
-        "_____10c-i__bat-nx-geo_z1-i": 100,
         "_____10c-i__bat-cx-de_gen-f": 0,
         "_____10c-i__bat-cx-dstmap-d": {},
 
@@ -263,12 +233,6 @@ genome = {
         "_____10c-o__bat-nx-leak_c-f": 0,
         "_____10c-o__bat-nx-c_fr_c-i": 3,
         "_____10c-o__bat-nx-snooze-f": 0,
-        "_____10c-o__bat-nx-geo_x0-i": 0,
-        "_____10c-o__bat-nx-geo_x1-i": 10,
-        "_____10c-o__bat-nx-geo_y0-i": 0,
-        "_____10c-o__bat-nx-geo_y1-i": 10,
-        "_____10c-o__bat-nx-geo_z0-i": 0,
-        "_____10c-o__bat-nx-geo_z1-i": 100,
         "_____10c-o__bat-cx-de_gen-f": 0,
         "_____10c-o__bat-cx-dstmap-d": {},
 
@@ -293,12 +257,6 @@ genome = {
         "_____10c-o__mot-nx-leak_c-f": 0,
         "_____10c-o__mot-nx-c_fr_c-i": 3,
         "_____10c-o__mot-nx-snooze-f": 0,
-        "_____10c-o__mot-nx-geo_x0-i": 0,
-        "_____10c-o__mot-nx-geo_x1-i": 40,
-        "_____10c-o__mot-nx-geo_y0-i": 0,
-        "_____10c-o__mot-nx-geo_y1-i": 10,
-        "_____10c-o__mot-nx-geo_z0-i": 0,
-        "_____10c-o__mot-nx-geo_z1-i": 200,
         "_____10c-o__mot-cx-de_gen-f": 0.01,
         "_____10c-o__mot-cx-dstmap-d": {},
 
@@ -323,12 +281,6 @@ genome = {
         "_____10c-o__ser-nx-leak_c-f": 0,
         "_____10c-o__ser-nx-c_fr_c-i": 3,
         "_____10c-o__ser-nx-snooze-f": 0,
-        "_____10c-o__ser-nx-geo_x0-i": 0,
-        "_____10c-o__ser-nx-geo_x1-i": 40,
-        "_____10c-o__ser-nx-geo_y0-i": 0,
-        "_____10c-o__ser-nx-geo_y1-i": 10,
-        "_____10c-o__ser-nx-geo_z0-i": 0,
-        "_____10c-o__ser-nx-geo_z1-i": 200,
         "_____10c-o__ser-cx-de_gen-f": 0,
         "_____10c-o__ser-cx-dstmap-d": {}
     }
