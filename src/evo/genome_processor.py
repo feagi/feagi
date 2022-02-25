@@ -284,6 +284,12 @@ genome_2_to_1 = {
     "nx-leak_c-f": "leak_coefficient",
     "nx-c_fr_c-i": "consecutive_fire_cnt_max",
     "nx-snooze-f": "snooze_length",
+    "nx-geo_x0-i": "geometric_boundaries",
+    "nx-geo_x1-i": "geometric_boundaries",
+    "nx-geo_y0-i": "geometric_boundaries",
+    "nx-geo_y1-i": "geometric_boundaries",
+    "nx-geo_z0-i": "geometric_boundaries",
+    "nx-geo_z1-i": "geometric_boundaries",
     "cx-_group-t": "group_id",
     "cx-dstmap-d": "cortical_mapping_dst",
     "cx-de_gen-f": "degeneration"
@@ -307,6 +313,7 @@ genome_1_to_2 = {
     "leak_coefficient": "nx-leak_c-f",
     "consecutive_fire_cnt_max": "nx-c_fr_c-i",
     "snooze_length": "nx-snooze-f",
+    "geometric_boundaries": "nx-geo___-i",
     "group_id": "cx-_group-t",
     "cortical_mapping_dst": "cs-dstmap-d",
     "degeneration": "cx-de_gen-f"
