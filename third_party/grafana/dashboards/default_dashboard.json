@@ -23,7 +23,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 3,
-  "iteration": 1645826583251,
+  "iteration": 1645826583253,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -80,8 +80,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 19,
-        "w": 20,
+        "h": 12,
+        "w": 24,
         "x": 0,
         "y": 0
       },
@@ -105,60 +105,6 @@
       "title": "Membrane Potentials",
       "transformations": [],
       "type": "timeseries"
-    },
-    {
-      "datasource": null,
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 19,
-        "w": 4,
-        "x": 20,
-        "y": 0
-      },
-      "id": 10,
-      "options": {
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": false,
-        "text": {}
-      },
-      "pluginVersion": "8.2.5",
-      "targets": [
-        {
-          "query": "from(bucket: \"data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"neuron\" and r[\"src_cortical_area\"] =~ /^${src_cortical_area:regex}$/ )\n  |> filter(fn: (r) => r[\"voxel_x\"] =~ /^${vox_x:regex}$/ and r[\"voxel_y\"] =~ /^${vox_y:regex}$/ and r[\"voxel_z\"] =~ /^${vox_z:regex}$/ )\n  |> group(columns: [\"src_cortical_area\", \"voxel_id\"])\n  |> count()\n  |> yield(name: \"count\")\n\n\n\n",
-          "refId": "A"
-        }
-      ],
-      "title": "Neuron Fire Count",
-      "type": "gauge"
     },
     {
       "datasource": null,
@@ -217,7 +163,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 19
+        "y": 12
       },
       "id": 6,
       "links": [],
@@ -265,9 +211,74 @@
         }
       ],
       "type": "timeseries"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "_value"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "${src_neuron_id}"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 13,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "id": 10,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": false,
+        "text": {}
+      },
+      "pluginVersion": "8.2.5",
+      "targets": [
+        {
+          "query": "from(bucket: \"data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"neuron\" and r[\"src_cortical_area\"] =~ /^${src_cortical_area:regex}$/ )\n  |> filter(fn: (r) => r[\"voxel_x\"] =~ /^${vox_x:regex}$/ and r[\"voxel_y\"] =~ /^${vox_y:regex}$/ and r[\"voxel_z\"] =~ /^${vox_z:regex}$/ )\n  |> count()\n  |> drop(columns:[\"_start\", \"_stop\", \"_field\", \"connectome\", \"src_neuron_id\", \"voxel_z\", \"voxel_x\", \"voxel_y\"])\n\n\n\n\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Neuron Fire Count",
+      "type": "gauge"
     }
   ],
-  "refresh": "",
+  "refresh": false,
   "schemaVersion": 32,
   "style": "dark",
   "tags": [],
@@ -479,5 +490,5 @@
   "timezone": "",
   "title": "FEAGI Brain Activity Analyzer",
   "uid": "Se3OI7f7k",
-  "version": 28
+  "version": 31
 }
