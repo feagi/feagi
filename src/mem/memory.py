@@ -156,6 +156,19 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
         if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] < 0:
             runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id, dst_cortical_area, dst_neuron_id))
 
+        if runtime_data.parameters["Database"]["influx_neuron_stats"]:
+            vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[dst_cortical_area][dst_neuron_id]['soma_location']]
+            dst_mp = runtime_data.brain[dst_cortical_area][dst_neuron_id]["membrane_potential"]
+            runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
+                                                         src_cortical_area=src_cortical_area,
+                                                         dst_cortical_area=dst_cortical_area,
+                                                         src_neuron_id=src_neuron_id,
+                                                         dst_neuron_id=dst_neuron_id,
+                                                         voxel_x=vox_x,
+                                                         voxel_y=vox_y,
+                                                         voxel_z=vox_z,
+                                                         membrane_potential=dst_mp / 1)
+
 
 def neuroplasticity(cfcl, pain_flag):
     """
