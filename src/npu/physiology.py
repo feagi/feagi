@@ -62,8 +62,6 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
         # Timing the update function
         # update_start_time = datetime.now()
 
-        print("^^^   *****   ^^^^^")
-
         dst_cortical_area = \
             runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["cortical_area"]
         postsynaptic_current = \
@@ -119,7 +117,7 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
                                                          voxel_y=vox_y,
                                                          voxel_z=vox_z,
                                                          membrane_potential=dst_mp / 1)
-            print("^^^   ***** ******  ^^^^^")
+
             if runtime_data.parameters["Database"]["influx_synapse_stats"]:
                 for destination_neuron in runtime_data.brain[cortical_area][neuron_id]["neighbors"]:
                     psc = runtime_data.brain[cortical_area][neuron_id]["neighbors"][
