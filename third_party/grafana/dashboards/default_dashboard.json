@@ -23,7 +23,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 3,
-  "iteration": 1645746049528,
+  "iteration": 1645818495613,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -98,7 +98,7 @@
       },
       "targets": [
         {
-          "query": "from(bucket: \"data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"neuron\")\n  |> filter(fn: (r) => r[\"_field\"] == \"membrane_potential\" and r[\"cortical_area\"] =~ /^${cortical_area:regex}$/)\n  |> filter(fn: (r) => r[\"voxel_x\"] =~ /^${vox_x:regex}$/ and r[\"voxel_y\"] =~ /^${vox_y:regex}$/ and r[\"voxel_z\"] =~ /^${vox_z:regex}$/ )\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
+          "query": "from(bucket: \"data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"neuron\")\n  |> filter(fn: (r) => r[\"_field\"] == \"membrane_potential\" and (r[\"src_cortical_area\"] =~ /^${src_cortical_area:regex}$/ or r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/))\n  |> filter(fn: (r) => r[\"voxel_x\"] =~ /^${vox_x:regex}$/ and r[\"voxel_y\"] =~ /^${vox_y:regex}$/ and r[\"voxel_z\"] =~ /^${vox_z:regex}$/ )\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
           "refId": "A"
         }
       ],
@@ -147,17 +147,17 @@
           "values": false
         },
         "showThresholdLabels": false,
-        "showThresholdMarkers": true,
+        "showThresholdMarkers": false,
         "text": {}
       },
       "pluginVersion": "8.2.5",
       "targets": [
         {
-          "query": "from(bucket: \"data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"neuron\" and r[\"cortical_area\"] =~ /^${cortical_area:regex}$/)\n  |> group(columns: [\"cortical_area\", \"voxel_id\"])\n  |> count()\n  |> yield(name: \"count\")\n\n\n\n",
+          "query": "from(bucket: \"data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"neuron\" and r[\"cortical_area\"] =~ /^${cortical_area:regex}$/ )\n  |> filter(fn: (r) => r[\"voxel_x\"] =~ /^${vox_x:regex}$/ and r[\"voxel_y\"] =~ /^${vox_y:regex}$/ and r[\"voxel_z\"] =~ /^${vox_z:regex}$/ )\n  |> group(columns: [\"cortical_area\", \"voxel_id\"])\n  |> count()\n  |> yield(name: \"count\")\n\n\n\n",
           "refId": "A"
         }
       ],
-      "title": "Panel Title",
+      "title": "Neuron Fire Count",
       "type": "gauge"
     },
     {
@@ -244,7 +244,7 @@
           "measurement": "membranePotential",
           "orderByTime": "ASC",
           "policy": "autogen",
-          "query": "from(bucket: \"data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"synapse\")\n  |> filter(fn: (r) => r[\"_field\"] == \"postSynapticCurrent\" and r[\"cortical_area\"] =~ /^${cortical_area:regex}$/ )\n  |> filter(fn: (r) => r[\"neuron_id\"] =~ /^${src_neuron_id:regex}$/ and r[\"dst_neuron_id\"] =~ /^${dst_neuron_id:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
+          "query": "from(bucket: \"data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"synapse\")\n  |> filter(fn: (r) => r[\"_field\"] == \"postSynapticCurrent\")\n  |> filter(fn: (r) => r[\"src_cortical_area\"] =~ /^${src_cortical_area:regex}$/ or r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/)\n  |> filter(fn: (r) => r[\"src_neuron_id\"] =~ /^${src_neuron_id:regex}$/ and r[\"dst_neuron_id\"] =~ /^${dst_neuron_id:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -290,16 +290,16 @@
           ]
         },
         "datasource": null,
-        "definition": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"cortical_area\",\n    predicate: (r) => r[\"_measurement\"] == \"neuron\",\n    start: -1d\n)",
+        "definition": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"src_cortical_area\",\n    predicate: (r) => r[\"_measurement\"] == \"neuron\",\n    start: -1d\n)",
         "description": null,
         "error": null,
         "hide": 0,
         "includeAll": true,
-        "label": "Cortical Area",
+        "label": "Source Cortical Area",
         "multi": true,
-        "name": "cortical_area",
+        "name": "src_cortical_area",
         "options": [],
-        "query": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"cortical_area\",\n    predicate: (r) => r[\"_measurement\"] == \"neuron\",\n    start: -1d\n)",
+        "query": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"src_cortical_area\",\n    predicate: (r) => r[\"_measurement\"] == \"neuron\",\n    start: -1d\n)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -318,7 +318,35 @@
           ]
         },
         "datasource": null,
-        "definition": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"voxel_x\",\n    predicate: (r) =>  r[\"cortical_area\"] =~ /^${cortical_area:regex}$/,\n    start: -1d\n)",
+        "definition": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"dst_cortical_area\",\n    predicate: (r) => r[\"_measurement\"] == \"neuron\",\n    start: -1d\n)",
+        "description": null,
+        "error": null,
+        "hide": 0,
+        "includeAll": true,
+        "label": "Destination Cortical Area",
+        "multi": true,
+        "name": "dst_cortical_area",
+        "options": [],
+        "query": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"dst_cortical_area\",\n    predicate: (r) => r[\"_measurement\"] == \"neuron\",\n    start: -1d\n)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "allValue": null,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": null,
+        "definition": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"voxel_x\",\n    predicate: (r) =>  r[\"src_cortical_area\"] =~ /^${src_cortical_area:regex}$/ or r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/,\n    start: -1d\n)",
         "description": null,
         "error": null,
         "hide": 0,
@@ -327,7 +355,7 @@
         "multi": true,
         "name": "vox_x",
         "options": [],
-        "query": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"voxel_x\",\n    predicate: (r) =>  r[\"cortical_area\"] =~ /^${cortical_area:regex}$/,\n    start: -1d\n)",
+        "query": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"voxel_x\",\n    predicate: (r) =>  r[\"src_cortical_area\"] =~ /^${src_cortical_area:regex}$/ or r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/,\n    start: -1d\n)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -346,7 +374,7 @@
           ]
         },
         "datasource": null,
-        "definition": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"voxel_y\",\n    predicate: (r) =>  r[\"cortical_area\"] =~ /^${cortical_area:regex}$/,\n    start: -1d\n)",
+        "definition": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"voxel_y\",\n    predicate: (r) =>  r[\"src_cortical_area\"] =~ /^${src_cortical_area:regex}$/ or r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/,\n    start: -1d\n)",
         "description": null,
         "error": null,
         "hide": 0,
@@ -355,7 +383,7 @@
         "multi": true,
         "name": "vox_y",
         "options": [],
-        "query": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"voxel_y\",\n    predicate: (r) =>  r[\"cortical_area\"] =~ /^${cortical_area:regex}$/,\n    start: -1d\n)",
+        "query": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"voxel_y\",\n    predicate: (r) =>  r[\"src_cortical_area\"] =~ /^${src_cortical_area:regex}$/ or r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/,\n    start: -1d\n)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -374,7 +402,7 @@
           ]
         },
         "datasource": null,
-        "definition": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"voxel_z\",\n    predicate: (r) =>  r[\"cortical_area\"] =~ /^${cortical_area:regex}$/,\n    start: -1d\n)",
+        "definition": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"voxel_z\",\n    predicate: (r) =>  r[\"src_cortical_area\"] =~ /^${src_cortical_area:regex}$/ or r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/,\n    start: -1d\n)",
         "description": null,
         "error": null,
         "hide": 0,
@@ -383,7 +411,7 @@
         "multi": true,
         "name": "vox_z",
         "options": [],
-        "query": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"voxel_z\",\n    predicate: (r) =>  r[\"cortical_area\"] =~ /^${cortical_area:regex}$/,\n    start: -1d\n)",
+        "query": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"voxel_z\",\n    predicate: (r) =>  r[\"src_cortical_area\"] =~ /^${src_cortical_area:regex}$/ or r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/,\n    start: -1d\n)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -395,23 +423,23 @@
         "current": {
           "selected": true,
           "text": [
-            "2022-02-24_22:51:20_149285_8WGCV4_N"
+            "All"
           ],
           "value": [
-            "2022-02-24_22:51:20_149285_8WGCV4_N"
+            "$__all"
           ]
         },
         "datasource": null,
-        "definition": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"neuron_id\",\n    predicate: (r) => r[\"_measurement\"] == \"synapse\" and r[\"cortical_area\"] =~ /^${cortical_area:regex}$/,\n    start: -1d\n)",
+        "definition": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"dst_neuron_id\",\n    predicate: (r) => r[\"_measurement\"] == \"synapse\" and r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/,\n    start: -1d\n)",
         "description": null,
         "error": null,
         "hide": 0,
         "includeAll": true,
-        "label": "Source Neuron ID",
+        "label": "Destination Neuron ID",
         "multi": true,
-        "name": "src_neuron_id",
+        "name": "dst_neuron_id",
         "options": [],
-        "query": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"neuron_id\",\n    predicate: (r) => r[\"_measurement\"] == \"synapse\" and r[\"cortical_area\"] =~ /^${cortical_area:regex}$/,\n    start: -1d\n)",
+        "query": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"dst_neuron_id\",\n    predicate: (r) => r[\"_measurement\"] == \"synapse\" and r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/,\n    start: -1d\n)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -430,16 +458,16 @@
           ]
         },
         "datasource": null,
-        "definition": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"dst_neuron_id\",\n    predicate: (r) => r[\"_measurement\"] == \"synapse\" and r[\"cortical_area\"] =~ /^${cortical_area:regex}$/,\n    start: -1d\n)",
+        "definition": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"neuron_id\",\n    predicate: (r) => r[\"_measurement\"] == \"synapse\" and r[\"src_cortical_area\"] =~ /^${src_cortical_area:regex}$/,\n    start: -1d\n)",
         "description": null,
         "error": null,
         "hide": 0,
         "includeAll": true,
-        "label": "Destination Neuron ID",
+        "label": "Source Neuron ID",
         "multi": true,
-        "name": "dst_neuron_id",
+        "name": "src_neuron_id",
         "options": [],
-        "query": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"dst_neuron_id\",\n    predicate: (r) => r[\"_measurement\"] == \"synapse\" and r[\"cortical_area\"] =~ /^${cortical_area:regex}$/,\n    start: -1d\n)",
+        "query": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"neuron_id\",\n    predicate: (r) => r[\"_measurement\"] == \"synapse\" and r[\"src_cortical_area\"] =~ /^${src_cortical_area:regex}$/,\n    start: -1d\n)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -449,12 +477,12 @@
     ]
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-24h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
-  "title": "FEAGI Brain Activity Dashboard",
+  "title": "FEAGI Brain Analyzer",
   "uid": "Se3OI7f7k",
-  "version": 20
+  "version": 23
 }

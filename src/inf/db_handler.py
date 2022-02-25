@@ -275,20 +275,21 @@ class InfluxManagement:
         #     print(settings.Bcolors.RED +
         #           "ERROR: Cannot connect to << InfluxDb >> Database \n ::: %s" % str(repr(e)) + settings.Bcolors.ENDC)
 
-    def insert_neuron_activity(self, connectome_path, cortical_area,
-                               voxel_x, voxel_y, voxel_z, neuron_id, membrane_potential):
+    def insert_neuron_activity(self, connectome_path, src_cortical_area, src_neuron_id,
+                               voxel_x, voxel_y, voxel_z, membrane_potential):
         voxel_id = str(voxel_x) + "-" + str(voxel_y) + "-" + str(voxel_z)
         raw_data = [
             {
                 "measurement": "neuron",
                 "tags": {
                     "connectome": connectome_path,
-                    "cortical_area": cortical_area,
+                    "src_cortical_area": src_cortical_area,
+                    "src_neuron_id": src_neuron_id,
                     "voxel_x": voxel_x,
                     "voxel_y": voxel_y,
                     "voxel_z": voxel_z,
-                    "voxel_id": voxel_id,
-                    "neuron_id": neuron_id
+                    "voxel_id": voxel_id
+
                 },
                 "fields": {
                     "membrane_potential": float(membrane_potential)
@@ -297,7 +298,7 @@ class InfluxManagement:
         ]
         self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
 
-    def insert_synaptic_activity(self, connectome_path, cortical_area,  src_neuron_id, dst_neuron_id,
+    def insert_synaptic_activity(self, connectome_path, src_cortical_area, dst_cortical_area,  src_neuron_id, dst_neuron_id,
                                  post_synaptic_current):
 
         raw_data = [
@@ -305,8 +306,9 @@ class InfluxManagement:
                 "measurement": "synapse",
                 "tags": {
                     "connectome": connectome_path,
-                    "cortical_area": cortical_area,
-                    "neuron_id": src_neuron_id,
+                    "src_cortical_area": src_cortical_area,
+                    "dst_cortical_area": dst_cortical_area,
+                    "src_neuron_id": src_neuron_id,
                     "dst_neuron_id": dst_neuron_id
                 },
                 "fields": {
