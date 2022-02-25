@@ -59,7 +59,7 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
 
     if neighbor_count == 0 and runtime_data.parameters["Database"]["influx_neuron_stats"]:
         vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
-        mem_potential = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
+        mem_potential = runtime_data.genome["blueprint"][cortical_area][neuron_id]["firing_threshold"]
         # Note: dst_cortical_area is fed to the src_cortical_area field since the membrane potential of dst changes
         runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
                                                      src_cortical_area=cortical_area,
