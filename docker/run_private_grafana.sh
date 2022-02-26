@@ -15,6 +15,6 @@ else
                                    --build-arg REPO=$1 \
                                    --build-arg BRANCH=$PRIVATE_REPO_BRANCH \
                                    -f Dockerfile.private .
-    docker-compose -f feagi.yml build godot ros-gazebo
-    docker-compose -f feagi.yml -f feagi.private.yml up
+    docker-compose -f feagi-grafana.yml build godot grafana ros-gazebo
+    docker-compose -f feagi-grafana.yml -f feagi.private.yml up
 fi
