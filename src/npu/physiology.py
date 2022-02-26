@@ -67,7 +67,22 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
                                                      voxel_x=vox_x,
                                                      voxel_y=vox_y,
                                                      voxel_z=vox_z,
+                                                     membrane_potential=0 / 1)
+        runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
+                                                     src_cortical_area=cortical_area,
+                                                     src_neuron_id=neuron_id,
+                                                     voxel_x=vox_x,
+                                                     voxel_y=vox_y,
+                                                     voxel_z=vox_z,
                                                      membrane_potential=mem_potential / 1)
+        runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
+                                                     src_cortical_area=cortical_area,
+                                                     src_neuron_id=neuron_id,
+                                                     voxel_x=vox_x,
+                                                     voxel_y=vox_y,
+                                                     voxel_z=vox_z,
+                                                     membrane_potential=0 / 1)
+
 
     # Updating downstream neurons
     for dst_neuron_id in neighbor_list:
