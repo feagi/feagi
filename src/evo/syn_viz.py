@@ -10,6 +10,7 @@ from matplotlib.patches import FancyArrowPatch
 from inf.disk_ops import load_brain_in_memory
 mpl.use('macosx')
 
+plt.style.use('dark_background')
 
 class Annotation3D(Annotation):
 
@@ -71,13 +72,15 @@ max_x = max(src_dim[0], dst_dim[0])
 max_y = max(src_dim[1], dst_dim[1])
 max_z = max(src_dim[2], dst_dim[2])
 
+max_max = max(2 * max_x + padding, max_y, max_z)
+
 cortical_data[__src_cortical_area] = {}
 cortical_data[__dst_cortical_area] = {}
 
 vectors = []
 
 # prepare some coordinates
-x, y, z = np.indices((2 * max_x + padding, max_y, max_z))
+x, y, z = np.indices((max_max, max_max, max_max))
 
 # draw cuboids in the top left and bottom right corners, and a link between them
 cube1 = (x < src_dim[0]) & (y < src_dim[2]) & (z < src_dim[1])
@@ -95,8 +98,17 @@ colors[cube2] = 'green'
 
 fig = plt.figure()
 
-ax = fig.add_subplot(111, projection='3d')
-ax.voxels(voxels, facecolors=colors, edgecolor='k', alpha=0.2)
+# ax = fig.add_subplot(111, projection='3d')
+ax = plt.axes(projection='3d')
+ax.voxels(voxels, facecolors=colors, edgecolor='gray', alpha=0.2)
+
+# Dark background
+fig.set_facecolor('black')
+ax.set_facecolor('black')
+ax.grid(False)
+ax.w_xaxis.set_pane_color((0.0, 0.0, 0.0, 0.0))
+ax.w_yaxis.set_pane_color((0.0, 0.0, 0.0, 0.0))
+ax.w_zaxis.set_pane_color((0.0, 0.0, 0.0, 0.0))
 
 
 cortical_area = __src_cortical_area
