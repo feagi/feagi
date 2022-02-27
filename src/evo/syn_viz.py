@@ -54,12 +54,34 @@ def _arrow3D(ax, x, y, z, dx, dy, dz, *args, **kwargs):
 # setattr(Axes3D, 'annotate3D', _annotate3D)
 setattr(Axes3D, 'arrow3D', _arrow3D)
 
+# Extract the actual synapse data from connectome
+connectome = load_brain_in_memory('/var/folders/gy/4ydq5w4n76jg9zlpjs6mfrlm0000gn/T/2022-02-26_22-01-31_298037_K6UIT1_R/connectome/', ["i__inf", "i__inf"])
+cortical_data = {}
+
+__src_cortical_area = "i__inf"
+__dst_cortical_area = "i__inf"
+
+padding = 5
+
+src_dim = [3, 1, 1]
+dst_dim = [3, 1, 1]
+
+
+max_x = max(src_dim[0], dst_dim[0])
+max_y = max(src_dim[1], dst_dim[1])
+max_z = max(src_dim[2], dst_dim[2])
+
+cortical_data[__src_cortical_area] = {}
+cortical_data[__dst_cortical_area] = {}
+
+vectors = []
+
 # prepare some coordinates
-x, y, z = np.indices((20, 20, 20))
+x, y, z = np.indices((2 * max_x + padding, max_y, max_z))
 
 # draw cuboids in the top left and bottom right corners, and a link between them
-cube1 = (x < 8) & (y < 10) & (z < 1)
-cube2 = (x >= 12) & (y < 10) & (z < 1)
+cube1 = (x < src_dim[0]) & (y < src_dim[2]) & (z < src_dim[1])
+cube2 = (x >= padding + dst_dim[0]) & (y < dst_dim[2]) & (z < dst_dim[1])
 # link = abs(x - y) + abs(y - z) + abs(z - x) <= 2
 
 # combine the objects into a single boolean array
@@ -71,23 +93,11 @@ colors = np.empty(voxels.shape, dtype=object)
 colors[cube1] = 'blue'
 colors[cube2] = 'green'
 
-
 fig = plt.figure()
 
 ax = fig.add_subplot(111, projection='3d')
 ax.voxels(voxels, facecolors=colors, edgecolor='k', alpha=0.2)
 
-# Extract the actual synapse data from connectome
-connectome = load_brain_in_memory('/var/folders/gy/4ydq5w4n76jg9zlpjs6mfrlm0000gn/T/2022-02-26_22-01-31_298037_K6UIT1_R/connectome/', ["i__inf", "i__inf"])
-cortical_data = {}
-
-__src_cortical_area = "i__inf"
-__dst_cortical_area = "i__inf"
-
-cortical_data[__src_cortical_area] = {}
-cortical_data[__dst_cortical_area] = {}
-
-vectors = []
 
 cortical_area = __src_cortical_area
 for neuron in connectome[cortical_area]:
@@ -98,15 +108,10 @@ for neuron in connectome[cortical_area]:
                 dst_neuron_location = connectome[__dst_cortical_area][dst_neuron]["soma_location"]
                 vectors.append(src_neuron_location + dst_neuron_location)
 
-
 print(vectors)
 
-
-for x in range(3):
-    for y in range(3):
-        for z in range(3):
-            ax.arrow3D(x + 0.5, y + 0.5, z + 0.5,
-                       5, 0, 0,
-                       mutation_scale=15, ec="red", fc="red")
+for vector in vectors:
+    sx, sy, sz, dx, dy, dz = vector
+    ax.arrow3D(sx + 0.5, sy + 0.5, sz + 0.5, padding + dx, dy, dz, mutation_scale=15, ec="red", fc="red")
 
 plt.show()
