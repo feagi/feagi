@@ -27,8 +27,6 @@ def _annotate3D(ax, text, xyz, *args, **kwargs):
     annotation = Annotation3D(text, xyz, *args, **kwargs)
     ax.add_artist(annotation)
 
-setattr(Axes3D, 'annotate3D', _annotate3D)
-
 
 class Arrow3D(FancyArrowPatch):
 
@@ -48,22 +46,19 @@ class Arrow3D(FancyArrowPatch):
 
 
 def _arrow3D(ax, x, y, z, dx, dy, dz, *args, **kwargs):
-    '''Add an 3d arrow to an `Axes3D` instance.'''
-
+    """Add an 3d arrow to an `Axes3D` instance."""
     arrow = Arrow3D(x, y, z, dx, dy, dz, *args, **kwargs)
     ax.add_artist(arrow)
 
-
+setattr(Axes3D, 'annotate3D', _annotate3D)
 setattr(Axes3D, 'arrow3D', _arrow3D)
-
-
 
 # prepare some coordinates
 x, y, z = np.indices((8, 8, 8))
 
 # draw cuboids in the top left and bottom right corners, and a link between them
 cube1 = (x < 3) & (y < 3) & (z < 3)
-cube2 = (x >= 5) & (y >= 5) & (z >= 5)
+cube2 = (x >= 5) & (y < 3) & (z < 3)
 # link = abs(x - y) + abs(y - z) + abs(z - x) <= 2
 
 # combine the objects into a single boolean array
@@ -74,33 +69,18 @@ colors = np.empty(voxels.shape, dtype=object)
 # colors[link] = 'red'
 colors[cube1] = 'blue'
 colors[cube2] = 'green'
-#
+
 
 fig = plt.figure()
 
-# ax = fig.gca(projection='3d')
 ax = fig.add_subplot(111, projection='3d')
-ax.voxels(voxels, facecolors=colors, edgecolor='k')
+ax.voxels(voxels, facecolors=colors, edgecolor='k', alpha=0.2)
 
-
-
-# ax.set_xlim(0,2)
-# ax.arrow3D(0,0,0,
-#            7,7,7,
-#            mutation_scale=20,
-#            arrowstyle="-|>",
-#            linestyle='dashed')
-ax.arrow3D(1,1,0,
-           2,6,8,
-           mutation_scale=20,
-           ec ='green',
-           fc='red')
-# ax.set_title('3D Arrows Demo')
-# ax.set_xlabel('x')
-# ax.set_ylabel('y')
-# ax.set_zlabel('z')
-
-# fig.tight_layout()
-
+for i in range(3):
+    ax.arrow3D(1.5, i + 0.5, 1.5,
+               6, 0, 0,
+               mutation_scale=15,
+               ec='red',
+               fc='red')
 
 plt.show()
