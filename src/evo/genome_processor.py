@@ -156,27 +156,6 @@ def genome_2_1_convertor(flat_genome):
                             else:
                                 pass
 
-                        elif genome_2_to_1[exon] == "geometric_boundaries":
-                            if gene[23:25] == 'x0':
-                                genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][0] = \
-                                    flat_genome[gene]
-                            elif gene[23:25] == 'x1':
-                                genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][1] = \
-                                    flat_genome[gene]
-                            elif gene[23:25] == 'y0':
-                                genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][0] = \
-                                    flat_genome[gene]
-                            elif gene[23:25] == 'y1':
-                                genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][1] = \
-                                    flat_genome[gene]
-                            elif gene[23:25] == 'z0':
-                                genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][0] = \
-                                    flat_genome[gene]
-                            elif gene[23:25] == 'z1':
-                                genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][1] = \
-                                    flat_genome[gene]
-                            else:
-                                pass
                         else:
                             genome['blueprint'][cortical_area]["neuron_params"][genome_2_to_1[exon]] = flat_genome[gene]
                     else:
@@ -199,7 +178,6 @@ gene_decoder = {
     "_______c-______-cx-___bby-i": "block_boundary_y",
     "_______c-______-cx-___bbz-i": "block_boundary_z",
     "_______c-______-cx-synatt-i": "synapse_attractivity",
-    # "_______c-______-cx-init_s-b": "init_synapse_needed",
     "_______c-______-nx-pstcr_-f": "postsynaptic_current",
     "_______c-______-nx-pstcrm-f": "postsynaptic_current_max",
     "_______c-______-nx-plst_c-f": "plasticity_constant",
@@ -216,7 +194,6 @@ genome_1_template = {
           "per_voxel_neuron_cnt": None,
           "location_generation_type": None,
           "synapse_attractivity": None,
-          # "init_synapse_needed": None,
           "postsynaptic_current": None,
           "plasticity_constant": None,
           "degeneration": None,
@@ -246,20 +223,6 @@ genome_1_template = {
                   None
               ],
               "visualization": None,
-              "geometric_boundaries": {
-                  "x": [
-                      None,
-                      None
-                  ],
-                  "y": [
-                      None,
-                      None
-                  ],
-                  "z": [
-                      None,
-                      None
-                  ]
-              }
           }
       }
 
@@ -275,7 +238,6 @@ genome_2_to_1 = {
     "nx-___bbz-i": "block_boundaries",
     "cx-__rand-b": "location_generation_type",
     "cx-synatt-i": "synapse_attractivity",
-    # "cx-init_s-b": "init_synapse_needed",
     "cx-pstcr_-f": "postsynaptic_current",
     "cx-pstcrm-f": "postsynaptic_current_max",
     "cx-plst_c-f": "plasticity_constant",
@@ -284,12 +246,6 @@ genome_2_to_1 = {
     "nx-leak_c-f": "leak_coefficient",
     "nx-c_fr_c-i": "consecutive_fire_cnt_max",
     "nx-snooze-f": "snooze_length",
-    "nx-geo_x0-i": "geometric_boundaries",
-    "nx-geo_x1-i": "geometric_boundaries",
-    "nx-geo_y0-i": "geometric_boundaries",
-    "nx-geo_y1-i": "geometric_boundaries",
-    "nx-geo_z0-i": "geometric_boundaries",
-    "nx-geo_z1-i": "geometric_boundaries",
     "cx-_group-t": "group_id",
     "cx-dstmap-d": "cortical_mapping_dst",
     "cx-de_gen-f": "degeneration"
@@ -302,7 +258,6 @@ genome_1_to_2 = {
     "block_boundaries": "cx-___bb_-i",
     "location_generation_type": "cx-__rand-b",
     "synapse_attractivity": "cx-synatt-i",
-    # "init_synapse_needed": "cx-init_s-b",
     "postsynaptic_current": "nx-pstcr_-f",
     "postsynaptic_current_max": "nx-pstcrm-f",
     "plasticity_constant": "nx-plst_c-f",
@@ -313,7 +268,6 @@ genome_1_to_2 = {
     "leak_coefficient": "nx-leak_c-f",
     "consecutive_fire_cnt_max": "nx-c_fr_c-i",
     "snooze_length": "nx-snooze-f",
-    "geometric_boundaries": "nx-geo___-i",
     "group_id": "cx-_group-t",
     "cortical_mapping_dst": "cs-dstmap-d",
     "degeneration": "cx-de_gen-f"

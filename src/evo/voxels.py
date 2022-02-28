@@ -62,9 +62,6 @@ def block_id_gen(cortical_area, coordinate):
     """
 
     cortical_area_dim = []
-    geometric_boundaries = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']
-    for axis in geometric_boundaries:
-        cortical_area_dim.append(geometric_boundaries[axis][1] - geometric_boundaries[axis][0])
     block_boundaries = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries']
 
     block_id = []
