@@ -11,7 +11,7 @@ else
     export PRIVATE_REPO_BRANCH=${2:-main}
 
     docker image rm -f docker_feagi
-    DOCKER_BUILDKIT=1 docker build --ssh default \
+    DOCKER_BUILDKIT=1 docker build --no-cache --ssh default \
                                    --build-arg REPO=$1 \
                                    --build-arg BRANCH=$PRIVATE_REPO_BRANCH \
                                    -f Dockerfile.private .
