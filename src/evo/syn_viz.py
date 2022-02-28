@@ -57,12 +57,12 @@ def _arrow3D(ax, x, y, z, dx, dy, dz, *args, **kwargs):
 setattr(Axes3D, 'arrow3D', _arrow3D)
 
 # Extract the actual synapse data from connectome
-__src_cortical_area = "i__pro"
-__dst_cortical_area = "t__pro"
+__src_cortical_area = "t_1pro"
+__dst_cortical_area = "t_1pro"
 
 cortical_areas = [__src_cortical_area, __dst_cortical_area]
 
-connectome_path = '/var/folders/16/7xn3q7792q30rf7yqfvm24sh0000gn/T/2022-02-28_09-29-12_614138_DLW9JN_R/connectome/'
+connectome_path = '/var/folders/16/7xn3q7792q30rf7yqfvm24sh0000gn/T/2022-02-28_12-01-04_642140_BW8FH7_R/connectome/'
 genome_path = connectome_path[:-11] + 'genome_tmp.json'
 
 with open(genome_path, "r") as genome_file:
@@ -94,7 +94,7 @@ max_x = max(cortical_dims[0][0], cortical_dims[1][0])
 max_y = max(cortical_dims[0][1], cortical_dims[1][1])
 max_z = max(cortical_dims[0][2], cortical_dims[1][2])
 
-padding = max_x * 2
+padding = max_x * 2 + 10
 
 max_max = max(2 * max_x + padding, max_y, max_z)
 
@@ -110,7 +110,11 @@ cortical_area_1 = (x < cortical_dims[0][0]) & (y < cortical_dims[0][1]) & (z < c
 cortical_area_2 = (padding + cortical_dims[0][0] <= x) & (x < padding + cortical_dims[0][0] + cortical_dims[1][0]) & (y < cortical_dims[1][1]) & (z < cortical_dims[1][2])
 
 # combine the objects into a single boolean array
-voxels = cortical_area_1 | cortical_area_2
+if cortical_areas[0] == cortical_areas[1]:
+    voxels = cortical_area_1
+    padding = -1
+else:
+    voxels = cortical_area_1 | cortical_area_2
 
 # set the colors of each object
 colors = np.empty(voxels.shape, dtype=object)
@@ -144,7 +148,8 @@ for neuron in connectome[cortical_area]:
 print("vectors", vectors)
 
 for vector in vectors:
-    sx, sy, sz, dx, dy, dz = vector
-    ax.arrow3D(sx + 0.5, sy + 0.5, sz + 0.5, padding + dx, dy, dz, mutation_scale=15, ec="red", fc="red")
+    # Swapping y and z to match Godot simulation axis
+    sx, sz, sy, dx, dz, dy = vector
+    ax.arrow3D(sx + 0.5, sy + 0.5, sz + 0.5, padding + dx - sx + 1, dy - sy, dz - sz, mutation_scale=10, ec="red", fc="red")
 
 plt.show()
