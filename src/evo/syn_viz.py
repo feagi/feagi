@@ -3,11 +3,12 @@
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import json
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 from mpl_toolkits.mplot3d.proj3d import proj_transform
 from matplotlib.text import Annotation
 from matplotlib.patches import FancyArrowPatch
-from inf.disk_ops import load_brain_in_memory
+from inf.disk_ops import load_brain_in_memory, load_genome_in_memory
 mpl.use('macosx')
 
 plt.style.use('dark_background')
@@ -56,15 +57,39 @@ def _arrow3D(ax, x, y, z, dx, dy, dz, *args, **kwargs):
 setattr(Axes3D, 'arrow3D', _arrow3D)
 
 # Extract the actual synapse data from connectome
-connectome = load_brain_in_memory('/var/folders/gy/4ydq5w4n76jg9zlpjs6mfrlm0000gn/T/2022-02-26_22-01-31_298037_K6UIT1_R/connectome/', ["i__inf", "i__inf"])
-cortical_data = {}
-
 __src_cortical_area = "i__inf"
 __dst_cortical_area = "i__inf"
 
-padding = 5
+cortical_areas = [__src_cortical_area, __dst_cortical_area]
 
-src_dim = [3, 1, 1]
+connectome_path = '/var/folders/gy/4ydq5w4n76jg9zlpjs6mfrlm0000gn/T/2022-02-26_22-01-31_298037_K6UIT1_R/connectome/'
+genome_path = connectome_path[:-11] + 'genome_tmp.json'
+
+with open(genome_path, "r") as genome_file:
+    genome = json.load(genome_file)
+
+connectome = load_brain_in_memory(connectome_path, [__src_cortical_area, __dst_cortical_area])
+
+cortical_data = {}
+
+
+padding = 5
+src_dim = list()
+dst_dim = list()
+
+
+# Extract Cortical dimensions from Genome
+for key in genome['blueprint']:
+    if key[9:15] == __src_cortical_area:
+        if key[19:24] == '___bb':
+            if key[25] =='x':
+                src
+
+
+
+
+
+src_dim = genome[][__src_cortical_area][3, 1, 1]
 dst_dim = [3, 1, 1]
 
 
@@ -85,20 +110,18 @@ x, y, z = np.indices((max_max, max_max, max_max))
 # draw cuboids in the top left and bottom right corners, and a link between them
 cube1 = (x < src_dim[0]) & (y < src_dim[2]) & (z < src_dim[1])
 cube2 = (x >= padding + dst_dim[0]) & (y < dst_dim[2]) & (z < dst_dim[1])
-# link = abs(x - y) + abs(y - z) + abs(z - x) <= 2
 
 # combine the objects into a single boolean array
 voxels = cube1 | cube2
 
 # set the colors of each object
 colors = np.empty(voxels.shape, dtype=object)
-# colors[link] = 'red'
+
 colors[cube1] = 'blue'
 colors[cube2] = 'green'
 
 fig = plt.figure()
 
-# ax = fig.add_subplot(111, projection='3d')
 ax = plt.axes(projection='3d')
 ax.voxels(voxels, facecolors=colors, edgecolor='gray', alpha=0.2)
 
