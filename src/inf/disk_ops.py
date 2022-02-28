@@ -184,11 +184,14 @@ def genome_handler(connectome_path):
         load_genome_in_memory(connectome_path)
 
 
-def load_brain_in_memory():
+def load_brain_in_memory(connectome_path=None, cortical_list=None):
     # todo: Need error handling added so if there is a corruption in brain data it can regenerate
-    connectome_path = runtime_data.connectome_path
+    if not connectome_path:
+        connectome_path = runtime_data.connectome_path
+    if not cortical_list:
+        cortical_list = runtime_data.cortical_list
     brain = {}
-    for item in runtime_data.cortical_list:
+    for item in cortical_list:
         if os.path.isfile(connectome_path + item + '.json'):
             with open(connectome_path + item + '.json', "r") as data_file:
                 data = json.load(data_file)

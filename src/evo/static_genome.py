@@ -140,7 +140,7 @@ genome = {
         "_____10c-i__inf-nx-c_fr_c-i": 3,
         "_____10c-i__inf-nx-snooze-f": 0,
         "_____10c-i__inf-cx-de_gen-f": 0.01,
-        "_____10c-i__inf-cx-dstmap-d": {"i__inf": ["y_consolidator", [1, 1, 1], 1, False]},
+        "_____10c-i__inf-cx-dstmap-d": {"i__inf": ["block_to_block", [1, 1, 1], 1, False]},
 
         "_____10c-i__mot-cx-__name-t": "motor_ipu",
         "_____10c-i__mot-cx-_group-t": "IPU",
