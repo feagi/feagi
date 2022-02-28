@@ -9,7 +9,7 @@ onready var deselected = preload("res://Cortical_area_box.meshlib")
 onready var duplicate_model = get_node("Cortical_area")
 
 
-var grid_size = 1000
+var floor_size = 25
 var grid_steps = 1000
 var flag = 0
 var test = 0
@@ -32,6 +32,8 @@ var cortical_area = {}
 var cortical_area_stored = {}
 var green_light = false
 var Godot_list = {}
+var x_increment = 0
+var z_increment = 0
 
 var udp := PacketPeerUDP.new()
 var connected = false
@@ -66,11 +68,31 @@ func _ready():
 				height = int(CSV_data[4])
 				depth = int(CSV_data[5])
 				name = CSV_data[6]
-				var copy = duplicate_model.duplicate() ##What is this?
+
+
+				if sign(int(x)) > 0:
+					x_increment = (int(x) / floor_size) + 1
+					for i in x_increment:
+						$Floor_grid.set_cell_item(i*floor_size,0,0,0)
+				if sign(int(x)) < 0:
+					x_increment = (int(x) / floor_size) - 1
+					for i in range(0, x_increment, -1):
+						$Floor_grid.set_cell_item(i*floor_size,0,0,0)
+				if sign(int(z)) >= 0:
+					z_increment = (int(z) / floor_size) + 1
+					for i in z_increment:
+						$Floor_grid.set_cell_item(int(x),0,i*floor_size,0)
+				if sign(int(z)) < 0:
+					z_increment = (int(z) / floor_size) - 1
+					var i = 0
+					while i >= z_increment:
+						$Floor_grid.set_cell_item(int(x),0,i*floor_size,0)
+						i -= 1
+				var copy = duplicate_model.duplicate() 
 				var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
 				var viewport = create_textbox.get_node("Viewport")
 				create_textbox.set_texture(viewport.get_texture())
-				add_child(copy) ##Was this previous one?
+				add_child(copy) 
 				create_textbox.set_name(name + "_textbox")
 				add_child(create_textbox)#Copied the node to new node
 				create_textbox.scale = Vector3(1,1,1)
@@ -141,7 +163,7 @@ func _ready():
 				key+= 1
 			flag = 0 #keep x,y,z in correct place
 			yield(get_tree().create_timer(.01), "timeout")
-		udp.put_packet("{}".to_utf8())
+		udp.put_packet("{}".to_utf8())	
 		$GridMap.clear() ##clear the new data
 
 
