@@ -230,6 +230,9 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
                     candidate_list = reducer_x(cortical_area_src, cortical_area_dst, src_neuron_id)
                     for candidate in candidate_list:
                         candidate_voxel_list.append(candidate)
+                elif neuron_morphology == "randomizer":
+                    candidate = randomizer(dst_cortical_area=cortical_area_dst)
+                    candidate_voxel_list.append(candidate)
             elif key == "placeholder":
                 pass
 

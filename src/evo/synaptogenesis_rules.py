@@ -17,6 +17,7 @@
 
 from evo import voxels
 from inf import runtime_data
+from random import randrange
 
 
 # def rule_neuron_to_neuron(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset):
@@ -122,3 +123,17 @@ def reducer_x(src_cortical_area, dst_cortical_area, src_neuron_id, dst_y_index=0
     return candidate_list
 
 
+def randomizer(dst_cortical_area):
+    """
+    Identifies a random voxel from the destination cortical area.
+    """
+
+    dst_cortical_dim_x = runtime_data.genome['blueprint'][dst_cortical_area]['neuron_params']['block_boundaries'][0]
+    dst_cortical_dim_y = runtime_data.genome['blueprint'][dst_cortical_area]['neuron_params']['block_boundaries'][1]
+    dst_cortical_dim_z = runtime_data.genome['blueprint'][dst_cortical_area]['neuron_params']['block_boundaries'][2]
+
+    random_location = [randrange(0, dst_cortical_dim_x),
+                       randrange(0, dst_cortical_dim_y),
+                       randrange(0, dst_cortical_dim_z)]
+
+    return random_location
