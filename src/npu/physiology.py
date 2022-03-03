@@ -83,7 +83,6 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
                                                      voxel_z=vox_z,
                                                      membrane_potential=0 / 1)
 
-
     # Updating downstream neurons
     for dst_neuron_id in neighbor_list:
         # Timing the update function
@@ -100,8 +99,6 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
         # to avoid adding more conditional statements to this function (for performance reasons)"""
 
         if degenerate > 0:
-            print("** >> ** >> Applying degeneracy-- ", cortical_area, neuron_id, "<-->", dst_neuron_id)
-
             # reduce neuron postsynaptic current by degeneration value defined in genome (if applicable)
             runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] -= \
                 degenerate

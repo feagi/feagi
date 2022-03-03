@@ -197,10 +197,6 @@ def burst_manager():
 
             print("Timing : Upstream + common neuron report:", datetime.now() - upstream_report_time)
 
-        if runtime_data.parameters["Logs"]["print_common_neuron_report"]:
-            # todo: investigate the efficiency of the common neuron report
-            print("The following is the common neuron report:")
-            common_neuron_report()
 
         burst_duration = datetime.now() - burst_start_time
         if runtime_data.parameters["Logs"]["print_burst_info"]:
@@ -268,7 +264,6 @@ def burst_manager():
         else:
             # Capture cortical activity stats
             capture_cortical_activity_stats()
-
             # Develop a final neuron fire queue based on all the neuron membrane potential fluctuations
 
             # fire_queue holds a temporary list of neurons updated during a single burst to determine which to fire
@@ -288,13 +283,39 @@ def burst_manager():
 
             # Add neurons to future FCL
             for cortical_area in runtime_data.fire_queue:
+                print(runtime_data.fire_queue)
                 for neuron_id in runtime_data.fire_queue[cortical_area]:
                     membrane_potential = runtime_data.fire_queue[cortical_area][neuron_id][0]
                     fire_threshold = runtime_data.fire_queue[cortical_area][neuron_id][1]
+                    # Leaky behavior
+                    leak_coefficient = \
+                        runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["leak_coefficient"]
+                    # print("\n\n------->>>>>  ***    ****  *** >>>>>", cortical_area, neuron_id, fire_threshold,
+                    #       membrane_potential, leak_coefficient)
+                    if leak_coefficient > 0:
+                        if not runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"] or \
+                                runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"] < 5:
+                            last_membrane_potential_update = runtime_data.burst_count
+                        else:
+                            last_membrane_potential_update = \
+                                runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"]
+                        if last_membrane_potential_update < runtime_data.burst_count:
+                            leak_window = runtime_data.burst_count - last_membrane_potential_update - 1
+                            # print("***&&&&  Leak window:", leak_window, last_membrane_potential_update)
+                            leak_value = leak_window * leak_coefficient
+                            leak_value = min(leak_value, fire_threshold)
+                            membrane_potential -= leak_value
+                            if membrane_potential < 0:
+                                membrane_potential = 0
+
+                    # Update Membrane potential
+                    runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] = membrane_potential
                     if membrane_potential > fire_threshold and \
                             refractory_check(cortical_area, neuron_id) and \
                             consecutive_fire_threshold_check(cortical_area, neuron_id):
                         # The actual trigger to fire the neuron
+                        runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"] = \
+                            runtime_data.burst_count
                         runtime_data.future_fcl[cortical_area].add(neuron_id)
 
             # Transferring future_fcl to current one and resetting the future one in process
@@ -618,36 +639,6 @@ def toggle_brain_status():
     else:
         runtime_data.brain_is_running = True
         print("Brain is now running!!!")
-
-
-# def utf_neuron_id(n):
-#     # Returns the neuron id associated with a particular digit
-#     for neuron_id in runtime_data.brain['utf8_memory']:
-#         if int(runtime_data.brain['utf8_memory'][neuron_id]["soma_location"][0][2]) == n+ord('0'):
-#             return neuron_id
-
-
-def common_neuron_report():
-    digits = range(10)
-    number_matrix = []
-    for _ in digits:
-        for __ in digits:
-            if _ != __ and [_, __] not in number_matrix and [__, _] not in number_matrix:
-                number_matrix.append([_, __])
-    for item in number_matrix:
-        neuron_a = utf_neuron_id(item[0])
-        neuron_b = utf_neuron_id(item[1])
-        common_neuron_list = list_common_upstream_neurons(neuron_a, neuron_b)
-
-        if common_neuron_list:
-            overlap_amount = len(common_neuron_list)
-            # print(item, '> ', overlap_amount)
-
-            if overlap_amount > runtime_data.parameters["InitData"]["overlap_prevention_constant"]:
-                # The following action is taken to eliminate the overlap
-                for neuron in common_neuron_list:
-                    runtime_data.prunning_candidates.add(('vision_memory', neuron, 'utf8_memory', neuron_a))
-                    runtime_data.prunning_candidates.add(('vision_memory', neuron, 'utf8_memory', neuron_b))
 
 
 def eval(self):

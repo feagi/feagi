@@ -71,6 +71,9 @@ genome = {
         "reducer_x": {
             "functions": True
         },
+        "randomizer": {
+            "functions": True
+        },
     },
     "species": {
         "parents": {},
