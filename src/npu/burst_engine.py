@@ -283,7 +283,6 @@ def burst_manager():
 
             # Add neurons to future FCL
             for cortical_area in runtime_data.fire_queue:
-                print(runtime_data.fire_queue)
                 for neuron_id in runtime_data.fire_queue[cortical_area]:
                     membrane_potential = runtime_data.fire_queue[cortical_area][neuron_id][0]
                     fire_threshold = runtime_data.fire_queue[cortical_area][neuron_id][1]
