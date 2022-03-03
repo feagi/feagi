@@ -20,7 +20,7 @@ from evo.neuron import block_reference_builder
 from evo.synapse import synapse
 from evo.voxels import neurons_in_the_block
 from inf import runtime_data, settings
-from cython_lib import neuron_functions_cy as cy
+# from cython_lib import neuron_functions_cy as cy
 
 
 def activation_function(postsynaptic_current):
@@ -111,14 +111,15 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
         # todo: (neuron_output/neighbor_count) needs to be moved outside the loop for efficiency
         dst_neuron_obj = runtime_data.brain[dst_cortical_area][dst_neuron_id]
 
-        dst_neuron_obj["membrane_potential"] = \
-            cy.neuron_update((neuron_output/neighbor_count),
-                             runtime_data.burst_count,
-                             max(dst_neuron_obj["last_membrane_potential_reset_burst"],
-                             dst_neuron_obj["last_burst_num"]),
-                             runtime_data.genome["blueprint"][dst_cortical_area]["neuron_params"]["leak_coefficient"],
-                             dst_neuron_obj["membrane_potential"])
+        # dst_neuron_obj["membrane_potential"] = \
+        #     cy.neuron_update((neuron_output/neighbor_count),
+        #                      runtime_data.burst_count,
+        #                      max(dst_neuron_obj["last_membrane_potential_reset_burst"],
+        #                      dst_neuron_obj["last_burst_num"]),
+        #                      runtime_data.genome["blueprint"][dst_cortical_area]["neuron_params"]["leak_coefficient"],
+        #                      dst_neuron_obj["membrane_potential"])
 
+        dst_neuron_obj["membrane_potential"] += (neuron_output/neighbor_count)
         # Update the fire_queue that holds a temporary list of all updated neurons across the brain during a burst
         if dst_cortical_area not in runtime_data.fire_queue:
             runtime_data.fire_queue[dst_cortical_area] = dict()

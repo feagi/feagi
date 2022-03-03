@@ -315,6 +315,7 @@ def burst_manager():
                         # The actual trigger to fire the neuron
                         runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"] = \
                             runtime_data.burst_count
+                        runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] = 0
                         runtime_data.future_fcl[cortical_area].add(neuron_id)
 
             # Transferring future_fcl to current one and resetting the future one in process
