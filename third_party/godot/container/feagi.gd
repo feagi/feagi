@@ -34,9 +34,11 @@ var green_light = false
 var Godot_list = {}
 var x_increment = 0
 var z_increment = 0
-
+var csv_flag = false
 var udp := PacketPeerUDP.new()
 var connected = false
+var stored_csv = ""
+var global_name_list = []
 
 func _ready():
 #	Godot_list.godot_list["data"]
@@ -51,92 +53,62 @@ func _ready():
 		green_light  = true
 
 	$GridMap2.clear()
-	var f = File.new() #This is to read each line from the file
-	if f.file_exists('res://csv_data.csv'):
-		f.open(file, File.READ)
-		var index = 1
-		while not f.eof_reached(): # iterate through all lines until the end of file is reached
-			var line = f.get_line()
-			if line != "":
-				line += " "
-				#print(line)
-				var CSV_data = line.split(",", true, '0') ##splits into value array per line
-				x = CSV_data[0]
-				y = CSV_data[1]
-				z = CSV_data[2]
-				width= int(CSV_data[3])
-				height = int(CSV_data[4])
-				depth = int(CSV_data[5])
-				name = CSV_data[6]
+	for i in 6:
+		$GridMap3.set_cell_item(i,0,0,0) ##set the arrow indicator of 3D
+	var create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
+	var viewport = create_textbox_axis.get_node("Viewport")
+	create_textbox_axis.set_texture(viewport.get_texture())
+	create_textbox_axis.set_name("x_textbox")
+	add_child(create_textbox_axis)#Copied the node to new node
+	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
+	generate_textbox(create_textbox_axis, 5,0,0,"x")
+	for j in 6:
+		$GridMap3.set_cell_item(0,j,0,0)
+	create_textbox_axis = create_textbox_axis.duplicate() #generate a new node to re-use the model
+	viewport = create_textbox_axis.get_node("Viewport")
+	create_textbox_axis.set_texture(viewport.get_texture())
+	create_textbox_axis.set_name("y_textbox")
+	add_child(create_textbox_axis)#Copied the node to new node
+	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
+	generate_textbox(create_textbox_axis, 0,5,0,"y")
+	for k in 6: 
+		$GridMap3.set_cell_item(0,0,k,0)
+	create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
+	viewport = create_textbox_axis.get_node("Viewport")
+	create_textbox_axis.set_texture(viewport.get_texture())
+	create_textbox_axis.set_name("z_textbox")
+	add_child(create_textbox_axis)#Copied the node to new node
+	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
+	generate_textbox(create_textbox_axis, -2,0.5,6,"z")
+	$GridMap.clear()
 
-
-				if sign(int(x)) > 0:
-					x_increment = (int(x) / floor_size) + 1
-					for i in x_increment:
-						$Floor_grid.set_cell_item(i*floor_size,0,0,0)
-				if sign(int(x)) < 0:
-					x_increment = (int(x) / floor_size) - 1
-					for i in range(0, x_increment, -1):
-						$Floor_grid.set_cell_item(i*floor_size,0,0,0)
-				if sign(int(z)) >= 0:
-					z_increment = (int(z) / floor_size) + 1
-					for i in z_increment:
-						$Floor_grid.set_cell_item(int(x),0,i*floor_size,0)
-				if sign(int(z)) < 0:
-					z_increment = (int(z) / floor_size) - 1
-					var i = 0
-					while i >= z_increment:
-						$Floor_grid.set_cell_item(int(x),0,i*floor_size,0)
-						i -= 1
-				var copy = duplicate_model.duplicate() 
-				var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
-				var viewport = create_textbox.get_node("Viewport")
-				create_textbox.set_texture(viewport.get_texture())
-				add_child(copy) 
-				create_textbox.set_name(name + "_textbox")
-				add_child(create_textbox)#Copied the node to new node
-				create_textbox.scale = Vector3(1,1,1)
-				generate_model(create_textbox, x,y,z,width, depth, height, name)
-				# copy.queue_free() #This acts like .clear() but for CSGBox
-				if cortical_area.empty(): #Checks if dict is empty
-					adding_cortical_areas(name,x,y,z,height,width,depth) #adding to dict
-					cortical_area_stored = cortical_area
-				elif cortical_area.hash() == cortical_area_stored.hash():
-					adding_cortical_areas(name,x,y,z,height,width,depth)
-				index += 1
-		f.close()
-		for i in 6:
-			$GridMap3.set_cell_item(i,0,0,0) ##set the arrow indicator of 3D
-		var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
-		var viewport = create_textbox.get_node("Viewport")
-		create_textbox.set_texture(viewport.get_texture())
-		create_textbox.set_name("x_textbox")
-		add_child(create_textbox)#Copied the node to new node
-		create_textbox.scale = Vector3(0.5,0.5,0.5)
-		generate_textbox(create_textbox, 5,0,0,"x")
-		for j in 6:
-			$GridMap3.set_cell_item(0,j,0,0)
-		create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
-		viewport = create_textbox.get_node("Viewport")
-		create_textbox.set_texture(viewport.get_texture())
-		create_textbox.set_name("y_textbox")
-		add_child(create_textbox)#Copied the node to new node
-		create_textbox.scale = Vector3(0.5,0.5,0.5)
-		generate_textbox(create_textbox, 0,5,0,"y")
-		for k in 6: 
-			$GridMap3.set_cell_item(0,0,k,0)
-		create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
-		viewport = create_textbox.get_node("Viewport")
-		create_textbox.set_texture(viewport.get_texture())
-		create_textbox.set_name("z_textbox")
-		add_child(create_textbox)#Copied the node to new node
-		create_textbox.scale = Vector3(0.5,0.5,0.5)
-		generate_textbox(create_textbox, -2,0.5,6,"z")
-		$GridMap.clear()
-		
-	
+	_csv_generator()
 	while green_light:
-		
+#		## Check if csv is different than the current csv
+		if csv_flag == false:
+			#print("FALSE!")
+			var check = File.new()
+			if check.file_exists('res://csv_data.csv'):
+				csv_flag = true
+				check.open(file, File.READ)
+				var current_csv = check.get_as_text()
+				check.close()
+				print(stored_csv)
+				if stored_csv != current_csv:
+					_csv_generator()
+					stored_csv = current_csv
+			
+		else:
+			#print("TRUE!")
+			var check = File.new()
+			check.open(file, File.READ)
+			var current_csv = check.get_as_text()
+			check.close()
+			if stored_csv != current_csv:
+				stored_csv = current_csv
+				_csv_generator()
+					
+				
 		_callout()
 		## This will build from one frame
 		#print(stored_value)
@@ -188,6 +160,7 @@ func generate_model(node, x, y, z, width, depth, height, name):
 					var new = get_node("Cortical_area").duplicate()
 					new.set_name(name)
 					add_child(new)
+					global_name_list.append(new)
 					new.transform.origin = Vector3(x_increment+int(x), y_increment+int(y), z_increment+int(z))
 					generate_textbox(node, x,height,z, name)
 
@@ -201,3 +174,74 @@ func adding_cortical_areas(name, x,y,z,width,height,depth):
 	
 func install_voxel_inside(x,y,z):
 	$GridMap.set_cell_item(x,y,z, 0)
+
+func _csv_generator():
+	_clear_node_name_list(global_name_list)
+	var f = File.new() #This is to read each line from the file
+	if f.file_exists('res://csv_data.csv'):
+		f.open(file, File.READ)
+		stored_csv = f.get_as_text()
+		var index = 1
+		while not f.eof_reached(): # iterate through all lines until the end of file is reached
+			var line = f.get_line()
+			if line != "":
+				line += " "
+				#print(line)
+				var CSV_data = line.split(",", true, '0') ##splits into value array per line
+				x = CSV_data[0]
+				y = CSV_data[1]
+				z = CSV_data[2]
+				width= int(CSV_data[3])
+				height = int(CSV_data[4])
+				depth = int(CSV_data[5])
+				name = CSV_data[6]
+				if sign(int(x)) > 0:
+					x_increment = (int(x) / floor_size) + 1
+					for i in x_increment:
+						$Floor_grid.set_cell_item(i*floor_size,0,0,0)
+				if sign(int(x)) < 0:
+					x_increment = (int(x) / floor_size) - 1
+					for i in range(0, x_increment, -1):
+						$Floor_grid.set_cell_item(i*floor_size,0,0,0)
+				if sign(int(z)) >= 0:
+					z_increment = (int(z) / floor_size) + 1
+					for i in z_increment:
+						$Floor_grid.set_cell_item(int(x),0,i*floor_size,0)
+				if sign(int(z)) < 0:
+					z_increment = (int(z) / floor_size) - 1
+					var i = 0
+					while i >= z_increment:
+						$Floor_grid.set_cell_item(int(x),0,i*floor_size,0)
+						i -= 1
+				var copy = duplicate_model.duplicate() 
+				var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
+				var viewport = create_textbox.get_node("Viewport")
+				create_textbox.set_texture(viewport.get_texture())
+				add_child(copy)
+				global_name_list.append(copy)
+				create_textbox.set_name(name + "_textbox")
+				add_child(create_textbox)#Copied the node to new node
+				global_name_list.append(create_textbox)
+				create_textbox.scale = Vector3(1,1,1)
+				generate_model(create_textbox, x,y,z,width, depth, height, name)
+				# copy.queue_free() #This acts like .clear() but for CSGBox
+				if cortical_area.empty(): #Checks if dict is empty
+					adding_cortical_areas(name,x,y,z,height,width,depth) #adding to dict
+					cortical_area_stored = cortical_area
+				elif cortical_area.hash() == cortical_area_stored.hash():
+					adding_cortical_areas(name,x,y,z,height,width,depth)
+				index += 1
+		f.close()
+	else:
+		csv_flag = false
+		
+func _clear_node_name_list(node_name):
+	var list = node_name
+	if list.empty() != true:
+		for search_name in list:
+			print(search_name)
+			search_name.queue_free()
+	global_name_list = []
+	$Floor_grid.clear()
+	
+	
