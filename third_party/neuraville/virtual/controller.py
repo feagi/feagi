@@ -7,7 +7,7 @@ todo: Need to have all of the controller.py modules follow the same convention a
 import router
 import configuration
 from time import time, sleep
-from fake_stimulation import stimulation_data
+from fake_stimulation import raw_stimulation, stimulation_pattern
 from random import randrange, getrandbits
 
 
@@ -26,12 +26,22 @@ class FakeStimulator:
     @staticmethod
     def stimulate(burst_id):
         stimuli = dict()
-        if burst_id in stimulation_data:
+        if burst_id in raw_stimulation:
             print("Cortical_list: ", runtime_params["cortical_list"])
-            for cortical_area in stimulation_data[burst_id]:
+            for cortical_area in raw_stimulation[burst_id]:
                 if cortical_area in runtime_params["cortical_list"]:
-                    stimuli[cortical_area] = stimulation_data[burst_id][cortical_area]
-            return stimuli
+                    stimuli[cortical_area] = raw_stimulation[burst_id][cortical_area]
+        for cortical_area in stimulation_pattern:
+            for pattern in stimulation_pattern[cortical_area]:
+                pattern_burst_range_low = pattern[1][0]
+                pattern_burst_range_high = pattern[1][1]
+                if burst_id in range(pattern_burst_range_low, pattern_burst_range_high):
+                    if cortical_area not in stimuli:
+                        stimuli[cortical_area] = pattern[0]
+                    else:
+                        for item in pattern[0]:
+                            stimuli[cortical_area].append(item)
+        return stimuli
 
 
 def build_message_to_feagi():
