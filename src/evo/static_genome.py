@@ -142,7 +142,7 @@ genome = {
         "_____10c-i__pro-cx-de_gen-f": 0,
         "_____10c-i__pro-cx-dstmap-d": {"t__pro": ["block_to_block", [1, 1, 1], 1, False]},
 
-        "_____10c-t__pro-cx-__name-t": "proximity_ipu",
+        "_____10c-t__pro-cx-__name-t": "proximity_thalamus",
         "_____10c-t__pro-cx-_group-t": "memory",
         "_____10c-t__pro-cx-_n_cnt-i": 1,
         "_____10c-t__pro-nx-gd_vis-b": True,
