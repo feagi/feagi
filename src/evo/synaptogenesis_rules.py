@@ -137,3 +137,36 @@ def randomizer(dst_cortical_area):
                        randrange(0, dst_cortical_dim_z)]
 
     return random_location
+
+
+def lateral_pairs_x(neuron_id, cortical_area):
+    """
+    Identifies lateral pairs on x direction within the same cortical area
+
+    0->1  2->3 ...
+    0<-1  2<-3 ...
+    """
+
+    cortical_dim_x = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][0]
+
+    neuron_block_index_x = runtime_data.brain[cortical_area][neuron_id]['soma_location'][0]
+    neuron_block_index_y = runtime_data.brain[cortical_area][neuron_id]['soma_location'][1]
+    neuron_block_index_z = runtime_data.brain[cortical_area][neuron_id]['soma_location'][2]
+
+    if neuron_block_index_x % 2 == 0:
+        if neuron_block_index_x + 1 < cortical_dim_x:
+            return [neuron_block_index_x + 1, neuron_block_index_y, neuron_block_index_z]
+    else:
+        if neuron_block_index_x - 1 >= 0:
+            return [neuron_block_index_x - 1, neuron_block_index_y, neuron_block_index_z]
+
+
+
+
+
+
+
+
+
+
+
