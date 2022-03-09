@@ -74,6 +74,9 @@ genome = {
         "randomizer": {
             "functions": True
         },
+        "lateral_pairs_x": {
+            "functions": True
+        }
     },
     "species": {
         "parents": {},
