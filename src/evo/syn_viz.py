@@ -131,6 +131,7 @@ max_y = max(cortical_dims[0][1], cortical_dims[1][1])
 max_z = max(cortical_dims[0][2], cortical_dims[1][2])
 
 padding = max_x * 2 + 10
+# padding = 0
 
 max_max = max(2 * max_x + padding, max_y, max_z)
 
@@ -142,7 +143,7 @@ vectors = []
 # prepare some coordinates
 x, y, z = np.indices((max_max, max_max, max_max))
 
-cortical_area_1 = (x < cortical_dims[0][0]) & (y < cortical_dims[0][1]) & (z < cortical_dims[0][2])
+cortical_area_1 = (x < cortical_dims[0][0]) & (z < cortical_dims[0][1]) & (y < cortical_dims[0][2])
 cortical_area_2 = (padding + cortical_dims[0][0] <= x) & \
                   (x < padding + cortical_dims[0][0] + cortical_dims[1][0]) & \
                   (y < cortical_dims[1][1]) & (z < cortical_dims[1][2])
