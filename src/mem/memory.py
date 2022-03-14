@@ -52,7 +52,7 @@ reduced) and incorporated in the new neuroplasticity function (below).
 
 from inf import runtime_data
 from evo.synapse import bidirectional_synapse
-from npu.physiology import list_upstream_neurons, update_upstream_db, synapse
+from npu.physiology import list_upstream_neurons, update_upstream_db, synapse, post_synaptic_current_update
 
 
 def form_memories(cortical_area, src_neuron, dst_neuron):
@@ -147,27 +147,16 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
         # Condition to cap the postsynaptic_current and provide prohibitory reaction
         if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] > \
                 runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]:
-            runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] = \
-                runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]
+            new_postsynaptic_current = runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]
+            post_synaptic_current_update(cortical_area_src=src_cortical_area, cortical_area_dst=dst_cortical_area,
+                                         neuron_id_src=src_neuron_id, neuron_id_dst=dst_neuron_id,
+                                         post_synaptic_current=new_postsynaptic_current)
 
         # Condition to prevent postsynaptic current to become negative
         # todo: consider setting a postsynaptic_min in genome to be used instead of 0
         # Condition to prune a synapse if its postsynaptic_current is zero
         if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] < 0:
             runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id, dst_cortical_area, dst_neuron_id))
-
-        if runtime_data.parameters["Database"]["influx_neuron_stats"]:
-            vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[dst_cortical_area][dst_neuron_id]['soma_location']]
-            dst_mp = runtime_data.brain[dst_cortical_area][dst_neuron_id]["membrane_potential"]
-            runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
-                                                         src_cortical_area=src_cortical_area,
-                                                         dst_cortical_area=dst_cortical_area,
-                                                         src_neuron_id=src_neuron_id,
-                                                         dst_neuron_id=dst_neuron_id,
-                                                         voxel_x=vox_x,
-                                                         voxel_y=vox_y,
-                                                         voxel_z=vox_z,
-                                                         membrane_potential=dst_mp / 1)
 
 
 def neuroplasticity(cfcl, pain_flag):

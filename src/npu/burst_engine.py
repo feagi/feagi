@@ -106,25 +106,6 @@ def burst_manager():
                                     runtime_data.fire_candidate_list,
                                     feeder.injector_num_to_inject)
 
-    def capture_neuron_mp():
-        if runtime_data.parameters["Switches"]["capture_neuron_mp"]:
-            with open(runtime_data.parameters['InitData']['connectome_path'] + '/neuron_mp.csv', 'w') as neuron_mp_file:
-                neuron_mp_writer = csv.writer(neuron_mp_file, delimiter=',')
-                neuron_mp_writer.writerow(('burst_number', 'cortical_layer', 'neuron_id', 'membrane_potential'))
-
-    # def save_fcl_2_disk():
-    #     # todo: * Danger * The following section could cause considerable memory expansion. Need to add limitations.
-    #     # Condition to save FCL data to disk
-    #     user_input_processing(user_input, user_input_param)
-    #     if runtime_data.parameters["Switches"]["capture_brain_activities"]:
-    #         runtime_data.fcl_history[runtime_data.burst_count] = runtime_data.fire_candidate_list
-    #
-    #     if runtime_data.parameters["Switches"]["save_fcl_to_disk"]:
-    #         with open('./fcl_repo/fcl.json', 'w') as fcl_file:
-    #             fcl_file.write(json.dumps(runtime_data.fire_candidate_list))
-    #             fcl_file.truncate()
-    #         sleep(0.5)
-
     def capture_cortical_activity_stats():
         # print('@@@--- Activity Stats:', runtime_data.activity_stats)
         for cortical_area_ in runtime_data.fire_candidate_list:
@@ -159,28 +140,6 @@ def burst_manager():
                           % (cortical_area_, cortical_neuron_count)
                           + settings.Bcolors.ENDC)
 
-    def capture_mem_potential():
-        # todo: This is the part to capture the neuron membrane potential values in a file, still need to figure how
-        if runtime_data.parameters["Switches"]["capture_neuron_mp"]:
-            with open(runtime_data.parameters['InitData']['connectome_path'] + '/neuron_mp.csv', 'a') as neuron_mp_file:
-                neuron_mp_writer = csv.writer(neuron_mp_file,  delimiter=',')
-                new_data = []
-                for cortical_area in runtime_data.fire_candidate_list:
-                    for neuron in runtime_data.fire_candidate_list[cortical_area]:
-                        new_content = (runtime_data.burst_count, cortical_area, neuron,
-                                       runtime_data.brain[cortical_area][neuron]["membrane_potential"])
-                        new_data.append(new_content)
-                neuron_mp_writer.writerows(new_data)
-
-        if runtime_data.parameters["Switches"]["capture_neuron_mp_db"]:
-            new_data = []
-            for cortical_area in runtime_data.fire_candidate_list:
-                for neuron in runtime_data.fire_candidate_list[cortical_area]:
-                    new_content = (runtime_data.burst_count, cortical_area, neuron,
-                                   runtime_data.brain[cortical_area][neuron]["membrane_potential"])
-                    new_data.append(new_content)
-                    runtime_data.mongodb.inset_membrane_potentials(new_content)
-
     def burst_stats(burst_start_time):
         if runtime_data.parameters["Logs"]["print_burst_stats"]:
             for area in runtime_data.brain:
@@ -196,7 +155,6 @@ def burst_manager():
             print("list_upstream___FCL__count_for_digits:", upstream_fcl_stats)
 
             print("Timing : Upstream + common neuron report:", datetime.now() - upstream_report_time)
-
 
         burst_duration = datetime.now() - burst_start_time
         if runtime_data.parameters["Logs"]["print_burst_info"]:
@@ -256,7 +214,7 @@ def burst_manager():
 
     def fire_fcl_contents():
         # time_firing_activities = datetime.now()
-        # todo: replace the hardcoded vision memory statement
+
         if candidate_list_counter(runtime_data.fire_candidate_list) == 0:
             # sleep(float(runtime_data.parameters["Timers"]["idle_burst_timer"]))
             runtime_data.empty_fcl_counter += 1
@@ -268,54 +226,34 @@ def burst_manager():
 
             # fire_queue holds a temporary list of neurons updated during a single burst to determine which to fire
             runtime_data.fire_queue = dict()
+
+            # Fire FCL neurons and pre-process viability of the downstream neurons for firing
             for _ in runtime_data.fire_candidate_list:
-                if "degeneration" in runtime_data.genome['blueprint'][_]:
-                    degeneration_val = runtime_data.genome['blueprint'][_]['degeneration']
-                    if degeneration_val is None:
-                        degeneration_val = 0
-                    while runtime_data.fire_candidate_list[_]:
-                        neuron_to_fire = runtime_data.fire_candidate_list[_].pop()
-                        neuron_pre_fire_processing(_, neuron_to_fire, degenerate=degeneration_val)
+                if "degeneration" not in runtime_data.genome['blueprint'][_]:
+                    degeneration_val = 0
                 else:
-                    while runtime_data.fire_candidate_list[_]:
-                        neuron_to_fire = runtime_data.fire_candidate_list[_].pop()
-                        neuron_pre_fire_processing(_, neuron_to_fire)
+                    degeneration_val = runtime_data.genome['blueprint'][_]['degeneration']
+                while runtime_data.fire_candidate_list[_]:
+                    neuron_to_fire = runtime_data.fire_candidate_list[_].pop()
+                    neuron_pre_fire_processing(_, neuron_to_fire, degenerate=degeneration_val)
 
             # Add neurons to future FCL
             for cortical_area in runtime_data.fire_queue:
                 for neuron_id in runtime_data.fire_queue[cortical_area]:
                     membrane_potential = runtime_data.fire_queue[cortical_area][neuron_id][0]
                     fire_threshold = runtime_data.fire_queue[cortical_area][neuron_id][1]
-                    # Leaky behavior
-                    leak_coefficient = \
-                        runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["leak_coefficient"]
-                    # print("\n\n------->>>>>  ***    ****  *** >>>>>", cortical_area, neuron_id, fire_threshold,
-                    #       membrane_potential, leak_coefficient)
-                    if leak_coefficient > 0:
-                        if not runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"] or \
-                                runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"] < 5:
-                            last_membrane_potential_update = runtime_data.burst_count
-                        else:
-                            last_membrane_potential_update = \
-                                runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"]
-                        if last_membrane_potential_update < runtime_data.burst_count:
-                            leak_window = runtime_data.burst_count - last_membrane_potential_update - 1
-                            # print("***&&&&  Leak window:", leak_window, last_membrane_potential_update)
-                            leak_value = leak_window * leak_coefficient
-                            leak_value = min(leak_value, fire_threshold)
-                            membrane_potential -= leak_value
-                            if membrane_potential < 0:
-                                membrane_potential = 0
 
-                    # Update Membrane potential
-                    runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] = membrane_potential
+                    # When neuron is ready to fire
                     if membrane_potential > fire_threshold and \
                             refractory_check(cortical_area, neuron_id) and \
                             consecutive_fire_threshold_check(cortical_area, neuron_id):
                         # The actual trigger to fire the neuron
                         runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"] = \
                             runtime_data.burst_count
-                        runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] = 0
+                        # Setting the membrane potential of the neuron to 0 after being added to fire list
+                        membrane_potential_update(cortical_area=cortical_area, neuron_id=neuron_id,
+                                                  membrane_potential_change=0, overwrite=True,
+                                                  overwrite_value=0)
                         runtime_data.future_fcl[cortical_area].add(neuron_id)
 
             # Transferring future_fcl to current one and resetting the future one in process
@@ -323,30 +261,6 @@ def burst_manager():
                 runtime_data.fire_candidate_list[_] = \
                     set([item for item in runtime_data.future_fcl[_]])
                 runtime_data.future_fcl[_] = set()
-
-    # def log_neuron_activity_influx():
-    #     if (runtime_data.parameters["Database"]["influxdb_enabled"] and
-    #             runtime_data.influxdb and
-    #             runtime_data.parameters["Database"]["influx_stat_logger"]):
-    #         for _ in runtime_data.fire_candidate_list:
-    #             for neuron in runtime_data.fire_candidate_list[_]:
-    #                 vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[_][neuron]['soma_location']]
-    #                 mp = runtime_data.brain[_][neuron]["neighbors"][destination_neuron]["membrane_potential"]
-    #                 runtime_data.influxdb.insert_neuron_activity(connectome_path=connectome_path,
-    #                                                              cortical_area=_,
-    #                                                              voxel_x=vox_x,
-    #                                                              voxel_y=vox_y,
-    #                                                              voxel_z=vox_z,
-    #                                                              neuron_id=neuron,
-    #                                                              membrane_potential=mp / 1)
-    #                 if runtime_data.parameters["Database"]["influx_synapse_stats"]:
-    #                     for destination_neuron in runtime_data.brain[_][neuron]["neighbors"]:
-    #                         psc = runtime_data.brain[_][neuron]["neighbors"][destination_neuron]["postsynaptic_current"]
-    #                         runtime_data.influxdb.insert_synaptic_activity(connectome_path=connectome_path,
-    #                                                                        cortical_area=_,
-    #                                                                        src_neuron_id=neuron,
-    #                                                                        dst_neuron_id=destination_neuron,
-    #                                                                        post_synaptic_current=psc)
 
     def log_burst_activity_influx():
         if (runtime_data.parameters["Database"]["influxdb_enabled"] and 
@@ -435,6 +349,8 @@ def burst_manager():
         # todo: the following sleep value should be tied to Autopilot status
         sleep(float(runtime_data.burst_timer))
 
+        runtime_data.neuron_leak_dict = {}
+
         burst_start_time = datetime.now()
         log_burst_activity_influx()
         runtime_data.pain_flag = False
@@ -491,8 +407,8 @@ def burst_manager():
         # Resetting burst_manager detection list
         runtime_data.burst_detection_list = {}
 
-        # Capture Neuron Membrane Potential Stats
-        capture_mem_potential()
+        # # Capture Neuron Membrane Potential Stats
+        # capture_mem_potential()
 
         # Prune all prune candidate synapses
         prune_all_candidates()
@@ -558,7 +474,7 @@ def burst_manager():
 
     if runtime_data.parameters["Switches"]["capture_brain_activities"]:
         runtime_data.fcl_history = {}
-    capture_neuron_mp()
+    # capture_neuron_mp()
 
     # Live mode condition
     # todo: This segment to be replaced with auto-pilot code
