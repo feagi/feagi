@@ -469,13 +469,11 @@ def generate_plasticity_dict():
 
     """
     cortical_areas = runtime_data.genome['blueprint']
+
     for area in cortical_areas:
         for mapping_dst in cortical_areas[area]['cortical_mapping_dst']:
-            try:
-                if cortical_areas[area]['cortical_mapping_dst'][mapping_dst][3]:
-                    try:
-                        runtime_data.plasticity_dict[area].add(mapping_dst)
-                    except KeyError:
-                        runtime_data.plasticity_dict[area] = set([mapping_dst])
-            except KeyError:
-                pass
+            if "plasticity_flag" in cortical_areas[area]['cortical_mapping_dst'][mapping_dst]:
+                if cortical_areas[area]['cortical_mapping_dst'][mapping_dst]['plasticity_flag']:
+                    if area not in runtime_data.plasticity_dict:
+                        runtime_data.plasticity_dict[area] = set()
+                    runtime_data.plasticity_dict[area].add(mapping_dst)

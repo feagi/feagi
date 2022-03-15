@@ -22,7 +22,6 @@ brain = {}
 cortical_list = []
 cortical_map = {}
 intercortical_mapping = []
-upstream_neurons = {}
 memory_list = {}
 activity_stats = {}
 temp_neuron_list = []

@@ -23,7 +23,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 3,
-  "iteration": 1647294978559,
+  "iteration": 1647377515425,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -185,7 +185,7 @@
           "measurement": "membranePotential",
           "orderByTime": "ASC",
           "policy": "autogen",
-          "query": "from(bucket: \"data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"synapse\")\n  |> filter(fn: (r) => r[\"_field\"] == \"postSynapticCurrent\" and (r[\"src_cortical_area\"] =~ /^${src_cortical_area:regex}$/ or r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/))\n  |> filter(fn: (r) => r[\"src_neuron_id\"] =~ /^${src_neuron_id:regex}$/ and r[\"dst_neuron_id\"] =~ /^${dst_neuron_id:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
+          "query": "from(bucket: \"data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"synapse\")\n  |> filter(fn: (r) => r[\"_field\"] == \"postSynapticCurrent\" and (r[\"src_cortical_area\"] =~ /^${src_cortical_area:regex}$/ or r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/))\n  |> filter(fn: (r) => r[\"src_neuron_id\"] =~ /^${src_neuron_id:regex}$/ and r[\"dst_neuron_id\"] =~ /^${dst_neuron_id:regex}$/)\n  |> drop(columns:[\"connectome\"])\n  |> yield(name: \"mean\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -278,7 +278,7 @@
       "type": "gauge"
     }
   ],
-  "refresh": "1s",
+  "refresh": "",
   "schemaVersion": 32,
   "style": "dark",
   "tags": [],
@@ -483,7 +483,7 @@
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-5m",
     "to": "now"
   },
   "timepicker": {
@@ -503,5 +503,5 @@
   "timezone": "",
   "title": "FEAGI Brain Activity Analyzer",
   "uid": "Se3OI7f7k",
-  "version": 37
+  "version": 39
 }

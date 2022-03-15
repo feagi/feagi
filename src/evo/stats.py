@@ -150,59 +150,59 @@ def candidate_list_counter(candidate_list):
     return count
 
 
-def list_upstream_neuron_count_for_digits(digit='all', mode=0):
-    # function_start_time = datetime.now()
-    results = []
-    fcl_results = []
-
-    if digit == 'all':
-        for _ in range(10):
-            # results.append([_, len(list_
-            #                        upstream_neurons('utf8_memory', runtime_data.top_10_utf_memory_neurons[_][1]))])
-            neuron_id = runtime_data.top_10_utf_memory_neurons[_][1]
-            if 'utf8_memory' in runtime_data.upstream_neurons:
-                if neuron_id in runtime_data.upstream_neurons['utf8_memory']:
-                    if 'vision_memory' in runtime_data.upstream_neurons['utf8_memory'][neuron_id]:
-                        results.append([_,
-                                        len(runtime_data.upstream_neurons['utf8_memory'][neuron_id]['vision_memory'])])
-                        if runtime_data.upstream_neurons['utf8_memory'][neuron_id]['vision_memory']:
-                            counter = 0
-                            for neuron in runtime_data.upstream_neurons['utf8_memory'][neuron_id]['vision_memory']:
-                                if neuron in runtime_data.fire_candidate_list['vision_memory']:
-                                    counter += 1
-                            fcl_results.append([_, counter])
-                        else:
-                            fcl_results.append([_, 0])
-                    else:
-                        results.append([_, 0])
-                        fcl_results.append([_, 0])
-                else:
-                    results.append([_, 0])
-                    fcl_results.append([_, 0])
-            else:
-                results.append([_, 0])
-                fcl_results.append([_, 0])
-    else:
-        neuron_id = runtime_data.top_10_utf_memory_neurons[digit][1]
-        if 'utf8_memory' in runtime_data.upstream_neurons:
-            if neuron_id in runtime_data.upstream_neurons['utf8_memory']:
-                if 'vision_memory' in runtime_data.upstream_neurons['utf8_memory'][neuron_id]:
-                    results.append([digit,
-                                    len(runtime_data.upstream_neurons['utf8_memory'][neuron_id]['vision_memory'])])
-                else:
-                    results.append([digit, 0])
-            else:
-                results.append([digit, 0])
-        else:
-            results.append([digit, 0])
-    # print("Timing : list_upstream_neuron_count_for_digits:", datetime.now()-function_start_time)
-
-    if mode == 0:
-        print("&& && & &&& && && & : The mode is == 0")
-        return results
-    else:
-        print("&& && & &&& && && & : The mode is != 0")
-        return results, fcl_results
+# def list_upstream_neuron_count_for_digits(digit='all', mode=0):
+#     # function_start_time = datetime.now()
+#     results = []
+#     fcl_results = []
+#
+#     if digit == 'all':
+#         for _ in range(10):
+#             # results.append([_, len(list_
+#             #                        upstream_neurons('utf8_memory', runtime_data.top_10_utf_memory_neurons[_][1]))])
+#             neuron_id = runtime_data.top_10_utf_memory_neurons[_][1]
+#             if 'utf8_memory' in runtime_data.upstream_neurons:
+#                 if neuron_id in runtime_data.upstream_neurons['utf8_memory']:
+#                     if 'vision_memory' in runtime_data.upstream_neurons['utf8_memory'][neuron_id]:
+#                         results.append([_,
+#                                         len(runtime_data.upstream_neurons['utf8_memory'][neuron_id]['vision_memory'])])
+#                         if runtime_data.upstream_neurons['utf8_memory'][neuron_id]['vision_memory']:
+#                             counter = 0
+#                             for neuron in runtime_data.upstream_neurons['utf8_memory'][neuron_id]['vision_memory']:
+#                                 if neuron in runtime_data.fire_candidate_list['vision_memory']:
+#                                     counter += 1
+#                             fcl_results.append([_, counter])
+#                         else:
+#                             fcl_results.append([_, 0])
+#                     else:
+#                         results.append([_, 0])
+#                         fcl_results.append([_, 0])
+#                 else:
+#                     results.append([_, 0])
+#                     fcl_results.append([_, 0])
+#             else:
+#                 results.append([_, 0])
+#                 fcl_results.append([_, 0])
+#     else:
+#         neuron_id = runtime_data.top_10_utf_memory_neurons[digit][1]
+#         if 'utf8_memory' in runtime_data.upstream_neurons:
+#             if neuron_id in runtime_data.upstream_neurons['utf8_memory']:
+#                 if 'vision_memory' in runtime_data.upstream_neurons['utf8_memory'][neuron_id]:
+#                     results.append([digit,
+#                                     len(runtime_data.upstream_neurons['utf8_memory'][neuron_id]['vision_memory'])])
+#                 else:
+#                     results.append([digit, 0])
+#             else:
+#                 results.append([digit, 0])
+#         else:
+#             results.append([digit, 0])
+#     # print("Timing : list_upstream_neuron_count_for_digits:", datetime.now()-function_start_time)
+#
+#     if mode == 0:
+#         print("&& && & &&& && && & : The mode is == 0")
+#         return results
+#     else:
+#         print("&& && & &&& && && & : The mode is != 0")
+#         return results, fcl_results
 
 
 # def list_top_n_utf_memory_neurons(cortical_area, n):
@@ -219,20 +219,20 @@ def list_upstream_neuron_count_for_digits(digit='all', mode=0):
 #     print("ERROR: Something went wrong in list_top_n_utf_memory_neurons")
 
 
-def list_common_upstream_neurons(neuron_a, neuron_b):
-    common_neuron_list = []
-
-    try:
-        neuron_a_upstream_neurons = runtime_data.upstream_neurons['utf8_memory'][neuron_a]['vision_memory']
-        neuron_b_upstream_neurons = runtime_data.upstream_neurons['utf8_memory'][neuron_b]['vision_memory']
-        for neuron in neuron_a_upstream_neurons:
-            if neuron in neuron_b_upstream_neurons:
-                common_neuron_list.append(neuron)
-        return common_neuron_list
-
-    except:
-        pass
-
+# def list_common_upstream_neurons(neuron_a, neuron_b):
+#     common_neuron_list = []
+#
+#     try:
+#         neuron_a_upstream_neurons = runtime_data.upstream_neurons['utf8_memory'][neuron_a]['vision_memory']
+#         neuron_b_upstream_neurons = runtime_data.upstream_neurons['utf8_memory'][neuron_b]['vision_memory']
+#         for neuron in neuron_a_upstream_neurons:
+#             if neuron in neuron_b_upstream_neurons:
+#                 common_neuron_list.append(neuron)
+#         return common_neuron_list
+#
+#     except:
+#         pass
+#
 
 def voxel_dict_summary(voxel_dict, cortical_area=[], verbose=False):
     """
