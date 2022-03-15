@@ -60,15 +60,26 @@ def synapse(cortical_area, src_id, dst_cortical_area, dst_id):
 
         # Calculating the effective postSynapticCurrent(PSC) value
         # PSC with negative value will have an inhibitory effect
-        postsynaptic_current = \
-            runtime_data.genome['blueprint'][cortical_area]["postsynaptic_current"] * \
-            runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][
+
+
+        if dst_cortical_area not in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
+
+            psc_multiplier = 1
+        else:
+            psc_multiplier = runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][
                 dst_cortical_area]["postSynapticCurrent_multiplier"]
+
+        postsynaptic_current = \
+            runtime_data.genome['blueprint'][cortical_area]["postsynaptic_current"] * psc_multiplier
+
 
         runtime_data.brain[cortical_area][src_id]["neighbors"][dst_id] = \
             {"cortical_area": dst_cortical_area, "postsynaptic_current": postsynaptic_current}
 
         # Adding upstream neuron list to the brain
+        if "upstream_neurons" not in runtime_data.brain[dst_cortical_area][dst_id]:
+            runtime_data.brain[dst_cortical_area][dst_id]["upstream_neurons"] = {}
+
         if cortical_area not in runtime_data.brain[dst_cortical_area][dst_id]["upstream_neurons"]:
             runtime_data.brain[dst_cortical_area][dst_id]["upstream_neurons"][cortical_area] = list()
         if src_id not in runtime_data.brain[dst_cortical_area][dst_id]["upstream_neurons"][cortical_area]:
