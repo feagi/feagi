@@ -229,7 +229,8 @@ def burst_manager():
 
             # Fire FCL neurons and pre-process viability of the downstream neurons for firing
             for _ in runtime_data.fire_candidate_list:
-                if "degeneration" not in runtime_data.genome['blueprint'][_]:
+                if "degeneration" not in runtime_data.genome['blueprint'][_] or \
+                        runtime_data.genome['blueprint'][_]['degeneration'] is None:
                     degeneration_val = 0
                 else:
                     degeneration_val = runtime_data.genome['blueprint'][_]['degeneration']
