@@ -103,11 +103,13 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
 
         if degenerate > 0:
             # reduce neuron postsynaptic current by degeneration value defined in genome (if applicable)
-            runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] -= \
-                degenerate
-            if runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] < 0:
-                runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] = 0
-
+            new_psc = runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] \
+                      - degenerate
+            if new_psc < 0:
+                new_psc = 0
+            post_synaptic_current_update(cortical_area_src=cortical_area, cortical_area_dst=dst_cortical_area,
+                                         neuron_id_src=neuron_id, neuron_id_dst=dst_neuron_id,
+                                         post_synaptic_current=new_psc)
         neuron_output = activation_function(postsynaptic_current)
 
         # Update function
@@ -205,7 +207,6 @@ def post_synaptic_current_update(cortical_area_src,
     """
     runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"][neuron_id_dst]["postsynaptic_current"] = \
         post_synaptic_current
-
     if runtime_data.parameters["Database"]["influx_synapse_stats"]:
         for destination_neuron in runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"]:
             psc = runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"][
@@ -276,7 +277,7 @@ def pruner(pruning_data):
     cortical_area_src, src_neuron_id, cortical_area_dst, dst_neuron_id = pruning_data
     runtime_data.brain[cortical_area_src][src_neuron_id]['neighbors'].pop(dst_neuron_id, None)
 
-    runtime_data.upstream_neurons[cortical_area_dst][dst_neuron_id][cortical_area_src].remove(src_neuron_id)
+    runtime_data.brain[cortical_area_dst][dst_neuron_id]["upstream_neurons"][cortical_area_src].remove(src_neuron_id)
     if dst_neuron_id in runtime_data.temp_neuron_list:
         runtime_data.temp_neuron_list.remove(dst_neuron_id)
 
@@ -303,18 +304,5 @@ def prune_all_candidates():
 
 
 def list_upstream_neurons(cortical_area, neuron_id):
-    if cortical_area in runtime_data.upstream_neurons:
-        if neuron_id in runtime_data.upstream_neurons[cortical_area]:
-            return runtime_data.upstream_neurons[cortical_area][neuron_id]
-    return {}
+    return runtime_data.brain[cortical_area][neuron_id]["upstream_neurons"]
 
-
-def update_upstream_db(src_cortical_area, src_neuron_id, dst_cortical_area, dst_neuron_id):
-    # if dst_cortical_area not in runtime_data.upstream_neurons:
-    #     runtime_data.upstream_neurons[dst_cortical_area] = {}
-    if dst_neuron_id not in runtime_data.upstream_neurons[dst_cortical_area]:
-        runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id] = {}
-    if src_cortical_area not in runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id]:
-        runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id][src_cortical_area] = set()
-    if src_neuron_id not in runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id][src_cortical_area]:
-        runtime_data.upstream_neurons[dst_cortical_area][dst_neuron_id][src_cortical_area].add(src_neuron_id)

@@ -98,7 +98,7 @@ def burst_manager():
         runtime_data.fire_candidate_list[cortical_area_] = set()
         runtime_data.future_fcl[cortical_area_] = set()
         runtime_data.previous_fcl[cortical_area_] = set()
-        runtime_data.upstream_neurons[cortical_area_] = {}
+        # runtime_data.upstream_neurons[cortical_area_] = {}
 
     def save_fcl_2_dsk():
         if runtime_data.parameters["Switches"]["save_fcl_to_db"]:
@@ -403,7 +403,7 @@ def burst_manager():
 
         # Forming memories through creation of cell assemblies
         # todo: instead of passing a pain flag simply detect of pain neuron is activated
-        neuroplasticity(runtime_data.fire_candidate_list, runtime_data.pain_flag)
+        neuroplasticity()
 
         # Resetting burst_manager detection list
         runtime_data.burst_detection_list = {}
