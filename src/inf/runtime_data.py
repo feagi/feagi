@@ -72,7 +72,6 @@ burst_activities = {}
 opu_data = {}
 cortical_dimensions = {}
 voxel_dict = {}
-neuron_leak_dict = {}
 
 # rules = ""
 brain_is_running = False

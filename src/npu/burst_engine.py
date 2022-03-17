@@ -241,7 +241,8 @@ def burst_manager():
             # Add neurons to future FCL
             for cortical_area in runtime_data.fire_queue:
                 for neuron_id in runtime_data.fire_queue[cortical_area]:
-                    membrane_potential = runtime_data.fire_queue[cortical_area][neuron_id][0]
+                    leak_amount = neuron_leak(cortical_area=cortical_area, neuron_id=neuron_id)
+                    membrane_potential = runtime_data.fire_queue[cortical_area][neuron_id][0] - leak_amount
                     fire_threshold = runtime_data.fire_queue[cortical_area][neuron_id][1]
 
                     # When neuron is ready to fire
@@ -256,6 +257,18 @@ def burst_manager():
                                                   membrane_potential_change=0, overwrite=True,
                                                   overwrite_value=0)
                         runtime_data.future_fcl[cortical_area].add(neuron_id)
+
+                    elif membrane_potential < 0:
+                        # Setting the membrane potential of the neuron to 0 as the least allowable mp level
+                        membrane_potential_update(cortical_area=cortical_area, neuron_id=neuron_id,
+                                                  membrane_potential_change=0, overwrite=True,
+                                                  overwrite_value=0)
+
+                    else:
+                        runtime_data.brain[cortical_area][neuron_id]["residual_membrane_potential"] = membrane_potential
+                        membrane_potential_update(cortical_area=cortical_area, neuron_id=neuron_id,
+                                                  membrane_potential_change=0, overwrite=True,
+                                                  overwrite_value=membrane_potential)
 
             # Transferring future_fcl to current one and resetting the future one in process
             for _ in runtime_data.future_fcl:

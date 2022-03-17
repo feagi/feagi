@@ -103,8 +103,8 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
 
         if degenerate > 0:
             # reduce neuron postsynaptic current by degeneration value defined in genome (if applicable)
-            new_psc = runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] \
-                      - degenerate
+            new_psc = runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
+            new_psc -= degenerate
             if new_psc < 0:
                 new_psc = 0
             post_synaptic_current_update(cortical_area_src=cortical_area, cortical_area_dst=dst_cortical_area,
@@ -118,7 +118,7 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
 
         # Update membrane potential of the downstream neuron
         membrane_potential_update(cortical_area=dst_cortical_area, neuron_id=dst_neuron_id,
-                                  membrane_potential_change=neuron_output/neighbor_count)
+                                  membrane_potential_change=neuron_output/neighbor_count, bypass_db_log=True)
 
         # Update the fire_queue that holds a temporary list of all updated neurons across the brain during a burst
         if dst_cortical_area not in runtime_data.fire_queue:
@@ -141,50 +141,40 @@ def neuron_leak(cortical_area, neuron_id):
     # Keeping track of the leak occurrences during a burst to prevent duplicate leaks across multiple update cycles
     # within the same burst
     leak_value = 0
-    if cortical_area not in runtime_data.neuron_leak_dict:
-        runtime_data.neuron_leak_dict[cortical_area] = set()
 
-    if neuron_id not in runtime_data.neuron_leak_dict[cortical_area]:
-        runtime_data.neuron_leak_dict[cortical_area].add(neuron_id)
+    # Leaky behavior
+    leak_coefficient = \
+        runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["leak_coefficient"]
+    if leak_coefficient > 0:
+        if not runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] or \
+                runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] < 5:
+            last_membrane_potential_update = runtime_data.burst_count
+        else:
+            last_membrane_potential_update = \
+                runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"]
+        if last_membrane_potential_update < runtime_data.burst_count:
+            leak_window = runtime_data.burst_count - last_membrane_potential_update
+            leak_value = leak_window * leak_coefficient
 
-        # Leaky behavior
-        leak_coefficient = \
-            runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["leak_coefficient"]
-        if leak_coefficient > 0:
-            fire_threshold = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["firing_threshold"]
-            if not runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] or \
-                    runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] < 5:
-                last_membrane_potential_update = runtime_data.burst_count
-            else:
-                last_membrane_potential_update = \
-                    runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"]
-            if last_membrane_potential_update < runtime_data.burst_count:
-                leak_window = runtime_data.burst_count - last_membrane_potential_update
-                leak_value = leak_window * leak_coefficient
-
-                # Capping the leak to the max allowable membrane potential
-                leak_value = min(leak_value, fire_threshold)
+            # Capping the leak to the max allowable membrane potential
+            leak_value = min(leak_value, runtime_data.brain[cortical_area][neuron_id]["residual_membrane_potential"])
     return leak_value
 
 
-def membrane_potential_update(cortical_area, neuron_id, membrane_potential_change, overwrite=False, overwrite_value=0):
+def membrane_potential_update(cortical_area, neuron_id, membrane_potential_change, overwrite=False, overwrite_value=0,
+                              bypass_db_log=False):
     """
     Responsible for updating the membrane potential of each neuron
     """
-    leak_amount = neuron_leak(cortical_area=cortical_area, neuron_id=neuron_id)
 
-    previous_mp = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
-    runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] += membrane_potential_change - leak_amount
-
-    if runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] < 0:
-        runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] = 0
+    runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] += membrane_potential_change
 
     if overwrite:
         runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] = overwrite_value
 
     runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] = runtime_data.burst_count
 
-    if runtime_data.parameters["Database"]["influx_neuron_stats"]:
+    if runtime_data.parameters["Database"]["influx_neuron_stats"] and not bypass_db_log:
         vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
         dst_mp = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
         # Note: dst_cortical_area is fed to the src_cortical_area field since the membrane potential of dst changes
