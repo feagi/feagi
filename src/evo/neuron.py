@@ -84,6 +84,7 @@ def init_neuron(cortical_area, soma_location):
     runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"] = 0
 
     runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] = 0
+    runtime_data.brain[cortical_area][neuron_id]["residual_membrane_potential"] = 0
 
     #   runtime_data.brain[cortical_area][neuron_id]["group_id"] = ""
     #  consider using the group name part of Genome instead
