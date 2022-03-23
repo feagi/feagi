@@ -195,7 +195,7 @@ def create_neuron(cortical_area, voxel):
     neuron_location = block_ref_2_id(voxel)
 
     # Create a new Neuron in target destination
-    for _ in range(neuron_count):
+    for _ in range(int(neuron_count)):
         neuron_id = init_neuron(cortical_area=cortical_area, soma_location=neuron_location)
         runtime_data.voxel_dict[cortical_area][voxel].add(neuron_id)
 

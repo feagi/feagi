@@ -22,8 +22,8 @@ This module contains functions related to genome handling mainly inspired by nat
 import datetime
 import random
 import string
-from inf import db_handler, settings, runtime_data
 from math import floor
+from inf import db_handler, settings, runtime_data
 
 
 def selection():
@@ -74,8 +74,6 @@ def select_a_genome():
         candidate_genome, original_genome_id = highest_fitness_genome()
         genome = mutate(candidate_genome)
 
-    # elif random_selector == 6:
-    #     genome =
     print(">> >> >> >> The genome id used for brain generation is: ", original_genome_id)
     return genome, original_genome_id
 
@@ -277,10 +275,7 @@ def mutate(genome):
     blueprint = genome["blueprint"]
     cortical_list = []
     for key in blueprint:
-        # Condition to black-list select regions from mutation such as UTF
-        if genome["blueprint"][key]["group_id"] == 'vision' or \
-                (genome["blueprint"][key]["group_id"] == 'Memory' and
-                 genome["blueprint"][key]["sub_group_id"] == 'vision'):
+        if is_evolvable(key):
             cortical_list.append(key)
 
     print("#@#@#@# $$$ Mutation is about to take place on the following cortical regions:\n", cortical_list)
@@ -297,6 +292,11 @@ def mutate(genome):
         genome = GeneModifier.change_snooze_length(genome, cortical_area, factor_5)
         genome = GeneModifier.change_vision_plasticity_constant(genome, factor_8)
     return genome
+
+
+def is_evolvable(gene):
+    """Parses gene to determine if it is candidate for evolution"""
+    return int(gene.split("-")[0][-2])
 
 
 def get_genome_candidate():
@@ -320,9 +320,6 @@ def crossover():
     original_genome_id = []
     original_genome_id.append(genome_1['genome_id'])
     original_genome_id.append(genome_2['genome_id'])
-
-    genome_1 = genome_1["properties"]
-    genome_2 = genome_2["properties"]
 
     genome_1_keys = []
     for key in genome_1["blueprint"].keys():
@@ -349,7 +346,7 @@ def random_genome():
     # print("this is the random genome", genome)
     original_genome_id = []
     original_genome_id.append(genome['genome_id'])
-    return genome['properties'], original_genome_id
+    return genome, original_genome_id
 
 
 def latest_genome():
@@ -362,7 +359,7 @@ def latest_genome():
         original_genome_id.append(genome['genome_id'])
     except KeyError:
         print("\n\n\nERROR: KeyError while appending genome_id to original_genome_id\n\n\n")
-    return genome['properties'], original_genome_id
+    return genome, original_genome_id
 
 
 def highest_fitness_genome():
@@ -370,7 +367,7 @@ def highest_fitness_genome():
     genome = runtime_data.mongodb.highest_fitness_genome()
     original_genome_id = []
     original_genome_id.append(genome['genome_id'])
-    return genome['properties'], original_genome_id
+    return genome, original_genome_id
 
 
 def translate_genotype2phenotype():

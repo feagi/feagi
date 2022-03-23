@@ -302,8 +302,6 @@ def init_burst_engine():
 
     print(runtime_data.parameters['Switches']['use_static_genome'])
 
-    disk_ops.genome_handler(runtime_data.parameters['InitData']['connectome_path'])
-
     runtime_data.termination_flag = False
 
     runtime_data.burst_timer = float(runtime_data.parameters["Timers"]["burst_timer"])
