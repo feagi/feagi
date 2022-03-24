@@ -161,12 +161,19 @@ def lateral_pairs_x(neuron_id, cortical_area):
             return [neuron_block_index_x - 1, neuron_block_index_y, neuron_block_index_z]
 
 
+def block_connection(src_cortical_area, dst_cortical_area, src_neuron_id, s=10):
+    """
+        voxel x to x+s from source connected to voxel x//s from destination on the axis x
+    """
+    src_cortical_dim_x = runtime_data.genome['blueprint'][src_cortical_area]['neuron_params']['block_boundaries'][0]
+    dst_cortical_dim_x = runtime_data.genome['blueprint'][dst_cortical_area]['neuron_params']['block_boundaries'][0]
 
+    if src_cortical_dim_x != dst_cortical_dim_x * s:
+        print("Warning: %s and %s do not have matching blocks on x dim to support the needed synaptogenesis!"
+              % (src_cortical_area, dst_cortical_area))
 
+    neuron_block_index_x = runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][0]
+    neuron_block_index_y = runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1]
+    neuron_block_index_z = runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][2]
 
-
-
-
-
-
-
+    return [neuron_block_index_x // s, neuron_block_index_y, neuron_block_index_z]
