@@ -25,7 +25,48 @@ artificial brain at a time. To scale up the system to many parallel generations,
 is intended to run within a container and scale up to many container instances.
 """
 
-if __name__ == '__main__':
+from fastapi import FastAPI
+from pydantic import BaseModel
+from typing import Optional
+
+
+def splash_screen():
+    print("""\n
+          _________           _________               __                ______               _____    
+         |_   ___  |         |_   ___  |             /  \             .' ___  |             |_   _|   
+           | |_  \_|           | |_  \_|            / /\ \           / .'   \_|               | |     
+           |  _|               |  _|  _            / ____ \          | |    ____              | |     
+          _| |_               _| |___/ |         _/ /    \ \_        \ `.___]  _|            _| |_    
+         |_____|             |_________|        |____|  |____|        `._____.'             |_____|   
+    """)
+
+
+splash_screen()
+
+
+app = FastAPI()
+
+
+class FEAGI(BaseModel):
+    begin: Optional[bool]
+
+
+@app.api_route("/v1/feagi", methods=['GET', 'POST', 'PUT', 'DELETE'])
+async def feagi_management(feagi: FEAGI):
+    function_status = False
+    if feagi.begin:
+        start()
+        print("This is where we call the function to start robot container and have it associated with environment_id",
+              feagi.begin)
+        # placeholder for collecting the robot instance creation status
+        function_status = True
+    if function_status:
+        return {"FEAGI was successfully started."}
+    else:
+        return {"FEAGI start failed ... error details to be provided here"}
+
+
+def start():
     import logging.config
     import json
     import os
@@ -46,17 +87,6 @@ if __name__ == '__main__':
             LOGGING_CONFIG['handlers']['file']['filename'] = win_temp_dir
         logging.config.dictConfig(LOGGING_CONFIG)
 
-    def splash_screen():
-        print("""\n
-              _________           _________               __                ______               _____    
-             |_   ___  |         |_   ___  |             /  \             .' ___  |             |_   _|   
-               | |_  \_|           | |_  \_|            / /\ \           / .'   \_|               | |     
-               |  _|               |  _|  _            / ____ \          | |    ____              | |     
-              _| |_               _| |___/ |         _/ /    \ \_        \ `.___]  _|            _| |_    
-             |_____|             |_________|        |____|  |____|        `._____.'             |_____|   
-        """)
-
-    splash_screen()
 
     exit_condition = False
 
