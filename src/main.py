@@ -55,7 +55,7 @@ class FEAGI(BaseModel):
 async def feagi_management(feagi: FEAGI):
     function_status = False
     if feagi.begin:
-        start()
+        start_feagi()
         print("This is where we call the function to start robot container and have it associated with environment_id",
               feagi.begin)
         # placeholder for collecting the robot instance creation status
@@ -66,7 +66,7 @@ async def feagi_management(feagi: FEAGI):
         return {"FEAGI start failed ... error details to be provided here"}
 
 
-def start():
+def start_feagi():
     import logging.config
     import json
     import os
