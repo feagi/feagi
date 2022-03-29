@@ -54,6 +54,12 @@ def cortical_group_members(group):
 def burst_manager():
     """This function behaves as instance of Neuronal activities"""
 
+    def api_message_processor():
+
+
+        return
+
+
     def burst_duration_calculator(controller_capabilities):
         """
         Analyzes controller capabilities and sets the burst duration in a way to support the fastest device
@@ -360,6 +366,12 @@ def burst_manager():
         pass
 
     def burst():
+        if runtime_data.api_queue.empty():
+            pass
+        else:
+            api_message = runtime_data.api_queue.get()
+            print(api_message)
+
         # todo: the following sleep value should be tied to Autopilot status
         sleep(float(runtime_data.burst_timer))
 
