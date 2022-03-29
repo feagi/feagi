@@ -73,6 +73,11 @@ opu_data = {}
 cortical_dimensions = {}
 voxel_dict = {}
 
+
+# Queues
+api_queue = None
+
+
 # rules = ""
 brain_is_running = False
 
