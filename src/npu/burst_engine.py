@@ -55,20 +55,29 @@ def burst_manager():
     """This function behaves as instance of Neuronal activities"""
 
     def api_message_processor(api_message):
+        """
+        Processes the incoming API calls to FEAGI
+        """
         if 'burst_management' in api_message:
             if 'burst_duration' in api_message['burst_management']:
                 if api_message['burst_management']['burst_duration'] is not None:
                     runtime_data.burst_timer = api_message['burst_management']['burst_duration']
-        elif 'log_management' in api_message:
+        if 'log_management' in api_message:
             if 'print_burst_info' in api_message['log_management']:
                 runtime_data.parameters['Logs']['print_burst_info'] \
                     = api_message['log_management']['print_burst_info']
             if 'print_messenger_logs' in api_message['log_management']:
                 runtime_data.parameters['Logs']['print_messenger_logs'] \
                     = api_message['log_management']['print_messenger_logs']
-
+        if 'connectome_snapshot' in api_message:
+            if 'snapshot' in api_message['connectome_snapshot']:
+                if api_message['connectome_snapshot']['snapshot']:
+                    if api_message['connectome_snapshot']['save_to']:
+                        disk_ops.save_brain_to_disk(connectome_path=api_message['connectome_snapshot']['save_to'],
+                                                    backup=True)
+                    else:
+                        disk_ops.save_brain_to_disk()
         return
-
 
     def burst_duration_calculator(controller_capabilities):
         """
