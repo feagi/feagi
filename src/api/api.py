@@ -26,22 +26,27 @@ api_queue = Queue()
 feagi_thread = Thread(target=start_feagi, args=(api_queue,))
 
 
-class FeagiAdmin(BaseModel):
+class Admin(BaseModel):
     online: Optional[bool]
 
 
-class FeagiLogs(BaseModel):
+class Logs(BaseModel):
     print_burst_info: Optional[bool]
     print_messenger_logs: Optional[bool]
     print_brain_gen_activities: Optional[bool]
 
 
-class FeagiBurstEngine(BaseModel):
+class BurstEngine(BaseModel):
     burst_duration: Optional[float]
 
 
+class ConnectomeSnapshot(BaseModel):
+    snapshot: bool
+    save_to: str
+
+
 @app.api_route("/v1/feagi/feagi/system", methods=['POST'])
-async def feagi_management(message: FeagiAdmin):
+async def feagi_management(message: Admin):
     try:
         if message.online:
             feagi_thread.start()
@@ -54,7 +59,7 @@ async def feagi_management(message: FeagiAdmin):
 
 
 @app.api_route("/v1/feagi/feagi/logs", methods=['POST'])
-async def log_management(message: FeagiLogs):
+async def log_management(message: Logs):
     try:
         message = message.dict()
         message = {"log_management": message}
@@ -65,10 +70,21 @@ async def log_management(message: FeagiLogs):
 
 
 @app.api_route("/v1/feagi/feagi/burst_engine", methods=['POST'])
-async def burst_management(message: FeagiBurstEngine):
+async def burst_management(message: BurstEngine):
     try:
         message = message.dict()
         message = {'burst_management': message}
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/connectome/snapshot", methods=['POST'])
+async def brain_management(message: ConnectomeSnapshot):
+    try:
+        message = message.dict()
+        message = {'connectome_snapshot': message}
         api_queue.put(item=message)
         return {"Request sent!"}
     except Exception as e:
