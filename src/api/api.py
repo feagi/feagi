@@ -36,14 +36,13 @@ class FeagiLogs(BaseModel):
     print_brain_gen_activities: Optional[bool]
 
 
-@app.api_route("/v1/feagi/feagi/start", methods=['POST'])
+class FeagiBurstEngine(BaseModel):
+    burst_duration: Optional[float]
+
+
+@app.api_route("/v1/feagi/feagi/system", methods=['POST'])
 async def feagi_management(message: FeagiAdmin):
     try:
-        # obj = 'feagi'
-        # end_pnt = 'start'
-        # message_to_feagi = {obj, end_pnt, message}
-        # api_queue.put(item=message_to_feagi)
-
         if message.online:
             feagi_thread.start()
             return {"FEAGI Started!"}
@@ -57,10 +56,20 @@ async def feagi_management(message: FeagiAdmin):
 @app.api_route("/v1/feagi/feagi/logs", methods=['POST'])
 async def log_management(message: FeagiLogs):
     try:
-        obj = 'feagi'
-        end_pnt = 'logs'
-        message_to_feagi = [obj, end_pnt, message]
-        api_queue.put(item=message_to_feagi)
+        message = message.dict()
+        message = {"log_management": message}
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/burst_engine", methods=['POST'])
+async def burst_management(message: FeagiBurstEngine):
+    try:
+        message = message.dict()
+        message = {'burst_management': message}
+        api_queue.put(item=message)
         return {"Request sent!"}
     except Exception as e:
         return {"Request failed...", e}
