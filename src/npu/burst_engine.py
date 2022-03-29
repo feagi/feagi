@@ -54,8 +54,18 @@ def cortical_group_members(group):
 def burst_manager():
     """This function behaves as instance of Neuronal activities"""
 
-    def api_message_processor():
-
+    def api_message_processor(api_message):
+        if 'burst_management' in api_message:
+            if 'burst_duration' in api_message['burst_management']:
+                if api_message['burst_management']['burst_duration'] is not None:
+                    runtime_data.burst_timer = api_message['burst_management']['burst_duration']
+        elif 'log_management' in api_message:
+            if 'print_burst_info' in api_message['log_management']:
+                runtime_data.parameters['Logs']['print_burst_info'] \
+                    = api_message['log_management']['print_burst_info']
+            if 'print_messenger_logs' in api_message['log_management']:
+                runtime_data.parameters['Logs']['print_messenger_logs'] \
+                    = api_message['log_management']['print_messenger_logs']
 
         return
 
@@ -371,6 +381,7 @@ def burst_manager():
         else:
             api_message = runtime_data.api_queue.get()
             print(api_message)
+            api_message_processor(api_message)
 
         # todo: the following sleep value should be tied to Autopilot status
         sleep(float(runtime_data.burst_timer))
