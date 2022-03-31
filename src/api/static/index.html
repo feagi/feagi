@@ -152,6 +152,27 @@
     </head>
 
     <body>
+        <script>
+            function handleFormSubmit(event) {
+              event.preventDefault();
+
+              const data = new FormData(event.target);
+
+              const formJSON = Object.fromEntries(data.entries());
+
+              // for multi-selects, we need special handling
+              formJSON.snacks = data.getAll('snacks');
+
+              const results = document.querySelector('.results pre');
+              results.innerText = JSON.stringify(formJSON, null, 2);
+            }
+
+            const form = document.querySelector('.contact-form');
+            form.addEventListener('submit', handleFormSubmit);
+        </script>
+
+        <section class="contact-form">
+
         <div class="header">
               <a href="https://neuraville.com/wp-content/uploads/2020/09/Design-10-27-2020-09.54-AM-copy.svg" class="logo">Framework for Evolutionary Artificial General Intelligence (FEAGI)</a>
               <div class="header-right">
@@ -161,16 +182,16 @@
               </div>
         </div>
 
+
         <div class="header">
-            <form action="http://127.0.0.1:8000/v1/feagi/feagi/launch" method="post">
+            <form  enctype="application/x-www-form-urlencoded" action="http://127.0.0.1:8000/v1/feagi/feagi/launch" method="POST">
                 <label for="existing_connectome">Connectome path:</label>
-                <input name="something" value='' id="existing_connectome">
-                <button type="submit" formmethod="POST">Launch FEAGI</button>
+                <input formmethod="post" type="text" value="" id="existing_connectome">
+                <button type="submit" formmethod="post">Launch FEAGI</button>
             </form>
 <!--            <button type="button" onclick="alert('Hello world!')">Launch FEAGI!</button>-->
         </div>
-
-
+        </section>
         <table>
             <tr>
                 <td>
