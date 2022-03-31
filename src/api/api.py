@@ -46,6 +46,7 @@ class ConnectomeSnapshot(BaseModel):
 @app.api_route("/v1/feagi/feagi/launch", methods=['POST'])
 async def feagi_management(message: Launch):
     try:
+        print("message:", message)
         connectome_overwrite_path = message.existing_connectome
         feagi_thread = Thread(target=start_feagi, args=(api_queue, connectome_overwrite_path,))
         feagi_thread.start()

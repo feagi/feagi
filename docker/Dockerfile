@@ -1,4 +1,4 @@
-FROM neuraville/feagi-base-os
+FROM neuraville/feagi-base-os2
 
 ARG REPO="https://github.com/feagi/feagi.git"
 ENV Running_In_CONTAINER Yes
