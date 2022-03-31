@@ -16,9 +16,11 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Optional
+from fastapi.staticfiles import StaticFiles
 from threading import Thread
 from queue import Queue
 from inf.feagi import *
+
 
 app = FastAPI()
 
@@ -41,6 +43,9 @@ class BurstEngine(BaseModel):
 
 class ConnectomeSnapshot(BaseModel):
     save_to_path: str
+
+
+app.mount("/home", StaticFiles(directory="api/static", html=True), name="static")
 
 
 @app.api_route("/v1/feagi/feagi/launch", methods=['POST'])
