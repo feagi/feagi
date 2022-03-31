@@ -70,13 +70,12 @@ def burst_manager():
                 runtime_data.parameters['Logs']['print_messenger_logs'] \
                     = api_message['log_management']['print_messenger_logs']
         if 'connectome_snapshot' in api_message:
-            if 'snapshot' in api_message['connectome_snapshot']:
-                if api_message['connectome_snapshot']['snapshot']:
-                    if api_message['connectome_snapshot']['save_to']:
-                        disk_ops.save_brain_to_disk(connectome_path=api_message['connectome_snapshot']['save_to'],
-                                                    backup=True)
-                    else:
-                        disk_ops.save_brain_to_disk()
+            if 'save_to_path' in api_message['connectome_snapshot']:
+                if api_message['connectome_snapshot']['save_to_path']:
+                    disk_ops.save_brain_to_disk(connectome_path=api_message['connectome_snapshot']['save_to_path'],
+                                                type='snapshot')
+                else:
+                    disk_ops.save_brain_to_disk()
         return
 
     def burst_duration_calculator(controller_capabilities):
