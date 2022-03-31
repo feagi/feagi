@@ -147,6 +147,7 @@
 
 
 
+
         </style>
     </head>
 
@@ -158,6 +159,16 @@
 <!--                <a href="#contact">contact</a>-->
               </div>
         </div>
+
+        <div class="header">
+            <form action="http://127.0.0.1:8000/v1/feagi/feagi/launch/" method="post">
+                <label for="existing_connectome">Connectome path:</label>
+                <input name="json" value='' id="existing_connectome">
+                <button type="submit" formmethod="POST">Launch FEAGI!</button>
+            </form>
+<!--            <button type="button" onclick="alert('Hello world!')">Launch FEAGI!</button>-->
+        </div>
+
 
         <table>
             <tr>
