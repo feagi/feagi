@@ -23,11 +23,10 @@ from inf.feagi import *
 app = FastAPI()
 
 api_queue = Queue()
-feagi_thread = Thread(target=start_feagi, args=(api_queue,))
 
 
-class Admin(BaseModel):
-    online: Optional[bool]
+class Launch(BaseModel):
+    existing_connectome: Optional[str] = ''
 
 
 class Logs(BaseModel):
@@ -41,19 +40,20 @@ class BurstEngine(BaseModel):
 
 
 class ConnectomeSnapshot(BaseModel):
-    snapshot: bool
-    save_to: str
+    save_to_path: str
 
 
-@app.api_route("/v1/feagi/feagi/system", methods=['POST'])
-async def feagi_management(message: Admin):
+@app.api_route("/v1/feagi/feagi/launch", methods=['POST'])
+async def feagi_management(message: Launch):
     try:
-        if message.online:
-            feagi_thread.start()
-            return {"FEAGI Started!"}
+        connectome_overwrite_path = message.existing_connectome
+        feagi_thread = Thread(target=start_feagi, args=(api_queue, connectome_overwrite_path,))
+        feagi_thread.start()
+
+        if message.existing_connectome:
+            return {"FEAGI started using an existing connectome."}
         else:
-            feagi_thread.join()
-            return {"FEAGI Stopped!"}
+            return {"FEAGI started using a genome."}
     except Exception as e:
         return {"FEAGI start failed ... error details to be provided here", e}
 

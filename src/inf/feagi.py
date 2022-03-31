@@ -24,7 +24,7 @@ def splash_screen():
     """)
 
 
-def start_feagi(api_queue):
+def start_feagi(api_queue, connectome_overwrite_path):
     import logging.config
     import json
     import os
@@ -33,8 +33,9 @@ def start_feagi(api_queue):
     from inf import initialize
     from evo import neuroembryogenesis, death
     from npu import burst_engine
-    from inf import runtime_data
+    from inf import runtime_data, disk_ops
     from edu import edu_controller
+
 
     splash_screen()
 
@@ -50,15 +51,25 @@ def start_feagi(api_queue):
 
     exit_condition = False
 
+    print("\n \n\n\n\n\n\n *****")
+    print("connectome_overwrite_path:", connectome_overwrite_path)
+
     # This while loop simulates a single cycle of life for the artificial brain
     while not runtime_data.exit_condition:
 
         # Initialize the environment
         initialize.initialize()
 
-        # Process of artificial neuroembryogenesis that leads to connectome development
-        neuroembryogenesis.develop_brain(reincarnation_mode=runtime_data.parameters[
-            'Brain_Development']['reincarnation_mode'])
+        if connectome_overwrite_path:
+            disk_ops.load_brain_in_memory(connectome_path=connectome_overwrite_path)
+            print("************ ********* ************** ************** ************** ************** **************")
+            print("************ ********* ************** ************** ************** ************** **************")
+            print("An existing connectome was used to initialize the brain from %s \n" % connectome_overwrite_path)
+
+        else:
+            # Process of artificial neuroembryogenesis that leads to connectome development
+            neuroembryogenesis.develop_brain(reincarnation_mode=runtime_data.parameters[
+                'Brain_Development']['reincarnation_mode'])
 
         # Staring the burst_manager engine
         burst_engine.burst_manager()
