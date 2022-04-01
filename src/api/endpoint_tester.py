@@ -15,12 +15,14 @@
 
 
 import requests
-import contextlib
+# import contextlib
 
-url = "http://127.0.0.1:7000/v1/feagi"
-request_obj = {'begin': True}
+url = "http://127.0.0.1:8000/v1/feagi/feagi/launch"
+request_obj = {
+    "existing_connectome": "/Users/mnadji/1"
+}
 
 x = requests.post(url, data=request_obj)
 print(x.text)
 
-test = Config()
+# test = Config()
