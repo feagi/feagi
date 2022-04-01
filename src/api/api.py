@@ -45,6 +45,11 @@ class ConnectomeSnapshot(BaseModel):
     save_to_path: str
 
 
+class Stats(BaseModel):
+    neuron_stat_collection: Optional[bool] = False
+    synapse_stat_collection: Optional[bool] = False
+
+
 app.mount("/home", StaticFiles(directory="api/static", html=True), name="static")
 
 
@@ -91,6 +96,17 @@ async def brain_management(message: ConnectomeSnapshot):
     try:
         message = message.dict()
         message = {'connectome_snapshot': message}
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/stats", methods=['POST'])
+async def brain_management(message: Stats):
+    try:
+        message = message.dict()
+        message = {'stats': message}
         api_queue.put(item=message)
         return {"Request sent!"}
     except Exception as e:

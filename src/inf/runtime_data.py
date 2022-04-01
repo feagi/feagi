@@ -72,6 +72,8 @@ burst_activities = {}
 opu_data = {}
 cortical_dimensions = {}
 voxel_dict = {}
+collect_neuron_stats = False
+collect_synapse_stats = False
 
 
 # Queues
