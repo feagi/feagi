@@ -152,131 +152,65 @@
     </head>
 
     <body>
-        <script>
-            function handleFormSubmit(event) {
-              event.preventDefault();
-
-              const data = new FormData(event.target);
-
-              const formJSON = Object.fromEntries(data.entries());
-
-              // for multi-selects, we need special handling
-              formJSON.snacks = data.getAll('snacks');
-
-              const results = document.querySelector('.results pre');
-              results.innerText = JSON.stringify(formJSON, null, 2);
-            }
-
-            const form = document.querySelector('.contact-form');
-            form.addEventListener('submit', handleFormSubmit);
-        </script>
-
         <section class="contact-form">
             <div class="header">
                   <a href="https://neuraville.com/wp-content/uploads/2020/09/Design-10-27-2020-09.54-AM-copy.svg" class="logo">Framework for Evolutionary Artificial General Intelligence (FEAGI)</a>
                   <div class="header-right">
                     <a class="active" href="https://github.com/feagi/feagi/tree/staging/third_party/godot">Help</a>
-                      <a class="active" href="http://127.0.0.1:8000/docs#/default">API Docs</a>
-    <!--                <a href="#contact">contact</a>-->
+                    <a class="active" href="http://127.0.0.1:8000/docs#/default">API Docs</a>
                   </div>
             </div>
-
-
-<!--            <div class="header">-->
-
-
-<!--                <div class="results">-->
-<!--                  <h2>Form Data</h2>-->
-<!--                  <pre></pre>-->
-<!--                </div>-->
-<!--            </div>-->
         </section>
 
+        <form>
+            <div class="formBox">
+                <label for="existing_connectome">Connectome path</label>
+                <input type="text" id="existing_connectome" placeholder="Optional path to an existing connectome"/>
+            </div>
 
-    <form>
-        <div class="formBox">
-            <label for="existing_connectome">Connectome path</label>
-            <input type="text" id="existing_connectome" placeholder="Optional path to an existing connectome"/>
-        </div>
-<!--        <div class="formBox">-->
-<!--            <label for="yr">Year</label>-->
-<!--            <input type="number" id="yr" placeholder="Year"/>-->
-<!--        </div>-->
-        <div class="formBox">
-            <button id="btn">Click to Add</button>
-        </div>
-        <div id="msg">
-            <pre></pre>
-        </div>
-    </form>
-    <script>
-        let movies = [];
-        // example {id:1592304983049, title: 'Deadpool', year: 2015}
-        const addMovie = (ev)=>{
-            ev.preventDefault();  //to stop the form submitting
-            let movie = {
-                // id: Date.now(),
-                existing_connectome: document.getElementById('existing_connectome').value,
-                // year: document.getElementById('yr').value
+            <div class="formBox">
+                <button id="btn" onclick="submit_to_feagi()">Click to Add</button>
+            </div>
+            <div id="msg">
+                <pre></pre>
+            </div>
+        </form>
+        <script>
+            // let movies = [];
+            // // example {id:1592304983049, title: 'Deadpool', year: 2015}
+            // const addMovie = (ev)=>{
+            //     ev.preventDefault();  //to stop the form submitting
+            //     let movie = {
+            //         // id: Date.now(),
+            //         existing_connectome: document.getElementById('existing_connectome').value,
+            //         // year: document.getElementById('yr').value
+            //     }
+            //     movies.push(movie);
+            //     document.forms[0].reset(); // to clear the form for the next entries
+            //     //document.querySelector('form').reset();
+            //
+            //     //for display purposes only
+            //     console.warn('added' , {movies} );
+            //     let pre = document.querySelector('#msg pre');
+            //     pre.textContent = '\n' + JSON.stringify(movies, '\t', 2);
+
+            function submit_to_feagi() {
+                let url = "http://127.0.0.1:8000/v1/feagi/feagi/launch";
+                let xhttp = new XMLHttpRequest();
+
+                xhttp.open("POST", url, true);
+
+                // Set the request header i.e. which type of content you are sending
+                xhttp.setRequestHeader("Content-Type", "application/json");
+
+                let data = JSON.stringify({"existing_connectome": document.getElementById('existing_connectome').value});
+                xhttp.send(data)
+
+                document.addEventListener('DOMContentLoaded', () => {
+                    document.getElementById('btn').addEventListener('click', addMovie);
+                });
             }
-            movies.push(movie);
-            document.forms[0].reset(); // to clear the form for the next entries
-            //document.querySelector('form').reset();
-
-            //for display purposes only
-            console.warn('added' , {movies} );
-            let pre = document.querySelector('#msg pre');
-            pre.textContent = '\n' + JSON.stringify(movies, '\t', 2);
-
-        // //saving to localStorage
-        // localStorage.setItem('MyMovieList', JSON.stringify(movies) );
-
-        // // Creating a XHR object
-        // let xhr = new XMLHttpRequest();
-        // let url = "127.0.0.1:8000/v1/feagi/feagi/launch";
-        //
-        // // open a connection
-        // xhr.open("POST", url, true);
-        //
-        // // Set the request header i.e. which type of content you are sending
-        // xhr.setRequestHeader("Content-Type", "application/json");
-        //
-        // // Create a state change callback
-        // xhr.onreadystatechange = function () {
-        //     if (xhr.readyState === 4 && xhr.status === 200) {
-        //
-        //         // Print received data from server
-        //         result.innerHTML = this.responseText;
-        //
-        //     }
-        // let data = JSON.stringify(movies)
-        // xhr.send(data);
-
-
-
-        let url = "http://127.0.0.1:8000/v1/feagi/feagi/launch";
-        let xhttp = new XMLHttpRequest();
-        // xhttp.onreadystatechange = function() {
-        // // if (this.readyState == 4 && this.status == 200) {
-        // //   document.getElementById("demo").innerHTML = this.responseText;
-        // // }
-        // };
-
-
-        xhttp.open("POST", url, true);
-
-        // Set the request header i.e. which type of content you are sending
-        xhttp.setRequestHeader("Content-Type", "application/json");
-
-        let data = JSON.stringify({"existing_connectome": "/abc"})
-        xhttp.send(data);
-
-
-        }
-        document.addEventListener('DOMContentLoaded', ()=>{
-            document.getElementById('btn').addEventListener('click', addMovie);
-        });
-    </script>
+        </script>
 
 
         <table>
