@@ -1,17 +1,26 @@
-function handleFormSubmit(event) {
-  event.preventDefault();
 
-  const data = new FormData(event.target);
+function snapshot_connectome() {
+    let url = "http://127.0.0.1:8000/v1/feagi/connectome/snapshot";
+    let xhttp = new XMLHttpRequest();
 
-  const formJSON = Object.fromEntries(data.entries());
+    xhttp.open("POST", url, true);
 
-  // for multi-selects, we need special handling
-  formJSON.snacks = data.getAll('snacks');
+    // Set the request header i.e. which type of content you are sending
+    xhttp.setRequestHeader("Content-Type", "application/json");
 
-  const results = document.querySelector('.results pre');
-  results.innerText = JSON.stringify(formJSON, null, 2);
+    let data = JSON.stringify({"save_to_path": document.getElementById('save_to_path').value});
+    xhttp.send(data)
 }
 
-const form = document.querySelector('.contact-form');
-form.addEventListener('submit', handleFormSubmit);
+function start_feagi() {
+    let url = "http://127.0.0.1:8000/v1/feagi/feagi/launch";
+    let xhttp = new XMLHttpRequest();
 
+    xhttp.open("POST", url, true);
+
+    // Set the request header i.e. which type of content you are sending
+    xhttp.setRequestHeader("Content-Type", "application/json");
+
+    let data = JSON.stringify({"existing_connectome": document.getElementById('existing_connectome').value});
+    xhttp.send(data)
+}
