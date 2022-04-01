@@ -58,10 +58,12 @@ def burst_manager():
         """
         Processes the incoming API calls to FEAGI
         """
+
         if 'burst_management' in api_message:
             if 'burst_duration' in api_message['burst_management']:
                 if api_message['burst_management']['burst_duration'] is not None:
                     runtime_data.burst_timer = api_message['burst_management']['burst_duration']
+
         if 'log_management' in api_message:
             if 'print_burst_info' in api_message['log_management']:
                 runtime_data.parameters['Logs']['print_burst_info'] \
@@ -69,6 +71,7 @@ def burst_manager():
             if 'print_messenger_logs' in api_message['log_management']:
                 runtime_data.parameters['Logs']['print_messenger_logs'] \
                     = api_message['log_management']['print_messenger_logs']
+
         if 'connectome_snapshot' in api_message:
             if 'save_to_path' in api_message['connectome_snapshot']:
                 if api_message['connectome_snapshot']['save_to_path']:
@@ -76,6 +79,26 @@ def burst_manager():
                                                 type='snapshot')
                 else:
                     disk_ops.save_brain_to_disk()
+
+        if 'stats' in api_message:
+            print("api_message", api_message)
+            if 'neuron_stat_collection' in api_message['stats'] and \
+                    api_message['stats']['neuron_stat_collection'] is not None:
+                if api_message['stats']['neuron_stat_collection']:
+                    runtime_data.collect_neuron_stats = True
+                    print("Starting to capture neuronal activity stats into database...")
+                else:
+                    runtime_data.collect_neuron_stats = False
+                    print("Stopping the capture of neuronal activity stats into database.")
+
+            if 'synapse_stat_collection' in api_message['stats'] and \
+                    api_message['stats']['synapse_stat_collection'] is not None:
+                if api_message['stats']['synapse_stat_collection']:
+                    runtime_data.collect_synapse_stats = True
+                    print("Starting to capture synaptic activity stats into database...")
+                else:
+                    runtime_data.collect_synapse_stats = False
+                    print("Stopping the capture of synaptic activity stats into database.")
         return
 
     def burst_duration_calculator(controller_capabilities):
