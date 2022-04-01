@@ -150,6 +150,7 @@
 
         </style>
     </head>
+    <script src="main.js"></script>
 
     <body>
         <section class="contact-form">
@@ -164,54 +165,20 @@
 
         <form>
             <div class="formBox">
-                <label for="existing_connectome">Connectome path</label>
+                <label for="existing_connectome">Connectome origin path:</label>
                 <input type="text" id="existing_connectome" placeholder="Optional path to an existing connectome"/>
+                <button id="btn1" onclick="start_feagi()">Launch FEAGI !</button>
             </div>
 
             <div class="formBox">
-                <button id="btn" onclick="submit_to_feagi()">Click to Add</button>
+                <label for="save_to_path">Connectome destination path:</label>
+                <input type="text" id="save_to_path" placeholder="Required path to save connectome to"/>
+                <button id="btn2" onclick="snapshot_connectome()">Snapshot connectome</button>
             </div>
             <div id="msg">
                 <pre></pre>
             </div>
         </form>
-        <script>
-            // let movies = [];
-            // // example {id:1592304983049, title: 'Deadpool', year: 2015}
-            // const addMovie = (ev)=>{
-            //     ev.preventDefault();  //to stop the form submitting
-            //     let movie = {
-            //         // id: Date.now(),
-            //         existing_connectome: document.getElementById('existing_connectome').value,
-            //         // year: document.getElementById('yr').value
-            //     }
-            //     movies.push(movie);
-            //     document.forms[0].reset(); // to clear the form for the next entries
-            //     //document.querySelector('form').reset();
-            //
-            //     //for display purposes only
-            //     console.warn('added' , {movies} );
-            //     let pre = document.querySelector('#msg pre');
-            //     pre.textContent = '\n' + JSON.stringify(movies, '\t', 2);
-
-            function submit_to_feagi() {
-                let url = "http://127.0.0.1:8000/v1/feagi/feagi/launch";
-                let xhttp = new XMLHttpRequest();
-
-                xhttp.open("POST", url, true);
-
-                // Set the request header i.e. which type of content you are sending
-                xhttp.setRequestHeader("Content-Type", "application/json");
-
-                let data = JSON.stringify({"existing_connectome": document.getElementById('existing_connectome').value});
-                xhttp.send(data)
-
-                document.addEventListener('DOMContentLoaded', () => {
-                    document.getElementById('btn').addEventListener('click', addMovie);
-                });
-            }
-        </script>
-
 
         <table>
             <tr>
