@@ -165,19 +165,20 @@
 
         <form>
             <div class="formBox">
+
                 <label for="existing_connectome">Connectome origin path:</label>
                 <input type="text" id="existing_connectome" placeholder="Optional path to an existing connectome"/>
                 <button id="btn1" onclick="start_feagi()">Launch FEAGI !</button>
-            </div>
 
-            <div class="formBox">
                 <label for="save_to_path">Connectome destination path:</label>
                 <input type="text" id="save_to_path" placeholder="Required path to save connectome to"/>
                 <button id="btn2" onclick="snapshot_connectome()">Snapshot connectome</button>
+
+                <label for="burst_duration">Burst duration:</label>
+                <input type="text" id="burst_duration" placeholder="Bursting duration in sec"/>
+                <button id="btn3" onclick="set_burst_duration()">Set burst duration</button>
             </div>
-            <div id="msg">
-                <pre></pre>
-            </div>
+
         </form>
 
         <table>
