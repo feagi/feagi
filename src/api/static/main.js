@@ -23,6 +23,8 @@ function start_feagi() {
 
     let data = JSON.stringify({"existing_connectome": document.getElementById('existing_connectome').value});
     xhttp.send(data)
+
+    document.getElementById('FEAGI_settings').style.display = "compact";
 }
 
 function set_burst_duration() {
@@ -38,15 +40,15 @@ function set_burst_duration() {
     xhttp.send(data)
 }
 
-function set_stat_collections() {
-    let url = "http://127.0.0.1:8000/v1/feagi/stats";
-    let xhttp = new XMLHttpRequest();
-
-    xhttp.open("POST", url, true);
-
-    // Set the request header i.e. which type of content you are sending
-    xhttp.setRequestHeader("Content-Type", "application/json");
-
-    let data = JSON.stringify({"??????": ??????});
-    xhttp.send(data)
-}
+// function set_stat_collections() {
+//     let url = "http://127.0.0.1:8000/v1/feagi/stats";
+//     let xhttp = new XMLHttpRequest();
+//
+//     xhttp.open("POST", url, true);
+//
+//     // Set the request header i.e. which type of content you are sending
+//     xhttp.setRequestHeader("Content-Type", "application/json");
+//
+//     let data = JSON.stringify({"??????": ??????});
+//     xhttp.send(data)
+// }
