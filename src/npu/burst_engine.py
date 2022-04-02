@@ -40,6 +40,7 @@ from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
 from inf.messenger import Pub, Sub
 from pns.pns_router import opu_router, stimuli_router
+from api.api import api_message_processor
 
 
 def cortical_group_members(group):
@@ -53,53 +54,6 @@ def cortical_group_members(group):
 
 def burst_manager():
     """This function behaves as instance of Neuronal activities"""
-
-    def api_message_processor(api_message):
-        """
-        Processes the incoming API calls to FEAGI
-        """
-
-        if 'burst_management' in api_message:
-            if 'burst_duration' in api_message['burst_management']:
-                if api_message['burst_management']['burst_duration'] is not None:
-                    runtime_data.burst_timer = api_message['burst_management']['burst_duration']
-
-        if 'log_management' in api_message:
-            if 'print_burst_info' in api_message['log_management']:
-                runtime_data.parameters['Logs']['print_burst_info'] \
-                    = api_message['log_management']['print_burst_info']
-            if 'print_messenger_logs' in api_message['log_management']:
-                runtime_data.parameters['Logs']['print_messenger_logs'] \
-                    = api_message['log_management']['print_messenger_logs']
-
-        if 'connectome_snapshot' in api_message:
-            if 'save_to_path' in api_message['connectome_snapshot']:
-                if api_message['connectome_snapshot']['save_to_path']:
-                    disk_ops.save_brain_to_disk(connectome_path=api_message['connectome_snapshot']['save_to_path'],
-                                                type='snapshot')
-                else:
-                    disk_ops.save_brain_to_disk()
-
-        if 'stats' in api_message:
-            print("api_message", api_message)
-            if 'neuron_stat_collection' in api_message['stats'] and \
-                    api_message['stats']['neuron_stat_collection'] is not None:
-                if api_message['stats']['neuron_stat_collection']:
-                    runtime_data.collect_neuron_stats = True
-                    print("Starting to capture neuronal activity stats into database...")
-                else:
-                    runtime_data.collect_neuron_stats = False
-                    print("Stopping the capture of neuronal activity stats into database.")
-
-            if 'synapse_stat_collection' in api_message['stats'] and \
-                    api_message['stats']['synapse_stat_collection'] is not None:
-                if api_message['stats']['synapse_stat_collection']:
-                    runtime_data.collect_synapse_stats = True
-                    print("Starting to capture synaptic activity stats into database...")
-                else:
-                    runtime_data.collect_synapse_stats = False
-                    print("Stopping the capture of synaptic activity stats into database.")
-        return
 
     def burst_duration_calculator(controller_capabilities):
         """
@@ -146,12 +100,6 @@ def burst_manager():
         runtime_data.future_fcl[cortical_area_] = set()
         runtime_data.previous_fcl[cortical_area_] = set()
         # runtime_data.upstream_neurons[cortical_area_] = {}
-
-    def save_fcl_2_dsk():
-        if runtime_data.parameters["Switches"]["save_fcl_to_db"]:
-            disk_ops.save_fcl_in_db(runtime_data.burst_count,
-                                    runtime_data.fire_candidate_list,
-                                    feeder.injector_num_to_inject)
 
     def capture_cortical_activity_stats():
         # print('@@@--- Activity Stats:', runtime_data.activity_stats)
@@ -458,9 +406,6 @@ def burst_manager():
 
         # The following is to have a check point to assess the perf of the in-use genome and make on the fly adj.
         evolutionary_checkpoint()
-
-        # Saving FCL to disk for post-processing and running analytics
-        save_fcl_2_dsk()
 
         # Monitor cortical activity levels and terminate brain if not meeting expectations
         terminate_on_low_perf()
