@@ -5,14 +5,13 @@
         <title>FEAGI</title>
         <link rel="stylesheet" href="style.css">
     </head>
-    <script src="main.js"></script>
 
     <body>
-    <script>
-    if ( window.history.replaceState ) {
-        window.history.replaceState( null, null, window.location.href );
-    }
-</script>
+        <script>
+            let form = document.getElementById("FEAGI_launch");
+            function handleForm(event) { event.preventDefault(); }
+            form.addEventListener('submit', handleForm);
+        </script>
         <section class="contact-form">
             <div class="header">
                   <a href="https://neuraville.com/wp-content/uploads/2020/09/Design-10-27-2020-09.54-AM-copy.svg" class="logo">Framework for Evolutionary Artificial General Intelligence (FEAGI)</a>
@@ -23,39 +22,34 @@
             </div>
         </section>
 
-        <form>
+        <form id="FEAGI_launch">
             <div class="formBox">
-
                 <label for="existing_connectome">Connectome origin path:</label>
                 <input type="text" id="existing_connectome" placeholder="Optional path to an existing connectome"/>
-                <button id="btn1" onclick="start_feagi()">Launch FEAGI !</button>
-
-            </div>
-            <div class="formBox" id="FEAGI_settings" style="display:compact;">
-                <label for="save_to_path">Connectome destination path:</label>
-                <input type="text" id="save_to_path" placeholder="Required path to save connectome to"/>
-                <button id="btn2" onclick="snapshot_connectome()">Snapshot connectome</button>
-
-                <label for="burst_duration">Burst duration:</label>
-                <input type="text" id="burst_duration" placeholder="Bursting duration in sec"/>
-                <button id="btn3" onclick="set_burst_duration()">Set burst duration</button>
-
-                <label class="switch"> Track neuronal activities
-                  <input type="checkbox">
-                  <span class="slider"></span>
-                </label>
-                <p></p>
-                <label class="switch"> Track synaptic activities
-                  <input type="checkbox">
-                  <span class="slider"></span>
-                </label>
-
-<!--                <button id="btn4" onclick="start_neuron_stat_collection()">Start Collecting Neuron Stats</button>-->
-<!--                <button id="btn5" onclick="stop_neuron_stat_collection()">Stop Collecting Neuron Stats</button>-->
-<!--                <button id="btn6" onclick="start_synapse_stat_collection()">Start Collecting Synapse Stats</button>-->
-<!--                <button id="btn7" onclick="stop_synapse_stat_collection()">Stop Collecting Synapse Stats</button>-->
+                <input type="submit">Launch FEAGI !</input>
             </div>
         </form>
+<!--        <form>-->
+<!--            <div class="formBox" id="FEAGI_settings" style="display:compact;">-->
+<!--                <label for="save_to_path">Connectome destination path:</label>-->
+<!--                <input type="submit" id="save_to_path" placeholder="Required path to save connectome to"/>-->
+<!--                <button id="btn2">Snapshot connectome</button>-->
+
+<!--                <label for="burst_duration">Burst duration:</label>-->
+<!--                <input type="submit" id="burst_duration" placeholder="Bursting duration in sec"/>-->
+<!--                <button id="btn3">Set burst duration</button>-->
+
+<!--                <label class="switch"> Track neuronal activities-->
+<!--                  <input type="checkbox" id="neuron_stats">-->
+<!--                  <span class="slider"></span>-->
+<!--                </label>-->
+<!--                <p></p>-->
+<!--                <label class="switch"> Track synaptic activities-->
+<!--                  <input type="checkbox" id="synapse_stats">-->
+<!--                  <span class="slider"></span>-->
+<!--                </label>-->
+<!--            </div>-->
+<!--        </form>-->
 
         <table>
             <tr>
@@ -90,5 +84,7 @@
                 </td>
             </tr>
         </table>
+
+        <script src="main.js"></script>
     </body>
 </html>
