@@ -1,6 +1,6 @@
 
 document.getElementById('FEAGI_launch').addEventListener('submit', start_feagi_wout_mon);
-document.getElementById('launch_btn2').addEventListener('submit', start_feagi_with_mon);
+document.getElementById('FEAGI_settings').addEventListener('submit', set_burst_duration);
 // document.getElementById('btn2').addEventListener('submit', snapshot_connectome);
 // document.getElementById('btn3').addEventListener('submit', set_burst_duration);
 // document.getElementById('neuron_stats').addEventListener('change', set_stat_collections);
@@ -70,18 +70,18 @@ function start_feagi_with_mon(e) {
 //     xhttp.send(data)
 // }
 //
-// function set_burst_duration() {
-//     let url = "http://127.0.0.1:8000/v1/feagi/feagi/burst_engine";
-//     let xhttp = new XMLHttpRequest();
-//
-//     xhttp.open("POST", url, true);
-//
-//     // Set the request header i.e. which type of content you are sending
-//     xhttp.setRequestHeader("Content-Type", "application/json");
-//
-//     let data = JSON.stringify({"burst_duration": document.getElementById('burst_duration').value});
-//     xhttp.send(data)
-// }
+function set_burst_duration() {
+    let url = "http://127.0.0.1:8000/v1/feagi/feagi/burst_engine";
+    let xhttp = new XMLHttpRequest();
+
+    xhttp.open("POST", url, true);
+
+    // Set the request header i.e. which type of content you are sending
+    xhttp.setRequestHeader("Content-Type", "application/json");
+
+    let data = JSON.stringify({"burst_duration": document.getElementById('spike_interval').value});
+    xhttp.send(data)
+}
 //
 // function set_stat_collections() {
 //     let url = "http://127.0.0.1:8000/v1/feagi/stats";
