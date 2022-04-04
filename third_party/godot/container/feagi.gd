@@ -57,9 +57,6 @@ var stored_csv = ""
 var global_name_list = []
 var global_id
 
-#websocket variables
-const PORT = 9081 ##for websocket
-var _server = WebSocketServer.new()
 
 func _ready():
 #	Godot_list.godot_list["data"]
@@ -74,14 +71,9 @@ func _ready():
 #		print("Connection established.")
 #		green_light  = true
 ## END OF UDP
-## WEBSOCKET SECTION STARTS
-	_server.connect("client_connected", self, "_connected1")
-	_server.connect("client_disconnected", self, "_disconnected1")
-	_server.connect("client_close_request", self, "_close_request1")
-	_server.connect("data_received", self, "_on_data1")
-	# Initiate connection to the given URL.
-	var err1 = _server.listen(PORT)
-	if err1 != OK:
+
+	var err
+	if err != OK:
 		print("Unable to start server")
 	else:
 		green_light = true#		
@@ -146,8 +138,7 @@ func _ready():
 			if stored_csv != current_csv:
 				stored_csv = current_csv
 				_csv_generator()
-					
-				
+
 		_callout()
 		## This will build from one frame
 		#print(stored_value)
@@ -173,8 +164,9 @@ func _ready():
 					install_voxel_inside(x,y,z) #install voxel inside cortical area
 				key+= 1
 			flag = 0 #keep x,y,z in correct place
-			yield(get_tree().create_timer(.01), "timeout")
-		_server.put_packet("{}".to_utf8())
+			#yield(get_tree().create_timer(.01), "timeout")
+		print("sending data to python")
+		websocket._client.put_packet("{}".to_utf8())
 		#udp.put_packet("{}".to_utf8())	
 		$GridMap.clear() ##clear the new data
 
@@ -184,10 +176,12 @@ func _process(delta):
 #		data = socket.get_packet().get_string_from_utf8()
 #		stored_value = data
 #	udp.connect_to_host("127.0.0.1", 20002)
-	_server.poll()
+	
 #	while _server.get_available_packet_count() > 0:
 #		data = _server.get_peer(global_id).get_packet()
 #		stored_value = data
+	data = websocket._client.get_peer(1).get_packet().get_string_from_utf8()
+	stored_value = data
 		
 func _callout():
 	_process(self)
@@ -288,32 +282,5 @@ func _clear_node_name_list(node_name):
 	global_name_list = []
 	$Floor_grid.clear()
 	
-#---------------------------##### WEBSOCKET SECTION BEGIN ###################---------------------
-func _connected1(id, proto):
-	# This is called when a new peer connects, "id" will be the assigned peer id,
-	# "proto" will be the selected WebSocket sub-protocol (which is optional)
-	#print("Client %d connected with protocol: %s" % [id, proto])
-	_server.get_peer(id).set_write_mode(WebSocketPeer.WRITE_MODE_TEXT)
-	global_id = id
-	
-func _close_request1(id, code, reason):
-	# This is called when a client notifies that it wishes to close the connection,
-	# providing a reason string and close code.
-	print("Client %d disconnecting with code: %d, reason: %s" % [id, code, reason])
-	
-	
-func _disconnected1(id, was_clean = false):
-	# This is called when a client disconnects, "id" will be the one of the
-	# disconnecting client, "was_clean" will tell you if the disconnection
-	# was correctly notified by the remote peer before closing the socket.
-	#print("Client %d disconnected, clean: %s" % [id, str(was_clean)])
-	pass
-	
-func _on_data1(id):
-	# Print the received packet, you MUST always use get_peer(id).get_packet to receive data,
-	# and not get_packet directly when not using the MultiplayerAPI.
-	var pkt = _server.get_peer(id).get_packet()
-	print("Got data from Python %d: %s ... echoing" % [id, pkt.get_string_from_utf8()])
-	_server.get_peer(id).set_write_mode(WebSocketPeer.WRITE_MODE_TEXT)
-#---------------------------##### WEBSOCKET SECTION END ###################---------------------
+
 
