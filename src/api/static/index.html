@@ -3,88 +3,143 @@
     <head>
         <meta charset="UTF-8">
         <title>FEAGI</title>
-        <link rel="stylesheet" href="style.css">
+
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x"
+          crossorigin="anonymous"
+        />
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css"
+        />
+<!--        <link rel="stylesheet" href="style.css">-->
     </head>
 
     <body>
-        <script>
-            let form = document.getElementById("FEAGI_launch");
-            function handleForm(event) { event.preventDefault(); }
-            form.addEventListener('submit', handleForm);
-        </script>
-        <section class="contact-form">
-            <div class="header">
-                  <a href="https://neuraville.com/wp-content/uploads/2020/09/Design-10-27-2020-09.54-AM-copy.svg" class="logo">Framework for Evolutionary Artificial General Intelligence (FEAGI)</a>
-                  <div class="header-right">
-                    <a class="active" href="https://github.com/feagi/feagi/tree/staging/third_party/godot">Help</a>
-                    <a class="active" href="http://127.0.0.1:8000/docs#/default">API Docs</a>
-                  </div>
+<!--        <script>-->
+<!--            let form = document.getElementById("FEAGI_launch");-->
+<!--            function handleForm(event) { event.preventDefault(); }-->
+<!--            form.addEventListener('submit', handleForm);-->
+<!--        </script>-->
+
+
+        <!--    Nav Bar-->
+        <nav class="navbar navbar-expand-lg bg-dark navbar-dark py-3 fixed-top">
+          <div class="container">
+            <a href="#" class="navbar-brand">Framework for Evolutionary Artificial General Intelligence (FEAGI)</a>
+
+            <button
+              class="navbar-toggler"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#navmenu"
+            >
+              <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navmenu">
+              <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                  <a href="https://github.com/feagi/feagi/tree/staging/third_party/godot" class="nav-link">Help</a>
+                </li>
+                <li class="nav-item">
+                  <a href="http://127.0.0.1:8000/docs#/default" class="nav-link">API Docs</a>
+                </li>
+<!--                <li class="nav-item">-->
+<!--                  <a href="#instructors" class="nav-link">Instructors</a>-->
+<!--                </li>-->
+              </ul>
             </div>
+          </div>
+        </nav>
+
+        <section class="bg-primary text-light pb-5">
+                <div>
+                    <p></p>
+                    <p></p>
+                    <p></p>
+                                <p></p>
+                    <p></p>
+                    <p></p>
+
+                </div>
         </section>
 
-        <form id="FEAGI_launch">
-            <div class="formBox">
-                <label for="existing_connectome">Connectome origin path:</label>
-                <input type="text" id="existing_connectome" placeholder="Optional path to an existing connectome"/>
-                <input type="submit">Launch FEAGI !</input>
+
+        <!--        FEAGI Launch -->
+
+
+        <section id="feagi_launcher" class="bg-primary text-light p-5">
+            <h3 class="mb-3 mb-md-0">Start FEAGI Engines!</h3>
+            <form id="FEAGI_launch">
+                <div class="formBox">
+                    <label for="launch_path">Connectome origin path:</label>
+                    <input type="text" id="launch_path" placeholder="Optional path to an existing connectome"/>
+                    <input type="submit">Launch FEAGI !
+                </div>
+            </form>
+        </section>
+
+        <section id="feagi_dash" class="bg-dark text-light p-5" style="display: none">
+<!--            <h3 class="mb-3 mb-md-0">FEAGI Dashboard!</h3>-->
+            <form id="FEAGI_settings_form">
+
+                <div class="formBox" id="FEAGI_settings">
+                    <label for="save_to_path">Connectome destination path:</label>
+                    <input type="submit" id="save_to_path" placeholder="Required path to save connectome to"/>
+                    <button id="btn2">Snapshot connectome</button>
+
+                    <label for="burst_duration">Burst duration:</label>
+                    <input type="submit" id="burst_duration" placeholder="Bursting duration in sec"/>
+                    <button id="btn3">Set burst duration</button>
+
+                    <label class="switch"> Track neuronal activities
+                      <input type="checkbox" id="neuron_stats">
+                      <span class="slider"></span>
+                    </label>
+                    <p></p>
+                    <label class="switch"> Track synaptic activities
+                      <input type="checkbox" id="synapse_stats">
+                      <span class="slider"></span>
+                    </label>
+                </div>
+            </form>
+        </section>
+
+
+
+
+        <!--  Primary Panels      -->
+        <div class="container">
+          <div class="row">
+            <div class="col">
+                <iframe class="responsive-iframe" src="http://127.0.0.1:6080"></iframe>
             </div>
-        </form>
-<!--        <form>-->
-<!--            <div class="formBox" id="FEAGI_settings" style="display:compact;">-->
-<!--                <label for="save_to_path">Connectome destination path:</label>-->
-<!--                <input type="submit" id="save_to_path" placeholder="Required path to save connectome to"/>-->
-<!--                <button id="btn2">Snapshot connectome</button>-->
+            <div class="col">
+              <iframe class="responsive-iframe" src="http://127.0.0.1:6081"></iframe>
+            </div>
+          </div>
+        </div>
 
-<!--                <label for="burst_duration">Burst duration:</label>-->
-<!--                <input type="submit" id="burst_duration" placeholder="Bursting duration in sec"/>-->
-<!--                <button id="btn3">Set burst duration</button>-->
+        <!--  Secondary Panels      -->
+        <div class="container">
+          <div class="row">
+            <div class="col">
+                <iframe class="responsive-iframe" src="http://127.0.0.1:3000/d-solo/Se3OI7f7k/feagi-brain-activity-analyzer?orgId=1&refresh=5s&panelId=8"></iframe>
+            </div>
+            <div class="col">
+                <iframe class="responsive-iframe" src="http://127.0.0.1:3000/d-solo/Se3OI7f7k/feagi-brain-activity-analyzer?orgId=1&refresh=5s&panelId=6"></iframe>
+            </div>
+          </div>
+        </div>
 
-<!--                <label class="switch"> Track neuronal activities-->
-<!--                  <input type="checkbox" id="neuron_stats">-->
-<!--                  <span class="slider"></span>-->
-<!--                </label>-->
-<!--                <p></p>-->
-<!--                <label class="switch"> Track synaptic activities-->
-<!--                  <input type="checkbox" id="synapse_stats">-->
-<!--                  <span class="slider"></span>-->
-<!--                </label>-->
-<!--            </div>-->
-<!--        </form>-->
-
-        <table>
-            <tr>
-                <td>
-                    <div class="container">
-
-                        <iframe class="responsive-iframe" src="http://127.0.0.1:6080"></iframe>
-                    </div>
-                </td>
-
-                <td>
-                    <div class="container">
-
-                        <iframe class="responsive-iframe" src="http://127.0.0.1:6081"></iframe>
-                    </div>
-                </td>
-
-            </tr>
-            <tr>
-                <td>
-                    <div class="container">
-
-                        <iframe class="responsive-iframe" src="http://127.0.0.1:3000/d-solo/Se3OI7f7k/feagi-brain-activity-analyzer?orgId=1&refresh=5s&panelId=8"></iframe>
-                    </div>
-                </td>
-
-                <td>
-                    <div class="container">
-
-                        <iframe class="responsive-iframe" src="http://127.0.0.1:3000/d-solo/Se3OI7f7k/feagi-brain-activity-analyzer?orgId=1&refresh=5s&panelId=6"></iframe>
-                    </div>
-                </td>
-            </tr>
-        </table>
-
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-gtEjrD/SeCtmISkJkNUaaKMoLD0//ElJ19smozuHV6z3Iehds+3Ulb9Bn9Plx0x4"
+          crossorigin="anonymous"
+        ></script>
         <script src="main.js"></script>
     </body>
 </html>

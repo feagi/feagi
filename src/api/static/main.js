@@ -1,15 +1,43 @@
 
-document.getElementById('FEAGI_launch').addEventListener('submit', start_feagi);
+document.getElementById('FEAGI_launch').addEventListener('submit', start_feagi_wout_mon);
+document.getElementById('launch_btn2').addEventListener('submit', start_feagi_with_mon);
 // document.getElementById('btn2').addEventListener('submit', snapshot_connectome);
 // document.getElementById('btn3').addEventListener('submit', set_burst_duration);
 // document.getElementById('neuron_stats').addEventListener('change', set_stat_collections);
 // document.getElementById('synapse_stats').addEventListener('change', set_stat_collections);
 //
 
-function start_feagi(e) {
+function start_feagi_wout_mon(e) {
     e.preventDefault();
 
-    let connectome_path = document.getElementById('existing_connectome').value
+    let connectome_path = document.getElementById('launch_path').value
+    console.log(connectome_path)
+    fetch('http://127.0.0.1:8000/v1/feagi/feagi/launch', {
+     method: 'post',
+     headers: {
+         'Accept': 'application/json, text/plain, */*',
+         'Content-type': 'application/json'
+     },
+        body:JSON.stringify({existing_connectome:connectome_path})
+    })
+        .then((res) => res.json())
+        .then((data) => console.log(data)
+        )
+
+    var link = document.getElementById('feagi_launcher');
+    link.style.display = 'none';
+
+    var link = document.getElementById('feagi_dash');
+    link.style.display = 'block';
+
+
+}
+
+
+function start_feagi_with_mon(e) {
+    e.preventDefault();
+
+    let connectome_path = document.getElementById('launch_path').value
     console.log(connectome_path)
     fetch('http://127.0.0.1:8000/v1/feagi/feagi/launch', {
      method: 'post',
@@ -23,8 +51,6 @@ function start_feagi(e) {
         .then((data) => console.log(data)
         )
 }
-
-
 
 
 
