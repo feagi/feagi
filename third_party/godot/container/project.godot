@@ -23,6 +23,7 @@ config/icon="res://icon.png"
 [autoload]
 
 Godot_list="*res://godot_list.gd"
+websocket="*res://websocket_client_operation.gd"
 
 [input]
 
