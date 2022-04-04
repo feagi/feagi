@@ -9,36 +9,27 @@ document.getElementById('FEAGI_launch').addEventListener('submit', start_feagi);
 function start_feagi(e) {
     e.preventDefault();
 
-    let existing_connectome = document.getElementById('existing_connectome'.value)
-
+    let connectome_path = document.getElementById('existing_connectome').value
+    console.log(connectome_path)
     fetch('http://127.0.0.1:8000/v1/feagi/feagi/launch', {
      method: 'post',
      headers: {
          'Accept': 'application/json, text/plain, */*',
          'Content-type': 'application/json'
      },
-        body:JSON.stringify({existing_connectome:existing_connectome})
+        body:JSON.stringify({existing_connectome:connectome_path})
     })
         .then((res) => res.json())
         .then((data) => console.log(data)
         )
 }
 
-//
-// function start_feagi_old() {
-//     let url = "http://127.0.0.1:8000/v1/feagi/feagi/launch";
-//     let xhttp = new XMLHttpRequest();
-//
-//     xhttp.open("POST", url, true);
-//
-//     // Set the request header i.e. which type of content you are sending
-//     xhttp.setRequestHeader("Content-Type", "application/json");
-//
-//     let data = JSON.stringify({"existing_connectome": document.getElementById('existing_connectome').value});
-//     xhttp.send(data)
-//
-//     document.getElementById('FEAGI_settings').style.display = "compact";
-// }
+
+
+
+
+
+
 //
 // function snapshot_connectome() {
 //     let url = "http://127.0.0.1:8000/v1/feagi/connectome/snapshot";
