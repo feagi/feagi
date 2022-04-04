@@ -63,8 +63,6 @@
 
 
         <!--        FEAGI Launch -->
-
-
         <section id="feagi_launcher" class="bg-warning text-light p-5">
 <!--            <h3 class="mb-3 mb-md-0">Start FEAGI Engines!</h3>-->
             <form id="FEAGI_launch">
@@ -86,7 +84,7 @@
                             <div class="col">
                                 <div class="input-group mb-3">
                                   <button class="btn btn-outline-secondary" type="button" id="button-addon1">Snapshot Connectome</button>
-                                  <input type="text" class="form-control" placeholder="Provide destination directory path" aria-label="Example text with button addon" aria-describedby="button-addon1" required>
+                                  <input type="text" class="form-control" placeholder="Provide destination directory path" aria-label="Example text with button addon" aria-describedby="button-addon1">
                                 </div>
 
 
@@ -96,10 +94,20 @@
 <!--                                </div>-->
                             </div>
                             <div class="col">
-                                <div class="input-group mb-3">
-                                  <button class="btn btn-outline-secondary" type="button" id="spike_interval">Set spike interval</button>
-                                  <input type="text" class="form-control" placeholder="Duration in seconds" aria-label="Example text with button addon" aria-describedby="button-addon1" required>
-                                </div>
+<!--                                <div class="input-group mb-3">-->
+<!--                                  <button class="btn btn-outline-secondary" type="button" id="spike_interval">Set spike interval</button>-->
+<!--                                  <input type="text" class="form-control" placeholder="Duration in seconds" aria-label="Example text with button addon" aria-describedby="button-addon1" required>-->
+<!--                                </div>-->
+<!--                                -->
+                                <form id="spike_interval_form">
+                                    <div class="input-group mb-3">
+                                      <button class="btn btn-dark" type="submit" >Set spike interval</button>
+                                      <input type="text" class="form-control" id="spike_interval" placeholder="Duration in seconds" aria-label="Example text with button addon" aria-describedby="button-addon1">
+                                    </div>
+                                </form>
+
+
+
 <!--                                <div class="mb-3">-->
 <!--                                  <label for="burst_timer" class="form-label">Change burst duration to</label>-->
 <!--                                  <input type="email" class="form-control" id="burst_timer" placeholder="Value in seconds">-->
@@ -111,23 +119,21 @@
 
                     <div class="container">
                           <div class="row">
-                            <div class="col">
-                                <div class="form-check form-switch">
-                                  <input class="form-check-input" type="checkbox" id="neuron_stats_">
-                                  <label class="form-check-label" for="neuron_stats_">Collect neuronal activities</label>
+                                <div class="col">
+                                        <div class="form-check form-switch">
+                                          <input class="form-check-input" type="checkbox" id="neuron_stats_">
+                                          <label class="form-check-label" for="neuron_stats_">Collect neuronal activities</label>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                          <input class="form-check-input" type="checkbox" id="synapse_stats_">
+                                          <label class="form-check-label" for="synapse_stats_">Collect synaptic activities</label>
+                                        </div>
                                 </div>
-                                <div class="form-check form-switch">
-                                  <input class="form-check-input" type="checkbox" id="synapse_stats_">
-                                  <label class="form-check-label" for="synapse_stats_">Collect synaptic activities</label>
-                                </div>
-                            </div>
-                            <div class="col">
+                                <div class="col">
 
-                            </div>
+                                </div>
                           </div>
-                        </div>
                     </div>
-
 
 <!--                    <label for="save_to_path">Connectome destination path:</label>-->
 <!--                    <input type="submit" id="save_to_path" placeholder="Required path to save connectome to"/>-->
@@ -146,7 +152,7 @@
 <!--                      <input type="checkbox" id="synapse_stats">-->
 <!--                      <span class="slider"></span>-->
 <!--                    </label>-->
-                </div>
+<!--                </div>-->
             </form>
         </section>
 

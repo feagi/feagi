@@ -1,7 +1,7 @@
 
-document.getElementById('FEAGI_launch').addEventListener('submit', start_feagi_wout_mon);
-document.getElementById('FEAGI_settings').addEventListener('submit', set_burst_duration);
-// document.getElementById('btn2').addEventListener('submit', snapshot_connectome);
+document.getElementById('FEAGI_launch').addEventListener('submit', start_feagi_wout_mon)
+document.getElementById('spike_interval_form').addEventListener('submit', set_burst_duration)
+
 // document.getElementById('btn3').addEventListener('submit', set_burst_duration);
 // document.getElementById('neuron_stats').addEventListener('change', set_stat_collections);
 // document.getElementById('synapse_stats').addEventListener('change', set_stat_collections);
@@ -24,35 +24,52 @@ function start_feagi_wout_mon(e) {
         .then((data) => console.log(data)
         )
 
-    var link = document.getElementById('feagi_launcher');
-    link.style.display = 'none';
+    let link1 = document.getElementById('feagi_launcher');
+    link1.style.display = 'none';
 
-    var link = document.getElementById('feagi_dash');
-    link.style.display = 'block';
-
-
+    let link2= document.getElementById('feagi_dash');
+    link2.style.display = 'block';
 }
 
 
-function start_feagi_with_mon(e) {
+
+function set_burst_duration(e) {
     e.preventDefault();
 
-    let connectome_path = document.getElementById('launch_path').value
-    console.log(connectome_path)
-    fetch('http://127.0.0.1:8000/v1/feagi/feagi/launch', {
+    let burst_duration = document.getElementById('spike_interval').value
+    console.log(burst_duration)
+    fetch('http://127.0.0.1:8000/v1/feagi/feagi/burst_engine', {
      method: 'post',
      headers: {
          'Accept': 'application/json, text/plain, */*',
          'Content-type': 'application/json'
      },
-        body:JSON.stringify({existing_connectome:connectome_path})
+        body:JSON.stringify({"burst_duration": burst_duration})
     })
         .then((res) => res.json())
         .then((data) => console.log(data)
         )
 }
 
-
+//
+//
+// function start_feagi_with_mon(e) {
+//     e.preventDefault();
+//
+//     let connectome_path = document.getElementById('launch_path').value
+//     console.log(connectome_path)
+//     fetch('http://127.0.0.1:8000/v1/feagi/feagi/launch', {
+//      method: 'post',
+//      headers: {
+//          'Accept': 'application/json, text/plain, */*',
+//          'Content-type': 'application/json'
+//      },
+//         body:JSON.stringify({existing_connectome:connectome_path})
+//     })
+//         .then((res) => res.json())
+//         .then((data) => console.log(data)
+//         )
+// }
 
 
 
@@ -70,18 +87,7 @@ function start_feagi_with_mon(e) {
 //     xhttp.send(data)
 // }
 //
-function set_burst_duration() {
-    let url = "http://127.0.0.1:8000/v1/feagi/feagi/burst_engine";
-    let xhttp = new XMLHttpRequest();
 
-    xhttp.open("POST", url, true);
-
-    // Set the request header i.e. which type of content you are sending
-    xhttp.setRequestHeader("Content-Type", "application/json");
-
-    let data = JSON.stringify({"burst_duration": document.getElementById('spike_interval').value});
-    xhttp.send(data)
-}
 //
 // function set_stat_collections() {
 //     let url = "http://127.0.0.1:8000/v1/feagi/stats";
