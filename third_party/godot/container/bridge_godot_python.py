@@ -246,6 +246,8 @@ async def echo(websocket):
             one_frame = feagi_breakdown(one_frame)
             #UDP(str(one_frame)) ##for udp which is now replaced by
             #data_from_godot = godot_listener()
+            print(one_frame)
+            await websocket.send(str(one_frame))
             print("Waiting on recv")
             data_from_godot = await websocket.recv()
             data_from_godot = data_from_godot.decode('UTF-8') ##ADDED this line to decode into string only

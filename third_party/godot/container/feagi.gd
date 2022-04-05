@@ -46,7 +46,6 @@ var height = 0
 var width = 0
 var cortical_area = {}
 var cortical_area_stored = {}
-var green_light = false
 var Godot_list = {}
 var x_increment = 0
 var z_increment = 0
@@ -71,17 +70,6 @@ func _ready():
 #		print("Connection established.")
 #		green_light  = true
 ## END OF UDP
-
-	var err
-	if err != OK:
-		print("Unable to start server")
-	else:
-		green_light = true#		
-		print("connecting...")
-		print("get_node: connected_websocket.")
-		print("setup_local_to_scene loaded.")
-		print("Connection established.")
-		#set_process(false)
 
 	$GridMap2.clear()
 	for i in 6:
@@ -114,7 +102,7 @@ func _ready():
 	$GridMap.clear()
 
 	_csv_generator()
-	while green_light:
+	while websocket.green_light:
 #		## Check if csv is different than the current csv
 		if csv_flag == false:
 			#print("FALSE!")
@@ -139,9 +127,9 @@ func _ready():
 				stored_csv = current_csv
 				_csv_generator()
 
-		_callout()
+#		_callout()
 		## This will build from one frame
-		#print(stored_value)
+		print(stored_value)
 		if stored_value != "":
 			var array_test = stored_value.replace("[", "")
 			array_test = array_test.replace("]", "")
@@ -166,25 +154,26 @@ func _ready():
 			flag = 0 #keep x,y,z in correct place
 			#yield(get_tree().create_timer(.01), "timeout")
 		print("sending data to python")
-		websocket._client.put_packet("{}".to_utf8())
+		#websocket.send("{}")
 		#udp.put_packet("{}".to_utf8())	
 		$GridMap.clear() ##clear the new data
 
 
 func _process(delta):
-#	while socket.get_available_packet_count() > 0:
-#		data = socket.get_packet().get_string_from_utf8()
-#		stored_value = data
-#	udp.connect_to_host("127.0.0.1", 20002)
-	
-#	while _server.get_available_packet_count() > 0:
-#		data = _server.get_peer(global_id).get_packet()
-#		stored_value = data
+##	while socket.get_available_packet_count() > 0:
+##		data = socket.get_packet().get_string_from_utf8()
+##		stored_value = data
+##	udp.connect_to_host("127.0.0.1", 20002)
+#
+##	while _server.get_available_packet_count() > 0:
+##		data = _server.get_peer(global_id).get_packet()
+##		stored_value = data
 	data = websocket._client.get_peer(1).get_packet().get_string_from_utf8()
-	stored_value = data
-		
-func _callout():
-	_process(self)
+	if data != "":
+		stored_value = data
+#
+#func _callout():
+#	_process(self)
 	
 func generate_model(node, x, y, z, width, depth, height, name):
 	var new_grid = gridmap_new.duplicate()
@@ -281,6 +270,3 @@ func _clear_node_name_list(node_name):
 			search_name.queue_free()
 	global_name_list = []
 	$Floor_grid.clear()
-	
-
-
