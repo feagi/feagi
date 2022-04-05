@@ -10,3 +10,4 @@ COPY ./freenove_4wd_car_description/ ./start_controller.sh ./
 RUN chmod a+x ./start_controller.sh
 RUN chmod 0755 /opt/source-code/freenove_4wd_car_description/
 
+

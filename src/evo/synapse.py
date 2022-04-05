@@ -256,6 +256,9 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
                 elif neuron_morphology == "lateral_pairs_x":
                     candidate = lateral_pairs_x(neuron_id=src_neuron_id, cortical_area=cortical_area_src)
                     candidate_voxel_list.append(candidate)
+                elif neuron_morphology == "block_connection":
+                    candidate = block_connection(cortical_area_src, cortical_area_dst, src_neuron_id, s=10)
+                    candidate_voxel_list.append(candidate)
             elif key == "placeholder":
                 pass
 
