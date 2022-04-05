@@ -1,6 +1,6 @@
 
 document.getElementById('FEAGI_launch').addEventListener('submit', start_feagi_wout_mon)
-document.getElementById('spike_interval_form').addEventListener('submit', set_burst_duration)
+document.getElementById('feagi_dash').addEventListener('submit', set_burst_duration)
 
 // document.getElementById('btn3').addEventListener('submit', set_burst_duration);
 // document.getElementById('neuron_stats').addEventListener('change', set_stat_collections);
