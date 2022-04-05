@@ -267,9 +267,13 @@ def pruner(pruning_data):
     cortical_area_src, src_neuron_id, cortical_area_dst, dst_neuron_id = pruning_data
     runtime_data.brain[cortical_area_src][src_neuron_id]['neighbors'].pop(dst_neuron_id, None)
 
-    runtime_data.brain[cortical_area_dst][dst_neuron_id]["upstream_neurons"][cortical_area_src].remove(src_neuron_id)
-    if dst_neuron_id in runtime_data.temp_neuron_list:
-        runtime_data.temp_neuron_list.remove(dst_neuron_id)
+    try:
+        runtime_data.brain[cortical_area_dst][dst_neuron_id][
+            "upstream_neurons"][cortical_area_src].remove(src_neuron_id)
+        if dst_neuron_id in runtime_data.temp_neuron_list:
+            runtime_data.temp_neuron_list.remove(dst_neuron_id)
+    except KeyError as e:
+        print("Pruner warning! Key not found", e)
 
 
 # todo: performance bottleneck; cythonize
