@@ -29,6 +29,9 @@ function start_feagi_wout_mon(e) {
 
     let link2= document.getElementById('feagi_dash');
     link2.style.display = 'block';
+
+    let link3= document.getElementById('feagi_panels');
+    link3.style.display = 'block';
 }
 
 
