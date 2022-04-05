@@ -2,6 +2,7 @@ extends Node
 
 # The URL we will connect to
 export var websocket_url = "ws://localhost:6080"
+var green_light = false #Moved from feagi to here
 
 # Our WebSocketClient instance
 var _client = WebSocketClient.new()
@@ -20,7 +21,10 @@ func _ready():
 	var err = _client.connect_to_url(websocket_url)
 	if err != OK:
 		print("Unable to connect")
-		set_process(false)
+	else:
+		print("Connected")
+		green_light = true
+		#set_process(false)
 
 func _closed(was_clean = false):
 	# was_clean will tell you if the disconnection was correctly notified
@@ -42,10 +46,11 @@ func _on_data():
 	# using the MultiplayerAPI.
 	print("Got data from server: ", _client.get_peer(1).get_packet().get_string_from_utf8())
 
-func _test():
-	print("Polled")
-
 func _process(delta):
 	# Call this in _process or _physics_process. Data transfer, and signals
 	# emission will only happen when calling this function.
 	_client.poll()
+	send("{}")
+	
+func send(data):
+	_client.get_peer(1).put_packet(data.to_utf8())
