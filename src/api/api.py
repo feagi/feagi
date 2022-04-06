@@ -24,6 +24,7 @@ from inf import disk_ops, runtime_data
 
 
 app = FastAPI()
+favicon_path = 'favicon.svg'
 
 api_queue = Queue()
 
