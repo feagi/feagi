@@ -182,7 +182,6 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
     Convert absolute coordinate from godot to relative coordinate for FEAGI. Dna_information is from the
     genome["blueprint"].
     """
-
     relative_coordinate = {}
     relative_coordinate["data"] = dict()
     relative_coordinate["data"]["direct_stimulation"] = dict()
@@ -210,18 +209,6 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
 async def echo(websocket):
     print("THJREE")
     Godot_list = {}  ##initalized the list from Godot
-    address = 'tcp://' + network_settings['feagi_ip'] + ':' + network_settings['feagi_outbound_port']
-    feagi_state = handshake_with_feagi(address=address,
-                                       capabilities=capabilities)  ##I was trying to leverage on router only
-    print("feagi_state: ", feagi_state)
-    print("** **", feagi_state)
-    sockets = feagi_state['sockets']
-    network_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
-
-    print("--->> >> >> ", sockets)
-    FEAGI_pub = Pub(address='tcp://0.0.0.0:' + network_settings['feagi_inbound_port_godot'])
-    opu_channel_address = 'tcp://' + network_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
-    FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
     # UDP(str("0,0,0"))
 
     # Send a request to FEAGI for cortical dimensions
@@ -237,16 +224,16 @@ async def echo(websocket):
                     runtime_data["cortical_data"] = message_from_feagi["cortical_dimensions"]
                     csv_writer(message_from_feagi["cortical_dimensions"])
                     awaiting_feagi_registration = False
-        time.sleep(1)
-    time.sleep(2)
+    #     time.sleep(1)
+    # time.sleep(2)
 
-    while True:
+    while True: ##This is the cultprit and bottleneck
         one_frame = FEAGI_sub.receive()
+        #print("data: ", one_frame)
         if one_frame is not None:
             one_frame = feagi_breakdown(one_frame)
-            #UDP(str(one_frame)) ##for udp which is now replaced by
+            #UDP(str(one_frame)) ##for udp which is now replaced by websocket
             #data_from_godot = godot_listener()
-            print(one_frame)
             await websocket.send(str(one_frame))
             print("Waiting on recv")
             data_from_godot = await websocket.recv()
@@ -268,42 +255,21 @@ async def echo(websocket):
                 pass
 
 async def main():
-    print("ONE")
     async with websockets.serve(echo, "localhost", 6080):
-        print("TWO")
         await asyncio.Future()  # run forever
 
+address = 'tcp://' + network_settings['feagi_ip'] + ':' + network_settings['feagi_outbound_port']
+feagi_state = handshake_with_feagi(address=address,
+                                   capabilities=capabilities)
+print("feagi_state: ", feagi_state)
+print("** **", feagi_state)
+sockets = feagi_state['sockets']
+network_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
+
+print("--->> >> >> ", sockets)
+FEAGI_pub = Pub(address='tcp://0.0.0.0:' + network_settings['feagi_inbound_port_godot'])
+opu_channel_address = 'tcp://' + network_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
+FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 asyncio.run(main())
-# async def main():
-#     print("ONE")
-#     async with websockets.serve(echo, "localhost", 9080):
-#         print("TWO")
-#         await asyncio.Future()  # run forever
 
-
-# asyncio.run(main())
-#
-#         await websocket_server.send("apple")
-#         test = await websocket_server.recv()
-#
-#
-# while True:
-#     one_frame = FEAGI_sub.receive()
-#     if one_frame is not None:
-#         one_frame = feagi_breakdown(one_frame)
-#         UDP(str(one_frame))
-#     data_from_godot = godot_listener()
-#     if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != Godot_list and data_from_godot != "refresh"):
-#         print(data_from_godot)
-#         Godot_list = godot_data(data_from_godot)
-#         converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=Godot_list,
-#                                                                  cortical_data=runtime_data["cortical_data"])
-#         print(">>> > > > >> > converted data:", converted_data)
-#         FEAGI_pub.send(converted_data)
-#     if data_from_godot == "refresh":
-#         Godot_list = {}
-#         converted_data = {}
-#         FEAGI_pub.send(Godot_list)
-#     else:
-#         pass
 

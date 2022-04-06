@@ -102,78 +102,18 @@ func _ready():
 	$GridMap.clear()
 
 	_csv_generator()
-	while websocket.green_light:
-#		## Check if csv is different than the current csv
-		if csv_flag == false:
-			#print("FALSE!")
-			var check = File.new()
-			if check.file_exists('res://csv_data.csv'):
-				csv_flag = true
-				check.open(file, File.READ)
-				var current_csv = check.get_as_text()
-				check.close()
-				print(stored_csv)
-				if stored_csv != current_csv:
-					_csv_generator()
-					stored_csv = current_csv
-			
-		else:
-			#print("TRUE!")
-			var check = File.new()
-			check.open(file, File.READ)
-			var current_csv = check.get_as_text()
-			check.close()
-			if stored_csv != current_csv:
-				stored_csv = current_csv
-				_csv_generator()
-
-#		_callout()
-		## This will build from one frame
-		print(stored_value)
-		if stored_value != "":
-			var array_test = stored_value.replace("[", "")
-			array_test = array_test.replace("]", "")
-			test=array_test.split(",", true, '0')
-			total = (test.size())
-			#print(test)
-			var key = 0
-			flag=0
-			while key < total:
-				if flag == 0:
-					flag = flag + 1
-					x = int(test[key])
-				elif flag == 1:
-					flag = flag + 1
-					y = int(test[key])
-				elif flag == 2:
-					flag = 0
-					z = int(test[key])
-					#check_cortical_area(x,y,z)
-					install_voxel_inside(x,y,z) #install voxel inside cortical area
-				key+= 1
-			flag = 0 #keep x,y,z in correct place
-			#yield(get_tree().create_timer(.01), "timeout")
-		print("sending data to python")
-		#websocket.send("{}")
-		#udp.put_packet("{}".to_utf8())	
-		$GridMap.clear() ##clear the new data
 
 
 func _process(delta):
-##	while socket.get_available_packet_count() > 0:
-##		data = socket.get_packet().get_string_from_utf8()
-##		stored_value = data
-##	udp.connect_to_host("127.0.0.1", 20002)
-#
-##	while _server.get_available_packet_count() > 0:
-##		data = _server.get_peer(global_id).get_packet()
-##		stored_value = data
-	data = websocket._client.get_peer(1).get_packet().get_string_from_utf8()
+	check_csv() ##Check if csv is changed
+	data = websocket.one_frame
 	if data != "":
 		stored_value = data
-#
-#func _callout():
-#	_process(self)
+		generate_voxels(stored_value)
+
+
+func _callout():
+	_process(self)
 	
 func generate_model(node, x, y, z, width, depth, height, name):
 	var new_grid = gridmap_new.duplicate()
@@ -270,3 +210,53 @@ func _clear_node_name_list(node_name):
 			search_name.queue_free()
 	global_name_list = []
 	$Floor_grid.clear()
+
+func check_csv():
+	if csv_flag == false:
+		#print("FALSE!")
+		var check = File.new()
+		if check.file_exists('res://csv_data.csv'):
+			csv_flag = true
+			check.open(file, File.READ)
+			var current_csv = check.get_as_text()
+			check.close()
+			print(stored_csv)
+			if stored_csv != current_csv:
+				_csv_generator()
+				stored_csv = current_csv
+	else:
+		#print("TRUE!")
+		var check = File.new()
+		check.open(file, File.READ)
+		var current_csv = check.get_as_text()
+		check.close()
+		if stored_csv != current_csv:
+			stored_csv = current_csv
+			_csv_generator()
+			
+func generate_voxels(data):
+	if stored_value != "" and stored_value != null:
+		#print("ENTERED!")
+		var array_test = stored_value.replace("[", "")
+		array_test = array_test.replace("]", "")
+		test=array_test.split(",", true, '0')
+		total = (test.size())
+		#print(test)
+		var key = 0
+		flag=0
+		while key < total:
+			if flag == 0:
+				flag = flag + 1
+				x = int(test[key])
+			elif flag == 1:
+				flag = flag + 1
+				y = int(test[key])
+			elif flag == 2:
+				flag = 0
+				z = int(test[key])
+				#check_cortical_area(x,y,z)
+				install_voxel_inside(x,y,z) #install voxel inside cortical area
+			key+= 1
+		flag = 0 #keep x,y,z in correct place
+	if stored_value != "" and stored_value != null and stored_value != "[]":
+		red_timer.timer = true
