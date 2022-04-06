@@ -7,3 +7,6 @@ influxdb_client==1.18.0
 pyzmq==22.3.0
 psutil==5.8.0
 zmq==0.0.0
+uvicorn==0.17.5
+fastapi==0.75.0
+pydantic==1.9.0

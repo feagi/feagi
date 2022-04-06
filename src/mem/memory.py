@@ -199,14 +199,15 @@ def neuroplasticity():
                                             dst_neuron_id=neuron
                                         )
                         neuron1_downstream_neurons = runtime_data.brain[src_cortical_area][neuron1]['neighbors']
-                        if dst_cortical_area in neuron1_downstream_neurons:
-                            for neuron in previous_fcl[dst_cortical_area]:
-                                if neuron in neuron1_downstream_neurons[dst_cortical_area]:
+                        for downstream_neuron in neuron1_downstream_neurons:
+                            if neuron1_downstream_neurons[downstream_neuron]['cortical_area'] in previous_fcl:
+                                if downstream_neuron in \
+                                        previous_fcl[neuron1_downstream_neurons[downstream_neuron]['cortical_area']]:
                                     longterm_potentiation_depression(
                                         src_cortical_area=src_cortical_area,
                                         src_neuron_id=neuron1,
                                         dst_cortical_area=dst_cortical_area,
-                                        dst_neuron_id=neuron,
+                                        dst_neuron_id=downstream_neuron,
                                         long_term_depression=True,
                                         impact_multiplier=4
                                     )

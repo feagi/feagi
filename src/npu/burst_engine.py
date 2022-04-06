@@ -40,6 +40,7 @@ from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
 from inf.messenger import Pub, Sub
 from pns.pns_router import opu_router, stimuli_router
+from api.api import api_message_processor
 
 
 def cortical_group_members(group):
@@ -99,12 +100,6 @@ def burst_manager():
         runtime_data.future_fcl[cortical_area_] = set()
         runtime_data.previous_fcl[cortical_area_] = set()
         # runtime_data.upstream_neurons[cortical_area_] = {}
-
-    def save_fcl_2_dsk():
-        if runtime_data.parameters["Switches"]["save_fcl_to_db"]:
-            disk_ops.save_fcl_in_db(runtime_data.burst_count,
-                                    runtime_data.fire_candidate_list,
-                                    feeder.injector_num_to_inject)
 
     def capture_cortical_activity_stats():
         # print('@@@--- Activity Stats:', runtime_data.activity_stats)
@@ -360,6 +355,13 @@ def burst_manager():
         pass
 
     def burst():
+        if runtime_data.api_queue.empty():
+            pass
+        else:
+            api_message = runtime_data.api_queue.get()
+            print(api_message)
+            api_message_processor(api_message)
+
         # todo: the following sleep value should be tied to Autopilot status
         sleep(float(runtime_data.burst_timer))
 
@@ -404,9 +406,6 @@ def burst_manager():
 
         # The following is to have a check point to assess the perf of the in-use genome and make on the fly adj.
         evolutionary_checkpoint()
-
-        # Saving FCL to disk for post-processing and running analytics
-        save_fcl_2_dsk()
 
         # Monitor cortical activity levels and terminate brain if not meeting expectations
         terminate_on_low_perf()
