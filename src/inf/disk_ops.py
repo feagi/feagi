@@ -275,12 +275,19 @@ def save_fcl_to_disk():
     print("Brain activities has been preserved!")
 
 
-def save_brain_to_disk(cortical_area='all', brain=runtime_data.brain, parameters=runtime_data.parameters, backup=False):
-    connectome_path = runtime_data.connectome_path
+def save_brain_to_disk(cortical_area='all', brain=runtime_data.brain,
+                       connectome_path=runtime_data.connectome_path,
+                       parameters=runtime_data.parameters, type=None):
+    print("connectome_path:", connectome_path, runtime_data.connectome_path)
+    if not connectome_path:
+        connectome_path = runtime_data.connectome_path
+    if not brain:
+        brain = runtime_data.brain
     if brain == {}:
         print(">> >> Error: Could not save the brain contents to disk as brain was empty!")
         return
     brain = serialize_brain_data(brain)
+
     if cortical_area != 'all':
         with open(connectome_path+cortical_area+'.json', "r+") as data_file:
             data = brain[cortical_area]
@@ -289,7 +296,8 @@ def save_brain_to_disk(cortical_area='all', brain=runtime_data.brain, parameters
             data_file.seek(0)  # rewind
             data_file.write(json.dumps(data, indent=3))
             data_file.truncate()
-    elif backup:
+
+    elif type == 'backup':
         for cortical_area in runtime_data.cortical_list:
             with open(connectome_path+cortical_area+'_backup.json', "w") as data_file:
                 data = brain[cortical_area]
@@ -299,6 +307,20 @@ def save_brain_to_disk(cortical_area='all', brain=runtime_data.brain, parameters
                 data_file.seek(0)  # rewind
                 data_file.write(json.dumps(data, indent=3))
                 data_file.truncate()
+                print(">>> >>> All data related to Cortical area %s is saved in connectome" % cortical_area)
+
+    elif type == 'snapshot':
+        for cortical_area in runtime_data.cortical_list:
+            with open(connectome_path+cortical_area+'.json', "w") as data_file:
+                data = brain[cortical_area]
+                # if runtime_data.parameters["Logs"]["print_brain_gen_activities"]:
+                    # print(">>> >>> All data related to Cortical area %s is saved in connectome" % cortical_area)
+                # Saving changes to the connectome
+                data_file.seek(0)  # rewind
+                data_file.write(json.dumps(data, indent=3))
+                data_file.truncate()
+                print(">>> >>> All data related to Cortical area %s is saved in connectome" % cortical_area)
+
     else:
         for cortical_area in runtime_data.cortical_list:
             with open(connectome_path+cortical_area+'.json', "r+") as data_file:

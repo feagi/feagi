@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,18 +13,16 @@
 # limitations under the License.
 # ==============================================================================
 
-"""
-FEAGI is a brain inspired evolutionary framework capable of growing an artificial brain from a
-genome and helping it evolve over generations.
 
-This main module is responsible for driving the lifecycle of a single generation of an
-artificial brain at a time. To scale up the system to many parallel generations, FEAGI
-is intended to run within a container and scale up to many container instances.
-"""
+import requests
+# import contextlib
 
-import uvicorn
+url = "http://127.0.0.1:8000/v1/feagi/feagi/launch"
+request_obj = {
+    "existing_connectome": "/Users/mnadji/1"
+}
 
+x = requests.post(url, data=request_obj)
+print(x.text)
 
-if __name__ == "__main__":
-    uvicorn.run("api.api:app", host="0.0.0.0", port=8000, reload=True, log_level="debug", debug=True,
-                workers=2, limit_concurrency=10)
+# test = Config()
