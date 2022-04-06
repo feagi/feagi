@@ -24,6 +24,7 @@ config/icon="res://icon.png"
 
 Godot_list="*res://godot_list.gd"
 websocket="*res://websocket_client_operation.gd"
+red_timer="*res://clear_voxel_timer.gd"
 
 [input]
 

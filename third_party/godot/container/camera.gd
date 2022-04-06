@@ -30,6 +30,7 @@ var x_rotation = rotate_x(13.3)
 var udp := PacketPeerUDP.new()
 var direction = Vector3(0, 0, 0)
 var velocity = Vector3(0, 0, 0)
+var flagged = false ## This allows space and del to be able to send data without being overwritten by spam "{}"
 
 const CAMERA_TURN_SPEED = 200
 
@@ -55,18 +56,24 @@ func get_input_keyboard(delta):
 		y = y + 1
 		transform.origin=Vector3(x,y,z)
 	if Input.is_action_just_pressed("ui_select"): ##It's actually spacebar
+		flagged = true
 #		udp.connect_to_host("127.0.0.1", 20002)
 #		udp.put_packet(String(Godot_list.godot_list).to_utf8())
 		websocket.send(String(Godot_list.godot_list))
 		print(Godot_list.godot_list)
 	if Input.is_action_just_pressed("ui_del"):
 		#udp.connect_to_host("127.0.0.1", 20002)
+		#print(Input.is_action_just_pressed("ui_del"))
+		flagged = true
 		websocket.send("refresh")
 		#udp.put_packet("refresh".to_utf8())
 		for key in Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"]:
 			Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][key] = []
 		print(Godot_list.godot_list)
-
+	if flagged != true:
+		websocket.send("{}")
+	elif flagged:
+		flagged = false
 func _process(delta):
 	get_input_keyboard(delta)
 	
