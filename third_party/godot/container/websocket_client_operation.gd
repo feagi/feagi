@@ -3,6 +3,7 @@ extends Node
 # The URL we will connect to
 export var websocket_url = "ws://localhost:6080"
 var green_light = false #Moved from feagi to here
+var one_frame = ""
 
 # Our WebSocketClient instance
 var _client = WebSocketClient.new()
@@ -44,13 +45,14 @@ func _on_data():
 	# Print the received packet, you MUST always use get_peer(1).get_packet
 	# to receive data from server, and not get_packet directly when not
 	# using the MultiplayerAPI.
-	print("Got data from server: ", _client.get_peer(1).get_packet().get_string_from_utf8())
-
+	one_frame = _client.get_peer(1).get_packet().get_string_from_utf8()
+	#print("Got data from server: ", one_frame)
+	
+	
 func _process(delta):
 	# Call this in _process or _physics_process. Data transfer, and signals
 	# emission will only happen when calling this function.
 	_client.poll()
-	send("{}")
 	
 func send(data):
 	_client.get_peer(1).put_packet(data.to_utf8())
