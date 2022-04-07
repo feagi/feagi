@@ -255,7 +255,7 @@ async def echo(websocket):
                 pass
 
 async def main():
-    async with websockets.serve(echo, "localhost", 9000):
+    async with websockets.serve(echo, "0.0.0.0", 9050):
         await asyncio.Future()  # run forever
 
 address = 'tcp://' + network_settings['feagi_ip'] + ':' + network_settings['feagi_outbound_port']
