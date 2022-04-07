@@ -1,7 +1,7 @@
 extends Node
 
 # The URL we will connect to
-export var websocket_url = "ws://localhost:6080"
+export var websocket_url = "ws://localhost:9000"
 var green_light = false #Moved from feagi to here
 var one_frame = ""
 
