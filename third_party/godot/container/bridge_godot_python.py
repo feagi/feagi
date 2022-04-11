@@ -62,44 +62,8 @@ def breakdown(feagi_input):  ##add input soon
     while increment < len(data):
         voxel = [data[increment][1], data[increment][2], data[increment][3]]
         list1.append(voxel)
-        UDP(str(voxel))
         increment += 1
     print(list1)
-    UDP(str(list1))
-
-
-def UDP(input):
-    """
-    This allows you to send any data to UDP. This port is what Godot's UDP using to recieve.
-    """
-    ip = "127.0.0.1"
-    port = 20001
-
-    # Create socket for server
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
-
-    # while True: ##this must be in loop in order to work with FEAGI
-    s.sendto(input.encode('utf-8'), (ip, port))
-    print("FEAGI: This Sent to Godot with the input: ", input, "\n\n")
-    # close the socket
-    s.close()
-
-
-def godot_listener():
-    """
-    This is to recieve data from the Godot's data through UDP. You should expect to get a name,
-    """
-    godot_host = "127.0.0.1"
-    godot_port = 20002
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind((godot_host, godot_port))
-    #sock.setblocking(1)
-
-    data, addr = sock.recvfrom(1024)  # buffer size is 1024 bytes
-
-    return data.decode("utf-8")
-
 
 def godot_data(input):
     """
@@ -124,7 +88,6 @@ def godot_data(input):
 
 
 def godot_selected_list(outside_list, godot_list):
-
     name = outside_list[0]
     x = int(outside_list[1])
     y = int(outside_list[2])
@@ -209,8 +172,6 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
 async def echo(websocket):
     print("THJREE")
     Godot_list = {}  ##initalized the list from Godot
-    # UDP(str("0,0,0"))
-
     # Send a request to FEAGI for cortical dimensions
     awaiting_feagi_registration = True
     while awaiting_feagi_registration:
@@ -232,8 +193,6 @@ async def echo(websocket):
         #print("data: ", one_frame)
         if one_frame is not None:
             one_frame = feagi_breakdown(one_frame)
-            #UDP(str(one_frame)) ##for udp which is now replaced by websocket
-            #data_from_godot = godot_listener()
             await websocket.send(str(one_frame))
             print("Waiting on recv")
             data_from_godot = await websocket.recv()
