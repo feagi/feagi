@@ -76,10 +76,9 @@ z={
 
 [rendering]
 
-quality/driver/driver_name="GLES2"
 quality/shadows/filter_mode=0
 quality/reflections/high_quality_ggx=false
 quality/depth_prepass/enable=false
+quality/subsurface_scattering/quality=0
 quality/depth/hdr=false
 environment/default_environment="res://default_env.tres"
-quality/subsurface_scattering/quality=0

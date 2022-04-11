@@ -97,10 +97,13 @@ func _process(delta):
 	if data != "":
 		stored_value = data
 		generate_voxels(stored_value)
+	if red_timer.timer_string == "clear_now":
+		time_to_clear()
 
 
 func _callout():
 	_process(self)
+
 	
 func generate_model(node, x, y, z, width, depth, height, name):
 	var new_grid = gridmap_new.duplicate()
@@ -247,3 +250,7 @@ func generate_voxels(data):
 		flag = 0 #keep x,y,z in correct place
 	if stored_value != "" and stored_value != null and stored_value != "[]":
 		red_timer.timer = true
+		
+func time_to_clear():
+	$GridMap.clear()  ##Doesn't clear gridmap. Why?
+	red_timer.timer = false
