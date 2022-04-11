@@ -30,7 +30,6 @@ var grid_steps = 1000
 var flag = 0
 var test = 0
 var data
-var socket = PacketPeerUDP.new()
 var stored_value = ""
 var current_pos = Vector3()
 var x = 0
@@ -50,7 +49,6 @@ var Godot_list = {}
 var x_increment = 0
 var z_increment = 0
 var csv_flag = false
-var udp := PacketPeerUDP.new()
 var connected = false
 var stored_csv = ""
 var global_name_list = []
@@ -60,17 +58,6 @@ var global_id
 func _ready():
 #	Godot_list.godot_list["data"]
 	Engine.target_fps = 20
-## UDP section only
-#	if(socket.listen(20001, "127.0.0.1") != OK):
-#		print("error")
-#	else:
-#		print("connecting...")
-#		print("get_node: connected_UDP.")
-#		print("setup_local_to_scene loaded.")
-#		print("Connection established.")
-#		green_light  = true
-## END OF UDP
-
 	$GridMap2.clear()
 	for i in 6:
 		$GridMap3.set_cell_item(i,0,0,0) ##set the arrow indicator of 3D
