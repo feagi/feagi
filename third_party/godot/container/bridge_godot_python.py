@@ -170,25 +170,6 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
     return relative_coordinate
 
 async def echo(websocket):
-    print("THJREE")
-    Godot_list = {}  ##initalized the list from Godot
-    # Send a request to FEAGI for cortical dimensions
-    awaiting_feagi_registration = True
-    while awaiting_feagi_registration:
-        print("Awaiting registration with FEAGI...")
-        FEAGI_pub.send({"godot_init": True})
-        message_from_feagi = FEAGI_sub.receive()
-        if message_from_feagi:
-            if "cortical_dimensions" in message_from_feagi:
-                if len(message_from_feagi["cortical_dimensions"]) > 0:
-                    print(">>> >> > >", message_from_feagi["cortical_dimensions"])
-                    runtime_data["cortical_data"] = message_from_feagi["cortical_dimensions"]
-                    csv_writer(message_from_feagi["cortical_dimensions"])
-                    awaiting_feagi_registration = False
-    #     time.sleep(1)
-    # time.sleep(2)
-
-    while True: ##This is the cultprit and bottleneck
         one_frame = FEAGI_sub.receive()
         #print("data: ", one_frame)
         if one_frame is not None:
@@ -214,6 +195,23 @@ async def echo(websocket):
                 pass
 
 async def main():
+    print("THJREE")
+    Godot_list = {}  ##initalized the list from Godot
+    # Send a request to FEAGI for cortical dimensions
+    awaiting_feagi_registration = True
+    while awaiting_feagi_registration:
+        print("Awaiting registration with FEAGI...")
+        FEAGI_pub.send({"godot_init": True})
+        message_from_feagi = FEAGI_sub.receive()
+        if message_from_feagi:
+            if "cortical_dimensions" in message_from_feagi:
+                if len(message_from_feagi["cortical_dimensions"]) > 0:
+                    print(">>> >> > >", message_from_feagi["cortical_dimensions"])
+                    runtime_data["cortical_data"] = message_from_feagi["cortical_dimensions"]
+                    csv_writer(message_from_feagi["cortical_dimensions"])
+                    awaiting_feagi_registration = False
+    #     time.sleep(1)
+    # time.sleep(2)
     async with websockets.serve(echo, "0.0.0.0", 9050):
         await asyncio.Future()  # run forever
 
