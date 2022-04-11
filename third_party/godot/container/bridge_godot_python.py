@@ -170,31 +170,6 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
     return relative_coordinate
 
 async def echo(websocket):
-        one_frame = FEAGI_sub.receive()
-        #print("data: ", one_frame)
-        if one_frame is not None:
-            one_frame = feagi_breakdown(one_frame)
-            await websocket.send(str(one_frame))
-            print("Waiting on recv")
-            data_from_godot = await websocket.recv()
-            data_from_godot = data_from_godot.decode('UTF-8') ##ADDED this line to decode into string only
-            print(data_from_godot)
-            if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != Godot_list and data_from_godot != "refresh" and data_from_godot != "[]"):
-                print(data_from_godot)
-                Godot_list = godot_data(data_from_godot)
-                converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=Godot_list,
-                                                                         cortical_data=runtime_data[
-                                                                             "cortical_data"])
-                print(">>> > > > >> > converted data:", converted_data)
-                FEAGI_pub.send(converted_data)
-            if data_from_godot == "refresh":
-                Godot_list = {}
-                converted_data = {}
-                FEAGI_pub.send(Godot_list)
-            else:
-                pass
-
-async def main():
     print("THJREE")
     Godot_list = {}  ##initalized the list from Godot
     # Send a request to FEAGI for cortical dimensions
@@ -212,6 +187,33 @@ async def main():
                     awaiting_feagi_registration = False
     #     time.sleep(1)
     # time.sleep(2)
+
+    while True: ##This is the cultprit and bottleneck
+        one_frame = FEAGI_sub.receive()
+        print("data: ", one_frame)
+        if one_frame is not None:
+            one_frame = feagi_breakdown(one_frame)
+            await websocket.send(str(one_frame))
+            #print("Waiting on recv")
+        data_from_godot = await websocket.recv()
+        data_from_godot = data_from_godot.decode('UTF-8') ##ADDED this line to decode into string only
+        #print(data_from_godot)
+        if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != Godot_list and data_from_godot != "refresh" and data_from_godot != "[]"):
+            print(data_from_godot)
+            Godot_list = godot_data(data_from_godot)
+            converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=Godot_list,
+                                                                     cortical_data=runtime_data[
+                                                                         "cortical_data"])
+            print(">>> > > > >> > converted data:", converted_data)
+            FEAGI_pub.send(converted_data)
+        if data_from_godot == "refresh":
+            Godot_list = {}
+            converted_data = {}
+            FEAGI_pub.send(Godot_list)
+        else:
+            pass
+
+async def main():
     async with websockets.serve(echo, "0.0.0.0", 9050):
         await asyncio.Future()  # run forever
 
