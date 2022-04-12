@@ -57,7 +57,7 @@ var global_id
 
 func _ready():
 #	Godot_list.godot_list["data"]
-	Engine.target_fps = 20
+	#Engine.target_fps = 20
 	$GridMap2.clear()
 	for i in 6:
 		$GridMap3.set_cell_item(i,0,0,0) ##set the arrow indicator of 3D
@@ -89,21 +89,19 @@ func _ready():
 	$GridMap.clear()
 
 	_csv_generator()
+	
+	while true:
+		_process(self)
+		stored_value = data
+		generate_voxels(stored_value)
+		yield(get_tree().create_timer(0.01), "timeout")
+		$GridMap.clear()
 
 
 func _process(delta):
 	check_csv() ##Check if csv is changed
 	data = websocket.one_frame
-	if data != "":
-		stored_value = data
-		generate_voxels(stored_value)
-	if red_timer.timer_string == "clear_now":
-		time_to_clear()
-
-
-func _callout():
-	_process(self)
-
+	
 	
 func generate_model(node, x, y, z, width, depth, height, name):
 	var new_grid = gridmap_new.duplicate()
@@ -248,9 +246,3 @@ func generate_voxels(data):
 				install_voxel_inside(x,y,z) #install voxel inside cortical area
 			key+= 1
 		flag = 0 #keep x,y,z in correct place
-	if stored_value != "" and stored_value != null and stored_value != "[]":
-		red_timer.timer = true
-		
-func time_to_clear():
-	$GridMap.clear() 
-	red_timer.timer = false
