@@ -170,7 +170,6 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
     return relative_coordinate
 
 async def echo(websocket):
-    print("THJREE")
     Godot_list = {}  ##initalized the list from Godot
     # Send a request to FEAGI for cortical dimensions
     awaiting_feagi_registration = True
@@ -188,7 +187,7 @@ async def echo(websocket):
     #     time.sleep(1)
     # time.sleep(2)
 
-    while True: ##This is the cultprit and bottleneck
+    while True:
         one_frame = FEAGI_sub.receive()
         print("data: ", one_frame)
         if one_frame is not None:
