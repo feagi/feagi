@@ -252,5 +252,5 @@ func generate_voxels(data):
 		red_timer.timer = true
 		
 func time_to_clear():
-	$GridMap.clear()  ##Doesn't clear gridmap. Why?
+	$GridMap.clear() 
 	red_timer.timer = false
