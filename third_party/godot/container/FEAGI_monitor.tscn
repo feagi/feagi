@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=2]
+[gd_scene load_steps=25 format=2]
 
 [ext_resource path="res://voxel.meshlib" type="MeshLibrary" id=1]
 [ext_resource path="res://camera.gd" type="Script" id=2]
@@ -9,7 +9,6 @@
 [ext_resource path="res://Spatial_camera.gd" type="Script" id=7]
 [ext_resource path="res://Floor_grid_object.meshlib" type="MeshLibrary" id=8]
 [ext_resource path="res://Cortical_area.gd" type="Script" id=9]
-[ext_resource path="res://clear_voxel_timer.gd" type="Script" id=10]
 [ext_resource path="res://cortical_area.material" type="Material" id=11]
 
 [sub_resource type="ViewportTexture" id=1]
@@ -116,7 +115,6 @@ cell_center_z = false
 data = {
 "cells": PoolIntArray( 0, 0, 0 )
 }
-script = ExtResource( 10 )
 __meta__ = {
 "_editor_clip_": 0,
 "_editor_floor_": Vector3( 0, 0, 0 )
