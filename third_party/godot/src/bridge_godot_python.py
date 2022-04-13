@@ -27,6 +27,7 @@ import csv
 import ast
 import asyncio
 import websockets
+import requests
 
 runtime_data = {
     "cortical_data": {}
@@ -34,6 +35,7 @@ runtime_data = {
 
 
 def csv_writer(cortical_dimensions):
+    print("Generating CSV...")
     f = open('csv_data.csv', 'w', newline='')
     writer = csv.writer(f)
     godot_cortical_dimensions = list()
@@ -65,6 +67,7 @@ def breakdown(feagi_input):  ##add input soon
         increment += 1
     print(list1)
 
+
 def godot_data(input):
     """
     Simply clean the list and remove all unnecessary special characters and deliver with name, xyz only
@@ -83,7 +86,7 @@ def godot_data(input):
         for key_01 in data["data"]["direct_stimulation"][key]:
             dict_with_updated_name["data"]["direct_stimulation"][Updated_name].append(key_01)
 
-    print("godot_data: " , dict_with_updated_name)
+    print("godot_data: ", dict_with_updated_name)
     return dict_with_updated_name
 
 
@@ -111,6 +114,7 @@ def godot_selected_list(outside_list, godot_list):
             list_to_dict["data"]["direct_stimulation"][name].append([x,y,z])
     return list_to_dict
 
+
 def godot_deselected_list(outside_list, godot_list):
     for key in godot_list["data"]["direct_stimulation"]:
         if outside_list[0] == key:
@@ -118,6 +122,7 @@ def godot_deselected_list(outside_list, godot_list):
                 if xyz[0] == int(outside_list[1]) and xyz[1] == int(outside_list[2]) and xyz[2] == int(outside_list[3]):
                     godot_list["data"]["direct_stimulation"][key].remove(xyz)
     return godot_list
+
 
 def name_to_id(name):
     for cortical_area in runtime_data["cortical_data"]:
@@ -168,23 +173,24 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
 
     return relative_coordinate
 
+
 async def echo(websocket):
     Godot_list = {}  ##initalized the list from Godot
     # Send a request to FEAGI for cortical dimensions
     awaiting_feagi_registration = True
     while awaiting_feagi_registration:
+        print("********* ************ ********** ************* ***************\n")
         print("Awaiting registration with FEAGI...")
         FEAGI_pub.send({"godot_init": True})
-        message_from_feagi = FEAGI_sub.receive()
-        if message_from_feagi:
-            if "cortical_dimensions" in message_from_feagi:
-                if len(message_from_feagi["cortical_dimensions"]) > 0:
-                    print(">>> >> > >", message_from_feagi["cortical_dimensions"])
-                    runtime_data["cortical_data"] = message_from_feagi["cortical_dimensions"]
-                    csv_writer(message_from_feagi["cortical_dimensions"])
-                    awaiting_feagi_registration = False
-    #     time.sleep(1)
-    # time.sleep(2)
+
+        runtime_data["cortical_data"] = \
+            requests.get('http://127.0.0.1:8000/v1/feagi/connectome/properties/dimensions').json()
+
+        print("Cortical Dimensions:\n", runtime_data["cortical_data"])
+        csv_writer(runtime_data["cortical_data"])
+        if runtime_data["cortical_data"]:
+            awaiting_feagi_registration = False
+        time.sleep(1)
 
     while True:
         one_frame = FEAGI_sub.receive()
@@ -211,22 +217,27 @@ async def echo(websocket):
         else:
             pass
 
+
 async def main():
+    print("- -- -- --  --- -- -- ")
     async with websockets.serve(echo, "0.0.0.0", 9050):
+        print("+++")
         await asyncio.Future()  # run forever
 
-address = 'tcp://' + network_settings['feagi_ip'] + ':' + network_settings['feagi_outbound_port']
-feagi_state = handshake_with_feagi(address=address,
-                                   capabilities=capabilities)
-print("feagi_state: ", feagi_state)
-print("** **", feagi_state)
-sockets = feagi_state['sockets']
-network_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
 
-print("--->> >> >> ", sockets)
-FEAGI_pub = Pub(address='tcp://0.0.0.0:' + network_settings['feagi_inbound_port_godot'])
-opu_channel_address = 'tcp://' + network_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
-FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
-asyncio.run(main())
+if __name__ == "__main__":
+    address = 'tcp://' + network_settings['feagi_ip'] + ':' + network_settings['feagi_outbound_port']
+    feagi_state = handshake_with_feagi(address=address,
+                                       capabilities=capabilities)
+    print("feagi_state: ", feagi_state)
+    print("** **", feagi_state)
+    sockets = feagi_state['sockets']
+    network_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
+
+    print("--->> >> >> ", sockets)
+    FEAGI_pub = Pub(address='tcp://0.0.0.0:' + network_settings['feagi_inbound_port_godot'])
+    opu_channel_address = 'tcp://' + network_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
+    FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+    asyncio.run(main())
 
 
