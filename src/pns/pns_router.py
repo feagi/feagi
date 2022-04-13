@@ -106,31 +106,6 @@ def stimuli_router(ipu_data):
                     except Exception:
                         print("ERROR while processing Battery IPU", traceback.format_exc())
 
-    elif "godot_init" in ipu_data:
-        runtime_data.cortical_dimensions = generate_godot_registration_data()
-
-
-def generate_godot_registration_data():
-    """
-    Generates the information needed to display cortical areas on Godot
-    """
-    cortical_information = {}
-
-    for cortical_area in runtime_data.genome["blueprint"]:
-        cortical_name = runtime_data.genome["blueprint"][cortical_area]["cortical_name"]
-        cortical_information[cortical_name] = []
-        genes = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]
-        cortical_information[cortical_name].append(genes["relative_coordinate"][0])
-        cortical_information[cortical_name].append(genes["relative_coordinate"][1])
-        cortical_information[cortical_name].append(genes["relative_coordinate"][2])
-        cortical_information[cortical_name].append(genes["visualization"])
-        cortical_information[cortical_name].append(genes["block_boundaries"][0])
-        cortical_information[cortical_name].append(genes["block_boundaries"][1])
-        cortical_information[cortical_name].append(genes["block_boundaries"][2])
-        cortical_information[cortical_name].append(cortical_area)
-
-    return cortical_information
-
 
 def opu_router():
     """

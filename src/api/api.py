@@ -104,6 +104,15 @@ async def brain_management(message: ConnectomeSnapshot):
         return {"Request failed...", e}
 
 
+@app.api_route("/v1/feagi/connectome/properties/dimensions", methods=['GET'])
+async def connectome_report():
+    print("cortical_dimensions", runtime_data.cortical_dimensions)
+    try:
+        return runtime_data.cortical_dimensions
+    except Exception as e:
+        return {"Request failed...", e}
+
+
 @app.api_route("/v1/feagi/stats", methods=['POST'])
 async def brain_management(message: Stats):
     try:
@@ -160,4 +169,5 @@ def api_message_processor(api_message):
                 else:
                     runtime_data.collect_synapse_stats = False
                     print("Stopping the capture of synaptic activity stats into database.")
-        return
+
+

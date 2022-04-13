@@ -282,6 +282,7 @@ def initialize():
     init_container_variables()
     init_data_sources()
     init_genome()
+    runtime_data.cortical_dimensions = generate_cortical_dimensions()
     detect_hardware()
     init_genome_post_processes()
     init_resources()
@@ -364,4 +365,25 @@ def init_io_channels():
     except KeyError as e:
         print('ERROR: OPU socket is not properly defined as part of feagi_configuration.ini\n', e)
 
+
+def generate_cortical_dimensions():
+    """
+    Generates the information needed to display cortical areas on Godot
+    """
+    cortical_information = {}
+
+    for cortical_area in runtime_data.genome["blueprint"]:
+        cortical_name = runtime_data.genome["blueprint"][cortical_area]["cortical_name"]
+        cortical_information[cortical_name] = []
+        genes = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]
+        cortical_information[cortical_name].append(genes["relative_coordinate"][0])
+        cortical_information[cortical_name].append(genes["relative_coordinate"][1])
+        cortical_information[cortical_name].append(genes["relative_coordinate"][2])
+        cortical_information[cortical_name].append(genes["visualization"])
+        cortical_information[cortical_name].append(genes["block_boundaries"][0])
+        cortical_information[cortical_name].append(genes["block_boundaries"][1])
+        cortical_information[cortical_name].append(genes["block_boundaries"][2])
+        cortical_information[cortical_name].append(cortical_area)
+
+    return cortical_information
 
