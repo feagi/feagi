@@ -1,8 +1,12 @@
-FROM neuraville/feagi-godot
+FROM buildpack-deps:bullseye
 
-RUN sudo apt-get update
-RUN sudo apt-get -y install python3-pip
-RUN pip3 install websockets
+#RUN apt update
+#RUN apt install -y python3
+#RUN apt install -y python3-pip
+#RUN pip3 install websockets
+#RUN apt install -y npm
+#RUN npm -v
+#RUN npm install
 COPY ./* /root/
 RUN chmod a+x /root/*
-ENV OPENBOX_ARGS='--startup "/root/FEAGI_initalize.sh"'
+CMD ["/bin/sh", "-ec", "sleep 1000"]
