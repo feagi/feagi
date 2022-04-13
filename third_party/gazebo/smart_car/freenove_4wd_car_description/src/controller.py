@@ -397,7 +397,7 @@ def main(args=None):
     ir_topic_id = capabilities['infrared']['topic_identifier']
     for ir_node in range(capabilities['infrared']['count']):
         ir_feeds[ir_node] = IRSubscriber(f'infrared_{ir_node}', Image, f'{ir_topic_id}{ir_node}/image')
-    executor.add_node(ir_feeds[ir_node])
+        executor.add_node(ir_feeds[ir_node])
 
     executor_thread = Thread(target=executor.spin, daemon=True)
     executor_thread.start()
