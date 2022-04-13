@@ -18,11 +18,9 @@ services:
       - net
 
   godot:
-    build: ../third_party/godot/container/
+    build: ../third_party/godot/
     ports:
       - "6081:80"
-      - "20002:20002/udp"
-      - "20001:20001/udp"
       - "9050:9050"
     privileged: true
     networks:
