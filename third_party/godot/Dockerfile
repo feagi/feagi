@@ -1,4 +1,4 @@
-FROM buildpack-deps:bullseye
+FROM ubuntu
 
 #RUN apt update
 #RUN apt install -y python3
