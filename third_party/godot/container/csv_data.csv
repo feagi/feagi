@@ -1,7 +1,0 @@
-80,0,0,3,1,1,ir_ipu
-100,0,-35,1,1,10,proximity_ipu
-70,0,0,1,1,10,proximity_thalamus
-50,0,0,1,1,10,battery_ipu
-60,0,0,1,1,10,battery_opu
-20,0,0,8,1,10,motor_opu
-35,0,0,4,1,10,servo_opu
