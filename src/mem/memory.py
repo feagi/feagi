@@ -51,8 +51,8 @@ reduced) and incorporated in the new neuroplasticity function (below).
 
 
 from inf import runtime_data
-from evo.synapse import bidirectional_synapse
-from npu.physiology import list_upstream_neurons, synapse, post_synaptic_current_update
+from evo.synapse import bidirectional_synapse, synapse
+from npu.physiology import list_upstream_neurons, post_synaptic_current_update
 
 
 def form_memories(cortical_area, src_neuron, dst_neuron):
@@ -73,7 +73,7 @@ def form_memories(cortical_area, src_neuron, dst_neuron):
         if neighbor_count < runtime_data.parameters["InitData"]["max_neighbor_count"]:
             # Check if source and destination have an existing synapse if not create one here
             if dst_neuron not in runtime_data.brain[cortical_area][src_neuron]["neighbors"]:
-                synapse(cortical_area, src_neuron, cortical_area, dst_neuron)
+                synapse(cortical_area=cortical_area, src_id=src_neuron, dst_cortical_area=cortical_area, dst_id=dst_neuron)
 
             # Every time source and destination neuron is fired at the same time which in case of the code architecture
             # reside in the same burst_manager, the postsynaptic_current will be increased simulating the fire together,
@@ -136,10 +136,10 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
                                      post_synaptic_current=new_psc)
 
     except KeyError:
-        synapse(src_cortical_area,
-                src_neuron_id,
-                dst_cortical_area,
-                dst_neuron_id)
+        synapse(cortical_area=src_cortical_area,
+                src_id=src_neuron_id,
+                dst_cortical_area=dst_cortical_area,
+                dst_id=dst_neuron_id)
 
         new_psc = \
             runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
