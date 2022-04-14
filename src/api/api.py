@@ -43,6 +43,17 @@ class BurstEngine(BaseModel):
     burst_duration: Optional[float]
 
 
+class Network(BaseModel):
+    godot_host: Optional[str] = 'godot'
+    godot_data_port: Optional[int] = 30001
+    godot_web_port: Optional[int] = 6081
+    gazebo_host: Optional[str] = 'gazebo'
+    gazebo_data_port: Optional[int] = 30002
+    gazebo_web_port: Optional[int] = 6080
+    virtual_stimulator_host: Optional[str] = 'virtual'
+    virtual_stimulator_data_port: Optional[int] = 30003
+
+
 class ConnectomeSnapshot(BaseModel):
     save_to_path: str
 
@@ -93,6 +104,17 @@ async def burst_management(message: BurstEngine):
         return {"Request failed...", e}
 
 
+@app.api_route("/v1/feagi/feagi/network", methods=['POST'])
+async def network_management(message: Network):
+    try:
+        message = message.dict()
+        message = {'network_management': message}
+        api_queue.put(item=message)
+        return runtime_data.parameters['Sockets']
+    except Exception as e:
+        return {"Request failed...", e}
+
+
 @app.api_route("/v1/feagi/connectome/snapshot", methods=['POST'])
 async def brain_management(message: ConnectomeSnapshot):
     try:
@@ -114,7 +136,7 @@ async def connectome_report():
 
 
 @app.api_route("/v1/feagi/stats", methods=['POST'])
-async def brain_management(message: Stats):
+async def stat_management(message: Stats):
     try:
         message = message.dict()
         message = {'stats': message}
@@ -151,7 +173,6 @@ def api_message_processor(api_message):
                     disk_ops.save_brain_to_disk()
 
         if 'stats' in api_message:
-            print("api_message", api_message)
             if 'neuron_stat_collection' in api_message['stats'] and \
                     api_message['stats']['neuron_stat_collection'] is not None:
                 if api_message['stats']['neuron_stat_collection']:
@@ -170,4 +191,25 @@ def api_message_processor(api_message):
                     runtime_data.collect_synapse_stats = False
                     print("Stopping the capture of synaptic activity stats into database.")
 
+        if 'network_management' in api_message:
+            print("api_message", api_message)
+            if 'godot_host' in api_message['network_management']:
+                runtime_data.parameters['Sockets']['godot_host_name'] = api_message['network_management']['godot_host']
+            if 'godot_port' in api_message['network_management']:
+                runtime_data.parameters['Sockets']['feagi_inbound_port_godot'] = \
+                    api_message['network_management']['godot_port']
+                
+            if 'gazebo_host' in api_message['network_management']:
+                runtime_data.parameters['Sockets']['gazebo_host_name'] = api_message['network_management']['gazebo_host']
+            if 'gazebo_port' in api_message['network_management']:
+                runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo'] = \
+                    api_message['network_management']['gazebo_port']
 
+            if 'virtual_host' in api_message['network_management']:
+                runtime_data.parameters['Sockets']['virtual_host_name'] = api_message['network_management'][
+                    'virtual_host']
+            if 'virtual_port' in api_message['network_management']:
+                runtime_data.parameters['Sockets']['feagi_inbound_port_virtual'] = \
+                    api_message['network_management']['virtual_port']
+
+            # todo: Handle web port assignments
