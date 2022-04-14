@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 network_settings = {
-    "feagi_ip": "127.0.0.1",
+    "feagi_ip": "feagi",
     "feagi_outbound_port": "30000",
     "feagi_inbound_port_godot": "30001",
     'TTL': 2,
