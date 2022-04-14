@@ -23,6 +23,7 @@ from evo.voxels import block_reference_builder
 from inf import runtime_data
 import traceback
 from math import prod
+from npu.physiology import post_synaptic_current_update
 
 
 def cortical_area_lengths(cortical_area):
@@ -43,7 +44,19 @@ def vector_processor(vector, src_voxel, src_cortical_area, dst_cortical_area):
     """
 
 
-def synapse(cortical_area, src_id, dst_cortical_area, dst_id):
+def psc_calculator(cortical_area, dst_cortical_area):
+    if dst_cortical_area not in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
+        psc_multiplier = 1
+    else:
+        psc_multiplier = runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][
+            dst_cortical_area]["postSynapticCurrent_multiplier"]
+
+    postsynaptic_current = \
+        runtime_data.genome['blueprint'][cortical_area]["postsynaptic_current"] * psc_multiplier
+    return postsynaptic_current
+
+
+def synapse(cortical_area, src_id, dst_cortical_area, dst_id, postsynaptic_current=0):
     """
     Function responsible for creating a synapse between a neuron and another one. In reality a single neuron can
     have many synapses with another individual neuron. Here we use synaptic strength to simulate the same.
@@ -61,18 +74,6 @@ def synapse(cortical_area, src_id, dst_cortical_area, dst_id):
         # Calculating the effective postSynapticCurrent(PSC) value
         # PSC with negative value will have an inhibitory effect
 
-
-        if dst_cortical_area not in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
-
-            psc_multiplier = 1
-        else:
-            psc_multiplier = runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][
-                dst_cortical_area]["postSynapticCurrent_multiplier"]
-
-        postsynaptic_current = \
-            runtime_data.genome['blueprint'][cortical_area]["postsynaptic_current"] * psc_multiplier
-
-
         runtime_data.brain[cortical_area][src_id]["neighbors"][dst_id] = \
             {"cortical_area": dst_cortical_area, "postsynaptic_current": postsynaptic_current}
 
@@ -85,12 +86,25 @@ def synapse(cortical_area, src_id, dst_cortical_area, dst_id):
         if src_id not in runtime_data.brain[dst_cortical_area][dst_id]["upstream_neurons"][cortical_area]:
             runtime_data.brain[dst_cortical_area][dst_id]["upstream_neurons"][cortical_area].append(src_id)
 
-        return
+    else:
+        # In the case of an existing synapse present, post synaptic current of the previous synapse will be added to
+        # the new synapse
+        existing_psc = runtime_data.brain[cortical_area][src_id]["neighbors"][dst_id]["postsynaptic_current"]
+        new_psc = existing_psc + postsynaptic_current
+        post_synaptic_current_update(cortical_area_src=cortical_area,
+                                     cortical_area_dst=dst_cortical_area,
+                                     neuron_id_src=src_id,
+                                     neuron_id_dst=dst_id,
+                                     post_synaptic_current=new_psc)
+
+
+
+
 
 
 def bidirectional_synapse(cortical_area1, neuron1, cortical_area2, neuron2):
-    synapse(cortical_area1, neuron1, cortical_area2, neuron2)
-    synapse(cortical_area2, neuron2, cortical_area1, neuron1)
+    synapse(cortical_area=cortical_area1, src_id=neuron1, dst_cortical_area=cortical_area2, dst_id=neuron2)
+    synapse(cortical_area=cortical_area2, src_id=neuron2, dst_cortical_area=cortical_area1, dst_id=neuron1)
 
     return
 
@@ -193,13 +207,13 @@ def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar):
 
 
 def voxel_list_to_neuron_list(cortical_area, voxel_list):
-    neuron_list = set()
+    neuron_list = list()
 
     for voxel in voxel_list:
-        voxel_ref = voxels.block_reference_builder(voxel)
+        voxel_ref = voxels.block_reference_builder(voxel[0])
         neurons = voxels.neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel_ref)
         for neuron in neurons:
-            neuron_list.add(neuron)
+            neuron_list.append([neuron, voxel[1]])
 
     return neuron_list
 
@@ -209,6 +223,7 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
     Finds a list of candidate Neurons from another Cortical area to build Synapse with for a given Neuron
     """
 
+    # Candidate_voxel_list includes a list of destination neuron and associated postSynapticCurrent pairs
     candidate_voxel_list = list()
 
     # rule_manager = SynaptogenesisRuleManager(src_neuron_id=src_neuron_id, src_cortical_area=cortical_area_src,
@@ -216,62 +231,66 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
     # candidate_list = rule_manager.growth_rule_selector()
 
     src_voxel = runtime_data.brain[cortical_area_src][src_neuron_id]['soma_location']
-    neuron_morphology = \
-        runtime_data.genome["blueprint"][cortical_area_src]['cortical_mapping_dst'][
-            cortical_area_dst]['morphology_id']
-    morphology_scalar = \
-        runtime_data.genome["blueprint"][cortical_area_src]['cortical_mapping_dst'][
-            cortical_area_dst]['morphology_scalar']
 
-    try:
-        for key in runtime_data.genome["neuron_morphologies"][neuron_morphology]:
-            if key == "vectors":
-                for vector in runtime_data.genome["neuron_morphologies"][neuron_morphology]["vectors"]:
-                    matching_vectors = match_vectors(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
-                                                     vector=vector, morphology_scalar=morphology_scalar)
-                    if matching_vectors:
-                        candidate_voxel_list.append(matching_vectors)
+    morphologies = runtime_data.genome["blueprint"][cortical_area_src]['cortical_mapping_dst'][cortical_area_dst]
 
-            elif key == "patterns":
-                for pattern in runtime_data.genome["neuron_morphologies"][neuron_morphology]["patterns"]:
+    for morphology_ in morphologies:
+        neuron_morphology = morphology_['morphology_id']
+        morphology_scalar = morphology_['morphology_scalar']
+        psc_multiplier = morphology_['postSynapticCurrent_multiplier']
+        psc_base = runtime_data.genome["blueprint"][cortical_area_src]['postsynaptic_current']
+        postSynapticCurrent = psc_multiplier * psc_base
 
-                    matching_vectors = match_patterns(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
-                                                      pattern=pattern, morphology_scalar=morphology_scalar)
-                    if matching_vectors:
-                        for item in matching_vectors:
-                            candidate_voxel_list.append(item)
+        try:
+            for key in runtime_data.genome["neuron_morphologies"][neuron_morphology]:
+                if key == "vectors":
+                    for vector in runtime_data.genome["neuron_morphologies"][neuron_morphology]["vectors"]:
+                        matching_vectors = match_vectors(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
+                                                         vector=vector, morphology_scalar=morphology_scalar)
+                        if matching_vectors:
+                            candidate_voxel_list.append([matching_vectors, postSynapticCurrent])
 
-            elif key == "functions":
-                if neuron_morphology == "expander_x":
-                    candidate_list = expander_x(cortical_area_src, cortical_area_dst, src_neuron_id)
-                    for candidate in candidate_list:
-                        candidate_voxel_list.append(candidate)
-                elif neuron_morphology == "reducer_x":
-                    candidate_list = reducer_x(cortical_area_src, cortical_area_dst, src_neuron_id)
-                    for candidate in candidate_list:
-                        candidate_voxel_list.append(candidate)
-                elif neuron_morphology == "randomizer":
-                    candidate = randomizer(dst_cortical_area=cortical_area_dst)
-                    candidate_voxel_list.append(candidate)
-                elif neuron_morphology == "lateral_pairs_x":
-                    candidate = lateral_pairs_x(neuron_id=src_neuron_id, cortical_area=cortical_area_src)
-                    candidate_voxel_list.append(candidate)
-                elif neuron_morphology == "block_connection":
-                    candidate = block_connection(cortical_area_src, cortical_area_dst, src_neuron_id, s=10)
-                    candidate_voxel_list.append(candidate)
-            elif key == "placeholder":
-                pass
+                elif key == "patterns":
+                    for pattern in runtime_data.genome["neuron_morphologies"][neuron_morphology]["patterns"]:
 
-            else:
-                print("Warning! Morphology %s did not have any valid definition." % neuron_morphology)
+                        matching_vectors = match_patterns(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
+                                                          pattern=pattern, morphology_scalar=morphology_scalar)
+                        if matching_vectors:
+                            for item in matching_vectors:
+                                candidate_voxel_list.append([item, postSynapticCurrent])
 
-    except Exception as e:
-        print("Error during synaptogenesis of %s and %s" % (cortical_area_src, cortical_area_dst))
-        print(traceback.format_exc())
+                elif key == "functions":
+                    if neuron_morphology == "expander_x":
+                        candidate_list = expander_x(cortical_area_src, cortical_area_dst, src_neuron_id)
+                        for candidate in candidate_list:
+                            candidate_voxel_list.append([candidate, postSynapticCurrent])
+                    elif neuron_morphology == "reducer_x":
+                        candidate_list = reducer_x(cortical_area_src, cortical_area_dst, src_neuron_id)
+                        for candidate in candidate_list:
+                            candidate_voxel_list.append([candidate, postSynapticCurrent])
+                    elif neuron_morphology == "randomizer":
+                        candidate = randomizer(dst_cortical_area=cortical_area_dst)
+                        candidate_voxel_list.append([candidate, postSynapticCurrent])
+                    elif neuron_morphology == "lateral_pairs_x":
+                        candidate = lateral_pairs_x(neuron_id=src_neuron_id, cortical_area=cortical_area_src)
+                        candidate_voxel_list.append([candidate, postSynapticCurrent])
+                    elif neuron_morphology == "block_connection":
+                        candidate = block_connection(cortical_area_src, cortical_area_dst, src_neuron_id, s=10)
+                        candidate_voxel_list.append([candidate, postSynapticCurrent])
+                elif key == "placeholder":
+                    pass
+
+                else:
+                    print("Warning! Morphology %s did not have any valid definition." % neuron_morphology)
+
+        except Exception as e:
+            print("Error during synaptogenesis of %s and %s" % (cortical_area_src, cortical_area_dst))
+            print(traceback.format_exc())
 
     if candidate_voxel_list:
         candidate_neuron_list = \
-            voxel_list_to_neuron_list(cortical_area=cortical_area_dst, voxel_list=candidate_voxel_list)
+            voxel_list_to_neuron_list(cortical_area=cortical_area_dst,
+                                      voxel_list=candidate_voxel_list)
         return candidate_neuron_list
 
 
@@ -282,6 +301,7 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
     todo: take advantage of multi processing building the synapses for a given cortical area
     todo: deficiency when brain gen is false
     """
+
     # to accommodate the new namespace used by multiprocessing
     if brain_gen:
         runtime_data.brain = brain
@@ -291,16 +311,23 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
 
     for src_id in runtime_data.brain[cortical_area]:
         # Cycle through the neighbor_candidate_list and establish Synapses
+        # neighbor_candidates contain the list of candidate connections along with associated postSynapticCurrent
         neighbor_candidates = neighbor_finder(cortical_area_src=cortical_area,
                                               cortical_area_dst=cortical_area_dst,
                                               src_neuron_id=src_id)
+
         if neighbor_candidates:
-            for dst_id in neighbor_candidates:
+            for dst_id, psc in neighbor_candidates:
                 # Throw a die to decide for synapse creation. This is to limit the amount of synapses.
                 if random.randrange(1, 100) < \
                         runtime_data.genome['blueprint'][cortical_area_dst]['synapse_attractivity']:
                     # Connect the source and destination neuron via creating a synapse
-                    synapse(cortical_area=cortical_area, src_id=src_id, dst_cortical_area=cortical_area_dst, dst_id=dst_id)
+                    synapse(cortical_area=cortical_area,
+                            src_id=src_id,
+                            dst_cortical_area=cortical_area_dst,
+                            dst_id=dst_id,
+                            postsynaptic_current=psc
+                            )
                     synapse_count += 1
                     # print("Made a Synapse between %s and %s" % (src_id, dst_id))
 
