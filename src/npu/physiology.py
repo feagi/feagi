@@ -15,10 +15,10 @@
 # ==============================================================================
 
 import json
-from collections import deque
-from evo.neuron import block_reference_builder
-from evo.synapse import synapse
-from evo.voxels import neurons_in_the_block
+# from collections import deque
+# from evo.neuron import block_reference_builder
+# from evo.synapse import synapse
+# from evo.voxels import neurons_in_the_block
 from inf import runtime_data, settings
 # from cython_lib import neuron_functions_cy as cy
 
@@ -197,6 +197,7 @@ def post_synaptic_current_update(cortical_area_src,
     """
     runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"][neuron_id_dst]["postsynaptic_current"] = \
         post_synaptic_current
+
     if runtime_data.parameters["Database"]["influx_synapse_stats"]:
         for destination_neuron in runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"]:
             psc = runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"][
