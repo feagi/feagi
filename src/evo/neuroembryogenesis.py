@@ -360,6 +360,7 @@ def build_synapses(genome, brain, parameters, voxel_dict, connectome_path, src_c
     Develops all the synapses originated from neurons within a given cortical area which could be both internal and
     external.
     """
+    runtime_data.parameters = parameters
     # if runtime_data.parameters["Database"]["influxdb_enabled"]:
     #     from inf import db_handler
     #     influxdb = db_handler.InfluxManagement()
@@ -381,14 +382,14 @@ def build_synapses(genome, brain, parameters, voxel_dict, connectome_path, src_c
         #                                          cortical_area_src=src_cortical_area,
         #                                          cortical_area_dst=mapped_cortical_area,
         #                                          synapse_count=synapse_count_)
-        if parameters["Logs"]["print_brain_gen_activities"]:
-            morphology = cortical_genes['cortical_mapping_dst'][mapped_cortical_area]["morphology_id"]
-            scalar = cortical_genes['cortical_mapping_dst'][mapped_cortical_area]["morphology_scalar"]
-            duration = datetime.datetime.now() - timer
-            print("Synaptogenesis: %s <> %s\t\t| Morphology:%s Scalar:%s | Synapse Count: %i | Duration: %s\t "
-                  "| Per Synapse Avg.: %s"
-                  % (src_cortical_area, mapped_cortical_area, morphology, scalar, synapse_count_, duration, duration /
-                     (synapse_count_+1)))
+        # if parameters["Logs"]["print_brain_gen_activities"]:
+        #     # morphology = cortical_genes['cortical_mapping_dst'][mapped_cortical_area]
+        #     scalar = cortical_genes['cortical_mapping_dst'][mapped_cortical_area]["morphology_scalar"]
+        #     duration = datetime.datetime.now() - timer
+        #     print("Synaptogenesis: %s <> %s\t\t| Scalar:%s | Synapse Count: %i | Duration: %s\t "
+        #           "| Per Synapse Avg.: %s"
+        #           % (src_cortical_area, mapped_cortical_area, scalar, synapse_count_, duration, duration /
+        #              (synapse_count_+1)), "Morphology:")
 
         # Adding External Synapse counts to genome for future use
         intercortical_mapping.append((src_cortical_area, mapped_cortical_area, synapse_count_))
