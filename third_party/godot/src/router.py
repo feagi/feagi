@@ -4,6 +4,7 @@
 
 import zmq
 import socket
+import requests
 
 
 def host_info():
@@ -57,6 +58,18 @@ class Sub:
                 pass
             else:
                 print(e)
+
+
+def handshake_rest_api(address, capabilities):
+    """
+    To trade information between FEAGI and Controller
+
+    Controller                      <--     FEAGI(IPU/OPU socket info)
+    Controller (Capabilities)       -->     FEAGI
+    """
+
+    registration_data = {'godot', address, capabilities}
+    requests.post('http://127.0.0.1:8000/v1/feagi/register', data=registration_data)
 
 
 def handshake_with_feagi(address, capabilities):

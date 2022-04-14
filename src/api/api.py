@@ -58,6 +58,12 @@ class ConnectomeSnapshot(BaseModel):
     save_to_path: str
 
 
+class Registration(BaseModel):
+    source: str
+    host: str
+    capabilities: dict
+
+
 class Stats(BaseModel):
     neuron_stat_collection: Optional[bool] = False
     synapse_stat_collection: Optional[bool] = False
@@ -82,6 +88,20 @@ async def feagi_management(message: Launch):
         return {"FEAGI start failed ... error details to be provided here", e}
 
 
+@app.api_route("/v1/feagi/feagi/register", methods=['POST'])
+async def feagi_registration(message: Registration):
+    try:
+        message = message.dict()
+        source = message['source']
+        host = message['host']
+        capabilities = message['capabilities']
+        print("########## ###### >>>>>> >>>> ", source, host, capabilities)
+
+        return {"Registration was successful"}
+    except Exception as e:
+        return {"FEAGI start failed ... error details to be provided here", e}
+
+
 @app.api_route("/v1/feagi/feagi/logs", methods=['POST'])
 async def log_management(message: Logs):
     try:
@@ -93,6 +113,14 @@ async def log_management(message: Logs):
         return {"Request failed...", e}
 
 
+@app.api_route("/v1/feagi/feagi/burst_engine/stimulation_period", methods=['GET'])
+async def burst_engine_params():
+    try:
+        return runtime_data.burst_timer
+    except Exception as e:
+        return {"Request failed...", e}
+
+
 @app.api_route("/v1/feagi/feagi/burst_engine", methods=['POST'])
 async def burst_management(message: BurstEngine):
     try:
@@ -100,6 +128,14 @@ async def burst_management(message: BurstEngine):
         message = {'burst_management': message}
         api_queue.put(item=message)
         return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/network", methods=['GET'])
+async def network_management():
+    try:
+        return runtime_data.parameters['Sockets']
     except Exception as e:
         return {"Request failed...", e}
 

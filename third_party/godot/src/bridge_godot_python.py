@@ -230,14 +230,13 @@ if __name__ == "__main__":
     feagi_state = handshake_with_feagi(address=address,
                                        capabilities=capabilities)
     print("feagi_state: ", feagi_state)
-    print("** **", feagi_state)
-    sockets = feagi_state['sockets']
-    network_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
+    print("** **\n\n\n\n")
+    sockets = requests.get('http://127.0.0.1:8000/v1/feagi/feagi/network').json()
+    stimulation_period = requests.get('http://127.0.0.1:8000/v1/feagi/feagi/burst_engine/stimulation_period').json()
+    network_settings['feagi_burst_speed'] = float(stimulation_period)
 
-    print("--->> >> >> ", sockets)
+    print("--->> >> >> \n", sockets, network_settings)
     FEAGI_pub = Pub(address='tcp://0.0.0.0:' + network_settings['feagi_inbound_port_godot'])
     opu_channel_address = 'tcp://' + network_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
     FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
     asyncio.run(main())
-
-
