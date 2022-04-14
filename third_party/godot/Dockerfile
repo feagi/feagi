@@ -1,12 +1,11 @@
 FROM ubuntu
 
-ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update
 RUN apt install -y python3
 RUN apt install -y python3-pip
 RUN pip3 install websockets
 RUN apt install -y wget
-RUN apt-get install -y npm
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y npm
 RUN npm cache clean -f
 RUN npm install -g n
 RUN n stable
