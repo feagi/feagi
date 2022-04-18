@@ -84,12 +84,12 @@ def handshake_with_feagi(address, capabilities):
     subscriber = Sub(address=address, flags=zmq.SUB)
 
     # Receive FEAGI settings
-    feagi_settings = subscriber.receive()
+    feagi_settings = requests.get('http://127.0.0.1:8000/v1/feagi/feagi/network').json()
     print("Connection to FEAGI has been established")
     print("\nFEAGI settings received as:\n", feagi_settings, "\n\n")
 
     # Transmit Controller Capabilities
-    pub_address = "tcp://0.0.0.0:" + feagi_settings['sockets']['feagi_inbound_port_godot']
+    pub_address = "tcp://0.0.0.0:" + feagi_settings['feagi_inbound_port_godot']
     publisher = Pub(address=pub_address)
     publisher.send(capabilities)
 
