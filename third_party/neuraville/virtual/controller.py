@@ -116,7 +116,7 @@ def main():
     address = 'tcp://' + configuration.network_settings['feagi_ip'] + ':' + \
               configuration.network_settings['feagi_outbound_port']
     
-    runtime_params["feagi_state"] = router.handshake_with_feagi(address=address, capabilities=configuration.capabilities)
+    runtime_params["feagi_state"] = router.handshake_rest_api(address=address, capabilities=configuration.capabilities)
 
     print("** **", runtime_params["feagi_state"])
 
@@ -124,7 +124,7 @@ def main():
     ipu_channel_address = 'tcp://0.0.0.0:' + configuration.network_settings['feagi_inbound_port_virtual']
     print("IPU_channel_address=", ipu_channel_address)
     opu_channel_address = 'tcp://' + configuration.network_settings['feagi_ip'] + ':' + \
-                          runtime_params["feagi_state"]['sockets']['feagi_outbound_port']
+                          runtime_params["feagi_state"]['feagi_outbound_port']
 
     feagi_ipu_channel = router.Pub(address=ipu_channel_address)
     feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
