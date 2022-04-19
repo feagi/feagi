@@ -3,6 +3,7 @@ FROM neuraville/ros-foxy_gazebo-ign
 ENV GAZEBO_CONTAINER=true
 ENV OPENBOX_ARGS='--startup "/opt/source-code/freenove_4wd_car_description/start_controller.sh"'
 
+RUN apt install -y wmctrl
 
 RUN mkdir -p /opt/source-code/freenove_4wd_car_description
 WORKDIR /opt/source-code/freenove_4wd_car_description
