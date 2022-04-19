@@ -121,6 +121,14 @@ async def burst_engine_params():
         return {"Request failed...", e}
 
 
+@app.api_route("/v1/feagi/feagi/burst_engine/burst_counter", methods=['GET'])
+async def burst_engine_params():
+    try:
+        return runtime_data.burst_count
+    except Exception as e:
+        return {"Request failed...", e}
+
+
 @app.api_route("/v1/feagi/feagi/burst_engine", methods=['POST'])
 async def burst_management(message: BurstEngine):
     try:
