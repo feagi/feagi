@@ -68,7 +68,7 @@ def handshake_rest_api(address, capabilities):
     Controller (Capabilities)       -->     FEAGI
     """
 
-    registration_data = {'godot', address, capabilities}
+    registration_data = {'virtual', address, capabilities}
     feagi_settings = requests.post('http://127.0.0.1:8000/v1/feagi/register', data=registration_data)
 
     return feagi_settings
@@ -82,12 +82,20 @@ def handshake_with_feagi(address, capabilities):
     Controller (Capabilities)       -->     FEAGI
     """
 
+    feagi_api = 'http://127.0.0.1:8000'
+
+    network_endpoint = '/v1/feagi/feagi/network'
+    stimulation_period_endpoint = '/v1/feagi/feagi/burst_engine/stimulation_period'
+    burst_counter_endpoint = '/v1/feagi/feagi/burst_engine/stimulation_period'
+
     print('Awaiting connection with FEAGI at...', address)
     subscriber = Sub(address=address, flags=zmq.SUB)
 
     # Receive FEAGI settings
-    feagi_settings = requests.get('http://127.0.0.1:8000/v1/feagi/feagi/network').json()
-    print("Connection to FEAGI has been established")
+    feagi_settings = requests.get(feagi_api + network_endpoint).json()
+    feagi_settings['burst_duration'] = requests.get(feagi_api + stimulation_period_endpoint).json()
+    feagi_settings['burst_counter'] = requests.get(feagi_api + burst_counter_endpoint).json()
+
     print("\nFEAGI settings received as:\n", feagi_settings, "\n\n")
 
     # Transmit Controller Capabilities
