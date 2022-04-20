@@ -113,17 +113,18 @@ def genome_2_1_convertor(flat_genome):
                                 genome['blueprint'][cortical_area][genome_2_to_1[exon]] = "sequential"
                         elif genome_2_to_1[exon] == "cortical_mapping_dst":
                             for destination in flat_genome[gene]:
-                                if destination not in genome['blueprint'][cortical_area][genome_2_to_1[exon]]:
-                                    genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination] = dict()
-                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination][
-                                    "morphology_id"] = flat_genome[gene][destination][0]
-                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination][
-                                    "morphology_scalar"] = flat_genome[gene][destination][1]
-                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination][
-                                    "postSynapticCurrent_multiplier"] = flat_genome[gene][destination][2]
-                                genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination][
-                                    "plasticity_flag"] = flat_genome[gene][destination][3]
+                                for mapping_recipe in flat_genome[gene][destination]:
+                                    if destination not in genome['blueprint'][cortical_area][genome_2_to_1[exon]]:
+                                        genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination] = list()
 
+                                    temp_dict = dict()
+                                    temp_dict["morphology_id"] = mapping_recipe[0]
+                                    temp_dict["morphology_scalar"] = mapping_recipe[1]
+                                    temp_dict["postSynapticCurrent_multiplier"] = mapping_recipe[2]
+                                    temp_dict["plasticity_flag"] = mapping_recipe[3]
+
+                                    genome['blueprint'][
+                                        cortical_area][genome_2_to_1[exon]][destination].append(temp_dict)
                         else:
                             try:
                                 genome['blueprint'][cortical_area][genome_2_to_1[exon]] = flat_genome[gene]

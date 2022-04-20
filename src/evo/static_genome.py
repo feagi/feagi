@@ -121,7 +121,9 @@ genome = {
         "_____10c-i__inf-nx-c_fr_c-i": 3,
         "_____10c-i__inf-nx-snooze-f": 0,
         "_____10c-i__inf-cx-de_gen-f": 0.01,
-        "_____10c-i__inf-cx-dstmap-d": {"i__inf": ["block_to_block", [1, 1, 1], 1, False]},
+        "_____10c-i__inf-cx-dstmap-d": {
+            "i__inf": [["block_to_block", [1, 1, 1], 1, False]]
+        },
 
         "_____10c-i__pro-cx-__name-t": "proximity_ipu",
         "_____10c-i__pro-cx-_group-t": "memory",
@@ -143,7 +145,9 @@ genome = {
         "_____10c-i__pro-nx-c_fr_c-i": 1,
         "_____10c-i__pro-nx-snooze-f": 0,
         "_____10c-i__pro-cx-de_gen-f": 0,
-        "_____10c-i__pro-cx-dstmap-d": {"t__pro": ["block_to_block", [1, 1, 1], 1, False]},
+        "_____10c-i__pro-cx-dstmap-d": {
+            "t__pro": [["block_to_block", [1, 1, 1], 1, False]]
+        },
 
         "_____10c-t__pro-cx-__name-t": "proximity_thalamus",
         "_____10c-t__pro-cx-_group-t": "memory",

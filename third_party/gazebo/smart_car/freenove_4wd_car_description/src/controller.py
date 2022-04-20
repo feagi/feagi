@@ -221,7 +221,7 @@ class Motor:
                 runtime_params['motor_status'][device_index] = 0
 
             device_current_position = runtime_params['motor_status'][device_index]
-            device_position.data = float((power * network_settings['feagi_burst_speed']*3) + device_current_position)
+            device_position.data = float((power * network_settings['feagi_burst_speed']*1.5) + device_current_position)
 
             runtime_params['motor_status'][device_index] = device_position.data
             # print("device index, position, power = ", device_index, device_position.data, power)
