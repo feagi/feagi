@@ -19,12 +19,14 @@ limitations under the License.
 network_settings = {
     "feagi_ip": "feagi",
     "feagi_outbound_port": "30000",
-    "feagi_inbound_port_godot": "30001",
+    "feagi_inbound_port_gazebo": "30002",
     'TTL': 2,
     'last_message': 0,
     'feagi_burst_speed':  1,
     "host_name": "",
-    "ip_address": ""
+    "ip_address": "",
+    "microbit_mac_address": "xx:xx:xx:xx:xx:xx",
+    "primary_mac_address": "yy:yy:yy:yy:yy:yy"
 }
 
 capabilities = {
