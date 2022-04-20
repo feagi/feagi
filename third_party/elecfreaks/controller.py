@@ -14,16 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================
 """
-from time import sleep
 from bluezero import microbit
 from router import *
 from configuration import *
-import socket
 import zmq
 
 
-ubit = microbit.Microbit(adapter_addr='E4:5F:01:02:15:E2',
-                         device_addr='F2:1B:92:0A:89:28',
+ubit = microbit.Microbit(adapter_addr=network_settings['primary_mac_address'],
+                         device_addr=network_settings['microbit_mac_address'],
                          accelerometer_service=False,
                          button_service=False,
                          led_service=False,
