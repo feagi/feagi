@@ -7,7 +7,7 @@ import socket
 import requests
 
 
-def host_info():
+def app_host_info():
     host_name = socket.gethostname()
     ip_address = socket.gethostbyname(socket.gethostname())
     return {"ip_address": ip_address, "host_name": host_name}
@@ -60,7 +60,7 @@ class Sub:
                 print(e)
 
 
-def handshake_rest_api(address, capabilities):
+def register_with_feagi(app_name, feagi_host, api_port, app_capabilities, app_host_info):
     """
     To trade information between FEAGI and Controller
 
@@ -68,39 +68,37 @@ def handshake_rest_api(address, capabilities):
     Controller (Capabilities)       -->     FEAGI
     """
 
-    registration_data = {'virtual', address, capabilities}
-    feagi_settings = requests.post('http://127.0.0.1:8000/v1/feagi/register', data=registration_data)
+    api_address = 'http://' + feagi_host + ':' + api_port
 
-    return feagi_settings
-
-
-def handshake_with_feagi(address, capabilities):
-    """
-    To trade information between FEAGI and Controller
-
-    Controller                      <--     FEAGI(IPU/OPU socket info)
-    Controller (Capabilities)       -->     FEAGI
-    """
-
-    feagi_api = 'http://127.0.0.1:8000'
-
+    registration_endpoint = '/v1/feagi/register'
     network_endpoint = '/v1/feagi/feagi/network'
     stimulation_period_endpoint = '/v1/feagi/feagi/burst_engine/stimulation_period'
     burst_counter_endpoint = '/v1/feagi/feagi/burst_engine/stimulation_period'
 
-    print('Awaiting connection with FEAGI at...', address)
-    subscriber = Sub(address=address, flags=zmq.SUB)
+    registration_data = {"source": app_name,
+                         "host": app_host_info["ip_address"],
+                         "capabilities": app_capabilities}
+    feagi_registration_result = requests.post(api_address + registration_endpoint, data=registration_data)
+
+    print("FEAGI registration results: ", feagi_registration_result)
+
+    feagi_settings = requests.get(api_address + network_endpoint).json()
+
+    app_port_id = 'feagi_inbound_port_' + app_name
+    zmq_address = 'tcp://' + feagi_host + ':' + feagi_settings[app_port_id]
+
+    print('Awaiting connection with FEAGI at...', zmq_address)
+    subscriber = Sub(address=zmq_address, flags=zmq.SUB)
 
     # Receive FEAGI settings
-    feagi_settings = requests.get(feagi_api + network_endpoint).json()
-    feagi_settings['burst_duration'] = requests.get(feagi_api + stimulation_period_endpoint).json()
-    feagi_settings['burst_counter'] = requests.get(feagi_api + burst_counter_endpoint).json()
+    feagi_settings['burst_duration'] = requests.get(api_address + stimulation_period_endpoint).json()
+    feagi_settings['burst_counter'] = requests.get(api_address + burst_counter_endpoint).json()
 
     print("\nFEAGI settings received as:\n", feagi_settings, "\n\n")
 
     # Transmit Controller Capabilities
-    pub_address = "tcp://0.0.0.0:" + feagi_settings['feagi_inbound_port_godot']
+    pub_address = "tcp://0.0.0.0:" + feagi_settings[app_port_id]
     publisher = Pub(address=pub_address)
-    publisher.send(capabilities)
+    publisher.send(app_capabilities)
 
     return feagi_settings

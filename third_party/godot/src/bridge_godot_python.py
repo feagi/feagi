@@ -22,15 +22,24 @@ from configuration import *
 
 import sys
 import socket
+import configuration
+import router
 import zmq
 import csv
 import ast
 import asyncio
 import websockets
 import requests
+from time import sleep
 
 runtime_data = {
-    "cortical_data": {}
+    "cortical_data": {},
+    "current_burst_id": None,
+    "stimulation_period": None,
+    "feagi_state": None,
+    "feagi_network": None,
+    "cortical_list": set(),
+    "host_network": {}
 }
 
 
@@ -172,24 +181,6 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
         pass
 
     return relative_coordinate
-
-
-def feagi_init():
-    # Send a request to FEAGI for cortical dimensions
-    awaiting_feagi_registration = True
-    while awaiting_feagi_registration:
-        print("********* ************ ********** ************* ***************\n")
-        print("Awaiting registration with FEAGI...")
-        FEAGI_pub.send({"godot_init": True})
-
-        runtime_data["cortical_data"] = \
-            requests.get('http://127.0.0.1:8000/v1/feagi/connectome/properties/dimensions').json()
-
-        if runtime_data["cortical_data"]:
-            print("Cortical Dimensions:\n", runtime_data["cortical_data"])
-            csv_writer(runtime_data["cortical_data"])
-            awaiting_feagi_registration = False
-        time.sleep(1)
     
 
 async def echo(websocket):
@@ -224,13 +215,57 @@ async def echo(websocket):
 
 async def main():
     print("- -- -- --  --- -- -- ")
-    async with websockets.serve(echo, "0.0.0.0", 9050):
+    async with websockets.serve(echo, "0.0.0.0", configuration.network_settings['godot_websocket_port']):
         print("+++")
         await asyncio.Future()  # run forever
 
 
+def feagi_registration(feagi_host, api_port):
+    app_host_info = router.app_host_info()
+    runtime_data["host_network"]["host_name"] = app_host_info["host_name"]
+    runtime_data["host_network"]["ip_address"] = app_host_info["ip_address"]
+
+    while runtime_data["feagi_state"] is None:
+        print("Awaiting registration with FEAGI...1")
+        try:
+            runtime_data["feagi_state"] = router.register_with_feagi(app_name=configuration.app_name,
+                                                                     feagi_host=feagi_host,
+                                                                     api_port=api_port,
+                                                                     app_capabilities=configuration.capabilities,
+                                                                     app_host_info=runtime_data["host_network"]
+                                                                     )
+        except:
+            pass
+        sleep(1)
+
+
+def feagi_init():
+    # Send a request to FEAGI for cortical dimensions
+    awaiting_feagi_registration = True
+    while awaiting_feagi_registration:
+        print("********* ************ ********** ************* ***************\n")
+        print("Awaiting registration with FEAGI...2")
+        FEAGI_pub.send({"godot_init": True})
+
+        runtime_data["cortical_data"] = \
+            requests.get('http://127.0.0.1:8000/v1/feagi/connectome/properties/dimensions').json()
+
+        if runtime_data["cortical_data"]:
+            print("Cortical Dimensions:\n", runtime_data["cortical_data"])
+            csv_writer(runtime_data["cortical_data"])
+            awaiting_feagi_registration = False
+        time.sleep(1)
+
+
 if __name__ == "__main__":
-    api_address = 'http://' + network_settings['feagi_ip'] + ':' + network_settings['feagi_api_port']
+    feagi_host = configuration.network_settings["feagi_host"]
+    api_port = configuration.network_settings["feagi_api_port"]
+
+    feagi_registration(feagi_host=feagi_host, api_port=api_port)
+
+    print("** **", runtime_data["feagi_state"])
+
+    api_address = 'http://' + network_settings['feagi_host'] + ':' + network_settings['feagi_api_port']
     # feagi_state = handshake_with_feagi(address=address,
     #                                    capabilities=capabilities)
     # print("feagi_state: ", feagi_state)
@@ -241,9 +276,10 @@ if __name__ == "__main__":
 
     print("--->> >> >> \n", sockets, network_settings)
     FEAGI_pub = Pub(address='tcp://0.0.0.0:' + network_settings['feagi_inbound_port_godot'])
-    opu_channel_address = 'tcp://' + network_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
+    opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + sockets['feagi_outbound_port']
     FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
     feagi_init()
+    print("FEAGI initialization completed successfully")
 
     asyncio.run(main())

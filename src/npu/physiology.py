@@ -56,7 +56,7 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
 
     neighbor_count = len(neighbor_list)
 
-    if runtime_data.parameters["Database"]["influx_neuron_stats"]:
+    if runtime_data.collect_neuron_stats:
         vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
         fire_threshold = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["firing_threshold"]
         mem_pot = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
@@ -174,7 +174,7 @@ def membrane_potential_update(cortical_area, neuron_id, membrane_potential_chang
 
     runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] = runtime_data.burst_count
 
-    if runtime_data.parameters["Database"]["influx_neuron_stats"] and not bypass_db_log:
+    if runtime_data.collect_neuron_stats and not bypass_db_log:
         vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
         dst_mp = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
         # Note: dst_cortical_area is fed to the src_cortical_area field since the membrane potential of dst changes
@@ -198,7 +198,7 @@ def post_synaptic_current_update(cortical_area_src,
     runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"][neuron_id_dst]["postsynaptic_current"] = \
         post_synaptic_current
 
-    if runtime_data.parameters["Database"]["influx_synapse_stats"]:
+    if runtime_data.collect_synapse_stats:
         for destination_neuron in runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"]:
             psc = runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"][
                 destination_neuron]["postsynaptic_current"]
