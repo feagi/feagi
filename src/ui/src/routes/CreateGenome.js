@@ -1,11 +1,11 @@
 import React from "react";
-import Item from "../components/Item";
-import MenuCard from "../components/MenuCard";
+import Stack from "@mui/material/Stack";
 import { GiDna2 } from "react-icons/gi";
 import { MdUploadFile } from "react-icons/md";
 import { Link } from "react-router-dom";
+import Item from "../components/Item";
+import MenuCard from "../components/MenuCard";
 import GenomeUploadCard from "../components/GenomeUploadCard";
-import Stack from "@mui/material/Stack";
 
 const CreateGenome = () => {
   return (
