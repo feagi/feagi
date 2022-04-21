@@ -18,16 +18,18 @@ const CreateGenome = () => {
         sx={{ m: 6 }}
       >
         <Item>
-          <label htmlFor="regular-card">
-            <MenuCard
-              image={<GiDna2 size={200} />}
-              label="Create Genome"
-              info="Create a seed genome by defining desired sensorimotor capabilities, corresponding cortical areas and their connections."
-            />
-          </label>
+          <Link to="/genome/sensory">
+            <label htmlFor="genome-card">
+              <MenuCard
+                image={<GiDna2 size={200} />}
+                label="Create Genome"
+                info="Create a seed genome by defining desired sensorimotor capabilities, corresponding cortical areas and their connections."
+              />
+            </label>
+          </Link>
         </Item>
         <Item>
-          <label htmlFor="upload-card">
+          <label htmlFor="genome-upload-card">
             <GenomeUploadCard
               image={<MdUploadFile size={200} />}
               label="Use Existing Genome"
