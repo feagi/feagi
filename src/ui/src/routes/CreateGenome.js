@@ -15,6 +15,7 @@ const CreateGenome = () => {
         alignItems="center"
         justifyContent="center"
         spacing={2}
+        sx={{ m: 6 }}
       >
         <Item>
           <label htmlFor="regular-card">
