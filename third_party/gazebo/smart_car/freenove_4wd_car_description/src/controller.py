@@ -34,9 +34,13 @@ from time import sleep
 import os
 
 runtime_data = {
-    "current_burst_id": 0,
+    "cortical_data": {},
+    "current_burst_id": None,
+    "stimulation_period": None,
     "feagi_state": None,
-    "cortical_list": (),
+    "feagi_network": None,
+    "cortical_list": set(),
+    "host_network": {},
     "battery_charge_level": 1,
     'motor_status': {},
     'servo_status': {}
@@ -370,7 +374,7 @@ class Servo:
 def main(args=None):
     print("Connecting to FEAGI resources...")
 
-    address = 'tcp://' + network_settings['feagi_ip'] + ':' + network_settings['feagi_outbound_port']
+    address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_outbound_port']
 
     feagi_host = configuration.network_settings["feagi_host"]
     api_port = configuration.network_settings["feagi_api_port"]
@@ -386,7 +390,7 @@ def main(args=None):
     # todo: to obtain this info directly from FEAGI as part of registration
     ipu_channel_address = 'tcp://0.0.0.0:' + network_settings['feagi_inbound_port_gazebo']
     print("IPU_channel_address=", ipu_channel_address)
-    opu_channel_address = 'tcp://' + network_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
+    opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + sockets['feagi_outbound_port']
 
     feagi_ipu_channel = router.Pub(address=ipu_channel_address)
     feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
