@@ -34,8 +34,8 @@ from time import sleep
 
 runtime_data = {
     "cortical_data": {},
-    "current_burst_id": 0,
-    "global_timer": 0.5,
+    "current_burst_id": None,
+    "stimulation_period": None,
     "feagi_state": None,
     "feagi_network": None,
     "cortical_list": set(),
@@ -236,7 +236,7 @@ def feagi_registration(feagi_host, api_port):
                                                                      )
         except:
             pass
-        sleep(2)
+        sleep(1)
 
 
 def feagi_init():

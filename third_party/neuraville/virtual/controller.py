@@ -130,7 +130,7 @@ def feagi_registration(feagi_host, api_port):
                                                                      )
         except:
             pass
-        sleep(2)
+        sleep(1)
 
 
 def main():
