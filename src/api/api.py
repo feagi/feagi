@@ -44,14 +44,14 @@ class BurstEngine(BaseModel):
 
 
 class Network(BaseModel):
-    godot_host: Optional[str] = 'godot'
-    godot_data_port: Optional[int] = 30001
+    godot_host: Optional[str] = runtime_data.parameters['Sockets']['godot_host_name']
+    godot_data_port: Optional[int] = runtime_data.parameters['Sockets']['feagi_inbound_port_godot']
     godot_web_port: Optional[int] = 6081
-    gazebo_host: Optional[str] = 'gazebo'
-    gazebo_data_port: Optional[int] = 30002
+    gazebo_host: Optional[str] = runtime_data.parameters['Sockets']['gazebo_host_name']
+    gazebo_data_port: Optional[int] = runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']
     gazebo_web_port: Optional[int] = 6080
-    virtual_stimulator_host: Optional[str] = 'virtual'
-    virtual_stimulator_data_port: Optional[int] = 30003
+    virtual_stimulator_host: Optional[str] = runtime_data.parameters['Sockets']['virtual_host_name']
+    virtual_stimulator_data_port: Optional[int] = runtime_data.parameters['Sockets']['feagi_inbound_port_virtual']
 
 
 class ConnectomeSnapshot(BaseModel):
