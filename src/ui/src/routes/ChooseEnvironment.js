@@ -13,11 +13,12 @@ const ChooseEnvironment = () => {
       alignItems="center"
       justifyContent="center"
       spacing={2}
+      sx={{ m: 6 }}
     >
       <Item>
         <Link to={"/genome"}>
           <MenuCard
-            image={<GiVintageRobot size="xl" />}
+            image={<GiVintageRobot size={200} />}
             label="Physical Robot"
             info="A physical device with basic I/O and processing power capable of running or interacting with FEAGI"
           />
@@ -26,7 +27,7 @@ const ChooseEnvironment = () => {
       <Item>
         <Link to={"/genome"}>
           <MenuCard
-            image={<AiOutlineRobot size="xl" />}
+            image={<AiOutlineRobot size={200} />}
             label="Virtual Robot"
             info="A virtual robot existing in a virtual environment (ex: Gazebo) with a defined physics engine capable of interfacing with FEAGI"
           />
