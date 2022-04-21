@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 import Item from "../components/Item";
 import MenuCard from "../components/MenuCard";
 
-const ChooseEnv = () => {
+const ChooseEnvironment = () => {
   return (
     <Stack
       direction="row"
@@ -36,4 +36,4 @@ const ChooseEnv = () => {
   );
 };
 
-export default ChooseEnv;
+export default ChooseEnvironment;
