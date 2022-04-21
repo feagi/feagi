@@ -239,7 +239,7 @@ def feagi_registration(feagi_host, api_port):
         sleep(1)
 
 
-def feagi_init():
+def feagi_init(feagi_host, api_port):
     # Send a request to FEAGI for cortical dimensions
     awaiting_feagi_registration = True
     while awaiting_feagi_registration:
@@ -247,8 +247,10 @@ def feagi_init():
         print("Awaiting registration with FEAGI...2")
         FEAGI_pub.send({"godot_init": True})
 
+        dimensions_endpoint = '/v1/feagi/connectome/properties/dimensions'
+
         runtime_data["cortical_data"] = \
-            requests.get('http://127.0.0.1:8000/v1/feagi/connectome/properties/dimensions').json()
+            requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
 
         if runtime_data["cortical_data"]:
             print("Cortical Dimensions:\n", runtime_data["cortical_data"])
@@ -279,7 +281,7 @@ if __name__ == "__main__":
     opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + sockets['feagi_outbound_port']
     FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
-    feagi_init()
+    feagi_init(feagi_host=feagi_host, api_port=api_port)
     print("FEAGI initialization completed successfully")
 
     asyncio.run(main())
