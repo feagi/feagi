@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Button from "@mui/material/Button";
+import Modal from "@mui/material/Modal";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -10,6 +11,7 @@ import MenuCard from "../components/MenuCard";
 
 const ChooseSensory = () => {
   const [selectedSensory, setSelectedSensory] = useState([]);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const handleClick = (e, src) => {
     if (!selectedSensory.includes(src)) {
@@ -71,6 +73,11 @@ const ChooseSensory = () => {
               <Button variant="contained">{item}</Button>
             </Item>
           ))}
+          {/* <>
+            <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
+              TEST
+            </Modal>
+          </> */}
         </Stack>
       </Paper>
     </>
