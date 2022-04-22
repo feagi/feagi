@@ -28,6 +28,7 @@ RUN pip3 install bluezero
 RUN pip3 install pyzmq
 RUN pip3 install dbus-python
 RUN pip3 install PyGObject
+RUN pip3 install requests
 COPY ./configuration.py /root
 COPY ./controller.py /root
 COPY ./router.py /root
