@@ -17,7 +17,42 @@ limitations under the License.
 from bluezero import microbit
 from router import *
 from configuration import *
+from time import sleep
+
+
+import configuration
 import zmq
+import router
+
+
+runtime_data = {
+    "cortical_data": {},
+    "current_burst_id": None,
+    "stimulation_period": None,
+    "feagi_state": None,
+    "feagi_network": None,
+    "cortical_list": set(),
+    "host_network": {}
+}
+
+
+def feagi_registration(feagi_host, api_port):
+    app_host_info = router.app_host_info()
+    runtime_data["host_network"]["host_name"] = app_host_info["host_name"]
+    runtime_data["host_network"]["ip_address"] = app_host_info["ip_address"]
+
+    while runtime_data["feagi_state"] is None:
+        print("Awaiting registration with FEAGI...1")
+        try:
+            runtime_data["feagi_state"] = router.register_with_feagi(app_name=configuration.app_name,
+                                                                     feagi_host=feagi_host,
+                                                                     api_port=api_port,
+                                                                     app_capabilities=configuration.capabilities,
+                                                                     app_host_info=runtime_data["host_network"]
+                                                                     )
+        except:
+            pass
+        sleep(1)
 
 
 ubit = microbit.Microbit(adapter_addr=network_settings['primary_mac_address'],
@@ -33,18 +68,29 @@ ubit = microbit.Microbit(adapter_addr=network_settings['primary_mac_address'],
 print("Searching for microbit...")
 ubit.connect()
 print("Microbit has been connected.")
-address = 'tcp://' + network_settings['feagi_ip'] + ':' + network_settings['feagi_outbound_port']
-feagi_state = handshake_with_feagi(address=address, capabilities=capabilities)
-print("** **", feagi_state)
-sockets = feagi_state['sockets']
-network_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
-print("--->> >> >> ", sockets)
-ipu_channel_address = 'tcp://0.0.0.0:' + network_settings['feagi_inbound_port_gazebo']
-print("IPU_channel_address=", ipu_channel_address)
-opu_channel_address = 'tcp://' + network_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
+feagi_host = configuration.network_settings["feagi_host"]
+api_port = configuration.network_settings["feagi_api_port"]
 
-feagi_ipu_channel = Pub(address=ipu_channel_address)
-feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+feagi_registration(feagi_host=feagi_host, api_port=api_port)
+
+print("** **", runtime_data["feagi_state"])
+
+api_address = 'http://' + network_settings['feagi_host'] + ':' + network_settings['feagi_api_port']
+# feagi_state = handshake_with_feagi(address=address,
+#                                    capabilities=capabilities)
+# print("feagi_state: ", feagi_state)
+# print("** **\n\n\n\n")
+sockets = requests.get(api_address + '/v1/feagi/feagi/network').json()
+stimulation_period = requests.get(api_address + '/v1/feagi/feagi/burst_engine/stimulation_period').json()
+network_settings['feagi_burst_speed'] = float(stimulation_period)
+
+print("--->> >> >> \n", sockets, network_settings)
+FEAGI_pub = Pub(address='tcp://0.0.0.0:' + network_settings['feagi_inbound_port_godot'])
+opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + sockets['feagi_outbound_port']
+FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+
+feagi_init(feagi_host=feagi_host, api_port=api_port)
+print("FEAGI initialization completed successfully")
 
 flag=True
 
