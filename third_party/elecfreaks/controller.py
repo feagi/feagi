@@ -55,8 +55,8 @@ while flag:
             opu_data = message_from_feagi["opu_data"]
             #print(message_from_feagi)
             if "o__mic" in opu_data:
-                print(opu_data["o__mic"])
-                for i in opu_data['o__mic']:
+                print(opu_data["o__mot"])
+                for i in opu_data['o__mot']:
                     print("Sending now:" , i)
                     if i == "0-0-0":
                         ubit.uart = 'f#'
