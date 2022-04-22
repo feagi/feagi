@@ -23,6 +23,7 @@ from time import sleep
 import configuration
 import zmq
 import router
+import requests
 
 
 runtime_data = {
