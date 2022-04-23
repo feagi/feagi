@@ -24,8 +24,25 @@ is intended to run within a container and scale up to many container instances.
 """
 
 import uvicorn
+import logging
+from configparser import ConfigParser
+from inf import runtime_data
+from tempfile import gettempdir
+
+log = logging.getLogger(__name__)
+
+
+def init_parameters(ini_path='./feagi_configuration.ini'):
+    """To load all the key configuration parameters"""
+    feagi_config = ConfigParser()
+    feagi_config.read(ini_path)
+    runtime_data.parameters = {s: dict(feagi_config.items(s)) for s in feagi_config.sections()}
+    if not runtime_data.parameters["InitData"]["working_directory"]:
+        runtime_data.parameters["InitData"]["working_directory"] = gettempdir()
+    log.info("All parameters have been initialized.")
 
 
 if __name__ == "__main__":
+    init_parameters()
     uvicorn.run("api.api:app", host="0.0.0.0", port=8000, reload=True, log_level="debug", debug=True,
                 workers=2, limit_concurrency=10)
