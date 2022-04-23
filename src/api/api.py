@@ -21,7 +21,9 @@ from threading import Thread
 from queue import Queue
 from inf.feagi import *
 from inf import disk_ops, runtime_data
+from inf.initialize import init_parameters
 
+init_parameters()
 
 app = FastAPI()
 favicon_path = 'favicon.svg'
