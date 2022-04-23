@@ -24,12 +24,8 @@ is intended to run within a container and scale up to many container instances.
 """
 
 import uvicorn
-from inf import runtime_data
-from inf.initialize import init_parameters
 
 
 if __name__ == "__main__":
-    init_parameters()
-    print("\n\n\n\n Runtime data|Parameters::", runtime_data.parameters)
     uvicorn.run("api.api:app", host="0.0.0.0", port=8000, reload=True, log_level="debug", debug=True,
                 workers=2, limit_concurrency=10)
