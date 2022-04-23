@@ -129,9 +129,10 @@ def run_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
     http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
     """
     runtime_data.brain_run_id = \
-        (str(datetime.now()).replace(' ', '_')).replace('.', '_').replace(':', '-')+'_'+(''.join(random.choice(chars)
+        (str(datetime.now()).replace(' ', '_')).\
+            replace('.', '_').replace(':', '-')+'_'+(''.join(random.choice(chars) for _ in range(size)))+'_R'
 
-                                                                               for _ in range(size)))+'_R'
+
 def init_parameters(ini_path='./feagi_configuration.ini'):
     """To load all the key configuration parameters"""
     feagi_config = ConfigParser()
@@ -140,7 +141,6 @@ def init_parameters(ini_path='./feagi_configuration.ini'):
     if not runtime_data.parameters["InitData"]["working_directory"]:
         runtime_data.parameters["InitData"]["working_directory"] = gettempdir()
     log.info("All parameters have been initialized.")
-
 
 
 def init_working_directory():

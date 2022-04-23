@@ -28,7 +28,6 @@ from inf.initialize import init_working_directory, init_parameters
 
 
 if __name__ == "__main__":
-    init_working_directory()
     init_parameters()
     uvicorn.run("api.api:app", host="0.0.0.0", port=8000, reload=True, log_level="debug", debug=True,
                 workers=2, limit_concurrency=10)
