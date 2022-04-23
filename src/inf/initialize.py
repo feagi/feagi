@@ -21,6 +21,8 @@ import psutil
 import string
 import random
 from queue import Queue
+from configparser import ConfigParser
+from tempfile import gettempdir
 from threading import Thread
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
@@ -128,7 +130,17 @@ def run_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
     """
     runtime_data.brain_run_id = \
         (str(datetime.now()).replace(' ', '_')).replace('.', '_').replace(':', '-')+'_'+(''.join(random.choice(chars)
+
                                                                                for _ in range(size)))+'_R'
+def init_parameters(ini_path='./feagi_configuration.ini'):
+    """To load all the key configuration parameters"""
+    feagi_config = ConfigParser()
+    feagi_config.read(ini_path)
+    runtime_data.parameters = {s: dict(feagi_config.items(s)) for s in feagi_config.sections()}
+    if not runtime_data.parameters["InitData"]["working_directory"]:
+        runtime_data.parameters["InitData"]["working_directory"] = gettempdir()
+    log.info("All parameters have been initialized.")
+
 
 
 def init_working_directory():
