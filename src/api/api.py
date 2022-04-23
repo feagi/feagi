@@ -44,6 +44,8 @@ class BurstEngine(BaseModel):
 
 
 class Network(BaseModel):
+    print("********************")
+    print("\n\n\n\n Runtime data|Parameters::", runtime_data.parameters)
     godot_host: Optional[str] = runtime_data.parameters['Sockets']['godot_host_name']
     godot_data_port: Optional[int] = runtime_data.parameters['Sockets']['feagi_inbound_port_godot']
     godot_web_port: Optional[int] = 6081
