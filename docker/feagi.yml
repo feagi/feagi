@@ -5,17 +5,6 @@ networks:
     driver: bridge
 
 services:
-  ros-gazebo:
-    build: ../third_party/gazebo/smart_car/
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-    ports:
-      - "6080:80"
-    privileged: false
-    networks:
-      - net
 
   godot:
     build: ../third_party/godot/
@@ -25,6 +14,13 @@ services:
     privileged: true
     networks:
       - net
+      
+  ros-gazebo:
+    build: ../third_party/elecfreaks
+    privileged: true
+    network_mode: host
+    devices:
+     - "/dev/hci0:/dev/hci0"
 
   feagi:
     build: ./
