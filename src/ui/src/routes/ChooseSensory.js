@@ -1,6 +1,10 @@
 import React, { useState } from "react";
 import Button from "@mui/material/Button";
-import Modal from "@mui/material/Modal";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -12,7 +16,7 @@ import CorticalAreaForm from "../components/CorticalAreaForm";
 
 const ChooseSensory = () => {
   const [selectedSensory, setSelectedSensory] = useState([]);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const handleClick = (e, src) => {
     if (!selectedSensory.includes(src)) {
@@ -25,11 +29,11 @@ const ChooseSensory = () => {
   };
 
   const handleOpen = () => {
-    setModalOpen(true);
+    setDialogOpen(true);
   };
 
   const handleClose = () => {
-    setModalOpen(false);
+    setDialogOpen(false);
   };
 
   return (
@@ -84,13 +88,14 @@ const ChooseSensory = () => {
               </Button>
             </Item>
           ))}
-          <Modal open={modalOpen} onClose={handleClose} sx={{ maxWidth: "md" }}>
-            <div>
-              <CorticalAreaForm />
-            </div>
-          </Modal>
         </Stack>
       </Paper>
+      <Dialog open={dialogOpen} onClose={handleClose} fullWidth maxWidth="sm">
+        <DialogTitle>Cortical Area Definition</DialogTitle>
+        <DialogContent>
+          <CorticalAreaForm />
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
