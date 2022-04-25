@@ -24,8 +24,10 @@ is intended to run within a container and scale up to many container instances.
 """
 
 import uvicorn
+from inf.initialize import *
 
+init_parameters()
 
 if __name__ == "__main__":
-    uvicorn.run("api.api:app", host="0.0.0.0", port=8000, reload=True, log_level="debug", debug=True,
-                workers=2, limit_concurrency=10)
+    uvicorn.run("api.api:app", host="0.0.0.0", port=int(runtime_data.parameters['Sockets']['feagi_api_port']),
+                reload=True, log_level="debug", debug=True, workers=2, limit_concurrency=10)
