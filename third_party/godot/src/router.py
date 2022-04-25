@@ -5,6 +5,7 @@
 import zmq
 import socket
 import requests
+from time import sleep
 
 
 def app_host_info():
@@ -78,23 +79,31 @@ def register_with_feagi(app_name, feagi_host, api_port, app_capabilities, app_ho
     registration_data = {"source": app_name,
                          "host": app_host_info["ip_address"],
                          "capabilities": app_capabilities}
-    feagi_registration_result = requests.post(api_address + registration_endpoint, data=registration_data)
 
-    print("FEAGI registration results: ", feagi_registration_result)
+    registration_complete = False
 
-    feagi_settings = requests.get(api_address + network_endpoint).json()
+    while not registration_complete:
+        feagi_registration_result = requests.post(api_address + registration_endpoint, data=registration_data)
 
-    app_port_id = 'feagi_inbound_port_' + app_name
-    zmq_address = 'tcp://' + feagi_host + ':' + feagi_settings[app_port_id]
+        print("FEAGI registration results: ", feagi_registration_result)
 
-    print('Awaiting connection with FEAGI at...', zmq_address)
-    subscriber = Sub(address=zmq_address, flags=zmq.SUB)
+        feagi_settings = requests.get(api_address + network_endpoint).json()
 
-    # Receive FEAGI settings
-    feagi_settings['burst_duration'] = requests.get(api_address + stimulation_period_endpoint).json()
-    feagi_settings['burst_counter'] = requests.get(api_address + burst_counter_endpoint).json()
+        app_port_id = 'feagi_inbound_port_' + app_name
+        zmq_address = 'tcp://' + feagi_host + ':' + feagi_settings[app_port_id]
 
-    print("\nFEAGI settings received as:\n", feagi_settings, "\n\n")
+        print('Awaiting connection with FEAGI at...', zmq_address)
+        subscriber = Sub(address=zmq_address, flags=zmq.SUB)
+
+        # Receive FEAGI settings
+        feagi_settings['burst_duration'] = requests.get(api_address + stimulation_period_endpoint).json()
+        feagi_settings['burst_counter'] = requests.get(api_address + burst_counter_endpoint).json()
+
+        print("\nFEAGI settings received as:\n", feagi_settings, "\n\n")
+        if feagi_settings and feagi_settings['burst_duration'] and feagi_settings['burst_counter']:
+            print("\n\n\n\nRegistration is complete....")
+            registration_complete = True
+            sleep(1)
 
     # Transmit Controller Capabilities
     pub_address = "tcp://0.0.0.0:" + feagi_settings[app_port_id]
