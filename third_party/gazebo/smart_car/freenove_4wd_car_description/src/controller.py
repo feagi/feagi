@@ -374,7 +374,7 @@ class Servo:
 def main(args=None):
     print("Connecting to FEAGI resources...")
 
-    address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_outbound_port']
+    # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_outbound_port']
 
     feagi_host = configuration.network_settings["feagi_host"]
     api_port = configuration.network_settings["feagi_api_port"]
