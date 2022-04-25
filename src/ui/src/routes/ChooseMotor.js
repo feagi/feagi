@@ -1,5 +1,8 @@
 import React, { useState } from "react";
 import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -7,9 +10,11 @@ import { GiGears } from "react-icons/gi";
 import { BsGearWide } from "react-icons/bs";
 import Item from "../components/Item";
 import MenuCard from "../components/MenuCard";
+import CorticalAreaForm from "../components/CorticalAreaForm";
 
 const ChooseMotor = () => {
   const [selectedMotor, setSelectedMotor] = useState([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const handleClick = (e, src) => {
     if (!selectedMotor.includes(src)) {
@@ -19,6 +24,14 @@ const ChooseMotor = () => {
       let filteredMotor = selectedMotor.filter((item) => item !== src);
       setSelectedMotor(filteredMotor);
     }
+  };
+
+  const handleOpen = () => {
+    setDialogOpen(true);
+  };
+
+  const handleClose = () => {
+    setDialogOpen(false);
   };
 
   return (
@@ -51,21 +64,32 @@ const ChooseMotor = () => {
       <Typography variant="h4" align="center" sx={{ p: 2 }} component="div">
         Selected
       </Typography>
-      <Paper elevation={1} sx={{ mx: "30rem", mb: "5rem", p: 4 }}>
+      <Paper
+        elevation={1}
+        sx={{ mx: "30rem", mb: "5rem", height: "75px", p: 2 }}
+      >
         <Stack
           direction="row"
           alignItems="center"
           justifyContent="center"
           spacing={2}
-          sx={{ m: 2 }}
+          sx={{ m: 1 }}
         >
-          {selectedSensory.map((item) => (
+          {selectedMotor.map((item) => (
             <Item key={item}>
-              <Button variant="contained">{item}</Button>
+              <Button variant="contained" onClick={handleOpen}>
+                {item}
+              </Button>
             </Item>
           ))}
         </Stack>
       </Paper>
+      <Dialog open={dialogOpen} onClose={handleClose} fullWidth maxWidth="sm">
+        <DialogTitle>Cortical Area Definition</DialogTitle>
+        <DialogContent>
+          <CorticalAreaForm />
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
