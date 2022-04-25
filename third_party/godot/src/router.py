@@ -83,6 +83,9 @@ def register_with_feagi(app_name, feagi_host, api_port, app_capabilities, app_ho
     registration_complete = False
 
     while not registration_complete:
+
+        print("Registration data:", registration_data)
+
         feagi_registration_result = requests.post(api_address + registration_endpoint, data=registration_data)
 
         print("FEAGI registration results: ", feagi_registration_result)

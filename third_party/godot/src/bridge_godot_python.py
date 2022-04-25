@@ -274,11 +274,11 @@ if __name__ == "__main__":
     # print("** **\n\n\n\n")
     sockets = requests.get(api_address + '/v1/feagi/feagi/network').json()
     stimulation_period = requests.get(api_address + '/v1/feagi/feagi/burst_engine/stimulation_period').json()
-    network_settings['feagi_burst_speed'] = float(stimulation_period)
+    runtime_data["feagi_state"]['feagi_burst_speed'] = float(stimulation_period)
 
     print("--->> >> >> \n", sockets, network_settings)
-    FEAGI_pub = Pub(address='tcp://0.0.0.0:' + network_settings['feagi_inbound_port_godot'])
-    opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + sockets['feagi_outbound_port']
+    FEAGI_pub = Pub(address='tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_godot'])
+    opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"]['feagi_outbound_port']
     FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
     feagi_init(feagi_host=feagi_host, api_port=api_port)
