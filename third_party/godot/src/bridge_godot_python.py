@@ -188,8 +188,8 @@ async def echo(websocket):
 
     while True:
         one_frame = FEAGI_sub.receive()
-        print("^^^^^^^^^^^^ ^^^^^^ +++++++++++++++++  ^^^^^^^^^^^^^^ ^ ^^  ^^^^^^^^^^^")
-        print("data: ", one_frame)
+        # print("^^^^^^^^^^^^ ^^^^^^ +++++++++++++++++  ^^^^^^^^^^^^^^ ^ ^^  ^^^^^^^^^^^")
+        # print("data: ", one_frame)
         if one_frame is not None:
             one_frame = feagi_breakdown(one_frame)
             await websocket.send(str(one_frame))
