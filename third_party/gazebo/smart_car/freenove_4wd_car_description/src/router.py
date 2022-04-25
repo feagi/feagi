@@ -5,6 +5,7 @@
 import zmq
 import socket
 import requests
+from time import sleep
 
 
 def app_host_info():
@@ -102,6 +103,7 @@ def register_with_feagi(app_name, feagi_host, api_port, app_capabilities, app_ho
         if feagi_settings and feagi_settings['burst_duration'] and feagi_settings['burst_counter']:
             print("\n\n\n\nRegistration is complete....")
             registration_complete = True
+            sleep(1)
 
     # Transmit Controller Capabilities
     pub_address = "tcp://0.0.0.0:" + feagi_settings[app_port_id]
