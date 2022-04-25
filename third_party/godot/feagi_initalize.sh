@@ -7,5 +7,4 @@ while  [ ! -f "$FILE" ]; do
   sleep 5
 done
 cp ../godot_source/csv_data.csv ../html/
-cd .. && cd html && http-server -p 8002
-
+cd .. && cd html && http-server -p 6081
