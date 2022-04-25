@@ -15,6 +15,6 @@ else
                                    --build-arg REPO=$1 \
                                    --build-arg BRANCH=$PRIVATE_REPO_BRANCH \
                                    -f Dockerfile.private .
-    docker-compose -f feagi.yml build godot ros-gazebo
+    docker-compose -f feagi.yml build --no-cache godot ros-gazebo
     docker-compose -f feagi.yml -f feagi.private.yml up
 fi
