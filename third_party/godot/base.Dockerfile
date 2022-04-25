@@ -1,17 +1,16 @@
-FROM dorowu/ubuntu-desktop-lxde-vnc
+FROM ubuntu:20.04
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        lsb-release \
-        wget \
-        git \
-        python3-zmq \
-        xterm \
-        python3-pip \
-        unzip
-
-RUN sudo apt-get install -y build-essential scons pkg-config libx11-dev libxcursor-dev libxinerama-dev \
-    libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev libudev-dev libxi-dev libxrandr-dev yasm
-RUN mkdir -p ./.local/share/godot/templates/3.2.stable/linux_x11_64_release/
-RUN wget https://downloads.tuxfamily.org/godotengine/3.4.2/Godot_v3.4.2-stable_x11.64.zip
-RUN unzip Godot_v3.4.2-stable_x11.64.zip && rm Godot_v3.4.2-stable_x11.64.zip
+RUN apt update
+RUN apt install -y python3
+RUN apt install -y python3-pip
+RUN pip3 install websockets
+RUN pip3 install pyzmq
+RUN pip3 install requests
+RUN apt install -y wget
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y npm
+RUN npm cache clean -f
+RUN npm install -g n
+RUN n stable
+RUN hash -r
+RUN curl -qL https://www.npmjs.com/install.sh | sh
+RUN npm install --global http-server
