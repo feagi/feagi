@@ -8,6 +8,7 @@ import { FaRuler } from "react-icons/fa";
 import { TiWaves, TiBatteryFull } from "react-icons/ti";
 import Item from "../components/Item";
 import MenuCard from "../components/MenuCard";
+import CorticalAreaForm from "../components/CorticalAreaForm";
 
 const ChooseSensory = () => {
   const [selectedSensory, setSelectedSensory] = useState([]);
@@ -21,6 +22,14 @@ const ChooseSensory = () => {
       let filteredSensory = selectedSensory.filter((item) => item !== src);
       setSelectedSensory(filteredSensory);
     }
+  };
+
+  const handleOpen = () => {
+    setModalOpen(true);
+  };
+
+  const handleClose = () => {
+    setModalOpen(false);
   };
 
   return (
@@ -60,24 +69,26 @@ const ChooseSensory = () => {
       <Typography variant="h4" align="center" sx={{ p: 2 }} component="div">
         Selected
       </Typography>
-      <Paper elevation={1} sx={{ mx: "30rem", mb: "5rem", p: 4 }}>
+      <Paper elevation={1} sx={{ mx: "30rem", mb: "5rem", p: 2 }}>
         <Stack
           direction="row"
           alignItems="center"
           justifyContent="center"
           spacing={2}
-          sx={{ m: 2 }}
+          sx={{ m: 1 }}
         >
           {selectedSensory.map((item) => (
             <Item key={item}>
-              <Button variant="contained">{item}</Button>
+              <Button variant="contained" onClick={handleOpen}>
+                {item}
+              </Button>
             </Item>
           ))}
-          {/* <>
-            <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
-              TEST
-            </Modal>
-          </> */}
+          <Modal open={modalOpen} onClose={handleClose} sx={{ maxWidth: "md" }}>
+            <div>
+              <CorticalAreaForm />
+            </div>
+          </Modal>
         </Stack>
       </Paper>
     </>
