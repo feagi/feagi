@@ -1,9 +1,7 @@
 import React, { useState } from "react";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
-import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -73,7 +71,10 @@ const ChooseSensory = () => {
       <Typography variant="h4" align="center" sx={{ p: 2 }} component="div">
         Selected
       </Typography>
-      <Paper elevation={1} sx={{ mx: "30rem", mb: "5rem", p: 2 }}>
+      <Paper
+        elevation={1}
+        sx={{ mx: "30rem", mb: "5rem", height: "75px", p: 2 }}
+      >
         <Stack
           direction="row"
           alignItems="center"
