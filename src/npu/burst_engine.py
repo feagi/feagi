@@ -482,9 +482,6 @@ def burst_manager():
         init_fcl(cortical_area)
     # runtime_data.cortical_list = cortical_list
 
-    # runtime_data.memory_list = cortical_group_members('m')
-    # print("runtime_data.memory_list=", runtime_data.memory_list)
-
     if runtime_data.parameters["Switches"]["capture_brain_activities"]:
         runtime_data.fcl_history = {}
     # capture_neuron_mp()
