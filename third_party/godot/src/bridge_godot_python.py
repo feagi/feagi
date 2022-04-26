@@ -61,7 +61,7 @@ def csv_writer(cortical_dimensions):
             godot_cortical_dimensions.append(cortical_area)
             writer.writerow(godot_cortical_dimensions)
             godot_cortical_dimensions = list()
-
+    print("Godot CSV has been created.")
 
 
 def breakdown(feagi_input):  ##add input soon
@@ -258,6 +258,7 @@ def feagi_init(feagi_host, api_port):
         print("Cortical_data", runtime_data["cortical_data"])
 
         if runtime_data["cortical_data"]:
+            print("###### ------------------------------------------------------------#######")
             print("Cortical Dimensions:\n", runtime_data["cortical_data"])
             csv_writer(runtime_data["cortical_data"])
             awaiting_feagi_registration = False

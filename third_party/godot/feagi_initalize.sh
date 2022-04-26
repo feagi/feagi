@@ -6,6 +6,7 @@ cd ../html
 ls
 echo "---------------- +++ -----------------"
 while  [ ! -f "$FILE" ]; do
+  echo "./\."
   sleep 5
 done
 http-server
