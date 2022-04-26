@@ -105,6 +105,7 @@ def register_with_feagi(app_name, feagi_host, api_port, app_capabilities, app_ho
         print("\nFEAGI settings received as:\n", feagi_settings, "\n\n")
         if feagi_settings and feagi_settings['burst_duration'] and feagi_settings['burst_counter']:
             print("\n\n\n\nRegistration is complete....")
+            print("...................................................................................................")
             registration_complete = True
         sleep(1)
 
