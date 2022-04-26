@@ -255,6 +255,8 @@ def feagi_init(feagi_host, api_port):
         runtime_data["cortical_data"] = \
             requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
 
+        print("Cortical_data", runtime_data["cortical_data"])
+
         if runtime_data["cortical_data"]:
             print("Cortical Dimensions:\n", runtime_data["cortical_data"])
             csv_writer(runtime_data["cortical_data"])
