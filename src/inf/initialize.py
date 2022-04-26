@@ -232,6 +232,25 @@ def init_timeseries_db():
     return
 
 
+def init_cortical_info():
+    genome = runtime_data.genome
+    for cortical_area in genome['blueprint']:
+        try:
+            if genome['blueprint'][cortical_area]['group_id'] == 'IPU':
+                runtime_data.ipu_list.add(cortical_area)
+            if genome['blueprint'][cortical_area]['group_id'] == 'OPU':
+                runtime_data.opu_list.add(cortical_area)
+            if genome['blueprint'][cortical_area]['group_id'] == 'MEMORY':
+                runtime_data.mem_list.add(cortical_area)
+
+        except KeyError:
+            print("Error: Cortical area %s missing cortical definition" % cortical_area)
+
+    print("IPU list:", runtime_data.ipu_list)
+    print("OPU list:", runtime_data.opu_list)
+    print("Mem list:", runtime_data.mem_list)
+
+
 def init_genome_db():
     print("- Starting MongoDb initialization...")
     from inf import db_handler
@@ -281,6 +300,7 @@ def initialize():
     init_container_variables()
     init_data_sources()
     init_genome()
+    init_cortical_info()
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
     detect_hardware()
     init_genome_post_processes()

@@ -21,7 +21,9 @@ from threading import Thread
 from queue import Queue
 from inf.feagi import *
 from inf import disk_ops, runtime_data
+from inf.supported import baseline
 from inf.initialize import init_parameters
+
 
 init_parameters()
 
@@ -69,6 +71,10 @@ class Registration(BaseModel):
 class Stats(BaseModel):
     neuron_stat_collection: Optional[bool] = False
     synapse_stat_collection: Optional[bool] = False
+
+
+class Genome(BaseModel):
+    genome: dict
 
 
 app.mount("/home", StaticFiles(directory="api/static", html=True), name="static")
@@ -119,6 +125,46 @@ async def log_management(message: Logs):
 async def burst_engine_params():
     try:
         return runtime_data.burst_timer
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/supported/ipu", methods=['GET'])
+async def supported_ipu_list():
+    try:
+        return baseline['ipu']
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/supported/opu", methods=['GET'])
+async def supported_opu_list():
+    try:
+        return baseline['ipu']
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/supported/morphology", methods=['GET'])
+async def supported_morphology_list():
+    try:
+        return baseline['morphology']
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/pns/ipu", methods=['GET'])
+async def ipu_list():
+    try:
+        return runtime_data.ipu_list
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/pns/opu", methods=['GET'])
+async def ipu_list():
+    try:
+        return runtime_data.opu_list
     except Exception as e:
         return {"Request failed...", e}
 
