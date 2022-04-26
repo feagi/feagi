@@ -1,3 +1,5 @@
+FROM neuraville/feagi-microbit
+
 COPY ./configuration.py /root
 COPY ./controller.py /root
 COPY ./router.py /root

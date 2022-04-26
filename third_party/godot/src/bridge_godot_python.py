@@ -237,7 +237,8 @@ def feagi_registration(feagi_host, api_port):
                                                                      app_capabilities=configuration.capabilities,
                                                                      app_host_info=runtime_data["host_network"]
                                                                      )
-        except:
+        except Exception as e:
+            print("Error: The following occurred during registration with FEAGI\n", e)
             pass
         sleep(1)
 
