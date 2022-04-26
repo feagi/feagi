@@ -84,6 +84,7 @@ const ChooseSensory = () => {
         >
           {selectedSensory.map((item) => (
             <Item key={item}>
+              {/* use a material ui MenuItem component instead of plain button */}
               <Button variant="contained" onClick={handleOpen}>
                 {item}
               </Button>
