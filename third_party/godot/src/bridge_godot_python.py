@@ -16,7 +16,7 @@ limitations under the License.
 """
 
 import time
-
+import os
 from router import *
 from configuration import *
 
@@ -45,6 +45,8 @@ runtime_data = {
 
 def csv_writer(cortical_dimensions):
     print("Generating CSV...")
+    cwd = os.getcwd()
+    print("Current path is:", cwd)
     f = open('../godot_source/csv_data.csv', 'w', newline='')
     writer = csv.writer(f)
     godot_cortical_dimensions = list()
@@ -59,6 +61,7 @@ def csv_writer(cortical_dimensions):
             godot_cortical_dimensions.append(cortical_area)
             writer.writerow(godot_cortical_dimensions)
             godot_cortical_dimensions = list()
+
 
 
 def breakdown(feagi_input):  ##add input soon
