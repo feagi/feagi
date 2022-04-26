@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { DataGrid } from "@mui/x-data-grid";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -41,11 +41,19 @@ const CorticalAreaForm = () => {
   // const [dimensionYValue, setDimensionYValue] = useState("");
   // const [dimensionZValue, setDimensionZValue] = useState("");
 
-  const handleCommit = (e) => {
-    // need to finish this
-    // store the data entered into table
-    // associate entered value with param
-    console.log(e);
+  const [gridRows, setGridRows] = useState(rows);
+
+  const handleCellEditCommit = ({ id, field, value }) => {
+    if (field === "value") {
+      const updatedRows = rows.map((row) => {
+        if (row.id === id) {
+          row.value = value;
+          return { ...row };
+        }
+        return row;
+      });
+      setGridRows(updatedRows);
+    }
   };
 
   return (
@@ -128,7 +136,7 @@ const CorticalAreaForm = () => {
         Neuron Parameters (advanced options)
       </Typography>
       <DataGrid
-        onCellEditCommit={handleCommit}
+        onCellEditCommit={handleCellEditCommit}
         columns={columns}
         rows={rows}
         sx={{ height: "275px" }}
