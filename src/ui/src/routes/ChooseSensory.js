@@ -1,8 +1,4 @@
 import React, { useState } from "react";
-import Button from "@mui/material/Button";
-import Dialog from "@mui/material/Dialog";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -10,11 +6,10 @@ import { FaRuler } from "react-icons/fa";
 import { TiWaves, TiBatteryFull } from "react-icons/ti";
 import Item from "../components/Item";
 import MenuCard from "../components/MenuCard";
-import CorticalAreaForm from "../components/CorticalAreaForm";
+import CorticalAreaEditMenu from "../components/CorticalAreaEditMenu";
 
 const ChooseSensory = () => {
   const [selectedSensory, setSelectedSensory] = useState([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
 
   const handleClick = (e, src) => {
     if (!selectedSensory.includes(src)) {
@@ -24,14 +19,6 @@ const ChooseSensory = () => {
       let filteredSensory = selectedSensory.filter((item) => item !== src);
       setSelectedSensory(filteredSensory);
     }
-  };
-
-  const handleOpen = () => {
-    setDialogOpen(true);
-  };
-
-  const handleClose = () => {
-    setDialogOpen(false);
   };
 
   return (
@@ -84,20 +71,11 @@ const ChooseSensory = () => {
         >
           {selectedSensory.map((item) => (
             <Item key={item}>
-              {/* use a material ui MenuItem component instead of plain button */}
-              <Button variant="contained" onClick={handleOpen}>
-                {item}
-              </Button>
+              <CorticalAreaEditMenu label={item} />
             </Item>
           ))}
         </Stack>
       </Paper>
-      <Dialog open={dialogOpen} onClose={handleClose} fullWidth maxWidth="sm">
-        <DialogTitle>Cortical Area Definition</DialogTitle>
-        <DialogContent>
-          <CorticalAreaForm />
-        </DialogContent>
-      </Dialog>
     </>
   );
 };
