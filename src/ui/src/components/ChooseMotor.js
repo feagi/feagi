@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -9,16 +8,18 @@ import Item from "./Item";
 import MenuCard from "./MenuCard";
 import CorticalAreaEditMenu from "./CorticalAreaEditMenu";
 
-const ChooseMotor = () => {
+const ChooseMotor = ({ setDefinedMotor }) => {
   const [selectedMotor, setSelectedMotor] = useState([]);
 
   const handleClick = (e, src) => {
     if (!selectedMotor.includes(src)) {
       let updatedMotor = [...selectedMotor, src];
       setSelectedMotor(updatedMotor);
+      setDefinedMotor(updatedMotor);
     } else {
       let filteredMotor = selectedMotor.filter((item) => item !== src);
       setSelectedMotor(filteredMotor);
+      setDefinedMotor(filteredMotor);
     }
   };
 

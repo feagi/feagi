@@ -8,16 +8,18 @@ import Item from "./Item";
 import MenuCard from "./MenuCard";
 import CorticalAreaEditMenu from "./CorticalAreaEditMenu";
 
-const ChooseSensory = () => {
+const ChooseSensory = ({ setDefinedSensory }) => {
   const [selectedSensory, setSelectedSensory] = useState([]);
 
   const handleClick = (e, src) => {
     if (!selectedSensory.includes(src)) {
       let updatedSensory = [...selectedSensory, src];
       setSelectedSensory(updatedSensory);
+      setDefinedSensory(updatedSensory);
     } else {
       let filteredSensory = selectedSensory.filter((item) => item !== src);
       setSelectedSensory(filteredSensory);
+      setDefinedSensory(filteredSensory);
     }
   };
 
