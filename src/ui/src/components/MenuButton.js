@@ -31,6 +31,7 @@ const MenuButton = (props) => {
         disableElevation
         onClick={handleMenuClick}
         endIcon={<KeyboardArrowDownIcon />}
+        sx={{ width: "175px" }}
       >
         {props.label}
       </Button>
