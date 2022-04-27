@@ -1,30 +1,31 @@
 import React, { useState } from "react";
+import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { FaRuler } from "react-icons/fa";
-import { TiWaves, TiBatteryFull } from "react-icons/ti";
-import Item from "../components/Item";
-import MenuCard from "../components/MenuCard";
-import CorticalAreaEditMenu from "../components/CorticalAreaEditMenu";
+import { GiGears } from "react-icons/gi";
+import { BsGearWide } from "react-icons/bs";
+import Item from "./Item";
+import MenuCard from "./MenuCard";
+import CorticalAreaEditMenu from "./CorticalAreaEditMenu";
 
-const ChooseSensory = () => {
-  const [selectedSensory, setSelectedSensory] = useState([]);
+const ChooseMotor = () => {
+  const [selectedMotor, setSelectedMotor] = useState([]);
 
   const handleClick = (e, src) => {
-    if (!selectedSensory.includes(src)) {
-      let updatedSensory = [...selectedSensory, src];
-      setSelectedSensory(updatedSensory);
+    if (!selectedMotor.includes(src)) {
+      let updatedMotor = [...selectedMotor, src];
+      setSelectedMotor(updatedMotor);
     } else {
-      let filteredSensory = selectedSensory.filter((item) => item !== src);
-      setSelectedSensory(filteredSensory);
+      let filteredMotor = selectedMotor.filter((item) => item !== src);
+      setSelectedMotor(filteredMotor);
     }
   };
 
   return (
     <>
       <Typography variant="h4" align="center" sx={{ p: 4 }} component="div">
-        Choose Sensory Abilities
+        Choose Motor Abilities
       </Typography>
       <Stack
         direction="row"
@@ -35,28 +36,21 @@ const ChooseSensory = () => {
       >
         <Item>
           <MenuCard
-            image={<TiWaves size={200} />}
-            label="Infrared"
+            image={<GiGears size={200} />}
+            label="Motor"
             onClick={handleClick}
           />
         </Item>
         <Item>
           <MenuCard
-            image={<FaRuler size={200} />}
-            label="Proximity"
-            onClick={handleClick}
-          />
-        </Item>
-        <Item>
-          <MenuCard
-            image={<TiBatteryFull size={200} />}
-            label="Battery"
+            image={<BsGearWide size={200} />}
+            label="Servo"
             onClick={handleClick}
           />
         </Item>
       </Stack>
       <Typography variant="h4" align="center" sx={{ p: 2 }} component="div">
-        Selected
+        Selected Motor
       </Typography>
       <Paper
         elevation={1}
@@ -69,7 +63,7 @@ const ChooseSensory = () => {
           spacing={2}
           sx={{ m: 1 }}
         >
-          {selectedSensory.map((item) => (
+          {selectedMotor.map((item) => (
             <Item key={item}>
               <CorticalAreaEditMenu label={item} />
             </Item>
@@ -80,4 +74,4 @@ const ChooseSensory = () => {
   );
 };
 
-export default ChooseSensory;
+export default ChooseMotor;
