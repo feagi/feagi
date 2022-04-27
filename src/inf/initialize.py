@@ -21,6 +21,7 @@ import psutil
 import string
 import random
 from queue import Queue
+from configparser import ConfigParser
 from tempfile import gettempdir
 from threading import Thread
 from watchdog.observers import Observer
@@ -28,7 +29,6 @@ from watchdog.events import LoggingEventHandler
 from datetime import datetime
 from collections import deque
 from inf import runtime_data, disk_ops, settings
-from configparser import ConfigParser
 from shutil import copyfile
 from evo.stats import voxel_dict_summary
 from inf.messenger import Pub
@@ -129,8 +129,8 @@ def run_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
     http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
     """
     runtime_data.brain_run_id = \
-        (str(datetime.now()).replace(' ', '_')).replace('.', '_').replace(':', '-')+'_'+(''.join(random.choice(chars)
-                                                                               for _ in range(size)))+'_R'
+        (str(datetime.now()).replace(' ', '_')).\
+            replace('.', '_').replace(':', '-')+'_'+(''.join(random.choice(chars) for _ in range(size)))+'_R'
 
 
 def init_parameters(ini_path='./feagi_configuration.ini'):
@@ -232,6 +232,25 @@ def init_timeseries_db():
     return
 
 
+def init_cortical_info():
+    genome = runtime_data.genome
+    for cortical_area in genome['blueprint']:
+        try:
+            if genome['blueprint'][cortical_area]['group_id'] == 'IPU':
+                runtime_data.ipu_list.add(cortical_area)
+            if genome['blueprint'][cortical_area]['group_id'] == 'OPU':
+                runtime_data.opu_list.add(cortical_area)
+            if genome['blueprint'][cortical_area]['group_id'] == 'MEMORY':
+                runtime_data.mem_list.add(cortical_area)
+
+        except KeyError:
+            print("Error: Cortical area %s missing cortical definition" % cortical_area)
+
+    print("IPU list:", runtime_data.ipu_list)
+    print("OPU list:", runtime_data.opu_list)
+    print("Mem list:", runtime_data.mem_list)
+
+
 def init_genome_db():
     print("- Starting MongoDb initialization...")
     from inf import db_handler
@@ -276,12 +295,13 @@ def init_resources():
 def initialize():
     runtime_data.last_alertness_trigger = datetime.now()
     run_id_gen()
-    init_parameters()
     init_io_channels()
     init_working_directory()
     init_container_variables()
     init_data_sources()
     init_genome()
+    init_cortical_info()
+    runtime_data.cortical_dimensions = generate_cortical_dimensions()
     detect_hardware()
     init_genome_post_processes()
     init_resources()
@@ -364,4 +384,25 @@ def init_io_channels():
     except KeyError as e:
         print('ERROR: OPU socket is not properly defined as part of feagi_configuration.ini\n', e)
 
+
+def generate_cortical_dimensions():
+    """
+    Generates the information needed to display cortical areas on Godot
+    """
+    cortical_information = {}
+
+    for cortical_area in runtime_data.genome["blueprint"]:
+        cortical_name = runtime_data.genome["blueprint"][cortical_area]["cortical_name"]
+        cortical_information[cortical_name] = []
+        genes = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]
+        cortical_information[cortical_name].append(genes["relative_coordinate"][0])
+        cortical_information[cortical_name].append(genes["relative_coordinate"][1])
+        cortical_information[cortical_name].append(genes["relative_coordinate"][2])
+        cortical_information[cortical_name].append(genes["visualization"])
+        cortical_information[cortical_name].append(genes["block_boundaries"][0])
+        cortical_information[cortical_name].append(genes["block_boundaries"][1])
+        cortical_information[cortical_name].append(genes["block_boundaries"][2])
+        cortical_information[cortical_name].append(cortical_area)
+
+    return cortical_information
 

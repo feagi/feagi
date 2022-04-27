@@ -22,7 +22,6 @@ brain = {}
 cortical_list = []
 cortical_map = {}
 intercortical_mapping = []
-memory_list = {}
 activity_stats = {}
 temp_neuron_list = []
 original_genome_id = []
@@ -72,6 +71,19 @@ burst_activities = {}
 opu_data = {}
 cortical_dimensions = {}
 voxel_dict = {}
+collect_neuron_stats = False
+collect_synapse_stats = False
+
+
+# Cortical Lists
+ipu_list = set()
+opu_list = set()
+mem_list = set()
+
+
+# Queues
+api_queue = None
+
 
 # rules = ""
 brain_is_running = False
