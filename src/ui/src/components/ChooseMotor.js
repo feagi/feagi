@@ -6,7 +6,7 @@ import { GiGears } from "react-icons/gi";
 import { BsGearWide } from "react-icons/bs";
 import Item from "./Item";
 import MenuCard from "./MenuCard";
-import CorticalAreaEditMenu from "./CorticalAreaEditMenu";
+import MenuDialog from "./MenuDialog";
 
 const ChooseMotor = ({ setDefinedMotor }) => {
   const [selectedMotor, setSelectedMotor] = useState([]);
@@ -66,7 +66,7 @@ const ChooseMotor = ({ setDefinedMotor }) => {
         >
           {selectedMotor.map((item) => (
             <Item key={item}>
-              <CorticalAreaEditMenu label={item} />
+              <MenuDialog label={item} />
             </Item>
           ))}
         </Stack>
