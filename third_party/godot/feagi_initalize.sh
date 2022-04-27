@@ -1,7 +1,8 @@
 #!/bin/bash
 
 FILE=./csv_data.gdc
-
+rm /root/html/*
+rm /root/godot_source/csv_data.gdc
 python3 bridge_godot_python.py &
 
 
@@ -21,8 +22,6 @@ done
 
 sleep 10
 
-./Godot_v3.4.4-stable_linux_headless.64 --export "HTML5" 
-sleep 2
 ./Godot_v3.4.4-stable_linux_headless.64 --export "HTML5" 
 cd ../html
 http-server
