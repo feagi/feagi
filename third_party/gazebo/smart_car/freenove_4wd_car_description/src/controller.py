@@ -16,10 +16,9 @@
 # ==============================================================================
 
 import sys
-import time
 import traceback
 from datetime import datetime
-from router import *
+import router
 from threading import Thread
 import math
 import geometry_msgs.msg
@@ -29,13 +28,19 @@ from rclpy.node import Node
 from sensor_msgs.msg import LaserScan, Image, BatteryState
 from rclpy.qos import qos_profile_sensor_data
 from configuration import *
+import configuration
 from configuration import message_to_feagi
+from time import sleep
 import os
 
-runtime_params = {
-    "current_burst_id": 0,
+runtime_data = {
+    "cortical_data": {},
+    "current_burst_id": None,
+    "stimulation_period": None,
     "feagi_state": None,
-    "cortical_list": (),
+    "feagi_network": None,
+    "cortical_list": set(),
+    "host_network": {},
     "battery_charge_level": 1,
     'motor_status': {},
     'servo_status': {}
@@ -48,23 +53,27 @@ else:
     import termios
     import tty
 
+
 os.system('ign topic -t "/S0" -m ignition.msgs.Double -p "data: 1.6" && ign topic -t "/S1" -m ignition.msgs.Double -p "data: 1.6"')
-address = 'tcp://' + network_settings['feagi_ip'] + ':' + network_settings['feagi_outbound_port']
-feagi_state = handshake_with_feagi(address=address, capabilities=capabilities)
 
-print("** **", feagi_state)
-sockets = feagi_state['sockets']
-network_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
 
-print("--->> >> >> ", sockets)
+def feagi_registration(feagi_host, api_port):
+    app_host_info = router.app_host_info()
+    runtime_data["host_network"]["host_name"] = app_host_info["host_name"]
+    runtime_data["host_network"]["ip_address"] = app_host_info["ip_address"]
 
-# todo: to obtain this info directly from FEAGI as part of registration
-ipu_channel_address = 'tcp://0.0.0.0:' + network_settings['feagi_inbound_port_gazebo']
-print("IPU_channel_address=", ipu_channel_address)
-opu_channel_address = 'tcp://' + network_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
-
-feagi_ipu_channel = Pub(address=ipu_channel_address)
-feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+    while runtime_data["feagi_state"] is None:
+        print("Awaiting registration with FEAGI...")
+        try:
+            runtime_data["feagi_state"] = router.register_with_feagi(app_name=configuration.app_name,
+                                                                     feagi_host=feagi_host,
+                                                                     api_port=api_port,
+                                                                     app_capabilities=configuration.capabilities,
+                                                                     app_host_info=runtime_data["host_network"]
+                                                                     )
+        except:
+            pass
+        sleep(1)
 
 
 def block_to_array(block_ref):
@@ -162,7 +171,7 @@ def compose_message_to_feagi(original_message):
         for sensor_data in original_message[sensor]:
             if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
                 message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][sensor_data]
-    message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_params["battery_charge_level"] / 100}
+    message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_data["battery_charge_level"] / 100}
 
 
 class UltrasonicSubscriber(ScalableSubscriber):
@@ -184,19 +193,19 @@ class Battery:
     def __init__(self):
         print("Battery has been initialized")
         if "battery" in capabilities:
-            runtime_params["battery_charge_level"] = capabilities["battery"]["capacity"]
+            runtime_data["battery_charge_level"] = capabilities["battery"]["capacity"]
 
     @staticmethod
     def charge_battery():
         print("Charging battery    ^^^^^^^^^^^^   *************    ^^^^^^^^^^^^^^^^^^^")
-        runtime_params["battery_charge_level"] += capabilities["battery"]["charge_increment"]
-        if runtime_params["battery_charge_level"] > capabilities["battery"]["capacity"]:
-            runtime_params["battery_charge_level"] = capabilities["battery"]["capacity"]
+        runtime_data["battery_charge_level"] += capabilities["battery"]["charge_increment"]
+        if runtime_data["battery_charge_level"] > capabilities["battery"]["capacity"]:
+            runtime_data["battery_charge_level"] = capabilities["battery"]["capacity"]
 
     @staticmethod
     def consume_battery():
         # print("Consuming battery ")
-        runtime_params["battery_charge_level"] -= capabilities["battery"]["depletion_per_burst"]
+        runtime_data["battery_charge_level"] -= capabilities["battery"]["depletion_per_burst"]
 
 
 class Motor:
@@ -217,13 +226,13 @@ class Motor:
 
             device_position = std_msgs.msg.Float64()
 
-            if device_index not in runtime_params['motor_status']:
-                runtime_params['motor_status'][device_index] = 0
+            if device_index not in runtime_data['motor_status']:
+                runtime_data['motor_status'][device_index] = 0
 
-            device_current_position = runtime_params['motor_status'][device_index]
+            device_current_position = runtime_data['motor_status'][device_index]
             device_position.data = float((power * network_settings['feagi_burst_speed']*1.5) + device_current_position)
 
-            runtime_params['motor_status'][device_index] = device_position.data
+            runtime_data['motor_status'][device_index] = device_position.data
             # print("device index, position, power = ", device_index, device_position.data, power)
             self.motor_node[device_index].publish(device_position)
         except Exception:
@@ -247,13 +256,13 @@ class Servo:
             servo_0_initial_position = float(1.5708)
             self.device_position.data = servo_0_initial_position
             self.servo_node[0].publish(self.device_position)
-            runtime_params['servo_status'][0] = self.device_position.data
+            runtime_data['servo_status'][0] = self.device_position.data
             print("Servo 0 was moved to its initial position")
 
             servo_1_initial_position = float(1.3)
             self.device_position.data = servo_1_initial_position
             self.servo_node[1].publish(self.device_position)
-            runtime_params['servo_status'][1] = self.device_position.data
+            runtime_data['servo_status'][1] = self.device_position.data
             print("Servo 1 was moved to its initial position")
         except Exception as e:
             print("Error while setting initial position for the servo:", e)
@@ -279,10 +288,10 @@ class Servo:
             if feagi_device_id % 2 == 1:
                 power *= -1
 
-            if device_index not in runtime_params['servo_status']:
-                runtime_params['servo_status'][device_index] = device_index
+            if device_index not in runtime_data['servo_status']:
+                runtime_data['servo_status'][device_index] = device_index
 
-            device_current_position = runtime_params['servo_status'][device_index]
+            device_current_position = runtime_data['servo_status'][device_index]
             # print("servo ", device_index, device_current_position)
             self.device_position.data = float((power * network_settings['feagi_burst_speed'] / 20) +
                                               device_current_position)
@@ -290,7 +299,7 @@ class Servo:
             self.device_position.data = self.keep_boundaries(device_id=device_index,
                                                              current_position=self.device_position.data)
 
-            runtime_params['servo_status'][device_index] = self.device_position.data
+            runtime_data['servo_status'][device_index] = self.device_position.data
             # print("device index, position, power = ", device_index, self.device_position.data, power)
             self.servo_node[device_index].publish(self.device_position)
         except Exception:
@@ -310,66 +319,81 @@ class Servo:
         # self.servo_node[servo_index].publish(twist)  # -1.6 to 1.6 which is -90 to 90
 
 
-class Teleop:
-    def __init__(self):
-        rclpy.init()
-        node = rclpy.create_node('teleop_twist_keyboard')
-        self.pub = node.create_publisher(geometry_msgs.msg.Twist, '/model/vehicle_green/cmd_vel', 10)
-        print("Gazebo Teleop has been initialized...")
-
-    def backward(self):
-        twist = geometry_msgs.msg.Twist()
-        twist.linear.x = 2.0  # positive goes backward, negative goes forward
-        twist.angular.z = 0.0
-        print("Backward.")
-        self.pub.publish(twist)
-        time.sleep(0.5)
-        twist.linear.x = 0.0
-        twist.angular.z = 0.0
-        self.pub.publish(twist)
-
-    def forward(self):
-        twist = geometry_msgs.msg.Twist()
-        twist.linear.x = -2.0  # positive goes backward, negative goes forward
-        twist.angular.z = 0.0
-        print("Forward.")
-        self.pub.publish(twist)
-        time.sleep(0.5)
-        twist.linear.x = 0.0
-        twist.angular.z = 0.0
-        self.pub.publish(twist)
-
-    def left(self):
-        twist = geometry_msgs.msg.Twist()
-        twist.linear.x = 0.0  # positive goes backward, negative goes forward
-        twist.angular.z = 9.0
-        print("Left.")
-        self.pub.publish(twist)
-        time.sleep(0.5)
-        twist.linear.x = 0.0
-        twist.angular.z = 0.0
-        self.pub.publish(twist)
-
-    def right(self):
-        twist = geometry_msgs.msg.Twist()
-        twist.linear.x = 0.0  # positive goes backward, negative goes forward
-        twist.angular.z = -9.0
-        print("Right.")
-        self.pub.publish(twist)
-        time.sleep(0.5)
-        twist.linear.x = 0.0
-        twist.angular.z = 0.0
-        self.pub.publish(twist)
-
+# class Teleop:
+#     def __init__(self):
+#         rclpy.init()
+#         node = rclpy.create_node('teleop_twist_keyboard')
+#         self.pub = node.create_publisher(geometry_msgs.msg.Twist, '/model/vehicle_green/cmd_vel', 10)
+#         print("Gazebo Teleop has been initialized...")
+#
+#     def backward(self):
+#         twist = geometry_msgs.msg.Twist()
+#         twist.linear.x = 2.0  # positive goes backward, negative goes forward
+#         twist.angular.z = 0.0
+#         print("Backward.")
+#         self.pub.publish(twist)
+#         sleep(0.5)
+#         twist.linear.x = 0.0
+#         twist.angular.z = 0.0
+#         self.pub.publish(twist)
+#
+#     def forward(self):
+#         twist = geometry_msgs.msg.Twist()
+#         twist.linear.x = -2.0  # positive goes backward, negative goes forward
+#         twist.angular.z = 0.0
+#         print("Forward.")
+#         self.pub.publish(twist)
+#         sleep(0.5)
+#         twist.linear.x = 0.0
+#         twist.angular.z = 0.0
+#         self.pub.publish(twist)
+#
+#     def left(self):
+#         twist = geometry_msgs.msg.Twist()
+#         twist.linear.x = 0.0  # positive goes backward, negative goes forward
+#         twist.angular.z = 9.0
+#         print("Left.")
+#         self.pub.publish(twist)
+#         sleep(0.5)
+#         twist.linear.x = 0.0
+#         twist.angular.z = 0.0
+#         self.pub.publish(twist)
+#
+#     def right(self):
+#         twist = geometry_msgs.msg.Twist()
+#         twist.linear.x = 0.0  # positive goes backward, negative goes forward
+#         twist.angular.z = -9.0
+#         print("Right.")
+#         self.pub.publish(twist)
+#         sleep(0.5)
+#         twist.linear.x = 0.0
+#         twist.angular.z = 0.0
+#         self.pub.publish(twist)
+#
 
 def main(args=None):
     print("Connecting to FEAGI resources...")
+
+    # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_outbound_port']
+
+    feagi_host = configuration.network_settings["feagi_host"]
+    api_port = configuration.network_settings["feagi_api_port"]
+
+    feagi_registration(feagi_host=feagi_host, api_port=api_port)
+
+    print("** **", runtime_data["feagi_state"])
+    network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
+
+    # todo: to obtain this info directly from FEAGI as part of registration
+    ipu_channel_address = 'tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_gazebo']
+    print("IPU_channel_address=", ipu_channel_address)
+    opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + \
+                          runtime_data["feagi_state"]['feagi_outbound_port']
+
+    feagi_ipu_channel = router.Pub(address=ipu_channel_address)
+    feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
+
     rclpy.init(args=args)
-
-    host_info_ = host_info()
-    network_settings["host_name"] = host_info_["host_name"]
-    network_settings["ip_address"] = host_info_["ip_address"]
-
     executor = rclpy.executors.MultiThreadedExecutor()
 
     # todo: identify a method to instantiate all classes without doing it one by one
@@ -438,7 +462,7 @@ def main(args=None):
             feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
             msg_counter += 1
-            time.sleep(network_settings['feagi_burst_speed'])
+            sleep(network_settings['feagi_burst_speed'])
     except KeyboardInterrupt:
         pass
 

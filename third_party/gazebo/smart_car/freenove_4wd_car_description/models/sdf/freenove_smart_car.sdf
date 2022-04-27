@@ -691,7 +691,8 @@
     </link>
 
       <link name='right_IR'>
-      <pose>0.115 0.033 0.042 0 1.6 0</pose>
+        <pose relative_to='plate'>0.0505 0.033 -0.002 0 1.6 0</pose>
+<!--      <pose>0.115 0.033 0.042 0 1.6 0</pose>-->
      <inertial>
           <mass>0.01</mass>
           <inertia>
@@ -738,7 +739,8 @@
     </link>
 
       <link name='left_IR'>
-      <pose>0.115 -0.033 0.042 0 1.6 0</pose>
+        <pose relative_to='plate'>0.0505 -0.033 -0.002 0 1.6 0</pose>
+<!--      <pose>0.115 -0.033 0.042 0 1.6 0</pose>-->
      <inertial>
           <mass>0.01</mass>
           <inertia>
@@ -783,7 +785,8 @@
     </link>
 
       <link name='middle_IR'>
-      <pose>0.115 0 0.042 0 1.6 0</pose>
+        <pose relative_to='plate'>0.0505 0 -0.002 0 1.6 0</pose>
+<!--      <pose>0.115 0 0.042 0 1.6 0</pose>-->
      <inertial>
           <mass>0.01</mass>
           <inertia>
