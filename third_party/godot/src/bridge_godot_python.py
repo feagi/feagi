@@ -47,7 +47,7 @@ def csv_writer(cortical_dimensions):
     print("Generating CSV...")
     cwd = os.getcwd()
     print("Current path is:", cwd)
-    f = open('../html/csv_data.csv', 'w', newline='')
+    f = open('../godot_source/csv_data.gdc', 'w', newline='')
     writer = csv.writer(f)
     godot_cortical_dimensions = list()
     for cortical_area in cortical_dimensions:
