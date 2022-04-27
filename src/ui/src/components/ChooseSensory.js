@@ -6,7 +6,7 @@ import { FaRuler } from "react-icons/fa";
 import { TiWaves, TiBatteryFull } from "react-icons/ti";
 import Item from "./Item";
 import MenuCard from "./MenuCard";
-import CorticalAreaEditMenu from "./CorticalAreaEditMenu";
+import MenuDialog from "./MenuDialog";
 
 const ChooseSensory = ({ setDefinedSensory }) => {
   const [selectedSensory, setSelectedSensory] = useState([]);
@@ -73,7 +73,7 @@ const ChooseSensory = ({ setDefinedSensory }) => {
         >
           {selectedSensory.map((item) => (
             <Item key={item}>
-              <CorticalAreaEditMenu label={item} />
+              <MenuDialog label={item} type="cortical" />
             </Item>
           ))}
         </Stack>
