@@ -21,7 +21,7 @@ from threading import Thread
 from queue import Queue
 from inf.feagi import *
 from inf import disk_ops, runtime_data
-from inf.supported import baseline
+from inf.baseline import gui_baseline
 from inf.initialize import init_parameters
 
 
@@ -129,26 +129,26 @@ async def burst_engine_params():
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/feagi/supported/ipu", methods=['GET'])
+@app.api_route("/v1/feagi/feagi/gui_baseline/ipu", methods=['GET'])
 async def supported_ipu_list():
     try:
-        return baseline['ipu']
+        return gui_baseline['ipu']
     except Exception as e:
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/feagi/supported/opu", methods=['GET'])
+@app.api_route("/v1/feagi/feagi/gui_baseline/opu", methods=['GET'])
 async def supported_opu_list():
     try:
-        return baseline['ipu']
+        return gui_baseline['ipu']
     except Exception as e:
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/feagi/supported/morphology", methods=['GET'])
+@app.api_route("/v1/feagi/feagi/gui_baseline/morphology", methods=['GET'])
 async def supported_morphology_list():
     try:
-        return baseline['morphology']
+        return gui_baseline['morphology']
     except Exception as e:
         return {"Request failed...", e}
 
