@@ -1,14 +1,14 @@
 #!/bin/bash
 
-FILE=./csv_data.gd
+FILE=./csv_data.gdc
 rm /root/html/*
-rm /root/godot_source/csv_data.gd
+rm /root/godot_source/csv_data.gdc
 python3 bridge_godot_python.py &
 
 
 cd ../godot_source/
 
-while [ ! -s csv_data.gd ]; do
+while [ ! -s csv_data.gdc ]; do
   echo "Waiting on csv_data being generated..."
   sleep 2
 done
