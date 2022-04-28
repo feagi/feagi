@@ -12,25 +12,28 @@ const MonitoringDashboard = () => {
     }, 100);
   }, []);
 
+  const scrollHeightScaled =
+    Math.round(document.documentElement.scrollHeight / 1.3) + "px";
+
   return (
     <Stack
       direction="row"
       alignItems="center"
       justifyContent="center"
       spacing={6}
-      sx={{ m: 4 }}
+      sx={{ mt: 8, mb: 16, ml: 4, mr: 4 }}
     >
       <Iframe
         id="godotFrame"
-        url="http://localhost:6080"
+        url="http://localhost:6081"
         width="100%"
-        height={frameHeight}
+        height={scrollHeightScaled}
       />
       <Iframe
         id="gazeboFrame"
         url="http://localhost:6080"
         width="100%"
-        height={frameHeight}
+        height={scrollHeightScaled}
       />
     </Stack>
   );
