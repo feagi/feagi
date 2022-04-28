@@ -336,6 +336,7 @@ class PosInit:
         os.system(remove_model)
         runtime_params["motor_status"] = {}
         runtime_params['servo_status'] = {}
+        runtime_params['battery_charge_level'] = 1
         # Create the robot
         os.system(add_model)
         servo.set_default_position()
