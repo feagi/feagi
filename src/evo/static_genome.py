@@ -241,7 +241,7 @@ genome = {
         "_____10c-o__ser-cx-__name-t": "servo_opu",
         "_____10c-o__ser-cx-_group-t": "OPU",
         "_____10c-o__ser-cx-_n_cnt-i": 1,
-        "_____10c-o__ser-nx-gd_vis-b": False,
+        "_____10c-o__ser-nx-gd_vis-b": True,
         "_____10c-o__ser-nx-rcordx-i": 35,
         "_____10c-o__ser-nx-rcordy-i": 0,
         "_____10c-o__ser-nx-rcordz-i": 0,
@@ -261,4 +261,3 @@ genome = {
         "_____10c-o__ser-cx-dstmap-d": {}
     }
 }
-
