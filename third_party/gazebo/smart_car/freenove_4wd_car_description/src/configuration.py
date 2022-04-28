@@ -62,6 +62,11 @@ capabilities = {
         "capacity": 100,
         "depletion_per_burst": 0.01,
         "charge_increment": 0.1
+    },
+    "position": {
+        "x": 0,
+        "y": 4.12,
+        "z": 0.325
     }
 }
 
