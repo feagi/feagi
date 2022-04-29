@@ -1,0 +1,249 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+<!--Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.-->
+
+<!--Licensed under the Apache License, Version 2.0 (the "License");-->
+<!--you may not use this file except in compliance with the License.-->
+<!--You may obtain a copy of the License at-->
+
+<!--    http://www.apache.org/licenses/LICENSE-2.0-->
+
+<!--Unless required by applicable law or agreed to in writing, software-->
+<!--distributed under the License is distributed on an "AS IS" BASIS,-->
+<!--WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.-->
+<!--See the License for the specific language governing permissions and-->
+<!--limitations under the License.-->
+<!--==============================================================================-->
+  <world name="free_world">
+
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.01</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    <plugin
+      filename="ignition-gazebo-physics-system"
+      name="ignition::gazebo::systems::Physics">
+    </plugin>
+    <plugin
+      filename="ignition-gazebo-user-commands-system"
+      name="ignition::gazebo::systems::UserCommands">
+    </plugin>
+    <plugin
+      filename="ignition-gazebo-scene-broadcaster-system"
+      name="ignition::gazebo::systems::SceneBroadcaster">
+    </plugin>
+
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>1 1 1 1</diffuse>
+      <specular>0.5 0.5 0.5 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <model name="ground_plane">
+      <static>true</static>
+
+    <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>10 10</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <pbr>
+                <metal>
+                  <albedo_map>Track4.png</albedo_map>
+                  <normal_map>Track4.png</normal_map>
+                </metal>
+              </pbr>
+          </material>
+        </visual>
+      </link>
+    <link name='plate1'>
+        <pose>0.03 5 0.25 0 0 0</pose>
+        <inertial>
+          <mass>0.01</mass>
+          <inertia>
+            <ixx>0.126164</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.416519</iyy>
+            <iyz>0</iyz>
+            <izz>0.481014</izz>
+          </inertia>
+        </inertial>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>10 0.05 .5</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <pbr>
+                <metal>
+                  <albedo_map>wall.png</albedo_map>
+                  <normal_map>wall.png</normal_map>
+                </metal>
+              </pbr>
+          </material>
+        </visual>
+        <collision name='visual'>
+          <geometry>
+            <box>
+              <size>10 0.05 .5</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    <link name='plate2'>
+        <pose>5 0 0.25 0 0 0</pose>
+        <inertial>
+          <mass>0.01</mass>
+          <inertia>
+            <ixx>0.126164</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.416519</iyy>
+            <iyz>0</iyz>
+            <izz>0.481014</izz>
+          </inertia>
+        </inertial>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.055 10 .5</size>
+            </box>
+          </geometry>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <pbr>
+                <metal>
+                  <albedo_map>wall.png</albedo_map>
+                  <normal_map>wall.png</normal_map>
+                </metal>
+              </pbr>
+        </visual>
+        <collision name='visual'>
+          <geometry>
+            <box>
+              <size>0.055 10 .5</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    <link name='plate3'>
+        <pose>-4.95 0 0.25 0 0 0</pose>
+        <inertial>
+          <mass>0.01</mass>
+          <inertia>
+            <ixx>0.126164</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.416519</iyy>
+            <iyz>0</iyz>
+            <izz>0.481014</izz>
+          </inertia>
+        </inertial>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.06 10 .5</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <pbr>
+                <metal>
+                  <albedo_map>wall.png</albedo_map>
+                  <normal_map>wall.png</normal_map>
+                </metal>
+              </pbr>
+          </material>
+        </visual>
+        <collision name='visual'>
+          <geometry>
+            <box>
+              <size>0.06 10 .5</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    <link name='plate4'>
+        <pose>0.03 -5 0.25 0 0 0</pose>
+        <inertial>
+          <mass>0.01</mass>
+          <inertia>
+            <ixx>0.126164</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.416519</iyy>
+            <iyz>0</iyz>
+            <izz>0.481014</izz>
+          </inertia>
+        </inertial>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>10 0.05 .5</size>
+            </box>
+          </geometry>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <pbr>
+                <metal>
+                  <albedo_map>wall.png</albedo_map>
+                  <normal_map>wall.png</normal_map>
+                </metal>
+              </pbr>
+        </visual>
+        <collision name='visual'>
+          <geometry>
+            <box>
+              <size>10 0.05 .5</size>
+            </box>
+          </geometry>
+        </collision>
+    </link>
+
+     <joint name='wall' type='fixed'>
+        <parent>link</parent>
+        <child>plate1</child>
+      </joint>
+     <joint name='wall1' type='fixed'>
+        <parent>link</parent>
+        <child>plate2</child>
+      </joint>
+     <joint name='wall2' type='fixed'>
+        <parent>link</parent>
+        <child>plate3</child>
+      </joint>
+     <joint name='wall3' type='fixed'>
+        <parent>link</parent>
+        <child>plate4</child>
+      </joint>
+    </model>
+  </world>
+</sdf>
