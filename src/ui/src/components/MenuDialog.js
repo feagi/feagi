@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import Dialog from "@mui/material/Dialog";
 import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import CorticalAreaEditForm from "./CorticalAreaEditForm";
 import CorticalAreaMapForm from "./CorticalAreaMapForm";
 import MenuButton from "./MenuButton";
@@ -20,14 +19,13 @@ const MenuDialog = (props) => {
         open={dialogOpen}
         onClose={handleDialogClose}
         fullWidth
-        maxWidth="sm"
+        maxWidth="md"
       >
-        <DialogTitle>Cortical Area Definition</DialogTitle>
         <DialogContent>
           {props.type === "cortical" ? (
-            <CorticalAreaEditForm />
+            <CorticalAreaEditForm corticalArea={props.label} />
           ) : (
-            <CorticalAreaMapForm />
+            <CorticalAreaMapForm corticalArea={props.label} />
           )}
         </DialogContent>
       </Dialog>
