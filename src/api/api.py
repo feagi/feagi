@@ -77,7 +77,15 @@ class Genome(BaseModel):
     genome: dict
 
 
-app.mount("/home", StaticFiles(directory="api/static", html=True), name="static")
+class SPAStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code == 404:
+            response = await super().get_response('.', scope)
+        return response
+
+
+app.mount("/home", SPAStaticFiles(directory="ui/public", html=True), name="static")
 
 
 @app.api_route("/v1/feagi/feagi/launch", methods=['POST'])
@@ -290,7 +298,7 @@ def api_message_processor(api_message):
             if 'godot_port' in api_message['network_management']:
                 runtime_data.parameters['Sockets']['feagi_inbound_port_godot'] = \
                     api_message['network_management']['godot_port']
-                
+
             if 'gazebo_host' in api_message['network_management']:
                 runtime_data.parameters['Sockets']['gazebo_host_name'] = api_message['network_management']['gazebo_host']
             if 'gazebo_port' in api_message['network_management']:
