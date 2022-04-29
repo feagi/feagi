@@ -1,14 +1,15 @@
 import React, { useState } from "react";
 import { DataGrid } from "@mui/x-data-grid";
+// import FormControl from "@mui/material/FormControl";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import InputLabel from "@mui/material/InputLabel";
 
 const columns = [
-  { field: "parameter", headerName: "Parameter", width: 155 },
-  { field: "value", headerName: "Value", width: 80, editable: true },
-  { field: "description", headerName: "Description", width: 350 },
+  { field: "parameter", headerName: "Parameter", width: 200 },
+  { field: "value", headerName: "Value", width: 150, editable: true },
+  { field: "description", headerName: "Description", width: 560 },
 ];
 
 const rows = [
@@ -28,11 +29,11 @@ const rows = [
     id: 3,
     parameter: "Post-synaptic current",
     value: "",
-    description: "Number (int) of neurons per voxel",
+    description: "Placeholder text",
   },
 ];
 
-const CorticalAreaForm = () => {
+const CorticalAreaEditForm = (props) => {
   // const [labelValue, setLabelValue] = useState("");
   // const [positionXValue, setPositionXValue] = useState("");
   // const [positionYValue, setPositionYValue] = useState("");
@@ -56,15 +57,15 @@ const CorticalAreaForm = () => {
     }
   };
 
+  // need FormControl for the following input fields?
+  // using it messes up the existing formatting...
+
   return (
     <div>
-      <Stack
-        direction="row"
-        alignItems="center"
-        // justifyContent="center"
-        spacing={2}
-        sx={{ m: 1 }}
-      >
+      <Typography gutterBottom variant="h5" component="div" sx={{ mb: 3 }}>
+        {props.corticalArea} cortical area properties
+      </Typography>
+      <Stack direction="row" alignItems="center" spacing={2} sx={{ m: 1 }}>
         <InputLabel sx={{ width: "80px" }}>Label</InputLabel>
         <TextField
           id="filled-basic"
@@ -73,13 +74,7 @@ const CorticalAreaForm = () => {
           sx={{ width: "330px" }}
         />
       </Stack>
-      <Stack
-        direction="row"
-        alignItems="center"
-        // justifyContent="center"
-        spacing={2}
-        sx={{ m: 1 }}
-      >
+      <Stack direction="row" alignItems="center" spacing={2} sx={{ m: 1 }}>
         <InputLabel sx={{ width: "80px" }}>Position</InputLabel>
         <TextField
           id="filled-basic"
@@ -100,13 +95,7 @@ const CorticalAreaForm = () => {
           sx={{ width: "100px" }}
         />
       </Stack>
-      <Stack
-        direction="row"
-        alignItems="center"
-        // justifyContent="center"
-        spacing={2}
-        sx={{ m: 1 }}
-      >
+      <Stack direction="row" alignItems="center" spacing={2} sx={{ m: 1 }}>
         <InputLabel sx={{ width: "80px" }}>Dimension</InputLabel>
         <TextField
           id="filled-basic"
@@ -145,4 +134,4 @@ const CorticalAreaForm = () => {
   );
 };
 
-export default CorticalAreaForm;
+export default CorticalAreaEditForm;
