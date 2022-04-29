@@ -14,7 +14,9 @@
 # limitations under the License.
 # ==============================================================================
 
-baseline = {
+# todo: Need cohesiveness between content here and what defined under genome_processor.py
+
+gui_baseline = {
     'ipu': {
         'i__inf',
         'i__pro'
@@ -82,5 +84,19 @@ baseline = {
         "lateral_pairs_x": {
             "functions": True
         }
+    },
+    "cortical_genes": {
+        "per_voxel_neuron_cnt": "cx-_n_cnt-i",
+        "synapse_attractivity": "cx-synatt-i",
+        "postsynaptic_current": "nx-pstcr_-f",
+        "postsynaptic_current_max": "nx-pstcrm-f",
+        "plasticity_constant": "nx-plst_c-f",
+        "firing_threshold": "nx-fire_t-f",
+        "refractory_period": "nx-refrac-i",
+        "leak_coefficient": "nx-leak_c-f",
+        "consecutive_fire_cnt_max": "nx-c_fr_c-i",
+        "snooze_length": "nx-snooze-f",
+        "group_id": "cx-_group-t",
+        "degeneration": "cx-de_gen-f"
     }
 }
