@@ -17,6 +17,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Optional
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from threading import Thread
 from queue import Queue
 from inf.feagi import *
@@ -31,6 +32,19 @@ app = FastAPI()
 favicon_path = 'favicon.svg'
 
 api_queue = Queue()
+
+origins = [
+    "http://localhost:8000",
+    "localhost:8000"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 
 class Launch(BaseModel):
@@ -85,7 +99,7 @@ class SPAStaticFiles(StaticFiles):
         return response
 
 
-app.mount("/home", SPAStaticFiles(directory="ui/public", html=True), name="static")
+app.mount("/home", SPAStaticFiles(directory="./ui", html=True), name="static")
 
 
 @app.api_route("/v1/feagi/feagi/launch", methods=['POST'])
