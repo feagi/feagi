@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from fastapi import FastAPI
+from fastapi import FastAPI, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -86,10 +86,6 @@ class Registration(BaseModel):
 class Stats(BaseModel):
     neuron_stat_collection: Optional[bool] = False
     synapse_stat_collection: Optional[bool] = False
-
-
-class Genome(BaseModel):
-    genome: dict
 
 
 app.mount("/home", StaticFiles(directory="api/static", html=True), name="static")
@@ -251,6 +247,14 @@ async def stat_management(message: Stats):
         return {"Request sent!"}
     except Exception as e:
         return {"Request failed...", e}
+
+
+# @app.api_route("/v1/feagi/feagi/genome", methods=['POST'])
+@app.post("/v1/feagi/feagi/genome")
+async def genome_upload(file: UploadFile = File(...)):
+    data = await file.read()
+    print(">> >> >> ", data)
+    return {"file_name": file.filename}
 
 
 def api_message_processor(api_message):
