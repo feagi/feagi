@@ -15,8 +15,5 @@ WORKDIR /opt/source-code/feagi
 RUN --mount=type=ssh git fetch
 RUN --mount=type=ssh git checkout $BRANCH
 
-WORKDIR /opt/source-code/feagi/src/cython_lib
-RUN python3 ./cython_setup.py build_ext --inplace
-
 WORKDIR /opt/source-code/feagi/src
 CMD ["python3", "main.py"]
