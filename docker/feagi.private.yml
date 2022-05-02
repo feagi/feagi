@@ -7,3 +7,10 @@ services:
       dockerfile: ./Dockerfile.private
       ssh:
         - default
+
+  gui:
+    build:
+      context: ../src/gui/
+      dockerfile: ./Dockerfile.private
+      ssh:
+        - default
