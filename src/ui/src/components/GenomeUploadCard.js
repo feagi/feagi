@@ -1,15 +1,26 @@
-import React from "react";
+import React, { useState } from "react";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import { styled } from "@mui/material/styles";
+import FeagiAPI from "../services/FeagiAPI";
 
 const Input = styled("input")({
   display: "none",
 });
 
 const GenomeUploadCard = (props) => {
+  const handleFileUpload = (event) => {
+    try {
+      let data = { file: event.target.files[0] };
+      FeagiAPI.postGenomeFile(data);
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  };
+
   return (
     <Card sx={{ width: 345, height: 330 }}>
       {props.image}
@@ -24,8 +35,8 @@ const GenomeUploadCard = (props) => {
           <Input
             accept="*.py"
             id="contained-button-file"
-            multiple
             type="file"
+            onChange={handleFileUpload}
           />
           <Button variant="contained" component="span">
             Upload
