@@ -39,3 +39,10 @@ services:
       - ../src/feagi_configuration.ini:/opt/source-code/feagi/src/feagi_configuration.ini
     networks:
       - net
+
+  gui:
+    build: ../src/gui/
+    ports:
+      - "3000:3000"
+    networks:
+      - net
