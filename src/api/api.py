@@ -94,12 +94,14 @@ class Genome(BaseModel):
 class SPAStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope):
         response = await super().get_response(path, scope)
+        print("<><><><><><>")
         if response.status_code == 404:
+            print("-=-=-=-=-=-=-=-=-=-=")
             response = await super().get_response('.', scope)
         return response
 
 
-app.mount("/home", SPAStaticFiles(directory="./ui", html=True), name="static")
+app.mount("/home", SPAStaticFiles(directory="gui", html=True), name="static")
 
 
 @app.api_route("/v1/feagi/feagi/launch", methods=['POST'])
