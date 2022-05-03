@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import email.parser
 from fastapi import FastAPI, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -151,7 +152,7 @@ async def supported_ipu_list():
 @app.api_route("/v1/feagi/feagi/gui_baseline/opu", methods=['GET'])
 async def supported_opu_list():
     try:
-        return gui_baseline['ipu']
+        return gui_baseline['opu']
     except Exception as e:
         return {"Request failed...", e}
 
@@ -249,12 +250,19 @@ async def stat_management(message: Stats):
         return {"Request failed...", e}
 
 
-# @app.api_route("/v1/feagi/feagi/genome", methods=['POST'])
 @app.post("/v1/feagi/feagi/genome")
 async def genome_upload(file: UploadFile = File(...)):
-    data = await file.read()
-    print(">> >> >> ", data)
-    return {"file_name": file.filename}
+    try:
+        data = await file.read()
+        decoded_data = email.parser.BytesParser().parsebytes(data)
+        for part in decoded_data.walk():
+            if part.get_content_type() == "text/plain":
+                print(part.get_payload())
+        message = {"genome": "PLACEHOLDER"}
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
 
 
 def api_message_processor(api_message):
@@ -322,5 +330,8 @@ def api_message_processor(api_message):
             if 'virtual_port' in api_message['network_management']:
                 runtime_data.parameters['Sockets']['feagi_inbound_port_virtual'] = \
                     api_message['network_management']['virtual_port']
+
+        if 'genome' in api_message:
+            pass
 
             # todo: Handle web port assignments
