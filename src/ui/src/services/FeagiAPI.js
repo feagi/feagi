@@ -42,6 +42,19 @@ const FeagiAPI = {
     return response.data;
   },
 
+  async getBaselineCorticalGenes() {
+    const response = await axios
+      .get(`${FEAGI_URL}/feagi/feagi/gui_baseline/cortical-genes`, {
+        headers: {},
+        params: {},
+      })
+      .catch((error) => {
+        console.error(error);
+        throw error;
+      });
+    return response.data;
+  },
+
   async postGenomeFile(genomeFile) {
     const response = await axios
       .post(`${FEAGI_URL}/feagi/feagi/genome`, genomeFile, {
