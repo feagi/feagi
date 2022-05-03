@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import Fab from "@mui/material/Fab";
@@ -7,13 +7,47 @@ import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Typography from "@mui/material/Typography";
+import FeagiAPI from "../services/FeagiAPI";
 
 const CorticalAreaMapForm = (props) => {
   const [destinationCount, setDestinationCount] = useState(1);
+  const [sensoryAreas, setSensoryAreas] = useState([]);
+  const [motorAreas, setMotorAreas] = useState([]);
+  const [predefinedSynapseRules, setPredefinedSynapseRules] = useState([]);
 
-  const handleChange = (event) => {
-    console.log(event);
+  const [selectedCorticalArea, setSelectedCorticalArea] = useState("");
+  const [selectedRuleType, setSelectedRuleType] = useState("");
+  const [selectedRule, setSelectedRule] = useState("");
+
+  /* 
+
+    - state might need to be an object with keys pertaining to the mapping #
+      for the respective cortical area
+
+    - use idx value from main .map to access unique keys in state object and
+      update their values
+  */
+
+  useEffect(() => {
+    FeagiAPI.getBaselineMotor().then((items) => setMotorAreas(items));
+    FeagiAPI.getBaselineSensory().then((items) => setSensoryAreas(items));
+    FeagiAPI.getBaselineMorphology().then((items) =>
+      setPredefinedSynapseRules(Object.keys(items))
+    );
+  }, []);
+
+  const handleAreaChange = (event) => {
+    console.log(event.target.value);
+    setSelectedCorticalArea(event.target.value);
     // setSomeValue(event.target.value);
+  };
+
+  const handleRuleTypeChange = (event) => {
+    console.log(event.target.value);
+  };
+
+  const handleRuleChange = (event) => {
+    console.log(event.target.value);
   };
 
   const handleAdd = () => {
@@ -46,12 +80,18 @@ const CorticalAreaMapForm = (props) => {
               <Select
                 labelId={`dest-select-label-${idx}`}
                 id={`dest-select-${idx}`}
-                value=""
+                value={selectedCorticalArea}
                 label="Cortical Area"
-                onChange={handleChange}
+                onChange={handleAreaChange}
                 sx={{ width: "250px" }}
               >
-                <MenuItem value={100}>TEST</MenuItem>
+                {sensoryAreas.concat(motorAreas).map((area) => {
+                  return (
+                    <MenuItem key={area} value={area}>
+                      {area}
+                    </MenuItem>
+                  );
+                })}
               </Select>
             </FormControl>
             <FormControl sx={{ m: 2, minWidth: 120 }}>
@@ -59,9 +99,9 @@ const CorticalAreaMapForm = (props) => {
               <Select
                 labelId={`rule-select-label-${idx}`}
                 id={`rule-select-${idx}`}
-                value=""
-                label="Synaptogenesis Rule"
-                onChange={handleChange}
+                // value={selectedRuleType}
+                // label="Synaptogenesis Rule"
+                onChange={handleRuleTypeChange}
                 sx={{ width: "250px" }}
               >
                 <MenuItem value={100}>TEST</MenuItem>
@@ -72,9 +112,9 @@ const CorticalAreaMapForm = (props) => {
               <Select
                 labelId={`rule-type-select-label-${idx}`}
                 id={`rule-type-select-${idx}`}
-                value=""
-                label="Synaptogenesis Rule"
-                onChange={handleChange}
+                value={selectedRule}
+                // label="Synaptogenesis Rule"
+                onChange={handleRuleChange}
                 sx={{ width: "250px" }}
               >
                 <MenuItem value={100}>TEST</MenuItem>
