@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { DataGrid } from "@mui/x-data-grid";
 // import FormControl from "@mui/material/FormControl";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import InputLabel from "@mui/material/InputLabel";
+import FeagiAPI from "../services/FeagiAPI";
 
 const columns = [
   { field: "parameter", headerName: "Parameter", width: 200 },
@@ -21,7 +22,7 @@ const rows = [
   },
   {
     id: 2,
-    parameter: "Firing threshold",
+    parameter: "Synapse",
     value: "",
     description: "Threshold to achieve action potential",
   },
@@ -41,6 +42,16 @@ const CorticalAreaEditForm = (props) => {
   // const [dimensionXValue, setDimensionXValue] = useState("");
   // const [dimensionYValue, setDimensionYValue] = useState("");
   // const [dimensionZValue, setDimensionZValue] = useState("");
+
+  const [corticalGenes, setCorticalGenes] = useState([]);
+
+  useEffect(() => {
+    FeagiAPI.getBaselineCorticalGenes().then((items) =>
+      setCorticalGenes(items)
+    );
+  });
+
+  // need to parse corticalGenes to populate rows array (don't hardcode vals)
 
   const [gridRows, setGridRows] = useState(rows);
 
