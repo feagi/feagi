@@ -165,6 +165,14 @@ async def supported_morphology_list():
         return {"Request failed...", e}
 
 
+@app.api_route("/v1/feagi/feagi/gui_baseline/cortical-genes", methods=['GET'])
+async def supported_cortical_genes_list():
+    try:
+        return gui_baseline['cortical_genes']
+    except Exception as e:
+        return {"Request failed...", e}
+
+
 @app.api_route("/v1/feagi/feagi/pns/ipu", methods=['GET'])
 async def ipu_list():
     try:
