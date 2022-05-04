@@ -18,4 +18,5 @@ RUN pip3 install --upgrade pip && \
     pip3 install fastapi==0.75.0 && \
     pip3 install pydantic==1.9.0 && \
     pip3 install requests==2.27.1 && \
+    pip3 install python-multipart==0.0.5 && \
     pip3 install typing_extensions==4.1.1
