@@ -18,12 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-<<<<<<< HEAD
 from ast import literal_eval
-=======
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
->>>>>>> feature-FASTapi-REACT
 from threading import Thread
 from queue import Queue
 from inf.feagi import *
@@ -39,25 +34,15 @@ favicon_path = 'favicon.svg'
 
 api_queue = Queue()
 
-<<<<<<< HEAD
 ORIGINS = [
     "http://localhost:6080",
     "http://localhost:6081",
     "http://localhost:3000"
-=======
-origins = [
-    "http://localhost:8000",
-    "localhost:8000"
->>>>>>> feature-FASTapi-REACT
 ]
 
 app.add_middleware(
     CORSMiddleware,
-<<<<<<< HEAD
     allow_origins=ORIGINS,
-=======
-    allow_origins=origins,
->>>>>>> feature-FASTapi-REACT
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
