@@ -6,14 +6,6 @@ import Typography from "@mui/material/Typography";
 import InputLabel from "@mui/material/InputLabel";
 import FeagiAPI from "../services/FeagiAPI";
 
-const columns = [
-  { field: "parameter", headerName: "Parameter", width: 150 },
-  { field: "value", headerName: "Value", width: 150, editable: true },
-  { field: "description", headerName: "Description", width: 560 },
-];
-
-const rows = [];
-
 const CorticalAreaEditForm = (props) => {
   // const [labelValue, setLabelValue] = useState("");
   // const [positionXValue, setPositionXValue] = useState("");
@@ -22,6 +14,14 @@ const CorticalAreaEditForm = (props) => {
   // const [dimensionXValue, setDimensionXValue] = useState("");
   // const [dimensionYValue, setDimensionYValue] = useState("");
   // const [dimensionZValue, setDimensionZValue] = useState("");
+
+  const columns = [
+    { field: "parameter", headerName: "Parameter", width: 150 },
+    { field: "value", headerName: "Value", width: 150, editable: true },
+    { field: "description", headerName: "Description", width: 560 },
+  ];
+
+  const rows = [];
 
   const [gridRows, setGridRows] = useState(rows);
   const [corticalGenes, setCorticalGenes] = useState({});
