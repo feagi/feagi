@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { DataGrid } from "@mui/x-data-grid";
-// import FormControl from "@mui/material/FormControl";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -8,31 +7,12 @@ import InputLabel from "@mui/material/InputLabel";
 import FeagiAPI from "../services/FeagiAPI";
 
 const columns = [
-  { field: "parameter", headerName: "Parameter", width: 200 },
+  { field: "parameter", headerName: "Parameter", width: 150 },
   { field: "value", headerName: "Value", width: 150, editable: true },
   { field: "description", headerName: "Description", width: 560 },
 ];
 
-const rows = [
-  {
-    id: 1,
-    parameter: "Neuron density",
-    value: "",
-    description: "Number (int) of neurons per voxel",
-  },
-  {
-    id: 2,
-    parameter: "Synapse",
-    value: "",
-    description: "Threshold to achieve action potential",
-  },
-  {
-    id: 3,
-    parameter: "Post-synaptic current",
-    value: "",
-    description: "Placeholder text",
-  },
-];
+const rows = [];
 
 const CorticalAreaEditForm = (props) => {
   // const [labelValue, setLabelValue] = useState("");
@@ -43,19 +23,23 @@ const CorticalAreaEditForm = (props) => {
   // const [dimensionYValue, setDimensionYValue] = useState("");
   // const [dimensionZValue, setDimensionZValue] = useState("");
 
-  const [corticalGenes, setCorticalGenes] = useState([]);
+  const [gridRows, setGridRows] = useState(rows);
+  const [corticalGenes, setCorticalGenes] = useState({});
 
   useEffect(() => {
     FeagiAPI.getBaselineCorticalGenes().then((items) =>
       setCorticalGenes(items)
     );
+  }, []);
+
+  Object.keys(corticalGenes).forEach((key, index) => {
+    rows.push({
+      id: `${index + 1}`,
+      parameter: `${corticalGenes[key]}`,
+      value: "",
+      description: `${key}`,
+    });
   });
-
-  console.log(corticalGenes);
-
-  // need to parse corticalGenes to populate rows array (don't hardcode vals)
-
-  const [gridRows, setGridRows] = useState(rows);
 
   const handleCellEditCommit = ({ id, field, value }) => {
     if (field === "value") {
@@ -69,9 +53,6 @@ const CorticalAreaEditForm = (props) => {
       setGridRows(updatedRows);
     }
   };
-
-  // need FormControl for the following input fields?
-  // using it messes up the existing formatting...
 
   return (
     <div>
