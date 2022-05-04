@@ -13,12 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-import email.parser
 from fastapi import FastAPI, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
+from ast import literal_eval
 from threading import Thread
 from queue import Queue
 from inf.feagi import *
@@ -262,11 +262,9 @@ async def stat_management(message: Stats):
 async def genome_upload(file: UploadFile = File(...)):
     try:
         data = await file.read()
-        decoded_data = email.parser.BytesParser().parsebytes(data)
-        for part in decoded_data.walk():
-            if part.get_content_type() == "text/plain":
-                print(part.get_payload())
-        message = {"genome": "PLACEHOLDER"}
+        genome_str = data.decode("utf-8").split(" = ")[1]
+        genome = literal_eval(genome_str)
+        message = {"genome": genome}
         api_queue.put(item=message)
         return {"Request sent!"}
     except Exception as e:
