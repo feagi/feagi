@@ -218,7 +218,7 @@ async def echo(websocket):
 
 async def main():
     print("- -- -- --  --- -- -- ")
-    async with websockets.serve(echo, "127.0.0.1", configuration.network_settings['godot_websocket_port']):
+    async with websockets.serve(echo, "0.0.0.0", configuration.network_settings['godot_websocket_port']):
         print("+++")
         await asyncio.Future()  # run forever
 
