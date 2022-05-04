@@ -51,6 +51,8 @@ const CorticalAreaEditForm = (props) => {
     );
   });
 
+  console.log(corticalGenes);
+
   // need to parse corticalGenes to populate rows array (don't hardcode vals)
 
   const [gridRows, setGridRows] = useState(rows);

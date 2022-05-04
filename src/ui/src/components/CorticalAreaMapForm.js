@@ -26,6 +26,7 @@ const CorticalAreaMapForm = (props) => {
 
     - use idx value from main .map to access unique keys in state object and
       update their values
+  
   */
 
   useEffect(() => {
