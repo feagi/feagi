@@ -18,7 +18,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
+<<<<<<< HEAD
 from ast import literal_eval
+=======
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+>>>>>>> feature-FASTapi-REACT
 from threading import Thread
 from queue import Queue
 from inf.feagi import *
@@ -34,15 +39,25 @@ favicon_path = 'favicon.svg'
 
 api_queue = Queue()
 
+<<<<<<< HEAD
 ORIGINS = [
     "http://localhost:6080",
     "http://localhost:6081",
     "http://localhost:3000"
+=======
+origins = [
+    "http://localhost:8000",
+    "localhost:8000"
+>>>>>>> feature-FASTapi-REACT
 ]
 
 app.add_middleware(
     CORSMiddleware,
+<<<<<<< HEAD
     allow_origins=ORIGINS,
+=======
+    allow_origins=origins,
+>>>>>>> feature-FASTapi-REACT
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
@@ -89,7 +104,21 @@ class Stats(BaseModel):
     synapse_stat_collection: Optional[bool] = False
 
 
-app.mount("/home", StaticFiles(directory="api/static", html=True), name="static")
+class Genome(BaseModel):
+    genome: dict
+
+
+class SPAStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        print("<><><><><><>")
+        if response.status_code == 404:
+            print("-=-=-=-=-=-=-=-=-=-=")
+            response = await super().get_response('.', scope)
+        return response
+
+
+app.mount("/home", SPAStaticFiles(directory="gui", html=True), name="static")
 
 
 @app.api_route("/v1/feagi/feagi/launch", methods=['POST'])
@@ -323,7 +352,7 @@ def api_message_processor(api_message):
             if 'godot_port' in api_message['network_management']:
                 runtime_data.parameters['Sockets']['feagi_inbound_port_godot'] = \
                     api_message['network_management']['godot_port']
-                
+
             if 'gazebo_host' in api_message['network_management']:
                 runtime_data.parameters['Sockets']['gazebo_host_name'] = api_message['network_management']['gazebo_host']
             if 'gazebo_port' in api_message['network_management']:
