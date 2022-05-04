@@ -21,8 +21,8 @@ A collection of functions related to Neurons
 import random
 import string
 import datetime
-import collections
-import numpy as np
+# import collections
+# import numpy as np
 from evo.voxels import *
 
 

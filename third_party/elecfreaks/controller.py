@@ -70,29 +70,26 @@ ubit = microbit.Microbit(adapter_addr=network_settings['primary_mac_address'],
 print("Searching for microbit...")
 ubit.connect()
 print("Microbit has been connected.")
+print("Connecting to FEAGI resources...")
+
+# address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_outbound_port']
+
 feagi_host = configuration.network_settings["feagi_host"]
 api_port = configuration.network_settings["feagi_api_port"]
 
 feagi_registration(feagi_host=feagi_host, api_port=api_port)
 
 print("** **", runtime_data["feagi_state"])
+network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
 
-api_address = 'http://' + network_settings['feagi_host'] + ':' + network_settings['feagi_api_port']
-# feagi_state = handshake_with_feagi(address=address,
-#                                    capabilities=capabilities)
-# print("feagi_state: ", feagi_state)
-# print("** **\n\n\n\n")
-sockets = requests.get(api_address + '/v1/feagi/feagi/network').json()
-stimulation_period = requests.get(api_address + '/v1/feagi/feagi/burst_engine/stimulation_period').json()
-network_settings['feagi_burst_speed'] = float(stimulation_period)
+# todo: to obtain this info directly from FEAGI as part of registration
+ipu_channel_address = 'tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_gazebo']
+print("IPU_channel_address=", ipu_channel_address)
+opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + \
+                      runtime_data["feagi_state"]['feagi_outbound_port']
 
-print("--->> >> >> \n", sockets, network_settings)
-FEAGI_pub = Pub(address='tcp://0.0.0.0:' + network_settings['feagi_inbound_port_godot'])
-opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + sockets['feagi_outbound_port']
-FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
-
-feagi_init(feagi_host=feagi_host, api_port=api_port)
-print("FEAGI initialization completed successfully")
+feagi_ipu_channel = router.Pub(address=ipu_channel_address)
+feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
 
 flag=True
 
@@ -101,7 +98,7 @@ while flag:
         message_from_feagi = feagi_opu_channel.receive()
         if message_from_feagi is not None:
             opu_data = message_from_feagi["opu_data"]
-            #print(message_from_feagi)
+            print(message_from_feagi)
             if "o__mic" in opu_data:
                 print(opu_data["o__mot"])
                 for i in opu_data['o__mot']:

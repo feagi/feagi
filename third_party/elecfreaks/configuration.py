@@ -16,7 +16,7 @@ limitations under the License.
 """
 #!/usr/bin/env python3
 
-app_name = 'ros-gazebo'
+app_name = 'gazebo'
 
 network_settings = {
     "feagi_host": "feagi",

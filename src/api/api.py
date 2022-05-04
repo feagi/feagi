@@ -272,15 +272,25 @@ async def stat_management(message: Stats):
         return {"Request failed...", e}
 
 
-@app.post("/v1/feagi/feagi/genome")
-async def genome_upload(file: UploadFile = File(...)):
+@app.post("/v1/feagi/genome/upload/file")
+async def genome_file_upload(file: UploadFile = File(...)):
     try:
         data = await file.read()
         genome_str = data.decode("utf-8").split(" = ")[1]
         genome = literal_eval(genome_str)
         message = {"genome": genome}
         api_queue.put(item=message)
-        return {"Request sent!"}
+        return {"Genome received as a file"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/upload/string", methods=['POST'])
+async def genome_string_upload(genome: Genome):
+    try:
+        # genome = genome.dict()
+        print("****\n\n*****\n\n**********\n\n********", genome)
+        return {"Genome received in its string format"}
     except Exception as e:
         return {"Request failed...", e}
 
