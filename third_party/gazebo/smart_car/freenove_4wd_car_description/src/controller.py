@@ -53,8 +53,23 @@ else:
     import termios
     import tty
 
-
-os.system('ign topic -t "/S0" -m ignition.msgs.Double -p "data: 1.6" && ign topic -t "/S1" -m ignition.msgs.Double -p "data: 1.6"')
+model_name = "models/sdf/freenove_smart_car"
+y = str(capabilities["position"]["y"])
+z = str(capabilities["position"]["z"])
+first_part = "ign service -s /world/free_world/create --reqtype ignition.msgs.EntityFactory --reptype ignition.msgs.Boolean --timeout 300 --req 'sdf_filename:'\'\""
+second_part = model_name + ".sdf\" pose: {position: {y"
+third_part = ": " + y + ", z: " + z + "}}\'"
+add_model = first_part + second_part + third_part
+print(add_model)
+os.system(add_model)
+### Just to define for future. This section will need to be updated later once its finalized
+remove_model = """
+ign service -s /world/free_world/remove \
+--reqtype ignition.msgs.Entity \
+--reptype ignition.msgs.Boolean \
+--timeout 300 \
+--req 'name: "freenove_smart_car" type: MODEL'
+"""
 
 
 def feagi_registration(feagi_host, api_port):
@@ -369,7 +384,23 @@ class Servo:
 #         twist.linear.x = 0.0
 #         twist.angular.z = 0.0
 #         self.pub.publish(twist)
-#
+
+
+class PosInit:
+    def __init__(self):
+        init_pos_x = capabilities['position']['x']
+        init_pos_y = capabilities['position']['y']
+    def reset_position(self):
+        print("## ## ## ## Resetting robot position ## ## ## ##")
+        # Remove the robot
+        os.system(remove_model)
+        runtime_data["motor_status"] = {}
+        runtime_data['servo_status'] = {}
+        runtime_data['battery_charge_level'] = 1
+        # Create the robot
+        os.system(add_model)
+        servo.set_default_position()
+
 
 def main(args=None):
     print("Connecting to FEAGI resources...")
@@ -402,6 +433,8 @@ def main(args=None):
                   model='freenove_motor')
     servo = Servo(count=capabilities['servo']['count'], identifier=capabilities['servo']['topic_identifier'],
                   model='freenove_servo')
+
+    position_init = PosInit()
 
     # Instantiate controller classes with Subscriber nature
 
@@ -446,13 +479,19 @@ def main(args=None):
                             device_power = data_point[2]
                             motor.move(feagi_device_id=device_id, power=device_power)
                     if 'o__ser' in opu_data:
-                        for data_point in opu_data['o__ser']:
-                            data_point = block_to_array(data_point)
-                            device_id = data_point[0]
-                            device_power = data_point[2]
-                            servo.move(feagi_device_id=device_id, power=device_power)
+                        if opu_data['o__ser']:
+                            for data_point in opu_data['o__ser']:
+                                data_point = block_to_array(data_point)
+                                device_id = data_point[0]
+                                device_power = data_point[2]
+                                servo.move(feagi_device_id=device_id, power=device_power)
                     if 'o__bat' in opu_data:
-                        battery.charge_battery()
+                        if opu_data['o__bat']:
+                            battery.charge_battery()
+
+                    if 'o_init' in opu_data:
+                        if opu_data['o_init']:
+                            position_init.reset_position()
 
             except Exception:
                 pass

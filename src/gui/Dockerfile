@@ -1,4 +1,4 @@
-FROM neuraville/feagi-base-os2
+FROM neuraville/feagi-base-gui
 
 ARG REPO="https://github.com/feagi/feagi.git"
 ARG BRANCH="main"
@@ -11,5 +11,7 @@ WORKDIR /opt/source-code/feagi
 RUN git fetch --all
 RUN git checkout $BRANCH
 
-WORKDIR /opt/source-code/feagi/src
-CMD ["python3", "main.py"]
+WORKDIR /opt/source-code/feagi/src/gui
+RUN npm install
+RUN npm start
+

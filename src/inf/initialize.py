@@ -324,8 +324,16 @@ def init_burst_engine():
 
     runtime_data.termination_flag = False
 
-    runtime_data.burst_timer = float(runtime_data.parameters["Timers"]["burst_timer"])
-    print("Burst time has been set to:", runtime_data.burst_timer)
+    try:
+        runtime_data.burst_timer = float(runtime_data.genome['burst_delay'])
+        print("Burst time has been set to:", runtime_data.burst_timer)
+    except KeyError:
+        print("\n\n==============================================")
+        print("Warning! Genome is missing the \"burst_delay\" gene")
+        runtime_data.burst_timer = float(runtime_data.parameters["Timers"]["default_burst_delay"])
+        print("Burst_delay has been set to its default value %f " %
+              float(runtime_data.parameters["Timers"]["default_burst_delay"]))
+        print("==============================================\n\n")
 
     if runtime_data.parameters["Logs"]["print_voxel_dict_report"]:
         print("Block Dictionary Report:")

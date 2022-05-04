@@ -211,7 +211,6 @@ def burst_manager():
         # time_firing_activities = datetime.now()
 
         if candidate_list_counter(runtime_data.fire_candidate_list) == 0:
-            # sleep(float(runtime_data.parameters["Timers"]["idle_burst_timer"]))
             runtime_data.empty_fcl_counter += 1
             print("FCL is empty!")
         else:
