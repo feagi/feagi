@@ -13,8 +13,8 @@ const Input = styled("input")({
 const GenomeUploadCard = (props) => {
   const handleFileUpload = (event) => {
     try {
-      let data = { file: event.target.files[0] };
-      FeagiAPI.postGenomeFile(data);
+      let fileData = { file: event.target.files[0] };
+      FeagiAPI.postGenomeFile(fileData);
     } catch (error) {
       console.error(error);
       throw error;
