@@ -6,6 +6,7 @@ import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import FeagiAPI from "../services/FeagiAPI";
 
@@ -13,10 +14,9 @@ const CorticalAreaMapForm = (props) => {
   const [destinationCount, setDestinationCount] = useState(1);
   const [sensoryAreas, setSensoryAreas] = useState([]);
   const [motorAreas, setMotorAreas] = useState([]);
-  const [predefinedSynapseRules, setPredefinedSynapseRules] = useState([]);
+  const [predefinedSynapseRules, setPredefinedSynapseRules] = useState({});
 
   const [selectedCorticalArea, setSelectedCorticalArea] = useState("");
-  const [selectedRuleType, setSelectedRuleType] = useState("");
   const [selectedRule, setSelectedRule] = useState("");
 
   /* 
@@ -33,22 +33,16 @@ const CorticalAreaMapForm = (props) => {
     FeagiAPI.getBaselineMotor().then((items) => setMotorAreas(items));
     FeagiAPI.getBaselineSensory().then((items) => setSensoryAreas(items));
     FeagiAPI.getBaselineMorphology().then((items) =>
-      setPredefinedSynapseRules(Object.keys(items))
+      setPredefinedSynapseRules(items)
     );
   }, []);
 
   const handleAreaChange = (event) => {
-    console.log(event.target.value);
     setSelectedCorticalArea(event.target.value);
-    // setSomeValue(event.target.value);
-  };
-
-  const handleRuleTypeChange = (event) => {
-    console.log(event.target.value);
   };
 
   const handleRuleChange = (event) => {
-    console.log(event.target.value);
+    setSelectedRule(event.target.value);
   };
 
   const handleAdd = () => {
@@ -96,30 +90,35 @@ const CorticalAreaMapForm = (props) => {
               </Select>
             </FormControl>
             <FormControl sx={{ m: 2, minWidth: 120 }}>
-              <InputLabel id={`rule-select-label-${idx}`}>Rule Type</InputLabel>
+              <InputLabel id={`rule-select-label-${idx}`}>
+                Pre-defined Rule
+              </InputLabel>
               <Select
                 labelId={`rule-select-label-${idx}`}
                 id={`rule-select-${idx}`}
-                // value={selectedRuleType}
-                // label="Synaptogenesis Rule"
-                onChange={handleRuleTypeChange}
-                sx={{ width: "250px" }}
-              >
-                <MenuItem value={100}>TEST</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl sx={{ m: 2, minWidth: 120 }}>
-              <InputLabel id={`rule-type-select-label-${idx}`}>Rule</InputLabel>
-              <Select
-                labelId={`rule-type-select-label-${idx}`}
-                id={`rule-type-select-${idx}`}
                 value={selectedRule}
-                // label="Synaptogenesis Rule"
+                label="Pre-defined Rule"
                 onChange={handleRuleChange}
                 sx={{ width: "250px" }}
               >
-                <MenuItem value={100}>TEST</MenuItem>
+                {Object.keys(predefinedSynapseRules).map((rule) => {
+                  return (
+                    <MenuItem key={rule} value={rule}>
+                      {rule}
+                    </MenuItem>
+                  );
+                })}
               </Select>
+            </FormControl>
+            <FormControl sx={{ m: 2, minWidth: 200 }}>
+              <TextField
+                id="rule-def-field"
+                label="Rule Definition"
+                variant="outlined"
+                sx={{ width: "250px" }}
+              >
+                {console.log(typeof predefinedSynapseRules[selectedRule])}
+              </TextField>
             </FormControl>
           </div>
         );
