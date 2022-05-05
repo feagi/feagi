@@ -203,6 +203,9 @@ async def ipu_list():
         return {"Request failed...", e}
 
 
+# ######  Burst-Engine Endpoints #########
+# ##################################
+
 @app.api_route("/v1/feagi/feagi/burst_engine/burst_counter", methods=['GET'])
 async def burst_engine_params():
     try:
@@ -222,6 +225,9 @@ async def burst_management(message: BurstEngine):
         return {"Request failed...", e}
 
 
+# ######  Networking Endpoints #########
+# ##################################
+
 @app.api_route("/v1/feagi/feagi/network", methods=['GET'])
 async def network_management():
     try:
@@ -237,6 +243,34 @@ async def network_management(message: Network):
         message = {'network_management': message}
         api_queue.put(item=message)
         return runtime_data.parameters['Sockets']
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+# ######  Connectome Endpoints #########
+# ##################################
+
+
+@app.post("/v1/feagi/connectome/upload")
+async def connectome_file_upload(file: UploadFile = File(...)):
+    try:
+        data = await file.read()
+        connectome_str = data.decode("utf-8").split(" = ")[1]
+        connectome = literal_eval(connectome_str)
+        message = {"connectome": connectome}
+        api_queue.put(item=message)
+        return {"Connectome received as a file"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/connectome/path", methods=['POST'])
+async def brain_management(message: ConnectomeSnapshot):
+    try:
+        message = message.dict()
+        message = {'connectome_snapshot': message}
+        api_queue.put(item=message)
+        return {"Request sent!"}
     except Exception as e:
         return {"Request failed...", e}
 
@@ -261,16 +295,8 @@ async def connectome_report():
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/stats", methods=['POST'])
-async def stat_management(message: Stats):
-    try:
-        message = message.dict()
-        message = {'stats': message}
-        api_queue.put(item=message)
-        return {"Request sent!"}
-    except Exception as e:
-        return {"Request failed...", e}
-
+# ######  Genome Endpoints #########
+# ##################################
 
 @app.post("/v1/feagi/genome/upload/file")
 async def genome_file_upload(file: UploadFile = File(...)):
@@ -288,9 +314,25 @@ async def genome_file_upload(file: UploadFile = File(...)):
 @app.api_route("/v1/feagi/genome/upload/string", methods=['POST'])
 async def genome_string_upload(genome: Genome):
     try:
-        # genome = genome.dict()
-        print("****\n\n*****\n\n**********\n\n********", genome)
-        return {"Genome received in its string format"}
+        print("Payload:", genome.genome)
+        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', 'string',  genome.genome,))
+        feagi_thread.start()
+
+        return {"FEAGI started using a genome string."}
+    except Exception as e:
+        return {"FEAGI start using genome string failed ...", e}
+
+
+# ######  Statistics and Reporting Endpoints #########
+# ##################################
+
+@app.api_route("/v1/feagi/stats", methods=['POST'])
+async def stat_management(message: Stats):
+    try:
+        message = message.dict()
+        message = {'stats': message}
+        api_queue.put(item=message)
+        return {"Request sent!"}
     except Exception as e:
         return {"Request failed...", e}
 
