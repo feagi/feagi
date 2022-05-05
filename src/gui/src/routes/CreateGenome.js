@@ -18,7 +18,7 @@ const CreateGenome = () => {
         sx={{ m: 6 }}
       >
         <Item>
-          <Link to="/genome/sensory">
+          <Link to="/brain">
             <label htmlFor="genome-card">
               <MenuCard
                 image={<GiDna2 size={200} />}
@@ -29,12 +29,14 @@ const CreateGenome = () => {
           </Link>
         </Item>
         <Item>
-          <label htmlFor="genome-upload-card">
-            <GenomeUploadCard
-              image={<MdUploadFile size={200} />}
-              label="Use Existing Genome"
-            />
-          </label>
+          <Link to="/monitoring">
+            <label htmlFor="genome-upload-card">
+              <GenomeUploadCard
+                image={<MdUploadFile size={200} />}
+                label="Use Existing Genome"
+              />
+            </label>
+          </Link>
         </Item>
       </Stack>
     </>
