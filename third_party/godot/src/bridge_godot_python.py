@@ -19,9 +19,9 @@ import time
 import os
 from router import *
 from configuration import *
-from time import sleep
 
-import subprocess as sp
+import sys
+import socket
 import configuration
 import router
 import zmq
@@ -30,7 +30,7 @@ import ast
 import asyncio
 import websockets
 import requests
-
+from time import sleep
 
 runtime_data = {
     "cortical_data": {},
@@ -41,11 +41,6 @@ runtime_data = {
     "cortical_list": set(),
     "host_network": {}
 }
-
-ip_address = sp.getoutput('hostname -I')
-f = open('../godot_source/ip_address.txt', 'w')
-f.write(ip_address)
-f.close()
 
 
 def csv_writer(cortical_dimensions):
@@ -223,10 +218,7 @@ async def echo(websocket):
 
 async def main():
     print("- -- -- --  --- -- -- ")
-    ip_address = sp.getoutput('hostname -I')
-    ip_address = ip_address.replace(" ", "")
-    print("bwukkkk", ip_address, "bwukkk")
-    async with websockets.serve(echo, ip_address, configuration.network_settings['godot_websocket_port']):
+    async with websockets.serve(echo, "0.0.0.0", configuration.network_settings['godot_websocket_port']):
         print("+++")
         await asyncio.Future()  # run forever
 
@@ -300,3 +292,4 @@ if __name__ == "__main__":
     print("FEAGI initialization completed successfully")
 
     asyncio.run(main())
+
