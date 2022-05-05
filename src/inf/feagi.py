@@ -114,8 +114,8 @@ def start_feagi(api_queue, mode, mode_option, mode_value):
         if mode_option == 'path':
             print("Genome file option selected")
             connectome_path = mode_value
-
-            start()
+            print("connectome_path:", connectome_path)
+            start(mode='connectome')
         elif mode_option == 'upload':
             print("Genome string option selected")
             connectome_files = mode_value
