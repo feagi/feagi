@@ -2,7 +2,7 @@ extends Node
 
 onready var file_ip = 'res://ip_address.txt'
 # The URL we will connect to
-export var websocket_url = "ws://172.18.0.4:9050"
+export var websocket_url = "ws://172.18.0.4:5050"
 var green_light = false #Moved from feagi to here
 var one_frame = ""
 var ip_address = "0.0.0.0"
@@ -18,7 +18,7 @@ func _ready():
 	ip_file.close()
 	print("Using docker IP: ", ip_address)
 	ip_address = ip_address.replace(" ", "")
-	websocket_url = "ws://" + ip_address + ":9050"
+	websocket_url = "ws://" + ip_address + ":5050"
 	print(websocket_url)
 	_client.connect("connection_closed", self, "_closed")
 	_client.connect("connection_error", self, "_closed")
