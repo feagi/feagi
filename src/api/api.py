@@ -74,8 +74,8 @@ class Network(BaseModel):
     virtual_stimulator_data_port: Optional[int] = runtime_data.parameters['Sockets']['feagi_inbound_port_virtual']
 
 
-class ConnectomeSnapshot(BaseModel):
-    save_to_path: str
+class ConnectomePath(BaseModel):
+    connectome_path: str
 
 
 class Registration(BaseModel):
@@ -264,22 +264,23 @@ async def connectome_file_upload(file: UploadFile = File(...)):
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/connectome/path", methods=['POST'])
-async def brain_management(message: ConnectomeSnapshot):
+@app.api_route("/v1/feagi/connectome/source", methods=['POST'])
+async def connectome_source_path(connectome_path: ConnectomePath):
     try:
-        message = message.dict()
-        message = {'connectome_snapshot': message}
-        api_queue.put(item=message)
+        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'connectome', 'path',  connectome_path,))
+        feagi_thread.start()
+
         return {"Request sent!"}
     except Exception as e:
         return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/connectome/snapshot", methods=['POST'])
-async def brain_management(message: ConnectomeSnapshot):
+async def connectome_snapshot(message: ConnectomePath):
     try:
         message = message.dict()
         message = {'connectome_snapshot': message}
+        print("Snapshot path:", message)
         api_queue.put(item=message)
         return {"Request sent!"}
     except Exception as e:
@@ -358,9 +359,10 @@ def api_message_processor(api_message):
                     = api_message['log_management']['print_messenger_logs']
 
         if 'connectome_snapshot' in api_message:
-            if 'save_to_path' in api_message['connectome_snapshot']:
-                if api_message['connectome_snapshot']['save_to_path']:
-                    disk_ops.save_brain_to_disk(connectome_path=api_message['connectome_snapshot']['save_to_path'],
+            if 'connectome_path' in api_message['connectome_snapshot']:
+                if api_message['connectome_snapshot']['connectome_path']:
+                    print("Taking a snapshot of the brain... ... ...")
+                    disk_ops.save_brain_to_disk(connectome_path=api_message['connectome_snapshot']['connectome_path'],
                                                 type='snapshot')
                 else:
                     disk_ops.save_brain_to_disk()
@@ -405,7 +407,7 @@ def api_message_processor(api_message):
                 runtime_data.parameters['Sockets']['feagi_inbound_port_virtual'] = \
                     api_message['network_management']['virtual_port']
 
-        if 'genome' in api_message:
-            pass
+        # if 'genome' in api_message:
+        #     pass
 
             # todo: Handle web port assignments
