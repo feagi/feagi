@@ -306,7 +306,7 @@ async def genome_file_upload(file: UploadFile = File(...)):
         genome_str = data.decode("utf-8").split(" = ")[1]
         genome = literal_eval(genome_str)
 
-        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', 'string',  genome,))
+        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', '',  genome,))
         feagi_thread.start()
 
         return {"Genome received as a file"}
@@ -317,7 +317,7 @@ async def genome_file_upload(file: UploadFile = File(...)):
 @app.api_route("/v1/feagi/genome/upload/string", methods=['POST'])
 async def genome_string_upload(genome: Genome):
     try:
-        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', 'string',  genome.genome,))
+        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', '',  genome.genome,))
         feagi_thread.start()
 
         return {"FEAGI started using a genome string."}
