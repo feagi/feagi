@@ -292,3 +292,4 @@ if __name__ == "__main__":
     print("FEAGI initialization completed successfully")
 
     asyncio.run(main())
+

@@ -56,3 +56,4 @@ func _process(delta):
 	
 func send(data):
 	_client.get_peer(1).put_packet(data.to_utf8())
+
