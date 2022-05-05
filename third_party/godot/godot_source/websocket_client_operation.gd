@@ -1,25 +1,15 @@
 extends Node
 
-onready var file_ip = 'res://ip_address.txt'
 # The URL we will connect to
-export var websocket_url = "ws://172.18.0.4:5050"
+export var websocket_url = "ws://0.0.0.0:9050"
 var green_light = false #Moved from feagi to here
 var one_frame = ""
-var ip_address = "0.0.0.0"
 
 # Our WebSocketClient instance
 var _client = WebSocketClient.new()
 
 func _ready():
 	# Connect base signals to get notified of connection open, close, and errors.
-	var ip_file = File.new()
-	ip_file.open(file_ip, File.READ)
-	ip_address = ip_file.get_line()
-	ip_file.close()
-	print("Using docker IP: ", ip_address)
-	ip_address = ip_address.replace(" ", "")
-	websocket_url = "ws://" + ip_address + ":5050"
-	print(websocket_url)
 	_client.connect("connection_closed", self, "_closed")
 	_client.connect("connection_error", self, "_closed")
 	_client.connect("connection_established", self, "_connected")
@@ -66,3 +56,4 @@ func _process(delta):
 	
 func send(data):
 	_client.get_peer(1).put_packet(data.to_utf8())
+
