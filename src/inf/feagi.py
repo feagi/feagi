@@ -42,16 +42,7 @@ def start_feagi(api_queue, mode, mode_option, mode_value):
 
     start_mode options: genome, connectome
     mode values: genome[file, string]  connectome[path, upload]
-
-
     """
-
-    def init_genome():
-        pass
-
-
-    def init_connectome():
-        pass
 
     def genome_ver_check():
         try:
@@ -112,32 +103,11 @@ def start_feagi(api_queue, mode, mode_option, mode_value):
         logging.config.dictConfig(LOGGING_CONFIG)
 
     if mode == 'genome':
-        print("Starting FEAGI with developing a <Genome>")
-        if mode_option == 'file':
-            print("Genome file option selected")
-            genome_file = mode_value
-            start(mode='genome')
-
-
-
-
-
-        elif mode_option == 'string':
-            print("Genome string option selected")
-            genome_json = mode_value
-
-            print("genome_json", type(genome_json), genome_json)
-
-            runtime_data.genome = genome_json
-            genome_ver_check()
-            start(mode='genome')
-
-
-
-
-
-        else:
-            print("FEAGI start thread encountered incompatible <genome> option")
+        print("Genome string option selected")
+        genome_json = mode_value
+        runtime_data.genome = genome_json
+        genome_ver_check()
+        start(mode='genome')
 
     elif mode == 'connectome':
         print("Starting FEAGI with loading a <Connectome>")
