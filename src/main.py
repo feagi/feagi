@@ -30,5 +30,5 @@ init_parameters()
 
 if __name__ == "__main__":
     print("Starting FEAGI API on port ", runtime_data.parameters['Sockets']['feagi_api_port'])
-    uvicorn.run("api.api:app", host="0.0.0.0", port=int(runtime_data.parameters['Sockets']['feagi_api_port']),
+    uvicorn.run("src.api.api:app", host="0.0.0.0", port=int(runtime_data.parameters['Sockets']['feagi_api_port']),
                 reload=True, log_level="debug", debug=True, workers=2, limit_concurrency=1000)

@@ -188,7 +188,7 @@ def init_working_directory():
         # print(runtime_data.paths)
 
 
-def init_genome():
+def init_genome(genome):
     print("\nInitializing genome...\n")
     # The following stages the genome in the proper connectome path and loads it into the memory
     disk_ops.genome_handler(runtime_data.connectome_path)
@@ -201,6 +201,8 @@ def init_genome():
             genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
             genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])
             runtime_data.genome['blueprint'] = genome2['blueprint']
+        else:
+            print("ERROR! Genome is not compatible with 2.0 standard")
     except KeyError as e:
         print("Error:", e)
         print("Genome version not available; assuming Genome 1.0 procedures.")
@@ -299,7 +301,8 @@ def initialize():
     init_working_directory()
     init_container_variables()
     init_data_sources()
-    init_genome()
+    # runtime_data.genome = genome
+    # init_genome(genome=genome)
     init_cortical_info()
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
     detect_hardware()

@@ -10,3 +10,4 @@ zmq==0.0.0
 uvicorn==0.17.5
 fastapi==0.75.0
 pydantic==1.9.0
+python-multipart==0.0.5
