@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import requests
 from fastapi import FastAPI, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,6 +26,7 @@ from inf.feagi import *
 from inf import disk_ops, runtime_data
 from inf.baseline import gui_baseline
 from inf.initialize import init_parameters
+from evo import static_genome
 
 
 init_parameters()
@@ -74,8 +76,8 @@ class Network(BaseModel):
     virtual_stimulator_data_port: Optional[int] = runtime_data.parameters['Sockets']['feagi_inbound_port_virtual']
 
 
-class ConnectomeSnapshot(BaseModel):
-    save_to_path: str
+class ConnectomePath(BaseModel):
+    connectome_path: str
 
 
 class Registration(BaseModel):
@@ -106,20 +108,20 @@ class SPAStaticFiles(StaticFiles):
 app.mount("/home", SPAStaticFiles(directory="gui", html=True), name="static")
 
 
-@app.api_route("/v1/feagi/feagi/launch", methods=['POST'])
-async def feagi_management(message: Launch):
-    try:
-        print("message:", message)
-        connectome_overwrite_path = message.existing_connectome
-        feagi_thread = Thread(target=start_feagi, args=(api_queue, connectome_overwrite_path,))
-        feagi_thread.start()
-
-        if message.existing_connectome:
-            return {"FEAGI started using an existing connectome."}
-        else:
-            return {"FEAGI started using a genome."}
-    except Exception as e:
-        return {"FEAGI start failed ... error details to be provided here", e}
+# @app.api_route("/v1/feagi/feagi/launch", methods=['POST'])
+# async def feagi_management():
+#     try:
+#         print("message:", message)
+#         connectome_overwrite_path = message.existing_connectome
+#         feagi_thread = Thread(target=start_feagi, args=(api_queue, connectome_overwrite_path,))
+#         feagi_thread.start()
+#
+#         if message.existing_connectome:
+#             return {"FEAGI started using an existing connectome."}
+#         else:
+#             return {"FEAGI started using a genome."}
+#     except Exception as e:
+#         return {"FEAGI start failed ... error details to be provided here", e}
 
 
 @app.api_route("/v1/feagi/feagi/register", methods=['POST'])
@@ -203,6 +205,9 @@ async def ipu_list():
         return {"Request failed...", e}
 
 
+# ######  Burst-Engine Endpoints #########
+# ##################################
+
 @app.api_route("/v1/feagi/feagi/burst_engine/burst_counter", methods=['GET'])
 async def burst_engine_params():
     try:
@@ -221,6 +226,9 @@ async def burst_management(message: BurstEngine):
     except Exception as e:
         return {"Request failed...", e}
 
+
+# ######  Networking Endpoints #########
+# ##################################
 
 @app.api_route("/v1/feagi/feagi/network", methods=['GET'])
 async def network_management():
@@ -241,11 +249,40 @@ async def network_management(message: Network):
         return {"Request failed...", e}
 
 
+# ######  Connectome Endpoints #########
+# ##################################
+
+
+@app.post("/v1/feagi/connectome/upload")
+async def connectome_file_upload(file: UploadFile = File(...)):
+    try:
+        data = await file.read()
+        connectome_str = data.decode("utf-8").split(" = ")[1]
+        connectome = literal_eval(connectome_str)
+        message = {"connectome": connectome}
+        api_queue.put(item=message)
+        return {"Connectome received as a file"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/connectome/source", methods=['POST'])
+async def connectome_source_path(connectome_path: ConnectomePath):
+    try:
+        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'connectome', 'path',  connectome_path,))
+        feagi_thread.start()
+
+        return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
 @app.api_route("/v1/feagi/connectome/snapshot", methods=['POST'])
-async def brain_management(message: ConnectomeSnapshot):
+async def connectome_snapshot(message: ConnectomePath):
     try:
         message = message.dict()
         message = {'connectome_snapshot': message}
+        print("Snapshot path:", message)
         api_queue.put(item=message)
         return {"Request sent!"}
     except Exception as e:
@@ -261,6 +298,53 @@ async def connectome_report():
         return {"Request failed...", e}
 
 
+# ######  Genome Endpoints #########
+# ##################################
+
+@app.post("/v1/feagi/genome/upload/file")
+async def genome_file_upload(file: UploadFile = File(...)):
+    try:
+        data = await file.read()
+
+        genome_str = data.decode("utf-8").split(" = ")[1]
+        genome = literal_eval(genome_str)
+
+        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', '',  genome,))
+        feagi_thread.start()
+
+        return {"Genome received as a file"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/upload/default", methods=['POST'])
+async def genome_string_upload():
+    try:
+        genome = static_genome.genome
+
+        print("default_genome", genome)
+        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', '',  genome,))
+        feagi_thread.start()
+
+        return {"FEAGI started using a genome string."}
+    except Exception as e:
+        return {"FEAGI start using genome string failed ...", e}
+
+
+@app.api_route("/v1/feagi/genome/upload/string", methods=['POST'])
+async def genome_string_upload(genome: Genome):
+    try:
+        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', '',  genome.genome,))
+        feagi_thread.start()
+
+        return {"FEAGI started using a genome string."}
+    except Exception as e:
+        return {"FEAGI start using genome string failed ...", e}
+
+
+# ######  Statistics and Reporting Endpoints #########
+# ##################################
+
 @app.api_route("/v1/feagi/stats", methods=['POST'])
 async def stat_management(message: Stats):
     try:
@@ -268,29 +352,6 @@ async def stat_management(message: Stats):
         message = {'stats': message}
         api_queue.put(item=message)
         return {"Request sent!"}
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.post("/v1/feagi/genome/upload/file")
-async def genome_file_upload(file: UploadFile = File(...)):
-    try:
-        data = await file.read()
-        genome_str = data.decode("utf-8").split(" = ")[1]
-        genome = literal_eval(genome_str)
-        message = {"genome": genome}
-        api_queue.put(item=message)
-        return {"Genome received as a file"}
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/genome/upload/string", methods=['POST'])
-async def genome_string_upload(genome: Genome):
-    try:
-        # genome = genome.dict()
-        print("****\n\n*****\n\n**********\n\n********", genome)
-        return {"Genome received in its string format"}
     except Exception as e:
         return {"Request failed...", e}
 
@@ -314,9 +375,10 @@ def api_message_processor(api_message):
                     = api_message['log_management']['print_messenger_logs']
 
         if 'connectome_snapshot' in api_message:
-            if 'save_to_path' in api_message['connectome_snapshot']:
-                if api_message['connectome_snapshot']['save_to_path']:
-                    disk_ops.save_brain_to_disk(connectome_path=api_message['connectome_snapshot']['save_to_path'],
+            if 'connectome_path' in api_message['connectome_snapshot']:
+                if api_message['connectome_snapshot']['connectome_path']:
+                    print("Taking a snapshot of the brain... ... ...")
+                    disk_ops.save_brain_to_disk(connectome_path=api_message['connectome_snapshot']['connectome_path'],
                                                 type='snapshot')
                 else:
                     disk_ops.save_brain_to_disk()
@@ -361,7 +423,7 @@ def api_message_processor(api_message):
                 runtime_data.parameters['Sockets']['feagi_inbound_port_virtual'] = \
                     api_message['network_management']['virtual_port']
 
-        if 'genome' in api_message:
-            pass
+        # if 'genome' in api_message:
+        #     pass
 
             # todo: Handle web port assignments

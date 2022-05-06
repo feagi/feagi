@@ -13,6 +13,18 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging.config
+import json
+import os
+import platform
+import tempfile
+from inf import initialize
+from evo import neuroembryogenesis, death, genome_processor
+from npu import burst_engine
+from inf import runtime_data, disk_ops
+from edu import edu_controller
+
+
 def splash_screen():
     print("""\n
           _________           _________               __                ______               _____    
@@ -24,18 +36,59 @@ def splash_screen():
     """)
 
 
-def start_feagi(api_queue, connectome_overwrite_path):
-    import logging.config
-    import json
-    import os
-    import platform
-    import tempfile
-    from inf import initialize
-    from evo import neuroembryogenesis, death
-    from npu import burst_engine
-    from inf import runtime_data, disk_ops
-    from edu import edu_controller
+def start_feagi(api_queue, mode, mode_option, mode_value):
+    """
+    Starts a dedicated thread for FEAGI operations
 
+    start_mode options: genome, connectome
+    mode values: genome[file, string]  connectome[path, upload]
+    """
+
+    def genome_ver_check():
+        try:
+            if runtime_data.genome['version'] == "2.0":
+                print("\n\n\n************ Genome Version 2.0 has been detected **************\n\n\n")
+                runtime_data.genome_ver = "2.0"
+                runtime_data.cortical_list = genome_processor.genome_2_cortical_list(runtime_data.genome['blueprint'])
+                genome2 = genome_processor.genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
+                genome_processor.genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])
+                runtime_data.genome['blueprint'] = genome2['blueprint']
+            else:
+                print("ERROR! Genome is not compatible with 2.0 standard")
+        except KeyError as e:
+            print("Error:", e)
+            print("Genome version not available; assuming Genome 1.0 procedures.")
+            runtime_data.cortical_list = genome_processor.genome_1_cortical_list(runtime_data.genome['blueprint'])
+            pass
+
+    def start(mode):
+        runtime_data.exit_condition = False
+
+        # This while loop simulates a single cycle of life for the artificial brain
+        while not runtime_data.exit_condition:
+
+            # Initialize the environment
+            initialize.initialize()
+
+            if mode == 'genome':
+                # Process of artificial neuroembryogenesis that leads to connectome development
+                neuroembryogenesis.develop_brain(reincarnation_mode=runtime_data.parameters[
+                    'Brain_Development']['reincarnation_mode'])
+
+            # Staring the burst_manager engine
+            burst_engine.burst_manager()
+
+            # Starting the edu controller responsible for learning and evaluations
+            edu_controller.initialize()
+
+            # A set of experiences will be outlined under life adventures that leads to learning
+            # adventures.tbd()
+
+            # Death process eliminates the brain instance and captures associated performance details
+            death.register()
+            runtime_data.exit_condition = True
+
+        print('FEAGI instance has been terminated!')
 
     splash_screen()
 
@@ -49,39 +102,24 @@ def start_feagi(api_queue, connectome_overwrite_path):
             LOGGING_CONFIG['handlers']['file']['filename'] = win_temp_dir
         logging.config.dictConfig(LOGGING_CONFIG)
 
-    exit_condition = False
+    if mode == 'genome':
+        print("Genome string option selected")
+        genome_json = mode_value
+        runtime_data.genome = genome_json
+        genome_ver_check()
+        start(mode='genome')
 
-    print("\n \n\n\n\n\n\n *****")
-    print("connectome_overwrite_path:", connectome_overwrite_path)
+    elif mode == 'connectome':
+        print("Starting FEAGI with loading a <Connectome>")
+        if mode_option == 'path':
+            print("Genome file option selected")
+            connectome_path = mode_value
+            print("connectome_path:", connectome_path)
+            start(mode='connectome')
+        elif mode_option == 'upload':
+            print("Genome string option selected")
+            connectome_files = mode_value
 
-    # This while loop simulates a single cycle of life for the artificial brain
-    while not runtime_data.exit_condition:
-
-        # Initialize the environment
-        initialize.initialize()
-
-        if connectome_overwrite_path:
-            disk_ops.load_brain_in_memory(connectome_path=connectome_overwrite_path)
-            print("************ ********* ************** ************** ************** ************** **************")
-            print("************ ********* ************** ************** ************** ************** **************")
-            print("An existing connectome was used to initialize the brain from %s \n" % connectome_overwrite_path)
-
-        else:
-            # Process of artificial neuroembryogenesis that leads to connectome development
-            neuroembryogenesis.develop_brain(reincarnation_mode=runtime_data.parameters[
-                'Brain_Development']['reincarnation_mode'])
-
-        # Staring the burst_manager engine
-        burst_engine.burst_manager()
-
-        # Starting the edu controller responsible for learning and evaluations
-        edu_controller.initialize()
-
-        # A set of experiences will be outlined under life adventures that leads to learning
-        # adventures.tbd()
-
-        # Death process eliminates the brain instance and captures associated performance details
-        death.register()
-        runtime_data.exit_condition = True
-
-    print('FEAGI instance has been terminated!')
+            start()
+    else:
+        print("ERROR! start_feagi operation mode is not defined properly.. exiting FEAGI")
