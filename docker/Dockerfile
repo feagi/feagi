@@ -12,4 +12,5 @@ RUN git fetch --all
 RUN git checkout $BRANCH
 
 WORKDIR /opt/source-code/feagi/src
+ENV PYTHONPATH "${PYTHONPATH}:/opt/source-code/feagi"
 CMD ["python3", "main.py"]
