@@ -245,5 +245,7 @@
         <child>plate4</child>
       </joint>
     </model>
+
+
   </world>
 </sdf>
