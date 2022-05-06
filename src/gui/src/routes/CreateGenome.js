@@ -29,14 +29,12 @@ const CreateGenome = () => {
           </Link>
         </Item>
         <Item>
-          <Link to="/monitoring">
-            <label htmlFor="genome-upload-card">
-              <GenomeUploadCard
-                image={<MdUploadFile size={200} />}
-                label="Use Existing Genome"
-              />
-            </label>
-          </Link>
+          <label htmlFor="genome-upload-card">
+            <GenomeUploadCard
+              image={<MdUploadFile size={200} />}
+              label="Use Existing Genome"
+            />
+          </label>
         </Item>
       </Stack>
     </>
