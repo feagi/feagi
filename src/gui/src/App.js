@@ -1,4 +1,4 @@
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, Navigate } from "react-router-dom";
 import ChooseEnvironment from "./routes/ChooseEnvironment";
 import CreateGenome from "./routes/CreateGenome";
 import DefineCorticalAreas from "./routes/DefineCorticalAreas";
@@ -11,6 +11,7 @@ function App() {
     <>
       <ResponsiveAppBar />
       <Routes>
+        <Route path="/" element={<Navigate replace to="/environment" />} />
         <Route path="/environment" element={<ChooseEnvironment />} />
         <Route path="/genome" element={<CreateGenome />} />
         <Route path="/brain" element={<DefineCorticalAreas />} />
