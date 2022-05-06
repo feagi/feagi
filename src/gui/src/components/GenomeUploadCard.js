@@ -45,7 +45,7 @@ const GenomeUploadCard = (props) => {
             </Typography>
             <label htmlFor="contained-button-file">
               <Input
-                accept="*.py"
+                accept=".py"
                 id="contained-button-file"
                 type="file"
                 onChange={handleFileUpload}
