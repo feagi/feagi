@@ -7,7 +7,7 @@ network_settings = {
     "feagi_api_port": "8000",
     'TTL': 2,
     'last_message': 0,
-    'godot_websocket_port': 5050
+    'godot_websocket_port': 9050
 }
 
 capabilities = {
