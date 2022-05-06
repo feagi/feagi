@@ -57,7 +57,7 @@ const FeagiAPI = {
 
   async postGenomeFile(genomeFile) {
     const response = await axios
-      .post(`${FEAGI_URL}/feagi/feagi/genome`, genomeFile, {
+      .post(`${FEAGI_URL}/feagi/genome/upload/file`, genomeFile, {
         headers: { "Content-Type": "multipart/form-data" },
         params: {},
       })
