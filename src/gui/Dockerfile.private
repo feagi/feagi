@@ -15,6 +15,7 @@ RUN --mount=type=ssh git clone $REPO /opt/source-code/feagi
 WORKDIR /opt/source-code/feagi
 RUN --mount=type=ssh git fetch --all
 RUN --mount=type=ssh git checkout $BRANCH
+RUN export PYTHONPATH="$PWD"
 
 WORKDIR /opt/source-code/feagi/src/gui
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y npm
@@ -24,5 +25,6 @@ RUN n stable
 RUN hash -r
 RUN curl -qL https://www.npmjs.com/install.sh | sh
 RUN npm install --global nodejs
+RUN npm install
 #CMD ["/bin/sh", "-ec", "ls"]
 CMD ["bash", "gui_start.sh"]
