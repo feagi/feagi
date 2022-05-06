@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import requests
 from fastapi import FastAPI, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,6 +26,7 @@ from inf.feagi import *
 from inf import disk_ops, runtime_data
 from inf.baseline import gui_baseline
 from inf.initialize import init_parameters
+from evo import static_genome
 
 
 init_parameters()
@@ -106,20 +108,20 @@ class SPAStaticFiles(StaticFiles):
 app.mount("/home", SPAStaticFiles(directory="gui", html=True), name="static")
 
 
-@app.api_route("/v1/feagi/feagi/launch", methods=['POST'])
-async def feagi_management(message: Launch):
-    try:
-        print("message:", message)
-        connectome_overwrite_path = message.existing_connectome
-        feagi_thread = Thread(target=start_feagi, args=(api_queue, connectome_overwrite_path,))
-        feagi_thread.start()
-
-        if message.existing_connectome:
-            return {"FEAGI started using an existing connectome."}
-        else:
-            return {"FEAGI started using a genome."}
-    except Exception as e:
-        return {"FEAGI start failed ... error details to be provided here", e}
+# @app.api_route("/v1/feagi/feagi/launch", methods=['POST'])
+# async def feagi_management():
+#     try:
+#         print("message:", message)
+#         connectome_overwrite_path = message.existing_connectome
+#         feagi_thread = Thread(target=start_feagi, args=(api_queue, connectome_overwrite_path,))
+#         feagi_thread.start()
+#
+#         if message.existing_connectome:
+#             return {"FEAGI started using an existing connectome."}
+#         else:
+#             return {"FEAGI started using a genome."}
+#     except Exception as e:
+#         return {"FEAGI start failed ... error details to be provided here", e}
 
 
 @app.api_route("/v1/feagi/feagi/register", methods=['POST'])
@@ -313,6 +315,20 @@ async def genome_file_upload(file: UploadFile = File(...)):
         return {"Genome received as a file"}
     except Exception as e:
         return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/upload/default", methods=['POST'])
+async def genome_string_upload():
+    try:
+        genome = static_genome.genome
+
+        print("default_genome", genome)
+        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', '',  genome,))
+        feagi_thread.start()
+
+        return {"FEAGI started using a genome string."}
+    except Exception as e:
+        return {"FEAGI start using genome string failed ...", e}
 
 
 @app.api_route("/v1/feagi/genome/upload/string", methods=['POST'])
