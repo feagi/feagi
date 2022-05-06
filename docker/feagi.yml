@@ -21,7 +21,7 @@ services:
     build: ../third_party/godot/
     ports:
       - "6081:8080"
-#      - "9050:9050"
+      - "9050:9050"
     privileged: true
     networks:
       - net
