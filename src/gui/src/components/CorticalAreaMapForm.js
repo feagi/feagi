@@ -55,7 +55,8 @@ const CorticalAreaMapForm = (props) => {
 
   const handleMappingDelete = (index) => {
     let updatedMappings = mappedAreas;
-    setMappedAreas(Array.from(updatedMappings.splice(index, 1)));
+    updatedMappings.splice(index, 1);
+    setMappedAreas(Array.from(updatedMappings));
   };
 
   const handleSave = (event) => {
@@ -173,7 +174,6 @@ const CorticalAreaMapForm = (props) => {
           <Grid item xs={12} md={8}>
             <List>
               {mappedAreas.map((value, index) => {
-                console.log(mappedAreas);
                 return (
                   <ListItem
                     divider
