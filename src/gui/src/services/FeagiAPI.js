@@ -67,6 +67,19 @@ const FeagiAPI = {
       });
     return response.data;
   },
+
+  async postGenomeString(genomeString) {
+    const response = await axios
+      .post(`${FEAGI_URL}/feagi/genome/upload/string`, genomeString, {
+        headers: {},
+        params: {},
+      })
+      .catch((error) => {
+        console.error(error);
+        throw error;
+      });
+    return response.data;
+  },
 };
 
 export default FeagiAPI;
