@@ -7,7 +7,7 @@ import Typography from "@mui/material/Typography";
 const MenuCard = (props) => {
   return (
     <div onClick={props.onClick ? (e) => props.onClick(e, props.label) : null}>
-      <Card sx={{ width: 345, height: 330 }}>
+      <Card sx={{ width: "245px", height: "230px" }}>
         <CardActionArea>
           {props.image}
           <CardContent>
