@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { DataGrid } from "@mui/x-data-grid";
+import Fab from "@mui/material/Fab";
+import SaveIcon from "@mui/icons-material/Save";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import InputLabel from "@mui/material/InputLabel";
 import FeagiAPI from "../services/FeagiAPI";
@@ -54,8 +57,10 @@ const CorticalAreaEditForm = (props) => {
     }
   };
 
+  const handleSave = () => {};
+
   return (
-    <div>
+    <>
       <Typography gutterBottom variant="h5" component="div" sx={{ mb: 3 }}>
         {props.corticalArea} cortical area properties
       </Typography>
@@ -124,7 +129,28 @@ const CorticalAreaEditForm = (props) => {
         rows={rows}
         sx={{ height: "275px" }}
       />
-    </div>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="center"
+        spacing={2}
+        sx={{ m: 2 }}
+      >
+        <Tooltip title="Save">
+          <span>
+            <Fab
+              size="large"
+              color="primary"
+              aria-label="add"
+              sx={{ m: 1 }}
+              disabled={true}
+            >
+              <SaveIcon onClick={handleSave} />
+            </Fab>
+          </span>
+        </Tooltip>
+      </Stack>
+    </>
   );
 };
 
