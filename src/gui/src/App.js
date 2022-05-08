@@ -1,7 +1,9 @@
 import { Route, Routes, Navigate } from "react-router-dom";
-import ChooseEnvironment from "./routes/ChooseEnvironment";
-import CreateGenome from "./routes/CreateGenome";
-import DefineCorticalAreas from "./routes/DefineCorticalAreas";
+import Environment from "./routes/Environment";
+import Genome from "./routes/Genome";
+import DefineMapping from "./routes/DefineMapping";
+import DefineMotor from "./routes/DefineMotor";
+import DefineSensory from "./routes/DefineSensory";
 import MonitoringDashboard from "./routes/MonitoringDashboard";
 import ResponsiveAppBar from "./components/ResponsiveAppBar";
 import ProgressStepper from "./components/ProgressStepper";
@@ -12,9 +14,11 @@ function App() {
       <ResponsiveAppBar />
       <Routes>
         <Route path="/" element={<Navigate replace to="/environment" />} />
-        <Route path="/environment" element={<ChooseEnvironment />} />
-        <Route path="/genome" element={<CreateGenome />} />
-        <Route path="/brain" element={<DefineCorticalAreas />} />
+        <Route path="/environment" element={<Environment />} />
+        <Route path="/genome" element={<Genome />} />
+        <Route path="/brain/mapping" element={<DefineMapping />} />
+        <Route path="/brain/motor" element={<DefineMotor />} />
+        <Route path="/brain/sensory" element={<DefineSensory />} />
         <Route path="/monitoring" element={<MonitoringDashboard />} />
       </Routes>
       <ProgressStepper />
