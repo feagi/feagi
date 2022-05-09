@@ -21,9 +21,9 @@ const CreateGenome = () => {
           <Link to="/brain">
             <label htmlFor="genome-card">
               <MenuCard
-                image={<GiDna2 size={200} />}
+                image={<GiDna2 size={150} />}
                 label="Create Genome"
-                info="Create a seed genome by defining desired sensorimotor capabilities, corresponding cortical areas and their connections."
+                // info="Create a seed genome by defining desired sensorimotor capabilities, corresponding cortical areas and their connections."
               />
             </label>
           </Link>
@@ -31,8 +31,8 @@ const CreateGenome = () => {
         <Item>
           <label htmlFor="genome-upload-card">
             <GenomeUploadCard
-              image={<MdUploadFile size={200} />}
-              label="Use Existing Genome"
+              image={<MdUploadFile size={150} />}
+              label="Upload Genome"
             />
           </label>
         </Item>
