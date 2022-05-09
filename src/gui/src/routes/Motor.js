@@ -4,9 +4,9 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { GiGears } from "react-icons/gi";
 import { BsGearWide } from "react-icons/bs";
-import Item from "./Item";
-import MenuCard from "./MenuCard";
-import MenuDialog from "./MenuDialog";
+import Item from "../components/Item";
+import MenuCard from "../components/MenuCard";
+import MenuDialog from "../components/MenuDialog";
 import MotorContext from "../contexts/MotorContext";
 
 const Motor = ({ setDefinedMotor }) => {
