@@ -10,22 +10,20 @@ import InputLabel from "@mui/material/InputLabel";
 import FeagiAPI from "../services/FeagiAPI";
 
 const CorticalAreaEditForm = (props) => {
-  // const [labelValue, setLabelValue] = useState("");
-  // const [positionXValue, setPositionXValue] = useState("");
-  // const [positionYValue, setPositionYValue] = useState("");
-  // const [positionZValue, setPositionZValue] = useState("");
-  // const [dimensionXValue, setDimensionXValue] = useState("");
-  // const [dimensionYValue, setDimensionYValue] = useState("");
-  // const [dimensionZValue, setDimensionZValue] = useState("");
-
   const columns = [
     { field: "parameter", headerName: "Parameter", width: 150 },
     { field: "value", headerName: "Value", width: 150, editable: true },
     { field: "description", headerName: "Description", width: 560 },
   ];
-
   const rows = [];
 
+  const [labelValue, setLabelValue] = useState("");
+  const [positionXValue, setPositionXValue] = useState("");
+  const [positionYValue, setPositionYValue] = useState("");
+  const [positionZValue, setPositionZValue] = useState("");
+  const [dimensionXValue, setDimensionXValue] = useState("");
+  const [dimensionYValue, setDimensionYValue] = useState("");
+  const [dimensionZValue, setDimensionZValue] = useState("");
   const [gridRows, setGridRows] = useState(rows);
   const [corticalGenes, setCorticalGenes] = useState({});
 
@@ -70,6 +68,7 @@ const CorticalAreaEditForm = (props) => {
           id="filled-basic"
           label="cortical area name..."
           variant="filled"
+          onChange={(e) => setLabelValue(e.target.value)}
           sx={{ width: "330px" }}
         />
       </Stack>
@@ -79,18 +78,21 @@ const CorticalAreaEditForm = (props) => {
           id="filled-basic"
           label="X"
           variant="filled"
+          onChange={(e) => setPositionXValue(e.target.value)}
           sx={{ width: "100px" }}
         />
         <TextField
           id="filled-basic"
           label="Y"
           variant="filled"
+          onChange={(e) => setPositionYValue(e.target.value)}
           sx={{ width: "100px" }}
         />
         <TextField
           id="filled-basic"
           label="Z"
           variant="filled"
+          onChange={(e) => setPositionZValue(e.target.value)}
           sx={{ width: "100px" }}
         />
       </Stack>
@@ -100,18 +102,21 @@ const CorticalAreaEditForm = (props) => {
           id="filled-basic"
           label="X"
           variant="filled"
+          onChange={(e) => setDimensionXValue(e.target.value)}
           sx={{ width: "100px" }}
         />
         <TextField
           id="filled-basic"
           label="Y"
           variant="filled"
+          onChange={(e) => setDimensionYValue(e.target.value)}
           sx={{ width: "100px" }}
         />
         <TextField
           id="filled-basic"
           label="Z"
           variant="filled"
+          onChange={(e) => setDimensionZValue(e.target.value)}
           sx={{ width: "100px" }}
         />
       </Stack>
@@ -143,7 +148,17 @@ const CorticalAreaEditForm = (props) => {
               color="primary"
               aria-label="add"
               sx={{ m: 1 }}
-              disabled={true}
+              disabled={
+                !(
+                  labelValue &&
+                  positionXValue &&
+                  positionYValue &&
+                  positionZValue &&
+                  dimensionXValue &&
+                  dimensionYValue &&
+                  dimensionZValue
+                )
+              }
             >
               <SaveIcon onClick={handleSave} />
             </Fab>
