@@ -80,6 +80,19 @@ const FeagiAPI = {
       });
     return response.data;
   },
+
+  async postDefaultGenome(defaultGenome) {
+    const response = await axios
+      .post(`${FEAGI_URL}/feagi/genome/upload/default`, defaultGenome, {
+        headers: {},
+        params: {},
+      })
+      .catch((error) => {
+        console.error(error);
+        throw error;
+      });
+    return response.data;
+  },
 };
 
 export default FeagiAPI;
