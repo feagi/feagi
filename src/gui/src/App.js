@@ -1,9 +1,9 @@
 import { Route, Routes, Navigate } from "react-router-dom";
 import Environment from "./routes/Environment";
 import Genome from "./routes/Genome";
-import DefineMapping from "./routes/DefineMapping";
-import DefineMotor from "./routes/DefineMotor";
-import DefineSensory from "./routes/DefineSensory";
+import Mapping from "./routes/Mapping";
+import Motor from "./routes/Motor";
+import Sensory from "./routes/Sensory";
 import MonitoringDashboard from "./routes/MonitoringDashboard";
 import ResponsiveAppBar from "./components/ResponsiveAppBar";
 import ProgressStepper from "./components/ProgressStepper";
@@ -16,9 +16,9 @@ function App() {
         <Route path="/" element={<Navigate replace to="/environment" />} />
         <Route path="/environment" element={<Environment />} />
         <Route path="/genome" element={<Genome />} />
-        <Route path="/brain/mapping" element={<DefineMapping />} />
-        <Route path="/brain/motor" element={<DefineMotor />} />
-        <Route path="/brain/sensory" element={<DefineSensory />} />
+        <Route path="/brain/mapping" element={<Mapping />} />
+        <Route path="/brain/motor" element={<Motor />} />
+        <Route path="/brain/sensory" element={<Sensory />} />
         <Route path="/monitoring" element={<MonitoringDashboard />} />
       </Routes>
       <ProgressStepper />
