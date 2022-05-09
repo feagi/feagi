@@ -1,8 +1,8 @@
 import React from "react";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import Item from "./Item";
-import MenuDialog from "./MenuDialog";
+import Item from "../components/Item";
+import MenuDialog from "../components/MenuDialog";
 
 const CorticalAreaMapping = (props) => {
   return (

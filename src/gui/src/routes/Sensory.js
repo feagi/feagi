@@ -8,9 +8,9 @@ import Typography from "@mui/material/Typography";
 import { FaRuler } from "react-icons/fa";
 import { TiWaves } from "react-icons/ti";
 import { MdBatteryCharging80 } from "react-icons/md";
-import Item from "./Item";
-import MenuCard from "./MenuCard";
-import MenuDialog from "./MenuDialog";
+import Item from "../components/Item";
+import MenuCard from "../components/MenuCard";
+import MenuDialog from "../components/MenuDialog";
 import SensoryContext from "../contexts/SensoryContext";
 
 // const Sensory = ({ setDefinedSensory }) => {
