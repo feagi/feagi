@@ -86,17 +86,17 @@ gui_baseline = {
         }
     },
     "cortical_genes": {
-        "per_voxel_neuron_cnt": "cx-_n_cnt-i",
-        "synapse_attractivity": "cx-synatt-i",
-        "postsynaptic_current": "nx-pstcr_-f",
-        "postsynaptic_current_max": "nx-pstcrm-f",
-        "plasticity_constant": "nx-plst_c-f",
-        "firing_threshold": "nx-fire_t-f",
-        "refractory_period": "nx-refrac-i",
-        "leak_coefficient": "nx-leak_c-f",
-        "consecutive_fire_cnt_max": "nx-c_fr_c-i",
-        "snooze_length": "nx-snooze-f",
-        "group_id": "cx-_group-t",
-        "degeneration": "cx-de_gen-f"
+        "per_voxel_neuron_cnt (int)": "cx-_n_cnt-i",
+        "synapse_attractivity (int)": "cx-synatt-i",
+        "postsynaptic_current (int)": "nx-pstcr_-f",
+        "postsynaptic_current_max (int)": "nx-pstcrm-f",
+        "plasticity_constant (float)": "nx-plst_c-f",
+        "firing_threshold (int)": "nx-fire_t-f",
+        "refractory_period (int)": "nx-refrac-i",
+        "leak_coefficient (int)": "nx-leak_c-f",
+        "consecutive_fire_cnt_max (int)": "nx-c_fr_c-i",
+        "snooze_length (int)": "nx-snooze-f",
+        "group_id (str)": "cx-_group-t",
+        "degeneration (bool)": "cx-de_gen-f"
     }
 }
