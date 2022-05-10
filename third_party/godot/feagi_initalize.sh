@@ -14,4 +14,4 @@ while [ ! -s csv_data.gdc ]; do
 done
 ./Godot_v3.4.4-stable_linux_headless.64 --export "HTML5" 
 cd ../html
-http-server
+http-server -c-1
