@@ -26,6 +26,7 @@ const CorticalAreaEditForm = (props) => {
   const [dimensionZValue, setDimensionZValue] = useState("");
   const [gridRows, setGridRows] = useState(rows);
   const [corticalGenes, setCorticalGenes] = useState({});
+  const [definedAreas, setDefinedAreas] = useState([]);
 
   useEffect(() => {
     FeagiAPI.getBaselineCorticalGenes().then((items) =>
@@ -36,8 +37,8 @@ const CorticalAreaEditForm = (props) => {
   Object.keys(corticalGenes).forEach((key, index) => {
     rows.push({
       id: `${index + 1}`,
-      parameter: `${corticalGenes[key]}`,
-      value: "",
+      parameter: `${corticalGenes[key][0]}`,
+      value: `${corticalGenes[key][1]}`,
       description: `${key}`,
     });
   });
