@@ -13,26 +13,24 @@ import MenuCard from "../components/MenuCard";
 import MenuDialog from "../components/MenuDialog";
 import SensoryContext from "../contexts/SensoryContext";
 
-// const Sensory = ({ setDefinedSensory }) => {
 const Sensory = () => {
   const [selectedSensory, setSelectedSensory] = useState([]);
-  const [definedSensory, setDefinedSensory] = useState({});
+  const [definedSensory, setDefinedSensory] = useState([]);
 
   const handleClick = (e, src) => {
     if (!selectedSensory.includes(src)) {
       let updatedSensory = [...selectedSensory, src];
       setSelectedSensory(updatedSensory);
-      // setDefinedSensory(updatedSensory);
     } else {
       let filteredSensory = selectedSensory.filter((item) => item !== src);
       setSelectedSensory(filteredSensory);
-      // setDefinedSensory(filteredSensory);
     }
   };
 
-  const handleSave = () => {};
-
   const handleNext = () => {};
+
+  // debugging
+  console.log(definedSensory);
 
   return (
     <>
@@ -85,7 +83,12 @@ const Sensory = () => {
           >
             {selectedSensory.map((item) => (
               <Item key={item}>
-                <MenuDialog label={item} type="cortical" />
+                <MenuDialog
+                  definedSensory={definedSensory}
+                  setDefinedSensory={setDefinedSensory}
+                  label={item}
+                  type="cortical"
+                />
               </Item>
             ))}
           </Stack>
