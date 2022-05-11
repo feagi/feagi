@@ -211,11 +211,19 @@ class Battery:
             runtime_data["battery_charge_level"] = capabilities["battery"]["capacity"]
 
     @staticmethod
-    def charge_battery():
-        print("Charging battery    ^^^^^^^^^^^^   *************    ^^^^^^^^^^^^^^^^^^^")
-        runtime_data["battery_charge_level"] += capabilities["battery"]["charge_increment"]
+    def charge_battery(intensity=1):
+        print("Charging battery    + + + + + +   *************    ^^^^^^^^^^^^^^^^^^^")
+        runtime_data["battery_charge_level"] += capabilities["battery"]["charge_increment"] * intensity
         if runtime_data["battery_charge_level"] > capabilities["battery"]["capacity"]:
             runtime_data["battery_charge_level"] = capabilities["battery"]["capacity"]
+
+    @staticmethod
+    def discharge_battery(intensity=1):
+        print("dis-Charging battery    - - - - - -   *************    ^^^^^^^^^^^^^^^^^^^")
+        runtime_data["battery_charge_level"] -= capabilities["battery"]["charge_increment"] * intensity
+        if runtime_data["battery_charge_level"] < 0:
+            runtime_data["battery_charge_level"] = 0
+
 
     @staticmethod
     def consume_battery():
@@ -485,9 +493,17 @@ def main(args=None):
                                 device_id = data_point[0]
                                 device_power = data_point[2]
                                 servo.move(feagi_device_id=device_id, power=device_power)
-                    if 'o__bat' in opu_data:
+                    if 'o_cbat' in opu_data:
                         if opu_data['o__bat']:
-                            battery.charge_battery()
+                            for data_point in opu_data['o_cbat']:
+                                intensity = data_point[2]
+                                battery.charge_battery(intensity=intensity)
+
+                    if 'o_dbat' in opu_data:
+                        if opu_data['o__bat']:
+                            for data_point in opu_data['o_dbat']:
+                                intensity = data_point[2]
+                                battery.discharge_battery(intensity=intensity)
 
                     if 'o_init' in opu_data:
                         if opu_data['o_init']:
