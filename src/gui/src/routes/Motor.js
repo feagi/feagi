@@ -1,7 +1,11 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Fab from "@mui/material/Fab";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import { GiGears } from "react-icons/gi";
 import { BsGearWide } from "react-icons/bs";
 import Item from "../components/Item";
@@ -9,25 +13,31 @@ import MenuCard from "../components/MenuCard";
 import MenuDialog from "../components/MenuDialog";
 import MotorContext from "../contexts/MotorContext";
 
-const Motor = ({ setDefinedMotor }) => {
+const Motor = () => {
   const [selectedMotor, setSelectedMotor] = useState([]);
-  const [finalizedMotor, setFinalizedMotor] = useState({});
+  const [definedMotor, setDefinedMotor] = useState([]);
 
   const handleClick = (e, src) => {
     if (!selectedMotor.includes(src)) {
       let updatedMotor = [...selectedMotor, src];
       setSelectedMotor(updatedMotor);
-      setDefinedMotor(updatedMotor);
     } else {
       let filteredMotor = selectedMotor.filter((item) => item !== src);
       setSelectedMotor(filteredMotor);
-      setDefinedMotor(filteredMotor);
     }
   };
 
+  let navigate = useNavigate();
+  const handleNext = () => {
+    navigate("/brain/mapping");
+  };
+
+  // debugging
+  console.log(definedMotor);
+
   return (
     <>
-      <MotorContext.Provider value={finalizedMotor}>
+      <MotorContext.Provider value={definedMotor}>
         <Typography variant="h4" align="center" sx={{ p: 4 }} component="div">
           Choose Motor Abilities
         </Typography>
@@ -40,14 +50,14 @@ const Motor = ({ setDefinedMotor }) => {
         >
           <Item>
             <MenuCard
-              image={<GiGears size={200} />}
+              image={<GiGears size={150} />}
               label="Motor"
               onClick={handleClick}
             />
           </Item>
           <Item>
             <MenuCard
-              image={<BsGearWide size={200} />}
+              image={<BsGearWide size={150} />}
               label="Servo"
               onClick={handleClick}
             />
@@ -69,11 +79,38 @@ const Motor = ({ setDefinedMotor }) => {
           >
             {selectedMotor.map((item) => (
               <Item key={item}>
-                <MenuDialog label={item} type="cortical" />
+                <MenuDialog
+                  definedMotor={definedMotor}
+                  setDefinedMotor={setDefinedMotor}
+                  label={item}
+                  mode="define"
+                  type="motor"
+                />
               </Item>
             ))}
           </Stack>
         </Paper>
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="center"
+          spacing={2}
+          sx={{ mb: 8 }}
+        >
+          <Tooltip title="Next">
+            <span>
+              <Fab
+                size="large"
+                color="primary"
+                aria-label="add"
+                sx={{ m: 1 }}
+                disabled={!definedMotor}
+              >
+                <ArrowForwardIcon onClick={handleNext} />
+              </Fab>
+            </span>
+          </Tooltip>
+        </Stack>
       </MotorContext.Provider>
     </>
   );
