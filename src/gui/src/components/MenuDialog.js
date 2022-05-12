@@ -24,9 +24,11 @@ const MenuDialog = (props) => {
         <DialogContent>
           {props.mode === "define" ? (
             <CorticalAreaEditForm
-              definedSensory={props.definedSensory}
               setDialogOpen={setDialogOpen}
+              definedSensory={props.definedSensory}
               setDefinedSensory={props.setDefinedSensory}
+              definedMotor={props.definedMotor}
+              setDefinedMotor={props.setDefinedMotor}
               corticalArea={props.label}
               type={props.type}
             />
