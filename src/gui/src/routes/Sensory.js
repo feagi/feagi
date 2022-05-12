@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Paper from "@mui/material/Paper";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import Fab from "@mui/material/Fab";
@@ -27,7 +28,10 @@ const Sensory = () => {
     }
   };
 
-  const handleNext = () => {};
+  let navigate = useNavigate();
+  const handleNext = () => {
+    navigate("/brain/motor");
+  };
 
   // debugging
   console.log(definedSensory);
@@ -108,7 +112,7 @@ const Sensory = () => {
                 color="primary"
                 aria-label="add"
                 sx={{ m: 1 }}
-                disabled={!definedSensory}
+                disabled={!!definedSensory}
               >
                 <ArrowForwardIcon onClick={handleNext} />
               </Fab>
