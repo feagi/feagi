@@ -11,11 +11,9 @@ import { BsGearWide } from "react-icons/bs";
 import Item from "../components/Item";
 import MenuCard from "../components/MenuCard";
 import MenuDialog from "../components/MenuDialog";
-import MotorContext from "../contexts/MotorContext";
 
-const Motor = () => {
+const Motor = (props) => {
   const [selectedMotor, setSelectedMotor] = useState([]);
-  const [definedMotor, setDefinedMotor] = useState([]);
 
   const handleClick = (e, src) => {
     if (!selectedMotor.includes(src)) {
@@ -32,86 +30,81 @@ const Motor = () => {
     navigate("/brain/mapping");
   };
 
-  // debugging
-  console.log(definedMotor);
-
   return (
     <>
-      <MotorContext.Provider value={definedMotor}>
-        <Typography variant="h4" align="center" sx={{ p: 4 }} component="div">
-          Choose Motor Abilities
-        </Typography>
+      <Typography variant="h4" align="center" sx={{ p: 4 }} component="div">
+        Choose Motor Abilities
+      </Typography>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="center"
+        spacing={2}
+        sx={{ m: 6 }}
+      >
+        <Item>
+          <MenuCard
+            image={<GiGears size={150} />}
+            label="Motor"
+            onClick={handleClick}
+          />
+        </Item>
+        <Item>
+          <MenuCard
+            image={<BsGearWide size={150} />}
+            label="Servo"
+            onClick={handleClick}
+          />
+        </Item>
+      </Stack>
+      <Typography variant="h4" align="center" sx={{ p: 2 }} component="div">
+        Selected Motor
+      </Typography>
+      <Paper
+        elevation={1}
+        sx={{ mx: "30rem", mb: "5rem", height: "75px", p: 2 }}
+      >
         <Stack
           direction="row"
           alignItems="center"
           justifyContent="center"
           spacing={2}
-          sx={{ m: 6 }}
+          sx={{ m: 1 }}
         >
-          <Item>
-            <MenuCard
-              image={<GiGears size={150} />}
-              label="Motor"
-              onClick={handleClick}
-            />
-          </Item>
-          <Item>
-            <MenuCard
-              image={<BsGearWide size={150} />}
-              label="Servo"
-              onClick={handleClick}
-            />
-          </Item>
+          {selectedMotor.map((item) => (
+            <Item key={item}>
+              <MenuDialog
+                definedMotor={props.definedMotor}
+                setDefinedMotor={props.setDefinedMotor}
+                label={item}
+                mode="define"
+                type="motor"
+              />
+            </Item>
+          ))}
         </Stack>
-        <Typography variant="h4" align="center" sx={{ p: 2 }} component="div">
-          Selected Motor
-        </Typography>
-        <Paper
-          elevation={1}
-          sx={{ mx: "30rem", mb: "5rem", height: "75px", p: 2 }}
-        >
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="center"
-            spacing={2}
-            sx={{ m: 1 }}
-          >
-            {selectedMotor.map((item) => (
-              <Item key={item}>
-                <MenuDialog
-                  definedMotor={definedMotor}
-                  setDefinedMotor={setDefinedMotor}
-                  label={item}
-                  mode="define"
-                  type="motor"
-                />
-              </Item>
-            ))}
-          </Stack>
-        </Paper>
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="center"
-          spacing={2}
-          sx={{ mb: 8 }}
-        >
-          <Tooltip title="Next">
-            <span>
-              <Fab
-                size="large"
-                color="primary"
-                aria-label="add"
-                sx={{ m: 1 }}
-                disabled={!definedMotor}
-              >
-                <ArrowForwardIcon onClick={handleNext} />
-              </Fab>
-            </span>
-          </Tooltip>
-        </Stack>
-      </MotorContext.Provider>
+      </Paper>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="center"
+        spacing={2}
+        sx={{ mb: 8 }}
+      >
+        <Tooltip title="Next">
+          <span>
+            <Fab
+              size="large"
+              color="primary"
+              aria-label="add"
+              sx={{ m: 1 }}
+              disabled={!props.definedMotor}
+            >
+              <ArrowForwardIcon onClick={handleNext} />
+            </Fab>
+          </span>
+        </Tooltip>
+      </Stack>
     </>
   );
 };

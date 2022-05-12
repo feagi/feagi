@@ -1,10 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Item from "../components/Item";
 import MenuDialog from "../components/MenuDialog";
 
-const CorticalAreaMapping = (props) => {
+const Mapping = (props) => {
+  console.log(props);
+  // convert props.definedSensory, props.definedMotor to arrays
+  // so that they work with .map
+
   return (
     <>
       <Typography variant="h4" align="center" sx={{ p: 4 }} component="div">
@@ -19,7 +23,12 @@ const CorticalAreaMapping = (props) => {
       >
         {props.definedSensory.map((item) => (
           <Item key={item}>
-            <MenuDialog label={item} type="synaptic" />
+            <MenuDialog
+              definedMappings={props.definedMappings}
+              setDefinedMappings={props.setDefinedMappings}
+              label={item}
+              mode="map"
+            />
           </Item>
         ))}
       </Stack>
@@ -32,7 +41,7 @@ const CorticalAreaMapping = (props) => {
       >
         {props.definedMotor.map((item) => (
           <Item key={item}>
-            <MenuDialog label={item} type="synaptic" />
+            <MenuDialog label={item} mode="map" />
           </Item>
         ))}
       </Stack>
@@ -40,4 +49,4 @@ const CorticalAreaMapping = (props) => {
   );
 };
 
-export default CorticalAreaMapping;
+export default Mapping;
