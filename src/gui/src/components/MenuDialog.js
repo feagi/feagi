@@ -22,12 +22,13 @@ const MenuDialog = (props) => {
         maxWidth="md"
       >
         <DialogContent>
-          {props.type === "cortical" ? (
+          {props.mode === "define" ? (
             <CorticalAreaEditForm
               definedSensory={props.definedSensory}
               setDialogOpen={setDialogOpen}
               setDefinedSensory={props.setDefinedSensory}
               corticalArea={props.label}
+              type={props.type}
             />
           ) : (
             <CorticalAreaMapForm corticalArea={props.label} />

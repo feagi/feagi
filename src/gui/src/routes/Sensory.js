@@ -87,7 +87,8 @@ const Sensory = () => {
                   definedSensory={definedSensory}
                   setDefinedSensory={setDefinedSensory}
                   label={item}
-                  type="cortical"
+                  mode="define"
+                  type="sensory"
                 />
               </Item>
             ))}
@@ -107,7 +108,7 @@ const Sensory = () => {
                 color="primary"
                 aria-label="add"
                 sx={{ m: 1 }}
-                disabled={!!definedSensory}
+                disabled={!definedSensory}
               >
                 <ArrowForwardIcon onClick={handleNext} />
               </Fab>
