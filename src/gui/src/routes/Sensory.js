@@ -12,11 +12,9 @@ import { MdBatteryCharging80 } from "react-icons/md";
 import Item from "../components/Item";
 import MenuCard from "../components/MenuCard";
 import MenuDialog from "../components/MenuDialog";
-import SensoryContext from "../contexts/SensoryContext";
 
-const Sensory = () => {
+const Sensory = (props) => {
   const [selectedSensory, setSelectedSensory] = useState([]);
-  const [definedSensory, setDefinedSensory] = useState([]);
 
   const handleClick = (e, src) => {
     if (!selectedSensory.includes(src)) {
@@ -33,93 +31,88 @@ const Sensory = () => {
     navigate("/brain/motor");
   };
 
-  // debugging
-  console.log(definedSensory);
-
   return (
     <>
-      <SensoryContext.Provider value={definedSensory}>
-        <Typography variant="h4" align="center" sx={{ p: 4 }} component="div">
-          Choose Sensory Abilities
-        </Typography>
+      <Typography variant="h4" align="center" sx={{ p: 4 }} component="div">
+        Choose Sensory Abilities
+      </Typography>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="center"
+        spacing={2}
+        sx={{ m: 2 }}
+      >
+        <Item>
+          <MenuCard
+            image={<TiWaves size={150} />}
+            label="Infrared"
+            onClick={handleClick}
+          />
+        </Item>
+        <Item>
+          <MenuCard
+            image={<FaRuler size={150} />}
+            label="Proximity"
+            onClick={handleClick}
+          />
+        </Item>
+        <Item>
+          <MenuCard
+            image={<MdBatteryCharging80 size={150} />}
+            label="Battery"
+            onClick={handleClick}
+          />
+        </Item>
+      </Stack>
+      <Typography variant="h4" align="center" sx={{ p: 2 }} component="div">
+        Selected Sensory
+      </Typography>
+      <Paper
+        elevation={1}
+        sx={{ mx: "30rem", mb: "1rem", height: "75px", p: 2 }}
+      >
         <Stack
           direction="row"
           alignItems="center"
           justifyContent="center"
           spacing={2}
-          sx={{ m: 2 }}
+          sx={{ m: 1 }}
         >
-          <Item>
-            <MenuCard
-              image={<TiWaves size={150} />}
-              label="Infrared"
-              onClick={handleClick}
-            />
-          </Item>
-          <Item>
-            <MenuCard
-              image={<FaRuler size={150} />}
-              label="Proximity"
-              onClick={handleClick}
-            />
-          </Item>
-          <Item>
-            <MenuCard
-              image={<MdBatteryCharging80 size={150} />}
-              label="Battery"
-              onClick={handleClick}
-            />
-          </Item>
+          {selectedSensory.map((item) => (
+            <Item key={item}>
+              <MenuDialog
+                definedSensory={props.definedSensory}
+                setDefinedSensory={props.setDefinedSensory}
+                label={item}
+                mode="define"
+                type="sensory"
+              />
+            </Item>
+          ))}
         </Stack>
-        <Typography variant="h4" align="center" sx={{ p: 2 }} component="div">
-          Selected Sensory
-        </Typography>
-        <Paper
-          elevation={1}
-          sx={{ mx: "30rem", mb: "1rem", height: "75px", p: 2 }}
-        >
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="center"
-            spacing={2}
-            sx={{ m: 1 }}
-          >
-            {selectedSensory.map((item) => (
-              <Item key={item}>
-                <MenuDialog
-                  definedSensory={definedSensory}
-                  setDefinedSensory={setDefinedSensory}
-                  label={item}
-                  mode="define"
-                  type="sensory"
-                />
-              </Item>
-            ))}
-          </Stack>
-        </Paper>
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="center"
-          spacing={2}
-          sx={{ mb: 8 }}
-        >
-          <Tooltip title="Next">
-            <span>
-              <Fab
-                size="large"
-                color="primary"
-                aria-label="add"
-                sx={{ m: 1 }}
-                disabled={!!definedSensory}
-              >
-                <ArrowForwardIcon onClick={handleNext} />
-              </Fab>
-            </span>
-          </Tooltip>
-        </Stack>
-      </SensoryContext.Provider>
+      </Paper>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="center"
+        spacing={2}
+        sx={{ mb: 8 }}
+      >
+        <Tooltip title="Next">
+          <span>
+            <Fab
+              size="large"
+              color="primary"
+              aria-label="add"
+              sx={{ m: 1 }}
+              disabled={!props.definedSensory}
+            >
+              <ArrowForwardIcon onClick={handleNext} />
+            </Fab>
+          </span>
+        </Tooltip>
+      </Stack>
     </>
   );
 };
