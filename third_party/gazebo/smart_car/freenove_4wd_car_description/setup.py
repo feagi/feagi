@@ -1,6 +1,9 @@
 from setuptools import setup
+from glob import glob
+import subprocess, os, platform
 
-package_name = 'src'
+
+package_name = 'freenove_4wd_car_description'
 
 setup(
     name=package_name,
@@ -10,6 +13,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
