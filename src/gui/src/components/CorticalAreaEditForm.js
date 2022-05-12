@@ -32,7 +32,7 @@ const CorticalAreaEditForm = (props) => {
     defaultGenes[corticalGenes[key][0]] = corticalGenes[key][1];
   });
 
-  const assembleSensoryGenomeData = () => {
+  const assembleCorticalAreaData = () => {
     const labelSlice = labelValue.slice(0, 3);
     const groupSlice = defaultGenes["cx-_group-t"][0];
     const genePrefix = `_____10c-${groupSlice}__${labelSlice}-`;
@@ -71,12 +71,18 @@ const CorticalAreaEditForm = (props) => {
   };
 
   const handleSave = () => {
-    const definedArea = assembleSensoryGenomeData();
-    console.log(props.definedSensory);
-    props.setDefinedSensory({
-      ...props.definedSensory,
-      [props.corticalArea.toLowerCase()]: definedArea,
-    });
+    const definedArea = assembleCorticalAreaData();
+    if (props.type === "sensory") {
+      props.setDefinedSensory({
+        ...props.definedSensory,
+        [props.corticalArea.toLowerCase()]: definedArea,
+      });
+    } else if (props.type === "motor") {
+      props.setDefinedMotor({
+        ...props.definedMotor,
+        [props.corticalArea.toLowerCase()]: definedArea,
+      });
+    }
     props.setDialogOpen(false);
   };
 
