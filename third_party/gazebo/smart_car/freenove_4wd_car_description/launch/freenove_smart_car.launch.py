@@ -100,6 +100,14 @@ def generate_launch_description():
         output='screen'
     )
 
+    #controller
+    controller = Node(
+        package='freenove_4wd_car_description',
+        executable='controller.py',
+        # FIXME: Why isn't the topic being populated on the UI? RQt issue?
+        output='screen',
+    )
+
     return LaunchDescription([
         ign_gazebo,
         DeclareLaunchArgument('rviz', default_value='false',
@@ -109,5 +117,6 @@ def generate_launch_description():
         bridge,
         #rviz,
         #rqt
+        controller
     ])
 
