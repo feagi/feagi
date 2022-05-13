@@ -6,8 +6,6 @@ import MenuDialog from "../components/MenuDialog";
 
 const Mapping = (props) => {
   console.log(props);
-  // convert props.definedSensory, props.definedMotor to arrays
-  // so that they work with .map
 
   return (
     <>
@@ -21,7 +19,7 @@ const Mapping = (props) => {
         spacing={12}
         sx={{ m: 1 }}
       >
-        {props.definedSensory.map((item) => (
+        {Object.keys(props.definedSensory).map((item) => (
           <Item key={item}>
             <MenuDialog
               definedMappings={props.definedMappings}
@@ -39,7 +37,7 @@ const Mapping = (props) => {
         spacing={12}
         sx={{ m: 24 }}
       >
-        {props.definedMotor.map((item) => (
+        {Object.keys(props.definedMotor).map((item) => (
           <Item key={item}>
             <MenuDialog label={item} mode="map" />
           </Item>
