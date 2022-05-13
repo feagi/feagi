@@ -5,8 +5,6 @@ import Item from "../components/Item";
 import MenuDialog from "../components/MenuDialog";
 
 const Mapping = (props) => {
-  console.log(props);
-
   return (
     <>
       <Typography variant="h4" align="center" sx={{ p: 4 }} component="div">
