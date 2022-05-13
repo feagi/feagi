@@ -18,16 +18,15 @@ import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import FeagiAPI from "../services/FeagiAPI";
-import MappingContext from "../contexts/MappingContext";
 
 const CorticalAreaMapForm = (props) => {
+  console.log(props);
   const [sensoryAreas, setSensoryAreas] = useState([]);
   const [motorAreas, setMotorAreas] = useState([]);
   const [predefinedSynapseRules, setPredefinedSynapseRules] = useState({});
   const [selectedArea, setSelectedArea] = useState("");
   const [selectedRule, setSelectedRule] = useState("");
   const [mappedAreas, setMappedAreas] = useState([]);
-  const [definedMappings, setDefinedMappings] = useState([]);
 
   useEffect(() => {
     FeagiAPI.getBaselineMotor().then((items) => setMotorAreas(items));
@@ -60,147 +59,157 @@ const CorticalAreaMapForm = (props) => {
     setMappedAreas(Array.from(updatedMappings));
   };
 
+  const assembleCorticalMappingData = () => {
+    // format the mapping data for genome
+    // mapping gene --> cx-dstmap-d
+    // { dstArea: [["rule", [1, 1, 1], 1, False]] }
+    console.log(mappedAreas);
+  };
+
   const handleSave = (event) => {
     console.log(event);
+    let definedMapping = assembleCorticalMappingData();
+    props.setDefinedMappings({
+      ...props.definedMappings,
+      [props.corticalArea.toLowerCase()]: "PLACEHOLDER",
+    });
   };
 
   return (
     <>
-      <MappingContext.Provider value={definedMappings}>
-        <Typography gutterBottom variant="h5" component="div" sx={{ mb: 4 }}>
-          {props.corticalArea} Area Cortical Mapping
+      <Typography gutterBottom variant="h5" component="div" sx={{ mb: 4 }}>
+        {props.srcCorticalArea} Area Cortical Mapping
+      </Typography>
+      <div>
+        <Typography variant="h6" component="div" sx={{ mt: 2, mb: 1 }}>
+          Select mapping destination and type
         </Typography>
-        <div>
-          <Typography variant="h6" component="div" sx={{ mt: 2, mb: 1 }}>
-            Select mapping destination and type
-          </Typography>
-          <Divider />
-          <FormControl sx={{ m: 2, minWidth: 120 }}>
-            <InputLabel id="dest-select-label">Cortical Area</InputLabel>
-            <Select
-              labelId="dest-select-label"
-              id="dest-select"
-              value={selectedArea}
-              label="Cortical Area"
-              onChange={handleAreaChange}
-              sx={{ width: "250px" }}
+        <Divider />
+        <FormControl sx={{ m: 2, minWidth: 120 }}>
+          <InputLabel id="dest-select-label">Cortical Area</InputLabel>
+          <Select
+            labelId="dest-select-label"
+            id="dest-select"
+            value={selectedArea}
+            label="Cortical Area"
+            onChange={handleAreaChange}
+            sx={{ width: "250px" }}
+          >
+            {sensoryAreas.concat(motorAreas).map((area) => {
+              return (
+                <MenuItem key={area} value={area}>
+                  {area}
+                </MenuItem>
+              );
+            })}
+          </Select>
+          <FormHelperText>Required</FormHelperText>
+        </FormControl>
+        <FormControl sx={{ m: 2, minWidth: 120 }}>
+          <InputLabel id="rule-select-label">Pre-defined Rule</InputLabel>
+          <Select
+            labelId="rule-select-label"
+            id="rule-select"
+            value={selectedRule}
+            label="Pre-defined Rule"
+            onChange={handleRuleChange}
+            sx={{ width: "250px" }}
+          >
+            {Object.keys(predefinedSynapseRules).map((rule) => {
+              return (
+                <MenuItem key={rule} value={rule}>
+                  {rule}
+                </MenuItem>
+              );
+            })}
+          </Select>
+          <FormHelperText>Required</FormHelperText>
+        </FormControl>
+        <FormControl sx={{ m: 2, minWidth: 200 }}>
+          <TextField
+            disabled
+            id="rule-def-field"
+            label={
+              selectedRule
+                ? JSON.stringify(predefinedSynapseRules[selectedRule])
+                : "Rule info"
+            }
+            variant="outlined"
+            sx={{ width: "250px" }}
+          />
+        </FormControl>
+      </div>
+      <div>
+        <Tooltip
+          title={
+            !(selectedArea && selectedRule)
+              ? "Select area/rule first..."
+              : "Add mapping..."
+          }
+        >
+          <span>
+            <Fab
+              size="small"
+              color="primary"
+              aria-label="add"
+              sx={{ m: 1 }}
+              disabled={!(selectedArea && selectedRule)}
             >
-              {sensoryAreas.concat(motorAreas).map((area) => {
+              <AddIcon onClick={handleAdd} />
+            </Fab>
+          </span>
+        </Tooltip>
+        <Tooltip
+          title={
+            mappedAreas.length > 0 ? "Save mappings" : "Add mapping first..."
+          }
+        >
+          <span>
+            <Fab
+              size="small"
+              color="primary"
+              aria-label="add"
+              sx={{ m: 1 }}
+              disabled={!mappedAreas.length > 0}
+            >
+              <SaveIcon onClick={handleSave} />
+            </Fab>
+          </span>
+        </Tooltip>
+      </div>
+      <div>
+        <Typography gutterBottom variant="h6" component="div" sx={{ mt: 4 }}>
+          Defined Mappings for {props.srcCorticalArea}
+        </Typography>
+        <Divider />
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={8}>
+            <List>
+              {mappedAreas.map((value, index) => {
                 return (
-                  <MenuItem key={area} value={area}>
-                    {area}
-                  </MenuItem>
+                  <ListItem
+                    divider
+                    key={index}
+                    secondaryAction={
+                      <IconButton
+                        edge="end"
+                        aria-label="delete"
+                        onClick={() => handleMappingDelete(index)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    }
+                  >
+                    <ListItemText primary={index + 1} />
+                    <ListItemText primary={value.dstArea} />
+                    <ListItemText primary={value.rule} />
+                  </ListItem>
                 );
               })}
-            </Select>
-            <FormHelperText>Required</FormHelperText>
-          </FormControl>
-          <FormControl sx={{ m: 2, minWidth: 120 }}>
-            <InputLabel id="rule-select-label">Pre-defined Rule</InputLabel>
-            <Select
-              labelId="rule-select-label"
-              id="rule-select"
-              value={selectedRule}
-              label="Pre-defined Rule"
-              onChange={handleRuleChange}
-              sx={{ width: "250px" }}
-            >
-              {Object.keys(predefinedSynapseRules).map((rule) => {
-                return (
-                  <MenuItem key={rule} value={rule}>
-                    {rule}
-                  </MenuItem>
-                );
-              })}
-            </Select>
-            <FormHelperText>Required</FormHelperText>
-          </FormControl>
-          <FormControl sx={{ m: 2, minWidth: 200 }}>
-            <TextField
-              disabled
-              id="rule-def-field"
-              label={
-                selectedRule
-                  ? JSON.stringify(predefinedSynapseRules[selectedRule])
-                  : "Rule info"
-              }
-              variant="outlined"
-              sx={{ width: "250px" }}
-            />
-          </FormControl>
-        </div>
-        <div>
-          <Tooltip
-            title={
-              !(selectedArea && selectedRule)
-                ? "Select area/rule first..."
-                : "Add mapping..."
-            }
-          >
-            <span>
-              <Fab
-                size="small"
-                color="primary"
-                aria-label="add"
-                sx={{ m: 1 }}
-                disabled={!(selectedArea && selectedRule)}
-              >
-                <AddIcon onClick={handleAdd} />
-              </Fab>
-            </span>
-          </Tooltip>
-          <Tooltip
-            title={
-              mappedAreas.length > 0 ? "Save mappings" : "Add mapping first..."
-            }
-          >
-            <span>
-              <Fab
-                size="small"
-                color="primary"
-                aria-label="add"
-                sx={{ m: 1 }}
-                disabled={!mappedAreas.length > 0}
-              >
-                <SaveIcon onClick={handleSave} />
-              </Fab>
-            </span>
-          </Tooltip>
-        </div>
-        <div>
-          <Typography gutterBottom variant="h6" component="div" sx={{ mt: 4 }}>
-            Defined Mappings for {props.corticalArea}
-          </Typography>
-          <Divider />
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={8}>
-              <List>
-                {mappedAreas.map((value, index) => {
-                  return (
-                    <ListItem
-                      divider
-                      key={index}
-                      secondaryAction={
-                        <IconButton
-                          edge="end"
-                          aria-label="delete"
-                          onClick={() => handleMappingDelete(index)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      }
-                    >
-                      <ListItemText primary={index + 1} />
-                      <ListItemText primary={value.dstArea} />
-                      <ListItemText primary={value.rule} />
-                    </ListItem>
-                  );
-                })}
-              </List>
-            </Grid>
+            </List>
           </Grid>
-        </div>
-      </MappingContext.Provider>
+        </Grid>
+      </div>
     </>
   );
 };
