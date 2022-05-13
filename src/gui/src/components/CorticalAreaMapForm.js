@@ -20,7 +20,6 @@ import Typography from "@mui/material/Typography";
 import FeagiAPI from "../services/FeagiAPI";
 
 const CorticalAreaMapForm = (props) => {
-  console.log(props);
   const [sensoryAreas, setSensoryAreas] = useState([]);
   const [motorAreas, setMotorAreas] = useState([]);
   const [predefinedSynapseRules, setPredefinedSynapseRules] = useState({});
@@ -47,7 +46,11 @@ const CorticalAreaMapForm = (props) => {
   const handleAdd = () => {
     setMappedAreas([
       ...mappedAreas,
-      { dstArea: selectedArea, rule: selectedRule },
+      {
+        dstArea: selectedArea,
+        rule: selectedRule,
+        info: predefinedSynapseRules[selectedRule],
+      },
     ]);
     setSelectedArea("");
     setSelectedRule("");
@@ -57,22 +60,15 @@ const CorticalAreaMapForm = (props) => {
     let updatedMappings = mappedAreas;
     updatedMappings.splice(index, 1);
     setMappedAreas(Array.from(updatedMappings));
+    props.setDefinedMappings(Array.from(updatedMappings));
   };
 
-  const assembleCorticalMappingData = () => {
-    // format the mapping data for genome
-    // mapping gene --> cx-dstmap-d
-    // { dstArea: [["rule", [1, 1, 1], 1, False]] }
-    console.log(mappedAreas);
-  };
-
-  const handleSave = (event) => {
-    console.log(event);
-    let definedMapping = assembleCorticalMappingData();
+  const handleSave = () => {
     props.setDefinedMappings({
       ...props.definedMappings,
-      [props.corticalArea.toLowerCase()]: "PLACEHOLDER",
+      [props.srcCorticalArea.toLowerCase()]: mappedAreas,
     });
+    props.setDialogOpen(false);
   };
 
   return (
