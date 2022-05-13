@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Route, Routes, Navigate } from "react-router-dom";
 import Environment from "./routes/Environment";
-import Genome from "./routes/Genome";
+import GenomeAssembler from "./routes/GenomeAssembler";
+import GenomeMode from "./routes/GenomeMode";
 import Mapping from "./routes/Mapping";
 import Motor from "./routes/Motor";
 import Sensory from "./routes/Sensory";
@@ -20,7 +21,17 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate replace to="/environment" />} />
         <Route path="/environment" element={<Environment />} />
-        <Route path="/genome" element={<Genome />} />
+        <Route path="/genome/mode" element={<GenomeMode />} />
+        <Route
+          path="/genome/assemble"
+          element={
+            <GenomeAssembler
+              definedMotor={definedMotor}
+              definedSensory={definedSensory}
+              definedMappings={definedMappings}
+            />
+          }
+        />
         <Route
           path="/brain/mapping"
           element={
