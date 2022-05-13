@@ -35,6 +35,8 @@ const MenuDialog = (props) => {
           ) : (
             <CorticalAreaMapForm
               srcCorticalArea={props.label}
+              definedMappings={props.definedMappings}
+              setDefinedMappings={props.setDefinedMappings}
               setDialogOpen={setDialogOpen}
             />
           )}
