@@ -33,7 +33,10 @@ const MenuDialog = (props) => {
               type={props.type}
             />
           ) : (
-            <CorticalAreaMapForm corticalArea={props.label} />
+            <CorticalAreaMapForm
+              srcCorticalArea={props.label}
+              setDialogOpen={setDialogOpen}
+            />
           )}
         </DialogContent>
       </Dialog>
