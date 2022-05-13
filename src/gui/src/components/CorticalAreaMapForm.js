@@ -20,6 +20,7 @@ import Typography from "@mui/material/Typography";
 import FeagiAPI from "../services/FeagiAPI";
 
 const CorticalAreaMapForm = (props) => {
+  console.log(props);
   const [sensoryAreas, setSensoryAreas] = useState([]);
   const [motorAreas, setMotorAreas] = useState([]);
   const [predefinedSynapseRules, setPredefinedSynapseRules] = useState({});
@@ -62,6 +63,7 @@ const CorticalAreaMapForm = (props) => {
     // format the mapping data for genome
     // mapping gene --> cx-dstmap-d
     // { dstArea: [["rule", [1, 1, 1], 1, False]] }
+    console.log(mappedAreas);
   };
 
   const handleSave = (event) => {
@@ -76,7 +78,7 @@ const CorticalAreaMapForm = (props) => {
   return (
     <>
       <Typography gutterBottom variant="h5" component="div" sx={{ mb: 4 }}>
-        {props.corticalArea} Area Cortical Mapping
+        {props.srcCorticalArea} Area Cortical Mapping
       </Typography>
       <div>
         <Typography variant="h6" component="div" sx={{ mt: 2, mb: 1 }}>
@@ -177,7 +179,7 @@ const CorticalAreaMapForm = (props) => {
       </div>
       <div>
         <Typography gutterBottom variant="h6" component="div" sx={{ mt: 4 }}>
-          Defined Mappings for {props.corticalArea}
+          Defined Mappings for {props.srcCorticalArea}
         </Typography>
         <Divider />
         <Grid container spacing={2}>

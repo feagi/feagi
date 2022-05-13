@@ -47,6 +47,8 @@ const CorticalAreaEditForm = (props) => {
     const dimensionYGene = genePrefix.concat("nx-___bby-i");
     const dimensionZGene = genePrefix.concat("nx-___bbz-i");
 
+    const mappingGene = genePrefix.concat("cx-dstmap-d");
+
     let prefixedDefaultGenes = {};
     Object.keys(defaultGenes).forEach((key) => {
       prefixedDefaultGenes[genePrefix.concat(key)] = defaultGenes[key];
@@ -60,6 +62,7 @@ const CorticalAreaEditForm = (props) => {
       [dimensionXGene]: parseInt(dimensionXValue),
       [dimensionYGene]: parseInt(dimensionYValue),
       [dimensionZGene]: parseInt(dimensionZValue),
+      [mappingGene]: {},
       ...prefixedDefaultGenes,
     };
 

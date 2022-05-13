@@ -14,9 +14,6 @@ function App() {
   const [definedSensory, setDefinedSensory] = useState([]);
   const [definedMappings, setDefinedMappings] = useState([]);
 
-  console.log(definedSensory);
-  console.log(definedMotor);
-
   return (
     <>
       <ResponsiveAppBar />
