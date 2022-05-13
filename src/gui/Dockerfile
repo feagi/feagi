@@ -6,12 +6,20 @@ ARG BRANCH="main"
 ENV Running_In_CONTAINER Yes
 
 RUN mkdir -p /opt/source-code/feagi/
-RUN git clone $REPO /opt/source-code/feagi
+RUN --mount=type=ssh git clone $REPO /opt/source-code/feagi
 WORKDIR /opt/source-code/feagi
-RUN git fetch --all
-RUN git checkout $BRANCH
+RUN --mount=type=ssh git fetch --all
+RUN --mount=type=ssh git checkout $BRANCH
+RUN export PYTHONPATH="$PWD"
 
 WORKDIR /opt/source-code/feagi/src/gui
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y npm
+RUN npm cache clean -f
+RUN npm install -g n
+RUN n stable
+RUN hash -r
+RUN curl -qL https://www.npmjs.com/install.sh | sh
+RUN npm install --global nodejs
 RUN npm install
-RUN npm start
-
+#CMD ["/bin/sh", "-ec", "ls"]
+CMD ["bash", "gui_start.sh"]
