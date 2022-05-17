@@ -46,7 +46,12 @@ const Mapping = (props) => {
       >
         {Object.keys(props.definedMotor).map((item) => (
           <Item key={item}>
-            <MenuDialog label={item} mode="map" />
+            <MenuDialog
+              definedMappings={props.definedMappings}
+              setDefinedMappings={props.setDefinedMappings}
+              label={item}
+              mode="map"
+            />
           </Item>
         ))}
       </Stack>
