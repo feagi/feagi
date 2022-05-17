@@ -26,7 +26,6 @@ gui_baseline = {
         'o__ser'
     },
     "morphology": {
-        "placeholder": {},
         "block_to_block": {
             "vectors": [[0, 0, 0]]
         },
