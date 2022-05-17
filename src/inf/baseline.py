@@ -85,6 +85,9 @@ gui_baseline = {
             "functions": True
         }
     },
+    "morphology_scalar": [1, 1, 1],
+    "postSynapticCurrent_multiplier": 1,
+    "plasticity_flag": False,
     "cortical_genes": {
         "per_voxel_neuron_cnt (int)": ["cx-_n_cnt-i", 1],
         "synapse_attractivity (int)": ["cx-synatt-i", 100],
