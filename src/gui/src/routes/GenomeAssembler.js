@@ -1,10 +1,15 @@
 import React, { useState } from "react";
+import CircularProgress from "@mui/material/CircularProgress";
+import { GiBrain } from "react-icons/gi";
+import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import FeagiAPI from "../services/FeagiAPI";
 
 const GenomeAssembler = (props) => {
   // add title, button, some sort of progress/loading indicator
+  const [loading, setLoading] = useState(false);
+
   console.log(props);
 
   let genomeBase = {
@@ -14,7 +19,6 @@ const GenomeAssembler = (props) => {
     evolution_burst_count: 50,
     ipu_idle_threshold: 1000,
     neuron_morphologies: {
-      placeholder: {},
       block_to_block: {
         vectors: [[0, 0, 0]],
       },
@@ -123,21 +127,46 @@ const GenomeAssembler = (props) => {
     });
   };
 
-  const generateGenome = (sensoryData, motorData, genomeBase) => {
+  const generateAndSendGenome = () => {
+    setLoading(true);
+
+    let mappingDataCopy = structuredClone(props.definedMappings);
+    let sensoryDataCopy = structuredClone(props.definedSensory);
+    let motorDataCopy = structuredClone(props.definedMotor);
+
+    matchMappings(mappingDataCopy, sensoryDataCopy, motorDataCopy);
+
     let blueprintShell = {};
-    let combinedDataVals = Object.values({ ...sensoryData, ...motorData });
-    // loop through combined values and add them to blueprintShell
-    // then genomeBase["blueprint"] = blueprintShell
+    let combinedDataVals = Object.values({
+      ...sensoryDataCopy,
+      ...motorDataCopy,
+    });
+
+    for (let i = 0; i < combinedDataVals.length; i++) {
+      for (const key in combinedDataVals[i]) {
+        blueprintShell[key] = combinedDataVals[i][key];
+      }
+    }
+
+    genomeBase["blueprint"] = blueprintShell;
+    FeagiAPI.postGenomeString({ genome: genomeBase });
+    setLoading(false);
   };
 
-  let mappingDataCopy = structuredClone(props.definedMappings);
-  let sensoryDataCopy = structuredClone(props.definedSensory);
-  let motorDataCopy = structuredClone(props.definedMotor);
-
-  matchMappings(mappingDataCopy, sensoryDataCopy, motorDataCopy);
-  generateGenome(sensoryDataCopy, motorDataCopy, genomeBase);
-
-  return <div>GenomeAssembler</div>;
+  return (
+    <div>
+      <Typography>Generate genome and start FEAGI</Typography>
+      <Box sx={{ display: "flex", justifyContent: "center", m: 24 }}>
+        {loading ? (
+          <CircularProgress />
+        ) : (
+          <Button variant="contained" onClick={generateAndSendGenome}>
+            CREATE GENOME AND START
+          </Button>
+        )}
+      </Box>
+    </div>
+  );
 };
 
 export default GenomeAssembler;
