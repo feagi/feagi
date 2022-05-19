@@ -53,12 +53,13 @@ else:
     import termios
     import tty
 
-model_name = "models/sdf/freenove_smart_car"
+model_name = "models/sdf/freenove_smart_car" #This is for the gazebo sdf file path
+robot_name = "freenove_smart_car" #This is the model name in gazebo without sdf involves.
 y = str(capabilities["position"]["y"])
 z = str(capabilities["position"]["z"])
 first_part = "ign service -s /world/free_world/create --reqtype ignition.msgs.EntityFactory --reptype ignition.msgs.Boolean --timeout 300 --req 'sdf_filename:'\'\""
 second_part = model_name + ".sdf\" pose: {position: {y"
-third_part = ": " + y + ", z: " + z + "}}\'"
+third_part = ": " + y + ", z: " + z + "}}\' &"
 add_model = first_part + second_part + third_part
 print(add_model)
 os.system(add_model)
@@ -401,12 +402,20 @@ class PosInit:
     def reset_position(self):
         print("## ## ## ## Resetting robot position ## ## ## ##")
         # Remove the robot
-        os.system(remove_model)
-        runtime_data["motor_status"] = {}
-        runtime_data['servo_status'] = {}
-        runtime_data['battery_charge_level'] = 1
+        y = str(capabilities["position"]["y"])
+        z = str(capabilities["position"]["z"])
+        first_part_r = "ign service -s /world/free_world/set_pose --reqtype ignition.msgs.Pose --reptype ignition.msgs.Boolean --timeout 300 --req \'name: "
+        second_part_r = ' "' + robot_name + '" ' + ", position: {y: "
+        third_part_r = y + ", z: " + z +"}' "
+        respawn = first_part_r + second_part_r + third_part_r
+        print("++++++++++++++++++++++++++")
+        print(respawn)
+        os.system(respawn)
+        # runtime_data["motor_status"] = {}
+        # runtime_data['servo_status'] = {}
+        # runtime_data['battery_charge_level'] = 1
         # Create the robot
-        os.system(add_model)
+        #os.system(add_model)
         servo.set_default_position()
 
 
@@ -532,4 +541,5 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
 
