@@ -90,9 +90,9 @@ gui_baseline = {
     "cortical_genes": {
         "per_voxel_neuron_cnt (int)": ["cx-_n_cnt-i", 1],
         "synapse_attractivity (int)": ["cx-synatt-i", 100],
-        "postsynaptic_current (float)": ["nx-pstcr_-f", 5.0],
-        "postsynaptic_current_max (float)": ["nx-pstcrm-f", 35.0], 
-        "plasticity_constant (float)": ["nx-plst_c-f", 0.05],
+        "postsynaptic_current (float)": ["cx-pstcr_-f", 5.0],
+        "postsynaptic_current_max (float)": ["cx-pstcrm-f", 35.0],
+        "plasticity_constant (float)": ["cx-plst_c-f", 0.05],
         "firing_threshold (float)": ["nx-fire_t-f", 1.0],
         "refractory_period (int)": ["nx-refrac-i", 0],
         "leak_coefficient (float)": ["nx-leak_c-f", 0],
