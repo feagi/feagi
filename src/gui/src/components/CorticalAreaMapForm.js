@@ -20,16 +20,12 @@ import Typography from "@mui/material/Typography";
 import FeagiAPI from "../services/FeagiAPI";
 
 const CorticalAreaMapForm = (props) => {
-  const [sensoryAreas, setSensoryAreas] = useState([]);
-  const [motorAreas, setMotorAreas] = useState([]);
   const [predefinedSynapseRules, setPredefinedSynapseRules] = useState({});
   const [selectedArea, setSelectedArea] = useState("");
   const [selectedRule, setSelectedRule] = useState("");
   const [mappedAreas, setMappedAreas] = useState([]);
 
   useEffect(() => {
-    FeagiAPI.getBaselineMotor().then((items) => setMotorAreas(items));
-    FeagiAPI.getBaselineSensory().then((items) => setSensoryAreas(items));
     FeagiAPI.getBaselineMorphology().then((items) =>
       setPredefinedSynapseRules(items)
     );
@@ -91,13 +87,15 @@ const CorticalAreaMapForm = (props) => {
             onChange={handleAreaChange}
             sx={{ width: "250px" }}
           >
-            {sensoryAreas.concat(motorAreas).map((area) => {
-              return (
-                <MenuItem key={area} value={area}>
-                  {area}
-                </MenuItem>
-              );
-            })}
+            {props.availableMappingSensory
+              .concat(props.availableMappingMotor)
+              .map((area) => {
+                return (
+                  <MenuItem key={area} value={area}>
+                    {area}
+                  </MenuItem>
+                );
+              })}
           </Select>
           <FormHelperText>Required</FormHelperText>
         </FormControl>

@@ -14,6 +14,20 @@ const Mapping = (props) => {
     navigate("/genome/assemble");
   };
 
+  const getAvailableMappings = (areaData) => {
+    let availableAreaNames = [];
+    for (const definedArea in areaData) {
+      for (const geneSample in areaData[definedArea]) {
+        availableAreaNames.push(geneSample.slice(9, 15));
+        break;
+      }
+    }
+    return availableAreaNames;
+  };
+
+  const availableMappingSensory = getAvailableMappings(props.definedSensory);
+  const availableMappingMotor = getAvailableMappings(props.definedMotor);
+
   return (
     <>
       <Typography variant="h4" align="center" sx={{ p: 4 }} component="div">
@@ -31,6 +45,8 @@ const Mapping = (props) => {
             <MenuDialog
               definedMappings={props.definedMappings}
               setDefinedMappings={props.setDefinedMappings}
+              availableMappingSensory={availableMappingSensory}
+              availableMappingMotor={availableMappingMotor}
               label={item}
               mode="map"
             />
@@ -49,6 +65,8 @@ const Mapping = (props) => {
             <MenuDialog
               definedMappings={props.definedMappings}
               setDefinedMappings={props.setDefinedMappings}
+              availableMappingSensory={availableMappingSensory}
+              availableMappingMotor={availableMappingMotor}
               label={item}
               mode="map"
             />
