@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import AddIcon from "@mui/icons-material/Add";
+import Checkbox from "@mui/material/Checkbox";
 import DeleteIcon from "@mui/icons-material/Delete";
 import Divider from "@mui/material/Divider";
 import Fab from "@mui/material/Fab";
 import FormControl from "@mui/material/FormControl";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import FormHelperText from "@mui/material/FormHelperText";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
@@ -24,6 +26,8 @@ const CorticalAreaMapForm = (props) => {
   const [selectedArea, setSelectedArea] = useState("");
   const [selectedRule, setSelectedRule] = useState("");
   const [mappedAreas, setMappedAreas] = useState([]);
+  const [plasticity, setPlasticity] = useState(false);
+  const [pscMultiplier, setPscMultiplier] = useState(1);
 
   useEffect(() => {
     FeagiAPI.getBaselineMorphology().then((items) =>
@@ -50,6 +54,8 @@ const CorticalAreaMapForm = (props) => {
     ]);
     setSelectedArea("");
     setSelectedRule("");
+    setPlasticity(false);
+    setPscMultiplier(1);
   };
 
   const handleMappingDelete = (index) => {
@@ -67,6 +73,15 @@ const CorticalAreaMapForm = (props) => {
     props.setDialogOpen(false);
   };
 
+  const handleCheckboxChange = (event) => {
+    setPlasticity(event.target.checked);
+  };
+
+  const handlePscChange = (event) => {
+    console.log(event.target.value);
+    setPscMultiplier(event.target.value);
+  };
+
   return (
     <>
       <Typography gutterBottom variant="h5" component="div" sx={{ mb: 4 }}>
@@ -77,7 +92,7 @@ const CorticalAreaMapForm = (props) => {
           Select mapping destination and type
         </Typography>
         <Divider />
-        <FormControl sx={{ m: 2, minWidth: 120 }}>
+        <FormControl sx={{ mt: 2, mr: 1, mb: 2 }}>
           <InputLabel id="dest-select-label">Cortical Area</InputLabel>
           <Select
             labelId="dest-select-label"
@@ -85,7 +100,7 @@ const CorticalAreaMapForm = (props) => {
             value={selectedArea}
             label="Cortical Area"
             onChange={handleAreaChange}
-            sx={{ width: "250px" }}
+            sx={{ width: "200px" }}
           >
             {props.availableMappingSensory
               .concat(props.availableMappingMotor)
@@ -99,7 +114,7 @@ const CorticalAreaMapForm = (props) => {
           </Select>
           <FormHelperText>Required</FormHelperText>
         </FormControl>
-        <FormControl sx={{ m: 2, minWidth: 120 }}>
+        <FormControl sx={{ mt: 2, mr: 1, mb: 2 }}>
           <InputLabel id="rule-select-label">Pre-defined Rule</InputLabel>
           <Select
             labelId="rule-select-label"
@@ -107,7 +122,7 @@ const CorticalAreaMapForm = (props) => {
             value={selectedRule}
             label="Pre-defined Rule"
             onChange={handleRuleChange}
-            sx={{ width: "250px" }}
+            sx={{ width: "200px" }}
           >
             {Object.keys(predefinedSynapseRules).map((rule) => {
               return (
@@ -119,7 +134,7 @@ const CorticalAreaMapForm = (props) => {
           </Select>
           <FormHelperText>Required</FormHelperText>
         </FormControl>
-        <FormControl sx={{ m: 2, minWidth: 200 }}>
+        <FormControl sx={{ mt: 2, mr: 1, mb: 2 }}>
           <TextField
             disabled
             id="rule-def-field"
@@ -129,7 +144,24 @@ const CorticalAreaMapForm = (props) => {
                 : "Rule info"
             }
             variant="outlined"
-            sx={{ width: "250px" }}
+            sx={{ width: "200px" }}
+          />
+        </FormControl>
+        <FormControl sx={{ mt: 2, mr: 1, mb: 2 }}>
+          <TextField
+            label="PSC Multiplier"
+            type="number"
+            defaultValue={1}
+            onChange={(event) => handlePscChange(event)}
+            sx={{ width: "110px" }}
+          />
+        </FormControl>
+        <FormControl sx={{ mt: 3, mr: 1, mb: 2, width: "20px" }}>
+          <FormControlLabel
+            control={
+              <Checkbox checked={plasticity} onChange={handleCheckboxChange} />
+            }
+            label="Plasticity"
           />
         </FormControl>
       </div>
@@ -177,7 +209,7 @@ const CorticalAreaMapForm = (props) => {
         </Typography>
         <Divider />
         <Grid container spacing={2}>
-          <Grid item xs={12} md={8}>
+          <Grid item xs={12} md={12} sx={{ mr: "10px" }}>
             <List>
               {mappedAreas.map((value, index) => {
                 return (
