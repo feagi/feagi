@@ -37,6 +37,8 @@ const MenuDialog = (props) => {
               srcCorticalArea={props.label}
               definedMappings={props.definedMappings}
               setDefinedMappings={props.setDefinedMappings}
+              availableMappingSensory={props.availableMappingSensory}
+              availableMappingMotor={props.availableMappingMotor}
               setDialogOpen={setDialogOpen}
             />
           )}
