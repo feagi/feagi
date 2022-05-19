@@ -102,13 +102,9 @@ const GenomeAssembler = (props) => {
   const matchMappings = (mappingData, sensoryData, motorData) => {
     Object.keys(mappingData).forEach((key) => {
       if (key in sensoryData && !(key in motorData)) {
-        console.log("ONLY IN SENSORY!!!");
         insertMappingData(mappingData, key, sensoryData);
-        console.log(sensoryData);
       } else if (key in motorData && !(key in sensoryData)) {
-        console.log("ONLY IN MOTOR!!!");
         insertMappingData(mappingData, key, motorData);
-        console.log(motorData);
       }
     });
   };
