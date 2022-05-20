@@ -29,14 +29,29 @@ const CorticalAreaMapForm = (props) => {
   const [mappedAreas, setMappedAreas] = useState([]);
   const [plasticity, setPlasticity] = useState(false);
   const [pscMultiplier, setPscMultiplier] = useState(1);
-  const [morphologyScalarX, setMorphologyScalarX] = useState(1);
-  const [morphologyScalarY, setMorphologyScalarY] = useState(1);
-  const [morphologyScalarZ, setMorphologyScalarZ] = useState(1);
+  const [morphologyScalarX, setMorphologyScalarX] = useState("");
+  const [morphologyScalarY, setMorphologyScalarY] = useState("");
+  const [morphologyScalarZ, setMorphologyScalarZ] = useState("");
 
   useEffect(() => {
-    FeagiAPI.getBaselineMorphology().then((items) =>
-      setPredefinedSynapseRules(items)
+    FeagiAPI.getBaselineMorphology().then((rules) =>
+      setPredefinedSynapseRules(rules)
     );
+
+    let morphologySetterArray = [
+      setMorphologyScalarX,
+      setMorphologyScalarY,
+      setMorphologyScalarZ,
+    ];
+    FeagiAPI.getBaselineMorphologyScalar().then((items) =>
+      items.forEach((item, index) => morphologySetterArray[index](item))
+    );
+
+    FeagiAPI.getBaselinePscMultiplier().then((multiplier) =>
+      setPscMultiplier(multiplier)
+    );
+
+    FeagiAPI.getBaselinePlasticityFlag().then((flag) => setPlasticity(flag));
   }, []);
 
   const handleAreaChange = (event) => {
