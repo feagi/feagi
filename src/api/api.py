@@ -189,6 +189,30 @@ async def supported_cortical_genes_list():
         return {"Request failed...", e}
 
 
+@app.api_route("/v1/feagi/feagi/gui_baseline/morphology-scalar", methods=['GET'])
+async def supported_cortical_genes_list():
+    try:
+        return gui_baseline['morphology_scalar']
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/gui_baseline/psc-multiplier", methods=['GET'])
+async def supported_cortical_genes_list():
+    try:
+        return gui_baseline['postSynapticCurrent_multiplier']
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/gui_baseline/plasticity-flag", methods=['GET'])
+async def supported_cortical_genes_list():
+    try:
+        return gui_baseline['plasticity_flag']
+    except Exception as e:
+        return {"Request failed...", e}
+
+
 @app.api_route("/v1/feagi/feagi/pns/ipu", methods=['GET'])
 async def ipu_list():
     try:

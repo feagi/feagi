@@ -84,6 +84,7 @@ const Sensory = (props) => {
               <MenuDialog
                 definedSensory={props.definedSensory}
                 setDefinedSensory={props.setDefinedSensory}
+                defaultCorticalGenes={props.defaultCorticalGenes}
                 label={item}
                 mode="define"
                 type="sensory"

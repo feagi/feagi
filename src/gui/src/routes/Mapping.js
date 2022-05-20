@@ -1,11 +1,32 @@
-import React, { useState } from "react";
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import Fab from "@mui/material/Fab";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import Item from "../components/Item";
 import MenuDialog from "../components/MenuDialog";
 
 const Mapping = (props) => {
-  console.log(props);
+  let navigate = useNavigate();
+  const handleNext = () => {
+    navigate("/genome/assemble");
+  };
+
+  const getAvailableMappings = (areaData) => {
+    let availableAreaNames = [];
+    for (const definedArea in areaData) {
+      for (const geneSample in areaData[definedArea]) {
+        availableAreaNames.push(geneSample.slice(9, 15));
+        break;
+      }
+    }
+    return availableAreaNames;
+  };
+
+  const availableMappingSensory = getAvailableMappings(props.definedSensory);
+  const availableMappingMotor = getAvailableMappings(props.definedMotor);
 
   return (
     <>
@@ -24,6 +45,14 @@ const Mapping = (props) => {
             <MenuDialog
               definedMappings={props.definedMappings}
               setDefinedMappings={props.setDefinedMappings}
+              availableMappingSensory={availableMappingSensory}
+              availableMappingMotor={availableMappingMotor}
+              defaultMorphologyScalarX={props.defaultMorphologyScalarX}
+              defaultMorphologyScalarY={props.defaultMorphologyScalarY}
+              defaultMorphologyScalarZ={props.defaultMorphologyScalarZ}
+              defaultPscMultiplier={props.defaultPscMultiplier}
+              defaultPlasticityFlag={props.defaultPlasticityFlag}
+              defaultSynapseRules={props.defaultSynapseRules}
               label={item}
               mode="map"
             />
@@ -39,9 +68,43 @@ const Mapping = (props) => {
       >
         {Object.keys(props.definedMotor).map((item) => (
           <Item key={item}>
-            <MenuDialog label={item} mode="map" />
+            <MenuDialog
+              definedMappings={props.definedMappings}
+              setDefinedMappings={props.setDefinedMappings}
+              availableMappingSensory={availableMappingSensory}
+              availableMappingMotor={availableMappingMotor}
+              defaultMorphologyScalarX={props.defaultMorphologyScalarX}
+              defaultMorphologyScalarY={props.defaultMorphologyScalarY}
+              defaultMorphologyScalarZ={props.defaultMorphologyScalarZ}
+              defaultPscMultiplier={props.defaultPscMultiplier}
+              defaultPlasticityFlag={props.defaultPlasticityFlag}
+              defaultSynapseRules={props.defaultSynapseRules}
+              label={item}
+              mode="map"
+            />
           </Item>
         ))}
+      </Stack>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="center"
+        spacing={2}
+        sx={{ mb: 8 }}
+      >
+        <Tooltip title="Next">
+          <span>
+            <Fab
+              size="large"
+              color="primary"
+              aria-label="add"
+              sx={{ m: 1 }}
+              disabled={!props.definedMotor}
+            >
+              <ArrowForwardIcon onClick={handleNext} />
+            </Fab>
+          </span>
+        </Tooltip>
       </Stack>
     </>
   );
