@@ -20,7 +20,7 @@ import numpy as np
 import json
 import sys
 import os
-import matplotlib as mpl
+# import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 from mpl_toolkits.mplot3d.proj3d import proj_transform
@@ -100,31 +100,31 @@ __dst_cortical_area = sys.argv[3]
 cortical_areas = [__src_cortical_area, __dst_cortical_area]
 
 connectome_path = sys.argv[1]
-genome_path = connectome_path[:-11] + 'genome_tmp.json'
+cortical_data_path = connectome_path + 'cortical_data.json'
 
-with open(genome_path, "r") as genome_file:
-    genome = json.load(genome_file)
+with open(cortical_data_path, "r") as cortical_data_file:
+    cortical_data = json.load(cortical_data_file)
 
 connectome = load_brain(connectome_path, [__src_cortical_area, __dst_cortical_area])
-
-cortical_data = {}
 cortical_dims = list()
 
-# Extract Cortical dimensions from Genome
+# Extract Cortical dimensions
 for cortical_area in cortical_areas:
-    cortical_dims.append(genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"])
+    for _ in cortical_data:
+        if cortical_data[_][7] == cortical_area:
+            cortical_dims.append([cortical_data[_][4],
+                                  cortical_data[_][5],
+                                  cortical_data[_][6]])
 
-# print("original cortical dimensions=", cortical_dims)
 
 # Swapping y and z to match Godot axis
-tmp = cortical_dims[0][2]
-cortical_dims[0][2] = cortical_dims[0][1]
-cortical_dims[0][1] = tmp
+# tmp = cortical_dims[0][2]
+# cortical_dims[0][2] = cortical_dims[0][1]
+# cortical_dims[0][1] = tmp
 
 tmp = cortical_dims[1][2]
 cortical_dims[1][2] = cortical_dims[1][1]
 cortical_dims[1][1] = tmp
-
 
 max_x = max(cortical_dims[0][0], cortical_dims[1][0])
 max_y = max(cortical_dims[0][1], cortical_dims[1][1])
@@ -147,6 +147,7 @@ cortical_area_1 = (x < cortical_dims[0][0]) & (z < cortical_dims[0][1]) & (y < c
 cortical_area_2 = (padding + cortical_dims[0][0] <= x) & \
                   (x < padding + cortical_dims[0][0] + cortical_dims[1][0]) & \
                   (y < cortical_dims[1][1]) & (z < cortical_dims[1][2])
+
 
 # combine the objects into a single boolean array
 if cortical_areas[0] == cortical_areas[1]:

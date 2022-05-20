@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
+import json
 import logging
 import os
 import platform
@@ -414,6 +414,11 @@ def generate_cortical_dimensions():
         cortical_information[cortical_name].append(genes["block_boundaries"][1])
         cortical_information[cortical_name].append(genes["block_boundaries"][2])
         cortical_information[cortical_name].append(cortical_area)
+
+    with open(runtime_data.connectome_path+"cortical_data.json", "w") as data_file:
+        data_file.seek(0)
+        data_file.write(json.dumps(cortical_information, indent=3))
+        data_file.truncate()
 
     return cortical_information
 
