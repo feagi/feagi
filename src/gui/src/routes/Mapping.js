@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import Fab from "@mui/material/Fab";
@@ -47,6 +47,12 @@ const Mapping = (props) => {
               setDefinedMappings={props.setDefinedMappings}
               availableMappingSensory={availableMappingSensory}
               availableMappingMotor={availableMappingMotor}
+              defaultMorphologyScalarX={props.defaultMorphologyScalarX}
+              defaultMorphologyScalarY={props.defaultMorphologyScalarY}
+              defaultMorphologyScalarZ={props.defaultMorphologyScalarZ}
+              defaultPscMultiplier={props.defaultPscMultiplier}
+              defaultPlasticityFlag={props.defaultPlasticityFlag}
+              defaultSynapseRules={props.defaultSynapseRules}
               label={item}
               mode="map"
             />
@@ -67,6 +73,12 @@ const Mapping = (props) => {
               setDefinedMappings={props.setDefinedMappings}
               availableMappingSensory={availableMappingSensory}
               availableMappingMotor={availableMappingMotor}
+              defaultMorphologyScalarX={props.defaultMorphologyScalarX}
+              defaultMorphologyScalarY={props.defaultMorphologyScalarY}
+              defaultMorphologyScalarZ={props.defaultMorphologyScalarZ}
+              defaultPscMultiplier={props.defaultPscMultiplier}
+              defaultPlasticityFlag={props.defaultPlasticityFlag}
+              defaultSynapseRules={props.defaultSynapseRules}
               label={item}
               mode="map"
             />
