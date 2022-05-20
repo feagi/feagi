@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import AddIcon from "@mui/icons-material/Add";
 import Checkbox from "@mui/material/Checkbox";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -20,39 +20,24 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import FeagiAPI from "../services/FeagiAPI";
 
 const CorticalAreaMapForm = (props) => {
-  const [predefinedSynapseRules, setPredefinedSynapseRules] = useState({});
   const [selectedArea, setSelectedArea] = useState("");
   const [selectedRule, setSelectedRule] = useState("");
   const [mappedAreas, setMappedAreas] = useState([]);
-  const [plasticity, setPlasticity] = useState(false);
-  const [pscMultiplier, setPscMultiplier] = useState(1);
-  const [morphologyScalarX, setMorphologyScalarX] = useState("");
-  const [morphologyScalarY, setMorphologyScalarY] = useState("");
-  const [morphologyScalarZ, setMorphologyScalarZ] = useState("");
-
-  useEffect(() => {
-    FeagiAPI.getBaselineMorphology().then((rules) =>
-      setPredefinedSynapseRules(rules)
-    );
-
-    let morphologySetterArray = [
-      setMorphologyScalarX,
-      setMorphologyScalarY,
-      setMorphologyScalarZ,
-    ];
-    FeagiAPI.getBaselineMorphologyScalar().then((items) =>
-      items.forEach((item, index) => morphologySetterArray[index](item))
-    );
-
-    FeagiAPI.getBaselinePscMultiplier().then((multiplier) =>
-      setPscMultiplier(multiplier)
-    );
-
-    FeagiAPI.getBaselinePlasticityFlag().then((flag) => setPlasticity(flag));
-  }, []);
+  const [plasticity, setPlasticity] = useState(props.defaultPlasticityFlag);
+  const [pscMultiplier, setPscMultiplier] = useState(
+    props.defaultPcsMultiplier
+  );
+  const [morphologyScalarX, setMorphologyScalarX] = useState(
+    props.defaultMorphologyScalarX
+  );
+  const [morphologyScalarY, setMorphologyScalarY] = useState(
+    props.defaultMorphologyScalarY
+  );
+  const [morphologyScalarZ, setMorphologyScalarZ] = useState(
+    props.defaultMorphologyScalarZ
+  );
 
   const handleAreaChange = (event) => {
     setSelectedArea(event.target.value);
@@ -68,7 +53,7 @@ const CorticalAreaMapForm = (props) => {
       {
         dstArea: selectedArea,
         rule: selectedRule,
-        info: predefinedSynapseRules[selectedRule],
+        info: props.defaultSynapseRules[selectedRule],
         morphologyScalar: [
           parseInt(morphologyScalarX),
           parseInt(morphologyScalarY),
@@ -80,11 +65,11 @@ const CorticalAreaMapForm = (props) => {
     ]);
     setSelectedArea("");
     setSelectedRule("");
-    setMorphologyScalarX(1);
-    setMorphologyScalarY(1);
-    setMorphologyScalarZ(1);
-    setPscMultiplier(1);
-    setPlasticity(false);
+    setMorphologyScalarX(props.defaultMorphologyScalarX);
+    setMorphologyScalarY(props.defaultMorphologyScalarY);
+    setMorphologyScalarZ(props.defaultMorphologyScalarZ);
+    setPscMultiplier(props.defaultPscMultiplier);
+    setPlasticity(props.defaultPlasticityFlag);
   };
 
   const handleMappingDelete = (index) => {
@@ -152,7 +137,7 @@ const CorticalAreaMapForm = (props) => {
             onChange={handleRuleChange}
             sx={{ width: "250px" }}
           >
-            {Object.keys(predefinedSynapseRules).map((rule) => {
+            {Object.keys(props.defaultSynapseRules).map((rule) => {
               return (
                 <MenuItem key={rule} value={rule}>
                   {rule}
@@ -168,7 +153,7 @@ const CorticalAreaMapForm = (props) => {
             id="rule-def-field"
             label={
               selectedRule
-                ? JSON.stringify(predefinedSynapseRules[selectedRule])
+                ? JSON.stringify(props.defaultSynapseRules[selectedRule])
                 : "Rule info"
             }
             variant="outlined"

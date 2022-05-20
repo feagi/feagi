@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Divider from "@mui/material/Divider";
 import Fab from "@mui/material/Fab";
 import SaveIcon from "@mui/icons-material/Save";
@@ -7,7 +7,6 @@ import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import InputLabel from "@mui/material/InputLabel";
-import FeagiAPI from "../services/FeagiAPI";
 
 const CorticalAreaEditForm = (props) => {
   const [labelValue, setLabelValue] = useState(
@@ -19,17 +18,11 @@ const CorticalAreaEditForm = (props) => {
   const [dimensionXValue, setDimensionXValue] = useState("");
   const [dimensionYValue, setDimensionYValue] = useState("");
   const [dimensionZValue, setDimensionZValue] = useState("");
-  const [corticalGenes, setCorticalGenes] = useState({});
-
-  useEffect(() => {
-    FeagiAPI.getBaselineCorticalGenes().then((items) =>
-      setCorticalGenes(items)
-    );
-  }, []);
 
   const defaultGenes = {};
-  Object.keys(corticalGenes).forEach((key) => {
-    defaultGenes[corticalGenes[key][0]] = corticalGenes[key][1];
+  Object.keys(props.defaultCorticalGenes).forEach((key) => {
+    defaultGenes[props.defaultCorticalGenes[key][0]] =
+      props.defaultCorticalGenes[key][1];
   });
 
   const assembleCorticalAreaData = () => {
@@ -163,7 +156,7 @@ const CorticalAreaEditForm = (props) => {
         Neuron Parameters (advanced options)
       </Typography>
       <Divider sx={{ mb: 2 }} />
-      {Object.keys(corticalGenes).map((key, index) => {
+      {Object.keys(props.defaultCorticalGenes).map((key, index) => {
         return (
           <Stack
             key={`stack-${index}`}
@@ -178,11 +171,14 @@ const CorticalAreaEditForm = (props) => {
             <TextField
               key={`field-${index}`}
               id={`filled-basic-${index}`}
-              label={corticalGenes[key][0]}
-              defaultValue={corticalGenes[key][1]}
+              label={props.defaultCorticalGenes[key][0]}
+              defaultValue={props.defaultCorticalGenes[key][1]}
               variant="filled"
               onChange={(e) =>
-                handleGeneValueChange(e.target.value, corticalGenes[key][0])
+                handleGeneValueChange(
+                  e.target.value,
+                  props.defaultCorticalGenes[key][0]
+                )
               }
               sx={{ width: "150px" }}
             />

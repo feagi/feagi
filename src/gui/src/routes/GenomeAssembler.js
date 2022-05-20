@@ -1,9 +1,7 @@
 import React, { useState } from "react";
 import CircularProgress from "@mui/material/CircularProgress";
-import { GiBrain } from "react-icons/gi";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Typography from "@mui/material/Typography";
 import FeagiAPI from "../services/FeagiAPI";
 
 const GenomeAssembler = (props) => {
