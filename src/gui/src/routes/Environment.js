@@ -1,13 +1,21 @@
-import React, { useState } from "react";
+import React from "react";
+import { useNavigate } from "react-router-dom";
 import Stack from "@mui/material/Stack";
 import { GiVintageRobot } from "react-icons/gi";
 import { AiOutlineRobot } from "react-icons/ai";
-import { Link } from "react-router-dom";
 import Item from "../components/Item";
 import MenuCard from "../components/MenuCard";
 
 const ChooseEnvironment = () => {
-  // const [environmentType, setEnvironmentType] = useState("");
+  let navigate = useNavigate();
+
+  const handlePhysicalRobotClick = () => {
+    navigate("/genome/mode");
+  };
+
+  const handleVirtualRobotClick = () => {
+    navigate("/genome/mode");
+  };
 
   return (
     <Stack
@@ -18,22 +26,20 @@ const ChooseEnvironment = () => {
       sx={{ m: 6 }}
     >
       <Item>
-        <Link to={"/genome"}>
-          <MenuCard
-            image={<GiVintageRobot size={150} />}
-            label="Physical Robot"
-            // info="A physical device with basic I/O and processing power capable of running or interacting with FEAGI"
-          />
-        </Link>
+        <MenuCard
+          image={<GiVintageRobot size={150} />}
+          label="Physical Robot"
+          onClick={handlePhysicalRobotClick}
+          // info="A physical device with basic I/O and processing power capable of running or interacting with FEAGI"
+        />
       </Item>
       <Item>
-        <Link to={"/genome"}>
-          <MenuCard
-            image={<AiOutlineRobot size={150} />}
-            label="Virtual Robot"
-            // info="A virtual robot existing in a virtual environment (ex: Gazebo) with a defined physics engine capable of interfacing with FEAGI"
-          />
-        </Link>
+        <MenuCard
+          image={<AiOutlineRobot size={150} />}
+          label="Virtual Robot"
+          onClick={handleVirtualRobotClick}
+          // info="A virtual robot existing in a virtual environment (ex: Gazebo) with a defined physics engine capable of interfacing with FEAGI"
+        />
       </Item>
     </Stack>
   );
