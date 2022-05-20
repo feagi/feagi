@@ -29,12 +29,23 @@ const MenuDialog = (props) => {
               setDefinedSensory={props.setDefinedSensory}
               definedMotor={props.definedMotor}
               setDefinedMotor={props.setDefinedMotor}
+              defaultCorticalGenes={props.defaultCorticalGenes}
               corticalArea={props.label}
               type={props.type}
             />
           ) : (
             <CorticalAreaMapForm
               srcCorticalArea={props.label}
+              definedMappings={props.definedMappings}
+              setDefinedMappings={props.setDefinedMappings}
+              availableMappingSensory={props.availableMappingSensory}
+              availableMappingMotor={props.availableMappingMotor}
+              defaultMorphologyScalarX={props.defaultMorphologyScalarX}
+              defaultMorphologyScalarY={props.defaultMorphologyScalarY}
+              defaultMorphologyScalarZ={props.defaultMorphologyScalarZ}
+              defaultPscMultiplier={props.defaultPscMultiplier}
+              defaultPlasticityFlag={props.defaultPlasticityFlag}
+              defaultSynapseRules={props.defaultSynapseRules}
               setDialogOpen={setDialogOpen}
             />
           )}

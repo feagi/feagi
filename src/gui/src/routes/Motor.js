@@ -76,6 +76,7 @@ const Motor = (props) => {
               <MenuDialog
                 definedMotor={props.definedMotor}
                 setDefinedMotor={props.setDefinedMotor}
+                defaultCorticalGenes={props.defaultCorticalGenes}
                 label={item}
                 mode="define"
                 type="motor"
