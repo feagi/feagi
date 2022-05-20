@@ -115,7 +115,12 @@ const GenomeAssembler = (props) => {
         for (let i = 0; i < mappingData[targetKey].length; i++) {
           corticalAreaData[targetKey][subKey] = {
             [mappingData[targetKey][i]["dstArea"]]: [
-              [mappingData[targetKey][i]["rule"], [1, 1, 1], 1, false],
+              [
+                mappingData[targetKey][i]["rule"],
+                mappingData[targetKey][i]["morphologyScalar"],
+                mappingData[targetKey][i]["pscMultiplier"],
+                mappingData[targetKey][i]["plasticity"],
+              ],
             ],
           };
         }
@@ -151,7 +156,6 @@ const GenomeAssembler = (props) => {
 
   return (
     <div>
-      <Typography>Generate genome and start FEAGI</Typography>
       <Box sx={{ display: "flex", justifyContent: "center", m: 24 }}>
         {loading ? (
           <CircularProgress />

@@ -16,6 +16,7 @@ import ListItemText from "@mui/material/ListItemText";
 import MenuItem from "@mui/material/MenuItem";
 import SaveIcon from "@mui/icons-material/Save";
 import Select from "@mui/material/Select";
+import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
@@ -28,6 +29,9 @@ const CorticalAreaMapForm = (props) => {
   const [mappedAreas, setMappedAreas] = useState([]);
   const [plasticity, setPlasticity] = useState(false);
   const [pscMultiplier, setPscMultiplier] = useState(1);
+  const [morphologyScalarX, setMorphologyScalarX] = useState(1);
+  const [morphologyScalarY, setMorphologyScalarY] = useState(1);
+  const [morphologyScalarZ, setMorphologyScalarZ] = useState(1);
 
   useEffect(() => {
     FeagiAPI.getBaselineMorphology().then((items) =>
@@ -50,12 +54,22 @@ const CorticalAreaMapForm = (props) => {
         dstArea: selectedArea,
         rule: selectedRule,
         info: predefinedSynapseRules[selectedRule],
+        morphologyScalar: [
+          parseInt(morphologyScalarX),
+          parseInt(morphologyScalarY),
+          parseInt(morphologyScalarZ),
+        ],
+        pscMultiplier: pscMultiplier,
+        plasticity: plasticity,
       },
     ]);
     setSelectedArea("");
     setSelectedRule("");
-    setPlasticity(false);
+    setMorphologyScalarX(1);
+    setMorphologyScalarY(1);
+    setMorphologyScalarZ(1);
     setPscMultiplier(1);
+    setPlasticity(false);
   };
 
   const handleMappingDelete = (index) => {
@@ -78,7 +92,6 @@ const CorticalAreaMapForm = (props) => {
   };
 
   const handlePscChange = (event) => {
-    console.log(event.target.value);
     setPscMultiplier(event.target.value);
   };
 
@@ -100,7 +113,7 @@ const CorticalAreaMapForm = (props) => {
             value={selectedArea}
             label="Cortical Area"
             onChange={handleAreaChange}
-            sx={{ width: "200px" }}
+            sx={{ width: "250px" }}
           >
             {props.availableMappingSensory
               .concat(props.availableMappingMotor)
@@ -122,7 +135,7 @@ const CorticalAreaMapForm = (props) => {
             value={selectedRule}
             label="Pre-defined Rule"
             onChange={handleRuleChange}
-            sx={{ width: "200px" }}
+            sx={{ width: "250px" }}
           >
             {Object.keys(predefinedSynapseRules).map((rule) => {
               return (
@@ -144,26 +157,68 @@ const CorticalAreaMapForm = (props) => {
                 : "Rule info"
             }
             variant="outlined"
-            sx={{ width: "200px" }}
+            sx={{ width: "250px" }}
           />
         </FormControl>
-        <FormControl sx={{ mt: 2, mr: 1, mb: 2 }}>
+      </div>
+      <div>
+        <InputLabel sx={{ width: "150px", mt: 1 }}>
+          Morphology Scalar
+        </InputLabel>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
           <TextField
-            label="PSC Multiplier"
-            type="number"
+            id="filled-basic-msx"
             defaultValue={1}
-            onChange={(event) => handlePscChange(event)}
-            sx={{ width: "110px" }}
+            helperText="X"
+            variant="outlined"
+            onChange={(e) => setMorphologyScalarX(e.target.value)}
+            sx={{ width: "50px" }}
           />
-        </FormControl>
-        <FormControl sx={{ mt: 3, mr: 1, mb: 2, width: "20px" }}>
-          <FormControlLabel
-            control={
-              <Checkbox checked={plasticity} onChange={handleCheckboxChange} />
-            }
-            label="Plasticity"
+          <TextField
+            id="filled-basic-msy"
+            defaultValue={1}
+            helperText="Y"
+            variant="outlined"
+            onChange={(e) => setMorphologyScalarY(e.target.value)}
+            sx={{ width: "50px" }}
           />
-        </FormControl>
+          <TextField
+            id="filled-basic-msz"
+            defaultValue={1}
+            helperText="Z"
+            variant="outlined"
+            onChange={(e) => setMorphologyScalarZ(e.target.value)}
+            sx={{ width: "50px" }}
+          />
+          <div>
+            <Stack
+              direction="row"
+              alignItems="center"
+              spacing={2}
+              sx={{ ml: 3 }}
+            >
+              <TextField
+                label="PSC Multiplier"
+                type="number"
+                defaultValue={1}
+                helperText=" "
+                onChange={(event) => handlePscChange(event)}
+                sx={{ width: "110px" }}
+              />
+              <FormControl sx={{ width: "20px", mt: 1 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={plasticity}
+                      onChange={handleCheckboxChange}
+                    />
+                  }
+                  label="Plasticity"
+                />
+              </FormControl>
+            </Stack>
+          </div>
+        </Stack>
       </div>
       <div>
         <Tooltip
@@ -229,6 +284,18 @@ const CorticalAreaMapForm = (props) => {
                     <ListItemText primary={index + 1} />
                     <ListItemText primary={value.dstArea} />
                     <ListItemText primary={value.rule} />
+                    <ListItemText
+                      primary="Morphology Scalar"
+                      secondary={JSON.stringify(value.morphologyScalar)}
+                    />
+                    <ListItemText
+                      primary="PSC Multiplier"
+                      secondary={value.pscMultiplier}
+                    />
+                    <ListItemText
+                      primary="Plasticity"
+                      secondary={JSON.stringify(value.plasticity)}
+                    />
                   </ListItem>
                 );
               })}
