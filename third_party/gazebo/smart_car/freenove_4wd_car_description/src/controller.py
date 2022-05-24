@@ -17,21 +17,24 @@
 
 import sys
 import traceback
-from datetime import datetime
 import router
-from threading import Thread
 import math
 import geometry_msgs.msg
 import rclpy
 import std_msgs.msg
+import configuration
+import os
+import os.path
+
+from configuration import message_to_feagi
+from time import sleep
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan, Image, BatteryState
 from rclpy.qos import qos_profile_sensor_data
 from configuration import *
-import configuration
-from configuration import message_to_feagi
-from time import sleep
-import os
+from threading import Thread
+from datetime import datetime
+
 
 runtime_data = {
     "cortical_data": {},
@@ -53,7 +56,14 @@ else:
     import termios
     import tty
 
-model_name = "models/sdf/freenove_smart_car" #This is for the gazebo sdf file path
+launch_checker = os.path.exists('type_res.txt')
+if launch_checker:
+    print("low res")
+    model_name = "models/sdf/low_res_freenove_smart_car" #This is for the gazebo sdf file path
+else:
+    model_name = "models/sdf/freenove_smart_car" #This is for the gazebo sdf file path
+    print("no low res")
+
 robot_name = "freenove_smart_car" #This is the model name in gazebo without sdf involves.
 y = str(capabilities["position"]["y"])
 z = str(capabilities["position"]["z"])
