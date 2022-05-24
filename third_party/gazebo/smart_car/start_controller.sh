@@ -6,6 +6,8 @@ export MESA_GL_VERSION_OVERRIDE=3.3
 GAZEBO="ruby"
 ROS2="ros2"
 
+for pid in $(ps -ef | grep "gazebo" | awk '{print $2}'); do kill $pid; done ##Ensure that no gazebo is running prior to launch gazebo
+
 if pgrep -x "$ROS2" >/dev/null && pgrep -x "$GAZEBO" >/dev/null
 then
     echo "$ROS2 and $GAZEBO are already running."
