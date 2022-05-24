@@ -6,11 +6,13 @@ networks:
 
 services:
   ros-gazebo:
-    build: ../third_party/gazebo/smart_car/
+    build: 
+      context: ../third_party/gazebo/smart_car/
+      dockerfile: low_res_Dockerfile
     deploy:
       resources:
         limits:
-          cpus: '3'
+          cpus: '2'
     ports:
       - "6080:80"
     privileged: false
