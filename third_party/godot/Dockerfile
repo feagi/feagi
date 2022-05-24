@@ -1,4 +1,4 @@
-FROM neuraville/feagi-godot-html
+FROM --platform=linux/amd64 neuraville/feagi-godot-html
 
 COPY ./godot_source/* /root/godot_source/
 #COPY ./html/ /root/html/
