@@ -29,19 +29,18 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: '3'
     ports:
       - "6080:80"
-    privileged: true
+    privileged: false
     networks:
       - net
 
   godot:
-    build: ../third_party/godot/container/
+    build: ../third_party/godot/
     ports:
-      - "6081:80"
-      - "20002:20002/udp"
-      - "20001:20001/udp"
+      - "6081:8080"
+      - "9050:9050"
     privileged: true
     networks:
       - net
@@ -55,7 +54,7 @@ services:
       - INFLUXDB_ORG=$INFLUXDB_ORG
       - INFLUXDB_BUCKET=$INFLUXDB_BUCKET
     ports:
-      - 3000:3000
+      - 6082:3000
     volumes:
       - grafana_data:/var/lib/grafana
       - ../third_party/grafana/dashboards/default_dashboard.json:/var/lib/grafana/dashboards/default_dashboard.json
@@ -69,12 +68,16 @@ services:
     environment:
       - CONTAINERIZED=true
       - PYTHONUNBUFFERED=1
-    depends_on:
-      influxdb:
-        condition: service_healthy
     volumes:
       - ../src/evo/static_genome.py:/opt/source-code/feagi/src/evo/static_genome.py
       - ../src/feagi_configuration.ini:/opt/source-code/feagi/src/feagi_configuration.ini
+    networks:
+      - net
+
+  gui:
+    build: ../src/gui/
+    ports:
+      - "3000:3000"
     networks:
       - net
 
