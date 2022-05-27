@@ -11,3 +11,10 @@ uvicorn==0.17.5
 fastapi==0.75.0
 pydantic==1.9.0
 python-multipart==0.0.5
+starlette=0.17.1
+requests~=2.27.1
+starlette~=0.17.1
+matplotlib~=3.4.3
+setuptools~=57.0.0
+websockets~=10.2
+launch~=0.10.4

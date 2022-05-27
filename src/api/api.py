@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
-import requests
+import datetime
 from fastapi import FastAPI, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
 from ast import literal_eval
@@ -331,9 +331,9 @@ async def genome_file_upload(file: UploadFile = File(...)):
         data = await file.read()
 
         genome_str = data.decode("utf-8").split(" = ")[1]
-        genome = literal_eval(genome_str)
+        runtime_data.genome = literal_eval(genome_str)
 
-        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', '',  genome,))
+        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', '',  runtime_data.genome,))
         feagi_thread.start()
 
         return {"Genome received as a file"}
@@ -342,12 +342,12 @@ async def genome_file_upload(file: UploadFile = File(...)):
 
 
 @app.api_route("/v1/feagi/genome/upload/default", methods=['POST'])
-async def genome_string_upload():
+async def genome_default_upload():
     try:
-        genome = static_genome.genome
+        runtime_data.genome = static_genome.genome
 
-        print("default_genome", genome)
-        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', '',  genome,))
+        print("default_genome", runtime_data.genome)
+        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', '',  runtime_data.genome,))
         feagi_thread.start()
 
         return {"FEAGI started using a genome string."}
@@ -358,12 +358,24 @@ async def genome_string_upload():
 @app.api_route("/v1/feagi/genome/upload/string", methods=['POST'])
 async def genome_string_upload(genome: Genome):
     try:
-        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', '',  genome.genome,))
+        runtime_data.genome = genome.genome
+        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', '',  runtime_data.genome,))
         feagi_thread.start()
 
         return {"FEAGI started using a genome string."}
     except Exception as e:
         return {"FEAGI start using genome string failed ...", e}
+
+
+@app.get("/v1/feagi/genome/download/python")
+async def genome_download():
+    print("Downloading Genome...")
+    try:
+        file_name = "genome_" + datetime.datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".py"
+        print(file_name)
+        return FileResponse(path="../runtime_genome.py", filename=file_name)
+    except Exception as e:
+        return {"Request failed...", e}
 
 
 # ######  Statistics and Reporting Endpoints #########
@@ -379,6 +391,8 @@ async def stat_management(message: Stats):
     except Exception as e:
         return {"Request failed...", e}
 
+
+################################################################################################################
 
 def api_message_processor(api_message):
         """
