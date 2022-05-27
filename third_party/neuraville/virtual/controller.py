@@ -7,9 +7,8 @@ todo: Need to have all of the controller.py modules follow the same convention a
 import router
 import configuration
 import requests
-from time import time, sleep
-from fake_stimulation import raw_stimulation, stimulation_pattern
-from random import randrange, getrandbits
+from time import sleep
+from fake_stimulation import raw_stimulation, stimulation_pattern, stimulations
 
 runtime_data = {
     "current_burst_id": 0,
@@ -17,7 +16,8 @@ runtime_data = {
     "feagi_state": None,
     "feagi_network": None,
     "cortical_list": set(),
-    "host_network": {}
+    "host_network": {},
+    "stimulation_index": {}
 }
 
 
@@ -27,23 +27,38 @@ class FakeStimulator:
 
     @staticmethod
     def stimulate(burst_id):
-        stimuli = dict()
-        if burst_id in raw_stimulation:
-            print("Cortical_list: ", runtime_data["cortical_list"])
-            for cortical_area in raw_stimulation[burst_id]:
-                if cortical_area in runtime_data["cortical_list"]:
-                    stimuli[cortical_area] = raw_stimulation[burst_id][cortical_area]
-        for cortical_area in stimulation_pattern:
-            for pattern in stimulation_pattern[cortical_area]:
-                pattern_burst_range_low = pattern[1][0]
-                pattern_burst_range_high = pattern[1][1]
-                if burst_id in range(pattern_burst_range_low, pattern_burst_range_high):
-                    if cortical_area not in stimuli:
-                        stimuli[cortical_area] = pattern[0]
-                    else:
-                        for item in pattern[0]:
-                            stimuli[cortical_area].append(item)
-        return stimuli
+        print("=====================================================================================================")
+        if burst_id:
+            print("+++ burst id:", burst_id, runtime_data["stimulation_index"])
+            stimuli = dict()
+            for play in stimulations:
+                play_length = len(stimulations[play]["definition"])
+                print("play --$------------$-------------$-- :", play, play_length)
+                try:
+                    if stimulations[play]["start_burst"] is not None and stimulations[play]["start_burst"] >= burst_id:
+                        continue
+                    if stimulations[play]["end_burst"] is not None and stimulations[play]["end_burst"] <= burst_id:
+                        continue
+                    if play_length == 0:
+                        continue
+                except KeyError:
+                    pass
+                if play not in runtime_data["stimulation_index"]:
+                    runtime_data["stimulation_index"][play] = 0
+
+                print("    >> >> >> stimulation_index:", runtime_data["stimulation_index"][play])
+
+                for cortical_area in stimulations[play]["definition"][runtime_data["stimulation_index"][play]]:
+                    print("           cortical area:", cortical_area)
+                    if cortical_area in runtime_data["cortical_list"]:
+                        stimuli[cortical_area] = \
+                            stimulations[play]["definition"][runtime_data["stimulation_index"][play]][cortical_area]
+
+                runtime_data["stimulation_index"][play] += 1
+                if runtime_data["stimulation_index"][play] == play_length:
+                    runtime_data["stimulation_index"][play] = 0
+
+            return stimuli
 
 
 def build_message_to_feagi():
@@ -109,7 +124,7 @@ def cortical_mapping_list_gen(capabilities, feagi_host, api_port):
 
     cortical_list = set()
     for cortical_area in cortical_data:
-        cortical_list.add(cortical_area)
+        cortical_list.add(cortical_data[cortical_area][7])
 
     return cortical_list
 
@@ -145,7 +160,7 @@ def main():
     runtime_data["cortical_list"] = cortical_mapping_list_gen(capabilities=configuration.capabilities,
                                                               feagi_host=feagi_host,
                                                               api_port=api_port)
-
+    runtime_data["stimulation_index"] = dict()
     print("## ### ####: cortical list:", runtime_data["cortical_list"])
 
     print("configuration.network_settings:", configuration.network_settings)
