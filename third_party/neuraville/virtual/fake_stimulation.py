@@ -34,30 +34,40 @@ Fake Stimulation 2.0 additions:
 
 """
 
-stimulation_pattern = {
-    "o__mot": [
-        [['0-0-3', '2-0-3', '4-0-3',  '6-0-3'], [3, 1500]],
-        [['0-0-6', '2-0-6', '4-0-6', '6-0-6'], [16, 2500]],
-        [['0-0-9', '2-0-9', '4-0-9', '6-0-9'], [26, 3500]],
-    ],
-    "o__ser": [
-        [['0-0-9'], [5, 10]],
-        [['0-0-7', '1-0-7'], [11, 2000]],
-    ],
-    "i__pro": [
-        [['0-0-0'], [2, 20]]
-    ]
-}
-
-
-raw_stimulation = {
-    3: {"i__pro": ["0-0-3"], "o__mot": []},
-    5: {"i__pro": ["0-0-8"]},
-    13: {"i__bat": ["0-0-7"]},
-    14: {"i__bat": ["0-0-6"]},
-    15: {"i__bat": ["0-0-5"]},
-    16: {"i__bat": ["0-0-4"]},
-    17: {"i__bat": ["0-0-3"]},
-    18: {"i__bat": ["0-0-2"]},
-    19: {"i__bat": ["0-0-1"]},
+stimulations = {
+    "IR_pain": {
+        "start_burst": None,
+        "end_burst": None,
+        "definition": [
+            {"i__pro": ["0-0-3"], "o__mot": ["2-0-7"]},
+            {"i__pro": ["0-0-8"]},
+            {"i__bat": ["0-0-7"]},
+            {"i__bat": ["0-0-6"]},
+            {"i__bat": ["0-0-5"]},
+            {"i__bat": ["0-0-4"]},
+            {"i__bat": ["0-0-3"]},
+            {},
+            {"i__bat": ["0-0-2"]},
+            {"i__bat": ["0-0-1"]},
+            {},
+            {}
+            ]
+    },
+    "exploration": {
+        "start_burst": None,
+        "end_burst": None,
+        "definition": []
+    },
+    "move_forward": {
+        "start_burst": None,
+        "end_burst": None,
+        "definition": []
+    },
+    "charge_batteries": {
+        "start_burst": None,
+        "end_burst": None,
+        "definition": [
+            {"i__inf": ["2-0-0"]}
+        ]
     }
+}
