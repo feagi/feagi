@@ -31,6 +31,7 @@ from collections import deque
 from inf import runtime_data, disk_ops, settings
 from shutil import copyfile
 from evo.stats import voxel_dict_summary
+from evo.genome_editor import save_genome
 from inf.messenger import Pub
 from evo.neuroembryogenesis import generate_plasticity_dict
 from evo.genome_processor import *

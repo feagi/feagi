@@ -20,31 +20,45 @@ A tool to help add custom keys to genome
 Todo: Make improvements to this tool as it will have further use-cases.
 """
 
-from static_genome import genome
+from inf import runtime_data
 from datetime import datetime
-from pprint import pformat
+from time import sleep
+import json
 
 
-new_genome_file_name = "genome" + datetime.now().isoformat() + ".py"
+def set_default(obj):
+    if isinstance(obj, set):
+        return list(obj)
+    raise TypeError
 
 
 def add_gene():
-    for cortical_area in genome['blueprint']:
-        for _ in genome['blueprint'][cortical_area]:
+    for cortical_area in runtime_data.genome['blueprint']:
+        for _ in runtime_data.genome['blueprint'][cortical_area]:
             if _ == "cortical_mapping_dst":
-                for __ in genome['blueprint'][cortical_area]["cortical_mapping_dst"]:
-                    if "excitatory" not in genome['blueprint'][cortical_area]["cortical_mapping_dst"][__]:
-                        genome['blueprint'][cortical_area]["cortical_mapping_dst"][__]["excitatory"] = True
+                for __ in runtime_data.genome['blueprint'][cortical_area]["cortical_mapping_dst"]:
+                    if "excitatory" not in runtime_data.genome['blueprint'][cortical_area]["cortical_mapping_dst"][__]:
+                        runtime_data.genome['blueprint'][cortical_area]["cortical_mapping_dst"][__]["excitatory"] = True
 
 
-def save_genome(file_name='./tmp.py'):
-    with open('./' + new_genome_file_name, "w") as data_file:
-        try:
+def save_genome(genome, file_name=''):
+    if file_name != '':
+        genome_file = file_name
+    else:
+        genome_file = "genome" + datetime.now().isoformat() + ".py"
+
+    try:
+        with open(genome_file, "w") as data_file:
             data = genome
-            print("genome = " + pformat(data, indent=3), file=data_file)
+            data_file.seek(0)  # rewind
+            data_file.write(json.dumps(data, indent=3, default=set_default))
+            data_file.truncate()
+            # todo: Identify the cause of errors when sleep is eliminated
+            sleep(0.5)  # Elimination of sleep causes issues with Uvicorn
+            print("genome is saved")
 
-        except KeyError:
-            print("Warning: %s was not present in the voxel_dict")
+    except KeyError:
+        print("Warning: Genome could not be saved!")
 
 
 # def validate_genome():

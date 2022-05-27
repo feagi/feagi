@@ -23,6 +23,7 @@ from evo import neuroembryogenesis, death, genome_processor
 from npu import burst_engine
 from inf import runtime_data, disk_ops
 from edu import edu_controller
+from evo.genome_editor import save_genome
 
 
 def splash_screen():
@@ -49,6 +50,7 @@ def start_feagi(api_queue, mode, mode_option, mode_value):
             if runtime_data.genome['version'] == "2.0":
                 print("\n\n\n************ Genome Version 2.0 has been detected **************\n\n\n")
                 runtime_data.genome_ver = "2.0"
+                save_genome(genome=runtime_data.genome, file_name="../runtime_genome.py")
                 runtime_data.cortical_list = genome_processor.genome_2_cortical_list(runtime_data.genome['blueprint'])
                 genome2 = genome_processor.genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
                 genome_processor.genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])

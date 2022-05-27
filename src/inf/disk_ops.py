@@ -15,35 +15,10 @@
 # ==============================================================================
 
 
-# import random
-# import string
-from datetime import datetime
 import os.path
 import json
 import pickle
-from bson import json_util
-from inf import db_handler
-from evo import stats
-from inf import runtime_data, settings
-from evo.genetics import genome_id_gen
-from evo.static_genome import genome
-from configparser import ConfigParser
-
-
-# # Reads the list of all Cortical areas defined in Genome
-# def cortical_list():
-#     blueprint = runtime_data.genome["blueprint"]
-#     cortical_list_ = []
-#     for key in blueprint:
-#         cortical_list_.append(key)
-#     return cortical_list_
-
-
-# def load_parameters_in_memory():
-#     runtime_data.parameters = ConfigParser.get()
-#     with open("./feagi/configuration/parameters.json", "r") as data_file:
-#         runtime_data.parameters = json.load(data_file)
-#         # print("Parameters has been read from file")
+from inf import runtime_data
 
 
 def load_brain_in_memory(connectome_path=None, cortical_list=None):

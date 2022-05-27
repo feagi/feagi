@@ -16,7 +16,7 @@
 genome = {
     "version": "2.0",
     "max_burst_count": 3,
-    "burst_delay": 0.1,
+    "burst_delay": 1,
     "evolution_burst_count": 50,
     "ipu_idle_threshold": 1000,
     "neuron_morphologies": {

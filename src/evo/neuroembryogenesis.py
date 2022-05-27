@@ -309,11 +309,17 @@ def synaptogenesis():
     # stats.brain_total_synapse_cnt()
 
     # Build Synapses across various Cortical areas
+    print("----1-----")
     func2 = partial(build_synapses, runtime_data.genome, runtime_data.brain, runtime_data.parameters,
                     runtime_data.voxel_dict, runtime_data.connectome_path)
+    print("----2-----")
     pool2 = Pool(processes=int(runtime_data.parameters['System']['max_core']))
-
+    print("----3-----")
+    print("runtime_data.cortical_list", runtime_data.cortical_list)
+    print("runtime_data-------------------", runtime_data.genome, "\n", runtime_data.parameters, "\n",
+                    runtime_data.voxel_dict, "\n", runtime_data.connectome_path)
     intercortical_mapping = pool2.map(func2, runtime_data.cortical_list)
+    print("----4-----")
     pool2.close()
     pool2.join()
 
@@ -360,18 +366,21 @@ def build_synapses(genome, brain, parameters, voxel_dict, connectome_path, src_c
     Develops all the synapses originated from neurons within a given cortical area which could be both internal and
     external.
     """
+    print("-+-")
     runtime_data.parameters = parameters
+    print("***** 0")
     # if runtime_data.parameters["Database"]["influxdb_enabled"]:
     #     from inf import db_handler
     #     influxdb = db_handler.InfluxManagement()
     runtime_data.voxel_dict = voxel_dict
     intercortical_mapping = []
     runtime_data.connectome_path = connectome_path
+    print("***** 1")
     # Read Genome data
     cortical_genes = genome["blueprint"][src_cortical_area]
 
     for mapped_cortical_area in cortical_genes["cortical_mapping_dst"]:
-
+        print("***** 2")
         timer = datetime.datetime.now()
         synapse_count_, runtime_data.brain = \
             synapse.neighbor_builder(cortical_area=src_cortical_area, brain=brain, genome=genome, brain_gen=True,
@@ -427,8 +436,12 @@ def develop():
     # --Neurogenesis-- Creation of all Neurons across all cortical areas
     neurogenesis()
 
+    print("=================================== Neurogenesis Completed ==================================")
+
     # --Synaptogenesis-- Build Synapses within all cortical areas
     synaptogenesis()
+
+    print("=================================== Synaptogenesis Completed ==================================")
 
     # Loading connectome data from disk to memory
     runtime_data.brain = disk_ops.load_brain_in_memory()
