@@ -56,35 +56,47 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
 
     neighbor_count = len(neighbor_list)
 
-    if runtime_data.collect_neuron_stats:
-        vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
-        fire_threshold = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["firing_threshold"]
-        mem_pot = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
+    if cortical_area in runtime_data.membrane_potential_stats:
+        if "neurons" not in runtime_data.membrane_potential_stats[cortical_area]:
+            runtime_data.membrane_potential_stats[cortical_area]["neurons"] = {}
+        if "voxels" not in runtime_data.membrane_potential_stats[cortical_area]:
+            runtime_data.membrane_potential_stats[cortical_area]["voxels"] = {}
+        if "area_wide_collection" not in runtime_data.membrane_potential_stats[cortical_area]:
+            runtime_data.membrane_potential_stats[cortical_area]["area_wide_collection"] = False
 
-        # Note: dst_cortical_area is fed to the src_cortical_area field since the membrane potential of dst changes
+        if runtime_data.membrane_potential_stats[cortical_area]["area_wide_collection"] or \
+                neuron_id in runtime_data.membrane_potential_stats[cortical_area]["neurons"] or \
+                runtime_data.brain[cortical_area][neuron_id]['soma_location'] in \
+                runtime_data.membrane_potential_stats[cortical_area]["voxels"]:
 
-        # To demonstrate a spike when a neuron is artificially stimulated to fire
-        runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
-                                                     src_cortical_area=cortical_area,
-                                                     src_neuron_id=neuron_id,
-                                                     voxel_x=vox_x,
-                                                     voxel_y=vox_y,
-                                                     voxel_z=vox_z,
-                                                     membrane_potential=mem_pot / 1)
-        runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
-                                                     src_cortical_area=cortical_area,
-                                                     src_neuron_id=neuron_id,
-                                                     voxel_x=vox_x,
-                                                     voxel_y=vox_y,
-                                                     voxel_z=vox_z,
-                                                     membrane_potential=fire_threshold / 1)
-        runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
-                                                     src_cortical_area=cortical_area,
-                                                     src_neuron_id=neuron_id,
-                                                     voxel_x=vox_x,
-                                                     voxel_y=vox_y,
-                                                     voxel_z=vox_z,
-                                                     membrane_potential=0 / 1)
+            vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
+            fire_threshold = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["firing_threshold"]
+            mem_pot = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
+
+            # Note: dst_cortical_area is fed to the src_cortical_area field since the membrane potential of dst changes
+
+            # To demonstrate a spike when a neuron is artificially stimulated to fire
+            runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
+                                                         src_cortical_area=cortical_area,
+                                                         src_neuron_id=neuron_id,
+                                                         voxel_x=vox_x,
+                                                         voxel_y=vox_y,
+                                                         voxel_z=vox_z,
+                                                         membrane_potential=mem_pot / 1)
+            runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
+                                                         src_cortical_area=cortical_area,
+                                                         src_neuron_id=neuron_id,
+                                                         voxel_x=vox_x,
+                                                         voxel_y=vox_y,
+                                                         voxel_z=vox_z,
+                                                         membrane_potential=fire_threshold / 1)
+            runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
+                                                         src_cortical_area=cortical_area,
+                                                         src_neuron_id=neuron_id,
+                                                         voxel_x=vox_x,
+                                                         voxel_y=vox_y,
+                                                         voxel_z=vox_z,
+                                                         membrane_potential=0 / 1)
 
     # Updating downstream neurons
     for dst_neuron_id in neighbor_list:
@@ -174,17 +186,29 @@ def membrane_potential_update(cortical_area, neuron_id, membrane_potential_chang
 
     runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] = runtime_data.burst_count
 
-    if runtime_data.collect_neuron_stats and not bypass_db_log:
-        vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
-        dst_mp = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
-        # Note: dst_cortical_area is fed to the src_cortical_area field since the membrane potential of dst changes
-        runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
-                                                     src_cortical_area=cortical_area,
-                                                     src_neuron_id=neuron_id,
-                                                     voxel_x=vox_x,
-                                                     voxel_y=vox_y,
-                                                     voxel_z=vox_z,
-                                                     membrane_potential=dst_mp / 1)
+    if cortical_area in runtime_data.membrane_potential_stats and not bypass_db_log:
+        if "neurons" not in runtime_data.membrane_potential_stats[cortical_area]:
+            runtime_data.membrane_potential_stats[cortical_area]["neurons"] = {}
+        if "voxels" not in runtime_data.membrane_potential_stats[cortical_area]:
+            runtime_data.membrane_potential_stats[cortical_area]["voxels"] = {}
+        if "area_wide_collection" not in runtime_data.membrane_potential_stats[cortical_area]:
+            runtime_data.membrane_potential_stats[cortical_area]["area_wide_collection"] = False
+
+        if runtime_data.membrane_potential_stats[cortical_area]['area_wide_collection'] or \
+                 neuron_id in runtime_data.membrane_potential_stats[cortical_area]["neurons"] or \
+                 runtime_data.brain[cortical_area][neuron_id]['soma_location'] in \
+                 runtime_data.membrane_potential_stats[cortical_area]["voxels"]:
+
+            vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
+            dst_mp = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
+            # Note: dst_cortical_area is fed to the src_cortical_area field since the membrane potential of dst changes
+            runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
+                                                         src_cortical_area=cortical_area,
+                                                         src_neuron_id=neuron_id,
+                                                         voxel_x=vox_x,
+                                                         voxel_y=vox_y,
+                                                         voxel_z=vox_z,
+                                                         membrane_potential=dst_mp / 1)
 
 
 def post_synaptic_current_update(cortical_area_src,
