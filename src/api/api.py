@@ -385,9 +385,17 @@ async def genome_download():
 # ######  Statistics and Reporting Endpoints #########
 # ##################################
 
+@app.get("/v1/feagi/neuron/physiology/stats")
+async def neuron_physiological_stat_collection_report():
+    print("Physiological stat collections:", runtime_data.neuron_physiological_stat_collection)
+    try:
+        return runtime_data.neuron_physiological_stat_collection
+    except Exception as e:
+        return {"Request failed...", e}
 
-@app.api_route("/v1/feagi/stats/membrane_potential", methods=['POST'])
-async def membrane_potential_stat_collection_management(message: StatsCollectionScope):
+
+@app.api_route("/v1/feagi/neuron/physiology/stats", methods=['POST'])
+async def neuron_physiological_stat_collection(message: StatsCollectionScope):
     """
     Message Template:
 
@@ -395,12 +403,16 @@ async def membrane_potential_stat_collection_management(message: StatsCollection
         "o__mot": {
             "voxels": [[0, 0, 0], [2, 0, 0]],
             "neurons": [],
-            "area_wide_collection": False
+            "area_wide": false,
+            "afferent": true,
+            "efferent": true
         },
         "i__inf": {
             "voxels": [[1, 1, 1]],
             "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3'],
-            "area_wide_collection": False
+            "area_wide": true
+            "afferent": false,
+            "efferent": true
         },
         ...
     }
@@ -408,27 +420,9 @@ async def membrane_potential_stat_collection_management(message: StatsCollection
 
     try:
         message = message.dict()
-        message = {'membrane_potential_stats': message}
+        message = {'neuron_physiological_stat_collection': message}
         api_queue.put(item=message)
-        return {"Request sent!"}
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/stats/postsynaptic_potential", methods=['POST'])
-async def postsynaptic_potential_stat_collection_management(message: StatsCollectionScope):
-    """
-    Message Template:
-
-    {
-        TBD
-    }
-    """
-    try:
-        message = message.dict()
-        message = {'postsynaptic_potential_stats': message}
-        api_queue.put(item=message)
-        return {"Request sent!"}
+        return {"Request sent!", message}
     except Exception as e:
         return {"Request failed...", e}
 
@@ -462,20 +456,13 @@ def api_message_processor(api_message):
                 else:
                     disk_ops.save_brain_to_disk()
 
-        if 'membrane_potential_stats' in api_message:
-            if api_message['membrane_potential_stats'] is not None:
-                payload = api_message['membrane_potential_stats']['collection_scope']
-                runtime_data.membrane_potential_stats = payload
+        if 'neuron_physiological_stat_collection' in api_message:
+            if api_message['neuron_physiological_stat_collection'] is not None:
+                payload = api_message['neuron_physiological_stat_collection']['collection_scope']
+                runtime_data.neuron_physiological_stat_collection = payload
                 print('Membrane Potential state collection scope has been updated.')
             else:
                 print('Membrane Potential state collection scope did not change.')
-
-        if 'postsynaptic_potential_stats' in api_message:
-            if api_message['postsynaptic_potential_stats'] is not None:
-                runtime_data.membrane_potential_stats = api_message['postsynaptic_potential_stats']['collection_scope']
-                print('Postsynaptic Potential state collection scope has been updated.')
-            else:
-                print('Postsynaptic Potential state collection scope did not change.')
 
         if 'network_management' in api_message:
             print("api_message", api_message)
