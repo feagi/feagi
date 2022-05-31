@@ -95,6 +95,10 @@ class Genome(BaseModel):
     genome: dict
 
 
+class StatsCollectionScope(BaseModel):
+    collection_scope: dict
+
+
 class SPAStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope):
         response = await super().get_response(path, scope)
@@ -381,11 +385,48 @@ async def genome_download():
 # ######  Statistics and Reporting Endpoints #########
 # ##################################
 
-@app.api_route("/v1/feagi/stats", methods=['POST'])
-async def stat_management(message: Stats):
+
+@app.api_route("/v1/feagi/stats/membrane_potential", methods=['POST'])
+async def membrane_potential_stat_collection_management(message: StatsCollectionScope):
+    """
+    Message Template:
+
+    {
+        "o__mot": {
+            "voxels": [[0, 0, 0], [2, 0, 0]],
+            "neurons": [],
+            "area_wide_collection": False
+        },
+        "i__inf": {
+            "voxels": [[1, 1, 1]],
+            "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3'],
+            "area_wide_collection": False
+        },
+        ...
+    }
+    """
+
     try:
         message = message.dict()
-        message = {'stats': message}
+        message = {'membrane_potential_stats': message}
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/stats/postsynaptic_potential", methods=['POST'])
+async def postsynaptic_potential_stat_collection_management(message: StatsCollectionScope):
+    """
+    Message Template:
+
+    {
+        TBD
+    }
+    """
+    try:
+        message = message.dict()
+        message = {'postsynaptic_potential_stats': message}
         api_queue.put(item=message)
         return {"Request sent!"}
     except Exception as e:
@@ -421,24 +462,20 @@ def api_message_processor(api_message):
                 else:
                     disk_ops.save_brain_to_disk()
 
-        if 'stats' in api_message:
-            if 'neuron_stat_collection' in api_message['stats'] and \
-                    api_message['stats']['neuron_stat_collection'] is not None:
-                if api_message['stats']['neuron_stat_collection']:
-                    runtime_data.collect_neuron_stats = True
-                    print("Starting to capture neuronal activity stats into database...")
-                else:
-                    runtime_data.collect_neuron_stats = False
-                    print("Stopping the capture of neuronal activity stats into database.")
+        if 'membrane_potential_stats' in api_message:
+            if api_message['membrane_potential_stats'] is not None:
+                payload = api_message['membrane_potential_stats']['collection_scope']
+                runtime_data.membrane_potential_stats = payload
+                print('Membrane Potential state collection scope has been updated.')
+            else:
+                print('Membrane Potential state collection scope did not change.')
 
-            if 'synapse_stat_collection' in api_message['stats'] and \
-                    api_message['stats']['synapse_stat_collection'] is not None:
-                if api_message['stats']['synapse_stat_collection']:
-                    runtime_data.collect_synapse_stats = True
-                    print("Starting to capture synaptic activity stats into database...")
-                else:
-                    runtime_data.collect_synapse_stats = False
-                    print("Stopping the capture of synaptic activity stats into database.")
+        if 'postsynaptic_potential_stats' in api_message:
+            if api_message['postsynaptic_potential_stats'] is not None:
+                runtime_data.membrane_potential_stats = api_message['postsynaptic_potential_stats']['collection_scope']
+                print('Postsynaptic Potential state collection scope has been updated.')
+            else:
+                print('Postsynaptic Potential state collection scope did not change.')
 
         if 'network_management' in api_message:
             print("api_message", api_message)

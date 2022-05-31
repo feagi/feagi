@@ -71,7 +71,13 @@ burst_activities = {}
 opu_data = {}
 cortical_dimensions = {}
 voxel_dict = {}
-collect_neuron_stats = False
+
+
+# Stats Collection
+membrane_potential_stats = {}
+postsynaptic_potential_stats = {}
+
+# collect_neuron_stats = False
 collect_synapse_stats = False
 
 
