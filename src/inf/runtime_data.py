@@ -74,11 +74,10 @@ voxel_dict = {}
 
 
 # Stats Collection
-membrane_potential_stats = {}
-postsynaptic_potential_stats = {}
+neuron_physiological_stat_collection = {}
 
 # collect_neuron_stats = False
-collect_synapse_stats = False
+# collect_synapse_stats = False
 
 
 # Cortical Lists

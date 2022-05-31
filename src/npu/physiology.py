@@ -18,7 +18,7 @@ import json
 # from collections import deque
 # from evo.neuron import block_reference_builder
 # from evo.synapse import synapse
-# from evo.voxels import neurons_in_the_block
+from evo.voxels import block_reference_builder
 from inf import runtime_data, settings
 # from cython_lib import neuron_functions_cy as cy
 
@@ -56,18 +56,24 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
 
     neighbor_count = len(neighbor_list)
 
-    if cortical_area in runtime_data.membrane_potential_stats:
-        if "neurons" not in runtime_data.membrane_potential_stats[cortical_area]:
-            runtime_data.membrane_potential_stats[cortical_area]["neurons"] = {}
-        if "voxels" not in runtime_data.membrane_potential_stats[cortical_area]:
-            runtime_data.membrane_potential_stats[cortical_area]["voxels"] = {}
-        if "area_wide_collection" not in runtime_data.membrane_potential_stats[cortical_area]:
-            runtime_data.membrane_potential_stats[cortical_area]["area_wide_collection"] = False
+    if cortical_area in runtime_data.neuron_physiological_stat_collection:
+        if "neurons" not in runtime_data.neuron_physiological_stat_collection[cortical_area]:
+            runtime_data.neuron_physiological_stat_collection[cortical_area]["neurons"] = {}
+        if "voxels" not in runtime_data.neuron_physiological_stat_collection[cortical_area]:
+            runtime_data.neuron_physiological_stat_collection[cortical_area]["voxels"] = {}
+        if "area_wide" not in runtime_data.neuron_physiological_stat_collection[cortical_area]:
+            runtime_data.neuron_physiological_stat_collection[cortical_area]["area_wide"] = False
 
-        if runtime_data.membrane_potential_stats[cortical_area]["area_wide_collection"] or \
-                neuron_id in runtime_data.membrane_potential_stats[cortical_area]["neurons"] or \
-                runtime_data.brain[cortical_area][neuron_id]['soma_location'] in \
-                runtime_data.membrane_potential_stats[cortical_area]["voxels"]:
+        voxel_flag = False
+
+        for voxel in runtime_data.neuron_physiological_stat_collection[cortical_area]["voxels"]:
+            soma_location = block_reference_builder(runtime_data.brain[cortical_area][neuron_id]['soma_location'])
+            voxel_ref = block_reference_builder(voxel)
+            if soma_location == voxel_ref:
+                voxel_flag = True
+
+        if runtime_data.neuron_physiological_stat_collection[cortical_area]["area_wide"] or \
+                neuron_id in runtime_data.neuron_physiological_stat_collection[cortical_area]["neurons"] or voxel_flag:
 
             vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
             fire_threshold = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["firing_threshold"]
@@ -186,18 +192,24 @@ def membrane_potential_update(cortical_area, neuron_id, membrane_potential_chang
 
     runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] = runtime_data.burst_count
 
-    if cortical_area in runtime_data.membrane_potential_stats and not bypass_db_log:
-        if "neurons" not in runtime_data.membrane_potential_stats[cortical_area]:
-            runtime_data.membrane_potential_stats[cortical_area]["neurons"] = {}
-        if "voxels" not in runtime_data.membrane_potential_stats[cortical_area]:
-            runtime_data.membrane_potential_stats[cortical_area]["voxels"] = {}
-        if "area_wide_collection" not in runtime_data.membrane_potential_stats[cortical_area]:
-            runtime_data.membrane_potential_stats[cortical_area]["area_wide_collection"] = False
+    if cortical_area in runtime_data.neuron_physiological_stat_collection and not bypass_db_log:
+        if "neurons" not in runtime_data.neuron_physiological_stat_collection[cortical_area]:
+            runtime_data.neuron_physiological_stat_collection[cortical_area]["neurons"] = {}
+        if "voxels" not in runtime_data.neuron_physiological_stat_collection[cortical_area]:
+            runtime_data.neuron_physiological_stat_collection[cortical_area]["voxels"] = {}
+        if "area_wide" not in runtime_data.neuron_physiological_stat_collection[cortical_area]:
+            runtime_data.neuron_physiological_stat_collection[cortical_area]["area_wide"] = False
 
-        if runtime_data.membrane_potential_stats[cortical_area]['area_wide_collection'] or \
-                 neuron_id in runtime_data.membrane_potential_stats[cortical_area]["neurons"] or \
-                 runtime_data.brain[cortical_area][neuron_id]['soma_location'] in \
-                 runtime_data.membrane_potential_stats[cortical_area]["voxels"]:
+        voxel_flag = False
+
+        for voxel in runtime_data.neuron_physiological_stat_collection[cortical_area]["voxels"]:
+            soma_location = block_reference_builder(runtime_data.brain[cortical_area][neuron_id]['soma_location'])
+            voxel_ref = block_reference_builder(voxel)
+            if soma_location == voxel_ref:
+                voxel_flag = True
+
+        if runtime_data.neuron_physiological_stat_collection[cortical_area]['area_wide'] or \
+                 neuron_id in runtime_data.neuron_physiological_stat_collection[cortical_area]["neurons"] or voxel_flag:
 
             vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
             dst_mp = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
@@ -222,7 +234,19 @@ def post_synaptic_current_update(cortical_area_src,
     runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"][neuron_id_dst]["postsynaptic_current"] = \
         post_synaptic_current
 
-    if runtime_data.collect_synapse_stats:
+    collection_flag = False
+
+    if cortical_area_src in runtime_data.neuron_physiological_stat_collection:
+        if "efferent" in runtime_data.neuron_physiological_stat_collection[cortical_area_src]:
+            if runtime_data.neuron_physiological_stat_collection[cortical_area_src]["efferent"]:
+                collection_flag = True
+
+    if cortical_area_dst in runtime_data.neuron_physiological_stat_collection:
+        if "afferent" in runtime_data.neuron_physiological_stat_collection[cortical_area_dst]:
+            if runtime_data.neuron_physiological_stat_collection[cortical_area_dst]["afferent"]:
+                collection_flag = True
+
+    if collection_flag:
         for destination_neuron in runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"]:
             psc = runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"][
                 destination_neuron]["postsynaptic_current"]

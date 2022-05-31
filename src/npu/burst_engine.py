@@ -119,7 +119,6 @@ def burst_manager():
                     burst_id=runtime_data.burst_count,
                     cortical_area=cortical_area_,
                     neuron_count=cortical_neuron_count)
-                print("$$$$         $$$$$$$$$$$$$$$        $$$$$$$$$$$$$$$$$$$         $$$$$$$$$$$$$$$$       $$$$$$$$$$$$$$$$$      $$$$$$$$$$$$$$$")
 
             if runtime_data.parameters["Switches"]["global_logger"] and \
                     runtime_data.parameters["Logs"]["print_cortical_activity_counters"]:
