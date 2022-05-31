@@ -7,6 +7,11 @@ networks:
 services:
   influxdb:
     image: influxdb:2.0.7
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=$INFLUXDB_MODE
       - DOCKER_INFLUXDB_INIT_RETENTION=$INFLUXDB_RETENTION
@@ -30,6 +35,7 @@ services:
       resources:
         limits:
           cpus: '3'
+          memory: '2g'
     ports:
       - "6080:80"
     privileged: false
@@ -38,6 +44,11 @@ services:
 
   godot:
     build: ../third_party/godot/
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
     ports:
       - "6081:8080"
       - "9050:9050"
@@ -47,6 +58,11 @@ services:
 
   grafana:
     build: ../third_party/grafana/
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
     environment:
       - INFLUXDB_USER=$INFLUXDB_USERNAME
       - INFLUXDB_PASSWORD=$INFLUXDB_PASSWORD
@@ -57,12 +73,16 @@ services:
       - 6082:3000
     volumes:
       - grafana_data:/var/lib/grafana
-      - ../third_party/grafana/dashboards/default_dashboard.json:/var/lib/grafana/dashboards/default_dashboard.json
     networks:
       - net
 
   feagi:
     build: ./
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
     ports:
       - "8000:8000"
     environment:
@@ -76,6 +96,11 @@ services:
 
   gui:
     build: ../src/gui/
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
     ports:
       - "3000:3000"
     networks:

@@ -11,6 +11,7 @@ services:
       resources:
         limits:
           cpus: '3'
+          memory: '2g'
     ports:
       - "6080:80"
     privileged: false
