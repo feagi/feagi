@@ -36,8 +36,8 @@ Fake Stimulation 2.0 additions:
 
 stimulations = {
     "IR_pain": {
-        "start_burst": None,
-        "end_burst": None,
+        "start_burst": 10,
+        "end_burst": 1000,
         "definition": [
             {"i__pro": ["0-0-3"], "o__mot": ["2-0-7"]},
             {"i__pro": ["0-0-8"]},
@@ -54,18 +54,14 @@ stimulations = {
             ]
     },
     "exploration": {
-        "start_burst": None,
-        "end_burst": None,
         "definition": []
     },
     "move_forward": {
-        "start_burst": None,
-        "end_burst": None,
+        "end_burst": 500,
         "definition": []
     },
     "charge_batteries": {
-        "start_burst": None,
-        "end_burst": None,
+        "start_burst": 1000,
         "definition": [
             {"i__inf": ["2-0-0"]}
         ]

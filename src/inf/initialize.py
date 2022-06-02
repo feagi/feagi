@@ -377,9 +377,7 @@ def init_io_channels():
             if runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']:
                 runtime_data.router_address_gazebo = "tcp://" + runtime_data.parameters['Sockets']['gazebo_host_name'] + ':' + runtime_data.parameters['Sockets'][
                     'feagi_inbound_port_gazebo']
-            if runtime_data.parameters['Sockets']['feagi_inbound_port_virtual']:
-                runtime_data.router_address_virtual = "tcp://" + runtime_data.parameters['Sockets']['virtual_host_name'] + ':' + runtime_data.parameters['Sockets'][
-                    'feagi_inbound_port_virtual']
+
         else:
             print(">>>  >>>> >>> >>>> >>> >> > >> > >> > > >   Brain is NOT running in a container  ******* ** * * *")
             if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
@@ -388,9 +386,6 @@ def init_io_channels():
             if runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']:
                 runtime_data.router_address_gazebo = "tcp://127.0.0.1" + ':' + runtime_data.parameters['Sockets'][
                     'feagi_inbound_port_gazebo']
-            if runtime_data.parameters['Sockets']['feagi_inbound_port_virtual']:
-                runtime_data.router_address_virtual = "tcp://127.0.0.1" + ':' + runtime_data.parameters['Sockets'][
-                    'feagi_inbound_port_virtual']
 
         print("Router addresses has been set")
     except KeyError as e:

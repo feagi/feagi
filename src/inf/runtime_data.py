@@ -119,3 +119,8 @@ tester_test_stats = {}
 
 # Flags
 flag_ready_to_inject_image = False
+
+
+# Stimulation
+stimulation_script = {}
+stimulation_index = {}

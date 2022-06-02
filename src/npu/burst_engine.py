@@ -34,6 +34,7 @@ from datetime import datetime
 from inf import disk_ops
 from time import sleep
 from npu.physiology import *
+from npu import stimulator
 from mem.memory import neuroplasticity
 from npu.comprehension import utf_detection_logic
 from evo.stats import *
@@ -311,13 +312,11 @@ def burst_manager():
             if godot_data:
                 stimuli_router(godot_data)
 
-        # IPU listener: Receives IPU data through ZMQ channel
-        if runtime_data.router_address_virtual is not None:
-            virtual_data = virtual_listener.receive()
-            # Dynamically adjusting burst duration based on Controller needs
-            runtime_data.burst_timer = burst_duration_calculator(virtual_data)
+        # IPU listener: Receives IPU data through REST API
+        if runtime_data.stimulation_script is not None:
+            virtual_data = stimulator.stimulate()
             if virtual_data:
-                stimuli_router(virtual_data)
+                stimuli_router({"data": {"direct_stimulation": virtual_data}})
 
         # Broadcasts a TCP message on each burst
         if runtime_data.brain_activity_pub:
@@ -459,10 +458,7 @@ def burst_manager():
         print("runtime_data.router_address_gazebo=", runtime_data.router_address_gazebo)
         print("Subscribing Gazebo incoming port...                                            ++++++++++++++++++++++++")
         gazebo_listener = Sub(address=runtime_data.router_address_gazebo)
-    if runtime_data.router_address_virtual is not None:
-        print("runtime_data.router_address_virtual=", runtime_data.router_address_virtual)
-        print("Subscribing Virtual incoming port...                                           ++++++++++++++++++++++++")
-        virtual_listener = Sub(address=runtime_data.router_address_virtual)
+
     else:
         print("Router address is None!")
 
