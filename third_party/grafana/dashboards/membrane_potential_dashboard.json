@@ -23,7 +23,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 6,
-  "iteration": 1654019199183,
+  "iteration": 1654107715007,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -312,8 +312,8 @@
     ]
   },
   "time": {
-    "from": "2022-05-31T17:45:35.561Z",
-    "to": "2022-05-31T17:45:54.171Z"
+    "from": "now-5m",
+    "to": "now"
   },
   "timepicker": {
     "refresh_intervals": [

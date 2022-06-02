@@ -395,6 +395,10 @@ def burst_manager():
         # Process efferent signals
         opu_router()
 
+        # Forming memories through creation of cell assemblies
+        # todo: instead of passing a pain flag simply detect of pain neuron is activated
+        neuroplasticity()
+
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
 
@@ -411,10 +415,6 @@ def burst_manager():
 
         # Pain check
         exhibit_pain()
-
-        # Forming memories through creation of cell assemblies
-        # todo: instead of passing a pain flag simply detect of pain neuron is activated
-        neuroplasticity()
 
         # Resetting burst_manager detection list
         runtime_data.burst_detection_list = {}
