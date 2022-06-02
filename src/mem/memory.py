@@ -182,12 +182,12 @@ def neuroplasticity():
                         for neuron1 in cfcl[src_cortical_area]:
                             for neuron2 in previous_fcl[dst_cortical_area]:
                                 # Todo: Assess efficiency --
-                                bidirectional_synapse(
-                                    src_cortical_area,
-                                    neuron1,
-                                    dst_cortical_area,
-                                    neuron2
-                                )
+                                # bidirectional_synapse(
+                                #     src_cortical_area,
+                                #     neuron1,
+                                #     dst_cortical_area,
+                                #     neuron2
+                                # )
                                 if neuron2 not in cfcl[dst_cortical_area] and \
                                         plasticity_dict[dst_cortical_area][src_cortical_area] == 'efferent':
                                     print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
