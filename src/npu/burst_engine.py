@@ -371,14 +371,11 @@ def burst_manager():
         runtime_data.pain_flag = False
         runtime_data.burst_count += 1
 
-        # A deep copy of the FCL to previous FCL
-        for _ in runtime_data.fire_candidate_list:
-            runtime_data.previous_fcl[_] = set([item for item in runtime_data.fire_candidate_list[_]])
-
-        fcl_tmp = set()
-
         # Manage ZMQ communication from and to FEAGI
         message_router()
+
+        # Process efferent signals
+        opu_router()
 
         # Feeding FCL queue content into the FCL
         while not runtime_data.fcl_queue.empty():
@@ -389,15 +386,21 @@ def burst_manager():
                     set([item for item in fcl_tmp[_]])
                 fcl_tmp = set()
 
+        # print("^^^^^^^^^^ Current FCL ^^^^^^^^^\n", runtime_data.fire_candidate_list)
+
         # logging neuron activities to the influxdb
         # log_neuron_activity_influx()
 
-        # Process efferent signals
-        opu_router()
 
         # Forming memories through creation of cell assemblies
         # todo: instead of passing a pain flag simply detect of pain neuron is activated
         neuroplasticity()
+
+        # A deep copy of the FCL to previous FCL
+        for _ in runtime_data.fire_candidate_list:
+            runtime_data.previous_fcl[_] = set([item for item in runtime_data.fire_candidate_list[_]])
+
+        # print("^^^^^^^^^^ Previous FCL ^^^^^^^^^\n", runtime_data.previous_fcl)
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
