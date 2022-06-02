@@ -398,23 +398,25 @@ async def neuron_physiological_stat_collection_report():
 async def neuron_physiological_stat_collection(message: StatsCollectionScope):
     """
     Message Template:
-
     {
-        "o__mot": {
-            "voxels": [[0, 0, 0], [2, 0, 0]],
-            "neurons": [],
-            "area_wide": false,
-            "afferent": true,
-            "efferent": true
-        },
-        "i__inf": {
-            "voxels": [[1, 1, 1]],
-            "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3'],
-            "area_wide": true
-            "afferent": false,
-            "efferent": true
-        },
-        ...
+        "collection_scope":
+            {
+                "o__mot": {
+                    "voxels": [[0, 0, 0], [2, 0, 0]],
+                    "neurons": [],
+                    "area_wide": false,
+                    "afferent": true,
+                    "efferent": true
+                },
+                "i__inf": {
+                    "voxels": [[1, 1, 1]],
+                    "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3'],
+                    "area_wide": true
+                    "afferent": false,
+                    "efferent": true
+                },
+                ...
+            }
     }
     """
 
