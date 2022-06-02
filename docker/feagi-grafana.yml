@@ -90,12 +90,6 @@ services:
       - PYTHONUNBUFFERED=1
     volumes:
       - ../src/evo/static_genome.py:/opt/source-code/feagi/src/evo/static_genome.py
-      - ../src/api/api.py:/opt/source-code/feagi/src/api/api.py
-      - ../src/npu/physiology.py:/opt/source-code/feagi/src/npu/physiology.py
-      - ../src/npu/burst_engine.py:/opt/source-code/feagi/src/npu/burst_engine.py
-      - ../src/mem/memory.py:/opt/source-code/feagi/src/mem/memory.py
-      - ../src/inf/runtime_data.py:/opt/source-code/feagi/src/inf/runtime_data.py
-      - ../src/evo/neuroembryogenesis.py:/opt/source-code/feagi/src/evo/neuroembryogenesis.py
       - ../src/feagi_configuration.ini:/opt/source-code/feagi/src/feagi_configuration.ini
     networks:
       - net

@@ -72,8 +72,6 @@ class Network(BaseModel):
     gazebo_host: Optional[str] = runtime_data.parameters['Sockets']['gazebo_host_name']
     gazebo_data_port: Optional[int] = runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']
     gazebo_web_port: Optional[int] = 6080
-    virtual_stimulator_host: Optional[str] = runtime_data.parameters['Sockets']['virtual_host_name']
-    virtual_stimulator_data_port: Optional[int] = runtime_data.parameters['Sockets']['feagi_inbound_port_virtual']
 
 
 class ConnectomePath(BaseModel):
@@ -93,6 +91,10 @@ class Stats(BaseModel):
 
 class Genome(BaseModel):
     genome: dict
+
+
+class Stimulation(BaseModel):
+    stimulation_script: dict
 
 
 class StatsCollectionScope(BaseModel):
@@ -382,6 +384,56 @@ async def genome_download():
         return {"Request failed...", e}
 
 
+# ######  Stimulation #########
+# ##################################
+
+@app.api_route("/v1/feagi/stimulation/upload/string", methods=['POST'])
+async def stimulation_string_upload(stimulation_script: Stimulation):
+    """
+    stimulation_script = {
+    "IR_pain": {
+        "start_burst": 10,
+        "end_burst": 1000,
+        "definition": [
+            {"i__pro": ["0-0-3"], "o__mot": ["2-0-7"]},
+            {"i__pro": ["0-0-8"]},
+            {"i__bat": ["0-0-7"]},
+            {"i__bat": ["0-0-6"]},
+            {"i__bat": ["0-0-5"]},
+            {"i__bat": ["0-0-4"]},
+            {"i__bat": ["0-0-3"]},
+            {},
+            {"i__bat": ["0-0-2"]},
+            {"i__bat": ["0-0-1"]},
+            {},
+            {}
+            ]
+    },
+    "exploration": {
+        "definition": []
+    },
+    "move_forward": {
+        "end_burst": 500,
+        "definition": []
+    },
+    "charge_batteries": {
+        "start_burst": 1000,
+        "definition": [
+            {"i__inf": ["2-0-0"]}
+        ]
+    }
+}
+
+    """
+    try:
+        message = stimulation_script.dict()
+        message = {'stimulation_script': message}
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
 # ######  Statistics and Reporting Endpoints #########
 # ##################################
 
@@ -441,6 +493,9 @@ def api_message_processor(api_message):
                 if api_message['burst_management']['burst_duration'] is not None:
                     runtime_data.burst_timer = api_message['burst_management']['burst_duration']
 
+        if 'stimulation_script' in api_message:
+            runtime_data.stimulation_script = api_message['stimulation_script']['stimulation_script']
+
         if 'log_management' in api_message:
             if 'print_burst_info' in api_message['log_management']:
                 runtime_data.parameters['Logs']['print_burst_info'] \
@@ -480,14 +535,6 @@ def api_message_processor(api_message):
                 runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo'] = \
                     api_message['network_management']['gazebo_port']
 
-            if 'virtual_host' in api_message['network_management']:
-                runtime_data.parameters['Sockets']['virtual_host_name'] = api_message['network_management'][
-                    'virtual_host']
-            if 'virtual_port' in api_message['network_management']:
-                runtime_data.parameters['Sockets']['feagi_inbound_port_virtual'] = \
-                    api_message['network_management']['virtual_port']
 
-        # if 'genome' in api_message:
-        #     pass
 
             # todo: Handle web port assignments
