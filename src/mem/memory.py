@@ -176,14 +176,10 @@ def neuroplasticity():
 
     for src_cortical_area in cfcl:
         if src_cortical_area in plasticity_dict and len(cfcl[src_cortical_area]) > 0:
-            print("++1", src_cortical_area, plasticity_dict[src_cortical_area])
             for dst_cortical_area in plasticity_dict[src_cortical_area]:
                 if dst_cortical_area in previous_fcl:
-                    print(len(previous_fcl[dst_cortical_area]))
-                    if len(previous_fcl[dst_cortical_area] > 0):
-                        print("++2", dst_cortical_area)
+                    if len(previous_fcl[dst_cortical_area]) > 0:
                         for neuron1 in cfcl[src_cortical_area]:
-                            print("++3", neuron1)
                             for neuron2 in previous_fcl[dst_cortical_area]:
                                 # Todo: Assess efficiency --
                                 bidirectional_synapse(
@@ -192,27 +188,35 @@ def neuroplasticity():
                                     dst_cortical_area,
                                     neuron2
                                 )
-                            if dst_cortical_area not in cfcl and \
-                                    plasticity_dict[dst_cortical_area][src_cortical_area] == 'efferent':
-                                print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
-                                neuron1_upstream_neurons = list_upstream_neurons(src_cortical_area, neuron1)
-                                if dst_cortical_area in neuron1_upstream_neurons:
-                                    for neuron in previous_fcl[dst_cortical_area]:
-                                        if neuron in neuron1_upstream_neurons[dst_cortical_area]:
-                                            longterm_potentiation_depression(
-                                                src_cortical_area=src_cortical_area,
-                                                src_neuron_id=neuron1,
-                                                dst_cortical_area=dst_cortical_area,
-                                                dst_neuron_id=neuron
-                                            )
-                            else:
-                                print("????? ??? ?? ?? ?? ?? ?? ?  ? -----", dst_cortical_area, src_cortical_area, plasticity_dict[dst_cortical_area][src_cortical_area])
+                                if neuron2 not in cfcl[dst_cortical_area] and \
+                                        plasticity_dict[dst_cortical_area][src_cortical_area] == 'efferent':
+                                    print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
+                                    print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
+                                    print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
+                                    print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
+                                    neuron1_upstream_neurons = list_upstream_neurons(src_cortical_area, neuron1)
+                                    if dst_cortical_area in neuron1_upstream_neurons:
+                                        for neuron in previous_fcl[dst_cortical_area]:
+                                            if neuron in neuron1_upstream_neurons[dst_cortical_area]:
+                                                longterm_potentiation_depression(
+                                                    src_cortical_area=src_cortical_area,
+                                                    src_neuron_id=neuron1,
+                                                    dst_cortical_area=dst_cortical_area,
+                                                    dst_neuron_id=neuron
+                                                )
+
                             neuron1_downstream_neurons = runtime_data.brain[src_cortical_area][neuron1]['neighbors']
                             for downstream_neuron in neuron1_downstream_neurons:
                                 downstream_neuron_cortical_area = \
                                     neuron1_downstream_neurons[downstream_neuron]['cortical_area']
+                                # print("@@@@@ ", plasticity_dict[src_cortical_area][downstream_neuron_cortical_area], src_cortical_area, downstream_neuron_cortical_area, dst_cortical_area)
                                 if downstream_neuron_cortical_area in previous_fcl and \
-                                        downstream_neuron_cortical_area not in cfcl:
+                                        downstream_neuron in previous_fcl[downstream_neuron_cortical_area] and \
+                                        downstream_neuron not in cfcl[downstream_neuron_cortical_area] and \
+                                        plasticity_dict[src_cortical_area][downstream_neuron_cortical_area] == 'efferent':
+                                    print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
+                                    print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
+                                    print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
                                     print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
                                     if downstream_neuron in \
                                             previous_fcl[neuron1_downstream_neurons[downstream_neuron]['cortical_area']]:
