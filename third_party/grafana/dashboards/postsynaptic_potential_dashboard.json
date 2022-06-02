@@ -23,7 +23,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 5,
-  "iteration": 1654002441582,
+  "iteration": 1654203022456,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -78,7 +78,32 @@
           },
           "unit": "none"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "postSynapticCurrent {dst_cortical_area=\"i__sho\", dst_neuron_id=\"2022-06-02_20:43:56_402555_CP8I2I_N\", src_cortical_area=\"a_pain\", src_neuron_id=\"2022-06-02_20:43:56_402799_S9F0FK_N\"}"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -106,7 +131,7 @@
           "measurement": "membranePotential",
           "orderByTime": "ASC",
           "policy": "autogen",
-          "query": "from(bucket: \"data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"synapse\")\n  |> filter(fn: (r) => r[\"_field\"] == \"postSynapticCurrent\" and (r[\"src_cortical_area\"] =~ /^${src_cortical_area:regex}$/ or r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/))\n  |> filter(fn: (r) => r[\"src_neuron_id\"] =~ /^${src_neuron_id:regex}$/ and r[\"dst_neuron_id\"] =~ /^${dst_neuron_id:regex}$/)\n  |> drop(columns:[\"connectome\"])\n  |> yield(name: \"mean\")\n  |> limit(n:10)",
+          "query": "from(bucket: \"data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"synapse\")\n  |> filter(fn: (r) => r[\"_field\"] == \"postSynapticCurrent\" and (r[\"src_cortical_area\"] =~ /^${src_cortical_area:regex}$/ or r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/))\n  |> filter(fn: (r) => r[\"src_neuron_id\"] =~ /^${src_neuron_id:regex}$/ and r[\"dst_neuron_id\"] =~ /^${dst_neuron_id:regex}$/)\n  |> drop(columns:[\"connectome\"])\n  |> yield(name: \"mean\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -122,7 +147,6 @@
           "tags": []
         }
       ],
-      "timeFrom": "5m",
       "timeShift": null,
       "title": "Post Synaptic Currents",
       "transformations": [
@@ -134,7 +158,7 @@
       "type": "timeseries"
     }
   ],
-  "refresh": "30s",
+  "refresh": false,
   "schemaVersion": 32,
   "style": "dark",
   "tags": [],
@@ -339,8 +363,8 @@
     ]
   },
   "time": {
-    "from": "now-5m",
-    "to": "now"
+    "from": "2022-06-02T20:50:53.195Z",
+    "to": "2022-06-02T20:50:53.201Z"
   },
   "timepicker": {
     "refresh_intervals": [
@@ -357,7 +381,7 @@
     ]
   },
   "timezone": "",
-  "title": "FEAGI Synaptic Monitor",
+  "title": "FEAGI Postsynaptic Potential Monitor",
   "uid": "ATgzXo9nz",
-  "version": 2
+  "version": 6
 }
