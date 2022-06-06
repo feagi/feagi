@@ -135,8 +135,12 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
         dst_neuron_obj = runtime_data.brain[dst_cortical_area][dst_neuron_id]
 
         # Update membrane potential of the downstream neuron
-        membrane_potential_update(cortical_area=dst_cortical_area, neuron_id=dst_neuron_id,
-                                  membrane_potential_change=neuron_output/neighbor_count, bypass_db_log=True)
+        if runtime_data.genome['blueprint'][cortical_area]['psp_uniform_distribution']:
+            membrane_potential_update(cortical_area=dst_cortical_area, neuron_id=dst_neuron_id,
+                                      membrane_potential_change=neuron_output, bypass_db_log=True)
+        else:
+            membrane_potential_update(cortical_area=dst_cortical_area, neuron_id=dst_neuron_id,
+                                      membrane_potential_change=neuron_output/neighbor_count, bypass_db_log=True)
 
         # Update the fire_queue that holds a temporary list of all updated neurons across the brain during a burst
         if dst_cortical_area not in runtime_data.fire_queue:

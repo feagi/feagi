@@ -197,6 +197,7 @@ genome_1_template = {
           "postsynaptic_current": None,
           "plasticity_constant": None,
           "degeneration": None,
+          "psp_uniform_distribution": False,
           "postsynaptic_current_max": None,
           "cortical_mapping_dst": {},
           "neuron_params": {
@@ -248,7 +249,8 @@ genome_2_to_1 = {
     "nx-snooze-f": "snooze_length",
     "cx-_group-t": "group_id",
     "cx-dstmap-d": "cortical_mapping_dst",
-    "cx-de_gen-f": "degeneration"
+    "cx-de_gen-f": "degeneration",
+    "cx-pspuni-b": "psp_uniform_distribution"
 }
 
 genome_1_to_2 = {
@@ -270,5 +272,6 @@ genome_1_to_2 = {
     "snooze_length": "nx-snooze-f",
     "group_id": "cx-_group-t",
     "cortical_mapping_dst": "cs-dstmap-d",
-    "degeneration": "cx-de_gen-f"
+    "degeneration": "cx-de_gen-f",
+    "psp_uniform_distribution": "cx-pspuni-b"
 }

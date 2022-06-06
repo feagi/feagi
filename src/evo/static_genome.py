@@ -172,7 +172,7 @@ genome = {
         "_____10c-i__pro-nx-snooze-f": 0,
         "_____10c-i__pro-cx-de_gen-f": 0,
         "_____10c-i__pro-cx-dstmap-d": {
-            # "t__pro": [["block_to_block", [1, 1, 1], 1, False]]
+            "t__pro": [["block_to_block", [1, 1, 1], 1, False]]
         },
 
         "_____10c-t__pro-cx-__name-t": "proximity_thalamus",
@@ -195,7 +195,10 @@ genome = {
         "_____10c-t__pro-nx-c_fr_c-i": 1,
         "_____10c-t__pro-nx-snooze-f": 0,
         "_____10c-t__pro-cx-de_gen-f": 0,
-        "_____10c-t__pro-cx-dstmap-d": {},
+        "_____10c-t__pro-cx-pspuni-b": True,
+        "_____10c-t__pro-cx-dstmap-d": {
+            "o__bat": [["block_to_block", [1, 1, 1], 1, False]]
+        },
 
         "_____10c-i__bat-cx-__name-t": "battery_ipu",
         "_____10c-i__bat-cx-_group-t": "IPU",
