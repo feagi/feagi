@@ -99,6 +99,7 @@ gui_baseline = {
         "consecutive_fire_cnt_max (int)": ["nx-c_fr_c-i", 3],
         "snooze_length (float)": ["nx-snooze-f", 0],
         "group_id (str)": ["cx-_group-t", "null"],
-        "degeneration (float)": ["cx-de_gen-f", 0]
+        "degeneration (float)": ["cx-de_gen-f", 0],
+        "Unified Postsynaptic Potential (bool)": ["cx-pspuni-b", False]
     }
 }
