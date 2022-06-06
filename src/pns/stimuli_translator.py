@@ -179,16 +179,42 @@ def convert_ir_to_fire_list(ir_data):
     cortical_area = 'i__inf'
     if cortical_area_in_genome(cortical_area):
         fire_list = set()
+        inverse_fire_list = set()
         # print("runtime_data.brain['i__inf']", runtime_data.brain['i__inf'])
+
+        active_ir_indexes = []
+        inverse_ir_indexes = []
+
         for sensor_idx in ir_data:
             if ir_data[sensor_idx]:
                 for key in runtime_data.brain[cortical_area]:
                     if sensor_idx == runtime_data.brain[cortical_area][key]['soma_location'][0]:
+                        active_ir_indexes.append(sensor_idx)
                         fire_list.add(key)
+
         if 'i__inf' not in runtime_data.fire_candidate_list:
             runtime_data.fire_candidate_list['i__inf'] = set()
+
+        # todo: find a generalized way to support inverse IPU concept
+        if cortical_area_in_genome('ii_inf'):
+            if 'ii_inf' not in runtime_data.fire_candidate_list:
+                runtime_data.fire_candidate_list['ii_inf'] = set()
+            for index in range(runtime_data.genome['blueprint']['ii_inf']["neuron_params"]["block_boundaries"][0]):
+                if index not in active_ir_indexes:
+                    inverse_ir_indexes.append(index)
+
+            for inv_sensor_idx in inverse_ir_indexes:
+                for neuron in runtime_data.brain['ii_inf']:
+                    if inv_sensor_idx == runtime_data.brain['ii_inf'][neuron]['soma_location'][0]:
+                        active_ir_indexes.append(inv_sensor_idx)
+                        inverse_fire_list.add(neuron)
+
         for neuron in fire_list:
             runtime_data.fire_candidate_list['i__inf'].add(neuron)
+
+        for neuron in inverse_fire_list:
+            runtime_data.fire_candidate_list['ii_inf'].add(neuron)
+
         # runtime_data.fcl_queue.put({cortical_area: fire_list})
     else:
         print("Warning! Cortical stimulation received but genome missing", cortical_area)

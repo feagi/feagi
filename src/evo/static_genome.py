@@ -126,6 +126,31 @@ genome = {
             # "i__inf": [["block_to_block", [1, 1, 1], 1, False]]
         },
 
+        "_____10c-ii_inf-cx-__name-t": "inv_ir_ipu",
+        "_____10c-ii_inf-cx-_group-t": "IPU",
+        "_____10c-ii_inf-cx-_n_cnt-i": 1,
+        "_____10c-ii_inf-nx-gd_vis-b": True,
+        "_____10c-ii_inf-nx-rcordx-i": 90,
+        "_____10c-ii_inf-nx-rcordy-i": 0,
+        "_____10c-ii_inf-nx-rcordz-i": 0,
+        "_____10c-ii_inf-nx-___bbx-i": 3,
+        "_____10c-ii_inf-nx-___bby-i": 1,
+        "_____10c-ii_inf-nx-___bbz-i": 1,
+        "_____10c-ii_inf-cx-synatt-i": 100,
+        "_____10c-ii_inf-cx-pstcr_-f": 5,
+        "_____10c-ii_inf-cx-pstcrm-f": 35,
+        "_____10c-ii_inf-cx-plst_c-f": 0.05,
+        "_____10c-ii_inf-nx-fire_t-f": 1,
+        "_____10c-ii_inf-nx-refrac-i": 0,
+        "_____10c-ii_inf-nx-leak_c-f": 10,
+        "_____10c-ii_inf-nx-c_fr_c-i": 3,
+        "_____10c-ii_inf-nx-snooze-f": 0,
+        "_____10c-ii_inf-cx-de_gen-f": 0.01,
+        "_____10c-ii_inf-cx-dstmap-d": {
+            # "ii_inf": [["block_to_block", [1, 1, 1], 1, False]]
+        },
+        
+
         "_____10c-i__pro-cx-__name-t": "proximity_ipu",
         "_____10c-i__pro-cx-_group-t": "memory",
         "_____10c-i__pro-cx-_n_cnt-i": 1,
