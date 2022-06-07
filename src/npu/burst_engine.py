@@ -42,6 +42,7 @@ from inf.initialize import init_burst_engine, exit_burst_process
 from inf.messenger import Pub, Sub
 from pns.pns_router import opu_router, stimuli_router
 from api.api import api_message_processor
+from trn.trainer import shock_manager
 
 
 def cortical_group_members(group):
@@ -318,6 +319,10 @@ def burst_manager():
             if virtual_data:
                 stimuli_router({"data": {"direct_stimulation": virtual_data}})
 
+        # Evaluated multiple scenarios and administers shock as needed
+        if runtime_data.shock_admin:
+            shock_manager()
+
         # Broadcasts a TCP message on each burst
         if runtime_data.brain_activity_pub:
             # todo: Obtain the frequency from controller config
@@ -389,7 +394,6 @@ def burst_manager():
 
         # logging neuron activities to the influxdb
         # log_neuron_activity_influx()
-
 
         # Forming memories through creation of cell assemblies
         # todo: instead of passing a pain flag simply detect of pain neuron is activated

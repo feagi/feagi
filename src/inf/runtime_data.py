@@ -71,6 +71,7 @@ burst_activities = {}
 opu_data = {}
 cortical_dimensions = {}
 voxel_dict = {}
+shock_admin = False
 
 
 # Stats Collection
