@@ -126,6 +126,30 @@ genome = {
             # "i__inf": [["block_to_block", [1, 1, 1], 1, False]]
         },
 
+        "_____10c-ishock-cx-__name-t": "shock_ipu",
+        "_____10c-ishock-cx-_group-t": "IPU",
+        "_____10c-ishock-cx-_n_cnt-i": 1,
+        "_____10c-ishock-nx-gd_vis-b": True,
+        "_____10c-ishock-nx-rcordx-i": 10,
+        "_____10c-ishock-nx-rcordy-i": 0,
+        "_____10c-ishock-nx-rcordz-i": 35,
+        "_____10c-ishock-nx-___bbx-i": 1,
+        "_____10c-ishock-nx-___bby-i": 1,
+        "_____10c-ishock-nx-___bbz-i": 10,
+        "_____10c-ishock-cx-synatt-i": 100,
+        "_____10c-ishock-cx-pstcr_-f": 5,
+        "_____10c-ishock-cx-pstcrm-f": 35,
+        "_____10c-ishock-cx-plst_c-f": 0.05,
+        "_____10c-ishock-nx-fire_t-f": 1,
+        "_____10c-ishock-nx-refrac-i": 0,
+        "_____10c-ishock-nx-leak_c-f": 10,
+        "_____10c-ishock-nx-c_fr_c-i": 3,
+        "_____10c-ishock-nx-snooze-f": 0,
+        "_____10c-ishock-cx-de_gen-f": 0,
+        "_____10c-ishock-cx-dstmap-d": {
+        },
+
+
         "_____10c-ii_inf-cx-__name-t": "inv_ir_ipu",
         "_____10c-ii_inf-cx-_group-t": "IPU",
         "_____10c-ii_inf-cx-_n_cnt-i": 1,

@@ -101,6 +101,10 @@ class StatsCollectionScope(BaseModel):
     collection_scope: dict
 
 
+class Training(BaseModel):
+    shock: bool
+
+
 class SPAStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope):
         response = await super().get_response(path, scope)
@@ -128,6 +132,16 @@ app.mount("/home", SPAStaticFiles(directory="gui", html=True), name="static")
 #             return {"FEAGI started using a genome."}
 #     except Exception as e:
 #         return {"FEAGI start failed ... error details to be provided here", e}
+
+
+@app.api_route("/v1/feagi/training/shock", methods=['POST'])
+async def shock_administrator(training: Training):
+    try:
+        message = training.dict()
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/feagi/register", methods=['POST'])
@@ -535,6 +549,10 @@ def api_message_processor(api_message):
                 runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo'] = \
                     api_message['network_management']['gazebo_port']
 
+        if 'shock' in api_message:
+            if api_message["shock"]:
+                runtime_data.shock_admin = True
+            else:
+                runtime_data.shock_admin = False
 
-
-            # todo: Handle web port assignments
+        # todo: Handle web port assignments

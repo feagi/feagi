@@ -22,7 +22,7 @@ from inf import initialize
 from evo import neuroembryogenesis, death, genome_processor
 from npu import burst_engine
 from inf import runtime_data, disk_ops
-from edu import edu_controller
+from trn import edu_controller
 from evo.genome_editor import save_genome
 
 
