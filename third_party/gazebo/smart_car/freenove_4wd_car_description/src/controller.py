@@ -25,7 +25,10 @@ import std_msgs.msg
 import configuration
 import os
 import os.path
+import subprocess
 
+from std_msgs.msg import String
+from subprocess import PIPE, Popen
 from configuration import message_to_feagi
 from time import sleep
 from rclpy.node import Node
@@ -34,7 +37,6 @@ from rclpy.qos import qos_profile_sensor_data
 from configuration import *
 from threading import Thread
 from datetime import datetime
-
 
 runtime_data = {
     "cortical_data": {},
@@ -46,9 +48,32 @@ runtime_data = {
     "host_network": {},
     "battery_charge_level": 1,
     'motor_status': {},
-    'servo_status': {}
+    'servo_status': {},
+    'GPS': {}
 }
 
+runtime_data["GPS"]["x"] = dict()
+runtime_data["GPS"]["y"] = dict()
+runtime_data["GPS"]["z"] = dict()
+runtime_data["GPS"]["counter"] = dict()
+runtime_data["GPS"]["x_counter"] = dict()
+runtime_data["GPS"]["y_counter"] = dict()
+runtime_data["GPS"]["n_x_counter"] = dict()
+runtime_data["GPS"]["n_y_counter"] = dict()
+runtime_data["GPS"]["counter"] = 0
+runtime_data["GPS"]["x_counter"] = 0
+runtime_data["GPS"]["y_counter"] = 0
+runtime_data["GPS"]["n_x_counter"] = 0
+runtime_data["GPS"]["n_y_counter"] = 0
+
+location_stored = dict()
+tile_margin = dict()
+old_list = location_stored.copy()
+location_stored["0"] = [0,0] #by default
+
+layer_index = [[0,0]]#Starts at 0,0 by default
+layer_dimesion = [Gazebo_world["size_of_plane"]["x"],Gazebo_world["size_of_plane"]["y"]]
+##Don't change above line, change it in configuration.py inside "size_of_plane"
 
 if sys.platform == 'win32':
     import msvcrt
@@ -59,19 +84,18 @@ else:
 launch_checker = os.path.exists('type_res.txt')
 if launch_checker:
     print("low res")
-    model_name = "models/sdf/low_res_freenove_smart_car" #This is for the gazebo sdf file path
+    model_name = "models/sdf/low_res_freenove_smart_car"  # This is for the gazebo sdf file path
 else:
-    model_name = "models/sdf/freenove_smart_car" #This is for the gazebo sdf file path
+    model_name = "models/sdf/freenove_smart_car"  # This is for the gazebo sdf file path
     print("no low res")
 
-robot_name = "freenove_smart_car" #This is the model name in gazebo without sdf involves.
+robot_name = "freenove_smart_car"  # This is the model name in gazebo without sdf involves.
 y = str(capabilities["position"]["y"])
 z = str(capabilities["position"]["z"])
 first_part = "ign service -s /world/free_world/create --reqtype ignition.msgs.EntityFactory --reptype ignition.msgs.Boolean --timeout 300 --req 'sdf_filename:'\'\""
-second_part = model_name + ".sdf\" pose: {position: {y"
+second_part = model_name + ".sdf\" pose: {position: { x: 0.05, y"
 third_part = ": " + y + ", z: " + z + "}}\' &"
 add_model = first_part + second_part + third_part
-print(add_model)
 os.system(add_model)
 ### Just to define for future. This section will need to be updated later once its finalized
 remove_model = """
@@ -235,7 +259,6 @@ class Battery:
         if runtime_data["battery_charge_level"] < 0:
             runtime_data["battery_charge_level"] = 0
 
-
     @staticmethod
     def consume_battery():
         # print("Consuming battery ")
@@ -264,7 +287,8 @@ class Motor:
                 runtime_data['motor_status'][device_index] = 0
 
             device_current_position = runtime_data['motor_status'][device_index]
-            device_position.data = float((power * network_settings['feagi_burst_speed']*1.5) + device_current_position)
+            device_position.data = float(
+                (power * network_settings['feagi_burst_speed'] * 1.5) + device_current_position)
 
             runtime_data['motor_status'][device_index] = device_position.data
             # print("device index, position, power = ", device_index, device_position.data, power)
@@ -339,95 +363,373 @@ class Servo:
         except Exception:
             exc_info = sys.exc_info()
             traceback.print_exception(*exc_info)
-        
-        # twist = geometry_msgs.msg.Twist()
-        #
-        # # todo: linear and angular speed does not make sense in the case of servo. To be fixed
-        # twist.linear.x = angle  # positive goes backward, negative goes forward
-        # twist.angular.z = angle
-        #
-        # self.servo_node[servo_index].publish(twist)
-        # twist = std_msgs.msg.Float64()
-        # degree = angle * 3.14159265359 / 180
-        # twist.data = float(degree)
-        # self.servo_node[servo_index].publish(twist)  # -1.6 to 1.6 which is -90 to 90
-
-
-# class Teleop:
-#     def __init__(self):
-#         rclpy.init()
-#         node = rclpy.create_node('teleop_twist_keyboard')
-#         self.pub = node.create_publisher(geometry_msgs.msg.Twist, '/model/vehicle_green/cmd_vel', 10)
-#         print("Gazebo Teleop has been initialized...")
-#
-#     def backward(self):
-#         twist = geometry_msgs.msg.Twist()
-#         twist.linear.x = 2.0  # positive goes backward, negative goes forward
-#         twist.angular.z = 0.0
-#         print("Backward.")
-#         self.pub.publish(twist)
-#         sleep(0.5)
-#         twist.linear.x = 0.0
-#         twist.angular.z = 0.0
-#         self.pub.publish(twist)
-#
-#     def forward(self):
-#         twist = geometry_msgs.msg.Twist()
-#         twist.linear.x = -2.0  # positive goes backward, negative goes forward
-#         twist.angular.z = 0.0
-#         print("Forward.")
-#         self.pub.publish(twist)
-#         sleep(0.5)
-#         twist.linear.x = 0.0
-#         twist.angular.z = 0.0
-#         self.pub.publish(twist)
-#
-#     def left(self):
-#         twist = geometry_msgs.msg.Twist()
-#         twist.linear.x = 0.0  # positive goes backward, negative goes forward
-#         twist.angular.z = 9.0
-#         print("Left.")
-#         self.pub.publish(twist)
-#         sleep(0.5)
-#         twist.linear.x = 0.0
-#         twist.angular.z = 0.0
-#         self.pub.publish(twist)
-#
-#     def right(self):
-#         twist = geometry_msgs.msg.Twist()
-#         twist.linear.x = 0.0  # positive goes backward, negative goes forward
-#         twist.angular.z = -9.0
-#         print("Right.")
-#         self.pub.publish(twist)
-#         sleep(0.5)
-#         twist.linear.x = 0.0
-#         twist.angular.z = 0.0
-#         self.pub.publish(twist)
 
 
 class PosInit:
     def __init__(self):
         init_pos_x = capabilities['position']['x']
         init_pos_y = capabilities['position']['y']
+
     def reset_position(self):
         print("## ## ## ## Resetting robot position ## ## ## ##")
         # Remove the robot
         y = str(capabilities["position"]["y"])
         z = str(capabilities["position"]["z"])
         first_part_r = "ign service -s /world/free_world/set_pose --reqtype ignition.msgs.Pose --reptype ignition.msgs.Boolean --timeout 300 --req \'name: "
-        second_part_r = ' "' + robot_name + '" ' + ", position: {y: "
-        third_part_r = y + ", z: " + z +"}' "
+        second_part_r = ' "' + robot_name + '" ' + ", position: { x: 0.05, y: "
+        third_part_r = y + ", z: " + z + "}' &"
         respawn = first_part_r + second_part_r + third_part_r
         print("++++++++++++++++++++++++++")
         print(respawn)
         os.system(respawn)
+        Pose().remove_floor()
         # runtime_data["motor_status"] = {}
         # runtime_data['servo_status'] = {}
         # runtime_data['battery_charge_level'] = 1
         # Create the robot
-        #os.system(add_model)
+        # os.system(add_model)
         servo.set_default_position()
 
+
+class TileManager(Node):
+    def __init__(self):
+        super().__init__('pose')
+        self.publisher_ = self.create_publisher(String, '/GPS', 10)
+        timer_period = 0.5
+        self.timer = self.create_timer(timer_period, self.pose_updated)
+        self.i = 0
+        self.tile_tracker = dict()
+        """
+        tile_tracker = {
+            "ground_plane0": {
+                "index": [0, 0],
+                "visibility": True
+                },
+            "ground_plane1": {
+                "index": [0, 1],
+                "visibility" False
+                },
+            "ground_plane2": [-1, 1],
+            ...
+            ...       
+        }
+        """
+        self.tile_dimensions = [configuration.Gazebo_world["size_of_plane"]["x"],
+                                configuration.Gazebo_world["size_of_plane"]["y"]]
+        self.tile_margin = configuration.Gazebo_world["margin"]
+        self.last_tile_name_id = 0
+        self.tile_name_prefix = "ground_plane"
+        self.tile_tracker["ground_plane"] = {
+            "index": [0, 0],
+            "visibility": True
+        }
+        self.visible_tiles = list()
+        self.visible_tiles.append([0, 0])
+
+    def pose_updated(self):
+        """
+        This updates robot's GPS automatically
+        """
+        msg = String()
+        msg.data = str(runtime_data["GPS"])
+        # Pose data
+        pose = subprocess.Popen(["ign topic -e  -t world/free_world/pose/info -n1 | grep \"freenove_smart_car\" -A6"],
+                                shell=True, stdout=PIPE)
+        pose_xyz = pose.communicate()[0].decode("utf-8")
+        for item in pose_xyz.split("\n"):
+            if "x: " in item:
+                number_only = item.replace("x: ", "")
+                runtime_data["GPS"]["x"] = float(number_only)
+            if "y: " in item:
+                number_only = item.replace("y: ", "")
+                runtime_data["GPS"]["y"] = float(number_only)
+            if "z: " in item:
+                number_only = item.replace("z: ", "")
+                runtime_data["GPS"]["z"] = float(number_only)
+        self.publisher_.publish(msg)
+
+    def tile_index_to_xyz(self, tile_index):
+        """
+        Return the coordinate of the center of the tile
+        """
+        center_of_tile_location = [self.tile_dimensions[0] * tile_index[0] - self.tile_dimensions[0] / 2,
+                                   self.tile_dimensions[1] * tile_index[1] - self.tile_dimensions[1] / 2, 0]
+        return center_of_tile_location
+
+    def gps_to_tile_index(self, gps):
+        """
+        Identifies what tile_index is associated with robot GPS location.
+        """
+
+        tile_index = [
+            int((gps[0] + (self.tile_dimensions[0] / 2)) // self.tile_dimensions[0]),
+            int((gps[1] + (self.tile_dimensions[1] / 2)) // self.tile_dimensions[1])
+        ]
+        return tile_index
+
+    def tile_index_to_name(self, tile_index):
+        for tile_name in self.tile_tracker:
+            if self.tile_tracker[tile_name]["index"] == tile_index:
+                return tile_name
+            else:
+                print("Warning! Tile tracker does not container a tile matching index ", tile_index, self.tile_tracker)
+                return None
+
+    def add_tile(self, tile_index):
+        print("Attempting to add:", tile_index)
+        print("%%%%%%%%%%%%%%%%%%%%%%%")
+        print("%%%%%%%%%%%%%%%%%%%%%%%")
+        print("%%%%%%%%%%%%%%%%%%%%%%%")
+        print("%%%%%%%%%%%%%%%%%%%%%%%")
+        print("%%%%%%%%%%%%%%%%%%%%%%%")
+        print("%%%%%%%%%%%%%%%%%%%%%%%")
+        print("%%%%%%%%%%%%%%%%%%%%%%%")
+        print("%%%%%%%%%%%%%%%%%%%%%%%")
+        print("%%%%%%%%%%%%%%%%%%%%%%%")
+        print("%%%%%%%%%%%%%%%%%%%%%%%")
+        # Tile location will be in the form of [x, y, z=0]
+        tile_location = self.tile_index_to_xyz(tile_index)
+
+        tile_location_x = str(tile_location[0] + (self.tile_dimensions[0] / 2))[:4]
+        tile_location_y = str(tile_location[1] + (self.tile_dimensions[1] / 2))[:4]
+        tile_location_z = str(0)
+
+        tile_name = self.tile_index_to_name(tile_index)
+        if tile_name is None:
+            self.last_tile_name_id += 1
+            tile_name = self.tile_name_prefix + str(self.last_tile_name_id)
+            self.tile_tracker[tile_name] = {}
+            self.tile_tracker[tile_name]["index"] = tile_index
+            self.tile_tracker[tile_name]["visibility"] = True
+
+        first_phrase = "ign service -s /world/free_world/create --reqtype ignition.msgs.EntityFactory --reptype ignition.msgs.Boolean --timeout 300 --req 'sdf_filename: ''\"models/sdf/new_ground.sdf\""
+        second_phrase = " pose: {position: {x:" + tile_location_x + ", y:" + tile_location_y + ", z:" + tile_location_z + "}} '\'name: \"" + tile_name + "\" '\' allow_renaming: false' &"
+
+        print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n", first_phrase + second_phrase)
+        os.system(first_phrase + second_phrase)
+        print("++++++++++++++++++++++++++++++++++++\n", first_phrase + second_phrase)
+        print(">>> New tile added:", tile_name, tile_location, tile_index)
+
+    def remove_tile(self, tile_index):
+        print("Attemping to remove:", tile_index)
+        print("------------------------------------")
+        print("------------------------------------")
+        print("------------------------------------")
+        tile_name = self.tile_index_to_name(tile_index)
+        if tile_name in self.tile_tracker:
+            command = "ign service -s /world/free_world/remove \
+            --reqtype ignition.msgs.Entity \
+            --reptype ignition.msgs.Boolean \
+            --timeout 300 \
+            --req 'name: \"" + tile_name + "\" type: MODEL' &"
+            os.system(command)
+            self.tile_tracker[tile_name]["visibility"] = False
+        else:
+            print("Error! Tile removal failed. Tile name not found within tile_tracker", tile_index, tile_name)
+
+    def add_visible_tile(self, tile_index):
+        if tile_index not in self.visible_tiles:
+            self.visible_tiles.append(tile_index)
+            print("MMMMM=+++")
+
+    def tile_visibility_checker(self, gps):
+        """
+        Returns the list of tiles to be visible in the form of [[0,0], [1,5], ...]
+        """
+        current_tile_index = self.gps_to_tile_index(gps=gps)
+        print("@@@@@@@ --------------------- current tile index:", current_tile_index)
+        # center_of_tile = self.tile_index_to_xyz(tile_index=current_tile_index)
+        #
+        # robot_relative_loc_to_tile = [gps[0] - center_of_tile[0],
+        #                               gps[1] - center_of_tile[1], 0]
+
+        # adding the current tile to the list of visible tiles by default
+        # self.add_visible_tile(current_tile_index)
+
+        self.visible_tiles = [current_tile_index]
+
+        print(">>>> > > > > > >> > > Visible Tiles:", self.visible_tiles)
+
+        # if robot_relative_loc_to_tile[0] > self.tile_dimensions[0] / 2 - self.tile_dimensions[0] * self.tile_margin:
+        #     self.add_visible_tile([[current_tile_index[0] + 1, current_tile_index[0]]])
+        #     print("-------------------------------   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ -- 1")
+        #
+        # if robot_relative_loc_to_tile[0] < -1 * self.tile_dimensions[0] / 2 + self.tile_dimensions[0] * self.tile_margin:
+        #     self.add_visible_tile([current_tile_index[0] - 1, current_tile_index[1]])
+        #     print("-------------------------------   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ -- 2")
+        #
+        # if robot_relative_loc_to_tile[1] > self.tile_dimensions[1] / 2 - self.tile_dimensions[1] * self.tile_margin:
+        #     self.add_visible_tile([current_tile_index[0], current_tile_index[1] + 1])
+        #     print("-------------------------------   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ -- 3")
+        #
+        # if robot_relative_loc_to_tile[1] < -1 * self.tile_dimensions[1] / 2 + self.tile_dimensions[1] * self.tile_margin:
+        #     self.add_visible_tile([current_tile_index[0], current_tile_index[1] - 1])
+        #     print("-------------------------------   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ -- 4")
+
+        print("tile visibility checker output:", self.visible_tiles)
+        # todo: Need to remove the tiles that are not needed if robot is inside the margin on all sides
+        # if robot_relative_loc_to_tile[0] > -1 ...
+
+    def tile_update(self, gps):
+        """
+        Based on robot location, turns the needed tile on or off
+        """
+        # Remove tiles that are not supposed to be displayed
+        self.tile_visibility_checker(gps=gps)
+        for tile in self.tile_tracker:
+            if self.tile_tracker[tile]["index"] not in self.visible_tiles:
+                print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
+                print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
+                print("&&&&&&&&        Remove      &&&&&&&&&")
+                print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
+                print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
+                self.remove_tile(self.tile_tracker[tile]["index"])
+
+        # Add the new tiles that has matched the display criteria
+        existing_visible_tiles = []
+        for tile in self.tile_tracker:
+            if self.tile_tracker[tile]["visibility"]:
+                existing_visible_tiles.append(self.tile_tracker[tile]["index"])
+
+        for tile_index in self.visible_tiles:
+            if tile_index not in existing_visible_tiles:
+                self.add_tile(tile_index=tile_index)
+        print("\n************************\nActive tile list:", self.tile_tracker)
+
+
+# class Pose(Node):
+#     def __init__(self):
+#         super().__init__('pose')
+#         self.publisher_ = self.create_publisher(String, '/GPS', 10)
+#         timer_period = 0.5
+#         self.timer = self.create_timer(timer_period, self.pose_updated)
+#         self.i = 0
+#
+#     def pose_updated(self):
+#         """
+#         This updates robot's GPS automatically
+#         """
+#         msg = String()
+#         msg.data = str(runtime_data["GPS"])
+#         # Pose data
+#         pose = subprocess.Popen(["ign topic -e  -t world/free_world/pose/info -n1 | grep \"freenove_smart_car\" -A6"],
+#                                 shell=True, stdout=PIPE)
+#         pose_xyz = pose.communicate()[0].decode("utf-8")
+#         for item in pose_xyz.split("\n"):
+#             if "x: " in item:
+#                 number_only = item.replace("x: ", "")
+#                 runtime_data["GPS"]["x"] = float(number_only)
+#             if "y: " in item:
+#                 number_only = item.replace("y: ", "")
+#                 runtime_data["GPS"]["y"] = float(number_only)
+#             if "z: " in item:
+#                 number_only = item.replace("z: ", "")
+#                 runtime_data["GPS"]["z"] = float(number_only)
+#         self.publisher_.publish(msg)
+#
+#     @staticmethod
+#     def location_updated(new_location):
+#         """
+#         This function adds per new location. Let's say, you add 2,2 to the list so it can remember the location
+#         """
+#         total_length = len(location_stored) #This doesn't include 0-index so we use this advantage
+#         location_stored[str(total_length)] = new_location
+#
+#     @staticmethod
+#     def margin_defined(margin, list_index, dimesions, counter):
+#         """
+#         :param margin: This is the "limit" to detect if robot past the margin. By default, it would be 5% or 0.05 so if your dimesion is 10x10, it would be 9.95 x 9.95. Once
+#         the robot's gps reached to the margin, it will create a new plane on whichever the robot reached.
+#         :param list_index: The full list of locations stored
+#         :param dimesions: the size of dimesion so it can do math formula properly
+#         :return: new list of locations with margin defined
+#         """
+#         new_list = [dimesions[0]/2 + (dimesions[0] * list_index[str(counter)][0] - margin * dimesions[0]),dimesions[0]/2 + dimesions[1] * list_index[str(counter)][1] - (margin * dimesions[1])]
+#         return new_list
+#
+#     @staticmethod
+#     def converter_for_gazebo(list_location_data, dimesion):
+#         return [list_location_data[0] * dimesion[0],list_location_data[1] * dimesion[1]]
+#
+#     @staticmethod
+#     def floor_generated(x, y):
+#         z = 0 #Always zero since floor doesn't float. This would be a static floor
+#         first_phrase = "ign service -s /world/free_world/create " \
+#                        "--reqtype ignition.msgs.EntityFactory " \
+#                        "--reptype ignition.msgs.Boolean " \
+#                        "--timeout 300 " \
+#                        "--req 'sdf_filename: ''\"models/sdf/new_ground.sdf\""
+#         second_phrase = " pose: {position: {x: %s, y: %s, z: %s}} '\'name: \"ground_plane\" '\' allow_renaming: true' &" % (
+#             x, y, z)
+#         os.system(first_phrase + second_phrase)
+#         print(first_phrase + second_phrase)
+#
+#     @staticmethod
+#     def remove_floor():
+#         global old_list
+#         total = int(runtime_data["GPS"]["counter"])
+#         for i in range(total):
+#             name = "ground_plane_" + str(i)
+#             command = "ign service -s /world/free_world/remove \
+#             --reqtype ignition.msgs.Entity \
+#             --reptype ignition.msgs.Boolean \
+#             --timeout 300 \
+#             --req 'name: \"" + name + "\" type: MODEL' &"
+#             os.system(command)
+#         runtime_data["GPS"]["counter"] = 0
+#         runtime_data["GPS"]["n_y_counter"] = 0
+#         runtime_data["GPS"]["n_x_counter"] = 0
+#         runtime_data["GPS"]["y_counter"] = 0
+#         runtime_data["GPS"]["x_counter"] = 0
+#         location_stored.clear()
+#         old_list.clear()
+#         location_stored["0"] = [0, 0]
+#         old_list = location_stored.copy()
+#
+#
+#
+#     @staticmethod
+#     def gazebo_process(current_list):
+#         """
+#         main script for world controls
+#         """
+#         global old_list ##Is there another way to get rid of this though?
+#         flag = 0
+#
+# ##      Don't forget to clean this up.
+#         print("Current list: ", location_stored)
+#         print("Old list: ", old_list)
+#         print("GPS: ", runtime_data["GPS"])
+#         print("counter: ", runtime_data["GPS"]["counter"])
+#
+#
+#         #Generate new margin list
+#         if old_list != current_list:
+#             old_list = current_list.copy()
+#             defined_margin_list = Pose().margin_defined(Gazebo_world["margin"], current_list, layer_dimesion, runtime_data["GPS"]["counter"])
+#             tile_margin[runtime_data["GPS"]["counter"]] = defined_margin_list
+#             print("defined_margin_list: ", tile_margin)
+#             runtime_data["GPS"]["counter"] = runtime_data["GPS"]["counter"] + 1
+#
+#         ## Check if it is greater than margin
+#         if runtime_data["GPS"]["x"] > tile_margin[runtime_data["GPS"]["counter"]-1][0]: #minus to keep it away frmo out of index
+#             runtime_data["GPS"]["x_counter"] = runtime_data["GPS"]["x_counter"] + 1
+#             flag = 1
+#         elif runtime_data["GPS"]["y"] > tile_margin[runtime_data["GPS"]["counter"]-1][1]:
+#             print(runtime_data["GPS"]["y_counter"] , " > ", tile_margin[runtime_data["GPS"]["y_counter"]][1])
+#             runtime_data["GPS"]["y_counter"] = runtime_data["GPS"]["y_counter"] + 1
+#             flag = 1
+#         elif runtime_data["GPS"]["x"] > tile_margin[runtime_data["GPS"]["counter"]-1][0] and runtime_data["GPS"]["y"] > tile_margin[runtime_data["GPS"]["counter"]-1][1]:
+#             runtime_data["GPS"]["y_counter"] = runtime_data["GPS"]["y_counter"] + 1
+#             runtime_data["GPS"]["x_counter"] = runtime_data["GPS"]["x_counter"] + 1
+#             flag = 1
+#         if flag == 1:
+#             flag = 0
+#             Pose().location_updated([runtime_data["GPS"]["x_counter"], runtime_data["GPS"]["y_counter"]])
+#             new_data = Pose().converter_for_gazebo([runtime_data["GPS"]["x_counter"], runtime_data["GPS"]["y_counter"]], layer_dimesion)
+#             print("++++++++++++++++++++++++++++++: ", new_data)
+#             print("COUNTER: ", runtime_data["GPS"]["counter"])
+#             Pose().floor_generated(new_data[0], new_data[1])
 
 def main(args=None):
     print("Connecting to FEAGI resources...")
@@ -469,6 +771,11 @@ def main(args=None):
     ultrasonic_feed = UltrasonicSubscriber('ultrasonic0', LaserScan, 'ultrasonic0')
     executor.add_node(ultrasonic_feed)
 
+    # GPS
+    pose = TileManager()
+    pose.pose_updated()
+    executor.add_node(pose)
+
     # Battery
     # Moving away from using the Gazebo based battery model and adopting a controller based model instead
     # battery_feed = BatterySubscriber('battery', BatteryState, 'model/freenove_smart_car/battery/linear_battery/state')
@@ -490,8 +797,14 @@ def main(args=None):
     # Positioning servos to a default position
     servo.set_default_position()
 
+
     try:
         while True:
+            pose.pose_updated()
+            robot_pose = [runtime_data["GPS"]["x"], runtime_data["GPS"]["y"], runtime_data["GPS"]["z"]]
+            pose.tile_update(robot_pose)
+            print("Current robot pose_:", robot_pose)
+
             # Process OPU data received from FEAGI and pass it along
             message_from_feagi = feagi_opu_channel.receive()
             battery.consume_battery()
@@ -530,9 +843,10 @@ def main(args=None):
 
             except Exception:
                 pass
-                #print("")
+                # print("")
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
+            message_from_feagi['pose'] = robot_pose
             feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
             msg_counter += 1
@@ -541,6 +855,7 @@ def main(args=None):
         pass
 
     ultrasonic_feed.destroy_node()
+    pose.destroy_node()
     # battery_feed.destroy_node()
 
     for ir_node in ir_feeds:

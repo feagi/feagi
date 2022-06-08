@@ -67,6 +67,16 @@ capabilities = {
     }
 }
 
+Gazebo_world = {
+    "counter": 0,
+    "margin": 0.20,
+    "size_of_plane": {
+        "x": 10, ##in sdf, it is 100x100 so 100/10 = 10
+        "y": 10
+    }
+}
+
 
 message_to_feagi = {"data": {}}
+
 
