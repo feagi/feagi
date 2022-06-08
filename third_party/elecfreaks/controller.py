@@ -19,7 +19,7 @@ from router import *
 from configuration import *
 from time import sleep
 
-
+import os
 import configuration
 import zmq
 import router
@@ -43,7 +43,7 @@ def feagi_registration(feagi_host, api_port):
     runtime_data["host_network"]["ip_address"] = app_host_info["ip_address"]
 
     while runtime_data["feagi_state"] is None:
-        print("Awaiting registration with FEAGI...1")
+        print("Awaiting registration with FEAGI...")
         try:
             runtime_data["feagi_state"] = router.register_with_feagi(app_name=configuration.app_name,
                                                                      feagi_host=feagi_host,
@@ -51,14 +51,18 @@ def feagi_registration(feagi_host, api_port):
                                                                      app_capabilities=configuration.capabilities,
                                                                      app_host_info=runtime_data["host_network"]
                                                                      )
-        except Exception as e:
-            print("Error:", e)
+        except:
             pass
         sleep(1)
 
 
-ubit = microbit.Microbit(adapter_addr=network_settings['primary_mac_address'],
-                         device_addr=network_settings['microbit_mac_address'],
+computer_mac_address = os.environ.get("DOCKER_COMPUTER_MAC_ADDRESS")
+microbit_mac_address = os.environ['DOCKER_MICROBIT_MAC_ADDRESS']
+computer_mac_address = computer_mac_address.replace('"', "")
+microbit_mac_address = microbit_mac_address.replace('"', "")
+print(computer_mac_address)
+ubit = microbit.Microbit(adapter_addr=computer_mac_address,
+                         device_addr=microbit_mac_address,
                          accelerometer_service=False,
                          button_service=False,
                          led_service=False,
@@ -80,7 +84,7 @@ api_port = configuration.network_settings["feagi_api_port"]
 feagi_registration(feagi_host=feagi_host, api_port=api_port)
 
 print("** **", runtime_data["feagi_state"])
-network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
+network_settings['feagi_burst_speed'] = runtime_data["feagi_state"]['burst_duration']
 
 # todo: to obtain this info directly from FEAGI as part of registration
 ipu_channel_address = 'tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_gazebo']
@@ -90,6 +94,8 @@ opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + \
 
 feagi_ipu_channel = router.Pub(address=ipu_channel_address)
 feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
+message_from_feagi = feagi_opu_channel.receive()
+
 
 flag=True
 
@@ -99,7 +105,7 @@ while flag:
         if message_from_feagi is not None:
             opu_data = message_from_feagi["opu_data"]
             print(message_from_feagi)
-            if "o__mic" in opu_data:
+            if "o__mot" in opu_data:
                 print(opu_data["o__mot"])
                 for i in opu_data['o__mot']:
                     print("Sending now:" , i)
@@ -135,11 +141,6 @@ while flag:
             if len(str(opu_data)) < 13: #uart limits to 13 characters, so this will not send data to uart if its exceed
                 #to avoid the distrupt in the program
                 ubit.uart = opu_data
-
-
-        # text = input("Input: ")
-        # ubit.uart = '#'
-        # sleep(1)
     except KeyboardInterrupt:
         flag = False
         ubit.disconnect()

@@ -19,13 +19,14 @@ limitations under the License.
 
 import sys
 import time
-from collections import deque
-from datetime import datetime
-
+import router
 import RPi.GPIO as GPIO
 import math
 import traceback
+import configuration
 
+from collections import deque
+from datetime import datetime
 from ADC import *
 from configuration import *
 from configuration import message_to_feagi
@@ -33,11 +34,12 @@ from Led import *
 from PCA9685 import PCA9685
 from router import *
 
-runtime_params = {
+runtime_data = {
     "current_burst_id": 0,
     "feagi_state": None,
     "cortical_list": (),
     "battery_charge_level": 1,
+    "host_network": {},
     'motor_status': {},
     'servo_status': {}
 }
@@ -47,25 +49,6 @@ if sys.platform == 'win32':
 else:
     import termios
     import tty
-
-GPIO.cleanup()
-address = 'tcp://' + network_settings['feagi_ip'] + ':' + network_settings['feagi_outbound_port']
-feagi_state = handshake_with_feagi(address=address, capabilities=capabilities)
-
-print("** **", feagi_state)
-sockets = feagi_state['sockets']
-network_settings['feagi_burst_speed'] = float(feagi_state['burst_frequency'])
-
-print("--->> >> >> ", sockets)
-
-# todo: to obtain this info directly from FEAGI as part of registration
-ipu_channel_address = 'tcp://0.0.0.0:' + network_settings['feagi_inbound_port_gazebo']
-print("IPU_channel_address=", ipu_channel_address)
-opu_channel_address = 'tcp://' + network_settings['feagi_ip'] + ':' + sockets['feagi_outbound_port']
-
-feagi_ipu_channel = Pub(address=ipu_channel_address)
-feagi_opu_channel = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
-
 
 def block_to_array(block_ref):
     block_id_str = block_ref.split('-')
@@ -87,8 +70,25 @@ def compose_message_to_feagi(original_message):
         for sensor_data in original_message[sensor]:
             if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
                 message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][sensor_data]
-    message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_params["battery_charge_level"] / 100}
+    #message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_params["battery_charge_level"] / 100}
 
+def feagi_registration(feagi_host, api_port):
+    app_host_info = router.app_host_info()
+    runtime_data["host_network"]["host_name"] = app_host_info["host_name"]
+    runtime_data["host_network"]["ip_address"] = app_host_info["ip_address"]
+
+    while runtime_data["feagi_state"] is None:
+        print("Awaiting registration with FEAGI...")
+        try:
+            runtime_data["feagi_state"] = router.register_with_feagi(app_name=configuration.app_name,
+                                                                     feagi_host=feagi_host,
+                                                                     api_port=api_port,
+                                                                     app_capabilities=configuration.capabilities,
+                                                                     app_host_info=runtime_data["host_network"]
+                                                                     )
+        except:
+            pass
+        sleep(1)
 
 def window_average(sequence):
     return abs(sum(sequence) // len(sequence))
@@ -174,13 +174,13 @@ class Servo:
             servo_0_initial_position = 90
             self.device_position = servo_0_initial_position
             self.move(0,self.device_position)
-            runtime_params['servo_status'][0] = self.device_position
+            runtime_data['servo_status'][0] = self.device_position
             print("Servo 0 was moved to its initial position")
 
             servo_1_initial_position = 90
             self.device_position = servo_1_initial_position
             self.move(1,self.device_position)
-            runtime_params['servo_status'][1] = self.device_position
+            runtime_data['servo_status'][1] = self.device_position
             print("Servo 1 was moved to its initial position")
         except Exception as e:
             print("Error while setting initial position for the servo:", e)
@@ -195,10 +195,10 @@ class Servo:
                 power *= 1
             else:
                 power *= -1
-            if device_index not in runtime_params['servo_status']:
-                runtime_params['servo_status'][device_index] = device_index
+            if device_index not in runtime_data['servo_status']:
+                runtime_data['servo_status'][device_index] = device_index
 
-            device_current_position = runtime_params['servo_status'][device_index]
+            device_current_position = runtime_data['servo_status'][device_index]
             self.device_position = float((power * network_settings['feagi_burst_speed'] / 0.5) +
                                               device_current_position)
 
@@ -376,13 +376,13 @@ class Motor:
             print("Input has been refused. Please put motor ID.")
 
     def power_convert(self, motor_id, power):
-        if motor_id == 1:
+        if motor_id == 0:
             return -1 * power
-        elif motor_id == 3:
+        elif motor_id == 2:
             return -1 * power
-        elif motor_id == 5:
+        elif motor_id == 4:
             return -1 * power
-        elif motor_id == 7:
+        elif motor_id == 6:
             return -1 * power
         else:
             return abs(power)
@@ -502,7 +502,7 @@ def main(args=None):
                 original_message={**formatted_ir_data, **formatted_ultrasonic_data})##Removed battery due to error
             # Process OPU data received from FEAGI and pass it along
             message_from_feagi = feagi_opu_channel.receive()
-            # print("Received:", opu_data)
+           # print("Received:", opu_data)
             if message_from_feagi is not None:
                 opu_data = message_from_feagi["opu_data"]
                 if 'o__mot' in opu_data:
@@ -536,10 +536,32 @@ def main(args=None):
                     counter = 0
 
             # LED.leds_off()
-    except KeyboardInterrupt as ke:
+    except KeyboardInterrupt as ke: ##Keyboard error
         motor.stop()
         print(ke)
 
 
 if __name__ == '__main__':
+    GPIO.cleanup()
+    print("Connecting to FEAGI resources...")
+
+    # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_outbound_port']
+
+    feagi_host = configuration.network_settings["feagi_host"]
+    api_port = configuration.network_settings["feagi_api_port"]
+
+    feagi_registration(feagi_host=feagi_host, api_port=api_port)
+
+    print("** **", runtime_data["feagi_state"])
+    network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
+
+    # todo: to obtain this info directly from FEAGI as part of registration
+    ipu_channel_address = 'tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_gazebo']
+    print("IPU_channel_address=", ipu_channel_address)
+    opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + \
+                          runtime_data["feagi_state"]['feagi_outbound_port']
+
+    feagi_ipu_channel = router.Pub(address=ipu_channel_address)
+    feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
+
     main()

@@ -15,15 +15,14 @@ limitations under the License.
 ==============================================================================
 """
 #!/usr/bin/env python3
+
+app_name = 'gazebo' #We will need to change this to robot
+
 network_settings = {
-    "feagi_ip": "127.0.0.1",
-    "feagi_outbound_port": "30000",
-    "feagi_inbound_port_gazebo": "30002",
+    "feagi_host": "feagi",
+    "feagi_api_port": "8000",
     'TTL': 2,
     'last_message': 0,
-    'feagi_burst_speed':  1,
-    "host_name": "",
-    "ip_address": ""
 }
 
 capabilities = {
