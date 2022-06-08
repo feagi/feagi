@@ -1,43 +1,35 @@
-#!/usr/bin/env python3
 """
-Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-==============================================================================
 """
+
 import zmq
-from datetime import datetime
-from configuration import network_settings
+import socket
+import requests
+from time import sleep
+
+
+def app_host_info():
+    host_name = socket.gethostname()
+    ip_address = socket.gethostbyname(socket.gethostname())
+    return {"ip_address": ip_address, "host_name": host_name}
 
 
 class Pub:
     def __init__(self, address):
         context = zmq.Context()
+        self.address = address
         self.socket = context.socket(zmq.PUB)
-        # self.socket.setsockopt(zmq.SNDHWM, 0)
         self.socket.bind(address)
 
     def send(self, message):
-        # if datetime.now().second - network_settings['last_message'] > network_settings['TTL']:
         self.socket.send_pyobj(message)
-        #print("Sent:", message)
-        network_settings['last_message'] = datetime.now().second
+        print("Sent:\n", message, "... from ", self.address, "\n\n")
+
 
 class Sub:
     def __init__(self, address, flags=None):
         context = zmq.Context()
         self.socket = context.socket(zmq.SUB)
-        # self.socket.setsockopt(zmq.RCVHWM, 0)
         self.socket.connect(address)
         self.socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
         self.flag = flags
@@ -69,31 +61,7 @@ class Sub:
                 print(e)
 
 
-def find_feagi(address):
-    print('Awaiting connection with FEAGI at...', address)
-    subscriber = Sub(address=address, flags=zmq.SUB)
-    message = subscriber.receive()
-    print("Connection to FEAGI has been established")
-
-    # todo: What information is useful to receive from FEAGI in this message? IPU/OPU list?
-    print("Current FEAGI state is at burst number ", message['burst_counter'])
-
-    return message
-
-
-def register_with_feagi():
-    """
-    Provides FEAGI the IP address for the ZMQ IPU channel that the sensory data
-    """
-    print("Registering router with FEAGI")
-    publisher_ = Pub('tcp://0.0.0.0:11000')
-
-    # todo: need to send a set of capabilities to FEAGI
-    publisher_.send(message={"A", "Hello!"})
-
-    print("Router registration has successfully completed!")
-
-def handshake_with_feagi(address, capabilities):
+def register_with_feagi(app_name, feagi_host, api_port, app_capabilities, app_host_info):
     """
     To trade information between FEAGI and Controller
 
@@ -101,17 +69,48 @@ def handshake_with_feagi(address, capabilities):
     Controller (Capabilities)       -->     FEAGI
     """
 
-    print('Awaiting connection with FEAGI at...', address)
-    subscriber = Sub(address=address, flags=zmq.SUB)
+    api_address = 'http://' + feagi_host + ':' + api_port
 
-    # Receive FEAGI settings
-    feagi_settings = subscriber.receive()
-    print("Connection to FEAGI has been established")
-    print("\nFEAGI settings received as:\n", feagi_settings, "\n\n")
+    registration_endpoint = '/v1/feagi/register'
+    network_endpoint = '/v1/feagi/feagi/network'
+    stimulation_period_endpoint = '/v1/feagi/feagi/burst_engine/stimulation_period'
+    burst_counter_endpoint = '/v1/feagi/feagi/burst_engine/stimulation_period'
+
+    registration_data = {"source": app_name,
+                         "host": app_host_info["ip_address"],
+                         "capabilities": app_capabilities}
+
+    registration_complete = False
+
+    while not registration_complete:
+
+        print("Registration data:", registration_data)
+
+        feagi_registration_result = requests.post(api_address + registration_endpoint, data=registration_data)
+
+        print("FEAGI registration results: ", feagi_registration_result)
+
+        feagi_settings = requests.get(api_address + network_endpoint).json()
+
+        app_port_id = 'feagi_inbound_port_' + app_name
+        zmq_address = 'tcp://' + feagi_host + ':' + feagi_settings[app_port_id]
+
+        print('Awaiting connection with FEAGI at...', zmq_address)
+        subscriber = Sub(address=zmq_address, flags=zmq.SUB)
+
+        # Receive FEAGI settings
+        feagi_settings['burst_duration'] = requests.get(api_address + stimulation_period_endpoint).json()
+        feagi_settings['burst_counter'] = requests.get(api_address + burst_counter_endpoint).json()
+
+        print("\nFEAGI settings received as:\n", feagi_settings, "\n\n")
+        if feagi_settings and feagi_settings['burst_duration'] and feagi_settings['burst_counter']:
+            print("\n\n\n\nRegistration is complete....")
+            registration_complete = True
+        sleep(1)
 
     # Transmit Controller Capabilities
-    pub_address = "tcp://0.0.0.0:" + feagi_settings['sockets']['feagi_inbound_port_gazebo']
+    pub_address = "tcp://0.0.0.0:" + feagi_settings[app_port_id]
     publisher = Pub(address=pub_address)
-    publisher.send(capabilities)
+    publisher.send(app_capabilities)
 
     return feagi_settings
