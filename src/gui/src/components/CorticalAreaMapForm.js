@@ -73,7 +73,7 @@ const CorticalAreaMapForm = (props) => {
   };
 
   const handleMappingDelete = (index) => {
-    let updatedMappings = mappedAreas;
+    let updatedMappings = [...mappedAreas];
     updatedMappings.splice(index, 1);
     setMappedAreas(Array.from(updatedMappings));
     props.setDefinedMappings(Array.from(updatedMappings));
@@ -115,15 +115,13 @@ const CorticalAreaMapForm = (props) => {
             onChange={handleAreaChange}
             sx={{ width: "250px" }}
           >
-            {props.availableMappingSensory
-              .concat(props.availableMappingMotor)
-              .map((area) => {
-                return (
-                  <MenuItem key={area} value={area}>
-                    {area}
-                  </MenuItem>
-                );
-              })}
+            {props.availableMappingAreas.map((area) => {
+              return (
+                <MenuItem key={area} value={area}>
+                  {area}
+                </MenuItem>
+              );
+            })}
           </Select>
           <FormHelperText>Required</FormHelperText>
         </FormControl>
@@ -235,8 +233,9 @@ const CorticalAreaMapForm = (props) => {
               aria-label="add"
               sx={{ m: 1 }}
               disabled={!(selectedArea && selectedRule)}
+              onClick={handleAdd}
             >
-              <AddIcon onClick={handleAdd} />
+              <AddIcon />
             </Fab>
           </span>
         </Tooltip>
@@ -252,8 +251,9 @@ const CorticalAreaMapForm = (props) => {
               aria-label="add"
               sx={{ m: 1 }}
               disabled={!mappedAreas.length > 0}
+              onClick={handleSave}
             >
-              <SaveIcon onClick={handleSave} />
+              <SaveIcon />
             </Fab>
           </span>
         </Tooltip>

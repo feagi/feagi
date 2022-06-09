@@ -5,7 +5,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import StyledMenu from "./StyledMenu";
 
-const MenuButton = (props) => {
+const MappingButton = (props) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
 
@@ -46,11 +46,11 @@ const MenuButton = (props) => {
       >
         <MenuItem onClick={handleMenuItemClick} disableRipple>
           <EditIcon />
-          Edit
+          Define Mapping
         </MenuItem>
       </StyledMenu>
     </div>
   );
 };
 
-export default MenuButton;
+export default MappingButton;

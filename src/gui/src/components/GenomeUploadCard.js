@@ -3,7 +3,6 @@ import { Navigate } from "react-router-dom";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
-// import Typography from "@mui/material/Typography";
 import { styled } from "@mui/material/styles";
 import FeagiAPI from "../services/FeagiAPI";
 
@@ -37,12 +36,6 @@ const GenomeUploadCard = (props) => {
         <Card sx={{ width: "245px", height: "230px" }}>
           {props.image}
           <CardContent>
-            {/* <Typography gutterBottom variant="h5" component="div">
-              {props.label}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {props.info}
-            </Typography> */}
             <label htmlFor="contained-button-file">
               <Input
                 accept=".py"

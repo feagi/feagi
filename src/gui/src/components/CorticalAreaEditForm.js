@@ -9,9 +9,7 @@ import Typography from "@mui/material/Typography";
 import InputLabel from "@mui/material/InputLabel";
 
 const CorticalAreaEditForm = (props) => {
-  const [labelValue, setLabelValue] = useState(
-    props.corticalArea.toLowerCase()
-  );
+  const [labelValue, setLabelValue] = useState(props.corticalArea);
   const [positionXValue, setPositionXValue] = useState("");
   const [positionYValue, setPositionYValue] = useState("");
   const [positionZValue, setPositionZValue] = useState("");
@@ -68,17 +66,10 @@ const CorticalAreaEditForm = (props) => {
 
   const handleSave = () => {
     const definedArea = assembleCorticalAreaData();
-    if (props.type === "sensory") {
-      props.setDefinedSensory({
-        ...props.definedSensory,
-        [props.corticalArea.toLowerCase()]: definedArea,
-      });
-    } else if (props.type === "motor") {
-      props.setDefinedMotor({
-        ...props.definedMotor,
-        [props.corticalArea.toLowerCase()]: definedArea,
-      });
-    }
+    props.setDefinedAreas({
+      ...props.definedAreas,
+      [props.corticalArea]: definedArea,
+    });
     props.setDialogOpen(false);
   };
 
@@ -93,7 +84,7 @@ const CorticalAreaEditForm = (props) => {
         <TextField
           id="filled-basic"
           label="cortical area name..."
-          defaultValue={props.corticalArea.toLowerCase()}
+          defaultValue={props.corticalArea}
           variant="filled"
           onChange={(e) => setLabelValue(e.target.value)}
           sx={{ width: "330px" }}
@@ -210,8 +201,9 @@ const CorticalAreaEditForm = (props) => {
                   dimensionZValue
                 )
               }
+              onClick={handleSave}
             >
-              <SaveIcon onClick={handleSave} />
+              <SaveIcon />
             </Fab>
           </span>
         </Tooltip>
