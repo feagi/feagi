@@ -1,4 +1,5 @@
 import axios from "axios";
+import fileDownload from "js-file-download";
 
 const FEAGI_URL = "http://localhost:8000/v1";
 

@@ -9,8 +9,7 @@ python3 bridge_godot_python.py &
 cd ../godot_source/
 
 while [ ! -s csv_data.gdc ]; do
-  echo "Waiting on csv_data being generated..."
-  sleep 2
+  sleep 0
 done
 ./Godot_v3.4.4-stable_linux_headless.64 --export "HTML5" 
 cd ../html

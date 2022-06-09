@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { BiDna } from "react-icons/bi";
 import { GiDna2 } from "react-icons/gi";
 import { MdUploadFile } from "react-icons/md";
@@ -18,17 +19,25 @@ const GenomeMode = () => {
   };
 
   const handleCreateGenomeClick = () => {
-    navigate("/brain/sensory");
+    navigate("/brain/sensorimotor");
   };
 
   return (
     <>
+      <Typography
+        variant="h4"
+        align="center"
+        sx={{ p: 4, mt: 8 }}
+        component="div"
+      >
+        Select Genome Mode
+      </Typography>
       <Stack
         direction="row"
         alignItems="center"
         justifyContent="center"
         spacing={2}
-        sx={{ m: 6 }}
+        sx={{ m: 2 }}
       >
         <Item>
           <label htmlFor="genome-card">
@@ -53,7 +62,6 @@ const GenomeMode = () => {
               image={<GiDna2 size={150} />}
               label="Create Genome"
               onClick={handleCreateGenomeClick}
-              // info="Create a seed genome by defining desired sensorimotor capabilities, corresponding cortical areas and their connections."
             />
           </label>
         </Item>

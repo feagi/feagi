@@ -1,17 +1,22 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import Fab from "@mui/material/Fab";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import Item from "../components/Item";
-import MenuDialog from "../components/MenuDialog";
+import MappingDialog from "../components/MappingDialog";
 
 const Mapping = (props) => {
   let navigate = useNavigate();
   const handleNext = () => {
     navigate("/genome/assemble");
+  };
+
+  const handleBack = () => {
+    navigate("/brain/editor");
   };
 
   const getAvailableMappings = (areaData) => {
@@ -25,8 +30,7 @@ const Mapping = (props) => {
     return availableAreaNames;
   };
 
-  const availableMappingSensory = getAvailableMappings(props.definedSensory);
-  const availableMappingMotor = getAvailableMappings(props.definedMotor);
+  const availableMappingAreas = getAvailableMappings(props.definedAreas);
 
   return (
     <>
@@ -34,45 +38,18 @@ const Mapping = (props) => {
         Cortical Area Mapping
       </Typography>
       <Stack
-        direction="row"
+        direction="column"
         alignItems="center"
         justifyContent="center"
         spacing={12}
-        sx={{ m: 1 }}
+        sx={{ mt: 12, mb: 24 }}
       >
-        {Object.keys(props.definedSensory).map((item) => (
+        {Object.keys(props.definedAreas).map((item) => (
           <Item key={item}>
-            <MenuDialog
+            <MappingDialog
               definedMappings={props.definedMappings}
               setDefinedMappings={props.setDefinedMappings}
-              availableMappingSensory={availableMappingSensory}
-              availableMappingMotor={availableMappingMotor}
-              defaultMorphologyScalarX={props.defaultMorphologyScalarX}
-              defaultMorphologyScalarY={props.defaultMorphologyScalarY}
-              defaultMorphologyScalarZ={props.defaultMorphologyScalarZ}
-              defaultPscMultiplier={props.defaultPscMultiplier}
-              defaultPlasticityFlag={props.defaultPlasticityFlag}
-              defaultSynapseRules={props.defaultSynapseRules}
-              label={item}
-              mode="map"
-            />
-          </Item>
-        ))}
-      </Stack>
-      <Stack
-        direction="row"
-        alignItems="center"
-        justifyContent="center"
-        spacing={12}
-        sx={{ m: 24 }}
-      >
-        {Object.keys(props.definedMotor).map((item) => (
-          <Item key={item}>
-            <MenuDialog
-              definedMappings={props.definedMappings}
-              setDefinedMappings={props.setDefinedMappings}
-              availableMappingSensory={availableMappingSensory}
-              availableMappingMotor={availableMappingMotor}
+              availableMappingAreas={availableMappingAreas}
               defaultMorphologyScalarX={props.defaultMorphologyScalarX}
               defaultMorphologyScalarY={props.defaultMorphologyScalarY}
               defaultMorphologyScalarZ={props.defaultMorphologyScalarZ}
@@ -92,6 +69,20 @@ const Mapping = (props) => {
         spacing={2}
         sx={{ mb: 8 }}
       >
+        <Tooltip title="Back">
+          <span>
+            <Fab
+              size="large"
+              color="primary"
+              aria-label="add"
+              sx={{ m: 1 }}
+              disabled={!props.definedMappings}
+              onClick={handleBack}
+            >
+              <ArrowBackIcon />
+            </Fab>
+          </span>
+        </Tooltip>
         <Tooltip title="Next">
           <span>
             <Fab
@@ -99,9 +90,10 @@ const Mapping = (props) => {
               color="primary"
               aria-label="add"
               sx={{ m: 1 }}
-              disabled={!props.definedMotor}
+              disabled={!props.definedMappings}
+              onClick={handleNext}
             >
-              <ArrowForwardIcon onClick={handleNext} />
+              <ArrowForwardIcon />
             </Fab>
           </span>
         </Tooltip>
