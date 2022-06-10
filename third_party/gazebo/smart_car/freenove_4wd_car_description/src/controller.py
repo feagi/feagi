@@ -800,7 +800,6 @@ def main(args=None):
 
     try:
         while True:
-            pose.pose_updated()
             robot_pose = [runtime_data["GPS"]["x"], runtime_data["GPS"]["y"], runtime_data["GPS"]["z"]]
             pose.tile_update(robot_pose)
             print("Current robot pose_:", robot_pose)
@@ -846,7 +845,8 @@ def main(args=None):
                 # print("")
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
-            message_from_feagi['pose'] = robot_pose
+            if message_from_feagi is not None:
+                message_from_feagi['pose'] = robot_pose
             feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
             msg_counter += 1
