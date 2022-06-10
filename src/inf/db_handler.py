@@ -276,19 +276,19 @@ class InfluxManagement:
         #           "ERROR: Cannot connect to << InfluxDb >> Database \n ::: %s" % str(repr(e)) + settings.Bcolors.ENDC)
 
     def insert_neuron_activity(self, connectome_path, src_cortical_area, src_neuron_id,
-                               voxel_x, voxel_y, voxel_z, membrane_potential):
-        voxel_id = str(voxel_x) + "-" + str(voxel_y) + "-" + str(voxel_z)
+                               dst_voxel_x, dst_voxel_y, dst_voxel_z, membrane_potential):
+        dst_voxel_id = str(dst_voxel_x) + "-" + str(dst_voxel_y) + "-" + str(dst_voxel_z)
         raw_data = [
             {
                 "measurement": "neuron",
                 "tags": {
                     "connectome": connectome_path,
-                    "src_cortical_area": src_cortical_area,
-                    "src_neuron_id": src_neuron_id,
-                    "voxel_x": voxel_x,
-                    "voxel_y": voxel_y,
-                    "voxel_z": voxel_z,
-                    "voxel_id": voxel_id
+                    "dst_cortical_area": src_cortical_area,
+                    "dst_neuron_id": src_neuron_id,
+                    "dst_voxel_x": dst_voxel_x,
+                    "dst_voxel_y": dst_voxel_y,
+                    "dst_voxel_z": dst_voxel_z,
+                    "dst_voxel_id": dst_voxel_id
 
                 },
                 "fields": {
@@ -298,9 +298,13 @@ class InfluxManagement:
         ]
         self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
 
-    def insert_synaptic_activity(self, connectome_path, src_cortical_area, dst_cortical_area,  src_neuron_id, dst_neuron_id,
+    def insert_synaptic_activity(self, connectome_path, src_cortical_area, dst_cortical_area,  
+                                 src_voxel_x, src_voxel_y, src_voxel_z, 
+                                 dst_voxel_x, dst_voxel_y, dst_voxel_z,
+                                 src_neuron_id, dst_neuron_id,
                                  post_synaptic_current):
-
+        src_voxel_id = str(src_voxel_x) + "-" + str(src_voxel_y) + "-" + str(src_voxel_z)
+        dst_voxel_id = str(dst_voxel_x) + "-" + str(dst_voxel_y) + "-" + str(dst_voxel_z)
         raw_data = [
             {
                 "measurement": "synapse",
@@ -308,8 +312,16 @@ class InfluxManagement:
                     "connectome": connectome_path,
                     "src_cortical_area": src_cortical_area,
                     "dst_cortical_area": dst_cortical_area,
+                    "src_voxel_x": src_voxel_x,
+                    "src_voxel_y": src_voxel_y,
+                    "src_voxel_z": src_voxel_z,
+                    "dst_voxel_x": dst_voxel_x,
+                    "dst_voxel_y": dst_voxel_y,
+                    "dst_voxel_z": dst_voxel_z,
                     "src_neuron_id": src_neuron_id,
-                    "dst_neuron_id": dst_neuron_id
+                    "dst_neuron_id": dst_neuron_id,
+                    "src_voxel_id": src_voxel_id,
+                    "dst_voxel_id": dst_voxel_id
                 },
                 "fields": {
                     "postSynapticCurrent": float(post_synaptic_current)

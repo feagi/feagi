@@ -453,17 +453,26 @@ async def stimulation_string_upload(stimulation_script: Stimulation):
 # ######  Statistics and Reporting Endpoints #########
 # ##################################
 
-@app.get("/v1/feagi/neuron/physiology/stats")
-async def neuron_physiological_stat_collection_report():
-    print("Physiological stat collections:", runtime_data.neuron_physiological_stat_collection)
+@app.get("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting")
+async def neuron_membrane_potential_collection_filters():
+    print("Membrane potential monitoring filter setting:", runtime_data.neuron_mp_collection_scope)
     try:
-        return runtime_data.neuron_physiological_stat_collection
+        return runtime_data.neuron_mp_collection_scope
     except Exception as e:
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/neuron/physiology/stats", methods=['POST'])
-async def neuron_physiological_stat_collection(message: StatsCollectionScope):
+@app.get("/v1/feagi/neuron/physiology/postsynaptic_potential_monitoring/filter_setting")
+async def neuron_postsynaptic_potential_collection_filters():
+    print("Membrane potential monitoring filter setting:", runtime_data.neuron_psp_collection_scope)
+    try:
+        return runtime_data.neuron_psp_collection_scope
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting", methods=['POST'])
+async def neuron_membrane_potential_monitoring_scope(message: StatsCollectionScope):
     """
     Message Template:
     {
@@ -471,17 +480,11 @@ async def neuron_physiological_stat_collection(message: StatsCollectionScope):
             {
                 "o__mot": {
                     "voxels": [[0, 0, 0], [2, 0, 0]],
-                    "neurons": [],
-                    "area_wide": false,
-                    "afferent": true,
-                    "efferent": true
+                    "neurons": []
                 },
                 "i__inf": {
                     "voxels": [[1, 1, 1]],
-                    "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3'],
-                    "area_wide": true
-                    "afferent": false,
-                    "efferent": true
+                    "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3']
                 },
                 ...
             }
@@ -490,7 +493,55 @@ async def neuron_physiological_stat_collection(message: StatsCollectionScope):
 
     try:
         message = message.dict()
-        message = {'neuron_physiological_stat_collection': message}
+        message = {'neuron_mp_collection_scope': message}
+        api_queue.put(item=message)
+        return {"Request sent!", message}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/neuron/physiology/postsynaptic_potential_monitoring", methods=['POST'])
+async def neuron_postsynaptic_potential_monitoring_scope(message: StatsCollectionScope):
+    """
+    Message Template:
+    {
+        "collection_scope":
+            {
+                "o__mot": {
+                    "dst_filter": {
+                        "voxels": [[0, 0, 0], [2, 0, 0]],
+                        "neurons": []
+                        },
+                    "sources": {
+                        "i__inf": {
+                            "voxels": [[1, 1, 1]],
+                            "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3']
+                            },
+                        "o__inf": {
+                            "voxels": [[1, 1, 1]],
+                            "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3']
+                            }
+                    },
+                },
+                "i__bat": {
+                    "dst_filter": {
+                        "voxels": [[0, 0, 0], [2, 0, 0]],
+                        "neurons": []
+                    },
+                    "sources": {
+                        "i__inf": {
+                            "voxels": [[1, 1, 1]],
+                            "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3']
+                        }
+                    }
+                }
+            }
+    }
+    """
+
+    try:
+        message = message.dict()
+        message = {'neuron_psp_collection_scope': message}
         api_queue.put(item=message)
         return {"Request sent!", message}
     except Exception as e:
@@ -500,56 +551,64 @@ async def neuron_physiological_stat_collection(message: StatsCollectionScope):
 ################################################################################################################
 
 def api_message_processor(api_message):
-        """
-        Processes the incoming API calls to FEAGI
-        """
+    """
+    Processes the incoming API calls to FEAGI
+    """
 
-        if 'burst_management' in api_message:
-            if 'burst_duration' in api_message['burst_management']:
-                if api_message['burst_management']['burst_duration'] is not None:
-                    runtime_data.burst_timer = api_message['burst_management']['burst_duration']
+    if 'burst_management' in api_message:
+        if 'burst_duration' in api_message['burst_management']:
+            if api_message['burst_management']['burst_duration'] is not None:
+                runtime_data.burst_timer = api_message['burst_management']['burst_duration']
 
-        if 'stimulation_script' in api_message:
-            runtime_data.stimulation_script = api_message['stimulation_script']['stimulation_script']
+    if 'stimulation_script' in api_message:
+        runtime_data.stimulation_script = api_message['stimulation_script']['stimulation_script']
 
-        if 'log_management' in api_message:
-            if 'print_burst_info' in api_message['log_management']:
-                runtime_data.parameters['Logs']['print_burst_info'] \
-                    = api_message['log_management']['print_burst_info']
-            if 'print_messenger_logs' in api_message['log_management']:
-                runtime_data.parameters['Logs']['print_messenger_logs'] \
-                    = api_message['log_management']['print_messenger_logs']
+    if 'log_management' in api_message:
+        if 'print_burst_info' in api_message['log_management']:
+            runtime_data.parameters['Logs']['print_burst_info'] \
+                = api_message['log_management']['print_burst_info']
+        if 'print_messenger_logs' in api_message['log_management']:
+            runtime_data.parameters['Logs']['print_messenger_logs'] \
+                = api_message['log_management']['print_messenger_logs']
 
-        if 'connectome_snapshot' in api_message:
-            if 'connectome_path' in api_message['connectome_snapshot']:
-                if api_message['connectome_snapshot']['connectome_path']:
-                    print("Taking a snapshot of the brain... ... ...")
-                    disk_ops.save_brain_to_disk(connectome_path=api_message['connectome_snapshot']['connectome_path'],
-                                                type='snapshot')
-                else:
-                    disk_ops.save_brain_to_disk()
-
-        if 'neuron_physiological_stat_collection' in api_message:
-            if api_message['neuron_physiological_stat_collection'] is not None:
-                payload = api_message['neuron_physiological_stat_collection']['collection_scope']
-                runtime_data.neuron_physiological_stat_collection = payload
-                print('Membrane Potential state collection scope has been updated.')
+    if 'connectome_snapshot' in api_message:
+        if 'connectome_path' in api_message['connectome_snapshot']:
+            if api_message['connectome_snapshot']['connectome_path']:
+                print("Taking a snapshot of the brain... ... ...")
+                disk_ops.save_brain_to_disk(connectome_path=api_message['connectome_snapshot']['connectome_path'],
+                                            type='snapshot')
             else:
-                print('Membrane Potential state collection scope did not change.')
+                disk_ops.save_brain_to_disk()
 
-        if 'network_management' in api_message:
-            print("api_message", api_message)
-            if 'godot_host' in api_message['network_management']:
-                runtime_data.parameters['Sockets']['godot_host_name'] = api_message['network_management']['godot_host']
-            if 'godot_port' in api_message['network_management']:
-                runtime_data.parameters['Sockets']['feagi_inbound_port_godot'] = \
-                    api_message['network_management']['godot_port']
+    if 'neuron_mp_collection_scope' in api_message:
+        if api_message['neuron_mp_collection_scope'] is not None:
+            payload = api_message['neuron_mp_collection_scope']['collection_scope']
+            runtime_data.neuron_mp_collection_scope = payload
+            print('Membrane Potential state collection scope has been updated.')
+        else:
+            print('Membrane Potential state collection scope did not change.')
 
-            if 'gazebo_host' in api_message['network_management']:
-                runtime_data.parameters['Sockets']['gazebo_host_name'] = api_message['network_management']['gazebo_host']
-            if 'gazebo_port' in api_message['network_management']:
-                runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo'] = \
-                    api_message['network_management']['gazebo_port']
+    if 'neuron_psp_collection_scope' in api_message:
+        if api_message['neuron_psp_collection_scope'] is not None:
+            payload = api_message['neuron_psp_collection_scope']['collection_scope']
+            runtime_data.neuron_psp_collection_scope = payload
+            print('Membrane Potential state collection scope has been updated.')
+        else:
+            print('Membrane Potential state collection scope did not change.')
+
+    if 'network_management' in api_message:
+        print("api_message", api_message)
+        if 'godot_host' in api_message['network_management']:
+            runtime_data.parameters['Sockets']['godot_host_name'] = api_message['network_management']['godot_host']
+        if 'godot_port' in api_message['network_management']:
+            runtime_data.parameters['Sockets']['feagi_inbound_port_godot'] = \
+                api_message['network_management']['godot_port']
+
+        if 'gazebo_host' in api_message['network_management']:
+            runtime_data.parameters['Sockets']['gazebo_host_name'] = api_message['network_management']['gazebo_host']
+        if 'gazebo_port' in api_message['network_management']:
+            runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo'] = \
+                api_message['network_management']['gazebo_port']
 
         if 'shock' in api_message:
             if api_message["shock"]:

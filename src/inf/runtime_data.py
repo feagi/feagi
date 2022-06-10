@@ -75,7 +75,8 @@ shock_admin = False
 
 
 # Stats Collection
-neuron_physiological_stat_collection = {}
+neuron_mp_collection_scope = {}
+neuron_psp_collection_scope = {}
 
 # collect_neuron_stats = False
 # collect_synapse_stats = False

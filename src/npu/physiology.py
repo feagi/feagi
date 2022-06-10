@@ -18,7 +18,7 @@ import json
 # from collections import deque
 # from evo.neuron import block_reference_builder
 # from evo.synapse import synapse
-from evo.voxels import block_reference_builder
+# from evo.voxels import block_reference_builder
 from inf import runtime_data, settings
 # from cython_lib import neuron_functions_cy as cy
 
@@ -56,24 +56,9 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
 
     neighbor_count = len(neighbor_list)
 
-    if cortical_area in runtime_data.neuron_physiological_stat_collection:
-        if "neurons" not in runtime_data.neuron_physiological_stat_collection[cortical_area]:
-            runtime_data.neuron_physiological_stat_collection[cortical_area]["neurons"] = {}
-        if "voxels" not in runtime_data.neuron_physiological_stat_collection[cortical_area]:
-            runtime_data.neuron_physiological_stat_collection[cortical_area]["voxels"] = {}
-        if "area_wide" not in runtime_data.neuron_physiological_stat_collection[cortical_area]:
-            runtime_data.neuron_physiological_stat_collection[cortical_area]["area_wide"] = False
-
-        voxel_flag = False
-
-        for voxel in runtime_data.neuron_physiological_stat_collection[cortical_area]["voxels"]:
-            soma_location = block_reference_builder(runtime_data.brain[cortical_area][neuron_id]['soma_location'])
-            voxel_ref = block_reference_builder(voxel)
-            if soma_location == voxel_ref:
-                voxel_flag = True
-
-        if runtime_data.neuron_physiological_stat_collection[cortical_area]["area_wide"] or \
-                neuron_id in runtime_data.neuron_physiological_stat_collection[cortical_area]["neurons"] or voxel_flag:
+    if cortical_area in runtime_data.neuron_mp_collection_scope:
+        if monitor_filter(cortical_area=cortical_area, neuron_id=neuron_id,
+                          filter_criteria=runtime_data.neuron_mp_collection_scope[cortical_area]):
 
             vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
             fire_threshold = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["firing_threshold"]
@@ -85,23 +70,23 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
             runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
                                                          src_cortical_area=cortical_area,
                                                          src_neuron_id=neuron_id,
-                                                         voxel_x=vox_x,
-                                                         voxel_y=vox_y,
-                                                         voxel_z=vox_z,
+                                                         dst_voxel_x=vox_x,
+                                                         dst_voxel_y=vox_y,
+                                                         dst_voxel_z=vox_z,
                                                          membrane_potential=mem_pot / 1)
             runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
                                                          src_cortical_area=cortical_area,
                                                          src_neuron_id=neuron_id,
-                                                         voxel_x=vox_x,
-                                                         voxel_y=vox_y,
-                                                         voxel_z=vox_z,
+                                                         dst_voxel_x=vox_x,
+                                                         dst_voxel_y=vox_y,
+                                                         dst_voxel_z=vox_z,
                                                          membrane_potential=fire_threshold / 1)
             runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
                                                          src_cortical_area=cortical_area,
                                                          src_neuron_id=neuron_id,
-                                                         voxel_x=vox_x,
-                                                         voxel_y=vox_y,
-                                                         voxel_z=vox_z,
+                                                         dst_voxel_x=vox_x,
+                                                         dst_voxel_y=vox_y,
+                                                         dst_voxel_z=vox_z,
                                                          membrane_potential=0 / 1)
 
     # Updating downstream neurons
@@ -137,10 +122,12 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
         # Update membrane potential of the downstream neuron
         if runtime_data.genome['blueprint'][cortical_area]['psp_uniform_distribution']:
             membrane_potential_update(cortical_area=dst_cortical_area, neuron_id=dst_neuron_id,
-                                      membrane_potential_change=neuron_output, bypass_db_log=True)
+                                      membrane_potential_change=neuron_output, bypass_db_log=False,
+                                      src_cortical_area=cortical_area, src_neuron=neuron_id)
         else:
             membrane_potential_update(cortical_area=dst_cortical_area, neuron_id=dst_neuron_id,
-                                      membrane_potential_change=neuron_output/neighbor_count, bypass_db_log=True)
+                                      membrane_potential_change=neuron_output/neighbor_count, bypass_db_log=False,
+                                      src_cortical_area=cortical_area, src_neuron=neuron_id)
 
         # Update the fire_queue that holds a temporary list of all updated neurons across the brain during a burst
         if dst_cortical_area not in runtime_data.fire_queue:
@@ -183,8 +170,32 @@ def neuron_leak(cortical_area, neuron_id):
     return leak_value
 
 
+def monitor_filter(cortical_area, neuron_id, filter_criteria):
+    """
+    Assess if the neuron_id matches filter criteria
+
+    filter_criteria data structure:
+
+    {
+        "voxels": [[0, 0, 0], [2, 0, 0]],
+        "neurons": []
+    }
+    """
+    if len(filter_criteria) == 0:
+        return True
+    if "voxels" in filter_criteria:
+        neuron_voxel = runtime_data.brain[cortical_area][neuron_id]['soma_location']
+        if neuron_voxel in filter_criteria["voxels"]:
+            return True
+    if "neurons" in filter_criteria:
+        if neuron_id in filter_criteria["neurons"]:
+            return True
+
+    return False
+
+
 def membrane_potential_update(cortical_area, neuron_id, membrane_potential_change, overwrite=False, overwrite_value=0,
-                              bypass_db_log=False):
+                              bypass_db_log=False, src_cortical_area=None, src_neuron=None):
     """
     Responsible for updating the membrane potential of each neuron
     """
@@ -196,35 +207,50 @@ def membrane_potential_update(cortical_area, neuron_id, membrane_potential_chang
 
     runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] = runtime_data.burst_count
 
-    if cortical_area in runtime_data.neuron_physiological_stat_collection and not bypass_db_log:
-        if "neurons" not in runtime_data.neuron_physiological_stat_collection[cortical_area]:
-            runtime_data.neuron_physiological_stat_collection[cortical_area]["neurons"] = {}
-        if "voxels" not in runtime_data.neuron_physiological_stat_collection[cortical_area]:
-            runtime_data.neuron_physiological_stat_collection[cortical_area]["voxels"] = {}
-        if "area_wide" not in runtime_data.neuron_physiological_stat_collection[cortical_area]:
-            runtime_data.neuron_physiological_stat_collection[cortical_area]["area_wide"] = False
+    if not bypass_db_log:
+        # Assess the filter conditions set through the REST API
+        if cortical_area in runtime_data.neuron_mp_collection_scope:
+            if monitor_filter(cortical_area=cortical_area, neuron_id=neuron_id,
+                              filter_criteria=runtime_data.neuron_mp_collection_scope[cortical_area]):
+                vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
+                dst_mp = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
+                # dst_cortical_area is fed to the src_cortical_area field since the membrane potential of dst changes
+                runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
+                                                             src_cortical_area=cortical_area,
+                                                             src_neuron_id=neuron_id,
+                                                             dst_voxel_x=vox_x,
+                                                             dst_voxel_y=vox_y,
+                                                             dst_voxel_z=vox_z,
+                                                             membrane_potential=dst_mp / 1)
 
-        voxel_flag = False
+        if cortical_area in runtime_data.neuron_psp_collection_scope and src_cortical_area and src_neuron:
+            print("#################    ################     ########################")
+            print("#################    ################     ########################")
+            print("#################    ################     ########################", src_cortical_area,
+                  cortical_area, src_neuron, neuron_id)
+            print("#################    ################     ########################")
+            print("#################    ################     ########################")
+            print("#################    ################     ########################")
+            print("#################    ################     ########################")
+            if monitor_filter(cortical_area=cortical_area, neuron_id=neuron_id,
+                              filter_criteria=runtime_data.neuron_psp_collection_scope[cortical_area]):
+                src_flag = False
+                if "sources" not in runtime_data.neuron_psp_collection_scope[cortical_area]:
+                    src_flag = True
+                elif len(runtime_data.neuron_psp_collection_scope[cortical_area]["sources"]) == 0:
+                    src_flag = True
+                elif monitor_filter(cortical_area=src_cortical_area, neuron_id=src_neuron,
+                                    filter_criteria=runtime_data.neuron_psp_collection_scope[cortical_area]
+                                    ["sources"][src_cortical_area]):
+                    src_flag = True
 
-        for voxel in runtime_data.neuron_physiological_stat_collection[cortical_area]["voxels"]:
-            soma_location = block_reference_builder(runtime_data.brain[cortical_area][neuron_id]['soma_location'])
-            voxel_ref = block_reference_builder(voxel)
-            if soma_location == voxel_ref:
-                voxel_flag = True
-
-        if runtime_data.neuron_physiological_stat_collection[cortical_area]['area_wide'] or \
-                 neuron_id in runtime_data.neuron_physiological_stat_collection[cortical_area]["neurons"] or voxel_flag:
-
-            vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
-            dst_mp = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
-            # Note: dst_cortical_area is fed to the src_cortical_area field since the membrane potential of dst changes
-            runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
-                                                         src_cortical_area=cortical_area,
-                                                         src_neuron_id=neuron_id,
-                                                         voxel_x=vox_x,
-                                                         voxel_y=vox_y,
-                                                         voxel_z=vox_z,
-                                                         membrane_potential=dst_mp / 1)
+                if src_flag:
+                    psc = runtime_data.brain[src_cortical_area][src_neuron]["neighbors"][neuron_id][
+                        "postsynaptic_current"]
+                    post_synaptic_current_update(cortical_area_src=src_cortical_area,
+                                                 cortical_area_dst=cortical_area,
+                                                 neuron_id_src=src_neuron, neuron_id_dst=neuron_id,
+                                                 post_synaptic_current=psc)
 
 
 def post_synaptic_current_update(cortical_area_src,
@@ -235,31 +261,48 @@ def post_synaptic_current_update(cortical_area_src,
     """
     Responsible for updating the post-synaptic-current between two neurons
     """
+    print("----1----")
     runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"][neuron_id_dst]["postsynaptic_current"] = \
         post_synaptic_current
 
-    collection_flag = False
-
-    if cortical_area_src in runtime_data.neuron_physiological_stat_collection:
-        if "efferent" in runtime_data.neuron_physiological_stat_collection[cortical_area_src]:
-            if runtime_data.neuron_physiological_stat_collection[cortical_area_src]["efferent"]:
-                collection_flag = True
-
-    if cortical_area_dst in runtime_data.neuron_physiological_stat_collection:
-        if "afferent" in runtime_data.neuron_physiological_stat_collection[cortical_area_dst]:
-            if runtime_data.neuron_physiological_stat_collection[cortical_area_dst]["afferent"]:
-                collection_flag = True
-
-    if collection_flag:
-        for destination_neuron in runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"]:
-            psc = runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"][
-                destination_neuron]["postsynaptic_current"]
-            runtime_data.influxdb.insert_synaptic_activity(connectome_path=runtime_data.connectome_path,
-                                                           src_cortical_area=cortical_area_src,
-                                                           dst_cortical_area=cortical_area_dst,
-                                                           src_neuron_id=neuron_id_src,
-                                                           dst_neuron_id=destination_neuron,
-                                                           post_synaptic_current=psc)
+    # Assess the filter conditions set through the REST API
+    if cortical_area_dst in runtime_data.neuron_psp_collection_scope:
+        print("----2----")
+        if monitor_filter(cortical_area=cortical_area_dst, neuron_id=neuron_id_dst,
+                          filter_criteria=runtime_data.neuron_psp_collection_scope[cortical_area_dst]):
+            src_flag = False
+            print("----3----")
+            if "sources" not in runtime_data.neuron_psp_collection_scope[cortical_area_dst]:
+                src_flag = True
+                print("----4----")
+            elif len(runtime_data.neuron_psp_collection_scope[cortical_area_dst]["sources"]) == 0:
+                src_flag = True
+                print("----5----")
+            elif monitor_filter(cortical_area=cortical_area_src, neuron_id=neuron_id_src,
+                                filter_criteria=runtime_data.neuron_psp_collection_scope[cortical_area_dst]
+                                ["sources"][cortical_area_src]):
+                src_flag = True
+                print("----5----")
+            if src_flag:
+                psc = runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"][
+                    neuron_id_dst]["postsynaptic_current"]
+                src_vox_x, src_vox_y, src_vox_z = \
+                    [vox for vox in runtime_data.brain[cortical_area_src][neuron_id_src]['soma_location']]
+                dst_vox_x, dst_vox_y, dst_vox_z = \
+                    [vox for vox in runtime_data.brain[cortical_area_dst][neuron_id_dst]['soma_location']]
+                runtime_data.influxdb.insert_synaptic_activity(connectome_path=runtime_data.connectome_path,
+                                                               src_cortical_area=cortical_area_src,
+                                                               dst_cortical_area=cortical_area_dst,
+                                                               src_voxel_x=src_vox_x,
+                                                               src_voxel_y=src_vox_y,
+                                                               src_voxel_z=src_vox_z,
+                                                               dst_voxel_x=dst_vox_x,
+                                                               dst_voxel_y=dst_vox_y,
+                                                               dst_voxel_z=dst_vox_z,
+                                                               src_neuron_id=neuron_id_src,
+                                                               dst_neuron_id=neuron_id_dst,
+                                                               post_synaptic_current=psc)
+                print("----&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&----")
 
 
 def neuron_prop(cortical_area, neuron_id):
@@ -352,4 +395,3 @@ def prune_all_candidates():
 
 def list_upstream_neurons(cortical_area, neuron_id):
     return runtime_data.brain[cortical_area][neuron_id]["upstream_neurons"]
-
