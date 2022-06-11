@@ -61,7 +61,7 @@
   "gnetId": null,
   "graphTooltip": 1,
   "id": 3,
-  "iteration": 1654922318977,
+  "iteration": 1654958850174,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -388,7 +388,7 @@
       "pluginVersion": "8.2.5",
       "targets": [
         {
-          "query": "from(bucket: \"data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> drop(columns:[\"connectome\"])\n  |> filter(fn: (r) => r[\"_measurement\"] == \"neuron\")\n  |> filter(fn: (r) => r[\"_field\"] == \"membrane_potential\" and r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/ )\n  |> filter(fn: (r) => r[\"dst_voxel_x\"] =~ /^${dst_vox_x:regex}$/ and r[\"dst_voxel_y\"] =~ /^${dst_vox_y:regex}$/ and r[\"dst_voxel_z\"] =~ /^${dst_vox_z:regex}$/ )\n  |> drop(columns:[\"dst_voxel_x\", \"dst_voxel_y\", \"dst_voxel_z\", \"dst_voxel_id\", \"dst_neuron_id\"])\n  |> set(key: \"_field\", value: \"Neuron\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"average\")\n",
+          "query": "from(bucket: \"data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> drop(columns:[\"connectome\"])\n  |> filter(fn: (r) => r[\"_measurement\"] == \"neuron\")\n  |> filter(fn: (r) => r[\"dst_voxel_x\"] =~ /^${dst_vox_x:regex}$/ and r[\"dst_voxel_y\"] =~ /^${dst_vox_y:regex}$/ and r[\"dst_voxel_z\"] =~ /^${dst_vox_z:regex}$/ )\n  |> drop(columns:[\"dst_voxel_x\", \"dst_voxel_y\", \"dst_voxel_z\", \"dst_voxel_id\", \"dst_neuron_id\"])\n  |> set(key: \"_field\", value: \"Neuron\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"average\")\n",
           "refId": "A"
         }
       ],
@@ -437,7 +437,7 @@
       {
         "allValue": null,
         "current": {
-          "selected": false,
+          "selected": true,
           "text": [
             "All"
           ],
@@ -661,7 +661,7 @@
       {
         "allValue": null,
         "current": {
-          "selected": false,
+          "selected": true,
           "text": [
             "All"
           ],
@@ -689,7 +689,7 @@
       {
         "allValue": null,
         "current": {
-          "selected": false,
+          "selected": true,
           "text": [
             "All"
           ],
@@ -737,5 +737,5 @@
   "timezone": "",
   "title": "FEAGI Brain Activity Analyzer",
   "uid": "Se3OI7f7k",
-  "version": 73
+  "version": 76
 }

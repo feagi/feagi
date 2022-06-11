@@ -224,14 +224,6 @@ def membrane_potential_update(cortical_area, neuron_id, membrane_potential_chang
                                                              membrane_potential=dst_mp / 1)
 
         if cortical_area in runtime_data.neuron_psp_collection_scope and src_cortical_area and src_neuron:
-            print("#################    ################     ########################")
-            print("#################    ################     ########################")
-            print("#################    ################     ########################", src_cortical_area,
-                  cortical_area, src_neuron, neuron_id)
-            print("#################    ################     ########################")
-            print("#################    ################     ########################")
-            print("#################    ################     ########################")
-            print("#################    ################     ########################")
             if monitor_filter(cortical_area=cortical_area, neuron_id=neuron_id,
                               filter_criteria=runtime_data.neuron_psp_collection_scope[cortical_area]):
                 src_flag = False
@@ -261,28 +253,22 @@ def post_synaptic_current_update(cortical_area_src,
     """
     Responsible for updating the post-synaptic-current between two neurons
     """
-    print("----1----")
     runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"][neuron_id_dst]["postsynaptic_current"] = \
         post_synaptic_current
 
     # Assess the filter conditions set through the REST API
     if cortical_area_dst in runtime_data.neuron_psp_collection_scope:
-        print("----2----")
         if monitor_filter(cortical_area=cortical_area_dst, neuron_id=neuron_id_dst,
                           filter_criteria=runtime_data.neuron_psp_collection_scope[cortical_area_dst]):
             src_flag = False
-            print("----3----")
             if "sources" not in runtime_data.neuron_psp_collection_scope[cortical_area_dst]:
                 src_flag = True
-                print("----4----")
             elif len(runtime_data.neuron_psp_collection_scope[cortical_area_dst]["sources"]) == 0:
                 src_flag = True
-                print("----5----")
             elif monitor_filter(cortical_area=cortical_area_src, neuron_id=neuron_id_src,
                                 filter_criteria=runtime_data.neuron_psp_collection_scope[cortical_area_dst]
                                 ["sources"][cortical_area_src]):
                 src_flag = True
-                print("----5----")
             if src_flag:
                 psc = runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"][
                     neuron_id_dst]["postsynaptic_current"]
