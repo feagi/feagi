@@ -15,15 +15,53 @@
           "type": "dashboard"
         },
         "type": "dashboard"
+      },
+      {
+        "datasource": "InfluxDB_v2_Flux",
+        "enable": false,
+        "iconColor": "red",
+        "mappings": {
+          "id": {
+            "source": "field",
+            "value": "Neuron m__inf"
+          },
+          "tags": {
+            "source": "field",
+            "value": "Neuron m__inf"
+          },
+          "text": {
+            "source": "field",
+            "value": "Neuron m__inf"
+          },
+          "time": {
+            "source": "field",
+            "value": "Time"
+          },
+          "timeEnd": {
+            "source": "field",
+            "value": "Time"
+          },
+          "title": {
+            "source": "field",
+            "value": "Neuron m__inf"
+          }
+        },
+        "name": "Shocks",
+        "target": {
+          "limit": 10,
+          "query": "from(bucket: \"data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> drop(columns:[\"connectome\"])\n  |> filter(fn: (r) => r[\"_measurement\"] == \"neuron\")\n  |> filter(fn: (r) => r[\"_field\"] == \"membrane_potential\" and r[\"dst_cortical_area\"] == \"i__shok\" )\n  |> drop(columns:[\"dst_voxel_x\", \"dst_voxel_y\", \"dst_voxel_z\", \"dst_neuron_id\", \"dst_voxel_id\"])\n  |> set(key: \"_field\", value: \"Neuron\")\n",
+          "refId": "Anno",
+          "type": "tags"
+        }
       }
     ]
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
   "gnetId": null,
-  "graphTooltip": 0,
+  "graphTooltip": 1,
   "id": 3,
-  "iteration": 1654891659899,
+  "iteration": 1654922318977,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -85,7 +123,7 @@
         "x": 0,
         "y": 0
       },
-      "id": 8,
+      "id": 9,
       "options": {
         "legend": {
           "calcs": [],
@@ -277,6 +315,117 @@
         }
       ],
       "type": "timeseries"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.2.5",
+      "targets": [
+        {
+          "query": "from(bucket: \"data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> drop(columns:[\"connectome\"])\n  |> filter(fn: (r) => r[\"_measurement\"] == \"neuron\")\n  |> filter(fn: (r) => r[\"_field\"] == \"membrane_potential\" and r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/ )\n  |> filter(fn: (r) => r[\"dst_voxel_x\"] =~ /^${dst_vox_x:regex}$/ and r[\"dst_voxel_y\"] =~ /^${dst_vox_y:regex}$/ and r[\"dst_voxel_z\"] =~ /^${dst_vox_z:regex}$/ )\n  |> drop(columns:[\"dst_voxel_x\", \"dst_voxel_y\", \"dst_voxel_z\", \"dst_voxel_id\", \"dst_neuron_id\"])\n  |> set(key: \"_field\", value: \"Neuron\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"average\")\n",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Average Neuron Fire Count",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "cortical_area",
+            "renamePattern": "area"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "(\\d+-\\d+-\\d+_\\d+:\\d+:\\d+_\\d+_)(\\w+)(_N)",
+            "renamePattern": "$2"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "voxel_id",
+            "renamePattern": "vox"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "Neuron ",
+            "renamePattern": ""
+          }
+        }
+      ],
+      "type": "timeseries"
     }
   ],
   "refresh": "1s",
@@ -288,7 +437,7 @@
       {
         "allValue": null,
         "current": {
-          "selected": true,
+          "selected": false,
           "text": [
             "All"
           ],
@@ -512,35 +661,7 @@
       {
         "allValue": null,
         "current": {
-          "selected": true,
-          "text": [
-            "All"
-          ],
-          "value": [
-            "$__all"
-          ]
-        },
-        "datasource": null,
-        "definition": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"src_neuron_id\",\n    predicate: (r) => r[\"_measurement\"] == \"synapse\" and r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/,\n    start: -1d\n)",
-        "description": null,
-        "error": null,
-        "hide": 0,
-        "includeAll": true,
-        "label": "Source Neuron ID",
-        "multi": true,
-        "name": "src_neuron_id",
-        "options": [],
-        "query": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"src_neuron_id\",\n    predicate: (r) => r[\"_measurement\"] == \"synapse\" and r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/,\n    start: -1d\n)",
-        "refresh": 1,
-        "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
-        "type": "query"
-      },
-      {
-        "allValue": null,
-        "current": {
-          "selected": true,
+          "selected": false,
           "text": [
             "All"
           ],
@@ -564,11 +685,39 @@
         "skipUrlSync": false,
         "sort": 0,
         "type": "query"
+      },
+      {
+        "allValue": null,
+        "current": {
+          "selected": false,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": null,
+        "definition": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"src_neuron_id\",\n    predicate: (r) => r[\"_measurement\"] == \"synapse\" and r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/,\n    start: -1d\n)",
+        "description": null,
+        "error": null,
+        "hide": 0,
+        "includeAll": true,
+        "label": "Source Neuron ID",
+        "multi": true,
+        "name": "src_neuron_id",
+        "options": [],
+        "query": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"src_neuron_id\",\n    predicate: (r) => r[\"_measurement\"] == \"synapse\" and r[\"dst_cortical_area\"] =~ /^${dst_cortical_area:regex}$/,\n    start: -1d\n)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
       }
     ]
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-2m",
     "to": "now"
   },
   "timepicker": {
@@ -588,5 +737,5 @@
   "timezone": "",
   "title": "FEAGI Brain Activity Analyzer",
   "uid": "Se3OI7f7k",
-  "version": 62
+  "version": 73
 }
