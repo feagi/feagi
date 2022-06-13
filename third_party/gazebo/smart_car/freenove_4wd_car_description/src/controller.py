@@ -26,6 +26,8 @@ import configuration
 import os
 import os.path
 import subprocess
+import requests
+
 
 from std_msgs.msg import String
 from subprocess import PIPE, Popen
@@ -537,7 +539,7 @@ class TileManager(Node):
         Returns the list of tiles to be visible in the form of [[0,0], [1,5], ...]
         """
         current_tile_index = self.gps_to_tile_index(gps=gps)
-        print("@@@@@@@ --------------------- current tile index:", current_tile_index)
+        #print("@@@@@@@ --------------------- current tile index:", current_tile_index)
         # center_of_tile = self.tile_index_to_xyz(tile_index=current_tile_index)
         #
         # robot_relative_loc_to_tile = [gps[0] - center_of_tile[0],
@@ -548,7 +550,7 @@ class TileManager(Node):
 
         self.visible_tiles = [current_tile_index]
 
-        print(">>>> > > > > > >> > > Visible Tiles:", self.visible_tiles)
+        #print(">>>> > > > > > >> > > Visible Tiles:", self.visible_tiles)
 
         # if robot_relative_loc_to_tile[0] > self.tile_dimensions[0] / 2 - self.tile_dimensions[0] * self.tile_margin:
         #     self.add_visible_tile([[current_tile_index[0] + 1, current_tile_index[0]]])
@@ -566,7 +568,7 @@ class TileManager(Node):
         #     self.add_visible_tile([current_tile_index[0], current_tile_index[1] - 1])
         #     print("-------------------------------   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ -- 4")
 
-        print("tile visibility checker output:", self.visible_tiles)
+        #print("tile visibility checker output:", self.visible_tiles)
         # todo: Need to remove the tiles that are not needed if robot is inside the margin on all sides
         # if robot_relative_loc_to_tile[0] > -1 ...
 
@@ -578,11 +580,6 @@ class TileManager(Node):
         self.tile_visibility_checker(gps=gps)
         for tile in self.tile_tracker:
             if self.tile_tracker[tile]["index"] not in self.visible_tiles:
-                print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
-                print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
-                print("&&&&&&&&        Remove      &&&&&&&&&")
-                print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
-                print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
                 self.remove_tile(self.tile_tracker[tile]["index"])
 
         # Add the new tiles that has matched the display criteria
@@ -594,7 +591,7 @@ class TileManager(Node):
         for tile_index in self.visible_tiles:
             if tile_index not in existing_visible_tiles:
                 self.add_tile(tile_index=tile_index)
-        print("\n************************\nActive tile list:", self.tile_tracker)
+        #print("\n************************\nActive tile list:", self.tile_tracker)
 
 
 # class Pose(Node):
@@ -734,10 +731,14 @@ class TileManager(Node):
 def main(args=None):
     print("Connecting to FEAGI resources...")
 
+
     # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_outbound_port']
 
     feagi_host = configuration.network_settings["feagi_host"]
     api_port = configuration.network_settings["feagi_api_port"]
+    api_address = 'http://' + feagi_host + ':' + api_port
+    stimulation_period_endpoint = '/v1/feagi/feagi/burst_engine/stimulation_period'
+    burst_counter_endpoint = '/v1/feagi/feagi/burst_engine/burst_counter'
 
     feagi_registration(feagi_host=feagi_host, api_port=api_port)
 
@@ -793,16 +794,16 @@ def main(args=None):
     executor_thread = Thread(target=executor.spin, daemon=True)
     executor_thread.start()
     msg_counter = 0
+    flag = 0
 
     # Positioning servos to a default position
     servo.set_default_position()
-
 
     try:
         while True:
             robot_pose = [runtime_data["GPS"]["x"], runtime_data["GPS"]["y"], runtime_data["GPS"]["z"]]
             pose.tile_update(robot_pose)
-            print("Current robot pose_:", robot_pose)
+            #print("Current robot pose_:", robot_pose)
 
             # Process OPU data received from FEAGI and pass it along
             message_from_feagi = feagi_opu_channel.receive()
@@ -850,6 +851,12 @@ def main(args=None):
             feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
             msg_counter += 1
+            flag += 1
+            if flag == 10:
+                feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
+                flag = 0
+                if feagi_burst_speed != network_settings['feagi_burst_speed']:
+                    network_settings['feagi_burst_speed'] = feagi_burst_speed
             sleep(network_settings['feagi_burst_speed'])
     except KeyboardInterrupt:
         pass
