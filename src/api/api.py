@@ -403,6 +403,7 @@ async def genome_download():
 # ######  Stimulation #########
 # ##################################
 
+
 @app.api_route("/v1/feagi/stimulation/upload/string", methods=['POST'])
 async def stimulation_string_upload(stimulation_script: Stimulation):
     """
@@ -443,6 +444,17 @@ async def stimulation_string_upload(stimulation_script: Stimulation):
     """
     try:
         message = stimulation_script.dict()
+        message = {'stimulation_script': message}
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/stimulation/reset", methods=['POST'])
+async def stimulation_string_upload():
+    try:
+        message = {"stimulation_script": {}}
         message = {'stimulation_script': message}
         api_queue.put(item=message)
         return {"Request sent!"}
