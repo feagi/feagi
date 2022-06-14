@@ -417,8 +417,7 @@ async def stimulation_string_upload(stimulation_script: Stimulation):
     """
     stimulation_script = {
     "IR_pain": {
-        "start_burst": 10,
-        "end_burst": 1000,
+        "repeat": 10,
         "definition": [
             {"i__pro": ["0-0-3"], "o__mot": ["2-0-7"]},
             {"i__pro": ["0-0-8"]},
@@ -438,17 +437,14 @@ async def stimulation_string_upload(stimulation_script: Stimulation):
         "definition": []
     },
     "move_forward": {
-        "end_burst": 500,
         "definition": []
     },
     "charge_batteries": {
-        "start_burst": 1000,
+        "repeat": 1000,
         "definition": [
             {"i__inf": ["2-0-0"]}
         ]
     }
-}
-
     """
     try:
         message = stimulation_script.dict()
