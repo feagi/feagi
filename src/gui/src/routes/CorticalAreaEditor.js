@@ -17,6 +17,7 @@ import IconButton from "@mui/material/IconButton";
 import InputLabel from "@mui/material/InputLabel";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import { styled } from "@mui/material/styles";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -24,10 +25,16 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
+import UploadIcon from "@mui/icons-material/Upload";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import CorticalAreaEditForm from "../components/CorticalAreaEditForm";
 import { genomeBase } from "../constants/genome";
+import FeagiAPI from "../services/FeagiAPI";
+
+const Input = styled("input")({
+  display: "none",
+});
 
 const CorticalAreaEditor = (props) => {
   const [listedAreas, setListedAreas] = useState([
@@ -47,7 +54,11 @@ const CorticalAreaEditor = (props) => {
     let updatedAreas = [...listedAreas];
     updatedAreas.splice(paginatedIndex, 1);
     setListedAreas(updatedAreas);
-    delete props.definedAreas[area];
+    if (area in props.definedAreas) {
+      let updatedDefinedAreas = { ...props.definedAreas };
+      delete updatedDefinedAreas[area];
+      props.setDefinedAreas(updatedDefinedAreas);
+    }
   };
 
   const handleAreaAdd = () => {
@@ -102,6 +113,37 @@ const CorticalAreaEditor = (props) => {
 
   const handleAreaNameDialogXout = () => {
     setAreaNameDialogVisible(false);
+  };
+
+  const handleInputClick = (event) => {
+    event.target.value = "";
+  };
+
+  const handleGenomeUpload = async (event) => {
+    const genomeFileData = await FeagiAPI.postGenomeFileEdit({
+      file: event.target.files[0],
+    });
+
+    const genomeBlueprint = genomeFileData["blueprint"];
+
+    let loadedAreas = {};
+    let groupIdAreaMap = {};
+    const loadedAreaNameGenes = Object.entries(genomeBlueprint).filter((gene) =>
+      gene[0].includes("name-")
+    );
+
+    for (const areaNameGene of loadedAreaNameGenes) {
+      loadedAreas[genomeBlueprint[areaNameGene[0]]] = {};
+      groupIdAreaMap[areaNameGene[0].slice(9, 15)] = areaNameGene[1];
+    }
+
+    for (const gene in genomeBlueprint) {
+      loadedAreas[groupIdAreaMap[gene.slice(9, 15)]][gene] =
+        genomeBlueprint[gene];
+    }
+
+    setListedAreas(Object.keys(loadedAreas));
+    props.setDefinedAreas(loadedAreas);
   };
 
   const showForm = () => {
@@ -376,16 +418,6 @@ const CorticalAreaEditor = (props) => {
         >
           <AddIcon />
         </Fab>
-        {/* <Fab
-          size="medium"
-          color="primary"
-          aria-label="save"
-          sx={{ mt: 7, ml: 2, mr: 2, mb: 2 }}
-          disabled={!(listedAreas && listedAreas.length)}
-          onClick={handleSave}
-        >
-          <SaveIcon />
-        </Fab> */}
         <Fab
           size="medium"
           color="primary"
@@ -396,6 +428,24 @@ const CorticalAreaEditor = (props) => {
         >
           <DownloadIcon />
         </Fab>
+        <label htmlFor="genome-upload">
+          <Input
+            id="genome-upload"
+            accept=".json"
+            type="file"
+            onChange={handleGenomeUpload}
+            onClick={handleInputClick}
+          />
+          <Fab
+            id="genome-upload"
+            component="span"
+            size="medium"
+            color="primary"
+            sx={{ mt: 7, ml: 2, mr: 2, mb: 2 }}
+          >
+            <UploadIcon />
+          </Fab>
+        </label>
         <TablePagination
           rowsPerPageOptions={[5, 10, 25, 50, 100]}
           component="div"

@@ -9,13 +9,12 @@ import { genomeBase } from "../constants/genome";
 
 const GenomeAssembler = (props) => {
   const [loading, setLoading] = useState(false);
+  let navigate = useNavigate();
 
-  const matchMappings = (mappingData, sensoryData, motorData) => {
+  const matchMappings = (mappingData, corticalAreaData) => {
     Object.keys(mappingData).forEach((key) => {
-      if (key in sensoryData && !(key in motorData)) {
-        insertMappingData(mappingData, key, sensoryData);
-      } else if (key in motorData && !(key in sensoryData)) {
-        insertMappingData(mappingData, key, motorData);
+      if (key in corticalAreaData) {
+        insertMappingData(mappingData, key, corticalAreaData);
       }
     });
   };
@@ -39,32 +38,42 @@ const GenomeAssembler = (props) => {
     });
   };
 
-  let navigate = useNavigate();
+  const sleep = (ms) => {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  };
+
+  const burstCountPoller = async () => {
+    let bursting = false;
+    while (!bursting) {
+      const burstCount = await FeagiAPI.getBurstCount();
+      if (burstCount > 0) {
+        bursting = true;
+        navigate("/monitoring");
+      }
+      await sleep(2000);
+    }
+  };
 
   const generateAndSendGenome = () => {
     setLoading(true);
 
     let mappingDataCopy = structuredClone(props.definedMappings);
-    let sensoryDataCopy = structuredClone(props.definedSensory);
-    let motorDataCopy = structuredClone(props.definedMotor);
+    let areaDataCopy = structuredClone(props.definedAreas);
 
-    matchMappings(mappingDataCopy, sensoryDataCopy, motorDataCopy);
+    matchMappings(mappingDataCopy, areaDataCopy);
 
     let blueprintShell = {};
-    let combinedDataVals = Object.values({
-      ...sensoryDataCopy,
-      ...motorDataCopy,
-    });
+    let areaDataVals = Object.values(areaDataCopy);
 
-    for (let i = 0; i < combinedDataVals.length; i++) {
-      for (const key in combinedDataVals[i]) {
-        blueprintShell[key] = combinedDataVals[i][key];
+    for (let i = 0; i < areaDataVals.length; i++) {
+      for (const key in areaDataVals[i]) {
+        blueprintShell[key] = areaDataVals[i][key];
       }
     }
 
     genomeBase["blueprint"] = blueprintShell;
     FeagiAPI.postGenomeString({ genome: genomeBase });
-    navigate("/monitoring");
+    burstCountPoller();
   };
 
   return (

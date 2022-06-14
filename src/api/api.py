@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 import datetime
-import json
-import os
-from fastapi import FastAPI, File, UploadFile, BackgroundTasks
+from fastapi import FastAPI, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse
@@ -396,6 +394,16 @@ async def genome_download():
         file_name = "genome_" + datetime.datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".py"
         print(file_name)
         return FileResponse(path="../runtime_genome.py", filename=file_name)
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.post("/v1/feagi/genome/upload/file/edit")
+async def genome_file_upload_edit(file: UploadFile = File(...)):
+    try:
+        data = await file.read()
+        genome_str = data.decode("utf-8")
+        return {genome_str}
     except Exception as e:
         return {"Request failed...", e}
 

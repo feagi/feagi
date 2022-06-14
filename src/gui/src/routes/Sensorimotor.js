@@ -16,7 +16,7 @@ import MenuCard from "../components/MenuCard";
 
 const Sensorimotor = (props) => {
   const [numberOfMotors, setNumberOfMotors] = useState(null);
-  const [numberOfSensorys, setNumberOfSensors] = useState(null);
+  const [numberOfSensors, setNumberOfSensors] = useState(null);
 
   const handleSensoryClick = (e, src) => {
     if (!props.selectedSensory.includes(src)) {
@@ -145,10 +145,6 @@ const Sensorimotor = (props) => {
               color="primary"
               aria-label="add"
               sx={{ m: 1 }}
-              disabled={Boolean(
-                !(props.selectedMotor && props.selectedMotor.length) &&
-                  !(props.selectedSensory && props.selectedSensory.length)
-              )}
               onClick={handleNext}
             >
               <ArrowForwardIcon />

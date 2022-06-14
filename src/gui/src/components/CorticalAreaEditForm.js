@@ -10,6 +10,7 @@ import InputLabel from "@mui/material/InputLabel";
 
 const CorticalAreaEditForm = (props) => {
   const [labelValue, setLabelValue] = useState(props.corticalArea);
+  const [groupIdValue, setGroupIdValue] = useState("");
   const [positionXValue, setPositionXValue] = useState("");
   const [positionYValue, setPositionYValue] = useState("");
   const [positionZValue, setPositionZValue] = useState("");
@@ -24,9 +25,7 @@ const CorticalAreaEditForm = (props) => {
   });
 
   const assembleCorticalAreaData = () => {
-    const labelSlice = labelValue.slice(0, 3);
-    const groupSlice = defaultGenes["cx-_group-t"][0];
-    const genePrefix = `_____10c-${groupSlice}__${labelSlice}-`;
+    const genePrefix = `_____10c-${groupIdValue}-`;
 
     const labelGene = genePrefix.concat("cx-__name-t");
 
@@ -82,12 +81,25 @@ const CorticalAreaEditForm = (props) => {
       <Stack direction="row" alignItems="center" spacing={2} sx={{ m: 1 }}>
         <InputLabel sx={{ width: "80px" }}>Label</InputLabel>
         <TextField
-          id="filled-basic"
+          id="filled-basic-label"
           label="cortical area name..."
           defaultValue={props.corticalArea}
           variant="filled"
           onChange={(e) => setLabelValue(e.target.value)}
           sx={{ width: "330px" }}
+        />
+      </Stack>
+      <Stack direction="row" alignItems="center" spacing={2} sx={{ m: 1 }}>
+        <InputLabel sx={{ width: "80px" }}>Group ID</InputLabel>
+        <TextField
+          id="filled-basic-group-id"
+          label="6 char max"
+          variant="filled"
+          onChange={(e) => setGroupIdValue(e.target.value)}
+          sx={{ width: "330px" }}
+          inputProps={{
+            maxLength: 6,
+          }}
         />
       </Stack>
       <Stack direction="row" alignItems="center" spacing={2} sx={{ m: 1 }}>
