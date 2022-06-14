@@ -1,5 +1,4 @@
 import axios from "axios";
-import fileDownload from "js-file-download";
 
 const FEAGI_URL = "http://localhost:8000/v1";
 
@@ -124,6 +123,32 @@ const FeagiAPI = {
   async postDefaultGenome(defaultGenome) {
     const response = await axios
       .post(`${FEAGI_URL}/feagi/genome/upload/default`, defaultGenome, {
+        headers: {},
+        params: {},
+      })
+      .catch((error) => {
+        console.error(error);
+        throw error;
+      });
+    return response.data;
+  },
+
+  async postGenomeFileEdit(genomeFile) {
+    const response = await axios
+      .post(`${FEAGI_URL}/feagi/genome/upload/file/edit`, genomeFile, {
+        headers: { "Content-Type": "multipart/form-data" },
+        params: {},
+      })
+      .catch((error) => {
+        console.error(error);
+        throw error;
+      });
+    return JSON.parse(response.data);
+  },
+
+  async getBurstCount() {
+    const response = await axios
+      .get(`${FEAGI_URL}/feagi/feagi/burst_engine/burst_counter`, {
         headers: {},
         params: {},
       })
