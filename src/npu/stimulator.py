@@ -12,11 +12,12 @@ def stimulate():
     stimuli = dict()
     try:
         for play in runtime_data.stimulation_script:
+            if "counter" not in runtime_data.stimulation_script[play]:
+                runtime_data.stimulation_script[play]["counter"] = 0
+
             play_length = len(runtime_data.stimulation_script[play]["definition"])
             try:
-                if runtime_data.stimulation_script[play]["start_burst"] is not None and runtime_data.stimulation_script[play]["start_burst"] >= runtime_data.burst_count:
-                    continue
-                if runtime_data.stimulation_script[play]["end_burst"] is not None and runtime_data.stimulation_script[play]["end_burst"] <= runtime_data.burst_count:
+                if runtime_data.stimulation_script[play]["counter"] == runtime_data.stimulation_script[play]["repeat"]:
                     continue
                 if play_length == 0:
                     continue
@@ -36,6 +37,7 @@ def stimulate():
             runtime_data.stimulation_index[play] += 1
             if runtime_data.stimulation_index[play] == play_length:
                 runtime_data.stimulation_index[play] = 0
+                runtime_data.stimulation_script[play]["counter"] += 1
     except Exception as e:
         print("Error: Unsupported stimulation script format", e)
 
