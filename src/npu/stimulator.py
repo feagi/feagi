@@ -14,6 +14,7 @@ def stimulate():
         for play in runtime_data.stimulation_script:
             if "counter" not in runtime_data.stimulation_script[play]:
                 runtime_data.stimulation_script[play]["counter"] = 0
+                runtime_data.stimulation_script[play]["instance_repeat"] = 0
 
             play_length = len(runtime_data.stimulation_script[play]["definition"])
             try:
@@ -25,21 +26,25 @@ def stimulate():
                 pass
             if play not in runtime_data.stimulation_index:
                 runtime_data.stimulation_index[play] = 0
+            print("\n\nStimulator sequence:")
+            print("--------@  @  @  @  @  @  @  @  @---------")
+            print(play, runtime_data.stimulation_script[play]["counter"], runtime_data.stimulation_script[play]["instance_repeat"])
+            print("--------@  @  @  @  @  @  @  @  @---------\n\n")
 
-            print("    >> >> >> stimulation_index:", runtime_data.stimulation_index[play])
-
-            for cortical_area in runtime_data.stimulation_script[play]["definition"][runtime_data.stimulation_index[play]]:
-                print("           cortical area:", cortical_area)
+            for cortical_area in runtime_data.stimulation_script[play]["definition"][runtime_data.stimulation_index[play]][0]:
+                print("           cortical area:", cortical_area, runtime_data.cortical_list)
                 if cortical_area in runtime_data.cortical_list:
-                    stimuli[cortical_area] = \
-                        runtime_data.stimulation_script[play]["definition"][runtime_data.stimulation_index[play]][cortical_area]
+                    stimuli[cortical_area] = runtime_data.stimulation_script[play]["definition"][runtime_data.stimulation_index[play]][0][cortical_area]
 
-            runtime_data.stimulation_index[play] += 1
+            runtime_data.stimulation_script[play]["instance_repeat"] += 1
+            if runtime_data.stimulation_script[play]["instance_repeat"] == runtime_data.stimulation_script[play]["definition"][runtime_data.stimulation_index[play]][1]:
+                runtime_data.stimulation_index[play] += 1
+                runtime_data.stimulation_script[play]["instance_repeat"] = 0
             if runtime_data.stimulation_index[play] == play_length:
                 runtime_data.stimulation_index[play] = 0
                 runtime_data.stimulation_script[play]["counter"] += 1
     except Exception as e:
-        print("Error: Unsupported stimulation script format", e)
+        print("\n\nError: Unsupported stimulation script format", e)
 
     return stimuli
 

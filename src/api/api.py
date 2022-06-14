@@ -419,18 +419,10 @@ async def stimulation_string_upload(stimulation_script: Stimulation):
     "IR_pain": {
         "repeat": 10,
         "definition": [
-            {"i__pro": ["0-0-3"], "o__mot": ["2-0-7"]},
-            {"i__pro": ["0-0-8"]},
-            {"i__bat": ["0-0-7"]},
-            {"i__bat": ["0-0-6"]},
-            {"i__bat": ["0-0-5"]},
-            {"i__bat": ["0-0-4"]},
-            {"i__bat": ["0-0-3"]},
-            {},
-            {"i__bat": ["0-0-2"]},
-            {"i__bat": ["0-0-1"]},
-            {},
-            {}
+            [{"i__pro": ["0-0-3"], "o__mot": ["2-0-7"]}, 10],
+            [{"i__pro": ["0-0-8"]}, 5],
+            [{"i__bat": ["0-0-7"]}, 1],
+            [{}, 50]
             ]
     },
     "exploration": {
@@ -442,7 +434,7 @@ async def stimulation_string_upload(stimulation_script: Stimulation):
     "charge_batteries": {
         "repeat": 1000,
         "definition": [
-            {"i__inf": ["2-0-0"]}
+            [{"i__inf": ["2-0-0"]}, 2]
         ]
     }
     """
@@ -467,7 +459,7 @@ async def stimulation_string_upload():
 
 
 # ######  Statistics and Reporting Endpoints #########
-# ##################################
+# ####################################################
 
 @app.get("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting")
 async def neuron_membrane_potential_collection_filters():
