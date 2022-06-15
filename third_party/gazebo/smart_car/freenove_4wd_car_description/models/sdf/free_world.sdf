@@ -47,24 +47,6 @@
                 <background_color>0.8 0.8 0.8</background_color>
                 <camera_pose>-6 0 6 0 0.5 0</camera_pose>
             </plugin>
-            <plugin name='World control' filename='WorldControl'>
-                <ignition-gui>
-                    <title>World control</title>
-                    <property type='bool' key='showTitleBar'>0</property>
-                    <property type='bool' key='resizable'>0</property>
-                    <property type='double' key='height'>72</property>
-                    <property type='double' key='width'>121</property>
-                    <property type='double' key='z'>1</property>
-                    <property type='string' key='state'>floating</property>
-                    <anchors target='3D View'>
-                        <line own='left' target='left'/>
-                        <line own='bottom' target='bottom'/>
-                    </anchors>
-                </ignition-gui>
-                <play_pause>1</play_pause>
-                <step>1</step>
-                <start_paused>1</start_paused>
-            </plugin>
             <plugin name='World stats' filename='WorldStats'>
                 <ignition-gui>
                     <title>World stats</title>
