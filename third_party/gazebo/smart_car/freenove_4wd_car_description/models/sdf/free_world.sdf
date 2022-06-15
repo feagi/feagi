@@ -16,7 +16,6 @@
 <!--==============================================================================-->
   <world name="free_world">
 
-
     <physics name="1ms" type="ignored">
       <max_step_size>0.01</max_step_size>
       <real_time_factor>1.0</real_time_factor>
@@ -34,6 +33,73 @@
       filename="ignition-gazebo-scene-broadcaster-system"
       name="ignition::gazebo::systems::SceneBroadcaster">
     </plugin>
+
+    <gui fullscreen='0'>
+            <plugin name='3D View' filename='GzScene3D'>
+                <ignition-gui>
+                    <title>3D View</title>
+                    <property type='bool' key='showTitleBar'>0</property>
+                    <property type='string' key='state'>docked</property>
+                </ignition-gui>
+                <engine>ogre2</engine>
+                <scene>scene</scene>
+                <ambient_light>0.4 0.4 0.4</ambient_light>
+                <background_color>0.8 0.8 0.8</background_color>
+                <camera_pose>-6 0 6 0 0.5 0</camera_pose>
+            </plugin>
+            <plugin name='World control' filename='WorldControl'>
+                <ignition-gui>
+                    <title>World control</title>
+                    <property type='bool' key='showTitleBar'>0</property>
+                    <property type='bool' key='resizable'>0</property>
+                    <property type='double' key='height'>72</property>
+                    <property type='double' key='width'>121</property>
+                    <property type='double' key='z'>1</property>
+                    <property type='string' key='state'>floating</property>
+                    <anchors target='3D View'>
+                        <line own='left' target='left'/>
+                        <line own='bottom' target='bottom'/>
+                    </anchors>
+                </ignition-gui>
+                <play_pause>1</play_pause>
+                <step>1</step>
+                <start_paused>1</start_paused>
+            </plugin>
+            <plugin name='World stats' filename='WorldStats'>
+                <ignition-gui>
+                    <title>World stats</title>
+                    <property type='bool' key='showTitleBar'>0</property>
+                    <property type='bool' key='resizable'>0</property>
+                    <property type='double' key='height'>110</property>
+                    <property type='double' key='width'>290</property>
+                    <property type='double' key='z'>1</property>
+                    <property type='string' key='state'>floating</property>
+                    <anchors target='3D View'>
+                        <line own='right' target='right'/>
+                        <line own='bottom' target='bottom'/>
+                    </anchors>
+                </ignition-gui>
+                <sim_time>1</sim_time>
+                <real_time>1</real_time>
+                <real_time_factor>1</real_time_factor>
+                <iterations>1</iterations>
+            </plugin>
+            <plugin name='Transform control' filename='TransformControl'>
+                <ignition-gui>
+                    <title>Transform control</title>
+                    <anchors target='3D View'>
+                        <line own='left' target='left'/>
+                        <line own='top' target='top'/>
+                    </anchors>
+                    <property key='resizable' type='bool'>0</property>
+                    <property key='width' type='double'>300</property>
+                    <property key='height' type='double'>50</property>
+                    <property key='state' type='string'>floating</property>
+                    <property key='showTitleBar' type='bool'>0</property>
+                    <property key='cardBackground' type='string'>#666666</property>
+                </ignition-gui>
+            </plugin>
+    </gui>
 
 
     <light type="directional" name="sun">
@@ -88,3 +154,4 @@
 
   </world>
 </sdf>
+
