@@ -95,7 +95,7 @@ def running_in_container():
     if container_check:
         print("FEAGI is running in a Docker container")
     else:
-        print("FEAGI is not running outside container")
+        print("FEAGI is running outside container")
     return container_check
 
 
@@ -136,9 +136,13 @@ def run_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
 
 def init_parameters(ini_path='./feagi_configuration.ini'):
     """To load all the key configuration parameters"""
+    print("\n_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+")
+    print("Initializing FEAGI parameters...")
+    print("_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+\n")
     feagi_config = ConfigParser()
     feagi_config.read(ini_path)
     runtime_data.parameters = {s: dict(feagi_config.items(s)) for s in feagi_config.sections()}
+    # print("runtime_data.parameters ", runtime_data.parameters)
     if not runtime_data.parameters["InitData"]["working_directory"]:
         runtime_data.parameters["InitData"]["working_directory"] = gettempdir()
     log.info("All parameters have been initialized.")
@@ -287,7 +291,6 @@ def init_data_sources():
 
 
 def init_resources():
-
     if runtime_data.parameters['System']['max_core']:
         print("Max thread count was overwritten to:", runtime_data.parameters['System']['max_core'])
     else:
@@ -295,22 +298,41 @@ def init_resources():
         print("Max thread count was set to ", runtime_data.parameters['System']['max_core'])
 
 
-def initialize():
-    runtime_data.last_alertness_trigger = datetime.now()
-    run_id_gen()
+def init_infrastructure():
     init_io_channels()
     init_working_directory()
     init_container_variables()
     init_data_sources()
-    # runtime_data.genome = genome
-    # init_genome(genome=genome)
-    init_cortical_info()
-    runtime_data.cortical_dimensions = generate_cortical_dimensions()
-    detect_hardware()
-    init_genome_post_processes()
+    # detect_hardware()
     init_resources()
-    generate_plasticity_dict()
     runtime_data.fcl_queue = Queue()
+
+
+def reset_runtime_data():
+    print("\n\n\n\n----------------- Resetting the brain -----------------------------\n\n\n")
+    runtime_data.brain = {}
+    runtime_data.cortical_list = {}
+    runtime_data.cortical_dimensions = {}
+    runtime_data.stimulation_script = {}
+    runtime_data.fire_candidate_list = {}
+    runtime_data.previous_fcl = {}
+    runtime_data.future_fcl = {}
+
+
+def init_brain():
+    reset_runtime_data()
+    runtime_data.last_alertness_trigger = datetime.now()
+    run_id_gen()
+    init_cortical_info()
+    print(runtime_data.genome['blueprint'])
+    runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
+    runtime_data.cortical_dimensions = generate_cortical_dimensions()
+    # genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
+    # genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])
+    # runtime_data.genome['blueprint'] = genome2['blueprint']
+    init_genome_post_processes()
+    generate_plasticity_dict()
+    runtime_data.new_genome = True
 
 
 def init_burst_engine():
@@ -324,7 +346,6 @@ def init_burst_engine():
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("\n\n")
 
-    print(runtime_data.parameters['Switches']['use_static_genome'])
 
     runtime_data.termination_flag = False
 
@@ -374,7 +395,7 @@ def init_io_channels():
             runtime_data.router_address_godot = "tcp://" + runtime_data.parameters['Sockets']['godot_host_name'] + ':' + runtime_data.parameters['Sockets'][
                 'feagi_inbound_port_godot']
         if runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']:
-            runtime_data.router_address_gazebo = "tcp://" + runtime_data.parameters['Sockets']['gazebo_host_name'] +  ':' + runtime_data.parameters['Sockets'][
+            runtime_data.router_address_gazebo = "tcp://" + runtime_data.parameters['Sockets']['gazebo_host_name'] + ':' + runtime_data.parameters['Sockets'][
                 'feagi_inbound_port_gazebo']
 
         print("Router addresses has been set")

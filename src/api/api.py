@@ -13,6 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 import datetime
+from time import sleep
+
 from fastapi import FastAPI, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,16 +24,44 @@ from typing import Optional
 from ast import literal_eval
 from threading import Thread
 from queue import Queue
-from inf.feagi import *
-from inf import disk_ops, runtime_data
+from inf import feagi
+from inf import runtime_data
 from inf.baseline import gui_baseline
-from inf.initialize import init_parameters
 from evo import static_genome
 
 
-init_parameters()
+description = """
+FEAGI REST API will help you integrate FEAGI into other applications and provides a programmatic method to interact with FEAGI. 🚀
 
-app = FastAPI()
+## Endpoints
+
+You can **read items**.
+
+## TBD
+
+You will be able to:
+
+* **TBD1** (_not implemented_).
+* **TBD2** (_not implemented_).
+"""
+
+app = FastAPI(
+    title="FEAGI API Documentation",
+    description=description,
+    version="1",
+    terms_of_service="http://feagi.org",
+    contact={
+        "name": "FEAGI Community",
+        "url": "http://feagi.org",
+        "email": "info@neuraville.com",
+    },
+    license_info={
+        "name": "Apache 2.0",
+        "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
+    },
+)
+
+
 favicon_path = 'favicon.svg'
 
 api_queue = Queue()
@@ -49,6 +79,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+
+def kickstart_feagi_thread():
+    feagi_thread = Thread(target=feagi.start_feagi, args=(api_queue,))
+    feagi_thread.start()
+
+
+kickstart_feagi_thread()
 
 
 class Launch(BaseModel):
@@ -134,260 +172,49 @@ app.mount("/home", SPAStaticFiles(directory="gui", html=True), name="static")
 #         return {"FEAGI start failed ... error details to be provided here", e}
 
 
-@app.api_route("/v1/feagi/training/shock", methods=['POST'])
-async def shock_administrator(training: Training):
-    try:
-        message = training.dict()
-        api_queue.put(item=message)
-        return {"Request sent!"}
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/feagi/register", methods=['POST'])
-async def feagi_registration(message: Registration):
-    try:
-        message = message.dict()
-        source = message['source']
-        host = message['host']
-        capabilities = message['capabilities']
-        print("########## ###### >>>>>> >>>> ", source, host, capabilities)
-
-        return {"Registration was successful"}
-    except Exception as e:
-        return {"FEAGI start failed ... error details to be provided here", e}
-
-
-@app.api_route("/v1/feagi/feagi/logs", methods=['POST'])
-async def log_management(message: Logs):
-    try:
-        message = message.dict()
-        message = {"log_management": message}
-        api_queue.put(item=message)
-        return {"Request sent!"}
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/feagi/burst_engine/stimulation_period", methods=['GET'])
-async def burst_engine_params():
-    try:
-        return runtime_data.burst_timer
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/ipu", methods=['GET'])
-async def supported_ipu_list():
-    try:
-        return gui_baseline['ipu']
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/opu", methods=['GET'])
-async def supported_opu_list():
-    try:
-        return gui_baseline['opu']
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/morphology", methods=['GET'])
-async def supported_morphology_list():
-    try:
-        return gui_baseline['morphology']
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/cortical-genes", methods=['GET'])
-async def supported_cortical_genes_list():
-    try:
-        return gui_baseline['cortical_genes']
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/morphology-scalar", methods=['GET'])
-async def supported_cortical_genes_list():
-    try:
-        return gui_baseline['morphology_scalar']
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/psc-multiplier", methods=['GET'])
-async def supported_cortical_genes_list():
-    try:
-        return gui_baseline['postSynapticCurrent_multiplier']
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/plasticity-flag", methods=['GET'])
-async def supported_cortical_genes_list():
-    try:
-        return gui_baseline['plasticity_flag']
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/feagi/pns/ipu", methods=['GET'])
-async def ipu_list():
-    try:
-        return runtime_data.ipu_list
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/feagi/pns/opu", methods=['GET'])
-async def ipu_list():
-    try:
-        return runtime_data.opu_list
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-# ######  Burst-Engine Endpoints #########
-# ##################################
-
-@app.api_route("/v1/feagi/feagi/burst_engine/burst_counter", methods=['GET'])
-async def burst_engine_params():
-    try:
-        return runtime_data.burst_count
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/feagi/burst_engine", methods=['POST'])
-async def burst_management(message: BurstEngine):
-    try:
-        message = message.dict()
-        message = {'burst_management': message}
-        api_queue.put(item=message)
-        return {"Request sent!"}
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-# ######  Networking Endpoints #########
-# ##################################
-
-@app.api_route("/v1/feagi/feagi/network", methods=['GET'])
-async def network_management():
-    try:
-        return runtime_data.parameters['Sockets']
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/feagi/network", methods=['POST'])
-async def network_management(message: Network):
-    try:
-        message = message.dict()
-        message = {'network_management': message}
-        api_queue.put(item=message)
-        return runtime_data.parameters['Sockets']
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-# ######  Connectome Endpoints #########
-# ##################################
-
-
-@app.post("/v1/feagi/connectome/upload")
-async def connectome_file_upload(file: UploadFile = File(...)):
-    try:
-        data = await file.read()
-        connectome_str = data.decode("utf-8").split(" = ")[1]
-        connectome = literal_eval(connectome_str)
-        message = {"connectome": connectome}
-        api_queue.put(item=message)
-        return {"Connectome received as a file"}
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/connectome/source", methods=['POST'])
-async def connectome_source_path(connectome_path: ConnectomePath):
-    try:
-        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'connectome', 'path',  connectome_path,))
-        feagi_thread.start()
-
-        return {"Request sent!"}
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/connectome/snapshot", methods=['POST'])
-async def connectome_snapshot(message: ConnectomePath):
-    try:
-        message = message.dict()
-        message = {'connectome_snapshot': message}
-        print("Snapshot path:", message)
-        api_queue.put(item=message)
-        return {"Request sent!"}
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-@app.api_route("/v1/feagi/connectome/properties/dimensions", methods=['GET'])
-async def connectome_report():
-    print("cortical_dimensions", runtime_data.cortical_dimensions)
-    try:
-        return runtime_data.cortical_dimensions
-    except Exception as e:
-        return {"Request failed...", e}
-
-
 # ######  Genome Endpoints #########
 # ##################################
 
-@app.post("/v1/feagi/genome/upload/file")
+@app.api_route("/v1/feagi/genome/upload/default", methods=['POST'], tags=["Genome"])
+async def genome_default_upload():
+    try:
+        message = {'genome': static_genome.genome.copy()}
+
+        api_queue.put(item=message)
+        return {"FEAGI started using a static genome.", message}
+    except Exception as e:
+        return {"FEAGI start using genome string failed ...", e}
+
+
+@app.post("/v1/feagi/genome/upload/file", tags=["Genome"])
 async def genome_file_upload(file: UploadFile = File(...)):
     try:
         data = await file.read()
 
         genome_str = data.decode("utf-8").split(" = ")[1]
-        runtime_data.genome = literal_eval(genome_str)
-
-        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', '',  runtime_data.genome,))
-        feagi_thread.start()
+        message = {'genome': literal_eval(genome_str)}
+        api_queue.put(item=message)
 
         return {"Genome received as a file"}
     except Exception as e:
-        return {"Request failed...", e}
+        print("API ERROR during genome file upload:\n", e)
+        return {"Request failed..."}
 
 
-@app.api_route("/v1/feagi/genome/upload/default", methods=['POST'])
-async def genome_default_upload():
+@app.api_route("/v1/feagi/genome/upload/string", methods=['POST'], tags=["Genome"])
+async def genome_string_upload(str_genome: Genome):
     try:
-        runtime_data.genome = static_genome.genome
+        genome = str_genome.genome
 
-        print("default_genome", runtime_data.genome)
-        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', '',  runtime_data.genome,))
-        feagi_thread.start()
+        message = {'genome': genome}
+        api_queue.put(item=message)
 
         return {"FEAGI started using a genome string."}
     except Exception as e:
         return {"FEAGI start using genome string failed ...", e}
 
 
-@app.api_route("/v1/feagi/genome/upload/string", methods=['POST'])
-async def genome_string_upload(genome: Genome):
-    try:
-        runtime_data.genome = genome.genome
-        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'genome', '',  runtime_data.genome,))
-        feagi_thread.start()
-
-        return {"FEAGI started using a genome string."}
-    except Exception as e:
-        return {"FEAGI start using genome string failed ...", e}
-
-
-@app.get("/v1/feagi/genome/download/python")
+@app.get("/v1/feagi/genome/download/python", tags=["Genome"])
 async def genome_download():
     print("Downloading Genome...")
     try:
@@ -398,7 +225,7 @@ async def genome_download():
         return {"Request failed...", e}
 
 
-@app.post("/v1/feagi/genome/upload/file/edit")
+@app.post("/v1/feagi/genome/upload/file/edit", tags=["Genome"])
 async def genome_file_upload_edit(file: UploadFile = File(...)):
     try:
         data = await file.read()
@@ -409,10 +236,10 @@ async def genome_file_upload_edit(file: UploadFile = File(...)):
 
 
 # ######  Stimulation #########
-# ##################################
+# #############################
 
 
-@app.api_route("/v1/feagi/stimulation/upload/string", methods=['POST'])
+@app.api_route("/v1/feagi/stimulation/upload/string", methods=['POST'], tags=["Stimulation"])
 async def stimulation_string_upload(stimulation_script: Stimulation):
     """
     stimulation_script = {
@@ -447,7 +274,7 @@ async def stimulation_string_upload(stimulation_script: Stimulation):
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/stimulation/reset", methods=['POST'])
+@app.api_route("/v1/feagi/stimulation/reset", methods=['POST'], tags=["Stimulation"])
 async def stimulation_string_upload():
     try:
         message = {"stimulation_script": {}}
@@ -461,7 +288,7 @@ async def stimulation_string_upload():
 # ######  Statistics and Reporting Endpoints #########
 # ####################################################
 
-@app.get("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting")
+@app.get("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting", tags=["Insights"])
 async def neuron_membrane_potential_collection_filters():
     print("Membrane potential monitoring filter setting:", runtime_data.neuron_mp_collection_scope)
     try:
@@ -470,7 +297,7 @@ async def neuron_membrane_potential_collection_filters():
         return {"Request failed...", e}
 
 
-@app.get("/v1/feagi/neuron/physiology/postsynaptic_potential_monitoring/filter_setting")
+@app.get("/v1/feagi/neuron/physiology/postsynaptic_potential_monitoring/filter_setting", tags=["Insights"])
 async def neuron_postsynaptic_potential_collection_filters():
     print("Membrane potential monitoring filter setting:", runtime_data.neuron_psp_collection_scope)
     try:
@@ -479,7 +306,7 @@ async def neuron_postsynaptic_potential_collection_filters():
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting", methods=['POST'])
+@app.api_route("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting", methods=['POST'], tags=["Insights"])
 async def neuron_membrane_potential_monitoring_scope(message: StatsCollectionScope):
     """
     Message Template:
@@ -508,7 +335,7 @@ async def neuron_membrane_potential_monitoring_scope(message: StatsCollectionSco
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/neuron/physiology/postsynaptic_potential_monitoring", methods=['POST'])
+@app.api_route("/v1/feagi/neuron/physiology/postsynaptic_potential_monitoring", methods=['POST'], tags=["Insights"])
 async def neuron_postsynaptic_potential_monitoring_scope(message: StatsCollectionScope):
     """
     Message Template:
@@ -556,72 +383,232 @@ async def neuron_postsynaptic_potential_monitoring_scope(message: StatsCollectio
         return {"Request failed...", e}
 
 
-################################################################################################################
+# ######  Connectome Endpoints #########
+# ######################################
 
-def api_message_processor(api_message):
+
+@app.post("/v1/feagi/connectome/upload", tags=["Connectome"])
+async def connectome_file_upload(file: UploadFile = File(...)):
+    try:
+        data = await file.read()
+        connectome_str = data.decode("utf-8").split(" = ")[1]
+        connectome = literal_eval(connectome_str)
+        message = {"connectome": connectome}
+        api_queue.put(item=message)
+        return {"Connectome received as a file"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/connectome/source", methods=['POST'], tags=["Connectome"])
+async def connectome_source_path(connectome_path: ConnectomePath):
+    try:
+        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'connectome', 'path',  connectome_path,))
+        feagi_thread.start()
+
+        return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/connectome/snapshot", methods=['POST'], tags=["Connectome"])
+async def connectome_snapshot(message: ConnectomePath):
+    try:
+        message = message.dict()
+        message = {'connectome_snapshot': message}
+        print("Snapshot path:", message)
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/connectome/properties/dimensions", methods=['GET'], tags=["Connectome"])
+async def connectome_report():
+    print("cortical_dimensions", runtime_data.cortical_dimensions)
+    try:
+        return runtime_data.cortical_dimensions
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+# ######  Burst-Engine Endpoints #########
+# ########################################
+
+@app.api_route("/v1/feagi/feagi/burst_engine/burst_counter", methods=['GET'], tags=["Burst Engine"])
+async def burst_engine_params():
     """
-    Processes the incoming API calls to FEAGI
+    Return the number associated with current FEAGI burst instance.
     """
+    try:
+        return runtime_data.burst_count
+    except Exception as e:
+        return {"Request failed...", e}
 
-    if 'burst_management' in api_message:
-        if 'burst_duration' in api_message['burst_management']:
-            if api_message['burst_management']['burst_duration'] is not None:
-                runtime_data.burst_timer = api_message['burst_management']['burst_duration']
 
-    if 'stimulation_script' in api_message:
-        runtime_data.stimulation_script = api_message['stimulation_script']['stimulation_script']
+@app.api_route("/v1/feagi/feagi/burst_engine/stimulation_period", methods=['GET'], tags=["Burst Engine"])
+async def burst_engine_params():
+    """
+    Returns the time it takes for each burst to execute in seconds.
+    """
+    try:
+        return runtime_data.burst_timer
+    except Exception as e:
+        return {"Request failed...", e}
 
-    if 'log_management' in api_message:
-        if 'print_burst_info' in api_message['log_management']:
-            runtime_data.parameters['Logs']['print_burst_info'] \
-                = api_message['log_management']['print_burst_info']
-        if 'print_messenger_logs' in api_message['log_management']:
-            runtime_data.parameters['Logs']['print_messenger_logs'] \
-                = api_message['log_management']['print_messenger_logs']
 
-    if 'connectome_snapshot' in api_message:
-        if 'connectome_path' in api_message['connectome_snapshot']:
-            if api_message['connectome_snapshot']['connectome_path']:
-                print("Taking a snapshot of the brain... ... ...")
-                disk_ops.save_brain_to_disk(connectome_path=api_message['connectome_snapshot']['connectome_path'],
-                                            type='snapshot')
-            else:
-                disk_ops.save_brain_to_disk()
+@app.api_route("/v1/feagi/feagi/burst_engine", methods=['POST'], tags=["Burst Engine"])
+async def burst_management(message: BurstEngine):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        message = message.dict()
+        message = {'burst_management': message}
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
 
-    if 'neuron_mp_collection_scope' in api_message:
-        if api_message['neuron_mp_collection_scope'] is not None:
-            payload = api_message['neuron_mp_collection_scope']['collection_scope']
-            runtime_data.neuron_mp_collection_scope = payload
-            print('Membrane Potential state collection scope has been updated.')
-        else:
-            print('Membrane Potential state collection scope did not change.')
 
-    if 'neuron_psp_collection_scope' in api_message:
-        if api_message['neuron_psp_collection_scope'] is not None:
-            payload = api_message['neuron_psp_collection_scope']['collection_scope']
-            runtime_data.neuron_psp_collection_scope = payload
-            print('Membrane Potential state collection scope has been updated.')
-        else:
-            print('Membrane Potential state collection scope did not change.')
+# ######  Networking Endpoints #########
+# ##################################
 
-    if 'network_management' in api_message:
-        print("api_message", api_message)
-        if 'godot_host' in api_message['network_management']:
-            runtime_data.parameters['Sockets']['godot_host_name'] = api_message['network_management']['godot_host']
-        if 'godot_port' in api_message['network_management']:
-            runtime_data.parameters['Sockets']['feagi_inbound_port_godot'] = \
-                api_message['network_management']['godot_port']
+@app.api_route("/v1/feagi/feagi/network", methods=['GET'], tags=["Networking"])
+async def network_management():
+    try:
+        return runtime_data.parameters['Sockets']
+    except Exception as e:
+        return {"Request failed...", e}
 
-        if 'gazebo_host' in api_message['network_management']:
-            runtime_data.parameters['Sockets']['gazebo_host_name'] = api_message['network_management']['gazebo_host']
-        if 'gazebo_port' in api_message['network_management']:
-            runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo'] = \
-                api_message['network_management']['gazebo_port']
 
-        if 'shock' in api_message:
-            if api_message["shock"]:
-                runtime_data.shock_admin = True
-            else:
-                runtime_data.shock_admin = False
+@app.api_route("/v1/feagi/feagi/network", methods=['POST'], tags=["Networking"])
+async def network_management(message: Network):
+    try:
+        message = message.dict()
+        message = {'network_management': message}
+        api_queue.put(item=message)
+        return runtime_data.parameters['Sockets']
+    except Exception as e:
+        return {"Request failed...", e}
 
-        # todo: Handle web port assignments
+
+# ######  Peripheral Nervous System Endpoints #########
+# #####################################################
+
+@app.api_route("/v1/feagi/feagi/pns/ipu", methods=['GET'], tags=["Peripheral Nervous System"])
+async def ipu_list():
+    try:
+        return runtime_data.ipu_list
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/pns/opu", methods=['GET'], tags=["Peripheral Nervous System"])
+async def ipu_list():
+    try:
+        return runtime_data.opu_list
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+# ######  Training Endpoints #######
+# ##################################
+
+@app.api_route("/v1/feagi/training/shock", methods=['POST'], tags=["Training"])
+async def shock_administrator(training: Training):
+    try:
+        message = training.dict()
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+# ######   System Endpoints #########
+# ###################################
+
+@app.api_route("/v1/feagi/feagi/register", methods=['POST'], tags=["System"])
+async def feagi_registration(message: Registration):
+    try:
+        message = message.dict()
+        source = message['source']
+        host = message['host']
+        capabilities = message['capabilities']
+        print("########## ###### >>>>>> >>>> ", source, host, capabilities)
+
+        return {"Registration was successful"}
+    except Exception as e:
+        return {"FEAGI start failed ... error details to be provided here", e}
+
+
+@app.api_route("/v1/feagi/feagi/logs", methods=['POST'], tags=["System"])
+async def log_management(message: Logs):
+    try:
+        message = message.dict()
+        message = {"log_management": message}
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+# ######   GUI  Endpoints #########
+# ###################################
+
+
+@app.api_route("/v1/feagi/feagi/gui_baseline/ipu", methods=['GET'], tags=["GUI"])
+async def supported_ipu_list():
+    try:
+        return gui_baseline['ipu']
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/gui_baseline/opu", methods=['GET'], tags=["GUI"])
+async def supported_opu_list():
+    try:
+        return gui_baseline['opu']
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/gui_baseline/morphology", methods=['GET'], tags=["GUI"])
+async def supported_morphology_list():
+    try:
+        return gui_baseline['morphology']
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/gui_baseline/cortical-genes", methods=['GET'], tags=["GUI"])
+async def supported_cortical_genes_list():
+    try:
+        return gui_baseline['cortical_genes']
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/gui_baseline/morphology-scalar", methods=['GET'], tags=["GUI"])
+async def supported_cortical_genes_list():
+    try:
+        return gui_baseline['morphology_scalar']
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/gui_baseline/psc-multiplier", methods=['GET'], tags=["GUI"])
+async def supported_cortical_genes_list():
+    try:
+        return gui_baseline['postSynapticCurrent_multiplier']
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/gui_baseline/plasticity-flag", methods=['GET'], tags=["GUI"])
+async def supported_cortical_genes_list():
+    try:
+        return gui_baseline['plasticity_flag']
+    except Exception as e:
+        return {"Request failed...", e}
+

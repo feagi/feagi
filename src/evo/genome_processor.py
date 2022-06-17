@@ -15,6 +15,24 @@
 # ==============================================================================
 
 import copy
+from evo.genome_editor import save_genome
+
+
+def genome_ver_check(genome):
+    try:
+        if genome['version'] == "2.0":
+            print("\n\n\n************ Genome Version 2.0 has been detected **************\n\n\n")
+            save_genome(genome=genome, file_name="../runtime_genome.py")
+            genome2 = genome_2_1_convertor(flat_genome=genome['blueprint'])
+            genome_2_hierarchifier(flat_genome=genome['blueprint'])
+            genome['blueprint'] = genome2['blueprint']
+            return genome
+        else:
+            print("ERROR! Genome is not compatible with 2.0 standard")
+    except KeyError as e:
+        print("Error:", e)
+        print("Genome version not available; assuming Genome 1.0 procedures.")
+        pass
 
 
 def genome_2_print(genome):
@@ -82,6 +100,14 @@ def genome_2_cortical_list(flat_genome):
         cortical_id = key[9:15]
         if cortical_id not in cortical_list and key[7] == "c":
             cortical_list.append(cortical_id)
+    return cortical_list
+
+
+def genome_1_cortical_list(genome):
+    cortical_list = list()
+    for cortical_area in genome['blueprint']:
+        cortical_list.append(cortical_area)
+
     return cortical_list
 
 

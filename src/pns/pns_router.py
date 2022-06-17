@@ -70,13 +70,12 @@ def stimuli_router(ipu_data):
     """
 
     if type(ipu_data) == dict and "data" in ipu_data:
-        print("IPU DATA === ", ipu_data)
         if "direct_stimulation" in ipu_data["data"]:
             if ipu_data["data"]["direct_stimulation"] is not None:
                 try:
                     stimuli_translator.stimulation_injector(stimulation_data=ipu_data["data"]["direct_stimulation"])
-                except:
-                    print("ERROR while processing Stimulation IPU", ipu_data["data"]["direct_stimulation"])
+                except Exception as e:
+                    print("ERROR while processing Stimulation IPU", ipu_data["data"]["direct_stimulation"], ">>", e)
 
         if "sensory_data" in ipu_data["data"]:
             for sensor_type in ipu_data["data"]["sensory_data"]:

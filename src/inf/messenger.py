@@ -47,6 +47,8 @@ class Pub:
         if runtime_data.parameters["Logs"]["print_messenger_logs"]:
             print("FEAGI published a message:", message, "on ", self.address)
 
+    def terminate(self):
+        self.socket.close()
 
 # class PubBrainActivities:
 #     def __init__(self, address):
@@ -68,6 +70,9 @@ class Sub:
         # self.socket.setsockopt(zmq.RCVHWM, 0)
         self.socket.connect(address)
         self.socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
+
+    def terminate(self):
+        self.socket.close()
 
     @staticmethod
     def validate(payload):

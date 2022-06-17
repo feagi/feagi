@@ -43,7 +43,6 @@ working_directory = ''
 connectome_path = ''
 paths = {}
 watchdog_queue = ''
-exit_condition = False
 fcl_queue = ''
 proximity_queue = ''
 last_ipu_activity = ''
@@ -61,18 +60,21 @@ brain_activity_pub_freq = 1
 router_address_gazebo = None
 router_address_godot = None
 router_address_virtual = None
-burst_timer = None
 genome2 = {}
 genome_ver = None
 fire_queue = {}
 controller_config = None
-burst_publisher = None
-burst_activities = {}
 opu_data = {}
 cortical_dimensions = {}
 voxel_dict = {}
 shock_admin = False
 
+# Burst Engine
+burst_publisher = None
+burst_activities = {}
+burst_timer = None
+exit_condition = False
+new_genome = False
 
 # Stats Collection
 neuron_mp_collection_scope = {}
