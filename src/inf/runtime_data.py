@@ -15,9 +15,6 @@
 # ==============================================================================
 
 parameters = {}
-genome = {}
-genome_stats = {}
-genome_test_stats = []
 brain = {}
 cortical_list = []
 cortical_map = {}
@@ -35,7 +32,6 @@ top_10_utf_memory_neurons = {}
 top_10_utf_neurons = {}
 v1_members = []
 prunning_candidates = set()
-genome_id = ""
 event_id = '_'
 blueprint = ""
 comprehension_queue = ''
@@ -60,14 +56,21 @@ brain_activity_pub_freq = 1
 router_address_gazebo = None
 router_address_godot = None
 router_address_virtual = None
-genome2 = {}
-genome_ver = None
 fire_queue = {}
 controller_config = None
 opu_data = {}
 cortical_dimensions = {}
 voxel_dict = {}
 shock_admin = False
+
+# Genome
+genome = {}
+genome_stats = {}
+genome_test_stats = []
+genome2 = {}
+genome_ver = None
+genome_id = ""
+genome_counter = 0
 
 # Burst Engine
 burst_publisher = None

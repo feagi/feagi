@@ -235,6 +235,18 @@ async def genome_file_upload_edit(file: UploadFile = File(...)):
         return {"Request failed...", e}
 
 
+@app.api_route("/v1/feagi/genome/genome_number", methods=['GET'], tags=["Genome"])
+async def genome_number():
+    """
+    Return the number associated with current Genome instance.
+    """
+    try:
+        return runtime_data.genome_counter
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+
 # ######  Stimulation #########
 # #############################
 

@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================
 """
-
 import time
 import os
 from router import *
@@ -39,8 +38,11 @@ runtime_data = {
     "feagi_state": None,
     "feagi_network": None,
     "cortical_list": set(),
-    "host_network": {}
+    "host_network": {},
+    "genome_number": 0
 }
+
+dimensions_endpoint = '/v1/feagi/connectome/properties/dimensions'
 
 
 def csv_writer(cortical_dimensions):
@@ -61,6 +63,17 @@ def csv_writer(cortical_dimensions):
             godot_cortical_dimensions.append(cortical_area)
             writer.writerow(godot_cortical_dimensions)
             godot_cortical_dimensions = list()
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++")
+
     print("Godot CSV has been created.")
 
 
@@ -150,6 +163,12 @@ def feagi_breakdown(data):
     Designed for genome 2.0 only. Data is the input from feagi's raw data
     """
     new_list = []
+    new_genome_num = data['genome_num']
+    if new_genome_num > runtime_data["genome_number"]:
+        runtime_data["cortical_data"] = \
+            requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
+        csv_writer(runtime_data["cortical_data"])
+        runtime_data["genome_number"] = new_genome_num
     for i in data['godot']:
         xyz = i[1], i[2], i[3]
         new_list.append(xyz)
@@ -184,7 +203,7 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
         pass
 
     return relative_coordinate
-    
+
 
 async def echo(websocket):
     godot_list = {}  ##initalized the list from Godot
@@ -251,8 +270,6 @@ def feagi_init(feagi_host, api_port):
         print("Awaiting registration with FEAGI...2")
         FEAGI_pub.send({"godot_init": True})
 
-        dimensions_endpoint = '/v1/feagi/connectome/properties/dimensions'
-
         runtime_data["cortical_data"] = \
             requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
 
@@ -267,6 +284,15 @@ def feagi_init(feagi_host, api_port):
 
 
 if __name__ == "__main__":
+    print("================================ @@@@@@@@@@@@@@@ ==========================================")
+    print("================================ @@@@@@@@@@@@@@@ ==========================================")
+    print("================================ @@@@@@@@@@@@@@@ ==========================================")
+    print("================================  Godot  Bridge  ==========================================")
+    print("================================ @@@@@@@@@@@@@@@ ==========================================")
+    print("================================ @@@@@@@@@@@@@@@ ==========================================")
+    print("================================ @@@@@@@@@@@@@@@ ==========================================")
+    print("================================ @@@@@@@@@@@@@@@ ==========================================")
+
     feagi_host = configuration.network_settings["feagi_host"]
     api_port = configuration.network_settings["feagi_api_port"]
 
@@ -275,10 +301,7 @@ if __name__ == "__main__":
     print("** **", runtime_data["feagi_state"])
 
     api_address = 'http://' + network_settings['feagi_host'] + ':' + network_settings['feagi_api_port']
-    # feagi_state = handshake_with_feagi(address=address,
-    #                                    capabilities=capabilities)
-    # print("feagi_state: ", feagi_state)
-    # print("** **\n\n\n\n")
+
     sockets = requests.get(api_address + '/v1/feagi/feagi/network').json()
     stimulation_period = requests.get(api_address + '/v1/feagi/feagi/burst_engine/stimulation_period').json()
     runtime_data["feagi_state"]['feagi_burst_speed'] = float(stimulation_period)
