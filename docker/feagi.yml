@@ -5,12 +5,36 @@ networks:
     driver: bridge
 
 services:
+  influxdb:
+    image: influxdb:2.0.7
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=$INFLUXDB_MODE
+      - DOCKER_INFLUXDB_INIT_RETENTION=$INFLUXDB_RETENTION
+      - DOCKER_INFLUXDB_INIT_USERNAME=$INFLUXDB_USERNAME
+      - DOCKER_INFLUXDB_INIT_PASSWORD=$INFLUXDB_PASSWORD
+      - DOCKER_INFLUXDB_INIT_ORG=$INFLUXDB_ORG
+      - DOCKER_INFLUXDB_INIT_BUCKET=$INFLUXDB_BUCKET
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=$INFLUXDB_TOKEN
+    ports:
+      - 8086:8086
+    volumes:
+      - influxdb_data:/var/lib/influxdb
+    healthcheck:
+      test: "exit 0"
+    networks:
+      - net
+
   ros-gazebo:
     build: ../third_party/gazebo/smart_car/
     deploy:
       resources:
         limits:
-          cpus: '3'
+          cpus: '4'
           memory: '2g'
     ports:
       - "6080:80"
@@ -20,6 +44,11 @@ services:
 
   godot:
     build: ../third_party/godot/
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
     ports:
       - "6081:8080"
       - "9050:9050"
@@ -27,8 +56,33 @@ services:
     networks:
       - net
 
+  grafana:
+    build: ../third_party/grafana/
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
+    environment:
+      - INFLUXDB_USER=$INFLUXDB_USERNAME
+      - INFLUXDB_PASSWORD=$INFLUXDB_PASSWORD
+      - INFLUXDB_TOKEN=$INFLUXDB_TOKEN
+      - INFLUXDB_ORG=$INFLUXDB_ORG
+      - INFLUXDB_BUCKET=$INFLUXDB_BUCKET
+    ports:
+      - 6082:3000
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - net
+
   feagi:
     build: ./
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
     ports:
       - "8000:8000"
       - "30000:30000"
@@ -44,7 +98,16 @@ services:
 
   gui:
     build: ../src/gui/
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
     ports:
       - "3000:3000"
     networks:
       - net
+
+volumes:
+  grafana_data:
+  influxdb_data:
