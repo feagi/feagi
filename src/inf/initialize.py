@@ -324,7 +324,6 @@ def init_brain():
     runtime_data.last_alertness_trigger = datetime.now()
     run_id_gen()
     init_cortical_info()
-    print(runtime_data.genome['blueprint'])
     runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
     # genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])

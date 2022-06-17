@@ -83,6 +83,7 @@ def api_message_processor(api_message):
         print("========================================================")
         print(" Genome loading has been initiated by an API call...")
         print("========================================================")
+        runtime_data.genome_counter += 1
         runtime_data.genome_ver = None
         runtime_data.genome = api_message['genome']
         runtime_data.genome = genome_ver_check(runtime_data.genome)

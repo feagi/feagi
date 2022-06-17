@@ -6,5 +6,7 @@ COPY ./src/* /root/src/
 COPY ./feagi_initalize.sh /root/src/
 RUN chmod a+x /root/*
 
+RUN npm install live-server -g
+
 WORKDIR /root/src
 CMD ["bash", "feagi_initalize.sh"]
