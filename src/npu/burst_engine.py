@@ -28,20 +28,17 @@ todo: need a higher level mechanism to switch between life mode and autopilot mo
         - Solution: FCL Injector can keep track of IPU activities in a variable and set a flag accordingly
 """
 import os
-import csv
 import glob
 from datetime import datetime
-from inf import disk_ops
 from time import sleep
 from npu.physiology import *
 from npu import stimulator
 from mem.memory import neuroplasticity
-from npu.comprehension import utf_detection_logic
 from evo.stats import *
 from inf.initialize import init_burst_engine, exit_burst_process
 from inf.messenger import Pub, Sub
 from pns.pns_router import opu_router, stimuli_router
-from api.api import api_message_processor
+from api.message_processor import api_message_processor
 from trn.trainer import shock_manager
 
 
@@ -358,13 +355,33 @@ def burst_manager():
         pass
 
     def burst():
-        if runtime_data.api_queue.empty():
+        if runtime_data.new_genome:
+            print("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+            print("Burst engine has detected a new genome!")
+            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
+            print("Cortical list", runtime_data.cortical_list)
+
+            for area in runtime_data.cortical_list:
+                init_fcl(area)
+            runtime_data.new_genome = False
+
+        if not runtime_data.api_queue:
+            pass
+        elif runtime_data.api_queue.empty():
             pass
         else:
             api_message = runtime_data.api_queue.get()
-            print(api_message)
             api_message_processor(api_message)
+            return
 
+        if runtime_data.exit_condition:
+            print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n"
+                  "##   Exit Condition Triggered   ##\n"
+                  "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+            runtime_data.burst_publisher.terminate()
+            godot_listener.terminate()
+            gazebo_listener.terminate()
+            return
         # todo: the following sleep value should be tied to Autopilot status
         sleep(float(runtime_data.burst_timer))
 
@@ -414,7 +431,7 @@ def burst_manager():
         # Tester.auto_tester()
 
         # The following is to have a check point to assess the perf of the in-use genome and make on the fly adj.
-        evolutionary_checkpoint()
+        # evolutionary_checkpoint()
 
         # Monitor cortical activity levels and terminate brain if not meeting expectations
         terminate_on_low_perf()
@@ -499,7 +516,7 @@ def burst_manager():
     print("\n\nReady to exit burst_manager engine flag:", runtime_data.parameters["Switches"]["ready_to_exit_burst"])
 
     # This loop runs for the entirety of brain active life
-    while not runtime_data.parameters["Switches"]["ready_to_exit_burst"]:
+    while not runtime_data.exit_condition:
         burst()
 
 

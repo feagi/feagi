@@ -77,10 +77,8 @@ def fake_cortical_stimulation(input_instruction, burst_count):
 def stimulation_injector(stimulation_data):
     for cortical_area in stimulation_data:
         if stimulation_data[cortical_area]:
-            print("stimulating...", cortical_area)
             neuron_list = set()
             for voxel in stimulation_data[cortical_area]:
-                print("FEAGI received direct stimulation; processing...", voxel)
                 if type(voxel) is list:
                     voxel = block_reference_builder(voxel)
                 in_the_block = neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel)
@@ -88,8 +86,6 @@ def stimulation_injector(stimulation_data):
                     neuron_list.add(neuron)
             for _ in neuron_list:
                 runtime_data.fire_candidate_list[cortical_area].add(_)
-
-            print(">>> >> >> > > >> >>>>>>>  Stimulation has been injected in FCL!")
 
 
 # @staticmethod

@@ -487,6 +487,10 @@ def main(args=None):
                 for ir_sensor in range(int(configuration.capabilities['infrared']['count'])):
                     formatted_ir_data['ir'][ir_sensor] = False
 
+            for ir_sensor in range(int(configuration.capabilities['infrared']['count'])):
+                if ir_sensor not in formatted_ir_data['ir']:
+                    formatted_ir_data['ir'][ir_sensor] = False
+
             ultrasonic_data = ultrasonic.get_distance()
             if ultrasonic_data:
                 formatted_ultrasonic_data = {
@@ -574,4 +578,3 @@ if __name__ == '__main__':
     feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
 
     main()
-

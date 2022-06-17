@@ -26,13 +26,12 @@ def stimulate():
                 pass
             if play not in runtime_data.stimulation_index:
                 runtime_data.stimulation_index[play] = 0
-            print("\n\nStimulator sequence:")
+            print("\nStimulator sequence:")
             print("--------@  @  @  @  @  @  @  @  @---------")
             print(play, runtime_data.stimulation_script[play]["counter"], runtime_data.stimulation_script[play]["instance_repeat"])
-            print("--------@  @  @  @  @  @  @  @  @---------\n\n")
+            print("--------@  @  @  @  @  @  @  @  @---------\n")
 
             for cortical_area in runtime_data.stimulation_script[play]["definition"][runtime_data.stimulation_index[play]][0]:
-                print("           cortical area:", cortical_area, runtime_data.cortical_list)
                 if cortical_area in runtime_data.cortical_list:
                     stimuli[cortical_area] = runtime_data.stimulation_script[play]["definition"][runtime_data.stimulation_index[play]][0][cortical_area]
 
