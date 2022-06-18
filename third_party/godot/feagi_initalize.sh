@@ -1,14 +1,15 @@
 #!/bin/bash
 
 FILE=./csv_data.gdc
-rm /root/html/*
 rm /root/godot_source/csv_data.gdc
 echo "% pre-bridge launch"
 python3 bridge_godot_python.py &
 echo "% post-bridge launch"
 
 cd ../html
+
 live-server &
+#http-server -c-1 &
 
 cd ../godot_source/
 
