@@ -395,6 +395,20 @@ async def neuron_postsynaptic_potential_monitoring_scope(message: StatsCollectio
         return {"Request failed...", e}
 
 
+# ######  Training Endpoints #######
+# ##################################
+
+@app.api_route("/v1/feagi/training/shock", methods=['POST'], tags=["Training"])
+async def shock_administrator(training: Training):
+    try:
+        message = training.dict()
+        print(message)
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
 # ######  Connectome Endpoints #########
 # ######################################
 
@@ -520,19 +534,6 @@ async def ipu_list():
 async def ipu_list():
     try:
         return runtime_data.opu_list
-    except Exception as e:
-        return {"Request failed...", e}
-
-
-# ######  Training Endpoints #######
-# ##################################
-
-@app.api_route("/v1/feagi/training/shock", methods=['POST'], tags=["Training"])
-async def shock_administrator(training: Training):
-    try:
-        message = training.dict()
-        api_queue.put(item=message)
-        return {"Request sent!"}
     except Exception as e:
         return {"Request failed...", e}
 
