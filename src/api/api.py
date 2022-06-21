@@ -153,6 +153,10 @@ class SPAStaticFiles(StaticFiles):
         return response
 
 
+class Subscriber(BaseModel):
+    subscriber_address: str
+
+
 app.mount("/home", SPAStaticFiles(directory="gui", html=True), name="static")
 
 
@@ -244,7 +248,6 @@ async def genome_number():
         return runtime_data.genome_counter
     except Exception as e:
         return {"Request failed...", e}
-
 
 
 # ######  Stimulation #########
@@ -560,6 +563,40 @@ async def log_management(message: Logs):
     try:
         message = message.dict()
         message = {"log_management": message}
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/beacon/subscribers", methods=['GET'], tags=["System"])
+async def beacon_query():
+    try:
+        if runtime_data.beacon_sub:
+            print("A")
+            return tuple(runtime_data.beacon_sub)
+        else:
+            print("B")
+            return {}
+    except Exception as e:
+        print("C", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/beacon/subscribe", methods=['POST'], tags=["System"])
+async def beacon_subscribe(message: Subscriber):
+    try:
+        message = {'beacon_sub': message.subscriber_address}
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/beacon/unsubscribe", methods=['DELETE'], tags=["System"])
+async def beacon_unsubscribe(message:Subscriber):
+    try:
+        message = {"beacon_unsub": message.subscriber_address}
         api_queue.put(item=message)
         return {"Request sent!"}
     except Exception as e:

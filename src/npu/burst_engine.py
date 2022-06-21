@@ -29,6 +29,7 @@ todo: need a higher level mechanism to switch between life mode and autopilot mo
 """
 import os
 import glob
+import requests
 from datetime import datetime
 from time import sleep
 from npu.physiology import *
@@ -357,6 +358,7 @@ def burst_manager():
 
     def burst():
         if runtime_data.new_genome:
+            runtime_data.beacon_flag = True
             print("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
             print("Burst engine has detected a new genome!")
             print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
@@ -365,6 +367,16 @@ def burst_manager():
             for area in runtime_data.cortical_list:
                 init_fcl(area)
             runtime_data.new_genome = False
+            runtime_data.feagi_state["state"] = "running"
+
+        if runtime_data.beacon_flag:
+            try:
+                for subscriber in runtime_data.beacon_sub:
+                    response = requests.post(subscriber, data=runtime_data.feagi_state)
+                    print("Subscriber Response", subscriber, response, runtime_data.feagi_state)
+            except Exception as e:
+                print("Error during processing beacon publication!", e)
+            runtime_data.beacon_flag = False
 
         if not runtime_data.api_queue:
             pass
