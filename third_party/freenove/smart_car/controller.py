@@ -334,9 +334,9 @@ class Motor:
         elif speed < 0:
             self.pwm.setMotorPwm(self.motor_channels[motor_index][1], 0)
             self.pwm.setMotorPwm(self.motor_channels[motor_index][0], abs(speed))
-        else:
-            self.pwm.setMotorPwm(self.motor_channels[motor_index][0], 4095)
-            self.pwm.setMotorPwm(self.motor_channels[motor_index][1], 4095)
+        elif speed == 0:
+            self.pwm.setMotorPwm(self.motor_channels[motor_index][0], 0)
+            self.pwm.setMotorPwm(self.motor_channels[motor_index][1], 0)
 
     def setMotorModel(self, duty1, duty2, duty3, duty4):
         duty1, duty2, duty3, duty4 = self.duty_range(duty1, duty2, duty3, duty4)
@@ -367,11 +367,11 @@ class Motor:
         if motor_id <= 1:
             return 0
         elif motor_id <= 3:
-            return 1
-        elif motor_id <= 5:
-            return 2
-        elif motor_id <= 7:
             return 3
+        elif motor_id <= 5:
+            return 1
+        elif motor_id <= 7:
+            return 2
         else:
             print("Input has been refused. Please put motor ID.")
 
@@ -419,7 +419,7 @@ class Ultrasonic:
 
     def send_trigger_pulse(self):
         GPIO.output(self.trigger_pin, True)
-        time.sleep(0.00015)
+        #time.sleep(0.00015)
         GPIO.output(self.trigger_pin, False)
 
     def wait_for_echo(self, value, timeout):
@@ -452,6 +452,7 @@ class Ultrasonic:
 def main(args=None):
     flag = False
     counter = 0
+    old_opu_data = {}
     print("Connecting to FEAGI resources...")
 
     motor = Motor()
@@ -501,16 +502,6 @@ def main(args=None):
             else:
                 formatted_ultrasonic_data = {}
 
-            # battery_data = battery.battery_total()
-            # if battery_data:
-            #     formatted_battery_data = {
-            #         'battery': {
-            #             sensor: data for sensor, data in enumerate([battery_data])
-            #         }
-            #     }
-            # else:
-            #     formatted_battery_data = {}
-
             compose_message_to_feagi(
                 original_message={**formatted_ir_data, **formatted_ultrasonic_data})##Removed battery due to error
             # Process OPU data received from FEAGI and pass it along
@@ -524,8 +515,25 @@ def main(args=None):
                         device_id = motor.motor_converter(data_point[0])
                         device_power = data_point[2]
                         device_power = motor.power_convert(data_point[0], device_power)
-                        motor.move(device_id, (device_power * 400))
-                        flag = True
+                        motor.move(device_id, (device_power))
+                        # flag = True
+                for data_point in opu_data['o__mot'].keys():
+                    print("",data_point)
+                    if not data_point in old_opu_data:
+                        print("key is missing: ", data_point)
+                        #print("datapoint: ",data_point[data_point])
+                        print(opu_data['o__mot'])
+                        print(type(opu_data['o__mot']))
+                        print(type(data_point))
+                        print(data_point[0])
+                        print(data_point[2])
+                        # device_id = motor.motor_converter(int(data_point[0]))
+                        # device_power = data_point[2]
+                        # device_power = motor.power_convert(data_point[0], device_power)
+                        # motor.move(device_id, 0)
+                print("BEFORE UPDATE: ", old_opu_data)
+                old_opu_data['o__mot'] = opu_data['o__mot'].copy()
+                print("AFTER UPDATE: ", old_opu_data)
                 if 'o__ser' in opu_data:
                     for data_point in opu_data['o__ser']:
                         data_point = block_to_array(data_point)
@@ -540,13 +548,14 @@ def main(args=None):
             message_to_feagi.clear()
             msg_counter += 1
 
-            #time.sleep(network_settings['feagi_burst_speed'])
-            if flag:
-                if counter < 3:
-                    counter += msg_counter
-                else:
-                    motor.stop()
-                    counter = 0
+            time.sleep(network_settings['feagi_burst_speed'])
+            #motor.stop()
+            # if flag:
+            #     if counter < 3:
+            #         counter += msg_counter
+            #     else:
+            #         motor.stop()
+            #         counter = 0
 
             # LED.leds_off()
     except KeyboardInterrupt as ke: ##Keyboard error

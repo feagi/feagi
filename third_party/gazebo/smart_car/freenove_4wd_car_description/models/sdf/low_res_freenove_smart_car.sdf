@@ -20,7 +20,7 @@
         <link name='chassis'>
             <pose>0 0 .1 0 0 0</pose>
             <inertial>
-              <mass>4</mass>
+              <mass>0.6622449</mass>
               <inertia>
                 <ixx>0.005</ixx>
                 <ixy>0</ixy>
@@ -37,9 +37,9 @@
                 </box>
               </geometry>
               <material>
-                <ambient>0.1 1.0 0.9 1</ambient>
-                <diffuse>0.2 0.4 0.2 1</diffuse>
-                <specular>0.0 0.4 0.0 1</specular>
+                <ambient>0.5 1.0 0.5 1</ambient>
+                <diffuse>0.5 1.0 0.5 1</diffuse>
+                <specular>0.0 1.0 0.0 1</specular>
               </material>
             </visual>
             <collision name='collision'>
@@ -53,17 +53,6 @@
 
         <link name='plate'>
             <pose>0.065 0 0.045 0 0 0</pose>
-            <inertial>
-              <mass>.0001</mass>
-              <inertia>
-                <ixx>0.001</ixx>
-                <ixy>0</ixy>
-                <ixz>0</ixz>
-                <iyy>0.001</iyy>
-                <iyz>0</iyz>
-                <izz>0.001</izz>
-              </inertia>
-            </inertial>
             <visual name='visual'>
               <geometry>
                 <box>
@@ -82,17 +71,17 @@
 
       <link name='rear_left_wheel'>
         <pose>-0.1 0.088 0.05 0 1.5707 1.5707</pose>
-        <inertial>
-          <mass>20</mass>
-          <inertia>
-            <ixx>0.02467</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.04411</iyy>
-            <iyz>0</iyz>
-            <izz>0.02467</izz>
-          </inertia>
-        </inertial>
+      <inertial>
+        <mass>0.408233</mass>
+        <inertia>
+          <ixx>0.03</ixx>
+          <iyy>0.03</iyy>
+          <izz>0.03</izz>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyz>0</iyz>
+        </inertia>
+      </inertial>
         <visual name='visual'>
           <geometry>
             <cylinder>
@@ -121,12 +110,13 @@
           </geometry>
         <surface>
           <friction>
+            <dynamic_friction>1.0</dynamic_friction>
             <ode>
               <mu>1.0</mu>
               <mu2>50.0</mu2>
               <fdir1>1 1 1</fdir1>
-              <slip1>0.0</slip1>
-              <slip2>0.0</slip2>
+              <slip1>0.1</slip1>
+              <slip2>0.1</slip2>
             </ode>
           </friction>
           <contact>
@@ -141,17 +131,17 @@
 
       <link name='rear_right_wheel'>
         <pose> -0.1 -0.088 0.05 0 1.5707 1.5707 </pose>
-        <inertial>
-          <mass>20</mass>
-          <inertia>
-            <ixx>0.02467</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.04411</iyy>
-            <iyz>0</iyz>
-            <izz>0.02467</izz>
-          </inertia>
-        </inertial>
+      <inertial>
+        <mass>0.408233</mass>
+        <inertia>
+          <ixx>0.03</ixx>
+          <iyy>0.03</iyy>
+          <izz>0.03</izz>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyz>0</iyz>
+        </inertia>
+      </inertial>
         <visual name='visual'>
           <geometry>
             <cylinder>
@@ -180,12 +170,13 @@
           </geometry>
         <surface>
           <friction>
+            <dynamic_friction>1.0</dynamic_friction>
             <ode>
               <mu>1.0</mu>
               <mu2>50.0</mu2>
               <fdir1>1 1 1</fdir1>
-              <slip1>0.0</slip1>
-              <slip2>0.0</slip2>
+              <slip1>0.1</slip1>
+              <slip2>0.1</slip2>
             </ode>
           </friction>
           <contact>
@@ -200,17 +191,17 @@
 
       <link name='front_left_wheel'>
         <pose>0.1 0.088 0.05 0 1.5707 1.5707</pose>
-        <inertial>
-          <mass>20</mass>
-          <inertia>
-            <ixx>0.02467</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.04411</iyy>
-            <iyz>0</iyz>
-            <izz>0.02467</izz>
-          </inertia>
-        </inertial>
+      <inertial>
+        <mass>0.408233</mass>
+        <inertia>
+          <ixx>0.03</ixx>
+          <iyy>0.03</iyy>
+          <izz>0.03</izz>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyz>0</iyz>
+        </inertia>
+      </inertial>
         <visual name='visual'>
           <geometry>
             <cylinder>
@@ -239,12 +230,13 @@
           </geometry>
         <surface>
           <friction>
+            <dynamic_friction>1.0</dynamic_friction>
             <ode>
               <mu>1.0</mu>
               <mu2>50.0</mu2>
               <fdir1>1 1 1</fdir1>
-              <slip1>0.0</slip1>
-              <slip2>0.0</slip2>
+              <slip1>0.1</slip1>
+              <slip2>0.1</slip2>
             </ode>
           </friction>
           <contact>
@@ -259,17 +251,17 @@
 
       <link name='front_right_wheel'>
         <pose>0.1 -0.088 0.05 0 1.5707 1.5707</pose>
-        <inertial>
-          <mass>20</mass>
-          <inertia>
-            <ixx>0.02467</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.04411</iyy>
-            <iyz>0</iyz>
-            <izz>0.02467</izz>
-          </inertia>
-        </inertial>
+      <inertial>
+        <mass>0.408233</mass>
+        <inertia>
+          <ixx>0.03</ixx>
+          <iyy>0.03</iyy>
+          <izz>0.03</izz>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyz>0</iyz>
+        </inertia>
+      </inertial>
         <visual name='visual'>
           <geometry>
              <cylinder>
@@ -298,12 +290,13 @@
           </geometry>
         <surface>
           <friction>
+            <dynamic_friction>1.0</dynamic_friction>
             <ode>
               <mu>1.0</mu>
               <mu2>50.0</mu2>
               <fdir1>1 1 1</fdir1>
-              <slip1>0.0</slip1>
-              <slip2>0.0</slip2>
+              <slip1>0.1</slip1>
+              <slip2>0.1</slip2>
             </ode>
           </friction>
           <contact>
@@ -866,5 +859,4 @@
   </model>
 
 </sdf>
-
 
