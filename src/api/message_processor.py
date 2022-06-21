@@ -66,17 +66,19 @@ def api_message_processor(api_message):
             runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo'] = \
                 api_message['network_management']['gazebo_port']
 
-        if 'shock' in api_message:
-            if api_message["shock"]:
-                runtime_data.shock_admin = True
-            else:
-                runtime_data.shock_admin = False
+    if 'shock' in api_message:
+        if api_message["shock"]:
+            runtime_data.shock_admin = True
+            print("Shock admin has been turned on.")
+        else:
+            runtime_data.shock_admin = False
+            print("Shock admin has been turned off.")
 
-        if 'regenerate' in api_message:
-            print("<>-----------------------<>\n Regeneration issued!")
-            runtime_data.exit_condition = True
-            # neuroembryogenesis.develop_brain(reincarnation_mode=runtime_data.parameters[
-            #     'Brain_Development']['reincarnation_mode'])
+    if 'regenerate' in api_message:
+        print("<>-----------------------<>\n Regeneration issued!")
+        runtime_data.exit_condition = True
+        # neuroembryogenesis.develop_brain(reincarnation_mode=runtime_data.parameters[
+        #     'Brain_Development']['reincarnation_mode'])
 
     if 'genome' in api_message:
         print("\n\n\n")
