@@ -27,6 +27,7 @@ import os
 import os.path
 import subprocess
 import requests
+import math
 
 
 from std_msgs.msg import String
@@ -289,9 +290,9 @@ class Motor:
                 runtime_data['motor_status'][device_index] = 0
 
             device_current_position = runtime_data['motor_status'][device_index]
-            device_position.data = float(
-                (power * network_settings['feagi_burst_speed'] * 0.6) + device_current_position)
-
+            # device_position.data = float(
+            #     (power * network_settings['feagi_burst_speed'] * configuration.capabilities["motor"]["motor_power"]) + device_current_position)
+            device_position.data = float(((power/capabilities["motor"]["power_limit"]) * 6.28319) + device_current_position)
             runtime_data['motor_status'][device_index] = device_position.data
             # print("device index, position, power = ", device_index, device_position.data, power)
             self.motor_node[device_index].publish(device_position)
@@ -478,17 +479,6 @@ class TileManager(Node):
                 return None
 
     def add_tile(self, tile_index):
-        print("Attempting to add:", tile_index)
-        print("%%%%%%%%%%%%%%%%%%%%%%%")
-        print("%%%%%%%%%%%%%%%%%%%%%%%")
-        print("%%%%%%%%%%%%%%%%%%%%%%%")
-        print("%%%%%%%%%%%%%%%%%%%%%%%")
-        print("%%%%%%%%%%%%%%%%%%%%%%%")
-        print("%%%%%%%%%%%%%%%%%%%%%%%")
-        print("%%%%%%%%%%%%%%%%%%%%%%%")
-        print("%%%%%%%%%%%%%%%%%%%%%%%")
-        print("%%%%%%%%%%%%%%%%%%%%%%%")
-        print("%%%%%%%%%%%%%%%%%%%%%%%")
         # Tile location will be in the form of [x, y, z=0]
         tile_location = self.tile_index_to_xyz(tile_index)
 
@@ -578,9 +568,9 @@ class TileManager(Node):
         """
         # Remove tiles that are not supposed to be displayed
         self.tile_visibility_checker(gps=gps)
-        for tile in self.tile_tracker:
-            if self.tile_tracker[tile]["index"] not in self.visible_tiles:
-                self.remove_tile(self.tile_tracker[tile]["index"])
+        # for tile in self.tile_tracker:
+        #     if self.tile_tracker[tile]["index"] not in self.visible_tiles:
+        #         self.remove_tile(self.tile_tracker[tile]["index"])
 
         # Add the new tiles that has matched the display criteria
         existing_visible_tiles = []
@@ -873,5 +863,6 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
 
 
