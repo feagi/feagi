@@ -309,14 +309,21 @@ def synaptogenesis():
     # stats.brain_total_synapse_cnt()
 
     # Build Synapses across various Cortical areas
-    func2 = partial(build_synapses, runtime_data.genome, runtime_data.brain, runtime_data.parameters,
-                    runtime_data.voxel_dict, runtime_data.connectome_path)
+    for cortical_area in runtime_data.cortical_list:
+        build_synapses(genome=runtime_data.genome,
+                       brain=runtime_data.brain,
+                       voxel_dict=runtime_data.voxel_dict,
+                       connectome_path=runtime_data.connectome_path,
+                       src_cortical_area=cortical_area, parameters=runtime_data.parameters)
 
-    pool2 = Pool(processes=int(runtime_data.parameters['System']['max_core']))
-    intercortical_mapping = pool2.map(func2, runtime_data.cortical_list)
-
-    pool2.close()
-    pool2.join()
+    # func2 = partial(build_synapses, runtime_data.genome, runtime_data.brain, runtime_data.parameters,
+    #                 runtime_data.voxel_dict, runtime_data.connectome_path)
+    #
+    # pool2 = Pool(processes=int(runtime_data.parameters['System']['max_core']))
+    # intercortical_mapping = pool2.map(func2, runtime_data.cortical_list)
+    #
+    # pool2.close()
+    # pool2.join()
 
     # Another implementation using concurrent.futures instead of Pool
     # with concurrent.futures.ProcessPoolExecutor() as executor:
@@ -325,14 +332,14 @@ def synaptogenesis():
     #                for cortical_area in runtime_data.cortical_list]
 
     # Building intercortical mapping data structure when connectome visualizer is enabled
-    runtime_data.intercortical_mapping = []
-    if runtime_data.parameters['Visualization']['connectome_visualizer']:
-        for entry in intercortical_mapping:
-            if len(entry) == 1:
-                runtime_data.intercortical_mapping.append(entry[0])
-            if len(entry) > 1:
-                for _ in entry:
-                    runtime_data.intercortical_mapping.append(_)
+    # runtime_data.intercortical_mapping = []
+    # if runtime_data.parameters['Visualization']['connectome_visualizer']:
+    #     for entry in intercortical_mapping:
+    #         if len(entry) == 1:
+    #             runtime_data.intercortical_mapping.append(entry[0])
+    #         if len(entry) > 1:
+    #             for _ in entry:
+    #                 runtime_data.intercortical_mapping.append(_)
 
 
 # def build_synapse_intracortical(genome, brain, parameters, key):
@@ -434,7 +441,7 @@ def develop():
     print("=================================== Synaptogenesis Completed ==================================")
 
     # Loading connectome data from disk to memory
-    runtime_data.brain = disk_ops.load_brain_in_memory()
+    # runtime_data.brain = disk_ops.load_brain_in_memory()
 
     connectome_neuron_count, connectome_synapse_count = stats.brain_total_synapse_cnt()
 

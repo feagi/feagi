@@ -68,7 +68,6 @@ def synapse(cortical_area, src_id, dst_cortical_area, dst_id, postsynaptic_curre
     """
 
     # Check to see if the source and destination ids are valid if not exit the function
-
     if dst_id not in runtime_data.brain[cortical_area][src_id]["neighbors"]:
 
         # Calculating the effective postSynapticCurrent(PSC) value
@@ -96,10 +95,6 @@ def synapse(cortical_area, src_id, dst_cortical_area, dst_id, postsynaptic_curre
                                      neuron_id_src=src_id,
                                      neuron_id_dst=dst_id,
                                      post_synaptic_current=new_psc)
-
-
-
-
 
 
 def bidirectional_synapse(cortical_area1, neuron1, cortical_area2, neuron2):
