@@ -113,6 +113,16 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
         # When long term depression flag is set, there will be negative synaptic influence caused
         plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"] * (-1) * \
                               impact_multiplier
+        print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
+        print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
+        print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
+        print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
+
+    else:
+        print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
+        print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
+        print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
+        print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
 
     try:
         new_psc = \
@@ -135,30 +145,34 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
                                      neuron_id_src=src_neuron_id, neuron_id_dst=dst_neuron_id,
                                      post_synaptic_current=new_psc)
 
-    except KeyError:
-        synapse(cortical_area=src_cortical_area,
-                src_id=src_neuron_id,
-                dst_cortical_area=dst_cortical_area,
-                dst_id=dst_neuron_id)
+    except KeyError as e:
+        print("\n\n\nKey Error on longterm_potentiation_depression:", e)
+        pass
 
-        new_psc = \
-            runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
-        new_psc += plasticity_constant
-
-        # Condition to cap the postsynaptic_current and provide prohibitory reaction
-        if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] > \
-                runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]:
-            new_psc = runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]
-
-        post_synaptic_current_update(cortical_area_src=src_cortical_area, cortical_area_dst=dst_cortical_area,
-                                     neuron_id_src=src_neuron_id, neuron_id_dst=dst_neuron_id,
-                                     post_synaptic_current=new_psc)
-
-        # Condition to prevent postsynaptic current to become negative
-        # todo: consider setting a postsynaptic_min in genome to be used instead of 0
-        # Condition to prune a synapse if its postsynaptic_current is zero
-        if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] < 0:
-            runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id, dst_cortical_area, dst_neuron_id))
+    # except KeyError:
+    #     synapse(cortical_area=src_cortical_area,
+    #             src_id=src_neuron_id,
+    #             dst_cortical_area=dst_cortical_area,
+    #             dst_id=dst_neuron_id)
+    #
+    #     new_psc = \
+    #         runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
+    #     new_psc += plasticity_constant
+    #
+    #     # Condition to cap the postsynaptic_current and provide prohibitory reaction
+    #     if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] > \
+    #             runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]:
+    #         new_psc = runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]
+    #
+    #     post_synaptic_current_update(cortical_area_src=src_cortical_area, cortical_area_dst=dst_cortical_area,
+    #                                  neuron_id_src=src_neuron_id, neuron_id_dst=dst_neuron_id,
+    #                                  post_synaptic_current=new_psc)
+    #
+    #     # Condition to prevent postsynaptic current to become negative
+    #     # todo: consider setting a postsynaptic_min in genome to be used instead of 0
+    #     # Condition to prune a synapse if its postsynaptic_current is zero
+    #     if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] < 0:
+    #         runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id, dst_cortical_area, dst_neuron_id))
 
 
 def neuroplasticity():
@@ -190,41 +204,33 @@ def neuroplasticity():
                                 # )
                                 if neuron2 not in cfcl[dst_cortical_area] and \
                                         plasticity_dict[dst_cortical_area][src_cortical_area] == 'efferent':
-                                    print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
-                                    print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
-                                    print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
-                                    print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
+
                                     neuron1_upstream_neurons = list_upstream_neurons(src_cortical_area, neuron1)
                                     if dst_cortical_area in neuron1_upstream_neurons:
                                         for neuron in previous_fcl[dst_cortical_area]:
                                             if neuron in neuron1_upstream_neurons[dst_cortical_area]:
                                                 longterm_potentiation_depression(
-                                                    src_cortical_area=src_cortical_area,
-                                                    src_neuron_id=neuron1,
-                                                    dst_cortical_area=dst_cortical_area,
-                                                    dst_neuron_id=neuron
+                                                    src_cortical_area=dst_cortical_area,
+                                                    src_neuron_id=neuron,
+                                                    dst_cortical_area=src_cortical_area,
+                                                    dst_neuron_id=neuron1
                                                 )
 
                             neuron1_downstream_neurons = runtime_data.brain[src_cortical_area][neuron1]['neighbors']
                             for downstream_neuron in neuron1_downstream_neurons:
                                 downstream_neuron_cortical_area = \
                                     neuron1_downstream_neurons[downstream_neuron]['cortical_area']
-                                # print("@@@@@ ", plasticity_dict[src_cortical_area][downstream_neuron_cortical_area], src_cortical_area, downstream_neuron_cortical_area, dst_cortical_area)
                                 if downstream_neuron_cortical_area in previous_fcl and \
                                         downstream_neuron in previous_fcl[downstream_neuron_cortical_area] and \
                                         downstream_neuron not in cfcl[downstream_neuron_cortical_area] and \
                                         plasticity_dict[src_cortical_area][downstream_neuron_cortical_area] == 'efferent':
-                                    print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
-                                    print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
-                                    print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
-                                    print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
                                     if downstream_neuron in \
                                             previous_fcl[neuron1_downstream_neurons[downstream_neuron]['cortical_area']]:
                                         longterm_potentiation_depression(
-                                            src_cortical_area=src_cortical_area,
-                                            src_neuron_id=neuron1,
-                                            dst_cortical_area=dst_cortical_area,
-                                            dst_neuron_id=downstream_neuron,
+                                            src_cortical_area=dst_cortical_area,
+                                            src_neuron_id=downstream_neuron,
+                                            dst_cortical_area=src_cortical_area,
+                                            dst_neuron_id=neuron1,
                                             long_term_depression=True,
                                             impact_multiplier=4
                                         )

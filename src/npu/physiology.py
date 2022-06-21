@@ -253,8 +253,6 @@ def post_synaptic_current_update(cortical_area_src,
     """
     Responsible for updating the post-synaptic-current between two neurons
     """
-    runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"][neuron_id_dst]["postsynaptic_current"] = \
-        post_synaptic_current
 
     # Assess the filter conditions set through the REST API
     if cortical_area_dst in runtime_data.neuron_psp_collection_scope:
@@ -272,6 +270,7 @@ def post_synaptic_current_update(cortical_area_src,
             if src_flag:
                 psc = runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"][
                     neuron_id_dst]["postsynaptic_current"]
+
                 src_vox_x, src_vox_y, src_vox_z = \
                     [vox for vox in runtime_data.brain[cortical_area_src][neuron_id_src]['soma_location']]
                 dst_vox_x, dst_vox_y, dst_vox_z = \
@@ -288,7 +287,6 @@ def post_synaptic_current_update(cortical_area_src,
                                                                src_neuron_id=neuron_id_src,
                                                                dst_neuron_id=neuron_id_dst,
                                                                post_synaptic_current=psc)
-                print("----&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&----")
 
 
 def neuron_prop(cortical_area, neuron_id):
