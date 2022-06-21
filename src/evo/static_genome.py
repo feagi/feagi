@@ -77,7 +77,87 @@ genome = {
         },
         "lateral_pairs_x": {
             "functions": True
-        }
+        },
+        "turn_left_level_one": {
+            "patterns": [
+                [[0, 0, 0], [0, 0, 3]],
+                [[0, 0, 0], [2, 0, 4]],
+                [[0, 0, 0], [4, 0, 3]],
+                [[0, 0, 0], [6, 0, 4]]
+            ]
+        },
+        "turn_left_level_two": {
+            "patterns": [
+                [[1, 0, 0], [0, 0, 2]],
+                [[1, 0, 0], [2, 0, 4]],
+                [[1, 0, 0], [4, 0, 2]],
+                [[1, 0, 0], [6, 0, 4]]
+            ]
+        },
+        "turn_left_level_three": {
+            "patterns": [
+                [[2, 0, 0], [0, 0, 1]],
+                [[2, 0, 0], [2, 0, 4]],
+                [[2, 0, 0], [4, 0, 1]],
+                [[2, 0, 0], [6, 0, 4]]
+            ]
+        },
+        "turn_left_level_four": {
+            "patterns": [
+                [[3, 0, 0], [0, 0, 2]],
+                [[3, 0, 0], [3, 0, 4]],
+                [[3, 0, 0], [4, 0, 2]],
+                [[3, 0, 0], [7, 0, 4]]
+            ]
+        },
+        "turn_left_level_five": {
+            "patterns": [
+                [[4, 0, 0], [1, 0, 4]],
+                [[4, 0, 0], [2, 0, 4]],
+                [[4, 0, 0], [5, 0, 4]],
+                [[4, 0, 0], [6, 0, 4]]
+            ]
+        },
+        "turn_right_level_one": {
+            "patterns": [
+                [[0, 0, 0], [0, 0, 4]],
+                [[0, 0, 0], [2, 0, 3]],
+                [[0, 0, 0], [4, 0, 4]],
+                [[0, 0, 0], [6, 0, 3]]
+            ]
+        },
+        "turn_right_level_two": {
+            "patterns": [
+                [[1, 0, 0], [0, 0, 4]],
+                [[1, 0, 0], [2, 0, 2]],
+                [[1, 0, 0], [4, 0, 4]],
+                [[1, 0, 0], [6, 0, 2]]
+            ]
+        },
+        "turn_right_level_three": {
+            "patterns": [
+                [[2, 0, 0], [0, 0, 4]],
+                [[2, 0, 0], [2, 0, 1]],
+                [[2, 0, 0], [4, 0, 4]],
+                [[2, 0, 0], [6, 0, 1]]
+            ]
+        },
+        "turn_right_level_four": {
+            "patterns": [
+                [[3, 0, 0], [0, 0, 4]],
+                [[3, 0, 0], [3, 0, 2]],
+                [[3, 0, 0], [4, 0, 4]],
+                [[3, 0, 0], [7, 0, 2]]
+            ]
+        },
+        "turn_right_level_five": {
+            "patterns": [
+                [[4, 0, 0], [0, 0, 4]],
+                [[4, 0, 0], [3, 0, 4]],
+                [[4, 0, 0], [4, 0, 4]],
+                [[4, 0, 0], [7, 0, 4]]
+            ]
+        },
     },
     "species": {
         "parents": {},
@@ -333,6 +413,62 @@ genome = {
         "_____10c-o__ser-nx-c_fr_c-i": 3,
         "_____10c-o__ser-nx-snooze-f": 0,
         "_____10c-o__ser-cx-de_gen-f": 0,
-        "_____10c-o__ser-cx-dstmap-d": {}
+        "_____10c-o__ser-cx-dstmap-d": {},
+
+        "_____10c-m__lef-cx-__name-t": "turn_left",
+        "_____10c-m__lef-cx-_group-t": "OPU",
+        "_____10c-m__lef-cx-_n_cnt-i": 1,
+        "_____10c-m__lef-nx-gd_vis-b": True,
+        "_____10c-m__lef-nx-rcordx-i": 15,
+        "_____10c-m__lef-nx-rcordy-i": 10,
+        "_____10c-m__lef-nx-rcordz-i": 0,
+        "_____10c-m__lef-nx-___bbx-i": 5,
+        "_____10c-m__lef-nx-___bby-i": 1,
+        "_____10c-m__lef-nx-___bbz-i": 1,
+        "_____10c-m__lef-cx-synatt-i": 100,
+        "_____10c-m__lef-cx-pstcr_-f": 5,
+        "_____10c-m__lef-cx-pstcrm-f": 35,
+        "_____10c-m__lef-cx-plst_c-f": 0.05,
+        "_____10c-m__lef-nx-fire_t-f": 1,
+        "_____10c-m__lef-nx-refrac-i": 0,
+        "_____10c-m__lef-nx-leak_c-f": 10,
+        "_____10c-m__lef-nx-c_fr_c-i": 3,
+        "_____10c-m__lef-nx-snooze-f": 0,
+        "_____10c-m__lef-cx-de_gen-f": 0,
+        "_____10c-m__lef-cx-dstmap-d": {
+            "o__mot": [["turn_left_level_one", [1, 1, 1], 1, False],
+                       ["turn_left_level_two", [1, 1, 1], 1, False],
+                       ["turn_left_level_three", [1, 1, 1], 1, False],
+                       ["turn_left_level_four", [1, 1, 1], 1, False],
+                       ["turn_left_level_five", [1, 1, 1], 1, False]]
+        },
+
+        "_____10c-m__rig-cx-__name-t": "turn_right",
+        "_____10c-m__rig-cx-_group-t": "OPU",
+        "_____10c-m__rig-cx-_n_cnt-i": 1,
+        "_____10c-m__rig-nx-gd_vis-b": True,
+        "_____10c-m__rig-nx-rcordx-i": 30,
+        "_____10c-m__rig-nx-rcordy-i": 10,
+        "_____10c-m__rig-nx-rcordz-i": 0,
+        "_____10c-m__rig-nx-___bbx-i": 5,
+        "_____10c-m__rig-nx-___bby-i": 1,
+        "_____10c-m__rig-nx-___bbz-i": 1,
+        "_____10c-m__rig-cx-synatt-i": 100,
+        "_____10c-m__rig-cx-pstcr_-f": 5,
+        "_____10c-m__rig-cx-pstcrm-f": 35,
+        "_____10c-m__rig-cx-plst_c-f": 0.05,
+        "_____10c-m__rig-nx-fire_t-f": 1,
+        "_____10c-m__rig-nx-refrac-i": 0,
+        "_____10c-m__rig-nx-leak_c-f": 10,
+        "_____10c-m__rig-nx-c_fr_c-i": 3,
+        "_____10c-m__rig-nx-snooze-f": 0,
+        "_____10c-m__rig-cx-de_gen-f": 0,
+        "_____10c-m__rig-cx-dstmap-d": {
+            "o__mot": [["turn_right_level_one", [1, 1, 1], 1, False],
+                       ["turn_right_level_two", [1, 1, 1], 1, False],
+                       ["turn_right_level_three", [1, 1, 1], 1, False],
+                       ["turn_right_level_four", [1, 1, 1], 1, False],
+                       ["turn_right_level_five", [1, 1, 1], 1, False]]
+        },
     }
 }
