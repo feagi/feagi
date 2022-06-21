@@ -63,6 +63,13 @@ cortical_dimensions = {}
 voxel_dict = {}
 shock_admin = False
 
+# System
+beacon_sub = set()
+beacon_flag = False
+feagi_state = {
+    "state": "idle"
+}
+
 # Genome
 genome = {}
 genome_stats = {}

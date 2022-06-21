@@ -95,4 +95,13 @@ def api_message_processor(api_message):
         develop_brain(reincarnation_mode=runtime_data.parameters[
             'Brain_Development']['reincarnation_mode'])
 
+    if 'beacon_sub' in api_message:
+        print("The following FEAGi beacon subscriber has been added:\n", api_message['beacon_sub'])
+        runtime_data.beacon_sub.add(api_message['beacon_sub'])
+
+    if 'beacon_unsub' in api_message:
+        if api_message['beacon_unsub'] in runtime_data.beacon_sub:
+            runtime_data.beacon_sub.remove(api_message['beacon_unsub'])
+            print("The following subscriber has been removed from FEAGI beacon:\n", api_message['beacon_unsub'])
+
     api_message = {}
