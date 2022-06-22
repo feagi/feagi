@@ -244,7 +244,7 @@ async def genome_file_upload_edit(file: UploadFile = File(...)):
 @app.get("/v1/feagi/genome/defaults/files", tags=["Genome"])
 async def genome_default_files():
     try:
-        default_genomes_path = "./lib/genomes/defaults/"
+        default_genomes_path = "../lib/robots/4wd smart-car/genomes/defaults/"
         default_genomes = os.listdir(default_genomes_path)
         genome_mappings = {}
         for genome in default_genomes:
