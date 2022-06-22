@@ -8,14 +8,12 @@ import { MdUploadFile } from "react-icons/md";
 import Item from "../components/Item";
 import MenuCard from "../components/MenuCard";
 import GenomeUploadCard from "../components/GenomeUploadCard";
-import FeagiAPI from "../services/FeagiAPI";
 
 const GenomeMode = () => {
   let navigate = useNavigate();
 
   const handleDefaultClick = () => {
-    FeagiAPI.postDefaultGenome();
-    navigate("/monitoring");
+    navigate("/genome/defaults");
   };
 
   const handleCreateGenomeClick = () => {
@@ -43,7 +41,7 @@ const GenomeMode = () => {
           <label htmlFor="genome-card">
             <MenuCard
               image={<BiDna size={150} />}
-              label="Default Genome"
+              label="Default Genomes"
               onClick={handleDefaultClick}
             />
           </label>

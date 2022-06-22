@@ -38,21 +38,21 @@ const GenomeAssembler = (props) => {
     });
   };
 
-  const sleep = (ms) => {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  };
+  // const sleep = (ms) => {
+  //   return new Promise((resolve) => setTimeout(resolve, ms));
+  // };
 
-  const burstCountPoller = async () => {
-    let bursting = false;
-    while (!bursting) {
-      const burstCount = await FeagiAPI.getBurstCount();
-      if (burstCount > 0) {
-        bursting = true;
-        navigate("/monitoring");
-      }
-      await sleep(2000);
-    }
-  };
+  // const burstCountPoller = async () => {
+  //   let bursting = false;
+  //   while (!bursting) {
+  //     const burstCount = await FeagiAPI.getBurstCount();
+  //     if (burstCount > 0) {
+  //       bursting = true;
+  //       navigate("/monitoring");
+  //     }
+  //     await sleep(2000);
+  //   }
+  // };
 
   const generateAndSendGenome = () => {
     setLoading(true);
@@ -73,7 +73,6 @@ const GenomeAssembler = (props) => {
 
     genomeBase["blueprint"] = blueprintShell;
     FeagiAPI.postGenomeString({ genome: genomeBase });
-    burstCountPoller();
   };
 
   return (

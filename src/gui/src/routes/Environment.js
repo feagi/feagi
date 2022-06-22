@@ -11,7 +11,7 @@ const ChooseEnvironment = () => {
   let navigate = useNavigate();
 
   const handlePhysicalRobotClick = () => {
-    navigate("/genome/mode");
+    navigate("/robot/physical");
   };
 
   const handleVirtualRobotClick = () => {

@@ -33,7 +33,7 @@ const GenomeUploadCard = (props) => {
       {fileUploaded ? (
         sendToMonitoringDashboard()
       ) : (
-        <Card sx={{ width: "245px", height: "230px" }}>
+        <Card sx={{ width: "260px", height: "260px" }}>
           {props.image}
           <CardContent>
             <label htmlFor="contained-button-file">

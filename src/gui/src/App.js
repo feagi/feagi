@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Route, Routes, Navigate } from "react-router-dom";
+import { Route, Routes, Navigate, useNavigate } from "react-router-dom";
 import AccessAlarmIcon from "@mui/icons-material/AccessAlarm";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
-import Container from "@mui/material/Container";
 import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
@@ -13,7 +13,7 @@ import ListItem from "@mui/material/ListItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MenuIcon from "@mui/icons-material/Menu";
-import Stack from "@mui/material/Stack";
+import ReplayIcon from "@mui/icons-material/Replay";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import CssBaseline from "@mui/material/CssBaseline";
@@ -25,7 +25,9 @@ import CorticalAreaEditor from "./routes/CorticalAreaEditor";
 import Mapping from "./routes/Mapping";
 import Sensorimotor from "./routes/Sensorimotor";
 import MonitoringDashboard from "./routes/MonitoringDashboard";
-import ProgressStepper from "./components/ProgressStepper";
+import PhysicalRobots from "./routes/PhysicalRobots";
+import DefaultGenomes from "./routes/DefaultGenomes";
+// import ProgressStepper from "./components/ProgressStepper";
 import FeagiAPI from "./services/FeagiAPI";
 
 function App() {
@@ -46,7 +48,9 @@ function App() {
   const [defaultPlasticityFlag, setDefaultPlasticityFlag] = useState(null);
   const [defaultSynapseRules, setDefaultSynapseRules] = useState(null);
   const [defaultCorticalGenes, setDefaultCorticalGenes] = useState({});
+  const [defaultGenomeData, setDefaultGenomeData] = useState({});
   const [drawerOpen, setDrawerOpen] = useState(false);
+  let navigate = useNavigate();
 
   const currentDomain = window.location.href;
   if (currentDomain.includes("127.0.0.1:3000")) {
@@ -82,6 +86,10 @@ function App() {
     FeagiAPI.getBaselinePlasticityFlag().then((flag) =>
       setDefaultPlasticityFlag(flag)
     );
+
+    FeagiAPI.getDefaultGenomes().then((response) => {
+      setDefaultGenomeData(response["genomes"]);
+    });
   }, []);
 
   const appTheme = createTheme({
@@ -96,6 +104,18 @@ function App() {
     setDrawerOpen(!drawerOpen);
   };
 
+  const handleGenomeReload = () => {
+    navigate("/genome/mode");
+  };
+
+  const handleContributeClick = () => {};
+
+  const handleApiDocsClick = () => {
+    window.open("http://localhost:8000/docs", "_blank", "noopener,noreferrer");
+  };
+
+  const handleHelpClick = () => {};
+
   const drawerList = () => (
     <Box
       sx={{ width: "400px" }}
@@ -104,18 +124,28 @@ function App() {
       onKeyDown={() => setDrawerOpen(false)}
     >
       <List>
-        {["Change Burst Frequency", "Take Connectome Snapshot"].map(
-          (text, index) => (
-            <ListItem button key={text}>
-              <ListItemIcon>
-                {index % 2 === 0 ? <AccessAlarmIcon /> : <CameraAltIcon />}
-              </ListItemIcon>
-              <ListItemText primary={text} />
-            </ListItem>
-          )
-        )}
+        <ListItem button>
+          <ListItemIcon>
+            <AccessAlarmIcon />
+          </ListItemIcon>
+          <ListItemText primary="Change Burst Frequency" />
+        </ListItem>
+        <Divider />
+        <ListItem button>
+          <ListItemIcon>
+            <CameraAltIcon />
+          </ListItemIcon>
+          <ListItemText primary="Take Connectome Snapshot" />
+        </ListItem>
+        <Divider />
+        <ListItem button onClick={handleGenomeReload}>
+          <ListItemIcon>
+            <ReplayIcon />
+          </ListItemIcon>
+          <ListItemText primary="Reload Genome" />
+        </ListItem>
+        <Divider />
       </List>
-      <Divider />
     </Box>
   );
 
@@ -123,15 +153,9 @@ function App() {
     <>
       <ThemeProvider theme={appTheme}>
         <CssBaseline />
-        <AppBar position="static">
-          <Container maxWidth="xxl">
-            <Stack
-              direction="row"
-              alignItems="center"
-              justifyContent="left"
-              spacing={6}
-              sx={{ m: 1 }}
-            >
+        <Box sx={{ flexGrow: 1 }}>
+          <AppBar position="static">
+            <Toolbar>
               <IconButton
                 color="inherit"
                 onClick={handleMenuClick}
@@ -139,15 +163,42 @@ function App() {
               >
                 <MenuIcon />
               </IconButton>
-              <Toolbar disableGutters>
-                <Typography variant="h6">
-                  Framework for Evolutionary Artificial General Intelligence
-                  (FEAGI)
-                </Typography>
-              </Toolbar>
-            </Stack>
-          </Container>
-        </AppBar>
+              <Typography variant="h6" sx={{ ml: 4, flexGrow: 1 }}>
+                Framework for Evolutionary Artificial General Intelligence
+                (FEAGI)
+              </Typography>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "right",
+                  alignItems: "right",
+                }}
+              >
+                <Button
+                  variant="text"
+                  color="inherit"
+                  onClick={handleContributeClick}
+                >
+                  Contribute
+                </Button>
+                <Button
+                  variant="text"
+                  color="inherit"
+                  onClick={handleApiDocsClick}
+                >
+                  API Docs
+                </Button>
+                <Button
+                  variant="text"
+                  color="inherit"
+                  onClick={handleHelpClick}
+                >
+                  Help
+                </Button>
+              </div>
+            </Toolbar>
+          </AppBar>
+        </Box>
         <Drawer
           anchor="left"
           variant="temporary"
@@ -166,7 +217,12 @@ function App() {
         <Routes>
           <Route path="/" element={<Navigate replace to="/environment" />} />
           <Route path="/environment" element={<Environment />} />
+          <Route path="/robot/physical" element={<PhysicalRobots />} />
           <Route path="/genome/mode" element={<GenomeMode />} />
+          <Route
+            path="/genome/defaults"
+            element={<DefaultGenomes defaultGenomeData={defaultGenomeData} />}
+          />
           <Route
             path="/genome/assemble"
             element={
