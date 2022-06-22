@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import CircularProgress from "@mui/material/CircularProgress";
+// import CircularProgress from "@mui/material/CircularProgress";
 import Stack from "@mui/material/Stack";
 import Iframe from "react-iframe";
 
@@ -14,14 +14,14 @@ const MonitoringDashboard = () => {
       setFrameHeight(clientHeight + "px");
     }, 100);
 
-    if (!window.sessionStorage.getItem("visited")) {
-      setTimeout(() => {
-        setGodotFrameLoaded(true);
-      }, 10000);
-    } else {
-      setGodotFrameLoaded(true);
-    }
-    window.sessionStorage.setItem("visited", true);
+    // if (!window.sessionStorage.getItem("visited")) {
+    //   setTimeout(() => {
+    //     setGodotFrameLoaded(true);
+    //   }, 10000);
+    // } else {
+    //   setGodotFrameLoaded(true);
+    // }
+    // window.sessionStorage.setItem("visited", true);
   }, []);
 
   const scrollHeightScaled =
@@ -39,14 +39,14 @@ const MonitoringDashboard = () => {
       spacing={1}
       sx={{ mt: 2, mb: 2, ml: 1, mr: 1 }}
     >
-      {godotFrameLoaded ? (
-        <iframe
-          id="godotFrame"
-          src="http://localhost:6081"
-          width="50%"
-          height={scrollHeightScaled}
-        />
-      ) : (
+      {/* {godotFrameLoaded ? ( */}
+      <iframe
+        id="godotFrame"
+        src="http://localhost:6081"
+        width="50%"
+        height={scrollHeightScaled}
+      />
+      {/* ) : (
         <div
           style={{
             display: "flex",
@@ -58,7 +58,7 @@ const MonitoringDashboard = () => {
         >
           <CircularProgress size="150px" />
         </div>
-      )}
+      )} */}
       <Iframe
         className="iframe"
         id="gazeboFrame"

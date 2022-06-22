@@ -372,7 +372,7 @@ def burst_manager():
         if runtime_data.beacon_flag:
             try:
                 for subscriber in runtime_data.beacon_sub:
-                    response = requests.post(subscriber, data=runtime_data.feagi_state)
+                    response = requests.post(subscriber, json=runtime_data.feagi_state)
                     print("Subscriber Response", subscriber, response, runtime_data.feagi_state)
             except Exception as e:
                 print("Error during processing beacon publication!", e)

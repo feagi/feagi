@@ -114,7 +114,13 @@ function App() {
     window.open("http://localhost:8000/docs", "_blank", "noopener,noreferrer");
   };
 
-  const handleHelpClick = () => {};
+  const handleHelpClick = () => {
+    window.open(
+      "https://github.com/feagi/feagi#readme",
+      "_blank",
+      "noopener,noreferrer"
+    );
+  };
 
   const drawerList = () => (
     <Box
@@ -124,7 +130,7 @@ function App() {
       onKeyDown={() => setDrawerOpen(false)}
     >
       <List>
-        <ListItem button>
+        {/* <ListItem button>
           <ListItemIcon>
             <AccessAlarmIcon />
           </ListItemIcon>
@@ -137,7 +143,7 @@ function App() {
           </ListItemIcon>
           <ListItemText primary="Take Connectome Snapshot" />
         </ListItem>
-        <Divider />
+        <Divider /> */}
         <ListItem button onClick={handleGenomeReload}>
           <ListItemIcon>
             <ReplayIcon />
@@ -174,13 +180,13 @@ function App() {
                   alignItems: "right",
                 }}
               >
-                <Button
+                {/* <Button
                   variant="text"
                   color="inherit"
                   onClick={handleContributeClick}
                 >
                   Contribute
-                </Button>
+                </Button> */}
                 <Button
                   variant="text"
                   color="inherit"
