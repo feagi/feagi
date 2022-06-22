@@ -81,8 +81,10 @@ docker compose -f feagi.yml build
 
 ## 4. Run
 `
-docker compose -f feagi.yml up
+docker compose -f feagi.yml up -d
 `
+
+To use the application, open browser at 127.0.0.1:3000
 
 ## 5. re-Run
 `
@@ -90,5 +92,5 @@ docker compose -f feagi.yml down
 `
 
 `
-docker compose -f feagi.yml up
+docker compose -f feagi.yml up -d
 `
