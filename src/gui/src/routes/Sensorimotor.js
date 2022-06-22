@@ -71,6 +71,7 @@ const Sensorimotor = (props) => {
             image={<TiWaves size={150} />}
             label="Infrared"
             onClick={handleSensoryClick}
+            changeColorOnClick={true}
           />
         </Item>
         <Item>
@@ -78,6 +79,7 @@ const Sensorimotor = (props) => {
             image={<FaRuler size={150} />}
             label="Proximity"
             onClick={handleSensoryClick}
+            changeColorOnClick={true}
           />
         </Item>
         <Item>
@@ -85,6 +87,7 @@ const Sensorimotor = (props) => {
             image={<MdBatteryCharging80 size={150} />}
             label="Battery"
             onClick={handleSensoryClick}
+            changeColorOnClick={true}
           />
         </Item>
       </Stack>
@@ -108,6 +111,7 @@ const Sensorimotor = (props) => {
             image={<GiGears size={150} />}
             label="Motor"
             onClick={handleMotorClick}
+            changeColorOnClick={true}
           />
         </Item>
         <Item>
@@ -115,6 +119,7 @@ const Sensorimotor = (props) => {
             image={<BsGearWide size={150} />}
             label="Servo"
             onClick={handleMotorClick}
+            changeColorOnClick={true}
           />
         </Item>
       </Stack>

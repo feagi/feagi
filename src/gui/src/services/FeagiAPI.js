@@ -158,6 +158,36 @@ const FeagiAPI = {
       });
     return response.data;
   },
+
+  async postShockRobot() {
+    const response = await axios
+      .post(
+        `${FEAGI_URL}/feagi/training/shock`,
+        { shock: true },
+        {
+          headers: {},
+          params: {},
+        }
+      )
+      .catch((error) => {
+        console.error(error);
+        throw error;
+      });
+    return response.data;
+  },
+
+  async getDefaultGenomes() {
+    const response = await axios
+      .get(`${FEAGI_URL}/feagi/genome/defaults/files`, {
+        headers: {},
+        params: {},
+      })
+      .catch((error) => {
+        console.error(error);
+        throw error;
+      });
+    return response.data;
+  },
 };
 
 export default FeagiAPI;

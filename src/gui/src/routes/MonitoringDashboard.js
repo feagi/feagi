@@ -13,14 +13,19 @@ const MonitoringDashboard = () => {
     setTimeout(() => {
       setFrameHeight(clientHeight + "px");
     }, 100);
+
+    if (!window.sessionStorage.getItem("visited")) {
+      setTimeout(() => {
+        setGodotFrameLoaded(true);
+      }, 10000);
+    } else {
+      setGodotFrameLoaded(true);
+    }
+    window.sessionStorage.setItem("visited", true);
   }, []);
 
   const scrollHeightScaled =
     Math.round(document.documentElement.scrollHeight / 1.3) + "px";
-
-  const handleGodotLoad = () => {
-    setGodotFrameLoaded(true);
-  };
 
   const handleGazeboLoad = () => {
     setGazeboFrameLoaded(true);
@@ -34,21 +39,12 @@ const MonitoringDashboard = () => {
       spacing={1}
       sx={{ mt: 2, mb: 2, ml: 1, mr: 1 }}
     >
-      <Iframe
-        className="iframe"
-        id="godotFrame"
-        url="http://localhost:6081/"
-        width="50%"
-        height={scrollHeightScaled}
-        onLoad={handleGodotLoad}
-      />
-      {/* {godotFrameLoaded ? (
+      {godotFrameLoaded ? (
         <iframe
           id="godotFrame"
           src="http://localhost:6081"
           width="50%"
           height={scrollHeightScaled}
-          onLoad={handleGodotLoad}
         />
       ) : (
         <div
@@ -62,7 +58,7 @@ const MonitoringDashboard = () => {
         >
           <CircularProgress size="150px" />
         </div>
-      )} */}
+      )}
       <Iframe
         className="iframe"
         id="gazeboFrame"
@@ -71,27 +67,6 @@ const MonitoringDashboard = () => {
         height={scrollHeightScaled}
         onLoad={handleGazeboLoad}
       />
-      {/* <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: scrollHeightScaled,
-          width: "50%",
-        }}
-      >
-        {gazeboFrameLoaded ? (
-          <Iframe
-            id="gazeboFrame"
-            url="http://localhost:6080"
-            width="100%"
-            height={scrollHeightScaled}
-            onLoad={handleGazeboLoad}
-          />
-        ) : (
-          <CircularProgress size="150px" />
-        )}
-      </div> */}
     </Stack>
   );
 };

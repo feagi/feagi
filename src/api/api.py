@@ -13,6 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 import datetime
+import json
+import os
 from time import sleep
 
 from fastapi import FastAPI, File, UploadFile
@@ -235,6 +237,22 @@ async def genome_file_upload_edit(file: UploadFile = File(...)):
         data = await file.read()
         genome_str = data.decode("utf-8")
         return {genome_str}
+    except Exception as e:
+        return {"Request failed...", e}
+
+
+@app.get("/v1/feagi/genome/defaults/files", tags=["Genome"])
+async def genome_default_files():
+    try:
+        default_genomes_path = "./lib/genomes/defaults/"
+        default_genomes = os.listdir(default_genomes_path)
+        genome_mappings = {}
+        for genome in default_genomes:
+            with open(os.path.join(default_genomes_path, genome)) as file:
+                data = file.read()
+                data_dict = literal_eval(data.split(" = ")[1])
+                genome_mappings[genome.split(".")[0]] = json.dumps(data_dict)
+        return {"genomes": genome_mappings}
     except Exception as e:
         return {"Request failed...", e}
 

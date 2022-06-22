@@ -16,15 +16,24 @@ const MenuCard = (props) => {
       <Card
         onClick={handleClick}
         sx={{
-          width: "245px",
-          height: "230px",
-          backgroundColor: !clicked ? null : "lightblue",
+          width: "260px",
+          height: "260px",
+          backgroundColor: !props.changeColorOnClick
+            ? null
+            : !clicked
+            ? null
+            : "lightblue",
         }}
       >
         <CardActionArea>
-          {props.image}
           <CardContent>
-            <Typography gutterBottom variant="h5" component="div">
+            {props.image}
+            <Typography
+              gutterBottom
+              variant="h5"
+              component="div"
+              sx={{ mt: 4 }}
+            >
               {props.label}
             </Typography>
             <Typography variant="body2" color="text.secondary">
