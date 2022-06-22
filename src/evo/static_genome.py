@@ -145,9 +145,9 @@ genome = {
         "turn_right_level_four": {
             "patterns": [
                 [[3, 0, 0], [0, 0, 4]],
-                [[3, 0, 0], [3, 0, 2]],
+                [[3, 0, 0], [2, 0, 2]],
                 [[3, 0, 0], [4, 0, 4]],
-                [[3, 0, 0], [7, 0, 2]]
+                [[3, 0, 0], [6, 0, 2]]
             ]
         },
         "turn_right_level_five": {
@@ -156,6 +156,22 @@ genome = {
                 [[4, 0, 0], [3, 0, 4]],
                 [[4, 0, 0], [4, 0, 4]],
                 [[4, 0, 0], [7, 0, 4]]
+            ]
+        },
+        "motor_forward": {
+            "patterns": [
+                [[0, 0, 0], [0, 0, 4]],
+                [[0, 0, 0], [2, 0, 4]],
+                [[0, 0, 0], [4, 0, 4]],
+                [[0, 0, 0], [6, 0, 4]]
+            ]
+        },
+        "motor_backward": {
+            "patterns": [
+                [[0, 0, 0], [1, 0, 4]],
+                [[0, 0, 0], [3, 0, 4]],
+                [[0, 0, 0], [5, 0, 4]],
+                [[0, 0, 0], [7, 0, 4]]
             ]
         },
     },
@@ -171,13 +187,9 @@ genome = {
 
         # +++ Memory +++
 
-
         # +++ Misc +++
 
-
-
         # +++ Thalami +++
-
 
         # vvvvvvv   Input and Output processing related Cortical Areas are all listed below  vvvvvvvv
 
@@ -229,7 +241,6 @@ genome = {
         "_____10c-ishock-cx-dstmap-d": {
         },
 
-
         "_____10c-ii_inf-cx-__name-t": "inv_ir_ipu",
         "_____10c-ii_inf-cx-_group-t": "IPU",
         "_____10c-ii_inf-cx-_n_cnt-i": 1,
@@ -253,7 +264,6 @@ genome = {
         "_____10c-ii_inf-cx-dstmap-d": {
             # "ii_inf": [["block_to_block", [1, 1, 1], 1, False]]
         },
-        
 
         "_____10c-i__pro-cx-__name-t": "proximity_ipu",
         "_____10c-i__pro-cx-_group-t": "memory",
@@ -419,7 +429,7 @@ genome = {
         "_____10c-m__lef-cx-_group-t": "OPU",
         "_____10c-m__lef-cx-_n_cnt-i": 1,
         "_____10c-m__lef-nx-gd_vis-b": True,
-        "_____10c-m__lef-nx-rcordx-i": 15,
+        "_____10c-m__lef-nx-rcordx-i": 17,
         "_____10c-m__lef-nx-rcordy-i": 10,
         "_____10c-m__lef-nx-rcordz-i": 0,
         "_____10c-m__lef-nx-___bbx-i": 5,
@@ -447,7 +457,7 @@ genome = {
         "_____10c-m__rig-cx-_group-t": "OPU",
         "_____10c-m__rig-cx-_n_cnt-i": 1,
         "_____10c-m__rig-nx-gd_vis-b": True,
-        "_____10c-m__rig-nx-rcordx-i": 30,
+        "_____10c-m__rig-nx-rcordx-i": 25,
         "_____10c-m__rig-nx-rcordy-i": 10,
         "_____10c-m__rig-nx-rcordz-i": 0,
         "_____10c-m__rig-nx-___bbx-i": 5,
@@ -469,6 +479,54 @@ genome = {
                        ["turn_right_level_three", [1, 1, 1], 1, False],
                        ["turn_right_level_four", [1, 1, 1], 1, False],
                        ["turn_right_level_five", [1, 1, 1], 1, False]]
+        },
+
+        "_____10c-m__for-cx-__name-t": "forward",
+        "_____10c-m__for-cx-_group-t": "OPU",
+        "_____10c-m__for-cx-_n_cnt-i": 1,
+        "_____10c-m__for-nx-gd_vis-b": True,
+        "_____10c-m__for-nx-rcordx-i": 23,
+        "_____10c-m__for-nx-rcordy-i": 10,
+        "_____10c-m__for-nx-rcordz-i": -2,
+        "_____10c-m__for-nx-___bbx-i": 1,
+        "_____10c-m__for-nx-___bby-i": 1,
+        "_____10c-m__for-nx-___bbz-i": 1,
+        "_____10c-m__for-cx-synatt-i": 100,
+        "_____10c-m__for-cx-pstcr_-f": 5,
+        "_____10c-m__for-cx-pstcrm-f": 35,
+        "_____10c-m__for-cx-plst_c-f": 0.05,
+        "_____10c-m__for-nx-fire_t-f": 1,
+        "_____10c-m__for-nx-refrac-i": 0,
+        "_____10c-m__for-nx-leak_c-f": 10,
+        "_____10c-m__for-nx-c_fr_c-i": 3,
+        "_____10c-m__for-nx-snooze-f": 0,
+        "_____10c-m__for-cx-de_gen-f": 0,
+        "_____10c-m__for-cx-dstmap-d": {
+            "o__mot": [["motor_forward", [1, 1, 1], 1, False]]
+        },
+
+        "_____10c-m__bac-cx-__name-t": "backward",
+        "_____10c-m__bac-cx-_group-t": "OPU",
+        "_____10c-m__bac-cx-_n_cnt-i": 1,
+        "_____10c-m__bac-nx-gd_vis-b": True,
+        "_____10c-m__bac-nx-rcordx-i": 23,
+        "_____10c-m__bac-nx-rcordy-i": 10,
+        "_____10c-m__bac-nx-rcordz-i": 2,
+        "_____10c-m__bac-nx-___bbx-i": 1,
+        "_____10c-m__bac-nx-___bby-i": 1,
+        "_____10c-m__bac-nx-___bbz-i": 1,
+        "_____10c-m__bac-cx-synatt-i": 100,
+        "_____10c-m__bac-cx-pstcr_-f": 5,
+        "_____10c-m__bac-cx-pstcrm-f": 35,
+        "_____10c-m__bac-cx-plst_c-f": 0.05,
+        "_____10c-m__bac-nx-fire_t-f": 1,
+        "_____10c-m__bac-nx-refrac-i": 0,
+        "_____10c-m__bac-nx-leak_c-f": 10,
+        "_____10c-m__bac-nx-c_fr_c-i": 3,
+        "_____10c-m__bac-nx-snooze-f": 0,
+        "_____10c-m__bac-cx-de_gen-f": 0,
+        "_____10c-m__bac-cx-dstmap-d": {
+            "o__mot": [["motor_backward", [1, 1, 1], 1, False]]
         },
     }
 }
