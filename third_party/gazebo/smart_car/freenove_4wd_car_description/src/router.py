@@ -74,7 +74,7 @@ def register_with_feagi(app_name, feagi_host, api_port, app_capabilities, app_ho
     registration_endpoint = '/v1/feagi/register'
     network_endpoint = '/v1/feagi/feagi/network'
     stimulation_period_endpoint = '/v1/feagi/feagi/burst_engine/stimulation_period'
-    burst_counter_endpoint = '/v1/feagi/feagi/burst_engine/stimulation_period'
+    burst_counter_endpoint = '/v1/feagi/feagi/burst_engine/burst_counter'
 
     registration_data = {"source": app_name,
                          "host": app_host_info["ip_address"],
@@ -114,3 +114,4 @@ def register_with_feagi(app_name, feagi_host, api_port, app_capabilities, app_ho
     publisher.send(app_capabilities)
 
     return feagi_settings
+
