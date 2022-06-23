@@ -188,50 +188,43 @@ def neuroplasticity():
     cfcl = runtime_data.fire_candidate_list
     previous_fcl = runtime_data.previous_fcl
 
-    for src_cortical_area in cfcl:
-        if src_cortical_area in plasticity_dict and len(cfcl[src_cortical_area]) > 0:
-            for dst_cortical_area in plasticity_dict[src_cortical_area]:
-                if dst_cortical_area in previous_fcl:
-                    if len(previous_fcl[dst_cortical_area]) > 0:
-                        for neuron1 in cfcl[src_cortical_area]:
-                            for neuron2 in previous_fcl[dst_cortical_area]:
-                                # Todo: Assess efficiency --
-                                # bidirectional_synapse(
-                                #     src_cortical_area,
-                                #     neuron1,
-                                #     dst_cortical_area,
-                                #     neuron2
-                                # )
-                                if neuron2 not in cfcl[dst_cortical_area] and \
-                                        plasticity_dict[dst_cortical_area][src_cortical_area] == 'efferent':
+    for cfcl_area in cfcl:
+        # Conditions to assess pre-synaptic and postsynaptic cortical area eligibility
+        if cfcl_area in plasticity_dict and len(cfcl[cfcl_area]) > 0:
+            for pfcl_area in plasticity_dict[cfcl_area]:
+                if pfcl_area in previous_fcl:
+                    if len(previous_fcl[pfcl_area]) > 0:
+                        for postsynaptic_neuron in cfcl[cfcl_area]:
+                            postsynaptic_neuron_upstream_neurons = list_upstream_neurons(cfcl_area, postsynaptic_neuron)
+                            postsynaptic_neuron_neighbors = runtime_data.brain[cfcl_area][postsynaptic_neuron][
+                                'neighbors']
+                            for presynaptic_neuron in previous_fcl[pfcl_area]:
 
-                                    neuron1_upstream_neurons = list_upstream_neurons(src_cortical_area, neuron1)
-                                    if dst_cortical_area in neuron1_upstream_neurons:
-                                        for neuron in previous_fcl[dst_cortical_area]:
-                                            if neuron in neuron1_upstream_neurons[dst_cortical_area]:
-                                                longterm_potentiation_depression(
-                                                    src_cortical_area=dst_cortical_area,
-                                                    src_neuron_id=neuron,
-                                                    dst_cortical_area=src_cortical_area,
-                                                    dst_neuron_id=neuron1
-                                                )
-
-                            neuron1_downstream_neurons = runtime_data.brain[src_cortical_area][neuron1]['neighbors']
-                            for downstream_neuron in neuron1_downstream_neurons:
-                                downstream_neuron_cortical_area = \
-                                    neuron1_downstream_neurons[downstream_neuron]['cortical_area']
-                                if downstream_neuron_cortical_area in previous_fcl and \
-                                        downstream_neuron in previous_fcl[downstream_neuron_cortical_area] and \
-                                        downstream_neuron not in cfcl[downstream_neuron_cortical_area] and \
-                                        plasticity_dict[src_cortical_area][downstream_neuron_cortical_area] == 'efferent':
-                                    if downstream_neuron in \
-                                            previous_fcl[neuron1_downstream_neurons[downstream_neuron]['cortical_area']]:
+                                # ------LTP------
+                                """
+                                LTP occurs when a pre-synaptic neuron fires in burst (n-1) and its
+                                associated post-synaptic neuron is fired during burst (n)   
+                                """
+                                if pfcl_area in postsynaptic_neuron_upstream_neurons:
+                                    if presynaptic_neuron in postsynaptic_neuron_upstream_neurons[pfcl_area]:
                                         longterm_potentiation_depression(
-                                            src_cortical_area=dst_cortical_area,
-                                            src_neuron_id=downstream_neuron,
-                                            dst_cortical_area=src_cortical_area,
-                                            dst_neuron_id=neuron1,
-                                            long_term_depression=True,
-                                            impact_multiplier=4
+                                            src_cortical_area=pfcl_area,
+                                            src_neuron_id=presynaptic_neuron,
+                                            dst_cortical_area=cfcl_area,
+                                            dst_neuron_id=postsynaptic_neuron
                                         )
 
+                                # ------LTD------
+                                """
+                                LTD occurs when a pre-synaptic neuron fires in burst (n) and its associated 
+                                post-synaptic neuron is fired during burst (n+1) 
+                                """
+                                if presynaptic_neuron in postsynaptic_neuron_neighbors:
+                                    longterm_potentiation_depression(
+                                        src_cortical_area=pfcl_area,
+                                        src_neuron_id=presynaptic_neuron,
+                                        dst_cortical_area=cfcl_area,
+                                        dst_neuron_id=postsynaptic_neuron,
+                                        long_term_depression=True,
+                                        impact_multiplier=4
+                                    )

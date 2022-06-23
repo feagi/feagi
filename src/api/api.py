@@ -118,6 +118,10 @@ class ConnectomePath(BaseModel):
     connectome_path: str
 
 
+class Connectome(BaseModel):
+    cortical_area: str
+
+
 class Registration(BaseModel):
     source: str
     host: str
@@ -162,22 +166,6 @@ class Subscriber(BaseModel):
 app.mount("/home", SPAStaticFiles(directory="gui", html=True), name="static")
 
 
-# @app.api_route("/v1/feagi/feagi/launch", methods=['POST'])
-# async def feagi_management():
-#     try:
-#         print("message:", message)
-#         connectome_overwrite_path = message.existing_connectome
-#         feagi_thread = Thread(target=start_feagi, args=(api_queue, connectome_overwrite_path,))
-#         feagi_thread.start()
-#
-#         if message.existing_connectome:
-#             return {"FEAGI started using an existing connectome."}
-#         else:
-#             return {"FEAGI started using a genome."}
-#     except Exception as e:
-#         return {"FEAGI start failed ... error details to be provided here", e}
-
-
 # ######  Genome Endpoints #########
 # ##################################
 
@@ -189,6 +177,7 @@ async def genome_default_upload():
         api_queue.put(item=message)
         return {"FEAGI started using a static genome.", message}
     except Exception as e:
+        print("API Error:", e)
         return {"FEAGI start using genome string failed ...", e}
 
 
@@ -217,6 +206,7 @@ async def genome_string_upload(str_genome: Genome):
 
         return {"FEAGI started using a genome string."}
     except Exception as e:
+        print("API Error:", e)
         return {"FEAGI start using genome string failed ...", e}
 
 
@@ -228,6 +218,7 @@ async def genome_download():
         print(file_name)
         return FileResponse(path="../runtime_genome.py", filename=file_name)
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -238,6 +229,7 @@ async def genome_file_upload_edit(file: UploadFile = File(...)):
         genome_str = data.decode("utf-8")
         return {genome_str}
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -254,6 +246,7 @@ async def genome_default_files():
                 genome_mappings[genome.split(".")[0]] = json.dumps(data_dict)
         return {"genomes": genome_mappings}
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -265,6 +258,7 @@ async def genome_number():
     try:
         return runtime_data.genome_counter
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -304,6 +298,7 @@ async def stimulation_string_upload(stimulation_script: Stimulation):
         api_queue.put(item=message)
         return {"Request sent!"}
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -327,6 +322,7 @@ async def neuron_membrane_potential_collection_filters():
     try:
         return runtime_data.neuron_mp_collection_scope
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -336,6 +332,7 @@ async def neuron_postsynaptic_potential_collection_filters():
     try:
         return runtime_data.neuron_psp_collection_scope
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -363,8 +360,9 @@ async def neuron_membrane_potential_monitoring_scope(message: StatsCollectionSco
         message = message.dict()
         message = {'neuron_mp_collection_scope': message}
         api_queue.put(item=message)
-        return {"Request sent!", message}
+        return {"Request sent!"}
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -411,8 +409,9 @@ async def neuron_postsynaptic_potential_monitoring_scope(message: StatsCollectio
         message = message.dict()
         message = {'neuron_psp_collection_scope': message}
         api_queue.put(item=message)
-        return {"Request sent!", message}
+        return {"Request sent!"}
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -427,11 +426,50 @@ async def shock_administrator(training: Training):
         api_queue.put(item=message)
         return {"Request sent!"}
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
 # ######  Connectome Endpoints #########
 # ######################################
+
+@app.api_route("/v1/feagi/connectome/cortical_areas", methods=['Get'], tags=["Connectome"])
+async def connectome_cortical_areas():
+    try:
+        return runtime_data.cortical_list
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/connectome/cortical_info", methods=['POST'], tags=["Connectome"])
+async def connectome_cortical_info(connectome: Connectome):
+    try:
+        if connectome.cortical_area in runtime_data.brain:
+            return runtime_data.brain[connectome.cortical_area]
+        else:
+            return {"Requested cortical area not found!"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/connectome/all", methods=['Get'], tags=["Connectome"])
+async def connectome_comprehensive_info():
+    try:
+        return runtime_data.brain
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/connectome/plasticity", methods=['Get'], tags=["Connectome"])
+async def connectome_plasticity_info():
+    try:
+        return runtime_data.plasticity_dict
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
 
 
 @app.post("/v1/feagi/connectome/upload", tags=["Connectome"])
@@ -444,6 +482,7 @@ async def connectome_file_upload(file: UploadFile = File(...)):
         api_queue.put(item=message)
         return {"Connectome received as a file"}
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -455,6 +494,7 @@ async def connectome_source_path(connectome_path: ConnectomePath):
 
         return {"Request sent!"}
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -467,6 +507,7 @@ async def connectome_snapshot(message: ConnectomePath):
         api_queue.put(item=message)
         return {"Request sent!"}
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -476,6 +517,7 @@ async def connectome_report():
     try:
         return runtime_data.cortical_dimensions
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -490,6 +532,7 @@ async def burst_engine_params():
     try:
         return runtime_data.burst_count
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -501,6 +544,7 @@ async def burst_engine_params():
     try:
         return runtime_data.burst_timer
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -515,6 +559,7 @@ async def burst_management(message: BurstEngine):
         api_queue.put(item=message)
         return {"Request sent!"}
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -526,6 +571,7 @@ async def network_management():
     try:
         return runtime_data.parameters['Sockets']
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -537,6 +583,7 @@ async def network_management(message: Network):
         api_queue.put(item=message)
         return runtime_data.parameters['Sockets']
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -548,6 +595,7 @@ async def ipu_list():
     try:
         return runtime_data.ipu_list
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -573,6 +621,7 @@ async def feagi_registration(message: Registration):
 
         return {"Registration was successful"}
     except Exception as e:
+        print("API Error:", e)
         return {"FEAGI start failed ... error details to be provided here", e}
 
 
@@ -584,6 +633,16 @@ async def log_management(message: Logs):
         api_queue.put(item=message)
         return {"Request sent!"}
     except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/feagi/configuration", methods=['Get'], tags=["System"])
+async def configuration_parameters():
+    try:
+        return runtime_data.parameters
+    except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -597,7 +656,7 @@ async def beacon_query():
             print("B")
             return {}
     except Exception as e:
-        print("C", e)
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -608,6 +667,7 @@ async def beacon_subscribe(message: Subscriber):
         api_queue.put(item=message)
         return {"Request sent!"}
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -618,6 +678,7 @@ async def beacon_unsubscribe(message:Subscriber):
         api_queue.put(item=message)
         return {"Request sent!"}
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -630,6 +691,7 @@ async def supported_ipu_list():
     try:
         return gui_baseline['ipu']
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -638,6 +700,7 @@ async def supported_opu_list():
     try:
         return gui_baseline['opu']
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -646,6 +709,7 @@ async def supported_morphology_list():
     try:
         return gui_baseline['morphology']
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -654,6 +718,7 @@ async def supported_cortical_genes_list():
     try:
         return gui_baseline['cortical_genes']
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -662,6 +727,7 @@ async def supported_cortical_genes_list():
     try:
         return gui_baseline['morphology_scalar']
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -670,6 +736,7 @@ async def supported_cortical_genes_list():
     try:
         return gui_baseline['postSynapticCurrent_multiplier']
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
 
@@ -678,5 +745,6 @@ async def supported_cortical_genes_list():
     try:
         return gui_baseline['plasticity_flag']
     except Exception as e:
+        print("API Error:", e)
         return {"Request failed...", e}
 
