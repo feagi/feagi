@@ -23,7 +23,6 @@ activity_stats = {}
 temp_neuron_list = []
 original_genome_id = []
 fire_list = []
-termination_flag = False
 variation_counter_actual = 0
 exposure_counter_actual = 0
 mnist_training = {}
@@ -139,3 +138,6 @@ flag_ready_to_inject_image = False
 stimulation_script = {}
 stimulation_index = {}
 
+# Brain
+current_age = 0
+death_flag = False

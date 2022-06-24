@@ -236,7 +236,7 @@ async def genome_file_upload_edit(file: UploadFile = File(...)):
 @app.get("/v1/feagi/genome/defaults/files", tags=["Genome"])
 async def genome_default_files():
     try:
-        default_genomes_path = "../lib/robots/4wd smart-car/genomes/defaults/"
+        default_genomes_path = "./evo/defaults/"
         default_genomes = os.listdir(default_genomes_path)
         genome_mappings = {}
         for genome in default_genomes:
@@ -264,7 +264,6 @@ async def genome_number():
 
 # ######  Stimulation #########
 # #############################
-
 
 @app.api_route("/v1/feagi/stimulation/upload/string", methods=['POST'], tags=["Stimulation"])
 async def stimulation_string_upload(stimulation_script: Stimulation):
@@ -513,7 +512,7 @@ async def connectome_snapshot(message: ConnectomePath):
 
 @app.api_route("/v1/feagi/connectome/properties/dimensions", methods=['GET'], tags=["Connectome"])
 async def connectome_report():
-    print("cortical_dimensions", runtime_data.cortical_dimensions)
+    print("cortical_dimensions_", runtime_data.cortical_dimensions)
     try:
         return runtime_data.cortical_dimensions
     except Exception as e:

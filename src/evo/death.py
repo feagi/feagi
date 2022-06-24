@@ -14,15 +14,85 @@
 # limitations under the License.
 # ==============================================================================
 
-def register():
-    """
-    Document test
+"""
+This module is responsible for the processes involved with the death of a brain. It will involve the needed cleanups and
+preparations so a new brain can come into life.
+"""
 
-    Args:
-        ABCD
-        
-    Returns:
-        Something
+from inf import runtime_data
+from inf.initialize import reset_runtime_data
 
+
+def cleanup():
     """
-    return
+    Clears all the runtime variables and registers associated with a running brain
+    """
+    # Stop all IPU activities
+
+    # Clear all existing brain activities
+    runtime_data.previous_fcl = {}
+    runtime_data.fire_candidate_list = {}
+    runtime_data.future_fcl = {}
+
+    # Clear connectome data
+    runtime_data.brain = {}
+
+    # Clear genome data
+    runtime_data.genome = {}
+
+    # Reset all other runtime-data
+    runtime_data.plasticity_dict = {}
+
+
+def announce():
+    """
+    Reports the death of a brain and FEAGI readiness to host a new one
+    """
+    runtime_data.beacon_flag = True
+
+
+def death_eligibility():
+    """
+    Evaluates the conditions leading to brain death
+    """
+    death_condition = False
+    age_condition = False
+
+    # Conditions triggering the brain death
+
+    # --- Age related ---
+    if 'max_age' in runtime_data.genome:
+        if runtime_data.current_age > runtime_data.genome['max_age']:
+            death_condition = True
+            print('\n\n\nAge related death has been triggered!\n\n\n')
+
+    # --- Stimulation related ---
+    if '_death' in runtime_data.previous_fcl:
+        if len(runtime_data.previous_fcl['_death']) > 0:
+            death_condition = True
+            print('\n\n\nCortical stimulation death has been triggered!\n\n\n')
+
+    # --- Performance related ---
+
+    # --- Inactivity related ---
+
+    return death_condition
+
+
+def death_manager():
+    """
+    Manages activities associated with brain death
+    """
+    if death_eligibility():
+        for x in range(5):
+            print('*' * 50)
+        print('\n\t\tBrain death condition has been met!\n')
+        for x in range(5):
+            print('*' * 50)
+
+        # ------- Preserve Connectome -------
+
+        # ------- Reset Runtime Data -------
+        reset_runtime_data()
+        runtime_data.death_flag = True
+        runtime_data.feagi_state["state"] = "idle"

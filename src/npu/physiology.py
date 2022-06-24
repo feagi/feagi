@@ -325,23 +325,6 @@ def snooze_till(cortical_area, neuron_id, burst_id):
     return
 
 
-def exhibit_pain():
-    if runtime_data.pain_flag:
-        print("*******************************************************************")
-        print("*******************************************************************")
-        print("*********************                                 *************")
-        print("*******************    Pain -- Pain -- Pain -- Pain     ***********")
-        print("*********************                                 *************")
-        print("*******************************************************************")
-        print("*******************************************************************")
-
-
-def trigger_pain():
-    exhibit_pain()
-    for neuron in runtime_data.brain['pain']:
-        runtime_data.future_fcl['pain'].add(neuron)
-
-
 def pruner(pruning_data):
     """
     Responsible for pruning unused connections between neurons
