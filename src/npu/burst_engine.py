@@ -363,7 +363,12 @@ def burst_manager():
         if runtime_data.beacon_flag:
             try:
                 for subscriber in runtime_data.beacon_sub:
-                    response = requests.post(subscriber, json=runtime_data.feagi_state)
+                    beacon_message = dict()
+                    beacon_message['feagi_state'] = runtime_data.feagi_state['state']
+                    beacon_message['genome'] = runtime_data.genome_orig
+                    # beacon_message['stats'] = runtime_data.stats
+                    beacon_message['stats'] = {"stats_placeholder": "TBD"}
+                    response = requests.post(subscriber, json=beacon_message)
                     print("Subscriber Response", subscriber, response, runtime_data.feagi_state)
             except Exception as e:
                 print("Error during processing beacon publication!", e)

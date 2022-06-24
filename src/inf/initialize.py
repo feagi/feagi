@@ -311,6 +311,7 @@ def init_infrastructure():
 def reset_runtime_data():
     print("\n\n\n\n----------------- Resetting the brain -----------------------------\n\n\n")
     runtime_data.genome = {}
+    runtime_data.stats = {}
     runtime_data.brain = {}
     runtime_data.cortical_list = {}
     runtime_data.cortical_dimensions = {}
