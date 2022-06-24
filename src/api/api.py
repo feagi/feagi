@@ -146,7 +146,7 @@ class StatsCollectionScope(BaseModel):
 
 
 class Training(BaseModel):
-    shock: bool
+    shock: tuple
 
 
 class SPAStaticFiles(StaticFiles):
@@ -417,8 +417,37 @@ async def neuron_postsynaptic_potential_monitoring_scope(message: StatsCollectio
 # ######  Training Endpoints #######
 # ##################################
 
-@app.api_route("/v1/feagi/training/shock", methods=['POST'], tags=["Training"])
-async def shock_administrator(training: Training):
+@app.api_route("/v1/feagi/training/shock_scenario_options", methods=['Get'], tags=["Training"])
+async def list_available_shock_scenarios():
+    try:
+        return runtime_data.shock_scenarios_options
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/training/shock_scenarios_", methods=['Get'], tags=["Training"])
+async def list_activated_shock_scenarios():
+    try:
+        return runtime_data.shock_scenarios
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/training/shock_scenarios", methods=['POST'], tags=["Training"])
+async def activate_shock_scenarios(training: Training):
+    """
+    Enables shock for given scenarios. One or many shock scenario could coexist. e.g.
+
+    {
+      "shock": [
+        "shock_scenario_1",
+        "shock_scenario_2"
+      ]
+    }
+
+    """
     try:
         message = training.dict()
         print(message)
@@ -427,6 +456,7 @@ async def shock_administrator(training: Training):
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
+
 
 
 # ######  Connectome Endpoints #########

@@ -60,7 +60,7 @@ controller_config = None
 opu_data = {}
 cortical_dimensions = {}
 voxel_dict = {}
-shock_admin = False
+
 
 # System
 beacon_sub = set()
@@ -141,3 +141,8 @@ stimulation_index = {}
 # Brain
 current_age = 0
 death_flag = False
+
+# Training
+shock_scenarios_options = tuple
+shock_admin = False
+shock_scenarios = set()

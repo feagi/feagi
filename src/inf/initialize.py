@@ -315,6 +315,8 @@ def reset_runtime_data():
     runtime_data.cortical_list = {}
     runtime_data.cortical_dimensions = {}
     runtime_data.stimulation_script = {}
+    runtime_data.shock_admin = False
+    runtime_data.shock_scenarios = tuple
 
     # Clear brain activities
     runtime_data.fire_candidate_list = {}
