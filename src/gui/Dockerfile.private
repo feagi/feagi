@@ -1,5 +1,10 @@
 FROM neuraville/feagi-base-gui
 
+
+RUN apt-get install -y openssh-client && \
+    mkdir -p -m 0600 ~/.ssh && \
+    ssh-keyscan github.com >> ~/.ssh/known_hosts
+
 ARG REPO="https://github.com/feagi/feagi.git"
 ARG BRANCH="main"
 
