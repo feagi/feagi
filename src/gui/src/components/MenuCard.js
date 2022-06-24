@@ -18,9 +18,7 @@ const MenuCard = (props) => {
         sx={{
           width: "260px",
           height: "260px",
-          backgroundColor: props.grayedOut
-            ? "lightgray"
-            : !props.changeColorOnClick
+          backgroundColor: !props.changeColorOnClick
             ? null
             : !clicked
             ? null
