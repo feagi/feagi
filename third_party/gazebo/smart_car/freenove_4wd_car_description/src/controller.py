@@ -273,7 +273,7 @@ class Motor:
         self.motor_node = publisher_initializer(model_name=model, topic_count=count, topic_identifier=identifier)
 
         # todo: figure a way to extract wheel parameters from the model
-        self.wheel_diameter = 1
+        self.wheel_diameter = capabilities["motor"]["wheel_diameter"]
 
     def move(self, feagi_device_id, power):
         try:
@@ -292,7 +292,7 @@ class Motor:
             device_current_position = runtime_data['motor_status'][device_index]
             # device_position.data = float(
             #     (power * network_settings['feagi_burst_speed'] * configuration.capabilities["motor"]["motor_power"]) + device_current_position)
-            device_position.data = float(((power/capabilities["motor"]["power_limit"]) * 6.28319) + device_current_position)
+            device_position.data = float((power * capabilities["motor"]["power_coefficient"] * 6.28319) + device_current_position)
             runtime_data['motor_status'][device_index] = device_position.data
             # print("device index, position, power = ", device_index, device_position.data, power)
             self.motor_node[device_index].publish(device_position)
@@ -830,6 +830,11 @@ def main(args=None):
                     if 'o_init' in opu_data:
                         if opu_data['o_init']:
                             position_init.reset_position()
+
+                control_data = message_from_feagi['control_data']
+                if control_data is not None:
+                    if 'motor_power_coefficient' in control_data:
+                        capabilities["motor"]["power_coefficient"] = float(control_data['motor_power_coefficient'])
 
             except Exception:
                 pass

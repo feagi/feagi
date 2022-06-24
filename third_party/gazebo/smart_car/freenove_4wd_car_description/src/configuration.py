@@ -41,10 +41,8 @@ capabilities = {
         'topic_identifier': '/M',
         "refresh_rate": 1,
         "cortical_mapping": "o__mot",
-        "motor_power": 0.5,
-        "power_limit": 9, #index-0.It's 10
+        "power_coefficient": 0.05,
         "wheel_diameter": 0.065, #radius is in sdf under wheels inside <link></link>
-        "constant": 0.11
     },
     "infrared": {
         "type": "ipu",

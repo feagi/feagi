@@ -107,4 +107,9 @@ def api_message_processor(api_message):
             runtime_data.beacon_sub.remove(api_message['beacon_unsub'])
             print("The following subscriber has been removed from FEAGI beacon:\n", api_message['beacon_unsub'])
 
+    if 'robot_controller' in api_message:
+        if api_message['robot_controller']['motor_power_coefficient']:
+            runtime_data.robot_controller['motor_power_coefficient'] = \
+                api_message['robot_controller']['motor_power_coefficient']
+
     api_message = {}
