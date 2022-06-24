@@ -41,7 +41,7 @@ from inf.initialize import init_burst_engine
 from inf.messenger import Pub, Sub
 from pns.pns_router import opu_router, stimuli_router
 from api.message_processor import api_message_processor
-from trn.trainer import shock_manager
+from trn.shock import shock_manager
 
 
 def cortical_group_members(group):
@@ -72,29 +72,29 @@ def burst_manager():
         else:
             return runtime_data.burst_timer
 
-    def consciousness_manager():
-        """responsible for start and stop of all non-main threads based on various conditions"""
-        # Check flags for IPU activities
-        # todo: need mechanism to set the ipu_idle flag if there is no IPU activity for a period
-        # Alert condition checks to ensure brain is not in Alert mode which can be triggered via fear or cautiousness
-        elapsed_time = datetime.now() - runtime_data.last_alertness_trigger
-        alert_condition = elapsed_time.seconds > int(runtime_data.parameters['Timers']['alert_mode_duration'])
-        if alert_condition:
-            time_delta = datetime.now() - runtime_data.last_ipu_activity
-            if time_delta.seconds > int(runtime_data.genome['ipu_idle_threshold']):
-                # Go to sleep by stopping IPU/OPU threads
-                # todo: instead of turning off the IPU, reduce IPU responsiveness so via an trigger brain can awake
-                print(">> >> Brain going to sleep..")
-
-                # todo: adjust burst frequency
-
-        # todo: implementation of coming out of sleep
-        # one trigger to be large activity on IPU and another to be time-bound
-        ready_to_wake = False
-        if ready_to_wake:
-            print(">> >> Brain waking up from sleep..")
-
-            # todo: adjust burst frequency
+    # def consciousness_manager():
+    #     """responsible for start and stop of all non-main threads based on various conditions"""
+    #     # Check flags for IPU activities
+    #     # todo: need mechanism to set the ipu_idle flag if there is no IPU activity for a period
+    #     # Alert condition checks to ensure brain is not in Alert mode which can be triggered via fear or cautiousness
+    #     elapsed_time = datetime.now() - runtime_data.last_alertness_trigger
+    #     alert_condition = elapsed_time.seconds > int(runtime_data.parameters['Timers']['alert_mode_duration'])
+    #     if alert_condition:
+    #         time_delta = datetime.now() - runtime_data.last_ipu_activity
+    #         if time_delta.seconds > int(runtime_data.genome['ipu_idle_threshold']):
+    #             # Go to sleep by stopping IPU/OPU threads
+    #             # todo: instead of turning off the IPU, reduce IPU responsiveness so via an trigger brain can awake
+    #             print(">> >> Brain going to sleep..")
+    #
+    #             # todo: adjust burst frequency
+    #
+    #     # todo: implementation of coming out of sleep
+    #     # one trigger to be large activity on IPU and another to be time-bound
+    #     ready_to_wake = False
+    #     if ready_to_wake:
+    #         print(">> >> Brain waking up from sleep..")
+    #
+    #         # todo: adjust burst frequency
 
     def init_fcl(cortical_area_):
         runtime_data.fire_candidate_list[cortical_area_] = set()
@@ -457,7 +457,7 @@ def burst_manager():
         # For performance reasons, running this function not on every single burst
         if runtime_data.burst_count % 10 == 0:
             try:
-                consciousness_manager()
+                # consciousness_manager()
                 death_manager()
             except:
                 print("consciousness_manager encountered an error!!")

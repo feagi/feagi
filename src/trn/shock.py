@@ -32,21 +32,31 @@ todo: a system that can trigger multiple data feeder instances at the same time
 from inf import runtime_data
 from evo.voxels import neurons_in_the_block
 
+runtime_data.shock_scenarios_options = ["shock_scenario_1", "shock_scenario_2"]
+
 
 def shock_manager():
     shock_cortical_area = 'ishock'
     shock_register = list()
 
-    shock_register.append(shock_scenario_1())
-    shock_register.append(shock_scenario_2())
+    if not runtime_data.shock_scenarios:
+        runtime_data.shock_admin = False
 
-    max_shock_level = max(shock_register)
-    shock_voxel = '0-0-' + str(max_shock_level - 1)
+    for scenario in runtime_data.shock_scenarios:
+        if scenario == 'shock_scenario_1':
+            shock_register.append(shock_scenario_1())
+        if scenario == 'shock_scenario_2':
+            shock_register.append(shock_scenario_2())
+        print(shock_register)
 
-    if max_shock_level in range(1, 11):
-        shock_neurons = neurons_in_the_block(shock_cortical_area, shock_voxel)
-        for neuron in shock_neurons:
-            runtime_data.fire_candidate_list[shock_cortical_area].add(neuron)
+    if shock_register:
+        max_shock_level = max(shock_register)
+        shock_voxel = '0-0-' + str(max_shock_level - 1)
+
+        if max_shock_level in range(1, 11):
+            shock_neurons = neurons_in_the_block(shock_cortical_area, shock_voxel)
+            for neuron in shock_neurons:
+                runtime_data.fire_candidate_list[shock_cortical_area].add(neuron)
 
 
 def shock_scenario_1():
@@ -60,6 +70,7 @@ def shock_scenario_1():
     IR centric shock. based on the level of exposure to lightness or darkness, different levels of shock to be applied
 
     """
+    print("Shock scenario 1 has been triggered!")
     shock_level = 0
     for neuron in runtime_data.fire_candidate_list["i__inf"]:
         shock_level += 3
@@ -71,6 +82,7 @@ def shock_scenario_2():
     """
     TBD
     """
+    print("Shock scenario 2 has been triggered!")
     shock_level = 0
     return shock_level
 

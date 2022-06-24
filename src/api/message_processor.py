@@ -69,6 +69,7 @@ def api_message_processor(api_message):
     if 'shock' in api_message:
         if api_message["shock"]:
             runtime_data.shock_admin = True
+            runtime_data.shock_scenarios = api_message["shock"]
             print("Shock admin has been turned on.")
         else:
             runtime_data.shock_admin = False
