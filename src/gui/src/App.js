@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { lazy, Suspense, useState, useEffect } from "react";
 import { Route, Routes, Navigate, useNavigate } from "react-router-dom";
-import AccessAlarmIcon from "@mui/icons-material/AccessAlarm";
+// import AccessAlarmIcon from "@mui/icons-material/AccessAlarm";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import CameraAltIcon from "@mui/icons-material/CameraAlt";
+import CircularProgress from "@mui/material/CircularProgress";
+// import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
@@ -18,17 +19,18 @@ import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import CssBaseline from "@mui/material/CssBaseline";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
-import Environment from "./routes/Environment";
-import GenomeAssembler from "./routes/GenomeAssembler";
-import GenomeMode from "./routes/GenomeMode";
-import CorticalAreaEditor from "./routes/CorticalAreaEditor";
-import Mapping from "./routes/Mapping";
-import Sensorimotor from "./routes/Sensorimotor";
-import MonitoringDashboard from "./routes/MonitoringDashboard";
-import PhysicalRobots from "./routes/PhysicalRobots";
-import DefaultGenomes from "./routes/DefaultGenomes";
 // import ProgressStepper from "./components/ProgressStepper";
 import FeagiAPI from "./services/FeagiAPI";
+
+const Environment = lazy(() => import("./routes/Environment"));
+const GenomeAssembler = lazy(() => import("./routes/GenomeAssembler"));
+const GenomeMode = lazy(() => import("./routes/GenomeMode"));
+const CorticalAreaEditor = lazy(() => import("./routes/CorticalAreaEditor"));
+const Mapping = lazy(() => import("./routes/Mapping"));
+const Sensorimotor = lazy(() => import("./routes/Sensorimotor"));
+const MonitoringDashboard = lazy(() => import("./routes/MonitoringDashboard"));
+const PhysicalRobots = lazy(() => import("./routes/PhysicalRobots"));
+const DefaultGenomes = lazy(() => import("./routes/DefaultGenomes"));
 
 function App() {
   const [definedMotor, setDefinedMotor] = useState([]);
@@ -52,16 +54,16 @@ function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   let navigate = useNavigate();
 
-  const currentDomain = window.location.href;
-  if (currentDomain.includes("127.0.0.1:3000")) {
-    const redirectDomain = currentDomain.replace(
-      "127.0.0.1:3000",
-      "localhost:3000"
-    );
-    window.location.replace(redirectDomain);
-  }
-
   useEffect(() => {
+    const currentDomain = window.location.href;
+    if (currentDomain.includes("127.0.0.1:3000")) {
+      const redirectDomain = currentDomain.replace(
+        "127.0.0.1:3000",
+        "localhost:3000"
+      );
+      window.location.replace(redirectDomain);
+    }
+
     FeagiAPI.getBaselineCorticalGenes().then((items) =>
       setDefaultCorticalGenes(items)
     );
@@ -108,7 +110,7 @@ function App() {
     navigate("/genome/mode");
   };
 
-  const handleContributeClick = () => {};
+  // const handleContributeClick = () => {};
 
   const handleApiDocsClick = () => {
     window.open("http://localhost:8000/docs", "_blank", "noopener,noreferrer");
@@ -220,84 +222,99 @@ function App() {
           </Box>
           {drawerList()}
         </Drawer>
-        <Routes>
-          <Route path="/" element={<Navigate replace to="/environment" />} />
-          <Route path="/environment" element={<Environment />} />
-          <Route path="/robot/physical" element={<PhysicalRobots />} />
-          <Route path="/genome/mode" element={<GenomeMode />} />
-          <Route
-            path="/genome/defaults"
-            element={<DefaultGenomes defaultGenomeData={defaultGenomeData} />}
-          />
-          <Route
-            path="/genome/assemble"
-            element={
-              <GenomeAssembler
-                definedMotor={definedMotor}
-                definedSensory={definedSensory}
-                definedMappings={definedMappings}
-                definedAreas={definedAreas}
-              />
-            }
-          />
-          <Route
-            path="/brain/mapping"
-            element={
-              <Mapping
-                definedMappings={definedMappings}
-                setDefinedMappings={setDefinedMappings}
-                definedSensory={definedSensory}
-                definedMotor={definedMotor}
-                definedAreas={definedAreas}
-                setDefinedAreas={setDefinedAreas}
-                defaultMorphologyScalarX={defaultMorphologyScalarX}
-                defaultMorphologyScalarY={defaultMorphologyScalarY}
-                defaultMorphologyScalarZ={defaultMorphologyScalarZ}
-                defaultPscMultiplier={defaultPscMultiplier}
-                defaultPlasticityFlag={defaultPlasticityFlag}
-                defaultSynapseRules={defaultSynapseRules}
-              />
-            }
-          />
-          <Route
-            path="/brain/editor"
-            element={
-              <CorticalAreaEditor
-                selectedSensory={selectedSensory}
-                setSelectedSensory={setSelectedSensory}
-                definedSensory={definedSensory}
-                setDefinedSensory={setDefinedSensory}
-                selectedMotor={selectedMotor}
-                definedMotor={definedMotor}
-                setDefinedMotor={setDefinedMotor}
-                customAreas={customAreas}
-                setCustomAreas={setCustomAreas}
-                definedAreas={definedAreas}
-                setDefinedAreas={setDefinedAreas}
-                defaultCorticalGenes={defaultCorticalGenes}
-              />
-            }
-          />
-          <Route
-            path="/brain/sensorimotor"
-            element={
-              <Sensorimotor
-                selectedSensory={selectedSensory}
-                setSelectedSensory={setSelectedSensory}
-                definedSensory={definedSensory}
-                setDefinedSensory={setDefinedSensory}
-                selectedMotor={selectedMotor}
-                setSelectedMotor={setSelectedMotor}
-                definedMotor={definedMotor}
-                setDefinedMotor={setDefinedMotor}
-                definedAreas={definedAreas}
-                setDefinedAreas={setDefinedAreas}
-                defaultCorticalGenes={defaultCorticalGenes}
-              />
-            }
-          />
-          <Route path="/monitoring" element={<MonitoringDashboard />} />
-        </Routes>
+        <Suspense
+          fallback={
+            <div
+              style={{
+                position: "fixed",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+              }}
+            >
+              <CircularProgress size="150px" />
+            </div>
+          }
+        >
+          <Routes>
+            <Route path="/" element={<Navigate replace to="/environment" />} />
+            <Route path="/environment" element={<Environment />} />
+            <Route path="/robot/physical" element={<PhysicalRobots />} />
+            <Route path="/genome/mode" element={<GenomeMode />} />
+            <Route
+              path="/genome/defaults"
+              element={<DefaultGenomes defaultGenomeData={defaultGenomeData} />}
+            />
+            <Route
+              path="/genome/assemble"
+              element={
+                <GenomeAssembler
+                  definedMotor={definedMotor}
+                  definedSensory={definedSensory}
+                  definedMappings={definedMappings}
+                  definedAreas={definedAreas}
+                />
+              }
+            />
+            <Route
+              path="/brain/mapping"
+              element={
+                <Mapping
+                  definedMappings={definedMappings}
+                  setDefinedMappings={setDefinedMappings}
+                  definedSensory={definedSensory}
+                  definedMotor={definedMotor}
+                  definedAreas={definedAreas}
+                  setDefinedAreas={setDefinedAreas}
+                  defaultMorphologyScalarX={defaultMorphologyScalarX}
+                  defaultMorphologyScalarY={defaultMorphologyScalarY}
+                  defaultMorphologyScalarZ={defaultMorphologyScalarZ}
+                  defaultPscMultiplier={defaultPscMultiplier}
+                  defaultPlasticityFlag={defaultPlasticityFlag}
+                  defaultSynapseRules={defaultSynapseRules}
+                />
+              }
+            />
+            <Route
+              path="/brain/editor"
+              element={
+                <CorticalAreaEditor
+                  selectedSensory={selectedSensory}
+                  setSelectedSensory={setSelectedSensory}
+                  definedSensory={definedSensory}
+                  setDefinedSensory={setDefinedSensory}
+                  selectedMotor={selectedMotor}
+                  definedMotor={definedMotor}
+                  setDefinedMotor={setDefinedMotor}
+                  customAreas={customAreas}
+                  setCustomAreas={setCustomAreas}
+                  definedAreas={definedAreas}
+                  setDefinedAreas={setDefinedAreas}
+                  defaultCorticalGenes={defaultCorticalGenes}
+                />
+              }
+            />
+            <Route
+              path="/brain/sensorimotor"
+              element={
+                <Sensorimotor
+                  selectedSensory={selectedSensory}
+                  setSelectedSensory={setSelectedSensory}
+                  definedSensory={definedSensory}
+                  setDefinedSensory={setDefinedSensory}
+                  selectedMotor={selectedMotor}
+                  setSelectedMotor={setSelectedMotor}
+                  definedMotor={definedMotor}
+                  setDefinedMotor={setDefinedMotor}
+                  definedAreas={definedAreas}
+                  setDefinedAreas={setDefinedAreas}
+                  defaultCorticalGenes={defaultCorticalGenes}
+                />
+              }
+            />
+            <Route path="/monitoring" element={<MonitoringDashboard />} />
+          </Routes>
+        </Suspense>
         {/* <div
           style={{
             position: "absolute",
