@@ -36,7 +36,8 @@ from npu.physiology import *
 from npu import stimulator
 from mem.memory import neuroplasticity
 from evo.stats import *
-from inf.initialize import init_burst_engine, exit_burst_process
+from evo.death import death_manager
+from inf.initialize import init_burst_engine
 from inf.messenger import Pub, Sub
 from pns.pns_router import opu_router, stimuli_router
 from api.message_processor import api_message_processor
@@ -141,22 +142,12 @@ def burst_manager():
                 print("### Average postSynaptic current in --- %s --- was: %i"
                       % (area, average_postsynaptic_current(area)))
 
-        if runtime_data.parameters["Logs"]["print_upstream_neuron_stats"]:
-            # Listing the number of neurons activating each UTF memory neuron
-            upstream_report_time = datetime.now()
-            upstream_general_stats, upstream_fcl_stats = \
-                list_upstream_neuron_count_for_digits(mode=1)
-            print("list_upstream_neuron_count_for_digits:", upstream_general_stats)
-            print("list_upstream___FCL__count_for_digits:", upstream_fcl_stats)
-
-            print("Timing : Upstream + common neuron report:", datetime.now() - upstream_report_time)
-
         burst_duration = datetime.now() - burst_start_time
         if runtime_data.parameters["Logs"]["print_burst_info"]:
-            if runtime_data.genome_ver == "2.0":
+            if runtime_data.genome:
                 print(settings.Bcolors.UPDATE +
-                      ">>> Burst duration: %s %i --- ---- ---- ---- ---- ---- ----"
-                      % (burst_duration, runtime_data.burst_count) + settings.Bcolors.ENDC)
+                      ">>> Burst duration: %s %i %i --- ---- ---- ---- ---- ---- ----"
+                      % (burst_duration, runtime_data.burst_count, runtime_data.current_age) + settings.Bcolors.ENDC)
             else:
                 print(settings.Bcolors.YELLOW +
                       ">>> Burst duration: %s %i --- ---- ---- ---- ---- ---- ----"
@@ -402,8 +393,10 @@ def burst_manager():
 
         burst_start_time = datetime.now()
         log_burst_activity_influx()
-        runtime_data.pain_flag = False
         runtime_data.burst_count += 1
+
+        if runtime_data.genome:
+            runtime_data.current_age += 1
 
         # Manage ZMQ communication from and to FEAGI
         message_router()
@@ -426,7 +419,6 @@ def burst_manager():
         # log_neuron_activity_influx()
 
         # Forming memories through creation of cell assemblies
-        # todo: instead of passing a pain flag simply detect of pain neuron is activated
         neuroplasticity()
 
         # A deep copy of the FCL to previous FCL
@@ -449,9 +441,6 @@ def burst_manager():
         # Monitor cortical activity levels and terminate brain if not meeting expectations
         terminate_on_low_perf()
 
-        # Pain check
-        exhibit_pain()
-
         # Resetting burst_manager detection list
         runtime_data.burst_detection_list = {}
 
@@ -469,6 +458,7 @@ def burst_manager():
         if runtime_data.burst_count % 10 == 0:
             try:
                 consciousness_manager()
+                death_manager()
             except:
                 print("consciousness_manager encountered an error!!")
 
@@ -516,17 +506,6 @@ def burst_manager():
 
     if runtime_data.parameters["Switches"]["capture_brain_activities"]:
         runtime_data.fcl_history = {}
-    # capture_neuron_mp()
-
-    # Live mode condition
-    # todo: This segment to be replaced with auto-pilot code
-    # print("live mode status: ", runtime_data.parameters["Switches"]["live_mode"], runtime_data.live_mode_status)
-    # if runtime_data.parameters["Switches"]["live_mode"] and runtime_data.live_mode_status == 'idle':
-    #     runtime_data.live_mode_status = 'learning'
-    #     print(settings.Bcolors.RED + "Starting an automated learning process..." + settings.Bcolors.ENDC)
-    #     feeder.injection_manager(injection_mode="l1", injection_param="")
-
-    print("\n\nReady to exit burst_manager engine flag:", runtime_data.parameters["Switches"]["ready_to_exit_burst"])
 
     # This loop runs for the entirety of brain active life
     while not runtime_data.exit_condition:
@@ -597,18 +576,3 @@ def toggle_brain_status():
     else:
         runtime_data.brain_is_running = True
         print("Brain is now running!!!")
-
-
-def eval(self):
-    # Effectiveness check
-    if runtime_data.parameters["Switches"]["evaluation_based_termination"]:
-        upstream_neuron_count_for_digits = \
-            list_upstream_neuron_count_for_digits(digit=self.injector_utf_counter_actual)
-        print('## ## ###:', upstream_neuron_count_for_digits)
-        if upstream_neuron_count_for_digits[0][1] == 0:
-            print(settings.Bcolors.RED +
-                  "\n\n\n\n\n\n!!!!! !! !Terminating the brain due to low training capability! !! !!!" +
-                  settings.Bcolors.ENDC)
-            runtime_data.termination_flag = True
-            exit_burst_process()
-            self.injector_exit_flag = True

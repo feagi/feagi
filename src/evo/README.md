@@ -43,6 +43,26 @@ Syntax
 ```
 
 
+## **Special Cortical Areas**
+
+- IPU
+  - i__inf
+  - i__bat
+  - i__pro
+
+
+- OPU
+  - o__ser
+  - o__mot
+  - o__bat
+
+
+- Other
+  - ishock
+  - _death
+  - i_init
+
+
 
 
 

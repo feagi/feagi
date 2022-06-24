@@ -310,17 +310,22 @@ def init_infrastructure():
 
 def reset_runtime_data():
     print("\n\n\n\n----------------- Resetting the brain -----------------------------\n\n\n")
+    runtime_data.genome = {}
     runtime_data.brain = {}
     runtime_data.cortical_list = {}
     runtime_data.cortical_dimensions = {}
     runtime_data.stimulation_script = {}
+
+    # Clear brain activities
     runtime_data.fire_candidate_list = {}
     runtime_data.previous_fcl = {}
     runtime_data.future_fcl = {}
 
+    # Reset brain age
+    runtime_data.current_age = 0
+
 
 def init_brain():
-    reset_runtime_data()
     runtime_data.last_alertness_trigger = datetime.now()
     run_id_gen()
     init_cortical_info()
@@ -345,8 +350,7 @@ def init_burst_engine():
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("\n\n")
 
-
-    runtime_data.termination_flag = False
+    runtime_data.death_flag = False
 
     try:
         runtime_data.burst_timer = float(runtime_data.genome['burst_delay'])
@@ -358,20 +362,6 @@ def init_burst_engine():
         print("Burst_delay has been set to its default value %f " %
               float(runtime_data.parameters["Timers"]["default_burst_delay"]))
         print("==============================================\n\n")
-
-    if runtime_data.parameters["Logs"]["print_voxel_dict_report"]:
-        print("Block Dictionary Report:")
-        voxel_dict_summary(runtime_data.voxel_dict, verbose=True)
-
-
-def exit_burst_process():
-    print(settings.Bcolors.YELLOW + '>>>Burst Exit criteria has been met!   <<<' + settings.Bcolors.ENDC)
-    runtime_data.live_mode_status = 'idle'
-    runtime_data.burst_count = 0
-    runtime_data.parameters["Switches"]["ready_to_exit_burst"] = True
-    runtime_data.parameters["Auto_injector"]["injector_status"] = False
-    if runtime_data.parameters["Switches"]["capture_brain_activities"]:
-        disk_ops.save_fcl_to_disk()
 
 
 def init_io_channels():

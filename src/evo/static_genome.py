@@ -17,6 +17,7 @@ genome = {
     "version": "2.0",
     "max_burst_count": 3,
     "burst_delay": 1,
+    "max_age": 1000,
     "evolution_burst_count": 50,
     "ipu_idle_threshold": 1000,
     "neuron_morphologies": {
@@ -192,6 +193,29 @@ genome = {
         # +++ Thalami +++
 
         # vvvvvvv   Input and Output processing related Cortical Areas are all listed below  vvvvvvvv
+
+        "_____10c-_death-cx-__name-t": "Brain_Death",
+        "_____10c-_death-cx-_group-t": "IPU",
+        "_____10c-_death-cx-_n_cnt-i": 1,
+        "_____10c-_death-nx-gd_vis-b": True,
+        "_____10c-_death-nx-rcordx-i": 50,
+        "_____10c-_death-nx-rcordy-i": 0,
+        "_____10c-_death-nx-rcordz-i": 25,
+        "_____10c-_death-nx-___bbx-i": 1,
+        "_____10c-_death-nx-___bby-i": 1,
+        "_____10c-_death-nx-___bbz-i": 1,
+        "_____10c-_death-cx-synatt-i": 100,
+        "_____10c-_death-cx-pstcr_-f": 5,
+        "_____10c-_death-cx-pstcrm-f": 35,
+        "_____10c-_death-cx-plst_c-f": 0.05,
+        "_____10c-_death-nx-fire_t-f": 1,
+        "_____10c-_death-nx-refrac-i": 0,
+        "_____10c-_death-nx-leak_c-f": 10,
+        "_____10c-_death-nx-c_fr_c-i": 3,
+        "_____10c-_death-nx-snooze-f": 0,
+        "_____10c-_death-cx-de_gen-f": 0.01,
+        "_____10c-_death-cx-dstmap-d": {
+        },
 
         # +++ Input Processing Units (IPU) +++
         "_____10c-i__inf-cx-__name-t": "ir_ipu",

@@ -1,7 +1,7 @@
 
 import json
 from inf import runtime_data, disk_ops
-from inf.initialize import init_brain
+from inf.initialize import init_brain, reset_runtime_data
 from evo.genome_processor import genome_ver_check
 from evo.neuroembryogenesis import develop_brain
 
@@ -85,6 +85,7 @@ def api_message_processor(api_message):
         print("========================================================")
         print(" Genome loading has been initiated by an API call...")
         print("========================================================")
+        reset_runtime_data()
         runtime_data.genome_counter += 1
         runtime_data.genome_ver = None
         runtime_data.genome = api_message['genome']
