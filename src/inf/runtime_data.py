@@ -73,6 +73,7 @@ feagi_state = {
 genome = {}
 genome_stats = {}
 genome_test_stats = []
+genome_orig = {}
 genome2 = {}
 genome_ver = None
 genome_id = ""
@@ -141,6 +142,7 @@ stimulation_index = {}
 # Brain
 current_age = 0
 death_flag = False
+stats = {}
 
 # Training
 shock_scenarios_options = tuple
