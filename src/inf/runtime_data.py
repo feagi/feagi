@@ -148,3 +148,6 @@ stats = {}
 shock_scenarios_options = tuple
 shock_admin = False
 shock_scenarios = set()
+
+# Robot
+robot_controller = {}
