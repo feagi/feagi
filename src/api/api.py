@@ -30,6 +30,7 @@ from inf import feagi
 from inf import runtime_data
 from inf.baseline import gui_baseline
 from evo import static_genome
+from evo.synapse import cortical_mapping
 
 
 description = """
@@ -586,10 +587,26 @@ async def connectome_snapshot(message: ConnectomePath):
 
 
 @app.api_route("/v1/feagi/connectome/properties/dimensions", methods=['GET'], tags=["Connectome"])
-async def connectome_report():
+async def connectome_dimensions_report():
     print("cortical_dimensions_", runtime_data.cortical_dimensions)
     try:
         return runtime_data.cortical_dimensions
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/connectome/properties/mappings", methods=['GET'], tags=["Connectome"])
+async def connectome_mapping_report():
+    """
+    Report result can be used with the following tool to visualize the connectome mapping:
+
+    https://csacademy.com/app/graph_editor/
+
+    Note: Use the print out from FEAGI logs for above online editor
+    """
+    try:
+        return cortical_mapping()
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
