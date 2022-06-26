@@ -835,6 +835,10 @@ def main(args=None):
                 if control_data is not None:
                     if 'motor_power_coefficient' in control_data:
                         capabilities["motor"]["power_coefficient"] = float(control_data['motor_power_coefficient'])
+                    if 'robot_starting_position' in control_data:
+                        capabilities["position"]["x"] = float(control_data['robot_starting_position'][0])
+                        capabilities["position"]["y"] = float(control_data['robot_starting_position'][1])
+                        capabilities["position"]["z"] = float(control_data['robot_starting_position'][2])
 
             except Exception:
                 pass

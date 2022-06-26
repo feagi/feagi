@@ -111,5 +111,8 @@ def api_message_processor(api_message):
         if api_message['robot_controller']['motor_power_coefficient']:
             runtime_data.robot_controller['motor_power_coefficient'] = \
                 api_message['robot_controller']['motor_power_coefficient']
+        if api_message['robot_controller']['robot_starting_position']:
+            runtime_data.robot_controller['robot_starting_position'] = \
+                api_message['robot_controller']['robot_starting_position']
 
     api_message = {}

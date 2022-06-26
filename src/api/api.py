@@ -103,6 +103,7 @@ class Logs(BaseModel):
 
 class BurstEngine(BaseModel):
     burst_duration: Optional[float]
+    burst_duration = 1
 
 
 class Network(BaseModel):
@@ -165,6 +166,9 @@ class Subscriber(BaseModel):
 
 class RobotController(BaseModel):
     motor_power_coefficient: float
+    motor_power_coefficient = 0.5
+    robot_starting_position: list
+    robot_starting_position = [0, 0, 0]
 
 
 app.mount("/home", SPAStaticFiles(directory="gui", html=True), name="static")
@@ -465,7 +469,7 @@ async def activate_shock_scenarios(training: Training):
 # ###### Robot Tuning  #########
 # ##############################
 
-@app.api_route("/v1/robot/controller", methods=['POST'], tags=["Robot"])
+@app.api_route("/v1/robot", methods=['POST'], tags=["Robot"])
 async def robot_controller_tunner(message: RobotController):
     """
     Enables changes against various Burst Engine parameters.
