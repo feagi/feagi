@@ -151,3 +151,4 @@ shock_scenarios = set()
 
 # Robot
 robot_controller = {}
+robot_model = {}

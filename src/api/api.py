@@ -171,6 +171,12 @@ class RobotController(BaseModel):
     robot_starting_position = [0, 0, 0]
 
 
+class RobotModel(BaseModel):
+    file_name: str
+    mu: float
+    mu2: float
+
+
 app.mount("/home", SPAStaticFiles(directory="gui", html=True), name="static")
 
 
@@ -469,7 +475,7 @@ async def activate_shock_scenarios(training: Training):
 # ###### Robot Tuning  #########
 # ##############################
 
-@app.api_route("/v1/robot", methods=['POST'], tags=["Robot"])
+@app.api_route("/v1/robot/parameters", methods=['POST'], tags=["Robot"])
 async def robot_controller_tunner(message: RobotController):
     """
     Enables changes against various Burst Engine parameters.
@@ -483,6 +489,20 @@ async def robot_controller_tunner(message: RobotController):
         print("API Error:", e)
         return {"Request failed...", e}
 
+
+@app.api_route("/v1/robot/model", methods=['POST'], tags=["Robot"])
+async def robot_model_modification(message: RobotModel):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        message = message.dict()
+        message = {'robot_model': message}
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
 
 # ######  Connectome Endpoints #########
 # ######################################

@@ -840,6 +840,15 @@ def main(args=None):
                         capabilities["position"]["y"] = float(control_data['robot_starting_position'][1])
                         capabilities["position"]["z"] = float(control_data['robot_starting_position'][2])
 
+                model_data = message_from_feagi['model_data']
+                if model_data is not None:
+                    if 'file_name' in model_data:
+                        Model_data["file_name"] = model_data['file_name']
+                    if 'mu' in model_data:
+                        Model_data["mu"] = float(model_data['mu'])
+                    if 'mu2' in model_data:
+                        Model_data["mu2"] = float(model_data['mu2'])
+
             except Exception:
                 pass
                 # print("")

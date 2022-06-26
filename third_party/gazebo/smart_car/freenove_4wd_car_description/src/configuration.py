@@ -82,3 +82,8 @@ Gazebo_world = {
 message_to_feagi = {"data": {}}
 
 
+Model_data = {
+    "file_name": "freenove_smart_car.sdf",
+    "mu": 1.0,
+    "mu2": 50.0
+}
