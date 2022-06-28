@@ -42,7 +42,7 @@ capabilities = {
         "refresh_rate": 1,
         "cortical_mapping": "o__mot",
         "power_coefficient": 0.05,
-        "wheel_diameter": 0.065, #radius is in sdf under wheels inside <link></link>
+        "wheel_diameter": 0.065,  # radius is in sdf under wheels inside <link></link>
     },
     "infrared": {
         "type": "ipu",
@@ -73,17 +73,20 @@ Gazebo_world = {
     "counter": 0,
     "margin": 0.20,
     "size_of_plane": {
-        "x": 10, ##in sdf, it is 100x100 so 100/10 = 10
+        "x": 10,  # in sdf, it is 100x100 so 100/10 = 10
         "y": 10
     }
 }
-
 
 message_to_feagi = {"data": {}}
 
 
 Model_data = {
+    "path_to_robot": "models/sdf/",
     "file_name": "freenove_smart_car.sdf",
     "mu": 1.0,
-    "mu2": 50.0
+    "mu2": 50.0,
+    "fdir1": [1, 1, 1],
+    "slip1": 0.1,
+    "slip2": 0.1
 }

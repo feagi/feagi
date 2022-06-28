@@ -27,7 +27,7 @@ import os
 import os.path
 import subprocess
 import requests
-import math
+import xml.etree.ElementTree as ET
 
 
 from std_msgs.msg import String
@@ -584,6 +584,33 @@ class TileManager(Node):
         #print("\n************************\nActive tile list:", self.tile_tracker)
 
 
+def update_physics():
+    physics_data_array = [str(Model_data['mu']), str(Model_data['mu2']), str(Model_data['fdir1']), str(Model_data['slip1']),
+                          str(Model_data['slip2'])]
+    physics_data_array[2] = physics_data_array[2].replace(",", "")
+    physics_data_array[2] = physics_data_array[2].replace("[", "")
+    physics_data_array[2] = physics_data_array[2].replace("]", "")
+    file = open((Model_data["path_to_robot"] + Model_data["file_name"]), "r")
+    file2 = open((Model_data["path_to_robot"] + Model_data["file_name"]), "r")
+    original_file = file2.read()
+    file_sdf = open("empty.sdf", "w")
+    new_sdf = original_file
+    file_xml = ET.parse(file)
+    myroot = file_xml.getroot()
+    flag = 0
+    for i in myroot.find("./model/link/collision/surface/friction/ode"):
+        current = i.text
+        i.text = physics_data_array[flag]
+        old_line = "<" + str(i.tag) + ">" + current + "</" + str(i.tag) + ">"
+        new_line = "<" + str(i.tag) + ">" + i.text + "</" + str(i.tag) + ">"
+        new_sdf = new_sdf.replace(old_line, new_line)
+        flag += 1
+
+    file_sdf.write(new_sdf)
+    file_sdf.close()
+    file2.close()
+    file.close()
+
 # class Pose(Node):
 #     def __init__(self):
 #         super().__init__('pose')
@@ -718,9 +745,9 @@ class TileManager(Node):
 #             print("COUNTER: ", runtime_data["GPS"]["counter"])
 #             Pose().floor_generated(new_data[0], new_data[1])
 
+
 def main(args=None):
     print("Connecting to FEAGI resources...")
-
 
     # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_outbound_port']
 
@@ -789,6 +816,7 @@ def main(args=None):
     # Positioning servos to a default position
     servo.set_default_position()
 
+
     try:
         while True:
             robot_pose = [runtime_data["GPS"]["x"], runtime_data["GPS"]["y"], runtime_data["GPS"]["z"]]
@@ -800,7 +828,6 @@ def main(args=None):
             battery.consume_battery()
             try:
                 opu_data = message_from_feagi["opu_data"]
-                print("Received:", opu_data)
                 if opu_data is not None:
                     if 'o__mot' in opu_data:
                         for data_point in opu_data['o__mot']:
@@ -842,12 +869,33 @@ def main(args=None):
 
                 model_data = message_from_feagi['model_data']
                 if model_data is not None:
+                    update_flag = False
                     if 'file_name' in model_data:
-                        Model_data["file_name"] = model_data['file_name']
+                        if Model_data["file_name"] != model_data['file_name']:
+                            Model_data["file_name"] = model_data['file_name']
+                            update_flag = True
                     if 'mu' in model_data:
-                        Model_data["mu"] = float(model_data['mu'])
+                        if Model_data["mu"] != model_data['mu']:
+                            Model_data["mu"] = float(model_data['mu'])
+                            update_flag = True
                     if 'mu2' in model_data:
-                        Model_data["mu2"] = float(model_data['mu2'])
+                        if Model_data["mu2"] != model_data["mu2"]:
+                            Model_data["mu2"] = float(model_data['mu2'])
+                            update_flag = True
+                    if 'fdir' in model_data:
+                        if Model_data["fdir1"] != model_data['fdir']:
+                            Model_data["fdir1"] = model_data['fdir']
+                            update_flag = True
+                    if 'slip1' in model_data:
+                        if Model_data["slip1"] != model_data['slip1']:
+                            Model_data["slip1"] = float(model_data['slip1'])
+                            update_flag = True
+                    if 'slip2' in model_data:
+                        if Model_data["slip2"] != model_data['slip2']:
+                            Model_data["slip2"] = float(model_data['slip2'])
+                            update_flag = True
+                    if update_flag:
+                        update_physics()
 
             except Exception:
                 pass
@@ -862,9 +910,11 @@ def main(args=None):
             flag += 1
             if flag == 10:
                 feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
+                feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
                 flag = 0
                 if feagi_burst_speed != network_settings['feagi_burst_speed']:
                     network_settings['feagi_burst_speed'] = feagi_burst_speed
+                    msg_counter = feagi_burst_counter
             sleep(network_settings['feagi_burst_speed'])
     except KeyboardInterrupt:
         pass

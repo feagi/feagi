@@ -118,12 +118,26 @@ def api_message_processor(api_message):
     if 'robot_model' in api_message:
         if api_message['robot_model']['file_name']:
             runtime_data.robot_model['file_name'] = \
-                api_message['robot_controller']['file_name']
+                api_message['robot_model']['file_name']
+
         if api_message['robot_model']['mu']:
             runtime_data.robot_model['mu'] = \
                 api_message['robot_model']['mu']
+
         if api_message['robot_model']['mu2']:
             runtime_data.robot_model['mu2'] = \
                 api_message['robot_model']['mu2']
+
+        if api_message['robot_model']['fdir']:
+            runtime_data.robot_model['fdir'] = \
+                api_message['robot_model']['fdir']
+
+        if api_message['robot_model']['slip1']:
+            runtime_data.robot_model['slip1'] = \
+                api_message['robot_model']['slip1']
+
+        if api_message['robot_model']['slip2']:
+            runtime_data.robot_model['slip2'] = \
+                api_message['robot_model']['slip2']
 
     api_message = {}

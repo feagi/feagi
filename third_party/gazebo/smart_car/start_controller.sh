@@ -6,7 +6,9 @@ export MESA_GL_VERSION_OVERRIDE=3.3
 GAZEBO="ruby"
 ROS2="ros2"
 
+rm empty.sdf
 for pid in $(ps -ef | grep "gazebo" | awk '{print $2}'); do kill $pid; done ##Ensure that no gazebo is running prior to launch gazebo
+for pid in $(ps -ef | grep "freenove_smart_car.launch.py" | awk '{print $2}'); do kill $pid; done #Destroy xterm prior to launch gazebo
 
 if pgrep -x "$ROS2" >/dev/null && pgrep -x "$GAZEBO" >/dev/null
 then
@@ -19,4 +21,13 @@ else
     do
       WMC=$(wmctrl -l | grep Gazebo | awk '{print $1}')
     done && wmctrl -i -r $WMC -b toggle,fullscreen & ##This will make gazbeo full screen once gazebo appears
+fi
+cd /opt/source-code/freenove_4wd_car_description
+while [ ! -f /opt/source-code/freenove_4wd_car_description/empty.sdf ]; do
+  echo "no file"
+done
+if [ -f /opt/source-code/freenove_4wd_car_description/empty.sdf ]; then
+  echo "FILE EXISTS!!"
+  cp empty.sdf models/sdf/freenove_smart_car.sdf
+  ./start_controller.sh
 fi
