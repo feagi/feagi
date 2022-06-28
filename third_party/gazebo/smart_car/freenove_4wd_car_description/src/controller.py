@@ -93,10 +93,11 @@ else:
     print("no low res")
 
 robot_name = "freenove_smart_car"  # This is the model name in gazebo without sdf involves.
+x = str(capabilities["position"]["x"])
 y = str(capabilities["position"]["y"])
 z = str(capabilities["position"]["z"])
 first_part = "ign service -s /world/free_world/create --reqtype ignition.msgs.EntityFactory --reptype ignition.msgs.Boolean --timeout 300 --req 'sdf_filename:'\'\""
-second_part = model_name + ".sdf\" pose: {position: { x: 0.05, y"
+second_part = model_name + ".sdf\" pose: {position: { x: " + x + ", y"
 third_part = ": " + y + ", z: " + z + "}}\' &"
 add_model = first_part + second_part + third_part
 os.system(add_model)
@@ -376,10 +377,11 @@ class PosInit:
     def reset_position(self):
         print("## ## ## ## Resetting robot position ## ## ## ##")
         # Remove the robot
+        x = str(capabilities["position"]["x"])
         y = str(capabilities["position"]["y"])
         z = str(capabilities["position"]["z"])
         first_part_r = "ign service -s /world/free_world/set_pose --reqtype ignition.msgs.Pose --reptype ignition.msgs.Boolean --timeout 300 --req \'name: "
-        second_part_r = ' "' + robot_name + '" ' + ", position: { x: 0.05, y: "
+        second_part_r = ' "' + robot_name + '" ' + ", position: { x: " + x + ", y: "
         third_part_r = y + ", z: " + z + "}' &"
         respawn = first_part_r + second_part_r + third_part_r
         print("++++++++++++++++++++++++++")
@@ -931,6 +933,7 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
 
 
 
