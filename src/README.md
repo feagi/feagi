@@ -1,4 +1,4 @@
-# Folder Hierarchy:
+# Navigating the Folder Hierarchy:
 
 * [**api**](https://github.com/Neuraville/feagi/tree/staging/src/api): contains code and documentation regarding the different APIs.
 * [**evo**](https://github.com/Neuraville/feagi/tree/staging/src/evo): contains documentation regarding the genome data structure and code for creating synapses and cortical areas.
