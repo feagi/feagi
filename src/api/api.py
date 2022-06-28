@@ -174,8 +174,22 @@ class RobotController(BaseModel):
 
 class RobotModel(BaseModel):
     file_name: str
+    file_name = "freenove_smart_car.sdf"
+
     mu: float
+    mu = 1.0
+
     mu2: float
+    mu2 = 50.0
+
+    fdir: list
+    fdir = [1, 1, 1]
+
+    slip1: float
+    slip1 = 1.0
+
+    slip2: float
+    slip2 = 1.0
 
 
 app.mount("/home", SPAStaticFiles(directory="gui", html=True), name="static")
