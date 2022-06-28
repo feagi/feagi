@@ -113,8 +113,8 @@
             <dynamic_friction>1.0</dynamic_friction>
             <ode>
               <mu>1.0</mu>
-              <mu2>50.0</mu2>
-              <fdir1>1 1 1</fdir1>
+              <mu2>1</mu2>
+              <fdir1>1 1 0</fdir1>
               <slip1>0.1</slip1>
               <slip2>0.1</slip2>
             </ode>
@@ -173,8 +173,8 @@
             <dynamic_friction>1.0</dynamic_friction>
             <ode>
               <mu>1.0</mu>
-              <mu2>50.0</mu2>
-              <fdir1>1 1 1</fdir1>
+              <mu2>1.0</mu2>
+              <fdir1>1 1 0</fdir1>
               <slip1>0.1</slip1>
               <slip2>0.1</slip2>
             </ode>
@@ -233,8 +233,8 @@
             <dynamic_friction>1.0</dynamic_friction>
             <ode>
               <mu>1.0</mu>
-              <mu2>50.0</mu2>
-              <fdir1>1 1 1</fdir1>
+              <mu2>1.0</mu2>
+              <fdir1>1 1 0</fdir1>
               <slip1>0.1</slip1>
               <slip2>0.1</slip2>
             </ode>
@@ -293,8 +293,8 @@
             <dynamic_friction>1.0</dynamic_friction>
             <ode>
               <mu>1.0</mu>
-              <mu2>50.0</mu2>
-              <fdir1>1 1 1</fdir1>
+              <mu2>1.0</mu2>
+              <fdir1>1 1 0</fdir1>
               <slip1>0.1</slip1>
               <slip2>0.1</slip2>
             </ode>
@@ -852,4 +852,5 @@
   </model>
 
 </sdf>
+
 
