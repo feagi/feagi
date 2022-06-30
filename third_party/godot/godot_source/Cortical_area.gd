@@ -36,12 +36,9 @@ func _on_Area_input_event(camera, event, position, normal, shape_idx):
 				Gy = transform.origin.y
 				Gz = transform.origin.z
 				location = Vector3(Gx, Gy, Gz)
-				cortical_area_name = get_name().lstrip("@")
-				cortical_area_name = cortical_area_name.replace(" ", "")
+				cortical_area_name = get_name().rsplit("@", true, 1)
+				cortical_area_name = cortical_area_name[0].replace(" ", "")
 				cortical_area_name = cortical_area_name.replace("@", "")
-				for x in range(10):
-					if cortical_area_name.find(x):
-						cortical_area_name = cortical_area_name.replace(x, "")
 				cortical_area_name = "\'{s}\'".format({"s": cortical_area_name})
 				for item in Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][cortical_area_name]:
 					if location == item:
@@ -54,13 +51,14 @@ func _on_Area_input_event(camera, event, position, normal, shape_idx):
 				Gz = transform.origin.z
 				location = Vector3(Gx, Gy, Gz)
 				print(location)
-				cortical_area_name = get_name().lstrip("@")
-				cortical_area_name = cortical_area_name.replace(" ", "")
+				cortical_area_name = get_name().rsplit("@", true, 1)
+				cortical_area_name = cortical_area_name[0].replace(" ", "")
 				cortical_area_name = cortical_area_name.replace("@", "")
-				for x in range(10):
-					if cortical_area_name.find(x):
-						cortical_area_name = cortical_area_name.replace(x, "")
+#				for x in range(10):
+#					if cortical_area_name.find(x):
+#						cortical_area_name = cortical_area_name.replace(x, "")
 				cortical_area_name = "\'{s}\'".format({"s": cortical_area_name})
+				print("UPDATED CORTICAL_AREA_NAME: ", cortical_area_name)
 				if Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"].get(cortical_area_name):
 					Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][cortical_area_name].append(location)
 				else:
