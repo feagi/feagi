@@ -17,7 +17,7 @@ limitations under the License.
 extends Spatial
 
 
-onready var file = 'res://csv_data.txt'
+onready var file = 'res://csv_data.gdc'
 onready var textbox_display = get_node("Sprite3D")
 onready var gridmap_new = get_node("GridMap2")
 onready var selected =  preload("res://selected.meshlib")
@@ -134,7 +134,7 @@ func install_voxel_inside(x_input,y_input,z_input):
 func _csv_generator():
 	_clear_node_name_list(global_name_list)
 	var f = File.new() #This is to read each line from the file
-	if f.file_exists('res://csv_data.txt'):
+	if f.file_exists('res://csv_data.gdc'):
 		f.open(file, File.READ)
 		stored_csv = f.get_as_text()
 		while not f.eof_reached(): # iterate through all lines until the end of file is reached
@@ -228,7 +228,7 @@ func check_csv():
 	if csv_flag == false:
 		#print("FALSE!")
 		var check = File.new()
-		if check.file_exists('res://csv_data.txt'):
+		if check.file_exists('res://csv_data.gdc'):
 			csv_flag = true
 			check.open(file, File.READ)
 			var current_csv = check.get_as_text()
