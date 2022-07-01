@@ -43,7 +43,7 @@ const GenomeUploadCard = (props) => {
                 type="file"
                 onChange={handleFileUpload}
               />
-              <Button variant="contained" component="span">
+              <Button variant="contained" component="span" sx={{ mt: 3 }}>
                 Upload Genome
               </Button>
             </label>
