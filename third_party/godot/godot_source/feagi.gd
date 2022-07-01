@@ -17,7 +17,7 @@ limitations under the License.
 extends Spatial
 
 
-onready var file = 'res://csv_data.gdc'
+onready var file = 'res://csv_data.txt'
 onready var textbox_display = get_node("Sprite3D")
 onready var gridmap_new = get_node("GridMap2")
 onready var selected =  preload("res://selected.meshlib")
@@ -94,50 +94,49 @@ func _ready():
 	while true:
 		_process(self)
 		stored_value = data
-		generate_voxels(stored_value)
+		generate_voxels()
 		yield(get_tree().create_timer(0.01), "timeout")
 		$GridMap.clear()
 
 
-func _process(delta):
+func _process(_delta):
 	check_csv() ##Check if csv is changed
 	data = websocket.one_frame
 	
 	
-func generate_model(node, x, y, z, width, depth, height, name):
+func generate_model(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
 	var new_grid = gridmap_new.duplicate()
-	new_grid.set_name(name)
+	new_grid.set_name(name_input)
 	add_child(new_grid)
-	for x_increment in width:
-		for y_increment in height:
-			for z_increment in depth:
-				if x_increment == 0 or x_increment == (int(width)-1) or y_increment == 0 or y_increment == (int(height) - 1) or z_increment == 0 or z_increment == (int(depth) - 1):
-					#new_grid.set_cell_item(x_increment+int(x), y_increment+int(y), z_increment+int(z), 0)
+	for x_gain in width_input:
+		for y_gain in height_input:
+			for z_gain in depth_input:
+				if x_gain == 0 or x_gain == (int(width_input)-1) or y_gain == 0 or y_gain == (int(height_input) - 1) or z_gain == 0 or z_gain == (int(depth_input) - 1):
+					#new_grid.set_cell_item(x_gain+int(x_input), y_gain+int(y_input), z_gain+int(z_input), 0)
 					var new = get_node("Cortical_area").duplicate()
-					new.set_name(name)
+					new.set_name(name_input)
 					add_child(new)
 					global_name_list.append(new)
-					new.transform.origin = Vector3(x_increment+int(x), y_increment+int(y), z_increment+int(z))
-					generate_textbox(node, x,height,z, name)
+					new.transform.origin = Vector3(x_gain+int(x_input), y_gain+int(y_input), z_gain+int(z_input))
+					generate_textbox(node, x_input,height_input,z_input, name_input)
 
-func generate_textbox(node, x,height,z, name):
-	node.transform.origin = Vector3(int(x) + (width/1.5), int(int(y)+2 + (height)),z)
-	node.get_node("Viewport/Label").set_text(str(name))
+func generate_textbox(node, x_input,height_input,z_input, name_input):
+	node.transform.origin = Vector3(int(x_input) + (width/1.5), int(int(y)+2 + (height_input)),z_input)
+	node.get_node("Viewport/Label").set_text(str(name_input))
 	node.get_node("Viewport").get_texture()
 
-func adding_cortical_areas(name, x,y,z,width,height,depth):
-	cortical_area[name]=[x,y,z,width,height,depth] ##This is just adding the list
+func adding_cortical_areas(name, x_input,y_input,z_input,width_input,height_input,depth_input):
+	cortical_area[name]=[x_input,y_input,z_input,width_input,height_input,depth_input] ##This is just adding the list
 	
-func install_voxel_inside(x,y,z):
-	$GridMap.set_cell_item(x,y,z, 0)
+func install_voxel_inside(x_input,y_input,z_input):
+	$GridMap.set_cell_item(x_input,y_input,z_input, 0)
 
 func _csv_generator():
 	_clear_node_name_list(global_name_list)
 	var f = File.new() #This is to read each line from the file
-	if f.file_exists('res://csv_data.gdc'):
+	if f.file_exists('res://csv_data.txt'):
 		f.open(file, File.READ)
 		stored_csv = f.get_as_text()
-		var index = 1
 		while not f.eof_reached(): # iterate through all lines until the end of file is reached
 			var line = f.get_line()
 			if line != "":
@@ -212,7 +211,6 @@ func _csv_generator():
 					cortical_area_stored = cortical_area
 				elif cortical_area.hash() == cortical_area_stored.hash():
 					adding_cortical_areas(name,x,y,z,height,width,depth)
-				index += 1
 		f.close()
 	else:
 		csv_flag = false
@@ -230,7 +228,7 @@ func check_csv():
 	if csv_flag == false:
 		#print("FALSE!")
 		var check = File.new()
-		if check.file_exists('res://csv_data.gdc'):
+		if check.file_exists('res://csv_data.txt'):
 			csv_flag = true
 			check.open(file, File.READ)
 			var current_csv = check.get_as_text()
@@ -249,10 +247,10 @@ func check_csv():
 			stored_csv = current_csv
 			_csv_generator()
 			
-func generate_voxels(data):
+func generate_voxels():
 	if stored_value != "" and stored_value != null:
 		#print("ENTERED!")
-		var array_test = stored_value.replace("[", "")
+		array_test = stored_value.replace("[", "")
 		array_test = array_test.replace("]", "")
 		test=array_test.split(",", true, '0')
 		total = (test.size())

@@ -33,7 +33,7 @@ var flagged = false ## This allows space and del to be able to send data without
 
 const CAMERA_TURN_SPEED = 200
 
-func get_input_keyboard(delta):
+func get_input_keyboard(_delta):
 	# Rotate outer gimbal around y axis
 	
 	if Input.is_action_pressed("ui_left"):
