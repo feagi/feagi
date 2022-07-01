@@ -83,7 +83,7 @@ message_to_feagi = {"data": {}}
 
 Model_data = {
     "path_to_robot": "models/sdf/",
-    "file_name": "freenove_smart_car.sdf",
+    "file_name": "smart_car.sdf",
     "mu": 1.0,
     "mu2": 50.0,
     "fdir1": [1, 1, 1],
