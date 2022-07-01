@@ -89,15 +89,15 @@ if launch_checker:
     print("low res")
     model_name = "models/sdf/low_res_freenove_smart_car"  # This is for the gazebo sdf file path
 else:
-    model_name = "models/sdf/freenove_smart_car"  # This is for the gazebo sdf file path
+    model_name = Model_data["path_to_robot"] + Model_data["file_name"]  # This is for the gazebo sdf file path
     print("no low res")
 
-robot_name = "freenove_smart_car"  # This is the model name in gazebo without sdf involves.
+robot_name = Model_data["file_name"]  # This is the model name in gazebo without sdf path involves.
 x = str(capabilities["position"]["x"])
 y = str(capabilities["position"]["y"])
 z = str(capabilities["position"]["z"])
 first_part = "ign service -s /world/free_world/create --reqtype ignition.msgs.EntityFactory --reptype ignition.msgs.Boolean --timeout 300 --req 'sdf_filename:'\'\""
-second_part = model_name + ".sdf\" pose: {position: { x: " + x + ", y"
+second_part = model_name + "\" pose: {position: { x: " + x + ", y"
 third_part = ": " + y + ", z: " + z + "}}\' &"
 add_model = first_part + second_part + third_part
 os.system(add_model)
@@ -108,7 +108,7 @@ ign service -s /world/free_world/remove \
 --reptype ignition.msgs.Boolean \
 --timeout 300 \
 --req 'name: "freenove_smart_car" type: MODEL'
-"""
+""" ##not used atm
 
 
 def feagi_registration(feagi_host, api_port):
@@ -380,8 +380,9 @@ class PosInit:
         x = str(capabilities["position"]["x"])
         y = str(capabilities["position"]["y"])
         z = str(capabilities["position"]["z"])
+        name = Model_data["file_name"].replace(".sdf", "")
         first_part_r = "ign service -s /world/free_world/set_pose --reqtype ignition.msgs.Pose --reptype ignition.msgs.Boolean --timeout 300 --req \'name: "
-        second_part_r = ' "' + robot_name + '" ' + ", position: { x: " + x + ", y: "
+        second_part_r = ' "' + name + '" ' + ", position: { x: " + x + ", y: "
         third_part_r = y + ", z: " + z + "}' &"
         respawn = first_part_r + second_part_r + third_part_r
         print("++++++++++++++++++++++++++")
@@ -438,7 +439,9 @@ class TileManager(Node):
         msg = String()
         msg.data = str(runtime_data["GPS"])
         # Pose data
-        pose = subprocess.Popen(["ign topic -e  -t world/free_world/pose/info -n1 | grep \"freenove_smart_car\" -A6"],
+        name = Model_data["file_name"]
+        name = name.replace(".sdf", "")
+        pose = subprocess.Popen(["ign topic -e  -t world/free_world/pose/info -n1 | grep \"" + name +"\" -A6"],
                                 shell=True, stdout=PIPE)
         pose_xyz = pose.communicate()[0].decode("utf-8")
         for item in pose_xyz.split("\n"):
