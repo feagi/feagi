@@ -269,14 +269,15 @@ async def genome_default_files():
         default_genomes = os.listdir(default_genomes_path)
         genome_mappings = {}
         for genome in default_genomes:
-            with open(os.path.join(default_genomes_path, genome)) as file:
-                data = file.read()
-                data_dict = literal_eval(data.split(" = ")[1])
-                genome_mappings[genome.split(".")[0]] = json.dumps(data_dict)
+            if genome[:2] != '__':
+                with open(os.path.join(default_genomes_path, genome)) as file:
+                    data = file.read()
+                    data_dict = literal_eval(data.split(" = ")[1])
+                    genome_mappings[genome.split(".")[0]] = json.dumps(data_dict)
         return {"genomes": genome_mappings}
     except Exception as e:
         print("API Error:", e)
-        return {"Request failed...", e}
+        return {"Request failed..."}
 
 
 @app.api_route("/v1/feagi/genome/genome_number", methods=['GET'], tags=["Genome"])
