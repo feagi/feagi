@@ -28,7 +28,7 @@ var cortical_area_name = ""
 var connected = false
 
 
-func _on_Area_input_event(camera, event, position, normal, shape_idx):
+func _on_Area_input_event(_camera, event, _position, _normal, _shape_idx):
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == BUTTON_LEFT and material == selected and event.pressed == true:
 			if material == selected:
@@ -96,7 +96,7 @@ func _on_Area_mouse_exited():
 	else:
 		material = deselected
 
-func _input(event):
+func _input(_event):
 	if Input.is_action_just_pressed("ui_del"):
 		material = deselected
 
