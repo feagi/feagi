@@ -1,25 +1,7 @@
-FROM neuraville/feagi-base-gui
-
-ARG REPO="https://github.com/feagi/feagi.git"
-ARG BRANCH="main"
-
-ENV Running_In_CONTAINER Yes
-
-RUN mkdir -p /opt/source-code/feagi/
-RUN --mount=type=ssh git clone $REPO /opt/source-code/feagi
-WORKDIR /opt/source-code/feagi
-RUN --mount=type=ssh git fetch --all
-RUN --mount=type=ssh git checkout $BRANCH
-RUN export PYTHONPATH="$PWD"
-
-WORKDIR /opt/source-code/feagi/src/gui
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y npm
-RUN npm cache clean -f
-RUN npm install -g n
-RUN n stable
-RUN hash -r
-RUN curl -qL https://www.npmjs.com/install.sh | sh
-RUN npm install --global nodejs
+FROM neuraville/feagi-base-gui-prod
+ENV PATH /gui/node_modules/.bin:$PATH
+COPY package.json package-lock.json ./
 RUN npm install
-#CMD ["/bin/sh", "-ec", "ls"]
-CMD ["bash", "gui_start.sh"]
+COPY . ./
+RUN npm run build
+CMD ["serve", "-s", "build"]

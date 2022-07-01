@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { BiDna } from "react-icons/bi";
@@ -43,6 +44,7 @@ const GenomeMode = () => {
               image={<BiDna size={150} />}
               label="Default Genomes"
               onClick={handleDefaultClick}
+              changeColorOnClick={false}
             />
           </label>
         </Item>
@@ -54,14 +56,25 @@ const GenomeMode = () => {
             />
           </label>
         </Item>
-        <Item>
-          <label htmlFor="genome-card">
+        <Item sx={{ position: "relative" }}>
+          <label htmlFor="genome-create-card">
             <MenuCard
               image={<GiDna2 size={150} />}
               label="Create Genome"
               onClick={handleCreateGenomeClick}
+              changeColorOnClick={false}
+              grayedOut={true}
             />
           </label>
+          <Chip
+            label="Coming soon!"
+            color="primary"
+            sx={{
+              position: "absolute",
+              bottom: "-15%",
+              right: "31%",
+            }}
+          />
         </Item>
       </Stack>
     </>
