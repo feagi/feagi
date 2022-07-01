@@ -5,6 +5,8 @@ ENV OPENBOX_ARGS='--startup "/opt/source-code/freenove_4wd_car_description/start
 
 RUN apt install -y wmctrl
 
+WORKDIR /etc/xdg/openbox
+RUN   sed -i "s|<number>4</number>|<number>1</number> |g" rc.xml
 RUN mkdir -p /opt/source-code/freenove_4wd_car_description
 WORKDIR /opt/source-code/freenove_4wd_car_description
 COPY ./freenove_4wd_car_description/ ./start_controller.sh ./
