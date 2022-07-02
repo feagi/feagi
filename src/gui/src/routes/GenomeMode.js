@@ -61,20 +61,20 @@ const GenomeMode = () => {
             <MenuCard
               image={<GiDna2 size={150} />}
               label="Create Genome"
-              onClick={handleCreateGenomeClick}
+              // onClick={handleCreateGenomeClick}
               changeColorOnClick={false}
               grayedOut={true}
             />
           </label>
-          <Chip
-            label="Coming soon!"
-            color="primary"
-            sx={{
-              position: "absolute",
-              bottom: "-15%",
-              right: "31%",
-            }}
-          />
+          {/*<Chip*/}
+          {/*  label="Coming soon!"*/}
+          {/*  color="primary"*/}
+          {/*  sx={{*/}
+          {/*    position: "absolute",*/}
+          {/*    bottom: "-15%",*/}
+          {/*    right: "31%",*/}
+          {/*  }}*/}
+          {/*/>*/}
         </Item>
       </Stack>
     </>
