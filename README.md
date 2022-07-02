@@ -1,3 +1,8 @@
+# Hello and welcome to FEAGI! 
+
+* For the most up to date information about our platform and approach, please reference our [Wiki](https://github.com/feagi/feagi/wiki).
+* To get started using our platform please follow our [**Deployment Guide**](https://github.com/feagi/feagi/wiki/Deployment-(for-the-public)) and start by following our [**tutorials**](https://github.com/feagi/feagi/wiki/Tutorials)
+* To learn more and get involved in the community, join our the FEAGI [Slack workspace](https://join.slack.com/t/feagi/shared_invite/zt-12ggts9vk-3waU0hembwG3q8sm8HwNpw).
 
 # About FEAGI
 The Framework for Evolutionary Artificial General Intelligence (FEAGI) is an open-source framework designed from the 
