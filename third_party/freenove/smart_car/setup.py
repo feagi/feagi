@@ -19,10 +19,11 @@ echo "Starting the setup in five seconds..."
 echo "Press ctrl + c to stop the setup immediately"
 sleep 5
 echo "Installing..."
-sudo apt install python3-pip
-sudo apt-get install python3-dev python3-rpi.gpio
-sudo apt-get install python3-smbus
-sudo pip3 install rpi_ws281x
+sudo apt install -y python3-pip
+sudo pip3 install zmq
+sudo apt-get install -y python3-dev python3-rpi.gpio
+sudo apt-get install -y python3-smbus
+sudo pip3 install -y rpi_ws281x
 sudo groupadd gpio
 sudo usermod -aG gpio "${USER}"
 echo "Setup is complete!"
