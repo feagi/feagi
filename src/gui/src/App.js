@@ -102,16 +102,6 @@ function App() {
     },
   });
 
-  const handleMenuClick = () => {
-    setDrawerOpen(!drawerOpen);
-  };
-
-  const handleGenomeReload = () => {
-    navigate("/genome/mode");
-  };
-
-  // const handleContributeClick = () => {};
-
   const handleApiDocsClick = () => {
     window.open("http://localhost:8000/docs", "_blank", "noopener,noreferrer");
   };
@@ -124,38 +114,6 @@ function App() {
     );
   };
 
-  const drawerList = () => (
-    <Box
-      sx={{ width: "400px" }}
-      role="presentation"
-      onClick={() => setDrawerOpen(false)}
-      onKeyDown={() => setDrawerOpen(false)}
-    >
-      <List>
-        {/* <ListItem button>
-          <ListItemIcon>
-            <AccessAlarmIcon />
-          </ListItemIcon>
-          <ListItemText primary="Change Burst Frequency" />
-        </ListItem>
-        <Divider />
-        <ListItem button>
-          <ListItemIcon>
-            <CameraAltIcon />
-          </ListItemIcon>
-          <ListItemText primary="Take Connectome Snapshot" />
-        </ListItem>
-        <Divider /> */}
-        <ListItem button onClick={handleGenomeReload}>
-          <ListItemIcon>
-            <ReplayIcon />
-          </ListItemIcon>
-          <ListItemText primary="Reload Genome" />
-        </ListItem>
-        <Divider />
-      </List>
-    </Box>
-  );
 
   return (
     <>
@@ -164,13 +122,13 @@ function App() {
         <Box sx={{ flexGrow: 1 }}>
           <AppBar position="static">
             <Toolbar>
-              <IconButton
-                color="inherit"
-                onClick={handleMenuClick}
-                edge="start"
-              >
-                <MenuIcon />
-              </IconButton>
+              {/*<IconButton*/}
+              {/*  color="inherit"*/}
+              {/*  onClick={handleMenuClick}*/}
+              {/*  edge="start"*/}
+              {/*>*/}
+              {/*  <MenuIcon />*/}
+              {/*</IconButton>*/}
               <Typography variant="h6" sx={{ ml: 4, flexGrow: 1 }}>
                 Framework for Evolutionary Artificial General Intelligence
                 (FEAGI)
@@ -182,13 +140,6 @@ function App() {
                   alignItems: "right",
                 }}
               >
-                {/* <Button
-                  variant="text"
-                  color="inherit"
-                  onClick={handleContributeClick}
-                >
-                  Contribute
-                </Button> */}
                 <Button
                   variant="text"
                   color="inherit"
@@ -207,21 +158,6 @@ function App() {
             </Toolbar>
           </AppBar>
         </Box>
-        <Drawer
-          anchor="left"
-          variant="temporary"
-          elevation={3}
-          open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-        >
-          <Box textAlign="center" role="presentation">
-            <Typography variant="h5" component="div" sx={{ m: 2 }}>
-              Configuration
-            </Typography>
-            <Divider />
-          </Box>
-          {drawerList()}
-        </Drawer>
         <Suspense
           fallback={
             <div
@@ -315,16 +251,6 @@ function App() {
             <Route path="/monitoring" element={<MonitoringDashboard />} />
           </Routes>
         </Suspense>
-        {/* <div
-          style={{
-            position: "absolute",
-            left: "50px",
-            bottom: "50px",
-            right: "50px",
-          }}
-        >
-          <ProgressStepper />
-        </div> */}
       </ThemeProvider>
     </>
   );
