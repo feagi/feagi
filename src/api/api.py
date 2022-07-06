@@ -34,18 +34,9 @@ from evo.synapse import cortical_mapping
 
 
 description = """
-FEAGI REST API will help you integrate FEAGI into other applications and provides a programmatic method to interact with FEAGI. 🚀
+FEAGI REST API will help you integrate FEAGI into other applications and provides a programmatic method to interact with FEAGI.
 
-## Endpoints
 
-You can **read items**.
-
-## TBD
-
-You will be able to:
-
-* **TBD1** (_not implemented_).
-* **TBD2** (_not implemented_).
 """
 
 app = FastAPI(
@@ -212,6 +203,10 @@ async def genome_default_upload():
 
 @app.post("/v1/feagi/genome/upload/file", tags=["Genome"])
 async def genome_file_upload(file: UploadFile = File(...)):
+    """
+    This API allows you to browse files from your computer and upload a genome to FEAGI.
+    The genome must be in the form of a python file.
+    """
     try:
         data = await file.read()
 
@@ -368,6 +363,7 @@ async def neuron_postsynaptic_potential_collection_filters():
 @app.api_route("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting", methods=['POST'], tags=["Insights"])
 async def neuron_membrane_potential_monitoring_scope(message: StatsCollectionScope):
     """
+    Monitor the membrane potential of select cortical areas and voxels in Grafana.
     Message Template:
     {
         "collection_scope":
@@ -398,6 +394,8 @@ async def neuron_membrane_potential_monitoring_scope(message: StatsCollectionSco
 @app.api_route("/v1/feagi/neuron/physiology/postsynaptic_potential_monitoring", methods=['POST'], tags=["Insights"])
 async def neuron_postsynaptic_potential_monitoring_scope(message: StatsCollectionScope):
     """
+    Monitor the post synaptic potentials of select cortical areas and voxels in Grafana.
+
     Message Template:
     {
         "collection_scope":
@@ -449,6 +447,9 @@ async def neuron_postsynaptic_potential_monitoring_scope(message: StatsCollectio
 
 @app.api_route("/v1/feagi/training/shock_scenario_options", methods=['Get'], tags=["Training"])
 async def list_available_shock_scenarios():
+    """
+    Get a list of available shock scenarios.
+    """
     try:
         return runtime_data.shock_scenarios_options
     except Exception as e:
