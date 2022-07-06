@@ -271,3 +271,4 @@ func generate_voxels():
 				install_voxel_inside(x,y,z) #install voxel inside cortical area
 			key+= 1
 		flag = 0 #keep x,y,z in correct place
+

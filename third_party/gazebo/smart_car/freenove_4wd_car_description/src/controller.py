@@ -820,6 +820,8 @@ def main(args=None):
 
     # Positioning servos to a default position
     servo.set_default_position()
+    msg_counter = runtime_data["feagi_state"]['burst_counter']
+    network_settings['feagi_burst_speed'] = runtime_data["feagi_state"]['burst_duration']
 
 
     try:
@@ -917,6 +919,10 @@ def main(args=None):
                 feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
                 feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
                 flag = 0
+                if msg_counter < feagi_burst_counter:
+                    feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
+                    if feagi_burst_speed != network_settings['feagi_burst_speed']:
+                        network_settings['feagi_burst_speed'] = feagi_burst_speed
                 if feagi_burst_speed != network_settings['feagi_burst_speed']:
                     network_settings['feagi_burst_speed'] = feagi_burst_speed
                     msg_counter = feagi_burst_counter
@@ -936,6 +942,7 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
 
 
 
