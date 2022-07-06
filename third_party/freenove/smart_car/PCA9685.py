@@ -59,7 +59,7 @@ class PCA9685:
     self.write(self.__MODE1, newmode)        # go to sleep
     self.write(self.__PRESCALE, int(math.floor(prescale)))
     self.write(self.__MODE1, oldmode)
-    time.sleep(0.005)
+    #time.sleep(0.005)
     self.write(self.__MODE1, oldmode | 0x80)
 
   def setPWM(self, channel, on, off):

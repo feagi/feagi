@@ -92,11 +92,12 @@
       <link name='rear_left_wheel'>
         <pose>-0.1 0.088 0.05 0 1.5707 1.5707</pose>
       <mass>0.408233</mass>
+      <mass>0.408233</mass>
         <inertial>
         <inertia>
-          <ixx>0.3</ixx>
-          <iyy>0.3</iyy>
-          <izz>0.3</izz>
+          <ixx>0.003</ixx>
+          <iyy>0.003</iyy>
+          <izz>0.003</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -130,11 +131,13 @@
           </geometry>
           <surface>
             <friction>
-              <ode>
-                <mu>0.5</mu>
-                <mu2>0.5</mu2>
-                <fdir1>1 0 0</fdir1>
-              </ode>
+            <ode>
+              <mu>0.9</mu>
+              <mu2>1</mu2>
+              <fdir1>1 1 0</fdir1>
+              <slip1>0.1</slip1>
+              <slip2>0.1</slip2>
+            </ode>
             </friction>
           </surface>
         </collision>
@@ -143,11 +146,12 @@
       <link name='rear_right_wheel'>
         <pose> -0.1 -0.088 0.05 0 1.5707 1.5707 </pose>
       <mass>0.408233</mass>
+      <mass>0.408233</mass>
         <inertial>
         <inertia>
-          <ixx>0.3</ixx>
-          <iyy>0.3</iyy>
-          <izz>0.3</izz>
+          <ixx>0.003</ixx>
+          <iyy>0.003</iyy>
+          <izz>0.003</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -181,11 +185,13 @@
           </geometry>
           <surface>
             <friction>
-              <ode>
-                <mu>0.5</mu>
-                <mu2>0.5</mu2>
-                <fdir1>1 0 0</fdir1>
-              </ode>
+            <ode>
+              <mu>0.9</mu>
+              <mu2>1</mu2>
+              <fdir1>1 1 0</fdir1>
+              <slip1>0.1</slip1>
+              <slip2>0.1</slip2>
+            </ode>
             </friction>
           </surface>
         </collision>
@@ -194,11 +200,12 @@
       <link name='front_left_wheel'>
         <pose>0.1 0.088 0.05 0 1.5707 1.5707</pose>
       <mass>0.408233</mass>
+      <mass>0.408233</mass>
         <inertial>
         <inertia>
-          <ixx>0.3</ixx>
-          <iyy>0.3</iyy>
-          <izz>0.3</izz>
+          <ixx>0.003</ixx>
+          <iyy>0.003</iyy>
+          <izz>0.003</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -232,11 +239,13 @@
           </geometry>
           <surface>
             <friction>
-              <ode>
-                <mu>0.5</mu>
-                <mu2>0.5</mu2>
-                <fdir1>1 0 0</fdir1>
-              </ode>
+            <ode>
+              <mu>0.9</mu>
+              <mu2>1</mu2>
+              <fdir1>1 1 0</fdir1>
+              <slip1>0.1</slip1>
+              <slip2>0.1</slip2>
+            </ode>
             </friction>
           </surface>
         </collision>
@@ -245,11 +254,12 @@
       <link name='front_right_wheel'>
         <pose>0.1 -0.088 0.05 0 1.5707 1.5707</pose>
       <mass>0.408233</mass>
+      <mass>0.408233</mass>
         <inertial>
         <inertia>
-          <ixx>0.3</ixx>
-          <iyy>0.3</iyy>
-          <izz>0.3</izz>
+          <ixx>0.003</ixx>
+          <iyy>0.003</iyy>
+          <izz>0.003</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -283,11 +293,13 @@
           </geometry>
           <surface>
             <friction>
-              <ode>
-                <mu>0.5</mu>
-                <mu2>0.5</mu2>
-                <fdir1>1 0 0</fdir1>
-              </ode>
+            <ode>
+              <mu>0.9</mu>
+              <mu2>1</mu2>
+              <fdir1>1 1 0</fdir1>
+              <slip1>0.1</slip1>
+              <slip2>0.1</slip2>
+            </ode>
             </friction>
           </surface>
         </collision>
@@ -584,6 +596,7 @@
         <limit>
             <lower>-1.79769e+308</lower>    <!--negative infinity-->
             <upper>1.79769e+308</upper>     <!--positive infinity-->
+            <velocity>1</velocity>
         </limit>
         <dynamics>
           <damping>1</damping>
@@ -621,6 +634,7 @@
         <limit>
             <lower>-1.79769e+308</lower>    <!--negative infinity-->
             <upper>1.79769e+308</upper>     <!--positive infinity-->
+            <velocity>1</velocity>
         </limit>
         <dynamics>
           <damping>1</damping>
@@ -659,6 +673,7 @@
         <limit>
             <lower>-1.79769e+308</lower>    <!--negative infinity-->
             <upper>1.79769e+308</upper>     <!--positive infinity-->
+            <velocity>1</velocity>
         </limit>
         <dynamics>
           <damping>1</damping>
@@ -696,6 +711,7 @@
         <limit>
             <lower>-1.79769e+308</lower>    <!--negative infinity-->
             <upper>1.79769e+308</upper>     <!--positive infinity-->
+            <velocity>1</velocity>
         </limit>
         <dynamics>
           <damping>1</damping>

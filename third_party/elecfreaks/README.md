@@ -31,6 +31,28 @@ Here is the diagram of workflow:
 5) How to set things up outside of docker
 
 
+# Qucik set up
+1) Open the browser: https://makecode.microbit.org/
+2) Drag `microbit-initalizer.sh` to the site
+3) Wait for it to complete the load.
+4) Plug your microbit with your computer
+5) Click the download bottom right
+![download_image](_static/download_image.png)
+6) Once it's complete, you can unplug the usb off your microbit.
 
+# Qucik start instruction:
+1) `sudo systemctl stop bluetooth.service` on your terminal
+2) `sudo systemctl stop bluetooth` on your terminal
+3) Navigate to `feagi/src/feagi_configuration.ini`
+4) Edit that file
+5) Change from `gazebo` and `ros-gazebo` under [Socket] to 127.0.0.1 or your computer's IP
+6) Navigate to `feagi/third_party/godot/src`
+7) edit configuration.py
+8) Replace "feagi" next to feagi_host to 127.0.0.1 or the computer where FEAGI is on.
+9) Turn Microbit on
+10) Navigate to feagi/docker/
+11) `docker compose -f microbit_feagi.yml build` 
+12) `docker compose -f microbit_feagi.yml up`
+13) Wait until you see Microbit's led saying 'C', it's ready
 
 

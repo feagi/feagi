@@ -2,11 +2,33 @@ import React, { useState, useEffect } from "react";
 // import CircularProgress from "@mui/material/CircularProgress";
 import Stack from "@mui/material/Stack";
 import Iframe from "react-iframe";
+import Box from "@mui/material/Box";
+import AppBar from "@mui/material/AppBar";
+import Toolbar from "@mui/material/Toolbar";
+import IconButton from "@mui/material/IconButton";
+import MenuIcon from "@mui/icons-material/Menu";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import Drawer from "@mui/material/Drawer";
+import Divider from "@mui/material/Divider";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ReplayIcon from "@mui/icons-material/Replay";
+import ListItemText from "@mui/material/ListItemText";
+import Tooltip from "@mui/material/Tooltip";
+import { Route, Routes, Navigate, useNavigate } from "react-router-dom";
+import { MdAutoGraph } from 'react-icons/md';
+import { BiDna } from 'react-icons/bi';
+import { FiZap } from 'react-icons/fi';
+import { GiBrainDump } from 'react-icons/gi';
 
 const MonitoringDashboard = () => {
   const [frameHeight, setFrameHeight] = useState("");
   const [godotFrameLoaded, setGodotFrameLoaded] = useState(false);
   const [gazeboFrameLoaded, setGazeboFrameLoaded] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  let navigate = useNavigate();
 
   useEffect(() => {
     const clientHeight = document.documentElement.scrollHeight;
@@ -31,15 +53,131 @@ const MonitoringDashboard = () => {
     setGazeboFrameLoaded(true);
   };
 
+  const handleMenuClick = () => {
+    setDrawerOpen(!drawerOpen);
+  };
+
+  const handleGenomeReload = () => {
+    navigate("/genome/mode");
+  };
+
+  const handleActicityMonitor = () => {
+    window.open("http://localhost:6082/d/Se3OI7f7k/feagi-brain-activity-analyzer?orgId=1&refresh=1s", "_blank", "noopener,noreferrer");
+  };
+
+
+  const drawerList = () => (
+    <Box
+      sx={{ width: "400px" }}
+      role="presentation"
+      onClick={() => setDrawerOpen(false)}
+      onKeyDown={() => setDrawerOpen(false)}
+    >
+      <List>
+        {/* <ListItem button>
+          <ListItemIcon>
+            <AccessAlarmIcon />
+          </ListItemIcon>
+          <ListItemText primary="Change Burst Frequency" />
+        </ListItem>
+        <Divider />
+        <ListItem button>
+          <ListItemIcon>
+            <CameraAltIcon />
+          </ListItemIcon>
+          <ListItemText primary="Take Connectome Snapshot" />
+        </ListItem>
+        <Divider /> */}
+        <ListItem button onClick={handleGenomeReload}>
+          <ListItemIcon>
+            <ReplayIcon />
+          </ListItemIcon>
+          <ListItemText primary="Reload Genome" />
+        </ListItem>
+        <Divider />
+      </List>
+    </Box>
+  );
+
+
   return (
+    <>
+    <Stack sx={{ flexGrow: 1 }}>
+      <AppBar
+          position="static"
+          color="transparent"
+          sx={{ mt: 1, mb: 0, ml: 1, mr: 1 }}
+      >
+          <Toolbar>
+            <Tooltip title="Reload Genome">
+            <IconButton
+              color="inherit"
+              onClick={handleGenomeReload}
+              // edge="start"
+            >
+              <BiDna />
+            </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Launch Brain Activity Monitor">
+                <IconButton
+                  color="inherit"
+                  onClick={handleActicityMonitor}
+                  // edge="start"
+                >
+                  <MdAutoGraph />
+                </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Shock Administrator (Coming Soon..)">
+                <IconButton
+                  color="inherit"
+                  // onClick={handleActicityMonitor}
+                  // edge="start"
+                >
+                  <FiZap />
+                </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Preserve Brain State (Coming Soon..)">
+                <IconButton
+                  color="inherit"
+                  // onClick={handleActicityMonitor}
+                  // edge="start"
+                >
+                  <GiBrainDump />
+                </IconButton>
+            </Tooltip>
+
+
+          </Toolbar>
+        </AppBar>
+    </Stack>
+
     <Stack
       direction="row"
       alignItems="center"
       justifyContent="center"
       spacing={1}
-      sx={{ mt: 2, mb: 2, ml: 1, mr: 1 }}
+      sx={{ mt: 1, mb: 2, ml: 1, mr: 1 }}
     >
       {/* {godotFrameLoaded ? ( */}
+
+      <Drawer
+        anchor="left"
+        variant="temporary"
+        elevation={3}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      >
+        <Box textAlign="center" role="presentation">
+          <Typography variant="h5" component="div" sx={{ m: 2 }}>
+            Configuration
+          </Typography>
+          <Divider />
+        </Box>
+        {drawerList()}
+      </Drawer>
       <iframe
         id="godotFrame"
         src="http://localhost:6081"
@@ -68,6 +206,8 @@ const MonitoringDashboard = () => {
         onLoad={handleGazeboLoad}
       />
     </Stack>
+    </>
+
   );
 };
 
