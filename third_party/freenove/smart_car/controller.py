@@ -24,6 +24,7 @@ import RPi.GPIO as GPIO
 import math
 import traceback
 import configuration
+import requests
 
 from collections import deque
 from datetime import datetime
@@ -127,7 +128,7 @@ class LED:
             self.led.ledIndex(0x40, 128, 0, 128)  # purple
             self.led.ledIndex(0x80, 255, 255, 255)  # white'''
             print("The LED has been lit, the color is red orange yellow green cyan-blue blue white")
-            time.sleep(3)  # wait 3s
+            #time.sleep(3)  # wait 3s
             self.led.colorWipe("", Color(0, 0, 0))  # turn off the light
             print("\nEnd of program")
         except KeyboardInterrupt:
@@ -450,10 +451,38 @@ class Ultrasonic:
 
 
 def main(args=None):
+    GPIO.cleanup()
+    print("Connecting to FEAGI resources...")
+
+    # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_outbound_port']
+
+    feagi_host = configuration.network_settings["feagi_host"]
+    api_port = configuration.network_settings["feagi_api_port"]
+
+    feagi_registration(feagi_host=feagi_host, api_port=api_port)
+
+    print("** **", runtime_data["feagi_state"])
+    network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
+
+    # todo: to obtain this info directly from FEAGI as part of registration
+    ipu_channel_address = 'tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_gazebo']
+    print("IPU_channel_address=", ipu_channel_address)
+    opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + \
+                          runtime_data["feagi_state"]['feagi_outbound_port']
+
+    feagi_ipu_channel = router.Pub(address=ipu_channel_address)
+    feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
+
     flag = False
     counter = 0
     old_opu_data = {}
     print("Connecting to FEAGI resources...")
+
+    feagi_host = configuration.network_settings["feagi_host"]
+    api_port = configuration.network_settings["feagi_api_port"]
+    api_address = 'http://' + feagi_host + ':' + api_port
+    stimulation_period_endpoint = '/v1/feagi/feagi/burst_engine/stimulation_period'
+    burst_counter_endpoint = '/v1/feagi/feagi/burst_engine/burst_counter'
 
     motor = Motor()
     ir = IR()
@@ -469,6 +498,11 @@ def main(args=None):
     rolling_window = {}
     for motor_id in range(motor_count):
         rolling_window[motor_id] = deque([0] * rolling_window_len)
+
+    RPM = (50 * 60) / 2  # DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60 is the seconds of a minute
+    w = (RPM / 60) * (2 * math.pi)  # 60 is second/minute
+    velocity = w * (capabilities['motor']['diameter_of_wheel'] / 2)
+    #^ diameter is from config and it just needs radius so I turned the diameter into a radius by divide it with 2
 
     try:
         while True:
@@ -509,14 +543,23 @@ def main(args=None):
            # print("Received:", opu_data)
             if message_from_feagi is not None:
                 opu_data = message_from_feagi["opu_data"]
+
                 if 'o__mot' in opu_data:
                     for data_point in opu_data['o__mot']:
                         data_point = block_to_array(data_point)
                         device_id = motor.motor_converter(data_point[0])
                         device_power = data_point[2]
                         device_power = motor.power_convert(data_point[0], device_power)
-                        motor.move(device_id, (device_power))
+                        print("--------------DEBUG----------")
+                        # RPM = (50 * 60) / 2 # DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60 is the seconds of a minute
+                        # w = (RPM / 60) * (2 * math.pi)  #60 is second/minute
+                        # velocity = w * (capabilities['motor']['diameter_of_wheel']/2) # diameter is from config and it just needs radius so I turned the diameter into a radius by divide it with 2
+                        print("VELOCITY: ", velocity)
+                        print(device_power * 455)
+                        motor.move(device_id, (device_power * 455))
                         # flag = True
+                    # if opu_data['o__mot']  == {}:
+                    #     motor.stop()  # When it's empty inside opu_data['o__mot']
                 for data_point in opu_data['o__mot'].keys():
                     print("",data_point)
                     if not data_point in old_opu_data:
@@ -547,9 +590,17 @@ def main(args=None):
             feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
             msg_counter += 1
-
-            time.sleep(network_settings['feagi_burst_speed'])
-            #motor.stop()
+            flag += 1
+            if flag == 10:
+                feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
+                feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
+                flag = 0
+                if msg_counter < feagi_burst_counter:
+                    feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
+                    if feagi_burst_speed != network_settings['feagi_burst_speed']:
+                        network_settings['feagi_burst_speed'] = feagi_burst_speed
+            time.sleep((network_settings['feagi_burst_speed'])/velocity)
+            motor.stop()
             # if flag:
             #     if counter < 3:
             #         counter += msg_counter
@@ -564,26 +615,4 @@ def main(args=None):
 
 
 if __name__ == '__main__':
-    GPIO.cleanup()
-    print("Connecting to FEAGI resources...")
-
-    # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_outbound_port']
-
-    feagi_host = configuration.network_settings["feagi_host"]
-    api_port = configuration.network_settings["feagi_api_port"]
-
-    feagi_registration(feagi_host=feagi_host, api_port=api_port)
-
-    print("** **", runtime_data["feagi_state"])
-    network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
-
-    # todo: to obtain this info directly from FEAGI as part of registration
-    ipu_channel_address = 'tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_gazebo']
-    print("IPU_channel_address=", ipu_channel_address)
-    opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + \
-                          runtime_data["feagi_state"]['feagi_outbound_port']
-
-    feagi_ipu_channel = router.Pub(address=ipu_channel_address)
-    feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
-
     main()
