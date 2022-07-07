@@ -39,9 +39,9 @@ const ChooseEnvironment = () => {
           <MenuCard
             image={<GiVintageRobot size={150} />}
             label="Physical Robot"
-            // onClick={handlePhysicalRobotClick}
+            onClick={handlePhysicalRobotClick}
             changeColorOnClick={false}
-            grayedOut={true}
+            grayedOut={false}
           />
         </Item>
         <Item>
