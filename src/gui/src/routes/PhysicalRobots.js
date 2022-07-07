@@ -9,10 +9,15 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Item from "../components/Item";
 import MenuCard from "../components/MenuCard";
+import DialogActions from '@mui/material/DialogActions';
+import Button from '@mui/material/Button';
+import { useNavigate } from "react-router-dom";
+
 
 const PhysicalRobots = () => {
   const [freenoveDialogOpen, setFreenoveDialogOpen] = useState(false);
   const [microbitDialogOpen, setMicrobitDialogOpen] = useState(false);
+  let navigate = useNavigate();
 
   const handleFreenoveDialogOpen = () => {
     setFreenoveDialogOpen(true);
@@ -30,6 +35,10 @@ const PhysicalRobots = () => {
     setMicrobitDialogOpen(false);
   };
 
+  const genomeActions = () => {
+    navigate("/genome/mode");
+  };
+
   const showFreenoveDialog = () => {
     return (
       <>
@@ -37,14 +46,22 @@ const PhysicalRobots = () => {
           <DialogTitle>Freenove SmartCar Setup</DialogTitle>
           <DialogContent>
             <DialogContentText>
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
-              eiusmod tempor incididunt ut labore et dolore magna aliqua.
-              Pretium vulputate sapien nec sagittis aliquam malesuada bibendum.
-              Id ornare arcu odio ut sem nulla pharetra diam sit. Eget sit amet
-              tellus cras adipiscing enim. Vel risus commodo viverra maecenas
-              accumsan lacus.
+              4WD Smart Car is a RaspberryPi powered STEM kit distributed by <a href="https://freenove.com"> Freenove</a>. FEAGI has support for the
+              controller board installed on this robot and can enable you to read sensory data from ultrasonic and
+              infrared sensors while being able to control the motors and servos available on the smart-car through
+              FEAGI and as a result of neuronal activities.<br/>
+              <br/>
+              If you are in possession of this robot, prior to proceeding to genome actions step, ensure you follow instructions located under
+              <a href="https://github.com/feagi/feagi/wiki"> Freenove Setup Guide</a>
+              to connect FEAGI with your robot.
+
             </DialogContentText>
           </DialogContent>
+          <DialogActions>
+            <Button autoFocus onClick={genomeActions}>
+              Proceed to genome actions...
+            </Button>
+        </DialogActions>
         </Dialog>
       </>
     );
@@ -57,13 +74,22 @@ const PhysicalRobots = () => {
           <DialogTitle>Microbit Setup</DialogTitle>
           <DialogContent>
             <DialogContentText>
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
-              eiusmod tempor incididunt ut labore et dolore magna aliqua. Nunc
-              vel risus commodo viverra maecenas accumsan lacus vel. Aliquet
-              sagittis id consectetur purus ut faucibus pulvinar elementum.
-              Tincidunt dui ut ornare lectus sit amet est placerat. Ullamcorper
-              sit amet risus nullam eget.
+              The <a href="https://microbit.org"> Microbit</a> a pocket-sized computer that makes learning coding easy and fun.
+              Microbit is packed with many capabilities but at this time FEAGI is only capable of interacting with its motor driver.
+
+              <br/>
+              <br/>
+              If you are in possession of this robot, prior to proceeding to genome actions step, ensure you follow instructions located under
+              <a href="https://github.com/feagi/feagi/wiki"> Microbit Setup Guide</a>
+              to connect FEAGI with your robot.
+
+
             </DialogContentText>
+            <DialogActions>
+            <Button autoFocus onClick={genomeActions}>
+              Proceed to genome actions...
+            </Button>
+        </DialogActions>
           </DialogContent>
         </Dialog>
       </>
