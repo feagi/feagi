@@ -34,8 +34,8 @@ from evo.synapse import cortical_mapping
 
 
 description = """
-FEAGI REST API will help you integrate FEAGI into other applications and provides a programmatic method to interact with FEAGI.
-
+FEAGI REST API will help you integrate FEAGI into other applications and provides a programmatic method to interact with 
+FEAGI.
 
 """
 
