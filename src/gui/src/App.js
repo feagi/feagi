@@ -108,7 +108,7 @@ function App() {
 
   const handleHelpClick = () => {
     window.open(
-      "https://github.com/feagi/feagi#readme",
+      "https://github.com/feagi/feagi/wiki#platform-overview",
       "_blank",
       "noopener,noreferrer"
     );
