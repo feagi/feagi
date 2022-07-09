@@ -165,7 +165,11 @@ def feagi_breakdown(data):
     new_genome_num = data['genome_num']
     print("Previous genome #:", runtime_data["genome_number"])
     print("Latest genome #:", new_genome_num)
-    if new_genome_num > runtime_data["genome_number"] or runtime_data["genome_number"] == 0:
+
+    if new_genome_num == 1:
+        runtime_data["genome_number"] = 1
+
+    elif new_genome_num > runtime_data["genome_number"]:
         runtime_data["genome_number"] = new_genome_num
         try:
             runtime_data["cortical_data"] = \
@@ -291,7 +295,7 @@ def feagi_init(feagi_host_, api_port_):
         if runtime_data["cortical_data"]:
             print("###### ------------------------------------------------------------#######")
             print("Cortical Dimensions:\n", runtime_data["cortical_data"])
-            # csv_writer(runtime_data["cortical_data"])
+            csv_writer(runtime_data["cortical_data"])
             awaiting_feagi_registration = False
         time.sleep(1)
 
