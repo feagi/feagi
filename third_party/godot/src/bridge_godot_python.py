@@ -39,7 +39,7 @@ runtime_data = {
     "feagi_network": None,
     "cortical_list": set(),
     "host_network": {},
-    "genome_number": 0
+    "genome_number": None
 }
 
 dimensions_endpoint = '/v1/feagi/connectome/properties/dimensions'
@@ -271,6 +271,14 @@ def feagi_registration(feagi_host, api_port):
         except Exception as e:
             print("Error: The following occurred during registration with FEAGI\n", e)
             pass
+        sleep(1)
+
+    while not runtime_data["genome_number"]:
+        data = FEAGI_sub.receive()
+        if data:
+            if data['genome_num']:
+                runtime_data["genome_number"] = data['genome_num']
+        print("Awaiting sync with burst engine")
         sleep(1)
 
 
