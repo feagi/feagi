@@ -290,7 +290,7 @@ def feagi_init(feagi_host, api_port):
         if runtime_data["cortical_data"]:
             print("###### ------------------------------------------------------------#######")
             print("Cortical Dimensions:\n", runtime_data["cortical_data"])
-            csv_writer(runtime_data["cortical_data"])
+            # csv_writer(runtime_data["cortical_data"])
             awaiting_feagi_registration = False
         time.sleep(1)
 
