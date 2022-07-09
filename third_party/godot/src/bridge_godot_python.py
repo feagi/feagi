@@ -283,11 +283,9 @@ def feagi_init(feagi_host_, api_port_):
         print("%" * 80)
         print("data:", data)
         if data:
-            print("#", data)
-            if data['genome_num']:
-                print("##", data['genome_num'])
-                runtime_data["genome_number"] = data['genome_num']
-                print("Burst engine sync completed.")
+            print("##", data['genome_num'])
+            runtime_data["genome_number"] = data['genome_num']
+            print("Burst engine sync completed.")
         print("Awaiting sync with burst engine")
         sleep(1)
 
