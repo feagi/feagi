@@ -254,17 +254,17 @@ async def main():
         await asyncio.Future()  # run forever
 
 
-def feagi_registration(feagi_host, api_port):
-    app_host_info = router.app_host_info()
-    runtime_data["host_network"]["host_name"] = app_host_info["host_name"]
-    runtime_data["host_network"]["ip_address"] = app_host_info["ip_address"]
+def feagi_registration(feagi_host_, api_port_):
+    app_host_info_ = router.app_host_info()
+    runtime_data["host_network"]["host_name"] = app_host_info_["host_name"]
+    runtime_data["host_network"]["ip_address"] = app_host_info_["ip_address"]
 
     while runtime_data["feagi_state"] is None:
         print("Awaiting registration with FEAGI...1")
         try:
             runtime_data["feagi_state"] = router.register_with_feagi(app_name=configuration.app_name,
-                                                                     feagi_host=feagi_host,
-                                                                     api_port=api_port,
+                                                                     feagi_host=feagi_host_,
+                                                                     api_port=api_port_,
                                                                      app_capabilities=configuration.capabilities,
                                                                      app_host_info=runtime_data["host_network"]
                                                                      )
@@ -273,16 +273,8 @@ def feagi_registration(feagi_host, api_port):
             pass
         sleep(1)
 
-    while not runtime_data["genome_number"]:
-        data = FEAGI_sub.receive()
-        if data:
-            if data['genome_num']:
-                runtime_data["genome_number"] = data['genome_num']
-        print("Awaiting sync with burst engine")
-        sleep(1)
 
-
-def feagi_init(feagi_host, api_port):
+def feagi_init(feagi_host_, api_port_):
     # Send a request to FEAGI for cortical dimensions
     awaiting_feagi_registration = True
     while awaiting_feagi_registration:
@@ -291,7 +283,7 @@ def feagi_init(feagi_host, api_port):
         FEAGI_pub.send({"godot_init": True})
 
         runtime_data["cortical_data"] = \
-            requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
+            requests.get('http://' + feagi_host_ + ':' + api_port_ + dimensions_endpoint).json()
 
         print("Cortical_data", runtime_data["cortical_data"])
 
@@ -301,6 +293,14 @@ def feagi_init(feagi_host, api_port):
             # csv_writer(runtime_data["cortical_data"])
             awaiting_feagi_registration = False
         time.sleep(1)
+
+    while not runtime_data["genome_number"]:
+        data = FEAGI_sub.receive()
+        if data:
+            if data['genome_num']:
+                runtime_data["genome_number"] = data['genome_num']
+        print("Awaiting sync with burst engine")
+        sleep(1)
 
 
 if __name__ == "__main__":
