@@ -155,7 +155,6 @@ def name_to_id(name):
             return runtime_data["cortical_data"][cortical_area][7]
     else:
         pass
-        #print("*** Failed to find cortical name ***" )
 
 
 def feagi_breakdown(data):
@@ -165,10 +164,15 @@ def feagi_breakdown(data):
     new_list = []
     new_genome_num = data['genome_num']
     if new_genome_num > runtime_data["genome_number"]:
-        runtime_data["cortical_data"] = \
-            requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
-        csv_writer(runtime_data["cortical_data"])
         runtime_data["genome_number"] = new_genome_num
+        try:
+            runtime_data["cortical_data"] = \
+                requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
+            csv_writer(runtime_data["cortical_data"])
+            sleep(2)
+        except Exception as e:
+            print("Error during CSV creation\n", e)
+
     for i in data['godot']:
         xyz = i[1], i[2], i[3]
         new_list.append(xyz)
@@ -187,14 +191,16 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
         for key in stimulation_from_godot["data"]["direct_stimulation"]:
             for name_match in cortical_data:
                 raw_id = name_match
-                name_match = name_to_id(name_match) ##convert the human readable name into feagi name
+                name_match = name_to_id(name_match)  # convert the human-readable name into feagi name
                 if name_match == key:
                     if relative_coordinate["data"]["direct_stimulation"].get(name_match) is not None:
                         pass
                     else:
                         relative_coordinate["data"]["direct_stimulation"][name_match] = list()
                     for xyz in stimulation_from_godot["data"]["direct_stimulation"][name_match]:
-                        new_xyz =[xyz[0] - cortical_data[raw_id][0], xyz[1] - cortical_data[raw_id][1], xyz[2] - cortical_data[raw_id][2]]
+                        new_xyz = [xyz[0] - cortical_data[raw_id][0],
+                                   xyz[1] - cortical_data[raw_id][1],
+                                   xyz[2] - cortical_data[raw_id][2]]
                         relative_coordinate["data"]["direct_stimulation"][name_match].append(new_xyz)
 
             else:
@@ -206,7 +212,7 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
 
 
 async def echo(websocket):
-    godot_list = {}  ##initalized the list from Godot
+    godot_list = {}  # initalized the list from Godot
 
     while True:
         one_frame = FEAGI_sub.receive()
@@ -214,12 +220,16 @@ async def echo(websocket):
         # print("data: ", one_frame)
         if one_frame is not None:
             one_frame = feagi_breakdown(one_frame)
-            await websocket.send(str(one_frame))
-            #print("Waiting on recv")
+            try:
+                await websocket.send(str(one_frame))
+            except Exception as e:
+                print("Error during websocket processing:\n   ", e)
+            # print("Waiting on recv")
         data_from_godot = await websocket.recv()
-        data_from_godot = data_from_godot.decode('UTF-8') ##ADDED this line to decode into string only
-        #print(data_from_godot)
-        if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and data_from_godot != "refresh" and data_from_godot != "[]"):
+        data_from_godot = data_from_godot.decode('UTF-8')  # ADDED this line to decode into string only
+        # print(data_from_godot)
+        if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list
+                and data_from_godot != "refresh" and data_from_godot != "[]"):
             print(data_from_godot)
             godot_list = godot_data(data_from_godot)
             converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=godot_list,
