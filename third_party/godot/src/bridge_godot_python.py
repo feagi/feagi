@@ -39,7 +39,7 @@ runtime_data = {
     "feagi_network": None,
     "cortical_list": set(),
     "host_network": {},
-    "genome_number": None
+    "genome_number": 0
 }
 
 dimensions_endpoint = '/v1/feagi/connectome/properties/dimensions'
@@ -165,7 +165,7 @@ def feagi_breakdown(data):
     new_genome_num = data['genome_num']
     print("Previous genome #:", runtime_data["genome_number"])
     print("Latest genome #:", new_genome_num)
-    if new_genome_num > runtime_data["genome_number"]:
+    if new_genome_num > runtime_data["genome_number"] or runtime_data["genome_number"] == 0:
         runtime_data["genome_number"] = new_genome_num
         try:
             runtime_data["cortical_data"] = \
@@ -278,17 +278,6 @@ def feagi_init(feagi_host_, api_port_):
     # Send a request to FEAGI for cortical dimensions
     awaiting_feagi_registration = True
 
-    while not runtime_data["genome_number"]:
-        data = FEAGI_sub.receive()
-        print("%" * 80)
-        print("data:", data)
-        if data:
-            print("##", data['genome_num'])
-            runtime_data["genome_number"] = data['genome_num']
-            print("Burst engine sync completed.")
-        print("Awaiting sync with burst engine")
-        sleep(1)
-
     while awaiting_feagi_registration:
         print("********* ************ ********** ************* ***************\n")
         print("Awaiting registration with FEAGI...2")
@@ -305,8 +294,6 @@ def feagi_init(feagi_host_, api_port_):
             # csv_writer(runtime_data["cortical_data"])
             awaiting_feagi_registration = False
         time.sleep(1)
-
-
 
 
 if __name__ == "__main__":
