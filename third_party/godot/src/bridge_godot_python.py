@@ -316,7 +316,7 @@ if __name__ == "__main__":
     feagi_host = configuration.network_settings["feagi_host"]
     api_port = configuration.network_settings["feagi_api_port"]
 
-    feagi_registration(feagi_host=feagi_host, api_port=api_port)
+    feagi_registration(feagi_host_=feagi_host, api_port_=api_port)
 
     print("** **", runtime_data["feagi_state"])
 
@@ -331,7 +331,7 @@ if __name__ == "__main__":
     opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"]['feagi_outbound_port']
     FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
-    feagi_init(feagi_host=feagi_host, api_port=api_port)
+    feagi_init(feagi_host_=feagi_host, api_port_=api_port)
     print("FEAGI initialization completed successfully")
 
     asyncio.run(main())
