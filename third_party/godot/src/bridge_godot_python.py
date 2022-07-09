@@ -227,11 +227,8 @@ async def echo(websocket):
             except Exception as e:
                 print("Error during websocket processing:\n   ", e)
 
-        try:
-            data_from_godot = await websocket.recv()
-            data_from_godot = data_from_godot.decode('UTF-8')  # ADDED this line to decode into string only
-        except Exception as e:
-            print("Error while receiving websocket data\n", e)
+        data_from_godot = await websocket.recv()
+        data_from_godot = data_from_godot.decode('UTF-8')  # ADDED this line to decode into string only
 
         if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list
                 and data_from_godot != "refresh" and data_from_godot != "[]"):
