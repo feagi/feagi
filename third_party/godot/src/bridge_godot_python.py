@@ -277,6 +277,18 @@ def feagi_registration(feagi_host_, api_port_):
 def feagi_init(feagi_host_, api_port_):
     # Send a request to FEAGI for cortical dimensions
     awaiting_feagi_registration = True
+
+    while not runtime_data["genome_number"]:
+        data = FEAGI_sub.receive()
+        print("%" * 80)
+        print("data:", data)
+        if data:
+            if data['genome_num']:
+                runtime_data["genome_number"] = data['genome_num']
+                print("Burst engine sync completed.")
+        print("Awaiting sync with burst engine")
+        sleep(1)
+
     while awaiting_feagi_registration:
         print("********* ************ ********** ************* ***************\n")
         print("Awaiting registration with FEAGI...2")
@@ -294,16 +306,7 @@ def feagi_init(feagi_host_, api_port_):
             awaiting_feagi_registration = False
         time.sleep(1)
 
-    while not runtime_data["genome_number"]:
-        data = FEAGI_sub.receive()
-        print("%" * 80)
-        print("data:", data)
-        if data:
-            if data['genome_num']:
-                runtime_data["genome_number"] = data['genome_num']
-                print("Burst engine sync completed.")
-        print("Awaiting sync with burst engine")
-        sleep(1)
+
 
 
 if __name__ == "__main__":
