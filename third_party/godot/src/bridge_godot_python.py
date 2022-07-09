@@ -77,9 +77,9 @@ def csv_writer(cortical_dimensions):
     print("Godot CSV has been created.")
 
 
-def breakdown(feagi_input):  ##add input soon
+def breakdown(feagi_input):  # add input soon
     """
-    #TODO: Explain what this is for
+    # TODO: Explain what this is for
     """
     data = feagi_input
     data = list(data)
@@ -163,6 +163,8 @@ def feagi_breakdown(data):
     """
     new_list = []
     new_genome_num = data['genome_num']
+    print("Previous genome #:", runtime_data["genome_number"])
+    print("Latest genome #:", new_genome_num)
     if new_genome_num > runtime_data["genome_number"]:
         runtime_data["genome_number"] = new_genome_num
         try:
@@ -224,10 +226,13 @@ async def echo(websocket):
                 await websocket.send(str(one_frame))
             except Exception as e:
                 print("Error during websocket processing:\n   ", e)
-            # print("Waiting on recv")
-        data_from_godot = await websocket.recv()
-        data_from_godot = data_from_godot.decode('UTF-8')  # ADDED this line to decode into string only
-        # print(data_from_godot)
+
+        try:
+            data_from_godot = await websocket.recv()
+            data_from_godot = data_from_godot.decode('UTF-8')  # ADDED this line to decode into string only
+        except Exception as e:
+            print("Error while receiving websocket data\n", e)
+
         if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list
                 and data_from_godot != "refresh" and data_from_godot != "[]"):
             print(data_from_godot)
