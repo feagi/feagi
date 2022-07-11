@@ -54,6 +54,8 @@ var connected = false
 var stored_csv = ""
 var global_name_list = []
 var global_id
+var start = 0 #for timer
+var end = 0 #for timer
 
 
 func _ready():
@@ -94,9 +96,15 @@ func _ready():
 	while true:
 		_process(self)
 		stored_value = data
-		generate_voxels()
+		start = OS.get_ticks_msec()## This will time the engine at start
 		yield(get_tree().create_timer(0.01), "timeout")
 		$GridMap.clear()
+		end = OS.get_ticks_msec()
+		var time_total = end - start
+		if time_total < 500: ## Generate voxels as long as you are on the tab
+			generate_voxels()
+		else:
+			websocket.send("lagged")
 
 
 func _process(_delta):
