@@ -331,7 +331,8 @@ def init_brain():
     init_genome_post_processes()
     generate_plasticity_dict()
     runtime_data.new_genome = True
-    runtime_data.burst_timer = float(runtime_data.genome['burst_delay'])
+    if runtime_data.genome['burst_delay']:
+        runtime_data.burst_timer = float(runtime_data.genome['burst_delay'])
 
 
 def init_burst_engine():
