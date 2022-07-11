@@ -29,7 +29,7 @@ from queue import Queue
 from inf import feagi
 from inf import runtime_data
 from inf.baseline import gui_baseline
-from evo import static_genome
+from evo import static_genome, autopilot
 from evo.synapse import cortical_mapping
 
 
@@ -224,7 +224,7 @@ async def genome_file_upload(file: UploadFile = File(...)):
 async def genome_string_upload(str_genome: Genome):
     try:
         genome = str_genome.genome
-
+        print("@@@@@@@@@   @@@@@@@\n", genome)
         message = {'genome': genome}
         api_queue.put(item=message)
 
@@ -282,6 +282,58 @@ async def genome_number():
     """
     try:
         return runtime_data.genome_counter
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+# ######  Evolution #########
+# #############################
+
+@app.api_route("/v1/feagi/evolution/autopilot/status", methods=['GET'], tags=["Evolution"])
+async def retrun_autopilot_status():
+    """
+    Returns the status of genome autopilot system.
+    """
+    try:
+        return runtime_data.autopilot
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.post("/v1/feagi/evolution/autopilot/on", tags=["Evolution"])
+async def turn_autopilot_on():
+    try:
+        if not runtime_data.autopilot:
+            autopilot.init_generation_dict()
+            if runtime_data.brain_run_id:
+                autopilot.update_generation_dict()
+            runtime_data.autopilot = True
+            print("<" * 30, "  Autopilot has been turned on  ", ">" * 30)
+        return
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.post("/v1/feagi/evolution/autopilot/off", tags=["Evolution"])
+async def turn_autopilot_off():
+    try:
+        runtime_data.autopilot = False
+        return
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/evolution/generations", methods=['GET'], tags=["Evolution"])
+async def list_generations():
+    """
+    Return details about all generations.
+    """
+    try:
+        return runtime_data.generation_dict
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}

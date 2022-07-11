@@ -176,6 +176,23 @@ const FeagiAPI = {
     return response.data;
   },
 
+  async postAutopilot() {
+    const response = await axios
+      .post(
+        `${FEAGI_URL}/feagi/evolution/autopilot/on`,
+        {},
+        {
+          headers: {},
+          params: {},
+        }
+      )
+      .catch((error) => {
+        console.error(error);
+        throw error;
+      });
+    return response.data;
+  },
+
   async getDefaultGenomes() {
     const response = await axios
       .get(`${FEAGI_URL}/feagi/genome/defaults/files`, {
