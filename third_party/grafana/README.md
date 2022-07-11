@@ -17,7 +17,7 @@ from(bucket: "example-bucket")
 ```
 **Sample Flux query**
 
-## **Deploying networked FEAGI, InfluxDB and Grafana containers using `docker-compose`**
+## **Deploying networked FEAGI, InfluxDB and Grafana containers using `docker-compose`(Outdated)**
 To deploy a containerized setup consisting of FEAGI, InfluxDB and Grafana, navigate to `/feagi/docker/` and enter the following commands as shown below (assuming both [Docker](https://docs.docker.com/get-docker/) and [docker-compose](https://docs.docker.com/compose/install/) are installed on the host machine):
 
 **Build the images**
