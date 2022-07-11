@@ -15,6 +15,7 @@
 <!--limitations under the License.-->
 <!--==============================================================================-->
   <world name="free_world">
+  <scene><grid>false</grid></scene>
 
     <physics name="1ms" type="ignored">
       <max_step_size>0.01</max_step_size>
