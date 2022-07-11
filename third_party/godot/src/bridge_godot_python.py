@@ -207,18 +207,23 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
 
 async def echo(websocket):
     godot_list = {}  ##initalized the list from Godot
-
+    detect_lag = False
+    new_FEAGI_sub = FEAGI_sub
     while True:
-        one_frame = FEAGI_sub.receive()
-        # print("^^^^^^^^^^^^ ^^^^^^ +++++++++++++++++  ^^^^^^^^^^^^^^ ^ ^^  ^^^^^^^^^^^")
-        # print("data: ", one_frame)
+        if detect_lag:
+            opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
+                'feagi_outbound_port']
+            new_FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+            detect_lag = False
+        one_frame = new_FEAGI_sub.receive()
         if one_frame is not None:
             one_frame = feagi_breakdown(one_frame)
             await websocket.send(str(one_frame))
-            #print("Waiting on recv")
         data_from_godot = await websocket.recv()
         data_from_godot = data_from_godot.decode('UTF-8') ##ADDED this line to decode into string only
-        #print(data_from_godot)
+        if data_from_godot == "lagged":
+            detect_lag = True
+            data_from_godot = "{}"
         if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and data_from_godot != "refresh" and data_from_godot != "[]"):
             print(data_from_godot)
             godot_list = godot_data(data_from_godot)
