@@ -27,6 +27,18 @@ from inf.initialize import id_gen
 from api import message_processor
 
 
+def init_autopilot_folders():
+
+    if not os.path.isdir('./evo/autopilot/generations'):
+        os.mkdir('./evo/autopilot/generations')
+
+    if not os.path.isdir('./evo/autopilot/embodiments'):
+        os.mkdir('./evo/autopilot/embodiments')
+
+    if not os.path.isdir('./evo/autopilot/environments'):
+        os.mkdir('./evo/autopilot/environments')
+
+
 def process_manager():
     pass
 
@@ -89,6 +101,7 @@ def init_generation_dict():
     }
 
     """
+    init_autopilot_folders()
     runtime_data.current_generation_dict_id = id_gen(signature='_C')  # C for generation collection
     with open('./evo/autopilot/generations/' + runtime_data.current_generation_dict_id + '.json', "w") as data_file:
         data = {}
