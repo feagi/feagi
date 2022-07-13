@@ -1,3 +1,5 @@
+For the most up to date information regarding genomes and genome, structure, please refer to our [Wiki](https://github.com/feagi/feagi/wiki/Interpreting-A-Genome).
+
 # **Genome**
 
 The genome is a data structure comprised of key-value pairs that provides user-configurable anatomical and physiological parameters to FEAGI for artificial brain development. The neuroembryogenesis module (`src/evo/neuroembryogenesis.py`) processes genome data and generates virtual anatomical features within the artificial brain, such as cortical areas, cortical layers, neurons and synapses. Users can generate an artificial brain capable of processing various input data types (via the Input Processing Unit - `src/ipu/source/`) and generating desirable behavior in a medium (ex: a robot) solely through modification of the seed genome. 

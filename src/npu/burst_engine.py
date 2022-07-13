@@ -42,6 +42,7 @@ from inf.messenger import Pub, Sub
 from pns.pns_router import opu_router, stimuli_router
 from api.message_processor import api_message_processor
 from trn.shock import shock_manager
+from evo.autopilot import load_new_genome
 
 
 def cortical_group_members(group):
@@ -352,6 +353,9 @@ def burst_manager():
         pass
 
     def burst():
+        if runtime_data.autopilot:
+            print('Autopilot is turned on!')
+
         if runtime_data.new_genome:
             runtime_data.beacon_flag = True
             print("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
@@ -468,6 +472,8 @@ def burst_manager():
             try:
                 # consciousness_manager()
                 death_manager()
+                if runtime_data.feagi_state["state"] == "idle" and runtime_data.autopilot:
+                    load_new_genome()
             except:
                 print("consciousness_manager encountered an error!!")
 

@@ -27,7 +27,7 @@ const DefaultGenomes = (props) => {
         sx={{ p: 4, mt: 8 }}
         component="div"
       >
-        Select a Default Genome
+        Select a Sample Genome
       </Typography>
       <Stack
         direction="row"

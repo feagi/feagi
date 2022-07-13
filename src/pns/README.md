@@ -1,6 +1,6 @@
+For the most up to date information regarding OPUs and IPUs, please refer to the [Special Cortical Areas](https://github.com/feagi/feagi/wiki/Special-Cortical-Areas) page of our wiki. 
 
-
-OPU Design and Implementation
+**OPU Design and Implementation**
 
 Placeholder to document the general approach to design and implement an OPU
 

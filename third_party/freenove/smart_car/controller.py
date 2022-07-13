@@ -550,33 +550,28 @@ def main(args=None):
                         device_id = motor.motor_converter(data_point[0])
                         device_power = data_point[2]
                         device_power = motor.power_convert(data_point[0], device_power)
-                        print("--------------DEBUG----------")
                         # RPM = (50 * 60) / 2 # DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60 is the seconds of a minute
                         # w = (RPM / 60) * (2 * math.pi)  #60 is second/minute
                         # velocity = w * (capabilities['motor']['diameter_of_wheel']/2) # diameter is from config and it just needs radius so I turned the diameter into a radius by divide it with 2
-                        print("VELOCITY: ", velocity)
-                        print(device_power * 455)
                         motor.move(device_id, (device_power * 455))
                         # flag = True
                     # if opu_data['o__mot']  == {}:
                     #     motor.stop()  # When it's empty inside opu_data['o__mot']
-                for data_point in opu_data['o__mot'].keys():
-                    print("",data_point)
-                    if not data_point in old_opu_data:
-                        print("key is missing: ", data_point)
+                #for data_point in opu_data['o__mot'].keys():
+                    #print("",data_point)
+                    #if not data_point in old_opu_data:
+                        #print("key is missing: ", data_point)
                         #print("datapoint: ",data_point[data_point])
-                        print(opu_data['o__mot'])
-                        print(type(opu_data['o__mot']))
-                        print(type(data_point))
-                        print(data_point[0])
-                        print(data_point[2])
+                        #print(opu_data['o__mot'])
+                        #print(type(opu_data['o__mot']))
+                        #print(type(data_point))
+                        #print(data_point[0])
+                        #print(data_point[2])
                         # device_id = motor.motor_converter(int(data_point[0]))
                         # device_power = data_point[2]
                         # device_power = motor.power_convert(data_point[0], device_power)
                         # motor.move(device_id, 0)
-                print("BEFORE UPDATE: ", old_opu_data)
-                old_opu_data['o__mot'] = opu_data['o__mot'].copy()
-                print("AFTER UPDATE: ", old_opu_data)
+                #old_opu_data['o__mot'] = opu_data['o__mot'].copy()
                 if 'o__ser' in opu_data:
                     for data_point in opu_data['o__ser']:
                         data_point = block_to_array(data_point)
