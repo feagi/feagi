@@ -5,6 +5,8 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import { styled } from "@mui/material/styles";
 import FeagiAPI from "../services/FeagiAPI";
+import Typography from "@mui/material/Typography";
+import CardActionArea from "@mui/material/CardActionArea";
 
 const Input = styled("input")({
   display: "none",
@@ -29,28 +31,51 @@ const GenomeUploadCard = (props) => {
   };
 
   return (
-    <>
+    <div onClick={props.onClick ? (e) => props.onClick(e, props.label) : null}>
       {fileUploaded ? (
         sendToMonitoringDashboard()
       ) : (
-        <Card sx={{ width: "260px", height: "260px" }}>
-          {props.image}
-          <CardContent>
+        <Card
+            // onClick={handleFileUpload}
+            sx={{
+              width: "260px",
+              height: "260px",
+              backgroundColor: props.grayedOut
+                ? "lightgray"
+                : !props.changeColorOnClick
+                // ? null
+                // : !clicked
+                ? null
+                : "lightblue",
+        }}
+      >
+          <CardActionArea>
             <label htmlFor="contained-button-file">
-              <Input
-                accept=".py"
-                id="contained-button-file"
-                type="file"
-                onChange={handleFileUpload}
-              />
-              <Button variant="contained" component="span" sx={{ mt: 3 }}>
-                Upload Genome
-              </Button>
+            <Input
+              accept=".py"
+              id="contained-button-file"
+              type="file"
+              onChange={handleFileUpload}
+            />
+            <CardContent>
+              {props.image}
+              <Typography
+                gutterBottom
+                variant="h5"
+                component="div"
+                sx={{ mt: 4 }}
+              >
+                {props.label}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {props.info}
+              </Typography>
+            </CardContent>
             </label>
-          </CardContent>
+          </CardActionArea>
         </Card>
       )}
-    </>
+    </div>
   );
 };
 

@@ -1,3 +1,5 @@
+**This page may be outdated. For the most up to date information, please refer to our [Wiki](https://github.com/feagi/feagi/wiki/Creating-a-Simulation-with-ROS2-and-Gazebo)
+
 # **Creating a Robot Simulation Using ROS2 and Gazebo**
 
 - [Creating a Robot Simulation Using ROS2 and Gazebo](#creating-a-robot-simulation-using-ros2-and-gazebo)

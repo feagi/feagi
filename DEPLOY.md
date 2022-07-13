@@ -1,10 +1,13 @@
+**This page may be outdated or incomplete. Please refer to the [deployment guide](https://github.com/feagi/feagi/wiki/Deployment) in our wiki for the most up to date information.**
+
+
 
 # Introduction
 FEAGI platform is consisted of core component known as FEAGI-core that is at large a Python package and responsible for 
 the creation, development, and operation of the artificial brain processes. Furthermore, FEAGI leverages many open-source 
 libraries as part of its ecosystem to provide visualization, data analytics, 3D simulation, and robot integration 
 capabilities. We have containerized all the needed software packages and provided a simple method to deploy the entire
-software using Docker. This document describes system requirements and the steps to deploy FEAGI platform.
+software using Docker. This document describes system requirements and the steps to deploy FEAGI platform. 
 
 
 # Requirements

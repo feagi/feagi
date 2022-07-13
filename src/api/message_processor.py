@@ -1,9 +1,10 @@
 
 import json
 from inf import runtime_data, disk_ops
-from inf.initialize import init_brain, reset_runtime_data
+from inf.initialize import init_brain, reset_runtime_data, id_gen
 from evo.genome_processor import genome_ver_check
 from evo.neuroembryogenesis import develop_brain
+from evo.autopilot import update_generation_dict
 
 
 def api_message_processor(api_message):
@@ -94,6 +95,15 @@ def api_message_processor(api_message):
         runtime_data.genome = genome_ver_check(runtime_data.genome)
         runtime_data.genome_ver = "2.0"
         init_brain()
+        if 'genome_id' not in runtime_data.genome:
+            runtime_data.genome['genome_id'] = id_gen(signature="_G")
+        runtime_data.genome_id = runtime_data.genome['genome_id']
+        print("#$% " * 30)
+        print("brain_run_id", runtime_data.brain_run_id)
+        if runtime_data.autopilot:
+            update_generation_dict(genome_id=runtime_data.genome_id,
+                                   robot_id=runtime_data.robot_id,
+                                   env_id=runtime_data.environment_id)
         # Process of artificial neuroembryogenesis that leads to connectome development
         develop_brain(reincarnation_mode=runtime_data.parameters[
             'Brain_Development']['reincarnation_mode'])

@@ -69,7 +69,7 @@ feagi_state = {
     "state": "idle"
 }
 
-# Genome
+# Evolutionary
 genome = {}
 genome_stats = {}
 genome_test_stats = []
@@ -78,6 +78,11 @@ genome2 = {}
 genome_ver = None
 genome_id = ""
 genome_counter = 0
+autopilot = False
+generation_dict = None
+current_generation_dict_id = None
+generation_id = None
+
 
 # Burst Engine
 burst_publisher = None
@@ -150,5 +155,9 @@ shock_admin = False
 shock_scenarios = set()
 
 # Robot
+robot_id = None
 robot_controller = {}
 robot_model = {}
+
+# Environment
+environment_id = None
