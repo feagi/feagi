@@ -29,7 +29,7 @@ jobs:
     - name: Analyze code using pylint
       run: |
         files=`git diff --name-only --diff-filter=d HEAD^ | grep -E '\.py$' | tr '\n' ' '` 
-        if [[ $files ]]; then pylint --fail-under=5 $files; fi
+        if [[ $files ]]; then pylint --ignore=mem --fail-under=5 $files; fi
       working-directory: ./
     - name: Run tests using pytest
       run: pytest ../tests
