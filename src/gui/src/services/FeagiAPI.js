@@ -205,6 +205,21 @@ const FeagiAPI = {
       });
     return response.data;
   },
+
+  async getShockOptions() {
+    const response = await axios
+      .get(`${FEAGI_URL}/feagi/training/shock_scenario_options`, {
+        headers: {},
+        params: {},
+      })
+      .catch((error) => {
+        console.error(error);
+        throw error;
+      });
+    return response.data;
+  },
+
+
 };
 
 export default FeagiAPI;
