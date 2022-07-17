@@ -213,7 +213,7 @@ const MonitoringDashboard = (props) => {
                     subheader={<ListSubheader>Shock Options</ListSubheader>}
                     >
                     <ListItem>
-                      <ListItemText id="switch-list-label-shock_scenario_1" primary="Shock 1" />
+                      <ListItemText id="switch-list-label-shock_scenario_1" primary="Shock Scenario 1" />
                       <Switch
                         edge="end"
                         onChange={handleToggle('shock_scenario_1')}
@@ -225,7 +225,7 @@ const MonitoringDashboard = (props) => {
                     </ListItem>
                     <ListItem>
 
-                      <ListItemText id="switch-list-label-shock_scenario_2" primary="Shock 2" />
+                      <ListItemText id="switch-list-label-shock_scenario_2" primary="Shock Scenario 2" />
                       <Switch
                         edge="end"
                         onChange={handleToggle('shock_scenario_2')}
