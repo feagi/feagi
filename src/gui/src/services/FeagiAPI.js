@@ -159,11 +159,11 @@ const FeagiAPI = {
     return response.data;
   },
 
-  async postShockRobot() {
+  async postShockRobot(shock_scenarios) {
     const response = await axios
       .post(
-        `${FEAGI_URL}/feagi/training/shock`,
-        { shock: true },
+        `${FEAGI_URL}/feagi/training/shock/activate`,
+        shock_scenarios,
         {
           headers: {},
           params: {},
@@ -208,7 +208,7 @@ const FeagiAPI = {
 
   async getShockOptions() {
     const response = await axios
-      .get(`${FEAGI_URL}/feagi/training/shock_scenario_options`, {
+      .get(`${FEAGI_URL}/feagi/training/shock/options`, {
         headers: {},
         params: {},
       })

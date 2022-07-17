@@ -33,9 +33,8 @@ import FormHelperText from "@mui/material/FormHelperText";
 
 import ListSubheader from '@mui/material/ListSubheader';
 import Switch from '@mui/material/Switch';
-import WifiIcon from '@mui/icons-material/Wifi';
-import BluetoothIcon from '@mui/icons-material/Bluetooth';
 import Menu from '@mui/material/Menu';
+import FeagiAPI from "../services/FeagiAPI";
 
 
 const MonitoringDashboard = (props) => {
@@ -88,19 +87,30 @@ const MonitoringDashboard = (props) => {
     });
 
 
-  const [checked, setChecked] = React.useState(['wifi']);
+  const [checked, setChecked] = React.useState(['none']);
 
   const handleToggle = (value) => () => {
+
     const currentIndex = checked.indexOf(value);
     const newChecked = [...checked];
 
     if (currentIndex === -1) {
       newChecked.push(value);
+      FeagiAPI.postShockRobot({
+        shock: [
+          value
+        ]
+       });
+
     } else {
       newChecked.splice(currentIndex, 1);
+      FeagiAPI.postShockRobot({
+        shock: [
+        ]
+      });
     }
-
     setChecked(newChecked);
+
   };
 
 
@@ -156,7 +166,7 @@ const MonitoringDashboard = (props) => {
           sx={{ mt: 1, mb: 0, ml: 1, mr: 1 }}
       >
           <Toolbar>
-            <Tooltip title="Reload Genome">
+            <Tooltip title="Reload Genome" placement="top">
             <IconButton
               color="inherit"
               onClick={handleGenomeReload}
@@ -166,7 +176,7 @@ const MonitoringDashboard = (props) => {
             </IconButton>
             </Tooltip>
 
-            <Tooltip title="Launch Brain Activity Monitor">
+            <Tooltip title="Launch Brain Activity Monitor" placement="top">
                 <IconButton
                   color="inherit"
                   onClick={handleActicityMonitor}
@@ -177,7 +187,7 @@ const MonitoringDashboard = (props) => {
             </Tooltip>
 
 
-            <Tooltip title="Shock Admin">
+            <Tooltip title="Shock Admin" placement="top">
               <div>
                 <IconButton
                   id="basic-button"
@@ -200,28 +210,28 @@ const MonitoringDashboard = (props) => {
                 >
                   <List
                     sx={{ width: '100%', maxWidth: 360, bgcolor: 'background.paper' }}
-                    // subheader={<ListSubheader>Shock Options</ListSubheader>}
+                    subheader={<ListSubheader>Shock Options</ListSubheader>}
                     >
                     <ListItem>
-                      <ListItemText id="switch-list-label-wifi" primary="Shock 1" />
+                      <ListItemText id="switch-list-label-shock_scenario_1" primary="Shock 1" />
                       <Switch
                         edge="end"
-                        onChange={handleToggle('wifi')}
-                        checked={checked.indexOf('wifi') !== -1}
+                        onChange={handleToggle('shock_scenario_1')}
+                        checked={checked.indexOf('shock_scenario_1') !== -1}
                         inputProps={{
-                          'aria-labelledby': 'switch-list-label-wifi',
+                          'aria-labelledby': 'switch-list-label-shock_scenario_1',
                         }}
                       />
                     </ListItem>
                     <ListItem>
 
-                      <ListItemText id="switch-list-label-bluetooth" primary="Shock 2" />
+                      <ListItemText id="switch-list-label-shock_scenario_2" primary="Shock 2" />
                       <Switch
                         edge="end"
-                        onChange={handleToggle('bluetooth')}
-                        checked={checked.indexOf('bluetooth') !== -1}
+                        onChange={handleToggle('shock_scenario_2')}
+                        checked={checked.indexOf('shock_scenario_2') !== -1}
                         inputProps={{
-                          'aria-labelledby': 'switch-list-label-bluetooth',
+                          'aria-labelledby': 'switch-list-label-shock_scenario_2',
                         }}
                       />
                     </ListItem>
