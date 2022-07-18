@@ -17,4 +17,3 @@ starlette~=0.17.1
 matplotlib~=3.4.3
 setuptools~=57.0.0
 websockets~=10.2
-launch~=0.10.4

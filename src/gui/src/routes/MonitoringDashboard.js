@@ -22,8 +22,22 @@ import { MdAutoGraph } from 'react-icons/md';
 import { BiDna } from 'react-icons/bi';
 import { FiZap } from 'react-icons/fi';
 import { GiBrainDump } from 'react-icons/gi';
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import ListItemButton from '@mui/material/ListItemButton';
+import Checkbox from '@mui/material/Checkbox';
+import CommentIcon from '@mui/icons-material/Comment';
+import FormHelperText from "@mui/material/FormHelperText";
 
-const MonitoringDashboard = () => {
+import ListSubheader from '@mui/material/ListSubheader';
+import Switch from '@mui/material/Switch';
+import Menu from '@mui/material/Menu';
+import FeagiAPI from "../services/FeagiAPI";
+
+
+const MonitoringDashboard = (props) => {
   const [frameHeight, setFrameHeight] = useState("");
   const [godotFrameLoaded, setGodotFrameLoaded] = useState(false);
   const [gazeboFrameLoaded, setGazeboFrameLoaded] = useState(false);
@@ -66,6 +80,40 @@ const MonitoringDashboard = () => {
   };
 
 
+  const defaultShocks = {};
+    Object.keys(props.defaultShockOptions).forEach((key) => {
+      // defaultShocks[props.defaultCorticalGenes[key][0]] =
+      //   props.defaultCorticalGenes[key][1];
+    });
+
+
+  const [checked, setChecked] = React.useState(['none']);
+
+  const handleToggle = (value) => () => {
+
+    const currentIndex = checked.indexOf(value);
+    const newChecked = [...checked];
+
+    if (currentIndex === -1) {
+      newChecked.push(value);
+      FeagiAPI.postShockRobot({
+        shock: [
+          value
+        ]
+       });
+
+    } else {
+      newChecked.splice(currentIndex, 1);
+      FeagiAPI.postShockRobot({
+        shock: [
+        ]
+      });
+    }
+    setChecked(newChecked);
+
+  };
+
+
   const drawerList = () => (
     <Box
       sx={{ width: "400px" }}
@@ -99,6 +147,15 @@ const MonitoringDashboard = () => {
     </Box>
   );
 
+  const [anchorEl, setAnchorEl] = React.useState(null);
+  const open = Boolean(anchorEl);
+  const handleClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
 
   return (
     <>
@@ -109,7 +166,7 @@ const MonitoringDashboard = () => {
           sx={{ mt: 1, mb: 0, ml: 1, mr: 1 }}
       >
           <Toolbar>
-            <Tooltip title="Reload Genome">
+            <Tooltip title="Reload Genome" placement="top">
             <IconButton
               color="inherit"
               onClick={handleGenomeReload}
@@ -119,7 +176,7 @@ const MonitoringDashboard = () => {
             </IconButton>
             </Tooltip>
 
-            <Tooltip title="Launch Brain Activity Monitor">
+            <Tooltip title="Launch Brain Activity Monitor" placement="top">
                 <IconButton
                   color="inherit"
                   onClick={handleActicityMonitor}
@@ -129,26 +186,70 @@ const MonitoringDashboard = () => {
                 </IconButton>
             </Tooltip>
 
-            <Tooltip title="Shock Administrator (Coming Soon..)">
+
+            <Tooltip title="Shock Admin" placement="top">
+              <div>
                 <IconButton
-                  color="inherit"
-                  // onClick={handleActicityMonitor}
-                  // edge="start"
+                  id="basic-button"
+                  aria-controls={open ? 'basic-menu' : undefined}
+                  aria-haspopup="true"
+                  aria-expanded={open ? 'true' : undefined}
+                  onClick={handleClick}
                 >
-                  <FiZap />
+                   <FiZap />
+                  {/*Shock Admin*/}
                 </IconButton>
+                <Menu
+                  id="basic-menu"
+                  anchorEl={anchorEl}
+                  open={open}
+                  onClose={handleClose}
+                  MenuListProps={{
+                    'aria-labelledby': 'basic-button',
+                  }}
+                >
+                  <List
+                    sx={{ width: '100%', maxWidth: 360, bgcolor: 'background.paper' }}
+                    subheader={<ListSubheader>Shock Options</ListSubheader>}
+                    >
+                    <ListItem>
+                      <ListItemText id="switch-list-label-shock_scenario_1" primary="Shock Scenario 1" />
+                      <Switch
+                        edge="end"
+                        onChange={handleToggle('shock_scenario_1')}
+                        checked={checked.indexOf('shock_scenario_1') !== -1}
+                        inputProps={{
+                          'aria-labelledby': 'switch-list-label-shock_scenario_1',
+                        }}
+                      />
+                    </ListItem>
+                    <ListItem>
+
+                      <ListItemText id="switch-list-label-shock_scenario_2" primary="Shock Scenario 2" />
+                      <Switch
+                        edge="end"
+                        onChange={handleToggle('shock_scenario_2')}
+                        checked={checked.indexOf('shock_scenario_2') !== -1}
+                        inputProps={{
+                          'aria-labelledby': 'switch-list-label-shock_scenario_2',
+                        }}
+                      />
+                    </ListItem>
+                  </List>
+                </Menu>
+              </div>
             </Tooltip>
 
-            <Tooltip title="Preserve Brain State (Coming Soon..)">
-                <IconButton
-                  color="inherit"
-                  // onClick={handleActicityMonitor}
-                  // edge="start"
-                >
-                  <GiBrainDump />
-                </IconButton>
-            </Tooltip>
 
+            {/*<Tooltip title="Preserve Brain State (Coming Soon..)">*/}
+            {/*    <IconButton*/}
+            {/*      color="inherit"*/}
+            {/*      // onClick={handleActicityMonitor}*/}
+            {/*      // edge="start"*/}
+            {/*    >*/}
+            {/*      <GiBrainDump />*/}
+            {/*    </IconButton>*/}
+            {/*</Tooltip>*/}
 
           </Toolbar>
         </AppBar>

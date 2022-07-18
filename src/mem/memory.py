@@ -113,16 +113,10 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
         # When long term depression flag is set, there will be negative synaptic influence caused
         plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"] * (-1) * \
                               impact_multiplier
-        print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
-        print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
-        print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
-        print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
+        # print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
 
-    else:
-        print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
-        print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
-        print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
-        print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
+    # else:
+        # print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
 
     try:
         new_psc = \

@@ -50,6 +50,7 @@ function App() {
   const [defaultPlasticityFlag, setDefaultPlasticityFlag] = useState(null);
   const [defaultSynapseRules, setDefaultSynapseRules] = useState(null);
   const [defaultCorticalGenes, setDefaultCorticalGenes] = useState({});
+  const [defaultShockOptions, setDefaultShockOptions] = useState({});
   const [defaultGenomeData, setDefaultGenomeData] = useState({});
   const [drawerOpen, setDrawerOpen] = useState(false);
   let navigate = useNavigate();
@@ -66,6 +67,10 @@ function App() {
 
     FeagiAPI.getBaselineCorticalGenes().then((items) =>
       setDefaultCorticalGenes(items)
+    );
+
+    FeagiAPI.getShockOptions().then((items) =>
+      setDefaultShockOptions(items)
     );
 
     FeagiAPI.getBaselineMorphology().then((rules) =>
@@ -248,7 +253,14 @@ function App() {
                 />
               }
             />
-            <Route path="/monitoring" element={<MonitoringDashboard />} />
+            <Route
+                path="/monitoring"
+                element={
+              <MonitoringDashboard
+                defaultShockOptions={defaultShockOptions}
+              />
+            }
+            />
           </Routes>
         </Suspense>
       </ThemeProvider>
