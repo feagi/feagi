@@ -497,7 +497,7 @@ async def neuron_postsynaptic_potential_monitoring_scope(message: StatsCollectio
 # ######  Training Endpoints #######
 # ##################################
 
-@app.api_route("/v1/feagi/training/shock_scenario_options", methods=['Get'], tags=["Training"])
+@app.api_route("/v1/feagi/training/shock/options", methods=['Get'], tags=["Training"])
 async def list_available_shock_scenarios():
     """
     Get a list of available shock scenarios.
@@ -509,7 +509,7 @@ async def list_available_shock_scenarios():
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/training/shock_scenarios_", methods=['Get'], tags=["Training"])
+@app.api_route("/v1/feagi/training/shock/status", methods=['Get'], tags=["Training"])
 async def list_activated_shock_scenarios():
     try:
         return runtime_data.shock_scenarios
@@ -518,7 +518,7 @@ async def list_activated_shock_scenarios():
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/training/shock_scenarios", methods=['POST'], tags=["Training"])
+@app.api_route("/v1/feagi/training/shock/activate", methods=['POST'], tags=["Training"])
 async def activate_shock_scenarios(training: Training):
     """
     Enables shock for given scenarios. One or many shock scenario could coexist. e.g.
@@ -531,6 +531,7 @@ async def activate_shock_scenarios(training: Training):
     }
 
     """
+    print("----Shock API----")
     try:
         message = training.dict()
         print(message)

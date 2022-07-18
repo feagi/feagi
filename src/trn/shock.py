@@ -31,6 +31,7 @@ todo: a system that can trigger multiple data feeder instances at the same time
 
 from inf import runtime_data
 from evo.voxels import neurons_in_the_block
+import traceback
 
 runtime_data.shock_scenarios_options = ["shock_scenario_1", "shock_scenario_2"]
 
@@ -42,12 +43,15 @@ def shock_manager():
     if not runtime_data.shock_scenarios:
         runtime_data.shock_admin = False
 
-    for scenario in runtime_data.shock_scenarios:
-        if scenario == 'shock_scenario_1':
-            shock_register.append(shock_scenario_1())
-        if scenario == 'shock_scenario_2':
-            shock_register.append(shock_scenario_2())
-        print(shock_register)
+    try:
+        for scenario in runtime_data.shock_scenarios:
+            if scenario == 'shock_scenario_1':
+                shock_register.append(shock_scenario_1())
+            if scenario == 'shock_scenario_2':
+                shock_register.append(shock_scenario_2())
+            print(shock_register)
+    except Exception:
+        print("Error during shock administration:\n", traceback.print_exc())
 
     if shock_register:
         max_shock_level = max(shock_register)
