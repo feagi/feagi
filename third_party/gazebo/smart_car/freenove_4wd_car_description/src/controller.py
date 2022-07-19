@@ -93,9 +93,9 @@ else:
     print("no low res")
 
 robot_name = Model_data["file_name"]  # This is the model name in gazebo without sdf path involves.
-x = str(capabilities["position"]["x"])
-y = str(capabilities["position"]["y"])
-z = str(capabilities["position"]["z"])
+x = str(capabilities["position"]["0"]["x"])
+y = str(capabilities["position"]["0"]["y"])
+z = str(capabilities["position"]["0"]["z"])
 first_part = "ign service -s /world/free_world/create --reqtype ignition.msgs.EntityFactory --reptype ignition.msgs.Boolean --timeout 300 --req 'sdf_filename:'\'\""
 second_part = model_name + "\" pose: {position: { x: " + x + ", y"
 third_part = ": " + y + ", z: " + z + "}}\' &"
@@ -371,15 +371,16 @@ class Servo:
 
 class PosInit:
     def __init__(self):
-        init_pos_x = capabilities['position']['x']
-        init_pos_y = capabilities['position']['y']
+        init_pos_x = capabilities['position']["0"]['x']
+        init_pos_y = capabilities['position']["0"]['y']
 
-    def reset_position(self):
-        print("## ## ## ## Resetting robot position ## ## ## ##")
+    def reset_position(self, position_index):
+        print("++++++pos index:", position_index)
         # Remove the robot
-        x = str(capabilities["position"]["x"])
-        y = str(capabilities["position"]["y"])
-        z = str(capabilities["position"]["z"])
+        x = str(capabilities["position"][position_index]["x"])
+        y = str(capabilities["position"][position_index]["y"])
+        z = str(capabilities["position"][position_index]["z"])
+        print("## ## ## ## Resetting robot position to ## ## ## ##", x, y, z)
         name = Model_data["file_name"].replace(".sdf", "")
         first_part_r = "ign service -s /world/free_world/set_pose --reqtype ignition.msgs.Pose --reptype ignition.msgs.Boolean --timeout 300 --req \'name: "
         second_part_r = ' "' + name + '" ' + ", position: { x: " + x + ", y: "
@@ -863,16 +864,22 @@ def main(args=None):
 
                     if 'o_init' in opu_data:
                         if opu_data['o_init']:
-                            position_init.reset_position()
+                            for data_point in opu_data['o_init']:
+                                position_index = data_point[0]
+                                position_init.reset_position(position_index=position_index)
 
                 control_data = message_from_feagi['control_data']
                 if control_data is not None:
                     if 'motor_power_coefficient' in control_data:
                         capabilities["motor"]["power_coefficient"] = float(control_data['motor_power_coefficient'])
                     if 'robot_starting_position' in control_data:
-                        capabilities["position"]["x"] = float(control_data['robot_starting_position'][0])
-                        capabilities["position"]["y"] = float(control_data['robot_starting_position'][1])
-                        capabilities["position"]["z"] = float(control_data['robot_starting_position'][2])
+                        for position_index in control_data['robot_starting_position']:
+                            capabilities["position"][position_index]["x"] = \
+                                float(control_data['robot_starting_position'][position_index][0])
+                            capabilities["position"][position_index]["y"] = \
+                                float(control_data['robot_starting_position'][position_index][1])
+                            capabilities["position"][position_index]["z"] = \
+                                float(control_data['robot_starting_position'][position_index][2])
 
                 model_data = message_from_feagi['model_data']
                 if model_data is not None:
