@@ -18,7 +18,7 @@ genome = {
     "version": "2.0",
     "max_burst_count": 3,
     "burst_delay": 1,
-    "max_age": 1000,
+    "max_age": 10000,
     "evolution_burst_count": 50,
     "ipu_idle_threshold": 1000,
     "neuron_morphologies": {
@@ -391,7 +391,7 @@ genome = {
         "_____10c-o_init-nx-rcordx-i": 50,
         "_____10c-o_init-nx-rcordy-i": 10,
         "_____10c-o_init-nx-rcordz-i": 0,
-        "_____10c-o_init-nx-___bbx-i": 1,
+        "_____10c-o_init-nx-___bbx-i": 5,
         "_____10c-o_init-nx-___bby-i": 1,
         "_____10c-o_init-nx-___bbz-i": 1,
         "_____10c-o_init-cx-synatt-i": 100,
