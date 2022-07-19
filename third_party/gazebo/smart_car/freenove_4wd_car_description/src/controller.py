@@ -93,9 +93,9 @@ else:
     print("no low res")
 
 robot_name = Model_data["file_name"]  # This is the model name in gazebo without sdf path involves.
-x = str(capabilities["position"][0]["x"])
-y = str(capabilities["position"][0]["y"])
-z = str(capabilities["position"][0]["z"])
+x = str(capabilities["position"]["0"]["x"])
+y = str(capabilities["position"]["0"]["y"])
+z = str(capabilities["position"]["0"]["z"])
 first_part = "ign service -s /world/free_world/create --reqtype ignition.msgs.EntityFactory --reptype ignition.msgs.Boolean --timeout 300 --req 'sdf_filename:'\'\""
 second_part = model_name + "\" pose: {position: { x: " + x + ", y"
 third_part = ": " + y + ", z: " + z + "}}\' &"
@@ -371,15 +371,16 @@ class Servo:
 
 class PosInit:
     def __init__(self):
-        init_pos_x = capabilities['position'][0]['x']
-        init_pos_y = capabilities['position'][0]['y']
+        init_pos_x = capabilities['position']["0"]['x']
+        init_pos_y = capabilities['position']["0"]['y']
 
     def reset_position(self, position_index):
-        print("## ## ## ## Resetting robot position ## ## ## ##")
+        print("++++++pos index:", position_index)
         # Remove the robot
         x = str(capabilities["position"][position_index]["x"])
         y = str(capabilities["position"][position_index]["y"])
         z = str(capabilities["position"][position_index]["z"])
+        print("## ## ## ## Resetting robot position to ## ## ## ##", x, y, z)
         name = Model_data["file_name"].replace(".sdf", "")
         first_part_r = "ign service -s /world/free_world/set_pose --reqtype ignition.msgs.Pose --reptype ignition.msgs.Boolean --timeout 300 --req \'name: "
         second_part_r = ' "' + name + '" ' + ", position: { x: " + x + ", y: "
