@@ -159,8 +159,14 @@ class Subscriber(BaseModel):
 class RobotController(BaseModel):
     motor_power_coefficient: float
     motor_power_coefficient = 0.5
-    robot_starting_position: list
-    robot_starting_position = [0, 0, 0]
+    robot_starting_position: dict
+    robot_starting_position = {
+        0: [0, 0, 0],
+        1: [0, 1, 1],
+        2: [0, 0, 1],
+        3: [0, 2, 1],
+        4: [0, 1, 2]
+    }
 
 
 class RobotModel(BaseModel):
