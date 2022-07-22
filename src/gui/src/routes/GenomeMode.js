@@ -65,6 +65,16 @@ const GenomeMode = () => {
             />
           </label>
         </Item>
+                <Item>
+          <label htmlFor="genome-card">
+            <MenuCard
+              image={<GiRegeneration size={150} />}
+              label="Autopilot"
+              onClick={handleAutopilot}
+              changeColorOnClick={false}
+            />
+          </label>
+        </Item>
         <Tooltip title="Coming soon...">
         <Item sx={{ position: "relative" }}>
           <label htmlFor="genome-create-card">
@@ -87,16 +97,7 @@ const GenomeMode = () => {
           {/*/>*/}
         </Item>
         </Tooltip>
-        <Item>
-          <label htmlFor="genome-card">
-            <MenuCard
-              image={<GiRegeneration size={150} />}
-              label="Autopilot"
-              onClick={handleAutopilot}
-              changeColorOnClick={false}
-            />
-          </label>
-        </Item>
+
       </Stack>
     </>
   );
