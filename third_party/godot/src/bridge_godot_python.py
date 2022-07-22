@@ -166,7 +166,8 @@ def genome_reset():
             shutil.rmtree("../html")
             print("HTML folder is deleted")
             os.mkdir('../html')
-            shutil.copy('../html_backup/*', '../html/')
+            for file in os.listdir('../html_backup/'):
+                shutil.copy('../html_backup/' + file, '../html/')
 
     except Exception as e:
         print("Error during genome reset:\n", traceback.print_exc())
