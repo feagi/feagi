@@ -17,8 +17,8 @@ genome = {
     "genome_id": "2022-07-10_21:46:58_240996_000000_G",
     "version": "2.0",
     "max_burst_count": 3,
-    "burst_delay": 0.1,
-    "max_age": 100,
+    "burst_delay": 0.5,
+    "max_age": 10000,
     "evolution_burst_count": 50,
     "ipu_idle_threshold": 1000,
     "neuron_morphologies": {

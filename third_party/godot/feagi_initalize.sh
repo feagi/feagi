@@ -8,7 +8,7 @@ echo "% post-bridge launch"
 
 cd ../html
 
-live-server --wait=1000 &
+live-server &
 #http-server -c-1 &
 
 cd ../godot_source/

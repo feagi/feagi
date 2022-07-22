@@ -166,8 +166,10 @@ def genome_reset():
             shutil.rmtree("../html")
             print("HTML folder is deleted")
             os.mkdir('../html')
+            print("HTML folder created")
             for file in os.listdir('../html_backup/'):
                 shutil.copy('../html_backup/' + file, '../html/')
+                print("All backup files copied to HTML folder")
 
     except Exception as e:
         print("Error during genome reset:\n", traceback.print_exc())
@@ -183,6 +185,8 @@ def feagi_breakdown(data):
     print("Latest genome #:", new_genome_num)
 
     if 'genome_reset' in data:
+        print("+" * 60)
+        print("\nGenome reset command received!")
         genome_reset()
 
     if new_genome_num == 1:
@@ -241,12 +245,8 @@ async def echo(websocket):
     detect_lag = False
     new_FEAGI_sub = FEAGI_sub
     while True:
-        if detect_lag:
-            opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
-                'feagi_outbound_port']
-            new_FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
-            detect_lag = False
         one_frame = new_FEAGI_sub.receive()
+
         if one_frame is not None:
             one_frame = feagi_breakdown(one_frame)
             await websocket.send(str(one_frame))
@@ -254,6 +254,12 @@ async def echo(websocket):
                 await websocket.send(str(one_frame))
             except Exception as e:
                 print("Error during websocket processing:\n   ", e)
+
+        if detect_lag:
+            opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
+                'feagi_outbound_port']
+            new_FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+            detect_lag = False
 
         data_from_godot = await websocket.recv()
         data_from_godot = data_from_godot.decode('UTF-8') # ADDED this line to decode into string only
