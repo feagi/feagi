@@ -72,6 +72,8 @@ const MonitoringDashboard = (props) => {
   };
 
   const handleGenomeReload = () => {
+    FeagiAPI.resetGenome({
+    });
     navigate("/genome/mode");
   };
 
