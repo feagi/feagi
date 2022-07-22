@@ -163,7 +163,7 @@ def genome_reset():
     # todo This function assumes the path structure and launch point dictated in the dockerfile
     try:
         if os.path.exists('../html/index.js'):
-            os.rmdir("../html")
+            shutil.rmtree("../html")
             print("HTML folder is deleted")
             os.mkdir('../html')
             shutil.copy('../html_backup/*', '../html/')
