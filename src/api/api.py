@@ -293,6 +293,17 @@ async def genome_number():
         return {"Request failed...", e}
 
 
+@app.post("/v1/feagi/genome/reset", tags=["Genome"])
+async def reset_genome():
+    try:
+        print("API call has triggered a genome reset")
+        runtime_data.genome_reset_flag = True
+        return
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
 # ######  Evolution #########
 # #############################
 

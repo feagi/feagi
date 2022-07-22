@@ -29,6 +29,8 @@ import ast
 import asyncio
 import websockets
 import requests
+import traceback
+import shutil
 from time import sleep
 
 runtime_data = {
@@ -157,6 +159,19 @@ def name_to_id(name):
         pass
 
 
+def genome_reset():
+    # todo This function assumes the path structure and launch point dictated in the dockerfile
+    try:
+        if os.path.exists('../html/index.js'):
+            os.rmdir("../html")
+            print("HTML folder is deleted")
+            os.mkdir('../html')
+            shutil.copy('../html_backup/*', '../html/')
+
+    except Exception as e:
+        print("Error during genome reset:\n", traceback.print_exc())
+
+
 def feagi_breakdown(data):
     """
     Designed for genome 2.0 only. Data is the input from feagi's raw data
@@ -165,6 +180,9 @@ def feagi_breakdown(data):
     new_genome_num = data['genome_num']
     print("Previous genome #:", runtime_data["genome_number"])
     print("Latest genome #:", new_genome_num)
+
+    if 'genome_reset' in data:
+        genome_reset()
 
     if new_genome_num == 1:
         runtime_data["genome_number"] = 1
@@ -219,8 +237,6 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
 
 async def echo(websocket):
     godot_list = {}  # initalized the list from Godot
-
-    godot_list = {}  ##initalized the list from Godot
     detect_lag = False
     new_FEAGI_sub = FEAGI_sub
     while True:

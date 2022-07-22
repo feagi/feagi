@@ -286,6 +286,11 @@ def burst_manager():
         if runtime_data.robot_model:
             broadcast_message['model_data'] = runtime_data.robot_model
             runtime_data.robot_model = {}
+
+        if runtime_data.genome_reset_flag:
+            broadcast_message['genome_reset'] = True
+            runtime_data.genome_reset_flag = False
+
         # broadcast_message['cortical_dimensions'] = runtime_data.cortical_dimensions
 
         runtime_data.burst_publisher.send(message=broadcast_message)
