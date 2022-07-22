@@ -1,3 +1,6 @@
+**This information may be outdated. Please refer to the [Wiki](https://github.com/feagi/feagi/wiki/Godot) for the most up to date information.**
+
+
 # **Monitoring artificial brain cortical activity**
 
 - [Monitoring an artificial brain’s cortical activity](#monitoring-an-artificial-brain-s-cortical-activity)

@@ -29,7 +29,7 @@ from queue import Queue
 from inf import feagi
 from inf import runtime_data
 from inf.baseline import gui_baseline
-from evo import static_genome
+from evo import static_genome, autopilot
 from evo.synapse import cortical_mapping
 
 
@@ -159,8 +159,14 @@ class Subscriber(BaseModel):
 class RobotController(BaseModel):
     motor_power_coefficient: float
     motor_power_coefficient = 0.5
-    robot_starting_position: list
-    robot_starting_position = [0, 0, 0]
+    robot_starting_position: dict
+    robot_starting_position = {
+        0: [0, 0, 0],
+        1: [0, 1, 1],
+        2: [0, 0, 1],
+        3: [0, 2, 1],
+        4: [0, 1, 2]
+    }
 
 
 class RobotModel(BaseModel):
@@ -224,7 +230,7 @@ async def genome_file_upload(file: UploadFile = File(...)):
 async def genome_string_upload(str_genome: Genome):
     try:
         genome = str_genome.genome
-
+        print("@@@@@@@@@   @@@@@@@\n", genome)
         message = {'genome': genome}
         api_queue.put(item=message)
 
@@ -282,6 +288,58 @@ async def genome_number():
     """
     try:
         return runtime_data.genome_counter
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+# ######  Evolution #########
+# #############################
+
+@app.api_route("/v1/feagi/evolution/autopilot/status", methods=['GET'], tags=["Evolution"])
+async def retrun_autopilot_status():
+    """
+    Returns the status of genome autopilot system.
+    """
+    try:
+        return runtime_data.autopilot
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.post("/v1/feagi/evolution/autopilot/on", tags=["Evolution"])
+async def turn_autopilot_on():
+    try:
+        if not runtime_data.autopilot:
+            autopilot.init_generation_dict()
+            if runtime_data.brain_run_id:
+                autopilot.update_generation_dict()
+            runtime_data.autopilot = True
+            print("<" * 30, "  Autopilot has been turned on  ", ">" * 30)
+        return
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.post("/v1/feagi/evolution/autopilot/off", tags=["Evolution"])
+async def turn_autopilot_off():
+    try:
+        runtime_data.autopilot = False
+        return
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/evolution/generations", methods=['GET'], tags=["Evolution"])
+async def list_generations():
+    """
+    Return details about all generations.
+    """
+    try:
+        return runtime_data.generation_dict
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
@@ -445,7 +503,7 @@ async def neuron_postsynaptic_potential_monitoring_scope(message: StatsCollectio
 # ######  Training Endpoints #######
 # ##################################
 
-@app.api_route("/v1/feagi/training/shock_scenario_options", methods=['Get'], tags=["Training"])
+@app.api_route("/v1/feagi/training/shock/options", methods=['Get'], tags=["Training"])
 async def list_available_shock_scenarios():
     """
     Get a list of available shock scenarios.
@@ -457,7 +515,7 @@ async def list_available_shock_scenarios():
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/training/shock_scenarios_", methods=['Get'], tags=["Training"])
+@app.api_route("/v1/feagi/training/shock/status", methods=['Get'], tags=["Training"])
 async def list_activated_shock_scenarios():
     try:
         return runtime_data.shock_scenarios
@@ -466,7 +524,7 @@ async def list_activated_shock_scenarios():
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/training/shock_scenarios", methods=['POST'], tags=["Training"])
+@app.api_route("/v1/feagi/training/shock/activate", methods=['POST'], tags=["Training"])
 async def activate_shock_scenarios(training: Training):
     """
     Enables shock for given scenarios. One or many shock scenario could coexist. e.g.
@@ -479,6 +537,7 @@ async def activate_shock_scenarios(training: Training):
     }
 
     """
+    print("----Shock API----")
     try:
         message = training.dict()
         print(message)

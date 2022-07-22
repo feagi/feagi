@@ -39,6 +39,10 @@ from evo.genome_processor import *
 log = logging.getLogger(__name__)
 
 
+def id_gen(size=6, chars=string.ascii_uppercase + string.digits, signature=''):
+    return (str(datetime.now()).replace(' ', '_')).replace('.', '_')+'_'+(''.join(random.choice(chars) for
+                                                                                           _ in range(size)))+signature
+
 # def init_hw_controller():
 #     """
 #     Loads the proper controller module based on the robot species defined within genome
@@ -119,21 +123,6 @@ def assess_max_thread_count():
     return max_thread_count
 
 
-def run_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
-    """
-    This function generates a unique id which will be associated with each neuron
-    :param size:
-    :param chars:
-    :return:
-
-    Rand gen source partially from:
-    http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
-    """
-    runtime_data.brain_run_id = \
-        (str(datetime.now()).replace(' ', '_')).\
-            replace('.', '_').replace(':', '-')+'_'+(''.join(random.choice(chars) for _ in range(size)))+'_R'
-
-
 def init_parameters(ini_path='./feagi_configuration.ini'):
     """To load all the key configuration parameters"""
     print("\n_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+")
@@ -200,7 +189,9 @@ def init_genome(genome):
 
     try:
         if runtime_data.genome['version'] == "2.0":
-            print("\n\n\n************ Genome Version 2.0 has been detected **************\n\n\n")
+            print("\n\n\n"
+                  ""
+                  "************ Genome Version 2.0 has been detected **************\n\n\n")
             runtime_data.genome_ver = "2.0"
             runtime_data.cortical_list = genome_2_cortical_list(runtime_data.genome['blueprint'])
             genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
@@ -330,7 +321,7 @@ def reset_runtime_data():
 
 def init_brain():
     runtime_data.last_alertness_trigger = datetime.now()
-    run_id_gen()
+    runtime_data.brain_run_id = id_gen(signature='_R')
     init_cortical_info()
     runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
@@ -340,6 +331,8 @@ def init_brain():
     init_genome_post_processes()
     generate_plasticity_dict()
     runtime_data.new_genome = True
+    if 'burst_delay' in runtime_data.genome:
+        runtime_data.burst_timer = float(runtime_data.genome['burst_delay'])
 
 
 def init_burst_engine():

@@ -1,3 +1,7 @@
+This file may be outdated. For the most updated information regarding using the gui, please refer to the [GUI Development](https://github.com/feagi/feagi/wiki/GUI-Development) Page of the Wiki. 
+
+
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).

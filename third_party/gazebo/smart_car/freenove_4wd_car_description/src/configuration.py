@@ -41,7 +41,7 @@ capabilities = {
         'topic_identifier': '/M',
         "refresh_rate": 1,
         "cortical_mapping": "o__mot",
-        "power_coefficient": 0.05,
+        "power_coefficient": 0.02,
         "wheel_diameter": 0.065,  # radius is in sdf under wheels inside <link></link>
     },
     "infrared": {
@@ -63,9 +63,31 @@ capabilities = {
         "charge_increment": 0.1
     },
     "position": {
-        "x": 0,
-        "y": 4.12,
-        "z": 0.325
+        "0": {
+            "x": 0,
+            "y": 4.12,
+            "z": 0.325
+        },
+        "1": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "2": {
+            "x": 0,
+            "y": 1,
+            "z": 0
+        },
+        "3": {
+            "x": 0,
+            "y": 2,
+            "z": 0
+        },
+        "4": {
+            "x": 0,
+            "y": 3,
+            "z": 0
+        }
     }
 }
 

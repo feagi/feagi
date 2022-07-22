@@ -56,4 +56,7 @@ func _process(_delta):
 	
 func send(data):
 	_client.get_peer(1).put_packet(data.to_utf8())
+	
+func disconnect_from_host():
+	_client.disconnect_from_host(1000, "Close per request")
 
