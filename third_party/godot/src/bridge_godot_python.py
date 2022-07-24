@@ -47,6 +47,7 @@ runtime_data = {
 dimensions_endpoint = '/v1/feagi/connectome/properties/dimensions'
 
 
+#  CSV Handlers
 def csv_writer(cortical_dimensions):
     print("Generating CSV...")
     cwd = os.getcwd()
@@ -79,23 +80,32 @@ def csv_writer(cortical_dimensions):
     print("Godot CSV has been created.")
 
 
-def breakdown(feagi_input):  # add input soon
-    """
-    # TODO: Explain what this is for
-    """
-    data = feagi_input
-    data = list(data)
-    increment = 0
-    list1 = []
+def genome_reset():
+    # todo This function assumes the path structure and launch point dictated in the dockerfile
+    try:
+        if os.path.exists('../html/index.js'):
+            shutil.rmtree("../html")
+            print("HTML folder is deleted")
+            os.mkdir('../html')
+            print("HTML folder created")
+            for file in os.listdir('../html_backup/'):
+                shutil.copy('../html_backup/' + file, '../html/')
+                print("All backup files copied to HTML folder")
 
-    while increment < len(data):
-        voxel = [data[increment][1], data[increment][2], data[increment][3]]
-        list1.append(voxel)
-        increment += 1
-    print(list1)
+    except Exception as e:
+        print("Error during genome reset:\n", traceback.print_exc())
 
 
-def godot_data(input):
+# Data Processors
+def name_to_id(name):
+    for cortical_area in runtime_data["cortical_data"]:
+        if cortical_area == name:
+            return runtime_data["cortical_data"][cortical_area][7]
+    else:
+        pass
+
+
+def godot_data_processor(input):
     """
     Simply clean the list and remove all unnecessary special characters and deliver with name, xyz only
     """
@@ -113,69 +123,11 @@ def godot_data(input):
         for key_01 in data["data"]["direct_stimulation"][key]:
             dict_with_updated_name["data"]["direct_stimulation"][Updated_name].append(key_01)
 
-    print("godot_data: ", dict_with_updated_name)
+    print("godot_data_processor: ", dict_with_updated_name)
     return dict_with_updated_name
 
 
-def godot_selected_list(outside_list, godot_list):
-    name = outside_list[0]
-    x = int(outside_list[1])
-    y = int(outside_list[2])
-    z = int(outside_list[3])
-    if godot_list:
-        list_to_dict = godot_list
-    else:
-        list_to_dict = dict()
-        list_to_dict["data"] = dict()
-        list_to_dict["data"]["direct_stimulation"] = dict()
-
-    if list_to_dict["data"]["direct_stimulation"].get(name) is not None:
-        pass
-    else:
-        list_to_dict["data"]["direct_stimulation"][name] = list()
-    for key in list_to_dict["data"]["direct_stimulation"]:
-        if key not in list_to_dict["data"]["direct_stimulation"]:
-            list_to_dict["data"]["direct_stimulation"][name] = list()
-            list_to_dict["data"]["direct_stimulation"][name].append([x,y,z])
-        else:
-            list_to_dict["data"]["direct_stimulation"][name].append([x,y,z])
-    return list_to_dict
-
-
-def godot_deselected_list(outside_list, godot_list):
-    for key in godot_list["data"]["direct_stimulation"]:
-        if outside_list[0] == key:
-            for xyz in godot_list["data"]["direct_stimulation"][key]:
-                if xyz[0] == int(outside_list[1]) and xyz[1] == int(outside_list[2]) and xyz[2] == int(outside_list[3]):
-                    godot_list["data"]["direct_stimulation"][key].remove(xyz)
-    return godot_list
-
-
-def name_to_id(name):
-    for cortical_area in runtime_data["cortical_data"]:
-        if cortical_area == name:
-            return runtime_data["cortical_data"][cortical_area][7]
-    else:
-        pass
-
-
-def genome_reset():
-    # todo This function assumes the path structure and launch point dictated in the dockerfile
-    try:
-        if os.path.exists('../html/index.js'):
-            shutil.rmtree("../html")
-            print("HTML folder is deleted")
-            os.mkdir('../html')
-            print("HTML folder created")
-            for file in os.listdir('../html_backup/'):
-                shutil.copy('../html_backup/' + file, '../html/')
-                print("All backup files copied to HTML folder")
-
-    except Exception as e:
-        print("Error during genome reset:\n", traceback.print_exc())
-
-
-def feagi_breakdown(data):
+def feagi_data_processor(data):
     """
     Designed for genome 2.0 only. Data is the input from feagi's raw data
     """
@@ -240,55 +192,7 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
     return relative_coordinate
 
 
-async def echo(websocket):
-    godot_list = {}  # initalized the list from Godot
-    detect_lag = False
-    new_FEAGI_sub = FEAGI_sub
-    while True:
-        one_frame = new_FEAGI_sub.receive()
-
-        if one_frame is not None:
-            one_frame = feagi_breakdown(one_frame)
-            await websocket.send(str(one_frame))
-            try:
-                await websocket.send(str(one_frame))
-            except Exception as e:
-                print("Error during websocket processing:\n   ", e)
-
-        if detect_lag:
-            opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
-                'feagi_outbound_port']
-            new_FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
-            detect_lag = False
-
-        data_from_godot = await websocket.recv()
-        data_from_godot = data_from_godot.decode('UTF-8') # ADDED this line to decode into string only
-        if data_from_godot == "lagged":
-            detect_lag = True
-            data_from_godot = "{}"
-        if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and data_from_godot != "refresh" and data_from_godot != "[]"):
-            print(data_from_godot)
-            godot_list = godot_data(data_from_godot)
-            converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=godot_list,
-                                                                     cortical_data=runtime_data[
-                                                                         "cortical_data"])
-            print(">>> > > > >> > converted data:", converted_data)
-            FEAGI_pub.send(converted_data)
-        if data_from_godot == "refresh":
-            godot_list = {}
-            converted_data = {}
-            FEAGI_pub.send(godot_list)
-        else:
-            pass
-
-
-async def main():
-    print("- -- -- --  --- -- -- ")
-    async with websockets.serve(echo, "0.0.0.0", configuration.network_settings['godot_websocket_port']):
-        print("+++")
-        await asyncio.Future()  # run forever
-
-
+# FEAGI Registration
 def feagi_registration(feagi_host_, api_port_):
     app_host_info_ = router.app_host_info()
     runtime_data["host_network"]["host_name"] = app_host_info_["host_name"]
@@ -331,6 +235,104 @@ def feagi_init(feagi_host_, api_port_):
         time.sleep(1)
 
 
+# Communication Handling
+async def echo(websocket):
+    godot_list = {}  # initalized the list from Godot
+    detect_lag = False
+    new_FEAGI_sub = FEAGI_sub
+    while True:
+        one_frame = new_FEAGI_sub.receive()
+
+        if one_frame is not None:
+            one_frame = feagi_data_processor(one_frame)
+            await websocket.send(str(one_frame))
+            try:
+                await websocket.send(str(one_frame))
+            except Exception as e:
+                print("Error during websocket processing:\n   ", e)
+
+        if detect_lag:
+            opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
+                'feagi_outbound_port']
+            new_FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+            detect_lag = False
+
+        data_from_godot = await websocket.recv()
+        data_from_godot = data_from_godot.decode('UTF-8')  # ADDED this line to decode into string only
+        if data_from_godot == "lagged":
+            detect_lag = True
+            data_from_godot = "{}"
+        if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and data_from_godot != "refresh" and data_from_godot != "[]"):
+            print(data_from_godot)
+            godot_list = godot_data_processor(data_from_godot)
+            converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=godot_list,
+                                                                     cortical_data=runtime_data[
+                                                                         "cortical_data"])
+            print(">>> > > > >> > converted data:", converted_data)
+            FEAGI_pub.send(converted_data)
+        if data_from_godot == "refresh":
+            godot_list = {}
+            converted_data = {}
+            FEAGI_pub.send(godot_list)
+        else:
+            pass
+
+
+async def main():
+    print("- -- -- --  --- -- -- ")
+    async with websockets.serve(echo, "0.0.0.0", configuration.network_settings['godot_websocket_port']):
+        print("+++")
+        await asyncio.Future()  # run forever
+
+
+# def breakdown(feagi_input):  # add input soon
+#     """
+#     # TODO: Explain what this is for
+#     """
+#     data = feagi_input
+#     data = list(data)
+#     increment = 0
+#     list1 = []
+#
+#     while increment < len(data):
+#         voxel = [data[increment][1], data[increment][2], data[increment][3]]
+#         list1.append(voxel)
+#         increment += 1
+#     print(list1)
+
+# def godot_selected_list(outside_list, godot_list):
+#     name = outside_list[0]
+#     x = int(outside_list[1])
+#     y = int(outside_list[2])
+#     z = int(outside_list[3])
+#     if godot_list:
+#         list_to_dict = godot_list
+#     else:
+#         list_to_dict = dict()
+#         list_to_dict["data"] = dict()
+#         list_to_dict["data"]["direct_stimulation"] = dict()
+#
+#     if list_to_dict["data"]["direct_stimulation"].get(name) is not None:
+#         pass
+#     else:
+#         list_to_dict["data"]["direct_stimulation"][name] = list()
+#     for key in list_to_dict["data"]["direct_stimulation"]:
+#         if key not in list_to_dict["data"]["direct_stimulation"]:
+#             list_to_dict["data"]["direct_stimulation"][name] = list()
+#             list_to_dict["data"]["direct_stimulation"][name].append([x,y,z])
+#         else:
+#             list_to_dict["data"]["direct_stimulation"][name].append([x,y,z])
+#     return list_to_dict
+
+# def godot_deselected_list(outside_list, godot_list):
+#     for key in godot_list["data"]["direct_stimulation"]:
+#         if outside_list[0] == key:
+#             for xyz in godot_list["data"]["direct_stimulation"][key]:
+#                 if xyz[0] == int(outside_list[1]) and xyz[1] == int(outside_list[2]) and xyz[2] == int(outside_list[3]):
+#                     godot_list["data"]["direct_stimulation"][key].remove(xyz)
+#     return godot_list
+
+
 if __name__ == "__main__":
     print("================================ @@@@@@@@@@@@@@@ ==========================================")
     print("================================ @@@@@@@@@@@@@@@ ==========================================")
@@ -363,4 +365,3 @@ if __name__ == "__main__":
     print("FEAGI initialization completed successfully")
 
     asyncio.run(main())
-

@@ -288,8 +288,16 @@ def burst_manager():
             runtime_data.robot_model = {}
 
         if runtime_data.genome_reset_flag:
+            print('.' * 80)
+            print('.' * 80)
+            print('.' * 80)
+            print('.' * 80)
+            print('.' * 80)
+            print('.' * 80)
+            print('.' * 80)
+            print("......Broadcasting genome reset...... ")
             broadcast_message['genome_reset'] = True
-            runtime_data.genome_reset_flag = False
+            # runtime_data.genome_reset_flag = False
 
         # broadcast_message['cortical_dimensions'] = runtime_data.cortical_dimensions
 
