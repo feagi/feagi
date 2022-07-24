@@ -223,17 +223,10 @@ def feagi_registration():
 
     # Establish ZMQ Sessions with FEAGI
     print("--->> >> >> \n", sockets, network_settings)
-    feagi_pub_ = Pub(address='tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_godot'])
+    feagi_pub = Pub(address='tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_godot'])
     opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"]['feagi_outbound_port']
-    feagi_sub_ = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+    feagi_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
-    feagi_init()
-    print("FEAGI initialization completed successfully")
-
-    return feagi_pub_, feagi_sub_
-
-
-def feagi_init():
     # Send a request to FEAGI for cortical dimensions
     awaiting_feagi_registration = True
 
@@ -254,6 +247,7 @@ def feagi_init():
             awaiting_feagi_registration = False
         time.sleep(1)
 
+    return feagi_pub, feagi_sub
 
 # Communication Handling
 async def echo(websocket):
@@ -373,6 +367,7 @@ if __name__ == "__main__":
 
     # Registration with FEAGI
     feagi_pub, feagi_sub = feagi_registration()
+    print("FEAGI registration completed successfully")
 
     Thread(target=feagi_to_godot).start()
     Thread(target=godot_to_feagi).start()
