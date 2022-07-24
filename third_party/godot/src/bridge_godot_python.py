@@ -31,6 +31,7 @@ import websockets
 import requests
 import traceback
 import shutil
+from threading import Thread
 from time import sleep
 
 runtime_data = {
@@ -45,6 +46,8 @@ runtime_data = {
 }
 
 dimensions_endpoint = '/v1/feagi/connectome/properties/dimensions'
+feagi_host = configuration.network_settings["feagi_host"]
+api_port = configuration.network_settings["feagi_api_port"]
 
 
 #  CSV Handlers
@@ -193,7 +196,7 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
 
 
 # FEAGI Registration
-def feagi_registration(feagi_host_, api_port_):
+def feagi_registration():
     app_host_info_ = router.app_host_info()
     runtime_data["host_network"]["host_name"] = app_host_info_["host_name"]
     runtime_data["host_network"]["ip_address"] = app_host_info_["ip_address"]
@@ -202,8 +205,8 @@ def feagi_registration(feagi_host_, api_port_):
         print("Awaiting registration with FEAGI...1")
         try:
             runtime_data["feagi_state"] = router.register_with_feagi(app_name=configuration.app_name,
-                                                                     feagi_host=feagi_host_,
-                                                                     api_port=api_port_,
+                                                                     feagi_host=feagi_host,
+                                                                     api_port=api_port,
                                                                      app_capabilities=configuration.capabilities,
                                                                      app_host_info=runtime_data["host_network"]
                                                                      )
@@ -212,18 +215,35 @@ def feagi_registration(feagi_host_, api_port_):
             pass
         sleep(1)
 
+    print("** **", runtime_data["feagi_state"])
+    api_address = 'http://' + network_settings['feagi_host'] + ':' + network_settings['feagi_api_port']
+    sockets = requests.get(api_address + '/v1/feagi/feagi/network').json()
+    stimulation_period = requests.get(api_address + '/v1/feagi/feagi/burst_engine/stimulation_period').json()
+    runtime_data["feagi_state"]['feagi_burst_speed'] = float(stimulation_period)
 
-def feagi_init(feagi_host_, api_port_):
+    # Establish ZMQ Sessions with FEAGI
+    print("--->> >> >> \n", sockets, network_settings)
+    feagi_pub_ = Pub(address='tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_godot'])
+    opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"]['feagi_outbound_port']
+    feagi_sub_ = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+
+    feagi_init()
+    print("FEAGI initialization completed successfully")
+
+    return feagi_pub_, feagi_sub_
+
+
+def feagi_init():
     # Send a request to FEAGI for cortical dimensions
     awaiting_feagi_registration = True
 
     while awaiting_feagi_registration:
         print("********* ************ ********** ************* ***************\n")
         print("Awaiting registration with FEAGI...2")
-        FEAGI_pub.send({"godot_init": True})
+        feagi_pub.send({"godot_init": True})
 
         runtime_data["cortical_data"] = \
-            requests.get('http://' + feagi_host_ + ':' + api_port_ + dimensions_endpoint).json()
+            requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
 
         print("Cortical_data", runtime_data["cortical_data"])
 
@@ -239,7 +259,7 @@ def feagi_init(feagi_host_, api_port_):
 async def echo(websocket):
     godot_list = {}  # initalized the list from Godot
     detect_lag = False
-    new_FEAGI_sub = FEAGI_sub
+    new_FEAGI_sub = feagi_sub
     while True:
         one_frame = new_FEAGI_sub.receive()
 
@@ -269,11 +289,11 @@ async def echo(websocket):
                                                                      cortical_data=runtime_data[
                                                                          "cortical_data"])
             print(">>> > > > >> > converted data:", converted_data)
-            FEAGI_pub.send(converted_data)
+            feagi_pub.send(converted_data)
         if data_from_godot == "refresh":
             godot_list = {}
             converted_data = {}
-            FEAGI_pub.send(godot_list)
+            feagi_pub.send(godot_list)
         else:
             pass
 
@@ -333,6 +353,14 @@ async def main():
 #     return godot_list
 
 
+async def feagi_to_godot():
+    pass
+
+
+async def godot_to_feagi():
+    pass
+
+
 if __name__ == "__main__":
     print("================================ @@@@@@@@@@@@@@@ ==========================================")
     print("================================ @@@@@@@@@@@@@@@ ==========================================")
@@ -343,25 +371,10 @@ if __name__ == "__main__":
     print("================================ @@@@@@@@@@@@@@@ ==========================================")
     print("================================ @@@@@@@@@@@@@@@ ==========================================")
 
-    feagi_host = configuration.network_settings["feagi_host"]
-    api_port = configuration.network_settings["feagi_api_port"]
+    # Registration with FEAGI
+    feagi_pub, feagi_sub = feagi_registration()
 
-    feagi_registration(feagi_host_=feagi_host, api_port_=api_port)
-
-    print("** **", runtime_data["feagi_state"])
-
-    api_address = 'http://' + network_settings['feagi_host'] + ':' + network_settings['feagi_api_port']
-
-    sockets = requests.get(api_address + '/v1/feagi/feagi/network').json()
-    stimulation_period = requests.get(api_address + '/v1/feagi/feagi/burst_engine/stimulation_period').json()
-    runtime_data["feagi_state"]['feagi_burst_speed'] = float(stimulation_period)
-
-    print("--->> >> >> \n", sockets, network_settings)
-    FEAGI_pub = Pub(address='tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_godot'])
-    opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"]['feagi_outbound_port']
-    FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
-
-    feagi_init(feagi_host_=feagi_host, api_port_=api_port)
-    print("FEAGI initialization completed successfully")
+    Thread(target=feagi_to_godot).start()
+    Thread(target=godot_to_feagi).start()
 
     asyncio.run(main())
