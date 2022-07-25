@@ -352,10 +352,10 @@ async def godot_to_feagi():
         await asyncio.Future()
 
 
-async def feagi_to_godot():
-    async with feagi_listener():
-        print("% % %")
-        await asyncio.Future()
+# async def feagi_to_godot():
+#     async with feagi_listener():
+#         print("% % %")
+#         await asyncio.Future()
 
 
 if __name__ == "__main__":
@@ -371,9 +371,9 @@ if __name__ == "__main__":
     # Registration with FEAGI
     feagi_pub, feagi_sub = feagi_registration()
 
-    print(" - -" * 60)
+    print(" - -" * 50)
     print("FEAGI registration completed successfully")
-    print(" - -" * 60)
+    print(" - -" * 50)
 
     asyncio.run(godot_to_feagi())
-    asyncio.run(feagi_to_godot())
+    asyncio.run(feagi_listener())
