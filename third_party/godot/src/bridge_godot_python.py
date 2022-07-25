@@ -46,6 +46,9 @@ runtime_data = {
 }
 
 dimensions_endpoint = '/v1/feagi/connectome/properties/dimensions'
+network_endpoint = '/v1/feagi/feagi/network'
+stimulation_period_endpoint = '/v1/feagi/feagi/burst_engine/stimulation_period'
+
 feagi_host = configuration.network_settings["feagi_host"]
 api_port = configuration.network_settings["feagi_api_port"]
 
@@ -202,7 +205,7 @@ def feagi_registration():
     runtime_data["host_network"]["ip_address"] = app_host_info_["ip_address"]
 
     while runtime_data["feagi_state"] is None:
-        print("Awaiting registration with FEAGI...1")
+        print("Awaiting registration with FEAGI...1", feagi_host, api_port, app_host_info_)
         try:
             runtime_data["feagi_state"] = router.register_with_feagi(app_name=configuration.app_name,
                                                                      feagi_host=feagi_host,
@@ -217,8 +220,8 @@ def feagi_registration():
 
     print("** **", runtime_data["feagi_state"])
     api_address = 'http://' + network_settings['feagi_host'] + ':' + network_settings['feagi_api_port']
-    sockets = requests.get(api_address + '/v1/feagi/feagi/network').json()
-    stimulation_period = requests.get(api_address + '/v1/feagi/feagi/burst_engine/stimulation_period').json()
+    sockets = requests.get(api_address + network_endpoint).json()
+    stimulation_period = requests.get(api_address + stimulation_period_endpoint).json()
     runtime_data["feagi_state"]['feagi_burst_speed'] = float(stimulation_period)
 
     # Establish ZMQ Sessions with FEAGI
