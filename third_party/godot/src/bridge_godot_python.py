@@ -33,6 +33,7 @@ import traceback
 import shutil
 from threading import Thread
 from time import sleep
+from contextlib import closing
 
 runtime_data = {
     "cortical_data": {},
@@ -252,56 +253,8 @@ def feagi_registration():
 
     return feagi_pub, feagi_sub
 
+
 # Communication Handling
-async def echo(websocket):
-    godot_list = {}  # initalized the list from Godot
-    detect_lag = False
-    new_FEAGI_sub = feagi_sub
-    while True:
-        one_frame = new_FEAGI_sub.receive()
-
-        if one_frame is not None:
-            one_frame = feagi_data_processor(one_frame)
-            await websocket.send(str(one_frame))
-            try:
-                await websocket.send(str(one_frame))
-            except Exception as e:
-                print("Error during websocket processing:\n   ", e)
-
-        if detect_lag:
-            opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
-                'feagi_outbound_port']
-            new_FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
-            detect_lag = False
-
-        data_from_godot = await websocket.recv()
-        data_from_godot = data_from_godot.decode('UTF-8')  # ADDED this line to decode into string only
-        if data_from_godot == "lagged":
-            detect_lag = True
-            data_from_godot = "{}"
-        if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and data_from_godot != "refresh" and data_from_godot != "[]"):
-            print(data_from_godot)
-            godot_list = godot_data_processor(data_from_godot)
-            converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=godot_list,
-                                                                     cortical_data=runtime_data[
-                                                                         "cortical_data"])
-            print(">>> > > > >> > converted data:", converted_data)
-            feagi_pub.send(converted_data)
-        if data_from_godot == "refresh":
-            godot_list = {}
-            converted_data = {}
-            feagi_pub.send(godot_list)
-        else:
-            pass
-
-
-async def main():
-    print("- -- -- --  --- -- -- ")
-    async with websockets.serve(echo, "0.0.0.0", configuration.network_settings['godot_websocket_port']):
-        print("+++")
-        await asyncio.Future()  # run forever
-
-
 # def breakdown(feagi_input):  # add input soon
 #     """
 #     # TODO: Explain what this is for
@@ -350,12 +303,56 @@ async def main():
 #     return godot_list
 
 
-async def feagi_to_godot():
-    pass
+async def godot_listener(websocket, path):
+    print("============ Godot Listener ==============")
+    godot_list = {}  # initialized the list from Godot
+    while True:
+        data_from_godot = await websocket.recv()
+        data_from_godot = data_from_godot.decode('UTF-8')  # ADDED this line to decode into string only
+        if data_from_godot == "lagged":
+            detect_lag = True
+            data_from_godot = "{}"
+        if (
+                data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and
+                data_from_godot != "refresh" and data_from_godot != "[]"):
+            print(data_from_godot)
+            godot_list = godot_data_processor(data_from_godot)
+            converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=godot_list,
+                                                                     cortical_data=runtime_data[
+                                                                         "cortical_data"])
+            print(">>> > > > >> > converted data:", converted_data)
+            feagi_pub.send(converted_data)
+        if data_from_godot == "refresh":
+            godot_list = {}
+            converted_data = {}
+            feagi_pub.send(godot_list)
+        else:
+            pass
+
+
+async def feagi_listener():
+    print("============ FEAGI Listener ==============")
+    async with websockets.connect('ws://' + 'godot' + configuration.network_settings['godot_websocket_port']) as websocket:
+        while True:
+            feagi_burst_packet = feagi_sub.receive()
+            print("+-" * 40)
+            print("-+" * 40)
+            if feagi_burst_packet is not None:
+                feagi_burst_packet = feagi_data_processor(feagi_burst_packet)
+                await websocket.send(str(feagi_burst_packet))
+                try:
+                    await websocket.send(str(feagi_burst_packet))
+                except Exception as e:
+                    print("Error during websocket processing:\n", e)
 
 
 async def godot_to_feagi():
-    pass
+    start_server = websockets.serve(godot_listener, '0.0.0.0', configuration.network_settings['godot_websocket_port'])
+    asyncio.get_event_loop().run_until_complete(start_server)
+
+
+async def feagi_to_godot():
+    asyncio.get_event_loop().run_until_complete(feagi_listener())
 
 
 if __name__ == "__main__":
@@ -372,7 +369,7 @@ if __name__ == "__main__":
     feagi_pub, feagi_sub = feagi_registration()
     print("FEAGI registration completed successfully")
 
-    Thread(target=feagi_to_godot).start()
-    Thread(target=godot_to_feagi).start()
+    Thread(target=godot_listener).start()
+    Thread(target=feagi_listener).start()
 
-    asyncio.run(main())
+
