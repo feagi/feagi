@@ -375,5 +375,6 @@ if __name__ == "__main__":
     print("FEAGI registration completed successfully")
     print(" - -" * 50)
 
-    asyncio.run(godot_to_feagi())
     asyncio.run(feagi_listener())
+    asyncio.run(godot_to_feagi())
+
