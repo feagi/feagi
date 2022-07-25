@@ -347,12 +347,15 @@ async def feagi_listener():
 
 
 async def godot_to_feagi():
-    start_server = websockets.serve(godot_listener, '0.0.0.0', configuration.network_settings['godot_websocket_port'])
-    asyncio.get_event_loop().run_until_complete(start_server)
+    async with websockets.serve(godot_listener, '0.0.0.0', configuration.network_settings['godot_websocket_port']):
+        print("* * *")
+        await asyncio.Future()
 
 
 async def feagi_to_godot():
-    asyncio.get_event_loop().run_until_complete(feagi_listener())
+    async with feagi_listener():
+        print("% % %")
+        await asyncio.Future()
 
 
 if __name__ == "__main__":
