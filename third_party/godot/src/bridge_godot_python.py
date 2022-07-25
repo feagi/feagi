@@ -332,7 +332,8 @@ async def godot_listener(websocket, path):
 
 async def feagi_listener():
     print("============ FEAGI Listener ==============")
-    async with websockets.connect('ws://' + 'godot' + configuration.network_settings['godot_websocket_port']) as websocket:
+    while True:
+        websocket = websockets.connect('ws://' + 'godot' + configuration.network_settings['godot_websocket_port'])
         feagi_burst_packet = feagi_sub.receive()
         print("+-" * 40)
         print("-+" * 40)
@@ -343,7 +344,6 @@ async def feagi_listener():
                 await websocket.send(str(feagi_burst_packet))
             except Exception as e:
                 print("Error during websocket processing:\n", e)
-        await asyncio.Future()
 
 
 async def godot_to_feagi():
@@ -356,6 +356,12 @@ async def godot_to_feagi():
 #     async with feagi_listener():
 #         print("% % %")
 #         await asyncio.Future()
+
+
+async def main():
+    f1 = loop.create_task(godot_to_feagi())
+    f2 = loop.create_task(feagi_listener())
+    await asyncio.wait([f1, f2])
 
 
 if __name__ == "__main__":
@@ -375,6 +381,8 @@ if __name__ == "__main__":
     print("FEAGI registration completed successfully")
     print(" - -" * 50)
 
-    asyncio.run(feagi_listener())
-    asyncio.run(godot_to_feagi())
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
 
+    # asyncio.run(godot_to_feagi())
+    # asyncio.run(feagi_listener())
