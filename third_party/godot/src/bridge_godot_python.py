@@ -369,7 +369,7 @@ if __name__ == "__main__":
     feagi_pub, feagi_sub = feagi_registration()
     print("FEAGI registration completed successfully")
 
-    Thread(target=godot_listener).start()
-    Thread(target=feagi_listener).start()
+    Thread(target=godot_to_feagi).start()
+    Thread(target=feagi_to_godot).start()
 
 
