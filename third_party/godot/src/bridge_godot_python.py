@@ -330,14 +330,11 @@ async def godot_listener(websocket, path):
             pass
 
 
-async def feagi_listener():
+async def feagi_listener(websocket):
     print("============ FEAGI Listener ==============")
     while True:
-        print("^ ^ " * 40)
-        websocket = websockets.connect('ws://' + 'godot' + configuration.network_settings['godot_websocket_port'])
-        print("<> " * 40)
-        feagi_burst_packet = feagi_sub.receive()
         print("+-" * 40)
+        feagi_burst_packet = feagi_sub.receive()
         print("-+" * 40)
         if feagi_burst_packet is not None:
             feagi_burst_packet = feagi_data_processor(feagi_burst_packet)
@@ -361,8 +358,12 @@ async def godot_to_feagi():
 
 
 async def main():
+    print("^ ^ " * 40)
+    # todo: replace hardcoded godot address to a var
+    websocket = websockets.connect('ws://' + 'godot' + configuration.network_settings['godot_websocket_port'])
+    print("<> " * 40)
     f1 = loop.create_task(godot_to_feagi())
-    f2 = loop.create_task(feagi_listener())
+    f2 = loop.create_task(feagi_listener(websocket))
     await asyncio.wait([f1, f2])
 
 
