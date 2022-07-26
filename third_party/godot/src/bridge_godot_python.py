@@ -309,7 +309,7 @@ async def godot_listener(websocket, path):
     while True:
         data_from_godot = await websocket.recv()
         print("@@@   " * 20)
-        print(data_from_godot)
+        print(data_from_godot, type(data_from_godot), len(data_from_godot))
         if data_from_godot:
             data_from_godot = data_from_godot.decode('UTF-8')  # ADDED this line to decode into string only
             if data_from_godot == "lagged":
