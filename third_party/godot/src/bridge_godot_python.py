@@ -360,7 +360,7 @@ async def godot_to_feagi():
 async def main():
     print("^ ^ " * 40)
     # todo: replace hardcoded godot address to a var
-    websocket = websockets.connect('ws://' + 'godot' + configuration.network_settings['godot_websocket_port'])
+    websocket = websockets.connect('ws://' + 'godot' + str(configuration.network_settings['godot_websocket_port']))
     print("<> " * 40)
     f1 = loop.create_task(godot_to_feagi())
     f2 = loop.create_task(feagi_listener(websocket))
