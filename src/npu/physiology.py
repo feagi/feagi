@@ -51,9 +51,6 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
         print(settings.Bcolors.RED + "KeyError on accessing neighbor_list while firing a neuron" +
               settings.Bcolors.ENDC)
 
-    # After neuron fires all cumulative counters on source gets reset
-    reset_cumulative_counters(cortical_area=cortical_area, neuron_id=neuron_id)
-
     neighbor_count = len(neighbor_list)
 
     if cortical_area in runtime_data.neuron_mp_collection_scope:
@@ -96,8 +93,18 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
 
         dst_cortical_area = \
             runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["cortical_area"]
+
+        synaptic_degradation = 0
+
+        if "synaptic_degradation" in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][dst_cortical_area][0] and runtime_data.brain[cortical_area][neuron_id]["last_burst_num"]:
+            synaptic_degradation_factor = \
+                runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][dst_cortical_area][0]["synaptic_degradation"]
+            elapsed_burst_count = runtime_data.burst_count - runtime_data.brain[cortical_area][neuron_id]["last_burst_num"]
+            synaptic_degradation = synaptic_degradation_factor * elapsed_burst_count
+
         postsynaptic_current = \
-            runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
+            runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] - \
+            synaptic_degradation
 
         # TODO: create separate asynchronous process that performs maintenance-like operations
         """# (apoptosis, synaptic pruning) during brain IPU inactivity based on certain cortical area
@@ -139,6 +146,9 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
         runtime_data.fire_queue[dst_cortical_area][dst_neuron_id][0] = dst_neuron_obj["membrane_potential"]
         # Storing the firing threshold of the updated neuron
         runtime_data.fire_queue[dst_cortical_area][dst_neuron_id][1] = dst_neuron_obj["firing_threshold"]
+
+    # After neuron fires all cumulative counters on source gets reset
+    reset_cumulative_counters(cortical_area=cortical_area, neuron_id=neuron_id)
 
 
 def neuron_leak(cortical_area, neuron_id):

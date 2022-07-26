@@ -527,7 +527,7 @@ genome = {
         "_____10c-m__for-nx-snooze-f": 0,
         "_____10c-m__for-cx-de_gen-f": 0,
         "_____10c-m__for-cx-dstmap-d": {
-            "o__mot": [["motor_forward", [1, 1, 1], 1, False]]
+            "o__mot": [["motor_forward", [1, 1, 1], 1, False, 0]]
         },
 
         "_____10c-m__bac-cx-__name-t": "backward",
@@ -551,7 +551,7 @@ genome = {
         "_____10c-m__bac-nx-snooze-f": 0,
         "_____10c-m__bac-cx-de_gen-f": 0,
         "_____10c-m__bac-cx-dstmap-d": {
-            "o__mot": [["motor_backward", [1, 1, 1], 1, False]]
+            "o__mot": [["motor_backward", [1, 1, 1], 1, False, 0]]
         },
     }
 }

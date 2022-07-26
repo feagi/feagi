@@ -153,10 +153,13 @@ def genome_2_1_convertor(flat_genome):
                                                 genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination] = list()
 
                                             temp_dict = dict()
-                                            temp_dict["morphology_id"] = mapping_recipe[0]
-                                            temp_dict["morphology_scalar"] = mapping_recipe[1]
-                                            temp_dict["postSynapticCurrent_multiplier"] = mapping_recipe[2]
-                                            temp_dict["plasticity_flag"] = mapping_recipe[3]
+                                            temp_dict_params = ["morphology_id",
+                                                                "morphology_scalar",
+                                                                "postSynapticCurrent_multiplier",
+                                                                "plasticity_flag",
+                                                                "synaptic_degradation"]
+                                            for _ in range(len(mapping_recipe)):
+                                                temp_dict[temp_dict_params[_]] = mapping_recipe[_]
 
                                             genome['blueprint'][
                                                 cortical_area][genome_2_to_1[exon]][destination].append(temp_dict)
