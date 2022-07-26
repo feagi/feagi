@@ -106,6 +106,9 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
             runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] - \
             synaptic_degradation
 
+        if postsynaptic_current < 0:
+            postsynaptic_current = 0
+
         # TODO: create separate asynchronous process that performs maintenance-like operations
         """# (apoptosis, synaptic pruning) during brain IPU inactivity based on certain cortical area
         # conditions being met (ex: postsynaptic current degenerates to 0, exceeds bursting lifespan, etc.)
