@@ -87,6 +87,7 @@ def shock_scenario_2():
     TBD
     """
     print("Shock scenario 2 has been triggered!")
+    shock_level = 0
     for neuron in runtime_data.fire_candidate_list["ii_inf"]:
         shock_level += 3
 
