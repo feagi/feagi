@@ -48,7 +48,7 @@ reduced) and incorporated in the new neuroplasticity function (below).
                                                         dst_cortical_area='utf8_memory', dst_neuron_id=dst_neuron,
                                                         long_term_depression=True, impact_multiplier=4)
 """
-
+import traceback
 
 from inf import runtime_data
 from evo.synapse import bidirectional_synapse, synapse
@@ -113,10 +113,10 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
         # When long term depression flag is set, there will be negative synaptic influence caused
         plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"] * (-1) * \
                               impact_multiplier
-        # print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
+        print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
 
-    # else:
-        # print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
+    else:
+        print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
 
     try:
         new_psc = \
@@ -140,7 +140,7 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
                                      post_synaptic_current=new_psc)
 
     except KeyError as e:
-        print("\n\n\nKey Error on longterm_potentiation_depression:", e)
+        print("\n\n\nKey Error on longterm_potentiation_depression:", e, traceback.print_exc())
         pass
 
     # except KeyError:
@@ -199,6 +199,7 @@ def neuroplasticity():
                                 LTP occurs when a pre-synaptic neuron fires in burst (n-1) and its
                                 associated post-synaptic neuron is fired during burst (n)   
                                 """
+
                                 if pfcl_area in postsynaptic_neuron_upstream_neurons:
                                     if presynaptic_neuron in postsynaptic_neuron_upstream_neurons[pfcl_area]:
                                         longterm_potentiation_depression(
@@ -213,12 +214,13 @@ def neuroplasticity():
                                 LTD occurs when a pre-synaptic neuron fires in burst (n) and its associated 
                                 post-synaptic neuron is fired during burst (n+1) 
                                 """
+
                                 if presynaptic_neuron in postsynaptic_neuron_neighbors:
                                     longterm_potentiation_depression(
-                                        src_cortical_area=pfcl_area,
-                                        src_neuron_id=presynaptic_neuron,
-                                        dst_cortical_area=cfcl_area,
-                                        dst_neuron_id=postsynaptic_neuron,
+                                        src_cortical_area=cfcl_area,
+                                        src_neuron_id=postsynaptic_neuron,
+                                        dst_cortical_area=pfcl_area,
+                                        dst_neuron_id=presynaptic_neuron,
                                         long_term_depression=True,
-                                        impact_multiplier=4
+                                        impact_multiplier=1
                                     )
