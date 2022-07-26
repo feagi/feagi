@@ -310,26 +310,27 @@ async def godot_listener(websocket, path):
         data_from_godot = await websocket.recv()
         print("@@@   " * 20)
         print(data_from_godot)
-        data_from_godot = data_from_godot.decode('UTF-8')  # ADDED this line to decode into string only
-        if data_from_godot == "lagged":
-            detect_lag = True
-            data_from_godot = "{}"
-        if (
-                data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and
-                data_from_godot != "refresh" and data_from_godot != "[]"):
-            print(data_from_godot)
-            godot_list = godot_data_processor(data_from_godot)
-            converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=godot_list,
-                                                                     cortical_data=runtime_data[
-                                                                         "cortical_data"])
-            print(">>> > > > >> > converted data:", converted_data)
-            feagi_pub.send(converted_data)
-        if data_from_godot == "refresh":
-            godot_list = {}
-            converted_data = {}
-            feagi_pub.send(godot_list)
-        else:
-            pass
+        if data_from_godot:
+            data_from_godot = data_from_godot.decode('UTF-8')  # ADDED this line to decode into string only
+            if data_from_godot == "lagged":
+                detect_lag = True
+                data_from_godot = "{}"
+            if (
+                    data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and
+                    data_from_godot != "refresh" and data_from_godot != "[]"):
+                print(data_from_godot)
+                godot_list = godot_data_processor(data_from_godot)
+                converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=godot_list,
+                                                                         cortical_data=runtime_data[
+                                                                             "cortical_data"])
+                print(">>> > > > >> > converted data:", converted_data)
+                feagi_pub.send(converted_data)
+            if data_from_godot == "refresh":
+                godot_list = {}
+                converted_data = {}
+                feagi_pub.send(godot_list)
+            else:
+                pass
 
 
 async def feagi_listener():
