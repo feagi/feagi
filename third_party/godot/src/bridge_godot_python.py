@@ -333,9 +333,9 @@ async def godot_listener(websocket, path):
 async def feagi_listener(websocket):
     print("============ FEAGI Listener ==============")
     while True:
-        print("+-" * 40)
+        # print("+-" * 40)
         feagi_burst_packet = feagi_sub.receive()
-        print("-+" * 40)
+        # print("-+" * 40)
         if feagi_burst_packet is not None:
             print("& &")
             feagi_burst_packet = feagi_data_processor(feagi_burst_packet)
