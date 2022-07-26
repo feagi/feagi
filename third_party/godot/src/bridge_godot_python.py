@@ -340,9 +340,9 @@ async def feagi_listener(websocket):
             print("& &")
             feagi_burst_packet = feagi_data_processor(feagi_burst_packet)
             print("&---------&", feagi_burst_packet)
-            await websocket.send(str(feagi_burst_packet))
             try:
                 await websocket.send(str(feagi_burst_packet))
+                print("&----$$$-----&")
             except Exception as e:
                 print("Error during websocket processing:\n", e)
 
