@@ -54,6 +54,12 @@ from inf import runtime_data
 from evo.synapse import bidirectional_synapse, synapse
 from npu.physiology import list_upstream_neurons, post_synaptic_current_update
 
+import traceback
+
+from inf import runtime_data
+from evo.synapse import bidirectional_synapse, synapse
+from npu.physiology import list_upstream_neurons, post_synaptic_current_update
+
 
 def form_memories(cortical_area, src_neuron, dst_neuron):
     """
@@ -113,10 +119,10 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
         # When long term depression flag is set, there will be negative synaptic influence caused
         plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"] * (-1) * \
                               impact_multiplier
-        # print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>")
+        print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
 
-    # else:
-        # print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>")
+    else:
+        print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
 
     try:
         new_psc = \
@@ -131,16 +137,17 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
         # Condition to prevent postsynaptic current to become negative
         # todo: consider setting a postsynaptic_min in genome to be used instead of 0
         # Condition to prune a synapse if its postsynaptic_current is zero
-        if new_psc < 0:
-            runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id,
-                                                  dst_cortical_area, dst_neuron_id))
+        if new_psc < 1:
+            new_psc = 1
+            # runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id,
+            #                                       dst_cortical_area, dst_neuron_id))
 
         post_synaptic_current_update(cortical_area_src=src_cortical_area, cortical_area_dst=dst_cortical_area,
                                      neuron_id_src=src_neuron_id, neuron_id_dst=dst_neuron_id,
                                      post_synaptic_current=new_psc)
 
     except KeyError as e:
-        print("\n\n\nKey Error on longterm_potentiation_depression:", e)
+        print("\n\n\nKey Error on longterm_potentiation_depression:", e, traceback.print_exc())
         pass
 
     # except KeyError:
@@ -171,9 +178,9 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
 
 def neuroplasticity():
     """
-    Creates bidirectional synapses between simultaneously-active neurons in connected 
-    cortical areas (specified in genome and extracted into plasticity_dict). Also checks 
-    for a given currently-active neuron's upstream/downstream neurons firing in the 
+    Creates bidirectional synapses between simultaneously-active neurons in connected
+    cortical areas (specified in genome and extracted into plasticity_dict). Also checks
+    for a given currently-active neuron's upstream/downstream neurons firing in the
     previous FCL and applies LTP or LTD accordingly.
     """
 
@@ -199,6 +206,7 @@ def neuroplasticity():
                                 LTP occurs when a pre-synaptic neuron fires in burst (n-1) and its
                                 associated post-synaptic neuron is fired during burst (n)   
                                 """
+
                                 if pfcl_area in postsynaptic_neuron_upstream_neurons:
                                     if presynaptic_neuron in postsynaptic_neuron_upstream_neurons[pfcl_area]:
                                         longterm_potentiation_depression(
@@ -213,12 +221,13 @@ def neuroplasticity():
                                 LTD occurs when a pre-synaptic neuron fires in burst (n) and its associated 
                                 post-synaptic neuron is fired during burst (n+1) 
                                 """
+
                                 if presynaptic_neuron in postsynaptic_neuron_neighbors:
                                     longterm_potentiation_depression(
-                                        src_cortical_area=pfcl_area,
-                                        src_neuron_id=presynaptic_neuron,
-                                        dst_cortical_area=cfcl_area,
-                                        dst_neuron_id=postsynaptic_neuron,
+                                        src_cortical_area=cfcl_area,
+                                        src_neuron_id=postsynaptic_neuron,
+                                        dst_cortical_area=pfcl_area,
+                                        dst_neuron_id=presynaptic_neuron,
                                         long_term_depression=True,
-                                        impact_multiplier=4
+                                        impact_multiplier=1
                                     )
