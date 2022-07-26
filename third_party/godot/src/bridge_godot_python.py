@@ -337,7 +337,9 @@ async def feagi_listener(websocket):
         feagi_burst_packet = feagi_sub.receive()
         print("-+" * 40)
         if feagi_burst_packet is not None:
+            print("& &")
             feagi_burst_packet = feagi_data_processor(feagi_burst_packet)
+            print("&---------&")
             await websocket.send(str(feagi_burst_packet))
             try:
                 await websocket.send(str(feagi_burst_packet))
