@@ -37,7 +37,7 @@ capabilities = {
     "motor": {
         "type": "opu",
         "disabled": False,
-        "count": 4,
+        "count": 2,
         'topic_identifier': '/M',
         "refresh_rate": 1,
         "cortical_mapping": "o__mot",

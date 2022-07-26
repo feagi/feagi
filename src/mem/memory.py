@@ -54,6 +54,12 @@ from inf import runtime_data
 from evo.synapse import bidirectional_synapse, synapse
 from npu.physiology import list_upstream_neurons, post_synaptic_current_update
 
+import traceback
+
+from inf import runtime_data
+from evo.synapse import bidirectional_synapse, synapse
+from npu.physiology import list_upstream_neurons, post_synaptic_current_update
+
 
 def form_memories(cortical_area, src_neuron, dst_neuron):
     """
@@ -113,10 +119,11 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
         # When long term depression flag is set, there will be negative synaptic influence caused
         plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"] * (-1) * \
                               impact_multiplier
-    #     print("<> <> <> <> <> <> <> <> <>     LTD     <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
-    #
-    # else:
-    #     print("<> <> <> <> <> <> <> <> <>      LTP      <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
+
+        print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
+
+    else:
+        print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
 
     try:
         new_psc = \
@@ -131,9 +138,10 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
         # Condition to prevent postsynaptic current to become negative
         # todo: consider setting a postsynaptic_min in genome to be used instead of 0
         # Condition to prune a synapse if its postsynaptic_current is zero
-        if new_psc < 0:
-            runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id,
-                                                  dst_cortical_area, dst_neuron_id))
+        if new_psc < 1:
+            new_psc = 1
+            # runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id,
+            #                                       dst_cortical_area, dst_neuron_id))
 
         post_synaptic_current_update(cortical_area_src=src_cortical_area, cortical_area_dst=dst_cortical_area,
                                      neuron_id_src=src_neuron_id, neuron_id_dst=dst_neuron_id,
@@ -171,9 +179,9 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
 
 def neuroplasticity():
     """
-    Creates bidirectional synapses between simultaneously-active neurons in connected 
-    cortical areas (specified in genome and extracted into plasticity_dict). Also checks 
-    for a given currently-active neuron's upstream/downstream neurons firing in the 
+    Creates bidirectional synapses between simultaneously-active neurons in connected
+    cortical areas (specified in genome and extracted into plasticity_dict). Also checks
+    for a given currently-active neuron's upstream/downstream neurons firing in the
     previous FCL and applies LTP or LTD accordingly.
     """
 
@@ -224,3 +232,4 @@ def neuroplasticity():
                                         long_term_depression=True,
                                         impact_multiplier=1
                                     )
+
