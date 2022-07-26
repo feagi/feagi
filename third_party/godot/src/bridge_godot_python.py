@@ -317,7 +317,8 @@ async def godot_listener(websocket, path):
             #     data_from_godot = "{}"
             if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and
                     data_from_godot != "refresh" and data_from_godot != "[]"):
-                print(data_from_godot)
+                data_from_godot = data_from_godot.decode('UTF-8')
+                print(data_from_godot, type(data_from_godot))
                 godot_list = godot_data_processor(data_from_godot)
                 converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=godot_list,
                                                                          cortical_data=runtime_data[
