@@ -105,7 +105,7 @@ def form_memories(cortical_area, src_neuron, dst_neuron):
 
 
 def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_cortical_area,
-                                     dst_neuron_id, long_term_depression=False, impact_multiplier=1):
+                                     dst_neuron_id, long_term_depression=False, impact_multiplier=1.0):
 
     plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"]
 
@@ -113,10 +113,10 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
         # When long term depression flag is set, there will be negative synaptic influence caused
         plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"] * (-1) * \
                               impact_multiplier
-        print("<> <> <> <> <> <> <> <> <>     LTD        <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
-
-    else:
-        print("<> <> <> <> <> <> <> <> <>        LTP        <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
+    #     print("<> <> <> <> <> <> <> <> <>     LTD     <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
+    #
+    # else:
+    #     print("<> <> <> <> <> <> <> <> <>      LTP      <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
 
     try:
         new_psc = \
