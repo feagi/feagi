@@ -34,6 +34,10 @@ import shutil
 from threading import Thread
 from time import sleep
 from contextlib import closing
+from collections import deque
+
+ws_queue = deque()
+zmq_queue = deque()
 
 runtime_data = {
     "cortical_data": {},
@@ -303,7 +307,14 @@ def feagi_registration():
 #     return godot_list
 
 
-async def godot_listener(websocket, path):
+
+async def feagi_data_publisher(websocket):
+        websocket.send(str(ws_queue.popleft())
+
+async def godot_ws_server(websocket):
+
+
+
     print("============ Godot Listener ==============")
     godot_list = {}  # initialized the list from Godot
     while True:
@@ -311,10 +322,10 @@ async def godot_listener(websocket, path):
         print("@^@   " * 20)
         print(data_from_godot, type(data_from_godot), len(data_from_godot))
         if data_from_godot:
-            data_from_godot = data_from_godot.decode('UTF-8')  # ADDED this line to decode into string only
+            # data_from_godot = data_from_godot.decode('UTF-8')  # ADDED this line to decode into string only
             if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and
                     data_from_godot != "refresh" and data_from_godot != "[]"):
-                data_from_godot = data_from_godot.decode('UTF-8')
+                # data_from_godot = data_from_godot.decode('UTF-8')
                 print(">-->>", data_from_godot, type(data_from_godot))
                 godot_list = godot_data_processor(data_from_godot)
                 converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=godot_list,
@@ -341,19 +352,21 @@ async def feagi_listener():
             print("& &")
             feagi_burst_packet = feagi_data_processor(feagi_burst_packet)
             print("&---------&", feagi_burst_packet)
-            try:
-                # todo: replace hardcoded godot address to a var
-                print("^ ^ " * 40)
-                async with websockets.connect('ws://' + 'godot' + ':' +
-                                              str(configuration.network_settings['godot_websocket_port'])) as websocket:
-                    await websocket.send(str(feagi_burst_packet))
-                    print("&----$$$-----&")
-            except Exception as e:
-                print("Error during websocket processing:\n", e)
+            ws_queue.append(feagi_burst_packet)
+            print("|-->", len(ws_queue))
+            # try:
+            #     # todo: replace hardcoded godot address to a var
+            #     print("^ ^ " * 40)
+            #     async with websockets.connect('ws://' + 'godot' + ':' +
+            #                                   str(configuration.network_settings['godot_websocket_port'])) as websocket:
+            #         await websocket.send(str(feagi_burst_packet))
+            #         print("&----$-$-$-----&")
+            # except Exception as e:
+            #     print("Error during websocket processing:\n", e)
 
 
-async def godot_to_feagi():
-    async with websockets.serve(godot_listener, '0.0.0.0', configuration.network_settings['godot_websocket_port']):
+async def communication_manager():
+    async with websockets.serve(godot_ws_server, '0.0.0.0', configuration.network_settings['godot_websocket_port']):
         print("* * *")
         await asyncio.Future()
 
@@ -364,12 +377,12 @@ async def godot_to_feagi():
 #         await asyncio.Future()
 
 
-async def main():
-    # websocket = websockets.connect('ws://' + 'godot' + str(configuration.network_settings['godot_websocket_port']))
-    print("<> " * 40)
-    f1 = loop.create_task(godot_to_feagi())
-    f2 = loop.create_task(feagi_listener())
-    await asyncio.wait([f1, f2])
+# async def main():
+#     # websocket = websockets.connect('ws://' + 'godot' + str(configuration.network_settings['godot_websocket_port']))
+#     print("<> " * 40)
+#     f1 = loop.create_task(godot_listener())
+#     f2 = loop.create_task(feagi_listener())
+#     await asyncio.wait([f1, f2])
 
 
 if __name__ == "__main__":
@@ -389,8 +402,10 @@ if __name__ == "__main__":
     print("FEAGI registration completed successfully")
     print(" - -" * 50)
 
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+    # todo: To use multithreading and queues to handle independent communication processes for ZMQ and WS
 
-    # asyncio.run(godot_to_feagi())
-    # asyncio.run(feagi_listener())
+    # loop = asyncio.get_event_loop()
+    # loop.run_until_complete(main())
+    #
+    # # asyncio.run(godot_to_feagi())
+    asyncio.run(communication_manager())
