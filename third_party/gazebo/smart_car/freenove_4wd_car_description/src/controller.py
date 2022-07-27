@@ -190,7 +190,7 @@ class ScalableSubscriber(Node):
             sensor_id = int(''.join(filter(str.isdigit, sensor_topic)))
 
             # print("\n***\nAverage Intensity = ", avg_intensity)
-            if avg_intensity > 25:
+            if avg_intensity > capabilities["infrared"]["threshold"]:
                 return {
                     'ir': {
                         sensor_id: False

@@ -50,6 +50,7 @@ capabilities = {
         "count": 3,
         "refresh_rate": 1,
         "cortical_mapping": "i__inf",
+        "threshold": 25,
         'topic_identifier': 'IR'
     },
     "battery": {
