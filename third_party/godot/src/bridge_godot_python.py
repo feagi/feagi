@@ -24,6 +24,7 @@ import ast
 import asyncio
 import websockets
 import requests
+import shutil
 from time import sleep
 from router import *
 from configuration import *
@@ -167,8 +168,12 @@ def feagi_breakdown(data):
         runtime_data["old_cortical_data"] = runtime_data["cortical_data"]
         runtime_data["cortical_data"] = \
             requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
-        if runtime_data["old_cortical_data"] != runtime_data["cortical_data"]:
-            csv_writer(runtime_data["cortical_data"])
+        if 'genome_reset' not in data and data == "{}":
+            runtime_data["cortical_data"] = \
+                requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
+        if data != "{}":
+            if runtime_data["old_cortical_data"] != runtime_data["cortical_data"]:
+                csv_writer(runtime_data["cortical_data"])
         runtime_data["genome_number"] = new_genome_num
     for i in data['godot']:
         xyz = i[1], i[2], i[3]
@@ -218,27 +223,43 @@ async def echo(websocket):
             detect_lag = False
         one_frame = new_FEAGI_sub.receive()
         if one_frame is not None:
+            if 'genome_reset' in one_frame:
+                runtime_data["cortical_data"] = {}
+                try:
+                    f = open("../godot_source/reset.txt", "w")
+                    f.write("reset")
+                    f.close()
+                except Exception as e:
+                    print("Error during genome reset:\n", e)
             one_frame = feagi_breakdown(one_frame)
-            await websocket.send(str(one_frame))
-        data_from_godot = await websocket.recv()
-        data_from_godot = data_from_godot.decode('UTF-8') ##ADDED this line to decode into string only
-        if data_from_godot == "lagged":
-            detect_lag = True
-            data_from_godot = "{}"
-        if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and data_from_godot != "refresh" and data_from_godot != "[]"):
-            print(data_from_godot)
-            godot_list = godot_data(data_from_godot)
-            converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=godot_list,
-                                                                     cortical_data=runtime_data[
-                                                                         "cortical_data"])
-            print(">>> > > > >> > converted data:", converted_data)
-            FEAGI_pub.send(converted_data)
-        if data_from_godot == "refresh":
-            godot_list = {}
-            converted_data = {}
-            FEAGI_pub.send(godot_list)
-        else:
-            pass
+            # try:
+            #     websocket.send(str(one_frame))
+            # except Exception as e:
+            #     print(e)
+
+            # try:
+            #     data_from_godot = await websocket.recv()
+            #     data_from_godot = data_from_godot.decode('UTF-8') ##ADDED this line to decode into string only
+            #     if data_from_godot == "lagged":
+            #         detect_lag = True
+            #         data_from_godot = "{}"
+            #     if (
+            #             data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and data_from_godot != "refresh" and data_from_godot != "[]"):
+            #         print(data_from_godot)
+            #         godot_list = godot_data(data_from_godot)
+            #         converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=godot_list,
+            #                                                                  cortical_data=runtime_data[
+            #                                                                      "cortical_data"])
+            #         print(">>> > > > >> > converted data:", converted_data)
+            #         FEAGI_pub.send(converted_data)
+            #     if data_from_godot == "refresh":
+            #         godot_list = {}
+            #         converted_data = {}
+            #         FEAGI_pub.send(godot_list)
+            #     else:
+            #         pass
+            # except Exception as e:
+            #     print(e)
 
 
 async def main():
