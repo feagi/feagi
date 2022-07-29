@@ -16,11 +16,6 @@ limitations under the License.
 """
 import time
 import os
-from router import *
-from configuration import *
-
-import sys
-import socket
 import configuration
 import router
 import zmq
@@ -29,10 +24,9 @@ import ast
 import asyncio
 import websockets
 import requests
-import traceback
-import shutil
-import threading
 from time import sleep
+from router import *
+from configuration import *
 
 runtime_data = {
     "cortical_data": {},
@@ -42,7 +36,8 @@ runtime_data = {
     "feagi_network": None,
     "cortical_list": set(),
     "host_network": {},
-    "genome_number": 0
+    "genome_number": 0,
+    "old_cortical_data": {}
 }
 
 dimensions_endpoint = '/v1/feagi/connectome/properties/dimensions'
@@ -65,6 +60,7 @@ def csv_writer(cortical_dimensions):
             godot_cortical_dimensions.append(cortical_dimensions[cortical_area][6])
             godot_cortical_dimensions.append(cortical_area)
             writer.writerow(godot_cortical_dimensions)
+            writer.writerow(godot_cortical_dimensions)
             godot_cortical_dimensions = list()
     print("++++++++++++++++++++++++++++++++++++++++++++++++++++")
     print("++++++++++++++++++++++++++++++++++++++++++++++++++++")
@@ -79,10 +75,9 @@ def csv_writer(cortical_dimensions):
 
     print("Godot CSV has been created.")
 
-
-def breakdown(feagi_input):  # add input soon
+def breakdown(feagi_input):  ##add input soon
     """
-    # TODO: Explain what this is for
+    #TODO: Explain what this is for
     """
     data = feagi_input
     data = list(data)
@@ -157,52 +152,24 @@ def name_to_id(name):
         if cortical_area == name:
             return runtime_data["cortical_data"][cortical_area][7]
     else:
-        pass
-
-
-def genome_reset():
-    # todo This function assumes the path structure and launch point dictated in the dockerfile
-    try:
-        if os.path.exists('../html/index.js'):
-            shutil.rmtree("../html")
-            print("HTML folder is deleted")
-            os.mkdir('../html')
-            print("HTML folder created")
-            for file in os.listdir('../html_backup/'):
-                shutil.copy('../html_backup/' + file, '../html/')
-                print("All backup files copied to HTML folder")
-
-    except Exception as e:
-        print("Error during genome reset:\n", traceback.print_exc())
+        # pass
+        print("*** Failed to find cortical name ***" )
 
 
 def feagi_breakdown(data):
     """
-    Designed for genome 2.0 only. Data is the input from feagi's raw data
+    Designed for genome 2.0 only. Data is the input from feagi's raw data.
+    This function will detect if csv is different than the first, it will generate csv_data automatically.
     """
     new_list = []
     new_genome_num = data['genome_num']
-    print("Previous genome #:", runtime_data["genome_number"])
-    print("Latest genome #:", new_genome_num)
-
-    if 'genome_reset' in data:
-        print("+" * 60)
-        print("\nGenome reset command received!")
-        genome_reset()
-
-    if new_genome_num == 1:
-        runtime_data["genome_number"] = 1
-
-    elif new_genome_num > runtime_data["genome_number"]:
-        runtime_data["genome_number"] = new_genome_num
-        try:
-            runtime_data["cortical_data"] = \
-                requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
+    if new_genome_num > runtime_data["genome_number"]:
+        runtime_data["old_cortical_data"] = runtime_data["cortical_data"]
+        runtime_data["cortical_data"] = \
+            requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
+        if runtime_data["old_cortical_data"] != runtime_data["cortical_data"]:
             csv_writer(runtime_data["cortical_data"])
-            sleep(2)
-        except Exception as e:
-            print("Error during CSV creation\n", e)
-
+        runtime_data["genome_number"] = new_genome_num
     for i in data['godot']:
         xyz = i[1], i[2], i[3]
         new_list.append(xyz)
@@ -221,16 +188,14 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
         for key in stimulation_from_godot["data"]["direct_stimulation"]:
             for name_match in cortical_data:
                 raw_id = name_match
-                name_match = name_to_id(name_match)  # convert the human-readable name into feagi name
+                name_match = name_to_id(name_match) ##convert the human readable name into feagi name
                 if name_match == key:
                     if relative_coordinate["data"]["direct_stimulation"].get(name_match) is not None:
                         pass
                     else:
                         relative_coordinate["data"]["direct_stimulation"][name_match] = list()
                     for xyz in stimulation_from_godot["data"]["direct_stimulation"][name_match]:
-                        new_xyz = [xyz[0] - cortical_data[raw_id][0],
-                                   xyz[1] - cortical_data[raw_id][1],
-                                   xyz[2] - cortical_data[raw_id][2]]
+                        new_xyz =[xyz[0] - cortical_data[raw_id][0], xyz[1] - cortical_data[raw_id][1], xyz[2] - cortical_data[raw_id][2]]
                         relative_coordinate["data"]["direct_stimulation"][name_match].append(new_xyz)
 
             else:
@@ -242,28 +207,21 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
 
 
 async def echo(websocket):
-    godot_list = {}  # initalized the list from Godot
+    godot_list = {}  ##initalized the list from Godot
     detect_lag = False
     new_FEAGI_sub = FEAGI_sub
     while True:
-        one_frame = new_FEAGI_sub.receive()
-
-        if one_frame is not None:
-            one_frame = feagi_breakdown(one_frame)
-            await websocket.send(str(one_frame))
-            try:
-                await websocket.send(str(one_frame))
-            except Exception as e:
-                print("Error during websocket processing:\n   ", e)
-
         if detect_lag:
             opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
                 'feagi_outbound_port']
             new_FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
             detect_lag = False
-
+        one_frame = new_FEAGI_sub.receive()
+        if one_frame is not None:
+            one_frame = feagi_breakdown(one_frame)
+            await websocket.send(str(one_frame))
         data_from_godot = await websocket.recv()
-        data_from_godot = data_from_godot.decode('UTF-8') # ADDED this line to decode into string only
+        data_from_godot = data_from_godot.decode('UTF-8') ##ADDED this line to decode into string only
         if data_from_godot == "lagged":
             detect_lag = True
             data_from_godot = "{}"
@@ -290,17 +248,17 @@ async def main():
         await asyncio.Future()  # run forever
 
 
-def feagi_registration(feagi_host_, api_port_):
-    app_host_info_ = router.app_host_info()
-    runtime_data["host_network"]["host_name"] = app_host_info_["host_name"]
-    runtime_data["host_network"]["ip_address"] = app_host_info_["ip_address"]
+def feagi_registration(feagi_host, api_port):
+    app_host_info = router.app_host_info()
+    runtime_data["host_network"]["host_name"] = app_host_info["host_name"]
+    runtime_data["host_network"]["ip_address"] = app_host_info["ip_address"]
 
     while runtime_data["feagi_state"] is None:
         print("Awaiting registration with FEAGI...1")
         try:
             runtime_data["feagi_state"] = router.register_with_feagi(app_name=configuration.app_name,
-                                                                     feagi_host=feagi_host_,
-                                                                     api_port=api_port_,
+                                                                     feagi_host=feagi_host,
+                                                                     api_port=api_port,
                                                                      app_capabilities=configuration.capabilities,
                                                                      app_host_info=runtime_data["host_network"]
                                                                      )
@@ -310,17 +268,16 @@ def feagi_registration(feagi_host_, api_port_):
         sleep(1)
 
 
-def feagi_init(feagi_host_, api_port_):
+def feagi_init(feagi_host, api_port):
     # Send a request to FEAGI for cortical dimensions
     awaiting_feagi_registration = True
-
     while awaiting_feagi_registration:
         print("********* ************ ********** ************* ***************\n")
         print("Awaiting registration with FEAGI...2")
         FEAGI_pub.send({"godot_init": True})
 
         runtime_data["cortical_data"] = \
-            requests.get('http://' + feagi_host_ + ':' + api_port_ + dimensions_endpoint).json()
+            requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
 
         print("Cortical_data", runtime_data["cortical_data"])
 
@@ -345,7 +302,7 @@ if __name__ == "__main__":
     feagi_host = configuration.network_settings["feagi_host"]
     api_port = configuration.network_settings["feagi_api_port"]
 
-    feagi_registration(feagi_host_=feagi_host, api_port_=api_port)
+    feagi_registration(feagi_host=feagi_host, api_port=api_port)
 
     print("** **", runtime_data["feagi_state"])
 
@@ -360,7 +317,8 @@ if __name__ == "__main__":
     opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"]['feagi_outbound_port']
     FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
-    feagi_init(feagi_host_=feagi_host, api_port_=api_port)
+    feagi_init(feagi_host=feagi_host, api_port=api_port)
     print("FEAGI initialization completed successfully")
 
     asyncio.run(main())
+
