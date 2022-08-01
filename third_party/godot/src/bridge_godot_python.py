@@ -28,7 +28,11 @@ import shutil
 from time import sleep
 from router import *
 from configuration import *
+from threading import Thread
 
+
+ws_queue = deque()
+zmq_queue = deque()
 runtime_data = {
     "cortical_data": {},
     "current_burst_id": None,
@@ -212,55 +216,11 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
 
 
 async def echo(websocket):
-    godot_list = {}  ##initalized the list from Godot
-    detect_lag = False
-    new_FEAGI_sub = FEAGI_sub
-    while True:
-        if detect_lag:
-            opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
-                'feagi_outbound_port']
-            new_FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
-            detect_lag = False
-        one_frame = new_FEAGI_sub.receive()
-        if one_frame is not None:
-            if 'genome_reset' in one_frame:
-                runtime_data["cortical_data"] = {}
-                try:
-                    f = open("../godot_source/reset.txt", "w")
-                    f.write("reset")
-                    f.close()
-                except Exception as e:
-                    print("Error during genome reset:\n", e)
-            one_frame = feagi_breakdown(one_frame)
-            # try:
-            #     websocket.send(str(one_frame))
-            # except Exception as e:
-            #     print(e)
-
-            # try:
-            #     data_from_godot = await websocket.recv()
-            #     data_from_godot = data_from_godot.decode('UTF-8') ##ADDED this line to decode into string only
-            #     if data_from_godot == "lagged":
-            #         detect_lag = True
-            #         data_from_godot = "{}"
-            #     if (
-            #             data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and data_from_godot != "refresh" and data_from_godot != "[]"):
-            #         print(data_from_godot)
-            #         godot_list = godot_data(data_from_godot)
-            #         converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=godot_list,
-            #                                                                  cortical_data=runtime_data[
-            #                                                                      "cortical_data"])
-            #         print(">>> > > > >> > converted data:", converted_data)
-            #         FEAGI_pub.send(converted_data)
-            #     if data_from_godot == "refresh":
-            #         godot_list = {}
-            #         converted_data = {}
-            #         FEAGI_pub.send(godot_list)
-            #     else:
-            #         pass
-            # except Exception as e:
-            #     print(e)
-
+    if one_frame:
+        await websocket.send(str(one_frame))
+        data_from_godot = await websocket.recv()
+    else:
+        print("NO DATA")
 
 async def main():
     print("- -- -- --  --- -- -- ")
@@ -340,6 +300,47 @@ if __name__ == "__main__":
 
     feagi_init(feagi_host=feagi_host, api_port=api_port)
     print("FEAGI initialization completed successfully")
-
-    asyncio.run(main())
+    t1 = Thread(target=(asyncio.run(main())))
+    t1.start()
+    print("WORKED")
+    global one_frame
+    global data_from_godot
+    godot_list = {}  ##initalized the list from Godot
+    detect_lag = False
+    new_FEAGI_sub = FEAGI_sub
+    while True:
+        if detect_lag:
+            opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
+                'feagi_outbound_port']
+            new_FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+            detect_lag = False
+        one_frame = new_FEAGI_sub.receive()
+        if one_frame is not None:
+            if 'genome_reset' in one_frame:
+                runtime_data["cortical_data"] = {}
+                try:
+                    f = open("../godot_source/reset.txt", "w")
+                    f.write("reset")
+                    f.close()
+                except Exception as e:
+                    print("Error during genome reset:\n", e)
+            one_frame = feagi_breakdown(one_frame)
+        data_from_godot = data_from_godot.decode('UTF-8')  ##ADDED this line to decode into string only
+        if data_from_godot == "lagged":
+            detect_lag = True
+            data_from_godot = "{}"
+        if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and data_from_godot != "refresh" and data_from_godot != "[]"):
+            print(data_from_godot)
+            godot_list = godot_data(data_from_godot)
+            converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=godot_list,
+                                                                     cortical_data=runtime_data[
+                                                                         "cortical_data"])
+            print(">>> > > > >> > converted data:", converted_data)
+            FEAGI_pub.send(converted_data)
+        if data_from_godot == "refresh":
+            godot_list = {}
+            converted_data = {}
+            FEAGI_pub.send(godot_list)
+        else:
+            pass
 
