@@ -15,7 +15,7 @@ const ChooseEnvironment = () => {
   };
 
   const handleVirtualRobotClick = () => {
-    navigate("/genome/mode");
+    navigate("/robot/defaults");
   };
 
   return (

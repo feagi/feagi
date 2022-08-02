@@ -193,9 +193,39 @@ const FeagiAPI = {
     return response.data;
   },
 
+  async postRobotModel(model_data) {
+    const response = await axios
+      .post(
+        `${FEAGI_URL}/feagi/robot/model`,
+         model_data,
+        {
+          headers: {},
+          params: {},
+        }
+      )
+      .catch((error) => {
+        console.error(error);
+        throw error;
+      });
+    return response.data;
+  },
+
   async getDefaultGenomes() {
     const response = await axios
       .get(`${FEAGI_URL}/feagi/genome/defaults/files`, {
+        headers: {},
+        params: {},
+      })
+      .catch((error) => {
+        console.error(error);
+        throw error;
+      });
+    return response.data;
+  },
+
+  async getDefaultRobots() {
+    const response = await axios
+      .get(`${FEAGI_URL}/feagi/robot/gazebo/files`, {
         headers: {},
         params: {},
       })

@@ -275,7 +275,7 @@ async def genome_file_upload_edit(file: UploadFile = File(...)):
 @app.get("/v1/feagi/genome/defaults/files", tags=["Genome"])
 async def genome_default_files():
     try:
-        default_genomes_path = "./evo/defaults/"
+        default_genomes_path = "./evo/defaults/genome/"
         default_genomes = os.listdir(default_genomes_path)
         genome_mappings = {}
         for genome in default_genomes:
@@ -557,7 +557,7 @@ async def activate_shock_scenarios(training: Training):
         return {"Request failed...", e}
 
 
-# ###### Robot Tuning  #########
+# #########  Robot   ###########
 # ##############################
 
 @app.api_route("/v1/robot/parameters", methods=['POST'], tags=["Robot"])
@@ -588,6 +588,18 @@ async def robot_model_modification(message: RobotModel):
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
+
+
+@app.get("/v1/feagi/robot/gazebo/files", tags=["Robot"])
+async def gazebo_robot_default_files():
+    try:
+        default_robots_path = "./evo/defaults/robot/"
+        default_robots = os.listdir(default_robots_path)
+        return {"robots": default_robots}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed..."}
+
 
 # ######  Connectome Endpoints #########
 # ######################################
