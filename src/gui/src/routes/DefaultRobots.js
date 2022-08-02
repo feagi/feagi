@@ -42,7 +42,7 @@ const DefaultRobots = (props) => {
           <label htmlFor="robot-card">
             <MenuCard
               image={<Img src={require('../assets/taffy_bot.png')} width="150" height="150" />}
-              label="Taffy-bot"
+              label="Smart Car"
               onClick={() => handleRobotSelection("taffy_robot.sdf")}
               changeColorOnClick={false}
             />
@@ -51,9 +51,9 @@ const DefaultRobots = (props) => {
         <Item>
           <label htmlFor="robot-card">
             <MenuCard
-              image={<Img src={require('../assets/cloud_bot.png')} width="150" height="150" />}
-              label="Cloud-bot"
-              onClick={() => handleRobotSelection("cloud_robot.sdf")}
+              image={<Img src={require('../assets/stick-bot.png')} width="150" height="150" />}
+              label="Stick-bot"
+              onClick={() => handleRobotSelection("stick-bot.sdf")}
               changeColorOnClick={false}
             />
           </label>
@@ -61,10 +61,10 @@ const DefaultRobots = (props) => {
         <Item>
           <label htmlFor="robot-card">
             <MenuCard
-              image={<Img src={require('../assets/3w_robot.png')} width="150" height="150" />}
-              label="3W Robot"
+              image={<Img src={require('../assets/drone.png')} width="150" height="150" />}
+              label="Drone"
               onClick={() =>
-                handleRobotSelection("3w_robot.sdf")
+                handleRobotSelection("drone.sdf")
               }
               changeColorOnClick={false}
             />

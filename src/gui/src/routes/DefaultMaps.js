@@ -42,7 +42,7 @@ const DefaultMaps = (props) => {
           <label htmlFor="map-card">
             <MenuCard
               image={<Img src={require('../assets/map1.png')} width="150" height="150" />}
-              label="Map 1"
+              label="Golf Course"
               onClick={() => handleMapSelection("map1.png")}
               changeColorOnClick={false}
             />
@@ -52,7 +52,7 @@ const DefaultMaps = (props) => {
           <label htmlFor="map-card">
             <MenuCard
               image={<Img src={require('../assets/map2.png')} width="150" height="150" />}
-              label="Map 2"
+              label="Chess Board"
               onClick={() => handleMapSelection("map2.png")}
               changeColorOnClick={false}
             />
@@ -62,7 +62,7 @@ const DefaultMaps = (props) => {
           <label htmlFor="map-card">
             <MenuCard
               image={<Img src={require('../assets/map3.png')} width="150" height="150" />}
-              label="Map 3"
+              label="Race Track"
               onClick={() =>
                 handleMapSelection("map3.png")
               }
