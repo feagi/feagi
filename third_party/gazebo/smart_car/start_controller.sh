@@ -20,10 +20,16 @@ else
     while [[ $WMC == '' ]]
     do
       WMC=$(wmctrl -l | grep Gazebo | awk '{print $1}')
-    done && wmctrl -i -r $WMC -b toggle,fullscreen & ##This will make gazbeo full screen once gazebo appears
+    done && wmctrl -i -r $WMC -b add,fullscreen & ##This will make gazbeo full screen once gazebo appears
 fi
 cd /opt/source-code/freenove_4wd_car_description
 while [ ! -f /opt/source-code/freenove_4wd_car_description/empty.sdf ]; do
+  if xprop -name "Gazebo" | grep -q "_NET_WM_STATE_FULLSCREEN"; then
+    :
+  else
+    WMC=$(wmctrl -l | grep Gazebo | awk '{print $1}')
+    wmctrl -i -r $WMC -b add,fullscreen &
+  fi
   echo "no file"
 done
 if [ -f /opt/source-code/freenove_4wd_car_description/empty.sdf ]; then

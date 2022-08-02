@@ -5,7 +5,7 @@
 [ext_resource path="res://feagi.gd" type="Script" id=3]
 [ext_resource path="res://Viewport.gd" type="Script" id=4]
 [ext_resource path="res://Cortical_area_box.meshlib" type="MeshLibrary" id=5]
-[ext_resource path="res://Glegoo-Bold.ttf" type="DynamicFontData" id=6]
+[ext_resource path="res://RobotoCondensed-Bold.ttf" type="DynamicFontData" id=6]
 [ext_resource path="res://Spatial_camera.gd" type="Script" id=7]
 [ext_resource path="res://1x1.png" type="Texture" id=8]
 [ext_resource path="res://Cortical_area.gd" type="Script" id=9]
@@ -17,7 +17,7 @@ viewport_path = NodePath("Sprite3D/Viewport")
 [sub_resource type="World" id=2]
 
 [sub_resource type="DynamicFont" id=3]
-size = 17
+size = 20
 use_filter = true
 font_data = ExtResource( 6 )
 
@@ -84,9 +84,9 @@ albedo_color = Color( 1, 1, 1, 0 )
 albedo_texture = ExtResource( 8 )
 
 [sub_resource type="ProceduralSky" id=26]
-sky_top_color = Color( 0.0588235, 0.337255, 0.556863, 1 )
-sky_horizon_color = Color( 0.286275, 0.137255, 0.0235294, 1 )
-ground_bottom_color = Color( 0.0392157, 0.156863, 0.290196, 1 )
+sky_top_color = Color( 0, 0.133333, 0.239216, 1 )
+sky_horizon_color = Color( 0.921569, 0.854902, 0.682353, 1 )
+ground_bottom_color = Color( 0, 0, 0, 1 )
 ground_horizon_color = Color( 0.0313726, 0.145098, 0.266667, 1 )
 sun_color = Color( 0.984314, 0.329412, 0.0470588, 1 )
 sun_latitude = 5.0
@@ -110,7 +110,7 @@ double_sided = false
 texture = SubResource( 1 )
 
 [node name="Viewport" type="Viewport" parent="Sprite3D"]
-size = Vector2( 112, 31 )
+size = Vector2( 112, 30 )
 size_override_stretch = true
 world = SubResource( 2 )
 transparent_bg = true
