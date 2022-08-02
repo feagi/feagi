@@ -32,6 +32,7 @@ const MonitoringDashboard = lazy(() => import("./routes/MonitoringDashboard"));
 const PhysicalRobots = lazy(() => import("./routes/PhysicalRobots"));
 const DefaultGenomes = lazy(() => import("./routes/DefaultGenomes"));
 const DefaultRobots = lazy(() => import("./routes/DefaultRobots"));
+const DefaultMaps = lazy(() => import("./routes/DefaultMaps"));
 
 function App() {
   const [definedMotor, setDefinedMotor] = useState([]);
@@ -54,6 +55,7 @@ function App() {
   const [defaultShockOptions, setDefaultShockOptions] = useState({});
   const [defaultGenomeData, setDefaultGenomeData] = useState({});
   const [defaultRobotData, setDefaultRobotData] = useState({});
+  const [defaultMapData, setDefaultMapData] = useState({});
   const [drawerOpen, setDrawerOpen] = useState(false);
   let navigate = useNavigate();
 
@@ -197,6 +199,13 @@ function App() {
               path="/robot/defaults"
               element={<DefaultRobots defaultRobotData={defaultRobotData} />}
             />
+            <Route
+              path="/map/defaults"
+              element={<DefaultMaps defaultMapData={defaultMapData} />}
+            />
+
+
+
             <Route
               path="/genome/assemble"
               element={

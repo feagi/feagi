@@ -15,7 +15,7 @@ const ChooseEnvironment = () => {
   };
 
   const handleVirtualRobotClick = () => {
-    navigate("/robot/defaults");
+    navigate("/map/defaults");
   };
 
   return (
