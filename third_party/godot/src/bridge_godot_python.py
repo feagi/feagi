@@ -258,12 +258,15 @@ def feagi_init(feagi_host, api_port):
 
 async def echo(websocket):
     while True:
-        if zmq_queue:
-            print(zmq_queue)
+        try:
             await websocket.send(str(zmq_queue[0]))
-            zmq_queue.pop()
-        else:
-            await websocket.send(str("{}"))
+            zmq_queue.popleft()
+        except Exception as e:
+            pass
+            # print("HARMLESS ERROR. IT IS SAFE TO IGNORE THIS ERROR.")
+            # print("FULL LOG: ", e)
+            # print("This happens due to no queue available to send")
+            #print("pass is intended.")
         new_data = await websocket.recv()
         ws_queue.append(new_data)
 
