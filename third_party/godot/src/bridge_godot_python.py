@@ -25,11 +25,13 @@ import asyncio
 import websockets
 import requests
 import shutil
+import threading
 from time import sleep
 from router import *
 from configuration import *
+import concurrent.futures
 from threading import Thread
-
+from collections import deque
 
 ws_queue = deque()
 zmq_queue = deque()
@@ -214,21 +216,6 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
 
     return relative_coordinate
 
-
-async def echo(websocket):
-    if one_frame:
-        await websocket.send(str(one_frame))
-        data_from_godot = await websocket.recv()
-    else:
-        print("NO DATA")
-
-async def main():
-    print("- -- -- --  --- -- -- ")
-    async with websockets.serve(echo, "0.0.0.0", configuration.network_settings['godot_websocket_port']):
-        print("+++")
-        await asyncio.Future()  # run forever
-
-
 def feagi_registration(feagi_host, api_port):
     app_host_info = router.app_host_info()
     runtime_data["host_network"]["host_name"] = app_host_info["host_name"]
@@ -269,8 +256,27 @@ def feagi_init(feagi_host, api_port):
             awaiting_feagi_registration = False
         time.sleep(1)
 
+async def echo(websocket):
+    while True:
+        if zmq_queue:
+            print(zmq_queue)
+            await websocket.send(str(zmq_queue[0]))
+            zmq_queue.pop()
+        else:
+            await websocket.send(str("{}"))
+        new_data = await websocket.recv()
+        ws_queue.append(new_data)
+
+print("- -- -- --  --- -- -- ")
+async def websocket_main():
+    async with websockets.serve(echo, "0.0.0.0", configuration.network_settings['godot_websocket_port']):
+        await asyncio.Future()
+
+def websocket_operation():
+    asyncio.run(websocket_main())
 
 if __name__ == "__main__":
+    bgsk = threading.Thread(target=websocket_operation, daemon=True).start()
     print("================================ @@@@@@@@@@@@@@@ ==========================================")
     print("================================ @@@@@@@@@@@@@@@ ==========================================")
     print("================================ @@@@@@@@@@@@@@@ ==========================================")
@@ -300,11 +306,6 @@ if __name__ == "__main__":
 
     feagi_init(feagi_host=feagi_host, api_port=api_port)
     print("FEAGI initialization completed successfully")
-    t1 = Thread(target=(asyncio.run(main())))
-    t1.start()
-    print("WORKED")
-    global one_frame
-    global data_from_godot
     godot_list = {}  ##initalized the list from Godot
     detect_lag = False
     new_FEAGI_sub = FEAGI_sub
@@ -313,8 +314,10 @@ if __name__ == "__main__":
             opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
                 'feagi_outbound_port']
             new_FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+            zmq_queue.clear()
             detect_lag = False
         one_frame = new_FEAGI_sub.receive()
+        #print(zmq_data)
         if one_frame is not None:
             if 'genome_reset' in one_frame:
                 runtime_data["cortical_data"] = {}
@@ -325,12 +328,16 @@ if __name__ == "__main__":
                 except Exception as e:
                     print("Error during genome reset:\n", e)
             one_frame = feagi_breakdown(one_frame)
-        data_from_godot = data_from_godot.decode('UTF-8')  ##ADDED this line to decode into string only
+            zmq_queue.append(one_frame)
+        if ws_queue:
+            data_from_godot = ws_queue[0].decode('UTF-8')  ##ADDED this line to decode into string only
+            ws_queue.pop()
+        else:
+            data_from_godot = "{}"
         if data_from_godot == "lagged":
             detect_lag = True
             data_from_godot = "{}"
         if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and data_from_godot != "refresh" and data_from_godot != "[]"):
-            print(data_from_godot)
             godot_list = godot_data(data_from_godot)
             converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=godot_list,
                                                                      cortical_data=runtime_data[
