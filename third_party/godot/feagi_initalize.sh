@@ -9,7 +9,7 @@ echo "% post-bridge launch"
 
 cd ../html
 
-#live-server &
+live-server &
 #http-server -c-1 &
 
 cd ../godot_source/
@@ -29,6 +29,7 @@ while true; do
 
 #  rm ../html/*
 #  cp ../html_backup/* ../html/
+# commented above as it's already handled in bridge
   ./Godot_v3.4.4-stable_linux_headless.64 --export "HTML5"
   rm ./csv_data.gdc
   rm ./reset.txt
