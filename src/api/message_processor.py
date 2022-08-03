@@ -89,6 +89,7 @@ def api_message_processor(api_message):
         print("========================================================")
         reset_runtime_data()
         runtime_data.genome_counter += 1
+        runtime_data.genome_reset_flag = False
         runtime_data.genome_ver = None
         runtime_data.genome_orig = dict(api_message['genome']).copy()
         runtime_data.genome = api_message['genome']
