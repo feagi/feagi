@@ -56,8 +56,6 @@ services:
       - CONTAINERIZED=true
       - PYTHONUNBUFFERED=1
     privileged: true
-    volumes:
-      - ../third_party/godot/src/bridge_godot_python.py:/root/src/bridge_godot_python.py
     networks:
       - net
 
