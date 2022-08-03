@@ -30,7 +30,7 @@ services:
       - net
 
   ros-gazebo:
-    build: ../third_party/gazebo/smart_car/
+    build: ../third_party/gazebo/
     deploy:
       resources:
         limits:
