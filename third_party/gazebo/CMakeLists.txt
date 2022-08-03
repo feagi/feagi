@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(freenove_4wd_car_description)
+project(gazebo)
 
 find_package(ament_cmake REQUIRED)
 find_package(image_transport REQUIRED)
@@ -61,8 +61,8 @@ install(
 
 install(
   DIRECTORY
-    models/
-  DESTINATION share/${PROJECT_NAME}/models
+    robots/
+  DESTINATION share/${PROJECT_NAME}/robots
 )
 
 # Install Python modules

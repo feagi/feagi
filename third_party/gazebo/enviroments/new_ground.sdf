@@ -34,13 +34,12 @@
             </plane>
           </geometry>
           <material>
-            <ambient>0.8 0.8 0.8 1</ambient>
-            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <diffuse>1.0 1.0 1.0</diffuse>
             <pbr>
-                <metal>
-                  <albedo_map>Track4.png</albedo_map>
-                  <normal_map>Track4.png</normal_map>
-                </metal>
+                <specular>
+                    <albedo_map>material/Track4.png</albedo_map>
+                    <specular_map>material/Track4.png</specular_map>
+                </specular>
               </pbr>
           </material>
         </visual>

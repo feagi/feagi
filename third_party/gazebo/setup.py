@@ -3,7 +3,7 @@ from glob import glob
 import subprocess, os, platform
 
 
-package_name = 'freenove_4wd_car_description'
+package_name = 'gazebo'
 
 setup(
     name=package_name,

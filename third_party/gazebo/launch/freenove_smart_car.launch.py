@@ -43,14 +43,14 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    pkg_ros_ign_gazebo_demos = get_package_share_directory('freenove_4wd_car_description')
-    pkg_ros_ign_gazebo = get_package_share_directory('freenove_4wd_car_description')
+    pkg_ros_ign_gazebo_demos = get_package_share_directory('gazebo')
+    pkg_ros_ign_gazebo = get_package_share_directory('gazebo')
 
     ign_gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_ros_ign_gazebo, 'launch', 'ign_gazebo.launch.py')),
         launch_arguments={
-            'ign_args': '-r models/sdf/free_world.sdf'
+            'ign_args': '-r enviroments/free_world.sdf'
         }.items(),
     )
     
@@ -102,7 +102,7 @@ def generate_launch_description():
 
     #controller
     controller = Node(
-        package='freenove_4wd_car_description',
+        package='gazebo',
         executable='controller.py',
         # FIXME: Why isn't the topic being populated on the UI? RQt issue?
         output='screen',

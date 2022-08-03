@@ -95,8 +95,8 @@
             <specular>0.2 0.2 0.2 1</specular>
             <pbr>
                 <metal>
-                  <albedo_map>wheel_cover.png</albedo_map>
-                  <normal_map>wheel_cover.png</normal_map>
+                  <albedo_map>../material/wheel_cover.png</albedo_map>
+                  <normal_map>../material/wheel_cover.png</normal_map>
                 </metal>
             </pbr>
           </material>
@@ -155,8 +155,8 @@
             <specular>0.2 0.2 0.2 1</specular>
             <pbr>
                 <metal>
-                  <albedo_map>wheel_cover.png</albedo_map>
-                  <normal_map>wheel_cover.png</normal_map>
+                  <albedo_map>../material/wheel_cover.png</albedo_map>
+                  <normal_map>../material/wheel_cover.png</normal_map>
                 </metal>
             </pbr>
           </material>
@@ -215,8 +215,8 @@
             <specular>0.2 0.2 0.2 1</specular>
             <pbr>
                 <metal>
-                  <albedo_map>wheel_cover.png</albedo_map>
-                  <normal_map>wheel_cover.png</normal_map>
+                  <albedo_map>../material/wheel_cover.png</albedo_map>
+                  <normal_map>../material/wheel_cover.png</normal_map>
                 </metal>
             </pbr>
           </material>
@@ -275,8 +275,8 @@
             <specular>0.2 0.2 0.2 1</specular>
             <pbr>
                 <metal>
-                  <albedo_map>wheel_cover.png</albedo_map>
-                  <normal_map>wheel_cover.png</normal_map>
+                  <albedo_map>../material/wheel_cover.png</albedo_map>
+                  <normal_map>../material/wheel_cover.png</normal_map>
                 </metal>
             </pbr>
           </material>
