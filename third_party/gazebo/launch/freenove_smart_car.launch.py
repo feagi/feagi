@@ -50,7 +50,7 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(pkg_ros_ign_gazebo, 'launch', 'ign_gazebo.launch.py')),
         launch_arguments={
-            'ign_args': '-r enviroments/free_world.sdf'
+            'ign_args': '-r environments/free_world.sdf'
         }.items(),
     )
     

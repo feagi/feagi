@@ -14,16 +14,16 @@ if pgrep -x "$ROS2" >/dev/null && pgrep -x "$GAZEBO" >/dev/null
 then
     echo "$ROS2 and $GAZEBO are already running."
 else
-    cd /opt/source-code/freenove_4wd_car_description/ && source /opt/ros/foxy/setup.bash && cd .. && sudo chmod 777 freenove_4wd_car_description/ && cd freenove_4wd_car_description/ && colcon build --symlink-install
+    cd /opt/source-code/gazebo/ && source /opt/ros/foxy/setup.bash && cd .. && sudo chmod 777 gazebo/ && cd gazebo/ && colcon build --symlink-install
     wait -n
-    xterm -hold -e "cd /opt/source-code/freenove_4wd_car_description/ && source install/setup.bash && ros2 launch freenove_4wd_car_description freenove_smart_car.launch.py" &
+    xterm -hold -e "cd /opt/source-code/gazebo/ && source install/setup.bash && ros2 launch gazebo freenove_smart_car.launch.py" &
     while [[ $WMC == '' ]]
     do
       WMC=$(wmctrl -l | grep Gazebo | awk '{print $1}')
     done && wmctrl -i -r $WMC -b add,fullscreen & ##This will make gazbeo full screen once gazebo appears
 fi
-cd /opt/source-code/freenove_4wd_car_description
-while [ ! -f /opt/source-code/freenove_4wd_car_description/empty.sdf ]; do
+cd /opt/source-code/gazebo
+while [ ! -f /opt/source-code/gazebo/empty.sdf ]; do
   if xprop -name "Gazebo" | grep -q "_NET_WM_STATE_FULLSCREEN"; then
     :
   else
@@ -32,7 +32,7 @@ while [ ! -f /opt/source-code/freenove_4wd_car_description/empty.sdf ]; do
   fi
   echo "no file"
 done
-if [ -f /opt/source-code/freenove_4wd_car_description/empty.sdf ]; then
+if [ -f /opt/source-code/gazebo/empty.sdf ]; then
   echo "FILE EXISTS!!"
   cp empty.sdf models/sdf/freenove_smart_car.sdf
   ./start_controller.sh
