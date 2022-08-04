@@ -102,9 +102,6 @@ function App() {
       setDefaultGenomeData(response["genomes"]);
     });
 
-    FeagiAPI.getDefaultRobots().then((response) => {
-      setDefaultGenomeData(response["robots"]);
-    });
 
   }, []);
 
