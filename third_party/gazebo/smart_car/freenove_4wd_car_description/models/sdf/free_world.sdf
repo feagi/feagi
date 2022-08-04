@@ -127,8 +127,8 @@
             <diffuse>1.0 1.0 1.0</diffuse>
             <pbr>
                 <specular>
-                    <albedo_map>track12.png</albedo_map>
-                    <specular_map>track12.png</specular_map>
+                    <albedo_map>Track4.png</albedo_map>
+                    <specular_map>Track4.png</specular_map>
                 </specular>
               </pbr>
           </material>
