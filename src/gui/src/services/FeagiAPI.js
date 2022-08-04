@@ -193,12 +193,11 @@ const FeagiAPI = {
     return response.data;
   },
 
-
-  async resetGenome() {
+  async postRobotModel(model_data) {
     const response = await axios
       .post(
-        `${FEAGI_URL}/feagi/genome/reset`,
-        {},
+        `${FEAGI_URL}/feagi/robot/model`,
+         model_data,
         {
           headers: {},
           params: {},

@@ -105,8 +105,10 @@ message_to_feagi = {"data": {}}
 
 
 Model_data = {
-    "path_to_robot": "models/sdf/",
-    "file_name": "smart_car.sdf",
+    "robot_model_path": "models/sdf/",
+    "robot_model": "smart_car.sdf",
+    "floor_img": "",
+    "floor_img_path": "",
     "mu": 1.0,
     "mu2": 50.0,
     "fdir1": [1, 1, 1],
