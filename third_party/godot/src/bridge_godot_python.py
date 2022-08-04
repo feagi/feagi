@@ -67,7 +67,6 @@ def csv_writer(cortical_dimensions):
             godot_cortical_dimensions.append(cortical_dimensions[cortical_area][6])
             godot_cortical_dimensions.append(cortical_area)
             writer.writerow(godot_cortical_dimensions)
-            writer.writerow(godot_cortical_dimensions)
             godot_cortical_dimensions = list()
     print("++++++++++++++++++++++++++++++++++++++++++++++++++++")
     print("++++++++++++++++++++++++++++++++++++++++++++++++++++")
