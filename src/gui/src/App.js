@@ -54,6 +54,8 @@ function App() {
   const [defaultCorticalGenes, setDefaultCorticalGenes] = useState({});
   const [defaultShockOptions, setDefaultShockOptions] = useState({});
   const [defaultGenomeData, setDefaultGenomeData] = useState({});
+  const [defaultRobotData, setDefaultRobotData] = useState({});
+  const [defaultMapData, setDefaultMapData] = useState({});
   const [drawerOpen, setDrawerOpen] = useState(false);
   let navigate = useNavigate();
 
@@ -189,6 +191,14 @@ function App() {
             <Route
               path="/genome/defaults"
               element={<DefaultGenomes defaultGenomeData={defaultGenomeData} />}
+            />
+            <Route
+              path="/robot/defaults"
+              element={<DefaultRobots defaultRobotData={defaultRobotData} />}
+            />
+            <Route
+              path="/map/defaults"
+              element={<DefaultMaps defaultMapData={defaultMapData} />}
             />
 
 
