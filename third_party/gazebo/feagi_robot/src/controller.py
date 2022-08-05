@@ -27,8 +27,7 @@ import os
 import os.path
 import subprocess
 import requests
-import xml.etree.ElementTree as ET
-
+import xml.etree.ElementTree as Xml_et
 
 from std_msgs.msg import String
 from subprocess import PIPE, Popen
@@ -72,11 +71,11 @@ runtime_data["GPS"]["n_y_counter"] = 0
 location_stored = dict()
 tile_margin = dict()
 old_list = location_stored.copy()
-location_stored["0"] = [0,0] #by default
+location_stored["0"] = [0, 0]  # by default
 
-layer_index = [[0,0]]#Starts at 0,0 by default
-layer_dimesion = [Gazebo_world["size_of_plane"]["x"],Gazebo_world["size_of_plane"]["y"]]
-##Don't change above line, change it in configuration.py inside "size_of_plane"
+layer_index = [[0, 0]]  # Starts at 0,0 by default
+layer_dimension = [Gazebo_world["size_of_plane"]["x"], Gazebo_world["size_of_plane"]["y"]]
+# Don't change above line, change it in configuration.py inside "size_of_plane"
 
 if sys.platform == 'win32':
     import msvcrt
@@ -101,14 +100,14 @@ second_part = model_name + "\" pose: {position: { x: " + x + ", y"
 third_part = ": " + y + ", z: " + z + "}}\' &"
 add_model = first_part + second_part + third_part
 os.system(add_model)
-### Just to define for future. This section will need to be updated later once its finalized
+# Just to define for future. This section will need to be updated later once its finalized
 remove_model = """
 ign service -s /world/free_world/remove \
 --reqtype ignition.msgs.Entity \
 --reptype ignition.msgs.Boolean \
 --timeout 300 \
 --req 'name: "freenove_smart_car" type: MODEL'
-""" ##not used atm
+"""  # not used atm
 
 
 def feagi_registration(feagi_host, api_port):
@@ -293,7 +292,8 @@ class Motor:
             device_current_position = runtime_data['motor_status'][device_index]
             # device_position.data = float(
             #     (power * network_settings['feagi_burst_speed'] * configuration.capabilities["motor"]["motor_power"]) + device_current_position)
-            device_position.data = float((power * capabilities["motor"]["power_coefficient"] * 6.28319) + device_current_position)
+            device_position.data = float(
+                (power * capabilities["motor"]["power_coefficient"] * 6.28319) + device_current_position)
             runtime_data['motor_status'][device_index] = device_position.data
             # print("device index, position, power = ", device_index, device_position.data, power)
             self.motor_node[device_index].publish(device_position)
@@ -374,17 +374,18 @@ class PosInit:
         init_pos_x = capabilities['position']["0"]['x']
         init_pos_y = capabilities['position']["0"]['y']
 
-    def reset_position(self, position_index):
+    @staticmethod
+    def reset_position(position_index):
         print("++++++pos index:", position_index)
         # Remove the robot
-        x = str(capabilities["position"][position_index]["x"])
-        y = str(capabilities["position"][position_index]["y"])
-        z = str(capabilities["position"][position_index]["z"])
-        print("## ## ## ## Resetting robot position to ## ## ## ##", x, y, z)
+        reset_x = str(capabilities["position"][position_index]["x"])
+        reset_y = str(capabilities["position"][position_index]["y"])
+        reset_z = str(capabilities["position"][position_index]["z"])
+        print("## ## ## ## Resetting robot position to ## ## ## ##", reset_x, reset_y, z)
         name = Model_data["robot_model"].replace(".sdf", "")
         first_part_r = "ign service -s /world/free_world/set_pose --reqtype ignition.msgs.Pose --reptype ignition.msgs.Boolean --timeout 300 --req \'name: "
-        second_part_r = ' "' + name + '" ' + ", position: { x: " + x + ", y: "
-        third_part_r = y + ", z: " + z + "}' &"
+        second_part_r = ' "' + name + '" ' + ", position: { x: " + reset_x + ", y: "
+        third_part_r = reset_y + ", z: " + reset_z + "}' &"
         respawn = first_part_r + second_part_r + third_part_r
         print("++++++++++++++++++++++++++")
         print(respawn)
@@ -442,7 +443,7 @@ class TileManager(Node):
         # Pose data
         name = Model_data["robot_model"]
         name = name.replace(".sdf", "")
-        pose = subprocess.Popen(["ign topic -e  -t world/free_world/pose/info -n1 | grep \"" + name +"\" -A6"],
+        pose = subprocess.Popen(["ign topic -e  -t world/free_world/pose/info -n1 | grep \"" + name + "\" -A6"],
                                 shell=True, stdout=PIPE)
         pose_xyz = pose.communicate()[0].decode("utf-8")
         for item in pose_xyz.split("\n"):
@@ -503,7 +504,8 @@ class TileManager(Node):
         first_phrase = "ign service -s /world/free_world/create --reqtype ignition.msgs.EntityFactory --reptype ignition.msgs.Boolean --timeout 300 --req 'sdf_filename: ''\"models/sdf/new_ground.sdf\""
         second_phrase = " pose: {position: {x:" + tile_location_x + ", y:" + tile_location_y + ", z:" + tile_location_z + "}} '\'name: \"" + tile_name + "\" '\' allow_renaming: false' &"
 
-        print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n", first_phrase + second_phrase)
+        print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n",
+              first_phrase + second_phrase)
         os.system(first_phrase + second_phrase)
         print("++++++++++++++++++++++++++++++++++++\n", first_phrase + second_phrase)
         print(">>> New tile added:", tile_name, tile_location, tile_index)
@@ -535,7 +537,7 @@ class TileManager(Node):
         Returns the list of tiles to be visible in the form of [[0,0], [1,5], ...]
         """
         current_tile_index = self.gps_to_tile_index(gps=gps)
-        #print("@@@@@@@ --------------------- current tile index:", current_tile_index)
+        # print("@@@@@@@ --------------------- current tile index:", current_tile_index)
         # center_of_tile = self.tile_index_to_xyz(tile_index=current_tile_index)
         #
         # robot_relative_loc_to_tile = [gps[0] - center_of_tile[0],
@@ -546,7 +548,7 @@ class TileManager(Node):
 
         self.visible_tiles = [current_tile_index]
 
-        #print(">>>> > > > > > >> > > Visible Tiles:", self.visible_tiles)
+        # print(">>>> > > > > > >> > > Visible Tiles:", self.visible_tiles)
 
         # if robot_relative_loc_to_tile[0] > self.tile_dimensions[0] / 2 - self.tile_dimensions[0] * self.tile_margin:
         #     self.add_visible_tile([[current_tile_index[0] + 1, current_tile_index[0]]])
@@ -564,7 +566,7 @@ class TileManager(Node):
         #     self.add_visible_tile([current_tile_index[0], current_tile_index[1] - 1])
         #     print("-------------------------------   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ -- 4")
 
-        #print("tile visibility checker output:", self.visible_tiles)
+        # print("tile visibility checker output:", self.visible_tiles)
         # todo: Need to remove the tiles that are not needed if robot is inside the margin on all sides
         # if robot_relative_loc_to_tile[0] > -1 ...
 
@@ -587,11 +589,20 @@ class TileManager(Node):
         for tile_index in self.visible_tiles:
             if tile_index not in existing_visible_tiles:
                 self.add_tile(tile_index=tile_index)
-        #print("\n************************\nActive tile list:", self.tile_tracker)
+        # print("\n************************\nActive tile list:", self.tile_tracker)
 
 
-def update_physics():
-    physics_data_array = [str(Model_data['mu']), str(Model_data['mu2']), str(Model_data['fdir1']), str(Model_data['slip1']),
+def update_physics(name):
+    file_read = open("src/configuration.py", "r")
+    new_file = file_read.read()
+    new_file = new_file.replace(Model_data['robot_model'], name)
+    file_read.close()
+    file_write = open("src/configuration.py", "w")
+    file_write.write(new_file)
+    file_write.close()
+    Model_data["robot_model"] = model_data['robot_sdf_file_name']
+    physics_data_array = [str(Model_data['mu']), str(Model_data['mu2']), str(Model_data['fdir1']),
+                          str(Model_data['slip1']),
                           str(Model_data['slip2'])]
     physics_data_array[2] = physics_data_array[2].replace(",", "")
     physics_data_array[2] = physics_data_array[2].replace("[", "")
@@ -601,9 +612,13 @@ def update_physics():
     original_file = file2.read()
     file_sdf = open("empty.sdf", "w")
     new_sdf = original_file
-    file_xml = ET.parse(file)
+    file_xml = Xml_et.parse(file)
     myroot = file_xml.getroot()
     flag = 0
+    # name_attrib = ""
+    # for i in myroot:
+    #     name_attrib = i.attrib['name']
+    # print(name_attrib)
     for i in myroot.find("./model/link/collision/surface/friction/ode"):
         current = i.text
         i.text = physics_data_array[flag]
@@ -611,11 +626,13 @@ def update_physics():
         new_line = "<" + str(i.tag) + ">" + i.text + "</" + str(i.tag) + ">"
         new_sdf = new_sdf.replace(old_line, new_line)
         flag += 1
-
+    # new_sdf = new_sdf.replace(name_attrib, "test")
+    # print("done")
     file_sdf.write(new_sdf)
     file_sdf.close()
     file2.close()
     file.close()
+
 
 # class Pose(Node):
 #     def __init__(self):
@@ -726,7 +743,7 @@ def update_physics():
 #         #Generate new margin list
 #         if old_list != current_list:
 #             old_list = current_list.copy()
-#             defined_margin_list = Pose().margin_defined(Gazebo_world["margin"], current_list, layer_dimesion, runtime_data["GPS"]["counter"])
+#             defined_margin_list = Pose().margin_defined(Gazebo_world["margin"], current_list, layer_dimension, runtime_data["GPS"]["counter"])
 #             tile_margin[runtime_data["GPS"]["counter"]] = defined_margin_list
 #             print("defined_margin_list: ", tile_margin)
 #             runtime_data["GPS"]["counter"] = runtime_data["GPS"]["counter"] + 1
@@ -746,7 +763,7 @@ def update_physics():
 #         if flag == 1:
 #             flag = 0
 #             Pose().location_updated([runtime_data["GPS"]["x_counter"], runtime_data["GPS"]["y_counter"]])
-#             new_data = Pose().converter_for_gazebo([runtime_data["GPS"]["x_counter"], runtime_data["GPS"]["y_counter"]], layer_dimesion)
+#             new_data = Pose().converter_for_gazebo([runtime_data["GPS"]["x_counter"], runtime_data["GPS"]["y_counter"]], layer_dimension)
 #             print("++++++++++++++++++++++++++++++: ", new_data)
 #             print("COUNTER: ", runtime_data["GPS"]["counter"])
 #             Pose().floor_generated(new_data[0], new_data[1])
@@ -824,12 +841,11 @@ def main(args=None):
     msg_counter = runtime_data["feagi_state"]['burst_counter']
     network_settings['feagi_burst_speed'] = runtime_data["feagi_state"]['burst_duration']
 
-
     try:
         while True:
             robot_pose = [runtime_data["GPS"]["x"], runtime_data["GPS"]["y"], runtime_data["GPS"]["z"]]
             pose.tile_update(robot_pose)
-            #print("Current robot pose_:", robot_pose)
+            # print("Current robot pose_:", robot_pose)
 
             # Process OPU data received from FEAGI and pass it along
             message_from_feagi = feagi_opu_channel.receive()
@@ -882,11 +898,13 @@ def main(args=None):
                                 float(control_data['robot_starting_position'][position_index][2])
 
                 model_data = message_from_feagi['model_data']
+                print("ENTERING")
                 if model_data is not None:
                     update_flag = False
-                    if 'robot_model' in model_data:
-                        if Model_data["robot_model"] != model_data['robot_model']:
-                            Model_data["robot_model"] = model_data['robot_model']
+                    if 'robot_sdf_file_name' in model_data:
+                        if Model_data["robot_model"] != model_data['robot_sdf_file_name']:
+                            print(Model_data['robot_model'])
+                            print(model_data['robot_sdf_file_name'])
                             update_flag = True
                     if 'mu' in model_data:
                         if Model_data["mu"] != model_data['mu']:
@@ -909,7 +927,7 @@ def main(args=None):
                             Model_data["slip2"] = float(model_data['slip2'])
                             update_flag = True
                     if update_flag:
-                        update_physics()
+                        update_physics(model_data['robot_sdf_file_name'])
 
             except Exception:
                 pass
@@ -949,8 +967,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
