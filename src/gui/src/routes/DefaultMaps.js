@@ -21,6 +21,7 @@ const DefaultMaps = (props) => {
     navigate("/robot/defaults");
   };
 
+
   return (
     <>
       <Typography
@@ -41,8 +42,8 @@ const DefaultMaps = (props) => {
         <Item>
           <label htmlFor="map-card">
             <MenuCard
-              image={<Img src={require('../assets/map1.png')} width="150" height="150" />}
-              label="Golf Course"
+              image={<Img src={require('../assets/map1.png')} width="225" height="225" />}
+              // label="Golf Course"
               onClick={() => handleMapSelection('"map1.png"')}
               changeColorOnClick={false}
             />
@@ -51,8 +52,8 @@ const DefaultMaps = (props) => {
         <Item>
           <label htmlFor="map-card">
             <MenuCard
-              image={<Img src={require('../assets/map2.png')} width="150" height="150" />}
-              label="Chess Board"
+              image={<Img src={require('../assets/map2.png')} width="225" height="225" />}
+              // label="Chess Board"
               onClick={() => handleMapSelection('"map2.png"')}
               changeColorOnClick={false}
             />
@@ -61,8 +62,9 @@ const DefaultMaps = (props) => {
         <Item>
           <label htmlFor="map-card">
             <MenuCard
-              image={<Img src={require('../assets/map3.png')} width="150" height="150" />}
-              label="Race Track"
+
+              image={<Img src={require('../assets/map3.png')} width="225" height="225" />}
+              // label="Race Track"
               onClick={() =>
                 handleMapSelection('"map3.png"')
               }
