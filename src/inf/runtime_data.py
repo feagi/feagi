@@ -159,6 +159,10 @@ shock_scenarios = set()
 robot_id = None
 robot_controller = {}
 robot_model = {}
+robot_file = None
+robot_file_path = None
 
 # Environment
 environment_id = None
+environment_map_file = None
+environment_map_path = None

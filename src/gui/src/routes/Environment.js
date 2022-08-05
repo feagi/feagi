@@ -15,7 +15,7 @@ const ChooseEnvironment = () => {
   };
 
   const handleVirtualRobotClick = () => {
-    navigate("/genome/mode");
+    navigate("/map/defaults");
   };
 
   return (
@@ -26,7 +26,7 @@ const ChooseEnvironment = () => {
         sx={{ p: 4, mt: 8 }}
         component="div"
       >
-        Select an Environment
+        Select an Environment Type
       </Typography>
       <Stack
         direction="row"
@@ -38,7 +38,7 @@ const ChooseEnvironment = () => {
         <Item>
           <MenuCard
             image={<GiVintageRobot size={150} />}
-            label="Physical Robot"
+            label="Physical"
             onClick={handlePhysicalRobotClick}
             changeColorOnClick={false}
             grayedOut={false}
@@ -47,7 +47,7 @@ const ChooseEnvironment = () => {
         <Item>
           <MenuCard
             image={<AiOutlineRobot size={150} />}
-            label="Virtual Robot"
+            label="Virtual"
             onClick={handleVirtualRobotClick}
           />
         </Item>

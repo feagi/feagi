@@ -89,10 +89,10 @@ if launch_checker:
     print("low res")
     model_name = "models/sdf/low_res_freenove_smart_car"  # This is for the gazebo sdf file path
 else:
-    model_name = Model_data["path_to_robot"] + Model_data["file_name"]  # This is for the gazebo sdf file path
+    model_name = Model_data["robot_model_path"] + Model_data["robot_model"]  # This is for the gazebo sdf file path
     print("no low res")
 
-robot_name = Model_data["file_name"]  # This is the model name in gazebo without sdf path involves.
+robot_name = Model_data["robot_model"]  # This is the model name in gazebo without sdf path involves.
 x = str(capabilities["position"]["0"]["x"])
 y = str(capabilities["position"]["0"]["y"])
 z = str(capabilities["position"]["0"]["z"])
@@ -381,7 +381,7 @@ class PosInit:
         y = str(capabilities["position"][position_index]["y"])
         z = str(capabilities["position"][position_index]["z"])
         print("## ## ## ## Resetting robot position to ## ## ## ##", x, y, z)
-        name = Model_data["file_name"].replace(".sdf", "")
+        name = Model_data["robot_model"].replace(".sdf", "")
         first_part_r = "ign service -s /world/free_world/set_pose --reqtype ignition.msgs.Pose --reptype ignition.msgs.Boolean --timeout 300 --req \'name: "
         second_part_r = ' "' + name + '" ' + ", position: { x: " + x + ", y: "
         third_part_r = y + ", z: " + z + "}' &"
@@ -440,7 +440,7 @@ class TileManager(Node):
         msg = String()
         msg.data = str(runtime_data["GPS"])
         # Pose data
-        name = Model_data["file_name"]
+        name = Model_data["robot_model"]
         name = name.replace(".sdf", "")
         pose = subprocess.Popen(["ign topic -e  -t world/free_world/pose/info -n1 | grep \"" + name +"\" -A6"],
                                 shell=True, stdout=PIPE)
@@ -596,8 +596,8 @@ def update_physics():
     physics_data_array[2] = physics_data_array[2].replace(",", "")
     physics_data_array[2] = physics_data_array[2].replace("[", "")
     physics_data_array[2] = physics_data_array[2].replace("]", "")
-    file = open((Model_data["path_to_robot"] + Model_data["file_name"]), "r")
-    file2 = open((Model_data["path_to_robot"] + Model_data["file_name"]), "r")
+    file = open((Model_data["robot_model_path"] + Model_data["robot_model"]), "r")
+    file2 = open((Model_data["robot_model_path"] + Model_data["robot_model"]), "r")
     original_file = file2.read()
     file_sdf = open("empty.sdf", "w")
     new_sdf = original_file
@@ -884,9 +884,9 @@ def main(args=None):
                 model_data = message_from_feagi['model_data']
                 if model_data is not None:
                     update_flag = False
-                    if 'file_name' in model_data:
-                        if Model_data["file_name"] != model_data['file_name']:
-                            Model_data["file_name"] = model_data['file_name']
+                    if 'robot_model' in model_data:
+                        if Model_data["robot_model"] != model_data['robot_model']:
+                            Model_data["robot_model"] = model_data['robot_model']
                             update_flag = True
                     if 'mu' in model_data:
                         if Model_data["mu"] != model_data['mu']:
