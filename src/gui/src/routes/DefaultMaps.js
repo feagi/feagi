@@ -15,8 +15,8 @@ const DefaultMaps = (props) => {
 
   const handleMapSelection = (type) => {
       FeagiAPI.postRobotModel({
-        gazebo_floor_img_file: type,
-        gazebo_floor_img_file_path: "./src/evo/defaults/maps/"
+        gazebo_floor_img_file: JSON.parse(type),
+        gazebo_floor_img_file_path: JSON.parse('"./src/evo/defaults/maps/"')
        });
     navigate("/robot/defaults");
   };
@@ -43,7 +43,7 @@ const DefaultMaps = (props) => {
             <MenuCard
               image={<Img src={require('../assets/map1.png')} width="150" height="150" />}
               label="Golf Course"
-              onClick={() => handleMapSelection("map1.png")}
+              onClick={() => handleMapSelection('"map1.png"')}
               changeColorOnClick={false}
             />
           </label>
@@ -53,7 +53,7 @@ const DefaultMaps = (props) => {
             <MenuCard
               image={<Img src={require('../assets/map2.png')} width="150" height="150" />}
               label="Chess Board"
-              onClick={() => handleMapSelection("map2.png")}
+              onClick={() => handleMapSelection('"map2.png"')}
               changeColorOnClick={false}
             />
           </label>
@@ -64,7 +64,7 @@ const DefaultMaps = (props) => {
               image={<Img src={require('../assets/map3.png')} width="150" height="150" />}
               label="Race Track"
               onClick={() =>
-                handleMapSelection("map3.png")
+                handleMapSelection('"map3.png"')
               }
               changeColorOnClick={false}
             />

@@ -196,7 +196,7 @@ const FeagiAPI = {
   async postRobotModel(model_data) {
     const response = await axios
       .post(
-        `${FEAGI_URL}/feagi/robot/model`,
+        `${FEAGI_URL}/robot/model`,
          model_data,
         {
           headers: {},

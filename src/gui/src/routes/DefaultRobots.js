@@ -15,8 +15,8 @@ const DefaultRobots = (props) => {
 
   const handleRobotSelection = (type) => {
       FeagiAPI.postRobotModel({
-        robot_sdf_file_name: JSON.parse(""),
-        robot_sdf_file_name_path: JSON.parse("./src/evo/defaults/robot/")
+        robot_sdf_file_name: JSON.parse(type),
+        robot_sdf_file_name_path: JSON.parse('"./src/evo/defaults/robot/"')
        });
     navigate("/genome/mode");
   };
@@ -43,7 +43,7 @@ const DefaultRobots = (props) => {
             <MenuCard
               image={<Img src={require('../assets/taffy_bot.png')} width="150" height="150" />}
               label="Smart Car"
-              onClick={() => handleRobotSelection("taffy_robot.sdf")}
+              onClick={() => handleRobotSelection('"taffy_robot.sdf"')}
               changeColorOnClick={false}
             />
           </label>
@@ -53,7 +53,7 @@ const DefaultRobots = (props) => {
             <MenuCard
               image={<Img src={require('../assets/stick-bot.png')} width="150" height="150" />}
               label="Stick-bot"
-              onClick={() => handleRobotSelection("stick-bot.sdf")}
+              onClick={() => handleRobotSelection('"stick-bot.sdf"')}
               changeColorOnClick={false}
             />
           </label>
@@ -64,7 +64,7 @@ const DefaultRobots = (props) => {
               image={<Img src={require('../assets/drone.png')} width="150" height="150" />}
               label="Drone"
               onClick={() =>
-                handleRobotSelection("drone.sdf")
+                handleRobotSelection('"drone.sdf"')
               }
               changeColorOnClick={false}
             />
