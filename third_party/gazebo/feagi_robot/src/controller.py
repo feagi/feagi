@@ -592,7 +592,7 @@ class TileManager(Node):
         # print("\n************************\nActive tile list:", self.tile_tracker)
 
 
-def update_physics(name):
+def update_physics(name, floor):
     file_read = open("src/configuration.py", "r")
     new_file = file_read.read()
     new_file = new_file.replace(Model_data['robot_model'], name)
@@ -600,7 +600,14 @@ def update_physics(name):
     file_write = open("src/configuration.py", "w")
     file_write.write(new_file)
     file_write.close()
-    Model_data["robot_model"] = model_data['robot_sdf_file_name']
+    file_read = open("environments/free_world.sdf", "r")
+    new_file = file_read.read()
+    print(Model_data['floor_img'])
+    new_file = new_file.replace(Model_data['floor_img'], floor)
+    file_read.close()
+    file_write = open("environments/free_world.sdf", "w")
+    file_write.write(new_file)
+    file_write.close()
     physics_data_array = [str(Model_data['mu']), str(Model_data['mu2']), str(Model_data['fdir1']),
                           str(Model_data['slip1']),
                           str(Model_data['slip2'])]
@@ -927,7 +934,9 @@ def main(args=None):
                             Model_data["slip2"] = float(model_data['slip2'])
                             update_flag = True
                     if update_flag:
-                        update_physics(model_data['robot_sdf_file_name'])
+                        update_physics(model_data['robot_sdf_file_name'], model_data['gazebo_floor_img_file'])
+                        Model_data['floor_img'] = model_data['gazebo_floor_img_file']
+                        Model_data["robot_model"] = model_data['robot_sdf_file_name']
 
             except Exception:
                 pass
