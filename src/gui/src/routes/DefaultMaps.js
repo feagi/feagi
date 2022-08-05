@@ -15,8 +15,8 @@ const DefaultMaps = (props) => {
 
   const handleMapSelection = (type) => {
       FeagiAPI.postRobotModel({
-        floor_img_file: type,
-        floor_img_file_path: "./src/evo/defaults/maps/"
+        gazebo_floor_img_file: type,
+        gazebo_floor_img_file_path: "./src/evo/defaults/maps/"
        });
     navigate("/robot/defaults");
   };

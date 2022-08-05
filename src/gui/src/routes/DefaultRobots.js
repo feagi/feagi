@@ -15,8 +15,8 @@ const DefaultRobots = (props) => {
 
   const handleRobotSelection = (type) => {
       FeagiAPI.postRobotModel({
-        robot_model: type,
-        robot_model_path: "./src/evo/defaults/robot/"
+        robot_sdf_file_name: JSON.parse(""),
+        robot_sdf_file_name_path: JSON.parse("./src/evo/defaults/robot/")
        });
     navigate("/genome/mode");
   };
