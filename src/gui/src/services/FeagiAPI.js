@@ -210,6 +210,25 @@ const FeagiAPI = {
     return response.data;
   },
 
+  async resetGenome() {
+    const response = await axios
+      .post(
+        `${FEAGI_URL}/feagi/genome/reset`,
+        {},
+        {
+          headers: {},
+          params: {},
+        }
+      )
+      .catch((error) => {
+        console.error(error);
+        throw error;
+      });
+    return response.data;
+  },
+
+
+
   async getDefaultGenomes() {
     const response = await axios
       .get(`${FEAGI_URL}/feagi/genome/defaults/files`, {
