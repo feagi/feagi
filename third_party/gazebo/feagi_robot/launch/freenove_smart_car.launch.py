@@ -43,8 +43,8 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    pkg_ros_ign_gazebo_demos = get_package_share_directory('gazebo')
-    pkg_ros_ign_gazebo = get_package_share_directory('gazebo')
+    pkg_ros_ign_gazebo_demos = get_package_share_directory('feagi_robot')
+    pkg_ros_ign_gazebo = get_package_share_directory('feagi_robot')
 
     ign_gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -102,7 +102,7 @@ def generate_launch_description():
 
     #controller
     controller = Node(
-        package='gazebo',
+        package='feagi_robot',
         executable='controller.py',
         # FIXME: Why isn't the topic being populated on the UI? RQt issue?
         output='screen',

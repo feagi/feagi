@@ -3,7 +3,7 @@ from glob import glob
 import subprocess, os, platform
 
 
-package_name = 'gazebo'
+package_name = 'feagi_robot'
 
 setup(
     name=package_name,

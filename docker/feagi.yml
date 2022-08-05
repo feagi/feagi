@@ -30,7 +30,7 @@ services:
       - net
 
   ros-gazebo:
-    build: ../third_party/gazebo/
+    build: ../third_party/gazebo/feagi_robot
     deploy:
       resources:
         limits:
