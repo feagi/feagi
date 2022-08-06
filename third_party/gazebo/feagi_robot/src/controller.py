@@ -83,14 +83,14 @@ else:
     import termios
     import tty
 
-launch_checker = os.path.exists('type_res.txt')
-if launch_checker:
-    print("low res")
-    model_name = "models/sdf/low_res_freenove_smart_car"  # This is for the gazebo sdf file path
-else:
-    model_name = Model_data["robot_model_path"] + Model_data["robot_model"]  # This is for the gazebo sdf file path
-    print("no low res")
-
+# launch_checker = os.path.exists('type_res.txt')
+# if launch_checker:
+#     print("low res")
+#     model_name = "models/sdf/low_res_freenove_smart_car"  # This is for the gazebo sdf file path
+# else:
+#     model_name = Model_data["robot_model_path"] + Model_data["robot_model"]  # This is for the gazebo sdf file path
+#     print("no low res")
+model_name = Model_data["robot_model_path"] + Model_data["robot_model"]
 robot_name = Model_data["robot_model"]  # This is the model name in gazebo without sdf path involves.
 x = str(capabilities["position"]["0"]["x"])
 y = str(capabilities["position"]["0"]["y"])
@@ -592,22 +592,7 @@ class TileManager(Node):
         # print("\n************************\nActive tile list:", self.tile_tracker)
 
 
-def update_physics(name, floor):
-    file_read = open("src/configuration.py", "r")
-    new_file = file_read.read()
-    new_file = new_file.replace(Model_data['robot_model'], name)
-    file_read.close()
-    file_write = open("src/configuration.py", "w")
-    file_write.write(new_file)
-    file_write.close()
-    file_read = open("environments/free_world.sdf", "r")
-    new_file = file_read.read()
-    print(Model_data['floor_img'])
-    new_file = new_file.replace(Model_data['floor_img'], floor)
-    file_read.close()
-    file_write = open("environments/free_world.sdf", "w")
-    file_write.write(new_file)
-    file_write.close()
+def update_physics():
     physics_data_array = [str(Model_data['mu']), str(Model_data['mu2']), str(Model_data['fdir1']),
                           str(Model_data['slip1']),
                           str(Model_data['slip2'])]
@@ -622,10 +607,6 @@ def update_physics(name, floor):
     file_xml = Xml_et.parse(file)
     myroot = file_xml.getroot()
     flag = 0
-    # name_attrib = ""
-    # for i in myroot:
-    #     name_attrib = i.attrib['name']
-    # print(name_attrib)
     for i in myroot.find("./model/link/collision/surface/friction/ode"):
         current = i.text
         i.text = physics_data_array[flag]
@@ -633,12 +614,45 @@ def update_physics(name, floor):
         new_line = "<" + str(i.tag) + ">" + i.text + "</" + str(i.tag) + ">"
         new_sdf = new_sdf.replace(old_line, new_line)
         flag += 1
-    # new_sdf = new_sdf.replace(name_attrib, "test")
-    # print("done")
     file_sdf.write(new_sdf)
     file_sdf.close()
     file2.close()
     file.close()
+    print("GENERATED EMPTY.SDF")
+
+def update_floor(floor):
+    file_read = open("src/configuration.py", "r")
+    new_file = file_read.read()
+    new_file = new_file.replace(Model_data['floor_img'], floor)
+    file_read.close()
+    file_write = open("src/configuration.py", "w")
+    file_write.write(new_file)
+    file_write.close()
+    file_read = open("environments/free_world.sdf", "r")
+    new_file = file_read.read()
+    print(Model_data['floor_img'])
+    new_file = new_file.replace(Model_data['floor_img'], floor)
+    file_read.close()
+    file_write = open("environments/free_world.sdf", "w")
+    file_write.write(new_file)
+    file_write.close()
+    f = open("new.txt", "w")
+    f.write(" ") # Content inside the new.txt is not matter. Just need a file, that's all.
+    # This is for bash script to see and update it automatically
+    f.close()
+
+def update_robot(name):
+    file_read = open("src/configuration.py", "r")
+    new_file = file_read.read()
+    new_file = new_file.replace(Model_data['robot_model'], name)
+    file_read.close()
+    file_write = open("src/configuration.py", "w")
+    file_write.write(new_file)
+    file_write.close()
+    f = open("new.txt", "w")
+    f.write(" ")
+    f.close()
+
 
 
 # class Pose(Node):
@@ -905,14 +919,20 @@ def main(args=None):
                                 float(control_data['robot_starting_position'][position_index][2])
 
                 model_data = message_from_feagi['model_data']
-                print("ENTERING")
                 if model_data is not None:
                     update_flag = False
+                    if 'gazebo_floor_img_file' in model_data:
+                        if Model_data["floor_img"] != model_data['gazebo_floor_img_file']:
+                            print("current config: ", Model_data['floor_img'])
+                            print("from FEAGI: ", model_data['gazebo_floor_img_file'])
+                            update_floor(model_data['gazebo_floor_img_file'])
+                            Model_data['floor_img'] = model_data['gazebo_floor_img_file']
                     if 'robot_sdf_file_name' in model_data:
                         if Model_data["robot_model"] != model_data['robot_sdf_file_name']:
-                            print(Model_data['robot_model'])
-                            print(model_data['robot_sdf_file_name'])
-                            update_flag = True
+                            print("current config: ", Model_data['robot_model'])
+                            print("from FEAGI: ", model_data['robot_sdf_file_name'])
+                            update_robot(model_data['robot_sdf_file_name'])
+                            Model_data['robot_model'] = model_data['robot_sdf_file_name']
                     if 'mu' in model_data:
                         if Model_data["mu"] != model_data['mu']:
                             Model_data["mu"] = float(model_data['mu'])
@@ -934,13 +954,13 @@ def main(args=None):
                             Model_data["slip2"] = float(model_data['slip2'])
                             update_flag = True
                     if update_flag:
-                        update_physics(model_data['robot_sdf_file_name'], model_data['gazebo_floor_img_file'])
-                        Model_data['floor_img'] = model_data['gazebo_floor_img_file']
-                        Model_data["robot_model"] = model_data['robot_sdf_file_name']
+                        print("ENTERING UPDATE FUNCTION")
+                        print(model_data)
+                        update_physics()
 
-            except Exception:
-                pass
-                # print("")
+            except Exception as e:
+                #pass
+                print("bwuk ", e)
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             if message_from_feagi is not None:
