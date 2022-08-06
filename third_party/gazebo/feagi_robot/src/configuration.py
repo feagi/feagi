@@ -19,7 +19,7 @@ limitations under the License.
 app_name = 'gazebo'
 
 network_settings = {
-    "feagi_host": "127.0.0.1",
+    "feagi_host": "feagi",
     "feagi_api_port": "8000",
     'TTL': 2,
     'last_message': 0,
@@ -107,7 +107,7 @@ message_to_feagi = {"data": {}}
 Model_data = {
     "robot_model_path": "robots/",
     "robot_model": "smart_car.sdf",
-    "floor_img": "Track4.png",
+    "floor_img": "map1.png",
     "floor_img_path": "environments/material",
     "mu": 1.0,
     "mu2": 50.0,
