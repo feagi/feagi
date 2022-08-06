@@ -171,13 +171,13 @@ class RobotController(BaseModel):
 
 class RobotModel(BaseModel):
     robot_sdf_file_name: str
-    robot_sdf_file_name = "freenove_smart_car.sdf"
+    robot_sdf_file_name = ""
 
     robot_sdf_file_name_path: str
     robot_sdf_file_name_path = "./lib/gazebo/robots/4WD_smart_car/"
 
     gazebo_floor_img_file: str
-    gazebo_floor_img_file = "Track2.png"
+    gazebo_floor_img_file = ""
 
     gazebo_floor_img_file_path: str
     gazebo_floor_img_file_path = "./lib/gazebo/gazebo_maps/"
