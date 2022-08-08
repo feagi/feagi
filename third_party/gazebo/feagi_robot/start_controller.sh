@@ -7,14 +7,20 @@ rm new.txt
 for pid in $(ps -ef | grep "gazebo" | awk '{print $2}'); do kill $pid; done ##Ensure that no gazebo is running prior to launch gazebo
 for pid in $(ps -ef | grep "freenove_smart_car.launch.py" | awk '{print $2}'); do kill $pid; done #Destroy xterm prior to launch gazebo
 for pid in $(ps -ef | grep "xterm " | awk '{print $2}'); do kill $pid; done
+for pid in $(ps -ef | grep "parameter_bridg" | awk '{print $2}'); do kill $pid; done
 
 if pgrep -x "$ROS2" >/dev/null && pgrep -x "$GAZEBO" >/dev/null
 then
     echo "$ROS2 and $GAZEBO are already running."
 else
-    cd /opt/source-code/feagi_robot/ && source /opt/ros/foxy/setup.bash && cd .. && sudo chmod 777 feagi_robot/ && cd feagi_robot/ && colcon build --symlink-install
+    cd /opt/source-code/feagi_robot/
+    if [ -f install ]; then
+      colcon build --symlink-install
+    else
+      source /opt/ros/foxy/setup.bash && cd .. && sudo chmod 777 feagi_robot/ && cd feagi_robot/ && colcon build --symlink-install
+    fi
     wait -n
-    xterm -fa "Terminus" -fs 6 -hold -e "cd /opt/source-code/feagi_robot/ && source install/setup.bash && ros2 launch feagi_robot freenove_smart_car.launch.py" &
+    cd /opt/source-code/feagi_robot/ && source install/setup.bash && ros2 launch feagi_robot freenove_smart_car.launch.py &
     while [[ $WMC == '' ]]
     do
       WMC=$(wmctrl -l | grep Gazebo | awk '{print $1}')
@@ -39,6 +45,6 @@ fi
 if [ -f /opt/source-code/feagi_robot/new.txt ]; then
   #echo "NEW EXISTS!!"
   rm new.txt
-  ./start_controller.sh
+  ./start_controller.sh &
 fi
 echo "EXITED"
