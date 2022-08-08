@@ -2,6 +2,8 @@
 
 FLAG=true
 FILE=./csv_data.gdc
+rm ../html/*
+cp ../html_backup/* ../html/
 rm /root/godot_source/csv_data.gdc
 echo "% pre-bridge launch"
 python3 bridge_godot_python.py &
@@ -19,7 +21,6 @@ while true; do
     if [ -f reset.txt ]; then
       if $FLAG; then
         FLAG=false
-        echo "WORKING!"
         rm ../html/*
         cp ../html_backup/* ../html/
       fi
