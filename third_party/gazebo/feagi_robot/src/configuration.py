@@ -105,7 +105,7 @@ message_to_feagi = {"data": {}}
 
 
 Model_data = {
-    "robot_model_path": "robots/",
+    "robot_model_path": "robots/smart_car/",
     "robot_model": "smart_car.sdf",
     "floor_img": "map1.png",
     "floor_img_path": "environments/material",
