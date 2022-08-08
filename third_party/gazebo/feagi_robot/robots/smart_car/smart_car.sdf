@@ -92,7 +92,6 @@
       <link name='rear_left_wheel'>
         <pose>-0.1 0.088 0.05 0 1.5707 1.5707</pose>
       <mass>0.408233</mass>
-      <mass>0.408233</mass>
         <inertial>
         <inertia>
           <ixx>0.003</ixx>

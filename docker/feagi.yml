@@ -34,8 +34,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '4'
-          memory: '2g'
+          cpus: '5'
+          memory: '3g'
     ports:
       - "6080:80"
     privileged: true

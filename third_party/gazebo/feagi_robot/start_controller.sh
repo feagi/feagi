@@ -39,13 +39,10 @@ while [ ! -f /opt/source-code/feagi_robot/empty.sdf ] && [ ! -f /opt/source-code
   #echo "no file"
 done
 if [ -f /opt/source-code/feagi_robot/empty.sdf ]; then
-  echo "EMPTY EXISTS!!"
   cp empty.sdf robots/freenove_smart_car.sdf
-  ./start_controller.sh
 fi
 if [ -f /opt/source-code/feagi_robot/new.txt ]; then
-  #echo "NEW EXISTS!!"
   rm new.txt
-  ./start_controller.sh &
 fi
+./start_controller.sh &
 echo "EXITED"
