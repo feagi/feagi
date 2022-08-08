@@ -34,7 +34,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '5'
+          cpus: '4'
           memory: '3g'
     ports:
       - "6080:80"
