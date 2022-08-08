@@ -15,21 +15,21 @@ else
     cd /opt/source-code/feagi_robot/ && source /opt/ros/foxy/setup.bash && cd .. && sudo chmod 777 feagi_robot/ && cd feagi_robot/ && colcon build --symlink-install
     wait -n
     xterm -fa "Terminus" -fs 6 -hold -e "cd /opt/source-code/feagi_robot/ && source install/setup.bash && ros2 launch feagi_robot freenove_smart_car.launch.py" &
-#    while [[ $WMC == '' ]]
-#    do
-#      WMC=$(wmctrl -l | grep Gazebo | awk '{print $1}')
-#    done && wmctrl -i -r $WMC -b add,fullscreen & ##This will make gazbeo full screen once gazebo appears
+    while [[ $WMC == '' ]]
+    do
+      WMC=$(wmctrl -l | grep Gazebo | awk '{print $1}')
+    done && wmctrl -i -r $WMC -b add,fullscreen & ##This will make gazbeo full screen once gazebo appears
 fi
 cd /opt/source-code/feagi_robot
-while [ ! -f /opt/source-code/feagi_robot/empty.sdf ] && [ -f /opt/source-code/feagi_robot/new.txt ]; do
+while [ ! -f /opt/source-code/feagi_robot/empty.sdf ] && [ ! -f /opt/source-code/feagi_robot/new.txt ]; do
   :
-#  if xprop -name "Gazebo" | grep -q "_NET_WM_STATE_FULLSCREEN"; then
-#    :
-#  else
-#    WMC=$(wmctrl -l | grep Gazebo | awk '{print $1}')
-#    wmctrl -i -r $WMC -b add,fullscreen &
-#  fi
-  echo "no file"
+  if xprop -name "Gazebo" >/dev/null 2>&1 | grep -q "_NET_WM_STATE_FULLSCREEN" >/dev/null 2>&1; then
+    :
+  else
+    WMC=$(wmctrl -l | grep Gazebo | awk '{print $1}')
+    wmctrl -i -r $WMC -b add,fullscreen &
+  fi
+  #echo "no file"
 done
 if [ -f /opt/source-code/feagi_robot/empty.sdf ]; then
   echo "EMPTY EXISTS!!"
@@ -37,7 +37,7 @@ if [ -f /opt/source-code/feagi_robot/empty.sdf ]; then
   ./start_controller.sh
 fi
 if [ -f /opt/source-code/feagi_robot/new.txt ]; then
-  echo "NEW EXISTS!!"
+  #echo "NEW EXISTS!!"
   rm new.txt
   ./start_controller.sh
 fi

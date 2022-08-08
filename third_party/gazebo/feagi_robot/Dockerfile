@@ -10,6 +10,7 @@ RUN sed -i "s|<number>4</number>|<number>1</number> |g" rc.xml
 RUN mkdir -p /opt/source-code/feagi_robot
 WORKDIR /opt/source-code/feagi_robot
 COPY ./ ./
+COPY gazebo.png /usr/local/share/doro-lxde-wallpapers/bg1.jpg
 RUN chmod a+x ./start_controller.sh
 RUN chmod 0755 /opt/source-code/feagi_robot
 
