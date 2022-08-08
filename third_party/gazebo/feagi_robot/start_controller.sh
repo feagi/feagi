@@ -14,13 +14,14 @@ then
     echo "$ROS2 and $GAZEBO are already running."
 else
     cd /opt/source-code/feagi_robot/
-    if [ -f install ]; then
-      colcon build --symlink-install
-    else
+    if [ ! -d "install" ]; then
       source /opt/ros/foxy/setup.bash && cd .. && sudo chmod 777 feagi_robot/ && cd feagi_robot/ && colcon build --symlink-install
+      source install/setup.bash
+    else
+      source /opt/ros/foxy/setup.bash && source install/setup.bash
     fi
     wait -n
-    cd /opt/source-code/feagi_robot/ && source install/setup.bash && ros2 launch feagi_robot freenove_smart_car.launch.py &
+    ros2 launch feagi_robot freenove_smart_car.launch.py &
     while [[ $WMC == '' ]]
     do
       WMC=$(wmctrl -l | grep Gazebo | awk '{print $1}')
