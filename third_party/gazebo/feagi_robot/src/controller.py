@@ -501,7 +501,7 @@ class TileManager(Node):
             self.tile_tracker[tile_name]["index"] = tile_index
             self.tile_tracker[tile_name]["visibility"] = True
 
-        first_phrase = "ign service -s /world/free_world/create --reqtype ignition.msgs.EntityFactory --reptype ignition.msgs.Boolean --timeout 300 --req 'sdf_filename: ''\"models/sdf/new_ground.sdf\""
+        first_phrase = "ign service -s /world/free_world/create --reqtype ignition.msgs.EntityFactory --reptype ignition.msgs.Boolean --timeout 300 --req 'sdf_filename: ''\"environments/new_ground.sdf\""
         second_phrase = " pose: {position: {x:" + tile_location_x + ", y:" + tile_location_y + ", z:" + tile_location_z + "}} '\'name: \"" + tile_name + "\" '\' allow_renaming: false' &"
 
         print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n",
@@ -636,15 +636,28 @@ def update_floor(floor):
     file_write = open("environments/free_world.sdf", "w")
     file_write.write(new_file)
     file_write.close()
+
+
+    file_read = open("environments/new_ground.sdf", "r")
+    new_file = file_read.read()
+    print(Model_data['floor_img'])
+    new_file = new_file.replace(Model_data['floor_img'], floor)
+    file_read.close()
+    file_write = open("environments/new_ground.sdf", "w")
+    file_write.write(new_file)
+    file_write.close()
+
+
     f = open("new.txt", "w")
     f.write(" ") # Content inside the new.txt is not matter. Just need a file, that's all.
     # This is for bash script to see and update it automatically
     f.close()
 
-def update_robot(name):
+def update_robot(name, path):
     file_read = open("src/configuration.py", "r")
     new_file = file_read.read()
     new_file = new_file.replace(Model_data['robot_model'], name)
+    new_file = new_file.replace(Model_data['robot_model_path'], path)
     file_read.close()
     file_write = open("src/configuration.py", "w")
     file_write.write(new_file)
@@ -931,8 +944,9 @@ def main(args=None):
                         if Model_data["robot_model"] != model_data['robot_sdf_file_name']:
                             print("current config: ", Model_data['robot_model'])
                             print("from FEAGI: ", model_data['robot_sdf_file_name'])
-                            update_robot(model_data['robot_sdf_file_name'])
+                            update_robot(model_data['robot_sdf_file_name'], model_data['robot_sdf_file_name_path'])
                             Model_data['robot_model'] = model_data['robot_sdf_file_name']
+                            Model_data['robot_model_path'] = model_data['robot_sdf_file_name_path']
                     if 'mu' in model_data:
                         if Model_data["mu"] != model_data['mu']:
                             Model_data["mu"] = float(model_data['mu'])
@@ -959,8 +973,7 @@ def main(args=None):
                         update_physics()
 
             except Exception as e:
-                #pass
-                print("bwuk ", e)
+                pass
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             if message_from_feagi is not None:
