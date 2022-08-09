@@ -8,6 +8,8 @@ for pid in $(ps -ef | grep "gazebo" | awk '{print $2}'); do kill $pid; done ##En
 for pid in $(ps -ef | grep "freenove_smart_car.launch.py" | awk '{print $2}'); do kill $pid; done #Destroy xterm prior to launch gazebo
 for pid in $(ps -ef | grep "xterm " | awk '{print $2}'); do kill $pid; done
 for pid in $(ps -ef | grep "parameter_bridg" | awk '{print $2}'); do kill $pid; done
+for pid in $(ps -ef | grep "controller.py" | awk '{print $2}'); do kill $pid; done
+
 
 if pgrep -x "$ROS2" >/dev/null && pgrep -x "$GAZEBO" >/dev/null
 then
@@ -21,6 +23,7 @@ else
       source /opt/ros/foxy/setup.bash && source install/setup.bash
     fi
     wait -n
+#    xterm -fa "Terminus" -fs 6 -hold -e "ros2 launch feagi_robot freenove_smart_car.launch.py" &
     ros2 launch feagi_robot freenove_smart_car.launch.py &
     while [[ $WMC == '' ]]
     do
