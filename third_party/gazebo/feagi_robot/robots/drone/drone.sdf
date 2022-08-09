@@ -267,7 +267,7 @@
             <joint_name>X3/rotor_3_joint</joint_name>
                   <topic>M3</topic>
       </plugin>
-        <plugin name="ignition::gazebo::systems::LiftDrag" filename="libignition-gazebo3-lift-drag-system.so">
+        <plugin name="ignition::gazebo::systems::LiftDrag" filename="ignition-gazebo-lift-drag-system">
       <a0>0.3</a0>
       <alpha_stall>1.4</alpha_stall>
       <cla>4.2500</cla>
@@ -283,7 +283,7 @@
       <upward>0 0 1</upward>
       <link_name>X3/rotor_1</link_name>
     </plugin>
-        <plugin name="ignition::gazebo::systems::LiftDrag" filename="libignition-gazebo3-lift-drag-system.so">
+        <plugin name="ignition::gazebo::systems::LiftDrag" filename="ignition-gazebo-lift-drag-system">
       <a0>0.3</a0>
       <alpha_stall>1.4</alpha_stall>
       <cla>4.2500</cla>
@@ -299,7 +299,7 @@
       <upward>0 0 1</upward>
       <link_name>X3/rotor_0</link_name>
     </plugin>
-        <plugin name="ignition::gazebo::systems::LiftDrag" filename="libignition-gazebo3-lift-drag-system.so">
+        <plugin name="ignition::gazebo::systems::LiftDrag" filename="ignition-gazebo-lift-drag-system">
       <a0>0.3</a0>
       <alpha_stall>1.4</alpha_stall>
       <cla>4.2500</cla>
@@ -315,7 +315,7 @@
       <upward>0 0 1</upward>
       <link_name>X3/rotor_2</link_name>
     </plugin>
-        <plugin name="ignition::gazebo::systems::LiftDrag" filename="libignition-gazebo3-lift-drag-system.so">
+        <plugin name="ignition::gazebo::systems::LiftDrag" filename="ignition-gazebo-lift-drag-system">
       <a0>0.3</a0>
       <alpha_stall>1.4</alpha_stall>
       <cla>4.2500</cla>
