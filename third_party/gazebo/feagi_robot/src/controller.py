@@ -968,8 +968,6 @@ def main(args=None):
                             Model_data["slip2"] = float(model_data['slip2'])
                             update_flag = True
                     if update_flag:
-                        print("ENTERING UPDATE FUNCTION")
-                        print(model_data)
                         update_physics()
 
             except Exception as e:
