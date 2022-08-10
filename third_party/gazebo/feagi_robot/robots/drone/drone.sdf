@@ -23,6 +23,13 @@
           </box>
         </geometry>
       </collision>
+    <sensor name="imu" type="imu">
+      <always_on>1</always_on>
+      <update_rate>100</update_rate>
+      <visualize>true</visualize>
+      <topic>imu</topic>
+      <enable_metrics>true</enable_metrics>
+    </sensor>
       <visual name='X3/base_link_inertia_visual'>
         <pose frame=''>0 0 0 0 -0 0</pose>
         <geometry>
@@ -32,8 +39,9 @@
           </mesh>
         </geometry>
       </visual>
-      
     </link>
+
+
     <link name='X3/rotor_0'>
       <pose frame=''>0.13 -0.22 0.023 0 -0 0</pose>
       <inertial>
