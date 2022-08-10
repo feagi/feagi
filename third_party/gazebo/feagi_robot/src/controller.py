@@ -34,7 +34,7 @@ from subprocess import PIPE, Popen
 from configuration import message_to_feagi
 from time import sleep
 from rclpy.node import Node
-from sensor_msgs.msg import LaserScan, Image, BatteryState
+from sensor_msgs.msg import LaserScan, Image, BatteryState, Imu
 from rclpy.qos import qos_profile_sensor_data
 from configuration import *
 from threading import Thread
@@ -51,12 +51,18 @@ runtime_data = {
     "battery_charge_level": 1,
     'motor_status': {},
     'servo_status': {},
-    'GPS': {}
+    'GPS': {},
+    'Quaternion': {}
 }
 
 runtime_data["GPS"]["x"] = dict()
 runtime_data["GPS"]["y"] = dict()
 runtime_data["GPS"]["z"] = dict()
+runtime_data["Quaternion"]["x"] = dict()
+runtime_data["Quaternion"]["y"] = dict()
+runtime_data["Quaternion"]["z"] = dict()
+
+
 runtime_data["GPS"]["counter"] = dict()
 runtime_data["GPS"]["x_counter"] = dict()
 runtime_data["GPS"]["y_counter"] = dict()
@@ -108,6 +114,7 @@ ign service -s /world/free_world/remove \
 --timeout 300 \
 --req 'name: "freenove_smart_car" type: MODEL'
 """  # not used atm
+test = {}
 
 
 def feagi_registration(feagi_host, api_port):
@@ -201,6 +208,12 @@ class ScalableSubscriber(Node):
                         sensor_id: True
                     }
                 }
+        # elif 'imu' in msg_type:
+        #     return {
+        #         msg_type: {
+        #             idx: val for idx, val in enumerate([msg.orientation.x, msg.orientation.y, msg.orientation.z])
+        #         }
+        #     }
         # elif 'battery' in msg_type and msg.percentage:
         #     return {
         #         'battery': {
@@ -240,6 +253,7 @@ class BatterySubscriber(ScalableSubscriber):
 class IRSubscriber(ScalableSubscriber):
     def __init__(self, subscription_name, msg_type, topic):
         super().__init__(subscription_name, msg_type, topic)
+
 
 
 class Battery:
@@ -368,6 +382,21 @@ class Servo:
             exc_info = sys.exc_info()
             traceback.print_exception(*exc_info)
 
+class IMU(Node):
+    def __init__(self):
+        super().__init__('imu_subscriber')
+        self.subscription = self.create_subscription(
+            Imu,
+            'imu',
+            self.imu_callback,
+            qos_profile=qos_profile_sensor_data)
+
+    def imu_callback(self, msg):
+        # msg = Imu() 
+        print(msg.orientation.x, " ", msg.orientation.y, " ", msg.orientation.z)
+        runtime_data['Quaternion']["x"] = msg.orientation.x
+        runtime_data['Quaternion']["y"] = msg.orientation.y
+        runtime_data['Quaternion']["z"] = msg.orientation.z
 
 class PosInit:
     def __init__(self):
@@ -457,6 +486,7 @@ class TileManager(Node):
                 number_only = item.replace("z: ", "")
                 runtime_data["GPS"]["z"] = float(number_only)
         self.publisher_.publish(msg)
+
 
     def tile_index_to_xyz(self, tile_index):
         """
@@ -667,143 +697,8 @@ def update_robot(name, path):
     f.close()
 
 
-
-# class Pose(Node):
-#     def __init__(self):
-#         super().__init__('pose')
-#         self.publisher_ = self.create_publisher(String, '/GPS', 10)
-#         timer_period = 0.5
-#         self.timer = self.create_timer(timer_period, self.pose_updated)
-#         self.i = 0
-#
-#     def pose_updated(self):
-#         """
-#         This updates robot's GPS automatically
-#         """
-#         msg = String()
-#         msg.data = str(runtime_data["GPS"])
-#         # Pose data
-#         pose = subprocess.Popen(["ign topic -e  -t world/free_world/pose/info -n1 | grep \"freenove_smart_car\" -A6"],
-#                                 shell=True, stdout=PIPE)
-#         pose_xyz = pose.communicate()[0].decode("utf-8")
-#         for item in pose_xyz.split("\n"):
-#             if "x: " in item:
-#                 number_only = item.replace("x: ", "")
-#                 runtime_data["GPS"]["x"] = float(number_only)
-#             if "y: " in item:
-#                 number_only = item.replace("y: ", "")
-#                 runtime_data["GPS"]["y"] = float(number_only)
-#             if "z: " in item:
-#                 number_only = item.replace("z: ", "")
-#                 runtime_data["GPS"]["z"] = float(number_only)
-#         self.publisher_.publish(msg)
-#
-#     @staticmethod
-#     def location_updated(new_location):
-#         """
-#         This function adds per new location. Let's say, you add 2,2 to the list so it can remember the location
-#         """
-#         total_length = len(location_stored) #This doesn't include 0-index so we use this advantage
-#         location_stored[str(total_length)] = new_location
-#
-#     @staticmethod
-#     def margin_defined(margin, list_index, dimesions, counter):
-#         """
-#         :param margin: This is the "limit" to detect if robot past the margin. By default, it would be 5% or 0.05 so if your dimesion is 10x10, it would be 9.95 x 9.95. Once
-#         the robot's gps reached to the margin, it will create a new plane on whichever the robot reached.
-#         :param list_index: The full list of locations stored
-#         :param dimesions: the size of dimesion so it can do math formula properly
-#         :return: new list of locations with margin defined
-#         """
-#         new_list = [dimesions[0]/2 + (dimesions[0] * list_index[str(counter)][0] - margin * dimesions[0]),dimesions[0]/2 + dimesions[1] * list_index[str(counter)][1] - (margin * dimesions[1])]
-#         return new_list
-#
-#     @staticmethod
-#     def converter_for_gazebo(list_location_data, dimesion):
-#         return [list_location_data[0] * dimesion[0],list_location_data[1] * dimesion[1]]
-#
-#     @staticmethod
-#     def floor_generated(x, y):
-#         z = 0 #Always zero since floor doesn't float. This would be a static floor
-#         first_phrase = "ign service -s /world/free_world/create " \
-#                        "--reqtype ignition.msgs.EntityFactory " \
-#                        "--reptype ignition.msgs.Boolean " \
-#                        "--timeout 300 " \
-#                        "--req 'sdf_filename: ''\"models/sdf/new_ground.sdf\""
-#         second_phrase = " pose: {position: {x: %s, y: %s, z: %s}} '\'name: \"ground_plane\" '\' allow_renaming: true' &" % (
-#             x, y, z)
-#         os.system(first_phrase + second_phrase)
-#         print(first_phrase + second_phrase)
-#
-#     @staticmethod
-#     def remove_floor():
-#         global old_list
-#         total = int(runtime_data["GPS"]["counter"])
-#         for i in range(total):
-#             name = "ground_plane_" + str(i)
-#             command = "ign service -s /world/free_world/remove \
-#             --reqtype ignition.msgs.Entity \
-#             --reptype ignition.msgs.Boolean \
-#             --timeout 300 \
-#             --req 'name: \"" + name + "\" type: MODEL' &"
-#             os.system(command)
-#         runtime_data["GPS"]["counter"] = 0
-#         runtime_data["GPS"]["n_y_counter"] = 0
-#         runtime_data["GPS"]["n_x_counter"] = 0
-#         runtime_data["GPS"]["y_counter"] = 0
-#         runtime_data["GPS"]["x_counter"] = 0
-#         location_stored.clear()
-#         old_list.clear()
-#         location_stored["0"] = [0, 0]
-#         old_list = location_stored.copy()
-#
-#
-#
-#     @staticmethod
-#     def gazebo_process(current_list):
-#         """
-#         main script for world controls
-#         """
-#         global old_list ##Is there another way to get rid of this though?
-#         flag = 0
-#
-# ##      Don't forget to clean this up.
-#         print("Current list: ", location_stored)
-#         print("Old list: ", old_list)
-#         print("GPS: ", runtime_data["GPS"])
-#         print("counter: ", runtime_data["GPS"]["counter"])
-#
-#
-#         #Generate new margin list
-#         if old_list != current_list:
-#             old_list = current_list.copy()
-#             defined_margin_list = Pose().margin_defined(Gazebo_world["margin"], current_list, layer_dimension, runtime_data["GPS"]["counter"])
-#             tile_margin[runtime_data["GPS"]["counter"]] = defined_margin_list
-#             print("defined_margin_list: ", tile_margin)
-#             runtime_data["GPS"]["counter"] = runtime_data["GPS"]["counter"] + 1
-#
-#         ## Check if it is greater than margin
-#         if runtime_data["GPS"]["x"] > tile_margin[runtime_data["GPS"]["counter"]-1][0]: #minus to keep it away frmo out of index
-#             runtime_data["GPS"]["x_counter"] = runtime_data["GPS"]["x_counter"] + 1
-#             flag = 1
-#         elif runtime_data["GPS"]["y"] > tile_margin[runtime_data["GPS"]["counter"]-1][1]:
-#             print(runtime_data["GPS"]["y_counter"] , " > ", tile_margin[runtime_data["GPS"]["y_counter"]][1])
-#             runtime_data["GPS"]["y_counter"] = runtime_data["GPS"]["y_counter"] + 1
-#             flag = 1
-#         elif runtime_data["GPS"]["x"] > tile_margin[runtime_data["GPS"]["counter"]-1][0] and runtime_data["GPS"]["y"] > tile_margin[runtime_data["GPS"]["counter"]-1][1]:
-#             runtime_data["GPS"]["y_counter"] = runtime_data["GPS"]["y_counter"] + 1
-#             runtime_data["GPS"]["x_counter"] = runtime_data["GPS"]["x_counter"] + 1
-#             flag = 1
-#         if flag == 1:
-#             flag = 0
-#             Pose().location_updated([runtime_data["GPS"]["x_counter"], runtime_data["GPS"]["y_counter"]])
-#             new_data = Pose().converter_for_gazebo([runtime_data["GPS"]["x_counter"], runtime_data["GPS"]["y_counter"]], layer_dimension)
-#             print("++++++++++++++++++++++++++++++: ", new_data)
-#             print("COUNTER: ", runtime_data["GPS"]["counter"])
-#             Pose().floor_generated(new_data[0], new_data[1])
-
-
 def main(args=None):
+    print(runtime_data)
     print("Connecting to FEAGI resources...")
 
     # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_outbound_port']
@@ -850,6 +745,8 @@ def main(args=None):
     pose = TileManager()
     pose.pose_updated()
     executor.add_node(pose)
+    imu_update = IMU()
+    executor.add_node(imu_update)
 
     # Battery
     # Moving away from using the Gazebo based battery model and adopting a controller based model instead
@@ -997,6 +894,7 @@ def main(args=None):
 
     ultrasonic_feed.destroy_node()
     pose.destroy_node()
+    imu_update.destroy_node()
     # battery_feed.destroy_node()
 
     for ir_node in ir_feeds:
