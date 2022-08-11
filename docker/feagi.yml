@@ -30,15 +30,15 @@ services:
       - net
 
   ros-gazebo:
-    build: ../third_party/gazebo/smart_car/
+    build: ../third_party/gazebo/feagi_robot
     deploy:
       resources:
         limits:
           cpus: '4'
-          memory: '2g'
+          memory: '3g'
     ports:
       - "6080:80"
-    privileged: false
+    privileged: true
     networks:
       - net
 

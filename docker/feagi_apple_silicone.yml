@@ -32,7 +32,7 @@ services:
         
   ros-gazebo:
     build:
-      context: ../third_party/gazebo/smart_car/
+      context: ../third_party/gazebo/feagi_robot
       dockerfile: Dockerfile.M1
     deploy:
       resources:
