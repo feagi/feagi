@@ -127,9 +127,21 @@ def api_message_processor(api_message):
                 api_message['robot_controller']['robot_starting_position']
 
     if 'robot_model' in api_message:
-        if api_message['robot_model']['file_name']:
-            runtime_data.robot_model['file_name'] = \
-                api_message['robot_model']['file_name']
+        if api_message['robot_model']['robot_sdf_file_name']:
+            runtime_data.robot_model['robot_sdf_file_name'] = \
+                api_message['robot_model']['robot_sdf_file_name']
+
+        if api_message['robot_model']['robot_sdf_file_name_path']:
+            runtime_data.robot_model['robot_sdf_file_name_path'] = \
+                api_message['robot_model']['robot_sdf_file_name_path']
+
+        if api_message['robot_model']['gazebo_floor_img_file']:
+            runtime_data.robot_model['gazebo_floor_img_file'] = \
+                api_message['robot_model']['gazebo_floor_img_file']
+
+        if api_message['robot_model']['gazebo_floor_img_file_path']:
+            runtime_data.robot_model['gazebo_floor_img_file_path'] = \
+                api_message['robot_model']['gazebo_floor_img_file_path']
 
         if api_message['robot_model']['mu']:
             runtime_data.robot_model['mu'] = \

@@ -285,6 +285,11 @@ def burst_manager():
         broadcast_message['control_data'] = runtime_data.robot_controller
         if runtime_data.robot_model:
             broadcast_message['model_data'] = runtime_data.robot_model
+            print("R--" * 20)
+            print("R--" * 20)
+            print("R--" * 20)
+            print("Robot or Environment info has been requested:\n", runtime_data.robot_model)
+
             runtime_data.robot_model = {}
 
         if runtime_data.genome_reset_flag:

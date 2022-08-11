@@ -104,7 +104,7 @@ const PhysicalRobots = () => {
         sx={{ p: 4, mt: 8 }}
         component="div"
       >
-        Select Robot and Follow Setup Instructions
+        Select Robot Controller Type
       </Typography>
       <Stack
         direction="row"

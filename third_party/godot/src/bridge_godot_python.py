@@ -317,9 +317,9 @@ if __name__ == "__main__":
                 'feagi_outbound_port']
             new_FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
             zmq_queue.clear()
+            ws_queue.clear()
             detect_lag = False
         one_frame = new_FEAGI_sub.receive()
-        #print(zmq_data)
         if one_frame is not None:
             if 'genome_reset' in one_frame:
                 runtime_data["cortical_data"] = {}
