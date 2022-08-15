@@ -131,6 +131,37 @@ def sonar_to_coords(sonar_data, threshold=10):
         z = dist_map
         return [(x, y, z)]
 
+def gyro_to_coords(gyro_data, direction):
+    """ Converts GYRO data from sensor to coordinates in
+    the proximity cortical area.
+
+    """
+
+    X_MAX = runtime_data.genome['blueprint'] \
+        ['i__gyr'] \
+        ['neuron_params'] \
+        ['block_boundaries'][0]
+
+    Y_MAX = runtime_data.genome['blueprint'] \
+        ['i__gyr'] \
+        ['neuron_params'] \
+        ['block_boundaries'][1]
+
+    Z_MAX = runtime_data.genome['blueprint'] \
+        ['i__gyr'] \
+        ['neuron_params'] \
+        ['block_boundaries'][2]
+    print(gyro_data)
+    try:
+        dist_map = round(map_value(float(gyro_data), -1, 1, -1, Z_MAX - 1))
+    except TypeError as e:
+        dist_map = 0
+        print("Type Error in gyro-to-coord...")
+        print(e)
+    y = Y_MAX // 2
+    z = dist_map
+    return [(direction, y, z)]
+
 
 def coords_to_neuron_ids(detection_locations, cortical_area):
     """ Converts proximity detection locations to neuron IDs in
@@ -172,6 +203,8 @@ def map_value(val, min1, max1, min2, max2):
 
     if max2 >= mapped_value >= min2:
         return mapped_value
+
+
 
 
 # class Image:
