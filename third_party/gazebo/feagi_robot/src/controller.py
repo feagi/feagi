@@ -62,18 +62,6 @@ runtime_data["Quaternion"]["x"] = dict()
 runtime_data["Quaternion"]["y"] = dict()
 runtime_data["Quaternion"]["z"] = dict()
 
-
-runtime_data["GPS"]["counter"] = dict()
-runtime_data["GPS"]["x_counter"] = dict()
-runtime_data["GPS"]["y_counter"] = dict()
-runtime_data["GPS"]["n_x_counter"] = dict()
-runtime_data["GPS"]["n_y_counter"] = dict()
-runtime_data["GPS"]["counter"] = 0
-runtime_data["GPS"]["x_counter"] = 0
-runtime_data["GPS"]["y_counter"] = 0
-runtime_data["GPS"]["n_x_counter"] = 0
-runtime_data["GPS"]["n_y_counter"] = 0
-
 location_stored = dict()
 tile_margin = dict()
 old_list = location_stored.copy()
@@ -208,7 +196,7 @@ class ScalableSubscriber(Node):
                         sensor_id: True
                     }
                 }
-        # elif 'imu' in msg_type:
+        # elif 'gyro' in msg_type:
         #     return {
         #         msg_type: {
         #             idx: val for idx, val in enumerate([msg.orientation.x, msg.orientation.y, msg.orientation.z])
@@ -254,6 +242,10 @@ class IRSubscriber(ScalableSubscriber):
     def __init__(self, subscription_name, msg_type, topic):
         super().__init__(subscription_name, msg_type, topic)
 
+
+class GyroSubscriber(ScalableSubscriber):
+    def __init__(self, subscription_name, msg_type, topic):
+        super().__init__(subscription_name, msg_type, topic)
 
 
 class Battery:
@@ -382,6 +374,7 @@ class Servo:
             exc_info = sys.exc_info()
             traceback.print_exception(*exc_info)
 
+
 class IMU(Node):
     def __init__(self):
         super().__init__('imu_subscriber')
@@ -392,11 +385,11 @@ class IMU(Node):
             qos_profile=qos_profile_sensor_data)
 
     def imu_callback(self, msg):
-        # msg = Imu() 
-        print(msg.orientation.x, " ", msg.orientation.y, " ", msg.orientation.z)
+        # msg = Imu()
         runtime_data['Quaternion']["x"] = msg.orientation.x
         runtime_data['Quaternion']["y"] = msg.orientation.y
         runtime_data['Quaternion']["z"] = msg.orientation.z
+
 
 class PosInit:
     def __init__(self):
@@ -486,7 +479,6 @@ class TileManager(Node):
                 number_only = item.replace("z: ", "")
                 runtime_data["GPS"]["z"] = float(number_only)
         self.publisher_.publish(msg)
-
 
     def tile_index_to_xyz(self, tile_index):
         """
@@ -650,6 +642,7 @@ def update_physics():
     file.close()
     print("GENERATED EMPTY.SDF")
 
+
 def update_floor(floor):
     file_read = open("src/configuration.py", "r")
     new_file = file_read.read()
@@ -667,7 +660,6 @@ def update_floor(floor):
     file_write.write(new_file)
     file_write.close()
 
-
     file_read = open("environments/new_ground.sdf", "r")
     new_file = file_read.read()
     print(Model_data['floor_img'])
@@ -677,11 +669,11 @@ def update_floor(floor):
     file_write.write(new_file)
     file_write.close()
 
-
     f = open("new.txt", "w")
-    f.write(" ") # Content inside the new.txt is not matter. Just need a file, that's all.
+    f.write(" ")  # Content inside the new.txt is not matter. Just need a file, that's all.
     # This is for bash script to see and update it automatically
     f.close()
+
 
 def update_robot(name, path):
     file_read = open("src/configuration.py", "r")
@@ -745,8 +737,11 @@ def main(args=None):
     pose = TileManager()
     pose.pose_updated()
     executor.add_node(pose)
-    imu_update = IMU()
-    executor.add_node(imu_update)
+    try:
+        imu_update = IMU()
+        executor.add_node(imu_update)
+    except:
+        print("Couldn't find topic for it or this robot does not support it yet")
 
     # Battery
     # Moving away from using the Gazebo based battery model and adopting a controller based model instead
@@ -771,6 +766,7 @@ def main(args=None):
     servo.set_default_position()
     msg_counter = runtime_data["feagi_state"]['burst_counter']
     network_settings['feagi_burst_speed'] = runtime_data["feagi_state"]['burst_duration']
+    runtime_data['gyro'] = dict()
 
     try:
         while True:
@@ -867,8 +863,22 @@ def main(args=None):
                     if update_flag:
                         update_physics()
 
-            except Exception as e:
+            except:
                 pass
+            try:
+                runtime_data['gyro']['0'] = runtime_data["GPS"]["x"]
+                runtime_data['gyro']['1'] = runtime_data["GPS"]["y"]
+                runtime_data['gyro']['2'] = runtime_data["GPS"]["z"]
+                runtime_data['gyro']['3'] = round(runtime_data["Quaternion"]["x"], 6)
+                runtime_data['gyro']['4'] = round(runtime_data["Quaternion"]["y"], 6)
+                runtime_data['gyro']['5'] = round(runtime_data["Quaternion"]["z"], 6)
+                if "data" not in message_to_feagi:
+                    message_to_feagi["data"] = dict()
+                if "sensory_data" not in message_to_feagi["data"]:
+                    message_to_feagi["data"]["sensory_data"] = dict()
+                message_to_feagi["data"]["sensory_data"]['gyro'] = runtime_data['gyro']
+            except Exception as e:
+                print("gyro dict is not available at the moment: ", e)
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             if message_from_feagi is not None:
