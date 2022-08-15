@@ -46,8 +46,6 @@
         </geometry>
       </visual>
     </link>
-
-
     <link name='X3/rotor_0'>
       <pose frame=''>0.13 -0.22 0.023 0 -0 0</pose>
       <inertial>
@@ -87,7 +85,6 @@
         </material>
       </visual>
     </link>
-
     <joint name='X3/rotor_0_joint' type='revolute'>
       <child>X3/rotor_0</child>
       <parent>X3/base_link</parent>
@@ -97,7 +94,6 @@
           <lower>-1e+16</lower>
           <upper>1e+16</upper>
         </limit>
-
 
       </axis>
     </joint>
