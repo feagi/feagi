@@ -133,7 +133,7 @@ def sonar_to_coords(sonar_data, threshold=10):
 
 def gyro_to_coords(gyro_data, direction):
     """ Converts GYRO data from sensor to coordinates in
-    the proximity cortical area.
+    the gyroscope cortical area.
 
     """
 
@@ -162,8 +162,8 @@ def gyro_to_coords(gyro_data, direction):
     return [(direction, y, z)]
 
 def accelerator_to_coords(acc_data, direction):
-    """ Converts GYRO data from sensor to coordinates in
-    the proximity cortical area.
+    """ Converts Acc data from sensor to coordinates in
+    the accelerator cortical area.
 
     """
 
