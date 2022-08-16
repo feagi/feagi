@@ -697,7 +697,6 @@ def update_robot(name, path):
 
 
 def main(args=None):
-    print(runtime_data)
     print("Connecting to FEAGI resources...")
 
     # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_outbound_port']
@@ -886,7 +885,8 @@ def main(args=None):
                     message_to_feagi["data"]["sensory_data"] = dict()
                 message_to_feagi["data"]["sensory_data"]['gyro'] = runtime_data['gyro']
             except Exception as e:
-                print("gyro dict is not available at the moment: ", e)
+                pass
+                #print("gyro dict is not available at the moment: ", e)
             try:
                 runtime_data['accelerator']['0'] = round(runtime_data["Accelerator"]["x"], 3)
                 runtime_data['accelerator']['1'] = round(runtime_data["Accelerator"]["y"], 3)
@@ -897,7 +897,8 @@ def main(args=None):
                     message_to_feagi["data"]["sensory_data"] = dict()
                 message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data['accelerator']
             except Exception as e:
-                print("accelerator imu dict is not available at the moment: ", e)
+                pass
+                #print("accelerator imu dict is not available at the moment: ", e)
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             if message_from_feagi is not None:
