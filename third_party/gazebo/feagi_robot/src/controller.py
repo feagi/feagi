@@ -52,7 +52,8 @@ runtime_data = {
     'motor_status': {},
     'servo_status': {},
     'GPS': {},
-    'Quaternion': {}
+    'Quaternion': {},
+    'Accelerator': {}
 }
 
 runtime_data["GPS"]["x"] = dict()
@@ -61,6 +62,9 @@ runtime_data["GPS"]["z"] = dict()
 runtime_data["Quaternion"]["x"] = dict()
 runtime_data["Quaternion"]["y"] = dict()
 runtime_data["Quaternion"]["z"] = dict()
+runtime_data["Accelerator"]["x"] = dict()
+runtime_data["Accelerator"]["y"] = dict()
+runtime_data["Accelerator"]["z"] = dict()
 
 location_stored = dict()
 tile_margin = dict()
@@ -389,6 +393,9 @@ class IMU(Node):
         runtime_data['Quaternion']["x"] = msg.orientation.x
         runtime_data['Quaternion']["y"] = msg.orientation.y
         runtime_data['Quaternion']["z"] = msg.orientation.z
+        runtime_data["Accelerator"]["x"] = msg.linear_acceleration.x
+        runtime_data["Accelerator"]["y"] = msg.linear_acceleration.y
+        runtime_data["Accelerator"]["z"] = msg.linear_acceleration.z
 
 
 class PosInit:
@@ -767,6 +774,7 @@ def main(args=None):
     msg_counter = runtime_data["feagi_state"]['burst_counter']
     network_settings['feagi_burst_speed'] = runtime_data["feagi_state"]['burst_duration']
     runtime_data['gyro'] = dict()
+    runtime_data['accelerator'] = dict()
 
     try:
         while True:
@@ -879,6 +887,17 @@ def main(args=None):
                 message_to_feagi["data"]["sensory_data"]['gyro'] = runtime_data['gyro']
             except Exception as e:
                 print("gyro dict is not available at the moment: ", e)
+            try:
+                runtime_data['accelerator']['0'] = round(runtime_data["Accelerator"]["x"], 3)
+                runtime_data['accelerator']['1'] = round(runtime_data["Accelerator"]["y"], 3)
+                runtime_data['accelerator']['2'] = round(runtime_data["Accelerator"]["z"], 3)
+                if "data" not in message_to_feagi:
+                    message_to_feagi["data"] = dict()
+                if "sensory_data" not in message_to_feagi["data"]:
+                    message_to_feagi["data"]["sensory_data"] = dict()
+                message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data['accelerator']
+            except Exception as e:
+                print("accelerator imu dict is not available at the moment: ", e)
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             if message_from_feagi is not None:
