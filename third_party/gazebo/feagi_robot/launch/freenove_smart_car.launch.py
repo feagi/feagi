@@ -84,8 +84,7 @@ def generate_launch_description():
     bridge = Node(
         package='ros_ign_bridge',
         executable='parameter_bridge',
-        arguments=['/model/freenove_smart_car/cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist',
-                   '/model/freenove_smart_car/odometry@nav_msgs/msg/Odometry@ignition.msgs.Odometry',
+        arguments=['/imu@sensor_msgs/msg/Imu@ignition.msgs.IMU',
                    '/ultrasonic0@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan',
                    '/IR1/image@sensor_msgs/msg/Image@ignition.msgs.Image',
                    '/IR2/image@sensor_msgs/msg/Image@ignition.msgs.Image',
