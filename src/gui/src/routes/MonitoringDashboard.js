@@ -21,6 +21,8 @@ import { Route, Routes, Navigate, useNavigate } from "react-router-dom";
 import { MdAutoGraph } from 'react-icons/md';
 import { BiDna } from 'react-icons/bi';
 import { FiZap } from 'react-icons/fi';
+import { GrRobot } from 'react-icons/gr';
+import { FaRegMap } from 'react-icons/fa';
 import { GiBrainDump } from 'react-icons/gi';
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
@@ -35,6 +37,11 @@ import ListSubheader from '@mui/material/ListSubheader';
 import Switch from '@mui/material/Switch';
 import Menu from '@mui/material/Menu';
 import FeagiAPI from "../services/FeagiAPI";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogActions from "@mui/material/DialogActions";
 
 
 const MonitoringDashboard = (props) => {
@@ -158,6 +165,72 @@ const MonitoringDashboard = (props) => {
     setAnchorEl(null);
   };
 
+  const [robotSelectorDialogOpen, setRobotSelectorDialogOpen] = useState(false);
+  const [environmentSelectorDialogOpen, setEnvironmentSelectorDialogOpen] = useState(false);
+
+
+  const handleRobotSelectorDialogOpen = () => {
+    setRobotSelectorDialogOpen(true);
+  };
+
+  const handleRobotSelectorDialogClose = () => {
+    setRobotSelectorDialogOpen(false);
+  };
+
+  const handleEnvironmentSelectorDialogOpen = () => {
+    setEnvironmentSelectorDialogOpen(true);
+  };
+
+  const handleEnvironmentSelectorDialogClose = () => {
+    setEnvironmentSelectorDialogOpen(false);
+  };
+
+  const showRobotSelectorDialog = () => {
+    return (
+      <>
+        <Dialog open={robotSelectorDialogOpen} onClose={handleRobotSelectorDialogClose}>
+          <DialogTitle>Freenove SmartCar Setup</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              4WD Smart Car is a RaspberryPi powered STEM kit distributed by <a href="https://freenove.com"> Freenove</a>. FEAGI has support for the
+              controller board installed on this robot and can enable you to read sensory data from ultrasonic and
+              infrared sensors while being able to control the motors and servos available on the smart-car through
+              FEAGI and as a result of neuronal activities.<br/>
+              <br/>
+              If you are in possession of this robot, prior to proceeding to genome actions step, ensure you follow instructions located under
+              <a href="https://github.com/feagi/feagi/wiki"> Freenove Setup Guide</a>
+              to connect FEAGI with your robot.
+
+            </DialogContentText>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  };
+
+  const showEnvironmentSelectorDialog = () => {
+    return (
+      <>
+        <Dialog open={environmentSelectorDialogOpen} onClose={handleEnvironmentSelectorDialogClose}>
+          <DialogTitle>Freenove SmartCar Setup</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              4WD Smart Car is a RaspberryPi powered STEM kit distributed by <a href="https://freenove.com"> Freenove</a>. FEAGI has support for the
+              controller board installed on this robot and can enable you to read sensory data from ultrasonic and
+              infrared sensors while being able to control the motors and servos available on the smart-car through
+              FEAGI and as a result of neuronal activities.<br/>
+              <br/>
+              If you are in possession of this robot, prior to proceeding to genome actions step, ensure you follow instructions located under
+              <a href="https://github.com/feagi/feagi/wiki"> Freenove Setup Guide</a>
+              to connect FEAGI with your robot.
+
+            </DialogContentText>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  };
+
 
   return (
     <>
@@ -185,6 +258,26 @@ const MonitoringDashboard = (props) => {
                   // edge="start"
                 >
                   <MdAutoGraph />
+                </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Environment Selector" placement="top">
+                <IconButton
+                  color="inherit"
+                  onClick={handleEnvironmentSelectorDialogOpen}
+                  // edge="start"
+                >
+                  <FaRegMap />
+                </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Robot Selector" placement="top">
+                <IconButton
+                  color="inherit"
+                  onClick={handleRobotSelectorDialogOpen}
+                  // edge="start"
+                >
+                  <GrRobot />
                 </IconButton>
             </Tooltip>
 
@@ -309,6 +402,8 @@ const MonitoringDashboard = (props) => {
         onLoad={handleGazeboLoad}
       />
     </Stack>
+    {showRobotSelectorDialog()}
+    {showEnvironmentSelectorDialog()}
     </>
 
   );
