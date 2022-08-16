@@ -244,7 +244,6 @@ def lidar_translator(proximity_data):
 
             for sensor in proximity_data:
                 # differentiate between LIDAR/SONAR data
-                print(sensor)
                 if hasattr(proximity_data[sensor], '__iter__'):
                     detections = stimuli_processor.lidar_to_coords(proximity_data[sensor])
                 else:
@@ -265,7 +264,7 @@ def lidar_translator(proximity_data):
 
 def gyro_translator(gyroscope_data):
     """
-    Translate the lidar messages based on its type.
+    Translate the gyro messages based on its type.
 
     todo: add details here about the message format and expectations
     """
@@ -294,7 +293,7 @@ def gyro_translator(gyroscope_data):
 
 def accelerator_translator(accelerator_data):
     """
-    Translate the lidar messages based on its type.
+    Translate the accelerator messages based on its type.
 
     todo: add details here about the message format and expectations
     """
