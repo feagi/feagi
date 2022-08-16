@@ -88,6 +88,12 @@ def stimuli_router(ipu_data):
                     except Exception:
                         print("ERROR while processing Gyro IPU", traceback.format_exc())
 
+                if 'accelerator' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
+                    try:
+                        stimuli_translator.accelerator_translator(accelerator_data=ipu_data["data"]["sensory_data"][sensor_type])
+                    except Exception:
+                        print("ERROR while processing Accelerator IPU", traceback.format_exc())
+
                 if 'ultrasonic' in sensor_type and \
                         ipu_data["data"]["sensory_data"][sensor_type] is not None:
                     try:
