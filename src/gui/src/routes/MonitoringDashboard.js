@@ -211,7 +211,7 @@ const MonitoringDashboard = (props) => {
               <label htmlFor="robot-card">
                 <MenuCard
                   image={<img src={require('../assets/taffy_bot.png')} width="225" height="225" />}
-                  onClick={() => handleRobotSelection('"taffy_bot.sdf"', '"/robots/smart_car/"')}
+                  onClick={() => {handleRobotSelection('"taffy_bot.sdf"', '"/robots/smart_car/"'); handleRobotSelectorDialogClose()}}
                   changeColorOnClick={false}
                 />
               </label>
@@ -220,7 +220,7 @@ const MonitoringDashboard = (props) => {
               <label htmlFor="robot-card">
                 <MenuCard
                   image={<img src={require('../assets/stick-bot.png')} width="225" height="225" />}
-                  onClick={() => handleRobotSelection('"stick-bot.sdf"', '"/robots/stick-bot/"')}
+                  onClick={() => {handleRobotSelection('"stick-bot.sdf"', '"/robots/stick-bot/"'); handleRobotSelectorDialogClose()}}
                   changeColorOnClick={false}
                 />
               </label>
@@ -229,9 +229,7 @@ const MonitoringDashboard = (props) => {
               <label htmlFor="robot-card">
                 <MenuCard
                   image={<img src={require('../assets/drone.png')} width="225" height="225" />}
-                  onClick={() =>
-                    handleRobotSelection('"drone.sdf"', '"/robots/drone/"')
-                  }
+                  onClick={() => {handleRobotSelection('"drone.sdf"', '"/robots/drone/"'); handleRobotSelectorDialogClose()}}
                   changeColorOnClick={false}
                 />
               </label>
@@ -280,7 +278,7 @@ const MonitoringDashboard = (props) => {
                   <MenuCard
                     image={<img src={require('../assets/map1.png')} width="225" height="225" />}
                     // label="Golf Course"
-                    onClick={() => handleMapSelection('"map1.png"') }
+                    onClick={() => {handleMapSelection('"map1.png"'); handleEnvironmentSelectorDialogClose()}}
                     changeColorOnClick={false}
                   />
                 </label>
@@ -290,7 +288,7 @@ const MonitoringDashboard = (props) => {
                   <MenuCard
                     image={<img src={require('../assets/map2.png')} width="225" height="225" />}
                     // label="Chess Board"
-                    onClick={() => handleMapSelection('"map2.png"')}
+                    onClick={() => {handleMapSelection('"map2.png"'); handleEnvironmentSelectorDialogClose()}}
                     changeColorOnClick={false}
                   />
                 </label>
@@ -301,7 +299,7 @@ const MonitoringDashboard = (props) => {
 
                     image={<img src={require('../assets/map3.png')} width="225" height="225" />}
                     // label="Race Track"
-                    onClick={() => handleMapSelection('"map3.png"')}
+                    onClick={() => {handleMapSelection('"map3.png"'); handleEnvironmentSelectorDialogClose()}}
                     changeColorOnClick={false}
                   />
                 </label>
