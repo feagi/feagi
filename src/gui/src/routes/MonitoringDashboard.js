@@ -42,6 +42,11 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogActions from "@mui/material/DialogActions";
+import Item from "../components/Item";
+import MenuCard from "../components/MenuCard";
+import {Img} from "react-image";
+import map2 from "../assets/map2.png"
+import {Image} from "@mui/icons-material";
 
 
 const MonitoringDashboard = (props) => {
@@ -188,44 +193,121 @@ const MonitoringDashboard = (props) => {
   const showRobotSelectorDialog = () => {
     return (
       <>
-        <Dialog open={robotSelectorDialogOpen} onClose={handleRobotSelectorDialogClose}>
-          <DialogTitle>Freenove SmartCar Setup</DialogTitle>
-          <DialogContent>
-            <DialogContentText>
-              4WD Smart Car is a RaspberryPi powered STEM kit distributed by <a href="https://freenove.com"> Freenove</a>. FEAGI has support for the
-              controller board installed on this robot and can enable you to read sensory data from ultrasonic and
-              infrared sensors while being able to control the motors and servos available on the smart-car through
-              FEAGI and as a result of neuronal activities.<br/>
-              <br/>
-              If you are in possession of this robot, prior to proceeding to genome actions step, ensure you follow instructions located under
-              <a href="https://github.com/feagi/feagi/wiki"> Freenove Setup Guide</a>
-              to connect FEAGI with your robot.
+        <Dialog open={robotSelectorDialogOpen} onClose={handleRobotSelectorDialogClose}
+                fullWidth
+                maxWidth="md"
 
-            </DialogContentText>
-          </DialogContent>
+        >
+          <DialogTitle>Select a Robot</DialogTitle>
+          {/*<DialogContent>*/}
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="center"
+            spacing={2}
+            sx={{ m: 2 }}
+          >
+            <Item>
+              <label htmlFor="robot-card">
+                <MenuCard
+                  image={<img src={require('../assets/taffy_bot.png')} width="225" height="225" />}
+                  onClick={() => handleRobotSelection('"taffy_bot.sdf"', '"/robots/smart_car/"')}
+                  changeColorOnClick={false}
+                />
+              </label>
+            </Item>
+            <Item>
+              <label htmlFor="robot-card">
+                <MenuCard
+                  image={<img src={require('../assets/stick-bot.png')} width="225" height="225" />}
+                  onClick={() => handleRobotSelection('"stick-bot.sdf"', '"/robots/stick-bot/"')}
+                  changeColorOnClick={false}
+                />
+              </label>
+            </Item>
+            <Item>
+              <label htmlFor="robot-card">
+                <MenuCard
+                  image={<img src={require('../assets/drone.png')} width="225" height="225" />}
+                  onClick={() =>
+                    handleRobotSelection('"drone.sdf"', '"/robots/drone/"')
+                  }
+                  changeColorOnClick={false}
+                />
+              </label>
+            </Item>
+          </Stack>
+          {/*</DialogContent>*/}
         </Dialog>
       </>
     );
+  }
+
+  const handleMapSelection = (type) => {
+      FeagiAPI.postRobotModel({
+        gazebo_floor_img_file: JSON.parse(type),
+        gazebo_floor_img_file_path: JSON.parse('"./src/evo/defaults/maps/"')
+       });
   };
+
+  const handleRobotSelection = (type, path) => {
+      FeagiAPI.postRobotModel({
+        robot_sdf_file_name: JSON.parse(type),
+        robot_sdf_file_name_path: JSON.parse(path)
+       });
+  };
+
 
   const showEnvironmentSelectorDialog = () => {
     return (
       <>
-        <Dialog open={environmentSelectorDialogOpen} onClose={handleEnvironmentSelectorDialogClose}>
-          <DialogTitle>Freenove SmartCar Setup</DialogTitle>
-          <DialogContent>
-            <DialogContentText>
-              4WD Smart Car is a RaspberryPi powered STEM kit distributed by <a href="https://freenove.com"> Freenove</a>. FEAGI has support for the
-              controller board installed on this robot and can enable you to read sensory data from ultrasonic and
-              infrared sensors while being able to control the motors and servos available on the smart-car through
-              FEAGI and as a result of neuronal activities.<br/>
-              <br/>
-              If you are in possession of this robot, prior to proceeding to genome actions step, ensure you follow instructions located under
-              <a href="https://github.com/feagi/feagi/wiki"> Freenove Setup Guide</a>
-              to connect FEAGI with your robot.
+        <Dialog open={environmentSelectorDialogOpen} onClose={handleEnvironmentSelectorDialogClose}
+                fullWidth
+                maxWidth="md"
 
-            </DialogContentText>
-          </DialogContent>
+        >
+          <DialogTitle>Select an Environment</DialogTitle>
+          {/*<DialogContent>*/}
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="center"
+              spacing={2}
+              sx={{ m: 2 }}
+            >
+              <Item>
+                <label htmlFor="map-card">
+                  <MenuCard
+                    image={<img src={require('../assets/map1.png')} width="225" height="225" />}
+                    // label="Golf Course"
+                    onClick={() => handleMapSelection('"map1.png"') }
+                    changeColorOnClick={false}
+                  />
+                </label>
+              </Item>
+              <Item>
+                <label htmlFor="map-card">
+                  <MenuCard
+                    image={<img src={require('../assets/map2.png')} width="225" height="225" />}
+                    // label="Chess Board"
+                    onClick={() => handleMapSelection('"map2.png"')}
+                    changeColorOnClick={false}
+                  />
+                </label>
+              </Item>
+              <Item>
+                <label htmlFor="map-card">
+                  <MenuCard
+
+                    image={<img src={require('../assets/map3.png')} width="225" height="225" />}
+                    // label="Race Track"
+                    onClick={() => handleMapSelection('"map3.png"')}
+                    changeColorOnClick={false}
+                  />
+                </label>
+              </Item>
+            </Stack>
+          {/*</DialogContent>*/}
         </Dialog>
       </>
     );
