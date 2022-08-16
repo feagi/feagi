@@ -151,12 +151,41 @@ def gyro_to_coords(gyro_data, direction):
         ['i__gyr'] \
         ['neuron_params'] \
         ['block_boundaries'][2]
-    print(gyro_data)
     try:
         dist_map = round(map_value(float(gyro_data), -1, 1, -1, Z_MAX - 1))
     except TypeError as e:
         dist_map = 0
         print("Type Error in gyro-to-coord...")
+        print(e)
+    y = Y_MAX // 2
+    z = dist_map
+    return [(direction, y, z)]
+
+def accelerator_to_coords(acc_data, direction):
+    """ Converts GYRO data from sensor to coordinates in
+    the proximity cortical area.
+
+    """
+
+    X_MAX = runtime_data.genome['blueprint'] \
+        ['i__acc'] \
+        ['neuron_params'] \
+        ['block_boundaries'][0]
+
+    Y_MAX = runtime_data.genome['blueprint'] \
+        ['i__acc'] \
+        ['neuron_params'] \
+        ['block_boundaries'][1]
+
+    Z_MAX = runtime_data.genome['blueprint'] \
+        ['i__acc'] \
+        ['neuron_params'] \
+        ['block_boundaries'][2]
+    try:
+        dist_map = round(map_value(float(acc_data), -1, 1, -1, Z_MAX - 1))
+    except TypeError as e:
+        dist_map = 0
+        print("Type Error in accelerator_to_coords...")
         print(e)
     y = Y_MAX // 2
     z = dist_map
