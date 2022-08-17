@@ -21,6 +21,8 @@ import { Route, Routes, Navigate, useNavigate } from "react-router-dom";
 import { MdAutoGraph } from 'react-icons/md';
 import { BiDna } from 'react-icons/bi';
 import { FiZap } from 'react-icons/fi';
+import { GrRobot } from 'react-icons/gr';
+import { FaRegMap } from 'react-icons/fa';
 import { GiBrainDump } from 'react-icons/gi';
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
@@ -35,6 +37,16 @@ import ListSubheader from '@mui/material/ListSubheader';
 import Switch from '@mui/material/Switch';
 import Menu from '@mui/material/Menu';
 import FeagiAPI from "../services/FeagiAPI";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogActions from "@mui/material/DialogActions";
+import Item from "../components/Item";
+import MenuCard from "../components/MenuCard";
+import {Img} from "react-image";
+import map2 from "../assets/map2.png"
+import {Image} from "@mui/icons-material";
 
 
 const MonitoringDashboard = (props) => {
@@ -158,6 +170,147 @@ const MonitoringDashboard = (props) => {
     setAnchorEl(null);
   };
 
+  const [robotSelectorDialogOpen, setRobotSelectorDialogOpen] = useState(false);
+  const [environmentSelectorDialogOpen, setEnvironmentSelectorDialogOpen] = useState(false);
+
+
+  const handleRobotSelectorDialogOpen = () => {
+    setRobotSelectorDialogOpen(true);
+  };
+
+  const handleRobotSelectorDialogClose = () => {
+    setRobotSelectorDialogOpen(false);
+  };
+
+  const handleEnvironmentSelectorDialogOpen = () => {
+    setEnvironmentSelectorDialogOpen(true);
+  };
+
+  const handleEnvironmentSelectorDialogClose = () => {
+    setEnvironmentSelectorDialogOpen(false);
+  };
+
+  const showRobotSelectorDialog = () => {
+    return (
+      <>
+        <Dialog open={robotSelectorDialogOpen} onClose={handleRobotSelectorDialogClose}
+                fullWidth
+                maxWidth="md"
+
+        >
+          <DialogTitle>Select a Robot</DialogTitle>
+          {/*<DialogContent>*/}
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="center"
+            spacing={2}
+            sx={{ m: 2 }}
+          >
+            <Item>
+              <label htmlFor="robot-card">
+                <MenuCard
+                  image={<img src={require('../assets/taffy_bot.png')} width="225" height="225" />}
+                  onClick={() => {handleRobotSelection('"taffy_bot.sdf"', '"/robots/smart_car/"'); handleRobotSelectorDialogClose()}}
+                  changeColorOnClick={false}
+                />
+              </label>
+            </Item>
+            <Item>
+              <label htmlFor="robot-card">
+                <MenuCard
+                  image={<img src={require('../assets/stick-bot.png')} width="225" height="225" />}
+                  onClick={() => {handleRobotSelection('"stick-bot.sdf"', '"/robots/stick-bot/"'); handleRobotSelectorDialogClose()}}
+                  changeColorOnClick={false}
+                />
+              </label>
+            </Item>
+            <Item>
+              <label htmlFor="robot-card">
+                <MenuCard
+                  image={<img src={require('../assets/drone.png')} width="225" height="225" />}
+                  onClick={() => {handleRobotSelection('"drone.sdf"', '"/robots/drone/"'); handleRobotSelectorDialogClose()}}
+                  changeColorOnClick={false}
+                />
+              </label>
+            </Item>
+          </Stack>
+          {/*</DialogContent>*/}
+        </Dialog>
+      </>
+    );
+  }
+
+  const handleMapSelection = (type) => {
+      FeagiAPI.postRobotModel({
+        gazebo_floor_img_file: JSON.parse(type),
+        gazebo_floor_img_file_path: JSON.parse('"./src/evo/defaults/maps/"')
+       });
+  };
+
+  const handleRobotSelection = (type, path) => {
+      FeagiAPI.postRobotModel({
+        robot_sdf_file_name: JSON.parse(type),
+        robot_sdf_file_name_path: JSON.parse(path)
+       });
+  };
+
+
+  const showEnvironmentSelectorDialog = () => {
+    return (
+      <>
+        <Dialog open={environmentSelectorDialogOpen} onClose={handleEnvironmentSelectorDialogClose}
+                fullWidth
+                maxWidth="md"
+
+        >
+          <DialogTitle>Select an Environment</DialogTitle>
+          {/*<DialogContent>*/}
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="center"
+              spacing={2}
+              sx={{ m: 2 }}
+            >
+              <Item>
+                <label htmlFor="map-card">
+                  <MenuCard
+                    image={<img src={require('../assets/map1.png')} width="225" height="225" />}
+                    // label="Golf Course"
+                    onClick={() => {handleMapSelection('"map1.png"'); handleEnvironmentSelectorDialogClose()}}
+                    changeColorOnClick={false}
+                  />
+                </label>
+              </Item>
+              <Item>
+                <label htmlFor="map-card">
+                  <MenuCard
+                    image={<img src={require('../assets/map2.png')} width="225" height="225" />}
+                    // label="Chess Board"
+                    onClick={() => {handleMapSelection('"map2.png"'); handleEnvironmentSelectorDialogClose()}}
+                    changeColorOnClick={false}
+                  />
+                </label>
+              </Item>
+              <Item>
+                <label htmlFor="map-card">
+                  <MenuCard
+
+                    image={<img src={require('../assets/map3.png')} width="225" height="225" />}
+                    // label="Race Track"
+                    onClick={() => {handleMapSelection('"map3.png"'); handleEnvironmentSelectorDialogClose()}}
+                    changeColorOnClick={false}
+                  />
+                </label>
+              </Item>
+            </Stack>
+          {/*</DialogContent>*/}
+        </Dialog>
+      </>
+    );
+  };
+
 
   return (
     <>
@@ -185,6 +338,26 @@ const MonitoringDashboard = (props) => {
                   // edge="start"
                 >
                   <MdAutoGraph />
+                </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Environment Selector" placement="top">
+                <IconButton
+                  color="inherit"
+                  onClick={handleEnvironmentSelectorDialogOpen}
+                  // edge="start"
+                >
+                  <FaRegMap />
+                </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Robot Selector" placement="top">
+                <IconButton
+                  color="inherit"
+                  onClick={handleRobotSelectorDialogOpen}
+                  // edge="start"
+                >
+                  <GrRobot />
                 </IconButton>
             </Tooltip>
 
@@ -309,6 +482,8 @@ const MonitoringDashboard = (props) => {
         onLoad={handleGazeboLoad}
       />
     </Stack>
+    {showRobotSelectorDialog()}
+    {showEnvironmentSelectorDialog()}
     </>
 
   );
