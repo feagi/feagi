@@ -268,7 +268,6 @@ async def echo(websocket):
             # print("FULL LOG: ", e)
             # print("This happens due to no queue available to send")
             #print("pass is intended.")
-        # start_time = time.time()
         new_data = await websocket.recv()
         ws_queue.append(new_data)
 
