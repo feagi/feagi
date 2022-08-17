@@ -23,6 +23,19 @@
           </box>
         </geometry>
       </collision>
+    <sensor name="imu" type="imu">
+      <always_on>1</always_on>
+      <update_rate>100</update_rate>
+      <visualize>true</visualize>
+      <topic>imu</topic>
+      <imu>
+        <orientation_reference_frame>
+          <localization>CUSTOM</localization>
+          <custom_rpy parent_frame=''>0 0 0</custom_rpy>
+        </orientation_reference_frame>
+      </imu>
+      <enable_metrics>true</enable_metrics>
+    </sensor>
       <visual name='X3/base_link_inertia_visual'>
         <pose frame=''>0 0 0 0 -0 0</pose>
         <geometry>
@@ -32,7 +45,6 @@
           </mesh>
         </geometry>
       </visual>
-      
     </link>
     <link name='X3/rotor_0'>
       <pose frame=''>0.13 -0.22 0.023 0 -0 0</pose>
@@ -73,7 +85,6 @@
         </material>
       </visual>
     </link>
-    
     <joint name='X3/rotor_0_joint' type='revolute'>
       <child>X3/rotor_0</child>
       <parent>X3/base_link</parent>
@@ -84,7 +95,6 @@
           <upper>1e+16</upper>
         </limit>
 
-        
       </axis>
     </joint>
     <link name='X3/rotor_1'>
@@ -126,7 +136,7 @@
           </script>
         </material>
       </visual>
-      
+
     </link>
     <joint name='X3/rotor_1_joint' type='revolute'>
       <child>X3/rotor_1</child>
@@ -138,7 +148,7 @@
           <upper>1e+16</upper>
         </limit>
 
-        
+
       </axis>
     </joint>
     <link name='X3/rotor_2'>
@@ -180,7 +190,7 @@
           </script>
         </material>
       </visual>
-      
+
     </link>
     <joint name='X3/rotor_2_joint' type='revolute'>
       <child>X3/rotor_2</child>
@@ -192,7 +202,7 @@
           <upper>1e+16</upper>
         </limit>
 
-        
+
       </axis>
     </joint>
     <link name='X3/rotor_3'>
@@ -228,7 +238,7 @@
           </mesh>
         </geometry>
       </visual>
-      
+
     </link>
     <joint name='X3/rotor_3_joint' type='revolute'>
       <child>X3/rotor_3</child>
@@ -240,7 +250,7 @@
           <upper>1e+16</upper>
         </limit>
 
-        
+
       </axis>
     </joint>
           <plugin
