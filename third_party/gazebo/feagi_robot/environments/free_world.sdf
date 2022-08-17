@@ -31,6 +31,10 @@
       name="ignition::gazebo::systems::Physics">
     </plugin>
     <plugin
+      filename="ignition-gazebo-imu-system"
+      name="ignition::gazebo::systems::Imu">
+    </plugin>
+    <plugin
       filename="ignition-gazebo-user-commands-system"
       name="ignition::gazebo::systems::UserCommands">
     </plugin>
@@ -135,6 +139,7 @@
         </visual>
       </link>
     </model>
+
 
   </world>
 </sdf>
