@@ -270,19 +270,8 @@ async def echo(websocket):
             #print("pass is intended.")
         # start_time = time.time()
         new_data = await websocket.recv()
-        # feagi_duration = float(runtime_data["feagi_state"]['burst_duration'])
-        # if feagi_duration > 1:
-        #     feagi_duration = feagi_duration+1
-        # elif feagi_duration < 1:
-        #     feagi_duration = feagi_duration + 3*feagi_duration
-        # print(feagi_duration)
-        # if ((time.time() - start_time) > feagi_duration):
-        #     print("*" * 1000)
-        #     zmq_queue.clear()
-        #     ws_queue.clear()
         ws_queue.append(new_data)
 
-print("- -- -- --  --- -- -- ")
 async def websocket_main():
     async with websockets.serve(echo, "0.0.0.0", configuration.network_settings['godot_websocket_port']):
         await asyncio.Future()
