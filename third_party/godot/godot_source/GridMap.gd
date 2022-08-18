@@ -11,6 +11,6 @@ func _ready():
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func run(x_input,y_input,z_input):
 	set_cell_item(x_input,y_input,z_input, 0)
-	yield(get_tree().create_timer(1), "timeout")
+	yield(get_tree().create_timer(0.01), "timeout")
 #	clear()
 	queue_free()
