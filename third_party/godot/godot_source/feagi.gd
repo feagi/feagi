@@ -56,11 +56,12 @@ var global_name_list = []
 var global_id
 var start = 0 #for timer
 var end = 0 #for timer
+var increment_gridmap = 0
 
 
 func _ready():
 #	Godot_list.godot_list["data"]
-	#Engine.target_fps = 20
+	Engine.target_fps = 20
 	$GridMap2.clear()
 	for i in 6:
 		$GridMap3.set_cell_item(i,0,0,0) ##set the arrow indicator of 3D
@@ -96,9 +97,10 @@ func _ready():
 	while true:
 		_process(self)
 		stored_value = data
+		#print("data from python: ", data)
 		start = OS.get_ticks_msec()## This will time the engine at start
 		yield(get_tree().create_timer(0.01), "timeout")
-		$GridMap.clear()
+		#$GridMap.clear()
 		end = OS.get_ticks_msec()
 		var time_total = end - start
 		if time_total < 500: ## Generate voxels as long as you are on the tab
@@ -137,7 +139,16 @@ func adding_cortical_areas(name, x_input,y_input,z_input,width_input,height_inpu
 	cortical_area[name]=[x_input,y_input,z_input,width_input,height_input,depth_input] ##This is just adding the list
 	
 func install_voxel_inside(x_input,y_input,z_input):
-	$GridMap.set_cell_item(x_input,y_input,z_input, 0)
+	var new_name_gridmap = "gridmap_generator" + str(increment_gridmap)
+	increment_gridmap += 1
+	new_name_gridmap = get_node("GridMap").duplicate()
+	add_child(new_name_gridmap)
+	new_name_gridmap.run(x_input,y_input,z_input)
+#	var red_voxel = get_node("GridMap").duplicate()
+	#add_child(red_voxel)
+	#red_voxel.run(x_input,y_input,z_input)
+#	add_child(red_voxel(x_input,y_input,z_input))
+#	$GridMap.set_cell_item(x_input,y_input,z_input, 0)
 
 func _csv_generator():
 	_clear_node_name_list(global_name_list)
@@ -257,7 +268,6 @@ func check_csv():
 			
 func generate_voxels():
 	if stored_value != "" and stored_value != null:
-		#print("ENTERED!")
 		array_test = stored_value.replace("[", "")
 		array_test = array_test.replace("]", "")
 		test=array_test.split(",", true, '0')
