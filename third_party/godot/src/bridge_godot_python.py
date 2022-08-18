@@ -35,6 +35,8 @@ from collections import deque
 
 ws_queue = deque()
 zmq_queue = deque()
+burst_second = 0
+
 runtime_data = {
     "cortical_data": {},
     "current_burst_id": None,
@@ -198,7 +200,7 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
         for key in stimulation_from_godot["data"]["direct_stimulation"]:
             for name_match in cortical_data:
                 raw_id = name_match
-                name_match = name_to_id(name_match) ##convert the human readable name into feagi name
+                name_match = name_to_id(name_match) # convert the human readable name into feagi name
                 if name_match == key:
                     if relative_coordinate["data"]["direct_stimulation"].get(name_match) is not None:
                         pass
@@ -258,8 +260,9 @@ def feagi_init(feagi_host, api_port):
 async def echo(websocket):
     while True:
         try:
+            # print("Sending data to godot: ", zmq_queue[0])
             await websocket.send(str(zmq_queue[0]))
-            zmq_queue.popleft()
+            zmq_queue.pop()
         except Exception as e:
             pass
             # print("HARMLESS ERROR. IT IS SAFE TO IGNORE THIS ERROR.")
@@ -269,7 +272,6 @@ async def echo(websocket):
         new_data = await websocket.recv()
         ws_queue.append(new_data)
 
-print("- -- -- --  --- -- -- ")
 async def websocket_main():
     async with websockets.serve(echo, "0.0.0.0", configuration.network_settings['godot_websocket_port']):
         await asyncio.Future()
@@ -278,7 +280,6 @@ def websocket_operation():
     asyncio.run(websocket_main())
 
 if __name__ == "__main__":
-    bgsk = threading.Thread(target=websocket_operation, daemon=True).start()
     print("================================ @@@@@@@@@@@@@@@ ==========================================")
     print("================================ @@@@@@@@@@@@@@@ ==========================================")
     print("================================ @@@@@@@@@@@@@@@ ==========================================")
@@ -301,6 +302,8 @@ if __name__ == "__main__":
     stimulation_period = requests.get(api_address + '/v1/feagi/feagi/burst_engine/stimulation_period').json()
     runtime_data["feagi_state"]['feagi_burst_speed'] = float(stimulation_period)
 
+    bgsk = threading.Thread(target=websocket_operation, daemon=True).start()
+
     print("--->> >> >> \n", sockets, network_settings)
     FEAGI_pub = Pub(address='tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_godot'])
     opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"]['feagi_outbound_port']
@@ -311,6 +314,7 @@ if __name__ == "__main__":
     godot_list = {}  ##initalized the list from Godot
     detect_lag = False
     new_FEAGI_sub = FEAGI_sub
+    flag = 0
     while True:
         if detect_lag:
             opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
@@ -321,6 +325,7 @@ if __name__ == "__main__":
             detect_lag = False
         one_frame = new_FEAGI_sub.receive()
         if one_frame is not None:
+            burst_second = one_frame['burst_frequency']
             if 'genome_reset' in one_frame:
                 runtime_data["cortical_data"] = {}
                 try:
@@ -330,7 +335,8 @@ if __name__ == "__main__":
                 except Exception as e:
                     print("Error during genome reset:\n", e)
             one_frame = feagi_breakdown(one_frame)
-            zmq_queue.append(one_frame)
+            if burst_second > network_settings['burst_duration_threshold']:
+                zmq_queue.append(one_frame)
         if ws_queue:
             data_from_godot = ws_queue[0].decode('UTF-8')  ##ADDED this line to decode into string only
             ws_queue.pop()
