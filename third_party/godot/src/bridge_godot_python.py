@@ -35,7 +35,7 @@ from collections import deque
 
 ws_queue = deque()
 zmq_queue = deque()
-burst_second = deque()
+burst_second = 0
 
 runtime_data = {
     "cortical_data": {},
