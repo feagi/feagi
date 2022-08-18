@@ -427,7 +427,7 @@
           <always_on>1</always_on>
           <visualize>true</visualize>
           <topic>ultrasonic0</topic>
-          <update_rate>20</update_rate>
+          <update_rate>100</update_rate>
           <lidar>
               <scan>
                   <vertical>
@@ -899,6 +899,3 @@
   </model>
 
 </sdf>
-
-
-
