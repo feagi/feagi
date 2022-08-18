@@ -260,6 +260,7 @@ def feagi_init(feagi_host, api_port):
 async def echo(websocket):
     while True:
         try:
+            # print("Sending data to godot: ", zmq_queue[0])
             await websocket.send(str(zmq_queue[0]))
             zmq_queue.pop()
         except Exception as e:
