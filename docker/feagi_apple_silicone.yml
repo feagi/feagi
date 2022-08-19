@@ -44,6 +44,12 @@ services:
     privileged: false
     networks:
       - net
+    volumes:
+      #- <local path>:<docker path>                                 Only update the local path, keep docker path static
+      # Robot mapping
+      - ../third_party/gazebo/feagi_robot/robots/smart_car/smart_car.sdf:/opt/source-code/feagi_robot/robots/smart_car/smart_car.sdf
+      # Environment mapping
+      - ../third_party/gazebo/feagi_robot/environments/material/map1.png:/opt/source-code/feagi_robot/environments/material/map1.png
 
   godot:
     build: ../third_party/godot/
