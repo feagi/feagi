@@ -222,5 +222,5 @@ def neuroplasticity():
                                         dst_cortical_area=pfcl_area,
                                         dst_neuron_id=presynaptic_neuron,
                                         long_term_depression=True,
-                                        impact_multiplier=1
+                                        impact_multiplier=0
                                     )
