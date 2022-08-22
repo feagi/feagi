@@ -123,6 +123,8 @@ def start_feagi_api():
     return api_address
 
 def feagi_pub_refresh():
+    opu_channel_address = 'tcp://' + configuration.network_settings['feagi_host'] + ':' + \
+                          runtime_data["feagi_state"]['feagi_outbound_port']
     return router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
 
 
