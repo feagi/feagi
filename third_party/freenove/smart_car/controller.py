@@ -242,7 +242,7 @@ class Servo:
             self.device_position = self.keep_boundaries(device_id=device_index,
                                                              current_position=self.device_position)
 
-            runtime_params['servo_status'][device_index] = self.device_position
+            runtime_data['servo_status'][device_index] = self.device_position
             #print("device index, position, power = ", device_index, self.device_position, power)
             #self.servo_node[device_index].publish(self.device_position)
             self.setServoPwm(str(device_index), self.device_position)
