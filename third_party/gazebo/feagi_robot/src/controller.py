@@ -162,6 +162,7 @@ class ScalableSubscriber(Node):
     def listener_callback(self, msg):
         # self.get_logger().info("Raw Message: {}".format(msg))
         try:
+            # This generated none
             formatted_msg = self.msg_processor(msg, self.topic)
             compose_message_to_feagi(original_message=formatted_msg)
             self.counter += 1
@@ -200,6 +201,20 @@ class ScalableSubscriber(Node):
                         sensor_id: True
                     }
                 }
+        elif 'Camera' in msg_type:
+            camera_data = dict()
+            data_total = len(msg.data)
+            data_total = int(data_total / 3) # RGB numbers
+            # print(msg.data[0])
+            # print(len(msg.data))
+            for i in range(data_total):
+                camera_data[i] = (msg.data[0+i], msg.data[1+i], msg.data[2+i])
+
+            return {
+                msg_type: {
+                    idx: val for idx, val in enumerate([camera_data])
+                }
+            }
         # elif 'gyro' in msg_type:
         #     return {
         #         msg_type: {
@@ -218,18 +233,19 @@ def compose_message_to_feagi(original_message):
     """
     accumulates multiple messages in a data structure that can be sent to feagi
     """
-
+    # print("DEBUG: ", original_message)
     if "data" not in message_to_feagi:
         message_to_feagi["data"] = dict()
     if "sensory_data" not in message_to_feagi["data"]:
         message_to_feagi["data"]["sensory_data"] = dict()
-    for sensor in original_message:
-        if sensor not in message_to_feagi["data"]["sensory_data"]:
-            message_to_feagi["data"]["sensory_data"][sensor] = dict()
-        for sensor_data in original_message[sensor]:
-            if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
-                message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][sensor_data]
-    message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_data["battery_charge_level"] / 100}
+    if original_message is not None:
+        for sensor in original_message:
+            if sensor not in message_to_feagi["data"]["sensory_data"]:
+                message_to_feagi["data"]["sensory_data"][sensor] = dict()
+            for sensor_data in original_message[sensor]:
+                if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
+                    message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][sensor_data]
+        message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_data["battery_charge_level"] / 100}
 
 
 class UltrasonicSubscriber(ScalableSubscriber):
@@ -243,6 +259,10 @@ class BatterySubscriber(ScalableSubscriber):
 
 
 class IRSubscriber(ScalableSubscriber):
+    def __init__(self, subscription_name, msg_type, topic):
+        super().__init__(subscription_name, msg_type, topic)
+
+class CameraSubscriber(ScalableSubscriber):
     def __init__(self, subscription_name, msg_type, topic):
         super().__init__(subscription_name, msg_type, topic)
 
@@ -755,6 +775,10 @@ def main(args=None):
     # # todo: Change the topic name and make it scalable
     # executor.add_node(battery_feed)
     battery = Battery()
+
+    # Camera Sensor
+    camera_feed = CameraSubscriber('Camera0', Image, 'Camera0/image')
+    executor.add_node(camera_feed) # What is difference between them when they are exact same
 
     # Infrared Sensor
     ir_feeds = {}
