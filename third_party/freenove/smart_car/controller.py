@@ -55,7 +55,6 @@ def block_to_array(block_ref):
     array = [int(x) for x in block_id_str]
     return array
 
-
 def compose_message_to_feagi(original_message):
     """
     accumulates multiple messages in a data structure that can be sent to feagi
@@ -92,6 +91,42 @@ def feagi_registration(feagi_host, api_port):
 
 def window_average(sequence):
     return abs(sum(sequence) // len(sequence))
+
+def start_feagi():
+    print("Connecting to FEAGI resources...")
+
+    feagi_host = network_settings["feagi_host"]
+    api_port = network_settings["feagi_api_port"]
+
+    feagi_registration(feagi_host=feagi_host, api_port=api_port)
+
+    print("** **", runtime_data["feagi_state"])
+    network_settings['feagi_burst_speed'] = float(
+        runtime_data["feagi_state"]['burst_duration'])
+
+    # todo: to obtain this info directly from FEAGI as part of registration
+    ipu_channel_address = 'tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_gazebo']
+    print("IPU_channel_address=", ipu_channel_address)
+    opu_channel_address = 'tcp://' + configuration.network_settings['feagi_host'] + ':' + \
+                          runtime_data["feagi_state"]['feagi_outbound_port']
+
+    feagi_ipu_channel = router.Pub(address=ipu_channel_address)
+    feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
+    return feagi_ipu_channel, feagi_opu_channel
+
+def start_feagi_api():
+    print("Connecting to FEAGI resources...")
+
+    feagi_host = network_settings["feagi_host"]
+    api_port = network_settings["feagi_api_port"]
+    api_address = 'http://' + feagi_host + ':' + api_port
+    return api_address
+
+def feagi_pub_refresh():
+    return router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
+
+
+
 
 
 class LED:
