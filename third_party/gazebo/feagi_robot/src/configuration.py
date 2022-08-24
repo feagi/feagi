@@ -19,7 +19,7 @@ limitations under the License.
 app_name = 'gazebo'
 
 network_settings = {
-    "feagi_host": "feagi",
+    "feagi_host": "127.0.0.1",
     "feagi_api_port": "8000",
     'TTL': 2,
     'last_message': 0,
@@ -52,6 +52,13 @@ capabilities = {
         "cortical_mapping": "i__inf",
         "threshold": 25,
         'topic_identifier': 'IR'
+    },
+    "camera": {
+        "type": "ipu",
+        "disabled": False,
+        "count": 1,
+        "width": 3,
+        "height": 2
     },
     "battery": {
         "type": "ipu",

@@ -202,19 +202,29 @@ class ScalableSubscriber(Node):
                     }
                 }
         elif 'Camera' in msg_type:
-            camera_data = dict()
-            data_total = len(msg.data)
-            data_total = int(data_total / 3) # RGB numbers
-            # print(msg.data[0])
-            # print(len(msg.data))
-            for i in range(data_total):
-                camera_data[i] = (msg.data[0+i], msg.data[1+i], msg.data[2+i])
+            m = configuration.capabilities['camera']['width']
+            n = configuration.capabilities['camera']['height']
 
-            return {
-                msg_type: {
-                    idx: val for idx, val in enumerate([camera_data])
-                }
-            }
+            vision_data = list()
+
+            raw_camera_data = msg.data
+            raw_data_index = 0
+
+            for row in range(m):
+                row_data = list()
+                for col in range(n):
+                    color = []
+                    color = raw_camera_data[raw_data_index], raw_camera_data[raw_data_index + 1], \
+                            raw_camera_data[raw_data_index + 2]
+                    row_data.append(color)
+                    raw_data_index += 3
+                vision_data.append(row_data)
+
+            print("[")
+            for _ in vision_data:
+                print(_)
+            print("]")
+            return vision_data
         # elif 'gyro' in msg_type:
         #     return {
         #         msg_type: {
@@ -241,7 +251,7 @@ def compose_message_to_feagi(original_message):
     if original_message is not None:
         for sensor in original_message:
             if sensor not in message_to_feagi["data"]["sensory_data"]:
-                message_to_feagi["data"]["sensory_data"][sensor] = dict()
+                message_to_feagcompose_message_to_feagii["data"]["sensory_data"][sensor] = dict()
             for sensor_data in original_message[sensor]:
                 if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
                     message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][sensor_data]
