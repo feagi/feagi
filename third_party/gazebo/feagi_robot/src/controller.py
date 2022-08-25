@@ -28,6 +28,7 @@ import os.path
 import subprocess
 import requests
 import xml.etree.ElementTree as Xml_et
+import numpy
 
 from std_msgs.msg import String
 from subprocess import PIPE, Popen
@@ -68,7 +69,7 @@ runtime_data["Accelerator"]["z"] = dict()
 
 location_stored = dict()
 tile_margin = dict()
-old_list = location_stored.copy()
+old_list = dict()
 location_stored["0"] = [0, 0]  # by default
 
 layer_index = [[0, 0]]  # Starts at 0,0 by default
@@ -204,11 +205,18 @@ class ScalableSubscriber(Node):
         elif 'Camera' in msg_type:
             m = configuration.capabilities['camera']['width']
             n = configuration.capabilities['camera']['height']
-
-            vision_data = list()
-
-            raw_camera_data = msg.data
+            try:
+                previous_list = old_list[0]
+            except:
+                previous_list = [0, 0]
+            list_difference = []
+            camera_data = list()
+            frame1 = [125, 50, 4, 20, 133, 0]
+            #raw_camera_data = msg.data # Uncomment once development is done
+            raw_camera_data = [133, 133, 4, 133, 0, 0]
             raw_data_index = 0
+            frame2 = [133, 133, 4, 133, 0, 0]
+            #camera_data = raw_camera_data
 
             for row in range(m):
                 row_data = list()
@@ -218,13 +226,23 @@ class ScalableSubscriber(Node):
                             raw_camera_data[raw_data_index + 2]
                     row_data.append(color)
                     raw_data_index += 3
-                vision_data.append(row_data)
+                camera_data.append(row_data)
+                print("zzz ", camera_data)
+            for index in range(len(frame1)):
+                if frame1[index] == frame2[index]:
+                    pass
+                else:
+                    frame2[index] = frame1[index]
 
-            print("[")
-            for _ in vision_data:
-                print(_)
-            print("]")
-            return vision_data
+            # print("[")
+            # for _ in camera_data:
+            #     print(_)
+            # print("]")
+            return {
+                'camera': {
+                    "0": camera_data
+                }
+            }
         # elif 'gyro' in msg_type:
         #     return {
         #         msg_type: {
@@ -243,7 +261,6 @@ def compose_message_to_feagi(original_message):
     """
     accumulates multiple messages in a data structure that can be sent to feagi
     """
-    # print("DEBUG: ", original_message)
     if "data" not in message_to_feagi:
         message_to_feagi["data"] = dict()
     if "sensory_data" not in message_to_feagi["data"]:
@@ -251,10 +268,11 @@ def compose_message_to_feagi(original_message):
     if original_message is not None:
         for sensor in original_message:
             if sensor not in message_to_feagi["data"]["sensory_data"]:
-                message_to_feagcompose_message_to_feagii["data"]["sensory_data"][sensor] = dict()
+                message_to_feagi["data"]["sensory_data"][sensor] = dict()
             for sensor_data in original_message[sensor]:
                 if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
-                    message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][sensor_data]
+                    message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][
+                        sensor_data]
         message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_data["battery_charge_level"] / 100}
 
 
@@ -271,6 +289,7 @@ class BatterySubscriber(ScalableSubscriber):
 class IRSubscriber(ScalableSubscriber):
     def __init__(self, subscription_name, msg_type, topic):
         super().__init__(subscription_name, msg_type, topic)
+
 
 class CameraSubscriber(ScalableSubscriber):
     def __init__(self, subscription_name, msg_type, topic):
@@ -788,7 +807,7 @@ def main(args=None):
 
     # Camera Sensor
     camera_feed = CameraSubscriber('Camera0', Image, 'Camera0/image')
-    executor.add_node(camera_feed) # What is difference between them when they are exact same
+    executor.add_node(camera_feed)  # What is difference between them when they are exact same
 
     # Infrared Sensor
     ir_feeds = {}
@@ -920,7 +939,7 @@ def main(args=None):
                 message_to_feagi["data"]["sensory_data"]['gyro'] = runtime_data['gyro']
             except Exception as e:
                 pass
-                #print("gyro dict is not available at the moment: ", e)
+                # print("gyro dict is not available at the moment: ", e)
             try:
                 runtime_data['accelerator']['0'] = round(runtime_data["Accelerator"]["x"], 3)
                 runtime_data['accelerator']['1'] = round(runtime_data["Accelerator"]["y"], 3)
@@ -932,7 +951,7 @@ def main(args=None):
                 message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data['accelerator']
             except Exception as e:
                 pass
-                #print("accelerator imu dict is not available at the moment: ", e)
+                # print("accelerator imu dict is not available at the moment: ", e)
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             if message_from_feagi is not None:
