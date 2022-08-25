@@ -116,6 +116,12 @@ def stimuli_router(ipu_data):
                     except Exception:
                         print("ERROR while processing Battery IPU", traceback.format_exc())
 
+                if 'camera' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
+                    try:
+                        stimuli_translator.vision_translator(vision_data=ipu_data["data"]["sensory_data"][sensor_type])
+                    except Exception:
+                        print("ERROR while processing Camera IPU", traceback.format_exc())
+
 
 def opu_router():
     """
