@@ -67,7 +67,7 @@ runtime_data["Accelerator"]["x"] = dict()
 runtime_data["Accelerator"]["y"] = dict()
 runtime_data["Accelerator"]["z"] = dict()
 
-camera_dict = dict()
+previous_frame_data = dict()
 location_stored = dict()
 tile_margin = dict()
 old_list = dict()
@@ -203,44 +203,7 @@ class ScalableSubscriber(Node):
                         sensor_id: True
                     }
                 }
-        elif 'Camera' in msg_type:
-            frame_row_count = configuration.capabilities['camera']['width']
-            frame_col_count = configuration.capabilities['camera']['height']
 
-            previous_frame = list()
-            new_frame = msg.data
-
-            x = 0  # row counter
-            y = 0  # col counter
-            z = 0  # RGB counter
-
-            # print("[")
-            # for _ in camera_data:
-            #     print(_)
-            # print("]")
-            vision_dict = dict()
-            frame_len = len(previous_frame)
-            print("NEW FRAME: ", new_frame)
-            print("PREVIOUS FRAME: ", previous_frame)
-            try:
-                if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the resolution setting
-                    for index in range(frame_len):
-                        if previous_frame[index] != new_frame[index]:
-                            dict_key = str(x) + '-' + str(y) + '-' + str(z)
-                            vision_dict[dict_key] = new_frame[index]  # save the value for the changed index to the dict
-
-                        z += 1
-                        if z == 3:
-                            z = 0
-                            y += 1
-                            if y == frame_col_count:
-                                y = 0
-                                x += 1
-            except Exception as e:
-                    print("Error: Raw data frame does not match frame resolution")
-                    print(e)
-
-            print(vision_dict)
             # return {
             #     'camera': {
             #         "0": camera_data
@@ -449,6 +412,56 @@ class IMU(Node):
         runtime_data["Accelerator"]["y"] = msg.linear_acceleration.y
         runtime_data["Accelerator"]["z"] = msg.linear_acceleration.z
 
+
+class Camera_Subscriber(Node):
+    def __init__(self):
+        super().__init__('camera_subscriber')
+        self.subscription = self.create_subscription(
+            Image,
+            'Camera0/image',
+            self.camera_callback,
+            qos_profile=qos_profile_sensor_data)
+
+    def camera_callback(self, msg):
+        frame_row_count = configuration.capabilities['camera']['width']
+        frame_col_count = configuration.capabilities['camera']['height']
+        new_frame = msg.data
+
+        x = 0  # row counter
+        y = 0  # col counter
+        z = 0  # RGB counter
+
+        # print("[")
+        # for _ in camera_data:
+        #     print(_)
+        # print("]")
+        vision_dict = dict()
+        try:
+            previous_frame = previous_frame_data[0]
+        except:
+            previous_frame = [0,0]
+        frame_len = len(previous_frame)
+        try:
+            if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the resolution setting
+                for index in range(frame_len):
+                    if previous_frame[index] != new_frame[index]:
+                        dict_key = str(x) + '-' + str(y) + '-' + str(z)
+                        vision_dict[dict_key] = new_frame[index]  # save the value for the changed index to the dict
+
+                    z += 1
+                    if z == 3:
+                        z = 0
+                        y += 1
+                        if y == frame_col_count:
+                            y = 0
+                            x += 1
+            previous_frame_data[0] = new_frame
+        except Exception as e:
+            print("Error: Raw data frame does not match frame resolution")
+            print("Error due to this: ", e)
+
+        # print("last: ", vision_dict)
+        return vision_dict
 
 class PosInit:
     def __init__(self):
@@ -809,8 +822,8 @@ def main(args=None):
     battery = Battery()
 
     # Camera Sensor
-    camera_feed = CameraSubscriber('Camera0', Image, 'Camera0/image')
-    executor.add_node(camera_feed)  # What is difference between them when they are exact same
+    camera_feed = Camera_Subscriber()
+    executor.add_node(camera_feed)
 
     # Infrared Sensor
     ir_feeds = {}
@@ -981,6 +994,7 @@ def main(args=None):
     ultrasonic_feed.destroy_node()
     pose.destroy_node()
     imu_update.destroy_node()
+    camera_feed.destroy_node()
     # battery_feed.destroy_node()
 
     for ir_node in ir_feeds:
