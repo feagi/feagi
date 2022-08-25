@@ -190,7 +190,7 @@ def accelerator_to_coords(acc_data, direction):
     z = dist_map
     return [(direction, y, z)]
 
-def vision_to_coords(vision_data, direction):
+def vision_to_coords(vision_data):
     """ Converts vision data from sensor to coordinates in
     the accelerator cortical area.
     """

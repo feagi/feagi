@@ -328,7 +328,7 @@ def vision_translator(vision_data):
             holder_position = 0
             for x in vision_data:
                 for i in vision_data:
-                    detections = stimuli_processor.vision_to_coords(i, holder_position)
+                    detections = stimuli_processor.vision_to_coords(i)
                     holder_position+=1
                     neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
                     if 'i__vis' not in runtime_data.fire_candidate_list:
