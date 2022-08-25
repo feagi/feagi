@@ -451,7 +451,8 @@ class Camera_Subscriber(Node):
                         if y == frame_col_count:
                             y = 0
                             x += 1
-            previous_frame_data[0] = new_frame
+            if new_frame != {}:
+                previous_frame_data[0] = new_frame
         except Exception as e:
             print("Error: Raw data frame does not match frame resolution")
             print("Error due to this: ", e)
