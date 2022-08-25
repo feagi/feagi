@@ -194,7 +194,8 @@ def vision_to_coords(vision_data, direction):
     """ Converts vision data from sensor to coordinates in
     the accelerator cortical area.
     """
-    return [(vision_data[0], vision_data[2], vision_data[4])]
+    vision_data = vision_data.split("-")
+    return [(int(vision_data[0]), int(vision_data[1]), int(vision_data[2]))]
 
 
 def coords_to_neuron_ids(detection_locations, cortical_area):
