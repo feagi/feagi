@@ -66,6 +66,7 @@ runtime_data["Quaternion"]["z"] = dict()
 runtime_data["Accelerator"]["x"] = dict()
 runtime_data["Accelerator"]["y"] = dict()
 runtime_data["Accelerator"]["z"] = dict()
+runtime_data["pixel"] = dict()
 
 previous_frame_data = dict()
 location_stored = dict()
@@ -253,11 +254,6 @@ class BatterySubscriber(ScalableSubscriber):
 
 
 class IRSubscriber(ScalableSubscriber):
-    def __init__(self, subscription_name, msg_type, topic):
-        super().__init__(subscription_name, msg_type, topic)
-
-
-class CameraSubscriber(ScalableSubscriber):
     def __init__(self, subscription_name, msg_type, topic):
         super().__init__(subscription_name, msg_type, topic)
 
@@ -461,7 +457,10 @@ class Camera_Subscriber(Node):
             print("Error due to this: ", e)
 
         # print("last: ", vision_dict)
-        return vision_dict
+        if vision_dict != {}:
+            runtime_data['pixel'] = vision_dict
+        # print(runtime_data['pixel'])
+
 
 class PosInit:
     def __init__(self):
@@ -968,12 +967,21 @@ def main(args=None):
             except Exception as e:
                 pass
                 # print("accelerator imu dict is not available at the moment: ", e)
+            try:
+                if "data" not in message_to_feagi:
+                    message_to_feagi["data"] = dict()
+                if "sensory_data" not in message_to_feagi["data"]:
+                    message_to_feagi["data"]["sensory_data"] = dict()
+                message_to_feagi["data"]["sensory_data"]['camera'] = runtime_data['pixel']
+            except Exception as e:
+                pass
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             if message_from_feagi is not None:
                 message_from_feagi['pose'] = robot_pose
             feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
+            runtime_data['pixel'].clear()
             msg_counter += 1
             flag += 1
             if flag == 10:
