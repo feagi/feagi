@@ -67,6 +67,7 @@ runtime_data["Accelerator"]["x"] = dict()
 runtime_data["Accelerator"]["y"] = dict()
 runtime_data["Accelerator"]["z"] = dict()
 
+camera_dict = dict()
 location_stored = dict()
 tile_margin = dict()
 old_list = dict()
@@ -203,46 +204,48 @@ class ScalableSubscriber(Node):
                     }
                 }
         elif 'Camera' in msg_type:
-            m = configuration.capabilities['camera']['width']
-            n = configuration.capabilities['camera']['height']
-            try:
-                previous_list = old_list[0]
-            except:
-                previous_list = [0, 0]
-            list_difference = []
-            camera_data = list()
-            frame1 = [125, 50, 4, 20, 133, 0]
-            #raw_camera_data = msg.data # Uncomment once development is done
-            raw_camera_data = [133, 133, 4, 133, 0, 0]
-            raw_data_index = 0
-            frame2 = [133, 133, 4, 133, 0, 0]
-            #camera_data = raw_camera_data
+            frame_row_count = configuration.capabilities['camera']['width']
+            frame_col_count = configuration.capabilities['camera']['height']
 
-            for row in range(m):
-                row_data = list()
-                for col in range(n):
-                    color = []
-                    color = raw_camera_data[raw_data_index], raw_camera_data[raw_data_index + 1], \
-                            raw_camera_data[raw_data_index + 2]
-                    row_data.append(color)
-                    raw_data_index += 3
-                camera_data.append(row_data)
-                print("zzz ", camera_data)
-            for index in range(len(frame1)):
-                if frame1[index] == frame2[index]:
-                    pass
-                else:
-                    frame2[index] = frame1[index]
+            previous_frame = list()
+            new_frame = msg.data
+
+            x = 0  # row counter
+            y = 0  # col counter
+            z = 0  # RGB counter
 
             # print("[")
             # for _ in camera_data:
             #     print(_)
             # print("]")
-            return {
-                'camera': {
-                    "0": camera_data
-                }
-            }
+            vision_dict = dict()
+            frame_len = len(previous_frame)
+            print("NEW FRAME: ", new_frame)
+            print("PREVIOUS FRAME: ", previous_frame)
+            try:
+                if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the resolution setting
+                    for index in range(frame_len):
+                        if previous_frame[index] != new_frame[index]:
+                            dict_key = str(x) + '-' + str(y) + '-' + str(z)
+                            vision_dict[dict_key] = new_frame[index]  # save the value for the changed index to the dict
+
+                        z += 1
+                        if z == 3:
+                            z = 0
+                            y += 1
+                            if y == frame_col_count:
+                                y = 0
+                                x += 1
+            except Exception as e:
+                    print("Error: Raw data frame does not match frame resolution")
+                    print(e)
+
+            print(vision_dict)
+            # return {
+            #     'camera': {
+            #         "0": camera_data
+            #     }
+            # }
         # elif 'gyro' in msg_type:
         #     return {
         #         msg_type: {
