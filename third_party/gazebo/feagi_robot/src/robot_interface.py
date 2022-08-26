@@ -17,7 +17,6 @@
 
 import sys
 import traceback
-import router
 import math
 import geometry_msgs.msg
 import rclpy
@@ -98,11 +97,6 @@ ign service -s /world/free_world/remove \
 """  # not used atm
 
 
-def block_to_array(block_ref):
-    block_id_str = block_ref.split('-')
-    array = [int(x) for x in block_id_str]
-    return array
-
 
 def publisher_initializer(model_name, topic_count, topic_identifier):
     node = rclpy.create_node('Controller_py')
@@ -133,62 +127,13 @@ class ScalableSubscriber(Node):
         # self.get_logger().info("Raw Message: {}".format(msg))
         try:
             # This generated none
-            formatted_msg = self.msg_processor(msg, self.topic)
-            compose_message_to_feagi(original_message=formatted_msg)
+            formatted_msg = self.msg_processor(self.msg, self.topic) # Needs to check on this
+            FEAGI.compose_message_to_feagi(original_message=formatted_msg)
             self.counter += 1
         except Exception as e:
             print("Error in listener callback...", e)
             exc_info = sys.exc_info()
             traceback.print_exception(*exc_info)
-
-    @staticmethod
-    def msg_processor(msg, msg_type):
-        # TODO: give each subclass a specific msg processor method?
-        # TODO: add an attribute that explicitly defines message type (instead of parsing topic name)?
-        if 'ultrasonic' in msg_type and msg.ranges[1]:
-            return {
-                msg_type: {
-                    idx: val for idx, val in enumerate([msg.ranges[1]])
-                }
-            }
-        elif 'IR' in msg_type:
-            rgb_vals = list(msg.data)
-            avg_intensity = sum(rgb_vals) // len(rgb_vals)
-
-            sensor_topic = msg_type.split('/')[0]
-            sensor_id = int(''.join(filter(str.isdigit, sensor_topic)))
-
-            # print("\n***\nAverage Intensity = ", avg_intensity)
-            if avg_intensity > capabilities["infrared"]["threshold"]:
-                return {
-                    'ir': {
-                        sensor_id: False
-                    }
-                }
-            else:
-                return {
-                    'ir': {
-                        sensor_id: True
-                    }
-                }
-
-            # return {
-            #     'camera': {
-            #         "0": camera_data
-            #     }
-            # }
-        # elif 'gyro' in msg_type:
-        #     return {
-        #         msg_type: {
-        #             idx: val for idx, val in enumerate([msg.orientation.x, msg.orientation.y, msg.orientation.z])
-        #         }
-        #     }
-        # elif 'battery' in msg_type and msg.percentage:
-        #     return {
-        #         'battery': {
-        #             idx: val for idx, val in enumerate([msg.percentage])
-        #         }
-        #     }
 
 
 class UltrasonicSubscriber(ScalableSubscriber):
@@ -336,83 +281,6 @@ class Servo:
         except Exception:
             exc_info = sys.exc_info()
             traceback.print_exception(*exc_info)
-
-
-class IMU(Node):
-    def __init__(self):
-        super().__init__('imu_subscriber')
-        self.subscription = self.create_subscription(
-            Imu,
-            'imu',
-            self.imu_callback,
-            qos_profile=qos_profile_sensor_data)
-
-    def imu_callback(self, msg):
-        # msg = Imu()
-        runtime_data['Quaternion']["x"] = msg.orientation.x
-        runtime_data['Quaternion']["y"] = msg.orientation.y
-        runtime_data['Quaternion']["z"] = msg.orientation.z
-        runtime_data["Accelerator"]["x"] = msg.linear_acceleration.x
-        runtime_data["Accelerator"]["y"] = msg.linear_acceleration.y
-        runtime_data["Accelerator"]["z"] = msg.linear_acceleration.z
-
-
-class Camera_Subscriber(Node):
-    def __init__(self):
-        super().__init__('camera_subscriber')
-        self.subscription = self.create_subscription(
-            Image,
-            'Camera0/image',
-            self.camera_callback,
-            qos_profile=qos_profile_sensor_data)
-
-    def camera_callback(self, msg):
-        frame_row_count = configuration.capabilities['camera']['width']
-        frame_col_count = configuration.capabilities['camera']['height']
-        new_frame = msg.data
-
-        x = 0  # row counter
-        y = 0  # col counter
-        z = 0  # RGB counter
-
-        # print("[")
-        # for _ in camera_data:
-        #     print(_)
-        # print("]")
-        vision_dict = dict()
-        try:
-            previous_frame = previous_frame_data[0]
-        except:
-            previous_frame = [0, 0]
-        frame_len = len(previous_frame)
-        try:
-            if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the resolution setting
-                for index in range(frame_len):
-                    if previous_frame[index] != new_frame[index]:
-                        if (abs((previous_frame[index] - new_frame[index])) / 100) > \
-                                configuration.capabilities['camera']['deviation_threshold']:
-                            print("TOTAL PERCENTAGE: ", abs((previous_frame[index] - new_frame[index])) / 100)
-                            print("NEW DATA: ", new_frame[index])
-                            print("OLD DATA: ", previous_frame[index])
-                            dict_key = str(x) + '-' + str(y) + '-' + str(z)
-                            vision_dict[dict_key] = new_frame[index]  # save the value for the changed index to the dict
-                    z += 1
-                    if z == 3:
-                        z = 0
-                        y += 1
-                        if y == frame_col_count:
-                            y = 0
-                            x += 1
-            if new_frame != {}:
-                previous_frame_data[0] = new_frame
-        except Exception as e:
-            print("Error: Raw data frame does not match frame resolution")
-            print("Error due to this: ", e)
-
-        # print("last: ", vision_dict)
-        if vision_dict != {}:
-            runtime_data['pixel'] = vision_dict
-        # print(runtime_data['pixel'])
 
 
 class IMU(Node):
@@ -820,7 +688,7 @@ def main(args=None):
     stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
     burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
 
-    FEAGI.feagi_registration(feagi_host=feagi_host, api_port=api_port, host_info=router.app_host_info())
+    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host, api_port=api_port, host_info=FEAGI.app_host_info())
 
     print("** **", runtime_data["feagi_state"])
     network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
@@ -828,8 +696,9 @@ def main(args=None):
     # todo: to obtain this info directly from FEAGI as part of registration
     ipu_channel_address = 'tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_gazebo']
     print("IPU_channel_address=", ipu_channel_address)
-    opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + \
-                          runtime_data["feagi_state"]['feagi_outbound_port']
+    opu_channel_address = FEAGI.opu_address(network_settings['feagi_host'],
+                                            runtime_data["feagi_state"]['feagi_outbound_port'])
+
 
     feagi_ipu_channel = router.Pub(address=ipu_channel_address)
     feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
@@ -863,8 +732,6 @@ def main(args=None):
         print("Couldn't find topic for it or this robot does not support it yet")
 
     # Battery
-    # Moving away from using the Gazebo based battery model and adopting a controller based model instead
-    # battery_feed = BatterySubscriber('battery', BatteryState, 'model/freenove_smart_car/battery/linear_battery/state')
     # # todo: Change the topic name and make it scalable
     # executor.add_node(battery_feed)
     battery = Battery()
@@ -906,14 +773,14 @@ def main(args=None):
                 if opu_data is not None:
                     if 'o__mot' in opu_data:
                         for data_point in opu_data['o__mot']:
-                            data_point = block_to_array(data_point)
+                            data_point = FEAGI.block_to_array(data_point)
                             device_id = data_point[0]
                             device_power = data_point[2]
                             motor.move(feagi_device_id=device_id, power=device_power)
                     if 'o__ser' in opu_data:
                         if opu_data['o__ser']:
                             for data_point in opu_data['o__ser']:
-                                data_point = block_to_array(data_point)
+                                data_point = FEAGI.block_to_array(data_point)
                                 device_id = data_point[0]
                                 device_power = data_point[2]
                                 servo.move(feagi_device_id=device_id, power=device_power)
