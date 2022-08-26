@@ -237,4 +237,4 @@ def compose_message_to_feagi(original_message, data, battery):
         message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_data["battery_charge_level"] / 100}
     return  message_to_feagi, runtime_data["battery_charge_level"]
 
-def FEAGI_engine():
+
