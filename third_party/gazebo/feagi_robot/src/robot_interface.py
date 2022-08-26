@@ -97,7 +97,6 @@ ign service -s /world/free_world/remove \
 """  # not used atm
 
 
-
 def publisher_initializer(model_name, topic_count, topic_identifier):
     node = rclpy.create_node('Controller_py')
 
@@ -127,7 +126,7 @@ class ScalableSubscriber(Node):
         # self.get_logger().info("Raw Message: {}".format(msg))
         try:
             # This generated none
-            formatted_msg = self.msg_processor(self.msg, self.topic) # Needs to check on this
+            formatted_msg = FEAGI.msg_processor(msg=msg, msg_type=self.topic)  # Needs to check on this
             FEAGI.compose_message_to_feagi(original_message=formatted_msg)
             self.counter += 1
         except Exception as e:
@@ -688,20 +687,20 @@ def main(args=None):
     stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
     burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
 
-    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host, api_port=api_port, host_info=FEAGI.app_host_info())
+    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host, api_port=api_port,
+                                                           host_info=FEAGI.app_host_info())
 
     print("** **", runtime_data["feagi_state"])
     network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
 
     # todo: to obtain this info directly from FEAGI as part of registration
-    ipu_channel_address = 'tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_gazebo']
+    ipu_channel_address = FEAGI.feagi_inbound(runtime_data["feagi_state"]['feagi_inbound_port_gazebo'])
     print("IPU_channel_address=", ipu_channel_address)
-    opu_channel_address = FEAGI.opu_address(network_settings['feagi_host'],
-                                            runtime_data["feagi_state"]['feagi_outbound_port'])
+    opu_channel_address = FEAGI.feagi_outbound(network_settings['feagi_host'],
+                                               runtime_data["feagi_state"]['feagi_outbound_port'])
 
-
-    feagi_ipu_channel = router.Pub(address=ipu_channel_address)
-    feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
+    feagi_ipu_channel = FEAGI.Pub(address=ipu_channel_address)
+    feagi_opu_channel = FEAGI.Sub(address=opu_channel_address, flags=FEAGI.zmq.NOBLOCK)
 
     rclpy.init(args=args)
     executor = rclpy.executors.MultiThreadedExecutor()
@@ -716,7 +715,6 @@ def main(args=None):
     position_init = PosInit()
 
     # Instantiate controller classes with Subscriber nature
-
     # Ultrasonic Sensor
     ultrasonic_feed = UltrasonicSubscriber('ultrasonic0', LaserScan, 'ultrasonic0')
     executor.add_node(ultrasonic_feed)
@@ -725,6 +723,8 @@ def main(args=None):
     pose = TileManager()
     pose.pose_updated()
     executor.add_node(pose)
+
+    # IMU
     try:
         imu_update = IMU()
         executor.add_node(imu_update)

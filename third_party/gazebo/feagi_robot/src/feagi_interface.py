@@ -167,15 +167,21 @@ def feagi_api_burst_engine():
 def feagi_api_burst_counter():
     return '/v1/feagi/feagi/burst_engine/burst_counter'
 
-def feagi_inbound():
 
-
-def opu_address(feagi_ip_host, feagi_outbound_port):
+def feagi_inbound(feagi_inbound_port):
     """
-    Return the zmq address
+    Return the zmq address of inbound
+    """
+    return 'tcp://0.0.0.0:' + feagi_inbound_port
+
+
+def feagi_outbound(feagi_ip_host, feagi_outbound_port):
+    """
+    Return the zmq address of outbound
     """
     return 'tcp://' + feagi_ip_host + ':' + \
            feagi_outbound_port
+
 
 @staticmethod
 def msg_processor(msg, msg_type):
@@ -208,6 +214,7 @@ def msg_processor(msg, msg_type):
                 }
             }
 
+
 def compose_message_to_feagi(original_message):
     """
     accumulates multiple messages in a data structure that can be sent to feagi
@@ -225,6 +232,3 @@ def compose_message_to_feagi(original_message):
                     message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][
                         sensor_data]
         message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_data["battery_charge_level"] / 100}
-
-
-
