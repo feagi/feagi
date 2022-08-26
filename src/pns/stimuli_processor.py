@@ -166,7 +166,6 @@ def accelerator_to_coords(acc_data, direction):
     the accelerator cortical area.
 
     """
-
     X_MAX = runtime_data.genome['blueprint'] \
         ['i__acc'] \
         ['neuron_params'] \
@@ -190,6 +189,13 @@ def accelerator_to_coords(acc_data, direction):
     y = Y_MAX // 2
     z = dist_map
     return [(direction, y, z)]
+
+def vision_to_coords(vision_data):
+    """ Converts vision data from sensor to coordinates in
+    the accelerator cortical area.
+    """
+    vision_data = vision_data.split("-")
+    return [(int(vision_data[0]), int(vision_data[1]), int(vision_data[2]))]
 
 
 def coords_to_neuron_ids(detection_locations, cortical_area):

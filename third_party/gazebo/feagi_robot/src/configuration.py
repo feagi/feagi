@@ -53,6 +53,14 @@ capabilities = {
         "threshold": 25,
         'topic_identifier': 'IR'
     },
+    "camera": {
+        "type": "ipu",
+        "disabled": False,
+        "count": 1,
+        "width": 16,
+        "height": 16,
+        "deviation_threshold": 0
+    },
     "battery": {
         "type": "ipu",
         "disabled": False,
