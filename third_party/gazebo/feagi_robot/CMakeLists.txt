@@ -71,11 +71,11 @@ ament_python_install_package(src/)
 
 # Install Python executables
 install(PROGRAMS
-  src/controller.py
+  src/robot_interface.py
   DESTINATION lib/${PROJECT_NAME}
 )
 install(PROGRAMS
-  src/router.py
+  src/feagi_interface.py
   DESTINATION lib/${PROJECT_NAME}
 )
 install(PROGRAMS
