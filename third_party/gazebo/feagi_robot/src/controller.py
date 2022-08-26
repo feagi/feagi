@@ -28,7 +28,6 @@ import os.path
 import subprocess
 import requests
 import xml.etree.ElementTree as Xml_et
-import numpy
 
 from std_msgs.msg import String
 from subprocess import PIPE, Popen
