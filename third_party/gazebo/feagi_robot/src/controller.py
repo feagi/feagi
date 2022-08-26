@@ -65,10 +65,12 @@ runtime_data["Quaternion"]["z"] = dict()
 runtime_data["Accelerator"]["x"] = dict()
 runtime_data["Accelerator"]["y"] = dict()
 runtime_data["Accelerator"]["z"] = dict()
+runtime_data["pixel"] = dict()
 
+previous_frame_data = dict()
 location_stored = dict()
 tile_margin = dict()
-old_list = location_stored.copy()
+old_list = dict()
 location_stored["0"] = [0, 0]  # by default
 
 layer_index = [[0, 0]]  # Starts at 0,0 by default
@@ -162,6 +164,7 @@ class ScalableSubscriber(Node):
     def listener_callback(self, msg):
         # self.get_logger().info("Raw Message: {}".format(msg))
         try:
+            # This generated none
             formatted_msg = self.msg_processor(msg, self.topic)
             compose_message_to_feagi(original_message=formatted_msg)
             self.counter += 1
@@ -200,6 +203,12 @@ class ScalableSubscriber(Node):
                         sensor_id: True
                     }
                 }
+
+            # return {
+            #     'camera': {
+            #         "0": camera_data
+            #     }
+            # }
         # elif 'gyro' in msg_type:
         #     return {
         #         msg_type: {
@@ -218,18 +227,19 @@ def compose_message_to_feagi(original_message):
     """
     accumulates multiple messages in a data structure that can be sent to feagi
     """
-
     if "data" not in message_to_feagi:
         message_to_feagi["data"] = dict()
     if "sensory_data" not in message_to_feagi["data"]:
         message_to_feagi["data"]["sensory_data"] = dict()
-    for sensor in original_message:
-        if sensor not in message_to_feagi["data"]["sensory_data"]:
-            message_to_feagi["data"]["sensory_data"][sensor] = dict()
-        for sensor_data in original_message[sensor]:
-            if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
-                message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][sensor_data]
-    message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_data["battery_charge_level"] / 100}
+    if original_message is not None:
+        for sensor in original_message:
+            if sensor not in message_to_feagi["data"]["sensory_data"]:
+                message_to_feagi["data"]["sensory_data"][sensor] = dict()
+            for sensor_data in original_message[sensor]:
+                if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
+                    message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][
+                        sensor_data]
+        message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_data["battery_charge_level"] / 100}
 
 
 class UltrasonicSubscriber(ScalableSubscriber):
@@ -396,6 +406,63 @@ class IMU(Node):
         runtime_data["Accelerator"]["x"] = msg.linear_acceleration.x
         runtime_data["Accelerator"]["y"] = msg.linear_acceleration.y
         runtime_data["Accelerator"]["z"] = msg.linear_acceleration.z
+
+
+class Camera_Subscriber(Node):
+    def __init__(self):
+        super().__init__('camera_subscriber')
+        self.subscription = self.create_subscription(
+            Image,
+            'Camera0/image',
+            self.camera_callback,
+            qos_profile=qos_profile_sensor_data)
+
+    def camera_callback(self, msg):
+        frame_row_count = configuration.capabilities['camera']['width']
+        frame_col_count = configuration.capabilities['camera']['height']
+        new_frame = msg.data
+
+        x = 0  # row counter
+        y = 0  # col counter
+        z = 0  # RGB counter
+
+        # print("[")
+        # for _ in camera_data:
+        #     print(_)
+        # print("]")
+        vision_dict = dict()
+        try:
+            previous_frame = previous_frame_data[0]
+        except:
+            previous_frame = [0,0]
+        frame_len = len(previous_frame)
+        try:
+            if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the resolution setting
+                for index in range(frame_len):
+                    if previous_frame[index] != new_frame[index]:
+                        if (abs((previous_frame[index] - new_frame[index]))/100) > configuration.capabilities['camera']['deviation_threshold']:
+                            print("TOTAL PERCENTAGE: ", abs((previous_frame[index] - new_frame[index]))/100)
+                            print("NEW DATA: ", new_frame[index])
+                            print("OLD DATA: ", previous_frame[index])
+                            dict_key = str(x) + '-' + str(y) + '-' + str(z)
+                            vision_dict[dict_key] = new_frame[index]  # save the value for the changed index to the dict
+                    z += 1
+                    if z == 3:
+                        z = 0
+                        y += 1
+                        if y == frame_col_count:
+                            y = 0
+                            x += 1
+            if new_frame != {}:
+                previous_frame_data[0] = new_frame
+        except Exception as e:
+            print("Error: Raw data frame does not match frame resolution")
+            print("Error due to this: ", e)
+
+        # print("last: ", vision_dict)
+        if vision_dict != {}:
+            runtime_data['pixel'] = vision_dict
+        # print(runtime_data['pixel'])
 
 
 class PosInit:
@@ -756,6 +823,10 @@ def main(args=None):
     # executor.add_node(battery_feed)
     battery = Battery()
 
+    # Camera Sensor
+    camera_feed = Camera_Subscriber()
+    executor.add_node(camera_feed)
+
     # Infrared Sensor
     ir_feeds = {}
     ir_topic_id = capabilities['infrared']['topic_identifier']
@@ -886,7 +957,7 @@ def main(args=None):
                 message_to_feagi["data"]["sensory_data"]['gyro'] = runtime_data['gyro']
             except Exception as e:
                 pass
-                #print("gyro dict is not available at the moment: ", e)
+                # print("gyro dict is not available at the moment: ", e)
             try:
                 runtime_data['accelerator']['0'] = round(runtime_data["Accelerator"]["x"], 3)
                 runtime_data['accelerator']['1'] = round(runtime_data["Accelerator"]["y"], 3)
@@ -898,13 +969,22 @@ def main(args=None):
                 message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data['accelerator']
             except Exception as e:
                 pass
-                #print("accelerator imu dict is not available at the moment: ", e)
+                # print("accelerator imu dict is not available at the moment: ", e)
+            try:
+                if "data" not in message_to_feagi:
+                    message_to_feagi["data"] = dict()
+                if "sensory_data" not in message_to_feagi["data"]:
+                    message_to_feagi["data"]["sensory_data"] = dict()
+                message_to_feagi["data"]["sensory_data"]['camera'] = runtime_data['pixel']
+            except Exception as e:
+                pass
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             if message_from_feagi is not None:
                 message_from_feagi['pose'] = robot_pose
             feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
+            runtime_data['pixel'].clear()
             msg_counter += 1
             flag += 1
             if flag == 10:
@@ -925,6 +1005,7 @@ def main(args=None):
     ultrasonic_feed.destroy_node()
     pose.destroy_node()
     imu_update.destroy_node()
+    camera_feed.destroy_node()
     # battery_feed.destroy_node()
 
     for ir_node in ir_feeds:
