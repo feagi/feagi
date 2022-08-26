@@ -183,8 +183,8 @@ def feagi_outbound(feagi_ip_host, feagi_outbound_port):
            feagi_outbound_port
 
 
-@staticmethod
-def msg_processor(msg, msg_type):
+
+def msg_processor(self, msg, msg_type):
     # TODO: give each subclass a specific msg processor method?
     # TODO: add an attribute that explicitly defines message type (instead of parsing topic name)?
     if 'ultrasonic' in msg_type and msg.ranges[1]:
@@ -201,7 +201,7 @@ def msg_processor(msg, msg_type):
         sensor_id = int(''.join(filter(str.isdigit, sensor_topic)))
 
         # print("\n***\nAverage Intensity = ", avg_intensity)
-        if avg_intensity > capabilities["infrared"]["threshold"]:
+        if avg_intensity > configuration.capabilities["infrared"]["threshold"]:
             return {
                 'ir': {
                     sensor_id: False
@@ -215,10 +215,13 @@ def msg_processor(msg, msg_type):
             }
 
 
-def compose_message_to_feagi(original_message):
+def compose_message_to_feagi(original_message, data, battery):
     """
     accumulates multiple messages in a data structure that can be sent to feagi
     """
+    runtime_data = dict()
+    runtime_data["battery_charge_level"] = battery
+    message_to_feagi = data
     if "data" not in message_to_feagi:
         message_to_feagi["data"] = dict()
     if "sensory_data" not in message_to_feagi["data"]:
@@ -232,3 +235,6 @@ def compose_message_to_feagi(original_message):
                     message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][
                         sensor_data]
         message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_data["battery_charge_level"] / 100}
+    return  message_to_feagi, runtime_data["battery_charge_level"]
+
+def FEAGI_engine():

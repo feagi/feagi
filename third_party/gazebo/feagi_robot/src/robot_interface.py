@@ -126,8 +126,8 @@ class ScalableSubscriber(Node):
         # self.get_logger().info("Raw Message: {}".format(msg))
         try:
             # This generated none
-            formatted_msg = FEAGI.msg_processor(msg=msg, msg_type=self.topic)  # Needs to check on this
-            FEAGI.compose_message_to_feagi(original_message=formatted_msg)
+            formatted_msg = FEAGI.msg_processor(self, msg=msg, msg_type=self.topic)  # Needs to check on this
+            configuration.message_to_feagi, runtime_data["battery_charge_level"] = FEAGI.compose_message_to_feagi(original_message=formatted_msg, data=message_to_feagi, battery = runtime_data["battery_charge_level"])
             self.counter += 1
         except Exception as e:
             print("Error in listener callback...", e)
@@ -905,7 +905,7 @@ def main(args=None):
                 feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
                 flag = 0
                 if msg_counter < feagi_burst_counter:
-                    feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
+                    feagi_opu_channel = FEAGI.Sub(address=opu_channel_address, flags=FEAGI.zmq.NOBLOCK)
                     if feagi_burst_speed != network_settings['feagi_burst_speed']:
                         network_settings['feagi_burst_speed'] = feagi_burst_speed
                 if feagi_burst_speed != network_settings['feagi_burst_speed']:
