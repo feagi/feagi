@@ -434,14 +434,15 @@ class Camera_Subscriber(Node):
         try:
             previous_frame = previous_frame_data[0]
         except:
-            previous_frame = [0,0]
+            previous_frame = [0, 0]
         frame_len = len(previous_frame)
         try:
             if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the resolution setting
                 for index in range(frame_len):
                     if previous_frame[index] != new_frame[index]:
-                        if (abs((previous_frame[index] - new_frame[index]))/100) > configuration.capabilities['camera']['deviation_threshold']:
-                            print("TOTAL PERCENTAGE: ", abs((previous_frame[index] - new_frame[index]))/100)
+                        if (abs((previous_frame[index] - new_frame[index])) / 100) > \
+                                configuration.capabilities['camera']['deviation_threshold']:
+                            print("TOTAL PERCENTAGE: ", abs((previous_frame[index] - new_frame[index])) / 100)
                             print("NEW DATA: ", new_frame[index])
                             print("OLD DATA: ", previous_frame[index])
                             dict_key = str(x) + '-' + str(y) + '-' + str(z)
@@ -686,6 +687,25 @@ class TileManager(Node):
             if tile_index not in existing_visible_tiles:
                 self.add_tile(tile_index=tile_index)
         # print("\n************************\nActive tile list:", self.tile_tracker)
+
+
+class Gazebo_Camera:
+    def follow(self, name_of_robot):
+        """
+        This command will follow the robot with the name argument. This will be at (1,1,1) by default.
+        This will work with Fortress or above only at this point. It does not have any impact on Citadel
+        """
+        command = "ign service -s /gui/follow --reqtype ignition.msgs.StringMsg --reptype ignition.msgs.Boolean --timeout 2000 --req 'data: \"" + name_of_robot + "\"\'"
+        os.system(command)
+
+    def control_offset(self, x_arg, y_arg, z_arg):
+        """"
+        IMPORTANT NOTE: This is supported Fortress or above only. This WILL not work if you did not follow the robot in first place.
+        Allows you to control and move the camera's direction without affect the robot. It will affect your GUI only.
+        """
+        command = "ign service -s /gui/follow/offset --reqtype ignition.msgs.Vector3d --reptype ignition.msgs.Boolean --timeout 2000 --req \"x: " + str(
+            x_arg) + ", y: " + str(y_arg) + " , z: " + str(z_arg) + "\""
+        os.system(command)
 
 
 def update_physics():
