@@ -34,9 +34,7 @@ setup(
     entry_points={
         'console_scripts': [
             'joint_state_publisher = joint_state_publisher.joint_state_publisher:main',
-            'controller = controller:main',
-            'router = router:main',
-            'configuration = configuration:main'
+            'robot_interface = robot_interface:main'
         ],
     },
 )
