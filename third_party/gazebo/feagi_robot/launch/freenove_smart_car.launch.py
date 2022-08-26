@@ -100,9 +100,9 @@ def generate_launch_description():
     )
 
     #controller
-    controller = Node(
+    robot_interface = Node(
         package='feagi_robot',
-        executable='controller.py',
+        executable='robot_interface.py',
         # FIXME: Why isn't the topic being populated on the UI? RQt issue?
         output='screen',
     )
@@ -116,6 +116,6 @@ def generate_launch_description():
         bridge,
         #rviz,
         #rqt
-        controller
+        #controller
     ])
 
