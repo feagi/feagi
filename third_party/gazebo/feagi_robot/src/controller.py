@@ -441,9 +441,12 @@ class Camera_Subscriber(Node):
             if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the resolution setting
                 for index in range(frame_len):
                     if previous_frame[index] != new_frame[index]:
-                        dict_key = str(x) + '-' + str(y) + '-' + str(z)
-                        vision_dict[dict_key] = new_frame[index]  # save the value for the changed index to the dict
-
+                        if (abs((previous_frame[index] - new_frame[index]))/100) > configuration.capabilities['camera']['deviation_threshold']:
+                            print("TOTAL PERCENTAGE: ", abs((previous_frame[index] - new_frame[index]))/100)
+                            print("NEW DATA: ", new_frame[index])
+                            print("OLD DATA: ", previous_frame[index])
+                            dict_key = str(x) + '-' + str(y) + '-' + str(z)
+                            vision_dict[dict_key] = new_frame[index]  # save the value for the changed index to the dict
                     z += 1
                     if z == 3:
                         z = 0

@@ -57,9 +57,9 @@ capabilities = {
         "type": "ipu",
         "disabled": False,
         "count": 1,
-        "width": 16,
-        "height": 8,
-        "data": 0
+        "width": 3,
+        "height": 2,
+        "deviation_threshold": 1
     },
     "battery": {
         "type": "ipu",
