@@ -167,6 +167,8 @@ def feagi_api_burst_engine():
 def feagi_api_burst_counter():
     return '/v1/feagi/feagi/burst_engine/burst_counter'
 
+def feagi_inbound():
+
 
 def opu_address(feagi_ip_host, feagi_outbound_port):
     """
@@ -223,4 +225,6 @@ def compose_message_to_feagi(original_message):
                     message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][
                         sensor_data]
         message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_data["battery_charge_level"] / 100}
+
+
 
