@@ -1,135 +1,37 @@
 import configuration
+import router
 import zmq
-import socket
-import requests
 from time import sleep
 
 
-def app_host_info():
-    host_name = socket.gethostname()
-    ip_address = socket.gethostbyname(socket.gethostname())
-    return {"ip_address": ip_address, "host_name": host_name}
+def pub_initializer(ipu_address):
+    return router.Pub(address=ipu_address)
 
 
-class Pub:
-    def __init__(self, address):
-        context = zmq.Context()
-        self.address = address
-        self.socket = context.socket(zmq.PUB)
-        self.socket.bind(address)
-
-    def send(self, message):
-        self.socket.send_pyobj(message)
-        print("Sent:\n", message, "... from ", self.address, "\n\n")
+def sub_initializer(opu_address, flags):
+    return router.Sub(address=opu_address, flags=flags)
 
 
-class Sub:
-    def __init__(self, address, flags=None):
-        context = zmq.Context()
-        self.socket = context.socket(zmq.SUB)
-        self.socket.connect(address)
-        self.socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
-        self.flag = flags
-
-    @staticmethod
-    def validate(payload):
-        """
-        This function endures the received payload meets a certain expectations
-        """
-        try:
-            # todo: define validation criteria
-            # print("<< Incomplete TRY Code >>")
-            return True
-        except Exception:
-            print("<< Incomplete EXCEPTION Code >>")
-            return False
-
-    def receive(self):
-        try:
-            payload = self.socket.recv_pyobj(self.flag)
-
-            if self.validate(payload):
-                return payload
-
-        except zmq.ZMQError as e:
-            if e.errno == zmq.EAGAIN:
-                pass
-            else:
-                print(e)
-
-
-def register_with_feagi(app_name, feagi_host, api_port, app_capabilities, host_info):
-    """
-    To trade information between FEAGI and Controller
-
-    Controller                      <--     FEAGI(IPU/OPU socket info)
-    Controller (Capabilities)       -->     FEAGI
-    """
-
-    api_address = 'http://' + feagi_host + ':' + api_port
-
-    registration_endpoint = '/v1/feagi/register'
-    network_endpoint = '/v1/feagi/feagi/network'
-    stimulation_period_endpoint = '/v1/feagi/feagi/burst_engine/stimulation_period'
-    burst_counter_endpoint = '/v1/feagi/feagi/burst_engine/burst_counter'
-
-    registration_data = {"source": app_name,
-                         "host": host_info["ip_address"],
-                         "capabilities": app_capabilities}
-
-    registration_complete = False
-    app_port_id = 'feagi_inbound_port_' + app_name
-    feagi_settings = requests.get(api_address + network_endpoint).json()
-
-    while not registration_complete:
-
-        print("Registration data:", registration_data)
-
-        feagi_registration_result = requests.post(api_address + registration_endpoint, data=registration_data)
-
-        print("FEAGI registration results: ", feagi_registration_result)
-
-        zmq_address = 'tcp://' + feagi_host + ':' + feagi_settings[app_port_id]
-
-        print('Awaiting connection with FEAGI at...', zmq_address)
-        # subscriber = Sub(address=zmq_address, flags=zmq.SUB)
-
-        # Receive FEAGI settings
-        feagi_settings['burst_duration'] = requests.get(api_address + stimulation_period_endpoint).json()
-        feagi_settings['burst_counter'] = requests.get(api_address + burst_counter_endpoint).json()
-
-        print("\nFEAGI settings received as:\n", feagi_settings, "\n\n")
-        if feagi_settings and feagi_settings['burst_duration'] and feagi_settings['burst_counter']:
-            print("\n\n\n\nRegistration is complete....")
-            registration_complete = True
-        sleep(1)
-
-    # Transmit Controller Capabilities
-    pub_address = "tcp://0.0.0.0:" + feagi_settings[app_port_id]
-    publisher = Pub(address=pub_address)
-    publisher.send(app_capabilities)
-
-    return feagi_settings
-
-
-def feagi_registration(feagi_host, api_port, host_info):
+def feagi_registration(feagi_host, api_port, host_info=router.app_host_info()):
     runtime_data = {
         "host_network": {},
         "feagi_state": None
     }
     runtime_data["host_network"]["host_name"] = host_info["host_name"]
     runtime_data["host_network"]["ip_address"] = host_info["ip_address"]
+    print(host_info)
 
     while runtime_data["feagi_state"] is None:
         print("Awaiting registration with FEAGI...")
         try:
-            runtime_data["feagi_state"] = register_with_feagi(app_name=configuration.app_name,
-                                                              feagi_host=feagi_host,
-                                                              api_port=api_port,
-                                                              app_capabilities=configuration.capabilities,
-                                                              host_info=runtime_data["host_network"]
-                                                              )
-        except Exception:
+            runtime_data["feagi_state"] = router.register_with_feagi(app_name=configuration.app_name,
+                                                                     feagi_host=feagi_host,
+                                                                     api_port=api_port,
+                                                                     app_capabilities=configuration.capabilities,
+                                                                     app_host_info=runtime_data["host_network"]
+                                                                     )
+        except Exception as e:
+            # print("ERROR: ", e)
             pass
         sleep(1)
     return runtime_data["feagi_state"]
@@ -295,41 +197,3 @@ def control_data_processor(data):
                     float(control_data['robot_starting_position'][position_index][2])
         return configuration.capabilities["motor"]["power_coefficient"], \
                configuration.capabilities["position"]
-
-
-def model_data_processor(data, full_model_data):
-    model_data = data['model_data']
-    current_data = full_model_data
-    update_flag = False
-    if model_data is not None:
-        if 'gazebo_floor_img_file' in model_data:
-            if current_data["floor_img"] != model_data['gazebo_floor_img_file']:
-                current_data['floor_img'] = model_data['gazebo_floor_img_file']
-                return current_data, "floor"
-        if 'robot_sdf_file_name' in model_data:
-            if current_data["robot_model"] != model_data['robot_sdf_file_name']:
-                current_data['robot_model'] = model_data['robot_sdf_file_name']
-                current_data['robot_model_path'] = model_data['robot_sdf_file_name_path']
-                return current_data, "robot"
-        if 'mu' in model_data:
-            if current_data["mu"] != model_data['mu']:
-                current_data["mu"] = float(model_data['mu'])
-                update_flag = True
-        if 'mu2' in model_data:
-            if current_data["mu2"] != model_data["mu2"]:
-                current_data["mu2"] = float(model_data['mu2'])
-                update_flag = True
-        if 'fdir' in model_data:
-            if current_data["fdir1"] != model_data['fdir']:
-                current_data["fdir1"] = model_data['fdir']
-                update_flag = True
-        if 'slip1' in model_data:
-            if current_data["slip1"] != model_data['slip1']:
-                current_data["slip1"] = float(model_data['slip1'])
-                update_flag = True
-        if 'slip2' in model_data:
-            if current_data["slip2"] != model_data['slip2']:
-                current_data["slip2"] = float(model_data['slip2'])
-                update_flag = True
-        if update_flag:
-            return current_data, update_flag
