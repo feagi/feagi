@@ -299,7 +299,8 @@ class Camera_Subscriber(Node):
             self.camera_callback,
             qos_profile=qos_profile_sensor_data)
 
-    def camera_callback(self, msg):
+    @staticmethod
+    def camera_callback(msg):
         frame_row_count = configuration.capabilities['camera']['width']
         frame_col_count = configuration.capabilities['camera']['height']
         new_frame = msg.data
@@ -364,7 +365,7 @@ class PosInit:
         print("++++++++++++++++++++++++++")
         print(respawn)
         os.system(respawn)
-        #Pose().remove_floor()
+        # Pose().remove_floor()
         # runtime_data["motor_status"] = {}
         # runtime_data['servo_status'] = {}
         # runtime_data['battery_charge_level'] = 1
@@ -685,7 +686,7 @@ def main(args=None):
                                                runtime_data["feagi_state"]['feagi_outbound_port'])
 
     feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address)
-    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address, flags=FEAGI.zmq.NOBLOCK)
+    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
 
     rclpy.init(args=args)
     executor = rclpy.executors.MultiThreadedExecutor()
@@ -887,7 +888,7 @@ def main(args=None):
                 feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
                 flag = 0
                 if msg_counter < feagi_burst_counter:
-                    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address, flags=FEAGI.zmq.NOBLOCK)
+                    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
                     if feagi_burst_speed != network_settings['feagi_burst_speed']:
                         network_settings['feagi_burst_speed'] = feagi_burst_speed
                 if feagi_burst_speed != network_settings['feagi_burst_speed']:
