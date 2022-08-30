@@ -86,6 +86,7 @@ def generate_launch_description():
         executable='parameter_bridge',
         arguments=['/imu@sensor_msgs/msg/Imu@ignition.msgs.IMU',
                    '/ultrasonic0@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan',
+                   '/Camera0/image@sensor_msgs/msg/Image@ignition.msgs.Image',
                    '/IR1/image@sensor_msgs/msg/Image@ignition.msgs.Image',
                    '/IR2/image@sensor_msgs/msg/Image@ignition.msgs.Image',
                    '/IR0/image@sensor_msgs/msg/Image@ignition.msgs.Image',
