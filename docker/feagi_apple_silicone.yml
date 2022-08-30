@@ -32,7 +32,7 @@ services:
         
   ros-gazebo:
     build:
-      context: ../third_party/gazebo/feagi_robot
+      context: ../third_party/gazebo/simulation
       dockerfile: Dockerfile.M1
     deploy:
       resources:
@@ -47,9 +47,9 @@ services:
     volumes:
       #- <local path>:<docker path>                                 Only update the local path, keep docker path static
       # Robot mapping
-      - ../third_party/gazebo/feagi_robot/robots/smart_car/smart_car.sdf:/opt/source-code/feagi_robot/robots/smart_car/smart_car.sdf
+      - ../third_party/gazebo/simulation/robots/smart_car/smart_car.sdf:/opt/source-code/simulation/robots/smart_car/smart_car.sdf
       # Environment mapping
-      - ../third_party/gazebo/feagi_robot/environments/material/map1.png:/opt/source-code/feagi_robot/environments/material/map1.png
+      - ../third_party/gazebo/simulation/environments/material/map1.png:/opt/source-code/simulation/environments/material/map1.png
 
   godot:
     build: ../third_party/godot/
