@@ -40,21 +40,9 @@ from configuration import *
 from threading import Thread
 from datetime import datetime
 
-runtime_data = {
-    "cortical_data": {},
-    "current_burst_id": None,
-    "stimulation_period": None,
-    "feagi_state": None,
-    "feagi_network": None,
-    "cortical_list": set(),
-    "host_network": {},
-    "battery_charge_level": 1,
-    'motor_status': {},
-    'servo_status': {},
-    'GPS': {},
-    'Quaternion': {},
-    'Accelerator': {}
-}
+runtime_data = {"cortical_data": {}, "current_burst_id": None, "stimulation_period": None, "feagi_state": None,
+                "feagi_network": None, "cortical_list": set(), "host_network": {}, "battery_charge_level": 1,
+                'motor_status': {}, 'servo_status': {}, 'GPS': {}, 'Quaternion': {}, 'Accelerator': {}}
 
 runtime_data["GPS"]["x"] = dict()
 runtime_data["GPS"]["y"] = dict()
@@ -97,7 +85,7 @@ ign service -s /world/free_world/remove \
 """  # not used atm
 
 
-def publisher_initializer(model_name, topic_count, topic_identifier):
+def publisher_initializer(SDF_name, topic_count, topic_identifier):
     node = rclpy.create_node('Controller_py')
 
     target_node = {}
@@ -106,7 +94,7 @@ def publisher_initializer(model_name, topic_count, topic_identifier):
         target_node[target] = node.create_publisher(std_msgs.msg.Float64, topic_string, 10)
 
     # is this used for anything?
-    node.create_publisher(geometry_msgs.msg.Twist, model_name, 10)
+    node.create_publisher(geometry_msgs.msg.Twist, SDF_name, 10)
 
     return target_node
 
@@ -127,7 +115,8 @@ class ScalableSubscriber(Node):
         try:
             # This generated none
             formatted_msg = FEAGI.msg_processor(self, msg=msg, msg_type=self.topic)  # Needs to check on this
-            configuration.message_to_feagi, runtime_data["battery_charge_level"] = FEAGI.compose_message_to_feagi(original_message=formatted_msg, data=message_to_feagi, battery = runtime_data["battery_charge_level"])
+            configuration.message_to_feagi, runtime_data["battery_charge_level"] = FEAGI.compose_message_to_feagi(
+                original_message=formatted_msg, data=message_to_feagi, battery=runtime_data["battery_charge_level"])
             self.counter += 1
         except Exception as e:
             print("Error in listener callback...", e)
@@ -183,7 +172,7 @@ class Battery:
 
 class Motor:
     def __init__(self, count, identifier, model):
-        self.motor_node = publisher_initializer(model_name=model, topic_count=count, topic_identifier=identifier)
+        self.motor_node = publisher_initializer(SDF_name=model, topic_count=count, topic_identifier=identifier)
 
         # todo: figure a way to extract wheel parameters from the model
         self.wheel_diameter = capabilities["motor"]["wheel_diameter"]
@@ -203,8 +192,8 @@ class Motor:
                 runtime_data['motor_status'][device_index] = 0
 
             device_current_position = runtime_data['motor_status'][device_index]
-            # device_position.data = float(
-            #     (power * network_settings['feagi_burst_speed'] * configuration.capabilities["motor"]["motor_power"]) + device_current_position)
+            # device_position.data = float( (power * network_settings['feagi_burst_speed'] *
+            # configuration.capabilities["motor"]["motor_power"]) + device_current_position)
             device_position.data = float(
                 (power * capabilities["motor"]["power_coefficient"] * 6.28319) + device_current_position)
             runtime_data['motor_status'][device_index] = device_position.data
@@ -217,7 +206,7 @@ class Motor:
 
 class Servo:
     def __init__(self, count, identifier, model):
-        self.servo_node = publisher_initializer(model_name=model,
+        self.servo_node = publisher_initializer(SDF_name=model,
                                                 topic_count=count,
                                                 topic_identifier=identifier)
         self.device_position = std_msgs.msg.Float64()
@@ -315,38 +304,32 @@ class Camera_Subscriber(Node):
         frame_col_count = configuration.capabilities['camera']['height']
         new_frame = msg.data
 
-        x = 0  # row counter
-        y = 0  # col counter
-        z = 0  # RGB counter
+        x_vision = 0  # row counter
+        y_vision = 0  # col counter
+        z_vision = 0  # RGB counter
 
-        # print("[")
-        # for _ in camera_data:
-        #     print(_)
-        # print("]")
         vision_dict = dict()
         try:
             previous_frame = previous_frame_data[0]
-        except:
+        except Exception:
             previous_frame = [0, 0]
         frame_len = len(previous_frame)
         try:
-            if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the resolution setting
+            if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the
+                # resolution setting
                 for index in range(frame_len):
                     if previous_frame[index] != new_frame[index]:
                         if (abs((previous_frame[index] - new_frame[index])) / 100) > \
                                 configuration.capabilities['camera']['deviation_threshold']:
-                            print("TOTAL PERCENTAGE: ", abs((previous_frame[index] - new_frame[index])) / 100)
-                            print("NEW DATA: ", new_frame[index])
-                            print("OLD DATA: ", previous_frame[index])
-                            dict_key = str(x) + '-' + str(y) + '-' + str(z)
+                            dict_key = str(x_vision) + '-' + str(y_vision) + '-' + str(z_vision)
                             vision_dict[dict_key] = new_frame[index]  # save the value for the changed index to the dict
-                    z += 1
-                    if z == 3:
-                        z = 0
-                        y += 1
-                        if y == frame_col_count:
-                            y = 0
-                            x += 1
+                    z_vision += 1
+                    if z_vision == 3:
+                        z_vision = 0
+                        y_vision += 1
+                        if y_vision == frame_col_count:
+                            y_vision = 0
+                            x_vision += 1
             if new_frame != {}:
                 previous_frame_data[0] = new_frame
         except Exception as e:
@@ -373,7 +356,8 @@ class PosInit:
         reset_z = str(capabilities["position"][position_index]["z"])
         print("## ## ## ## Resetting robot position to ## ## ## ##", reset_x, reset_y, z)
         name = Model_data["robot_model"].replace(".sdf", "")
-        first_part_r = "ign service -s /world/free_world/set_pose --reqtype ignition.msgs.Pose --reptype ignition.msgs.Boolean --timeout 300 --req \'name: "
+        first_part_r = "ign service -s /world/free_world/set_pose --reqtype ignition.msgs.Pose --reptype " \
+                       "ignition.msgs.Boolean --timeout 300 --req \'name: "
         second_part_r = ' "' + name + '" ' + ", position: { x: " + reset_x + ", y: "
         third_part_r = reset_y + ", z: " + reset_z + "}' &"
         respawn = first_part_r + second_part_r + third_part_r
@@ -491,8 +475,10 @@ class TileManager(Node):
             self.tile_tracker[tile_name]["index"] = tile_index
             self.tile_tracker[tile_name]["visibility"] = True
 
-        first_phrase = "ign service -s /world/free_world/create --reqtype ignition.msgs.EntityFactory --reptype ignition.msgs.Boolean --timeout 300 --req 'sdf_filename: ''\"environments/new_ground.sdf\""
-        second_phrase = " pose: {position: {x:" + tile_location_x + ", y:" + tile_location_y + ", z:" + tile_location_z + "}} '\'name: \"" + tile_name + "\" '\' allow_renaming: false' &"
+        first_phrase = "ign service -s /world/free_world/create --reqtype ignition.msgs.EntityFactory --reptype " \
+                       "ignition.msgs.Boolean --timeout 300 --req 'sdf_filename: ''\"environments/new_ground.sdf\" "
+        second_phrase = " pose: {position: {x:" + tile_location_x + ", y:" + tile_location_y + ", z:" \
+                        + tile_location_z + "}} '\'name: \"" + tile_name + "\" '\' allow_renaming: false' &"
 
         print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n",
               first_phrase + second_phrase)
@@ -544,17 +530,17 @@ class TileManager(Node):
         #     self.add_visible_tile([[current_tile_index[0] + 1, current_tile_index[0]]])
         #     print("-------------------------------   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ -- 1")
         #
-        # if robot_relative_loc_to_tile[0] < -1 * self.tile_dimensions[0] / 2 + self.tile_dimensions[0] * self.tile_margin:
-        #     self.add_visible_tile([current_tile_index[0] - 1, current_tile_index[1]])
-        #     print("-------------------------------   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ -- 2")
+        # if robot_relative_loc_to_tile[0] < -1 * self.tile_dimensions[0] / 2 + self.tile_dimensions[0] *
+        # self.tile_margin: self.add_visible_tile([current_tile_index[0] - 1, current_tile_index[1]]) print(
+        # "-------------------------------   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ -- 2")
         #
         # if robot_relative_loc_to_tile[1] > self.tile_dimensions[1] / 2 - self.tile_dimensions[1] * self.tile_margin:
         #     self.add_visible_tile([current_tile_index[0], current_tile_index[1] + 1])
         #     print("-------------------------------   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ -- 3")
         #
-        # if robot_relative_loc_to_tile[1] < -1 * self.tile_dimensions[1] / 2 + self.tile_dimensions[1] * self.tile_margin:
-        #     self.add_visible_tile([current_tile_index[0], current_tile_index[1] - 1])
-        #     print("-------------------------------   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ -- 4")
+        # if robot_relative_loc_to_tile[1] < -1 * self.tile_dimensions[1] / 2 + self.tile_dimensions[1] *
+        # self.tile_margin: self.add_visible_tile([current_tile_index[0], current_tile_index[1] - 1]) print(
+        # "-------------------------------   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ -- 4")
 
         # print("tile visibility checker output:", self.visible_tiles)
         # todo: Need to remove the tiles that are not needed if robot is inside the margin on all sides
@@ -588,16 +574,17 @@ class Gazebo_Camera:
         This command will follow the robot with the name argument. This will be at (1,1,1) by default.
         This will work with Fortress or above only at this point. It does not have any impact on Citadel
         """
-        command = "ign service -s /gui/follow --reqtype ignition.msgs.StringMsg --reptype ignition.msgs.Boolean --timeout 2000 --req 'data: \"" + name_of_robot + "\"\'"
+        command = "ign service -s /gui/follow --reqtype ignition.msgs.StringMsg --reptype ignition.msgs.Boolean " \
+                  "--timeout 2000 --req 'data: \"" + name_of_robot + "\"\' "
         os.system(command)
 
     def control_offset(self, x_arg, y_arg, z_arg):
-        """"
-        IMPORTANT NOTE: This is supported Fortress or above only. This WILL not work if you did not follow the robot in first place.
-        Allows you to control and move the camera's direction without affect the robot. It will affect your GUI only.
+        """" IMPORTANT NOTE: This is supported Fortress or above only. This WILL not work if you did not follow the
+        robot in first place. Allows you to control and move the camera's direction without affect the robot. It will
+        affect your GUI only.
         """
-        command = "ign service -s /gui/follow/offset --reqtype ignition.msgs.Vector3d --reptype ignition.msgs.Boolean --timeout 2000 --req \"x: " + str(
-            x_arg) + ", y: " + str(y_arg) + " , z: " + str(z_arg) + "\""
+        command = "ign service -s /gui/follow/offset --reqtype ignition.msgs.Vector3d --reptype ignition.msgs.Boolean " \
+                  "--timeout 2000 --req \"x: " + str(x_arg) + ", y: " + str(y_arg) + " , z: " + str(z_arg) + "\""
         os.system(command)
 
 
@@ -769,92 +756,60 @@ def main(args=None):
             message_from_feagi = feagi_opu_channel.receive()
             battery.consume_battery()
             try:
-                opu_data = message_from_feagi["opu_data"]
-                if opu_data is not None:
-                    if 'o__mot' in opu_data:
-                        for data_point in opu_data['o__mot']:
-                            data_point = FEAGI.block_to_array(data_point)
-                            device_id = data_point[0]
-                            device_power = data_point[2]
-                            motor.move(feagi_device_id=device_id, power=device_power)
-                    if 'o__ser' in opu_data:
-                        if opu_data['o__ser']:
-                            for data_point in opu_data['o__ser']:
-                                data_point = FEAGI.block_to_array(data_point)
-                                device_id = data_point[0]
-                                device_power = data_point[2]
-                                servo.move(feagi_device_id=device_id, power=device_power)
-                    if 'o_cbat' in opu_data:
-                        if opu_data['o__bat']:
-                            for data_point in opu_data['o_cbat']:
-                                intensity = data_point[2]
-                                battery.charge_battery(intensity=intensity)
+                opu_data = FEAGI.opu_processor(message_from_feagi)
+                if 'motor' in opu_data:
+                    for data_point in opu_data['motor']:
+                        device_id = data_point
+                        device_power = opu_data['motor'][data_point]
+                        motor.move(feagi_device_id=device_id, power=device_power)
+                if 'servo' in opu_data:
+                    if opu_data['servo']:
+                        for data_point in opu_data['servo']:
+                            device_id = data_point
+                            device_power = opu_data['servo'][data_point]
+                            servo.move(feagi_device_id=device_id, power=device_power)
+                if 'battery' in opu_data:
+                    if opu_data['battery']:
+                        for data_point in opu_data['battery']:
+                            intensity = data_point
+                            battery.charge_battery(intensity=intensity)
 
-                    if 'o_dbat' in opu_data:
-                        if opu_data['o__bat']:
-                            for data_point in opu_data['o_dbat']:
-                                intensity = data_point[2]
-                                battery.discharge_battery(intensity=intensity)
+                if 'discharged_battery' in opu_data:
+                    if opu_data['discharged_battery']:
+                        for data_point in opu_data['discharged_battery']:
+                            intensity = data_point
+                            battery.discharge_battery(intensity=intensity)
 
-                    if 'o_init' in opu_data:
-                        if opu_data['o_init']:
-                            for data_point in opu_data['o_init']:
-                                position_index = data_point[0]
-                                position_init.reset_position(position_index=position_index)
+                if 'reset' in opu_data:
+                    if opu_data['reset']:
+                        for data_point in opu_data['reset']:
+                            position_index = data_point[0]
+                            position_init.reset_position(position_index=position_index)
 
-                control_data = message_from_feagi['control_data']
+                control_data = FEAGI.control_data_processor(message_from_feagi)
                 if control_data is not None:
                     if 'motor_power_coefficient' in control_data:
-                        capabilities["motor"]["power_coefficient"] = float(control_data['motor_power_coefficient'])
+                        capabilities["motor"]["power_coefficient"] = control_data['motor_power_coefficient']
                     if 'robot_starting_position' in control_data:
-                        for position_index in control_data['robot_starting_position']:
-                            capabilities["position"][position_index]["x"] = \
-                                float(control_data['robot_starting_position'][position_index][0])
-                            capabilities["position"][position_index]["y"] = \
-                                float(control_data['robot_starting_position'][position_index][1])
-                            capabilities["position"][position_index]["z"] = \
-                                float(control_data['robot_starting_position'][position_index][2])
-
-                model_data = message_from_feagi['model_data']
+                        for index in control_data['robot_starting_position']:
+                            configuration.capabilities['position'][index][0] = \
+                                control_data['robot_starting_position'][index][0]
+                            configuration.capabilities['position'][index][1] = \
+                                control_data['robot_starting_position'][index][1]
+                            configuration.capabilities['position'][index][2] = \
+                                control_data['robot_starting_position'][index][2]
+                latest_model_data = configuration.Model_data
+                model_data, receive_data = FEAGI.model_data_processor(message_from_feagi, latest_model_data)
+                configuration.Model_data = model_data
                 if model_data is not None:
-                    update_flag = False
-                    if 'gazebo_floor_img_file' in model_data:
-                        if Model_data["floor_img"] != model_data['gazebo_floor_img_file']:
-                            print("current config: ", Model_data['floor_img'])
-                            print("from FEAGI: ", model_data['gazebo_floor_img_file'])
-                            update_floor(model_data['gazebo_floor_img_file'])
-                            Model_data['floor_img'] = model_data['gazebo_floor_img_file']
-                    if 'robot_sdf_file_name' in model_data:
-                        if Model_data["robot_model"] != model_data['robot_sdf_file_name']:
-                            print("current config: ", Model_data['robot_model'])
-                            print("from FEAGI: ", model_data['robot_sdf_file_name'])
-                            update_robot(model_data['robot_sdf_file_name'], model_data['robot_sdf_file_name_path'])
-                            Model_data['robot_model'] = model_data['robot_sdf_file_name']
-                            Model_data['robot_model_path'] = model_data['robot_sdf_file_name_path']
-                    if 'mu' in model_data:
-                        if Model_data["mu"] != model_data['mu']:
-                            Model_data["mu"] = float(model_data['mu'])
-                            update_flag = True
-                    if 'mu2' in model_data:
-                        if Model_data["mu2"] != model_data["mu2"]:
-                            Model_data["mu2"] = float(model_data['mu2'])
-                            update_flag = True
-                    if 'fdir' in model_data:
-                        if Model_data["fdir1"] != model_data['fdir']:
-                            Model_data["fdir1"] = model_data['fdir']
-                            update_flag = True
-                    if 'slip1' in model_data:
-                        if Model_data["slip1"] != model_data['slip1']:
-                            Model_data["slip1"] = float(model_data['slip1'])
-                            update_flag = True
-                    if 'slip2' in model_data:
-                        if Model_data["slip2"] != model_data['slip2']:
-                            Model_data["slip2"] = float(model_data['slip2'])
-                            update_flag = True
-                    if update_flag:
+                    if receive_data == "robot":
+                        update_robot(model_data['robot_sdf_file_name'], model_data['robot_sdf_file_name_path'])
+                    if receive_data == "floor":
+                        update_floor(model_data['gazebo_floor_img_file'])
+                    if receive_data:
                         update_physics()
 
-            except:
+            except Exception:
                 pass
             try:
                 runtime_data['gyro']['0'] = runtime_data["GPS"]["x"]
