@@ -43,8 +43,8 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    pkg_ros_ign_gazebo_demos = get_package_share_directory('feagi_robot')
-    pkg_ros_ign_gazebo = get_package_share_directory('feagi_robot')
+    pkg_ros_ign_gazebo_demos = get_package_share_directory('simulation')
+    pkg_ros_ign_gazebo = get_package_share_directory('simulation')
 
     ign_gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -86,6 +86,7 @@ def generate_launch_description():
         executable='parameter_bridge',
         arguments=['/imu@sensor_msgs/msg/Imu@ignition.msgs.IMU',
                    '/ultrasonic0@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan',
+                   '/Camera0/image@sensor_msgs/msg/Image@ignition.msgs.Image',
                    '/IR1/image@sensor_msgs/msg/Image@ignition.msgs.Image',
                    '/IR2/image@sensor_msgs/msg/Image@ignition.msgs.Image',
                    '/IR0/image@sensor_msgs/msg/Image@ignition.msgs.Image',
@@ -100,9 +101,9 @@ def generate_launch_description():
     )
 
     #controller
-    controller = Node(
-        package='feagi_robot',
-        executable='controller.py',
+    robot_interface = Node(
+        package='simulation',
+        executable='robot_interface.py',
         # FIXME: Why isn't the topic being populated on the UI? RQt issue?
         output='screen',
     )
@@ -116,6 +117,6 @@ def generate_launch_description():
         bridge,
         #rviz,
         #rqt
-        controller
+        robot_interface
     ])
 

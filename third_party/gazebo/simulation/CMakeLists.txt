@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(feagi_robot)
+project(simulation)
 
 find_package(ament_cmake REQUIRED)
 find_package(image_transport REQUIRED)
@@ -71,7 +71,11 @@ ament_python_install_package(src/)
 
 # Install Python executables
 install(PROGRAMS
-  src/controller.py
+  src/robot_interface.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+install(PROGRAMS
+  src/feagi_interface.py
   DESTINATION lib/${PROJECT_NAME}
 )
 install(PROGRAMS

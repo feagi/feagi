@@ -1,5 +1,4 @@
 """
-
 """
 
 import zmq
@@ -114,4 +113,3 @@ def register_with_feagi(app_name, feagi_host, api_port, app_capabilities, app_ho
     publisher.send(app_capabilities)
 
     return feagi_settings
-
