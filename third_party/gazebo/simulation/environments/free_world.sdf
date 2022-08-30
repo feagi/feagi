@@ -131,8 +131,8 @@
             <diffuse>1.0 1.0 1.0</diffuse>
             <pbr>
                 <specular>
-                    <albedo_map>material/2</albedo_map>
-                    <specular_map>material/2</specular_map>
+                    <albedo_map>material/map1.png</albedo_map>
+                    <specular_map>material/map1.png</specular_map>
                 </specular>
               </pbr>
           </material>
