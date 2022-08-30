@@ -364,13 +364,12 @@ class PosInit:
         print("++++++++++++++++++++++++++")
         print(respawn)
         os.system(respawn)
-        Pose().remove_floor()
+        #Pose().remove_floor()
         # runtime_data["motor_status"] = {}
         # runtime_data['servo_status'] = {}
         # runtime_data['battery_charge_level'] = 1
         # Create the robot
         # os.system(add_model)
-        servo.set_default_position()
 
 
 class TileManager(Node):
@@ -674,8 +673,7 @@ def main(args=None):
     stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
     burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
 
-    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host, api_port=api_port,
-                                                           host_info=FEAGI.app_host_info())
+    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host, api_port=api_port)
 
     print("** **", runtime_data["feagi_state"])
     network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
@@ -686,8 +684,8 @@ def main(args=None):
     opu_channel_address = FEAGI.feagi_outbound(network_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_outbound_port'])
 
-    feagi_ipu_channel = FEAGI.Pub(address=ipu_channel_address)
-    feagi_opu_channel = FEAGI.Sub(address=opu_channel_address, flags=FEAGI.zmq.NOBLOCK)
+    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address)
+    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address, flags=FEAGI.zmq.NOBLOCK)
 
     rclpy.init(args=args)
     executor = rclpy.executors.MultiThreadedExecutor()
@@ -798,15 +796,44 @@ def main(args=None):
                                 control_data['robot_starting_position'][index][1]
                             configuration.capabilities['position'][index][2] = \
                                 control_data['robot_starting_position'][index][2]
-                latest_model_data = configuration.Model_data
-                model_data, receive_data = FEAGI.model_data_processor(message_from_feagi, latest_model_data)
-                configuration.Model_data = model_data
+                model_data = message_from_feagi['model_data']
                 if model_data is not None:
-                    if receive_data == "robot":
-                        update_robot(model_data['robot_sdf_file_name'], model_data['robot_sdf_file_name_path'])
-                    if receive_data == "floor":
-                        update_floor(model_data['gazebo_floor_img_file'])
-                    if receive_data:
+                    print(model_data)
+                    update_flag = False
+                    if 'gazebo_floor_img_file' in model_data:
+                        if Model_data["floor_img"] != model_data['gazebo_floor_img_file']:
+                            print("current config: ", Model_data['floor_img'])
+                            print("from FEAGI: ", model_data['gazebo_floor_img_file'])
+                            update_floor(model_data['gazebo_floor_img_file'])
+                            Model_data['floor_img'] = model_data['gazebo_floor_img_file']
+                    if 'robot_sdf_file_name' in model_data:
+                        if Model_data["robot_model"] != model_data['robot_sdf_file_name']:
+                            print("current config: ", Model_data['robot_model'])
+                            print("from FEAGI: ", model_data['robot_sdf_file_name'])
+                            update_robot(model_data['robot_sdf_file_name'], model_data['robot_sdf_file_name_path'])
+                            Model_data['robot_model'] = model_data['robot_sdf_file_name']
+                            Model_data['robot_model_path'] = model_data['robot_sdf_file_name_path']
+                    if 'mu' in model_data:
+                        if Model_data["mu"] != model_data['mu']:
+                            Model_data["mu"] = float(model_data['mu'])
+                            update_flag = True
+                    if 'mu2' in model_data:
+                        if Model_data["mu2"] != model_data["mu2"]:
+                            Model_data["mu2"] = float(model_data['mu2'])
+                            update_flag = True
+                    if 'fdir' in model_data:
+                        if Model_data["fdir1"] != model_data['fdir']:
+                            Model_data["fdir1"] = model_data['fdir']
+                            update_flag = True
+                    if 'slip1' in model_data:
+                        if Model_data["slip1"] != model_data['slip1']:
+                            Model_data["slip1"] = float(model_data['slip1'])
+                            update_flag = True
+                    if 'slip2' in model_data:
+                        if Model_data["slip2"] != model_data['slip2']:
+                            Model_data["slip2"] = float(model_data['slip2'])
+                            update_flag = True
+                    if update_flag:
                         update_physics()
 
             except Exception:
@@ -860,7 +887,7 @@ def main(args=None):
                 feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
                 flag = 0
                 if msg_counter < feagi_burst_counter:
-                    feagi_opu_channel = FEAGI.Sub(address=opu_channel_address, flags=FEAGI.zmq.NOBLOCK)
+                    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address, flags=FEAGI.zmq.NOBLOCK)
                     if feagi_burst_speed != network_settings['feagi_burst_speed']:
                         network_settings['feagi_burst_speed'] = feagi_burst_speed
                 if feagi_burst_speed != network_settings['feagi_burst_speed']:
