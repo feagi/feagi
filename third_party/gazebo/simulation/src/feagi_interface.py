@@ -18,7 +18,6 @@ def feagi_registration(feagi_host, api_port, host_info=router.app_host_info()):
     }
     runtime_data["host_network"]["host_name"] = host_info["host_name"]
     runtime_data["host_network"]["ip_address"] = host_info["ip_address"]
-    print(host_info)
 
     while runtime_data["feagi_state"] is None:
         print("Awaiting registration with FEAGI...")
