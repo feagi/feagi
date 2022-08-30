@@ -1,6 +1,5 @@
 import configuration
 import router
-import zmq
 from time import sleep
 
 
@@ -8,7 +7,7 @@ def pub_initializer(ipu_address):
     return router.Pub(address=ipu_address)
 
 
-def sub_initializer(opu_address, flags):
+def sub_initializer(opu_address, flags=router.zmq.NOBLOCK):
     return router.Sub(address=opu_address, flags=flags)
 
 
