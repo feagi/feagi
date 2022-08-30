@@ -40,21 +40,9 @@ from configuration import *
 from threading import Thread
 from datetime import datetime
 
-runtime_data = {
-    "cortical_data": {},
-    "current_burst_id": None,
-    "stimulation_period": None,
-    "feagi_state": None,
-    "feagi_network": None,
-    "cortical_list": set(),
-    "host_network": {},
-    "battery_charge_level": 1,
-    'motor_status': {},
-    'servo_status': {},
-    'GPS': {},
-    'Quaternion': {},
-    'Accelerator': {}
-}
+runtime_data = {"cortical_data": {}, "current_burst_id": None, "stimulation_period": None, "feagi_state": None,
+                "feagi_network": None, "cortical_list": set(), "host_network": {}, "battery_charge_level": 1,
+                'motor_status': {}, 'servo_status': {}, 'GPS': {}, 'Quaternion': {}, 'Accelerator': {}}
 
 runtime_data["GPS"]["x"] = dict()
 runtime_data["GPS"]["y"] = dict()
