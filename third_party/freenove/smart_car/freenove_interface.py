@@ -383,6 +383,7 @@ class Ultrasonic:
 
 def main():
     GPIO.cleanup()
+
     # # # FEAGI registration # # #
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
     feagi_host, api_port = FEAGI.feagi_setting_for_registration()
@@ -396,15 +397,12 @@ def main():
     burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
-
     flag = False
-
     motor = Motor()
+    servo = Servo()
     ir = IR()
     ultrasonic = Ultrasonic()
     # battery = Battery()
-    servo = Servo()
-
     rolling_window_len = configuration.capabilities['motor']['rolling_window_len']
     motor_count = configuration.capabilities['motor']['count']
     msg_counter = 0
