@@ -1,39 +1,15 @@
-#!/usr/bin/env python3
-
-"""
-Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-==============================================================================
-"""
-
-import sys
-import time
-import router
-import RPi.GPIO as GPIO
-import math
-import traceback
-import configuration
 import requests
-
-from collections import deque
-from datetime import datetime
-from ADC import *
-from configuration import *
-from configuration import message_to_feagi
+import feagi_interface as FEAGI
+import configuration
+import RPi.GPIO as GPIO
+import traceback
+import math
+import sys
 from Led import *
 from PCA9685 import PCA9685
-from router import *
+from datetime import datetime
+from configuration import *
+from collections import deque
 
 runtime_data = {
     "current_burst_id": 0,
@@ -45,51 +21,6 @@ runtime_data = {
     'servo_status': {}
 }
 
-if sys.platform == 'win32':
-    import msvcrt
-else:
-    import termios
-    import tty
-
-def block_to_array(block_ref):
-    block_id_str = block_ref.split('-')
-    array = [int(x) for x in block_id_str]
-    return array
-
-
-def compose_message_to_feagi(original_message):
-    """
-    accumulates multiple messages in a data structure that can be sent to feagi
-    """
-    if "data" not in message_to_feagi:
-        message_to_feagi["data"] = dict()
-    if "sensory_data" not in message_to_feagi["data"]:
-        message_to_feagi["data"]["sensory_data"] = dict()
-    for sensor in original_message:
-        if sensor not in message_to_feagi["data"]["sensory_data"]:
-            message_to_feagi["data"]["sensory_data"][sensor] = dict()
-        for sensor_data in original_message[sensor]:
-            if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
-                message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][sensor_data]
-    #message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_params["battery_charge_level"] / 100}
-
-def feagi_registration(feagi_host, api_port):
-    app_host_info = router.app_host_info()
-    runtime_data["host_network"]["host_name"] = app_host_info["host_name"]
-    runtime_data["host_network"]["ip_address"] = app_host_info["ip_address"]
-
-    while runtime_data["feagi_state"] is None:
-        print("Awaiting registration with FEAGI...")
-        try:
-            runtime_data["feagi_state"] = router.register_with_feagi(app_name=configuration.app_name,
-                                                                     feagi_host=feagi_host,
-                                                                     api_port=api_port,
-                                                                     app_capabilities=configuration.capabilities,
-                                                                     app_host_info=runtime_data["host_network"]
-                                                                     )
-        except:
-            pass
-        sleep(1)
 
 def window_average(sequence):
     return abs(sum(sequence) // len(sequence))
@@ -114,7 +45,7 @@ class LED:
         except KeyboardInterrupt:
             self.led.colorWipe(led.strip, Color(0, 0, 0))  ##This is to turn all leds off/
 
-    def test_Led(self):
+    def test_led(self):
         """
         This is to test all leds and do several different leds.
         """
@@ -128,7 +59,7 @@ class LED:
             self.led.ledIndex(0x40, 128, 0, 128)  # purple
             self.led.ledIndex(0x80, 255, 255, 255)  # white'''
             print("The LED has been lit, the color is red orange yellow green cyan-blue blue white")
-            #time.sleep(3)  # wait 3s
+            # time.sleep(3)  # wait 3s
             self.led.colorWipe("", Color(0, 0, 0))  # turn off the light
             print("\nEnd of program")
         except KeyboardInterrupt:
@@ -136,13 +67,15 @@ class LED:
             print("\nEnd of program")
 
     def leds_off(self):
-        self.led.colorWipe("", Color(0, 0, 0))  ##This is to turn all leds off/
+        self.led.colorWipe("", Color(0, 0, 0))  # This is to turn all leds off/
+
 
 class Servo:
     """
     Functions: head_UP_DOWN and head_RIGHT_LEFT only. Other functions are just a support and defined system for Servo
     class to work with functions.
     """
+
     def __init__(self):
         self.PwmServo = PCA9685(0x40, debug=True)
         self.PwmServo.setPWMFreq(50)
@@ -150,37 +83,37 @@ class Servo:
         self.servo_ranges = {0: [0, 180],
                              1: [0, 180]}
 
-    def setServoPwm(self,channel,angle,error=10):
+    def setServoPwm(self, channel, angle, error=10):
         angle = float(angle)
         if channel == '0':
-            self.PwmServo.setServoPulse(8,2500-float((angle+error)/0.09))
+            self.PwmServo.setServoPulse(8, 2500 - float((angle + error) / 0.09))
         elif channel == '1':
-            self.PwmServo   .setServoPulse(9,500+float((angle+error)/0.09))
+            self.PwmServo.setServoPulse(9, 500 + float((angle + error) / 0.09))
         elif channel == '2':
-            self.PwmServo.setServoPulse(10,500+float((angle+error)/0.09))
+            self.PwmServo.setServoPulse(10, 500 + float((angle + error) / 0.09))
         elif channel == '3':
-            self.PwmServo.setServoPulse(11,500+float((angle+error)/0.09))
+            self.PwmServo.setServoPulse(11, 500 + float((angle + error) / 0.09))
         elif channel == '4':
-            self.PwmServo.setServoPulse(12,500+float((angle+error)/0.09))
+            self.PwmServo.setServoPulse(12, 500 + float((angle + error) / 0.09))
         elif channel == '5':
-            self.PwmServo.setServoPulse(13,500+float((angle+error)/0.09))
+            self.PwmServo.setServoPulse(13, 500 + float((angle + error) / 0.09))
         elif channel == '6':
-            self.PwmServo.setServoPulse(14,500+float((angle+error)/0.09))
+            self.PwmServo.setServoPulse(14, 500 + float((angle + error) / 0.09))
         elif channel == '7':
-            self.PwmServo.setServoPulse(15,500+float((angle+error)/0.09))
+            self.PwmServo.setServoPulse(15, 500 + float((angle + error) / 0.09))
 
     def set_default_position(self):
         try:
             # Setting the initial position for the servo
             servo_0_initial_position = 90
             self.device_position = servo_0_initial_position
-            self.move(0,self.device_position)
+            self.move(0, self.device_position)
             runtime_data['servo_status'][0] = self.device_position
             print("Servo 0 was moved to its initial position")
 
             servo_1_initial_position = 90
             self.device_position = servo_1_initial_position
-            self.move(1,self.device_position)
+            self.move(1, self.device_position)
             runtime_data['servo_status'][1] = self.device_position
             print("Servo 1 was moved to its initial position")
         except Exception as e:
@@ -201,14 +134,14 @@ class Servo:
 
             device_current_position = runtime_data['servo_status'][device_index]
             self.device_position = float((power * network_settings['feagi_burst_speed'] / 0.5) +
-                                              device_current_position)
+                                         device_current_position)
 
             self.device_position = self.keep_boundaries(device_id=device_index,
-                                                             current_position=self.device_position)
+                                                        current_position=self.device_position)
 
-            runtime_params['servo_status'][device_index] = self.device_position
-            #print("device index, position, power = ", device_index, self.device_position, power)
-            #self.servo_node[device_index].publish(self.device_position)
+            runtime_data['servo_status'][device_index] = self.device_position
+            # print("device index, position, power = ", device_index, self.device_position, power)
+            # self.servo_node[device_index].publish(self.device_position)
             self.setServoPwm(str(device_index), self.device_position)
         except Exception:
             exc_info = sys.exc_info()
@@ -242,7 +175,8 @@ class Servo:
         else:
             print("Input has been refused. Please put motor ID.")
 
-    def power_convert(self, motor_id, power):
+    @staticmethod
+    def power_convert(motor_id, power):
         if motor_id == 1:
             return -1 * power
         elif motor_id == 3:
@@ -251,14 +185,11 @@ class Servo:
             return abs(power)
 
 
-
-
 class Motor:
     def __init__(self):
         self.pwm = PCA9685(0x40, debug=True)
         self.pwm.setPWMFreq(50)
         self.motor_channels = [[0, 1], [3, 2], [4, 5], [6, 7]]
-
 
     @staticmethod
     def duty_range(duty1, duty2, duty3, duty4):
@@ -420,7 +351,7 @@ class Ultrasonic:
 
     def send_trigger_pulse(self):
         GPIO.output(self.trigger_pin, True)
-        #time.sleep(0.00015)
+        # time.sleep(0.00015)
         GPIO.output(self.trigger_pin, False)
 
     def wait_for_echo(self, value, timeout):
@@ -450,59 +381,47 @@ class Ultrasonic:
 #         return Power
 
 
-def main(args=None):
+def main():
     GPIO.cleanup()
-    print("Connecting to FEAGI resources...")
 
-    # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_outbound_port']
-
-    feagi_host = configuration.network_settings["feagi_host"]
-    api_port = configuration.network_settings["feagi_api_port"]
-
-    feagi_registration(feagi_host=feagi_host, api_port=api_port)
-
-    print("** **", runtime_data["feagi_state"])
+    # # # FEAGI registration # # #
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+    feagi_host, api_port = FEAGI.feagi_setting_for_registration()
+    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host, api_port=api_port)
+    ipu_channel_address = FEAGI.feagi_inbound(runtime_data["feagi_state"]['feagi_inbound_port_gazebo'])
+    opu_channel_address = FEAGI.feagi_outbound(network_settings['feagi_host'],
+                                               runtime_data["feagi_state"]['feagi_outbound_port'])
+    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address)
+    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
+    api_address = FEAGI.feagi_gui_address(feagi_host, api_port)
+    stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
+    burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
     network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
-    # todo: to obtain this info directly from FEAGI as part of registration
-    ipu_channel_address = 'tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_gazebo']
-    print("IPU_channel_address=", ipu_channel_address)
-    opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + \
-                          runtime_data["feagi_state"]['feagi_outbound_port']
-
-    feagi_ipu_channel = router.Pub(address=ipu_channel_address)
-    feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
-
-    flag = False
-    counter = 0
-    old_opu_data = {}
-    print("Connecting to FEAGI resources...")
-
-    feagi_host = configuration.network_settings["feagi_host"]
-    api_port = configuration.network_settings["feagi_api_port"]
-    api_address = 'http://' + feagi_host + ':' + api_port
-    stimulation_period_endpoint = '/v1/feagi/feagi/burst_engine/stimulation_period'
-    burst_counter_endpoint = '/v1/feagi/feagi/burst_engine/burst_counter'
-
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+    #                            Initializer section
     motor = Motor()
+    servo = Servo()
     ir = IR()
     ultrasonic = Ultrasonic()
     # battery = Battery()
-    servo = Servo()
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
-    rolling_window_len = capabilities['motor']['rolling_window_len']
-    motor_count = capabilities['motor']['count']
+    flag = False
+    rolling_window_len = configuration.capabilities['motor']['rolling_window_len']
+    motor_count = configuration.capabilities['motor']['count']
     msg_counter = 0
-    # LED.test_Led()
+    rpm = (50 * 60) / 2
+    # DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60 is the
+    # seconds of a minute
+    w = (rpm / 60) * (2 * math.pi)  # 60 is second/minute
+    velocity = w * (configuration.capabilities['motor']['diameter_of_wheel'] / 2)
+    # ^ diameter is from config and it just needs radius so I turned the diameter into a radius by divide it with 2
 
     rolling_window = {}
     for motor_id in range(motor_count):
         rolling_window[motor_id] = deque([0] * rolling_window_len)
-
-    RPM = (50 * 60) / 2  # DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60 is the seconds of a minute
-    w = (RPM / 60) * (2 * math.pi)  # 60 is second/minute
-    velocity = w * (capabilities['motor']['diameter_of_wheel'] / 2)
-    #^ diameter is from config and it just needs radius so I turned the diameter into a radius by divide it with 2
 
     try:
         while True:
@@ -535,55 +454,27 @@ def main(args=None):
                 }
             else:
                 formatted_ultrasonic_data = {}
-
-            compose_message_to_feagi(
-                original_message={**formatted_ir_data, **formatted_ultrasonic_data})##Removed battery due to error
+            configuration.message_to_feagi, battery = FEAGI.compose_message_to_feagi(
+                original_message={**formatted_ir_data, **formatted_ultrasonic_data})  # Removed battery due to error
             # Process OPU data received from FEAGI and pass it along
             message_from_feagi = feagi_opu_channel.receive()
-           # print("Received:", opu_data)
             if message_from_feagi is not None:
-                opu_data = message_from_feagi["opu_data"]
-
-                if 'o__mot' in opu_data:
-                    for data_point in opu_data['o__mot']:
-                        data_point = block_to_array(data_point)
-                        device_id = motor.motor_converter(data_point[0])
-                        device_power = data_point[2]
-                        device_power = motor.power_convert(data_point[0], device_power)
-                        # RPM = (50 * 60) / 2 # DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60 is the seconds of a minute
-                        # w = (RPM / 60) * (2 * math.pi)  #60 is second/minute
-                        # velocity = w * (capabilities['motor']['diameter_of_wheel']/2) # diameter is from config and it just needs radius so I turned the diameter into a radius by divide it with 2
+                opu_data = FEAGI.opu_processor(message_from_feagi)
+                if 'motor' in opu_data:
+                    for data_point in opu_data['motor']:
+                        device_id = motor.motor_converter(data_point)
+                        device_power = opu_data['motor'][data_point]
+                        device_power = motor.power_convert(data_point, device_power)
                         motor.move(device_id, (device_power * 455))
-                        # flag = True
-                    # if opu_data['o__mot']  == {}:
-                    #     motor.stop()  # When it's empty inside opu_data['o__mot']
-                #for data_point in opu_data['o__mot'].keys():
-                    #print("",data_point)
-                    #if not data_point in old_opu_data:
-                        #print("key is missing: ", data_point)
-                        #print("datapoint: ",data_point[data_point])
-                        #print(opu_data['o__mot'])
-                        #print(type(opu_data['o__mot']))
-                        #print(type(data_point))
-                        #print(data_point[0])
-                        #print(data_point[2])
-                        # device_id = motor.motor_converter(int(data_point[0]))
-                        # device_power = data_point[2]
-                        # device_power = motor.power_convert(data_point[0], device_power)
-                        # motor.move(device_id, 0)
-                #old_opu_data['o__mot'] = opu_data['o__mot'].copy()
-                if 'o__ser' in opu_data:
-                    for data_point in opu_data['o__ser']:
-                        data_point = block_to_array(data_point)
-                        device_id = data_point[0]
-                        device_power = data_point[2]
-                        # device_id = servo.servo_id_converter(device_id)
-                        # device_power = servo.power_convert(data_point[0], device_power)
+                if 'servo' in opu_data:
+                    for data_point in opu_data['servo']:
+                        device_id = data_point
+                        device_power = opu_data['servo'][data_point]
                         servo.move(feagi_device_id=device_id, power=device_power)
-            message_to_feagi['timestamp'] = datetime.now()
-            message_to_feagi['counter'] = msg_counter
-            feagi_ipu_channel.send(message_to_feagi)
-            message_to_feagi.clear()
+            configuration.message_to_feagi['timestamp'] = datetime.now()
+            configuration.message_to_feagi['counter'] = msg_counter
+            feagi_ipu_channel.send(configuration.message_to_feagi)
+            configuration.message_to_feagi.clear()
             msg_counter += 1
             flag += 1
             if flag == 10:
@@ -591,20 +482,13 @@ def main(args=None):
                 feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
                 flag = 0
                 if msg_counter < feagi_burst_counter:
-                    feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
+                    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
                     if feagi_burst_speed != network_settings['feagi_burst_speed']:
                         network_settings['feagi_burst_speed'] = feagi_burst_speed
-            time.sleep((network_settings['feagi_burst_speed'])/velocity)
+            time.sleep((network_settings['feagi_burst_speed']) / velocity)
             motor.stop()
-            # if flag:
-            #     if counter < 3:
-            #         counter += msg_counter
-            #     else:
-            #         motor.stop()
-            #         counter = 0
 
-            # LED.leds_off()
-    except KeyboardInterrupt as ke: ##Keyboard error
+    except KeyboardInterrupt as ke:  # Keyboard error
         motor.stop()
         print(ke)
 

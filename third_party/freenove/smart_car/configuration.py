@@ -14,9 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================
 """
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 
-app_name = 'gazebo' #We will need to change this to robot
+app_name = 'gazebo'  # We will need to change this to robot
 
 network_settings = {
     "feagi_host": "feagi",
