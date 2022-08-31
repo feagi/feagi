@@ -399,27 +399,29 @@ def main():
     network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
-    flag = False
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+    #                            Initializer section
     motor = Motor()
     servo = Servo()
     ir = IR()
     ultrasonic = Ultrasonic()
     # battery = Battery()
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+
+    flag = False
     rolling_window_len = configuration.capabilities['motor']['rolling_window_len']
     motor_count = configuration.capabilities['motor']['count']
     msg_counter = 0
-    # LED.test_Led()
-
-    rolling_window = {}
-    for motor_id in range(motor_count):
-        rolling_window[motor_id] = deque([0] * rolling_window_len)
-
     rpm = (50 * 60) / 2
     # DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60 is the
     # seconds of a minute
     w = (rpm / 60) * (2 * math.pi)  # 60 is second/minute
     velocity = w * (configuration.capabilities['motor']['diameter_of_wheel'] / 2)
     # ^ diameter is from config and it just needs radius so I turned the diameter into a radius by divide it with 2
+
+    rolling_window = {}
+    for motor_id in range(motor_count):
+        rolling_window[motor_id] = deque([0] * rolling_window_len)
 
     try:
         while True:
@@ -457,23 +459,20 @@ def main():
             # Process OPU data received from FEAGI and pass it along
             message_from_feagi = feagi_opu_channel.receive()
             if message_from_feagi is not None:
-                opu_data = message_from_feagi["opu_data"]
-                if 'o__mot' in opu_data:
-                    for data_point in opu_data['o__mot']:
-                        data_point = FEAGI.block_to_array(data_point)
-                        device_id = motor.motor_converter(data_point[0])
-                        device_power = data_point[2]
-                        device_power = motor.power_convert(data_point[0], device_power)
-                        # rpm = (50 * 60) / 2 # DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60
-                        # is the seconds of a minute w = (rpm / 60) * (2 * math.pi)  #60 is second/minute velocity =
-                        # w * (capabilities['motor']['diameter_of_wheel']/2) # diameter is from config and it just
-                        # needs radius so I turned the diameter into a radius by divide it with 2
+                opu_data = FEAGI.opu_processor(message_from_feagi)
+                if 'motor' in opu_data:
+                    for data_point in opu_data['motor']:
+                        device_id = motor.motor_converter(data_point)
+                        print("DEVICE ID: ", device_id)
+                        device_power = opu_data['motor'][data_point]
+                        print("BEFORE DEVICE POWER: ", device_power)
+                        device_power = motor.power_convert(data_point, device_power)
+                        print("AFTER DEVICE POWER: ", device_power)
                         motor.move(device_id, (device_power * 455))
-                if 'o__ser' in opu_data:
-                    for data_point in opu_data['o__ser']:
-                        data_point = FEAGI.block_to_array(data_point)
-                        device_id = data_point[0]
-                        device_power = data_point[2]
+                if 'servo' in opu_data:
+                    for data_point in opu_data['servo']:
+                        device_id = data_point
+                        device_power = opu_data['servo'][data_point]
                         servo.move(feagi_device_id=device_id, power=device_power)
             configuration.message_to_feagi['timestamp'] = datetime.now()
             configuration.message_to_feagi['counter'] = msg_counter
@@ -491,14 +490,7 @@ def main():
                         network_settings['feagi_burst_speed'] = feagi_burst_speed
             time.sleep((network_settings['feagi_burst_speed']) / velocity)
             motor.stop()
-            # if flag:
-            #     if counter < 3:
-            #         counter += msg_counter
-            #     else:
-            #         motor.stop()
-            #         counter = 0
 
-            # LED.leds_off()
     except KeyboardInterrupt as ke:  # Keyboard error
         motor.stop()
         print(ke)
