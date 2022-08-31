@@ -1,32 +1,15 @@
-#!/usr/bin/env python3
-
-"""
-Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-==============================================================================
-"""
-
-import sys
-import router
+import requests
+import feagi_interface as FEAGI
+import configuration
 import RPi.GPIO as GPIO
 import traceback
-import configuration
-from configuration import *
-from configuration import message_to_feagi
+import math
+import sys
 from Led import *
 from PCA9685 import PCA9685
-from router import *
+from datetime import datetime
+from configuration import *
+from collections import deque
 
 runtime_data = {
     "current_burst_id": 0,
@@ -38,95 +21,9 @@ runtime_data = {
     'servo_status': {}
 }
 
-if sys.platform == 'win32':
-    import msvcrt
-else:
-    import termios
-    import tty
-
-
-def block_to_array(block_ref):
-    block_id_str = block_ref.split('-')
-    array = [int(x) for x in block_id_str]
-    return array
-
-
-def compose_message_to_feagi(original_message):
-    """
-    accumulates multiple messages in a data structure that can be sent to feagi
-    """
-    if "data" not in message_to_feagi:
-        message_to_feagi["data"] = dict()
-    if "sensory_data" not in message_to_feagi["data"]:
-        message_to_feagi["data"]["sensory_data"] = dict()
-    for sensor in original_message:
-        if sensor not in message_to_feagi["data"]["sensory_data"]:
-            message_to_feagi["data"]["sensory_data"][sensor] = dict()
-        for sensor_data in original_message[sensor]:
-            if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
-                message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][sensor_data]
-    # message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_params["battery_charge_level"] / 100}
-
-
-def feagi_registration(feagi_host, api_port):
-    app_host_info = router.app_host_info()
-    runtime_data["host_network"]["host_name"] = app_host_info["host_name"]
-    runtime_data["host_network"]["ip_address"] = app_host_info["ip_address"]
-
-    while runtime_data["feagi_state"] is None:
-        print("Awaiting registration with FEAGI...")
-        try:
-            runtime_data["feagi_state"] = router.register_with_feagi(app_name=configuration.app_name,
-                                                                     feagi_host=feagi_host,
-                                                                     api_port=api_port,
-                                                                     app_capabilities=configuration.capabilities,
-                                                                     app_host_info=runtime_data["host_network"]
-                                                                     )
-        except Exception:
-            pass
-        sleep(1)
-
 
 def window_average(sequence):
     return abs(sum(sequence) // len(sequence))
-
-
-def start_feagi():
-    print("Connecting to FEAGI resources...")
-
-    feagi_host = network_settings["feagi_host"]
-    api_port = network_settings["feagi_api_port"]
-
-    feagi_registration(feagi_host=feagi_host, api_port=api_port)
-
-    print("** **", runtime_data["feagi_state"])
-    network_settings['feagi_burst_speed'] = float(
-        runtime_data["feagi_state"]['burst_duration'])
-
-    # todo: to obtain this info directly from FEAGI as part of registration
-    ipu_channel_address = 'tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_gazebo']
-    print("IPU_channel_address=", ipu_channel_address)
-    opu_channel_address = 'tcp://' + configuration.network_settings['feagi_host'] + ':' + \
-                          runtime_data["feagi_state"]['feagi_outbound_port']
-
-    feagi_ipu_channel = router.Pub(address=ipu_channel_address)
-    feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
-    return feagi_ipu_channel, feagi_opu_channel
-
-
-def start_feagi_api():
-    print("Connecting to FEAGI resources...")
-
-    feagi_host = network_settings["feagi_host"]
-    api_port = network_settings["feagi_api_port"]
-    api_address = 'http://' + feagi_host + ':' + api_port
-    return api_address
-
-
-def feagi_pub_refresh():
-    opu_channel_address = 'tcp://' + configuration.network_settings['feagi_host'] + ':' + \
-                          runtime_data["feagi_state"]['feagi_outbound_port']
-    return router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)
 
 
 class LED:
@@ -475,9 +372,160 @@ class Ultrasonic:
         distance_cm = sorted(distance_cm)
         return int(distance_cm[1])
 
+
 # class Battery:
 #     def battery_total(self):
 #         adc = Adc()
 #         Power = adc.recvADC(2) * 3
 #         # print(Power)
 #         return Power
+
+
+def main():
+    GPIO.cleanup()
+    # # # FEAGI registration # # #
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+    feagi_host, api_port = FEAGI.feagi_setting_for_registration()
+    ipu_channel_address = FEAGI.feagi_inbound(runtime_data["feagi_state"]['feagi_inbound_port_gazebo'])
+    opu_channel_address = FEAGI.feagi_outbound(network_settings['feagi_host'],
+                                               runtime_data["feagi_state"]['feagi_outbound_port'])
+    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address)
+    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
+    api_address = FEAGI.feagi_gui_address(feagi_host, api_port)
+    stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
+    burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+
+
+    flag = False
+
+    motor = Motor()
+    ir = IR()
+    ultrasonic = Ultrasonic()
+    # battery = Battery()
+    servo = Servo()
+
+    rolling_window_len = configuration.capabilities['motor']['rolling_window_len']
+    motor_count = configuration.capabilities['motor']['count']
+    msg_counter = 0
+    # LED.test_Led()
+
+    rolling_window = {}
+    for motor_id in range(motor_count):
+        rolling_window[motor_id] = deque([0] * rolling_window_len)
+
+    rpm = (50 * 60) / 2
+    # DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60 is the
+    # seconds of a minute
+    w = (rpm / 60) * (2 * math.pi)  # 60 is second/minute
+    velocity = w * (configuration.capabilities['motor']['diameter_of_wheel'] / 2)
+    # ^ diameter is from config and it just needs radius so I turned the diameter into a radius by divide it with 2
+
+    try:
+        while True:
+            # transmit data to FEAGI IPU
+            ir_data = ir.read()
+            if ir_data:
+                formatted_ir_data = {'ir': {sensor: True for sensor in ir_data}}
+            else:
+                formatted_ir_data = {}
+
+            if ir_data:
+                for ir_sensor in range(int(configuration.capabilities['infrared']['count'])):
+                    if ir_sensor not in formatted_ir_data['ir']:
+                        formatted_ir_data['ir'][ir_sensor] = False
+            else:
+                formatted_ir_data['ir'] = {}
+                for ir_sensor in range(int(configuration.capabilities['infrared']['count'])):
+                    formatted_ir_data['ir'][ir_sensor] = False
+
+            for ir_sensor in range(int(configuration.capabilities['infrared']['count'])):
+                if ir_sensor not in formatted_ir_data['ir']:
+                    formatted_ir_data['ir'][ir_sensor] = False
+
+            ultrasonic_data = ultrasonic.get_distance()
+            if ultrasonic_data:
+                formatted_ultrasonic_data = {
+                    'ultrasonic': {
+                        sensor: data for sensor, data in enumerate([ultrasonic_data])
+                    }
+                }
+            else:
+                formatted_ultrasonic_data = {}
+
+            FEAGI.compose_message_to_feagi(
+                original_message={**formatted_ir_data, **formatted_ultrasonic_data})  # Removed battery due to error
+            # Process OPU data received from FEAGI and pass it along
+            message_from_feagi = feagi_opu_channel.receive()
+            # print("Received:", opu_data)
+            if message_from_feagi is not None:
+                opu_data = message_from_feagi["opu_data"]
+
+                if 'o__mot' in opu_data:
+                    for data_point in opu_data['o__mot']:
+                        data_point = FEAGI.block_to_array(data_point)
+                        device_id = motor.motor_converter(data_point[0])
+                        device_power = data_point[2]
+                        device_power = motor.power_convert(data_point[0], device_power)
+                        # rpm = (50 * 60) / 2 # DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60
+                        # is the seconds of a minute w = (rpm / 60) * (2 * math.pi)  #60 is second/minute velocity =
+                        # w * (capabilities['motor']['diameter_of_wheel']/2) # diameter is from config and it just
+                        # needs radius so I turned the diameter into a radius by divide it with 2
+                        motor.move(device_id, (device_power * 455))
+                        # flag = True
+                    # if opu_data['o__mot']  == {}:
+                    #     motor.stop()  # When it's empty inside opu_data['o__mot']
+                # for data_point in opu_data['o__mot'].keys():
+                # print("",data_point)
+                # if not data_point in old_opu_data:
+                # print("key is missing: ", data_point)
+                # print("datapoint: ",data_point[data_point])
+                # print(opu_data['o__mot'])
+                # print(type(opu_data['o__mot']))
+                # print(type(data_point))
+                # print(data_point[0])
+                # print(data_point[2])
+                # device_id = motor.motor_converter(int(data_point[0]))
+                # device_power = data_point[2]
+                # device_power = motor.power_convert(data_point[0], device_power)
+                # motor.move(device_id, 0)
+                # old_opu_data['o__mot'] = opu_data['o__mot'].copy()
+                if 'o__ser' in opu_data:
+                    for data_point in opu_data['o__ser']:
+                        data_point = FEAGI.block_to_array(data_point)
+                        device_id = data_point[0]
+                        device_power = data_point[2]
+                        # device_id = servo.servo_id_converter(device_id)
+                        # device_power = servo.power_convert(data_point[0], device_power)
+                        servo.move(feagi_device_id=device_id, power=device_power)
+            configuration.message_to_feagi['timestamp'] = datetime.now()
+            configuration.message_to_feagi['counter'] = msg_counter
+            feagi_ipu_channel.send(configuration.message_to_feagi)
+            configuration.message_to_feagi.clear()
+            msg_counter += 1
+            flag += 1
+            if flag == 10:
+                feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
+                feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
+                flag = 0
+                if msg_counter < feagi_burst_counter:
+                    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
+                    if feagi_burst_speed != configuration.network_settings['feagi_burst_speed']:
+                        configuration.network_settings['feagi_burst_speed'] = feagi_burst_speed
+            time.sleep((configuration.network_settings['feagi_burst_speed']) / velocity)
+            motor.stop()
+            # if flag:
+            #     if counter < 3:
+            #         counter += msg_counter
+            #     else:
+            #         motor.stop()
+            #         counter = 0
+
+            # LED.leds_off()
+    except KeyboardInterrupt as ke:  # Keyboard error
+        motor.stop()
+        print(ke)
+
+
+if __name__ == '__main__':
+    main()
