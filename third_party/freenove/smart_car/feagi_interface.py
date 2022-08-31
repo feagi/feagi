@@ -112,10 +112,12 @@ def msg_processor(self, msg, msg_type):
             }
 
 
-def compose_message_to_feagi(original_message, data, battery):
+def compose_message_to_feagi(original_message, data=None, battery=None):
     """
     accumulates multiple messages in a data structure that can be sent to feagi
     """
+    if data is None:
+        data = {}
     runtime_data = dict()
     runtime_data["battery_charge_level"] = battery
     message_to_feagi = data
