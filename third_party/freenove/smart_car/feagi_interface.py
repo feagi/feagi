@@ -112,7 +112,7 @@ def msg_processor(self, msg, msg_type):
             }
 
 
-def compose_message_to_feagi(original_message, data=None, battery=None):
+def compose_message_to_feagi(original_message, data=None, battery=0):
     """
     accumulates multiple messages in a data structure that can be sent to feagi
     """
