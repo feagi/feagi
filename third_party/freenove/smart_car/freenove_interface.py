@@ -463,11 +463,8 @@ def main():
                 if 'motor' in opu_data:
                     for data_point in opu_data['motor']:
                         device_id = motor.motor_converter(data_point)
-                        print("DEVICE ID: ", device_id)
                         device_power = opu_data['motor'][data_point]
-                        print("BEFORE DEVICE POWER: ", device_power)
                         device_power = motor.power_convert(data_point, device_power)
-                        print("AFTER DEVICE POWER: ", device_power)
                         motor.move(device_id, (device_power * 455))
                 if 'servo' in opu_data:
                     for data_point in opu_data['servo']:
