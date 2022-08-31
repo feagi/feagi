@@ -396,6 +396,7 @@ def main():
     api_address = FEAGI.feagi_gui_address(feagi_host, api_port)
     stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
     burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
+    network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
     flag = False
@@ -509,9 +510,9 @@ def main():
                 flag = 0
                 if msg_counter < feagi_burst_counter:
                     feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-                    if feagi_burst_speed != configuration.network_settings['feagi_burst_speed']:
-                        configuration.network_settings['feagi_burst_speed'] = feagi_burst_speed
-            time.sleep((configuration.network_settings['feagi_burst_speed']) / velocity)
+                    if feagi_burst_speed != network_settings['feagi_burst_speed']:
+                        network_settings['feagi_burst_speed'] = feagi_burst_speed
+            time.sleep((network_settings['feagi_burst_speed']) / velocity)
             motor.stop()
             # if flag:
             #     if counter < 3:
