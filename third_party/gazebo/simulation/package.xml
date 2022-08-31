@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>feagi_robot</name>
+  <name>simulation</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
   <maintainer email="kevin.a.araujo@gmail.com">bwuk</maintainer>
@@ -31,6 +31,7 @@
   <exec_depend>configuration</exec_depend>
   <exec_depend>sys</exec_depend>
   <exec_depend>random</exec_depend>
+  <exec_depend>feagi_interface</exec_depend>
   <exec_depend>router</exec_depend>
 
   
