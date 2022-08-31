@@ -452,15 +452,12 @@ def main():
                 }
             else:
                 formatted_ultrasonic_data = {}
-
-            FEAGI.compose_message_to_feagi(
+            configuration.message_to_feagi, battery = FEAGI.compose_message_to_feagi(
                 original_message={**formatted_ir_data, **formatted_ultrasonic_data})  # Removed battery due to error
             # Process OPU data received from FEAGI and pass it along
             message_from_feagi = feagi_opu_channel.receive()
-            # print("Received:", opu_data)
             if message_from_feagi is not None:
                 opu_data = message_from_feagi["opu_data"]
-
                 if 'o__mot' in opu_data:
                     for data_point in opu_data['o__mot']:
                         data_point = FEAGI.block_to_array(data_point)
@@ -472,31 +469,11 @@ def main():
                         # w * (capabilities['motor']['diameter_of_wheel']/2) # diameter is from config and it just
                         # needs radius so I turned the diameter into a radius by divide it with 2
                         motor.move(device_id, (device_power * 455))
-                        # flag = True
-                    # if opu_data['o__mot']  == {}:
-                    #     motor.stop()  # When it's empty inside opu_data['o__mot']
-                # for data_point in opu_data['o__mot'].keys():
-                # print("",data_point)
-                # if not data_point in old_opu_data:
-                # print("key is missing: ", data_point)
-                # print("datapoint: ",data_point[data_point])
-                # print(opu_data['o__mot'])
-                # print(type(opu_data['o__mot']))
-                # print(type(data_point))
-                # print(data_point[0])
-                # print(data_point[2])
-                # device_id = motor.motor_converter(int(data_point[0]))
-                # device_power = data_point[2]
-                # device_power = motor.power_convert(data_point[0], device_power)
-                # motor.move(device_id, 0)
-                # old_opu_data['o__mot'] = opu_data['o__mot'].copy()
                 if 'o__ser' in opu_data:
                     for data_point in opu_data['o__ser']:
                         data_point = FEAGI.block_to_array(data_point)
                         device_id = data_point[0]
                         device_power = data_point[2]
-                        # device_id = servo.servo_id_converter(device_id)
-                        # device_power = servo.power_convert(data_point[0], device_power)
                         servo.move(feagi_device_id=device_id, power=device_power)
             configuration.message_to_feagi['timestamp'] = datetime.now()
             configuration.message_to_feagi['counter'] = msg_counter
