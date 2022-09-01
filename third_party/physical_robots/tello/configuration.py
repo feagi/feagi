@@ -53,6 +53,14 @@ capabilities = {
         "capacity": 100,
         "depletion_per_burst": 0.01,
         "charge_increment": 0.1
+    },
+    "gyro": {
+        "resolution": 20,
+        "range": 360  # -180 to 180 degree
+    },
+    "acc": {
+        "resolution": 20,
+        "range": 2400  # -180 to 180 degree
     }
 }
 
