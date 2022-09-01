@@ -23,7 +23,7 @@ def get_ultrasonic(full_data):
     This will return the battery using the raw full data
     """
     new_data = dict()
-    new_data['ultrasonic'] = full_data['tof']
+    new_data['ultrasonic'] = full_data['tof'] * 0.01  # convert to meter unit
     if new_data:
         formatted_ultrasonic_data = {
             'ultrasonic': {
@@ -44,9 +44,12 @@ def get_gyro(full_data):
     new_data = dict()
     new_data['gyro'] = dict()
     try:
-        new_data['gyro']['0'] = full_data['pitch']
-        new_data['gyro']['1'] = full_data['roll']
-        new_data['gyro']['2'] = full_data['yaw']
+        new_data['gyro']['0'] = crunch_data(full_data['pitch'], capabilities['gyro']['resolution'],
+                                            capabilities['acc']['range'])
+        new_data['gyro']['1'] = crunch_data(full_data['roll'], capabilities['gyro']['resolution'],
+                                            capabilities['acc']['range'])
+        new_data['gyro']['2'] = crunch_data(full_data['yaw'], capabilities['gyro']['resolution'],
+                                            capabilities['acc']['range'])
         return new_data
     except Exception as e:
         print("ERROR STARTS WITH: ", e)
@@ -60,12 +63,30 @@ def get_accelerator(full_data):
     new_data = dict()
     new_data['accelerator'] = dict()
     try:
-        new_data['accelerator']['0'] = full_data['agx']
-        new_data['accelerator']['1'] = full_data['agx']
-        new_data['accelerator']['2'] = full_data['agx']
+        new_data['accelerator']['0'] = crunch_data(full_data['agx'], capabilities['acc']['resolution'],
+                                                   capabilities['acc']['range'])
+        new_data['accelerator']['1'] = crunch_data(full_data['agy'], capabilities['acc']['resolution'],
+                                                   capabilities['acc']['range'])
+        new_data['accelerator']['2'] = crunch_data(full_data['agz'], capabilities['acc']['resolution'],
+                                                   capabilities['acc']['range'])
         return new_data
     except Exception as e:
         print("ERROR STARTS WITH: ", e)
+
+
+def crunch_data(number, total, limit):
+    """
+    This crunch will reduce the large number into smaller piece for this program to send FEAGI effectively.
+    """
+    total = total * limit
+    new_data = number / limit
+    new_data = new_data * total
+    if new_data > (total * 10):
+        return total  # Max value
+    elif new_data < (total * -10):
+        return -1 * total  # Min value
+    else:
+        return new_data  # return the current data
 
 
 def main():
