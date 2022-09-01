@@ -271,12 +271,9 @@ def gyro_translator(gyroscope_data):
     cortical_area = 'i__gyr'
     if cortical_area_in_genome(cortical_area):
         if gyroscope_data is not None:
-            x = gyroscope_data['0']
+            r = gyroscope_data['0']
             y = gyroscope_data['1']
-            z = gyroscope_data['2']
-            r = gyroscope_data['3']
-            y = gyroscope_data['4']
-            p = gyroscope_data['5']
+            p = gyroscope_data['2']
             holder_position = 0
             for i in r, y, p:
                 detections = stimuli_processor.gyro_to_coords(i, holder_position)
