@@ -1,10 +1,13 @@
 import time
 import requests
+import numpy as np
 import configuration
 import feagi_interface as FEAGI
 from configuration import *
 from datetime import datetime
 from djitellopy import Tello
+
+previous_frame_data = dict()
 
 
 def get_battery(full_data):
@@ -74,10 +77,45 @@ def get_accelerator(full_data):
         print("ERROR STARTS WITH: ", e)
 
 
+def return_resolution(data):
+    frame_read = data
+    height, width, _ = frame_read.frame.shape
+    return height, width
+
+
+def ndarray_to_list(array):
+    new_list = array.tolist()
+    return new_list
+
+
+def list_to_dict(full_list):
+    test = dict()
+    test['vision'] = dict()
+    for x in range(len(full_list)):
+        for i in full_list[x]:
+            test['vision'][x] = i
+    return test['vision']
+
+
+def full_frame(self):
+    frame_read = self.get_frame_read()
+    return frame_read.frame
+
+
+def get_rgb(frame):
+    vision_dict = dict()
+    frame_row_count = configuration.capabilities['camera']['width']
+    frame_col_count = configuration.capabilities['camera']['height']
+
+    return vision_dict
+
+
+def start_camera(self):
+    self.streamon()
+
+
 def convert_gyro_into_feagi(value, resolution, range_number):
-    print("raw data: ", value)
     new_value = value - (range_number[0])
-    print("after convert: ", (new_value * resolution) / (range_number[1] - range_number[0]))
     return (new_value * resolution) / (range_number[1] - range_number[0])
 
 
@@ -86,20 +124,13 @@ def offset_z(value, resolution, range_number):
     Gravity is 9.8 m/s^2 however when the drone is on the table, it should be at zero. This offset will keep it to zero
     if the value is between than 2 and -2, it will be zero.
     """
-    print("raw data: ", value)
     new_value = value - (range_number[0])
     new_value = (new_value * resolution) / (range_number[1] - range_number[0])
     if new_value > 2:
-        print("first")
-        print("convert data: ", new_value)
         return new_value
     elif new_value < -2:
-        print("second")
-        print("convert data: ", new_value)
         return new_value
     else:
-        print("third")
-        print("convert data: ", 0)
         return 0
 
 
@@ -133,6 +164,7 @@ def main():
     print("Connecting with Tello drone...")
     tello.connect()
     print("Connected with Tello drone.")
+    start_camera(tello)
 
     while True:
         try:
@@ -143,6 +175,15 @@ def main():
             sonar = get_ultrasonic(data)
             bat = get_battery(data)
             battery = bat['battery_charge_level']
+            data = full_frame(tello)
+            data = ndarray_to_list(data)
+            data = list_to_dict(data)
+            rgb = {"vision": data}
+
+            # print(ndarray_to_list(data))
+            # rgb = get_rgb(data)
+            # print(np.shape(rgb))
+            # print("---------------------------------------------", np.shape(data))
             configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=gyro,
                                                                                  data=configuration.message_to_feagi,
                                                                                  battery=battery)
@@ -152,10 +193,13 @@ def main():
             configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=sonar,
                                                                                  data=configuration.message_to_feagi,
                                                                                  battery=battery)
-            # Getting full data from FEAGI
+            configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=rgb,
+                                                                                 data=configuration.message_to_feagi,
+                                                                                 battery=battery)
             message_from_feagi = feagi_opu_channel.receive()
             if message_from_feagi is not None:
                 print(message_from_feagi)
+                # pass
 
             # Preparing to send data to FEAGI
             configuration.message_to_feagi['timestamp'] = datetime.now()
