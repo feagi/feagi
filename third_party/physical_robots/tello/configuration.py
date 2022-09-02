@@ -56,11 +56,11 @@ capabilities = {
     },
     "gyro": {
         "resolution": 20,
-        "range": 360  # -180 to 180 degree
+        "range": [-180, 180]  # -180 to 180 degree
     },
     "acc": {
         "resolution": 20,
-        "range": 2400  # -180 to 180 degree
+        "range": [-1200, 1200]
     }
 }
 
