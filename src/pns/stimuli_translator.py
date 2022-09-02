@@ -277,7 +277,7 @@ def gyro_translator(gyroscope_data):
             holder_position = 0
             for i in r, y, p:
                 detections = stimuli_processor.gyro_to_coords(i, holder_position)
-                holder_position+=1
+                holder_position += 1
                 neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
                 # TODO: Add proximity feeder function in fcl_injector
                 if 'i__gyr' not in runtime_data.fire_candidate_list:
@@ -287,6 +287,7 @@ def gyro_translator(gyroscope_data):
                 # runtime_data.fcl_queue.put({cortical_area: set(neurons)})
     else:
         print("Warning! Cortical stimulation received but genome missing", cortical_area)
+
 
 def accelerator_translator(accelerator_data):
     """
@@ -303,7 +304,7 @@ def accelerator_translator(accelerator_data):
             holder_position = 0
             for i in x, y, z:
                 detections = stimuli_processor.accelerator_to_coords(i, holder_position)
-                holder_position+=1
+                holder_position += 1
                 neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
                 if 'i__acc' not in runtime_data.fire_candidate_list:
                     runtime_data.fire_candidate_list['i__acc'] = set()
@@ -312,6 +313,7 @@ def accelerator_translator(accelerator_data):
                 # runtime_data.fcl_queue.put({cortical_area: set(neurons)})
     else:
         print("Warning! Cortical stimulation received but genome missing", cortical_area)
+
 
 def vision_translator(vision_data):
     """
@@ -326,7 +328,7 @@ def vision_translator(vision_data):
             for x in vision_data:
                 for i in vision_data:
                     detections = stimuli_processor.vision_to_coords(i)
-                    holder_position+=1
+                    holder_position += 1
                     neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
                     if 'i__vis' not in runtime_data.fire_candidate_list:
                         runtime_data.fire_candidate_list['i__vis'] = set()
