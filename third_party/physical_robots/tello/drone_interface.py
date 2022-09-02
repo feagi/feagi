@@ -44,12 +44,12 @@ def get_gyro(full_data):
     new_data = dict()
     new_data['gyro'] = dict()
     try:
-        new_data['gyro']['0'] = crunch_data(full_data['pitch'], capabilities['gyro']['resolution'],
-                                            capabilities['acc']['range'])
-        new_data['gyro']['1'] = crunch_data(full_data['roll'], capabilities['gyro']['resolution'],
-                                            capabilities['acc']['range'])
-        new_data['gyro']['2'] = crunch_data(full_data['yaw'], capabilities['gyro']['resolution'],
-                                            capabilities['acc']['range'])
+        new_data['gyro']['0'] = convert_gyro_into_feagi(full_data['pitch'], capabilities['gyro']['resolution'],
+                                                        capabilities['acc']['range'])
+        new_data['gyro']['1'] = convert_gyro_into_feagi(full_data['roll'], capabilities['gyro']['resolution'],
+                                                        capabilities['acc']['range'])
+        new_data['gyro']['2'] = convert_gyro_into_feagi(full_data['yaw'], capabilities['gyro']['resolution'],
+                                                        capabilities['acc']['range'])
         return new_data
     except Exception as e:
         print("ERROR STARTS WITH: ", e)
@@ -63,30 +63,44 @@ def get_accelerator(full_data):
     new_data = dict()
     new_data['accelerator'] = dict()
     try:
-        new_data['accelerator']['0'] = crunch_data(full_data['agx'], capabilities['acc']['resolution'],
-                                                   capabilities['acc']['range'])
-        new_data['accelerator']['1'] = crunch_data(full_data['agy'], capabilities['acc']['resolution'],
-                                                   capabilities['acc']['range'])
-        new_data['accelerator']['2'] = crunch_data(full_data['agz'], capabilities['acc']['resolution'],
-                                                   capabilities['acc']['range'])
+        new_data['accelerator']['0'] = convert_gyro_into_feagi(full_data['agx'], capabilities['acc']['resolution'],
+                                                               capabilities['acc']['range'])
+        new_data['accelerator']['1'] = convert_gyro_into_feagi(full_data['agy'], capabilities['acc']['resolution'],
+                                                               capabilities['acc']['range'])
+        new_data['accelerator']['2'] = offset_z(full_data['agz'], capabilities['acc']['resolution'],
+                                                capabilities['acc']['range'])
         return new_data
     except Exception as e:
         print("ERROR STARTS WITH: ", e)
 
 
-def crunch_data(number, total, limit):
+def convert_gyro_into_feagi(value, resolution, range_number):
+    print("raw data: ", value)
+    new_value = value - (range_number[0])
+    print("after convert: ", (new_value * resolution) / (range_number[1] - range_number[0]))
+    return (new_value * resolution) / (range_number[1] - range_number[0])
+
+
+def offset_z(value, resolution, range_number):
+    """"
+    Gravity is 9.8 m/s^2 however when the drone is on the table, it should be at zero. This offset will keep it to zero
+    if the value is between than 2 and -2, it will be zero.
     """
-    This crunch will reduce the large number into smaller piece for this program to send FEAGI effectively.
-    """
-    total = total * limit
-    new_data = number / limit
-    new_data = new_data * total
-    if new_data > (total * 10):
-        return total  # Max value
-    elif new_data < (total * -10):
-        return -1 * total  # Min value
+    print("raw data: ", value)
+    new_value = value - (range_number[0])
+    new_value = (new_value * resolution) / (range_number[1] - range_number[0])
+    if new_value > 2:
+        print("first")
+        print("convert data: ", new_value)
+        return new_value
+    elif new_value < -2:
+        print("second")
+        print("convert data: ", new_value)
+        return new_value
     else:
-        return new_data  # return the current data
+        print("third")
+        print("convert data: ", 0)
+        return 0
 
 
 def main():
