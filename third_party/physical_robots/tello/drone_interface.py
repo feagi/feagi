@@ -88,6 +88,35 @@ def return_resolution(data):
     return height, width
 
 
+def control_drone(self, direction, cm_distance):
+    """
+    self: instantiation
+    direction: direction of forward, backward, left or right
+    cm_distance: the default measurement distance from the current position to the goal
+    """
+    cm_distance = cm_distance * configuration.capabilities['motor']['power_coefficient']
+    try:
+        if direction == "l":
+            self.move_left(cm_distance)
+        elif direction == "r":
+            self.move_right(cm_distance)
+        elif direction == "f":
+            self.move_forward(cm_distance)
+        elif direction == "b":
+            self.move_back(cm_distance)
+    except Exception as e:
+        print("TROUBLESHOOTING SECTION")
+        print("cm distance: ", cm_distance)
+        print("direction: ", direction)
+        print("ERROR at: ", e)
+
+def misc_control(self, data):
+    if data == 0:
+        self.takeoff()
+    if data == 1:
+        self.land()
+
+
 def ndarray_to_list(array):
     array = array.flatten()
     new_list = (array.tolist())
@@ -106,6 +135,27 @@ def list_to_dict(full_list):
 def full_frame(self):
     frame_read = self.get_frame_read()
     return frame_read.frame
+
+
+def convert_feagi_to_english(feagi):
+    """
+    convert feagi's data into human readable data
+    """
+    new_dict = dict()
+    if feagi != {}:
+        try:
+            for i in feagi:
+                if i == 0:
+                    new_dict['f'] = feagi[i]
+                if i == 1:
+                    new_dict['b'] = feagi[i]
+                if i == 2:
+                    new_dict['r'] = feagi[i]
+                if i == 3:
+                    new_dict['l'] = feagi[i]
+        except Exception as e:
+            print("ERROR: ", e)
+    return new_dict
 
 
 def get_rgb(frame):
@@ -148,6 +198,9 @@ def get_rgb(frame):
 
 
 def start_camera(self):
+    """
+    self as instantiation only
+    """
     self.streamon()
 
 
@@ -198,39 +251,25 @@ def main():
     #                            Initializer section
     tello = Tello()
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+
     print("Connecting with Tello drone...")
     tello.connect()
     print("Connected with Tello drone.")
-    start_camera(tello)
+    # start_camera(tello)
 
     while True:
         try:
             # Gather all data from the robot to prepare for FEAGI
+
             data = tello.get_current_state()
             gyro = get_gyro(data)
             acc = get_accelerator(data)
             sonar = get_ultrasonic(data)
             bat = get_battery(data)
             battery = bat['battery_charge_level']
-            data = full_frame(tello)
-            data = ndarray_to_list(data)
-            # data = [0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0,
-            #         42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42,
-            #         115, 0, 42, 115, 0, 41, 114, 0, 40, 113, 0, 39, 112, 0, 37, 110, 0, 36, 109, 0, 36, 109, 0, 36, 109,
-            #         0, 36, 109, 0, 36, 109, 0, 36, 109, 0, 36, 109, 0, 36, 109, 0, 36, 109, 0, 36, 109, 0, 36, 109, 0,
-            #         36, 109, 0, 36, 109, 0, 36, 109, 0, 36, 109, 0, 36, 109, 0, 37, 110, 0, 37, 110, 0, 39, 112, 0, 39,
-            #         112, 0, 39, 112, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113,
-            #         0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0,
-            #         40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 111, 0, 40, 111, 0, 41,
-            #         109, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 41, 109,
-            #         0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 42, 110, 0, 42, 110, 0, 42, 110, 0,
-            #         42, 110, 0, 42, 110, 0, 42, 110, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 39, 107, 0, 39, 107, 0, 39,
-            #         107, 0, 39, 107, 0, 39, 107, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 42, 110, 0, 42, 110, 0, 42, 110,
-            #         0, 42, 110, 0, 42, 110, 0, 42, 110, 0, 42, 110]
-            print("start")
-            print("R: ", data[0], "G: ", data[1], "B: ", data[2])
-            print("**" * 50)
-            rgb = get_rgb(data)
+            # data = full_frame(tello)
+            # data = ndarray_to_list(data)
+            # rgb = get_rgb(data)
             configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=gyro,
                                                                                  data=configuration.message_to_feagi,
                                                                                  battery=battery)
@@ -240,13 +279,22 @@ def main():
             configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=sonar,
                                                                                  data=configuration.message_to_feagi,
                                                                                  battery=battery)
-            configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=rgb,
-                                                                                 data=configuration.message_to_feagi,
-                                                                                 battery=battery)
+            # # configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=rgb,
+            #                                                                       battery=battery)
+
             message_from_feagi = feagi_opu_channel.receive()
             if message_from_feagi is not None:
-                # print(message_from_feagi)
-                pass
+                opu_data = FEAGI.opu_processor(message_from_feagi)
+                if 'motor' in opu_data:
+                    converted_data = convert_feagi_to_english(opu_data['motor'])
+                    for i in converted_data:
+                        # print("power: ", converted_data[i])
+                        # print("direction: ", i)
+                        control_drone(tello, i, converted_data[i])
+                        pass
+                if 'misc' in opu_data:
+                    for i in opu_data['misc']:
+                        misc_control(tello, i)
 
             # Preparing to send data to FEAGI
             configuration.message_to_feagi['timestamp'] = datetime.now()
@@ -268,8 +316,6 @@ def main():
         except KeyboardInterrupt as ke:
             print("ERROR: ", ke)
             tello.end()
-            break
-    print("exited")
 
 
 if __name__ == '__main__':
