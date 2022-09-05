@@ -97,24 +97,32 @@ def control_drone(self, direction, cm_distance):
     cm_distance = cm_distance * configuration.capabilities['motor']['power_coefficient']
     try:
         if direction == "l":
-            self.move_left(cm_distance)
+            self.send_control_command("{} {}".format("left", cm_distance))
+            # self.move_left(cm_distance)
         elif direction == "r":
-            self.move_right(cm_distance)
+            # self.move_right(cm_distance)
+            self.send_control_command("{} {}".format("right", cm_distance))
         elif direction == "f":
-            self.move_forward(cm_distance)
+            # self.move_forward(cm_distance)
+            self.send_control_command("{} {}".format("forward", cm_distance))
         elif direction == "b":
-            self.move_back(cm_distance)
+            # self.move_back(cm_distance)
+            self.send_control_command("{} {}".format("back", cm_distance))
     except Exception as e:
         print("TROUBLESHOOTING SECTION")
         print("cm distance: ", cm_distance)
         print("direction: ", direction)
         print("ERROR at: ", e)
 
+
 def misc_control(self, data):
     if data == 0:
-        self.takeoff()
+        try:
+            self.send_control_command("takeoff", timeout=1)
+        except Exception as e:
+            print("ERROR AT: ", e)
     if data == 1:
-        self.land()
+        self.send_control_command("land")
 
 
 def ndarray_to_list(array):
@@ -286,16 +294,18 @@ def main():
             if message_from_feagi is not None:
                 opu_data = FEAGI.opu_processor(message_from_feagi)
                 if 'motor' in opu_data:
+                    print("motor activated at: ", datetime.now())
                     converted_data = convert_feagi_to_english(opu_data['motor'])
                     for i in converted_data:
                         # print("power: ", converted_data[i])
                         # print("direction: ", i)
                         control_drone(tello, i, converted_data[i])
-                        pass
+                    print("motor activated at: ", datetime.now())
                 if 'misc' in opu_data:
+                    print("misc activated at: ", datetime.now())
                     for i in opu_data['misc']:
                         misc_control(tello, i)
-
+                    print("misc ends at: ", datetime.now())
             # Preparing to send data to FEAGI
             configuration.message_to_feagi['timestamp'] = datetime.now()
             configuration.message_to_feagi['counter'] = msg_counter
