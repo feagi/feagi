@@ -78,13 +78,19 @@ def get_accelerator(full_data):
 
 
 def return_resolution(data):
+    """
+    try return_resolution(tello.get_frame_read()) in your main.
+    data should be `tello.get_frame_read()`
+    this will return height and width. Update your config with this numbers as well
+    """
     frame_read = data
     height, width, _ = frame_read.frame.shape
     return height, width
 
 
 def ndarray_to_list(array):
-    new_list = array.tolist()
+    array = array.flatten()
+    new_list = (array.tolist())
     return new_list
 
 
@@ -107,7 +113,38 @@ def get_rgb(frame):
     frame_row_count = configuration.capabilities['camera']['width']
     frame_col_count = configuration.capabilities['camera']['height']
 
-    return vision_dict
+    x_vision = 0  # row counter
+    y_vision = 0  # col counter
+    z_vision = 0  # RGB counter
+
+    try:
+        previous_frame = previous_frame_data[0]
+    except Exception:
+        previous_frame = [0, 0]
+    frame_len = len(previous_frame)
+    try:
+        if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the
+            # resolution setting
+            for index in range(frame_len):
+                if previous_frame[index] != frame[index]:
+                    if (abs((previous_frame[index] - frame[index])) / 100) > \
+                            configuration.capabilities['camera']['deviation_threshold']:
+                        dict_key = str(x_vision) + '-' + str(y_vision) + '-' + str(z_vision)
+                        vision_dict[dict_key] = frame[index]  # save the value for the changed index to the dict
+                z_vision += 1
+                if z_vision == 3:
+                    z_vision = 0
+                    y_vision += 1
+                    if y_vision == frame_col_count:
+                        y_vision = 0
+                        x_vision += 1
+        if frame != {}:
+            previous_frame_data[0] = frame
+    except Exception as e:
+        print("Error: Raw data frame does not match frame resolution")
+        print("Error due to this: ", e)
+
+    return {'vision': vision_dict}
 
 
 def start_camera(self):
@@ -177,13 +214,23 @@ def main():
             battery = bat['battery_charge_level']
             data = full_frame(tello)
             data = ndarray_to_list(data)
-            data = list_to_dict(data)
-            rgb = {"vision": data}
-
-            # print(ndarray_to_list(data))
-            # rgb = get_rgb(data)
-            # print(np.shape(rgb))
-            # print("---------------------------------------------", np.shape(data))
+            # data = [0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0,
+            #         42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42, 115, 0, 42,
+            #         115, 0, 42, 115, 0, 41, 114, 0, 40, 113, 0, 39, 112, 0, 37, 110, 0, 36, 109, 0, 36, 109, 0, 36, 109,
+            #         0, 36, 109, 0, 36, 109, 0, 36, 109, 0, 36, 109, 0, 36, 109, 0, 36, 109, 0, 36, 109, 0, 36, 109, 0,
+            #         36, 109, 0, 36, 109, 0, 36, 109, 0, 36, 109, 0, 36, 109, 0, 37, 110, 0, 37, 110, 0, 39, 112, 0, 39,
+            #         112, 0, 39, 112, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113,
+            #         0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0,
+            #         40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 113, 0, 40, 111, 0, 40, 111, 0, 41,
+            #         109, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 41, 109,
+            #         0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 42, 110, 0, 42, 110, 0, 42, 110, 0,
+            #         42, 110, 0, 42, 110, 0, 42, 110, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 39, 107, 0, 39, 107, 0, 39,
+            #         107, 0, 39, 107, 0, 39, 107, 0, 41, 109, 0, 41, 109, 0, 41, 109, 0, 42, 110, 0, 42, 110, 0, 42, 110,
+            #         0, 42, 110, 0, 42, 110, 0, 42, 110, 0, 42, 110]
+            print("start")
+            print("R: ", data[0], "G: ", data[1], "B: ", data[2])
+            print("**" * 50)
+            rgb = get_rgb(data)
             configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=gyro,
                                                                                  data=configuration.message_to_feagi,
                                                                                  battery=battery)
@@ -198,8 +245,8 @@ def main():
                                                                                  battery=battery)
             message_from_feagi = feagi_opu_channel.receive()
             if message_from_feagi is not None:
-                print(message_from_feagi)
-                # pass
+                # print(message_from_feagi)
+                pass
 
             # Preparing to send data to FEAGI
             configuration.message_to_feagi['timestamp'] = datetime.now()
