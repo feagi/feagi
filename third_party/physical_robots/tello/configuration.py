@@ -33,15 +33,15 @@ capabilities = {
         'topic_identifier': '/M',
         "refresh_rate": 1,
         "cortical_mapping": "o__mot",
-        "power_coefficient": 0.02,
+        "power_coefficient": 11,
         "wheel_diameter": 0.065,  # radius is in sdf under wheels inside <link></link>
     },
     "camera": {
         "type": "ipu",
         "disabled": False,
         "count": 1,
-        "width": 16,
-        "height": 16,
+        "width": 720,
+        "height": 960,
         "deviation_threshold": 0
     },
     "battery": {
