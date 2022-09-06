@@ -34,6 +34,7 @@ from subprocess import PIPE, Popen
 from configuration import message_to_feagi
 from time import sleep
 from rclpy.node import Node
+from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan, Image, BatteryState, Imu
 from rclpy.qos import qos_profile_sensor_data
 from configuration import *
@@ -55,6 +56,10 @@ runtime_data["Accelerator"]["y"] = dict()
 runtime_data["Accelerator"]["z"] = dict()
 runtime_data["pixel"] = dict()
 
+goal = dict()
+goal['xf'] = 0
+goal['xb'] = 0
+goal['yl'] = 0
 previous_frame_data = dict()
 location_stored = dict()
 tile_margin = dict()
@@ -94,7 +99,8 @@ def publisher_initializer(SDF_name, topic_count, topic_identifier):
         target_node[target] = node.create_publisher(std_msgs.msg.Float64, topic_string, 10)
 
     # is this used for anything?
-    node.create_publisher(geometry_msgs.msg.Twist, SDF_name, 10)
+    if topic_count == 0:
+        target_node = node.create_publisher(geometry_msgs.msg.Twist, SDF_name, 10)
 
     return target_node
 
@@ -168,6 +174,82 @@ class Battery:
     def consume_battery():
         # print("Consuming battery ")
         runtime_data["battery_charge_level"] -= capabilities["battery"]["depletion_per_burst"]
+
+
+class Rotor:
+    def __init__(self, count, identifier, model):
+        self.rotor_node = publisher_initializer(SDF_name=model, topic_count=count, topic_identifier=identifier)
+
+    def move(self, lx, ly, lz):
+        """
+        lx, ly, lz: linear.x, linear.y, linear.x
+        ax,ay,az: angular.x, angular.y, angular.z
+        """
+        twist = geometry_msgs.msg.Twist()
+        twist.linear.x = lx * -1.0
+        twist.linear.y = ly * -1.0
+        twist.linear.z = lz * -1.0
+        # twist.angular.x = ax * -1.0
+        # twist.angular.y = ay * -1.0
+        # twist.angular.z = az * -1.0
+        self.rotor_node.publish(twist)
+
+    def control_drone(self, direction, cm_distance):
+        """
+        self: instantiation
+        direction: direction of forward, backward, left or right
+        cm_distance: the default measurement distance from the current position to the goal
+        """
+        cm_distance = cm_distance * configuration.capabilities['motor']['power_coefficient']
+        try:
+            if direction == "l":
+                self.move(0, cm_distance * -1, 0)
+            elif direction == "r":
+                self.move(0, cm_distance, 0)
+            elif direction == "f":
+                self.move(cm_distance, 0, 0)
+                self.add_data(direction, cm_distance)
+            elif direction == "b":
+                self.move(cm_distance * -1, 0, 0)
+        except Exception as e:
+            print("TROUBLESHOOTING SECTION")
+            print("cm distance: ", cm_distance)
+            print("direction: ", direction)
+            print("ERROR at: ", e)
+
+    def add_data(self, direction, cm_distance):
+        try:
+            if direction == 'f':
+                goal['xf'] = runtime_data["GPS"]["x"] + cm_distance
+            if direction == 'b':
+                goal['xb'] = runtime_data["GPS"]["x"] + (cm_distance * -1)
+            if direction == 'l':
+                goal['yl'] = runtime_data["GPS"]["y"] + (cm_distance * -1)
+        except Exception as e:
+            print("ERROR AT: ", e)
+
+
+class BackgroundCode(Node):
+    def __init__(self):
+        super().__init__('background_subscriber')
+        self.subscription = self.create_subscription(
+            std_msgs.msg.Float64,
+            'background_data',
+            self.check_position,
+            qos_profile=qos_profile_sensor_data)
+
+    def check_position(self):
+        # msg = Imu()
+        try:
+            if runtime_data['GPS']['x'] > goal['xf']:
+                return True
+            if runtime_data['GPS']['x'] < goal['xb']:
+                return True
+            if runtime_data['GPS']['y'] < goal['yl']:
+                return True
+        except Exception as e:
+            print("error: ", e)
+        return False
 
 
 class Motor:
@@ -663,6 +745,27 @@ def update_robot(name, path):
     f.close()
 
 
+def convert_feagi_to_english(feagi):
+    """
+    convert feagi's data into human readable data
+    """
+    new_dict = dict()
+    print(feagi)
+    if feagi != {}:
+        try:
+            for i in feagi:
+                if i == 0:
+                    new_dict['f'] = feagi[i]
+                if i == 1:
+                    new_dict['b'] = feagi[i]
+                if i == 2:
+                    new_dict['r'] = feagi[i]
+                if i == 3:
+                    new_dict['l'] = feagi[i]
+        except Exception as e:
+            print("ERROR: ", e)
+    return new_dict
+
 def main(args=None):
     print("Connecting to FEAGI resources...")
 
@@ -697,6 +800,7 @@ def main(args=None):
                   model='freenove_motor')
     servo = Servo(count=capabilities['servo']['count'], identifier=capabilities['servo']['topic_identifier'],
                   model='freenove_servo')
+    rotor = Rotor(count=0, identifier='0', model='/x3_uav/gazebo/command/twist')
 
     position_init = PosInit()
 
@@ -709,6 +813,10 @@ def main(args=None):
     pose = TileManager()
     pose.pose_updated()
     executor.add_node(pose)
+
+    # Background job
+    bg_data = BackgroundCode()
+    executor.add_node(bg_data)
 
     # IMU
     try:
@@ -744,13 +852,19 @@ def main(args=None):
     network_settings['feagi_burst_speed'] = runtime_data["feagi_state"]['burst_duration']
     runtime_data['gyro'] = dict()
     runtime_data['accelerator'] = dict()
-
     try:
         while True:
             robot_pose = [runtime_data["GPS"]["x"], runtime_data["GPS"]["y"], runtime_data["GPS"]["z"]]
             pose.tile_update(robot_pose)
-            # print("Current robot pose_:", robot_pose)
-
+            print("Current robot pose_:", robot_pose)
+            print("Current goal: ", goal)
+            print("status: ", bg_data.check_position())
+            try:
+                validate_gps = bg_data.check_position()
+                if validate_gps:
+                    rotor.move(0, 0, 0)
+            except:
+                pass
             # Process OPU data received from FEAGI and pass it along
             message_from_feagi = feagi_opu_channel.receive()
             battery.consume_battery()
@@ -761,6 +875,10 @@ def main(args=None):
                         device_id = data_point
                         device_power = opu_data['motor'][data_point]
                         motor.move(feagi_device_id=device_id, power=device_power)
+                        converted_data = convert_feagi_to_english(opu_data['motor'])
+                        for i in converted_data:
+                            # control_drone(tello, i, converted_data[i])
+                            rotor.control_drone(i, converted_data[i])
                 if 'servo' in opu_data:
                     if opu_data['servo']:
                         for data_point in opu_data['servo']:
