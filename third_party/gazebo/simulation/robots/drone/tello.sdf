@@ -1,0 +1,335 @@
+<?xml version="1.0" ?>
+<sdf version='1.6'>
+<!--  CURRENTLY, THIS IS NOT COMPLETE!-->
+<!--  Credit to blender maker below:-->
+<!--  "Dji Tello" (https://skfb.ly/osWOS) by Temoor is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).-->
+<!--  Neuraville modified this model into Gazebo sdf heavily. -->
+<!--  -->
+  <model name='tello'>
+    <link name="body">
+      <mass>5</mass>
+          <visual name="kapak">
+            <geometry>
+              <mesh>
+                <scale>0.03 0.03 0.03</scale>
+                <uri>meshes/tello.dae</uri>
+                <submesh>
+                  <name>kapak</name>
+                </submesh>
+              </mesh>
+            </geometry>
+            <material>
+              <diffuse>1.0 1.0 1.0 1.0</diffuse>
+              <specular>0.0 0.0 0.0 1.0</specular>
+              <pbr>
+                <metal/>
+              </pbr>
+            </material>
+          </visual>
+          <visual name="gövde">
+            <geometry>
+              <mesh>
+                <scale>0.03 0.03 0.03</scale>
+                <uri>meshes/tello.dae</uri>
+                <submesh>
+                  <name>gövde</name>
+                </submesh>
+              </mesh>
+            </geometry>
+            <material>
+              <diffuse>1.0 1.0 1.0 1.0</diffuse>
+              <specular>0.0 0.0 0.0 1.0</specular>
+              <pbr>
+                <metal/>
+              </pbr>
+            </material>
+          </visual>
+          <collision name="collision">
+            <geometry>
+              <mesh>
+                <scale>0.03 0.03 0.03</scale>
+                <uri>meshes/tello.dae</uri>
+              </mesh>
+            </geometry>
+            <surface/>
+            <contact/>
+            <collide_bitmask>0x01</collide_bitmask>
+          </collision>
+        </link>
+    <link name="top_one">
+      <pose>-0.03 0.035 -0.01 0 0</pose>
+      <visual name="pervane.001">
+        <geometry>
+          <mesh>
+            <scale>0.04 0.04 0.04</scale>
+            <uri>meshes/M1.dae</uri>
+            <submesh>
+              <name>pervane.001</name>
+            </submesh>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>1.0 1.0 1.0 1.0</diffuse>
+          <specular>0.0 0.0 0.0 1.0</specular>
+          <pbr>
+            <metal/>
+          </pbr>
+        </material>
+      </visual>
+    </link>
+    <link name="top_two">
+      <pose>-0.03 0.245 -0.01 0 0</pose>
+      <visual name="pervane.001">
+        <geometry>
+          <mesh>
+            <scale>0.04 0.04 0.04</scale>
+            <uri>meshes/M1.dae</uri>
+            <submesh>
+              <name>pervane.001</name>
+            </submesh>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>1.0 1.0 1.0 1.0</diffuse>
+          <specular>0.0 0.0 0.0 1.0</specular>
+          <pbr>
+            <metal/>
+          </pbr>
+        </material>
+      </visual>
+    </link>
+<!--    <link name ="top_three">-->
+<!--            <visual name="pervane.001">-->
+<!--        <geometry>-->
+<!--          <mesh>-->
+<!--            <scale>0.04 0.04 0.04</scale>-->
+<!--            <uri>meshes/M1.dae</uri>-->
+<!--            <submesh>-->
+<!--              <name>pervane.001</name>-->
+<!--            </submesh>-->
+<!--          </mesh>-->
+<!--        </geometry>-->
+<!--        <material>-->
+<!--          <diffuse>1.0 1.0 1.0 1.0</diffuse>-->
+<!--          <specular>0.0 0.0 0.0 1.0</specular>-->
+<!--          <pbr>-->
+<!--            <metal/>-->
+<!--          </pbr>-->
+<!--        </material>-->
+<!--      </visual>-->
+<!--    </link>-->
+<!--    <link name ="top_four">-->
+<!--      <visual name="pervane.001">-->
+<!--        <geometry>-->
+<!--          <mesh>-->
+<!--            <scale>0.04 0.04 0.04</scale>-->
+<!--            <uri>meshes/M1.dae</uri>-->
+<!--            <submesh>-->
+<!--              <name>pervane.001</name>-->
+<!--            </submesh>-->
+<!--          </mesh>-->
+<!--        </geometry>-->
+<!--        <material>-->
+<!--          <diffuse>1.0 1.0 1.0 1.0</diffuse>-->
+<!--          <specular>0.0 0.0 0.0 1.0</specular>-->
+<!--          <pbr>-->
+<!--            <metal/>-->
+<!--          </pbr>-->
+<!--        </material>-->
+<!--      </visual>-->
+<!--    </link>-->
+    <link name="rotor_one">
+      <pose relative_to="top_one">0 0 0 0 0</pose>
+      <visual name="Cube.005">
+        <geometry>
+          <mesh>
+            <scale>0.04 0.04 0.04</scale>
+            <uri>meshes/M1.dae</uri>
+            <submesh>
+              <name>Cube.005</name>
+            </submesh>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>1.0 1.0 1.0 1.0</diffuse>
+          <specular>0.0 0.0 0.0 1.0</specular>
+          <pbr>
+            <metal/>
+          </pbr>
+        </material>
+      </visual>
+      <collision name="collision">
+        <geometry>
+          <mesh>
+            <scale>0.04 0.04 0.04</scale>
+            <uri>meshes/M1.dae</uri>
+          </mesh>
+        </geometry>
+        <surface/>
+        <contact/>
+        <collide_bitmask>0x01</collide_bitmask>
+      </collision>
+    </link>
+    <link name="rotor_two">
+      <pose relative_to="top_two">0 0 0 0 0</pose>
+      <visual name="Cube.005">
+        <geometry>
+          <mesh>
+            <scale>0.04 0.04 0.04</scale>
+            <uri>meshes/M1.dae</uri>
+            <submesh>
+              <name>Cube.005</name>
+            </submesh>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>1.0 1.0 1.0 1.0</diffuse>
+          <specular>0.0 0.0 0.0 1.0</specular>
+          <pbr>
+            <metal/>
+          </pbr>
+        </material>
+      </visual>
+      <collision name="collision">
+        <geometry>
+          <mesh>
+            <scale>0.04 0.04 0.04</scale>
+            <uri>meshes/M1.dae</uri>
+          </mesh>
+        </geometry>
+        <surface/>
+        <contact/>
+        <collide_bitmask>0x01</collide_bitmask>
+      </collision>
+    </link>
+<!--    <link name="rotor_three">-->
+<!--      <pose relative_to="top_three">-0.21 0.21 0 0 0</pose>-->
+<!--      <visual name="Cube.005">-->
+<!--        <geometry>-->
+<!--          <mesh>-->
+<!--            <scale>0.04 0.04 0.04</scale>-->
+<!--            <uri>meshes/M1.dae</uri>-->
+<!--            <submesh>-->
+<!--              <name>Cube.005</name>-->
+<!--            </submesh>-->
+<!--          </mesh>-->
+<!--        </geometry>-->
+<!--        <material>-->
+<!--          <diffuse>1.0 1.0 1.0 1.0</diffuse>-->
+<!--          <specular>0.0 0.0 0.0 1.0</specular>-->
+<!--          <pbr>-->
+<!--            <metal/>-->
+<!--          </pbr>-->
+<!--        </material>-->
+<!--      </visual>-->
+<!--      <collision name="collision">-->
+<!--        <geometry>-->
+<!--          <mesh>-->
+<!--            <scale>0.04 0.04 0.04</scale>-->
+<!--            <uri>meshes/M1.dae</uri>-->
+<!--          </mesh>-->
+<!--        </geometry>-->
+<!--        <surface/>-->
+<!--        <contact/>-->
+<!--        <collide_bitmask>0x01</collide_bitmask>-->
+<!--      </collision>-->
+<!--    </link>-->
+<!--    <link name="rotor_four">-->
+<!--      <pose relative_to="top_four">-0.21 0 0 0 0</pose>-->
+<!--      <visual name="Cube.005">-->
+<!--        <geometry>-->
+<!--          <mesh>-->
+<!--            <scale>0.04 0.04 0.04</scale>-->
+<!--            <uri>meshes/M1.dae</uri>-->
+<!--            <submesh>-->
+<!--              <name>Cube.005</name>-->
+<!--            </submesh>-->
+<!--          </mesh>-->
+<!--        </geometry>-->
+<!--        <material>-->
+<!--          <diffuse>1.0 1.0 1.0 1.0</diffuse>-->
+<!--          <specular>0.0 0.0 0.0 1.0</specular>-->
+<!--          <pbr>-->
+<!--            <metal/>-->
+<!--          </pbr>-->
+<!--        </material>-->
+<!--      </visual>-->
+<!--      <collision name="collision">-->
+<!--        <geometry>-->
+<!--          <mesh>-->
+<!--            <scale>0.04 0.04 0.04</scale>-->
+<!--            <uri>meshes/M1.dae</uri>-->
+<!--          </mesh>-->
+<!--        </geometry>-->
+<!--        <surface/>-->
+<!--        <contact/>-->
+<!--        <collide_bitmask>0x01</collide_bitmask>-->
+<!--      </collision>-->
+<!--    </link>-->
+
+
+
+
+
+    <joint name="pervane_one" type="fixed">
+      <parent>body</parent>
+      <child>top_one</child>
+    </joint>
+    <joint name="pervane_two" type="fixed">
+      <parent>body</parent>
+      <child>top_two</child>
+    </joint>
+<!--    <joint name="pervane_three" type="fixed">-->
+<!--      <parent>body</parent>-->
+<!--      <child>top_three</child>-->
+<!--    </joint>-->
+<!--    <joint name="pervane_four" type="fixed">-->
+<!--      <parent>body</parent>-->
+<!--      <child>top_four</child>-->
+<!--    </joint>-->
+    <joint name="M0" type="revolute">
+      <parent>body</parent>
+      <child>rotor_one</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e+16</lower>
+          <upper>1e+16</upper>
+        </limit>
+      </axis>
+    </joint>
+    <joint name="M1" type="revolute">
+      <parent>top_two</parent>
+      <child>rotor_two</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e+16</lower>
+          <upper>1e+16</upper>
+        </limit>
+      </axis>
+    </joint>
+<!--    <joint name="M2" type="revolute">-->
+<!--      <parent>body</parent>-->
+<!--      <child>rotor_three</child>-->
+<!--      <axis>-->
+<!--        <xyz>0 0 1</xyz>-->
+<!--        <limit>-->
+<!--          <lower>-1e+16</lower>-->
+<!--          <upper>1e+16</upper>-->
+<!--        </limit>-->
+<!--      </axis>-->
+<!--    </joint>-->
+<!--    <joint name="M3" type="revolute">-->
+<!--      <parent>body</parent>-->
+<!--      <child>rotor_four</child>-->
+<!--      <axis>-->
+<!--        <xyz>0 0 1</xyz>-->
+<!--        <limit>-->
+<!--          <lower>-1e+16</lower>-->
+<!--          <upper>1e+16</upper>-->
+<!--        </limit>-->
+<!--      </axis>-->
+<!--    </joint>-->
+    </model>
+    </sdf>
