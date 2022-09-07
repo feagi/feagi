@@ -2,10 +2,10 @@ import time
 import requests
 import numpy as np
 import configuration
-import feagi_interface as FEAGI
 from configuration import *
-from datetime import datetime
 from djitellopy import Tello
+from datetime import datetime
+import feagi_interface as FEAGI
 
 previous_frame_data = dict()
 
@@ -97,17 +97,17 @@ def control_drone(self, direction, cm_distance):
     cm_distance = cm_distance * configuration.capabilities['motor']['power_coefficient']
     try:
         if direction == "l":
-            self.send_control_command("{} {}".format("left", cm_distance))
-            # self.move_left(cm_distance)
+            self.send_command_without_return("{} {}".format("left", cm_distance))
         elif direction == "r":
-            # self.move_right(cm_distance)
-            self.send_control_command("{} {}".format("right", cm_distance))
+            self.send_command_without_return("{} {}".format("right", cm_distance))
         elif direction == "f":
-            # self.move_forward(cm_distance)
-            self.send_control_command("{} {}".format("forward", cm_distance))
+            self.send_command_without_return("{} {}".format("forward", cm_distance))
         elif direction == "b":
-            # self.move_back(cm_distance)
-            self.send_control_command("{} {}".format("back", cm_distance))
+            self.send_command_without_return("{} {}".format("back", cm_distance))
+        elif direction == "u":
+            self.send_command_without_return("{} {}".format("up", cm_distance))
+        elif direction == "d":
+            self.send_command_without_return("{} {}".format("down", cm_distance))
     except Exception as e:
         print("TROUBLESHOOTING SECTION")
         print("cm distance: ", cm_distance)
@@ -115,14 +115,46 @@ def control_drone(self, direction, cm_distance):
         print("ERROR at: ", e)
 
 
-def misc_control(self, data):
+def misc_control(self, data, battery_level):
     if data == 0:
         try:
-            self.send_control_command("takeoff", timeout=1)
+            self.send_command_without_return("takeoff")
         except Exception as e:
             print("ERROR AT: ", e)
     if data == 1:
-        self.send_control_command("land")
+        self.send_command_without_return("land")
+    if data == 2:
+        try:
+            if battery_level >= 50:
+                self.send_command_without_return("flip {}".format("f"))
+            else:
+                print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
+        except Exception as e:
+            print("Error at: ", e)
+    if data == 3:
+        try:
+            if battery_level >= 50:
+                self.send_command_without_return("flip {}".format("b"))
+            else:
+                print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
+        except Exception as e:
+            print("Error at: ", e)
+    if data == 4:
+        try:
+            if battery_level >= 50:
+                self.send_command_without_return("flip {}".format("r"))
+            else:
+                print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
+        except Exception as e:
+            print("Error at: ", e)
+    if data == 5:
+        try:
+            if battery_level >= 50:
+                self.send_command_without_return("flip {}".format("l"))
+            else:
+                print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
+        except Exception as e:
+            print("Error at: ", e)
 
 
 def ndarray_to_list(array):
@@ -161,6 +193,10 @@ def convert_feagi_to_english(feagi):
                     new_dict['r'] = feagi[i]
                 if i == 3:
                     new_dict['l'] = feagi[i]
+                if i == 4:
+                    new_dict['u'] = feagi[i]
+                if i == 5:
+                    new_dict['d'] = feagi[i]
         except Exception as e:
             print("ERROR: ", e)
     return new_dict
@@ -210,6 +246,11 @@ def start_camera(self):
     self as instantiation only
     """
     self.streamon()
+
+
+def navigate_to_xyz(self, x=0, y=0, z=0, s=0):
+    cmd = 'go {} {} {} {}'.format(x, y, z, s)
+    self.send_control_command(cmd)
 
 
 def convert_gyro_into_feagi(value, resolution, range_number):
@@ -294,18 +335,23 @@ def main():
             if message_from_feagi is not None:
                 opu_data = FEAGI.opu_processor(message_from_feagi)
                 if 'motor' in opu_data:
-                    print("motor activated at: ", datetime.now())
+                    # print("motor activated at: ", datetime.now())
                     converted_data = convert_feagi_to_english(opu_data['motor'])
                     for i in converted_data:
                         # print("power: ", converted_data[i])
                         # print("direction: ", i)
                         control_drone(tello, i, converted_data[i])
-                    print("motor activated at: ", datetime.now())
+                    # print("motor activated at: ", datetime.now())
                 if 'misc' in opu_data:
-                    print("misc activated at: ", datetime.now())
+                    # print("misc activated at: ", datetime.now())
                     for i in opu_data['misc']:
-                        misc_control(tello, i)
-                    print("misc ends at: ", datetime.now())
+                        misc_control(tello, i, battery)
+                    # print("misc ends at: ", datetime.now())
+                if 'navigation' in opu_data:
+                    for i in opu_data['navigation']:
+                        print(i)
+                        print(opu_data['navigation'])
+                    # pass  # Under development
             # Preparing to send data to FEAGI
             configuration.message_to_feagi['timestamp'] = datetime.now()
             configuration.message_to_feagi['counter'] = msg_counter
