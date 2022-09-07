@@ -97,7 +97,7 @@ def control_drone(self, direction, cm_distance):
     cm_distance = cm_distance * configuration.capabilities['motor']['power_coefficient']
     try:
         if direction == "l":
-            self.send_command_without_return("{} {}".format("left", cm_distance))
+            self.send_command_without_return("{} {}".format("left", cm_distance))  ## left cm * 11 (max 100)
         elif direction == "r":
             self.send_command_without_return("{} {}".format("right", cm_distance))
         elif direction == "f":
@@ -253,6 +253,10 @@ def navigate_to_xyz(self, x=0, y=0, z=0, s=0):
     self.send_control_command(cmd)
 
 
+def convert_data_into_split(data):
+    return -1 * (data - 10)
+
+
 def convert_gyro_into_feagi(value, resolution, range_number):
     new_value = value - (range_number[0])
     return (new_value * resolution) / (range_number[1] - range_number[0])
@@ -334,23 +338,41 @@ def main():
             message_from_feagi = feagi_opu_channel.receive()
             if message_from_feagi is not None:
                 opu_data = FEAGI.opu_processor(message_from_feagi)
-                if 'motor' in opu_data:
-                    # print("motor activated at: ", datetime.now())
-                    converted_data = convert_feagi_to_english(opu_data['motor'])
-                    for i in converted_data:
-                        # print("power: ", converted_data[i])
-                        # print("direction: ", i)
-                        control_drone(tello, i, converted_data[i])
-                    # print("motor activated at: ", datetime.now())
+                print("FULL DATA: ", opu_data)
+                # if 'motor' in opu_data:
+                #     # print("motor activated at: ", datetime.now())
+                #     converted_data = convert_feagi_to_english(opu_data['motor'])
+                #     for i in converted_data:
+                #         # print("power: ", converted_data[i])
+                #         # print("direction: ", i)
+                #         control_drone(tello, i, converted_data[i])
+                #     # print("motor activated at: ", datetime.now())
                 if 'misc' in opu_data:
-                    # print("misc activated at: ", datetime.now())
                     for i in opu_data['misc']:
                         misc_control(tello, i, battery)
-                    # print("misc ends at: ", datetime.now())
                 if 'navigation' in opu_data:
-                    for i in opu_data['navigation']:
-                        print(i)
-                        print(opu_data['navigation'])
+                    if opu_data['navigation']:
+                        try:
+                            data0 = opu_data['navigation'][0] * 10
+                        except Exception as e:
+                            data0 = 0
+                            print("data0: ", e)
+                        try:
+                            data1 = opu_data['navigation'][1] * 10
+                        except Exception as e:
+                            data1 = 0
+                            print("data1: ", e)
+                        try:
+                            data2 = opu_data['navigation'][2] * 10
+                        except Exception as e:
+                            data2 = 0
+                            print("data2: ", e)
+                        try:
+                            speed = opu_data['speed'][0] * 10
+                        except Exception as e:
+                            speed = 0
+                            print("speed: ", e)
+                        navigate_to_xyz(tello, data0, data1, data2, speed)
                     # pass  # Under development
             # Preparing to send data to FEAGI
             configuration.message_to_feagi['timestamp'] = datetime.now()
