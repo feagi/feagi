@@ -153,11 +153,13 @@ def gyro_to_coords(gyro_data, direction):
         ['neuron_params'] \
         ['block_boundaries'][2]
     try:
-        dist_map = round(map_value(float(gyro_data), -1, 1, -1, Z_MAX - 1))
+        dist_map = round(map_value(float(gyro_data), -1 * X_MAX, X_MAX, -1 * Z_MAX, Z_MAX - 1))
     except TypeError as e:
         dist_map = 0
         print("Type Error in gyro-to-coord...")
         print(e)
+    print("x max: ", X_MAX)
+    print("Z max: ", Z_MAX)
     y = Y_MAX // 2
     z = dist_map
     return [(direction, y, z)]
@@ -191,6 +193,37 @@ def accelerator_to_coords(acc_data, direction):
     y = Y_MAX // 2
     z = dist_map
     return [(direction, y, z)]
+
+
+# def navigate_to_coords(nav_data):
+#     """ Converts Acc data from sensor to coordinates in
+#     the accelerator cortical area.
+#
+#     """
+#     X_MAX = runtime_data.genome['blueprint'] \
+#         ['i__nav'] \
+#         ['neuron_params'] \
+#         ['block_boundaries'][0]
+#
+#     Y_MAX = runtime_data.genome['blueprint'] \
+#         ['i__nav'] \
+#         ['neuron_params'] \
+#         ['block_boundaries'][1]
+#
+#     Z_MAX = runtime_data.genome['blueprint'] \
+#         ['i__nav'] \
+#         ['neuron_params'] \
+#         ['block_boundaries'][2]
+#     try:
+#         dist_map = round(map_value(float(nav_data), -1 * X_MAX, X_MAX, -1 * Y_MAX, Z_MAX - 1))
+#     except TypeError as e:
+#         dist_map = 0
+#         print("Type Error in accelerator_to_coords...")
+#         print(e)
+#     x = X_MAX // 2
+#     y = Y_MAX // 2
+#     z = dist_map
+#     return [(x, y, z)]
 
 
 def vision_to_coords(vision_data):

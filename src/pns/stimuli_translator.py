@@ -337,3 +337,38 @@ def vision_translator(vision_data):
                     # runtime_data.fcl_queue.put({cortical_area: set(neurons)})
     else:
         print("Warning! Cortical stimulation received but genome missing", cortical_area)
+
+
+# def navigate_translator(navigate_data):
+#     """
+#     Translate the accelerator messages based on its type.
+#
+#     todo: add details here about the message format and expectations
+#     """
+#     cortical_area = 'o__nav'
+#     if cortical_area_in_genome(cortical_area):
+#         if navigate_data is not None:
+#             try:
+#                 x = navigate_data['0']
+#             except:
+#                 x = 0
+#             try:
+#                 y = navigate_data['1']
+#             except:
+#                 y = 0
+#             try:
+#                 z = navigate_data['2']
+#             except:
+#                 z = 0
+#             holder_position = 0
+#             for i in x, y, z:
+#                 detections = stimuli_processor.navigate_to_coords(i)
+#                 holder_position += 1
+#                 neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
+#                 if 'o__nav' not in runtime_data.fire_candidate_list:
+#                     runtime_data.fire_candidate_list['o__nav'] = set()
+#                 for neuron in neurons:
+#                     runtime_data.fire_candidate_list['o__nav'].add(neuron)
+#                 # runtime_data.fcl_queue.put({cortical_area: set(neurons)})
+#     else:
+#         print("Warning! Cortical stimulation received but genome missing", cortical_area)
