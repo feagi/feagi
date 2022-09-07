@@ -138,7 +138,7 @@ def compose_message_to_feagi(original_message, data, battery):
 def opu_processor(data):
     try:
         processed_opu_data = {'motor': {}, 'servo': {}, 'battery': {}, 'discharged_battery': {}, 'reset': {},
-                              'camera': {}, 'misc': {}}
+                              'camera': {}, 'misc': {}, 'navigation': {}}
         opu_data = data["opu_data"]
         if opu_data is not None:
             if 'o__mot' in opu_data:
@@ -176,6 +176,14 @@ def opu_processor(data):
             if 'o_misc' in opu_data:
                 if opu_data['o_misc']:
                     for data_point in opu_data['o_misc']:
+                        data_point = block_to_array(data_point)
+                        device_id = data_point[0]
+                        device_power = data_point[2]
+                        processed_opu_data['misc'][device_id] = device_power
+
+            if 'o__nav' in opu_data:
+                if opu_data['o__nav']:
+                    for data_point in opu_data['oo_nav']:
                         data_point = block_to_array(data_point)
                         device_id = data_point[0]
                         device_power = data_point[2]
