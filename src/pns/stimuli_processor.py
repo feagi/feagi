@@ -158,9 +158,6 @@ def gyro_to_coords(gyro_data, direction):
         dist_map = 0
         print("Type Error in gyro-to-coord...")
         print(e)
-    print("x max: ", X_MAX)
-    print("Z max: ", Z_MAX)
-    print("dist_map: ", dist_map, " direction: ", direction)
     y = Y_MAX // 2
     z = dist_map
     return [(direction, y, z)]
