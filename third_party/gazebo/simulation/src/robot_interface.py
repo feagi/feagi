@@ -191,7 +191,7 @@ class Rotor:
         twist.linear.z = lz * -1.0
         # twist.angular.x = ax * -1.0
         # twist.angular.y = ay * -1.0
-        # twist.angular.z = az * -1.0
+        twist.angular.z = 0 * -1.0
         self.rotor_node.publish(twist)
 
     def control_drone(self, direction, cm_distance):
@@ -216,9 +216,6 @@ class Rotor:
             elif direction == "d":
                 self.move(0, 0, cm_distance)
         except Exception as e:
-            print("TROUBLESHOOTING SECTION")
-            print("cm distance: ", cm_distance)
-            print("direction: ", direction)
             print("ERROR at: ", e)
 
 
@@ -912,9 +909,6 @@ def main(args=None):
         while True:
             robot_pose = [runtime_data["GPS"]["x"], runtime_data["GPS"]["y"], runtime_data["GPS"]["z"]]
             pose.tile_update(robot_pose)
-            print("Current robot pose_:", robot_pose)
-            print("Current goal: ", goal)
-            print("status: ", bg_data.check_position())
             try:
                 validate_gps = bg_data.check_position()
                 if validate_gps:
@@ -931,11 +925,6 @@ def main(args=None):
                         device_id = data_point
                         device_power = opu_data['motor'][data_point]
                         motor.move(feagi_device_id=device_id, power=device_power)
-                        # if IsFlying:
-                        #     converted_data = convert_feagi_to_english(opu_data['motor'])
-                        #     for i in converted_data:
-                        #         # control_drone(tello, i, converted_data[i])
-                        #         rotor.control_drone(i, converted_data[i])
                 if 'misc' in opu_data:
                     for i in opu_data['misc']:
                         IsFlying = rotor.misc_control(i, IsFlying)
