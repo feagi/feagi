@@ -417,7 +417,7 @@ genome = {
         "_____10c-o__mot-nx-___bby-i": 1,
         "_____10c-o__mot-nx-___bbz-i": 10,
         "_____10c-o__mot-cx-synatt-i": 100,
-        "_____10c-o__mot-cx-pstcr_-f": 6,
+        "_____10c-o__mot-cx-pstcr_-f": 8,
         "_____10c-o__mot-cx-pstcrm-f": 35,
         "_____10c-o__mot-cx-plst_c-f": 0.05,
         "_____10c-o__mot-nx-fire_t-f": 1,
