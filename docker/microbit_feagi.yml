@@ -2,7 +2,7 @@ version: "3"
 
 services:
   ros-gazebo:
-    build: ../third_party/elecfreaks/
+    build: ../third_party/physical_robots/elecfreaks/
     privileged: true
     network_mode: host
     ports:
