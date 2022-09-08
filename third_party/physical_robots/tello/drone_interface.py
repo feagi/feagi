@@ -335,14 +335,6 @@ def main():
             message_from_feagi = feagi_opu_channel.receive()
             if message_from_feagi is not None:
                 opu_data = FEAGI.opu_processor(message_from_feagi)
-                # if 'motor' in opu_data:
-                #     # print("motor activated at: ", datetime.now())
-                #     converted_data = convert_feagi_to_english(opu_data['motor'])
-                #     for i in converted_data:
-                #         # print("power: ", converted_data[i])
-                #         # print("direction: ", i)
-                #         control_drone(tello, i, converted_data[i])
-                #     # print("motor activated at: ", datetime.now())
                 if 'misc' in opu_data:
                     for i in opu_data['misc']:
                         misc_control(tello, i, battery)
