@@ -153,13 +153,14 @@ def gyro_to_coords(gyro_data, direction):
         ['neuron_params'] \
         ['block_boundaries'][2]
     try:
-        dist_map = round(map_value(float(gyro_data), -1 * X_MAX, X_MAX, -1 * Z_MAX, Z_MAX - 1))
+        dist_map = round(map_value(float(gyro_data), -20, 20, 0, Z_MAX - 1))
     except TypeError as e:
         dist_map = 0
         print("Type Error in gyro-to-coord...")
         print(e)
     print("x max: ", X_MAX)
     print("Z max: ", Z_MAX)
+    print("dist_map: ", dist_map, " direction: ", direction)
     y = Y_MAX // 2
     z = dist_map
     return [(direction, y, z)]
@@ -185,7 +186,7 @@ def accelerator_to_coords(acc_data, direction):
         ['neuron_params'] \
         ['block_boundaries'][2]
     try:
-        dist_map = round(map_value(float(acc_data), -20, 20, -1, Z_MAX - 1))
+        dist_map = round(map_value(float(acc_data), -20, 20, 0, Z_MAX - 1))
     except TypeError as e:
         dist_map = 0
         print("Type Error in accelerator_to_coords...")
