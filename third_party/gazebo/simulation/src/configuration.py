@@ -113,8 +113,8 @@ message_to_feagi = {"data": {}}
 
 
 Model_data = {
-    "robot_model_path": "robots/drone/",
-    "robot_model": "x3_uav.sdf",
+    "robot_model_path": "robots/smart_car/",
+    "robot_model": "smart_car.sdf",
     "floor_img": "map1.png",
     "floor_img_path": "environments/material",
     "mu": 1.0,
