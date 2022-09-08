@@ -34,6 +34,7 @@ from subprocess import PIPE, Popen
 from configuration import message_to_feagi
 from time import sleep
 from rclpy.node import Node
+from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan, Image, BatteryState, Imu
 from rclpy.qos import qos_profile_sensor_data
 from configuration import *
@@ -55,6 +56,10 @@ runtime_data["Accelerator"]["y"] = dict()
 runtime_data["Accelerator"]["z"] = dict()
 runtime_data["pixel"] = dict()
 
+goal = dict()
+goal['xf'] = 0
+goal['xb'] = 0
+goal['yl'] = 0
 previous_frame_data = dict()
 location_stored = dict()
 tile_margin = dict()
@@ -94,7 +99,8 @@ def publisher_initializer(SDF_name, topic_count, topic_identifier):
         target_node[target] = node.create_publisher(std_msgs.msg.Float64, topic_string, 10)
 
     # is this used for anything?
-    node.create_publisher(geometry_msgs.msg.Twist, SDF_name, 10)
+    if topic_count == 0:
+        target_node = node.create_publisher(geometry_msgs.msg.Twist, SDF_name, 10)
 
     return target_node
 
@@ -168,6 +174,129 @@ class Battery:
     def consume_battery():
         # print("Consuming battery ")
         runtime_data["battery_charge_level"] -= capabilities["battery"]["depletion_per_burst"]
+
+
+class Rotor:
+    def __init__(self, count, identifier, model):
+        self.rotor_node = publisher_initializer(SDF_name=model, topic_count=count, topic_identifier=identifier)
+
+    def move(self, lx, ly, lz):
+        """
+        lx, ly, lz: linear.x, linear.y, linear.x
+        ax,ay,az: angular.x, angular.y, angular.z
+        """
+        twist = geometry_msgs.msg.Twist()
+        twist.linear.x = lx * -1.0
+        twist.linear.y = ly * -1.0
+        twist.linear.z = lz * -1.0
+        # twist.angular.x = ax * -1.0
+        # twist.angular.y = ay * -1.0
+        twist.angular.z = 0 * -1.0
+        self.rotor_node.publish(twist)
+
+    def control_drone(self, direction, cm_distance):
+        """
+        self: instantiation
+        direction: direction of forward, backward, left or right
+        cm_distance: the default measurement distance from the current position to the goal
+        """
+        cm_distance = cm_distance * configuration.capabilities['motor']['power_coefficient']
+        try:
+            if direction == "l":
+                self.move(0, cm_distance * -1, 0)
+            elif direction == "r":
+                self.move(0, cm_distance, 0)
+            elif direction == "f":
+                self.move(cm_distance, 0, 0)
+                self.add_data(direction, cm_distance)
+            elif direction == "b":
+                self.move(cm_distance * -1, 0, 0)
+            elif direction == "u":
+                self.move(0, 0, cm_distance * -1)
+            elif direction == "d":
+                self.move(0, 0, cm_distance)
+        except Exception as e:
+            print("ERROR at: ", e)
+
+
+    @staticmethod
+    def add_data(direction, cm_distance):
+        try:
+            if direction == 'f':
+                goal['xf'] = runtime_data["GPS"]["x"] + cm_distance
+            if direction == 'b':
+                goal['xb'] = runtime_data["GPS"]["x"] + (cm_distance * -1)
+            if direction == 'l':
+                goal['yl'] = runtime_data["GPS"]["y"] + (cm_distance * -1)
+        except Exception as e:
+            print("ERROR AT: ", e)
+
+    def misc_control(self, data, battery_level=100, boolean_data=False):
+        if data == 0:
+            try:
+                if boolean_data is not True:
+                    self.move(0, 0, -1.0)
+                    boolean_data = True
+            except Exception as e:
+                print("ERROR AT: ", e)
+        if data == 1:
+            self.move(0, 0, 0)
+        if data == 2:
+            try:
+                if battery_level >= 50:
+                    pass # Upcoming soon. Flip will added here
+                else:
+                    print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
+            except Exception as e:
+                print("Error at: ", e)
+        if data == 3:
+            try:
+                if battery_level >= 50:
+                    pass # Upcoming soon. Flip will added here
+                else:
+                    print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
+            except Exception as e:
+                print("Error at: ", e)
+        if data == 4:
+            try:
+                if battery_level >= 50:
+                    pass # Upcoming soon. Flip will added here
+                else:
+                    print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
+            except Exception as e:
+                print("Error at: ", e)
+        if data == 5:
+            try:
+                if battery_level >= 50:
+                    pass # Upcoming soon. Flip will added here
+                else:
+                    print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
+            except Exception as e:
+                print("Error at: ", e)
+        return boolean_data
+
+class BackgroundCode(Node):
+    def __init__(self):
+        super().__init__('background_subscriber')
+        self.subscription = self.create_subscription(
+            std_msgs.msg.Float64,
+            'background_data',
+            self.check_position,
+            qos_profile=qos_profile_sensor_data)
+
+    @staticmethod
+    def check_position():
+        # msg = Imu()
+        try:
+            if runtime_data['GPS']['x'] > goal['xf']:
+                return True
+            if runtime_data['GPS']['x'] < goal['xb']:
+                return True
+            if runtime_data['GPS']['y'] < goal['yl']:
+                return True
+        except Exception as e:
+            print("error: ", e)
+        return False
 
 
 class Motor:
@@ -663,6 +792,32 @@ def update_robot(name, path):
     f.close()
 
 
+def convert_feagi_to_english(feagi):
+    """
+    convert feagi's data into human readable data
+    """
+    new_dict = dict()
+    print(feagi)
+    if feagi != {}:
+        try:
+            for i in feagi:
+                if i == 0:
+                    new_dict['f'] = feagi[i]
+                if i == 1:
+                    new_dict['b'] = feagi[i]
+                if i == 2:
+                    new_dict['r'] = feagi[i]
+                if i == 3:
+                    new_dict['l'] = feagi[i]
+                if i == 4:
+                    new_dict['u'] = feagi[i]
+                if i == 5:
+                    new_dict['d'] = feagi[i]
+        except Exception as e:
+            print("ERROR: ", e)
+    return new_dict
+
+
 def main(args=None):
     print("Connecting to FEAGI resources...")
 
@@ -697,6 +852,7 @@ def main(args=None):
                   model='freenove_motor')
     servo = Servo(count=capabilities['servo']['count'], identifier=capabilities['servo']['topic_identifier'],
                   model='freenove_servo')
+    rotor = Rotor(count=0, identifier='0', model='/x3_uav/gazebo/command/twist')
 
     position_init = PosInit()
 
@@ -709,6 +865,10 @@ def main(args=None):
     pose = TileManager()
     pose.pose_updated()
     executor.add_node(pose)
+
+    # Background job
+    bg_data = BackgroundCode()
+    executor.add_node(bg_data)
 
     # IMU
     try:
@@ -737,6 +897,7 @@ def main(args=None):
     executor_thread.start()
     msg_counter = 0
     flag = 0
+    IsFlying = False
 
     # Positioning servos to a default position
     servo.set_default_position()
@@ -744,13 +905,16 @@ def main(args=None):
     network_settings['feagi_burst_speed'] = runtime_data["feagi_state"]['burst_duration']
     runtime_data['gyro'] = dict()
     runtime_data['accelerator'] = dict()
-
     try:
         while True:
             robot_pose = [runtime_data["GPS"]["x"], runtime_data["GPS"]["y"], runtime_data["GPS"]["z"]]
             pose.tile_update(robot_pose)
-            # print("Current robot pose_:", robot_pose)
-
+            try:
+                validate_gps = bg_data.check_position()
+                if validate_gps:
+                    rotor.move(0, 0, 0)
+            except:
+                pass
             # Process OPU data received from FEAGI and pass it along
             message_from_feagi = feagi_opu_channel.receive()
             battery.consume_battery()
@@ -761,6 +925,34 @@ def main(args=None):
                         device_id = data_point
                         device_power = opu_data['motor'][data_point]
                         motor.move(feagi_device_id=device_id, power=device_power)
+                if 'misc' in opu_data:
+                    for i in opu_data['misc']:
+                        IsFlying = rotor.misc_control(i, IsFlying)
+                if 'navigation' in opu_data:
+                    if opu_data['navigation']:
+                        try:
+                            data0 = opu_data['navigation'][0]
+                        except Exception as e:
+                            data0 = 0
+                            print("data0: ", e)
+                        try:
+                            data1 = opu_data['navigation'][1]
+                        except Exception as e:
+                            data1 = 0
+                            print("data1: ", e)
+                        try:
+                            data2 = opu_data['navigation'][2]
+                        except Exception as e:
+                            data2 = 0
+                            print("data2: ", e)
+                        try:
+                            speed = opu_data['speed'][0] * 10
+                        except Exception as e:
+                            speed = 0
+                            print("speed: ", e)
+                        if IsFlying:
+                            rotor.move(data0, data1, data2)
+
                 if 'servo' in opu_data:
                     if opu_data['servo']:
                         for data_point in opu_data['servo']:
@@ -840,12 +1032,12 @@ def main(args=None):
             except Exception:
                 pass
             try:
-                runtime_data['gyro']['0'] = runtime_data["GPS"]["x"]
-                runtime_data['gyro']['1'] = runtime_data["GPS"]["y"]
-                runtime_data['gyro']['2'] = runtime_data["GPS"]["z"]
-                runtime_data['gyro']['3'] = round(runtime_data["Quaternion"]["x"], 6)
-                runtime_data['gyro']['4'] = round(runtime_data["Quaternion"]["y"], 6)
-                runtime_data['gyro']['5'] = round(runtime_data["Quaternion"]["z"], 6)
+                # runtime_data['gyro']['0'] = runtime_data["GPS"]["x"]
+                # runtime_data['gyro']['1'] = runtime_data["GPS"]["y"]
+                # runtime_data['gyro']['2'] = runtime_data["GPS"]["z"]
+                runtime_data['gyro']['0'] = round(runtime_data["Quaternion"]["x"], 2)
+                runtime_data['gyro']['1'] = round(runtime_data["Quaternion"]["y"], 2)
+                runtime_data['gyro']['2'] = round(runtime_data["Quaternion"]["z"], 2)
                 if "data" not in message_to_feagi:
                     message_to_feagi["data"] = dict()
                 if "sensory_data" not in message_to_feagi["data"]:

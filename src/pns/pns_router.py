@@ -22,7 +22,6 @@ from datetime import datetime
 from evo.voxels import *
 from evo.stats import opu_activity_report
 
-
 """
 This module manages the routing of all IPU/OPU related data
 
@@ -90,7 +89,8 @@ def stimuli_router(ipu_data):
 
                 if 'accelerator' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
                     try:
-                        stimuli_translator.accelerator_translator(accelerator_data=ipu_data["data"]["sensory_data"][sensor_type])
+                        stimuli_translator.accelerator_translator(accelerator_data=ipu_data["data"]["sensory_data"]
+                        [sensor_type])
                     except Exception:
                         print("ERROR while processing Accelerator IPU", traceback.format_exc())
 
@@ -137,7 +137,6 @@ def opu_router():
                 runtime_data.opu_data[cortical_area] = {}
             runtime_data.opu_data[cortical_area] = active_neurons_in_blocks(cortical_area=cortical_area)
     # print("--====>>>>> opu data ready for controller:", runtime_data.opu_data)
-
 
 #
 # def action_router():
