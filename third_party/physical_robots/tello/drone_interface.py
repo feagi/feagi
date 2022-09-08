@@ -109,9 +109,6 @@ def control_drone(self, direction, cm_distance):
         elif direction == "d":
             self.send_command_without_return("{} {}".format("down", cm_distance))
     except Exception as e:
-        print("TROUBLESHOOTING SECTION")
-        print("cm distance: ", cm_distance)
-        print("direction: ", direction)
         print("ERROR at: ", e)
 
 
@@ -320,9 +317,9 @@ def main():
             sonar = get_ultrasonic(data)
             bat = get_battery(data)
             battery = bat['battery_charge_level']
-            # data = full_frame(tello)
-            # data = ndarray_to_list(data)
-            # rgb = get_rgb(data)
+            data = full_frame(tello)
+            data = ndarray_to_list(data)
+            rgb = get_rgb(data)
             configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=gyro,
                                                                                  data=configuration.message_to_feagi,
                                                                                  battery=battery)
@@ -332,13 +329,12 @@ def main():
             configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=sonar,
                                                                                  data=configuration.message_to_feagi,
                                                                                  battery=battery)
-            # # configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=rgb,
-            #                                                                       battery=battery)
+            configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=rgb,
+                                                                                 battery=battery)
 
             message_from_feagi = feagi_opu_channel.receive()
             if message_from_feagi is not None:
                 opu_data = FEAGI.opu_processor(message_from_feagi)
-                print("FULL DATA: ", opu_data)
                 # if 'motor' in opu_data:
                 #     # print("motor activated at: ", datetime.now())
                 #     converted_data = convert_feagi_to_english(opu_data['motor'])
@@ -356,24 +352,20 @@ def main():
                             data0 = opu_data['navigation'][0] * 10
                         except Exception as e:
                             data0 = 0
-                            print("data0: ", e)
                         try:
                             data1 = opu_data['navigation'][1] * 10
                         except Exception as e:
                             data1 = 0
-                            print("data1: ", e)
                         try:
                             data2 = opu_data['navigation'][2] * 10
                         except Exception as e:
                             data2 = 0
-                            print("data2: ", e)
                         try:
                             speed = opu_data['speed'][0] * 10
                         except Exception as e:
                             speed = 0
-                            print("speed: ", e)
                         navigate_to_xyz(tello, data0, data1, data2, speed)
-                    # pass  # Under development
+
             # Preparing to send data to FEAGI
             configuration.message_to_feagi['timestamp'] = datetime.now()
             configuration.message_to_feagi['counter'] = msg_counter
