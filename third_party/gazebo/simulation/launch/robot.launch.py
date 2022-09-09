@@ -103,7 +103,7 @@ def generate_launch_description():
     #controller
     robot_interface = Node(
         package='simulation',
-        executable='robot_interface.py',
+        executable='robot.py',
         # FIXME: Why isn't the topic being populated on the UI? RQt issue?
         output='screen',
     )

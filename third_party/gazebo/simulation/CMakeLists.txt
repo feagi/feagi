@@ -71,7 +71,7 @@ ament_python_install_package(src/)
 
 # Install Python executables
 install(PROGRAMS
-  src/robot_interface.py
+  src/robot.py
   DESTINATION lib/${PROJECT_NAME}
 )
 install(PROGRAMS

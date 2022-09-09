@@ -8,7 +8,7 @@ for pid in $(ps -ef | grep "gazebo" | awk '{print $2}'); do kill $pid; done ##En
 for pid in $(ps -ef | grep "robot.launch.py" | awk '{print $2}'); do kill $pid; done #Destroy xterm prior to launch gazebo
 for pid in $(ps -ef | grep "xterm " | awk '{print $2}'); do kill $pid; done
 for pid in $(ps -ef | grep "parameter_bridg" | awk '{print $2}'); do kill $pid; done
-for pid in $(ps -ef | grep "robot_interface.py" | awk '{print $2}'); do kill $pid; done
+for pid in $(ps -ef | grep "robot.py" | awk '{print $2}'); do kill $pid; done
 
 
 if pgrep -x "$ROS2" >/dev/null && pgrep -x "$GAZEBO" >/dev/null
@@ -19,7 +19,7 @@ then
     #Destroy xterm prior to launch gazebo
     for pid in $(ps -ef | grep "xterm " | awk '{print $2}'); do kill $pid; done
     for pid in $(ps -ef | grep "parameter_bridg" | awk '{print $2}'); do kill $pid; done
-    for pid in $(ps -ef | grep "robot_interface.py" | awk '{print $2}'); do kill $pid; done
+    for pid in $(ps -ef | grep "robot.py" | awk '{print $2}'); do kill $pid; done
 fi
 cd /opt/source-code/simulation/
 if [ ! -d "install" ]; then
