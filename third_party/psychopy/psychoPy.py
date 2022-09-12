@@ -5,6 +5,7 @@
 Demo of dot kinematogram
 """
 
+import cv2
 import numpy as np
 import feagi_interface as FEAGI
 from time import sleep
@@ -34,8 +35,11 @@ def get_rgb(frame, w, h):
         previous_frame = [0, 0]
     frame_len = len(previous_frame)
     try:
+        print("FRAME LEN: ", frame_len)
+        print("TOTAL: ", frame_row_count * frame_col_count * 3)
         if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the
             # resolution setting
+            print("IN!")
             for index in range(frame_len):
                 if previous_frame[index] != frame[index]:
                     if (abs((previous_frame[index] - frame[index])) / 100) > \
@@ -94,15 +98,17 @@ if __name__ == "__main__":
     win = visual.Window((600, 600), allowGUI=False, winType='pyglet')
 
     # Initialize some stimuli
-    dotPatch = visual.DotStim(win, color=(1.0, 1.0, 1.0), dir=270,
-                              nDots=500, fieldShape='circle', fieldPos=(0.0, 0.0), fieldSize=3,
-                              dotLife=5,  # number of frames for each dot to be drawn
-                              signalDots='same',  # are signal dots 'same' on each frame? (see Scase et al)
-                              noiseDots='position',
-                              # do the noise dots follow random- 'walk', 'direction', or 'position'
-                              speed=0.0001, coherence=0.9)
+    # Initialize some stimuli
+    fixSpot = visual.GratingStim(win, tex="none", mask="gauss",
+                                 pos=(0, 0), size=(0.05, 0.05), color='black', autoLog=False)
+    grating = visual.GratingStim(win, pos=(0.5, 0),
+                                 tex="sin", mask="gauss",
+                                 color=[0, 0, 0],
+                                 size=(1.0, 1.0), sf=(3, 0),
+                                 autoLog=False)  # autologging not useful for dynamic stimuli
+    myMouse = event.Mouse()  # will use win by default
 
-    print(dotPatch)
+    # print(dotPatch)
 
     message = visual.TextStim(win, text='Any key to quit', pos=(0, -0.5))
     trialClock = core.Clock()
@@ -111,17 +117,53 @@ if __name__ == "__main__":
 
     while not event.getKeys():
         message_from_feagi = feagi_opu_channel.receive()
+        mouse_dX, mouse_dY = myMouse.getRel()
+        mouse1, mouse2, mouse3 = myMouse.getPressed()
+        if (mouse1):
+            grating.setSF(mouse_dX, '+')
+        elif (mouse3):
+            grating.setPos([mouse_dX, mouse_dY], '+')
+        else:
+            fixSpot.setPos(myMouse.getPos())
+
+        # Handle the wheel(s):
+        # dY is the normal mouse wheel, but some have a dX as well
+        wheel_dX, wheel_dY = myMouse.getWheelRel()
+        grating.setOri(wheel_dY * 5, '+')
+
+        # get rid of other, unprocessed events
+        event.clearEvents()
+
+        # Do the drawing
+        fixSpot.draw()
+        grating.setPhase(0.05, '+')  # advance 0.05 cycles per frame
+        grating.draw()
         pixels = win._getFrame()
         pixels = np.array(pixels)
+        print(pixels)
+        # message.draw()
+        win.flip()
+        # pixels = win._getFrame()
+        # pixels = np.array(pixels)
+        dim = (16, 16)
+        resized = cv2.resize(pixels, dim, interpolation=cv2.INTER_AREA)
+        print(len(resized))
+        print("before modified shapes: ", np.shape(resized))
+        # cv2.imshow("Resized image", resized)
+        # cv2.waitKey(1)
+        # cv2.destroyAllWindows()
         # print("BEFORE RESIZE: ", np.shape(pixels))
-        n, m = 600, 600  # We need to implement that to improve way to code instead of a fixed hardcoded numbers.
+        n, m = 16, 16  # We need to implement that to improve way to code instead of a fixed hardcoded numbers.
         # pixels.resize(16, 16, 3)
         # print("AFTER RESIZE: ", np.shape(pixels))
-        pixels = ndarray_to_list(pixels)
+        pixels = ndarray_to_list(resized)
+        print(len(pixels))
+        print("after modified shapes: ", np.shape(pixels))
         pixels_changed = get_rgb(pixels, n, m)
-        dotPatch.draw()
-        message.draw()
-        win.flip()  # make the drawn things visible
+        print("FINAL: ", pixels_changed)
+        # dotPatch.draw()
+        # message.draw()
+        # win.flip()  # make the drawn things visible
         try:
             if "data" not in message_to_feagi:
                 message_to_feagi["data"] = dict()
