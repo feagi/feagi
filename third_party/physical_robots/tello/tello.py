@@ -1,3 +1,4 @@
+import cv2
 import time
 import requests
 import numpy as np
@@ -216,6 +217,7 @@ def get_rgb(frame):
     try:
         if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the
             # resolution setting
+            print("IN!")
             for index in range(frame_len):
                 if previous_frame[index] != frame[index]:
                     if (abs((previous_frame[index] - frame[index])) / 100) > \
@@ -235,7 +237,7 @@ def get_rgb(frame):
         print("Error: Raw data frame does not match frame resolution")
         print("Error due to this: ", e)
 
-    return {'vision': vision_dict}
+    return {'camera': vision_dict}
 
 
 def start_camera(self):
@@ -310,7 +312,7 @@ def main():
     while True:
         try:
             # Gather all data from the robot to prepare for FEAGI
-
+            dim = (configuration.capabilities['camera']['width'], configuration.capabilities['camera']['height'])
             data = tello.get_current_state()
             gyro = get_gyro(data)
             acc = get_accelerator(data)
@@ -318,8 +320,10 @@ def main():
             bat = get_battery(data)
             battery = bat['battery_charge_level']
             data = full_frame(tello)
-            data = ndarray_to_list(data)
+            resized = cv2.resize(data, dim, interpolation=cv2.INTER_AREA)
+            data = ndarray_to_list(resized)
             rgb = get_rgb(data)
+            print(rgb)
             configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=gyro,
                                                                                  data=configuration.message_to_feagi,
                                                                                  battery=battery)
@@ -330,6 +334,7 @@ def main():
                                                                                  data=configuration.message_to_feagi,
                                                                                  battery=battery)
             configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=rgb,
+                                                                                 data=configuration.message_to_feagi,
                                                                                  battery=battery)
 
             message_from_feagi = feagi_opu_channel.receive()
