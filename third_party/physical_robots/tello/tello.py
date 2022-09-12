@@ -305,7 +305,7 @@ def main():
     print("Connecting with Tello drone...")
     tello.connect()
     print("Connected with Tello drone.")
-    # start_camera(tello)
+    start_camera(tello)
 
     while True:
         try:
