@@ -217,7 +217,6 @@ def get_rgb(frame):
     try:
         if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the
             # resolution setting
-            print("IN!")
             for index in range(frame_len):
                 if previous_frame[index] != frame[index]:
                     if (abs((previous_frame[index] - frame[index])) / 100) > \
