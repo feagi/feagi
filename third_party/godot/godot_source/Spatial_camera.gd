@@ -51,12 +51,3 @@ func look_leftright_rotation(rotation = 0):
 
 func _process(delta):
 	get_input_keyboard(delta)
-
-
-
-#	self.velocity = self.move_and_slide_with_snap(
-#		self.velocity,
-#		snap_vector,
-#		Vector3(0, +1, 0),
-#		true
-#	)
