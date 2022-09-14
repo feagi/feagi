@@ -24,6 +24,7 @@ import ast
 import asyncio
 import websockets
 import requests
+import random
 import shutil
 import threading
 from time import sleep
@@ -83,7 +84,20 @@ def csv_writer(cortical_dimensions):
 
     print("Godot CSV has been created.")
 
-def breakdown(feagi_input):  ##add input soon
+def simulation_testing():
+    x = 0
+    y = 0
+    z = 0
+    array = []
+    for i in range(1000):
+        x = random.randint(0, 64)
+        y = random.randint(0, 64)
+        z = 3
+        array.append((x, y, z))
+    return array
+
+
+def breakdown(feagi_input):
     """
     #TODO: Explain what this is for
     """
@@ -140,9 +154,9 @@ def godot_selected_list(outside_list, godot_list):
     for key in list_to_dict["data"]["direct_stimulation"]:
         if key not in list_to_dict["data"]["direct_stimulation"]:
             list_to_dict["data"]["direct_stimulation"][name] = list()
-            list_to_dict["data"]["direct_stimulation"][name].append([x,y,z])
+            list_to_dict["data"]["direct_stimulation"][name].append([x, y, z])
         else:
-            list_to_dict["data"]["direct_stimulation"][name].append([x,y,z])
+            list_to_dict["data"]["direct_stimulation"][name].append([x, y, z])
     return list_to_dict
 
 
@@ -161,7 +175,7 @@ def name_to_id(name):
             return runtime_data["cortical_data"][cortical_area][7]
     else:
         # pass
-        print("*** Failed to find cortical name ***" )
+        print("*** Failed to find cortical name ***")
 
 
 def feagi_breakdown(data):
@@ -200,14 +214,15 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
         for key in stimulation_from_godot["data"]["direct_stimulation"]:
             for name_match in cortical_data:
                 raw_id = name_match
-                name_match = name_to_id(name_match) # convert the human readable name into feagi name
+                name_match = name_to_id(name_match)  # convert the human readable name into feagi name
                 if name_match == key:
                     if relative_coordinate["data"]["direct_stimulation"].get(name_match) is not None:
                         pass
                     else:
                         relative_coordinate["data"]["direct_stimulation"][name_match] = list()
                     for xyz in stimulation_from_godot["data"]["direct_stimulation"][name_match]:
-                        new_xyz =[xyz[0] - cortical_data[raw_id][0], xyz[1] - cortical_data[raw_id][1], xyz[2] - cortical_data[raw_id][2]]
+                        new_xyz = [xyz[0] - cortical_data[raw_id][0], xyz[1] - cortical_data[raw_id][1],
+                                   xyz[2] - cortical_data[raw_id][2]]
                         relative_coordinate["data"]["direct_stimulation"][name_match].append(new_xyz)
 
             else:
@@ -216,6 +231,7 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
         pass
 
     return relative_coordinate
+
 
 def feagi_registration(feagi_host, api_port):
     app_host_info = router.app_host_info()
@@ -257,10 +273,14 @@ def feagi_init(feagi_host, api_port):
             awaiting_feagi_registration = False
         time.sleep(1)
 
+
 async def echo(websocket):
     while True:
         try:
-            # print("Sending data to godot: ", zmq_queue[0])
+            if len(zmq_queue) > 5:
+                stored_value = zmq_queue[len(zmq_queue)-1]
+                zmq_queue.clear()
+                zmq_queue[0] = stored_value
             await websocket.send(str(zmq_queue[0]))
             zmq_queue.pop()
         except Exception as e:
@@ -268,16 +288,19 @@ async def echo(websocket):
             # print("HARMLESS ERROR. IT IS SAFE TO IGNORE THIS ERROR.")
             # print("FULL LOG: ", e)
             # print("This happens due to no queue available to send")
-            #print("pass is intended.")
+            # print("pass is intended.")
         new_data = await websocket.recv()
         ws_queue.append(new_data)
+
 
 async def websocket_main():
     async with websockets.serve(echo, "0.0.0.0", configuration.network_settings['godot_websocket_port']):
         await asyncio.Future()
 
+
 def websocket_operation():
     asyncio.run(websocket_main())
+
 
 if __name__ == "__main__":
     print("================================ @@@@@@@@@@@@@@@ ==========================================")
@@ -306,7 +329,8 @@ if __name__ == "__main__":
 
     print("--->> >> >> \n", sockets, network_settings)
     FEAGI_pub = Pub(address='tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_godot'])
-    opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"]['feagi_outbound_port']
+    opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
+        'feagi_outbound_port']
     FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
     feagi_init(feagi_host=feagi_host, api_port=api_port)
@@ -335,17 +359,19 @@ if __name__ == "__main__":
                 except Exception as e:
                     print("Error during genome reset:\n", e)
             one_frame = feagi_breakdown(one_frame)
+            # one_frame = simulation_testing()
             if burst_second > network_settings['burst_duration_threshold']:
                 zmq_queue.append(one_frame)
         if ws_queue:
-            data_from_godot = ws_queue[0].decode('UTF-8')  ##ADDED this line to decode into string only
+            data_from_godot = ws_queue[0].decode('UTF-8')  # ADDED this line to decode into string only
             ws_queue.pop()
         else:
             data_from_godot = "{}"
         if data_from_godot == "lagged":
             detect_lag = True
             data_from_godot = "{}"
-        if (data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and data_from_godot != "refresh" and data_from_godot != "[]"):
+        if (
+                data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and data_from_godot != "refresh" and data_from_godot != "[]"):
             godot_list = godot_data(data_from_godot)
             converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=godot_list,
                                                                      cortical_data=runtime_data[
@@ -358,4 +384,3 @@ if __name__ == "__main__":
             FEAGI_pub.send(godot_list)
         else:
             pass
-

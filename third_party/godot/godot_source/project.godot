@@ -24,6 +24,7 @@ config/icon="res://icon.png"
 
 Godot_list="*res://godot_list.gd"
 websocket="*res://websocket_client_operation.gd"
+global_material="*res://global_material.gd"
 
 [input]
 
