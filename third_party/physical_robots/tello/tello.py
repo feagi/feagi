@@ -1,13 +1,15 @@
+import cv2
 import time
 import requests
 import numpy as np
 import configuration
+import retina as retina
 from configuration import *
 from djitellopy import Tello
 from datetime import datetime
 import feagi_interface as FEAGI
 
-previous_frame_data = dict()
+previous_data_frame = dict()
 
 
 def get_battery(full_data):
@@ -199,17 +201,17 @@ def convert_feagi_to_english(feagi):
     return new_dict
 
 
-def get_rgb(frame):
+def get_rgb(frame, size, previous_frame_data, name_id):
     vision_dict = dict()
-    frame_row_count = configuration.capabilities['camera']['width']
-    frame_col_count = configuration.capabilities['camera']['height']
+    frame_row_count = size[0]  # width
+    frame_col_count = size[1]  # height
 
     x_vision = 0  # row counter
     y_vision = 0  # col counter
     z_vision = 0  # RGB counter
 
     try:
-        previous_frame = previous_frame_data[0]
+        previous_frame = previous_frame_data
     except Exception:
         previous_frame = [0, 0]
     frame_len = len(previous_frame)
@@ -230,12 +232,15 @@ def get_rgb(frame):
                         y_vision = 0
                         x_vision += 1
         if frame != {}:
-            previous_frame_data[0] = frame
+            previous_frame_data = frame
     except Exception as e:
         print("Error: Raw data frame does not match frame resolution")
         print("Error due to this: ", e)
 
-    return {'vision': vision_dict}
+    if len(vision_dict) > 4500:
+        return {'camera': {name_id: {}}}, previous_frame_data
+    else:
+        return {'camera': {name_id: vision_dict}}, previous_frame_data
 
 
 def start_camera(self):
@@ -305,12 +310,12 @@ def main():
     print("Connecting with Tello drone...")
     tello.connect()
     print("Connected with Tello drone.")
-    # start_camera(tello)
+    start_camera(tello)
 
     while True:
         try:
             # Gather all data from the robot to prepare for FEAGI
-
+            # dim = (configuration.capabilities['camera']['width'], configuration.capabilities['camera']['height'])
             data = tello.get_current_state()
             gyro = get_gyro(data)
             acc = get_accelerator(data)
@@ -318,8 +323,34 @@ def main():
             bat = get_battery(data)
             battery = bat['battery_charge_level']
             data = full_frame(tello)
-            data = ndarray_to_list(data)
-            rgb = get_rgb(data)
+            retina_data = retina.frame_split(data)
+            rgb = dict()
+            rgb['camera'] = dict()
+            if previous_data_frame == {}:
+                for i in retina_data:
+                    previous_name = str(i) + "_prev"
+                    previous_data_frame[previous_name] = {}
+            for i in retina_data:
+                name = i
+                if 'prev' not in i:
+                    data = ndarray_to_list(retina_data[i])
+                    if 'C' in i:
+                        previous_name = str(i) + "_prev"
+                        rgb_data, previous_data_frame[previous_name] = get_rgb(data,
+                                                                          capabilities['camera'][
+                                                                              'central_vision_compression'],
+                                                                          previous_data_frame[previous_name], name)
+                    else:
+                        previous_name = str(i) + "_prev"
+                        rgb_data, previous_data_frame[previous_name] = get_rgb(data,
+                                                                          capabilities['camera'][
+                                                                              'peripheral_vision_compression'],
+                                                                          previous_data_frame[previous_name], name)
+                    for a in rgb_data['camera']:
+                        rgb['camera'][a] = rgb_data['camera'][a]
+            # resized = cv2.resize(data, dim, interpolation=cv2.INTER_AREA)
+            # data = ndarray_to_list(resized)
+            # rgb = get_rgb(data)
             configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=gyro,
                                                                                  data=configuration.message_to_feagi,
                                                                                  battery=battery)
@@ -330,6 +361,7 @@ def main():
                                                                                  data=configuration.message_to_feagi,
                                                                                  battery=battery)
             configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=rgb,
+                                                                                 data=configuration.message_to_feagi,
                                                                                  battery=battery)
 
             message_from_feagi = feagi_opu_channel.receive()

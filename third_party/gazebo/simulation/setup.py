@@ -34,7 +34,7 @@ setup(
     entry_points={
         'console_scripts': [
             'joint_state_publisher = joint_state_publisher.joint_state_publisher:main',
-            'robot_interface = robot_interface:main'
+            'robot = robot:main'
         ],
     },
 )

@@ -16,7 +16,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y bluez \
   libcairo2-dev \
   gir1.2-gtk-3.0
   
-RUN apt-get update && apt-get install -yq --no-install-recommends dbus bluez libbluetooth-dev 
+RUN apt-get update && apt-get install -yq --no-install-recommends dbus bluez libbluetooth-dev
 
 RUN apt install -y python3
 RUN apt install -y python3-pip

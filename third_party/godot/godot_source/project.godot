@@ -24,6 +24,7 @@ config/icon="res://icon.png"
 
 Godot_list="*res://godot_list.gd"
 websocket="*res://websocket_client_operation.gd"
+global_material="*res://global_material.gd"
 
 [input]
 
@@ -72,6 +73,17 @@ z={
 "events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":90,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
  ]
 }
+
+[network]
+
+limits/websocket_client/max_in_buffer_kb=1000
+limits/websocket_client/max_in_packets=100000
+limits/websocket_client/max_out_buffer_kb=1000
+limits/websocket_client/max_out_packets=100000
+limits/websocket_server/max_in_buffer_kb=1000
+limits/websocket_server/max_in_packets=100000
+limits/websocket_server/max_out_buffer_kb=1000
+limits/websocket_server/max_out_packets=100000
 
 [rendering]
 
