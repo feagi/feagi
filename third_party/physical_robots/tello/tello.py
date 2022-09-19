@@ -222,7 +222,7 @@ def get_rgb(frame, size, previous_frame_data, name_id):
                 if previous_frame[index] != frame[index]:
                     if (abs((previous_frame[index] - frame[index])) / 100) > \
                             configuration.capabilities['camera']['deviation_threshold']:
-                        dict_key = str(x_vision) + '-' + str(y_vision) + '-' + str(0)
+                        dict_key = str(x_vision) + '-' + str(y_vision) + '-' + str(z_vision)
                         vision_dict[dict_key] = frame[index]  # save the value for the changed index to the dict
                 z_vision += 1
                 if z_vision == 3:
@@ -237,7 +237,7 @@ def get_rgb(frame, size, previous_frame_data, name_id):
         print("Error: Raw data frame does not match frame resolution")
         print("Error due to this: ", e)
 
-    if len(vision_dict) > 1500:
+    if len(vision_dict) > 4500:
         return {'camera': {name_id: {}}}, previous_frame_data
     else:
         return {'camera': {name_id: vision_dict}}, previous_frame_data
