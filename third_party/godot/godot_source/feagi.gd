@@ -19,7 +19,6 @@ extends Spatial
 
 onready var file = 'res://csv_data.gdc'
 onready var textbox_display = get_node("Sprite3D")
-onready var gridmap_new = get_node("GridMap2")
 onready var selected =  preload("res://selected.meshlib")
 onready var deselected = preload("res://Cortical_area_box.meshlib")
 onready var duplicate_model = get_node("Cortical_area")
@@ -61,8 +60,9 @@ var increment_gridmap = 0
 
 func _ready():
 #	Godot_list.godot_list["data"]
-	Engine.target_fps = 20
-	$GridMap2.clear()
+	set_physics_process(false)
+	#Engine.target_fps = 20
+#	Engine.setlowprocessorusagemode = true
 	for i in 6:
 		$GridMap3.set_cell_item(i,0,0,0) ##set the arrow indicator of 3D
 	var create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
@@ -100,7 +100,7 @@ func _ready():
 		#print("data from python: ", data)
 		start = OS.get_ticks_msec()## This will time the engine at start
 		yield(get_tree().create_timer(0.01), "timeout")
-		#$GridMap.clear()
+		$GridMap.clear()
 		end = OS.get_ticks_msec()
 		var time_total = end - start
 		if time_total < 500: ## Generate voxels as long as you are on the tab
@@ -110,19 +110,15 @@ func _ready():
 
 
 func _process(_delta):
-	check_csv() ##Check if csv is changed
+	#check_csv() ##Check if csv is changed
 	data = websocket.one_frame
 	
 	
 func generate_model(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
-	var new_grid = gridmap_new.duplicate()
-	new_grid.set_name(name_input)
-	add_child(new_grid)
 	for x_gain in width_input:
 		for y_gain in height_input:
 			for z_gain in depth_input:
 				if x_gain == 0 or x_gain == (int(width_input)-1) or y_gain == 0 or y_gain == (int(height_input) - 1) or z_gain == 0 or z_gain == (int(depth_input) - 1):
-					#new_grid.set_cell_item(x_gain+int(x_input), y_gain+int(y_input), z_gain+int(z_input), 0)
 					var new = get_node("Cortical_area").duplicate()
 					new.set_name(name_input)
 					add_child(new)
@@ -139,16 +135,7 @@ func adding_cortical_areas(name, x_input,y_input,z_input,width_input,height_inpu
 	cortical_area[name]=[x_input,y_input,z_input,width_input,height_input,depth_input] ##This is just adding the list
 	
 func install_voxel_inside(x_input,y_input,z_input):
-	var new_name_gridmap = "gridmap_generator" + str(increment_gridmap)
-	increment_gridmap += 1
-	new_name_gridmap = get_node("GridMap").duplicate()
-	add_child(new_name_gridmap)
-	new_name_gridmap.run(x_input,y_input,z_input)
-#	var red_voxel = get_node("GridMap").duplicate()
-	#add_child(red_voxel)
-	#red_voxel.run(x_input,y_input,z_input)
-#	add_child(red_voxel(x_input,y_input,z_input))
-#	$GridMap.set_cell_item(x_input,y_input,z_input, 0)
+	$GridMap.set_cell_item(x_input,y_input,z_input, 0)
 
 func _csv_generator():
 	_clear_node_name_list(global_name_list)
@@ -160,59 +147,27 @@ func _csv_generator():
 			var line = f.get_line()
 			if line != "":
 				line += " "
-				#print(line)
 				var CSV_data = line.split(",", true, '0') ##splits into value array per line
-				x = CSV_data[0]
-				y = CSV_data[1]
-				z = CSV_data[2]
-				width= int(CSV_data[3])
-				height = int(CSV_data[4])
-				depth = int(CSV_data[5])
-				name = CSV_data[6]
+				x = CSV_data[0]; y = CSV_data[1]; z = CSV_data[2]; width= int(CSV_data[3]) 
+				height = int(CSV_data[4]); depth = int(CSV_data[5]); name = CSV_data[6]
 				$Floor_grid.set_cell_item(int(x),0,int(z),0)
 				if sign(int(width)) > 0:
 					x_increment = (int(width) / floor_size) + 1
 					for i in x_increment:
-						print("generated: " , i, " for ", name)
 						$Floor_grid.set_cell_item(int(x)+(i*floor_size),0,0,0)
 				if sign(int(width)) < 0:
 					x_increment = (int(width) / floor_size) - 1
 					for i in range(0, x_increment):
-						print("generated: " , i, " for ", name)
 						$Floor_grid.set_cell_item(int(x)+(-1*i*floor_size),0,0,0)
 #				$Floor_grid.set_cell_item(0,0,int(z),0)
 				if sign(int(depth)) > 0:
 					z_increment = (int(depth) / floor_size) + 1
 					for i in z_increment:
-						print("generated: " , i, " for ", name)
 						$Floor_grid.set_cell_item(int(x),0,int(z)+(i*floor_size),0)
 				if sign(int(width)) < 0:
 					z_increment = (int(depth) / floor_size) - 1
 					for i in range(0, z_increment):
-						print("generated: " , i, " for ", name)
 						$Floor_grid.set_cell_item(int(x),0,int(z) + (-1*i*floor_size),0)
-				
-#				if sign(int(x)) >= 0:
-#					print("+name: ", name, " BWUK: ", x_increment)
-#					x_increment = (int(width) / floor_size) + 1
-#					for i in x_increment:
-#						$Floor_grid.set_cell_item(i*floor_size,0,0,0)
-#				if sign(int(x)) <= 0:
-#					print("-name: ", name, " BWUK: ", x_increment)
-#					x_increment = (int(width) / floor_size) - 1
-#					for i in range(0, x_increment):
-#						$Floor_grid.set_cell_item(i*floor_size,0,0,0)
-#						print("generated: " , i, " for ", name)
-#				if sign(int(z)) >= 0:
-#					z_increment = (int(depth) / floor_size) + 1
-#					for i in z_increment:
-#						$Floor_grid.set_cell_item(int(x),0,i*floor_size,0)
-#				if sign(int(z)) <= 0:
-#					z_increment = (int(depth) / floor_size) - 1
-#					var i = 0
-#					while i >= z_increment:
-#						$Floor_grid.set_cell_item(int(x),0,i*floor_size,0)
-#						i -= 1
 				var copy = duplicate_model.duplicate() 
 				var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
 				var viewport = create_textbox.get_node("Viewport")
@@ -252,7 +207,7 @@ func check_csv():
 			check.open(file, File.READ)
 			var current_csv = check.get_as_text()
 			check.close()
-			print(stored_csv)
+			#print(stored_csv)
 			if stored_csv != current_csv:
 				_csv_generator()
 				stored_csv = current_csv

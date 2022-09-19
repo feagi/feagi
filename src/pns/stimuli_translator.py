@@ -322,19 +322,101 @@ def vision_translator(vision_data):
     todo: add details here about the message format and expectations
     """
     cortical_area = 'i__vis'
+    numbers_camera = int(len(vision_data) / 9)  # counts how many camera
     if cortical_area_in_genome(cortical_area):
         if vision_data is not None:
             holder_position = 0
-            for x in vision_data:
+            for x in range(numbers_camera):
                 for i in vision_data:
-                    detections = stimuli_processor.vision_to_coords(i)
-                    holder_position += 1
-                    neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
-                    if 'i__vis' not in runtime_data.fire_candidate_list:
-                        runtime_data.fire_candidate_list['i__vis'] = set()
-                    for neuron in neurons:
-                        runtime_data.fire_candidate_list['i__vis'].add(neuron)
-                    # runtime_data.fcl_queue.put({cortical_area: set(neurons)})
+                    if 'C' in i:
+                        cortical_area = "i__v" + str(x) + str('C')  # generate specific cortical area
+                        for r in vision_data[i]:
+                            detections = stimuli_processor.vision_to_coords(r)
+                            holder_position += 1
+                            neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
+                            if cortical_area not in runtime_data.fire_candidate_list:
+                                runtime_data.fire_candidate_list[cortical_area] = set()
+                            for neuron in neurons:
+                                runtime_data.fire_candidate_list[cortical_area].add(neuron)
+                    if 'TL' in i:
+                        cortical_area = "i_v" + str(x) + str('TL')  # generate specific cortical area
+                        for r in vision_data[i]:
+                            detections = stimuli_processor.vision_to_coords(r)
+                            holder_position += 1
+                            neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
+                            if cortical_area not in runtime_data.fire_candidate_list:
+                                runtime_data.fire_candidate_list[cortical_area] = set()
+                            for neuron in neurons:
+                                runtime_data.fire_candidate_list[cortical_area].add(neuron)
+                    if 'TM' in i:
+                        cortical_area = "i_v" + str(x) + str('TM')  # generate specific cortical area
+                        for r in vision_data[i]:
+                            detections = stimuli_processor.vision_to_coords(r)
+                            holder_position += 1
+                            neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
+                            if cortical_area not in runtime_data.fire_candidate_list:
+                                runtime_data.fire_candidate_list[cortical_area] = set()
+                            for neuron in neurons:
+                                runtime_data.fire_candidate_list[cortical_area].add(neuron)
+                    if 'TR' in i:
+                        cortical_area = "i_v" + str(x) + str('TR')  # generate specific cortical area
+                        for r in vision_data[i]:
+                            detections = stimuli_processor.vision_to_coords(r)
+                            holder_position += 1
+                            neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
+                            if cortical_area not in runtime_data.fire_candidate_list:
+                                runtime_data.fire_candidate_list[cortical_area] = set()
+                            for neuron in neurons:
+                                runtime_data.fire_candidate_list[cortical_area].add(neuron)
+                    if 'ML' in i:
+                        cortical_area = "i_v" + str(x) + str('ML')  # generate specific cortical area
+                        for r in vision_data[i]:
+                            detections = stimuli_processor.vision_to_coords(r)
+                            holder_position += 1
+                            neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
+                            if cortical_area not in runtime_data.fire_candidate_list:
+                                runtime_data.fire_candidate_list[cortical_area] = set()
+                            for neuron in neurons:
+                                runtime_data.fire_candidate_list[cortical_area].add(neuron)
+                    if 'MR' in i:
+                        cortical_area = "i_v" + str(x) + str('MR')  # generate specific cortical area
+                        for r in vision_data[i]:
+                            detections = stimuli_processor.vision_to_coords(r)
+                            holder_position += 1
+                            neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
+                            if cortical_area not in runtime_data.fire_candidate_list:
+                                runtime_data.fire_candidate_list[cortical_area] = set()
+                            for neuron in neurons:
+                                runtime_data.fire_candidate_list[cortical_area].add(neuron)
+                    if 'LL' in i:
+                        cortical_area = "i_v" + str(x) + str('LL')  # generate specific cortical area
+                        for r in vision_data[i]:
+                            detections = stimuli_processor.vision_to_coords(r)
+                            holder_position += 1
+                            neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
+                            if cortical_area not in runtime_data.fire_candidate_list:
+                                runtime_data.fire_candidate_list[cortical_area] = set()
+                            for neuron in neurons:
+                                runtime_data.fire_candidate_list[cortical_area].add(neuron)
+                    if 'LM' in i:
+                        cortical_area = "i_v" + str(x) + str('LM')  # generate specific cortical area
+                        for r in vision_data[i]:
+                            detections = stimuli_processor.vision_to_coords(r)
+                            holder_position += 1
+                            neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
+                            if cortical_area not in runtime_data.fire_candidate_list:
+                                runtime_data.fire_candidate_list[cortical_area] = set()
+                            for neuron in neurons:
+                                runtime_data.fire_candidate_list[cortical_area].add(neuron)
+                    if 'LR' in i:
+                        cortical_area = "i_v" + str(x) + str('LR')  # generate specific cortical area
+                        for r in vision_data[i]:
+                            detections = stimuli_processor.vision_to_coords(r)
+                            holder_position += 1
+                            neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
+                            if cortical_area not in runtime_data.fire_candidate_list:
+                                runtime_data.fire_candidate_list[cortical_area] = set()
+                            for neuron in neurons:
+                                runtime_data.fire_candidate_list[cortical_area].add(neuron)
     else:
         print("Warning! Cortical stimulation received but genome missing", cortical_area)
-

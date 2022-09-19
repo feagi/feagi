@@ -197,8 +197,16 @@ def vision_to_coords(vision_data):
     """ Converts vision data from sensor to coordinates in
     the accelerator cortical area.
     """
+    X_MAX = runtime_data.genome['blueprint'] \
+        ['i__vis'] \
+        ['neuron_params'] \
+        ['block_boundaries'][0]
+    Y_MAX = runtime_data.genome['blueprint'] \
+        ['i__vis'] \
+        ['neuron_params'] \
+        ['block_boundaries'][1]
     vision_data = vision_data.split("-")
-    return [(int(vision_data[0]), int(vision_data[1]), int(vision_data[2]))]
+    return [(int(vision_data[1]), int(vision_data[0]), int(vision_data[2]))]
 
 
 def coords_to_neuron_ids(detection_locations, cortical_area):

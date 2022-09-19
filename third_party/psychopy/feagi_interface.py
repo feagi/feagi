@@ -147,7 +147,6 @@ def opu_processor(data):
                     device_id = data_point[0]
                     device_power = data_point[2]
                     processed_opu_data['motor'][device_id] = device_power
-
             if 'o__ser' in opu_data:
                 if opu_data['o__ser']:
                     for data_point in opu_data['o__ser']:
@@ -155,7 +154,6 @@ def opu_processor(data):
                         device_id = data_point[0]
                         device_power = data_point[2]
                         processed_opu_data['servo'][device_id] = device_power
-
             if 'o_cbat' in opu_data:
                 if opu_data['o__bat']:
                     for data_point in opu_data['o_cbat']:
@@ -167,6 +165,7 @@ def opu_processor(data):
                     for data_point in opu_data['o_dbat']:
                         intensity = data_point
                         processed_opu_data['battery'] = intensity
+
             if 'o_init' in opu_data:
                 if opu_data['o_init']:
                     for data_point in opu_data['o_init']:
