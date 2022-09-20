@@ -62,7 +62,20 @@ capabilities = {
         "capacity": 100,
         "depletion_per_burst": 0.01,
         "charge_increment": 0.1
-    }
+    },
+    "camera": {
+        "type": "ipu",
+        "disabled": False,
+        "count": 1,
+        "width": 8,
+        "height": 8,
+        "deviation_threshold": 0.1,
+        "retina_width_percent": 60,
+        "retina_height_percent": 40,
+        "central_vision_compression": [64, 64],
+        "peripheral_vision_compression": [8, 8],
+        "previous_data": {}
+    },
 }
 
 message_to_feagi = {"data": {}}
