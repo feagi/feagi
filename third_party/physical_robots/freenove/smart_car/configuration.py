@@ -69,7 +69,7 @@ capabilities = {
         "count": 1,
         "width": 8,
         "height": 8,
-        "deviation_threshold": 0.1,
+        "deviation_threshold": 0.5,
         "retina_width_percent": 60,
         "retina_height_percent": 40,
         "central_vision_compression": [64, 64],
