@@ -21,17 +21,17 @@ def ndarray_to_list(array):
     return new_list
 
 
-def get_rgb(frame, size, old_data, name_id):
+def get_rgb(frame, size, previous_frame_data, name_id):
     vision_dict = dict()
-    frame_row_count = size[0]
-    frame_col_count = size[1]
+    frame_row_count = size[0]  # width
+    frame_col_count = size[1]  # height
 
     x_vision = 0  # row counter
     y_vision = 0  # col counter
     z_vision = 0  # RGB counter
 
     try:
-        previous_frame = old_data
+        previous_frame = previous_frame_data
     except Exception:
         previous_frame = [0, 0]
     frame_len = len(previous_frame)
@@ -41,10 +41,9 @@ def get_rgb(frame, size, old_data, name_id):
             for index in range(frame_len):
                 if previous_frame[index] != frame[index]:
                     if (abs((previous_frame[index] - frame[index])) / 100) > \
-                            0:
-                        # print("CHANGED FRAME: ", frame[index])
-                        dict_key = str(x_vision) + '-' + str(y_vision) + '-' + str(z_vision)
-                        # print("dict: ", dict_key)
+                            capabilities['vision']['deviation_threshold']:
+                        dict_key = str(y_vision) + '-' + str(abs((frame_row_count - 1) - x_vision)) + '-' + str(
+                            z_vision)
                         vision_dict[dict_key] = frame[index]  # save the value for the changed index to the dict
                 z_vision += 1
                 if z_vision == 3:
@@ -54,12 +53,15 @@ def get_rgb(frame, size, old_data, name_id):
                         y_vision = 0
                         x_vision += 1
         if frame != {}:
-            old_data = frame
+            previous_frame_data = frame
     except Exception as e:
         print("Error: Raw data frame does not match frame resolution")
         print("Error due to this: ", e)
 
-    return {'camera': {name_id: vision_dict}}, old_data
+    if len(vision_dict) > 3500:
+        return {'camera': {name_id: {}}}, previous_frame_data
+    else:
+        return {'camera': {name_id: vision_dict}}, previous_frame_data
 
 
 if __name__ == "__main__":
@@ -101,7 +103,7 @@ if __name__ == "__main__":
                                  pos=(0, 0), size=(0.05, 0.05), color='black', autoLog=False)
     grating = visual.GratingStim(win, pos=(0.5, 0),
                                  tex="sin", mask="gauss",
-                                 color=[0, 0, 0],
+                                 color=[1.0, 0.5, -1.0],
                                  size=(1.0, 1.0), sf=(3, 0),
                                  autoLog=False)  # autologging not useful for dynamic stimuli
     myMouse = event.Mouse()  # will use win by default
@@ -134,8 +136,8 @@ if __name__ == "__main__":
 
         # Do the drawing
         fixSpot.draw()
-        grating.setPhase(0.05, '+')  # advance 0.05 cycles per frame
-        grating.draw()
+        # grating.setPhase(0.05, '+')  # advance 0.05 cycles per frame
+        # grating.draw()
         pixels = win._getFrame()
         pixels = np.array(pixels)
         win.flip()
