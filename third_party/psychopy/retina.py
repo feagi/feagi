@@ -20,128 +20,78 @@ def snippet_rgb(inner_width, percent_a, inner_height, percent_b):
 
 
 def center_data_compression(frame):
-    compressed = cv2.resize(frame, capabilities['camera']["central_vision_compression"], interpolation=cv2.INTER_AREA)
+    compressed = cv2.resize(frame, capabilities['vision']["central_vision_compression"], interpolation=cv2.INTER_AREA)
     return compressed
 
 
 def peripheral_data_compression(frame):
-    compressed = cv2.resize(frame, capabilities['camera']["peripheral_vision_compression"],
+    compressed = cv2.resize(frame, capabilities['vision']["peripheral_vision_compression"],
                             interpolation=cv2.INTER_AREA)
     return compressed
 
 
+def feagi_language(dictionary, previous_frame_data):
+    vision_dict = dict()
+    frame_row_count = capabilities['camera']['width']
+    frame_col_count = capabilities['camera']['height']
+
+    x_vision = 0  # row counter
+    y_vision = 0  # col counter
+    z_vision = 0  # RGB counter
+
+    try:
+        previous_frame = previous_frame_data[0]
+    except Exception:
+        previous_frame = [0, 0]
+    frame_len = len(previous_frame)
+    try:
+        if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the
+            # resolution setting
+            for index in range(frame_len):
+                if previous_frame[index] != dictionary[index]:
+                    if (abs((previous_frame[index] - dictionary[index])) / 100) > \
+                            capabilities['camera']['deviation_threshold']:
+                        dict_key = str(x_vision) + '-' + str(y_vision) + '-' + str(z_vision)
+                        vision_dict[dict_key] = dictionary[index]  # save the value for the changed index to the dict
+                z_vision += 1
+                if z_vision == 3:
+                    z_vision = 0
+                    y_vision += 1
+                    if y_vision == frame_col_count:
+                        y_vision = 0
+                        x_vision += 1
+        if dictionary != {}:
+            previous_frame_data[0] = dictionary
+    except Exception as e:
+        print("Error: Raw data frame does not match frame resolution")
+        print("Error due to this: ", e)
+
+    return {'camera': vision_dict}
+
+
 def frame_split(frame):
+    vision = dict()
     full_data = frame.shape
     width_data1, width_data2, height_data1, height_data2 = snippet_rgb(full_data[0],
-                                                                       capabilities['camera']['retina_width_percent'],
+                                                                       capabilities['vision']['retina_width_percent'],
                                                                        full_data[1],
-                                                                       capabilities['camera']['retina_height_percent'])
-    print("C and D for width: ", width_data1, " ", width_data2)
-    print("C and D for height: ", height_data1, " ", height_data2)
+                                                                       capabilities['vision']['retina_height_percent'])
     TL = frame[0:width_data1, 0:height_data1]
     TM = frame[0:width_data1, height_data1:height_data2]
     TR = frame[0:width_data1, height_data2:]
     ML = frame[width_data1:width_data2, 0:height_data1]
     C = frame[width_data1:width_data2, height_data1:height_data2]
-    C = center_data_compression(C)
     MR = frame[width_data1:width_data2, height_data2:]
     LL = frame[width_data2:, 0:height_data1]
     LM = frame[width_data2:, height_data1: height_data2]
     LR = frame[width_data2:, height_data2:]
-    TL = peripheral_data_compression(TL)
-    TM = peripheral_data_compression(TM)
-    TR = peripheral_data_compression(TR)
-    ML = peripheral_data_compression(ML)
-    MR = peripheral_data_compression(MR)
-    LL = peripheral_data_compression(LL)
-    LM = peripheral_data_compression(LM)
-    LR = peripheral_data_compression(LR)
-    cv2.imshow("TL", TL)
-    cv2.imshow("TM", TM)
-    cv2.imshow("TR", TR)
-    cv2.imshow("ML", ML)
-    cv2.imshow("C", C)
-    cv2.imshow("MR", MR)
-    cv2.imshow("LL", LL)
-    cv2.imshow("LM", LM)
-    cv2.imshow("LR", LR)
-
-
-img = cv2.imread('goku.jpeg', cv2.IMREAD_UNCHANGED)
-
-print('Original Dimensions : ', img.shape)
-
-# scale_percent = 10  # percent of original size
-width = 720
-height = 960
-dim = (width, height)
-# resize image
-resized = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
-print('Resized Dimensions : ', resized.shape)
-
-# PRACTICE TO GET DATA SNIPPET
-bracket = dict()
-Full_data = resized
-snippet = Full_data[0:280, 0:320]
-# cv2.imshow("test", snippet)
-bracket['TL'] = snippet
-
-Full_data = resized
-snippet = Full_data[0:280, 320:576]
-# cv2.imshow("test", snippet)
-bracket['TM'] = snippet
-
-Full_data = resized
-snippet = Full_data[0:280, 576:960]
-# cv2.imshow("test", snippet)
-bracket['TR'] = snippet
-
-Full_data = resized
-snippet = Full_data[280:420, 0:320]
-# cv2.imshow("test", snippet)
-bracket['ML'] = snippet
-
-Full_data = resized
-snippet = Full_data[280:420, 320:576]
-# cv2.imshow("test", snippet)
-bracket['C'] = snippet
-
-Full_data = resized
-snippet = Full_data[280:420, 576:960]
-# cv2.imshow("test", snippet)
-bracket['MR'] = snippet
-
-Full_data = resized
-snippet = Full_data[420:700, 0:320]
-# cv2.imshow("test", snippet)
-bracket['LL'] = snippet
-
-Full_data = resized
-snippet = Full_data[420:700, 320:576]
-# cv2.imshow("test", snippet)
-bracket['LM'] = snippet
-
-Full_data = resized
-snippet = Full_data[420:700, 576:960]
-# cv2.imshow("test", snippet)
-bracket['LR'] = snippet
-
-# data0, data1 = resize_calculate(0, 100, 10)
-# print("C: ", data0, " D: ", data1)
-snippet_rgb(700, 20, 960, 15)
-frame_split(resized)
-
-# cv2.imshow("TL", bracket['TL'])
-# cv2.imshow("TM", bracket['TM'])
-# cv2.imshow("TR", bracket['TR'])
-# cv2.imshow("ML", bracket['ML'])
-# cv2.imshow("C", bracket['C'])
-# cv2.imshow("MR", bracket['MR'])
-# cv2.imshow("LL", bracket['LL'])
-# cv2.imshow("LM", bracket['LM'])
-# cv2.imshow("LR", bracket['LR'])
-cv2.imshow("sss", resized)
-
-# cv2.imshow("Resized image", resized)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+    vision['C'] = center_data_compression(C)
+    vision['TL'] = peripheral_data_compression(TL)
+    vision['TM'] = peripheral_data_compression(TM)
+    vision['TR'] = peripheral_data_compression(TR)
+    vision['ML'] = peripheral_data_compression(ML)
+    vision['MR'] = peripheral_data_compression(MR)
+    vision['LL'] = peripheral_data_compression(LL)
+    vision['LM'] = peripheral_data_compression(LM)
+    vision['LR'] = peripheral_data_compression(LR)
+    return vision

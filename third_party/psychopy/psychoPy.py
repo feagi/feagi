@@ -7,6 +7,7 @@ Demo of dot kinematogram
 
 import cv2
 import numpy as np
+import retina as retina
 import feagi_interface as FEAGI
 from time import sleep
 from configuration import *
@@ -20,26 +21,23 @@ def ndarray_to_list(array):
     return new_list
 
 
-def get_rgb(frame, w, h):
+def get_rgb(frame, size, old_data, name_id):
     vision_dict = dict()
-    frame_row_count = w
-    frame_col_count = h
+    frame_row_count = size[0]
+    frame_col_count = size[1]
 
     x_vision = 0  # row counter
     y_vision = 0  # col counter
     z_vision = 0  # RGB counter
 
     try:
-        previous_frame = previous_frame_data[0]
+        previous_frame = old_data
     except Exception:
         previous_frame = [0, 0]
     frame_len = len(previous_frame)
     try:
-        print("FRAME LEN: ", frame_len)
-        print("TOTAL: ", frame_row_count * frame_col_count * 3)
         if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the
             # resolution setting
-            print("IN!")
             for index in range(frame_len):
                 if previous_frame[index] != frame[index]:
                     if (abs((previous_frame[index] - frame[index])) / 100) > \
@@ -56,16 +54,17 @@ def get_rgb(frame, w, h):
                         y_vision = 0
                         x_vision += 1
         if frame != {}:
-            previous_frame_data[0] = frame
+            old_data = frame
     except Exception as e:
         print("Error: Raw data frame does not match frame resolution")
         print("Error due to this: ", e)
 
-    return {'vision': vision_dict}
+    return {'camera': {name_id: vision_dict}}, old_data
 
 
 if __name__ == "__main__":
     # Generate runtime dictionary
+    previous_data_frame = dict()
     runtime_data = {"cortical_data": {}, "current_burst_id": None, "stimulation_period": None, "feagi_state": None,
                     "feagi_network": None}
 
@@ -98,7 +97,6 @@ if __name__ == "__main__":
     win = visual.Window((600, 600), allowGUI=False, winType='pyglet')
 
     # Initialize some stimuli
-    # Initialize some stimuli
     fixSpot = visual.GratingStim(win, tex="none", mask="gauss",
                                  pos=(0, 0), size=(0.05, 0.05), color='black', autoLog=False)
     grating = visual.GratingStim(win, pos=(0.5, 0),
@@ -119,9 +117,9 @@ if __name__ == "__main__":
         message_from_feagi = feagi_opu_channel.receive()
         mouse_dX, mouse_dY = myMouse.getRel()
         mouse1, mouse2, mouse3 = myMouse.getPressed()
-        if (mouse1):
+        if mouse1:
             grating.setSF(mouse_dX, '+')
-        elif (mouse3):
+        elif mouse3:
             grating.setPos([mouse_dX, mouse_dY], '+')
         else:
             fixSpot.setPos(myMouse.getPos())
@@ -141,19 +139,42 @@ if __name__ == "__main__":
         pixels = win._getFrame()
         pixels = np.array(pixels)
         win.flip()
-        dim = (16, 16)
-        resized = cv2.resize(pixels, dim, interpolation=cv2.INTER_AREA)
-        n, m = 16, 16  # We need to implement that to improve way to code instead of a fixed hardcoded numbers.
-        # pixels.resize(16, 16, 3)
-        # print("AFTER RESIZE: ", np.shape(pixels))
-        pixels = ndarray_to_list(resized)
-        pixels_changed = get_rgb(pixels, n, m)
+        retina_data = retina.frame_split(pixels)
+        rgb = dict()
+        rgb['camera'] = dict()
+        # dim = (16, 16)
+        # resized = cv2.resize(pixels, dim, interpolation=cv2.INTER_AREA)
+        # n, m = 16, 16  # We need to implement that to improve way to code instead of a fixed hardcoded numbers.
+        # pixels = ndarray_to_list(resized)
+        if previous_data_frame == {}:
+            for i in retina_data:
+                previous_name = str(i) + "_prev"
+                previous_data_frame[previous_name] = {}
+        for i in retina_data:
+            name = i
+            if 'prev' not in i:
+                data = ndarray_to_list(retina_data[i])
+                if 'C' in i:
+                    previous_name = str(i) + "_prev"
+                    rgb_data, previous_data_frame[previous_name] = get_rgb(data,
+                                                                           capabilities['vision'][
+                                                                               'central_vision_compression'],
+                                                                           previous_data_frame[previous_name], name)
+                else:
+                    previous_name = str(i) + "_prev"
+                    rgb_data, previous_data_frame[previous_name] = get_rgb(data,
+                                                                           capabilities['vision'][
+                                                                               'peripheral_vision_compression'],
+                                                                           previous_data_frame[previous_name], name)
+                for a in rgb_data['camera']:
+                    rgb['camera'][a] = rgb_data['camera'][a]
+        # pixels_changed = get_rgb(pixels, n, m, name)
         try:
             if "data" not in message_to_feagi:
                 message_to_feagi["data"] = dict()
             if "sensory_data" not in message_to_feagi["data"]:
                 message_to_feagi["data"]["sensory_data"] = dict()
-            message_to_feagi["data"]["sensory_data"]['camera'] = pixels_changed['vision']
+            message_to_feagi["data"]["sensory_data"]['camera'] = rgb['camera']
         except Exception as e:
             pass
         message_to_feagi['timestamp'] = datetime.now()
