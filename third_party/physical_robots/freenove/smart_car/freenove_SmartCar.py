@@ -488,11 +488,6 @@ def main():
             # transmit data to FEAGI IPU
             image = frame.array
             rawCapture.truncate(0)
-            # cv2.imshow("Frame", image)
-            # key = cv2.waitKey(1) & 0xFF
-            # if key == ord("q"):
-            #     break
-            # print(rawCapture.array)
             retina_data = retina.frame_split(image)
             rgb = dict()
             rgb['camera'] = dict()
@@ -520,8 +515,6 @@ def main():
                                                                                name)
                     for a in rgb_data['camera']:
                         rgb['camera'][a] = rgb_data['camera'][a]
-
-            # TODO: Delete here
             ir_data = ir.read()
             if ir_data:
                 formatted_ir_data = {'ir': {sensor: True for sensor in ir_data}}
