@@ -57,9 +57,14 @@ capabilities = {
         "type": "ipu",
         "disabled": False,
         "count": 1,
-        "width": 16,
-        "height": 16,
-        "deviation_threshold": 0
+        "width": 600,
+        "height": 600,
+        "deviation_threshold": 0.1,
+        "retina_width_percent": 60,
+        "retina_height_percent": 40,
+        "central_vision_compression": [64, 64],
+        "peripheral_vision_compression": [8, 8],
+        "previous_data": {}
     },
     "battery": {
         "type": "ipu",
