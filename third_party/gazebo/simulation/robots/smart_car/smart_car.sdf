@@ -457,8 +457,8 @@
           <camera>
 <!--            <horizontal_fov>0.1</horizontal_fov>-->
             <image>
-              <width>16</width>
-              <height>16</height>
+              <width>600</width>
+              <height>600</height>
               <format>L_INT8</format>
 <!--              <anti-aliasing>1</anti-aliasing>-->
             </image>
