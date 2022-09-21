@@ -130,6 +130,8 @@ def sonar_to_coords(sonar_data, threshold=10):
         y = Y_MAX // 2
         z = dist_map
         return [(x, y, z)]
+    else:
+        return [(0, 0, 0)]
 
 
 def gyro_to_coords(gyro_data, direction):
@@ -206,7 +208,7 @@ def vision_to_coords(vision_data):
         ['neuron_params'] \
         ['block_boundaries'][1]
     vision_data = vision_data.split("-")
-    return [(int(vision_data[1]), int(vision_data[0]), int(vision_data[2]))]
+    return [(int(vision_data[0]), int(vision_data[1]), int(vision_data[2]))]
 
 
 def coords_to_neuron_ids(detection_locations, cortical_area):
