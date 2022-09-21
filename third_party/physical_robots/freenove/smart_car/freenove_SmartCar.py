@@ -377,7 +377,8 @@ class Ultrasonic:
             pulse_len = finish - start
             distance_cm[i] = pulse_len / 0.000058
         distance_cm = sorted(distance_cm)
-        return int(distance_cm[1])
+        distance_meter = (distance_cm[1] * 0.01) * 2
+        return distance_meter
 
 
 def get_rgb(frame, size, previous_frame_data, name_id):
@@ -464,6 +465,7 @@ def main():
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
     flag = False
+    keyboard_flag = True
     rolling_window_len = configuration.capabilities['motor']['rolling_window_len']
     motor_count = configuration.capabilities['motor']['count']
     msg_counter = 0
@@ -484,103 +486,107 @@ def main():
     time.sleep(0.1)
     for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
         try:
-            # while True:
-            # transmit data to FEAGI IPU
-            image = frame.array
-            rawCapture.truncate(0)
-            retina_data = retina.frame_split(image)
-            rgb = dict()
-            rgb['camera'] = dict()
-            if previous_data_frame == {}:
-                for i in retina_data:
-                    previous_name = str(i) + "_prev"
-                    previous_data_frame[previous_name] = {}
-            for i in retina_data:
-                name = i
-                if 'prev' not in i:
-                    data = ndarray_to_list(retina_data[i])
-                    if 'C' in i:
-                        previous_name = str(i) + "_prev"
-                        rgb_data, previous_data_frame[previous_name] = get_rgb(data,
-                                                                               capabilities['camera'][
-                                                                                   'central_vision_compression'],
-                                                                               previous_data_frame[previous_name],
-                                                                               name)
-                    else:
-                        previous_name = str(i) + "_prev"
-                        rgb_data, previous_data_frame[previous_name] = get_rgb(data,
-                                                                               capabilities['camera'][
-                                                                                   'peripheral_vision_compression'],
-                                                                               previous_data_frame[previous_name],
-                                                                               name)
-                    for a in rgb_data['camera']:
-                        rgb['camera'][a] = rgb_data['camera'][a]
-            ir_data = ir.read()
-            if ir_data:
-                formatted_ir_data = {'ir': {sensor: True for sensor in ir_data}}
-            else:
-                formatted_ir_data = {}
+            if keyboard_flag:
+                # while True:
+                # transmit data to FEAGI IPU
+                image = frame.array
+                rawCapture.truncate(0)
+                if capabilities['camera']['disabled'] is not True:
+                    retina_data = retina.frame_split(image)
+                    rgb = dict()
+                    rgb['camera'] = dict()
+                    if previous_data_frame == {}:
+                        for i in retina_data:
+                            previous_name = str(i) + "_prev"
+                            previous_data_frame[previous_name] = {}
+                    for i in retina_data:
+                        name = i
+                        if 'prev' not in i:
+                            data = ndarray_to_list(retina_data[i])
+                            if 'C' in i:
+                                previous_name = str(i) + "_prev"
+                                rgb_data, previous_data_frame[previous_name] = get_rgb(data,
+                                                                                       capabilities['camera'][
+                                                                                           'central_vision_compression'],
+                                                                                       previous_data_frame[previous_name],
+                                                                                       name)
+                            else:
+                                previous_name = str(i) + "_prev"
+                                rgb_data, previous_data_frame[previous_name] = get_rgb(data,
+                                                                                       capabilities['camera'][
+                                                                                           'peripheral_vision_compression'],
+                                                                                       previous_data_frame[previous_name],
+                                                                                       name)
+                            for a in rgb_data['camera']:
+                                rgb['camera'][a] = rgb_data['camera'][a]
+                else:
+                    rgb = {}
+                ir_data = ir.read()
+                if ir_data:
+                    formatted_ir_data = {'ir': {sensor: True for sensor in ir_data}}
+                else:
+                    formatted_ir_data = {}
 
-            if ir_data:
+                if ir_data:
+                    for ir_sensor in range(int(configuration.capabilities['infrared']['count'])):
+                        if ir_sensor not in formatted_ir_data['ir']:
+                            formatted_ir_data['ir'][ir_sensor] = False
+                else:
+                    formatted_ir_data['ir'] = {}
+                    for ir_sensor in range(int(configuration.capabilities['infrared']['count'])):
+                        formatted_ir_data['ir'][ir_sensor] = False
+
                 for ir_sensor in range(int(configuration.capabilities['infrared']['count'])):
                     if ir_sensor not in formatted_ir_data['ir']:
                         formatted_ir_data['ir'][ir_sensor] = False
-            else:
-                formatted_ir_data['ir'] = {}
-                for ir_sensor in range(int(configuration.capabilities['infrared']['count'])):
-                    formatted_ir_data['ir'][ir_sensor] = False
-
-            for ir_sensor in range(int(configuration.capabilities['infrared']['count'])):
-                if ir_sensor not in formatted_ir_data['ir']:
-                    formatted_ir_data['ir'][ir_sensor] = False
-
-            ultrasonic_data = ultrasonic.get_distance()
-            if ultrasonic_data:
-                formatted_ultrasonic_data = {
-                    'ultrasonic': {
-                        sensor: data for sensor, data in enumerate([ultrasonic_data])
+                ultrasonic_data = ultrasonic.get_distance()
+                if ultrasonic_data:
+                    formatted_ultrasonic_data = {
+                        'ultrasonic': {
+                            sensor: data for sensor, data in enumerate([ultrasonic_data])
+                        }
                     }
-                }
-            else:
-                formatted_ultrasonic_data = {}
-            configuration.message_to_feagi, battery = FEAGI.compose_message_to_feagi(
-                original_message={**formatted_ir_data, **formatted_ultrasonic_data})  # Removed battery due to error
-            configuration.message_to_feagi, battery = FEAGI.compose_message_to_feagi(
-                original_message=rgb)
-            # Process OPU data received from FEAGI and pass it along
-            message_from_feagi = feagi_opu_channel.receive()
-            if message_from_feagi is not None:
-                opu_data = FEAGI.opu_processor(message_from_feagi)
-                if 'motor' in opu_data:
-                    for data_point in opu_data['motor']:
-                        device_id = motor.motor_converter(data_point)
-                        device_power = opu_data['motor'][data_point]
-                        device_power = motor.power_convert(data_point, device_power)
-                        motor.move(device_id, (device_power * 455))
-                if 'servo' in opu_data:
-                    for data_point in opu_data['servo']:
-                        device_id = data_point
-                        device_power = opu_data['servo'][data_point]
-                        servo.move(feagi_device_id=device_id, power=device_power)
-            configuration.message_to_feagi['timestamp'] = datetime.now()
-            configuration.message_to_feagi['counter'] = msg_counter
-            feagi_ipu_channel.send(configuration.message_to_feagi)
-            configuration.message_to_feagi.clear()
-            msg_counter += 1
-            flag += 1
-            if flag == 10:
-                feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
-                feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
-                flag = 0
-                if msg_counter < feagi_burst_counter:
-                    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-                    if feagi_burst_speed != network_settings['feagi_burst_speed']:
-                        network_settings['feagi_burst_speed'] = feagi_burst_speed
-            time.sleep((network_settings['feagi_burst_speed']) / velocity)
-            motor.stop()
+                else:
+                    formatted_ultrasonic_data = {}
+                configuration.message_to_feagi, battery = FEAGI.compose_message_to_feagi(
+                    original_message={**formatted_ir_data, **formatted_ultrasonic_data, **rgb})  # Removed battery due to error
+                # Process OPU data received from FEAGI and pass it along
+                message_from_feagi = feagi_opu_channel.receive()
+                if message_from_feagi is not None:
+                    opu_data = FEAGI.opu_processor(message_from_feagi)
+                    if capabilities['motor']['disabled'] is not True:
+                        if 'motor' in opu_data:
+                            for data_point in opu_data['motor']:
+                                device_id = motor.motor_converter(data_point)
+                                device_power = opu_data['motor'][data_point]
+                                device_power = motor.power_convert(data_point, device_power)
+                                motor.move(device_id, (device_power * 455))
+                    if capabilities['servo']['disabled'] is not True:
+                        if 'servo' in opu_data:
+                            for data_point in opu_data['servo']:
+                                device_id = data_point
+                                device_power = opu_data['servo'][data_point]
+                                servo.move(feagi_device_id=device_id, power=device_power)
+                configuration.message_to_feagi['timestamp'] = datetime.now()
+                configuration.message_to_feagi['counter'] = msg_counter
+                feagi_ipu_channel.send(configuration.message_to_feagi)
+                configuration.message_to_feagi.clear()
+                msg_counter += 1
+                flag += 1
+                if flag == 10:
+                    feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
+                    feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
+                    flag = 0
+                    if msg_counter < feagi_burst_counter:
+                        feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
+                        if feagi_burst_speed != network_settings['feagi_burst_speed']:
+                            network_settings['feagi_burst_speed'] = feagi_burst_speed
+                time.sleep((network_settings['feagi_burst_speed']) / velocity)
+                motor.stop()
 
         except KeyboardInterrupt as ke:  # Keyboard error
             motor.stop()
+            keyboard_flag = False
             print(ke)
 
 
