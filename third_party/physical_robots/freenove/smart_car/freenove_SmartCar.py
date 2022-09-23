@@ -37,8 +37,7 @@ class LED:
     def __init__(self):
         self.led = Led()
 
-    def LED_on(self, led_ID, Red_Intensity, Blue_Intensity, 
-Green_intensity):
+    def LED_on(self, led_ID, Red_Intensity, Blue_Intensity, Green_intensity):
         """
         Parameters
         ----------
@@ -49,11 +48,9 @@ Green_intensity):
         -------
         """
         try:
-            self.led.ledIndex(led_ID, Red_Intensity, Blue_Intensity, 
-Green_intensity)
+            self.led.ledIndex(led_ID, Red_Intensity, Blue_Intensity, Green_intensity)
         except KeyboardInterrupt:
-            self.led.colorWipe(led.strip, Color(0, 0, 0))  ##This is to 
-turn all leds off/
+            self.led.colorWipe(led.strip, Color(0, 0, 0))  ##This is to turn all leds off/
 
     def test_led(self):
         """
@@ -68,8 +65,7 @@ turn all leds off/
             self.led.ledIndex(0x20, 0, 0, 255)  # blue
             self.led.ledIndex(0x40, 128, 0, 128)  # purple
             self.led.ledIndex(0x80, 255, 255, 255)  # white'''
-            print("The LED has been lit, the color is red orange yellow 
-green cyan-blue blue white")
+            print("The LED has been lit, the color is red orange yellow green cyan-blue blue white")
             # time.sleep(3)  # wait 3s
             self.led.colorWipe("", Color(0, 0, 0))  # turn off the light
             print("\nEnd of program")
@@ -78,14 +74,12 @@ green cyan-blue blue white")
             print("\nEnd of program")
 
     def leds_off(self):
-        self.led.colorWipe("", Color(0, 0, 0))  # This is to turn all leds 
-off/
+        self.led.colorWipe("", Color(0, 0, 0))  # This is to turn all leds off/
 
 
 class Servo:
     """
-    Functions: head_UP_DOWN and head_RIGHT_LEFT only. Other functions are 
-just a support and defined system for Servo
+    Functions: head_UP_DOWN and head_RIGHT_LEFT only. Other functions are just a support and defined system for Servo
     class to work with functions.
     """
 
@@ -99,29 +93,21 @@ just a support and defined system for Servo
     def setServoPwm(self, channel, angle, error=10):
         angle = float(angle)
         if channel == '0':
-            self.PwmServo.setServoPulse(8, 2500 - float((angle + error) / 
-0.09))
+            self.PwmServo.setServoPulse(8, 2500 - float((angle + error) / 0.09))
         elif channel == '1':
-            self.PwmServo.setServoPulse(9, 500 + float((angle + error) / 
-0.09))
+            self.PwmServo.setServoPulse(9, 500 + float((angle + error) / 0.09))
         elif channel == '2':
-            self.PwmServo.setServoPulse(10, 500 + float((angle + error) / 
-0.09))
+            self.PwmServo.setServoPulse(10, 500 + float((angle + error) / 0.09))
         elif channel == '3':
-            self.PwmServo.setServoPulse(11, 500 + float((angle + error) / 
-0.09))
+            self.PwmServo.setServoPulse(11, 500 + float((angle + error) / 0.09))
         elif channel == '4':
-            self.PwmServo.setServoPulse(12, 500 + float((angle + error) / 
-0.09))
+            self.PwmServo.setServoPulse(12, 500 + float((angle + error) / 0.09))
         elif channel == '5':
-            self.PwmServo.setServoPulse(13, 500 + float((angle + error) / 
-0.09))
+            self.PwmServo.setServoPulse(13, 500 + float((angle + error) / 0.09))
         elif channel == '6':
-            self.PwmServo.setServoPulse(14, 500 + float((angle + error) / 
-0.09))
+            self.PwmServo.setServoPulse(14, 500 + float((angle + error) / 0.09))
         elif channel == '7':
-            self.PwmServo.setServoPulse(15, 500 + float((angle + error) / 
-0.09))
+            self.PwmServo.setServoPulse(15, 500 + float((angle + error) / 0.09))
 
     def set_default_position(self):
         try:
@@ -138,16 +124,13 @@ just a support and defined system for Servo
             runtime_data['servo_status'][1] = self.device_position
             print("Servo 1 was moved to its initial position")
         except Exception as e:
-            print("Error while setting initial position for the servo:", 
-e)
+            print("Error while setting initial position for the servo:", e)
 
     def move(self, feagi_device_id, power):
         try:
             if feagi_device_id > 2 * capabilities['servo']['count']:
-                print("Warning! Number of servo channels from FEAGI exceed 
-available Motor count!")
-            # Translate feagi_motor_id to motor backward and forward 
-motion to individual motors
+                print("Warning! Number of servo channels from FEAGI exceed available Motor count!")
+            # Translate feagi_motor_id to motor backward and forward motion to individual motors
             device_index = feagi_device_id // 2
             if feagi_device_id % 2 == 1:
                 power *= 1
@@ -156,21 +139,15 @@ motion to individual motors
             if device_index not in runtime_data['servo_status']:
                 runtime_data['servo_status'][device_index] = device_index
 
-            device_current_position = 
-runtime_data['servo_status'][device_index]
-            self.device_position = float((power * 
-network_settings['feagi_burst_speed'] / 0.5) +
+            device_current_position = runtime_data['servo_status'][device_index]
+            self.device_position = float((power * network_settings['feagi_burst_speed'] / 0.5) +
                                          device_current_position)
 
-            self.device_position = 
-self.keep_boundaries(device_id=device_index,
-                                                        
-current_position=self.device_position)
+            self.device_position = self.keep_boundaries(device_id=device_index,
+                                                        current_position=self.device_position)
 
-            runtime_data['servo_status'][device_index] = 
-self.device_position
-            # print("device index, position, power = ", device_index, 
-self.device_position, power)
+            runtime_data['servo_status'][device_index] = self.device_position
+            # print("device index, position, power = ", device_index, self.device_position, power)
             # self.servo_node[device_index].publish(self.device_position)
             self.setServoPwm(str(device_index), self.device_position)
         except Exception:
@@ -191,16 +168,12 @@ self.device_position, power)
 
     def servo_id_converter(self, servo_id):
         """
-        This will convert from godot to motor's id. Let's say, you have 
-4x10 (width x depth from static_genome).
-        So, you click 2 (actually 4 but 2 for one servo on 
-backward/forward) to go forward. It will be like this:
+        This will convert from godot to motor's id. Let's say, you have 4x10 (width x depth from static_genome).
+        So, you click 2 (actually 4 but 2 for one servo on backward/forward) to go forward. It will be like this:
         o__ser': {'1-0-9': 1, '3-0-9': 1}
-        which is 1,3. So this code will convert from 1,3 to 0,1 on motor 
-id.
+        which is 1,3. So this code will convert from 1,3 to 0,1 on motor id.
 
-        Since 0-1 is servo 0, 2-3 is servo 1 and so on. In this case, 0 
-and 2 is for forward and 1 and 3 is for backward.
+        Since 0-1 is servo 0, 2-3 is servo 1 and so on. In this case, 0 and 2 is for forward and 1 and 3 is for backward.
         """
         if servo_id <= 1:
             return 0
@@ -294,19 +267,16 @@ class Motor:
         if speed > 0:
             # print("from move(): ", motor_index)
             self.pwm.setMotorPwm(self.motor_channels[motor_index][0], 0)
-            self.pwm.setMotorPwm(self.motor_channels[motor_index][1], 
-speed)
+            self.pwm.setMotorPwm(self.motor_channels[motor_index][1], speed)
         elif speed < 0:
             self.pwm.setMotorPwm(self.motor_channels[motor_index][1], 0)
-            self.pwm.setMotorPwm(self.motor_channels[motor_index][0], 
-abs(speed))
+            self.pwm.setMotorPwm(self.motor_channels[motor_index][0], abs(speed))
         elif speed == 0:
             self.pwm.setMotorPwm(self.motor_channels[motor_index][0], 0)
             self.pwm.setMotorPwm(self.motor_channels[motor_index][1], 0)
 
     def setMotorModel(self, duty1, duty2, duty3, duty4):
-        duty1, duty2, duty3, duty4 = self.duty_range(duty1, duty2, duty3, 
-duty4)
+        duty1, duty2, duty3, duty4 = self.duty_range(duty1, duty2, duty3, duty4)
         self.left_Upper_Wheel(duty1)
         self.left_Lower_Wheel(duty2)
         self.right_Upper_Wheel(duty3)
@@ -317,18 +287,14 @@ duty4)
 
     def motor_converter(self, motor_id):
         """
-        This will convert from godot to motor's id. Let's say, you have 
-8x10 (width x depth from static_genome).
+        This will convert from godot to motor's id. Let's say, you have 8x10 (width x depth from static_genome).
         So, you click 4 to go forward. It will be like this:
         o__mot': {'1-0-9': 1, '5-0-9': 1, '3-0-9': 1, '7-0-9': 1}
-        which is 1,3,5,7. So this code will convert from 1,3,5,7 to 
-0,1,2,3 on motor id.
+        which is 1,3,5,7. So this code will convert from 1,3,5,7 to 0,1,2,3 on motor id.
 
-        Since 0-1 is motor 1, 2-3 is motor 2 and so on. In this case, 0 is 
-for forward and 1 is for backward.
+        Since 0-1 is motor 1, 2-3 is motor 2 and so on. In this case, 0 is for forward and 1 is for backward.
         """
-        # motor_total = capabilities['motor']['count'] #be sure to update 
-your motor total in configuration.py
+        # motor_total = capabilities['motor']['count'] #be sure to update your motor total in configuration.py
         # increment = 0
         # for motor in range(motor_total):
         #     if motor_id <= motor + 1:
@@ -428,19 +394,14 @@ def get_rgb(frame, size, previous_frame_data, name_id):
         previous_frame = [0, 0]
     frame_len = len(previous_frame)
     try:
-        if frame_len == frame_row_count * frame_col_count * 3:  # check to 
-ensure frame length matches the
+        if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the
             # resolution setting
             for index in range(frame_len):
                 if previous_frame[index] != frame[index]:
-                    if (abs((previous_frame[index] - frame[index])) / 100) 
-> \
-                            
-configuration.capabilities['camera']['deviation_threshold']:
-                        dict_key = str(y_vision) + '-' + 
-str(abs((frame_row_count - 1) - x_vision)) + '-' + str(0)
-                        vision_dict[dict_key] = frame[index]  # save the 
-value for the changed index to the dict
+                    if (abs((previous_frame[index] - frame[index])) / 100) > \
+                            configuration.capabilities['camera']['deviation_threshold']:
+                        dict_key = str(y_vision) + '-' + str(abs((frame_row_count - 1) - x_vision)) + '-' + str(0)
+                        vision_dict[dict_key] = frame[index]  # save the value for the changed index to the dict
                 z_vision += 1
                 if z_vision == 3:
                     z_vision = 0
@@ -478,54 +439,40 @@ def main():
     GPIO.cleanup()
 
     # # # FEAGI registration # # #
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-- - - - - - - - - - - - - - - #
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
     feagi_host, api_port = FEAGI.feagi_setting_for_registration()
-    runtime_data["feagi_state"] = 
-FEAGI.feagi_registration(feagi_host=feagi_host, api_port=api_port)
-    ipu_channel_address = 
-FEAGI.feagi_inbound(runtime_data["feagi_state"]['feagi_inbound_port_gazebo'])
-    opu_channel_address = 
-FEAGI.feagi_outbound(network_settings['feagi_host'],
-                                               
-runtime_data["feagi_state"]['feagi_outbound_port'])
+    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host, api_port=api_port)
+    ipu_channel_address = FEAGI.feagi_inbound(runtime_data["feagi_state"]['feagi_inbound_port_gazebo'])
+    opu_channel_address = FEAGI.feagi_outbound(network_settings['feagi_host'],
+                                               runtime_data["feagi_state"]['feagi_outbound_port'])
     feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address)
-    feagi_opu_channel = 
-FEAGI.sub_initializer(opu_address=opu_channel_address)
+    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
     api_address = FEAGI.feagi_gui_address(feagi_host, api_port)
     stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
     burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
-    network_settings['feagi_burst_speed'] = 
-float(runtime_data["feagi_state"]['burst_duration'])
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-- - - - - - - - - - - - - - - #
+    network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-- - - - - - - - - - - - - - - #
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
     #                            Initializer section
     motor = Motor()
     servo = Servo()
     ir = IR()
     ultrasonic = Ultrasonic()
     # battery = Battery()
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-- - - - - - - - - - - - - - - #
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
     flag = False
     keyboard_flag = True
-    rolling_window_len = 
-configuration.capabilities['motor']['rolling_window_len']
+    rolling_window_len = configuration.capabilities['motor']['rolling_window_len']
     motor_count = configuration.capabilities['motor']['count']
     msg_counter = 0
     rpm = (50 * 60) / 2
-    # DC motor has 2 poles, 50 is the freq and it's constant (why??) and 
-60 is the
+    # DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60 is the
     # seconds of a minute
     w = (rpm / 60) * (2 * math.pi)  # 60 is second/minute
-    velocity = w * 
-(configuration.capabilities['motor']['diameter_of_wheel'] / 2)
-    # ^ diameter is from config and it just needs radius so I turned the 
-diameter into a radius by divide it with 2
+    velocity = w * (configuration.capabilities['motor']['diameter_of_wheel'] / 2)
+    # ^ diameter is from config and it just needs radius so I turned the diameter into a radius by divide it with 2
 
     rolling_window = {}
     for motor_id in range(motor_count):
@@ -535,8 +482,7 @@ diameter into a radius by divide it with 2
     camera.framerate = 32
     rawCapture = PiRGBArray(camera, size=(640, 480))
     time.sleep(0.1)
-    for frame in camera.capture_continuous(rawCapture, format="bgr", 
-use_video_port=True):
+    for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
         try:
             if keyboard_flag:
                 # while True:
@@ -557,68 +503,51 @@ use_video_port=True):
                             data = ndarray_to_list(retina_data[i])
                             if 'C' in i:
                                 previous_name = str(i) + "_prev"
-                                rgb_data, 
-previous_data_frame[previous_name] = get_rgb(data,
-                                                                                       
-capabilities['camera'][
-                                                                                           
-'central_vision_compression'],
-                                                                                       
-previous_data_frame[previous_name],
-                                                                                       
-name)
+                                rgb_data, previous_data_frame[previous_name] = get_rgb(data,
+                                                                                       capabilities['camera'][
+                                                                                           'central_vision_compression'],
+                                                                                       previous_data_frame[previous_name],
+                                                                                       name)
                             else:
                                 previous_name = str(i) + "_prev"
-                                rgb_data, 
-previous_data_frame[previous_name] = get_rgb(data,
-                                                                                       
-capabilities['camera'][
-                                                                                           
-'peripheral_vision_compression'],
-                                                                                       
-previous_data_frame[previous_name],
-                                                                                       
-name)
+                                rgb_data, previous_data_frame[previous_name] = get_rgb(data,
+                                                                                       capabilities['camera'][
+                                                                                           'peripheral_vision_compression'],
+                                                                                       previous_data_frame[previous_name],
+                                                                                       name)
                             for a in rgb_data['camera']:
                                 rgb['camera'][a] = rgb_data['camera'][a]
                 else:
                     rgb = {}
                 ir_data = ir.read()
                 if ir_data:
-                    formatted_ir_data = {'ir': {sensor: True for sensor in 
-ir_data}}
+                    formatted_ir_data = {'ir': {sensor: True for sensor in ir_data}}
                 else:
                     formatted_ir_data = {}
 
                 if ir_data:
-                    for ir_sensor in 
-range(int(configuration.capabilities['infrared']['count'])):
+                    for ir_sensor in range(int(configuration.capabilities['infrared']['count'])):
                         if ir_sensor not in formatted_ir_data['ir']:
                             formatted_ir_data['ir'][ir_sensor] = False
                 else:
                     formatted_ir_data['ir'] = {}
-                    for ir_sensor in 
-range(int(configuration.capabilities['infrared']['count'])):
+                    for ir_sensor in range(int(configuration.capabilities['infrared']['count'])):
                         formatted_ir_data['ir'][ir_sensor] = False
 
-                for ir_sensor in 
-range(int(configuration.capabilities['infrared']['count'])):
+                for ir_sensor in range(int(configuration.capabilities['infrared']['count'])):
                     if ir_sensor not in formatted_ir_data['ir']:
                         formatted_ir_data['ir'][ir_sensor] = False
                 ultrasonic_data = ultrasonic.get_distance()
                 if ultrasonic_data:
                     formatted_ultrasonic_data = {
                         'ultrasonic': {
-                            sensor: data for sensor, data in 
-enumerate([ultrasonic_data])
+                            sensor: data for sensor, data in enumerate([ultrasonic_data])
                         }
                     }
                 else:
                     formatted_ultrasonic_data = {}
-                configuration.message_to_feagi, battery = 
-FEAGI.compose_message_to_feagi(
-                    original_message={**formatted_ir_data, 
-**formatted_ultrasonic_data, **rgb})  # Removed battery due to error
+                configuration.message_to_feagi, battery = FEAGI.compose_message_to_feagi(
+                    original_message={**formatted_ir_data, **formatted_ultrasonic_data, **rgb})  # Removed battery due to error
                 # Process OPU data received from FEAGI and pass it along
                 message_from_feagi = feagi_opu_channel.receive()
                 if message_from_feagi is not None:
@@ -626,16 +555,11 @@ FEAGI.compose_message_to_feagi(
                     if capabilities['motor']['disabled'] is not True:
                         if 'motor' in opu_data:
                             for data_point in opu_data['motor']:
-                                device_id = 
-motor.motor_converter(data_point)
-                                device_power = 
-opu_data['motor'][data_point]
-                                device_power = 
-motor.power_convert(data_point, device_power)
-                                print("device_id: ", device_id,"Data 
-point:", data_point, "power: ", device_power )
-                                
-rolling_window[device_id].append(device_power)
+                                device_id = data_point // 2
+                                device_power = opu_data['motor'][data_point]
+                                device_power = motor.power_convert(data_point, device_power)
+                                print("device_id: ", device_id,"Data point:", data_point, "power: ", device_power )
+                                rolling_window[device_id].append(device_power)
                                 rolling_window[device_id].popleft()
                         else:
                             for _ in range(motor_count):
@@ -645,38 +569,28 @@ rolling_window[device_id].append(device_power)
                         if 'servo' in opu_data:
                             for data_point in opu_data['servo']:
                                 device_id = data_point
-                                device_power = 
-opu_data['servo'][data_point]
-                                servo.move(feagi_device_id=device_id, 
-power=device_power)
-                configuration.message_to_feagi['timestamp'] = 
-datetime.now()
+                                device_power = opu_data['servo'][data_point]
+                                servo.move(feagi_device_id=device_id, power=device_power)
+                configuration.message_to_feagi['timestamp'] = datetime.now()
                 configuration.message_to_feagi['counter'] = msg_counter
                 feagi_ipu_channel.send(configuration.message_to_feagi)
                 configuration.message_to_feagi.clear()
                 msg_counter += 1
                 flag += 1
                 if flag == 10:
-                    feagi_burst_speed = requests.get(api_address + 
-stimulation_period_endpoint).json()
-                    feagi_burst_counter = requests.get(api_address + 
-burst_counter_endpoint).json()
+                    feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
+                    feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
                     flag = 0
                     if msg_counter < feagi_burst_counter:
-                        feagi_opu_channel = 
-FEAGI.sub_initializer(opu_address=opu_channel_address)
-                        if feagi_burst_speed != 
-network_settings['feagi_burst_speed']:
-                            network_settings['feagi_burst_speed'] = 
-feagi_burst_speed
-                time.sleep((network_settings['feagi_burst_speed']) / 
-velocity)
+                        feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
+                        if feagi_burst_speed != network_settings['feagi_burst_speed']:
+                            network_settings['feagi_burst_speed'] = feagi_burst_speed
+                time.sleep((network_settings['feagi_burst_speed']) / velocity)
 
                 for id in range(motor_count):
                     motor_power  = window_average(rolling_window[id])
                     motor_power = motor_power * 455
-                    print("motor move:", id, motor_power, 
-rolling_window[id])
+                    print("motor move:", id, motor_power, rolling_window[id])
                     motor.move(id, (motor_power))
 
 
