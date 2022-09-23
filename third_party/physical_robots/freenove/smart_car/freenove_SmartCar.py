@@ -211,9 +211,7 @@ and 2 is for forward and 1 and 3 is for backward.
 
     @staticmethod
     def power_convert(motor_id, power):
-        if motor_id == 1:
-            return -1 * power
-        elif motor_id == 3:
+        if motor_id % 2 == 0:
             return -1 * power
         else:
             return abs(power)
@@ -294,7 +292,7 @@ class Motor:
 
     def move(self, motor_index, speed):
         if speed > 0:
-            print("from move(): ", motor_index)
+            # print("from move(): ", motor_index)
             self.pwm.setMotorPwm(self.motor_channels[motor_index][0], 0)
             self.pwm.setMotorPwm(self.motor_channels[motor_index][1], 
 speed)
@@ -317,9 +315,45 @@ duty4)
     def stop(self):
         self.setMotorModel(0, 0, 0, 0)
 
-    @staticmethod
-    def power_convert(motor_id, power):
-        if motor_id % 2 == 0:
+    def motor_converter(self, motor_id):
+        """
+        This will convert from godot to motor's id. Let's say, you have 
+8x10 (width x depth from static_genome).
+        So, you click 4 to go forward. It will be like this:
+        o__mot': {'1-0-9': 1, '5-0-9': 1, '3-0-9': 1, '7-0-9': 1}
+        which is 1,3,5,7. So this code will convert from 1,3,5,7 to 
+0,1,2,3 on motor id.
+
+        Since 0-1 is motor 1, 2-3 is motor 2 and so on. In this case, 0 is 
+for forward and 1 is for backward.
+        """
+        # motor_total = capabilities['motor']['count'] #be sure to update 
+your motor total in configuration.py
+        # increment = 0
+        # for motor in range(motor_total):
+        #     if motor_id <= motor + 1:
+        #         print("motor_id: ", motor_id)
+        #         increment += 1
+        #         return increment
+        if motor_id <= 1:
+            return 0
+        elif motor_id <= 3:
+            return 3
+        elif motor_id <= 5:
+            return 1
+        elif motor_id <= 7:
+            return 2
+        else:
+            print("Input has been refused. Please put motor ID.")
+
+    def power_convert(self, motor_id, power):
+        if motor_id == 0:
+            return -1 * power
+        elif motor_id == 2:
+            return -1 * power
+        elif motor_id == 4:
+            return -1 * power
+        elif motor_id == 6:
             return -1 * power
         else:
             return abs(power)
@@ -404,7 +438,7 @@ ensure frame length matches the
                             
 configuration.capabilities['camera']['deviation_threshold']:
                         dict_key = str(y_vision) + '-' + 
-str(abs((frame_row_count - 1) - x_vision)) + '-' + str(z_vision)
+str(abs((frame_row_count - 1) - x_vision)) + '-' + str(0)
                         vision_dict[dict_key] = frame[index]  # save the 
 value for the changed index to the dict
                 z_vision += 1
@@ -592,13 +626,21 @@ FEAGI.compose_message_to_feagi(
                     if capabilities['motor']['disabled'] is not True:
                         if 'motor' in opu_data:
                             for data_point in opu_data['motor']:
-                                device_id = data_point // 2
+                                device_id = 
+motor.motor_converter(data_point)
                                 device_power = 
 opu_data['motor'][data_point]
                                 device_power = 
 motor.power_convert(data_point, device_power)
-                                motor.move(device_id, (device_power * 
-455))
+                                print("device_id: ", device_id,"Data 
+point:", data_point, "power: ", device_power )
+                                
+rolling_window[device_id].append(device_power)
+                                rolling_window[device_id].popleft()
+                        else:
+                            for _ in range(motor_count):
+                                rolling_window[_].append(0)
+                                rolling_window[_].popleft()
                     if capabilities['servo']['disabled'] is not True:
                         if 'servo' in opu_data:
                             for data_point in opu_data['servo']:
@@ -629,7 +671,15 @@ network_settings['feagi_burst_speed']:
 feagi_burst_speed
                 time.sleep((network_settings['feagi_burst_speed']) / 
 velocity)
-                motor.stop()
+
+                for id in range(motor_count):
+                    motor_power  = window_average(rolling_window[id])
+                    motor_power = motor_power * 455
+                    print("motor move:", id, motor_power, 
+rolling_window[id])
+                    motor.move(id, (motor_power))
+
+
 
         except KeyboardInterrupt as ke:  # Keyboard error
             motor.stop()
