@@ -20,12 +20,12 @@ def snippet_rgb(inner_width, percent_a, inner_height, percent_b):
 
 
 def center_data_compression(frame):
-    compressed = cv2.resize(frame, capabilities['vision']["central_vision_compression"], interpolation=cv2.INTER_AREA)
+    compressed = cv2.resize(frame, capabilities['camera']["central_vision_compression"], interpolation=cv2.INTER_AREA)
     return compressed
 
 
 def peripheral_data_compression(frame):
-    compressed = cv2.resize(frame, capabilities['vision']["peripheral_vision_compression"],
+    compressed = cv2.resize(frame, capabilities['camera']["peripheral_vision_compression"],
                             interpolation=cv2.INTER_AREA)
     return compressed
 
@@ -73,9 +73,11 @@ def frame_split(frame):
     vision = dict()
     full_data = frame.shape
     width_data1, width_data2, height_data1, height_data2 = snippet_rgb(full_data[0],
-                                                                       capabilities['vision']['retina_width_percent'],
+                                                                       capabilities['camera']['retina_width_percent'],
                                                                        full_data[1],
-                                                                       capabilities['vision']['retina_height_percent'])
+                                                                       capabilities['camera']['retina_height_percent'])
+    print("C and D for width: ", width_data1, " ", width_data2)
+    print("C and D for height: ", height_data1, " ", height_data2)
     TL = frame[0:width_data1, 0:height_data1]
     TM = frame[0:width_data1, height_data1:height_data2]
     TR = frame[0:width_data1, height_data2:]
@@ -95,3 +97,25 @@ def frame_split(frame):
     vision['LM'] = peripheral_data_compression(LM)
     vision['LR'] = peripheral_data_compression(LR)
     return vision
+
+
+# img = cv2.imread('goku.jpeg', cv2.IMREAD_UNCHANGED)
+# # print('Original Dimensions : ', img.shape)
+# #
+# # # scale_percent = 10  # percent of original size
+# # width = 720
+# # height = 960
+# dim = (width, height)
+# # # resize image
+# # previous_frame_data = dict()
+# resized = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
+# # print('Resized Dimensions : ', resized.shape)
+# #
+# # # Actual code
+# frame_split(resized)
+#
+# # End code
+#
+# cv2.imshow("sss", resized)
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()

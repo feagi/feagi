@@ -22,12 +22,14 @@ import geometry_msgs.msg
 import rclpy
 import std_msgs.msg
 import configuration
+import retina as retina
 import os
 import os.path
 import subprocess
 import requests
 import xml.etree.ElementTree as Xml_et
 import feagi_interface as FEAGI
+import numpy as np
 
 from std_msgs.msg import String
 from subprocess import PIPE, Popen
@@ -60,7 +62,7 @@ goal = dict()
 goal['xf'] = 0
 goal['xb'] = 0
 goal['yl'] = 0
-previous_frame_data = dict()
+previous_data_frame = dict()
 location_stored = dict()
 tile_margin = dict()
 old_list = dict()
@@ -218,7 +220,6 @@ class Rotor:
         except Exception as e:
             print("ERROR at: ", e)
 
-
     @staticmethod
     def add_data(direction, cm_distance):
         try:
@@ -244,7 +245,7 @@ class Rotor:
         if data == 2:
             try:
                 if battery_level >= 50:
-                    pass # Upcoming soon. Flip will added here
+                    pass  # Upcoming soon. Flip will added here
                 else:
                     print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
             except Exception as e:
@@ -252,7 +253,7 @@ class Rotor:
         if data == 3:
             try:
                 if battery_level >= 50:
-                    pass # Upcoming soon. Flip will added here
+                    pass  # Upcoming soon. Flip will added here
                 else:
                     print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
             except Exception as e:
@@ -260,7 +261,7 @@ class Rotor:
         if data == 4:
             try:
                 if battery_level >= 50:
-                    pass # Upcoming soon. Flip will added here
+                    pass  # Upcoming soon. Flip will added here
                 else:
                     print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
             except Exception as e:
@@ -268,12 +269,13 @@ class Rotor:
         if data == 5:
             try:
                 if battery_level >= 50:
-                    pass # Upcoming soon. Flip will added here
+                    pass  # Upcoming soon. Flip will added here
                 else:
                     print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
             except Exception as e:
                 print("Error at: ", e)
         return boolean_data
+
 
 class BackgroundCode(Node):
     def __init__(self):
@@ -425,22 +427,59 @@ class Camera_Subscriber(Node):
         self.subscription = self.create_subscription(
             Image,
             'Camera0/image',
-            self.camera_callback,
+            self.main_camera_function,
             qos_profile=qos_profile_sensor_data)
+
+    def main_camera_function(self, msg):
+        image = msg.data
+        image = np.array(image)
+        image = image.reshape(capabilities['camera']['width'], capabilities['camera']['height'], 3)
+        retina_data = retina.frame_split(image)
+        rgb = dict()
+        rgb['camera'] = dict()
+        if previous_data_frame == {}:
+            for i in retina_data:
+                previous_name = str(i) + "_prev"
+                previous_data_frame[previous_name] = {}
+        for i in retina_data:
+            name = i
+            if 'prev' not in i:
+                #data = retina_data[i] # data is very straightforward from gazebo
+                data = self.ndarray_to_list(retina_data[i])
+                if 'C' in i:
+                    previous_name = str(i) + "_prev"
+                    rgb_data, previous_data_frame[previous_name] = self.get_rgb(data,
+                                                                           capabilities['camera'][
+                                                                               'central_vision_compression'],
+                                                                           previous_data_frame[previous_name],
+                                                                           name)
+                else:
+                    previous_name = str(i) + "_prev"
+                    rgb_data, previous_data_frame[previous_name] = self.get_rgb(data,
+                                                                           capabilities['camera'][
+                                                                               'peripheral_vision_compression'],
+                                                                           previous_data_frame[previous_name],
+                                                                           name)
+                for a in rgb_data['camera']:
+                    rgb['camera'][a] = rgb_data['camera'][a]
+        runtime_data['pixel'] = rgb
 
     @staticmethod
     def camera_callback(msg):
-        frame_row_count = configuration.capabilities['camera']['width']
-        frame_col_count = configuration.capabilities['camera']['height']
-        new_frame = msg.data
+        return msg.data
+
+    @staticmethod
+    def get_rgb(frame, size, previous_frame_data, name_id):
+        vision_dict = dict()
+        frame_row_count = size[0]  # width
+        frame_col_count = size[1]  # height
 
         x_vision = 0  # row counter
         y_vision = 0  # col counter
         z_vision = 0  # RGB counter
 
-        vision_dict = dict()
         try:
-            previous_frame = previous_frame_data[0]
+            previous_frame = previous_frame_data
         except Exception:
             previous_frame = [0, 0]
         frame_len = len(previous_frame)
@@ -448,11 +487,12 @@ class Camera_Subscriber(Node):
             if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the
                 # resolution setting
                 for index in range(frame_len):
-                    if previous_frame[index] != new_frame[index]:
-                        if (abs((previous_frame[index] - new_frame[index])) / 100) > \
+                    if previous_frame[index] != frame[index]:
+                        if (abs((previous_frame[index] - frame[index])) / 100) > \
                                 configuration.capabilities['camera']['deviation_threshold']:
-                            dict_key = str(x_vision) + '-' + str(y_vision) + '-' + str(z_vision)
-                            vision_dict[dict_key] = new_frame[index]  # save the value for the changed index to the dict
+                            dict_key = str(y_vision) + '-' + str(abs((frame_row_count - 1) - x_vision)) + '-' + str(
+                                z_vision)
+                            vision_dict[dict_key] = frame[index]  # save the value for the changed index to the dict
                     z_vision += 1
                     if z_vision == 3:
                         z_vision = 0
@@ -460,16 +500,22 @@ class Camera_Subscriber(Node):
                         if y_vision == frame_col_count:
                             y_vision = 0
                             x_vision += 1
-            if new_frame != {}:
-                previous_frame_data[0] = new_frame
+            if frame != {}:
+                previous_frame_data = frame
         except Exception as e:
             print("Error: Raw data frame does not match frame resolution")
             print("Error due to this: ", e)
 
-        # print("last: ", vision_dict)
-        if vision_dict != {}:
-            runtime_data['pixel'] = vision_dict
-        # print(runtime_data['pixel'])
+        if len(vision_dict) > 3500:
+            return {'camera': {name_id: {}}}, previous_frame_data
+        else:
+            return {'camera': {name_id: vision_dict}}, previous_frame_data
+
+    @staticmethod
+    def ndarray_to_list(array):
+        array = array.flatten()
+        new_list = (array.tolist())
+        return new_list
 
 
 class PosInit:
@@ -1063,7 +1109,7 @@ def main(args=None):
                     message_to_feagi["data"] = dict()
                 if "sensory_data" not in message_to_feagi["data"]:
                     message_to_feagi["data"]["sensory_data"] = dict()
-                message_to_feagi["data"]["sensory_data"]['camera'] = runtime_data['pixel']
+                message_to_feagi["data"]["sensory_data"]['camera'] = runtime_data['pixel']['camera']
             except Exception as e:
                 pass
             message_to_feagi['timestamp'] = datetime.now()

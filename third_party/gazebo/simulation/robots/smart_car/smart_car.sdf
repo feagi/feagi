@@ -20,7 +20,7 @@
         <link name='chassis'>
             <pose>0 0 .1 0 0 0</pose>
             <inertial>
-              <mass>20</mass>
+              <mass>40</mass>
               <inertia>
                 <ixx>0.005</ixx>
                 <ixy>0</ixy>
@@ -98,12 +98,12 @@
 
       <link name='rear_left_wheel'>
         <pose>-0.1 0.088 0.05 0 1.5707 1.5707</pose>
-      <mass>0.408233</mass>
+      <mass>20</mass>
         <inertial>
         <inertia>
-          <ixx>0.003</ixx>
-          <iyy>0.003</iyy>
-          <izz>0.003</izz>
+          <ixx>0.5</ixx>
+          <iyy>0.5</iyy>
+          <izz>0.5</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -137,13 +137,10 @@
           </geometry>
           <surface>
             <friction>
-            <ode>
-              <mu>0.9</mu>
-              <mu2>1</mu2>
-              <fdir1>1 1 0</fdir1>
-              <slip1>0.1</slip1>
-              <slip2>0.1</slip2>
-            </ode>
+              <ode>
+                <mu>0.63</mu>
+                <fdir1>1 0 0</fdir1>
+              </ode>
             </friction>
           </surface>
         </collision>
@@ -151,13 +148,12 @@
 
       <link name='rear_right_wheel'>
         <pose> -0.1 -0.088 0.05 0 1.5707 1.5707 </pose>
-      <mass>0.408233</mass>
-      <mass>0.408233</mass>
+      <mass>20</mass>
         <inertial>
         <inertia>
-          <ixx>0.003</ixx>
-          <iyy>0.003</iyy>
-          <izz>0.003</izz>
+          <ixx>0.5</ixx>
+          <iyy>0.5</iyy>
+          <izz>0.5</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -191,13 +187,10 @@
           </geometry>
           <surface>
             <friction>
-            <ode>
-              <mu>0.9</mu>
-              <mu2>1</mu2>
-              <fdir1>1 1 0</fdir1>
-              <slip1>0.1</slip1>
-              <slip2>0.1</slip2>
-            </ode>
+              <ode>
+                <mu>0.63</mu>
+                <fdir1>1 0 0</fdir1>
+              </ode>
             </friction>
           </surface>
         </collision>
@@ -205,13 +198,12 @@
 
       <link name='front_left_wheel'>
         <pose>0.1 0.088 0.05 0 1.5707 1.5707</pose>
-      <mass>0.408233</mass>
-      <mass>0.408233</mass>
+      <mass>20</mass>
         <inertial>
         <inertia>
-          <ixx>0.003</ixx>
-          <iyy>0.003</iyy>
-          <izz>0.003</izz>
+          <ixx>0.5</ixx>
+          <iyy>0.5</iyy>
+          <izz>0.5</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -245,13 +237,10 @@
           </geometry>
           <surface>
             <friction>
-            <ode>
-              <mu>0.9</mu>
-              <mu2>1</mu2>
-              <fdir1>1 1 0</fdir1>
-              <slip1>0.1</slip1>
-              <slip2>0.1</slip2>
-            </ode>
+              <ode>
+                <mu>0.63</mu>
+                <fdir1>1 0 0</fdir1>
+              </ode>
             </friction>
           </surface>
         </collision>
@@ -259,13 +248,12 @@
 
       <link name='front_right_wheel'>
         <pose>0.1 -0.088 0.05 0 1.5707 1.5707</pose>
-      <mass>0.408233</mass>
-      <mass>0.408233</mass>
+      <mass>20</mass>
         <inertial>
         <inertia>
-          <ixx>0.003</ixx>
-          <iyy>0.003</iyy>
-          <izz>0.003</izz>
+          <ixx>0.5</ixx>
+          <iyy>0.5</iyy>
+          <izz>0.5</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -299,13 +287,10 @@
           </geometry>
           <surface>
             <friction>
-            <ode>
-              <mu>0.9</mu>
-              <mu2>1</mu2>
-              <fdir1>1 1 0</fdir1>
-              <slip1>0.1</slip1>
-              <slip2>0.1</slip2>
-            </ode>
+              <ode>
+                <mu>0.63</mu>
+                <fdir1>1 0 0</fdir1>
+              </ode>
             </friction>
           </surface>
         </collision>
@@ -457,8 +442,8 @@
           <camera>
 <!--            <horizontal_fov>0.1</horizontal_fov>-->
             <image>
-              <width>16</width>
-              <height>16</height>
+              <width>600</width>
+              <height>600</height>
               <format>L_INT8</format>
 <!--              <anti-aliasing>1</anti-aliasing>-->
             </image>
