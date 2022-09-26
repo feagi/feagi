@@ -260,7 +260,7 @@ if __name__ == "__main__":
                     redPill = visual.Circle(win, size=[0.5, 0.5], fillColor='red')
                 elif rnd_number == 2:
                     redPill = visual.Polygon(win, size=[0.5, 0.5], fillColor='yellow')
-                redPill.pos = (random.uniform(0, 1), random.uniform(0, 1))
+                redPill.pos = (random.uniform(-1, 1), random.uniform(-1, 1))
 
         # Psychopy game ends
         message_to_feagi['timestamp'] = datetime.now()
