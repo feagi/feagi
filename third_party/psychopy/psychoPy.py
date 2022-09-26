@@ -5,14 +5,15 @@
 Demo of dot kinematogram
 """
 
-import cv2
+import requests
 import numpy as np
 import retina as retina
 import feagi_interface as FEAGI
+
 from time import sleep
 from configuration import *
 from datetime import datetime
-from psychopy import visual, event, core
+from psychopy import visual, event, core, misc
 
 
 def ndarray_to_list(array):
@@ -43,7 +44,7 @@ def get_rgb(frame, size, previous_frame_data, name_id):
                     if (abs((previous_frame[index] - frame[index])) / 100) > \
                             capabilities['vision']['deviation_threshold']:
                         dict_key = str(y_vision) + '-' + str(abs((frame_row_count - 1) - x_vision)) + '-' + str(
-                            z_vision)
+                            0)
                         vision_dict[dict_key] = frame[index]  # save the value for the changed index to the dict
                 z_vision += 1
                 if z_vision == 3:
@@ -106,6 +107,8 @@ if __name__ == "__main__":
                                  color=[1.0, 0.5, -1.0],
                                  size=(1.0, 1.0), sf=(3, 0),
                                  autoLog=False)  # autologging not useful for dynamic stimuli
+    redPill = visual.Circle(win, size=[0.1, 0.4], fillColor='red')
+    bluePill = visual.Circle(win, size=[0.1, 0.4], fillColor='blue')
     myMouse = event.Mouse()  # will use win by default
 
     # print(dotPatch)
@@ -115,16 +118,17 @@ if __name__ == "__main__":
     previous_frame_data = dict()
     msg_counter = runtime_data["feagi_state"]['burst_counter']
 
+    redTheta = 0
+    blueTheta = 0
+    X = 0
+    Y = 0
+    flag = False
+    mouse_flag = False
+
     while not event.getKeys():
         message_from_feagi = feagi_opu_channel.receive()
         mouse_dX, mouse_dY = myMouse.getRel()
         mouse1, mouse2, mouse3 = myMouse.getPressed()
-        if mouse1:
-            grating.setSF(mouse_dX, '+')
-        elif mouse3:
-            grating.setPos([mouse_dX, mouse_dY], '+')
-        else:
-            fixSpot.setPos(myMouse.getPos())
 
         # Handle the wheel(s):
         # dY is the normal mouse wheel, but some have a dX as well
@@ -133,21 +137,24 @@ if __name__ == "__main__":
 
         # get rid of other, unprocessed events
         event.clearEvents()
+        redTheta += 0.2
+        blueTheta -= -0.4
+
+        redPill.pos = misc.pol2cart(redTheta, radius=0.6)
+        bluePill.pos = misc.pol2cart(blueTheta, radius=0.8)
+
+        # redPill.draw()
+        # bluePill.draw()
 
         # Do the drawing
         fixSpot.draw()
-        # grating.setPhase(0.05, '+')  # advance 0.05 cycles per frame
-        # grating.draw()
         pixels = win._getFrame()
         pixels = np.array(pixels)
         win.flip()
         retina_data = retina.frame_split(pixels)
+        opu_data = FEAGI.opu_processor(message_from_feagi)
         rgb = dict()
         rgb['camera'] = dict()
-        # dim = (16, 16)
-        # resized = cv2.resize(pixels, dim, interpolation=cv2.INTER_AREA)
-        # n, m = 16, 16  # We need to implement that to improve way to code instead of a fixed hardcoded numbers.
-        # pixels = ndarray_to_list(resized)
         if previous_data_frame == {}:
             for i in retina_data:
                 previous_name = str(i) + "_prev"
@@ -170,7 +177,6 @@ if __name__ == "__main__":
                                                                            previous_data_frame[previous_name], name)
                 for a in rgb_data['camera']:
                     rgb['camera'][a] = rgb_data['camera'][a]
-        # pixels_changed = get_rgb(pixels, n, m, name)
         try:
             if "data" not in message_to_feagi:
                 message_to_feagi["data"] = dict()
@@ -179,8 +185,57 @@ if __name__ == "__main__":
             message_to_feagi["data"]["sensory_data"]['camera'] = rgb['camera']
         except Exception as e:
             pass
+        if opu_data is not None:
+            if 'motor' in opu_data:
+                if opu_data['motor']:
+                    print("FEAGI DATA: ", opu_data['motor'])
+                    for i in opu_data['motor']:
+                        if i // 2 == 0:
+                            if i % 2 == 0:
+                                X += opu_data['motor'][i] / 1000
+                            else:
+                                X -= opu_data['motor'][i] / 1000
+                        if i // 2 == 1:
+                            if i % 2 == 0:
+                                Y += opu_data['motor'][i] / 1000
+                            else:
+                                Y -= opu_data['motor'][i] / 1000
+                if opu_data['misc']:
+                    for i in opu_data['misc']:
+                        if i == 0:
+                            mouse1 = 1
+                        if i == 1:
+                            mouse2 = 1
+                        if i == 2:
+                            mouse3 = 1
+                fixSpot.setPos([X, Y])
+
+        print("mouse1: ", mouse1, " mouse2: ", mouse2, " mouse3: ", mouse3)
+        if mouse1:
+            print(fixSpot.pos)
+            for i in range(10):
+                for y in range(10):
+                    print("*" * 5)
+        if mouse2:
+            for i in range(10):
+                for y in range(10):
+                    print("@" * 5)
+        if mouse3:
+            for i in range(10):
+                for y in range(10):
+                    print("z" * 5)
         message_to_feagi['timestamp'] = datetime.now()
         message_to_feagi['counter'] = msg_counter
+        msg_counter += 1
+        flag += 1
+        if flag == 10:
+            feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
+            feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
+            flag = 0
+            if msg_counter < feagi_burst_counter:
+                feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
+                if feagi_burst_speed != network_settings['feagi_burst_speed']:
+                    network_settings['feagi_burst_speed'] = feagi_burst_speed
         sleep(network_settings['feagi_burst_speed'])
         feagi_ipu_channel.send(message_to_feagi)
         message_to_feagi.clear()
