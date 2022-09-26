@@ -28,6 +28,8 @@ def chroma_keyer(frame, size, name_id):
     This function allows you to remove the specific color. In psychopy window, it shows a gray which is 128,128,128.
     So this function will remove the 128 and focus on something else than the gray. Consider this as making the data
     into a transparent.
+
+    Currently, this is in BETA and not used in any of this code.
     """
     vision_dict = dict()
     frame_row_count = size[0]  # width
@@ -54,7 +56,6 @@ def chroma_keyer(frame, size, name_id):
                     if y_vision == frame_col_count:
                         y_vision = 0
                         x_vision += 1
-
     except Exception as e:
         print("Error: Raw data frame does not match frame resolution")
         print("Error due to this: ", e)
@@ -188,26 +189,26 @@ if __name__ == "__main__":
         win.flip()
         retina_data = retina.frame_split(pixels)
         opu_data = FEAGI.opu_processor(message_from_feagi)
-        # if previous_data_frame == {}:
-        #     for i in retina_data:
-        #         # previous_name = str(i) + "_prev"
-        #         previous_data_frame[previous_name] = {}
+        if previous_data_frame == {}:
+            for i in retina_data:
+                previous_name = str(i) + "_prev"
+                previous_data_frame[previous_name] = {}
         for i in retina_data:
             name = i
             if 'prev' not in i:
                 data = ndarray_to_list(retina_data[i])
                 if 'C' in i:
                     previous_name = str(i) + "_prev"
-                    rgb_data = chroma_keyer(data,
-                                            capabilities['vision'][
-                                                'central_vision_compression'],
-                                            name)
+                    rgb_data, previous_data_frame[previous_name] = get_rgb(data,
+                                                                           capabilities['vision'][
+                                                                               'central_vision_compression'],
+                                                                           previous_data_frame[previous_name], name)
                 else:
-                    # previous_name = str(i) + "_prev"
-                    rgb_data = chroma_keyer(data,
-                                            capabilities['vision'][
-                                                'peripheral_vision_compression'],
-                                            name)
+                    previous_name = str(i) + "_prev"
+                    rgb_data, previous_data_frame[previous_name] = get_rgb(data,
+                                                                           capabilities['vision'][
+                                                                               'peripheral_vision_compression'],
+                                                                           previous_data_frame[previous_name], name)
                 for a in rgb_data['camera']:
                     rgb['camera'][a] = rgb_data['camera'][a]
         try:
