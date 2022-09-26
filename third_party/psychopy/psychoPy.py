@@ -24,6 +24,11 @@ def ndarray_to_list(array):
 
 
 def chroma_keyer(frame, size, name_id):
+    """
+    This function allows you to remove the specific color. In psychopy window, it shows a gray which is 128,128,128.
+    So this function will remove the 128 and focus on something else than the gray. Consider this as making the data
+    into a transparent.
+    """
     vision_dict = dict()
     frame_row_count = size[0]  # width
     frame_col_count = size[1]  # height
