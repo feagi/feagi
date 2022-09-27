@@ -429,6 +429,15 @@ def burst_manager():
         if runtime_data.genome:
             runtime_data.current_age += 1
 
+
+        # Activating the always on neurons
+        if "___pwr" in runtime_data.brain:
+            print("PWR_")
+            for neuron in runtime_data.brain["___pwr"]:
+                print("PWR__")
+                runtime_data.fire_candidate_list["___pwr"].add(neuron)
+                print(runtime_data.fire_candidate_list["___pwr"])
+
         # Manage ZMQ communication from and to FEAGI
         message_router()
 
@@ -457,6 +466,7 @@ def burst_manager():
             runtime_data.previous_fcl[_] = set([item for item in runtime_data.fire_candidate_list[_]])
 
         # print("^^^^^^^^^^ Previous FCL ^^^^^^^^^\n", runtime_data.previous_fcl)
+
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         fire_fcl_contents()
@@ -609,3 +619,4 @@ def toggle_brain_status():
     else:
         runtime_data.brain_is_running = True
         print("Brain is now running!!!")
+
