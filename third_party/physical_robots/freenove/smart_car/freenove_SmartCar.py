@@ -30,7 +30,10 @@ previous_data_frame = dict()
 
 
 def window_average(sequence):
-    return abs(sum(sequence) // len(sequence))
+    # print("sequence: ", sequence)
+    # print("sum: ", sum(sequence))
+    # print("length: ", len(sequence))
+    return sum(sequence) // len(sequence)
 
 
 class LED:
@@ -189,6 +192,34 @@ class Servo:
         else:
             return abs(power)
 
+    @staticmethod
+    def motor_converter(motor_id):
+        """
+        This will convert from godot to motor's id. Let's say, you have 8x10 (width x depth from static_genome).
+        So, you click 4 to go forward. It will be like this:
+        o__mot': {'1-0-9': 1, '5-0-9': 1, '3-0-9': 1, '7-0-9': 1}
+        which is 1,3,5,7. So this code will convert from 1,3,5,7 to 0,1,2,3 on motor id.
+
+        Since 0-1 is motor 1, 2-3 is motor 2 and so on. In this case, 0 is for forward and 1 is for backward.
+        """
+        # motor_total = capabilities['motor']['count'] #be sure to update your motor total in configuration.py
+        # increment = 0
+        # for motor in range(motor_total):
+        #     if motor_id <= motor + 1:
+        #         print("motor_id: ", motor_id)
+        #         increment += 1
+        #         return increment
+        if motor_id <= 1:
+            return 0
+        elif motor_id <= 3:
+            return 3
+        elif motor_id <= 5:
+            return 1
+        elif motor_id <= 7:
+            return 2
+        else:
+            print("Input has been refused. Please put motor ID.")
+
 
 class Motor:
     def __init__(self):
@@ -312,14 +343,9 @@ class Motor:
         else:
             print("Input has been refused. Please put motor ID.")
 
-    def power_convert(self, motor_id, power):
-        if motor_id == 0:
-            return -1 * power
-        elif motor_id == 2:
-            return -1 * power
-        elif motor_id == 4:
-            return -1 * power
-        elif motor_id == 6:
+    @staticmethod
+    def power_convert(motor_id, power):
+        if motor_id % 2 == 0:
             return -1 * power
         else:
             return abs(power)
@@ -415,7 +441,7 @@ def get_rgb(frame, size, previous_frame_data, name_id):
         print("Error: Raw data frame does not match frame resolution")
         print("Error due to this: ", e)
 
-    if len(vision_dict) > 3500:
+    if len(vision_dict) > 1500:
         return {'camera': {name_id: {}}}, previous_frame_data
     else:
         return {'camera': {name_id: vision_dict}}, previous_frame_data
@@ -474,6 +500,7 @@ def main():
     velocity = w * (configuration.capabilities['motor']['diameter_of_wheel'] / 2)
     # ^ diameter is from config and it just needs radius so I turned the diameter into a radius by divide it with 2
 
+    motor_data = dict()
     rolling_window = {}
     for motor_id in range(motor_count):
         rolling_window[motor_id] = deque([0] * rolling_window_len)
@@ -481,44 +508,43 @@ def main():
     camera.resolution = (640, 480)
     camera.framerate = 32
     rawCapture = PiRGBArray(camera, size=(640, 480))
-    time.sleep(0.1)
-    for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
+    # time.sleep(0.1)
+    while True:
         try:
-            if keyboard_flag:
-                # while True:
-                # transmit data to FEAGI IPU
-                image = frame.array
-                rawCapture.truncate(0)
-                if capabilities['camera']['disabled'] is not True:
-                    retina_data = retina.frame_split(image)
-                    rgb = dict()
-                    rgb['camera'] = dict()
-                    if previous_data_frame == {}:
+            for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
+                if keyboard_flag:
+                    image = frame.array
+                    rawCapture.truncate(0)
+                    if capabilities['camera']['disabled'] is not True:
+                        retina_data = retina.frame_split(image)
+                        rgb = dict()
+                        rgb['camera'] = dict()
+                        if previous_data_frame == {}:
+                            for i in retina_data:
+                                previous_name = str(i) + "_prev"
+                                previous_data_frame[previous_name] = {}
                         for i in retina_data:
-                            previous_name = str(i) + "_prev"
-                            previous_data_frame[previous_name] = {}
-                    for i in retina_data:
-                        name = i
-                        if 'prev' not in i:
-                            data = ndarray_to_list(retina_data[i])
-                            if 'C' in i:
-                                previous_name = str(i) + "_prev"
-                                rgb_data, previous_data_frame[previous_name] = get_rgb(data,
-                                                                                       capabilities['camera'][
-                                                                                           'central_vision_compression'],
-                                                                                       previous_data_frame[previous_name],
-                                                                                       name)
-                            else:
-                                previous_name = str(i) + "_prev"
-                                rgb_data, previous_data_frame[previous_name] = get_rgb(data,
-                                                                                       capabilities['camera'][
-                                                                                           'peripheral_vision_compression'],
-                                                                                       previous_data_frame[previous_name],
-                                                                                       name)
-                            for a in rgb_data['camera']:
-                                rgb['camera'][a] = rgb_data['camera'][a]
-                else:
-                    rgb = {}
+                            name = i
+                            if 'prev' not in i:
+                                data = ndarray_to_list(retina_data[i])
+                                if 'C' in i:
+                                    previous_name = str(i) + "_prev"
+                                    rgb_data, previous_data_frame[previous_name] = get_rgb(data,
+                                                                                           capabilities['camera'][
+                                                                                               'central_vision_compression'],
+                                                                                           previous_data_frame[previous_name],
+                                                                                           name)
+                                else:
+                                    previous_name = str(i) + "_prev"
+                                    rgb_data, previous_data_frame[previous_name] = get_rgb(data,
+                                                                                           capabilities['camera'][
+                                                                                               'peripheral_vision_compression'],
+                                                                                           previous_data_frame[previous_name],
+                                                                                           name)
+                                for a in rgb_data['camera']:
+                                    rgb['camera'][a] = rgb_data['camera'][a]
+                    else:
+                        rgb = {}
                 ir_data = ir.read()
                 if ir_data:
                     formatted_ir_data = {'ir': {sensor: True for sensor in ir_data}}
@@ -554,17 +580,20 @@ def main():
                     opu_data = FEAGI.opu_processor(message_from_feagi)
                     if capabilities['motor']['disabled'] is not True:
                         if 'motor' in opu_data:
-                            for data_point in opu_data['motor']:
-                                device_id = data_point // 2
-                                device_power = opu_data['motor'][data_point]
-                                device_power = motor.power_convert(data_point, device_power)
-                                print("device_id: ", device_id,"Data point:", data_point, "power: ", device_power )
-                                rolling_window[device_id].append(device_power)
-                                rolling_window[device_id].popleft()
-                        else:
-                            for _ in range(motor_count):
-                                rolling_window[_].append(0)
-                                rolling_window[_].popleft()
+                            if opu_data['motor'] is not {}:
+                                for data_point in opu_data['motor']:
+                                    device_power = opu_data['motor'][data_point]
+                                    device_power = motor.power_convert(data_point, device_power)
+                                    device_id = motor.motor_converter(data_point)
+                                    if device_id not in motor_data:
+                                        motor_data[device_id] = dict()
+                                    rolling_window[device_id].append(device_power)
+                                    rolling_window[device_id].popleft()
+                                else:
+                                    # print("zero time")
+                                    for _ in range(motor_count):
+                                        rolling_window[_].append(0)
+                                        rolling_window[_].popleft()
                     if capabilities['servo']['disabled'] is not True:
                         if 'servo' in opu_data:
                             for data_point in opu_data['servo']:
@@ -585,13 +614,10 @@ def main():
                         feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
                         if feagi_burst_speed != network_settings['feagi_burst_speed']:
                             network_settings['feagi_burst_speed'] = feagi_burst_speed
-                time.sleep((network_settings['feagi_burst_speed']) / velocity)
-
                 for id in range(motor_count):
                     motor_power  = window_average(rolling_window[id])
-                    motor_power = motor_power * 455
-                    print("motor move:", id, motor_power, rolling_window[id])
-                    motor.move(id, (motor_power))
+                    motor_power = motor_power * 900
+                    motor.move(id, motor_power)
 
 
 

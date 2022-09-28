@@ -1,4 +1,3 @@
-
 # Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -159,13 +158,13 @@ def burst_manager():
             print('Evolution phase reached...')
             for area in runtime_data.cortical_list:
                 neuron_count, synapse_count = connectome_total_synapse_cnt(area)
-                if (runtime_data.parameters["Database"]["influxdb_enabled"] and 
-                        runtime_data.influxdb and 
+                if (runtime_data.parameters["Database"]["influxdb_enabled"] and
+                        runtime_data.influxdb and
                         runtime_data.parameters["Database"]["influx_stat_logger"]):
                     runtime_data.influxdb.insert_connectome_stats(connectome_path=connectome_path,
-                                                     cortical_area=area,
-                                                     neuron_count=neuron_count,
-                                                     synapse_count=synapse_count)
+                                                                  cortical_area=area,
+                                                                  neuron_count=neuron_count,
+                                                                  synapse_count=synapse_count)
             # genethesizer.generation_assessment()
 
     def refractory_check(cortical_area, neuron_id):
@@ -263,8 +262,8 @@ def burst_manager():
                 runtime_data.future_fcl[_] = set()
 
     def log_burst_activity_influx():
-        if (runtime_data.parameters["Database"]["influxdb_enabled"] and 
-                runtime_data.influxdb and 
+        if (runtime_data.parameters["Database"]["influxdb_enabled"] and
+                runtime_data.influxdb and
                 runtime_data.parameters["Database"]["influx_stat_logger"]):
             runtime_data.influxdb.insert_burst_checkpoints(connectome_path, runtime_data.burst_count)
 
@@ -428,6 +427,11 @@ def burst_manager():
 
         if runtime_data.genome:
             runtime_data.current_age += 1
+
+        # Activating the always on neurons
+        if "___pwr" in runtime_data.brain:
+            for neuron in runtime_data.brain["___pwr"]:
+                runtime_data.fire_candidate_list["___pwr"].add(neuron)
 
         # Manage ZMQ communication from and to FEAGI
         message_router()

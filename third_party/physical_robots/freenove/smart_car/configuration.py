@@ -70,8 +70,8 @@ capabilities = {
         "width": 8,
         "height": 8,
         "deviation_threshold": 0.5,
-        "retina_width_percent": 60,
-        "retina_height_percent": 40,
+        "retina_width_percent": 20,
+        "retina_height_percent": 20,
         "central_vision_compression": [64, 64],
         "peripheral_vision_compression": [8, 8],
         "previous_data": {}
