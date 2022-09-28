@@ -430,11 +430,8 @@ def burst_manager():
 
         # Activating the always on neurons
         if "___pwr" in runtime_data.brain:
-            print("PWR_")
             for neuron in runtime_data.brain["___pwr"]:
-                print("PWR__")
                 runtime_data.fire_candidate_list["___pwr"].add(neuron)
-                print(runtime_data.fire_candidate_list["___pwr"])
 
         # Manage ZMQ communication from and to FEAGI
         message_router()
