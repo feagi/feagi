@@ -195,6 +195,30 @@ genome = {
 
         # vvvvvvv   Input and Output processing related Cortical Areas are all listed below  vvvvvvvv
 
+        "_____10c-___pwr-cx-__name-t": "Brain_Power",
+        "_____10c-___pwr-cx-_group-t": "IPU",
+        "_____10c-___pwr-cx-_n_cnt-i": 1,
+        "_____10c-___pwr-nx-gd_vis-b": True,
+        "_____10c-___pwr-nx-rcordx-i": 10,
+        "_____10c-___pwr-nx-rcordy-i": 0,
+        "_____10c-___pwr-nx-rcordz-i": -20,
+        "_____10c-___pwr-nx-___bbx-i": 1,
+        "_____10c-___pwr-nx-___bby-i": 1,
+        "_____10c-___pwr-nx-___bbz-i": 1,
+        "_____10c-___pwr-cx-synatt-i": 100,
+        "_____10c-___pwr-cx-pstcr_-f": 500,
+        "_____10c-___pwr-cx-pstcrm-f": 35,
+        "_____10c-___pwr-cx-plst_c-f": 0.05,
+        "_____10c-___pwr-nx-fire_t-f": 1,
+        "_____10c-___pwr-nx-refrac-i": 0,
+        "_____10c-___pwr-nx-leak_c-f": 10,
+        "_____10c-___pwr-nx-c_fr_c-i": 3,
+        "_____10c-___pwr-nx-snooze-f": 0,
+        "_____10c-___pwr-cx-de_gen-f": 0.01,
+        "_____10c-___pwr-cx-dstmap-d": {
+            "___inb": [["block_to_block", [1, 1, 1], 1, False]]
+        },
+
         "_____10c-_death-cx-__name-t": "Brain_Death",
         "_____10c-_death-cx-_group-t": "IPU",
         "_____10c-_death-cx-_n_cnt-i": 1,
@@ -645,9 +669,9 @@ genome = {
         "_____10c-i__vis-cx-_group-t": "IPU",
         "_____10c-i__vis-cx-_n_cnt-i": 1,
         "_____10c-i__vis-nx-gd_vis-b": True,
-        "_____10c-i__vis-nx-rcordx-i": 10,
-        "_____10c-i__vis-nx-rcordy-i": 0,
-        "_____10c-i__vis-nx-rcordz-i": -20,
+        "_____10c-i__vis-nx-rcordx-i": 50,
+        "_____10c-i__vis-nx-rcordy-i": 20,
+        "_____10c-i__vis-nx-rcordz-i": -30,
         "_____10c-i__vis-nx-___bbx-i": 1,
         "_____10c-i__vis-nx-___bby-i": 1,
         "_____10c-i__vis-nx-___bbz-i": 1,
