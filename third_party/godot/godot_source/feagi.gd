@@ -97,7 +97,7 @@ func _ready():
 	while true:
 		_process(self)
 		stored_value = data
-		#print("data from python: ", data)
+		print("data from python: ", data)
 		start = OS.get_ticks_msec()## This will time the engine at start
 		yield(get_tree().create_timer(0.01), "timeout")
 		$GridMap.clear()
@@ -113,6 +113,23 @@ func _process(_delta):
 	#check_csv() ##Check if csv is changed
 	data = websocket.one_frame
 	
+func generate_one_model(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
+	pass
+#	var x_g = 0; var y_g = 0; var z_g =0
+#	for x_gain in width_input:
+#		for y_gain in height_input:
+#			for z_gain in depth_input:
+#				if x_gain == 0 or x_gain == (int(width_input)-1) or y_gain == 0 or y_gain == (int(height_input)):
+#					x_g = x_gain; y_g = y_gain; z_g = z_gain
+#	var new = get_node("Cortical_area").duplicate()
+#	new.set_name(name_input)
+#	add_child(new)
+#	global_name_list.append(new)
+#	new.transform.origin = Vector3(x_input, y_input, z_input)
+#	new.scale = Vector3(width_input, height_input, depth_input)
+#	print("name: ", name, " xyz: ", x_input, ",", y_input, ",", z_input)
+#	print("size: ", new.scale)
+#	generate_textbox(node, x_input,height_input,z_input, name_input)
 	
 func generate_model(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
 	for x_gain in width_input:
@@ -147,8 +164,8 @@ func _csv_generator():
 			var line = f.get_line()
 			if line != "":
 				line += " "
-				var CSV_data = line.split(",", true, '0') ##splits into value array per line
-				x = CSV_data[0]; y = CSV_data[1]; z = CSV_data[2]; width= int(CSV_data[3]) 
+				var CSV_data = line.split(",", true, '0') # splits into value array per line
+				x = CSV_data[0]; y = CSV_data[1]; z = CSV_data[2]; width= int(CSV_data[3])
 				height = int(CSV_data[4]); depth = int(CSV_data[5]); name = CSV_data[6]
 				$Floor_grid.set_cell_item(int(x),0,int(z),0)
 				if sign(int(width)) > 0:
@@ -178,7 +195,10 @@ func _csv_generator():
 				add_child(create_textbox)#Copied the node to new node
 				global_name_list.append(create_textbox)
 				create_textbox.scale = Vector3(1,1,1)
-				generate_model(create_textbox, x,y,z,width, depth, height, name)
+				if not("vision" in name):
+					generate_model(create_textbox, x,y,z,width, depth, height, name)
+				else:
+					generate_one_model(create_textbox, x,y,z,width, depth, height, name)
 				# copy.queue_free() #This acts like .clear() but for CSGBox
 				if cortical_area.empty(): #Checks if dict is empty
 					adding_cortical_areas(name,x,y,z,height,width,depth) #adding to dict
