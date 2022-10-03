@@ -99,23 +99,17 @@ def frame_split(frame):
     return vision
 
 
-# img = cv2.imread('goku.jpeg', cv2.IMREAD_UNCHANGED)
-# # print('Original Dimensions : ', img.shape)
-# #
-# # # scale_percent = 10  # percent of original size
-# # width = 720
-# # height = 960
-# dim = (width, height)
-# # # resize image
-# # previous_frame_data = dict()
-# resized = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
-# # print('Resized Dimensions : ', resized.shape)
-# #
-# # # Actual code
-# frame_split(resized)
-#
-# # End code
-#
-# cv2.imshow("sss", resized)
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
+def pan(frame):
+    """
+    No filter involves. No resize or compression. Just return all boxes.
+    This is heavily leveraged on the frame_split() function.
+    """
+    vision = dict()
+    vision['vision_box'] = frame[capabilities['vision']["field_of_vision_origin"][1]:
+                                 capabilities['vision']["field_of_vision_origin"][1] + capabilities['vision'][
+                                     "field_of_vision_y"],
+                           capabilities['vision']["field_of_vision_origin"][0]:
+                           capabilities['vision']["field_of_vision_origin"][
+                               0] + capabilities['vision'][
+                               "field_of_vision_x"]]
+    return vision

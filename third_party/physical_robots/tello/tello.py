@@ -323,6 +323,7 @@ def main():
             bat = get_battery(data)
             battery = bat['battery_charge_level']
             data = full_frame(tello)
+            data = retina.pan(data)
             retina_data = retina.frame_split(data)
             rgb = dict()
             rgb['camera'] = dict()
