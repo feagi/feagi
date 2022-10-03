@@ -95,3 +95,28 @@ def frame_split(frame):
     vision['LM'] = peripheral_data_compression(LM)
     vision['LR'] = peripheral_data_compression(LR)
     return vision
+
+
+def pan(frame):
+    """
+    No filter involves. No resize or compression. Just return all boxes.
+    This is heavily leveraged on the frame_split() function.
+    """
+    vision = dict()
+    vision['vision_box'] = frame[capabilities['vision']["field_of_vision_origin"][1]:
+                                 capabilities['vision']["field_of_vision_origin"][1] + capabilities['vision'][
+                                     "field_of_vision_y"],
+                           capabilities['vision']["field_of_vision_origin"][0]:
+                           capabilities['vision']["field_of_vision_origin"][
+                               0] + capabilities['vision'][
+                               "field_of_vision_x"]]
+    return vision
+
+
+img = cv2.imread('test.jpg')
+img = cv2.resize(img, [1280, 1280], interpolation=cv2.INTER_AREA)
+data = pan(img)
+cv2.imshow("img", img)
+cv2.imshow("img2", data['vision_box'])
+cv2.waitKey(0)
+cv2.destroyAllWindows()
