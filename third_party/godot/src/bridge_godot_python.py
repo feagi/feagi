@@ -89,7 +89,7 @@ def simulation_testing():
     y = 0
     z = 0
     array = []
-    for i in range(6000):
+    for i in range(1000):
         x = random.randint(0, 64)
         y = random.randint(0, 64)
         z = random.randint(0, 64)
@@ -118,8 +118,7 @@ def godot_data(input):
     Simply clean the list and remove all unnecessary special characters and deliver with name, xyz only
     """
     data = ast.literal_eval(input)
-    dict_with_updated_name = {}
-    dict_with_updated_name["data"] = dict()
+    dict_with_updated_name = {"data": dict()}
     dict_with_updated_name["data"]["direct_stimulation"] = dict(dict())
     for key in data["data"]["direct_stimulation"]:
         Updated_name = name_to_id(key)
@@ -277,9 +276,7 @@ def feagi_init(feagi_host, api_port):
 async def echo(websocket):
     while True:
         try:
-            print("length of zmq_queue: ", len(zmq_queue))
-            print("length of zmq_queue[0]: ", len(zmq_queue[0]))
-            if len(zmq_queue) > 2:
+            if len(zmq_queue) > 2: # This will eliminate any stack up queue
                 stored_value = zmq_queue[len(zmq_queue)-1]
                 zmq_queue.clear()
                 zmq_queue[0] = stored_value
@@ -297,7 +294,7 @@ async def echo(websocket):
 
 async def websocket_main():
     async with websockets.serve(echo, "0.0.0.0", configuration.network_settings['godot_websocket_port'], max_size=None,
-                                max_queue=None, write_limit=None):
+                                max_queue=None, write_limit=None, compression=None):
         await asyncio.Future()
 
 
@@ -361,8 +358,8 @@ if __name__ == "__main__":
                     f.close()
                 except Exception as e:
                     print("Error during genome reset:\n", e)
-            #one_frame = feagi_breakdown(one_frame)
-            one_frame = simulation_testing()
+            one_frame = feagi_breakdown(one_frame)
+            #one_frame = simulation_testing()
             if burst_second > network_settings['burst_duration_threshold']:
                 zmq_queue.append(one_frame)
         if ws_queue:
