@@ -110,6 +110,15 @@ func _process(_delta):
 	#check_csv() ##Check if csv is changed
 	data = websocket.one_frame
 	
+func generate_4_points(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
+	var new = get_node("Cortical_area").duplicate()
+	new.set_name(name_input)
+	add_child(new)
+	global_name_list.append(new)
+	new.scale = Vector3(width_input, height_input, depth_input)
+	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), depth_input/2 + int(z_input))
+	generate_textbox(node, x_input,height_input,z_input, name_input)
+	
 	
 func generate_model(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
 	for x_gain in width_input:
@@ -175,7 +184,10 @@ func _csv_generator():
 				add_child(create_textbox)#Copied the node to new node
 				global_name_list.append(create_textbox)
 				create_textbox.scale = Vector3(1,1,1)
-				generate_model(create_textbox, x,y,z,width, depth, height, name)
+				if int(width) * int(depth) * int(height) < 999: # Prevent massive cortical area 
+					generate_model(create_textbox, x,y,z,width, depth, height, name)
+				else:
+					generate_4_points(create_textbox, x,y,z,width, depth, height, name)
 				# copy.queue_free() #This acts like .clear() but for CSGBox
 				if cortical_area.empty(): #Checks if dict is empty
 					adding_cortical_areas(name,x,y,z,height,width,depth) #adding to dict
@@ -242,6 +254,5 @@ func generate_voxels():
 				var position = Transform()
 				position = position.translated(Vector3(int(x), int(y), int(z)))
 				$red_voxel.multimesh.set_instance_transform(key, position)
-				#install_voxel_inside(x,y,z) #install voxel inside cortical area
 			key+= 1
 		flag = 0 #keep x,y,z in correct place
