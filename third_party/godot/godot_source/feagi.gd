@@ -259,14 +259,17 @@ func generate_voxels():
 			elif flag == 2:
 				flag = 0
 				z = int(test[key])
-#			$GridMap.set_cell_item(x, y, z, 0)
+#			print("data type of x: ", typeof(x))
+#			print("data type of y: ", typeof(y))
+#			print("data type of z: ", typeof(z))
+			#$GridMap.set_cell_item(int(x),int(y),int(z), 0)
 			# check_cortical_area(x,y,z)
 			var position = Transform()
 			position = position.translated(Vector3(x, y, z))
 #				var new_duplicate = $test_red.duplicate()
 #				new_duplicate.multimesh.set_instance_transform(key, position)
 			$test_red.multimesh.set_instance_transform(key, position)
-			#install_voxel_inside(x,y,z) #install voxel inside cortical area
+			#install_voxel_inside(int(x),int(y),int(z)) #install voxel inside cortical area
 			key+= 1
 		flag = 0 #keep x,y,z in correct place
 
