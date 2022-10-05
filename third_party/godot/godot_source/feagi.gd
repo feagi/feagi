@@ -59,10 +59,7 @@ var increment_gridmap = 0
 
 
 func _ready():
-#	Godot_list.godot_list["data"]
 	set_physics_process(false)
-	#Engine.target_fps = 20
-#	Engine.setlowprocessorusagemode = true
 	for i in 6:
 		$GridMap3.set_cell_item(i,0,0,0) ##set the arrow indicator of 3D
 	var create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
@@ -100,7 +97,7 @@ func _ready():
 #		print("data from python: ", data)
 		start = OS.get_ticks_msec()## This will time the engine at start
 		yield(get_tree().create_timer(0.01), "timeout")
-		$GridMap.clear()
+#		$GridMap.clear()
 		end = OS.get_ticks_msec()
 		var time_total = end - start
 		if time_total < 500: ## Generate voxels as long as you are on the tab
@@ -108,27 +105,11 @@ func _ready():
 		else:
 			websocket.send("lagged")
 
+
 func _process(_delta):
 	#check_csv() ##Check if csv is changed
 	data = websocket.one_frame
 	
-func generate_one_model(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
-	pass
-#	var x_g = 0; var y_g = 0; var z_g =0
-#	for x_gain in width_input:
-#		for y_gain in height_input:
-#			for z_gain in depth_input:
-#				if x_gain == 0 or x_gain == (int(width_input)-1) or y_gain == 0 or y_gain == (int(height_input)):
-#					x_g = x_gain; y_g = y_gain; z_g = z_gain
-#	var new = get_node("Cortical_area").duplicate()
-#	new.set_name(name_input)
-#	add_child(new)
-#	global_name_list.append(new)
-#	new.transform.origin = Vector3(x_input, y_input, z_input)
-#	new.scale = Vector3(width_input, height_input, depth_input)
-#	print("name: ", name, " xyz: ", x_input, ",", y_input, ",", z_input)
-#	print("size: ", new.scale)
-#	generate_textbox(node, x_input,height_input,z_input, name_input)
 	
 func generate_model(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
 	for x_gain in width_input:
@@ -151,7 +132,7 @@ func adding_cortical_areas(name, x_input,y_input,z_input,width_input,height_inpu
 	cortical_area[name]=[x_input,y_input,z_input,width_input,height_input,depth_input] ##This is just adding the list
 	
 func install_voxel_inside(x_input,y_input,z_input):
-		$GridMap.set_cell_item(x_input,y_input,z_input, 0)
+	$GridMap.set_cell_item(x_input,y_input,z_input, 0)
 
 func _csv_generator():
 	_clear_node_name_list(global_name_list)
@@ -163,8 +144,8 @@ func _csv_generator():
 			var line = f.get_line()
 			if line != "":
 				line += " "
-				var CSV_data = line.split(",", true, '0') # splits into value array per line
-				x = CSV_data[0]; y = CSV_data[1]; z = CSV_data[2]; width= int(CSV_data[3])
+				var CSV_data = line.split(",", true, '0') ##splits into value array per line
+				x = CSV_data[0]; y = CSV_data[1]; z = CSV_data[2]; width= int(CSV_data[3]) 
 				height = int(CSV_data[4]); depth = int(CSV_data[5]); name = CSV_data[6]
 				$Floor_grid.set_cell_item(int(x),0,int(z),0)
 				if sign(int(width)) > 0:
@@ -194,10 +175,7 @@ func _csv_generator():
 				add_child(create_textbox)#Copied the node to new node
 				global_name_list.append(create_textbox)
 				create_textbox.scale = Vector3(1,1,1)
-#				if not("vision" in name):
 				generate_model(create_textbox, x,y,z,width, depth, height, name)
-#				else:
-#					generate_one_model(create_textbox, x,y,z,width, depth, height, name)
 				# copy.queue_free() #This acts like .clear() but for CSGBox
 				if cortical_area.empty(): #Checks if dict is empty
 					adding_cortical_areas(name,x,y,z,height,width,depth) #adding to dict
@@ -239,14 +217,15 @@ func check_csv():
 		if stored_csv != current_csv:
 			stored_csv = current_csv
 			_csv_generator()
+			
 func generate_voxels():
 	if stored_value != "" and stored_value != null:
 		array_test = stored_value.replace("[", "")
 		array_test = array_test.replace("]", "")
 		test=array_test.split(",", true, '0')
 		total = (test.size())
-		$test_red.multimesh.instance_count = total
-		#print(test)
+		$red_voxel.multimesh.instance_count = total
+		$red_voxel.multimesh.visible_instance_count = total
 		var key = 0
 		flag=0
 		while key < total:
@@ -259,17 +238,10 @@ func generate_voxels():
 			elif flag == 2:
 				flag = 0
 				z = int(test[key])
-#			print("data type of x: ", typeof(x))
-#			print("data type of y: ", typeof(y))
-#			print("data type of z: ", typeof(z))
-			#$GridMap.set_cell_item(int(x),int(y),int(z), 0)
-			# check_cortical_area(x,y,z)
-			var position = Transform()
-			position = position.translated(Vector3(x, y, z))
-#				var new_duplicate = $test_red.duplicate()
-#				new_duplicate.multimesh.set_instance_transform(key, position)
-			$test_red.multimesh.set_instance_transform(key, position)
-			#install_voxel_inside(int(x),int(y),int(z)) #install voxel inside cortical area
+				#check_cortical_area(x,y,z)
+				var position = Transform()
+				position = position.translated(Vector3(int(x), int(y), int(z)))
+				$red_voxel.multimesh.set_instance_transform(key, position)
+				#install_voxel_inside(x,y,z) #install voxel inside cortical area
 			key+= 1
 		flag = 0 #keep x,y,z in correct place
-
