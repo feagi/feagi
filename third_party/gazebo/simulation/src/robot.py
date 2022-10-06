@@ -22,13 +22,13 @@ import geometry_msgs.msg
 import rclpy
 import std_msgs.msg
 import configuration
-import retina as retina
+from mypackage import retina as retina
 import os
 import os.path
 import subprocess
 import requests
 import xml.etree.ElementTree as Xml_et
-import feagi_interface as FEAGI
+from mypackage import feagi_interface as FEAGI
 import numpy as np
 
 from std_msgs.msg import String
@@ -434,7 +434,17 @@ class Camera_Subscriber(Node):
         image = msg.data
         image = np.array(image)
         image = image.reshape(capabilities['camera']['width'], capabilities['camera']['height'], 3)
-        retina_data = retina.frame_split(image)
+        retina_data = retina.frame_split(image, configuration.capabilities['camera']['retina_width_percent'],
+                                         configuration.capabilities['camera']['retina_height_percent'])
+        for i in retina_data:
+            if 'C' in i:
+                retina_data[i] = retina.center_data_compression(retina_data[i],
+                                                                capabilities['camera']["central_vision_compression"]
+                                                                )
+            else:
+                retina_data[i] = retina.center_data_compression(retina_data[i],
+                                                                capabilities['camera']
+                                                                ['peripheral_vision_compression'])
         rgb = dict()
         rgb['camera'] = dict()
         if previous_data_frame == {}:
@@ -445,21 +455,28 @@ class Camera_Subscriber(Node):
             name = i
             if 'prev' not in i:
                 #data = retina_data[i] # data is very straightforward from gazebo
-                data = self.ndarray_to_list(retina_data[i])
+                data = retina.ndarray_to_list(retina_data[i])
                 if 'C' in i:
                     previous_name = str(i) + "_prev"
-                    rgb_data, previous_data_frame[previous_name] = self.get_rgb(data,
-                                                                           capabilities['camera'][
-                                                                               'central_vision_compression'],
-                                                                           previous_data_frame[previous_name],
-                                                                           name)
+                    rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
+                                                                                      capabilities['camera'][
+                                                                                          'central_vision_compression'],
+                                                                                      previous_data_frame[
+                                                                                          previous_name], name,
+                                                                                      configuration.capabilities[
+                                                                                          'camera'][
+                                                                                          'deviation_threshold'])
                 else:
                     previous_name = str(i) + "_prev"
-                    rgb_data, previous_data_frame[previous_name] = self.get_rgb(data,
-                                                                           capabilities['camera'][
-                                                                               'peripheral_vision_compression'],
-                                                                           previous_data_frame[previous_name],
-                                                                           name)
+                    rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
+                                                                                      capabilities['camera'][
+                                                                                        'peripheral_vision_compression']
+                                                                                      ,
+                                                                                      previous_data_frame[
+                                                                                          previous_name], name,
+                                                                                      configuration.capabilities[
+                                                                                          'camera'][
+                                                                                          'deviation_threshold'])
                 for a in rgb_data['camera']:
                     rgb['camera'][a] = rgb_data['camera'][a]
         runtime_data['pixel'] = rgb
@@ -468,54 +485,48 @@ class Camera_Subscriber(Node):
     def camera_callback(msg):
         return msg.data
 
-    @staticmethod
-    def get_rgb(frame, size, previous_frame_data, name_id):
-        vision_dict = dict()
-        frame_row_count = size[0]  # width
-        frame_col_count = size[1]  # height
-
-        x_vision = 0  # row counter
-        y_vision = 0  # col counter
-        z_vision = 0  # RGB counter
-
-        try:
-            previous_frame = previous_frame_data
-        except Exception:
-            previous_frame = [0, 0]
-        frame_len = len(previous_frame)
-        try:
-            if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the
-                # resolution setting
-                for index in range(frame_len):
-                    if previous_frame[index] != frame[index]:
-                        if (abs((previous_frame[index] - frame[index])) / 100) > \
-                                configuration.capabilities['camera']['deviation_threshold']:
-                            dict_key = str(y_vision) + '-' + str(abs((frame_row_count - 1) - x_vision)) + '-' + str(
-                                z_vision)
-                            vision_dict[dict_key] = frame[index]  # save the value for the changed index to the dict
-                    z_vision += 1
-                    if z_vision == 3:
-                        z_vision = 0
-                        y_vision += 1
-                        if y_vision == frame_col_count:
-                            y_vision = 0
-                            x_vision += 1
-            if frame != {}:
-                previous_frame_data = frame
-        except Exception as e:
-            print("Error: Raw data frame does not match frame resolution")
-            print("Error due to this: ", e)
-
-        if len(vision_dict) > 3500:
-            return {'camera': {name_id: {}}}, previous_frame_data
-        else:
-            return {'camera': {name_id: vision_dict}}, previous_frame_data
-
-    @staticmethod
-    def ndarray_to_list(array):
-        array = array.flatten()
-        new_list = (array.tolist())
-        return new_list
+    # @staticmethod
+    # def get_rgb(frame, size, previous_frame_data, name_id):
+    #     vision_dict = dict()
+    #     frame_row_count = size[0]  # width
+    #     frame_col_count = size[1]  # height
+    #
+    #     x_vision = 0  # row counter
+    #     y_vision = 0  # col counter
+    #     z_vision = 0  # RGB counter
+    #
+    #     try:
+    #         previous_frame = previous_frame_data
+    #     except Exception:
+    #         previous_frame = [0, 0]
+    #     frame_len = len(previous_frame)
+    #     try:
+    #         if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the
+    #             # resolution setting
+    #             for index in range(frame_len):
+    #                 if previous_frame[index] != frame[index]:
+    #                     if (abs((previous_frame[index] - frame[index])) / 100) > \
+    #                             configuration.capabilities['camera']['deviation_threshold']:
+    #                         dict_key = str(y_vision) + '-' + str(abs((frame_row_count - 1) - x_vision)) + '-' + str(
+    #                             z_vision)
+    #                         vision_dict[dict_key] = frame[index]  # save the value for the changed index to the dict
+    #                 z_vision += 1
+    #                 if z_vision == 3:
+    #                     z_vision = 0
+    #                     y_vision += 1
+    #                     if y_vision == frame_col_count:
+    #                         y_vision = 0
+    #                         x_vision += 1
+    #         if frame != {}:
+    #             previous_frame_data = frame
+    #     except Exception as e:
+    #         print("Error: Raw data frame does not match frame resolution")
+    #         print("Error due to this: ", e)
+    #
+    #     if len(vision_dict) > 3500:
+    #         return {'camera': {name_id: {}}}, previous_frame_data
+    #     else:
+    #         return {'camera': {name_id: vision_dict}}, previous_frame_data
 
 
 class PosInit:
