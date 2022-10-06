@@ -4,7 +4,7 @@ ENV GAZEBO_CONTAINER=true
 ENV OPENBOX_ARGS='--startup "/opt/source-code/simulation/start_controller.sh"'
 
 RUN apt install -y wmctrl
-RUN apt-get -y install python3-pip
+RUN apt install -y python3-pip
 RUN pip3 install opencv-python
 
 WORKDIR /etc/xdg/openbox
