@@ -59,10 +59,7 @@ var increment_gridmap = 0
 
 
 func _ready():
-#	Godot_list.godot_list["data"]
 	set_physics_process(false)
-	#Engine.target_fps = 20
-#	Engine.setlowprocessorusagemode = true
 	for i in 6:
 		$GridMap3.set_cell_item(i,0,0,0) ##set the arrow indicator of 3D
 	var create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
@@ -97,10 +94,10 @@ func _ready():
 	while true:
 		_process(self)
 		stored_value = data
-		#print("data from python: ", data)
+#		print("data from python: ", data)
 		start = OS.get_ticks_msec()## This will time the engine at start
 		yield(get_tree().create_timer(0.01), "timeout")
-		$GridMap.clear()
+#		$GridMap.clear()
 		end = OS.get_ticks_msec()
 		var time_total = end - start
 		if time_total < 500: ## Generate voxels as long as you are on the tab
@@ -112,6 +109,15 @@ func _ready():
 func _process(_delta):
 	#check_csv() ##Check if csv is changed
 	data = websocket.one_frame
+	
+func generate_one_model(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
+	var new = get_node("Cortical_area").duplicate()
+	new.set_name(name_input)
+	add_child(new)
+	global_name_list.append(new)
+	new.scale = Vector3(width_input, height_input, depth_input)
+	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), depth_input/2 + int(z_input))
+	generate_textbox(node, x_input,height_input,z_input, name_input)
 	
 	
 func generate_model(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
@@ -178,7 +184,10 @@ func _csv_generator():
 				add_child(create_textbox)#Copied the node to new node
 				global_name_list.append(create_textbox)
 				create_textbox.scale = Vector3(1,1,1)
-				generate_model(create_textbox, x,y,z,width, depth, height, name)
+				if int(width) * int(depth) * int(height) < 999: # Prevent massive cortical area 
+					generate_model(create_textbox, x,y,z,width, depth, height, name)
+				else:
+					generate_one_model(create_textbox, x,y,z,width, depth, height, name)
 				# copy.queue_free() #This acts like .clear() but for CSGBox
 				if cortical_area.empty(): #Checks if dict is empty
 					adding_cortical_areas(name,x,y,z,height,width,depth) #adding to dict
@@ -227,7 +236,8 @@ func generate_voxels():
 		array_test = array_test.replace("]", "")
 		test=array_test.split(",", true, '0')
 		total = (test.size())
-		#print(test)
+		$red_voxel.multimesh.instance_count = total
+		$red_voxel.multimesh.visible_instance_count = total
 		var key = 0
 		flag=0
 		while key < total:
@@ -241,7 +251,8 @@ func generate_voxels():
 				flag = 0
 				z = int(test[key])
 				#check_cortical_area(x,y,z)
-				install_voxel_inside(x,y,z) #install voxel inside cortical area
+				var position = Transform()
+				position = position.translated(Vector3(int(x), int(y), int(z)))
+				$red_voxel.multimesh.set_instance_transform(key, position)
 			key+= 1
 		flag = 0 #keep x,y,z in correct place
-
