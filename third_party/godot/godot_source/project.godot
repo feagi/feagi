@@ -76,9 +76,9 @@ z={
 
 [network]
 
-limits/websocket_client/max_in_buffer_kb=1000
+limits/websocket_client/max_in_buffer_kb=10000
 limits/websocket_client/max_in_packets=100000
-limits/websocket_client/max_out_buffer_kb=1000
+limits/websocket_client/max_out_buffer_kb=10000
 limits/websocket_client/max_out_packets=100000
 limits/websocket_server/max_in_buffer_kb=1000
 limits/websocket_server/max_in_packets=100000
