@@ -1,6 +1,6 @@
 import configuration
-# from feagi_agent import router
-# from time import sleep
+from feagi_agent import router
+from time import sleep
 
 
 def pub_initializer(ipu_address):
