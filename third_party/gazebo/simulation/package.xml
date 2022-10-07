@@ -31,8 +31,6 @@
   <exec_depend>configuration</exec_depend>
   <exec_depend>sys</exec_depend>
   <exec_depend>random</exec_depend>
-  <exec_depend>feagi_interface</exec_depend>
-  <exec_depend>router</exec_depend>
 
   
   
