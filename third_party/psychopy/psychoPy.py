@@ -8,8 +8,8 @@ Demo of dot kinematogram
 import random
 import requests
 import numpy as np
-from mypackage import retina as retina
-from mypackage import feagi_interface as FEAGI
+from feagi_agent import retina as retina
+from feagi_agent import feagi_interface as FEAGI
 
 from time import sleep
 from configuration import *

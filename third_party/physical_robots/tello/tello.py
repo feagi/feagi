@@ -3,11 +3,11 @@ import time
 import requests
 import numpy as np
 import configuration
-from mypackage import retina as retina
+from feagi_agent import retina as retina
 from configuration import *
 from djitellopy import Tello
 from datetime import datetime
-from mypackage import feagi_interface as FEAGI
+from feagi_agent import feagi_interface as FEAGI
 
 previous_data_frame = dict()
 

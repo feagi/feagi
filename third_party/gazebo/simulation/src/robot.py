@@ -22,13 +22,11 @@ import geometry_msgs.msg
 import rclpy
 import std_msgs.msg
 import configuration
-from mypackage import retina as retina
 import os
 import os.path
 import subprocess
 import requests
 import xml.etree.ElementTree as Xml_et
-from mypackage import feagi_interface as FEAGI
 import numpy as np
 
 from std_msgs.msg import String
@@ -37,6 +35,8 @@ from configuration import message_to_feagi
 from time import sleep
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
+from feagi_agent import retina as retina
+from feagi_agent import feagi_interface as FEAGI
 from sensor_msgs.msg import LaserScan, Image, BatteryState, Imu
 from rclpy.qos import qos_profile_sensor_data
 from configuration import *

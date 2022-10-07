@@ -1,6 +1,6 @@
-from mypackage import feagi_interface as FEAGI
+from feagi_agent import feagi_interface as FEAGI
 import RPi.GPIO as GPIO
-from mypackage import retina as retina
+from feagi_agent import retina as retina
 import configuration
 import numpy as np
 import traceback
