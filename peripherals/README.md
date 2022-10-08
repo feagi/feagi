@@ -66,10 +66,10 @@ It is being used in python code.
 Just install through pip.
 
 Windows:
-pip install feagi-agent
+`pip install feagi-agent`  
 
 Linux/Mac:
-pip3 install feagi-agent
+`pip3 install feagi-agent`
 
 and after that, you can just use `from feagi-agent import feagi_interface`
 
