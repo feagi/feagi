@@ -13,6 +13,7 @@ from datetime import datetime
 from collections import deque
 from picamera.array import PiRGBArray
 
+
 runtime_data = {
     "current_burst_id": 0,
     "feagi_state": None,
@@ -456,6 +457,7 @@ def main():
     camera.resolution = (640, 480)
     camera.framerate = 32
     rawCapture = PiRGBArray(camera, size=(640, 480))
+    motor.stop()
     while True:
         try:
             for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
@@ -579,9 +581,8 @@ def main():
                             network_settings['feagi_burst_speed'] = feagi_burst_speed
                 for id in range(motor_count):
                     motor_power = window_average(rolling_window[id])
-                    motor_power = motor_power * 900
+                    motor_power = motor_power * 1100
                     motor.move(id, motor_power)
-
         except KeyboardInterrupt as ke:  # Keyboard error
             motor.stop()
             keyboard_flag = False
