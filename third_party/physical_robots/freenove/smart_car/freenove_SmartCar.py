@@ -2,12 +2,9 @@ from feagi_agent import feagi_interface as FEAGI
 import RPi.GPIO as GPIO
 from feagi_agent import retina as retina
 import configuration
-import numpy as np
 import traceback
 import requests
-import math
 import sys
-import cv2
 from Led import *
 from PCA9685 import PCA9685
 from configuration import *
@@ -30,9 +27,6 @@ previous_data_frame = dict()
 
 
 def window_average(sequence):
-    # print("sequence: ", sequence)
-    # print("sum: ", sum(sequence))
-    # print("length: ", len(sequence))
     return sum(sequence) // len(sequence)
 
 
@@ -169,14 +163,15 @@ class Servo:
             adjusted_position = float(current_position)
         return adjusted_position
 
-    def servo_id_converter(self, servo_id):
+    @staticmethod
+    def servo_id_converter(servo_id):
         """
         This will convert from godot to motor's id. Let's say, you have 4x10 (width x depth from static_genome).
         So, you click 2 (actually 4 but 2 for one servo on backward/forward) to go forward. It will be like this:
         o__ser': {'1-0-9': 1, '3-0-9': 1}
         which is 1,3. So this code will convert from 1,3 to 0,1 on motor id.
 
-        Since 0-1 is servo 0, 2-3 is servo 1 and so on. In this case, 0 and 2 is for forward and 1 and 3 is for backward.
+        Since 0-1 is servo 0, 2-3 is servo 1 and so on. In this case, 0 and 2 is for forward and 1 and 3 is for backward
         """
         if servo_id <= 1:
             return 0
@@ -316,7 +311,8 @@ class Motor:
     def stop(self):
         self.setMotorModel(0, 0, 0, 0)
 
-    def motor_converter(self, motor_id):
+    @staticmethod
+    def motor_converter(motor_id):
         """
         This will convert from godot to motor's id. Let's say, you have 8x10 (width x depth from static_genome).
         So, you click 4 to go forward. It will be like this:
@@ -445,11 +441,11 @@ def main():
     rolling_window_len = configuration.capabilities['motor']['rolling_window_len']
     motor_count = configuration.capabilities['motor']['count']
     msg_counter = 0
-    rpm = (50 * 60) / 2
+    # rpm = (50 * 60) / 2
     # DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60 is the
     # seconds of a minute
-    w = (rpm / 60) * (2 * math.pi)  # 60 is second/minute
-    velocity = w * (configuration.capabilities['motor']['diameter_of_wheel'] / 2)
+    # w = (rpm / 60) * (2 * math.pi)  # 60 is second/minute
+    # velocity = w * (configuration.capabilities['motor']['diameter_of_wheel'] / 2)
     # ^ diameter is from config and it just needs radius so I turned the diameter into a radius by divide it with 2
 
     motor_data = dict()
@@ -492,22 +488,21 @@ def main():
                                 data = retina.ndarray_to_list(retina_data[i])
                                 if 'C' in i:
                                     previous_name = str(i) + "_prev"
-                                    rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
-                                                                                                  capabilities[
-                                                                                                      'camera'][
-                                                                                                      'central_vision_compression'],
-                                                                                                  previous_data_frame[
-                                                                                                      previous_name],
-                                                                                                  name)
+                                    rgb_data, previous_data_frame[previous_name] = \
+                                        retina.get_rgb(data,
+                                                       capabilities[
+                                                           'camera'][
+                                                           'central_vision_compression'],
+                                                       previous_data_frame[
+                                                           previous_name],
+                                                       name,
+                                                       capabilities['camera']['deviation_threshold'])
                                 else:
                                     previous_name = str(i) + "_prev"
-                                    rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
-                                                                                                  capabilities[
-                                                                                                      'camera'][
-                                                                                                      'peripheral_vision_compression'],
-                                                                                                  previous_data_frame[
-                                                                                                      previous_name],
-                                                                                                  name)
+                                    rgb_data, previous_data_frame[previous_name] = \
+                                        retina.get_rgb(data, capabilities['camera']['peripheral_vision_compression'],
+                                                       previous_data_frame[previous_name], name,
+                                                       capabilities['camera']['deviation_threshold'])
                                 for a in rgb_data['camera']:
                                     rgb['camera'][a] = rgb_data['camera'][a]
                     else:
@@ -586,8 +581,6 @@ def main():
                     motor_power = window_average(rolling_window[id])
                     motor_power = motor_power * 900
                     motor.move(id, motor_power)
-
-
 
         except KeyboardInterrupt as ke:  # Keyboard error
             motor.stop()
