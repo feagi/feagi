@@ -16,7 +16,7 @@ limitations under the License.
 ==============================================================================
 """
 
-app_name = 'gazebo'
+app_name = 'embodiment'
 
 network_settings = {
     "feagi_host": "127.0.0.1",
