@@ -87,7 +87,7 @@ print("** **", runtime_data["feagi_state"])
 network_settings['feagi_burst_speed'] = runtime_data["feagi_state"]['burst_duration']
 
 # todo: to obtain this info directly from FEAGI as part of registration
-ipu_channel_address = 'tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_gazebo']
+ipu_channel_address = 'tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_embodiment']
 print("IPU_channel_address=", ipu_channel_address)
 opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + \
                       runtime_data["feagi_state"]['feagi_outbound_port']
