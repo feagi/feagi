@@ -243,7 +243,7 @@ def main():
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
     feagi_host, api_port = FEAGI.feagi_setting_for_registration()
     runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host, api_port=api_port)
-    ipu_channel_address = FEAGI.feagi_inbound(runtime_data["feagi_state"]['feagi_inbound_port_gazebo'])
+    ipu_channel_address = FEAGI.feagi_inbound(runtime_data["feagi_state"]['feagi_inbound_port_embodiment'])
     opu_channel_address = FEAGI.feagi_outbound(network_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_outbound_port'])
     feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address)
