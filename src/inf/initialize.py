@@ -383,7 +383,7 @@ def init_io_channels():
             runtime_data.router_address_gazebo = "tcp://" + runtime_data.parameters['Sockets']['gazebo_host_name'] + ':' + runtime_data.parameters['Sockets'][
                 'feagi_inbound_port_gazebo']
         if runtime_data.parameters['Sockets']['feagi_inbound_port_embodiment']:
-            runtime_data.router_address_gazebo = "tcp://" + runtime_data.parameters['Sockets']['embodiment_host_name'] \
+            runtime_data.router_address_embodiment = "tcp://" + runtime_data.parameters['Sockets']['embodiment_host_name'] \
                                                  + ':' + runtime_data.parameters['Sockets']['feagi_inbound_port_embodiment']
 
         print("Router addresses has been set")
