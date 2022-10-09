@@ -23,7 +23,7 @@ There are two large library: feagi_interface and retina. `feagi_interface.py` ha
 # configuration.py is REQUIRED
 You will need to have your own configuration where you can adjust setting to see the different results. If you don't have one, use the template below:
 ```
-app_name = 'gazebo'
+app_name = 'embodiment'
 
 network_settings = {
     "feagi_host": "feagi",
