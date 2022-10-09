@@ -67,6 +67,13 @@ def api_message_processor(api_message):
             runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo'] = \
                 api_message['network_management']['gazebo_port']
 
+        if 'embodiment_host' in api_message['network_management']:
+            runtime_data.parameters['Sockets']['embodiment_host_name'] = \
+                api_message['network_management']['embodiment_host']
+        if 'embodiment_port' in api_message['network_management']:
+            runtime_data.parameters['Sockets']['feagi_inbound_port_embodiment'] = \
+                api_message['network_management']['embodiment_port']
+
     if 'shock' in api_message:
         if api_message["shock"]:
             runtime_data.shock_admin = True
