@@ -16,7 +16,7 @@ limitations under the License.
 """
 # !/usr/bin/env python3
 
-app_name = 'gazebo'  # We will need to change this to robot
+app_name = 'embodiment'
 
 network_settings = {
     "feagi_host": "feagi",
@@ -69,7 +69,7 @@ capabilities = {
         "count": 1,
         "width": 8,
         "height": 8,
-        "deviation_threshold": 0.5,
+        "deviation_threshold": 0.7,
         "retina_width_percent": 20,
         "retina_height_percent": 20,
         "central_vision_compression": [64, 64],
