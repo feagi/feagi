@@ -16,7 +16,7 @@ limitations under the License.
 """
 #!/usr/bin/env python3
 
-app_name = 'embodiment'
+app_name = 'gazebo'
 
 network_settings = {
     "feagi_host": "127.0.0.1",
