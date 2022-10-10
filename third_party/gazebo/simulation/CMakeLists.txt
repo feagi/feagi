@@ -75,14 +75,6 @@ install(PROGRAMS
   DESTINATION lib/${PROJECT_NAME}
 )
 install(PROGRAMS
-  src/feagi_interface.py
-  DESTINATION lib/${PROJECT_NAME}
-)
-install(PROGRAMS
-  src/router.py
-  DESTINATION lib/${PROJECT_NAME}
-)
-install(PROGRAMS
   src/configuration.py
   DESTINATION lib/${PROJECT_NAME}
 )

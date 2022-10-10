@@ -19,6 +19,7 @@ RUN pip3 install wxPython-4.1.1-cp38-cp38-linux_x86_64.whl
 RUN pip3 install psychtoolbox
 RUN pip3 install psychopy
 RUN pip3 install PyGObject
+RUN pip3 install feagi-agent
 RUN groupadd --force psychtoolbox
 RUN usermod -a -G psychtoolbox root
 RUN echo "@psychtoolbox   -  nice       -20" > /etc/security/limits.d/99-psychopylimits.conf

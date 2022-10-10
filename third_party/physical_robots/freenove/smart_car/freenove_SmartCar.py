@@ -1,13 +1,10 @@
-import feagi_interface as FEAGI
+from feagi_agent import feagi_interface as FEAGI
 import RPi.GPIO as GPIO
-import retina as retina
+from feagi_agent import retina as retina
 import configuration
-import numpy as np
 import traceback
 import requests
-import math
 import sys
-import cv2
 from Led import *
 from PCA9685 import PCA9685
 from configuration import *
@@ -15,6 +12,7 @@ from picamera import PiCamera
 from datetime import datetime
 from collections import deque
 from picamera.array import PiRGBArray
+
 
 runtime_data = {
     "current_burst_id": 0,
@@ -30,9 +28,6 @@ previous_data_frame = dict()
 
 
 def window_average(sequence):
-    # print("sequence: ", sequence)
-    # print("sum: ", sum(sequence))
-    # print("length: ", len(sequence))
     return sum(sequence) // len(sequence)
 
 
@@ -169,14 +164,15 @@ class Servo:
             adjusted_position = float(current_position)
         return adjusted_position
 
-    def servo_id_converter(self, servo_id):
+    @staticmethod
+    def servo_id_converter(servo_id):
         """
         This will convert from godot to motor's id. Let's say, you have 4x10 (width x depth from static_genome).
         So, you click 2 (actually 4 but 2 for one servo on backward/forward) to go forward. It will be like this:
         o__ser': {'1-0-9': 1, '3-0-9': 1}
         which is 1,3. So this code will convert from 1,3 to 0,1 on motor id.
 
-        Since 0-1 is servo 0, 2-3 is servo 1 and so on. In this case, 0 and 2 is for forward and 1 and 3 is for backward.
+        Since 0-1 is servo 0, 2-3 is servo 1 and so on. In this case, 0 and 2 is for forward and 1 and 3 is for backward
         """
         if servo_id <= 1:
             return 0
@@ -316,7 +312,8 @@ class Motor:
     def stop(self):
         self.setMotorModel(0, 0, 0, 0)
 
-    def motor_converter(self, motor_id):
+    @staticmethod
+    def motor_converter(motor_id):
         """
         This will convert from godot to motor's id. Let's say, you have 8x10 (width x depth from static_genome).
         So, you click 4 to go forward. It will be like this:
@@ -405,54 +402,6 @@ class Ultrasonic:
         return distance_meter
 
 
-def get_rgb(frame, size, previous_frame_data, name_id):
-    vision_dict = dict()
-    frame_row_count = size[0]  # width
-    frame_col_count = size[1]  # height
-
-    x_vision = 0  # row counter
-    y_vision = 0  # col counter
-    z_vision = 0  # RGB counter
-
-    try:
-        previous_frame = previous_frame_data
-    except Exception:
-        previous_frame = [0, 0]
-    frame_len = len(previous_frame)
-    try:
-        if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the
-            # resolution setting
-            for index in range(frame_len):
-                if previous_frame[index] != frame[index]:
-                    if (abs((previous_frame[index] - frame[index])) / 100) > \
-                            configuration.capabilities['camera']['deviation_threshold']:
-                        dict_key = str(y_vision) + '-' + str(abs((frame_row_count - 1) - x_vision)) + '-' + str(0)
-                        vision_dict[dict_key] = frame[index]  # save the value for the changed index to the dict
-                z_vision += 1
-                if z_vision == 3:
-                    z_vision = 0
-                    y_vision += 1
-                    if y_vision == frame_col_count:
-                        y_vision = 0
-                        x_vision += 1
-        if frame != {}:
-            previous_frame_data = frame
-    except Exception as e:
-        print("Error: Raw data frame does not match frame resolution")
-        print("Error due to this: ", e)
-
-    if len(vision_dict) > 1500:
-        return {'camera': {name_id: {}}}, previous_frame_data
-    else:
-        return {'camera': {name_id: vision_dict}}, previous_frame_data
-
-
-def ndarray_to_list(array):
-    array = array.flatten()
-    new_list = (array.tolist())
-    return new_list
-
-
 # class Battery:
 #     def battery_total(self):
 #         adc = Adc()
@@ -493,11 +442,11 @@ def main():
     rolling_window_len = configuration.capabilities['motor']['rolling_window_len']
     motor_count = configuration.capabilities['motor']['count']
     msg_counter = 0
-    rpm = (50 * 60) / 2
+    # rpm = (50 * 60) / 2
     # DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60 is the
     # seconds of a minute
-    w = (rpm / 60) * (2 * math.pi)  # 60 is second/minute
-    velocity = w * (configuration.capabilities['motor']['diameter_of_wheel'] / 2)
+    # w = (rpm / 60) * (2 * math.pi)  # 60 is second/minute
+    # velocity = w * (configuration.capabilities['motor']['diameter_of_wheel'] / 2)
     # ^ diameter is from config and it just needs radius so I turned the diameter into a radius by divide it with 2
 
     motor_data = dict()
@@ -508,7 +457,7 @@ def main():
     camera.resolution = (640, 480)
     camera.framerate = 32
     rawCapture = PiRGBArray(camera, size=(640, 480))
-    # time.sleep(0.1)
+    motor.stop()
     while True:
         try:
             for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
@@ -516,7 +465,19 @@ def main():
                     image = frame.array
                     rawCapture.truncate(0)
                     if capabilities['camera']['disabled'] is not True:
-                        retina_data = retina.frame_split(image)
+                        retina_data = retina.frame_split(image,
+                                                         configuration.capabilities['camera']['retina_width_percent'],
+                                                         configuration.capabilities['camera']['retina_height_percent'])
+                        for i in retina_data:
+                            if 'C' in i:
+                                retina_data[i] = retina.center_data_compression(retina_data[i],
+                                                                                capabilities['camera'][
+                                                                                    "central_vision_compression"]
+                                                                                )
+                            else:
+                                retina_data[i] = retina.center_data_compression(retina_data[i],
+                                                                                capabilities['camera']
+                                                                                ['peripheral_vision_compression'])
                         rgb = dict()
                         rgb['camera'] = dict()
                         if previous_data_frame == {}:
@@ -526,21 +487,24 @@ def main():
                         for i in retina_data:
                             name = i
                             if 'prev' not in i:
-                                data = ndarray_to_list(retina_data[i])
+                                data = retina.ndarray_to_list(retina_data[i])
                                 if 'C' in i:
                                     previous_name = str(i) + "_prev"
-                                    rgb_data, previous_data_frame[previous_name] = get_rgb(data,
-                                                                                           capabilities['camera'][
-                                                                                               'central_vision_compression'],
-                                                                                           previous_data_frame[previous_name],
-                                                                                           name)
+                                    rgb_data, previous_data_frame[previous_name] = \
+                                        retina.get_rgb(data,
+                                                       capabilities[
+                                                           'camera'][
+                                                           'central_vision_compression'],
+                                                       previous_data_frame[
+                                                           previous_name],
+                                                       name,
+                                                       capabilities['camera']['deviation_threshold'])
                                 else:
                                     previous_name = str(i) + "_prev"
-                                    rgb_data, previous_data_frame[previous_name] = get_rgb(data,
-                                                                                           capabilities['camera'][
-                                                                                               'peripheral_vision_compression'],
-                                                                                           previous_data_frame[previous_name],
-                                                                                           name)
+                                    rgb_data, previous_data_frame[previous_name] = \
+                                        retina.get_rgb(data, capabilities['camera']['peripheral_vision_compression'],
+                                                       previous_data_frame[previous_name], name,
+                                                       capabilities['camera']['deviation_threshold'])
                                 for a in rgb_data['camera']:
                                     rgb['camera'][a] = rgb_data['camera'][a]
                     else:
@@ -573,7 +537,8 @@ def main():
                 else:
                     formatted_ultrasonic_data = {}
                 configuration.message_to_feagi, battery = FEAGI.compose_message_to_feagi(
-                    original_message={**formatted_ir_data, **formatted_ultrasonic_data, **rgb})  # Removed battery due to error
+                    original_message={**formatted_ir_data, **formatted_ultrasonic_data,
+                                      **rgb})  # Removed battery due to error
                 # Process OPU data received from FEAGI and pass it along
                 message_from_feagi = feagi_opu_channel.receive()
                 if message_from_feagi is not None:
@@ -615,12 +580,9 @@ def main():
                         if feagi_burst_speed != network_settings['feagi_burst_speed']:
                             network_settings['feagi_burst_speed'] = feagi_burst_speed
                 for id in range(motor_count):
-                    motor_power  = window_average(rolling_window[id])
-                    motor_power = motor_power * 900
+                    motor_power = window_average(rolling_window[id])
+                    motor_power = motor_power * 1100
                     motor.move(id, motor_power)
-
-
-
         except KeyboardInterrupt as ke:  # Keyboard error
             motor.stop()
             keyboard_flag = False

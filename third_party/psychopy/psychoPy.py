@@ -8,19 +8,13 @@ Demo of dot kinematogram
 import random
 import requests
 import numpy as np
-import retina as retina
-import feagi_interface as FEAGI
+from feagi_agent import retina as retina
+from feagi_agent import feagi_interface as FEAGI
 
 from time import sleep
 from configuration import *
 from datetime import datetime
 from psychopy import visual, event, core, misc
-
-
-def ndarray_to_list(array):
-    array = array.flatten()
-    new_list = (array.tolist())
-    return new_list
 
 
 def chroma_keyer(frame, size, name_id):
@@ -64,49 +58,6 @@ def chroma_keyer(frame, size, name_id):
         return {'camera': {name_id: {}}}
     else:
         return {'camera': {name_id: vision_dict}}
-
-
-def get_rgb(frame, size, previous_frame_data, name_id):
-    vision_dict = dict()
-    frame_row_count = size[0]  # width
-    frame_col_count = size[1]  # height
-
-    x_vision = 0  # row counter
-    y_vision = 0  # col counter
-    z_vision = 0  # RGB counter
-
-    try:
-        previous_frame = previous_frame_data
-    except Exception:
-        previous_frame = [0, 0]
-    frame_len = len(previous_frame)
-    try:
-        if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length matches the
-            # resolution setting
-            for index in range(frame_len):
-                if previous_frame[index] != frame[index]:
-                    if (abs((previous_frame[index] - frame[index])) / 100) > \
-                            capabilities['vision']['deviation_threshold']:
-                        dict_key = str(y_vision) + '-' + str(abs((frame_row_count - 1) - x_vision)) + '-' + str(
-                            0)
-                        vision_dict[dict_key] = frame[index]  # save the value for the changed index to the dict
-                z_vision += 1
-                if z_vision == 3:
-                    z_vision = 0
-                    y_vision += 1
-                    if y_vision == frame_col_count:
-                        y_vision = 0
-                        x_vision += 1
-        if frame != {}:
-            previous_frame_data = frame
-    except Exception as e:
-        print("Error: Raw data frame does not match frame resolution")
-        print("Error due to this: ", e)
-
-    if len(vision_dict) > 3500:
-        return {'camera': {name_id: {}}}, previous_frame_data
-    else:
-        return {'camera': {name_id: vision_dict}}, previous_frame_data
 
 
 if __name__ == "__main__":
@@ -187,7 +138,17 @@ if __name__ == "__main__":
         fixSpot.draw()
         pixels = np.array(win._getFrame())
         win.flip()
-        retina_data = retina.frame_split(pixels)
+        retina_data = retina.frame_split(pixels, capabilities['camera']['retina_width_percent'],
+                                         capabilities['camera']['retina_height_percent'])
+        for i in retina_data:
+            if 'C' in i:
+                retina_data[i] = retina.center_data_compression(retina_data[i],
+                                                                capabilities['camera']["central_vision_compression"]
+                                                                )
+            else:
+                retina_data[i] = retina.center_data_compression(retina_data[i],
+                                                                capabilities['camera']
+                                                                ['peripheral_vision_compression'])
         opu_data = FEAGI.opu_processor(message_from_feagi)
         if previous_data_frame == {}:
             for i in retina_data:
@@ -196,19 +157,25 @@ if __name__ == "__main__":
         for i in retina_data:
             name = i
             if 'prev' not in i:
-                data = ndarray_to_list(retina_data[i])
+                data = retina.ndarray_to_list(retina_data[i])
                 if 'C' in i:
                     previous_name = str(i) + "_prev"
-                    rgb_data, previous_data_frame[previous_name] = get_rgb(data,
-                                                                           capabilities['vision'][
-                                                                               'central_vision_compression'],
-                                                                           previous_data_frame[previous_name], name)
+                    rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
+                                                                                  capabilities['camera'][
+                                                                                      'central_vision_compression'],
+                                                                                  previous_data_frame[previous_name],
+                                                                                  name,
+                                                                                  capabilities[
+                                                                                      'camera']['deviation_threshold'])
                 else:
                     previous_name = str(i) + "_prev"
-                    rgb_data, previous_data_frame[previous_name] = get_rgb(data,
-                                                                           capabilities['vision'][
-                                                                               'peripheral_vision_compression'],
-                                                                           previous_data_frame[previous_name], name)
+                    rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
+                                                                                  capabilities['camera'][
+                                                                                      'peripheral_vision_compression'],
+                                                                                  previous_data_frame[previous_name],
+                                                                                  name,
+                                                                                  capabilities[
+                                                                                      'camera']['deviation_threshold'])
                 for a in rgb_data['camera']:
                     rgb['camera'][a] = rgb_data['camera'][a]
         try:
