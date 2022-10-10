@@ -14,6 +14,10 @@ RUN sudo apt update
 RUN sudo apt install ros-foxy-ros-base -y
 RUN apt install -y ros-foxy-ros-ign-bridge
 RUN apt install -y ros-foxy-ros-ign-image
+RUN apt install -y wmctrl
+RUN apt install -y python3-pip
+RUN pip3 install opencv-python
+RUN pip3 install feagi-agent
 RUN sudo apt install libignition-gazebo3-dev -y \
         lsb-release \
         wget \

@@ -23,6 +23,7 @@ sudo apt-get install -y python3-dev python3-rpi.gpio
 sudo apt-get install -y python3-smbus
 sudo apt install -y python3-pip
 sudo pip3 install zmq
+sudo pip3 install feagi-agent
 sudo pip3 install rpi_ws281x
 sudo groupadd gpio
 sudo usermod -aG gpio "${USER}"
