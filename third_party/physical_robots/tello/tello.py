@@ -390,6 +390,21 @@ def main():
                         except Exception as e:
                             speed = 0
                         navigate_to_xyz(tello, data0, data1, data2, speed)
+                if 'oculomotor' in opu_data:
+                    for i in opu_data['oculomotor']:
+                        print("I: ", i)
+                        if i == 0:
+                            capabilities['camera']['field_of_vision_origin'][0] = \
+                                capabilities['camera']['field_of_vision_origin'][0] + opu_data['oculomotor'][i]
+                        if i == 1:
+                            capabilities['camera']['field_of_vision_origin'][0] = \
+                                capabilities['camera']['field_of_vision_origin'][0] - opu_data['oculomotor'][i]
+                        if i == 2:
+                            capabilities['camera']['field_of_vision_origin'][1] = \
+                                capabilities['camera']['field_of_vision_origin'][1] - opu_data['oculomotor'][i]
+                        if i == 3:
+                            capabilities['camera']['field_of_vision_origin'][1] = \
+                                capabilities['camera']['field_of_vision_origin'][1] - opu_data['oculomotor'][i]
 
             # Preparing to send data to FEAGI
             configuration.message_to_feagi['timestamp'] = datetime.now()
