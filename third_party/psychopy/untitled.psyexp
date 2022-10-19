@@ -1,0 +1,191 @@
+﻿<?xml version="1.0" ?>
+<PsychoPy2experiment encoding="utf-8" version="2022.2.4">
+  <Settings>
+    <Param val="use prefs" valType="str" updates="None" name="Audio latency priority"/>
+    <Param val="use prefs" valType="str" updates="None" name="Audio lib"/>
+    <Param val="" valType="str" updates="None" name="Completed URL"/>
+    <Param val="auto" valType="str" updates="None" name="Data file delimiter"/>
+    <Param val="u'data/%s_%s_%s' % (expInfo['participant'], expName, expInfo['date'])" valType="code" updates="None" name="Data filename"/>
+    <Param val="True" valType="bool" updates="None" name="Enable Escape"/>
+    <Param val="{'participant': '', 'session': '001'}" valType="code" updates="None" name="Experiment info"/>
+    <Param val="True" valType="bool" updates="None" name="Force stereo"/>
+    <Param val="False" valType="bool" updates="None" name="Full-screen window"/>
+    <Param val="" valType="str" updates="None" name="HTML path"/>
+    <Param val="" valType="str" updates="None" name="Incomplete URL"/>
+    <Param val="testMonitor" valType="str" updates="None" name="Monitor"/>
+    <Param val="[]" valType="list" updates="None" name="Resources"/>
+    <Param val="False" valType="bool" updates="None" name="Save csv file"/>
+    <Param val="False" valType="bool" updates="None" name="Save excel file"/>
+    <Param val="False" valType="bool" updates="None" name="Save hdf5 file"/>
+    <Param val="True" valType="bool" updates="None" name="Save log file"/>
+    <Param val="True" valType="bool" updates="None" name="Save psydat file"/>
+    <Param val="True" valType="bool" updates="None" name="Save wide csv file"/>
+    <Param val="1" valType="num" updates="None" name="Screen"/>
+    <Param val="True" valType="bool" updates="None" name="Show info dlg"/>
+    <Param val="False" valType="bool" updates="None" name="Show mouse"/>
+    <Param val="height" valType="str" updates="None" name="Units"/>
+    <Param val="" valType="str" updates="None" name="Use version"/>
+    <Param val="[1280, 720]" valType="list" updates="None" name="Window size (pixels)"/>
+    <Param val="avg" valType="str" updates="None" name="blendMode"/>
+    <Param val="$[0,0,0]" valType="color" updates="None" name="color"/>
+    <Param val="rgb" valType="str" updates="None" name="colorSpace"/>
+    <Param val="100.1.1.1" valType="str" updates="None" name="elAddress"/>
+    <Param val="FILTER_LEVEL_2" valType="str" updates="None" name="elDataFiltering"/>
+    <Param val="FILTER_LEVEL_OFF" valType="str" updates="None" name="elLiveFiltering"/>
+    <Param val="EYELINK 1000 DESKTOP" valType="str" updates="None" name="elModel"/>
+    <Param val="ELLIPSE_FIT" valType="str" updates="None" name="elPupilAlgorithm"/>
+    <Param val="PUPIL_AREA" valType="str" updates="None" name="elPupilMeasure"/>
+    <Param val="1000" valType="num" updates="None" name="elSampleRate"/>
+    <Param val="False" valType="bool" updates="None" name="elSimMode"/>
+    <Param val="RIGHT_EYE" valType="str" updates="None" name="elTrackEyes"/>
+    <Param val="PUPIL_CR_TRACKING" valType="str" updates="None" name="elTrackingMode"/>
+    <Param val="untitled" valType="str" updates="None" name="expName"/>
+    <Param val="on Sync" valType="str" updates="None" name="exportHTML"/>
+    <Param val="None" valType="str" updates="None" name="eyetracker"/>
+    <Param val="127.0.0.1" valType="str" updates="None" name="gpAddress"/>
+    <Param val="4242" valType="num" updates="None" name="gpPort"/>
+    <Param val="ioHub" valType="str" updates="None" name="keyboardBackend"/>
+    <Param val="exp" valType="code" updates="None" name="logging level"/>
+    <Param val="('MIDDLE_BUTTON',)" valType="list" updates="None" name="mgBlink"/>
+    <Param val="CONTINUOUS" valType="str" updates="None" name="mgMove"/>
+    <Param val="0.5" valType="num" updates="None" name="mgSaccade"/>
+    <Param val="0.6" valType="num" updates="None" name="plConfidenceThreshold"/>
+    <Param val="True" valType="bool" updates="None" name="plPupilCaptureRecordingEnabled"/>
+    <Param val="" valType="str" updates="None" name="plPupilCaptureRecordingLocation"/>
+    <Param val="127.0.0.1" valType="str" updates="None" name="plPupilRemoteAddress"/>
+    <Param val="50020" valType="num" updates="None" name="plPupilRemotePort"/>
+    <Param val="1000" valType="num" updates="None" name="plPupilRemoteTimeoutMs"/>
+    <Param val="False" valType="bool" updates="None" name="plPupillometryOnly"/>
+    <Param val="psychopy_iohub_surface" valType="str" updates="None" name="plSurfaceName"/>
+    <Param val="" valType="str" updates="None" name="tbLicenseFile"/>
+    <Param val="" valType="str" updates="None" name="tbModel"/>
+    <Param val="60" valType="num" updates="None" name="tbSampleRate"/>
+    <Param val="" valType="str" updates="None" name="tbSerialNo"/>
+  </Settings>
+  <Routines>
+    <Routine name="trial">
+      <DotsComponent name="dots">
+        <Param val="center" valType="str" updates="constant" name="anchor"/>
+        <Param val="1.0" valType="num" updates="constant" name="coherence"/>
+        <Param val="$[1.0,1.0,1.0]" valType="color" updates="constant" name="color"/>
+        <Param val="rgb" valType="str" updates="constant" name="colorSpace"/>
+        <Param val="1" valType="num" updates="constant" name="contrast"/>
+        <Param val="0.0" valType="num" updates="constant" name="dir"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="3" valType="num" updates="None" name="dotLife"/>
+        <Param val="2" valType="num" updates="constant" name="dotSize"/>
+        <Param val="" valType="code" updates="None" name="durationEstim"/>
+        <Param val="(0.0, 0.0)" valType="list" updates="constant" name="fieldPos"/>
+        <Param val="circle" valType="str" updates="constant" name="fieldShape"/>
+        <Param val="1.0" valType="num" updates="constant" name="fieldSize"/>
+        <Param val="100" valType="int" updates="constant" name="nDots"/>
+        <Param val="dots" valType="code" updates="None" name="name"/>
+        <Param val="direction" valType="str" updates="None" name="noiseDots"/>
+        <Param val="" valType="num" updates="constant" name="opacity"/>
+        <Param val="repeat" valType="str" updates="None" name="refreshDots"/>
+        <Param val="True" valType="bool" updates="None" name="saveStartStop"/>
+        <Param val="same" valType="str" updates="None" name="signalDots"/>
+        <Param val="0.1" valType="num" updates="constant" name="speed"/>
+        <Param val="" valType="code" updates="None" name="startEstim"/>
+        <Param val="time (s)" valType="str" updates="None" name="startType"/>
+        <Param val="0.0" valType="code" updates="None" name="startVal"/>
+        <Param val="duration (s)" valType="str" updates="None" name="stopType"/>
+        <Param val="" valType="code" updates="constant" name="stopVal"/>
+        <Param val="True" valType="bool" updates="None" name="syncScreenRefresh"/>
+        <Param val="deg" valType="str" updates="None" name="units"/>
+      </DotsComponent>
+      <PolygonComponent name="polygon">
+        <Param val="bottom-left" valType="str" updates="constant" name="anchor"/>
+        <Param val="rgb" valType="str" updates="constant" name="colorSpace"/>
+        <Param val="1" valType="num" updates="constant" name="contrast"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="" valType="code" updates="None" name="durationEstim"/>
+        <Param val="white" valType="color" updates="constant" name="fillColor"/>
+        <Param val="linear" valType="str" updates="constant" name="interpolate"/>
+        <Param val="white" valType="color" updates="constant" name="lineColor"/>
+        <Param val="1" valType="num" updates="constant" name="lineWidth"/>
+        <Param val="4" valType="int" updates="constant" name="nVertices"/>
+        <Param val="polygon" valType="code" updates="None" name="name"/>
+        <Param val="" valType="num" updates="constant" name="opacity"/>
+        <Param val="0" valType="num" updates="constant" name="ori"/>
+        <Param val="(-0.3, -0.3)" valType="list" updates="constant" name="pos"/>
+        <Param val="True" valType="bool" updates="None" name="saveStartStop"/>
+        <Param val="triangle" valType="str" updates="None" name="shape"/>
+        <Param val="(0.1, 0.1)" valType="list" updates="constant" name="size"/>
+        <Param val="" valType="code" updates="None" name="startEstim"/>
+        <Param val="time (s)" valType="str" updates="None" name="startType"/>
+        <Param val="0.0" valType="code" updates="None" name="startVal"/>
+        <Param val="duration (s)" valType="str" updates="None" name="stopType"/>
+        <Param val="" valType="code" updates="constant" name="stopVal"/>
+        <Param val="True" valType="bool" updates="None" name="syncScreenRefresh"/>
+        <Param val="from exp settings" valType="str" updates="None" name="units"/>
+        <Param val="" valType="list" updates="constant" name="vertices"/>
+      </PolygonComponent>
+      <PolygonComponent name="polygon_2">
+        <Param val="top-right" valType="str" updates="constant" name="anchor"/>
+        <Param val="rgb" valType="str" updates="constant" name="colorSpace"/>
+        <Param val="1" valType="num" updates="constant" name="contrast"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="" valType="code" updates="None" name="durationEstim"/>
+        <Param val="black" valType="color" updates="constant" name="fillColor"/>
+        <Param val="linear" valType="str" updates="constant" name="interpolate"/>
+        <Param val="black" valType="color" updates="constant" name="lineColor"/>
+        <Param val="1" valType="num" updates="constant" name="lineWidth"/>
+        <Param val="4" valType="int" updates="constant" name="nVertices"/>
+        <Param val="polygon_2" valType="code" updates="None" name="name"/>
+        <Param val="" valType="num" updates="constant" name="opacity"/>
+        <Param val="0" valType="num" updates="constant" name="ori"/>
+        <Param val="(0.3, 0.3)" valType="list" updates="constant" name="pos"/>
+        <Param val="True" valType="bool" updates="None" name="saveStartStop"/>
+        <Param val="circle" valType="str" updates="None" name="shape"/>
+        <Param val="(0.1, 0.1)" valType="list" updates="constant" name="size"/>
+        <Param val="" valType="code" updates="None" name="startEstim"/>
+        <Param val="time (s)" valType="str" updates="None" name="startType"/>
+        <Param val="0" valType="code" updates="None" name="startVal"/>
+        <Param val="duration (s)" valType="str" updates="None" name="stopType"/>
+        <Param val="" valType="code" updates="constant" name="stopVal"/>
+        <Param val="True" valType="bool" updates="None" name="syncScreenRefresh"/>
+        <Param val="from exp settings" valType="str" updates="None" name="units"/>
+        <Param val="" valType="list" updates="constant" name="vertices"/>
+      </PolygonComponent>
+      <CodeComponent name="code">
+        <Param val="import numpy as np&amp;#10;from feagi_agent import retina as retina&amp;#10;from feagi_agent import feagi_interface as FEAGI&amp;#10;from configuration import *&amp;#10;from datetime import datetime" valType="extendedCode" updates="constant" name="Before Experiment"/>
+        <Param val="import * as np from 'numpy';&amp;#10;import {retina as retina} from 'feagi_agent';&amp;#10;import {feagi_interface as FEAGI} from 'feagi_agent';&amp;#10;import {*} from 'configuration';&amp;#10;import {datetime} from 'datetime';&amp;#10;" valType="extendedCode" updates="constant" name="Before JS Experiment"/>
+        <Param val="# Generate runtime dictionary&amp;#10;previous_data_frame = dict()&amp;#10;runtime_data = {&quot;cortical_data&quot;: {}, &quot;current_burst_id&quot;: None, &quot;stimulation_period&quot;: None, &quot;feagi_state&quot;: None,&amp;#10;                &quot;feagi_network&quot;: None}&amp;#10;&amp;#10;# FEAGI section start&amp;#10;print(&quot;Connecting to FEAGI resources...&quot;)&amp;#10;&amp;#10;# address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_outbound_port']&amp;#10;&amp;#10;feagi_host, api_port = FEAGI.feagi_setting_for_registration()&amp;#10;api_address = FEAGI.feagi_gui_address(feagi_host, api_port)&amp;#10;&amp;#10;stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()&amp;#10;burst_counter_endpoint = FEAGI.feagi_api_burst_counter()&amp;#10;&amp;#10;runtime_data[&quot;feagi_state&quot;] = FEAGI.feagi_registration(feagi_host=feagi_host, api_port=api_port)&amp;#10;&amp;#10;print(&quot;** **&quot;, runtime_data[&quot;feagi_state&quot;])&amp;#10;network_settings['feagi_burst_speed'] = float(runtime_data[&quot;feagi_state&quot;]['burst_duration'])&amp;#10;&amp;#10;# todo: to obtain this info directly from FEAGI as part of registration&amp;#10;ipu_channel_address = FEAGI.feagi_inbound(runtime_data[&quot;feagi_state&quot;]['feagi_inbound_port_gazebo'])&amp;#10;print(&quot;IPU_channel_address=&quot;, ipu_channel_address)&amp;#10;opu_channel_address = FEAGI.feagi_outbound(network_settings['feagi_host'],&amp;#10;                                           runtime_data[&quot;feagi_state&quot;]['feagi_outbound_port'])&amp;#10;&amp;#10;feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address)&amp;#10;feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)&amp;#10;# FEAGI section ends&amp;#10;previous_frame_data = dict()&amp;#10;msg_counter = runtime_data[&quot;feagi_state&quot;]['burst_counter']&amp;#10;&amp;#10;redTheta = 0&amp;#10;blueTheta = 0&amp;#10;X = 0&amp;#10;Y = 0&amp;#10;flag = False&amp;#10;rgb = dict()&amp;#10;rgb['camera'] = dict()" valType="extendedCode" updates="constant" name="Begin Experiment"/>
+        <Param val="previous_data_frame = dict();&amp;#10;runtime_data = {&quot;cortical_data&quot;: {}, &quot;current_burst_id&quot;: null, &quot;stimulation_period&quot;: null, &quot;feagi_state&quot;: null, &quot;feagi_network&quot;: null};&amp;#10;console.log(&quot;Connecting to FEAGI resources...&quot;);&amp;#10;[feagi_host, api_port] = FEAGI.feagi_setting_for_registration();&amp;#10;api_address = FEAGI.feagi_gui_address(feagi_host, api_port);&amp;#10;stimulation_period_endpoint = FEAGI.feagi_api_burst_engine();&amp;#10;burst_counter_endpoint = FEAGI.feagi_api_burst_counter();&amp;#10;runtime_data[&quot;feagi_state&quot;] = FEAGI.feagi_registration({&quot;feagi_host&quot;: feagi_host, &quot;api_port&quot;: api_port});&amp;#10;console.log(&quot;** **&quot;, runtime_data[&quot;feagi_state&quot;]);&amp;#10;network_settings[&quot;feagi_burst_speed&quot;] = Number.parseFloat(runtime_data[&quot;feagi_state&quot;][&quot;burst_duration&quot;]);&amp;#10;ipu_channel_address = FEAGI.feagi_inbound(runtime_data[&quot;feagi_state&quot;][&quot;feagi_inbound_port_gazebo&quot;]);&amp;#10;console.log(&quot;IPU_channel_address=&quot;, ipu_channel_address);&amp;#10;opu_channel_address = FEAGI.feagi_outbound(network_settings[&quot;feagi_host&quot;], runtime_data[&quot;feagi_state&quot;][&quot;feagi_outbound_port&quot;]);&amp;#10;feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address);&amp;#10;feagi_opu_channel = FEAGI.sub_initializer({&quot;opu_address&quot;: opu_channel_address});&amp;#10;previous_frame_data = dict();&amp;#10;msg_counter = runtime_data[&quot;feagi_state&quot;][&quot;burst_counter&quot;];&amp;#10;redTheta = 0;&amp;#10;blueTheta = 0;&amp;#10;X = 0;&amp;#10;Y = 0;&amp;#10;flag = false;&amp;#10;rgb = dict();&amp;#10;rgb[&quot;camera&quot;] = dict();&amp;#10;" valType="extendedCode" updates="constant" name="Begin JS Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Begin JS Routine"/>
+        <Param val="" valType="extendedCode" updates="constant" name="Begin Routine"/>
+        <Param val="Auto-&gt;JS" valType="str" updates="None" name="Code Type"/>
+        <Param val="message_from_feagi = feagi_opu_channel.receive()&amp;#10;# Do the drawing&amp;#10;pixels = np.array(win._getFrame())&amp;#10;pixels = retina.pan(pixels, capabilities['camera'][&quot;field_of_vision_origin&quot;], capabilities['camera'][&amp;#10;                              &quot;field_of_vision_x&quot;], capabilities['camera'][&amp;#10;                              &quot;field_of_vision_y&quot;])&amp;#10;retina_data = retina.frame_split(pixels, capabilities['camera']['retina_width_percent'],&amp;#10;                                     capabilities['camera']['retina_height_percent'])&amp;#10;for i in retina_data:&amp;#10;    if 'C' in i:&amp;#10;            retina_data[i] = retina.center_data_compression(retina_data[i],&amp;#10;                                                            capabilities['camera'][&quot;central_vision_compression&quot;]&amp;#10;                                                            )&amp;#10;    else:&amp;#10;        retina_data[i] = retina.center_data_compression(retina_data[i],&amp;#10;                                                        capabilities['camera']&amp;#10;                                                        ['peripheral_vision_compression'])&amp;#10;opu_data = FEAGI.opu_processor(message_from_feagi)&amp;#10;if previous_data_frame == {}:&amp;#10;    for i in retina_data:&amp;#10;        previous_name = str(i) + &quot;_prev&quot;&amp;#10;        previous_data_frame[previous_name] = {}&amp;#10;for i in retina_data:&amp;#10;    name = i&amp;#10;    if 'prev' not in i:&amp;#10;        data = retina.ndarray_to_list(retina_data[i])&amp;#10;        if 'C' in i:&amp;#10;            previous_name = str(i) + &quot;_prev&quot;&amp;#10;            rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,&amp;#10;                                                                          capabilities['camera'][&amp;#10;                                                                              'central_vision_compression'],&amp;#10;                                                                          previous_data_frame[previous_name],&amp;#10;                                                                          name,&amp;#10;                                                                          capabilities[&amp;#10;                                                                              'camera']['deviation_threshold'])&amp;#10;        else:&amp;#10;            previous_name = str(i) + &quot;_prev&quot;&amp;#10;            rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,&amp;#10;                                                                          capabilities['camera'][&amp;#10;                                                                              'peripheral_vision_compression'],&amp;#10;                                                                          previous_data_frame[previous_name],&amp;#10;                                                                          name,&amp;#10;                                                                          capabilities[&amp;#10;                                                                              'camera']['deviation_threshold'])&amp;#10;        for a in rgb_data['camera']:&amp;#10;            rgb['camera'][a] = rgb_data['camera'][a]&amp;#10;try:&amp;#10;    if &quot;data&quot; not in message_to_feagi:&amp;#10;        message_to_feagi[&quot;data&quot;] = dict()&amp;#10;    if &quot;sensory_data&quot; not in message_to_feagi[&quot;data&quot;]:&amp;#10;        message_to_feagi[&quot;data&quot;][&quot;sensory_data&quot;] = dict()&amp;#10;    message_to_feagi[&quot;data&quot;][&quot;sensory_data&quot;]['camera'] = rgb['camera']&amp;#10;except Exception as e:&amp;#10;    print(e)&amp;#10;if opu_data is not None:&amp;#10;    if 'motor' in opu_data:&amp;#10;        if opu_data['motor']:&amp;#10;            for i in opu_data['motor']:&amp;#10;                if i // 2 == 0:&amp;#10;                    if i % 2 == 0:&amp;#10;                        X += opu_data['motor'][i] / 100&amp;#10;                    else:&amp;#10;                        X -= opu_data['motor'][i] / 100&amp;#10;                if i // 2 == 1:&amp;#10;                    if i % 2 == 0:&amp;#10;                        Y += opu_data['motor'][i] / 100&amp;#10;                    else:&amp;#10;                        Y -= opu_data['motor'][i] / 100&amp;#10;    if opu_data['misc']:&amp;#10;        for i in opu_data['misc']:&amp;#10;            if i == 0:&amp;#10;                mouse1 = 1&amp;#10;            if i == 1:&amp;#10;                mouse2 = 1&amp;#10;            if i == 2:&amp;#10;                mouse3 = 1&amp;#10;    if 'oculomotor' in opu_data:&amp;#10;        for i in opu_data['oculomotor']:&amp;#10;            print(&quot;I: &quot;, i)&amp;#10;            if i == 0:&amp;#10;                capabilities['camera']['field_of_vision_origin'][0] = \&amp;#10;                    capabilities['camera']['field_of_vision_origin'][0] + opu_data['oculomotor'][i]&amp;#10;            if i == 1:&amp;#10;                capabilities['camera']['field_of_vision_origin'][0] = \&amp;#10;                    capabilities['camera']['field_of_vision_origin'][0] - opu_data['oculomotor'][i]&amp;#10;            if i == 2:&amp;#10;                capabilities['camera']['field_of_vision_origin'][1] = \&amp;#10;                    capabilities['camera']['field_of_vision_origin'][1] - opu_data['oculomotor'][i]&amp;#10;            if i == 3:&amp;#10;                capabilities['camera']['field_of_vision_origin'][1] = \&amp;#10;                    capabilities['camera']['field_of_vision_origin'][1] - opu_data['oculomotor'][i]&amp;#10;&amp;#10;    message_to_feagi['timestamp'] = datetime.now()&amp;#10;    message_to_feagi['counter'] = msg_counter&amp;#10;    feagi_ipu_channel.send(message_to_feagi)&amp;#10;    message_to_feagi.clear()&amp;#10;    for i in rgb['camera']:&amp;#10;        rgb['camera'][i].clear()" valType="extendedCode" updates="constant" name="Each Frame"/>
+        <Param val="/* Syntax Error: Fix Python code */" valType="extendedCode" updates="constant" name="Each JS Frame"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End JS Experiment"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End JS Routine"/>
+        <Param val="" valType="extendedCode" updates="constant" name="End Routine"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="code" valType="code" updates="None" name="name"/>
+      </CodeComponent>
+      <MouseComponent name="mouse">
+        <Param val="" valType="list" updates="constant" name="clickable"/>
+        <Param val="False" valType="bool" updates="None" name="disabled"/>
+        <Param val="" valType="code" updates="None" name="durationEstim"/>
+        <Param val="any click" valType="str" updates="constant" name="forceEndRoutineOnPress"/>
+        <Param val="mouse" valType="code" updates="None" name="name"/>
+        <Param val="True" valType="bool" updates="constant" name="newClicksOnly"/>
+        <Param val="on click" valType="str" updates="None" name="saveMouseState"/>
+        <Param val="name," valType="list" updates="constant" name="saveParamsClickable"/>
+        <Param val="True" valType="bool" updates="None" name="saveStartStop"/>
+        <Param val="" valType="code" updates="None" name="startEstim"/>
+        <Param val="time (s)" valType="str" updates="None" name="startType"/>
+        <Param val="0.0" valType="code" updates="None" name="startVal"/>
+        <Param val="duration (s)" valType="str" updates="None" name="stopType"/>
+        <Param val="" valType="code" updates="constant" name="stopVal"/>
+        <Param val="False" valType="bool" updates="None" name="syncScreenRefresh"/>
+        <Param val="mouse onset" valType="str" updates="constant" name="timeRelativeTo"/>
+      </MouseComponent>
+    </Routine>
+  </Routines>
+  <Flow>
+    <Routine name="trial"/>
+  </Flow>
+</PsychoPy2experiment>
