@@ -26,7 +26,7 @@ network_settings = {
 }
 
 capabilities = {
-    "vision": {
+    "camera": {
         "type": "ipu",
         "disabled": False,
         "count": 1,
@@ -37,7 +37,10 @@ capabilities = {
         "retina_height_percent": 40,
         "central_vision_compression": [64, 64],
         "peripheral_vision_compression": [8, 8],
-        "previous_data": {}
+        "previous_data": {},
+        "field_of_vision_x": 800,
+        "field_of_vision_y": 600,
+        "field_of_vision_origin": [100, 100]
     }
 }
 
