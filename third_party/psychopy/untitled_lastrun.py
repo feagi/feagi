@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 This experiment was created using PsychoPy3 Experiment Builder (v2022.2.4),
-    on Wed Oct 19 15:50:24 2022
+    on Thu Oct 20 16:34:23 2022
 If you publish work using this script the most relevant publication is:
 
     Peirce J, Gray JR, Simpson S, MacAskill M, Höchenberger R, Sogo H, Kastman E, Lindeløv JK. (2019) 
@@ -74,7 +74,7 @@ frameTolerance = 0.001  # how close to onset before 'same' frame
 
 # --- Setup the Window ---
 win = visual.Window(
-    size=[1280, 720], fullscr=False, screen=0, 
+    size=[1280,720], fullscr=False, screen=0, 
     winType='pyglet', allowStencil=False,
     monitor='testMonitor', color=[0,0,0], colorSpace='rgb',
     blendMode='avg', useFBO=True, 
@@ -102,6 +102,14 @@ eyetracker = None
 defaultKeyboard = keyboard.Keyboard(backend='iohub')
 
 # --- Initialize components for Routine "trial" ---
+image = visual.ImageStim(
+    win=win,
+    name='image', units='pix', 
+    image='/Users/neurastation_0/Downloads/999867.jpg', mask=None, anchor='center',
+    ori=0.0, pos=(0, 0), size=(1280, 720),
+    color=[1,1,1], colorSpace='rgb', opacity=None,
+    flipHoriz=False, flipVert=False,
+    texRes=128.0, interpolate=True, depth=0.0)
 dots = visual.DotStim(
     win=win, name='dots',units='deg', 
     nDots=100, dotSize=2.0,
@@ -109,19 +117,22 @@ dots = visual.DotStim(
     fieldPos=(0.0, 0.0), fieldSize=1.0, fieldAnchor='center', fieldShape='circle',
     signalDots='same', noiseDots='direction',dotLife=3.0,
     color=[1.0,1.0,1.0], colorSpace='rgb', opacity=None,
-    depth=0.0)
+    depth=-1.0)
 polygon = visual.ShapeStim(
     win=win, name='polygon',
     size=(0.1, 0.1), vertices='triangle',
     ori=0.0, pos=(-0.3, -0.3), anchor='bottom-left',
     lineWidth=1.0,     colorSpace='rgb',  lineColor='white', fillColor='white',
-    opacity=None, depth=-1.0, interpolate=True)
+    opacity=None, depth=-2.0, interpolate=True)
 polygon_2 = visual.ShapeStim(
     win=win, name='polygon_2',
     size=(0.1, 0.1), vertices='circle',
     ori=0.0, pos=(0.3, 0.3), anchor='top-right',
     lineWidth=1.0,     colorSpace='rgb',  lineColor='black', fillColor='black',
-    opacity=None, depth=-2.0, interpolate=True)
+    opacity=None, depth=-3.0, interpolate=True)
+mouse = event.Mouse(win=win)
+x, y = [None, None]
+mouse.mouseClock = core.Clock()
 # Run 'Begin Experiment' code from code
 # Generate runtime dictionary
 previous_data_frame = dict()
@@ -163,9 +174,24 @@ Y = 0
 flag = False
 rgb = dict()
 rgb['camera'] = dict()
-mouse = event.Mouse(win=win)
-x, y = [None, None]
-mouse.mouseClock = core.Clock()
+polygon_3 = visual.Rect(
+    win=win, name='polygon_3',units='pix', 
+    width=(capabilities['camera']['field_of_vision_origin'][0], capabilities['camera']['field_of_vision_origin'][1])[0], height=(capabilities['camera']['field_of_vision_origin'][0], capabilities['camera']['field_of_vision_origin'][1])[1],
+    ori=0.0, pos=[0,0], anchor='center',
+    lineWidth=1.0,     colorSpace='rgb',  lineColor='white', fillColor=None,
+    opacity=None, depth=-6.0, interpolate=True)
+polygon_4 = visual.ShapeStim(
+    win=win, name='polygon_4', vertices='star7',units='pix', 
+    size=(200, 200),
+    ori=0.0, pos=(500, 0), anchor='center',
+    lineWidth=1.0,     colorSpace='rgb',  lineColor='white', fillColor='white',
+    opacity=None, depth=-7.0, interpolate=True)
+polygon_5 = visual.ShapeStim(
+    win=win, name='polygon_5', vertices='cross',units='pix', 
+    size=(200, 200),
+    ori=0.0, pos=(-500, 0), anchor='center',
+    lineWidth=1.0,     colorSpace='rgb',  lineColor='white', fillColor='white',
+    opacity=None, depth=-8.0, interpolate=True)
 
 # Create some handy timers
 globalClock = core.Clock()  # to track the time since experiment started
@@ -185,7 +211,7 @@ mouse.rightButton = []
 mouse.time = []
 gotValidClick = False  # until a click is received
 # keep track of which components have finished
-trialComponents = [dots, polygon, polygon_2, mouse]
+trialComponents = [image, dots, polygon, polygon_2, mouse, polygon_3, polygon_4, polygon_5]
 for thisComponent in trialComponents:
     thisComponent.tStart = None
     thisComponent.tStop = None
@@ -206,6 +232,17 @@ while continueRoutine:
     tThisFlipGlobal = win.getFutureFlipTime(clock=None)
     frameN = frameN + 1  # number of completed frames (so 0 is the first frame)
     # update/draw components on each frame
+    
+    # *image* updates
+    if image.status == NOT_STARTED and tThisFlip >= 0.0-frameTolerance:
+        # keep track of start time/frame for later
+        image.frameNStart = frameN  # exact frame index
+        image.tStart = t  # local t and not account for scr refresh
+        image.tStartRefresh = tThisFlipGlobal  # on global time
+        win.timeOnFlip(image, 'tStartRefresh')  # time at next scr refresh
+        # add timestamp to datafile
+        thisExp.timestampOnFlip(win, 'image.started')
+        image.setAutoDraw(True)
     
     # *dots* updates
     if dots.status == NOT_STARTED and tThisFlip >= 0.0-frameTolerance:
@@ -239,11 +276,38 @@ while continueRoutine:
         # add timestamp to datafile
         thisExp.timestampOnFlip(win, 'polygon_2.started')
         polygon_2.setAutoDraw(True)
+    # *mouse* updates
+    if mouse.status == NOT_STARTED and t >= 0.0-frameTolerance:
+        # keep track of start time/frame for later
+        mouse.frameNStart = frameN  # exact frame index
+        mouse.tStart = t  # local t and not account for scr refresh
+        mouse.tStartRefresh = tThisFlipGlobal  # on global time
+        win.timeOnFlip(mouse, 'tStartRefresh')  # time at next scr refresh
+        # add timestamp to datafile
+        thisExp.addData('mouse.started', t)
+        mouse.status = STARTED
+        mouse.mouseClock.reset()
+        prevButtonState = mouse.getPressed()  # if button is down already this ISN'T a new click
+    if mouse.status == STARTED:  # only update if started and not finished!
+        buttons = mouse.getPressed()
+        if buttons != prevButtonState:  # button state changed?
+            prevButtonState = buttons
+            if sum(buttons) > 0:  # state changed to a new click
+                x, y = mouse.getPos()
+                mouse.x.append(x)
+                mouse.y.append(y)
+                buttons = mouse.getPressed()
+                mouse.leftButton.append(buttons[0])
+                mouse.midButton.append(buttons[1])
+                mouse.rightButton.append(buttons[2])
+                mouse.time.append(mouse.mouseClock.getTime())
+                
+                continueRoutine = False  # abort routine on response
     # Run 'Each Frame' code from code
     message_from_feagi = feagi_opu_channel.receive()
     # Do the drawing
     pixels = np.array(win._getFrame())
-    pixels = retina.pan(pixels, capabilities['camera']["field_of_vision_origin"], capabilities['camera'][
+    pixels = retina.pan(pixels, capabilities['camera']["camera_pose"], capabilities['camera']["field_of_vision_origin"], capabilities['camera'][
                                   "field_of_vision_x"], capabilities['camera'][
                                   "field_of_vision_y"])
     retina_data = retina.frame_split(pixels, capabilities['camera']['retina_width_percent'],
@@ -318,53 +382,67 @@ while continueRoutine:
                     mouse3 = 1
         if 'oculomotor' in opu_data:
             for i in opu_data['oculomotor']:
-                print("I: ", i)
                 if i == 0:
                     capabilities['camera']['field_of_vision_origin'][0] = \
-                        capabilities['camera']['field_of_vision_origin'][0] + opu_data['oculomotor'][i]
+                        capabilities['camera']['field_of_vision_origin'][0] - opu_data['oculomotor'][i]
+                    capabilities['camera']['camera_pose'][0] = \
+                        capabilities['camera']['camera_pose'][0] - opu_data['oculomotor'][i]
                 if i == 1:
                     capabilities['camera']['field_of_vision_origin'][0] = \
-                        capabilities['camera']['field_of_vision_origin'][0] - opu_data['oculomotor'][i]
+                        capabilities['camera']['field_of_vision_origin'][0] + opu_data['oculomotor'][i]
+                    capabilities['camera']['camera_pose'][0] = \
+                        capabilities['camera']['camera_pose'][0] + opu_data['oculomotor'][i]
                 if i == 2:
                     capabilities['camera']['field_of_vision_origin'][1] = \
                         capabilities['camera']['field_of_vision_origin'][1] - opu_data['oculomotor'][i]
+                    capabilities['camera']['camera_pose'][1] = \
+                        capabilities['camera']['camera_pose'][1] - opu_data['oculomotor'][i]
                 if i == 3:
                     capabilities['camera']['field_of_vision_origin'][1] = \
-                        capabilities['camera']['field_of_vision_origin'][1] - opu_data['oculomotor'][i]
-    
+                        capabilities['camera']['field_of_vision_origin'][1] + opu_data['oculomotor'][i]
+                    capabilities['camera']['camera_pose'][1] = \
+                        capabilities['camera']['camera_pose'][1] + opu_data['oculomotor'][i]
         message_to_feagi['timestamp'] = datetime.now()
         message_to_feagi['counter'] = msg_counter
         feagi_ipu_channel.send(message_to_feagi)
         message_to_feagi.clear()
         for i in rgb['camera']:
             rgb['camera'][i].clear()
-    # *mouse* updates
-    if mouse.status == NOT_STARTED and t >= 0.0-frameTolerance:
+    
+    # *polygon_3* updates
+    if polygon_3.status == NOT_STARTED and tThisFlip >= 0.0-frameTolerance:
         # keep track of start time/frame for later
-        mouse.frameNStart = frameN  # exact frame index
-        mouse.tStart = t  # local t and not account for scr refresh
-        mouse.tStartRefresh = tThisFlipGlobal  # on global time
-        win.timeOnFlip(mouse, 'tStartRefresh')  # time at next scr refresh
+        polygon_3.frameNStart = frameN  # exact frame index
+        polygon_3.tStart = t  # local t and not account for scr refresh
+        polygon_3.tStartRefresh = tThisFlipGlobal  # on global time
+        win.timeOnFlip(polygon_3, 'tStartRefresh')  # time at next scr refresh
         # add timestamp to datafile
-        thisExp.addData('mouse.started', t)
-        mouse.status = STARTED
-        mouse.mouseClock.reset()
-        prevButtonState = mouse.getPressed()  # if button is down already this ISN'T a new click
-    if mouse.status == STARTED:  # only update if started and not finished!
-        buttons = mouse.getPressed()
-        if buttons != prevButtonState:  # button state changed?
-            prevButtonState = buttons
-            if sum(buttons) > 0:  # state changed to a new click
-                x, y = mouse.getPos()
-                mouse.x.append(x)
-                mouse.y.append(y)
-                buttons = mouse.getPressed()
-                mouse.leftButton.append(buttons[0])
-                mouse.midButton.append(buttons[1])
-                mouse.rightButton.append(buttons[2])
-                mouse.time.append(mouse.mouseClock.getTime())
-                
-                continueRoutine = False  # abort routine on response
+        thisExp.timestampOnFlip(win, 'polygon_3.started')
+        polygon_3.setAutoDraw(True)
+    if polygon_3.status == STARTED:  # only update if drawing
+        polygon_3.setPos((-1*capabilities['camera']['camera_pose'][0], capabilities['camera']['camera_pose'][1]), log=False)
+    
+    # *polygon_4* updates
+    if polygon_4.status == NOT_STARTED and tThisFlip >= 0.0-frameTolerance:
+        # keep track of start time/frame for later
+        polygon_4.frameNStart = frameN  # exact frame index
+        polygon_4.tStart = t  # local t and not account for scr refresh
+        polygon_4.tStartRefresh = tThisFlipGlobal  # on global time
+        win.timeOnFlip(polygon_4, 'tStartRefresh')  # time at next scr refresh
+        # add timestamp to datafile
+        thisExp.timestampOnFlip(win, 'polygon_4.started')
+        polygon_4.setAutoDraw(True)
+    
+    # *polygon_5* updates
+    if polygon_5.status == NOT_STARTED and tThisFlip >= 0.0-frameTolerance:
+        # keep track of start time/frame for later
+        polygon_5.frameNStart = frameN  # exact frame index
+        polygon_5.tStart = t  # local t and not account for scr refresh
+        polygon_5.tStartRefresh = tThisFlipGlobal  # on global time
+        win.timeOnFlip(polygon_5, 'tStartRefresh')  # time at next scr refresh
+        # add timestamp to datafile
+        thisExp.timestampOnFlip(win, 'polygon_5.started')
+        polygon_5.setAutoDraw(True)
     
     # check for quit (typically the Esc key)
     if endExpNow or defaultKeyboard.getKeys(keyList=["escape"]):
