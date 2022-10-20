@@ -30,18 +30,16 @@ capabilities = {
         "type": "ipu",
         "disabled": False,
         "count": 1,
-        "width": 8,
-        "height": 8,
         "deviation_threshold": 0.05,
         "retina_width_percent": 60,
         "retina_height_percent": 40,
         "central_vision_compression": [64, 64],
         "peripheral_vision_compression": [8, 8],
         "previous_data": {},
-        "field_of_vision_x": 800,
-        "field_of_vision_y": 600,
-        "field_of_vision_origin": [100, 100]
+        "field_of_vision_x": 100,
+        "field_of_vision_y": 200,
+        "field_of_vision_origin": [200, 100],
+        "camera_pose": [100,200]
     }
 }
-
 message_to_feagi = {"data": {}}
