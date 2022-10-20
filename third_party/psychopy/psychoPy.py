@@ -136,10 +136,13 @@ if __name__ == "__main__":
 
         # Do the drawing
         fixSpot.draw()
-        pixels = np.array(win._getFrame())
+        pixels = np.array(win._getFrame()) #FULL frame of world
         win.flip()
+        pixels = retina.pan(pixels, capabilities['camera']["field_of_vision_origin"], capabilities['camera'][
+                                      "field_of_vision_x"], capabilities['camera'][
+                                      "field_of_vision_y"]) # Snippet of field of vision
         retina_data = retina.frame_split(pixels, capabilities['camera']['retina_width_percent'],
-                                         capabilities['camera']['retina_height_percent'])
+                                         capabilities['camera']['retina_height_percent']) # Create cortical area with 64 64 and 8 8
         for i in retina_data:
             if 'C' in i:
                 retina_data[i] = retina.center_data_compression(retina_data[i],
@@ -209,6 +212,21 @@ if __name__ == "__main__":
                         if i == 2:
                             mouse3 = 1
                 fixSpot.setPos([X, Y])
+            if 'oculomotor' in opu_data:
+                for i in opu_data['oculomotor']:
+                    print("I: ", i)
+                    if i == 0:
+                        capabilities['camera']['field_of_vision_origin'][0] = \
+                            capabilities['camera']['field_of_vision_origin'][0] + opu_data['oculomotor'][i]
+                    if i == 1:
+                        capabilities['camera']['field_of_vision_origin'][0] = \
+                            capabilities['camera']['field_of_vision_origin'][0] - opu_data['oculomotor'][i]
+                    if i == 2:
+                        capabilities['camera']['field_of_vision_origin'][1] = \
+                            capabilities['camera']['field_of_vision_origin'][1] + opu_data['oculomotor'][i]
+                    if i == 3:
+                        capabilities['camera']['field_of_vision_origin'][1] = \
+                            capabilities['camera']['field_of_vision_origin'][1] - opu_data['oculomotor'][i]
 
         # Psychopy game start here
         # if mouse1:
