@@ -28,11 +28,12 @@ network_settings = {
 capabilities = {
     "servo": {
         "type": "opu",
-        "disabled": True,
+        "disabled": False,
         "refresh_rate": 1,
         "cortical_mapping": "o__ser",
-        'count': 2,
-        'topic_identifier': '/S'
+        'count': 5,
+        'topic_identifier': '/S',
+        'servo_range': [0, 180]
     }
 }
 
