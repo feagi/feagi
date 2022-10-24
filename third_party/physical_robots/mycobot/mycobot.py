@@ -31,7 +31,8 @@ class Arm:
             runtime_data['servo_status'][encoder_id] = power
         print("encoder_id: ", encoder_id)
         print("power: ", runtime_data['servo_status'][encoder_id])
-        if 180 >= (runtime_data['servo_status'][encoder_id] + power) >= 0:
+        if capabilities['servo']['servo_range'][1] >= (runtime_data['servo_status'][encoder_id] + power) >= \
+                capabilities['servo']['servo_range'][0]:
             robot.set_encoder(encoder_id, runtime_data['servo_status'][encoder_id])
             runtime_data['servo_status'][encoder_id] += power
 
