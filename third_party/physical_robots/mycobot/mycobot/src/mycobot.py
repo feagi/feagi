@@ -1,3 +1,5 @@
+#! /usr/bin/env python3
+
 from pymycobot.mycobot import MyCobot
 from feagi_agent import feagi_interface as FEAGI
 from feagi_agent import retina as retina
