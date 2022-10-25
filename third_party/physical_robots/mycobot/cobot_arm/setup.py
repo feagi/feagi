@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = 'mycobot'
+package_name = 'cobot_arm'
 
 setup(
     name=package_name,
