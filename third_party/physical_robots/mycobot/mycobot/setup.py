@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = '.'
+package_name = 'mycobot'
 
 setup(
     name=package_name,
@@ -13,13 +13,14 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='Neuraville',
+    maintainer='neuraville',
     maintainer_email='info@neuraville.com',
-    description='setup for ros2 on mycobot',
+    description='TODO: Package description',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'mycobot_feagi = mycobot:main'
         ],
     },
 )
