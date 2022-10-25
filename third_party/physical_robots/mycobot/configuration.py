@@ -19,13 +19,26 @@ limitations under the License.
 app_name = 'gazebo'
 
 network_settings = {
-    "feagi_host": "127.0.0.1",
+    "feagi_host": "192.168.50.246",
     "feagi_api_port": "8000",
     'TTL': 2,
     'last_message': 0,
 }
 
 capabilities = {
+    "camera": {
+        "type": "ipu",
+        "disabled": False,
+        "count": 1,
+        "width": 8,
+        "height": 8,
+        "deviation_threshold": 0.1,
+        "retina_width_percent": 60,
+        "retina_height_percent": 40,
+        "central_vision_compression": [64, 64],
+        "peripheral_vision_compression": [8, 8],
+        "previous_data": {}
+    },
     "servo": {
         "type": "opu",
         "disabled": False,
@@ -33,7 +46,14 @@ capabilities = {
         "cortical_mapping": "o__ser",
         'count': 5,
         'topic_identifier': '/S',
-        'servo_range': [0, 180]
+        'servo_range': {
+            '1': [200, 3600],
+            '2': [0, 0],
+            '3': [400, 3400],
+            '4': [700, 3300],
+            '5': [150, 3600],
+            '6': [0, 4096]
+        }
     }
 }
 
