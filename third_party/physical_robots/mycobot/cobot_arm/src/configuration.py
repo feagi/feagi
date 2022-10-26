@@ -46,6 +46,9 @@ capabilities = {
         "cortical_mapping": "o__ser",
         'count': 5,
         'topic_identifier': '/S',
+        'port': {
+            '0': '/dev/ttyUSB0'  # Find a way to add without hardcode
+        },
         'servo_range': {
             '1': [200, 3600],
             '2': [0, 0],
