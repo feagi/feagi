@@ -9,7 +9,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 
 # Install Python modules
-ament_python_install_package(src/)
+ament_python_install_package(src)
 
 # Install Python executables
 install(PROGRAMS
