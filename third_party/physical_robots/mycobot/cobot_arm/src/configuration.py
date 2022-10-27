@@ -19,7 +19,7 @@ limitations under the License.
 app_name = 'gazebo'
 
 network_settings = {
-    "feagi_host": "192.168.50.246",
+    "feagi_host": "127.0.0.1",
     "feagi_api_port": "8000",
     'TTL': 2,
     'last_message': 0,
@@ -44,7 +44,7 @@ capabilities = {
         "disabled": False,
         "refresh_rate": 1,
         "cortical_mapping": "o__ser",
-        'count': 5,
+        'count': 7,
         'topic_identifier': '/S',
         'port': {
             '0': '/dev/ttyUSB0'  # Find a way to add without hardcode
