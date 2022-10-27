@@ -19,13 +19,14 @@ from rclpy.qos import qos_profile_sensor_data
 import time
 
 previous_data_frame = dict()
+old_data = dict()
 
 
 def publisher_initializer(topic_count, topic_identifier):
     node = rclpy.create_node('Controller_py')
 
     target_node = {}
-    for target in range(topic_count):
+    for target in range(1, topic_count, 1):
         topic_string = topic_identifier + str(target)
         target_node[target] = node.create_publisher(std_msgs.msg.Float64, topic_string, 10)
     return target_node
@@ -64,7 +65,7 @@ class Servo(Node):
     def __init__(self, count, identifier):
         super().__init__('servo_publisher')
         topic_name = str(identifier) + str(count)
-        self.servo_node = publisher_initializer(topic_count=count, topic_identifier=identifier)
+        self.servo_node = publisher_initializer(topic_count=capabilities['servo']['count'], topic_identifier=identifier)
         timer_period = 0.1  # seconds
         # self.servo_ranges = capabilities['servo']['servo_range'][count]
         self.msg = 0
@@ -74,19 +75,40 @@ class Servo(Node):
     def auto_update_position(self):
         msg = std_msgs.msg.Float64()
         for servo_number in self.servo_node:
-            if servo_number != 0 and servo_number != 2:
+            if servo_number != 2:
                 self.msg = float(runtime_data['servo_status'][servo_number])
                 self.servo_node[servo_number].publish(msg)
                 self.verify(servo_number)
                 self.i += 1
 
-    def verify(self, number):
-        if self.msg + 200.0 > global_arm['0'].get_encoder(number) < self.msg - 200.0:
-            print("TRUE")
-        else:
-            print("FALSE")
-            # global_arm['0'].move(global_arm['0'], number, self.msg)
-        print("verify: ", self.msg, " and servo#:" + str(number), " ", global_arm['0'].get_encoder(number))
+    @staticmethod
+    def verify(encoder_id):
+        if old_data[encoder_id] != runtime_data['servo_status'][encoder_id]:
+            if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
+                    runtime_data['servo_status'][encoder_id]) >= \
+                    capabilities['servo']['servo_range'][str(encoder_id)][0]:
+                global_arm['0'].set_encoder(encoder_id, runtime_data['servo_status'][encoder_id])
+                old_data[encoder_id] = runtime_data['servo_status'][encoder_id]
+
+
+class ServoPosition(Node):
+    def __init__(self):
+        super().__init__('Servo_position')
+        self.publisher_ = self.create_publisher(std_msgs.msg.String, 'servo_data', 0)
+        timer_period = 0.1  # seconds
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.i = 0
+
+    def timer_callback(self):
+        msg = std_msgs.msg.String()
+        for i in range(1, capabilities['servo']['count'], 1):
+            if i != 2:
+                new_data = arm.get_encoder(i)
+                if new_data != -1:
+                    runtime_data['servo_position'][i] = new_data
+        msg.data = str(runtime_data['servo_position'])
+        self.publisher_.publish(msg)
+        self.i += 1
 
 
 class Arm:
@@ -122,8 +144,6 @@ class Arm:
         if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
                 runtime_data['servo_status'][encoder_id] + power) >= \
                 capabilities['servo']['servo_range'][str(encoder_id)][0]:
-            print("WORKED!")
-            robot.set_encoder(encoder_id, runtime_data['servo_status'][encoder_id])
             runtime_data['servo_status'][encoder_id] = runtime_data['servo_status'][encoder_id] + power
 
     @staticmethod
@@ -165,7 +185,8 @@ runtime_data = {
     "battery_charge_level": 1,
     "host_network": {},
     'motor_status': {},
-    'servo_status': {}
+    'servo_status': {},
+    'servo_position': {}
 }
 
 # # # FEAGI registration # # #
@@ -183,29 +204,6 @@ burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
 network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-
-# mycobot = Arm()
-# arm = mycobot.connection_initialize()
-# print(mycobot.get_coordination(arm))
-# print(arm.release_servo(1))
-# print("IS CONTROLLER CONNECTED?: ", arm.is_controller_connected())
-# print("is all servo enabled", arm.is_all_servo_enable())
-#
-# # for i in range(1,6,1):
-# #     arm.set_servo_calibration(i)
-# # while True:
-# #     print(str(1) + "'S STATUS: ", arm.get_encoder(2))
-# #     print(str(2) + " ENABLED?: ", arm.is_servo_enable(2))
-# #     # print(str(3) + "'S STATUS: ", arm.get_encoder(3))
-# #     # print(str(4) + "'S STATUS: ", arm.get_encoder(4))
-# print("version: ", arm.get_system_version())
-# print("DONE!")
-
-# Make arm center
-# for i in range(6):
-#     if i != 2 and i != 0:
-#         print("i: ", i)
-#         mycobot.move(arm, i, 2048)
 
 # # Camera section
 # camera = PiCamera()
@@ -225,11 +223,15 @@ mycobot = Arm()
 arm = mycobot.connection_initialize()
 mycobot.initialize(arm, capabilities['servo']['count'])
 global_arm['0'] = arm  # Is this even allowed?
+for i in range(1, capabilities['servo']['count'], 1):
+    old_data[i] = {} # Just to be able to see the difference and move the current position to new position
 
 # ROS 2 initialize section
 rclpy.init(args=None)
 executor = rclpy.executors.MultiThreadedExecutor()  # uncomment this when we are starting with sensors
 servo = Servo(count=capabilities['servo']['count'], identifier=capabilities['servo']['topic_identifier'])
+servo_position = ServoPosition()
+executor.add_node(servo_position)
 executor.add_node(servo)
 executor_thread = Thread(target=executor.spin, daemon=True)
 executor_thread.start()
@@ -311,9 +313,13 @@ while keyboard_flag:
                         device_power = opu_data['motor'][data_point]
                         device_power = mycobot.power_convert(data_point, device_power)
                         device_id = mycobot.encoder_converter(data_point)
-                        mycobot.move(arm, device_id, device_power * 10)
+                        test = runtime_data['servo_status'][device_id] + (device_power * 10)
+                        if capabilities['servo']['servo_range'][str(device_id)][1] >= test >= \
+                                capabilities['servo']['servo_range'][str(device_id)][0]:
+                            runtime_data['servo_status'][device_id] += device_power * 10
     except KeyboardInterrupt as ke:  # Keyboard error
         arm.release_all_servos()
         keyboard_flag = False
         servo.destroy_node()
+arm.release_all_servos()
 rclpy.shutdown()
