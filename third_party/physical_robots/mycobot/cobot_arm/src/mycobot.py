@@ -77,6 +77,7 @@ class Servo(Node):
         for servo_number in self.servo_node:
             if servo_number != 2:
                 self.msg = float(runtime_data['servo_status'][servo_number])
+                msg.data = float(runtime_data['servo_status'][servo_number])
                 self.servo_node[servo_number].publish(msg)
                 self.verify(servo_number)
                 self.i += 1
