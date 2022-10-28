@@ -85,13 +85,14 @@ class Servo(Node):
     def verify(self, encoder_id):
         if runtime_data['actual_encoder_position'][encoder_id][4] != runtime_data['target_position'][encoder_id]:
             if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
-            runtime_data['target_position'][encoder_id]) >= capabilities['servo']['servo_range'][str(encoder_id)][0]:
+                    runtime_data['target_position'][encoder_id]) >= \
+                    capabilities['servo']['servo_range'][str(encoder_id)][0]:
                 # global_arm['0'].set_encoder(encoder_id,
                 #                             runtime_data['actual_encoder_position'][encoder_id][1])  # move the arm
-                direction = self.check_direction(encoder_id)  # Check if reverse is true or false
+                direction = self.check_direction_extra_sensitive(encoder_id)  # Check if reverse is true or false
                 self.arm_status(encoder_id)
 
-    def check_direction(self, encoder_id):
+    def check_direction_extra_sensitive(self, encoder_id):
         """
         encoder_id: 1-6 servos.
         This function will return true or false. True is the positive and False is the negative.
@@ -107,7 +108,7 @@ class Servo(Node):
         else:
             return "backward"
 
-    def collision_detection(self, encoder_id):
+    def collision_detection_sensitive(self, encoder_id):
         """
         encoder_id: 1-6 servos.
         This function will return true or false. True is the positive and False is the negative.
@@ -116,8 +117,6 @@ class Servo(Node):
              runtime_data['actual_encoder_position'][encoder_id][1]) / 2
         b = (runtime_data['actual_encoder_position'][encoder_id][3] +
              runtime_data['actual_encoder_position'][encoder_id][4]) / 2
-        # print("a: ", a)
-        # print("b: ", b)
         if a > b + 50:
             return "1"
         elif b > a + 50:
@@ -125,13 +124,36 @@ class Servo(Node):
         else:
             return "0"  # Is this even needed?
 
+    def collision_detection_less_sensitive(self, encoder_id):
+        """
+        encoder_id: 1-6 servos.
+        This function will return true or false. True is the positive and False is the negative.
+        """
+        print("encoder ID:", encoder_id)
+        a = (runtime_data['actual_encoder_position'][encoder_id][0] +
+             runtime_data['actual_encoder_position'][encoder_id][1]) / 2
+        b = (runtime_data['actual_encoder_position'][encoder_id][3] +
+             runtime_data['actual_encoder_position'][encoder_id][4]) / 2
+        print("a: ", a, " b: ", b)
+        if a > b + 100:
+            return "1"
+        elif b > a + 100:
+            return "2"
+        else:
+            return "0"  # Is this even needed?
+
     def arm_status(self, encoder_id):
 
         arm_status_ = []
-        for i in range(1, 7, 1):
-            arm_status_.append(self.collision_detection(i))
+        arm_status__ = []
+        for i in range(1, 4, 1):
+            arm_status_.append(self.collision_detection_sensitive(i))
+            arm_status__.append(self.collision_detection_less_sensitive(i))
 
-        print(arm_status_)
+            if arm_status_[i] != arm_status__[i]:
+                print("Collision on servo: ", i)
+
+        # print(arm_status_)
 
 
 class ServoPosition(Node):
