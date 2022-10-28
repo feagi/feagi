@@ -3,6 +3,7 @@
 from pymycobot.mycobot import MyCobot
 from feagi_agent import feagi_interface as FEAGI
 from feagi_agent import retina as retina
+from collections import deque
 from threading import Thread
 from configuration import *
 from rclpy.node import Node
@@ -19,7 +20,6 @@ from rclpy.qos import qos_profile_sensor_data
 import time
 
 previous_data_frame = dict()
-old_data = dict()
 
 
 def publisher_initializer(topic_count, topic_identifier):
@@ -76,27 +76,67 @@ class Servo(Node):
         msg = std_msgs.msg.Float64()
         for servo_number in self.servo_node:
             if servo_number != 2:
-                self.msg = float(runtime_data['servo_status'][servo_number])
-                msg.data = float(runtime_data['servo_status'][servo_number])
+                self.msg = float(runtime_data['actual_encoder_position'][servo_number][4])
+                msg.data = float(runtime_data['actual_encoder_position'][servo_number][4])
                 self.servo_node[servo_number].publish(msg)
                 self.verify(servo_number)
                 self.i += 1
 
-    @staticmethod
-    def verify(encoder_id):
-        if old_data[encoder_id] != runtime_data['servo_status'][encoder_id]:
-            if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
-                    runtime_data['servo_status'][encoder_id]) >= \
-                    capabilities['servo']['servo_range'][str(encoder_id)][0]:
-                global_arm['0'].set_encoder(encoder_id, runtime_data['servo_status'][encoder_id])
-                old_data[encoder_id] = runtime_data['servo_status'][encoder_id]
+    def verify(self, encoder_id):
+        if runtime_data['actual_encoder_position'][encoder_id][4] != runtime_data['target_position'][encoder_id]:
+            if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (runtime_data['target_position'][encoder_id]) >= capabilities['servo']['servo_range'][str(encoder_id)][0]:
+                global_arm['0'].set_encoder(encoder_id, runtime_data['actual_encoder_position'][encoder_id][1])
+                direction = self.check_direction(encoder_id)  # Check if reverse is true or false
+                print(direction)
+
+        # if old_data[encoder_id] != runtime_data['target_position'][encoder_id]:
+        #     print("here")
+        #     if old_data[encoder_id]:
+        #         if old_data[encoder_id] > runtime_data['target_position'][encoder_id]:
+        #             power = True  # True means positive
+        #         else:
+        #             power = False  # False means negative, backward or reverse.
+        #             if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
+        #                     runtime_data['target_position'][encoder_id]) >= \
+        #                     capabilities['servo']['servo_range'][str(encoder_id)][0]:
+        #                 if power:
+        #                     runtime_data['actual_encoder_position'][encoder_id] += 1
+        #                     global_arm['0'].set_encoder(encoder_id, runtime_data['actual_encoder_position'][encoder_id])
+        #
+        #                 else:
+        #                     print("NEGATIVE!")
+        #                     runtime_data['actual_encoder_position'][encoder_id] -= 1
+        #                     global_arm['0'].set_encoder(encoder_id, runtime_data['actual_encoder_position'][encoder_id])
+        #     print("encoder id: ", encoder_id, " position:", runtime_data['actual_encoder_position'][encoder_id])
+        #     print("encoder id: ", encoder_id, " target position: ", runtime_data['target_position'][encoder_id])
+        #     old_data[encoder_id] = runtime_data['actual_encoder_position'][encoder_id]
+
+    def check_direction(self, encoder_id):
+        """
+        encoder_id: 1-6 servos.
+        This function will return true or false. True is the positive and False is the negative.
+        """
+        a = (runtime_data['actual_encoder_position'][encoder_id][0] + runtime_data['actual_encoder_position'][encoder_id][1])/2
+        b = (runtime_data['actual_encoder_position'][encoder_id][3] + runtime_data['actual_encoder_position'][encoder_id][4])/2
+        if a > b:
+            # print("forward")
+            return "forward"
+        elif a == b:
+            return "no_movement" # Is this even needed?
+            # print("no movement")
+        else:
+            # print("backward")
+            return "backward"
+
+
+
 
 
 class ServoPosition(Node):
     def __init__(self):
         super().__init__('Servo_position')
         self.publisher_ = self.create_publisher(std_msgs.msg.String, 'servo_data', 0)
-        timer_period = 0.1  # seconds
+        timer_period = 0.01  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
         self.i = 0
 
@@ -106,8 +146,11 @@ class ServoPosition(Node):
             if i != 2:
                 new_data = arm.get_encoder(i)
                 if new_data != -1:
-                    runtime_data['servo_position'][i] = new_data
-        msg.data = str(runtime_data['servo_position'])
+                    if runtime_data['actual_encoder_position'][i]:
+                        runtime_data['actual_encoder_position'][i].append(new_data)
+                        runtime_data['actual_encoder_position'][i].popleft()
+        # print(runtime_data['actual_encoder_position'])
+        msg.data = str(runtime_data['actual_encoder_position'])
         self.publisher_.publish(msg)
         self.i += 1
 
@@ -140,12 +183,12 @@ class Arm:
         :param encoder_id: servo ID
         :param power: A power to move to the point
         """
-        if encoder_id not in runtime_data['servo_status']:
-            runtime_data['servo_status'][encoder_id] = power
+        if encoder_id not in runtime_data['target_position']:
+            runtime_data['target_position'][encoder_id] = power
         if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
-                runtime_data['servo_status'][encoder_id] + power) >= \
+                runtime_data['target_position'][encoder_id] + power) >= \
                 capabilities['servo']['servo_range'][str(encoder_id)][0]:
-            runtime_data['servo_status'][encoder_id] = runtime_data['servo_status'][encoder_id] + power
+            runtime_data['target_position'][encoder_id] = runtime_data['target_position'][encoder_id] + power
 
     @staticmethod
     def power_convert(encoder_id, power):
@@ -186,8 +229,8 @@ runtime_data = {
     "battery_charge_level": 1,
     "host_network": {},
     'motor_status': {},
-    'servo_status': {},
-    'servo_position': {}
+    'target_position': {},
+    'actual_encoder_position': {}
 }
 
 # # # FEAGI registration # # #
@@ -225,7 +268,8 @@ arm = mycobot.connection_initialize()
 mycobot.initialize(arm, capabilities['servo']['count'])
 global_arm['0'] = arm  # Is this even allowed?
 for i in range(1, capabilities['servo']['count'], 1):
-    old_data[i] = {} # Just to be able to see the difference and move the current position to new position
+    runtime_data['actual_encoder_position'][i] = deque([0, 0, 0, 0, 0])
+
 
 # ROS 2 initialize section
 rclpy.init(args=None)
@@ -314,10 +358,11 @@ while keyboard_flag:
                         device_power = opu_data['motor'][data_point]
                         device_power = mycobot.power_convert(data_point, device_power)
                         device_id = mycobot.encoder_converter(data_point)
-                        test = runtime_data['servo_status'][device_id] + (device_power * 10)
+                        test = runtime_data['target_position'][device_id] + (device_power * 10)
                         if capabilities['servo']['servo_range'][str(device_id)][1] >= test >= \
                                 capabilities['servo']['servo_range'][str(device_id)][0]:
-                            runtime_data['servo_status'][device_id] += device_power * 10
+                            runtime_data['target_position'][device_id] += device_power * 10
+                        print("getting data from FEAGI")
     except KeyboardInterrupt as ke:  # Keyboard error
         arm.release_all_servos()
         keyboard_flag = False
