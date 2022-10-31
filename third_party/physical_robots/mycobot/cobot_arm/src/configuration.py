@@ -19,7 +19,7 @@ limitations under the License.
 app_name = 'gazebo'
 
 network_settings = {
-    "feagi_host": "127.0.0.1",
+    "feagi_host": "192.168.50.246",
     "feagi_api_port": "8000",
     'TTL': 2,
     'last_message': 0,
@@ -56,7 +56,13 @@ capabilities = {
             '4': [700, 3300],
             '5': [150, 3600],
             '6': [0, 4096]
-        }
+        },
+        'power': 150,
+        'sensitivity':
+            {
+                'micro': 50,
+                'macro': 150
+            }
     }
 }
 

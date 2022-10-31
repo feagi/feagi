@@ -79,18 +79,42 @@ class Servo(Node):
                 self.msg = float(runtime_data['actual_encoder_position'][servo_number][4])
                 msg.data = float(runtime_data['actual_encoder_position'][servo_number][4])
                 self.servo_node[servo_number].publish(msg)
-                self.verify(servo_number)
+                self.main_program_for_servos(servo_number)
                 self.i += 1
 
-    def verify(self, encoder_id):
-        if runtime_data['actual_encoder_position'][encoder_id][4] != runtime_data['target_position'][encoder_id]:
-            if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
-                    runtime_data['target_position'][encoder_id]) >= \
-                    capabilities['servo']['servo_range'][str(encoder_id)][0]:
-                # global_arm['0'].set_encoder(encoder_id,
-                #                             runtime_data['actual_encoder_position'][encoder_id][1])  # move the arm
-                direction = self.check_direction_extra_sensitive(encoder_id)  # Check if reverse is true or false
-                self.arm_status(encoder_id)
+    def main_program_for_servos(self, encoder_id):
+        if self.arm_status(encoder_id): # Collision detection
+            # retreat_value = 0
+            # if runtime_data['actual_encoder_position'][encoder_id][4] > runtime_data['target_position'][encoder_id]:
+            #     retreat_value = runtime_data['target_position'][encoder_id] - capabilities['servo']['power']
+            # elif runtime_data['actual_encoder_position'][encoder_id][4] < runtime_data['target_position'][encoder_id]:
+            #     retreat_value = runtime_data['target_position'][encoder_id] + capabilities['servo']['power']
+            # if capabilities['servo']['servo_range'][str(encoder_id)][1] > retreat_value > \
+            #         capabilities['servo']['servo_range'][str(encoder_id)][0]:
+            #     runtime_data['target_position'][encoder_id] = retreat_value
+            servo_string = str(encoder_id) + ' '
+            print(servo_string * 40)
+        else:
+            # global_arm['0'].set_encoder(encoder_id,
+            #                             runtime_data['actual_encoder_position'][encoder_id][1] + capabilities['servo'][
+            #                                 'power'])  # move the arm
+            if runtime_data['actual_encoder_position'][encoder_id][4] != runtime_data['target_position'][encoder_id]:
+                if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
+                        runtime_data['target_position'][encoder_id]) >= \
+                        capabilities['servo']['servo_range'][str(encoder_id)][0]:
+                    if runtime_data['actual_encoder_position'][encoder_id][4] > \
+                            runtime_data['actual_encoder_position'][encoder_id][4] - capabilities['servo']['power'] > \
+                            runtime_data['target_position'][encoder_id]:
+                        global_arm['0'].set_encoder(encoder_id, runtime_data['actual_encoder_position'][encoder_id][1] -
+                                                    capabilities['servo']['power'])  # move the arm
+                    elif runtime_data['actual_encoder_position'][encoder_id][4] < \
+                            runtime_data['actual_encoder_position'][encoder_id][4] + capabilities['servo']['power'] < \
+                            runtime_data['target_position'][encoder_id]:
+                        global_arm['0'].set_encoder(encoder_id,
+                                                    runtime_data['actual_encoder_position'][encoder_id][1] +
+                                                    capabilities['servo']['power'])  # move the arm
+                    direction = self.check_direction_extra_sensitive(encoder_id)  # Check if reverse is true or false
+        # print("encoder id: ", encoder_id, " ", runtime_data['actual_encoder_position'][encoder_id][4], " ", runtime_data['target_position'][encoder_id])
 
     def check_direction_extra_sensitive(self, encoder_id):
         """
@@ -117,41 +141,51 @@ class Servo(Node):
              runtime_data['actual_encoder_position'][encoder_id][1]) / 2
         b = (runtime_data['actual_encoder_position'][encoder_id][3] +
              runtime_data['actual_encoder_position'][encoder_id][4]) / 2
-        if a > b + 50:
-            return "1"
-        elif b > a + 50:
-            return "2"
-        else:
-            return "0"  # Is this even needed?
+        try:
+            if a > b + int(capabilities['servo']['sensitivity']['micro']):
+                return "1"
+            elif b > a + int(capabilities['servo']['sensitivity']['micro']):
+                return "2"
+            else:
+                return "0"  # Is this even needed?
+        except Exception:
+            exc_info = sys.exc_info()
+            traceback.print_exception(*exc_info)
 
     def collision_detection_less_sensitive(self, encoder_id):
         """
         encoder_id: 1-6 servos.
         This function will return true or false. True is the positive and False is the negative.
         """
-        print("encoder ID:", encoder_id)
+        # print("encoder ID:", encoder_id)
         a = (runtime_data['actual_encoder_position'][encoder_id][0] +
              runtime_data['actual_encoder_position'][encoder_id][1]) / 2
         b = (runtime_data['actual_encoder_position'][encoder_id][3] +
              runtime_data['actual_encoder_position'][encoder_id][4]) / 2
-        print("a: ", a, " b: ", b)
-        if a > b + 100:
+        # print("a: ", a, " b: ", b)
+        if a > b + capabilities['servo']['sensitivity']['macro']:
             return "1"
-        elif b > a + 100:
+        elif b > a + capabilities['servo']['sensitivity']['macro']:
             return "2"
         else:
             return "0"  # Is this even needed?
 
     def arm_status(self, encoder_id):
-
-        arm_status_ = []
-        arm_status__ = []
-        for i in range(1, 4, 1):
-            arm_status_.append(self.collision_detection_sensitive(i))
-            arm_status__.append(self.collision_detection_less_sensitive(i))
-
-            if arm_status_[i] != arm_status__[i]:
-                print("Collision on servo: ", i)
+        if encoder_id != 6:
+            arm_status_ = self.collision_detection_sensitive(encoder_id)
+            arm_status__ = self.collision_detection_less_sensitive(encoder_id)
+            if arm_status_ != arm_status__:
+                print("Collision on servo: ", encoder_id)
+                return True
+        return False
+        # arm_status_ = []
+        # arm_status__ = []
+        # for i in range(1, 2, 1):
+        #     arm_status_.append(self.collision_detection_sensitive(i))
+        #     arm_status__.append(self.collision_detection_less_sensitive(i))
+        #
+        #     if arm_status_[i] != arm_status__[i]:
+        #         print("Collision on servo: ", i)
 
         # print(arm_status_)
 
@@ -189,30 +223,12 @@ class Arm:
         return MyCobot(port)
 
     @staticmethod
-    def get_coordination(robot):
-        """
-        :return: 6 servos' coordination
-        """
-        data = robot.get_coords()
-        return data
-
-    @staticmethod
-    def initialize(robot, count):
-        for number_id in range(count):
+    def initialize(count):
+        for number_id in range(1, count, 1):
             if number_id != 2 and number_id != 0:
-                mycobot.move(robot, number_id, 2048)
-
-    def move(self, robot, encoder_id, power):
-        """
-        :param encoder_id: servo ID
-        :param power: A power to move to the point
-        """
-        if encoder_id not in runtime_data['target_position']:
-            runtime_data['target_position'][encoder_id] = power
-        if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
-                runtime_data['target_position'][encoder_id] + power) >= \
-                capabilities['servo']['servo_range'][str(encoder_id)][0]:
-            runtime_data['target_position'][encoder_id] = runtime_data['target_position'][encoder_id] + power
+                if number_id not in runtime_data['target_position']:
+                    runtime_data['target_position'][number_id] = 2048
+                global_arm['0'].set_encoder(number_id, 2048)
 
     @staticmethod
     def power_convert(encoder_id, power):
@@ -289,8 +305,8 @@ msg_counter = 0
 global_arm = dict()
 mycobot = Arm()
 arm = mycobot.connection_initialize()
-mycobot.initialize(arm, capabilities['servo']['count'])
 global_arm['0'] = arm  # Is this even allowed?
+mycobot.initialize(capabilities['servo']['count'])
 for i in range(1, capabilities['servo']['count'], 1):
     runtime_data['actual_encoder_position'][i] = deque([0, 0, 0, 0, 0])
 
