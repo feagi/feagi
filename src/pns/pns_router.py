@@ -81,6 +81,12 @@ def stimuli_router(ipu_data):
                 # Ultrasonic / Lidar Handler
                 # todo: need a more consistent naming convention when it comes to lidar vs ultrasonic vs proximity
                 # todo: find a way to generalize the handling of all IPU data instead of using all the if statements
+                if 'servo_data' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
+                    try:
+                        stimuli_translator.servo_position_translator(
+                            servo_data=ipu_data["data"]["sensory_data"][sensor_type])
+                    except Exception:
+                        print("ERROR while processing Servo IPU", traceback.format_exc())
                 if 'gyro' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
                     try:
                         stimuli_translator.gyro_translator(gyroscope_data=ipu_data["data"]["sensory_data"][sensor_type])

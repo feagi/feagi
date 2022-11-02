@@ -315,6 +315,32 @@ def accelerator_translator(accelerator_data):
         print("Warning! Cortical stimulation received but genome missing", cortical_area)
 
 
+def servo_position_translator(servo_data):
+    """
+    Translate the servo messages based on its type.
+
+    todo: add details here about the message format and expectations
+    """
+    cortical_area = 'i__pos'
+    if cortical_area_in_genome(cortical_area):
+        if servo_data is not None:
+            numbers_of_servo = len(servo_data)
+            for sensor in range(numbers_of_servo):
+                sensor = sensor + 1
+                position = stimuli_processor.servo_positions_to_coords(servo_data[sensor], sensor)
+                neurons = stimuli_processor.coords_to_neuron_ids(
+                    position, cortical_area=cortical_area
+                )
+                # TODO: Add proximity feeder function in fcl_injector
+                if 'i__pos' not in runtime_data.fire_candidate_list:
+                    runtime_data.fire_candidate_list['i__pos'] = set()
+                for neuron in neurons:
+                    runtime_data.fire_candidate_list['i__pos'].add(neuron)
+                # runtime_data.fcl_queue.put({cortical_area: set(neurons)})
+    else:
+        print("Warning! Cortical stimulation received but genome missing", cortical_area)
+
+
 def vision_translator(vision_data):
     """
     Translate the accelerator messages based on its type.
