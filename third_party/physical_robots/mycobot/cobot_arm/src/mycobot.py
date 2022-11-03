@@ -75,7 +75,7 @@ class Servo(Node):
     def auto_update_position(self):
         msg = std_msgs.msg.Float64()
         for servo_number in self.servo_node:
-            if servo_number != 2:
+            if servo_number != 0:
                 self.msg = float(runtime_data['actual_encoder_position'][servo_number][4])
                 msg.data = float(runtime_data['actual_encoder_position'][servo_number][4])
                 self.servo_node[servo_number].publish(msg)
@@ -83,21 +83,10 @@ class Servo(Node):
                 self.i += 1
 
     def main_program_for_servos(self, encoder_id):
-        if self.arm_status(encoder_id): # Collision detection
-            # retreat_value = 0
-            # if runtime_data['actual_encoder_position'][encoder_id][4] > runtime_data['target_position'][encoder_id]:
-            #     retreat_value = runtime_data['target_position'][encoder_id] - capabilities['servo']['power']
-            # elif runtime_data['actual_encoder_position'][encoder_id][4] < runtime_data['target_position'][encoder_id]:
-            #     retreat_value = runtime_data['target_position'][encoder_id] + capabilities['servo']['power']
-            # if capabilities['servo']['servo_range'][str(encoder_id)][1] > retreat_value > \
-            #         capabilities['servo']['servo_range'][str(encoder_id)][0]:
-            #     runtime_data['target_position'][encoder_id] = retreat_value
+        if self.arm_status(encoder_id):  # Collision detection
             servo_string = str(encoder_id) + ' '
             print(servo_string * 40)
         else:
-            # global_arm['0'].set_encoder(encoder_id,
-            #                             runtime_data['actual_encoder_position'][encoder_id][1] + capabilities['servo'][
-            #                                 'power'])  # move the arm
             if runtime_data['actual_encoder_position'][encoder_id][4] != runtime_data['target_position'][encoder_id]:
                 if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
                         runtime_data['target_position'][encoder_id]) >= \
@@ -111,10 +100,9 @@ class Servo(Node):
                             runtime_data['actual_encoder_position'][encoder_id][4] + capabilities['servo']['power'] < \
                             runtime_data['target_position'][encoder_id]:
                         global_arm['0'].set_encoder(encoder_id,
-                                                    runtime_data['actual_encoder_position'][encoder_id][1] +
+                                                    runtime_data['actual_encoder_position'][encoder_id][4] +
                                                     capabilities['servo']['power'])  # move the arm
-                    direction = self.check_direction_extra_sensitive(encoder_id)  # Check if reverse is true or false
-        # print("encoder id: ", encoder_id, " ", runtime_data['actual_encoder_position'][encoder_id][4], " ", runtime_data['target_position'][encoder_id])
+                        direction = self.check_direction_extra_sensitive(encoder_id)  # Check if reverse is true or false
 
     def check_direction_extra_sensitive(self, encoder_id):
         """
@@ -162,7 +150,6 @@ class Servo(Node):
              runtime_data['actual_encoder_position'][encoder_id][1]) / 2
         b = (runtime_data['actual_encoder_position'][encoder_id][3] +
              runtime_data['actual_encoder_position'][encoder_id][4]) / 2
-        # print("a: ", a, " b: ", b)
         if a > b + capabilities['servo']['sensitivity']['macro']:
             return "1"
         elif b > a + capabilities['servo']['sensitivity']['macro']:
@@ -224,11 +211,11 @@ class Arm:
 
     @staticmethod
     def initialize(count):
-        for number_id in range(1, count, 1):
-            if number_id != 2 and number_id != 0:
-                if number_id not in runtime_data['target_position']:
-                    runtime_data['target_position'][number_id] = 2048
-                global_arm['0'].set_encoder(number_id, 2048)
+        for number_id in range(1, count + 1, 1):
+            # if number_id != 0 and number_id != 0:
+            if number_id not in runtime_data['target_position']:
+                runtime_data['target_position'][number_id] = 2048
+            # global_arm['0'].set_encoder(number_id, 2048)
 
     @staticmethod
     def power_convert(encoder_id, power):
@@ -299,6 +286,10 @@ network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst
 flag = True
 keyboard_flag = True
 msg_counter = 0
+encoder_speed = dict()
+encoder_speed['encoder_speed'] = dict()
+for i in range(capabilities['servo']['count']):
+    encoder_speed['encoder_speed'][i] = {}
 
 # mycobot initialize section
 # todo: To figure how to make this part scalable
@@ -309,6 +300,7 @@ global_arm['0'] = arm  # Is this even allowed?
 mycobot.initialize(capabilities['servo']['count'])
 for i in range(1, capabilities['servo']['count'], 1):
     runtime_data['actual_encoder_position'][i] = deque([0, 0, 0, 0, 0])
+
 
 # ROS 2 initialize section
 rclpy.init(args=None)
@@ -374,37 +366,70 @@ while keyboard_flag:
         #         #
         #         #     message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=rgb, data=message_to_feagi)
         #
-        #         message_to_feagi['timestamp'] = datetime.now()
-        #         message_to_feagi['counter'] = msg_counter
-        #         feagi_ipu_channel.send(message_to_feagi)
-        #         message_to_feagi.clear()
-        #         msg_counter += 1
-        #         flag += 1
-        #         if flag == 10:
-        #             feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
-        #             feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
-        #             flag = 0
-        #             if msg_counter < feagi_burst_counter:
-        #                 feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-        #                 if feagi_burst_speed != network_settings['feagi_burst_speed']:
-        #                     network_settings['feagi_burst_speed'] = feagi_burst_speed
+        # OPU section
         message_from_feagi = feagi_opu_channel.receive()
         if message_from_feagi is not None:
             opu_data = FEAGI.opu_processor(message_from_feagi)
-            if 'motor' in opu_data:
-                if opu_data['motor'] is not {}:
-                    for data_point in opu_data['motor']:
-                        device_power = opu_data['motor'][data_point]
-                        device_power = mycobot.power_convert(data_point, device_power)
-                        device_id = mycobot.encoder_converter(data_point)
+            if 'servo' in opu_data:
+                if opu_data['servo'] is not {}:
+                    for data_point in opu_data['servo']:
+                        device_power = opu_data['servo'][data_point] - 10
+                        # device_power = mycobot.power_convert(data_point, device_power)
+                        device_id = data_point + 1
+                        # device_id = mycobot.encoder_converter(data_point)
                         test = runtime_data['target_position'][device_id] + (device_power * 10)
+
                         if capabilities['servo']['servo_range'][str(device_id)][1] >= test >= \
                                 capabilities['servo']['servo_range'][str(device_id)][0]:
+                            encoder_speed['encoder_speed'][data_point] = ((runtime_data['target_position'][
+                                                                               device_id] + device_power * 10) -
+                                                                          runtime_data['target_position'][
+                                                                              device_id]) / 0.2
                             runtime_data['target_position'][device_id] += device_power * 10
-                        print("getting data from FEAGI")
+            # Encoder speed IPU
+            message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=encoder_speed,
+                                                                   data=message_to_feagi)
+        # Encoder position
+        encoder_for_feagi = dict()
+        encoder_for_feagi['encoder_data'] = dict()
+        try:
+            for encoder_data in runtime_data['actual_encoder_position']:
+                encoder_for_feagi['encoder_data'][encoder_data] = runtime_data['actual_encoder_position'][encoder_data][
+                    4]
+            message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=encoder_for_feagi,
+                                                                   data=message_to_feagi)
+        except Exception as e:
+            print("error: ", e)
+
+        # SENDING MESSAGE TO FEAGI SECTION # #
+        message_to_feagi['timestamp'] = datetime.now()
+        message_to_feagi['counter'] = msg_counter
+        feagi_ipu_channel.send(message_to_feagi)
+        message_to_feagi.clear()
+
+        # Doing the misc background work (check on sync setting #
+        msg_counter += 1
+        flag += 1
+        if flag == 10:
+            feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
+            feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
+            flag = 0
+            if msg_counter < feagi_burst_counter:
+                feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
+                if feagi_burst_speed != network_settings['feagi_burst_speed']:
+                    network_settings['feagi_burst_speed'] = feagi_burst_speed
+        time.sleep(network_settings['feagi_burst_speed'])
+        for i in encoder_speed['encoder_speed']:
+            encoder_speed['encoder_speed'][i] = {}
+
     except KeyboardInterrupt as ke:  # Keyboard error
         arm.release_all_servos()
         keyboard_flag = False
         servo.destroy_node()
+    except Exception as e:
+        arm.release_all_servos()
+        keyboard_flag = False
+        servo.destroy_node()
+        print("ERROR: ", e)
 arm.release_all_servos()
 rclpy.shutdown()
