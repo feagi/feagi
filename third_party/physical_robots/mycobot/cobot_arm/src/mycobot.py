@@ -61,7 +61,6 @@ class Servo(Node):
                 if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
                         runtime_data['target_position'][encoder_id]) >= \
                         capabilities['servo']['servo_range'][str(encoder_id)][0]: # cap using servo_range
-                    # if encoder_id != 6: # Seperate from servo 1-5
                     if runtime_data['actual_encoder_position'][encoder_id][4] > \
                             runtime_data['actual_encoder_position'][encoder_id][4] - capabilities['servo'][
                         'power'] > \
@@ -73,15 +72,10 @@ class Servo(Node):
                             runtime_data['actual_encoder_position'][encoder_id][4] + capabilities['servo'][
                         'power'] < \
                             runtime_data['target_position'][encoder_id]:
-                        # move = [runtime_data['actual_encoder_position'][1][4], runtime_data['actual_encoder_position'][2][4],
-                        #         runtime_data['actual_encoder_position'][3][4], runtime_data['actual_encoder_position'][4][4],
-                        #         runtime_data['actual_encoder_position'][5][4], runtime_data['actual_encoder_position'][6][4]]
-                        # global_arm['0'].set_encoders()
                         if speed[encoder_id]:
                             global_arm['0'].set_speed(abs(speed[encoder_id]))
                         global_arm['0'].set_encoder(encoder_id,
                                                     runtime_data['target_position'][encoder_id])  # move the arm
-            # print(speed)
         except Exception as e:
             print("ERROR: ", e)
             traceback.print_exc()
@@ -177,7 +171,6 @@ class ServoPosition(Node):
                         runtime_data['actual_encoder_position'][i].append(new_data)
                         runtime_data['actual_encoder_position'][i].popleft()
         msg.data = str(runtime_data['actual_encoder_position'])
-        # print("speed: ", global_arm['0'].get_servo_speeds())
         self.publisher_.publish(msg)
         self.i += 1
 
@@ -199,7 +192,7 @@ class Arm:
             # if number_id != 0 and number_id != 0:
             if number_id not in runtime_data['target_position']:
                 runtime_data['target_position'][number_id] = 2048
-        time.sleep(3)
+        time.sleep(1)
 
     @staticmethod
     def power_convert(encoder_id, power):
@@ -366,36 +359,20 @@ while keyboard_flag:
                     if opu_data['servo'] is not {}:
                         for data_point in opu_data['servo']:
                             encoder_position = opu_data['servo'][data_point] - 10
-                            # encoder_position = mycobot.power_convert(data_point, encoder_position)
                             device_id = data_point + 1
-                            # device_id = mycobot.encoder_converter(data_point)
-                            test = runtime_data['target_position'][device_id] + (encoder_position * 10)
+                            test = runtime_data['target_position'][device_id] + (encoder_position * 20)
                             if capabilities['servo']['servo_range'][str(device_id)][1] >= test >= \
                                     capabilities['servo']['servo_range'][str(device_id)][0]:
-                                runtime_data['target_position'][device_id] += encoder_position * 100
+                                runtime_data['target_position'][device_id] += encoder_position * 20
                                 speed[device_id] = (opu_data['servo'][data_point] - 10) * 10
                 except Exception as e:
                     print("ERROR: ", e)
                     traceback.print_exc()
 
             # Encoder speed IPU
-            try:
-                for i in range(1, capabilities['servo']['count'], 1):
-                    print("target position: ", runtime_data['target_position'][i])
-                    print("actual position: ", runtime_data['actual_encoder_position'][i][4])
-                    runtime_data['position_difference'][i - 1] = speed[i]
-                    # runtime_data['position_difference'][i] = ((runtime_data['actual_encoder_position'][i + 1][4] -
-                    #                                            runtime_data['actual_encoder_position'][i + 1][3]) / (
-                    #                                                   time.time() - runtime_data['time'][i + 1])) / 10
-                    # print("runtime_data['time'][i]: ", runtime_data['time'][1] , " time.time(): ", time.time(), " = ", (time.time() - runtime_data['time'][1]))
-                    # print("runtime_data['actual_encoder_position'][i][4]: ", runtime_data['actual_encoder_position'][1][4], "runtime_data['actual_encoder_position'][i][3]: ", runtime_data['actual_encoder_position'][1][3])
-                    # if runtime_data['position_difference'][i] != 0.0:
-                    #     print(runtime_data['position_difference'][i])
-                encoder_speed['encoder_speed'] = runtime_data['position_difference']
-                # encoder_speed['encoder_speed'] = speed[i]
-            except Exception as e:
-                print("ERROR: ", e)
-                traceback.print_exc()
+            for i in range(1, capabilities['servo']['count'], 1):
+                runtime_data['position_difference'][i - 1] = speed[i]
+            encoder_speed['encoder_speed'] = runtime_data['position_difference']
             message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=encoder_speed,
                                                                    data=message_to_feagi)
         # Encoder position
@@ -430,6 +407,7 @@ while keyboard_flag:
         time.sleep(network_settings['feagi_burst_speed'])
         for i in encoder_speed['encoder_speed']:
             encoder_speed['encoder_speed'][i] = {}
+        for i in speed:
             speed[i] = {}
 
     except KeyboardInterrupt as ke:  # Keyboard error
