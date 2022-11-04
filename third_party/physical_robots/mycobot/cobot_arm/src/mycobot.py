@@ -32,42 +32,12 @@ def publisher_initializer(topic_count, topic_identifier):
     return target_node
 
 
-# class ScalableSubscriber(Node):
-#     def __init__(self, subscription_name, msg_type, topic):
-#         super().__init__(subscription_name)
-#         self.subscription = self.create_subscription(
-#             msg_type,
-#             topic,
-#             self.listener_callback,
-#             qos_profile=qos_profile_sensor_data)
-#         self.topic = topic
-#         self.counter = 0
-#
-#     def listener_callback(self, msg):
-#         try:
-#             # This generated none
-#             formatted_msg = FEAGI.msg_processor(self, msg=msg, msg_type=self.topic)  # Needs to check on this
-#             message_to_feagi, runtime_data["battery_charge_level"] = FEAGI.compose_message_to_feagi(
-#                 original_message=formatted_msg, data=message_to_feagi)
-#             self.counter += 1
-#         except Exception as e:
-#             print("Error in listener callback...", e)
-#             exc_info = sys.exc_info()
-#             traceback.print_exception(*exc_info)
-#
-#
-# class ServoSubscriber(ScalableSubscriber):
-#     def __init__(self, subscription_name, msg_type, topic):
-#         super().__init__(subscription_name, msg_type, topic)
-#
-# #
 class Servo(Node):
     def __init__(self, count, identifier):
         super().__init__('servo_publisher')
         topic_name = str(identifier) + str(count)
         self.servo_node = publisher_initializer(topic_count=capabilities['servo']['count'], topic_identifier=identifier)
         timer_period = 0.1  # seconds
-        # self.servo_ranges = capabilities['servo']['servo_range'][count]
         self.msg = 0
         self.timer = self.create_timer(timer_period, self.auto_update_position)
         self.i = 0
@@ -75,34 +45,49 @@ class Servo(Node):
     def auto_update_position(self):
         msg = std_msgs.msg.Float64()
         for servo_number in self.servo_node:
-            if servo_number != 0:
-                self.msg = float(runtime_data['actual_encoder_position'][servo_number][4])
-                msg.data = float(runtime_data['actual_encoder_position'][servo_number][4])
-                self.servo_node[servo_number].publish(msg)
-                self.main_program_for_servos(servo_number)
-                self.i += 1
+            self.msg = float(runtime_data['actual_encoder_position'][servo_number][4])
+            msg.data = float(runtime_data['actual_encoder_position'][servo_number][4])
+            self.servo_node[servo_number].publish(msg)
+            self.main_program_for_servos(servo_number)
+            self.i += 1
 
     def main_program_for_servos(self, encoder_id):
-        if self.arm_status(encoder_id):  # Collision detection
-            servo_string = str(encoder_id) + ' '
-            print(servo_string * 40)
-        else:
+        # if self.arm_status(encoder_id):  # Collision detection
+        #     servo_string = str(encoder_id) + ' '
+        #     print(servo_string * 40)
+        # else:
+        try:
             if runtime_data['actual_encoder_position'][encoder_id][4] != runtime_data['target_position'][encoder_id]:
                 if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
                         runtime_data['target_position'][encoder_id]) >= \
-                        capabilities['servo']['servo_range'][str(encoder_id)][0]:
+                        capabilities['servo']['servo_range'][str(encoder_id)][0]: # cap using servo_range
+                    # if encoder_id != 6: # Seperate from servo 1-5
                     if runtime_data['actual_encoder_position'][encoder_id][4] > \
-                            runtime_data['actual_encoder_position'][encoder_id][4] - capabilities['servo']['power'] > \
+                            runtime_data['actual_encoder_position'][encoder_id][4] - capabilities['servo'][
+                        'power'] > \
                             runtime_data['target_position'][encoder_id]:
-                        global_arm['0'].set_encoder(encoder_id, runtime_data['actual_encoder_position'][encoder_id][1] -
-                                                    capabilities['servo']['power'])  # move the arm
+                        if speed[encoder_id]:
+                            global_arm['0'].set_speed(abs(speed[encoder_id]))
+                        global_arm['0'].set_encoder(encoder_id, runtime_data['target_position'][encoder_id])  # move the arm
                     elif runtime_data['actual_encoder_position'][encoder_id][4] < \
-                            runtime_data['actual_encoder_position'][encoder_id][4] + capabilities['servo']['power'] < \
+                            runtime_data['actual_encoder_position'][encoder_id][4] + capabilities['servo'][
+                        'power'] < \
                             runtime_data['target_position'][encoder_id]:
+                        # move = [runtime_data['actual_encoder_position'][1][4], runtime_data['actual_encoder_position'][2][4],
+                        #         runtime_data['actual_encoder_position'][3][4], runtime_data['actual_encoder_position'][4][4],
+                        #         runtime_data['actual_encoder_position'][5][4], runtime_data['actual_encoder_position'][6][4]]
+                        # global_arm['0'].set_encoders()
+                        if speed[encoder_id]:
+                            global_arm['0'].set_speed(abs(speed[encoder_id]))
                         global_arm['0'].set_encoder(encoder_id,
-                                                    runtime_data['actual_encoder_position'][encoder_id][4] +
-                                                    capabilities['servo']['power'])  # move the arm
-                        direction = self.check_direction_extra_sensitive(encoder_id)  # Check if reverse is true or false
+                                                    runtime_data['target_position'][encoder_id])  # move the arm
+            # print(speed)
+        except Exception as e:
+            print("ERROR: ", e)
+            traceback.print_exc()
+
+        direction = self.check_direction_extra_sensitive(encoder_id)  # Check if reverse is true or
+        # false
 
     def check_direction_extra_sensitive(self, encoder_id):
         """
@@ -143,9 +128,8 @@ class Servo(Node):
     def collision_detection_less_sensitive(self, encoder_id):
         """
         encoder_id: 1-6 servos.
-        This function will return true or false. True is the positive and False is the negative.
+        This function will return 1,2, or 3 in string.
         """
-        # print("encoder ID:", encoder_id)
         a = (runtime_data['actual_encoder_position'][encoder_id][0] +
              runtime_data['actual_encoder_position'][encoder_id][1]) / 2
         b = (runtime_data['actual_encoder_position'][encoder_id][3] +
@@ -155,30 +139,27 @@ class Servo(Node):
         elif b > a + capabilities['servo']['sensitivity']['macro']:
             return "2"
         else:
-            return "0"  # Is this even needed?
+            return "0"
 
     def arm_status(self, encoder_id):
-        if encoder_id != 6:
-            arm_status_ = self.collision_detection_sensitive(encoder_id)
-            arm_status__ = self.collision_detection_less_sensitive(encoder_id)
-            if arm_status_ != arm_status__:
-                print("Collision on servo: ", encoder_id)
-                return True
-        return False
-        # arm_status_ = []
-        # arm_status__ = []
-        # for i in range(1, 2, 1):
-        #     arm_status_.append(self.collision_detection_sensitive(i))
-        #     arm_status__.append(self.collision_detection_less_sensitive(i))
-        #
-        #     if arm_status_[i] != arm_status__[i]:
-        #         print("Collision on servo: ", i)
+        """
+        encoder_id is the servo id.
 
-        # print(arm_status_)
+        This will detect if the arm is being collision. It's currently WIP.
+        """
+        arm_status_ = self.collision_detection_sensitive(encoder_id)
+        arm_status__ = self.collision_detection_less_sensitive(encoder_id)
+        if arm_status_ != arm_status__:
+            print("Collision on servo: ", encoder_id)
+            return True
+        return False
 
 
 class ServoPosition(Node):
     def __init__(self):
+        """
+        This will update encoder position in real time and it will ignore the '-1' error.
+        """
         super().__init__('Servo_position')
         self.publisher_ = self.create_publisher(std_msgs.msg.String, 'servo_data', 0)
         timer_period = 0.01  # seconds
@@ -188,14 +169,15 @@ class ServoPosition(Node):
     def timer_callback(self):
         msg = std_msgs.msg.String()
         for i in range(1, capabilities['servo']['count'], 1):
+            runtime_data['time'][i] = time.time()
             if i != 2:
                 new_data = arm.get_encoder(i)
                 if new_data != -1:
                     if runtime_data['actual_encoder_position'][i]:
                         runtime_data['actual_encoder_position'][i].append(new_data)
                         runtime_data['actual_encoder_position'][i].popleft()
-        # print(runtime_data['actual_encoder_position'])
         msg.data = str(runtime_data['actual_encoder_position'])
+        # print("speed: ", global_arm['0'].get_servo_speeds())
         self.publisher_.publish(msg)
         self.i += 1
 
@@ -211,11 +193,13 @@ class Arm:
 
     @staticmethod
     def initialize(count):
+        default = [2048, 2048, 2048, 2048, 2048, 2048]
+        global_arm['0'].set_encoders(default, 100)
         for number_id in range(1, count + 1, 1):
             # if number_id != 0 and number_id != 0:
             if number_id not in runtime_data['target_position']:
                 runtime_data['target_position'][number_id] = 2048
-            # global_arm['0'].set_encoder(number_id, 2048)
+        time.sleep(3)
 
     @staticmethod
     def power_convert(encoder_id, power):
@@ -257,8 +241,22 @@ runtime_data = {
     "host_network": {},
     'motor_status': {},
     'target_position': {},
-    'actual_encoder_position': {}
+    'actual_encoder_position': {},
+    'time': {},
+    'position_difference': {}
 }
+
+# mycobot initialize section # # #
+# todo: To figure how to make this part scalable
+global_arm = dict()
+mycobot = Arm()
+print("initaializing the arm...")
+arm = mycobot.connection_initialize()
+global_arm['0'] = arm  # Is this even allowed?
+mycobot.initialize(capabilities['servo']['count'])
+for i in range(1, capabilities['servo']['count'], 1):
+    runtime_data['actual_encoder_position'][i] = deque([0, 0, 0, 0, 0])
+global_arm['0'].set_speed(100)
 
 # # # FEAGI registration # # #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
@@ -291,16 +289,9 @@ encoder_speed['encoder_speed'] = dict()
 for i in range(capabilities['servo']['count']):
     encoder_speed['encoder_speed'][i] = {}
 
-# mycobot initialize section
-# todo: To figure how to make this part scalable
-global_arm = dict()
-mycobot = Arm()
-arm = mycobot.connection_initialize()
-global_arm['0'] = arm  # Is this even allowed?
-mycobot.initialize(capabilities['servo']['count'])
-for i in range(1, capabilities['servo']['count'], 1):
-    runtime_data['actual_encoder_position'][i] = deque([0, 0, 0, 0, 0])
-
+speed = dict()
+for i in range(1, 7, 1):
+    speed[i] = {}
 
 # ROS 2 initialize section
 rclpy.init(args=None)
@@ -371,22 +362,40 @@ while keyboard_flag:
         if message_from_feagi is not None:
             opu_data = FEAGI.opu_processor(message_from_feagi)
             if 'servo' in opu_data:
-                if opu_data['servo'] is not {}:
-                    for data_point in opu_data['servo']:
-                        device_power = opu_data['servo'][data_point] - 10
-                        # device_power = mycobot.power_convert(data_point, device_power)
-                        device_id = data_point + 1
-                        # device_id = mycobot.encoder_converter(data_point)
-                        test = runtime_data['target_position'][device_id] + (device_power * 10)
+                try:
+                    if opu_data['servo'] is not {}:
+                        for data_point in opu_data['servo']:
+                            encoder_position = opu_data['servo'][data_point] - 10
+                            # encoder_position = mycobot.power_convert(data_point, encoder_position)
+                            device_id = data_point + 1
+                            # device_id = mycobot.encoder_converter(data_point)
+                            test = runtime_data['target_position'][device_id] + (encoder_position * 10)
+                            if capabilities['servo']['servo_range'][str(device_id)][1] >= test >= \
+                                    capabilities['servo']['servo_range'][str(device_id)][0]:
+                                runtime_data['target_position'][device_id] += encoder_position * 100
+                                speed[device_id] = (opu_data['servo'][data_point] - 10) * 10
+                except Exception as e:
+                    print("ERROR: ", e)
+                    traceback.print_exc()
 
-                        if capabilities['servo']['servo_range'][str(device_id)][1] >= test >= \
-                                capabilities['servo']['servo_range'][str(device_id)][0]:
-                            encoder_speed['encoder_speed'][data_point] = ((runtime_data['target_position'][
-                                                                               device_id] + device_power * 10) -
-                                                                          runtime_data['target_position'][
-                                                                              device_id]) / 0.2
-                            runtime_data['target_position'][device_id] += device_power * 10
             # Encoder speed IPU
+            try:
+                for i in range(1, capabilities['servo']['count'], 1):
+                    print("target position: ", runtime_data['target_position'][i])
+                    print("actual position: ", runtime_data['actual_encoder_position'][i][4])
+                    runtime_data['position_difference'][i - 1] = speed[i]
+                    # runtime_data['position_difference'][i] = ((runtime_data['actual_encoder_position'][i + 1][4] -
+                    #                                            runtime_data['actual_encoder_position'][i + 1][3]) / (
+                    #                                                   time.time() - runtime_data['time'][i + 1])) / 10
+                    # print("runtime_data['time'][i]: ", runtime_data['time'][1] , " time.time(): ", time.time(), " = ", (time.time() - runtime_data['time'][1]))
+                    # print("runtime_data['actual_encoder_position'][i][4]: ", runtime_data['actual_encoder_position'][1][4], "runtime_data['actual_encoder_position'][i][3]: ", runtime_data['actual_encoder_position'][1][3])
+                    # if runtime_data['position_difference'][i] != 0.0:
+                    #     print(runtime_data['position_difference'][i])
+                encoder_speed['encoder_speed'] = runtime_data['position_difference']
+                # encoder_speed['encoder_speed'] = speed[i]
+            except Exception as e:
+                print("ERROR: ", e)
+                traceback.print_exc()
             message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=encoder_speed,
                                                                    data=message_to_feagi)
         # Encoder position
@@ -421,6 +430,7 @@ while keyboard_flag:
         time.sleep(network_settings['feagi_burst_speed'])
         for i in encoder_speed['encoder_speed']:
             encoder_speed['encoder_speed'][i] = {}
+            speed[i] = {}
 
     except KeyboardInterrupt as ke:  # Keyboard error
         arm.release_all_servos()
