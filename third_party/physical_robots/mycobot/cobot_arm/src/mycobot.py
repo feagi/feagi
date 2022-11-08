@@ -7,6 +7,7 @@ from collections import deque
 from threading import Thread
 from configuration import *
 from rclpy.node import Node
+import cv2
 # from picamera.array import PiRGBArray
 # from picamera import PiCamera
 from datetime import datetime
@@ -53,32 +54,51 @@ class Servo(Node):
 
     def main_program_for_servos(self, encoder_id):
         # if self.arm_status(encoder_id):  # Collision detection
-        #     servo_string = str(encoder_id) + ' '
-        #     print(servo_string * 40)
-        # else:
-        try:
-            if runtime_data['actual_encoder_position'][encoder_id][4] != runtime_data['target_position'][encoder_id]:
-                if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
-                        runtime_data['target_position'][encoder_id]) >= \
-                        capabilities['servo']['servo_range'][str(encoder_id)][0]: # cap using servo_range
-                    if runtime_data['actual_encoder_position'][encoder_id][4] > \
-                            runtime_data['actual_encoder_position'][encoder_id][4] - capabilities['servo'][
-                        'power'] > \
-                            runtime_data['target_position'][encoder_id]:
-                        if speed[encoder_id]:
-                            global_arm['0'].set_speed(abs(speed[encoder_id]))
-                        global_arm['0'].set_encoder(encoder_id, runtime_data['target_position'][encoder_id])  # move the arm
-                    elif runtime_data['actual_encoder_position'][encoder_id][4] < \
-                            runtime_data['actual_encoder_position'][encoder_id][4] + capabilities['servo'][
-                        'power'] < \
-                            runtime_data['target_position'][encoder_id]:
-                        if speed[encoder_id]:
-                            global_arm['0'].set_speed(abs(speed[encoder_id]))
-                        global_arm['0'].set_encoder(encoder_id,
-                                                    runtime_data['target_position'][encoder_id])  # move the arm
-        except Exception as e:
-            print("ERROR: ", e)
-            traceback.print_exc()
+        a = runtime_data['actual_encoder_position'][encoder_id][4]
+        b = runtime_data['target_position'][encoder_id]
+        # print("encoder id: ", encoder_id, " target: ", b, " actual: ", a)
+        # servo_string = str(encoder_id) + ' '
+        # print(servo_string * 40)
+        # if self.check_direction_extra_sensitive(encoder_id) == "forward" and a > b:
+        #     if self.arm_status(encoder_id):
+        #         if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
+        #                 runtime_data['target_position'][encoder_id]) >= \
+        #                 capabilities['servo']['servo_range'][str(encoder_id)][0]:
+        #             runtime_data['target_position'][encoder_id] = runtime_data['target_position'][encoder_id] - 100
+        #             print("NEGATIVE 100")
+        # if self.check_direction_extra_sensitive(encoder_id) == "backward" and a < b:
+        #     if self.arm_status(encoder_id):
+        #         if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
+        #                 runtime_data['target_position'][encoder_id]) >= \
+        #                 capabilities['servo']['servo_range'][str(encoder_id)][0]:
+        #             runtime_data['target_position'][encoder_id] = runtime_data['target_position'][encoder_id] + 100
+        #             print("POSITIVE")
+        # elif self.check_direction_extra_sensitive(encoder_id) == "no_movement" and (a < b or a > b):
+        #     print("touched while not moving")
+        # try:
+        #     if runtime_data['actual_encoder_position'][encoder_id][4] !=\
+        #             runtime_data['target_position'][encoder_id]:
+        #         if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
+        #                 runtime_data['target_position'][encoder_id]) >= \
+        #                 capabilities['servo']['servo_range'][str(encoder_id)][0]:  # cap using servo_range
+        #             if runtime_data['actual_encoder_position'][encoder_id][4] > \
+        #                     runtime_data['actual_encoder_position'][encoder_id][4] - \
+        #                     capabilities['servo']['power'] > runtime_data['target_position'][encoder_id]:
+        #                 if speed[encoder_id]:
+        #                     global_arm['0'].set_speed(abs(speed[encoder_id]))
+        #                 global_arm['0'].set_encoder(encoder_id,
+        #                                             runtime_data['target_position'][encoder_id])  # move the arm
+        #             elif runtime_data['actual_encoder_position'][encoder_id][4] < \
+        #                     runtime_data['actual_encoder_position'][encoder_id][4] + capabilities['servo'][
+        #                 'power'] < \
+        #                     runtime_data['target_position'][encoder_id]:
+        #                 if speed[encoder_id]:
+        #                     global_arm['0'].set_speed(abs(speed[encoder_id]))
+        #                 global_arm['0'].set_encoder(encoder_id,
+        #                                             runtime_data['target_position'][encoder_id])  # move the arm
+        # except Exception as e:
+        #     print("ERROR: ", e)
+        #     traceback.print_exc()
 
         direction = self.check_direction_extra_sensitive(encoder_id)  # Check if reverse is true or
         # false
@@ -267,8 +287,9 @@ network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
-# # Camera section
+# Camera section
 # camera = PiCamera()
+camera = cv2.VideoCapture('/dev/video2')
 # camera.resolution = (640, 480)
 # camera.framerate = 32
 # rawCapture = PiRGBArray(camera, size=(640, 480))
@@ -298,62 +319,80 @@ executor_thread.start()
 
 while keyboard_flag:
     try:
-        #         # for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
-        #         #     if keyboard_flag:
-        #         #         image = frame.array
-        #         #         rawCapture.truncate(0)
-        #         #         if capabilities['camera']['disabled'] is not True:
-        #         #             retina_data = retina.frame_split(image,
-        #         #                                              capabilities['camera']['retina_width_percent'],
-        #         #                                              capabilities['camera']['retina_height_percent'])
-        #         #             for i in retina_data:
-        #         #                 if 'C' in i:
-        #         #                     retina_data[i] = retina.center_data_compression(retina_data[i],
-        #         #                                                                     capabilities['camera'][
-        #         #                                                                         "central_vision_compression"]
-        #         #                                                                     )
-        #         #                 else:
-        #         #                     retina_data[i] = retina.center_data_compression(retina_data[i],
-        #         #                                                                     capabilities['camera']
-        #         #                                                                     ['peripheral_vision_compression'])
-        #         #             rgb = dict()
-        #         #             rgb['camera'] = dict()
-        #         #             if previous_data_frame == {}:
-        #         #                 for i in retina_data:
-        #         #                     previous_name = str(i) + "_prev"
-        #         #                     previous_data_frame[previous_name] = {}
-        #         #             for i in retina_data:
-        #         #                 name = i
-        #         #                 if 'prev' not in i:
-        #         #                     data = retina.ndarray_to_list(retina_data[i])
-        #         #                     if 'C' in i:
-        #         #                         previous_name = str(i) + "_prev"
-        #         #                         rgb_data, previous_data_frame[previous_name] = \
-        #         #                             retina.get_rgb(data,
-        #         #                                            capabilities[
-        #         #                                                'camera'][
-        #         #                                                'central_vision_compression'],
-        #         #                                            previous_data_frame[
-        #         #                                                previous_name],
-        #         #                                            name,
-        #         #                                            capabilities['camera']['deviation_threshold'])
-        #         #                     else:
-        #         #                         previous_name = str(i) + "_prev"
-        #         #                         rgb_data, previous_data_frame[previous_name] = \
-        #         #                             retina.get_rgb(data, capabilities['camera']['peripheral_vision_compression'],
-        #         #                                            previous_data_frame[previous_name], name,
-        #         #                                            capabilities['camera']['deviation_threshold'])
-        #         #                     for a in rgb_data['camera']:
-        #         #                         rgb['camera'][a] = rgb_data['camera'][a]
-        #         #         else:
-        #         #             rgb = {}
-        #         #
-        #         #     message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=rgb, data=message_to_feagi)
-        #
+        # for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
+        if keyboard_flag:
+            ret, frame = camera.read()
+            image = frame
+            # cv2.imshow('frame', frame)
+            # if cv2.waitKey(1) & 0xFF == ord('q'):
+            #     break
+            # rawCapture.truncate(0)
+            if capabilities['camera']['disabled'] is not True:
+                retina_data = retina.frame_split(image,
+                                                 capabilities['camera']['retina_width_percent'],
+                                                 capabilities['camera']['retina_height_percent'])
+                for i in retina_data:
+                    if 'C' in i:
+                        retina_data[i] = retina.center_data_compression(retina_data[i],
+                                                                        capabilities['camera'][
+                                                                            "central_vision_compression"]
+                                                                        )
+                    else:
+                        retina_data[i] = retina.center_data_compression(retina_data[i],
+                                                                        capabilities['camera']
+                                                                        ['peripheral_vision_compression'])
+                rgb = dict()
+                rgb['camera'] = dict()
+                if previous_data_frame == {}:
+                    for i in retina_data:
+                        previous_name = str(i) + "_prev"
+                        previous_data_frame[previous_name] = {}
+                for i in retina_data:
+                    name = i
+                    if 'prev' not in i:
+                        data = retina.ndarray_to_list(retina_data[i])
+                        if 'C' in i:
+                            previous_name = str(i) + "_prev"
+                            rgb_data, previous_data_frame[previous_name] = \
+                                retina.get_rgb(data,
+                                               capabilities[
+                                                   'camera'][
+                                                   'central_vision_compression'],
+                                               previous_data_frame[
+                                                   previous_name],
+                                               name,
+                                               capabilities['camera']['deviation_threshold'])
+                        else:
+                            previous_name = str(i) + "_prev"
+                            rgb_data, previous_data_frame[previous_name] = \
+                                retina.get_rgb(data, capabilities['camera']['peripheral_vision_compression'],
+                                               previous_data_frame[previous_name], name,
+                                               capabilities['camera']['deviation_threshold'])
+                        for a in rgb_data['camera']:
+                            rgb['camera'][a] = rgb_data['camera'][a]
+            else:
+                rgb = {}
+
+        message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=rgb, data=message_to_feagi)
+
         # OPU section
         message_from_feagi = feagi_opu_channel.receive()
         if message_from_feagi is not None:
             opu_data = FEAGI.opu_processor(message_from_feagi)
+            if 'servo_position' in opu_data:
+                try:
+                    if opu_data['servo_position'] is not {}:
+                        for data_point in opu_data['servo_position']:
+                            device_id = data_point + 1
+                            encoder_position = ((capabilities['servo']['servo_range'][str(device_id)][1] - capabilities['servo']['servo_range'][str(device_id)][0]) / 20) * opu_data['servo_position'][data_point]
+                            runtime_data['target_position'][device_id] = encoder_position
+                            print(encoder_position, " is encoder id: ", device_id)
+                            print(runtime_data['target_position'][device_id])
+                            speed[device_id] = (opu_data['servo_position'][data_point] - 10) * 10
+                except Exception as e:
+                    print("ERROR: ", e)
+                    traceback.print_exc()
+
             if 'servo' in opu_data:
                 try:
                     if opu_data['servo'] is not {}:
