@@ -22,7 +22,7 @@ class Pub:
 
     def send(self, message):
         self.socket.send_pyobj(message)
-        print("Sent:\n", message, "... from ", self.address, "\n\n")
+        #print("Sent:\n", message, "... from ", self.address, "\n\n")
 
 
 class Sub:
