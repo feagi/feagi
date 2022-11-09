@@ -183,6 +183,7 @@ def init_working_directory():
         # print(runtime_data.paths)
 
 
+# Todo: Check of the following init is needed anymore
 def init_genome(genome):
     print("\nInitializing genome...\n")
     # The following stages the genome in the proper connectome path and loads it into the memory
@@ -192,13 +193,12 @@ def init_genome(genome):
         if runtime_data.genome['version'] == "2.0":
             print("\n\n\n"
                   ""
-                  "************ Genome Version 2.0 has been detected **************\n\n\n")
+                  "******* ***** Genome Version 2.0 has been detected **************\n\n\n")
             runtime_data.genome_ver = "2.0"
             runtime_data.cortical_list = genome_2_cortical_list(runtime_data.genome['blueprint'])
             genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
             genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])
             runtime_data.genome['blueprint'] = genome2['blueprint']
-            blueprint_validator(runtime_data.genome)
         else:
             print("ERROR! Genome is not compatible with 2.0 standard")
     except KeyError as e:
