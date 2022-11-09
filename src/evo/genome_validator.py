@@ -22,6 +22,7 @@ Supporting Genome Versions: 2.0
 
 from evo.genome_properties import *
 from evo import static_genome
+from inf import settings
 
 
 def cortical_list_gen(blueprint):
@@ -87,14 +88,18 @@ def blueprint_validator(genome):
             valid_genome = False
 
     if valid_genome:
-        print("\n" + "* -- * " * 20)
+        print("\n" + settings.Bcolors.OKGREEN + "* -- * " * 20 + settings.Bcolors.ENDC)
+        print("\n" + settings.Bcolors.OKGREEN + "* -- * " * 20 + settings.Bcolors.ENDC)
         print("\n\t\t\t\t\t\t\t\tGenome validation completed successfully!!")
-        print("\n" + "* -- * " * 20)
+        print("\n" + settings.Bcolors.OKGREEN + "* -- * " * 20 + settings.Bcolors.ENDC)
+        print("\n" + settings.Bcolors.OKGREEN + "* -- * " * 20 + settings.Bcolors.ENDC)
         return True
     else:
-        print("\n" + "! ! " * 30)
+        print("\n" + settings.Bcolors.RED + "! ! " * 30 + settings.Bcolors.ENDC)
+        print("\n" + settings.Bcolors.RED + "! ! " * 30 + settings.Bcolors.ENDC)
         print("\n\t\t\t\t\t\t\t\tErrors detected during genome validation!!")
-        print("\n" + "! ! " * 30)
+        print("\n" + settings.Bcolors.RED + "! ! " * 30 + settings.Bcolors.ENDC)
+        print("\n" + settings.Bcolors.RED + "! ! " * 30 + settings.Bcolors.ENDC)
         return False
 
 
