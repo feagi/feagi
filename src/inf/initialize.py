@@ -35,6 +35,7 @@ from evo.genome_editor import save_genome
 from inf.messenger import Pub
 from evo.neuroembryogenesis import generate_plasticity_dict
 from evo.genome_processor import *
+from evo.genome_validator import *
 
 log = logging.getLogger(__name__)
 
@@ -197,6 +198,7 @@ def init_genome(genome):
             genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
             genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])
             runtime_data.genome['blueprint'] = genome2['blueprint']
+            blueprint_validator(runtime_data.genome)
         else:
             print("ERROR! Genome is not compatible with 2.0 standard")
     except KeyError as e:
