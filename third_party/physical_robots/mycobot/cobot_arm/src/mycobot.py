@@ -75,30 +75,30 @@ class Servo(Node):
         #             print("POSITIVE")
         # elif self.check_direction_extra_sensitive(encoder_id) == "no_movement" and (a < b or a > b):
         #     print("touched while not moving")
-        # try:
-        #     if runtime_data['actual_encoder_position'][encoder_id][4] !=\
-        #             runtime_data['target_position'][encoder_id]:
-        #         if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
-        #                 runtime_data['target_position'][encoder_id]) >= \
-        #                 capabilities['servo']['servo_range'][str(encoder_id)][0]:  # cap using servo_range
-        #             if runtime_data['actual_encoder_position'][encoder_id][4] > \
-        #                     runtime_data['actual_encoder_position'][encoder_id][4] - \
-        #                     capabilities['servo']['power'] > runtime_data['target_position'][encoder_id]:
-        #                 if speed[encoder_id]:
-        #                     global_arm['0'].set_speed(abs(speed[encoder_id]))
-        #                 global_arm['0'].set_encoder(encoder_id,
-        #                                             runtime_data['target_position'][encoder_id])  # move the arm
-        #             elif runtime_data['actual_encoder_position'][encoder_id][4] < \
-        #                     runtime_data['actual_encoder_position'][encoder_id][4] + capabilities['servo'][
-        #                 'power'] < \
-        #                     runtime_data['target_position'][encoder_id]:
-        #                 if speed[encoder_id]:
-        #                     global_arm['0'].set_speed(abs(speed[encoder_id]))
-        #                 global_arm['0'].set_encoder(encoder_id,
-        #                                             runtime_data['target_position'][encoder_id])  # move the arm
-        # except Exception as e:
-        #     print("ERROR: ", e)
-        #     traceback.print_exc()
+        try:
+            if runtime_data['actual_encoder_position'][encoder_id][4] !=\
+                    runtime_data['target_position'][encoder_id]:
+                if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
+                        runtime_data['target_position'][encoder_id]) >= \
+                        capabilities['servo']['servo_range'][str(encoder_id)][0]:  # cap using servo_range
+                    if runtime_data['actual_encoder_position'][encoder_id][4] > \
+                            runtime_data['actual_encoder_position'][encoder_id][4] - \
+                            capabilities['servo']['power'] > runtime_data['target_position'][encoder_id]:
+                        if speed[encoder_id]:
+                            global_arm['0'].set_speed(abs(speed[encoder_id]))
+                        global_arm['0'].set_encoder(encoder_id,
+                                                    runtime_data['target_position'][encoder_id])  # move the arm
+                    elif runtime_data['actual_encoder_position'][encoder_id][4] < \
+                            runtime_data['actual_encoder_position'][encoder_id][4] + capabilities['servo'][
+                        'power'] < \
+                            runtime_data['target_position'][encoder_id]:
+                        if speed[encoder_id]:
+                            global_arm['0'].set_speed(abs(speed[encoder_id]))
+                        global_arm['0'].set_encoder(encoder_id,
+                                                    runtime_data['target_position'][encoder_id])  # move the arm
+        except Exception as e:
+            print("ERROR: ", e)
+            traceback.print_exc()
 
         direction = self.check_direction_extra_sensitive(encoder_id)  # Check if reverse is true or
         # false
