@@ -15,13 +15,19 @@
 # ==============================================================================
 
 import copy
+import traceback
 from evo.genome_editor import save_genome
+from evo.genome_validator import *
 
 
 def genome_ver_check(genome):
     try:
         if genome['version'] == "2.0":
             print("\n\n\n************ Genome Version 2.0 has been detected **************\n\n\n")
+            try:
+                blueprint_validator(genome)
+            except Exception:
+                print("Error during genome validation!!\n", traceback.print_exc())
             save_genome(genome=genome, file_name="../runtime_genome.py")
             genome2 = genome_2_1_convertor(flat_genome=genome['blueprint'])
             genome_2_hierarchifier(flat_genome=genome['blueprint'])
