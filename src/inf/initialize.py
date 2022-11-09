@@ -199,6 +199,7 @@ def init_genome(genome):
             genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
             genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])
             runtime_data.genome['blueprint'] = genome2['blueprint']
+            blueprint_validator(runtime_data.genome)
         else:
             print("ERROR! Genome is not compatible with 2.0 standard")
     except KeyError as e:
