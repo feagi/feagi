@@ -20,8 +20,8 @@ Provides a series of methods to validate genome syntax
 Supporting Genome Versions: 2.0
 """
 
-from genome_properties import genome_properties
-import static_genome
+from evo.genome_properties import *
+from evo import static_genome
 
 
 def cortical_list_gen(blueprint):
