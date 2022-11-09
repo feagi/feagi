@@ -289,7 +289,7 @@ network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst
 
 # Camera section
 # camera = PiCamera()
-camera = cv2.VideoCapture('/dev/video2')
+# camera = cv2.VideoCapture('/dev/video2')
 # camera.resolution = (640, 480)
 # camera.framerate = 32
 # rawCapture = PiRGBArray(camera, size=(640, 480))
@@ -319,61 +319,61 @@ executor_thread.start()
 
 while keyboard_flag:
     try:
-        # for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
-        if keyboard_flag:
-            ret, frame = camera.read()
-            image = frame
-            # cv2.imshow('frame', frame)
-            # if cv2.waitKey(1) & 0xFF == ord('q'):
-            #     break
-            # rawCapture.truncate(0)
-            if capabilities['camera']['disabled'] is not True:
-                retina_data = retina.frame_split(image,
-                                                 capabilities['camera']['retina_width_percent'],
-                                                 capabilities['camera']['retina_height_percent'])
-                for i in retina_data:
-                    if 'C' in i:
-                        retina_data[i] = retina.center_data_compression(retina_data[i],
-                                                                        capabilities['camera'][
-                                                                            "central_vision_compression"]
-                                                                        )
-                    else:
-                        retina_data[i] = retina.center_data_compression(retina_data[i],
-                                                                        capabilities['camera']
-                                                                        ['peripheral_vision_compression'])
-                rgb = dict()
-                rgb['camera'] = dict()
-                if previous_data_frame == {}:
-                    for i in retina_data:
-                        previous_name = str(i) + "_prev"
-                        previous_data_frame[previous_name] = {}
-                for i in retina_data:
-                    name = i
-                    if 'prev' not in i:
-                        data = retina.ndarray_to_list(retina_data[i])
-                        if 'C' in i:
-                            previous_name = str(i) + "_prev"
-                            rgb_data, previous_data_frame[previous_name] = \
-                                retina.get_rgb(data,
-                                               capabilities[
-                                                   'camera'][
-                                                   'central_vision_compression'],
-                                               previous_data_frame[
-                                                   previous_name],
-                                               name,
-                                               capabilities['camera']['deviation_threshold'])
-                        else:
-                            previous_name = str(i) + "_prev"
-                            rgb_data, previous_data_frame[previous_name] = \
-                                retina.get_rgb(data, capabilities['camera']['peripheral_vision_compression'],
-                                               previous_data_frame[previous_name], name,
-                                               capabilities['camera']['deviation_threshold'])
-                        for a in rgb_data['camera']:
-                            rgb['camera'][a] = rgb_data['camera'][a]
-            else:
-                rgb = {}
-
-        message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=rgb, data=message_to_feagi)
+        # # for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
+        # if keyboard_flag:
+        #     ret, frame = camera.read()
+        #     image = frame
+        #     # cv2.imshow('frame', frame)
+        #     # if cv2.waitKey(1) & 0xFF == ord('q'):
+        #     #     break
+        #     # rawCapture.truncate(0)
+        #     if capabilities['camera']['disabled'] is not True:
+        #         retina_data = retina.frame_split(image,
+        #                                          capabilities['camera']['retina_width_percent'],
+        #                                          capabilities['camera']['retina_height_percent'])
+        #         for i in retina_data:
+        #             if 'C' in i:
+        #                 retina_data[i] = retina.center_data_compression(retina_data[i],
+        #                                                                 capabilities['camera'][
+        #                                                                     "central_vision_compression"]
+        #                                                                 )
+        #             else:
+        #                 retina_data[i] = retina.center_data_compression(retina_data[i],
+        #                                                                 capabilities['camera']
+        #                                                                 ['peripheral_vision_compression'])
+        #         rgb = dict()
+        #         rgb['camera'] = dict()
+        #         if previous_data_frame == {}:
+        #             for i in retina_data:
+        #                 previous_name = str(i) + "_prev"
+        #                 previous_data_frame[previous_name] = {}
+        #         for i in retina_data:
+        #             name = i
+        #             if 'prev' not in i:
+        #                 data = retina.ndarray_to_list(retina_data[i])
+        #                 if 'C' in i:
+        #                     previous_name = str(i) + "_prev"
+        #                     rgb_data, previous_data_frame[previous_name] = \
+        #                         retina.get_rgb(data,
+        #                                        capabilities[
+        #                                            'camera'][
+        #                                            'central_vision_compression'],
+        #                                        previous_data_frame[
+        #                                            previous_name],
+        #                                        name,
+        #                                        capabilities['camera']['deviation_threshold'])
+        #                 else:
+        #                     previous_name = str(i) + "_prev"
+        #                     rgb_data, previous_data_frame[previous_name] = \
+        #                         retina.get_rgb(data, capabilities['camera']['peripheral_vision_compression'],
+        #                                        previous_data_frame[previous_name], name,
+        #                                        capabilities['camera']['deviation_threshold'])
+        #                 for a in rgb_data['camera']:
+        #                     rgb['camera'][a] = rgb_data['camera'][a]
+        #     else:
+        #         rgb = {}
+        #
+        # message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=rgb, data=message_to_feagi)
 
         # OPU section
         message_from_feagi = feagi_opu_channel.receive()
