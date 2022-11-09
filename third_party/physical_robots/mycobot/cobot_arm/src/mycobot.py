@@ -319,66 +319,11 @@ executor_thread.start()
 
 while keyboard_flag:
     try:
-        # # for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
-        # if keyboard_flag:
-        #     ret, frame = camera.read()
-        #     image = frame
-        #     # cv2.imshow('frame', frame)
-        #     # if cv2.waitKey(1) & 0xFF == ord('q'):
-        #     #     break
-        #     # rawCapture.truncate(0)
-        #     if capabilities['camera']['disabled'] is not True:
-        #         retina_data = retina.frame_split(image,
-        #                                          capabilities['camera']['retina_width_percent'],
-        #                                          capabilities['camera']['retina_height_percent'])
-        #         for i in retina_data:
-        #             if 'C' in i:
-        #                 retina_data[i] = retina.center_data_compression(retina_data[i],
-        #                                                                 capabilities['camera'][
-        #                                                                     "central_vision_compression"]
-        #                                                                 )
-        #             else:
-        #                 retina_data[i] = retina.center_data_compression(retina_data[i],
-        #                                                                 capabilities['camera']
-        #                                                                 ['peripheral_vision_compression'])
-        #         rgb = dict()
-        #         rgb['camera'] = dict()
-        #         if previous_data_frame == {}:
-        #             for i in retina_data:
-        #                 previous_name = str(i) + "_prev"
-        #                 previous_data_frame[previous_name] = {}
-        #         for i in retina_data:
-        #             name = i
-        #             if 'prev' not in i:
-        #                 data = retina.ndarray_to_list(retina_data[i])
-        #                 if 'C' in i:
-        #                     previous_name = str(i) + "_prev"
-        #                     rgb_data, previous_data_frame[previous_name] = \
-        #                         retina.get_rgb(data,
-        #                                        capabilities[
-        #                                            'camera'][
-        #                                            'central_vision_compression'],
-        #                                        previous_data_frame[
-        #                                            previous_name],
-        #                                        name,
-        #                                        capabilities['camera']['deviation_threshold'])
-        #                 else:
-        #                     previous_name = str(i) + "_prev"
-        #                     rgb_data, previous_data_frame[previous_name] = \
-        #                         retina.get_rgb(data, capabilities['camera']['peripheral_vision_compression'],
-        #                                        previous_data_frame[previous_name], name,
-        #                                        capabilities['camera']['deviation_threshold'])
-        #                 for a in rgb_data['camera']:
-        #                     rgb['camera'][a] = rgb_data['camera'][a]
-        #     else:
-        #         rgb = {}
-        #
-        # message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=rgb, data=message_to_feagi)
-
         # OPU section
         message_from_feagi = feagi_opu_channel.receive()
         if message_from_feagi is not None:
             opu_data = FEAGI.opu_processor(message_from_feagi)
+            # print(opu_data)
             if 'servo_position' in opu_data:
                 try:
                     if opu_data['servo_position'] is not {}:
@@ -386,8 +331,9 @@ while keyboard_flag:
                             device_id = data_point + 1
                             encoder_position = ((capabilities['servo']['servo_range'][str(device_id)][1] - capabilities['servo']['servo_range'][str(device_id)][0]) / 20) * opu_data['servo_position'][data_point]
                             runtime_data['target_position'][device_id] = encoder_position
-                            print(encoder_position, " is encoder id: ", device_id)
-                            print(runtime_data['target_position'][device_id])
+                            # print(encoder_position, " is encoder id: ", device_id)
+                            # print(runtime_data['target_position'][device_id])
+                            print("CLICKED")
                             speed[device_id] = (opu_data['servo_position'][data_point] - 10) * 10
                 except Exception as e:
                     print("ERROR: ", e)
@@ -435,11 +381,21 @@ while keyboard_flag:
         # Doing the misc background work (check on sync setting #
         msg_counter += 1
         flag += 1
-        if flag == 10:
+        if flag == 100:
             feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
             feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
             flag = 0
             if msg_counter < feagi_burst_counter:
+                message_from_feagi = feagi_opu_channel.receive()
+                opu_data = FEAGI.opu_processor(message_from_feagi)
+                if opu_data['servo_position']:
+                    for data_point in opu_data['servo_position']:
+                        device_id = data_point + 1
+                        encoder_position = ((capabilities['servo']['servo_range'][str(device_id)][1] -
+                                             capabilities['servo']['servo_range'][str(device_id)][0]) / 20) * \
+                                           opu_data['servo_position'][data_point]
+                        runtime_data['target_position'][device_id] = encoder_position
+                        speed[device_id] = (opu_data['servo_position'][data_point] - 10) * 10
                 feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
                 if feagi_burst_speed != network_settings['feagi_burst_speed']:
                     network_settings['feagi_burst_speed'] = feagi_burst_speed
