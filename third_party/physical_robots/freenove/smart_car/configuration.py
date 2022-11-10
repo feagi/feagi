@@ -28,7 +28,7 @@ network_settings = {
 capabilities = {
     "servo": {
         "type": "opu",
-        "disabled": True,
+        "disabled": False,
         "refresh_rate": 1,
         "cortical_mapping": "o__ser",
         'count': 2,
@@ -70,8 +70,8 @@ capabilities = {
         "width": 8,
         "height": 8,
         "deviation_threshold": 0.7,
-        "retina_width_percent": 20,
-        "retina_height_percent": 20,
+        "retina_width_percent": 90,
+        "retina_height_percent": 80,
         "central_vision_compression": [64, 64],
         "peripheral_vision_compression": [8, 8],
         "previous_data": {}
