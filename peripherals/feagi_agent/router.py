@@ -22,7 +22,7 @@ class Pub:
 
     def send(self, message):
         self.socket.send_pyobj(message)
-        #print("Sent:\n", message, "... from ", self.address, "\n\n")
+        # print("Sent:\n", message, "... from ", self.address, "\n\n")
 
 
 class Sub:
@@ -30,6 +30,7 @@ class Sub:
         context = zmq.Context()
         self.socket = context.socket(zmq.SUB)
         self.socket.connect(address)
+        self.socket.setsockopt(zmq.CONFLATE, 1)
         self.socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
         self.flag = flags
 
