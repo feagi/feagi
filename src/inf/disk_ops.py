@@ -108,7 +108,7 @@ def save_fcl_to_disk():
 def save_brain_to_disk(cortical_area='all', brain=runtime_data.brain,
                        connectome_path=runtime_data.connectome_path,
                        parameters=runtime_data.parameters, type=None):
-    print("connectome_path / runtime_connectome_path:", connectome_path, runtime_data.connectome_path)
+    print("Saving cortical area to disk:", runtime_data.connectome_path, cortical_area)
     if not connectome_path:
         connectome_path = runtime_data.connectome_path
     if not brain:
