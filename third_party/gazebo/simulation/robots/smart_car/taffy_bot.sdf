@@ -1,6 +1,19 @@
 <?xml version="1.0" ?>
 <sdf version="1.6">
+<!--Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.-->
 
+<!--Licensed under the Apache License, Version 2.0 (the "License");-->
+<!--you may not use this file except in compliance with the License.-->
+<!--You may obtain a copy of the License at-->
+
+<!--    http://www.apache.org/licenses/LICENSE-2.0-->
+
+<!--Unless required by applicable law or agreed to in writing, software-->
+<!--distributed under the License is distributed on an "AS IS" BASIS,-->
+<!--WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.-->
+<!--See the License for the specific language governing permissions and-->
+<!--limitations under the License.-->
+<!--==============================================================================-->
     <model name='taffy_bot'>
       <pose>0 0 0 0 -0 0</pose>
 
@@ -8,7 +21,7 @@
         <link name='chassis'>
             <pose>0 0 .1 0 0 0</pose>
             <inertial>
-              <mass>4</mass>
+              <mass>40</mass>
               <inertia>
                 <ixx>0.005</ixx>
                 <ixy>0</ixy>
@@ -46,6 +59,13 @@
                 <contact/>
                 <collide_bitmask>0x01</collide_bitmask>
               </collision>
+            <sensor name="imu" type="imu">
+              <always_on>1</always_on>
+              <update_rate>100</update_rate>
+              <visualize>true</visualize>
+              <topic>imu</topic>
+              <enable_metrics>true</enable_metrics>
+            </sensor>
           </link>
 
         <link name='plate'>
@@ -79,12 +99,12 @@
 
       <link name='rear_left_wheel'>
         <pose>-0.1 0.088 0.05 0 1.5707 1.5707</pose>
-      <mass>0.408233</mass>
+      <mass>20</mass>
         <inertial>
         <inertia>
-          <ixx>0.003</ixx>
-          <iyy>0.003</iyy>
-          <izz>0.003</izz>
+          <ixx>0.5</ixx>
+          <iyy>0.5</iyy>
+          <izz>0.5</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -132,12 +152,12 @@
 
       <link name='rear_right_wheel'>
         <pose> -0.1 -0.088 0.05 0 1.5707 1.5707 </pose>
-      <mass>0.408233</mass>
+      <mass>20</mass>
         <inertial>
         <inertia>
-          <ixx>0.003</ixx>
-          <iyy>0.003</iyy>
-          <izz>0.003</izz>
+          <ixx>0.5</ixx>
+          <iyy>0.5</iyy>
+          <izz>0.5</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -185,12 +205,12 @@
 
       <link name='front_left_wheel'>
         <pose>0.1 0.088 0.05 0 1.5707 1.5707</pose>
-      <mass>0.408233</mass>
+      <mass>20</mass>
         <inertial>
         <inertia>
-          <ixx>0.003</ixx>
-          <iyy>0.003</iyy>
-          <izz>0.003</izz>
+          <ixx>0.5</ixx>
+          <iyy>0.5</iyy>
+          <izz>0.5</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -238,12 +258,12 @@
 
       <link name='front_right_wheel'>
         <pose>0.1 -0.088 0.05 0 1.5707 1.5707</pose>
-      <mass>0.408233</mass>
+      <mass>20</mass>
         <inertial>
         <inertia>
-          <ixx>0.003</ixx>
-          <iyy>0.003</iyy>
-          <izz>0.003</izz>
+          <ixx>0.5</ixx>
+          <iyy>0.5</iyy>
+          <izz>0.5</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
