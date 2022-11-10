@@ -235,11 +235,59 @@ def servo_positions_to_coords(servo_data, servo_id):
     detection_locations = []
     idx = servo_id
     position = servo_data
-    dist_map = map_value(position, servo_range[str(idx)][0], servo_range[str(idx)][1], 0, Z_MAX-1)
+    dist_map = map_value(position, servo_range[str(idx)][0], servo_range[str(idx)][1], 0, Z_MAX - 1)
     x = idx - 1  # shift backward by one
     y = Y_MAX // 2
     z = dist_map
     detection_locations.append((x, y, int(z)))
+    return detection_locations
+
+
+def encoder_to_coords(encoder_data, servo_id):
+    """ Converts turtlebot LIDAR data to coordinates in
+    the proximity cortical area.
+
+    :param encoder_data: float array of detection position currently on real life
+    :param servo_id: servo id (from 1 to 6)
+    :return: list of tuple detection locations (x, y, z)
+    """
+    Y_MAX = runtime_data.genome['blueprint']['i__enc']['neuron_params']['block_boundaries'][1]
+    Z_MAX = runtime_data.genome['blueprint']['i__enc']['neuron_params']['block_boundaries'][2]
+
+    detection_locations = []
+    idx = servo_id
+    position = encoder_data
+    dist_map = map_value(position, -Z_MAX / 2, Z_MAX / 2, 0, Z_MAX - 1)
+    x = idx - 1  # shift backward by one
+    y = Y_MAX // 2
+    z = dist_map
+    detection_locations.append((x, y, int(z)))
+    return detection_locations
+
+
+def encoder_speed_to_coords(encoder_data):
+    """ Converts turtlebot LIDAR data to coordinates in
+    the proximity cortical area.
+
+    :param encoder_data: float array of detection position currently on real life
+    :param servo_id: servo id (from 1 to 6)
+    :return: list of tuple detection locations (x, y, z)
+    """
+    Y_MAX = runtime_data.genome['blueprint']['i__esp']['neuron_params']['block_boundaries'][1]
+    Z_MAX = runtime_data.genome['blueprint']['i__esp']['neuron_params']['block_boundaries'][2]
+
+    detection_locations = []
+    for i in encoder_data:
+        if encoder_data[i] != {}:
+            idx = i
+            position = encoder_data[i]
+            dist_map = map_value(position, -100, 100, 0, Z_MAX - 1)
+            x = idx  # shift backward by one
+            y = Y_MAX // 2
+            z = dist_map
+            detection_locations.append((x, y, int(z)))
+        else:
+            detection_locations.append((i, 0, int(Z_MAX/2)))
     return detection_locations
 
 
