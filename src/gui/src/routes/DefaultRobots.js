@@ -41,8 +41,8 @@ const DefaultRobots = (props) => {
         <Item>
           <label htmlFor="robot-card">
             <MenuCard
-              image={<Img src={require('../assets/taffy_bot.png')} width="225" height="225" />}
-              onClick={() => handleRobotSelection('"taffy_bot.sdf"', '"/robots/smart_car/"')}
+              image={<Img src={require('../assets/smart_car.png')} width="225" height="225" />}
+              onClick={() => handleRobotSelection('"smart_car.sdf"', '"/robots/smart_car/"')}
               changeColorOnClick={false}
             />
           </label>

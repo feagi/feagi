@@ -210,8 +210,8 @@ const MonitoringDashboard = (props) => {
             <Item>
               <label htmlFor="robot-card">
                 <MenuCard
-                  image={<img src={require('../assets/taffy_bot.png')} width="225" height="225" />}
-                  onClick={() => {handleRobotSelection('"taffy_bot.sdf"', '"/robots/smart_car/"'); handleRobotSelectorDialogClose()}}
+                  image={<img src={require('../assets/smart_car.png')} width="225" height="225" />}
+                  onClick={() => {handleRobotSelection('"smart_car.sdf"', '"/robots/smart_car/"'); handleRobotSelectorDialogClose()}}
                   changeColorOnClick={false}
                 />
               </label>
