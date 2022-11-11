@@ -97,7 +97,6 @@ func _ready():
 #		print("data from python: ", data)
 		start = OS.get_ticks_msec()## This will time the engine at start
 		yield(get_tree().create_timer(0.01), "timeout")
-#		$GridMap.clear()
 		end = OS.get_ticks_msec()
 		var time_total = end - start
 		if time_total < 500: ## Generate voxels as long as you are on the tab
@@ -209,7 +208,6 @@ func _clear_node_name_list(node_name):
 
 func check_csv():
 	if csv_flag == false:
-		#print("FALSE!")
 		var check = File.new()
 		if check.file_exists('res://csv_data.gdc'):
 			csv_flag = true
@@ -221,7 +219,6 @@ func check_csv():
 				_csv_generator()
 				stored_csv = current_csv
 	else:
-		#print("TRUE!")
 		var check = File.new()
 		check.open(file, File.READ)
 		var current_csv = check.get_as_text()
@@ -250,9 +247,8 @@ func generate_voxels():
 			elif flag == 2:
 				flag = 0
 				z = int(test[key])
-				#check_cortical_area(x,y,z)
 				var position = Transform()
 				position = position.translated(Vector3(int(x), int(y), int(z)))
 				$red_voxel.multimesh.set_instance_transform(key, position)
 			key+= 1
-		flag = 0 #keep x,y,z in correct place
+		flag = 0 # keep x,y,z in correct place
