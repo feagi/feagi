@@ -252,3 +252,35 @@ func generate_voxels():
 				$red_voxel.multimesh.set_instance_transform(key, position)
 			key+= 1
 		flag = 0 # keep x,y,z in correct place
+
+
+func _on_Add_it_pressed():
+	x = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/X.value); y = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/Y.value); z = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/Z.value); width= int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/W.value) 
+	height = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/H.value); depth = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/D.value)
+	var copy = duplicate_model.duplicate() 
+	var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
+	var viewport = create_textbox.get_node("Viewport")
+	create_textbox.set_texture(viewport.get_texture())
+	add_child(copy)
+	global_name_list.append(copy)
+	name = $Spatial/Camera/Menu/add_cortical_button/cortical_menu/name_string.text
+	create_textbox.set_name(name + "_textbox")
+	add_child(create_textbox)#Copied the node to new node
+	global_name_list.append(create_textbox)
+	create_textbox.scale = Vector3(1,1,1)
+	if int(width) * int(depth) * int(height) < 999: # Prevent massive cortical area 
+		generate_model(create_textbox, x,y,z,width, depth, height, name)
+	else:
+		generate_one_model(create_textbox, x,y,z,width, depth, height, name)
+	# copy.queue_free() #This acts like .clear() but for CSGBox
+	if cortical_area.empty(): #Checks if dict is empty
+		adding_cortical_areas(name,x,y,z,height,width,depth) #adding to dict
+		cortical_area_stored = cortical_area
+	elif cortical_area.hash() == cortical_area_stored.hash():
+		adding_cortical_areas(name,x,y,z,height,width,depth)
+	
+#	print("x: ", $add_cortical_button/cortical_menu/X.value)
+#	print("y: ", $add_cortical_button/cortical_menu/Y.value)
+#	print("type: ", $add_cortical_button/cortical_menu/OptionButton.selected)
+#	print("name: ", $add_cortical_button/cortical_menu/name_string.text)
+
