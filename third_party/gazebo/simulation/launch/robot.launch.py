@@ -85,6 +85,7 @@ def generate_launch_description():
         package='ros_ign_bridge',
         executable='parameter_bridge',
         arguments=['/imu@sensor_msgs/msg/Imu@ignition.msgs.IMU',
+                   '/x3_uav/gazebo/command/twist@geometry_msgs/msg/Twist@ignition.msgs.Twist',
                    '/ultrasonic0@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan',
                    '/Camera0/image@sensor_msgs/msg/Image@ignition.msgs.Image',
                    '/IR1/image@sensor_msgs/msg/Image@ignition.msgs.Image',
