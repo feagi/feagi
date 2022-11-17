@@ -1,99 +1,79 @@
 **This page may be outdated or incomplete. Please refer to the [deployment guide](https://github.com/feagi/feagi/wiki/Deployment) in our wiki for the most up to date information.**
 
+# Overview
+* [Requirements](#Requirements)
+  * [Minimum System Requirements](#Minimum-System-Requirements)
+  * [Supported Operating Systems](#Supported-Operating-Systems)
+  * [Dependencies](#Dependencies)
+* [Deployment](#Deployment)
+* [Troubleshooting](#Troubleshooting)
 
 
 # Introduction
-FEAGI platform is consisted of core component known as FEAGI-core that is at large a Python package and responsible for 
-the creation, development, and operation of the artificial brain processes. Furthermore, FEAGI leverages many open-source 
-libraries as part of its ecosystem to provide visualization, data analytics, 3D simulation, and robot integration 
-capabilities. We have containerized all the needed software packages and provided a simple method to deploy the entire
-software using Docker. This document describes system requirements and the steps to deploy FEAGI platform. 
-
+The Framework for Artificial General Intelligence (FEAGI) platform consists of core components known as FEAGI-core that is at large a Python package and is responsible for the creation, development, and operation of the artificial brain processes. FEAGI leverages many open-source libraries as part of its ecosystem to provide data visualization, data analytics, 3D simulation, and robot integration 
+capabilities. All the needed software packages are containerized to provided a simple method to deploy the software using Docker. This document describes system requirements and the steps to deploy FEAGI platform. 
 
 # Requirements
-## Minimum System Requirements
+### Minimum System Requirements
 * Free storage:  5 GB
 * Memory:        16 GB
 * CPU:           4 Cores
 
-## Supported Operating Systems
-* **macOS**: High Sierra (10.13)
+### Supported Operating Systems
+* **macOS**: Montery (12.3.1) -- Apple and Intel chips are supported
 * **Windows**: 10
 * **Linux**: Ubuntu (18.04)
 
-## Dependencies
-* **Docker**: Desktop 4.7.1+, Engine 20.10.14+, Compose v2.4.1+
-* **Python**: 3.7+
-* **Git**:    Latest
+### Dependencies
+Click on each dependency for installation instructions
+* **[Docker](https://docs.docker.com/get-docker/)**: Desktop 4.7.1+, Engine 20.10.14+, Compose v2.4.1+
+* **[Python](https://www.python.org/downloads/)**: 3.7+
+* **[Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)**: Latest
 
 
 # Deployment
-## 1. Clone the repo
-    git clone git@github.com:feagi/feagi.git
+## 1. Clone the repository to your machine
+* Open the terminal or command line and change to the directory in which you would like to clone feagi. 
+* Run the command `git clone https://github.com/feagi/feagi.git`
 
-## 2. Configure (Optional)
-<details>
-<summary>FEAGI Configuration</summary>
-Many of the environmental variables can be configured to enable FEAGI to have system adaptation flexibility. 
+## 2. Launch Docker Desktop
+There are multiple ways to launch docker desktop. The easiest is to search for the docker desktop application on your system and open the application. You should see a window that looks like this:  
+<img src="https://user-images.githubusercontent.com/52722031/176945282-3fdfc4b7-f82c-4a2b-a8a1-0d6c86ac8acf.png"  width=50% height=50%>
 
-### Port mapping
-Port mapping is done in two different files:
-* /src/feagi_configruation.ini
-* /docker/feagi.yml
-
-feagi_configuration defines lower-level port mapping for FEAGI independent of the docker containers influence.
-feagi.yml defines the port mapping as a wrapper above the FEAGI internal settings and would be the first place to make adjustments if there is a port conflict on the system.
-
-### Volume mapping
-Volume mapping is used as part of the .yml container deployment recipes to help you overwrite files where the most notable one is the genome. Depending on the application, the volume mapping needs to be place under the proper section withing the .yml file.
-    
-Default mapping shipped with FEAGI:
-
-```
-feagi:
-    volumes:
-  - ../src/evo/static_genome.py:/opt/source-code/feagi/src/evo/static_genome.py
-  - ../src/feagi_configuration.ini:/opt/source-code/feagi/src/feagi_configuration.ini
-```
-
-
-Mapping example to load custom genome and custom environment:
-```
- ros-gazebo:
-    volumes:
-      - /your/local/path/smart-car/simulation/freenove_smart_car.sdf:/opt/source-code/freenove_4wd_car_description/models/sdf/freenove_smart_car.sdf
-      - /your/local/path/smart-car/simulation/meshes:/opt/source-code/freenove_4wd_car_description/models/sdf/meshes  
- 
- 
-feagi:
-    volumes:
-  - /your/local/path/smart-car/genome/custom_genome.py:/opt/source-code/feagi/src/evo/static_genome.py
-  - ../src/feagi_configuration.ini:/opt/source-code/feagi/src/feagi_configuration.ini
-```
-
-</details>
 
 ## 3. Build
-`
-cd [path to where feagi repo was cloned to]/feagi/docker
-`
+In the command line/terminal run the following commands:
+* `cd [path to where feagi repo was cloned]/feagi/docker`
+* `docker compose -f feagi.yml build`
 
-`
-docker compose -f feagi.yml build
-`
+Note: If running on a Mac with Apple chipset, substitute feagi.yml with feagi_apple_silicone.yml throughout this deployment guide.
 
 ## 4. Run
-`
-docker compose -f feagi.yml up -d
-`
+* In the feagi/docker folder in the command line, run `docker compose -f feagi.yml up -d ` 
+* **NOTE:** The -d prevents the application logs from being displayed. If you would like to see the logs, don't include the -d parameter. 
+* To launch the application, open browser to http://localhost:3000. You should see the GUI launch page that looks like this: 
+<img src="https://user-images.githubusercontent.com/52722031/176946338-aabb9ab5-7bdb-4103-bb95-c580fde64b04.png"  width=50% height=50%>
 
-To use the application, open browser at 127.0.0.1:3000
+## 5. Stopping the Application
+Because the application is running in the background, please make sure to always make sure to stop the application when done. There are two ways to do this.
+1. Run the command `docker compose -f feagi.yml down` inside the feagi/docker folder on your local system. You will see logs indicating that the containers have been stopped. 
+![Screen Shot 2022-07-01 at 2 03 41 PM](https://user-images.githubusercontent.com/52722031/176947412-6ebc1f3a-eb3d-4acf-999c-b6b40c20df77.png)
+2. Stop the containers in the docker desktop application. 
 
-## 5. re-Run
-`
-docker compose -f feagi.yml down
-`
+# Troubleshooting
+This section displays errors that users have encountered when trying to install feagi. If you encounter an error not listed here, please create an issue and we will do our best to help resolve it. Additionally, if you encounter any errors not listed here and you resolve them yourself, please add them here to help others.
 
-`
-docker compose -f feagi.yml up -d
-`
+### Errors encountered during building
+
+If you encounter any of the following errors, please ensure that docker desktop is installed, launched, and running. These two errors were created when docker desktop was not yet installed or not launched. To launch docker desktop, follow the instructions listed under [Running Docker Desktop](#3.-Running-Docker-Desktop)
+1. `Got permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock: Get "http://%!F(MISSING)var%!F(MISSING)run%!F(MISSING)docker.sock/v1.24/version": dial unix /var/run/docker.sock: connect: permission denied: driver not connecting`
+
+2. ![Screen Shot 2022-07-01 at 1 29 23 PM](https://user-images.githubusercontent.com/52722031/176945407-1b7f3770-d0b2-4cf5-bb40-62aa02f907e7.png)
+
+**To confirm docker desktop is running:**
+* On Mac:  Clicking on the docker icon in the top right corner of your screen and ensure that you see "Docker Desktop is running"
+<img src="https://user-images.githubusercontent.com/52722031/176945111-016fbeae-5935-4d72-9ec3-20bba7803ee5.png"  width=40% height=40%>
+
+### Errors encountered during running
+
+* If you receive an error indicating you have a port conflict, please follow [these](https://github.com/feagi/feagi/wiki/Customizing-the-Environment#port-mapping) instructions on how to override FEAGI's default port mappings.
