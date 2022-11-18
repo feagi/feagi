@@ -109,3 +109,12 @@ def frame_split(frame, width_percent, height_percent):
     vision['LM'] = frame[width_data2:, height_data1: height_data2]
     vision['LR'] = frame[width_data2:, height_data2:]
     return vision
+
+
+def pan(frame, origin, x, y):
+    """
+    No filter involves. No resize or compression. Just return all boxes.
+    This is heavily leveraged on the frame_split() function.
+    """
+    vision = frame[origin[1]:origin[1] + y, origin[0]:origin[0] + x]
+    return vision
