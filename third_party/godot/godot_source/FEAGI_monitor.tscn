@@ -321,7 +321,7 @@ script = ExtResource( 4 )
 margin_left = -3.0
 margin_top = 35.0
 margin_right = 128.0
-margin_bottom = 354.0
+margin_bottom = 406.0
 color = Color( 0.792157, 0.772549, 0.772549, 0.364706 )
 script = ExtResource( 18 )
 
@@ -354,7 +354,7 @@ margin_left = 15.0
 margin_top = 76.0
 margin_right = 85.0
 margin_bottom = 90.0
-rect_pivot_offset = Vector2( -59, 25 )
+rect_pivot_offset = Vector2( 15, 1 )
 text = "X"
 
 [node name="y_string" type="Label" parent="Spatial/Camera/Menu/move_cortical/cortical_menu"]
@@ -392,6 +392,55 @@ margin_top = 176.0
 margin_right = 129.0
 margin_bottom = 199.0
 text = "Relocate"
+
+[node name="HScrollBar" type="HScrollBar" parent="Spatial/Camera/Menu/move_cortical/cortical_menu"]
+visible = false
+margin_left = 52.0
+margin_top = 222.0
+margin_right = 101.0
+margin_bottom = 236.0
+
+[node name="x_string2" type="Label" parent="Spatial/Camera/Menu/move_cortical/cortical_menu"]
+visible = false
+margin_left = 15.0
+margin_top = 222.0
+margin_right = 85.0
+margin_bottom = 236.0
+rect_pivot_offset = Vector2( 15, 1 )
+text = "X"
+
+[node name="z_string2" type="Label" parent="Spatial/Camera/Menu/move_cortical/cortical_menu"]
+visible = false
+margin_left = 15.0
+margin_top = 272.0
+margin_right = 85.0
+margin_bottom = 286.0
+rect_pivot_offset = Vector2( -59, 25 )
+text = "Y"
+
+[node name="VScrollBar" type="VScrollBar" parent="Spatial/Camera/Menu/move_cortical/cortical_menu"]
+visible = false
+margin_left = 72.0
+margin_top = 253.0
+margin_right = 86.0
+margin_bottom = 307.0
+
+[node name="y_string2" type="Label" parent="Spatial/Camera/Menu/move_cortical/cortical_menu"]
+visible = false
+margin_left = 15.0
+margin_top = 336.0
+margin_right = 85.0
+margin_bottom = 350.0
+rect_pivot_offset = Vector2( -59, 25 )
+text = "Z"
+
+[node name="HScrollBar2" type="HScrollBar" parent="Spatial/Camera/Menu/move_cortical/cortical_menu"]
+visible = false
+margin_left = 52.0
+margin_top = 336.0
+margin_right = 101.0
+margin_bottom = 350.0
+rect_rotation = -30.0
 
 [node name="Sprite3D" type="Sprite3D" parent="."]
 pause_mode = 1
