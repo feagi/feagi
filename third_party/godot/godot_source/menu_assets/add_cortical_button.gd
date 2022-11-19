@@ -23,4 +23,5 @@ func _on_add_cortical_button_pressed():
 #		$name_string.visible = true
 
 func _on_LineEdit_text_changed(new_text):
+	new_text = new_text
 	pass
