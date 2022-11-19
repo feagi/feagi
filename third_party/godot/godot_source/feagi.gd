@@ -31,17 +31,11 @@ var test = 0
 var data
 var stored_value = ""
 var current_pos = Vector3()
-var x = 0
-var y = 1
-var z = 2
 var total = []
 var array_test = []
 var number = 0
 var voxel_history = 0
 var history_total = 0
-var depth = 0
-var height = 0
-var width = 0
 var Godot_list = {}
 var x_increment = 0
 var y_increment = 0
@@ -66,7 +60,7 @@ func _ready():
 	create_textbox_axis.set_name("x_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
 	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, 5,0,0,"x")
+	generate_textbox(create_textbox_axis, 5,0,0,"x", 1, 0)
 	for j in 6:
 		$GridMap3.set_cell_item(0,j,0,0)
 	create_textbox_axis = create_textbox_axis.duplicate() #generate a new node to re-use the model
@@ -75,7 +69,7 @@ func _ready():
 	create_textbox_axis.set_name("y_textbox")
 	add_child(create_textbox_axis) # Copied the node to new node
 	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, 0,5,0,"y")
+	generate_textbox(create_textbox_axis, 0,5,0,"y", 1,0)
 	for k in 6: 
 		$GridMap3.set_cell_item(0,0,k,0)
 	create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
@@ -84,7 +78,7 @@ func _ready():
 	create_textbox_axis.set_name("z_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
 	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, -2,0.5,6,"z")
+	generate_textbox(create_textbox_axis, -2,0.5,6,"z", 1, 0)
 	$GridMap.clear()
 	_csv_generator()
 
@@ -115,16 +109,16 @@ func generate_one_model(node, x_input, y_input, z_input, width_input, depth_inpu
 	var new = get_node("Cortical_area").duplicate()
 	new.set_name(name_input)
 	add_child(new)
-	global_name_list.append({name.replace(" ", "") : [new, x_input, y_input, z_input, width_input, depth_input, height_input]})
+	global_name_list.append({name_input.replace(" ", "") : [new, x_input, y_input, z_input, width_input, depth_input, height_input]})
 	new.scale = Vector3(width_input, height_input, depth_input)
 	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), depth_input/2 + int(z_input))
-	generate_textbox(node, x_input,height_input,z_input, name_input)
+	generate_textbox(node, x_input,height_input,z_input, name_input, y_input, width_input)
 	
 func convert_generate_one_model(_node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
 	var new = get_node("Cortical_area").duplicate()
 	new.set_name(name_input)
 	add_child(new)
-	global_name_list.append({name.replace(" ", "") : [new, x_input, y_input, z_input, width_input, depth_input, height_input]})
+	global_name_list.append({name_input.replace(" ", "") : [new, x_input, y_input, z_input, width_input, depth_input, height_input]})
 	new.scale = Vector3(width_input, height_input, depth_input)
 	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), depth_input/2 + int(z_input))
 	
@@ -136,16 +130,15 @@ func generate_model(node, x_input, y_input, z_input, width_input, depth_input, h
 					var new = get_node("Cortical_area").duplicate()
 					new.set_name(name_input)
 					add_child(new)
-					global_name_list.append({name.replace(" ", "") : [new, x_input, y_input, z_input, width_input, depth_input, height_input]})
+					global_name_list.append({name_input.replace(" ", "") : [new, x_input, y_input, z_input, width_input, depth_input, height_input]})
 					new.transform.origin = Vector3(x_gain+int(x_input), y_gain+int(y_input), z_gain+int(z_input))
-					generate_textbox(node, x_input,height_input,z_input, name_input)
+					generate_textbox(node, x_input,height_input,z_input, name_input, y_input, width_input)
 
-func generate_textbox(node, x_input,height_input,z_input, name_input):
-	node.transform.origin = Vector3(int(x_input) + (width/1.5), int(int(y)+2 + (height_input)),z_input)
+func generate_textbox(node, x_input,height_input,z_input, name_input, input_y, width_input):
+	node.transform.origin = Vector3(int(x_input) + (width_input/1.5), int(int(input_y)+2 + (height_input)),z_input)
 	node.get_node("Viewport/Label").set_text(str(name_input))
 	node.get_node("Viewport").get_texture()
-	global_name_list.append({name.replace(" ", ""): [node, x_input, 0, z_input, 0, 0, height_input]})
-
+	global_name_list.append({name_input.replace(" ", ""): [node, x_input, 0, z_input, 0, 0, height_input]})
 
 func install_voxel_inside(x_input,y_input,z_input):
 	$GridMap.set_cell_item(x_input,y_input,z_input, 0)
@@ -161,8 +154,8 @@ func _csv_generator():
 			if line != "":
 				line += " "
 				var CSV_data = line.split(",", true, '0') ##splits into value array per line
-				x = CSV_data[0]; y = CSV_data[1]; z = CSV_data[2]; width= int(CSV_data[3]) 
-				height = int(CSV_data[4]); depth = int(CSV_data[5]); name = CSV_data[6]
+				var x = CSV_data[0]; var y = CSV_data[1]; var z = CSV_data[2]; var width= int(CSV_data[3]) 
+				var height = int(CSV_data[4]); var depth = int(CSV_data[5]); var name_input = CSV_data[6]
 				$Floor_grid.set_cell_item(int(x),0,int(z),0)
 				if sign(int(width)) > 0:
 					x_increment = (int(width) / floor_size) + 1
@@ -186,15 +179,15 @@ func _csv_generator():
 				var viewport = create_textbox.get_node("Viewport")
 				create_textbox.set_texture(viewport.get_texture())
 				add_child(copy)
-				global_name_list.append({name.replace(" ", "") : [copy, x, y, z, width, depth, height]})
-				create_textbox.set_name(name.replace(" ", "") + "textbox")
+				global_name_list.append({name_input.replace(" ", "") : [copy, x, y, z, width, depth, height]})
+				create_textbox.set_name(name_input.replace(" ", "") + "_textbox")
 				add_child(create_textbox)#Copied the node to new node
 				#global_name_list.append(create_textbox)
 				create_textbox.scale = Vector3(1,1,1)
 				if int(width) * int(depth) * int(height) < 999: # Prevent massive cortical area 
-					generate_model(create_textbox, x,y,z,width, depth, height, name)
+					generate_model(create_textbox, x,y,z,width, depth, height, name_input)
 				else:
-					generate_one_model(create_textbox, x,y,z,width, depth, height, name)
+					generate_one_model(create_textbox, x,y,z,width, depth, height, name_input)
 		f.close()
 	else:
 		csv_flag = false
@@ -248,6 +241,9 @@ func generate_voxels():
 		$red_voxel.multimesh.instance_count = total
 		$red_voxel.multimesh.visible_instance_count = total
 		var key = 0
+		var x
+		var y
+		var z
 		flag=0
 		while key < total:
 			if flag == 0:
@@ -290,32 +286,62 @@ func cortical_is_clicked():
 #	convert_generate_one_model(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input)
 #	global_name_list.append({name : [new, x_input, y_input, z_input, width_input, depth_input, height_input]})
 func _on_Add_it_pressed():
-	x = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/X.value); y = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/Y.value); z = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/Z.value); width= int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/W.value) 
-	height = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/H.value); depth = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/D.value); name = $Spatial/Camera/Menu/add_cortical_button/cortical_menu/name_string.text
+	var x = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/X.value); var y = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/Y.value); var z = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/Z.value); var width= int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/W.value) 
+	var height = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/H.value); var depth = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/D.value); var name_input = $Spatial/Camera/Menu/add_cortical_button/cortical_menu/name_string.text
 	var copy = duplicate_model.duplicate() 
 	var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
 	var viewport = create_textbox.get_node("Viewport")
 	create_textbox.set_texture(viewport.get_texture())
 	add_child(copy)
-	global_name_list.append({name.replace(" ", "").replace(" ", "") : [copy, x, y, z, width, depth, height]})
-	create_textbox.set_name(name + "_textbox")
+	global_name_list.append({name_input.replace(" ", "").replace(" ", "") : [copy, x, y, z, width, depth, height]})
+	create_textbox.set_name(name_input + "_textbox")
 	add_child(create_textbox)#Copied the node to new node
-	#global_name_list.append(create_textbox)
 	create_textbox.scale = Vector3(1,1,1)
+	
+	var list_size = global_name_list.size()
+	var store_global_data = []
+	for i in list_size:
+		var iteration_name = name_input.replace(" ", "")
+		if iteration_name in global_name_list[i]:
+			global_name_list[i][iteration_name][0].queue_free()
+		iteration_name = iteration_name + "_textbox"
+		if iteration_name in global_name_list[i]:
+			global_name_list[i][iteration_name][0].queue_free()
+			
+	for i in list_size:
+		var iteration_name = name_input
+		if iteration_name in global_name_list[i]:
+			pass # Skip cortical area so global list can be updated
+		else:
+			store_global_data.append(global_name_list[i])
+	global_name_list.clear()
+	global_name_list = store_global_data
+	
 	if int(width) * int(depth) * int(height) < 999: # Prevent massive cortical area 
-		generate_model(create_textbox, x,y,z,width, depth, height, name)
+		generate_model(create_textbox, x,y,z,width, depth, height, name_input)
 	else:
-		generate_one_model(create_textbox, x,y,z,width, depth, height, name)
-
-
+		generate_one_model(create_textbox, x,y,z,width, depth, height, name_input)
 
 func _on_reposition_pressed():
 	var get_name = $Spatial/Camera/Menu/move_cortical/cortical_menu/name.text
+	var get_x = $Spatial/Camera/Menu/move_cortical/cortical_menu/X.value
+	var get_y = $Spatial/Camera/Menu/move_cortical/cortical_menu/Y.value
+	var get_z = $Spatial/Camera/Menu/move_cortical/cortical_menu/Z.value
+	var get_w
+	var get_d
+	var get_h
+	var get_wdh = true
 	var list_size = global_name_list.size()
 	var store_global_data = []
 	for i in list_size:
 		var iteration_name = get_name
 		if iteration_name in global_name_list[i]:
+			if get_wdh:
+				if not "_textbox" in iteration_name:
+					get_wdh = false
+					get_w = global_name_list[i][iteration_name][4]
+					get_d = global_name_list[i][iteration_name][5]
+					get_h = global_name_list[i][iteration_name][6]
 			global_name_list[i][iteration_name][0].queue_free()
 		iteration_name = iteration_name + "_textbox"
 		if iteration_name in global_name_list[i]:
@@ -323,13 +349,25 @@ func _on_reposition_pressed():
 	for i in list_size:
 		var iteration_name = get_name
 		if iteration_name in global_name_list[i]:
-			pass
+			pass # Skip cortical area so global list can be updated
 		else:
 			store_global_data.append(global_name_list[i])
-			
-#	print("BWUK: ", global_name_list)
-#	print("SIZE: ", global_name_list.size())
 	global_name_list.clear()
 	global_name_list = store_global_data
-		
+
+
+	var copy = duplicate_model.duplicate() 
+	var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
+	var viewport = create_textbox.get_node("Viewport")
+	create_textbox.set_texture(viewport.get_texture())
+	add_child(copy)
+#	global_name_list.append({name.replace(" ", "") : [copy, get_x, get_y, get_z, get_w, get_d, get_h]})
+	create_textbox.set_name(get_name.replace(" ", "") + "_textbox")
+	add_child(create_textbox)#Copied the node to new node
+	#global_name_list.append(create_textbox)
+	create_textbox.scale = Vector3(1,1,1)
+	if int(get_w) * int(get_d) * int(get_h) < 999: # Prevent massive cortical area 
+		generate_model(create_textbox, get_x,get_y,get_z, get_w, get_d, get_h, get_name)
+	else:
+		generate_one_model(create_textbox, get_x,get_y,get_z, get_w, get_d, get_h, get_name)
 #	var x_input =  $Spatial/Camera/Menu/move_cortical/cortical_menu/X.value
