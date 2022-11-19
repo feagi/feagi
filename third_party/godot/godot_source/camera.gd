@@ -103,7 +103,7 @@ func move_left_right(in_direction: int):
 	
 
 
-func _on_LineEdit_text_changed(new_text):
+func _on_LineEdit_text_changed(_new_text):
 	is_not_typing = false
 
 func _on_LineEdit_focus_exited():
