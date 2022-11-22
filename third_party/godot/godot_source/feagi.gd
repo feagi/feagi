@@ -27,7 +27,7 @@ onready var duplicate_model = get_node("Cortical_area")
 var floor_size = 25
 var grid_steps = 1000
 var flag = 0
-var test = 0
+var test = ""
 var data
 var stored_value = ""
 var current_pos = Vector3()
@@ -90,6 +90,13 @@ func _ready():
 				select_cortical.selected.pop_front()
 		_process(self)
 		stored_value = data
+#		print(typeof(data))
+		if "genome" in data:
+			test = parse_json(data)
+			if test != null:
+				for i in test["genome"]:
+					print(test["genome"][i])
+			stored_value = ""
 #		print("data from python: ", data)
 		start = OS.get_ticks_msec()## This will time the engine at start
 		yield(get_tree().create_timer(0.01), "timeout")
