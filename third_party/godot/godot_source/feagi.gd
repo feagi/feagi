@@ -43,6 +43,7 @@ var z_increment = 0
 var csv_flag = false
 var connected = false
 var stored_csv = ""
+var genome_data = ""
 var global_name_list = []
 var global_id
 var start = 0 #for timer
@@ -92,10 +93,10 @@ func _ready():
 		stored_value = data
 #		print(typeof(data))
 		if "genome" in data:
-			test = parse_json(data)
-			if test != null:
-				for i in test["genome"]:
-					print(test["genome"][i])
+			genome_data = parse_json(data)
+			if genome_data != null:
+				for i in genome_data["genome"]:
+					print(genome_data["genome"][i])
 			stored_value = ""
 #		print("data from python: ", data)
 		start = OS.get_ticks_msec()## This will time the engine at start
