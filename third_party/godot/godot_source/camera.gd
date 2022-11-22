@@ -20,6 +20,7 @@ export var backward_action = "ui_down"
 export var left_action = "ui_left"
 export var right_action = "ui_right"
 export var spacebar = "ui_select"
+export var reset = "reset"
 
 var rotation_speed = PI
 var _direction = Vector3(0.0, 0.0, 0.0)
@@ -65,6 +66,12 @@ func get_input_keyboard(_delta):
 		for key in Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"]:
 			Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][key] = []
 		print(Godot_list.godot_list)
+	if Input.is_action_just_pressed("reset"):
+		x = 18
+		y = 43.323002
+		z = 6.711
+		transform.origin=Vector3(x,y,z)
+#		rotation_degrees = Vector3(-1.09, 0, 0)
 	if flagged != true:
 		websocket.send("{}")
 	elif flagged:

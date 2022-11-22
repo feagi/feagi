@@ -19,63 +19,51 @@ limitations under the License.
 app_name = 'gazebo'
 
 network_settings = {
-    "feagi_host": "feagi",
+    "feagi_host": "127.0.0.1",
     "feagi_api_port": "8000",
     'TTL': 2,
     'last_message': 0,
 }
 
 capabilities = {
-    "servo": {
-        "type": "opu",
-        "disabled": False,
-        "refresh_rate": 1,
-        "cortical_mapping": "o__ser",
-        'count': 2,
-        'topic_identifier': '/S'
-    },
-    "motor": {
-        "type": "opu",
-        "disabled": False,
-        "count": 4,
-        'topic_identifier': '/M',
-        "refresh_rate": 1,
-        "cortical_mapping": "o__mot",
-        "rolling_window_len": 5,
-        "diameter_of_wheel": 0.065,
-        "power_amount": 350
-    },
-    "infrared": {
-        "type": "ipu",
-        "disabled": False,
-        "count": 3,
-        "refresh_rate": 1,
-        "cortical_mapping": "i__inf",
-        'topic_identifier': 'IR'
-    },
-    "battery": {
-        "type": "ipu",
-        "disabled": False,
-        "count": 4,
-        "refresh_rate": 1,
-        "cortical_mapping": "i__bat",
-        "capacity": 100,
-        "depletion_per_burst": 0.01,
-        "charge_increment": 0.1
-    },
     "camera": {
         "type": "ipu",
         "disabled": False,
         "count": 1,
         "width": 8,
         "height": 8,
-        "deviation_threshold": 0.7,
+        "deviation_threshold": 0.1,
         "retina_width_percent": 90,
         "retina_height_percent": 80,
         "central_vision_compression": [64, 64],
         "peripheral_vision_compression": [8, 8],
         "previous_data": {}
     },
+    "servo": {
+        "type": "opu",
+        "disabled": False,
+        "refresh_rate": 1,
+        "cortical_mapping": "o__ser",
+        'count': 7,
+        'topic_identifier': '/S',
+        'port': {
+            '0': '/dev/ttyUSB0'  # Find a way to add without hardcode
+        },
+        'servo_range': {
+            '1': [200, 3600],
+            '2': [0, 0],
+            '3': [400, 3400],
+            '4': [700, 3300],
+            '5': [150, 3600],
+            '6': [0, 4096]
+        },
+        'power': 50,
+        'sensitivity':
+            {
+                'micro': 50,
+                'macro': 150
+            }
+    }
 }
 
 message_to_feagi = {"data": {}}
