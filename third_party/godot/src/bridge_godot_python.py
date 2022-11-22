@@ -40,6 +40,7 @@ from collections import deque
 ws_queue = deque()
 zmq_queue = deque()
 burst_second = 0
+current_cortical_area = {}
 
 runtime_data = {
     "cortical_data": {},
@@ -299,8 +300,7 @@ def feagi_init(feagi_host, api_port):
 
         if runtime_data["cortical_data"]:
             print("###### ------------------------------------------------------------#######")
-            # print("Cortical Dimensions:\n", runtime_data["cortical_data"])
-
+            print("Cortical Dimensions:\n", runtime_data["cortical_data"])
             try:
                 for i in runtime_data["cortical_data"]["blueprint"]:
                     for x in cortical_name:
@@ -313,8 +313,9 @@ def feagi_init(feagi_host, api_port):
                 print("error: ", e)
                 exc_info = sys.exc_info()
                 traceback.print_exception(*exc_info)
+            print("*****************" * 50)
+            current_cortical_area = cortical_genome_dictionary.copy()
             json_object = json.dumps(cortical_genome_dictionary)
-            print("type: ", type(json_object))
             zmq_queue.append(json_object)
             # zmq_queue.append(cortical_genome_dictionary)
             awaiting_feagi_registration = False
@@ -325,7 +326,6 @@ async def echo(websocket):
     while True:
         try:
             if "genome" in zmq_queue[0]:
-                print(zmq_queue[0])
                 cortical_csv = str(zmq_queue[0])
                 zmq_queue.pop()
                 await websocket.send(cortical_csv)
@@ -426,6 +426,13 @@ if __name__ == "__main__":
         if data_from_godot == "lagged":
             detect_lag = True
             data_from_godot = "{}"
+        if data_from_godot == "empty":
+            data_from_godot = "{}"
+            test = current_cortical_area
+            print(current_cortical_area)
+            json_object = json.dumps(test)
+            zmq_queue.append(json_object)
+
         if data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and data_from_godot \
                 != "refresh" and data_from_godot != "[]":
             godot_list = godot_data(data_from_godot)
