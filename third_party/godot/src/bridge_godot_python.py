@@ -16,9 +16,12 @@ limitations under the License.
 """
 import time
 import os
+import traceback
+import sys
 import configuration
 import router
 import zmq
+import json
 import csv
 import ast
 import asyncio
@@ -84,6 +87,7 @@ def csv_writer(cortical_dimensions):
 
     print("Godot CSV has been created.")
 
+
 def simulation_testing():
     x = 0
     y = 0
@@ -125,7 +129,6 @@ def godot_data(input):
         if dict_with_updated_name["data"]["direct_stimulation"].get(Updated_name) is not None:
             pass
         else:
-
             dict_with_updated_name["data"]["direct_stimulation"][Updated_name] = []
         for key_01 in data["data"]["direct_stimulation"][key]:
             dict_with_updated_name["data"]["direct_stimulation"][Updated_name].append(key_01)
@@ -252,7 +255,7 @@ def feagi_registration(feagi_host, api_port):
         sleep(1)
 
 
-def feagi_init(feagi_host, api_port):
+def OUTDATED_feagi_init(feagi_host, api_port):
     # Send a request to FEAGI for cortical dimensions
     awaiting_feagi_registration = True
     while awaiting_feagi_registration:
@@ -273,11 +276,61 @@ def feagi_init(feagi_host, api_port):
         time.sleep(1)
 
 
+def feagi_init(feagi_host, api_port):
+    # Send a request to FEAGI for cortical dimensions
+    awaiting_feagi_registration = True
+    while awaiting_feagi_registration:
+        print("********* ************ ********** ************* ***************\n")
+        print("Awaiting registration with FEAGI...2")
+        FEAGI_pub.send({"godot_init": True})
+
+        cortical_area_name = requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
+        data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
+                                        '/v1/feagi/genome/download/python').json()
+        runtime_data["cortical_data"] = data_from_genome
+
+        # print("Cortical_data", runtime_data["cortical_data"])
+
+        cortical_name = []
+        cortical_genome_dictionary = {"genome": {}}
+
+        for x in cortical_area_name:
+            cortical_name.append(cortical_area_name[x][7])
+
+        if runtime_data["cortical_data"]:
+            print("###### ------------------------------------------------------------#######")
+            # print("Cortical Dimensions:\n", runtime_data["cortical_data"])
+
+            try:
+                for i in runtime_data["cortical_data"]["blueprint"]:
+                    for x in cortical_name:
+                        if x in i:
+                            if x not in cortical_genome_dictionary['genome']:
+                                cortical_genome_dictionary['genome'][x] = list()
+                            cortical_genome_dictionary['genome'][x].append(runtime_data["cortical_data"]["blueprint"][i])
+                # csv_writer(runtime_data["cortical_data"])
+            except Exception as e:
+                print("error: ", e)
+                exc_info = sys.exc_info()
+                traceback.print_exception(*exc_info)
+            json_object = json.dumps(cortical_genome_dictionary)
+            print("type: ", type(json_object))
+            zmq_queue.append(json_object)
+            # zmq_queue.append(cortical_genome_dictionary)
+            awaiting_feagi_registration = False
+        time.sleep(1)
+
+
 async def echo(websocket):
     while True:
         try:
-            if len(zmq_queue) > 2: # This will eliminate any stack up queue
-                stored_value = zmq_queue[len(zmq_queue)-1]
+            if "genome" in zmq_queue[0]:
+                print(zmq_queue[0])
+                cortical_csv = str(zmq_queue[0])
+                zmq_queue.pop()
+                await websocket.send(cortical_csv)
+            if len(zmq_queue) > 2:  # This will eliminate any stack up queue
+                stored_value = zmq_queue[len(zmq_queue) - 1]
                 zmq_queue.clear()
                 zmq_queue[0] = stored_value
             await websocket.send(str(zmq_queue[0]))
@@ -286,6 +339,8 @@ async def echo(websocket):
             pass
             # print("HARMLESS ERROR. IT IS SAFE TO IGNORE THIS ERROR.")
             # print("FULL LOG: ", e)
+            # exc_info = sys.exc_info()
+            # traceback.print_exception(*exc_info)
             # print("This happens due to no queue available to send")
             # print("pass is intended.")
         new_data = await websocket.recv()
@@ -335,10 +390,11 @@ if __name__ == "__main__":
 
     feagi_init(feagi_host=feagi_host, api_port=api_port)
     print("FEAGI initialization completed successfully")
-    godot_list = {}  ##initalized the list from Godot
+    godot_list = {}  # initialized the list from Godot
     detect_lag = False
     new_FEAGI_sub = FEAGI_sub
     flag = 0
+    data_from_genome = 0
     while True:
         if detect_lag:
             opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
@@ -359,7 +415,7 @@ if __name__ == "__main__":
                 except Exception as e:
                     print("Error during genome reset:\n", e)
             one_frame = feagi_breakdown(one_frame)
-            #one_frame = simulation_testing()
+            # one_frame = simulation_testing() # This is to test the stress
             if burst_second > network_settings['burst_duration_threshold']:
                 zmq_queue.append(one_frame)
         if ws_queue:
@@ -370,8 +426,8 @@ if __name__ == "__main__":
         if data_from_godot == "lagged":
             detect_lag = True
             data_from_godot = "{}"
-        if (
-                data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and data_from_godot != "refresh" and data_from_godot != "[]"):
+        if data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and data_from_godot \
+                != "refresh" and data_from_godot != "[]":
             godot_list = godot_data(data_from_godot)
             converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=godot_list,
                                                                      cortical_data=runtime_data[
