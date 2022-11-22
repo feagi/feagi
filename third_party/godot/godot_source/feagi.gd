@@ -53,35 +53,7 @@ var increment_gridmap = 0
 
 func _ready():
 	set_physics_process(false)
-	for i in 6:
-		$GridMap3.set_cell_item(i,0,0,0) ##set the arrow indicator of 3D
-	var create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
-	var viewport = create_textbox_axis.get_node("Viewport")
-	create_textbox_axis.set_texture(viewport.get_texture())
-	create_textbox_axis.set_name("x_textbox")
-	add_child(create_textbox_axis)#Copied the node to new node
-	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, 5,0,0,"x", 1, 0)
-	for j in 6:
-		$GridMap3.set_cell_item(0,j,0,0)
-	create_textbox_axis = create_textbox_axis.duplicate() #generate a new node to re-use the model
-	viewport = create_textbox_axis.get_node("Viewport")
-	create_textbox_axis.set_texture(viewport.get_texture())
-	create_textbox_axis.set_name("y_textbox")
-	add_child(create_textbox_axis) # Copied the node to new node
-	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, 0,5,0,"y", 1,0)
-	for k in 6: 
-		$GridMap3.set_cell_item(0,0,k,0)
-	create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
-	viewport = create_textbox_axis.get_node("Viewport")
-	create_textbox_axis.set_texture(viewport.get_texture())
-	create_textbox_axis.set_name("z_textbox")
-	add_child(create_textbox_axis)#Copied the node to new node
-	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, -2,0.5,6,"z", 1, 0)
-	$GridMap.clear()
-	_csv_generator()
+	add_3D_indicator()
 
 	while true:
 		if $Spatial/Camera/Menu/move_cortical/cortical_menu.visible:
@@ -94,10 +66,14 @@ func _ready():
 #		print(typeof(data))
 		if "genome" in data:
 			genome_data = parse_json(data)
-			if genome_data != null:
-				for i in genome_data["genome"]:
-					print(genome_data["genome"][i])
+#			if genome_data != null:
+#				for i in genome_data["genome"]:
+#					pass
+#					#print(genome_data["genome"][i])
+			_csv_generator()
 			stored_value = ""
+		elif str(genome_data) == "":
+			websocket.send("empty")
 #		print("data from python: ", data)
 		start = OS.get_ticks_msec()## This will time the engine at start
 		yield(get_tree().create_timer(0.01), "timeout")
@@ -151,55 +127,45 @@ func generate_textbox(node, x_input,height_input,z_input, name_input, input_y, w
 func install_voxel_inside(x_input,y_input,z_input):
 	$GridMap.set_cell_item(x_input,y_input,z_input, 0)
 
-func _csv_generator():
+func _csv_generator(): # After you are done with testing, change the name to genome_generator.
 	_clear_node_name_list(global_name_list)
-	var f = File.new() #This is to read each line from the file
-	if f.file_exists('res://csv_data.gdc'):
-		f.open(file, File.READ)
-		stored_csv = f.get_as_text()
-		while not f.eof_reached(): # iterate through all lines until the end of file is reached
-			var line = f.get_line()
-			if line != "":
-				line += " "
-				var CSV_data = line.split(",", true, '0') ##splits into value array per line
-				var x = CSV_data[0]; var y = CSV_data[1]; var z = CSV_data[2]; var width= int(CSV_data[3]) 
-				var height = int(CSV_data[4]); var depth = int(CSV_data[5]); var name_input = CSV_data[6]
-				$Floor_grid.set_cell_item(int(x),0,int(z),0)
-				if sign(int(width)) > 0:
-					x_increment = (int(width) / floor_size) + 1
-					for i in x_increment:
-						$Floor_grid.set_cell_item(int(x)+(i*floor_size),0,0,0)
-				if sign(int(width)) < 0:
-					x_increment = (int(width) / floor_size) - 1
-					for i in range(0, x_increment):
-						$Floor_grid.set_cell_item(int(x)+(-1*i*floor_size),0,0,0)
+	for k in genome_data["genome"]:
+		var CSV_data = genome_data["genome"][k]
+		var x = CSV_data[4]; var y = CSV_data[5]; var z = CSV_data[6]; var width= int(CSV_data[7]) 
+		var height = int(CSV_data[8]); var depth = int(CSV_data[9]); var name_input = CSV_data[0]
+		$Floor_grid.set_cell_item(int(x),0,int(z),0)
+		if sign(int(width)) > 0:
+			x_increment = (int(width) / floor_size) + 1
+			for i in x_increment:
+				$Floor_grid.set_cell_item(int(x)+(i*floor_size),0,0,0)
+		if sign(int(width)) < 0:
+			x_increment = (int(width) / floor_size) - 1
+			for i in range(0, x_increment):
+				$Floor_grid.set_cell_item(int(x)+(-1*i*floor_size),0,0,0)
 #				$Floor_grid.set_cell_item(0,0,int(z),0)
-				if sign(int(depth)) > 0:
-					z_increment = (int(depth) / floor_size) + 1
-					for i in z_increment:
-						$Floor_grid.set_cell_item(int(x),0,int(z)+(i*floor_size),0)
-				if sign(int(width)) < 0:
-					z_increment = (int(depth) / floor_size) - 1
-					for i in range(0, z_increment):
-						$Floor_grid.set_cell_item(int(x),0,int(z) + (-1*i*floor_size),0)
-				var copy = duplicate_model.duplicate() 
-				var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
-				var viewport = create_textbox.get_node("Viewport")
-				create_textbox.set_texture(viewport.get_texture())
-				add_child(copy)
-				global_name_list.append({name_input.replace(" ", "") : [copy, x, y, z, width, depth, height]})
-				create_textbox.set_name(name_input.replace(" ", "") + "_textbox")
-				add_child(create_textbox)#Copied the node to new node
-				#global_name_list.append(create_textbox)
-				create_textbox.scale = Vector3(1,1,1)
-				if int(width) * int(depth) * int(height) < 999: # Prevent massive cortical area 
-					generate_model(create_textbox, x,y,z,width, depth, height, name_input)
-				else:
-					generate_one_model(create_textbox, x,y,z,width, depth, height, name_input)
-		f.close()
-	else:
-		csv_flag = false
-		
+		if sign(int(depth)) > 0:
+			z_increment = (int(depth) / floor_size) + 1
+			for i in z_increment:
+				$Floor_grid.set_cell_item(int(x),0,int(z)+(i*floor_size),0)
+		if sign(int(width)) < 0:
+			z_increment = (int(depth) / floor_size) - 1
+			for i in range(0, z_increment):
+				$Floor_grid.set_cell_item(int(x),0,int(z) + (-1*i*floor_size),0)
+		var copy = duplicate_model.duplicate() 
+		var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
+		var viewport = create_textbox.get_node("Viewport")
+		create_textbox.set_texture(viewport.get_texture())
+		add_child(copy)
+		global_name_list.append({name_input.replace(" ", "") : [copy, x, y, z, width, depth, height]})
+		create_textbox.set_name(name_input.replace(" ", "") + "_textbox")
+		add_child(create_textbox)#Copied the node to new node
+		#global_name_list.append(create_textbox)
+		create_textbox.scale = Vector3(1,1,1)
+		if int(width) * int(depth) * int(height) < 999: # Prevent massive cortical area 
+			generate_model(create_textbox, x,y,z,width, depth, height, name_input)
+		else:
+			generate_one_model(create_textbox, x,y,z,width, depth, height, name_input)
+
 func _clear_node_name_list(node_name):
 	var list = node_name
 	if list.empty() != true:
@@ -379,3 +345,33 @@ func _on_reposition_pressed():
 	else:
 		generate_one_model(create_textbox, get_x,get_y,get_z, get_w, get_d, get_h, get_name)
 #	var x_input =  $Spatial/Camera/Menu/move_cortical/cortical_menu/X.value
+
+func add_3D_indicator():
+	for i in 6:
+		$GridMap3.set_cell_item(i,0,0,0) ##set the arrow indicator of 3D
+	var create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
+	var viewport = create_textbox_axis.get_node("Viewport")
+	create_textbox_axis.set_texture(viewport.get_texture())
+	create_textbox_axis.set_name("x_textbox")
+	add_child(create_textbox_axis)#Copied the node to new node
+	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
+	generate_textbox(create_textbox_axis, 5,0,0,"x", 1, 0)
+	for j in 6:
+		$GridMap3.set_cell_item(0,j,0,0)
+	create_textbox_axis = create_textbox_axis.duplicate() #generate a new node to re-use the model
+	viewport = create_textbox_axis.get_node("Viewport")
+	create_textbox_axis.set_texture(viewport.get_texture())
+	create_textbox_axis.set_name("y_textbox")
+	add_child(create_textbox_axis) # Copied the node to new node
+	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
+	generate_textbox(create_textbox_axis, 0,5,0,"y", 1,0)
+	for k in 6: 
+		$GridMap3.set_cell_item(0,0,k,0)
+	create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
+	viewport = create_textbox_axis.get_node("Viewport")
+	create_textbox_axis.set_texture(viewport.get_texture())
+	create_textbox_axis.set_name("z_textbox")
+	add_child(create_textbox_axis)#Copied the node to new node
+	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
+	generate_textbox(create_textbox_axis, -2,0.5,6,"z", 1, 0)
+	$GridMap.clear()
