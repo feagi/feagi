@@ -100,7 +100,6 @@ func move_left_right(in_direction: int):
 	"""
 	direction.x += in_direction
 	velocity += get_transform().basis.x * in_direction * rotation_speed
-	
 
 
 func _on_LineEdit_text_changed(_new_text):
