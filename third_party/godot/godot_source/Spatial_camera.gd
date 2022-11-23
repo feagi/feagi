@@ -55,7 +55,7 @@ func _process(delta):
 	get_input_keyboard(delta)
 
 
-func _on_LineEdit_text_changed(new_text):
+func _on_LineEdit_text_changed(_new_text):
 	is_not_typing = false
 
 func _on_LineEdit_focus_exited():
