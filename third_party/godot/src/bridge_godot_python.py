@@ -152,7 +152,8 @@ def name_to_id(name):
 def feagi_breakdown(data):
     """
     Designed for genome 2.0 only. Data is the input from feagi's raw data.
-    This function will detect if csv is different than the first, it will generate csv_data automatically.
+    This function will detect if cortical area list is different than the first, it will generate genome list for godot
+     automatically.
     """
     new_list = []
     new_genome_num = data['genome_num']
@@ -272,9 +273,9 @@ async def echo(websocket):
     while True:
         try:
             if "genome" in zmq_queue[0]:
-                cortical_csv = str(zmq_queue[0])
+                cortical_genome_list = str(zmq_queue[0])
                 zmq_queue.pop()
-                await websocket.send(cortical_csv)
+                await websocket.send(cortical_genome_list)
             if len(zmq_queue) > 2:  # This will eliminate any stack up queue
                 stored_value = zmq_queue[len(zmq_queue) - 1]
                 zmq_queue.clear()
