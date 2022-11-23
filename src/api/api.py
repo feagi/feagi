@@ -21,7 +21,7 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from ast import literal_eval
 from threading import Thread
@@ -96,6 +96,30 @@ class Logs(BaseModel):
 class BurstEngine(BaseModel):
     burst_duration: Optional[float]
     burst_duration = 1
+
+
+class CorticalProperties(BaseModel):
+    cortical_id: str = Field(None, max_length=6, min_length=6)
+    cortical_name: Optional[str]
+    cortical_group: Optional[str]
+    cortical_neuron_per_vox_count: Optional[int]
+    cortical_visibility: Optional[bool]
+    cortical_location_x: Optional[int]
+    cortical_location_y: Optional[int]
+    cortical_location_z: Optional[int]
+    cortical_dimension_x: Optional[int]
+    cortical_dimension_y: Optional[int]
+    cortical_dimension_z: Optional[int]
+    cortical_synaptic_attractivity: Optional[int]
+    neuron_post_synaptic_potential: Optional[float]
+    neuron_post_synaptic_potential_max: Optional[float]
+    neuron_plasticity_constant: Optional[float]
+    neuron_fire_threshold: Optional[float]
+    neuron_refractory_period: Optional[int]
+    neuron_leak_coefficient: Optional[float]
+    neuron_consecutive_fire_count: Optional[int]
+    neuron_snooze_period: Optional[int]
+    neuron_degeneracy_coefficient: Optional[float]
 
 
 class Network(BaseModel):
@@ -308,6 +332,22 @@ async def reset_genome():
         print("API call has triggered a genome reset")
         runtime_data.genome_reset_flag = True
         return
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_properties", methods=['POST'], tags=["Genome"])
+async def update_cortical_properties(message: CorticalProperties):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        message = message.dict()
+        message = {'update_cortical_properties': message}
+        print("*" * 50 + "\n", message)
+        api_queue.put(item=message)
+        return {"Request sent!"}
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}

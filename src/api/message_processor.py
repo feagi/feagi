@@ -170,4 +170,12 @@ def api_message_processor(api_message):
             runtime_data.robot_model['slip2'] = \
                 api_message['robot_model']['slip2']
 
+    if 'update_cortical_properties' in api_message:
+        """
+        {'update_cortical_properties': {'cortical_id': 'o__mot', 'cortical_name': None, 'cortical_group': None, 'cortical_neuron_per_vox_count': None, 'cortical_visibility': None, 'cortical_location_x': None, 'cortical_location_y': None, 'cortical_location_z': None, 'cortical_dimension_x': None, 'cortical_dimension_y': None, 'cortical_dimension_z': None, 'cortical_synaptic_attractivity': None, 'neuron_post_synaptic_potential': None, 'neuron_post_synaptic_potential_max': None, 'neuron_plasticity_constant': None, 'neuron_fire_threshold': None, 'neuron_refractory_period': None, 'neuron_leak_coefficient': None, 'neuron_consecutive_fire_count': None, 'neuron_snooze_period': None, 'neuron_degeneracy_coefficient': None}}
+
+        """
+        print("$" * 40)
+        print(api_message)
+
     api_message = {}
