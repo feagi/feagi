@@ -17,7 +17,6 @@ limitations under the License.
 extends Spatial
 
 
-onready var file = 'res://csv_data.gdc'
 onready var textbox_display = get_node("Sprite3D")
 onready var selected =  preload("res://selected.meshlib")
 onready var deselected = preload("res://Cortical_area_box.meshlib")
@@ -44,6 +43,7 @@ var csv_flag = false
 var connected = false
 var stored_csv = ""
 var genome_data = ""
+var previous_genome_data = ""
 var global_name_list = []
 var global_id
 var start = 0 #for timer
@@ -55,6 +55,7 @@ func _ready():
 	set_physics_process(false)
 	add_3D_indicator()
 
+	var debug_tool = true
 	while true:
 		if $Spatial/Camera/Menu/move_cortical/cortical_menu.visible:
 			if cortical_is_clicked():
@@ -63,15 +64,12 @@ func _ready():
 				select_cortical.selected.pop_front()
 		_process(self)
 		stored_value = data
-#		print(typeof(data))
 		if "genome" in data:
 			genome_data = parse_json(data)
-#			if genome_data != null:
-#				for i in genome_data["genome"]:
-#					pass
-#					#print(genome_data["genome"][i])
-			_csv_generator()
-			stored_value = ""
+			if str(genome_data) != str(previous_genome_data):
+				_csv_generator()
+				stored_value = ""
+				previous_genome_data = genome_data
 		elif str(genome_data) == "":
 			websocket.send("empty")
 #		print("data from python: ", data)
@@ -83,6 +81,10 @@ func _ready():
 			generate_voxels()
 		else:
 			websocket.send("lagged")
+		
+#		if genome_data:
+#			for i in genome_data['genome']:
+#				print(genome_data['genome'][i][0])
 
 
 func _process(_delta):
@@ -92,8 +94,8 @@ func _process(_delta):
 func generate_one_model(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
 	var new = get_node("Cortical_area").duplicate()
 	new.set_name(name_input)
-	add_child(new)
 	global_name_list.append({name_input.replace(" ", "") : [new, x_input, y_input, z_input, width_input, depth_input, height_input]})
+	add_child(new)
 	new.scale = Vector3(width_input, height_input, depth_input)
 	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), depth_input/2 + int(z_input))
 	generate_textbox(node, x_input,height_input,z_input, name_input, y_input, width_input)
@@ -185,27 +187,6 @@ func _clear_single_cortical(node_name, node_list):
 				global_name_list[search_name].clear()
 	$Floor_grid.clear()
 
-func check_csv():
-	if csv_flag == false:
-		var check = File.new()
-		if check.file_exists('res://csv_data.gdc'):
-			csv_flag = true
-			check.open(file, File.READ)
-			var current_csv = check.get_as_text()
-			check.close()
-			#print(stored_csv)
-			if stored_csv != current_csv:
-				_csv_generator()
-				stored_csv = current_csv
-	else:
-		var check = File.new()
-		check.open(file, File.READ)
-		var current_csv = check.get_as_text()
-		check.close()
-		if stored_csv != current_csv:
-			stored_csv = current_csv
-			_csv_generator()
-
 func generate_voxels():
 	if stored_value != "" and stored_value != null:
 		array_test = stored_value.replace("[", "")
@@ -271,6 +252,9 @@ func _on_Add_it_pressed():
 	create_textbox.set_name(name_input + "_textbox")
 	add_child(create_textbox)#Copied the node to new node
 	create_textbox.scale = Vector3(1,1,1)
+	var cortical_updated = {"updated": []}
+	cortical_updated["updated"].append([x,y,z,width,height,depth, name_input])
+	websocket.send(cortical_updated)
 	
 	var list_size = global_name_list.size()
 	var store_global_data = []
@@ -328,6 +312,14 @@ func _on_reposition_pressed():
 			store_global_data.append(global_name_list[i])
 	global_name_list.clear()
 	global_name_list = store_global_data
+	
+	var get_id = ""
+	for i in genome_data['genome']:
+		if genome_data['genome'][i][0] == get_name:
+			print("WORKED!")
+			get_id = i
+	var cortical_updated = {"\"cortical_name\"": str("\"", get_name, "\""), "\"cortical_id\"": str("\"", get_id, "\""), "\"cortical_coordinates\"": {"\"x\"": get_x, "\"y\"": get_y, "\"z\"": get_z}}
+	websocket.send(str(cortical_updated))
 
 
 	var copy = duplicate_model.duplicate() 
