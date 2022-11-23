@@ -16,8 +16,11 @@ live-server &
 cd ../godot_source/
 ./Godot_v3.4.4-stable_linux_headless.64 --export "HTML5"
 
-while true; do
+while true
+  do
+    :
   done
+
 #http-server -c-1 &
 
 #while true; do
