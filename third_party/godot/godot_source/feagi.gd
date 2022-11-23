@@ -70,7 +70,7 @@ func _ready():
 				_csv_generator()
 				stored_value = ""
 				previous_genome_data = genome_data
-		elif str(genome_data) == "":
+		elif str(genome_data) == "" or str(genome_data) == "{genome:{}}":
 			websocket.send("empty")
 #		print("data from python: ", data)
 		start = OS.get_ticks_msec()## This will time the engine at start
@@ -316,9 +316,8 @@ func _on_reposition_pressed():
 	var get_id = ""
 	for i in genome_data['genome']:
 		if genome_data['genome'][i][0] == get_name:
-			print("WORKED!")
 			get_id = i
-	var cortical_updated = {"\"cortical_name\"": str("\"", get_name, "\""), "\"cortical_id\"": str("\"", get_id, "\""), "\"cortical_coordinates\"": {"\"x\"": get_x, "\"y\"": get_y, "\"z\"": get_z}}
+	var cortical_updated = {"\"cortical_name\"": str("\"", get_name, "\""), "\"cortical_id\"": str("\"", get_id, "\""), "\"cortical_coordinates\"": {"\"x\"": get_x, "\"y\"": get_y, "\"z\"": get_z}, "\"cortical_visibility\"": "\"true\""}
 	websocket.send(str(cortical_updated))
 
 
