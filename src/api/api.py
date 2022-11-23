@@ -104,12 +104,16 @@ class CorticalProperties(BaseModel):
     cortical_group: Optional[str]
     cortical_neuron_per_vox_count: Optional[int]
     cortical_visibility: Optional[bool]
-    cortical_location_x: Optional[int]
-    cortical_location_y: Optional[int]
-    cortical_location_z: Optional[int]
-    cortical_dimension_x: Optional[int]
-    cortical_dimension_y: Optional[int]
-    cortical_dimension_z: Optional[int]
+    cortical_coordinates: Optional[dict] = {
+        'x': 0,
+        'y': 0,
+        'z': 0,
+    }
+    cortical_dimension: Optional[dict] = {
+        'x': 1,
+        'y': 1,
+        'z': 1,
+    }
     cortical_synaptic_attractivity: Optional[int]
     neuron_post_synaptic_potential: Optional[float]
     neuron_post_synaptic_potential_max: Optional[float]
