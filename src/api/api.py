@@ -114,6 +114,8 @@ class CorticalProperties(BaseModel):
         'y': 1,
         'z': 1,
     }
+    cortical_destinations: Optional[dict] = {
+    }
     cortical_synaptic_attractivity: Optional[int]
     neuron_post_synaptic_potential: Optional[float]
     neuron_post_synaptic_potential_max: Optional[float]
@@ -124,6 +126,7 @@ class CorticalProperties(BaseModel):
     neuron_consecutive_fire_count: Optional[int]
     neuron_snooze_period: Optional[int]
     neuron_degeneracy_coefficient: Optional[float]
+    neuron_psp_uniform_distribution: Optional[bool]
 
 
 class Network(BaseModel):

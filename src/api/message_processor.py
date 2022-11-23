@@ -5,7 +5,7 @@ from inf.initialize import init_brain, reset_runtime_data, id_gen
 from evo.genome_processor import genome_ver_check
 from evo.neuroembryogenesis import develop_brain
 from evo.autopilot import update_generation_dict
-from evo import x_genesis
+from evo.x_genesis import change_request_processor
 
 
 def api_message_processor(api_message):
@@ -172,16 +172,6 @@ def api_message_processor(api_message):
                 api_message['robot_model']['slip2']
 
     if 'update_cortical_properties' in api_message:
-        """
-        {'update_cortical_properties': {'cortical_id': 'o__mot', 'cortical_name': None, 'cortical_group': None, 'cortical_neuron_per_vox_count': None, 'cortical_visibility': None, 'cortical_location_x': None, 'cortical_location_y': None, 'cortical_location_z': None, 'cortical_dimension_x': None, 'cortical_dimension_y': None, 'cortical_dimension_z': None, 'cortical_synaptic_attractivity': None, 'neuron_post_synaptic_potential': None, 'neuron_post_synaptic_potential_max': None, 'neuron_plasticity_constant': None, 'neuron_fire_threshold': None, 'neuron_refractory_period': None, 'neuron_leak_coefficient': None, 'neuron_consecutive_fire_count': None, 'neuron_snooze_period': None, 'neuron_degeneracy_coefficient': None}}
-
-        """
-
-        if 'cortical_coordinates' in api_message['update_cortical_properties']:
-            x_genesis.x_cortical_reposition(cortical_area=api_message['update_cortical_properties']['cortical_id'],
-                                            new_coordinates=api_message['update_cortical_properties']['cortical_coordinates'])
-
-        print("$" * 40)
-        print(api_message)
+        change_request_processor(change_request=api_message['update_cortical_properties'])
 
     api_message = {}
