@@ -233,39 +233,36 @@ def feagi_init(feagi_host, api_port):
         print("Awaiting registration with FEAGI...2")
         FEAGI_pub.send({"godot_init": True})
 
-        cortical_area_name = requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
-        data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
-                                        '/v1/feagi/genome/download/python').json()
-        runtime_data["cortical_data"] = data_from_genome
-
         # print("Cortical_data", runtime_data["cortical_data"])
 
         cortical_name = []
         cortical_genome_dictionary = {"genome": {}}
 
-        for x in cortical_area_name:
-            cortical_name.append(cortical_area_name[x][7])
+        while awaiting_feagi_registration:
+            if len(cortical_genome_dictionary["genome"]) == 0:
+                data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
+                                                '/v1/feagi/genome/download/python').json()
+                cortical_area_name = requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
+                runtime_data["cortical_data"] = data_from_genome
 
-        if runtime_data["cortical_data"]:
-            print("###### ------------------------------------------------------------#######")
-            print("Cortical Dimensions:\n", runtime_data["cortical_data"])
-            try:
-                for i in runtime_data["cortical_data"]["blueprint"]:
-                    for x in cortical_name:
-                        if x in i:
-                            if x not in cortical_genome_dictionary['genome']:
-                                cortical_genome_dictionary['genome'][x] = list()
-                            cortical_genome_dictionary['genome'][x].append(runtime_data["cortical_data"]["blueprint"][i])
-            except Exception as e:
-                print("error: ", e)
-                exc_info = sys.exc_info()
-                traceback.print_exception(*exc_info)
-            print("*****************" * 50)
-            json_object = json.dumps(cortical_genome_dictionary)
-            zmq_queue.append(json_object)
-            # zmq_queue.append(cortical_genome_dictionary)
-            awaiting_feagi_registration = False
-        time.sleep(1)
+                for x in cortical_area_name:
+                    cortical_name.append(cortical_area_name[x][7])
+
+                if runtime_data["cortical_data"]:
+                    print("###### ------------------------------------------------------------#######")
+                    print("Cortical Dimensions:\n", runtime_data["cortical_data"])
+                    for i in runtime_data["cortical_data"]["blueprint"]:
+                        for x in cortical_name:
+                            if x in i:
+                                if x not in cortical_genome_dictionary['genome']:
+                                    cortical_genome_dictionary['genome'][x] = list()
+                                cortical_genome_dictionary['genome'][x].append(runtime_data["cortical_data"]["blueprint"][i])
+                    json_object = json.dumps(cortical_genome_dictionary)
+                    zmq_queue.append(json_object)
+                    # zmq_queue.append(cortical_genome_dictionary)
+            else:
+                awaiting_feagi_registration = False
+            time.sleep(2)
         return cortical_genome_dictionary.copy()
 
 
@@ -284,12 +281,6 @@ async def echo(websocket):
             zmq_queue.pop()
         except Exception as e:
             pass
-            # print("HARMLESS ERROR. IT IS SAFE TO IGNORE THIS ERROR.")
-            # print("FULL LOG: ", e)
-            # exc_info = sys.exc_info()
-            # traceback.print_exception(*exc_info)
-            # print("This happens due to no queue available to send")
-            # print("pass is intended.")
         new_data = await websocket.recv()
         ws_queue.append(new_data)
 
@@ -377,13 +368,13 @@ if __name__ == "__main__":
             data_from_godot = "{}"
         if data_from_godot == "empty":
             data_from_godot = "{}"
+            data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
+                                            '/v1/feagi/genome/download/python').json()
             test = current_cortical_area
-            print("EMPTY")
             json_object = json.dumps(test)
             zmq_queue.append(json_object)
         if "cortical_name" in data_from_godot:
             # data_from_godot = data_from_godot.replace("relocate", "\"relocate\"")
-            print("old; ", data_from_godot, "  type: ", type(data_from_godot))
             url = "http://127.0.0.1:8000/v1/feagi/genome/cortical_properties"
             request_obj = data_from_godot
             requests.post(url, data=request_obj)
