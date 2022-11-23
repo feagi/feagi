@@ -30,6 +30,7 @@ from inf import settings
 from inf import runtime_data
 
 
+
 def x_neurogenesis():
     pass
 
@@ -98,83 +99,114 @@ def change_request_processor(change_request):
 
     cortical_area = change_request['cortical_id']
 
-    if 'cortical_name' in change_request:
+    if change_request['cortical_name'] is not None:
         runtime_data.genome['blueprint'][cortical_area]["cortical_name"] = \
             change_request['cortical_name']
 
-    if 'cortical_coordinates' in change_request:
+    if change_request['cortical_coordinates'] is not None:
         x_cortical_reposition(cortical_area=cortical_area,
                               new_coordinates=change_request['cortical_coordinates'])
 
-    if 'neuron_fire_threshold' in change_request:
+
+    if change_request['neuron_fire_threshold'] is not None:
         runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["firing_threshold"] = \
             change_request['neuron_fire_threshold']
 
-    if 'neuron_leak_coefficient' in change_request:
+
+    if change_request['neuron_leak_coefficient'] is not None:
         runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["leak_coefficient"] = \
             change_request['neuron_leak_coefficient']
 
-    if 'neuron_psp_uniform_distribution' in change_request:
+    if change_request['neuron_psp_uniform_distribution'] is not None:
         runtime_data.genome['blueprint'][cortical_area]["psp_uniform_distribution"] = \
             change_request['neuron_psp_uniform_distribution']
 
-    if 'neuron_post_synaptic_potential' in change_request:
+    if change_request['neuron_post_synaptic_potential'] is not None:
         for neuron_id in runtime_data.brain[cortical_area]:
             for dst_neuron in runtime_data.brain[cortical_area][neuron_id]["neighbors"]:
                 runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron]["postsynaptic_current"] = \
                     change_request['neuron_post_synaptic_potential']
 
-    if 'neuron_refractory_period' in change_request:
+    if change_request['neuron_refractory_period'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["refractory_period"] = \
             change_request['neuron_refractory_period']
 
-    if 'neuron_snooze_period' in change_request:
+    if change_request['neuron_snooze_period'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["snooze_length"] = \
             change_request['neuron_snooze_period']
 
-    if 'neuron_degeneracy_coefficient' in change_request:
+    if change_request['neuron_degeneracy_coefficient'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["degeneration"] = \
             change_request['neuron_degeneracy_coefficient']
 
-    if 'neuron_plasticity_constant' in change_request:
+    if change_request['neuron_plasticity_constant'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["plasticity_constant"] = \
             change_request['neuron_plasticity_constant']
 
-    if 'neuron_post_synaptic_potential_max' in change_request:
+    if change_request['neuron_post_synaptic_potential_max'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["postsynaptic_current_max"] = \
             change_request['neuron_post_synaptic_potential_max']
 
-    if 'neuron_consecutive_fire_count' in change_request:
+    if change_request['neuron_consecutive_fire_count'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["consecutive_fire_cnt_max"] = \
             change_request['neuron_consecutive_fire_count']
 
-    if 'cortical_visibility' in change_request:
+    if change_request['cortical_visibility'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["visualization"] = \
             change_request['cortical_visibility']
 
     # Todo
-    if 'cortical_group' in change_request:
+    if change_request['cortical_group'] is not None:
         pass
 
-    cortical_regeneration = ['cortical_dimension',
-                             'cortical_neuron_per_vox_count',
-                             'cortical_synaptic_attractivity', 'cortical_destinations']
+    if change_request['cortical_dimension'] is not None:
+        runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][0] = \
+            change_request['cortical_dimension']["x"]
+        runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][1] = \
+            change_request['cortical_dimension']["y"]
+        runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][2] = \
+            change_request['cortical_dimension']["z"]
 
+    if change_request['cortical_neuron_per_vox_count'] is not None:
+        runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"] = \
+            change_request['cortical_neuron_per_vox_count']
+
+    if change_request['cortical_synaptic_attractivity'] is not None:
+        runtime_data.genome["blueprint"][cortical_area]["synapse_attractivity"] = \
+            change_request['cortical_synaptic_attractivity']
+
+    if change_request['cortical_destinations'] is not None:
+        pass
+
+    cortical_regeneration_triggers = ['cortical_dimension',
+                                      'cortical_neuron_per_vox_count',
+                                      'cortical_synaptic_attractivity',
+                                      'cortical_destinations']
+
+    regeneration_flag = False
     for request in change_request:
-        if request in cortical_regeneration:
-            pass
+        if request in cortical_regeneration_triggers:
+            regeneration_flag = True
+            print("Regeneration condition has been detected!")
 
-    if 'cortical_dimension' in change_request:
-        pass
+    if regeneration_flag:
+        cortical_mappings = synapse.cortical_mapping()
+        upstream_cortical_areas = set()
+        downstream_cortical_areas = set(cortical_mappings[cortical_area])
+        for area in cortical_mappings:
+            if cortical_area in cortical_mappings[area]:
+                upstream_cortical_areas.add(area)
 
-    if 'cortical_neuron_per_vox_count' in change_request:
-        pass
+        # Todo: Implement a nondestructive method
+        # Remove effected areas
 
-    if 'cortical_synaptic_attractivity' in change_request:
-        pass
 
-    if 'cortical_destinations' in change_request:
-        pass
+        # Recreate neurons
+
+
+        # Recreate synapses
+
+
 
     print("@ @ " * 20)
     print("Cortical change request for %s has been processed" % cortical_area)
