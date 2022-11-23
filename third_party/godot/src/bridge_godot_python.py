@@ -40,7 +40,7 @@ from collections import deque
 ws_queue = deque()
 zmq_queue = deque()
 burst_second = 0
-current_cortical_area = {}
+current_cortical_area = dict()
 
 runtime_data = {
     "cortical_data": {},
@@ -314,12 +314,12 @@ def feagi_init(feagi_host, api_port):
                 exc_info = sys.exc_info()
                 traceback.print_exception(*exc_info)
             print("*****************" * 50)
-            current_cortical_area = cortical_genome_dictionary.copy()
             json_object = json.dumps(cortical_genome_dictionary)
             zmq_queue.append(json_object)
             # zmq_queue.append(cortical_genome_dictionary)
             awaiting_feagi_registration = False
         time.sleep(1)
+        return cortical_genome_dictionary.copy()
 
 
 async def echo(websocket):
@@ -388,7 +388,7 @@ if __name__ == "__main__":
         'feagi_outbound_port']
     FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
-    feagi_init(feagi_host=feagi_host, api_port=api_port)
+    current_cortical_area = feagi_init(feagi_host=feagi_host, api_port=api_port)
     print("FEAGI initialization completed successfully")
     godot_list = {}  # initialized the list from Godot
     detect_lag = False
@@ -429,9 +429,16 @@ if __name__ == "__main__":
         if data_from_godot == "empty":
             data_from_godot = "{}"
             test = current_cortical_area
-            print(current_cortical_area)
+            print("EMPTY")
             json_object = json.dumps(test)
             zmq_queue.append(json_object)
+        if "relocate" in data_from_godot:
+            data_from_godot = data_from_godot.replace("relocate", "\"relocate\"")
+            print("old; ", data_from_godot, "  type: ", type(data_from_godot))
+            new_dict = json.loads(data_from_godot)
+            data_from_godot = {}
+            print(new_dict)
+
 
         if data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and data_from_godot \
                 != "refresh" and data_from_godot != "[]":
