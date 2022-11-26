@@ -5,6 +5,9 @@ func _ready():
 	var path = "res://option.json"
 	var filess = File.new()
 	
+	# Set visibility to false
+	visible = false
+	
 	filess.open(path, filess.READ)
 	var data = parse_json(filess.get_as_text())
 	filess.close()
@@ -12,6 +15,3 @@ func _ready():
 	# Create optionbutton
 	for i in data["option"]:
 		$OptionButton.add_item(i)
-	
-	# Set visibility to false
-	visible = false

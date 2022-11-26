@@ -55,7 +55,7 @@ func _ready():
 	set_physics_process(false)
 	add_3D_indicator()
 
-	var debug_tool = true
+
 	while true:
 		if $Spatial/Camera/Menu/move_cortical/cortical_menu.visible:
 			if cortical_is_clicked():
