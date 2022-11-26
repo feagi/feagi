@@ -15,6 +15,7 @@
 import datetime
 import json
 import os
+import traceback
 from time import sleep
 
 from fastapi import FastAPI, File, UploadFile
@@ -351,41 +352,40 @@ async def update_cortical_properties(cortical_area):
     """
     try:
         cortical_data = runtime_data.genome['blueprint'][cortical_area]
-        print(cortical_data)
-        # cortical_properties = {
-        #     "cortical_id": cortical_area,
-        #     "cortical_name": cortical_data[''],
-        #     "cortical_group": cortical_data[''],
-        #     "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
-        #     "cortical_visibility": cortical_data['visualization'],
-        #     "cortical_coordinates": {
-        #         'x': cortical_data[''],
-        #         'y': cortical_data[''],
-        #         'z': cortical_data[''],
-        #     },
-        #     "cortical_dimensions": {
-        #         'x': cortical_data[''],
-        #         'y': cortical_data[''],
-        #         'z': cortical_data[''],
-        #     },
-        #     "cortical_destinations": {
-        #     },
-        #     "cortical_synaptic_attractivity": cortical_data[''],
-        #     "neuron_post_synaptic_potential": cortical_data[''],
-        #     "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
-        #     "neuron_plasticity_constant": cortical_data['plasticity_constant'],
-        #     "neuron_fire_threshold": cortical_data['neuron_params']['firing_threshold'],
-        #     "neuron_refractory_period": cortical_data['refractory_period'],
-        #     "neuron_leak_coefficient": cortical_data['leak_coefficient'],
-        #     "neuron_consecutive_fire_count": cortical_data['consecutive_fire_cnt_max'],
-        #     "neuron_snooze_period": cortical_data['snooze_length'],
-        #     "neuron_degeneracy_coefficient": cortical_data[''],
-        #     "neuron_psp_uniform_distribution": cortical_data['']
-        # }
 
-        return runtime_data.genome['blueprint'][cortical_area]
+        cortical_properties = {
+            "cortical_id": cortical_area,
+            "cortical_name": cortical_data['cortical_name'],
+            "cortical_group": cortical_data['group_id'],
+            "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
+            "cortical_visibility": cortical_data['neuron_params']['visualization'],
+            "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
+            "cortical_coordinates": {
+                'x': cortical_data['neuron_params']['relative_coordinate'][0],
+                'y': cortical_data['neuron_params']['relative_coordinate'][1],
+                'z': cortical_data['neuron_params']['relative_coordinate'][2]
+            },
+            "cortical_dimensions": {
+                'x': cortical_data['neuron_params']['block_boundaries'][0],
+                'y': cortical_data['neuron_params']['block_boundaries'][1],
+                'z': cortical_data['neuron_params']['block_boundaries'][2]
+            },
+            "cortical_destinations": {
+            },
+            "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
+            "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
+            "neuron_plasticity_constant": cortical_data['plasticity_constant'],
+            "neuron_fire_threshold": cortical_data['neuron_params']['firing_threshold'],
+            "neuron_refractory_period": cortical_data['neuron_params']['refractory_period'],
+            "neuron_leak_coefficient": cortical_data['neuron_params']['leak_coefficient'],
+            "neuron_consecutive_fire_count": cortical_data['neuron_params']['consecutive_fire_cnt_max'],
+            "neuron_snooze_period": cortical_data['neuron_params']['snooze_length'],
+            "neuron_degeneracy_coefficient": cortical_data['degeneration'],
+            "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution']
+        }
+        return cortical_properties
     except Exception as e:
-        print("API Error:", e)
+        print("API Error:", traceback.print_exc())
         return {"Request failed...", e}
 
 
