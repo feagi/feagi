@@ -22,13 +22,12 @@ import logging
 import json
 import datetime
 import concurrent.futures
-from evo import neuron, synapse, stats, genetics, voxels
+from evo import neuron, synapse, stats, genetics, voxels, neuroembryogenesis
 from functools import partial
 from multiprocessing import Pool, Process
 from inf import disk_ops
 from inf import settings
 from inf import runtime_data
-
 
 
 def x_neurogenesis():
@@ -92,6 +91,8 @@ def change_request_processor(change_request):
     - Cortical name
 
     """
+
+    print("Change request:\n", change_request)
 
     if 'cortical_id' not in change_request:
         print("ERROR: Cortical change request did not include --cortical id--")
@@ -159,13 +160,13 @@ def change_request_processor(change_request):
     if change_request['cortical_group'] is not None:
         pass
 
-    if change_request['cortical_dimension'] is not None:
+    if change_request['cortical_dimensions'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][0] = \
-            change_request['cortical_dimension']["x"]
+            change_request['cortical_dimensions']["x"]
         runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][1] = \
-            change_request['cortical_dimension']["y"]
+            change_request['cortical_dimensions']["y"]
         runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][2] = \
-            change_request['cortical_dimension']["z"]
+            change_request['cortical_dimensions']["z"]
 
     if change_request['cortical_neuron_per_vox_count'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"] = \
@@ -178,6 +179,7 @@ def change_request_processor(change_request):
     if change_request['cortical_destinations'] is not None:
         pass
 
+    # Criteria for re-generation
     cortical_regeneration_triggers = ['cortical_dimension',
                                       'cortical_neuron_per_vox_count',
                                       'cortical_synaptic_attractivity',
@@ -198,15 +200,13 @@ def change_request_processor(change_request):
                 upstream_cortical_areas.add(area)
 
         # Todo: Implement a nondestructive method
-        # Remove effected areas
-
+        # Reset effected areas
+        runtime_data.brain[cortical_area] = {}
 
         # Recreate neurons
-
+        neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
 
         # Recreate synapses
-
-
 
     print("@ @ " * 20)
     print("Cortical change request for %s has been processed" % cortical_area)

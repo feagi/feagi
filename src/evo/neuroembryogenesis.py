@@ -263,9 +263,12 @@ def neurogenesis(cortical_area):
         neuron_count += runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"]
     if runtime_data.parameters["Logs"]["print_brain_gen_activities"]:
         duration = datetime.datetime.now() - timer
-        print("Neuron creation completed for cortical area: \t%s   Count: \t%i  "
-              "Duration: \t%s  Per Neuron Avg.: \t%s"
-              % (cortical_area, neuron_count, duration, duration / neuron_count))
+        try:
+            print("Neuron creation completed for cortical area: \t%s   Count: \t%i  "
+                  "Duration: \t%s  Per Neuron Avg.: \t%s"
+                  % (cortical_area, neuron_count, duration, duration / neuron_count))
+        except ZeroDivisionError:
+            pass
 
     disk_ops.save_brain_to_disk(cortical_area=cortical_area,
                                 brain=runtime_data.brain,
@@ -274,7 +277,7 @@ def neurogenesis(cortical_area):
                                      voxel_dict=runtime_data.voxel_dict)
 
 
-def synaptogenesis(cortical_area):
+def synaptogenesis(cortical_area, dst_cortical_area=None):
 
     build_synapses(genome=runtime_data.genome,
                    brain=runtime_data.brain,
