@@ -183,7 +183,8 @@ def change_request_processor(change_request):
     cortical_regeneration_triggers = ['cortical_dimension',
                                       'cortical_neuron_per_vox_count',
                                       'cortical_synaptic_attractivity',
-                                      'cortical_destinations']
+                                      'cortical_destinations',
+                                      'neuron_post_synaptic_potential']
 
     regeneration_flag = False
     for request in change_request:
@@ -200,14 +201,21 @@ def change_request_processor(change_request):
                 upstream_cortical_areas.add(area)
 
         # Todo: Implement a nondestructive method
+
+        # Prune affected synapses
+        for src_cortical_area in upstream_cortical_areas:
+            runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=src_cortical_area, dst_cortical_area=cortical_area)
+
         # Reset effected areas
         runtime_data.brain[cortical_area] = {}
+        runtime_data.voxel_dict[cortical_area] = {}
 
         # Recreate neurons
         neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
 
         # Recreate synapses
+        for src_cortical_area in upstream_cortical_areas:
+            neuroembryogenesis.synaptogenesis(cortical_area=src_cortical_area, dst_cortical_area=cortical_area)
+        for dst_cortical_area in downstream_cortical_areas:
+            neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
 
-    print("@ @ " * 20)
-    print("Cortical change request for %s has been processed" % cortical_area)
-    print("@ @ " * 20)

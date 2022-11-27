@@ -283,7 +283,9 @@ def synaptogenesis(cortical_area, dst_cortical_area=None):
                    brain=runtime_data.brain,
                    voxel_dict=runtime_data.voxel_dict,
                    connectome_path=runtime_data.connectome_path,
-                   src_cortical_area=cortical_area, parameters=runtime_data.parameters)
+                   src_cortical_area=cortical_area,
+                   parameters=runtime_data.parameters,
+                   dst_cortical_area=dst_cortical_area)
 
 
 def build_synapses(genome, brain, parameters, voxel_dict, connectome_path, src_cortical_area, dst_cortical_area=None):
