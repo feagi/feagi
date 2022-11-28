@@ -245,9 +245,9 @@ func _on_Add_it_pressed():
 	last_cortical_selected["cortical_coordinates"]["x"] = x
 	last_cortical_selected["cortical_coordinates"]["y"] = y
 	last_cortical_selected["cortical_coordinates"]["z"] = z
-	last_cortical_selected["cortical_coordinates"]["x"] = width
-	last_cortical_selected["cortical_coordinates"]["y"] = height
-	last_cortical_selected["cortical_coordinates"]["z"] = depth
+	last_cortical_selected["cortical_dimensions"]["x"] = width
+	last_cortical_selected["cortical_dimensions"]["y"] = height
+	last_cortical_selected["cortical_dimensions"]["z"] = depth
 	_make_post_request('http://127.0.0.1:8000/v1/feagi/genome/cortical_properties',last_cortical_selected, false)
 
 	var list_size = global_name_list.size()

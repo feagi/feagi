@@ -91,7 +91,7 @@ def change_request_processor(change_request):
     - Cortical name
 
     """
-
+    regeneration_flag = False
     print("Change request:\n", change_request)
 
     if 'cortical_id' not in change_request:
@@ -160,37 +160,42 @@ def change_request_processor(change_request):
     if change_request['cortical_group'] is not None:
         pass
 
+    # ####################################################
+    # Conditions that require cortical regeneration
+    # ####################################################
     if change_request['cortical_dimensions'] is not None:
-        runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][0] = \
-            change_request['cortical_dimensions']["x"]
-        runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][1] = \
-            change_request['cortical_dimensions']["y"]
-        runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][2] = \
-            change_request['cortical_dimensions']["z"]
+        if runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][0] != \
+                change_request['cortical_dimensions']["x"] and change_request['cortical_dimensions']["x"] > 0:
+            regeneration_flag = True
+            runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][0] = \
+                change_request['cortical_dimensions']["x"]
+        if runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][1] != \
+                change_request['cortical_dimensions']["y"] and change_request['cortical_dimensions']["y"] > 0:
+            regeneration_flag = True
+            runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][1] = \
+                change_request['cortical_dimensions']["y"]
+        if runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][2] != \
+                change_request['cortical_dimensions']["z"] and change_request['cortical_dimensions']["z"] > 0:
+            regeneration_flag = True
+            runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][2] = \
+                change_request['cortical_dimensions']["z"]
 
     if change_request['cortical_neuron_per_vox_count'] is not None:
-        runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"] = \
-            change_request['cortical_neuron_per_vox_count']
+        if runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"] != \
+                change_request['cortical_neuron_per_vox_count']:
+            regeneration_flag = True
+            runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"] = \
+                change_request['cortical_neuron_per_vox_count']
 
     if change_request['cortical_synaptic_attractivity'] is not None:
-        runtime_data.genome["blueprint"][cortical_area]["synapse_attractivity"] = \
-            change_request['cortical_synaptic_attractivity']
+        if runtime_data.genome["blueprint"][cortical_area]["synapse_attractivity"] != \
+                change_request['cortical_synaptic_attractivity']:
+            regeneration_flag = True
+            runtime_data.genome["blueprint"][cortical_area]["synapse_attractivity"] = \
+                change_request['cortical_synaptic_attractivity']
 
     if change_request['cortical_destinations'] is not None:
         pass
-
-    # Criteria for re-generation
-    cortical_regeneration_triggers = ['cortical_dimension',
-                                      'cortical_neuron_per_vox_count',
-                                      'cortical_synaptic_attractivity',
-                                      'cortical_destinations',
-                                      'neuron_post_synaptic_potential']
-
-    regeneration_flag = False
-    for request in change_request:
-        if request in cortical_regeneration_triggers:
-            regeneration_flag = True
-            print("Regeneration condition has been detected!")
 
     if regeneration_flag:
         cortical_mappings = synapse.cortical_mapping()
