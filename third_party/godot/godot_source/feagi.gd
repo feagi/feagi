@@ -229,12 +229,32 @@ func cortical_is_clicked():
 	return false
 
 func _on_Add_it_pressed():
-	var x = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/X.value); var y = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/Y.value); var z = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/Z.value); var width= int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/W.value) 
-	var height = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/H.value); var depth = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/D.value); var name_input = $Spatial/Camera/Menu/add_cortical_button/cortical_menu/name_string.text
-	var copy = duplicate_model.duplicate() 
+	var x = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/X.value);
+	var y = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/Y.value);
+	var z = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/Z.value);
+
+	var width= int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/W.value)
+	var height = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/H.value);
+	var depth = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/D.value);
+
+	var synaptic_attractivity = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/syn.value);
+	var post_synaptic_potential = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/pst_syn.value);
+	var post_synaptic_potential_max = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/pst_syn_max.value);
+	var plasticity_coef = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/plst.value);
+	var fire_threshold = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/fire.value);
+	var refractory_period = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/refa.value);
+	var leak_coefficient = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/leak.value);
+	var consecutive_fire_count = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/cfr.value);
+	var snooze_period = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/snze.value);
+	var degenerecy_coefficient = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/dege.value);
+#	var psp_uniform_distribution = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/psud.???);
+
+	var name_input = $Spatial/Camera/Menu/add_cortical_button/cortical_menu/name_string.text
+	var copy = duplicate_model.duplicate()
 	var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
 	var viewport = create_textbox.get_node("Viewport")
 	var store_global_data = []
+
 	create_textbox.set_texture(viewport.get_texture())
 	add_child(copy)
 	global_name_list.append({name_input.replace(" ", "").replace(" ", "") : [copy, x, y, z, width, depth, height]})
@@ -242,12 +262,27 @@ func _on_Add_it_pressed():
 	add_child(create_textbox) # Copied the node to new node
 	create_textbox.scale = Vector3(1,1,1)
 	last_cortical_selected["cortical_name"] = name_input
+
 	last_cortical_selected["cortical_coordinates"]["x"] = x
 	last_cortical_selected["cortical_coordinates"]["y"] = y
 	last_cortical_selected["cortical_coordinates"]["z"] = z
+
 	last_cortical_selected["cortical_dimensions"]["x"] = width
 	last_cortical_selected["cortical_dimensions"]["y"] = height
 	last_cortical_selected["cortical_dimensions"]["z"] = depth
+
+	last_cortical_selected["cortical_synaptic_attractivity"] = synaptic_attractivity
+	last_cortical_selected["neuron_post_synaptic_potential"] = post_synaptic_potential
+	last_cortical_selected["neuron_post_synaptic_potential_max"] = post_synaptic_potential_max
+	last_cortical_selected["neuron_plasticity_constant"] = plasticity_coef
+	last_cortical_selected["neuron_fire_threshold"] = fire_threshold
+	last_cortical_selected["neuron_refractory_period"] = refractory_period
+	last_cortical_selected["neuron_leak_coefficient"] = leak_coefficient
+	last_cortical_selected["neuron_consecutive_fire_count"] = consecutive_fire_count
+	last_cortical_selected["neuron_snooze_period"] = snooze_period
+	last_cortical_selected["neuron_degeneracy_coefficient"] = degenerecy_coefficient
+#	last_cortical_selected["neuron_psp_uniform_distribution"] = psp_uniform_distribution
+
 	_make_post_request('http://127.0.0.1:8000/v1/feagi/genome/cortical_properties',last_cortical_selected, false)
 
 	var list_size = global_name_list.size()
