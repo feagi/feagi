@@ -226,26 +226,26 @@ func cortical_is_clicked():
 		return true
 	return false
 
-func _on_Add_it_pressed():
+func _on_Update_pressed():
 	var x = int($Spatial/Camera/Menu/cortical_menu/X.value);
 	var y = int($Spatial/Camera/Menu/cortical_menu/Y.value);
 	var z = int($Spatial/Camera/Menu/cortical_menu/Z.value);
 
-	var width= int($Spatial/Camera/Menu/cortical_menu/W.value)
-	var height = int($Spatial/Camera/Menu/cortical_menu/H.value);
-	var depth = int($Spatial/Camera/Menu/cortical_menu/D.value);
+	var width= int($Spatial/Camera/Menu/cortical_menu/properties/W.value)
+	var height = int($Spatial/Camera/Menu/cortical_menu/properties/H.value);
+	var depth = int($Spatial/Camera/Menu/cortical_menu/properties/D.value);
 
-	var synaptic_attractivity = int($Spatial/Camera/Menu/cortical_menu/syn.value);
-	var post_synaptic_potential = float($Spatial/Camera/Menu/cortical_menu/pst_syn.value);
-	var post_synaptic_potential_max = float($Spatial/Camera/Menu/cortical_menu/pst_syn_max.value);
-	var plasticity_coef = float($Spatial/Camera/Menu/cortical_menu/plst.value);
-	var fire_threshold = float($Spatial/Camera/Menu/cortical_menu/fire.value);
-	var refractory_period = int($Spatial/Camera/Menu/cortical_menu/refa.value);
-	var leak_coefficient = float($Spatial/Camera/Menu/cortical_menu/leak.value);
-	var consecutive_fire_count = int($Spatial/Camera/Menu/cortical_menu/cfr.value);
-	var snooze_period = int($Spatial/Camera/Menu/cortical_menu/snze.value);
-	var degenerecy_coefficient = float($Spatial/Camera/Menu/cortical_menu/dege.value);
-	var psp_uniform_distribution = bool($Spatial/Camera/Menu/cortical_menu/psud.toggle_mode)
+	var synaptic_attractivity = int($Spatial/Camera/Menu/cortical_menu/properties/syn.value);
+	var post_synaptic_potential = float($Spatial/Camera/Menu/cortical_menu/properties/pst_syn.value);
+	var post_synaptic_potential_max = float($Spatial/Camera/Menu/cortical_menu/properties/pst_syn_max.value);
+	var plasticity_coef = float($Spatial/Camera/Menu/cortical_menu/properties/plst.value);
+	var fire_threshold = float($Spatial/Camera/Menu/cortical_menu/properties/fire.value);
+	var refractory_period = int($Spatial/Camera/Menu/cortical_menu/properties/refa.value);
+	var leak_coefficient = float($Spatial/Camera/Menu/cortical_menu/properties/leak.value);
+	var consecutive_fire_count = int($Spatial/Camera/Menu/cortical_menu/properties/cfr.value);
+	var snooze_period = int($Spatial/Camera/Menu/cortical_menu/properties/snze.value);
+	var degenerecy_coefficient = float($Spatial/Camera/Menu/cortical_menu/properties/dege.value);
+	var psp_uniform_distribution = bool($Spatial/Camera/Menu/cortical_menu/properties/psud.toggle_mode)
 	var name_input = $Spatial/Camera/Menu/cortical_menu/name_string.text
 	var copy = duplicate_model.duplicate()
 	var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
@@ -256,6 +256,8 @@ func _on_Add_it_pressed():
 	add_child(copy)
 	global_name_list.append({name_input.replace(" ", "").replace(" ", "") : [copy, x, y, z, width, depth, height]})
 	create_textbox.set_name(name_input + "_textbox")
+	print("HERE: ", name_input)
+	print("list: ", last_cortical_selected)
 	add_child(create_textbox) # Copied the node to new node
 	create_textbox.scale = Vector3(1,1,1)
 	last_cortical_selected["cortical_name"] = name_input
@@ -403,20 +405,20 @@ func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 	$Spatial/Camera/Menu/cortical_menu/X.value = genome_properties["cortical_coordinates"]["x"]
 	$Spatial/Camera/Menu/cortical_menu/Y.value = genome_properties["cortical_coordinates"]["y"]
 	$Spatial/Camera/Menu/cortical_menu/Z.value = genome_properties["cortical_coordinates"]["z"]
-	$Spatial/Camera/Menu/cortical_menu/W.value = genome_properties["cortical_dimensions"]["x"]
-	$Spatial/Camera/Menu/cortical_menu/D.value = genome_properties["cortical_dimensions"]["z"]
-	$Spatial/Camera/Menu/cortical_menu/H.value = genome_properties["cortical_dimensions"]["y"]
-	$Spatial/Camera/Menu/cortical_menu/syn.value = genome_properties["cortical_synaptic_attractivity"]
-	$Spatial/Camera/Menu/cortical_menu/plst.value = genome_properties["neuron_post_synaptic_potential"]
-	$Spatial/Camera/Menu/cortical_menu/pst_syn_max.value = genome_properties["neuron_post_synaptic_potential_max"]
+	$Spatial/Camera/Menu/cortical_menu/properties/W.value = genome_properties["cortical_dimensions"]["x"]
+	$Spatial/Camera/Menu/cortical_menu/properties/D.value = genome_properties["cortical_dimensions"]["z"]
+	$Spatial/Camera/Menu/cortical_menu/properties/H.value = genome_properties["cortical_dimensions"]["y"]
+	$Spatial/Camera/Menu/cortical_menu/properties/syn.value = genome_properties["cortical_synaptic_attractivity"]
+	$Spatial/Camera/Menu/cortical_menu/properties/plst.value = genome_properties["neuron_post_synaptic_potential"]
+	$Spatial/Camera/Menu/cortical_menu/properties/pst_syn_max.value = genome_properties["neuron_post_synaptic_potential_max"]
 	# neuron_plasticity_constant missing
-	$Spatial/Camera/Menu/cortical_menu/fire.value = genome_properties["neuron_fire_threshold"]
-	$Spatial/Camera/Menu/cortical_menu/refa.value = genome_properties["neuron_refractory_period"]
-	$Spatial/Camera/Menu/cortical_menu/leak.value = genome_properties["neuron_leak_coefficient"]
-	$Spatial/Camera/Menu/cortical_menu/cfr.value = genome_properties["neuron_consecutive_fire_count"]
-	$Spatial/Camera/Menu/cortical_menu/snze.value = genome_properties["neuron_snooze_period"]
-	$Spatial/Camera/Menu/cortical_menu/dege.value = genome_properties["neuron_degeneracy_coefficient"]
-	$Spatial/Camera/Menu/cortical_menu/psud.text = str(genome_properties["neuron_psp_uniform_distribution"])
+	$Spatial/Camera/Menu/cortical_menu/properties/fire.value = genome_properties["neuron_fire_threshold"]
+	$Spatial/Camera/Menu/cortical_menu/properties/refa.value = genome_properties["neuron_refractory_period"]
+	$Spatial/Camera/Menu/cortical_menu/properties/leak.value = genome_properties["neuron_leak_coefficient"]
+	$Spatial/Camera/Menu/cortical_menu/properties/cfr.value = genome_properties["neuron_consecutive_fire_count"]
+	$Spatial/Camera/Menu/cortical_menu/properties/snze.value = genome_properties["neuron_snooze_period"]
+	$Spatial/Camera/Menu/cortical_menu/properties/dege.value = genome_properties["neuron_degeneracy_coefficient"]
+	$Spatial/Camera/Menu/cortical_menu/properties/psud.text = str(genome_properties["neuron_psp_uniform_distribution"])
 	last_cortical_selected = genome_properties
 
 
@@ -432,4 +434,5 @@ func _on_send_feagi_request_completed(_result, _response_code, _headers, _body):
 
 
 func _on_psud_toggled(button_pressed):
-	print($Spatial/Camera/Menu/cortical_menu/psud.toggle_mode)
+	print($Spatial/Camera/Menu/cortical_menu/properties/psud.toggle_mode)
+	print(button_pressed)
