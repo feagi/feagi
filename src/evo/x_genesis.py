@@ -22,6 +22,8 @@ import logging
 import json
 import datetime
 import concurrent.futures
+import traceback
+
 from evo import neuron, synapse, stats, genetics, voxels, neuroembryogenesis
 from functools import partial
 from multiprocessing import Pool, Process
@@ -80,7 +82,7 @@ def x_neurodegeneration():
     pass
 
 
-def change_request_processor(change_request):
+def cortical_change_request_processor(change_request):
     """
     Supported changes:
     - Cortical coordinates
@@ -198,29 +200,58 @@ def change_request_processor(change_request):
         pass
 
     if regeneration_flag:
-        cortical_mappings = synapse.cortical_mapping()
-        upstream_cortical_areas = set()
-        downstream_cortical_areas = set(cortical_mappings[cortical_area])
-        for area in cortical_mappings:
-            if cortical_area in cortical_mappings[area]:
-                upstream_cortical_areas.add(area)
+        cortical_regeneration(cortical_area=cortical_area)
 
-        # Todo: Implement a nondestructive method
 
-        # Prune affected synapses
-        for src_cortical_area in upstream_cortical_areas:
-            runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=src_cortical_area,
-                                                         dst_cortical_area=cortical_area)
+def morphology_change_request_processor(change_request):
+    try:
+        if change_request['name'] in runtime_data.genome['neuron_morphologies']:
+            runtime_data.genome['neuron_morphologies'].pop(change_request['name'])
+            runtime_data.genome['neuron_morphologies'][change_request['name']] = dict()
+            runtime_data.genome['neuron_morphologies'][change_request['name']][change_request['type']] = list()
+            for entry in change_request['morphology']:
+                runtime_data.genome['neuron_morphologies'][change_request['name']][change_request['type']].append(entry)
+            impacted_cortical_areas = synapse.cortical_areas_sharing_same_morphology(change_request['name'])
+            print("<><><><><>   <><><><> Impacted areas", impacted_cortical_areas)
+            for impacted_area in impacted_cortical_areas:
+                cortical_rewiring(src_cortical_area=impacted_area[0], dst_cortical_area=impacted_area[1])
 
-        # Reset effected areas
-        runtime_data.brain[cortical_area] = {}
-        voxels.voxel_reset(cortical_area=cortical_area)
+    except Exception as e:
+        print("Error during morphology update\n", e, traceback.print_exc())
 
-        # Recreate neurons
-        neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
+    else:
+        print("Error during processing morphology change request!")
 
-        # Recreate synapses
-        for src_cortical_area in upstream_cortical_areas:
-            neuroembryogenesis.synaptogenesis(cortical_area=src_cortical_area, dst_cortical_area=cortical_area)
-        for dst_cortical_area in downstream_cortical_areas:
-            neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
+
+def cortical_regeneration(cortical_area):
+    cortical_mappings = synapse.cortical_mapping()
+    upstream_cortical_areas = set()
+    downstream_cortical_areas = set(cortical_mappings[cortical_area])
+    for area in cortical_mappings:
+        if cortical_area in cortical_mappings[area]:
+            upstream_cortical_areas.add(area)
+
+    # Todo: Implement a nondestructive method
+
+    # Prune affected synapses
+    for src_cortical_area in upstream_cortical_areas:
+        runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=src_cortical_area,
+                                                     dst_cortical_area=cortical_area)
+
+    # Reset effected areas
+    runtime_data.brain[cortical_area] = {}
+    voxels.voxel_reset(cortical_area=cortical_area)
+
+    # Recreate neurons
+    neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
+
+    # Recreate synapses
+    for src_cortical_area in upstream_cortical_areas:
+        neuroembryogenesis.synaptogenesis(cortical_area=src_cortical_area, dst_cortical_area=cortical_area)
+    for dst_cortical_area in downstream_cortical_areas:
+        neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
+
+
+def cortical_rewiring(src_cortical_area, dst_cortical_area):
+    synapse.synaptic_pruner(src_cortical_area=src_cortical_area, dst_cortical_area=dst_cortical_area)
+    neuroembryogenesis.synaptogenesis(cortical_area=src_cortical_area, dst_cortical_area=dst_cortical_area)

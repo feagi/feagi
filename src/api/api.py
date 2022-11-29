@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Literal
 from ast import literal_eval
 from threading import Thread
 from queue import Queue
@@ -97,6 +97,12 @@ class Logs(BaseModel):
 class BurstEngine(BaseModel):
     burst_duration: Optional[float]
     burst_duration = 1
+
+
+class MorphologyProperties(BaseModel):
+    name: str
+    type: Literal['vectors', 'patterns', 'functions']
+    morphology: list
 
 
 class CorticalProperties(BaseModel):
@@ -345,8 +351,8 @@ async def reset_genome():
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/genome/cortical_properties", methods=['GET'], tags=["Genome"])
-async def update_cortical_properties(cortical_area):
+@app.api_route("/v1/feagi/genome/cortical_area", methods=['GET'], tags=["Genome"])
+async def fetch_cortical_properties(cortical_area):
     """
     Returns the properties of cortical areas
     """
@@ -389,7 +395,7 @@ async def update_cortical_properties(cortical_area):
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/genome/cortical_properties", methods=['POST'], tags=["Genome"])
+@app.api_route("/v1/feagi/genome/cortical_area", methods=['PUT'], tags=["Genome"])
 async def update_cortical_properties(message: CorticalProperties):
     """
     Enables changes against various Burst Engine parameters.
@@ -403,6 +409,144 @@ async def update_cortical_properties(message: CorticalProperties):
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_area", methods=['POST'], tags=["Genome"])
+async def add_cortical_area(message: CorticalProperties):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        message = message.dict()
+        message = {'add_cortical_area': message}
+        print("*" * 50 + "\n", message)
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_area", methods=['DELETE'], tags=["Genome"])
+async def delete_cortical_area(cortical_area_name):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        message = {'delete_cortical_area': cortical_area_name}
+        print("*" * 50 + "\n", message)
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_area_name_list", methods=['GET'], tags=["Genome"])
+async def genome_cortical_names():
+    """
+    Returns a comprehensive list of all cortical area names.
+    """
+    cortical_names = set()
+    try:
+        for cortical_area in runtime_data.genome['blueprint']:
+            cortical_names.add(runtime_data.genome['blueprint'][cortical_area]['cortical_name'])
+        return cortical_names
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/morphology_list", methods=['GET'], tags=["Genome"])
+async def genome_neuron_morphologies():
+    """
+    Returns a comprehensive list of all neuron morphologies.
+    """
+    morphology_names = set()
+    try:
+        for morphology in runtime_data.genome['neuron_morphologies']:
+            morphology_names.add(morphology)
+        return morphology_names
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/morphology_types", methods=['GET'], tags=["Genome"])
+async def genome_neuron_morphology_types():
+    """
+    Returns the properties of a neuron morphology.
+    """
+    try:
+        return {"vectors", "patterns", "functions"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/morphology", methods=['GET'], tags=["Genome"])
+async def genome_neuron_morphology_properties(morphology_name):
+    """
+    Returns the properties of a neuron morphology.
+    """
+    try:
+        if morphology_name in runtime_data.genome['neuron_morphologies']:
+            return runtime_data.genome['neuron_morphologies'][morphology_name]
+        else:
+            return {}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/morphology", methods=['PUT'], tags=["Genome"])
+async def genome_update_neuron_morphology(message: MorphologyProperties):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        message = message.dict()
+        message = {'update_morphology_properties': message}
+        print("*" * 50 + "\n", message)
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/morphology", methods=['POST'], tags=["Genome"])
+async def genome_add_neuron_morphology(message: MorphologyProperties):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        if message.name not in runtime_data.genome['neuron_morphologies']:
+            runtime_data.genome['neuron_morphologies'][message.name] = {}
+            runtime_data.genome['neuron_morphologies'][message.name][message.type] = list()
+            runtime_data.genome['neuron_morphologies'][message.name][message.type].append(message.morphology)
+        else:
+            return {"Morphology already exists! Nothing was added."}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/morphology", methods=['DELETE'], tags=["Genome"])
+async def genome_delete_neuron_morphology(morphology_name):
+    """
+    Returns the properties of a neuron morphology.
+    """
+    try:
+        if morphology_name in runtime_data.genome['neuron_morphologies']:
+            return runtime_data.genome['neuron_morphologies'].pop(morphology_name)
+        else:
+            return {"Error deleting neuron morphology. Morphology not found!"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
 
 
 # ######  Evolution #########

@@ -5,7 +5,7 @@ from inf.initialize import init_brain, reset_runtime_data, id_gen
 from evo.genome_processor import genome_ver_check
 from evo.neuroembryogenesis import develop_brain
 from evo.autopilot import update_generation_dict
-from evo.x_genesis import change_request_processor
+from evo.x_genesis import cortical_change_request_processor, morphology_change_request_processor
 
 
 def api_message_processor(api_message):
@@ -173,5 +173,9 @@ def api_message_processor(api_message):
                 api_message['robot_model']['slip2']
 
     if 'update_cortical_properties' in api_message:
-        change_request_processor(change_request=api_message['update_cortical_properties'])
+        cortical_change_request_processor(change_request=api_message['update_cortical_properties'])
+
+    if 'update_morphology_properties' in api_message:
+        morphology_change_request_processor(change_request=api_message['update_morphology_properties'])
+
     api_message = {}

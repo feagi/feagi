@@ -220,7 +220,7 @@ func cortical_is_clicked():
 			if genome_data["genome"][i][0] == iteration_name:
 				grab_id_cortical = i
 				break
-		var combine_name = 'http://127.0.0.1:8000/v1/feagi/genome/cortical_properties?cortical_area=' + grab_id_cortical
+		var combine_name = 'http://127.0.0.1:8000/v1/feagi/genome/cortical_area?cortical_area=' + grab_id_cortical
 		$Spatial/Camera/Menu/HTTPRequest.request(combine_name)
 		select_cortical.selected.pop_front()
 		return true
@@ -280,7 +280,7 @@ func _on_Add_it_pressed():
 	last_cortical_selected["neuron_degeneracy_coefficient"] = degenerecy_coefficient
 	last_cortical_selected["neuron_psp_uniform_distribution"] = psp_uniform_distribution
 
-	_make_post_request('http://127.0.0.1:8000/v1/feagi/genome/cortical_properties',last_cortical_selected, false)
+	_make_put_request('http://127.0.0.1:8000/v1/feagi/genome/cortical_area',last_cortical_selected, false)
 
 	var list_size = global_name_list.size()
 	for i in list_size:
@@ -426,6 +426,15 @@ func _make_post_request(url, data_to_send, use_ssl):
 	# Add 'Content-Type' header:
 	var headers = ["Content-Type: application/json"]
 	$Spatial/Camera/Menu/send_feagi.request(url, headers, use_ssl, HTTPClient.METHOD_POST, query)
+
+
+func _make_put_request(url, data_to_send, use_ssl):
+	# Convert data to json string:
+	var query = JSON.print(data_to_send)
+	# Add 'Content-Type' header:
+	var headers = ["Content-Type: application/json"]
+	$Spatial/Camera/Menu/send_feagi.request(url, headers, use_ssl, HTTPClient.METHOD_PUT, query)
+
 
 func _on_send_feagi_request_completed(_result, _response_code, _headers, _body):
 	pass
