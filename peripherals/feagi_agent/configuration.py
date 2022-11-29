@@ -37,7 +37,8 @@ capabilities = {
         "retina_height_percent": 70,
         "central_vision_compression": [64, 64],
         "peripheral_vision_compression": [8, 8],
-        "previous_data": {}
+        "previous_data": {},
+        "camera_dev_index": 0
     }
 }
 
