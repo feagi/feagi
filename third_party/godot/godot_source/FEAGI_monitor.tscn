@@ -1,4 +1,4 @@
-[gd_scene load_steps=37 format=2]
+[gd_scene load_steps=38 format=2]
 
 [ext_resource path="res://voxel.meshlib" type="MeshLibrary" id=1]
 [ext_resource path="res://camera.gd" type="Script" id=2]
@@ -18,6 +18,7 @@
 [ext_resource path="res://menu_assets/name_string.gd" type="Script" id=16]
 [ext_resource path="res://menu_assets/OptionButton.gd" type="Script" id=17]
 [ext_resource path="res://menu_assets/image/remove_cortical.png" type="Texture" id=18]
+[ext_resource path="res://menu_assets/image/information.png" type="Texture" id=19]
 
 [sub_resource type="DynamicFont" id=39]
 
@@ -564,20 +565,21 @@ margin_bottom = 10.965
 editable = false
 
 [node name="add" type="Button" parent="Spatial/Camera/Menu/cortical_menu/cortical_mapping/cortical_map_name"]
-anchor_left = 0.662
-anchor_right = 0.814
+anchor_left = 0.692
+anchor_right = 0.837
 anchor_bottom = 0.966
-margin_left = 1.07799
-margin_right = -0.0339966
+margin_left = -0.469055
+margin_right = -0.0534058
 margin_bottom = 0.986
-icon = ExtResource( 14 )
+icon = ExtResource( 19 )
 expand_icon = true
 
 [node name="remove" type="Button" parent="Spatial/Camera/Menu/cortical_menu/cortical_mapping/cortical_map_name"]
 anchor_left = 0.853
 anchor_right = 1.0
 anchor_bottom = 1.04
-margin_left = -0.0430145
+margin_left = 2.84554
+margin_right = -0.235001
 margin_bottom = -1.16
 icon = ExtResource( 18 )
 expand_icon = true
