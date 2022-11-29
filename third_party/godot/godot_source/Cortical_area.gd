@@ -83,26 +83,11 @@ func _on_Area_mouse_entered():
 		set_surface_material(0, global_material.white)
 
 func _on_Area_mouse_exited():
-#	mouse_in = false
 	if get_surface_material(0) == global_material.selected:
 		set_surface_material(0, global_material.selected)
 	else:
 		set_surface_material(0, global_material.deselected)
 
 func _input(_event):
-#	if _event is InputEventMouse:
-#		if _event is InputEventMouseMotion:
-#			screenpos = _event.relative
 	if Input.is_action_just_pressed("ui_del"):
 		set_surface_material(0, global_material.deselected)
-
-#func _process(_delta):
-#	if (mouse_in && Input.is_action_pressed("left_click")):
-#		dragging = true
-#
-#	if (dragging && Input.is_action_pressed("left_click")):
-#		var position = screenpos
-#		print(position)
-#		transform.origin = Vector3(transform.origin.x + (position.x/2), transform.origin.y  + (-1 * position.y/2), transform.origin.z)
-#	else:
-#		dragging = false

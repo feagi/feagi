@@ -15,12 +15,11 @@ func check_esc():
 func _on_Button_pressed():
 	if $menu_background.visible:
 		$menu_background.visible = false
-		$add_cortical_button.visible = false
-		$add_cortical_button/cortical_menu.visible = false
+		$cortical_menu.visible = false
 
 		
 	else:
-		$add_cortical_button.visible = true
+		$cortical_menu.visible = true
 		$menu_background.visible = true
 
 
@@ -28,16 +27,7 @@ func _process(_delta):
 	check_esc()
 
 func _on_Add_it_pressed():
-	print("x: ", $add_cortical_button/cortical_menu/X.value)
-	print("y: ", $add_cortical_button/cortical_menu/Y.value)
-	print("type: ", $add_cortical_button/cortical_menu/OptionButton.selected)
-	print("name: ", $add_cortical_button/cortical_menu/name_string.text)
-
-
-func _on_add_cortical_button_pressed():
-	if pressed != true:
-		pressed = true
-		$add_cortical_button/cortical_menu.visible = true
-	else:
-		pressed = false
-		$add_cortical_button/cortical_menu.visible = false
+	print("x: ", $cortical_menu/X.value)
+	print("y: ", $cortical_menu/Y.value)
+	print("type: ", $cortical_menu/OptionButton.selected)
+	print("name: ", $cortical_menu/name_string.text)
