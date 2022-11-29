@@ -15,13 +15,14 @@
 import datetime
 import json
 import os
+import traceback
 from time import sleep
 
 from fastapi import FastAPI, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from ast import literal_eval
 from threading import Thread
@@ -96,6 +97,37 @@ class Logs(BaseModel):
 class BurstEngine(BaseModel):
     burst_duration: Optional[float]
     burst_duration = 1
+
+
+class CorticalProperties(BaseModel):
+    cortical_id: str = Field(None, max_length=6, min_length=6)
+    cortical_name: Optional[str]
+    cortical_group: Optional[str]
+    cortical_neuron_per_vox_count: Optional[int]
+    cortical_visibility: Optional[bool]
+    cortical_coordinates: Optional[dict] = {
+        'x': 0,
+        'y': 0,
+        'z': 0,
+    }
+    cortical_dimensions: Optional[dict] = {
+        'x': 1,
+        'y': 1,
+        'z': 1,
+    }
+    cortical_destinations: Optional[dict] = {
+    }
+    cortical_synaptic_attractivity: Optional[int]
+    neuron_post_synaptic_potential: Optional[float]
+    neuron_post_synaptic_potential_max: Optional[float]
+    neuron_plasticity_constant: Optional[float]
+    neuron_fire_threshold: Optional[float]
+    neuron_refractory_period: Optional[int]
+    neuron_leak_coefficient: Optional[float]
+    neuron_consecutive_fire_count: Optional[int]
+    neuron_snooze_period: Optional[int]
+    neuron_degeneracy_coefficient: Optional[float]
+    neuron_psp_uniform_distribution: Optional[bool]
 
 
 class Network(BaseModel):
@@ -308,6 +340,66 @@ async def reset_genome():
         print("API call has triggered a genome reset")
         runtime_data.genome_reset_flag = True
         return
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_properties", methods=['GET'], tags=["Genome"])
+async def update_cortical_properties(cortical_area):
+    """
+    Returns the properties of cortical areas
+    """
+    try:
+        cortical_data = runtime_data.genome['blueprint'][cortical_area]
+
+        cortical_properties = {
+            "cortical_id": cortical_area,
+            "cortical_name": cortical_data['cortical_name'],
+            "cortical_group": cortical_data['group_id'],
+            "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
+            "cortical_visibility": cortical_data['neuron_params']['visualization'],
+            "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
+            "cortical_coordinates": {
+                'x': cortical_data['neuron_params']['relative_coordinate'][0],
+                'y': cortical_data['neuron_params']['relative_coordinate'][1],
+                'z': cortical_data['neuron_params']['relative_coordinate'][2]
+            },
+            "cortical_dimensions": {
+                'x': cortical_data['neuron_params']['block_boundaries'][0],
+                'y': cortical_data['neuron_params']['block_boundaries'][1],
+                'z': cortical_data['neuron_params']['block_boundaries'][2]
+            },
+            "cortical_destinations": {
+            },
+            "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
+            "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
+            "neuron_plasticity_constant": cortical_data['plasticity_constant'],
+            "neuron_fire_threshold": cortical_data['neuron_params']['firing_threshold'],
+            "neuron_refractory_period": cortical_data['neuron_params']['refractory_period'],
+            "neuron_leak_coefficient": cortical_data['neuron_params']['leak_coefficient'],
+            "neuron_consecutive_fire_count": cortical_data['neuron_params']['consecutive_fire_cnt_max'],
+            "neuron_snooze_period": cortical_data['neuron_params']['snooze_length'],
+            "neuron_degeneracy_coefficient": cortical_data['degeneration'],
+            "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution']
+        }
+        return cortical_properties
+    except Exception as e:
+        print("API Error:", traceback.print_exc())
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_properties", methods=['POST'], tags=["Genome"])
+async def update_cortical_properties(message: CorticalProperties):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        message = message.dict()
+        message = {'update_cortical_properties': message}
+        print("*" * 50 + "\n", message)
+        api_queue.put(item=message)
+        return {"Request sent!"}
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}

@@ -62,6 +62,7 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
 
             vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
             fire_threshold = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["firing_threshold"]
+
             mem_pot = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
 
             # Note: dst_cortical_area is fed to the src_cortical_area field since the membrane potential of dst changes

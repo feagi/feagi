@@ -17,7 +17,6 @@ limitations under the License.
 extends Spatial
 
 
-onready var file = 'res://csv_data.gdc'
 onready var textbox_display = get_node("Sprite3D")
 onready var selected =  preload("res://selected.meshlib")
 onready var deselected = preload("res://Cortical_area_box.meshlib")
@@ -27,23 +26,15 @@ onready var duplicate_model = get_node("Cortical_area")
 var floor_size = 25
 var grid_steps = 1000
 var flag = 0
-var test = 0
+var test = ""
 var data
 var stored_value = ""
 var current_pos = Vector3()
-var x = 0
-var y = 1
-var z = 2
 var total = []
 var array_test = []
 var number = 0
 var voxel_history = 0
 var history_total = 0
-var depth = 0
-var height = 0
-var width = 0
-var cortical_area = {}
-var cortical_area_stored = {}
 var Godot_list = {}
 var x_increment = 0
 var y_increment = 0
@@ -51,8 +42,10 @@ var z_increment = 0
 var csv_flag = false
 var connected = false
 var stored_csv = ""
+var genome_data = ""
+var previous_genome_data = ""
 var global_name_list = []
-var global_id
+var last_cortical_selected
 var start = 0 #for timer
 var end = 0 #for timer
 var increment_gridmap = 0
@@ -60,40 +53,25 @@ var increment_gridmap = 0
 
 func _ready():
 	set_physics_process(false)
-	for i in 6:
-		$GridMap3.set_cell_item(i,0,0,0) ##set the arrow indicator of 3D
-	var create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
-	var viewport = create_textbox_axis.get_node("Viewport")
-	create_textbox_axis.set_texture(viewport.get_texture())
-	create_textbox_axis.set_name("x_textbox")
-	add_child(create_textbox_axis)#Copied the node to new node
-	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, 5,0,0,"x")
-	for j in 6:
-		$GridMap3.set_cell_item(0,j,0,0)
-	create_textbox_axis = create_textbox_axis.duplicate() #generate a new node to re-use the model
-	viewport = create_textbox_axis.get_node("Viewport")
-	create_textbox_axis.set_texture(viewport.get_texture())
-	create_textbox_axis.set_name("y_textbox")
-	add_child(create_textbox_axis)#Copied the node to new node
-	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, 0,5,0,"y")
-	for k in 6: 
-		$GridMap3.set_cell_item(0,0,k,0)
-	create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
-	viewport = create_textbox_axis.get_node("Viewport")
-	create_textbox_axis.set_texture(viewport.get_texture())
-	create_textbox_axis.set_name("z_textbox")
-	add_child(create_textbox_axis)#Copied the node to new node
-	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, -2,0.5,6,"z")
-	$GridMap.clear()
+	add_3D_indicator()
 
-	_csv_generator()
-	
+
 	while true:
+		if $Spatial/Camera/Menu/add_cortical_button/cortical_menu.visible:
+			if cortical_is_clicked():
+				pass
+			elif select_cortical.selected.empty() != true:
+				select_cortical.selected.pop_front()
 		_process(self)
 		stored_value = data
+		if "genome" in data:
+			genome_data = parse_json(data)
+			if str(genome_data) != str(previous_genome_data):
+				_csv_generator()
+				stored_value = ""
+				previous_genome_data = genome_data
+		elif str(genome_data) == "" or str(genome_data) == "{genome:{}}":
+			websocket.send("empty")
 #		print("data from python: ", data)
 		start = OS.get_ticks_msec()## This will time the engine at start
 		yield(get_tree().create_timer(0.01), "timeout")
@@ -112,12 +90,19 @@ func _process(_delta):
 func generate_one_model(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
 	var new = get_node("Cortical_area").duplicate()
 	new.set_name(name_input)
+	global_name_list.append({name_input.replace(" ", "") : [new, x_input, y_input, z_input, width_input, depth_input, height_input]})
 	add_child(new)
-	global_name_list.append(new)
 	new.scale = Vector3(width_input, height_input, depth_input)
 	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), depth_input/2 + int(z_input))
-	generate_textbox(node, x_input,height_input,z_input, name_input)
+	generate_textbox(node, x_input,height_input,z_input, name_input, y_input, width_input)
 	
+func convert_generate_one_model(_node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
+	var new = get_node("Cortical_area").duplicate()
+	new.set_name(name_input)
+	add_child(new)
+	global_name_list.append({name_input.replace(" ", "") : [new, x_input, y_input, z_input, width_input, depth_input, height_input]})
+	new.scale = Vector3(width_input, height_input, depth_input)
+	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), depth_input/2 + int(z_input))
 	
 func generate_model(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
 	for x_gain in width_input:
@@ -127,106 +112,77 @@ func generate_model(node, x_input, y_input, z_input, width_input, depth_input, h
 					var new = get_node("Cortical_area").duplicate()
 					new.set_name(name_input)
 					add_child(new)
-					global_name_list.append(new)
+					global_name_list.append({name_input.replace(" ", "") : [new, x_input, y_input, z_input, width_input, depth_input, height_input]})
 					new.transform.origin = Vector3(x_gain+int(x_input), y_gain+int(y_input), z_gain+int(z_input))
-					generate_textbox(node, x_input,height_input,z_input, name_input)
+					generate_textbox(node, x_input,height_input,z_input, name_input, y_input, width_input)
 
-func generate_textbox(node, x_input,height_input,z_input, name_input):
-	node.transform.origin = Vector3(int(x_input) + (width/1.5), int(int(y)+2 + (height_input)),z_input)
+func generate_textbox(node, x_input,height_input,z_input, name_input, input_y, width_input):
+	node.transform.origin = Vector3(int(x_input) + (width_input/1.5), int(int(input_y)+2 + (height_input)),z_input)
 	node.get_node("Viewport/Label").set_text(str(name_input))
 	node.get_node("Viewport").get_texture()
+	global_name_list.append({name_input.replace(" ", ""): [node, x_input, 0, z_input, 0, 0, height_input]})
 
-func adding_cortical_areas(name, x_input,y_input,z_input,width_input,height_input,depth_input):
-	cortical_area[name]=[x_input,y_input,z_input,width_input,height_input,depth_input] ##This is just adding the list
-	
 func install_voxel_inside(x_input,y_input,z_input):
 	$GridMap.set_cell_item(x_input,y_input,z_input, 0)
 
-func _csv_generator():
+func _csv_generator(): # After you are done with testing, change the name to genome_generator.
 	_clear_node_name_list(global_name_list)
-	var f = File.new() #This is to read each line from the file
-	if f.file_exists('res://csv_data.gdc'):
-		f.open(file, File.READ)
-		stored_csv = f.get_as_text()
-		while not f.eof_reached(): # iterate through all lines until the end of file is reached
-			var line = f.get_line()
-			if line != "":
-				line += " "
-				var CSV_data = line.split(",", true, '0') ##splits into value array per line
-				x = CSV_data[0]; y = CSV_data[1]; z = CSV_data[2]; width= int(CSV_data[3]) 
-				height = int(CSV_data[4]); depth = int(CSV_data[5]); name = CSV_data[6]
-				$Floor_grid.set_cell_item(int(x),0,int(z),0)
-				if sign(int(width)) > 0:
-					x_increment = (int(width) / floor_size) + 1
-					for i in x_increment:
-						$Floor_grid.set_cell_item(int(x)+(i*floor_size),0,0,0)
-				if sign(int(width)) < 0:
-					x_increment = (int(width) / floor_size) - 1
-					for i in range(0, x_increment):
-						$Floor_grid.set_cell_item(int(x)+(-1*i*floor_size),0,0,0)
+	for k in genome_data["genome"]:
+		var CSV_data = genome_data["genome"][k]
+		var x = CSV_data[4]; var y = CSV_data[5]; var z = CSV_data[6]; var width= int(CSV_data[7]) 
+		var height = int(CSV_data[8]); var depth = int(CSV_data[9]); var name_input = CSV_data[0]
+		$Floor_grid.set_cell_item(int(x),0,int(z),0)
+		if sign(int(width)) > 0:
+			x_increment = (int(width) / floor_size) + 1
+			for i in x_increment:
+				$Floor_grid.set_cell_item(int(x)+(i*floor_size),0,0,0)
+		if sign(int(width)) < 0:
+			x_increment = (int(width) / floor_size) - 1
+			for i in range(0, x_increment):
+				$Floor_grid.set_cell_item(int(x)+(-1*i*floor_size),0,0,0)
 #				$Floor_grid.set_cell_item(0,0,int(z),0)
-				if sign(int(depth)) > 0:
-					z_increment = (int(depth) / floor_size) + 1
-					for i in z_increment:
-						$Floor_grid.set_cell_item(int(x),0,int(z)+(i*floor_size),0)
-				if sign(int(width)) < 0:
-					z_increment = (int(depth) / floor_size) - 1
-					for i in range(0, z_increment):
-						$Floor_grid.set_cell_item(int(x),0,int(z) + (-1*i*floor_size),0)
-				var copy = duplicate_model.duplicate() 
-				var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
-				var viewport = create_textbox.get_node("Viewport")
-				create_textbox.set_texture(viewport.get_texture())
-				add_child(copy)
-				global_name_list.append(copy)
-				create_textbox.set_name(name + "_textbox")
-				add_child(create_textbox)#Copied the node to new node
-				global_name_list.append(create_textbox)
-				create_textbox.scale = Vector3(1,1,1)
-				if int(width) * int(depth) * int(height) < 999: # Prevent massive cortical area 
-					generate_model(create_textbox, x,y,z,width, depth, height, name)
-				else:
-					generate_one_model(create_textbox, x,y,z,width, depth, height, name)
-				# copy.queue_free() #This acts like .clear() but for CSGBox
-				if cortical_area.empty(): #Checks if dict is empty
-					adding_cortical_areas(name,x,y,z,height,width,depth) #adding to dict
-					cortical_area_stored = cortical_area
-				elif cortical_area.hash() == cortical_area_stored.hash():
-					adding_cortical_areas(name,x,y,z,height,width,depth)
-		f.close()
-	else:
-		csv_flag = false
-		
+		if sign(int(depth)) > 0:
+			z_increment = (int(depth) / floor_size) + 1
+			for i in z_increment:
+				$Floor_grid.set_cell_item(int(x),0,int(z)+(i*floor_size),0)
+		if sign(int(width)) < 0:
+			z_increment = (int(depth) / floor_size) - 1
+			for i in range(0, z_increment):
+				$Floor_grid.set_cell_item(int(x),0,int(z) + (-1*i*floor_size),0)
+		var copy = duplicate_model.duplicate() 
+		var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
+		var viewport = create_textbox.get_node("Viewport")
+		create_textbox.set_texture(viewport.get_texture())
+		add_child(copy)
+		global_name_list.append({name_input.replace(" ", "") : [copy, x, y, z, width, depth, height]})
+		create_textbox.set_name(name_input.replace(" ", "") + "_textbox")
+		add_child(create_textbox)#Copied the node to new node
+		#global_name_list.append(create_textbox)
+		create_textbox.scale = Vector3(1,1,1)
+		if int(width) * int(depth) * int(height) < 999: # Prevent massive cortical area 
+			generate_model(create_textbox, x,y,z,width, depth, height, name_input)
+		else:
+			generate_one_model(create_textbox, x,y,z,width, depth, height, name_input)
+
 func _clear_node_name_list(node_name):
 	var list = node_name
 	if list.empty() != true:
-		for search_name in list:
-			print(search_name)
-			search_name.queue_free()
-	global_name_list = []
+		var list_size = global_name_list.size()
+		for i in list_size:
+			for iteration_name in global_name_list[i]:
+				global_name_list[i][iteration_name][0].queue_free()
+		global_name_list = []
 	$Floor_grid.clear()
 
-func check_csv():
-	if csv_flag == false:
-		var check = File.new()
-		if check.file_exists('res://csv_data.gdc'):
-			csv_flag = true
-			check.open(file, File.READ)
-			var current_csv = check.get_as_text()
-			check.close()
-			#print(stored_csv)
-			if stored_csv != current_csv:
-				_csv_generator()
-				stored_csv = current_csv
-	else:
-		var check = File.new()
-		check.open(file, File.READ)
-		var current_csv = check.get_as_text()
-		check.close()
-		if stored_csv != current_csv:
-			stored_csv = current_csv
-			_csv_generator()
-			
+func _clear_single_cortical(node_name, node_list):
+	var list = node_list
+	if list.empty() != true:
+		for search_name in list:
+			if node_name == search_name:
+				search_name.queue_free()
+				global_name_list[search_name].clear()
+	$Floor_grid.clear()
+
 func generate_voxels():
 	if stored_value != "" and stored_value != null:
 		array_test = stored_value.replace("[", "")
@@ -236,6 +192,9 @@ func generate_voxels():
 		$red_voxel.multimesh.instance_count = total
 		$red_voxel.multimesh.visible_instance_count = total
 		var key = 0
+		var x
+		var y
+		var z
 		flag=0
 		while key < total:
 			if flag == 0:
@@ -252,3 +211,222 @@ func generate_voxels():
 				$red_voxel.multimesh.set_instance_transform(key, position)
 			key+= 1
 		flag = 0 # keep x,y,z in correct place
+
+func cortical_is_clicked():
+	var one_time_flag = true
+	if select_cortical.selected.empty() != true:
+		var list_size = global_name_list.size()
+		var iteration_name = select_cortical.selected[0].replace("'","")
+		var grab_id_cortical = ""
+		for i in genome_data["genome"]:
+			if genome_data["genome"][i][0] == iteration_name:
+				grab_id_cortical = i
+				break
+		var combine_name = 'http://127.0.0.1:8000/v1/feagi/genome/cortical_properties?cortical_area=' + grab_id_cortical
+		$Spatial/Camera/Menu/HTTPRequest.request(combine_name)
+		select_cortical.selected.pop_front()
+		return true
+	return false
+
+func _on_Add_it_pressed():
+	var x = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/X.value);
+	var y = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/Y.value);
+	var z = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/Z.value);
+
+	var width= int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/W.value)
+	var height = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/H.value);
+	var depth = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/D.value);
+
+	var synaptic_attractivity = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/syn.value);
+	var post_synaptic_potential = float($Spatial/Camera/Menu/add_cortical_button/cortical_menu/pst_syn.value);
+	var post_synaptic_potential_max = float($Spatial/Camera/Menu/add_cortical_button/cortical_menu/pst_syn_max.value);
+	var plasticity_coef = float($Spatial/Camera/Menu/add_cortical_button/cortical_menu/plst.value);
+	var fire_threshold = float($Spatial/Camera/Menu/add_cortical_button/cortical_menu/fire.value);
+	var refractory_period = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/refa.value);
+	var leak_coefficient = float($Spatial/Camera/Menu/add_cortical_button/cortical_menu/leak.value);
+	var consecutive_fire_count = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/cfr.value);
+	var snooze_period = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/snze.value);
+	var degenerecy_coefficient = float($Spatial/Camera/Menu/add_cortical_button/cortical_menu/dege.value);
+#	var psp_uniform_distribution = bool($Spatial/Camera/Menu/add_cortical_button/cortical_menu/psud.???);
+
+	var name_input = $Spatial/Camera/Menu/add_cortical_button/cortical_menu/name_string.text
+	var copy = duplicate_model.duplicate()
+	var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
+	var viewport = create_textbox.get_node("Viewport")
+	var store_global_data = []
+
+	create_textbox.set_texture(viewport.get_texture())
+	add_child(copy)
+	global_name_list.append({name_input.replace(" ", "").replace(" ", "") : [copy, x, y, z, width, depth, height]})
+	create_textbox.set_name(name_input + "_textbox")
+	add_child(create_textbox) # Copied the node to new node
+	create_textbox.scale = Vector3(1,1,1)
+	last_cortical_selected["cortical_name"] = name_input
+
+	last_cortical_selected["cortical_coordinates"]["x"] = x
+	last_cortical_selected["cortical_coordinates"]["y"] = y
+	last_cortical_selected["cortical_coordinates"]["z"] = z
+
+	last_cortical_selected["cortical_dimensions"]["x"] = width
+	last_cortical_selected["cortical_dimensions"]["y"] = height
+	last_cortical_selected["cortical_dimensions"]["z"] = depth
+
+	last_cortical_selected["cortical_synaptic_attractivity"] = synaptic_attractivity
+	last_cortical_selected["neuron_post_synaptic_potential"] = post_synaptic_potential
+	last_cortical_selected["neuron_post_synaptic_potential_max"] = post_synaptic_potential_max
+	last_cortical_selected["neuron_plasticity_constant"] = plasticity_coef
+	last_cortical_selected["neuron_fire_threshold"] = fire_threshold
+	last_cortical_selected["neuron_refractory_period"] = refractory_period
+	last_cortical_selected["neuron_leak_coefficient"] = leak_coefficient
+	last_cortical_selected["neuron_consecutive_fire_count"] = consecutive_fire_count
+	last_cortical_selected["neuron_snooze_period"] = snooze_period
+	last_cortical_selected["neuron_degeneracy_coefficient"] = degenerecy_coefficient
+#	last_cortical_selected["neuron_psp_uniform_distribution"] = psp_uniform_distribution
+
+	_make_post_request('http://127.0.0.1:8000/v1/feagi/genome/cortical_properties',last_cortical_selected, false)
+
+	var list_size = global_name_list.size()
+	for i in list_size:
+		var iteration_name = name_input
+		if iteration_name in global_name_list[i]:
+			global_name_list[i][iteration_name][0].queue_free()
+		iteration_name = iteration_name + "_textbox"
+		if iteration_name in global_name_list[i]:
+			global_name_list[i][iteration_name][0].queue_free()
+	for i in list_size:
+		var iteration_name = name_input
+		if iteration_name in global_name_list[i]:
+			pass # Skip cortical area so global list can be updated
+		else:
+			store_global_data.append(global_name_list[i])
+	global_name_list.clear()
+	global_name_list = store_global_data
+	
+	if int(width) * int(depth) * int(height) < 999: # Prevent massive cortical area 
+		generate_model(create_textbox, x,y,z,width, depth, height, name_input)
+	else:
+		generate_one_model(create_textbox, x,y,z,width, depth, height, name_input)
+
+#func _on_reposition_pressed():
+#	var get_name = $Spatial/Camera/Menu/move_cortical/cortical_menu/name.text
+#	var get_x = $Spatial/Camera/Menu/move_cortical/cortical_menu/X.value
+#	var get_y = $Spatial/Camera/Menu/move_cortical/cortical_menu/Y.value
+#	var get_z = $Spatial/Camera/Menu/move_cortical/cortical_menu/Z.value
+#	var get_w
+#	var get_d
+#	var get_h
+#	var get_wdh = true
+#	var list_size = global_name_list.size()
+#	var store_global_data = []
+#	for i in list_size:
+#		var iteration_name = get_name
+#		if iteration_name in global_name_list[i]:
+#			if get_wdh:
+#				if not "_textbox" in iteration_name:
+#					get_wdh = false
+#					get_w = global_name_list[i][iteration_name][4]
+#					get_d = global_name_list[i][iteration_name][5]
+#					get_h = global_name_list[i][iteration_name][6]
+#			global_name_list[i][iteration_name][0].queue_free()
+#		iteration_name = iteration_name + "_textbox"
+#		if iteration_name in global_name_list[i]:
+#			global_name_list[i][iteration_name][0].queue_free()
+#	for i in list_size:
+#		var iteration_name = get_name
+#		if iteration_name in global_name_list[i]:
+#			pass # Skip cortical area so global list can be updated
+#		else:
+#			store_global_data.append(global_name_list[i])
+#	global_name_list.clear()
+#	global_name_list = store_global_data
+#
+#	var get_id = ""
+#	for i in genome_data['genome']:
+#		if genome_data['genome'][i][0] == get_name:
+#			get_id = i
+#	var cortical_updated = {"\"cortical_name\"": str("\"", get_name, "\""), "\"cortical_id\"": str("\"", get_id, "\""), "\"cortical_coordinates\"": {"\"x\"": get_x, "\"y\"": get_y, "\"z\"": get_z}, "\"cortical_visibility\"": "\"true\""}
+#	websocket.send(str(cortical_updated))
+#
+#
+#	var copy = duplicate_model.duplicate() 
+#	var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
+#	var viewport = create_textbox.get_node("Viewport")
+#	create_textbox.set_texture(viewport.get_texture())
+#	add_child(copy)
+##	global_name_list.append({name.replace(" ", "") : [copy, get_x, get_y, get_z, get_w, get_d, get_h]})
+#	create_textbox.set_name(get_name.replace(" ", "") + "_textbox")
+#	add_child(create_textbox)#Copied the node to new node
+#	#global_name_list.append(create_textbox)
+#	create_textbox.scale = Vector3(1,1,1)
+#	if int(get_w) * int(get_d) * int(get_h) < 999: # Prevent massive cortical area 
+#		generate_model(create_textbox, get_x,get_y,get_z, get_w, get_d, get_h, get_name)
+#	else:
+#		generate_one_model(create_textbox, get_x,get_y,get_z, get_w, get_d, get_h, get_name)
+##	var x_input =  $Spatial/Camera/Menu/move_cortical/cortical_menu/X.value
+
+func add_3D_indicator():
+	for i in 6:
+		$GridMap3.set_cell_item(i,0,0,0) ##set the arrow indicator of 3D
+	var create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
+	var viewport = create_textbox_axis.get_node("Viewport")
+	create_textbox_axis.set_texture(viewport.get_texture())
+	create_textbox_axis.set_name("x_textbox")
+	add_child(create_textbox_axis)#Copied the node to new node
+	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
+	generate_textbox(create_textbox_axis, 5,0,0,"x", 1, 0)
+	for j in 6:
+		$GridMap3.set_cell_item(0,j,0,0)
+	create_textbox_axis = create_textbox_axis.duplicate() #generate a new node to re-use the model
+	viewport = create_textbox_axis.get_node("Viewport")
+	create_textbox_axis.set_texture(viewport.get_texture())
+	create_textbox_axis.set_name("y_textbox")
+	add_child(create_textbox_axis) # Copied the node to new node
+	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
+	generate_textbox(create_textbox_axis, 0,5,0,"y", 1,0)
+	for k in 6: 
+		$GridMap3.set_cell_item(0,0,k,0)
+	create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
+	viewport = create_textbox_axis.get_node("Viewport")
+	create_textbox_axis.set_texture(viewport.get_texture())
+	create_textbox_axis.set_name("z_textbox")
+	add_child(create_textbox_axis)#Copied the node to new node
+	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
+	generate_textbox(create_textbox_axis, -2,0.5,6,"z", 1, 0)
+	$GridMap.clear()
+
+
+func _on_HTTPRequest_request_completed( result, response_code, headers, body ):
+	print("HTTP STARTED")
+	var json = JSON.parse(body.get_string_from_utf8())
+	var genome_properties = json.result
+	# cortical_id missing
+	$Spatial/Camera/Menu/add_cortical_button/cortical_menu/name_string.text = genome_properties["cortical_name"]
+	# cortical_group missing
+	# cortical_neuron_per_vox_count missing
+	# cortical_visibility missing 
+	$Spatial/Camera/Menu/add_cortical_button/cortical_menu/X.value = genome_properties["cortical_coordinates"]["x"]
+	$Spatial/Camera/Menu/add_cortical_button/cortical_menu/Y.value = genome_properties["cortical_coordinates"]["y"]
+	$Spatial/Camera/Menu/add_cortical_button/cortical_menu/Z.value = genome_properties["cortical_coordinates"]["z"]
+	$Spatial/Camera/Menu/add_cortical_button/cortical_menu/W.value = genome_properties["cortical_dimensions"]["x"]
+	$Spatial/Camera/Menu/add_cortical_button/cortical_menu/D.value = genome_properties["cortical_dimensions"]["z"]
+	$Spatial/Camera/Menu/add_cortical_button/cortical_menu/H.value = genome_properties["cortical_dimensions"]["y"]
+	$Spatial/Camera/Menu/add_cortical_button/cortical_menu/syn.value = genome_properties["cortical_synaptic_attractivity"]
+	$Spatial/Camera/Menu/add_cortical_button/cortical_menu/plst.value = genome_properties["neuron_post_synaptic_potential"]
+	$Spatial/Camera/Menu/add_cortical_button/cortical_menu/pst_syn_max.value = genome_properties["neuron_post_synaptic_potential_max"]
+	# neuron_plasticity_constant missing
+	$Spatial/Camera/Menu/add_cortical_button/cortical_menu/fire.value = genome_properties["neuron_fire_threshold"]
+	$Spatial/Camera/Menu/add_cortical_button/cortical_menu/refa.value = genome_properties["neuron_refractory_period"]
+	$Spatial/Camera/Menu/add_cortical_button/cortical_menu/leak.value = genome_properties["neuron_leak_coefficient"]
+	$Spatial/Camera/Menu/add_cortical_button/cortical_menu/cfr.value = genome_properties["neuron_consecutive_fire_count"]
+	$Spatial/Camera/Menu/add_cortical_button/cortical_menu/snze.value = genome_properties["neuron_snooze_period"]
+	$Spatial/Camera/Menu/add_cortical_button/cortical_menu/dege.value = genome_properties["neuron_degeneracy_coefficient"]
+	$Spatial/Camera/Menu/add_cortical_button/cortical_menu/psud.text = str(genome_properties["neuron_psp_uniform_distribution"])
+	last_cortical_selected = genome_properties
+
+
+func _make_post_request(url, data_to_send, use_ssl):
+	# Convert data to json string:
+	var query = JSON.print(data_to_send)
+	# Add 'Content-Type' header:
+	var headers = ["Content-Type: application/json"]
+	$Spatial/Camera/Menu/send_feagi.request(url, headers, use_ssl, HTTPClient.METHOD_POST, query)

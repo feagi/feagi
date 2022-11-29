@@ -94,20 +94,32 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold):
 
 def frame_split(frame, width_percent, height_percent):
     vision = dict()
-    full_data = frame.shape
-    width_data1, width_data2, height_data1, height_data2 = snippet_rgb(full_data[0],
-                                                                       width_percent,
-                                                                       full_data[1],
-                                                                       height_percent)
-    vision['TL'] = frame[0:width_data1, 0:height_data1]
-    vision['TM'] = frame[0:width_data1, height_data1:height_data2]
-    vision['TR'] = frame[0:width_data1, height_data2:]
-    vision['ML'] = frame[width_data1:width_data2, 0:height_data1]
-    vision['C'] = frame[width_data1:width_data2, height_data1:height_data2]
-    vision['MR'] = frame[width_data1:width_data2, height_data2:]
-    vision['LL'] = frame[width_data2:, 0:height_data1]
-    vision['LM'] = frame[width_data2:, height_data1: height_data2]
-    vision['LR'] = frame[width_data2:, height_data2:]
+    try:
+        full_data = frame.shape
+        width_data1, width_data2, height_data1, height_data2 = snippet_rgb(full_data[0],
+                                                                           width_percent,
+                                                                           full_data[1],
+                                                                           height_percent)
+        vision['TL'] = frame[0:width_data1, 0:height_data1]
+        vision['TM'] = frame[0:width_data1, height_data1:height_data2]
+        vision['TR'] = frame[0:width_data1, height_data2:]
+        vision['ML'] = frame[width_data1:width_data2, 0:height_data1]
+        vision['C'] = frame[width_data1:width_data2, height_data1:height_data2]
+        vision['MR'] = frame[width_data1:width_data2, height_data2:]
+        vision['LL'] = frame[width_data2:, 0:height_data1]
+        vision['LM'] = frame[width_data2:, height_data1: height_data2]
+        vision['LR'] = frame[width_data2:, height_data2:]
+    except AttributeError:
+        print("No visual data to process!")
+    return vision
+
+
+def pan(frame, origin, x, y):
+    """
+    No filter involves. No resize or compression. Just return all boxes.
+    This is heavily leveraged on the frame_split() function.
+    """
+    vision = frame[origin[1]:origin[1] + y, origin[0]:origin[0] + x]
     return vision
 
 

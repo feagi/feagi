@@ -5,13 +5,15 @@ from inf.initialize import init_brain, reset_runtime_data, id_gen
 from evo.genome_processor import genome_ver_check
 from evo.neuroembryogenesis import develop_brain
 from evo.autopilot import update_generation_dict
+from evo.x_genesis import change_request_processor
 
 
 def api_message_processor(api_message):
     """
     Processes the incoming API calls to FEAGI
     """
-
+    print("*---*---" * 30)
+    print("API message:\n", api_message)
     if 'burst_management' in api_message:
         if 'burst_duration' in api_message['burst_management']:
             if api_message['burst_management']['burst_duration'] is not None:
@@ -170,4 +172,6 @@ def api_message_processor(api_message):
             runtime_data.robot_model['slip2'] = \
                 api_message['robot_model']['slip2']
 
+    if 'update_cortical_properties' in api_message:
+        change_request_processor(change_request=api_message['update_cortical_properties'])
     api_message = {}
