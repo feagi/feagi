@@ -25,9 +25,3 @@ func _on_Button_pressed():
 
 func _process(_delta):
 	check_esc()
-
-func _on_Add_it_pressed():
-	print("x: ", $cortical_menu/X.value)
-	print("y: ", $cortical_menu/Y.value)
-	print("type: ", $cortical_menu/OptionButton.selected)
-	print("name: ", $cortical_menu/name_string.text)
