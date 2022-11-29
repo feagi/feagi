@@ -5,15 +5,13 @@
 Demo of dot kinematogram
 """
 
-import random
 import requests
-import numpy as np
 from feagi_agent import retina as retina
 from feagi_agent import feagi_interface as FEAGI
 import cv2
 
 from time import sleep
-from configuration import *
+from peripherals.feagi_agent.configuration import *
 from datetime import datetime
 
 
@@ -96,6 +94,7 @@ if __name__ == "__main__":
     rgb = dict()
     flag = False
     rgb['camera'] = dict()
+    # todo: move video capture camera index to config file
     cam = cv2.VideoCapture(1)
 
     while True:
