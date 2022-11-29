@@ -238,16 +238,16 @@ func _on_Add_it_pressed():
 	var depth = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/D.value);
 
 	var synaptic_attractivity = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/syn.value);
-	var post_synaptic_potential = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/pst_syn.value);
-	var post_synaptic_potential_max = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/pst_syn_max.value);
-	var plasticity_coef = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/plst.value);
-	var fire_threshold = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/fire.value);
+	var post_synaptic_potential = float($Spatial/Camera/Menu/add_cortical_button/cortical_menu/pst_syn.value);
+	var post_synaptic_potential_max = float($Spatial/Camera/Menu/add_cortical_button/cortical_menu/pst_syn_max.value);
+	var plasticity_coef = float($Spatial/Camera/Menu/add_cortical_button/cortical_menu/plst.value);
+	var fire_threshold = float($Spatial/Camera/Menu/add_cortical_button/cortical_menu/fire.value);
 	var refractory_period = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/refa.value);
-	var leak_coefficient = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/leak.value);
+	var leak_coefficient = float($Spatial/Camera/Menu/add_cortical_button/cortical_menu/leak.value);
 	var consecutive_fire_count = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/cfr.value);
 	var snooze_period = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/snze.value);
-	var degenerecy_coefficient = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/dege.value);
-#	var psp_uniform_distribution = int($Spatial/Camera/Menu/add_cortical_button/cortical_menu/psud.???);
+	var degenerecy_coefficient = float($Spatial/Camera/Menu/add_cortical_button/cortical_menu/dege.value);
+#	var psp_uniform_distribution = bool($Spatial/Camera/Menu/add_cortical_button/cortical_menu/psud.???);
 
 	var name_input = $Spatial/Camera/Menu/add_cortical_button/cortical_menu/name_string.text
 	var copy = duplicate_model.duplicate()

@@ -255,3 +255,8 @@ def active_neurons_in_blocks(cortical_area, current_fcl=True, include_neurons=Fa
                 neuron_count += 1
                 blocks_with_active_neurons[neuron_block_ref] = neuron_count
     return blocks_with_active_neurons
+
+
+def voxel_reset(cortical_area):
+    for voxel in runtime_data.voxel_dict[cortical_area]:
+        runtime_data.voxel_dict[cortical_area][voxel] = set()

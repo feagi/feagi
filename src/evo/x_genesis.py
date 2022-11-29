@@ -108,11 +108,11 @@ def change_request_processor(change_request):
         x_cortical_reposition(cortical_area=cortical_area,
                               new_coordinates=change_request['cortical_coordinates'])
 
-
     if change_request['neuron_fire_threshold'] is not None:
         runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["firing_threshold"] = \
             change_request['neuron_fire_threshold']
-
+        for neuron_ in runtime_data.brain[cortical_area]:
+            runtime_data.brain[cortical_area][neuron_]['firing_threshold'] = change_request['neuron_fire_threshold']
 
     if change_request['neuron_leak_coefficient'] is not None:
         runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["leak_coefficient"] = \
@@ -209,11 +209,12 @@ def change_request_processor(change_request):
 
         # Prune affected synapses
         for src_cortical_area in upstream_cortical_areas:
-            runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=src_cortical_area, dst_cortical_area=cortical_area)
+            runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=src_cortical_area,
+                                                         dst_cortical_area=cortical_area)
 
         # Reset effected areas
         runtime_data.brain[cortical_area] = {}
-        runtime_data.voxel_dict[cortical_area] = {}
+        voxels.voxel_reset(cortical_area=cortical_area)
 
         # Recreate neurons
         neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
@@ -223,4 +224,3 @@ def change_request_processor(change_request):
             neuroembryogenesis.synaptogenesis(cortical_area=src_cortical_area, dst_cortical_area=cortical_area)
         for dst_cortical_area in downstream_cortical_areas:
             neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
-
