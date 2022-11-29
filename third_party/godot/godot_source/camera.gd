@@ -37,7 +37,6 @@ const CAMERA_TURN_SPEED = 200
 
 func get_input_keyboard(_delta):
 	# Rotate outer gimbal around y axis
-	
 	if Input.is_action_pressed("ui_left") and is_not_typing:
 		x = x - 1
 		translation=Vector3(x,y,z)

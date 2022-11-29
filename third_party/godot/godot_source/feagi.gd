@@ -57,6 +57,7 @@ func _ready():
 
 
 	while true:
+#		print("current: ", bool($Spatial/Camera/Menu/cortical_menu/properties/psud.toggle_mode))
 #		if $Spatial/Camera/Menu/cortical_menu.visible:
 		if cortical_is_clicked():
 			$Spatial/Camera/Menu/cortical_menu.visible = true
@@ -434,5 +435,5 @@ func _on_send_feagi_request_completed(_result, _response_code, _headers, _body):
 
 
 func _on_psud_toggled(button_pressed):
-	print($Spatial/Camera/Menu/cortical_menu/properties/psud.toggle_mode)
+#	print($Spatial/Camera/Menu/cortical_menu/properties/psud.toggle_mode)
 	print(button_pressed)
