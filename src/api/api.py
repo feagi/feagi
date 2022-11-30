@@ -578,7 +578,36 @@ async def genome_delete_neuron_morphology(morphology_name):
         return {"Request failed...", e}
 
 
+#
+# @app.api_route("/v1/feagi/genome/cortical_mappings", methods=['POST'], tags=["Genome"])
+# async def add_cortical_mapping(cortical_area):
+#     """
+#     Returns the list of cortical areas downstream to the given cortical areas
+#     """
+#     try:
+#         return runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']
+#
+#     except Exception as e:
+#         print("API Error:", e)
+#         return {"Request failed...", e}
+
+
 @app.api_route("/v1/feagi/genome/cortical_mappings", methods=['GET'], tags=["Genome"])
+async def fetch_cortical_mappings(cortical_area):
+    """
+    Returns the list of cortical areas downstream to the given cortical areas
+    """
+    try:
+        cortical_mappings = set()
+        for destination in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
+            cortical_mappings.add(destination)
+        return cortical_mappings
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_mappings_detailed", methods=['GET'], tags=["Genome"])
 async def fetch_cortical_mappings(cortical_area):
     """
     Returns the list of cortical areas downstream to the given cortical areas
@@ -586,6 +615,19 @@ async def fetch_cortical_mappings(cortical_area):
     try:
         return runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']
 
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_mapping/mapping_properties", methods=['GET'], tags=["Genome"])
+async def fetch_cortical_mapping_properties(src_cortical_area, dst_cortical_area):
+    """
+    Returns the list of cortical areas downstream to the given cortical areas
+    """
+    try:
+        if dst_cortical_area in runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst']:
+            return runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'][dst_cortical_area]
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
