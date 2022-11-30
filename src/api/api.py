@@ -105,7 +105,38 @@ class MorphologyProperties(BaseModel):
     morphology: list
 
 
-class CorticalProperties(BaseModel):
+class NewCorticalProperties(BaseModel):
+    cortical_id: str = Field(None, max_length=6, min_length=6)
+    cortical_name: str
+    cortical_group: str
+    cortical_neuron_per_vox_count: int
+    cortical_visibility: bool
+    cortical_coordinates: dict = {
+        'x': 0,
+        'y': 0,
+        'z': 0,
+    }
+    cortical_dimensions: dict = {
+        'x': 1,
+        'y': 1,
+        'z': 1,
+    }
+    cortical_destinations: dict = {
+    }
+    cortical_synaptic_attractivity: int
+    neuron_post_synaptic_potential: float
+    neuron_post_synaptic_potential_max: float
+    neuron_plasticity_constant: float
+    neuron_fire_threshold: float
+    neuron_refractory_period: int
+    neuron_leak_coefficient: float
+    neuron_consecutive_fire_count: int
+    neuron_snooze_period: int
+    neuron_degeneracy_coefficient: float
+    neuron_psp_uniform_distribution: bool
+
+
+class UpdateCorticalProperties(BaseModel):
     cortical_id: str = Field(None, max_length=6, min_length=6)
     cortical_name: Optional[str]
     cortical_group: Optional[str]
@@ -396,7 +427,7 @@ async def fetch_cortical_properties(cortical_area):
 
 
 @app.api_route("/v1/feagi/genome/cortical_area", methods=['PUT'], tags=["Genome"])
-async def update_cortical_properties(message: CorticalProperties):
+async def update_cortical_properties(message: UpdateCorticalProperties):
     """
     Enables changes against various Burst Engine parameters.
     """
@@ -412,7 +443,7 @@ async def update_cortical_properties(message: CorticalProperties):
 
 
 @app.api_route("/v1/feagi/genome/cortical_area", methods=['POST'], tags=["Genome"])
-async def add_cortical_area(message: CorticalProperties):
+async def add_cortical_area(message: NewCorticalProperties):
     """
     Enables changes against various Burst Engine parameters.
     """
