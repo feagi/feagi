@@ -407,8 +407,7 @@ async def fetch_cortical_properties(cortical_area):
                 'y': cortical_data['neuron_params']['block_boundaries'][1],
                 'z': cortical_data['neuron_params']['block_boundaries'][2]
             },
-            "cortical_destinations": {
-            },
+            "cortical_destinations": cortical_data['cortical_mapping_dst'],
             "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
             "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
             "neuron_plasticity_constant": cortical_data['plasticity_constant'],
@@ -620,7 +619,7 @@ async def fetch_cortical_mappings(cortical_area):
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/genome/cortical_mapping/mapping_properties", methods=['GET'], tags=["Genome"])
+@app.api_route("/v1/feagi/genome/mapping_properties", methods=['GET'], tags=["Genome"])
 async def fetch_cortical_mapping_properties(src_cortical_area, dst_cortical_area):
     """
     Returns the list of cortical areas downstream to the given cortical areas

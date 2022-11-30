@@ -171,9 +171,38 @@ def update_cortical_properties(cortical_properties, new_area=False):
         runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["visualization"] = \
             cortical_properties['cortical_visibility']
 
-    # Todo
-    if cortical_properties['cortical_group'] is not None:
-        pass
+    if cortical_properties['cortical_destinations'] is not None:
+        added_mappings, removed_mappings, modified_mappings = \
+            mapping_change_report(cortical_area=cortical_area, new_mapping=cortical_properties['cortical_destinations'])
+
+        print(added_mappings, removed_mappings, modified_mappings)
+
+        # Handle new mappings
+        for dst_cortical_area in added_mappings:
+            neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
+
+            runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][dst_cortical_area] = \
+                cortical_properties['cortical_destinations'][dst_cortical_area]
+
+        # Handle removed mappings
+        for dst_cortical_area in removed_mappings:
+            runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=cortical_area,
+                                                         dst_cortical_area=dst_cortical_area)
+
+            if dst_cortical_area in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
+                runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'].pop(dst_cortical_area)
+
+        # Handle modified mappings
+        for dst_cortical_area in modified_mappings:
+            runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=cortical_area,
+                                                         dst_cortical_area=dst_cortical_area)
+
+            runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'].pop(dst_cortical_area)
+            runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][dst_cortical_area] = \
+                cortical_properties['cortical_destinations'][dst_cortical_area]
+
+            neuroembryogenesis.synaptogenesis(cortical_area=cortical_area,
+                                              dst_cortical_area=dst_cortical_area)
 
     # ####################################################
     # Conditions that require cortical regeneration
@@ -209,9 +238,6 @@ def update_cortical_properties(cortical_properties, new_area=False):
             runtime_data.genome["blueprint"][cortical_area]["synapse_attractivity"] = \
                 cortical_properties['cortical_synaptic_attractivity']
 
-    if cortical_properties['cortical_destinations'] is not None:
-        pass
-
     if regeneration_flag or new_area:
         cortical_regeneration(cortical_area=cortical_area)
 
@@ -246,8 +272,8 @@ def neighboring_cortical_areas(cortical_area):
     return upstream_cortical_areas, downstream_cortical_areas
 
 
-def cortical_removal(cortical_name, genome_scrub=False):
-    cortical_area = cortical_id(cortical_name=cortical_name)
+def cortical_removal(cortical_area, genome_scrub=False):
+    # cortical_area = cortical_id(cortical_name=cortical_name)
     upstream_cortical_areas, downstream_cortical_areas = neighboring_cortical_areas(cortical_area)
 
     # Prune affected synapses
@@ -301,3 +327,20 @@ def cortical_id(cortical_name):
     for cortical_area in runtime_data.genome['blueprint']:
         if runtime_data.genome['blueprint'][cortical_area]["cortical_name"] == cortical_name:
             return cortical_area
+
+
+def mapping_change_report(cortical_area, new_mapping):
+    old_mapping = runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']
+    added = set()
+    removed = set()
+    modified = set()
+    for area in new_mapping:
+        if area not in old_mapping:
+            added.add(area)
+        else:
+            if new_mapping[area] != old_mapping[area]:
+                modified.add(area)
+    for area in old_mapping:
+        if area not in new_mapping:
+            removed.add(area)
+    return added, removed, modified
