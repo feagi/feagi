@@ -6,12 +6,12 @@ Demo of dot kinematogram
 """
 
 import requests
-from feagi_agent import retina as retina
-from feagi_agent import feagi_interface as FEAGI
+import retina as retina
+import feagi_interface as FEAGI
 import cv2
 
 from time import sleep
-from peripherals.feagi_agent.configuration import *
+from configuration import *
 from datetime import datetime
 
 
@@ -94,8 +94,8 @@ if __name__ == "__main__":
     rgb = dict()
     flag = False
     rgb['camera'] = dict()
-    # todo: move video capture camera index to config file
-    cam = cv2.VideoCapture(1)
+
+    cam = cv2.VideoCapture(capabilities['camera']['video_device_index'])
 
     while True:
         message_from_feagi = feagi_opu_channel.receive()
