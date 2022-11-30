@@ -49,6 +49,7 @@ var last_cortical_selected
 var start = 0 #for timer
 var end = 0 #for timer
 var increment_gridmap = 0
+var child_node_holder = []
 
 
 func _ready():
@@ -57,6 +58,8 @@ func _ready():
 
 
 	while true:
+		if not($Spatial/Camera/Menu/cortical_menu.visible) and child_node_holder:
+			child_holder_clear()
 #		print("current: ", bool($Spatial/Camera/Menu/cortical_menu/properties/psud.toggle_mode))
 #		if $Spatial/Camera/Menu/cortical_menu.visible:
 		if cortical_is_clicked():
@@ -221,6 +224,7 @@ func cortical_is_clicked():
 			if genome_data["genome"][i][0] == iteration_name:
 				grab_id_cortical = i
 				break
+		update_cortical_map_name(grab_id_cortical)
 		var combine_name = 'http://127.0.0.1:8000/v1/feagi/genome/cortical_area?cortical_area=' + grab_id_cortical
 		$Spatial/Camera/Menu/HTTPRequest.request(combine_name)
 		select_cortical.selected.pop_front()
@@ -307,63 +311,6 @@ func _on_Update_pressed():
 	else:
 		generate_one_model(create_textbox, x,y,z,width, depth, height, name_input)
 
-#func _on_reposition_pressed():
-#	var get_name = $Spatial/Camera/Menu/move_cortical/cortical_menu/name.text
-#	var get_x = $Spatial/Camera/Menu/move_cortical/cortical_menu/X.value
-#	var get_y = $Spatial/Camera/Menu/move_cortical/cortical_menu/Y.value
-#	var get_z = $Spatial/Camera/Menu/move_cortical/cortical_menu/Z.value
-#	var get_w
-#	var get_d
-#	var get_h
-#	var get_wdh = true
-#	var list_size = global_name_list.size()
-#	var store_global_data = []
-#	for i in list_size:
-#		var iteration_name = get_name
-#		if iteration_name in global_name_list[i]:
-#			if get_wdh:
-#				if not "_textbox" in iteration_name:
-#					get_wdh = false
-#					get_w = global_name_list[i][iteration_name][4]
-#					get_d = global_name_list[i][iteration_name][5]
-#					get_h = global_name_list[i][iteration_name][6]
-#			global_name_list[i][iteration_name][0].queue_free()
-#		iteration_name = iteration_name + "_textbox"
-#		if iteration_name in global_name_list[i]:
-#			global_name_list[i][iteration_name][0].queue_free()
-#	for i in list_size:
-#		var iteration_name = get_name
-#		if iteration_name in global_name_list[i]:
-#			pass # Skip cortical area so global list can be updated
-#		else:
-#			store_global_data.append(global_name_list[i])
-#	global_name_list.clear()
-#	global_name_list = store_global_data
-#
-#	var get_id = ""
-#	for i in genome_data['genome']:
-#		if genome_data['genome'][i][0] == get_name:
-#			get_id = i
-#	var cortical_updated = {"\"cortical_name\"": str("\"", get_name, "\""), "\"cortical_id\"": str("\"", get_id, "\""), "\"cortical_coordinates\"": {"\"x\"": get_x, "\"y\"": get_y, "\"z\"": get_z}, "\"cortical_visibility\"": "\"true\""}
-#	websocket.send(str(cortical_updated))
-#
-#
-#	var copy = duplicate_model.duplicate() 
-#	var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
-#	var viewport = create_textbox.get_node("Viewport")
-#	create_textbox.set_texture(viewport.get_texture())
-#	add_child(copy)
-##	global_name_list.append({name.replace(" ", "") : [copy, get_x, get_y, get_z, get_w, get_d, get_h]})
-#	create_textbox.set_name(get_name.replace(" ", "") + "_textbox")
-#	add_child(create_textbox)#Copied the node to new node
-#	#global_name_list.append(create_textbox)
-#	create_textbox.scale = Vector3(1,1,1)
-#	if int(get_w) * int(get_d) * int(get_h) < 999: # Prevent massive cortical area 
-#		generate_model(create_textbox, get_x,get_y,get_z, get_w, get_d, get_h, get_name)
-#	else:
-#		generate_one_model(create_textbox, get_x,get_y,get_z, get_w, get_d, get_h, get_name)
-##	var x_input =  $Spatial/Camera/Menu/move_cortical/cortical_menu/X.value
-
 func add_3D_indicator():
 	for i in 6:
 		$GridMap3.set_cell_item(i,0,0,0) ##set the arrow indicator of 3D
@@ -393,7 +340,6 @@ func add_3D_indicator():
 	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
 	generate_textbox(create_textbox_axis, -2,0.5,6,"z", 1, 0)
 	$GridMap.clear()
-
 
 func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
@@ -446,3 +392,44 @@ func _on_send_feagi_request_completed(_result, _response_code, _headers, _body):
 func _on_psud_toggled(button_pressed):
 #	print($Spatial/Camera/Menu/cortical_menu/properties/psud.toggle_mode)
 	print(button_pressed)
+
+
+func _on_info_pressed(name):
+	pass
+	
+func update_cortical_map_name(name):
+	var get_name = $Spatial/Camera/Menu/cortical_menu/name_string.text
+	var combine_name = 'http://127.0.0.1:8000/v1/feagi/genome/cortical_mappings?cortical_area=' + name
+	$Spatial/Camera/Menu/information_button.request(combine_name)
+
+
+func _on_information_button_request_completed(_result, _response_code, _headers, body):
+	# Do not touch here. THis is for information biteration_nameutton only and will dedicate
+	# to the information button
+	
+	# Clear duplicate cortical maps name up
+	child_holder_clear()
+	
+	# Obtain the data from API and convert it into json/string
+	var json = JSON.parse(body.get_string_from_utf8())
+	var api_data = json.result
+	var counter = 0 # To increase the height between two different duplicated nodes
+#	$Spatial/Camera/Menu/cortical_menu/cortical_mapping/cortical_map_name.visible = false
+	for i in api_data:
+		var new_node = $Spatial/Camera/Menu/cortical_menu/cortical_mapping/cortical_map_name.duplicate()
+		$Spatial/Camera/Menu/cortical_menu/cortical_mapping.add_child(new_node)
+		child_node_holder.append(new_node)
+		new_node.text = i
+		new_node.rect_position.x = $Spatial/Camera/Menu/cortical_menu/cortical_mapping/cortical_map_name.rect_position.x
+		new_node.rect_position.y = $Spatial/Camera/Menu/cortical_menu/cortical_mapping/cortical_map_name.rect_position.y + (counter * 30)
+		new_node.rect_size.x = $Spatial/Camera/Menu/cortical_menu/cortical_mapping/cortical_map_name.rect_size.x 
+		new_node.rect_size.y = $Spatial/Camera/Menu/cortical_menu/cortical_mapping/cortical_map_name.rect_size.y
+		new_node.visible = true
+		counter += 1
+
+func child_holder_clear():
+	# Clear duplicate cortical maps name up
+	if child_node_holder:
+		for i in child_node_holder:
+			i.queue_free()
+		child_node_holder = []
