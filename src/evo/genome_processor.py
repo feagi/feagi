@@ -204,7 +204,7 @@ def genome_2_1_convertor(flat_genome):
                             pass
                     except KeyError as e:
                         print("Error while converting a gene:", e, cortical_area, gene)
-    # print(genome)
+    print(genome)
     return genome
 
 

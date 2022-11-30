@@ -37,7 +37,6 @@ const CAMERA_TURN_SPEED = 200
 
 func get_input_keyboard(_delta):
 	# Rotate outer gimbal around y axis
-	
 	if Input.is_action_pressed("ui_left") and is_not_typing:
 		x = x - 1
 		translation=Vector3(x,y,z)
@@ -62,6 +61,8 @@ func get_input_keyboard(_delta):
 		print(Godot_list.godot_list)
 	if Input.is_action_just_pressed("ui_del"):
 		#print(Input.is_action_just_pressed("ui_del"))
+		$Menu/cortical_menu.visible = false
+		$Menu/menu_background.visible = false
 		flagged = true
 		websocket.send("refresh")
 		for key in Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"]:

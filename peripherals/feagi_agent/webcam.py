@@ -95,7 +95,7 @@ if __name__ == "__main__":
     flag = False
     rgb['camera'] = dict()
 
-    cam = cv2.VideoCapture(capabilities['camera']['camera_dev_index'])
+    cam = cv2.VideoCapture(capabilities['camera']['video_device_index'])
 
     while True:
         message_from_feagi = feagi_opu_channel.receive()

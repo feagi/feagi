@@ -52,17 +52,21 @@ def reset_connectome_in_mem():
         runtime_data.brain[item] = {}
 
 
+def reset_connectome_file(cortical_area):
+    file_name = runtime_data.connectome_path + cortical_area + '.json'
+    with open(file_name, "w") as connectome:
+        connectome.write(json.dumps({}))
+        connectome.truncate()
+    if runtime_data.parameters["Logs"]["print_brain_gen_activities"]:
+        print(settings.Bcolors.YELLOW + "Cortical area %s is has been cleared." % cortical_area
+              + settings.Bcolors.ENDC)
+    runtime_data.brain[cortical_area] = {}
+
+
 # Resets all connectome files
 def reset_connectome_files():
-    for key in runtime_data.genome['blueprint']:
-        file_name = runtime_data.connectome_path + key + '.json'
-        with open(file_name, "w") as connectome:
-            connectome.write(json.dumps({}))
-            connectome.truncate()
-        if runtime_data.parameters["Logs"]["print_brain_gen_activities"]:
-            print(settings.Bcolors.YELLOW + "Cortical area %s is has been cleared." % key
-                  + settings.Bcolors.ENDC)
-        runtime_data.brain[key] = {}
+    for cortical_area in runtime_data.genome['blueprint']:
+        reset_connectome_file(cortical_area=cortical_area)
 
 
 def reuse():

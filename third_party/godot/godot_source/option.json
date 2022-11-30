@@ -2,5 +2,5 @@
   "Name": "Label",
   "name_string": "LineEdit",
   "Type": "OptionButton",
-  "option": ["Sensor", "Actuators", "Other"]
+  "option": ["IPU", "OPU", "Custom"]
 }

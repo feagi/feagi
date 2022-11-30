@@ -361,3 +361,14 @@ def synaptic_pruner(src_cortical_area, dst_cortical_area):
                     dst_cortical_area:
                 runtime_data.brain[src_cortical_area][neuron]['neighbors'].pop(neighbor)
     return runtime_data.brain
+
+
+def cortical_areas_sharing_same_morphology(neuron_morphology):
+    cortical_list = list()
+    for cortical_area in runtime_data.genome['blueprint']:
+        for destination in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
+            for mapping in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][destination]:
+                print("mapping----", mapping, neuron_morphology)
+                if mapping['morphology_id'] == neuron_morphology:
+                    cortical_list.append([cortical_area, destination])
+    return cortical_list

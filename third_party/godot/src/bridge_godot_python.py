@@ -383,7 +383,7 @@ if __name__ == "__main__":
             zmq_queue.append(json_object)
         if "cortical_name" in data_from_godot:
             # data_from_godot = data_from_godot.replace("relocate", "\"relocate\"")
-            url = "http://127.0.0.1:8000/v1/feagi/genome/cortical_properties"
+            url = "http://127.0.0.1:8000/v1/feagi/genome/cortical_area"
             request_obj = data_from_godot
             requests.post(url, data=request_obj)
             data_from_godot = {}
