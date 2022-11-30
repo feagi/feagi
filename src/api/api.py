@@ -584,10 +584,7 @@ async def fetch_cortical_mappings(cortical_area):
     Returns the list of cortical areas downstream to the given cortical areas
     """
     try:
-        cortical_mappings = set()
-        for destination in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
-            cortical_mappings.add(destination)
-        return cortical_mappings
+        return runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']
 
     except Exception as e:
         print("API Error:", e)
