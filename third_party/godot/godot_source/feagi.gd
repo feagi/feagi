@@ -394,11 +394,10 @@ func _on_psud_toggled(button_pressed):
 	print(button_pressed)
 
 
-func _on_info_pressed(name):
+func _on_info_pressed():
 	pass
 	
 func update_cortical_map_name(name):
-	var get_name = $Spatial/Camera/Menu/cortical_menu/name_string.text
 	var combine_name = 'http://127.0.0.1:8000/v1/feagi/genome/cortical_mappings?cortical_area=' + name
 	$Spatial/Camera/Menu/information_button.request(combine_name)
 
@@ -415,6 +414,7 @@ func _on_information_button_request_completed(_result, _response_code, _headers,
 	var api_data = json.result
 	var counter = 0 # To increase the height between two different duplicated nodes
 #	$Spatial/Camera/Menu/cortical_menu/cortical_mapping/cortical_map_name.visible = false
+	var cap = 150 # Keep nodes inside the white rectangle
 	for i in api_data:
 		var new_node = $Spatial/Camera/Menu/cortical_menu/cortical_mapping/cortical_map_name.duplicate()
 		$Spatial/Camera/Menu/cortical_menu/cortical_mapping.add_child(new_node)
@@ -422,6 +422,10 @@ func _on_information_button_request_completed(_result, _response_code, _headers,
 		new_node.text = i
 		new_node.rect_position.x = $Spatial/Camera/Menu/cortical_menu/cortical_mapping/cortical_map_name.rect_position.x
 		new_node.rect_position.y = $Spatial/Camera/Menu/cortical_menu/cortical_mapping/cortical_map_name.rect_position.y + (counter * 30)
+		if new_node.rect_position.y > cap:
+			$Spatial/Camera/Menu/cortical_menu/cortical_mapping/white_background.rect_size.y += 30
+			cap += 30
+		$Spatial/Camera/Menu/cortical_menu/Update.rect_position.y = $Spatial/Camera/Menu/cortical_menu/Update.rect_position.y + (counter * 5)
 		new_node.rect_size.x = $Spatial/Camera/Menu/cortical_menu/cortical_mapping/cortical_map_name.rect_size.x 
 		new_node.rect_size.y = $Spatial/Camera/Menu/cortical_menu/cortical_mapping/cortical_map_name.rect_size.y
 		new_node.visible = true
@@ -433,3 +437,5 @@ func child_holder_clear():
 		for i in child_node_holder:
 			i.queue_free()
 		child_node_holder = []
+	$Spatial/Camera/Menu/cortical_menu/cortical_mapping/white_background.rect_size.y = 242
+	$Spatial/Camera/Menu/cortical_menu/Update.rect_position.y = 659
