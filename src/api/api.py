@@ -632,6 +632,37 @@ async def fetch_cortical_mapping_properties(src_cortical_area, dst_cortical_area
         return {"Request failed...", e}
 
 
+@app.api_route("/v1/feagi/genome/cortical_area_types", methods=['GET'], tags=["Genome"])
+async def fetch_cortical_area_types():
+    """
+    Returns the list of supported cortical area types
+    """
+    try:
+        cortical_area_types = set()
+        for cortical_area in runtime_data.genome['blueprint']:
+            cortical_area_types.add(runtime_data.genome['blueprint'][cortical_area]['group_id'])
+        return cortical_area_types
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_area_type_list", methods=['GET'], tags=["Genome"])
+async def list_cortical_area_by_type(cortical_area_type):
+    """
+    Returns the list of cortical areas matching a given type
+    """
+    try:
+        cortical_list = set()
+        for cortical_area in runtime_data.genome['blueprint']:
+            if runtime_data.genome['blueprint'][cortical_area]['group_id'] == cortical_area_type:
+                cortical_list.add(cortical_area)
+        return cortical_list
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
 # ######  Evolution #########
 # #############################
 
