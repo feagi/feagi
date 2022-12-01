@@ -77,6 +77,7 @@ genome_orig = {}
 genome2 = {}
 genome_ver = None
 genome_id = ""
+genome_file_name = None
 genome_counter = 0
 autopilot = False
 generation_dict = None

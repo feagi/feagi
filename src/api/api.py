@@ -285,6 +285,18 @@ async def genome_default_upload():
         return {"FEAGI start using genome string failed ...", e}
 
 
+@app.get("/v1/feagi/genome/file_name", tags=["Genome"])
+async def genome_file_name():
+    """
+    Returns the name of the genome file last uploaded to FEAGI
+    """
+    try:
+        return runtime_data.genome_file_name
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed..."}
+
+
 @app.post("/v1/feagi/genome/upload/file", tags=["Genome"])
 async def genome_file_upload(file: UploadFile = File(...)):
     """
@@ -293,6 +305,7 @@ async def genome_file_upload(file: UploadFile = File(...)):
     """
     try:
         data = await file.read()
+        runtime_data.genome_file_name = file.filename
 
         genome_str = data.decode("utf-8").split(" = ")[1]
         message = {'genome': literal_eval(genome_str)}
