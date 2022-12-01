@@ -5,13 +5,15 @@ from inf.initialize import init_brain, reset_runtime_data, id_gen
 from evo.genome_processor import genome_ver_check
 from evo.neuroembryogenesis import develop_brain
 from evo.autopilot import update_generation_dict
+from evo.x_genesis import update_cortical_properties, update_morphology_properties, cortical_removal
 
 
 def api_message_processor(api_message):
     """
     Processes the incoming API calls to FEAGI
     """
-
+    print("*---*---" * 30)
+    print("API message:\n", api_message)
     if 'burst_management' in api_message:
         if 'burst_duration' in api_message['burst_management']:
             if api_message['burst_management']['burst_duration'] is not None:
@@ -169,5 +171,18 @@ def api_message_processor(api_message):
         if api_message['robot_model']['slip2']:
             runtime_data.robot_model['slip2'] = \
                 api_message['robot_model']['slip2']
+
+    if 'update_cortical_properties' in api_message:
+        update_cortical_properties(cortical_properties=api_message['update_cortical_properties'])
+
+    if 'update_morphology_properties' in api_message:
+        update_morphology_properties(morphology_properties=api_message['update_morphology_properties'])
+
+    if 'delete_cortical_area' in api_message:
+        cortical_removal(cortical_name=api_message['delete_cortical_area'],
+                         genome_scrub=True)
+
+    if 'add_cortical_area' in api_message:
+        update_cortical_properties(cortical_properties=api_message['add_cortical_area'], new_area=True)
 
     api_message = {}

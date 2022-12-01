@@ -188,12 +188,12 @@ def burst_manager():
             else:
                 return False
 
-    def consecutive_fire_threshold_check(cortical_area, neuron_id):
+    def consecutive_fire_threshold_check(cortical_area_, neuron_id):
         # Condition to snooze the neuron if consecutive fire count reaches threshold
-        if runtime_data.brain[cortical_area][neuron_id]["consecutive_fire_cnt"] > \
-                runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["consecutive_fire_cnt_max"]:
-            snooze_till(cortical_area, neuron_id, runtime_data.burst_count +
-                        runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["snooze_length"])
+        if runtime_data.brain[cortical_area_][neuron_id]["consecutive_fire_cnt"] > \
+                runtime_data.genome["blueprint"][cortical_area_]["neuron_params"]["consecutive_fire_cnt_max"]:
+            snooze_till(cortical_area_, neuron_id, runtime_data.burst_count +
+                        runtime_data.genome["blueprint"][cortical_area_]["neuron_params"]["snooze_length"])
             return False
         else:
             return True
@@ -233,7 +233,7 @@ def burst_manager():
                     # When neuron is ready to fire
                     if membrane_potential > fire_threshold and \
                             refractory_check(cortical_area, neuron_id) and \
-                            consecutive_fire_threshold_check(cortical_area, neuron_id):
+                            consecutive_fire_threshold_check(cortical_area_=cortical_area, neuron_id=neuron_id):
                         # The actual trigger to fire the neuron
                         runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"] = \
                             runtime_data.burst_count

@@ -113,10 +113,10 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
         # When long term depression flag is set, there will be negative synaptic influence caused
         plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"] * (-1) * \
                               impact_multiplier
-    #     print("<> <> <> <> <> <> <> <> <>     LTD     <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
-    #
-    # else:
-    #     print("<> <> <> <> <> <> <> <> <>      LTP      <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
+        print("<> <> <> <> <> <> <> <> <>     LTD     <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
+
+    else:
+        print("<> <> <> <> <> <> <> <> <>      LTP      <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
 
     try:
         new_psc = \
@@ -215,12 +215,12 @@ def neuroplasticity():
                                 post-synaptic neuron is fired during burst (n+1) 
                                 """
 
-                                if presynaptic_neuron in postsynaptic_neuron_neighbors:
-                                    longterm_potentiation_depression(
-                                        src_cortical_area=cfcl_area,
-                                        src_neuron_id=postsynaptic_neuron,
-                                        dst_cortical_area=pfcl_area,
-                                        dst_neuron_id=presynaptic_neuron,
-                                        long_term_depression=True,
-                                        impact_multiplier=1
-                                    )
+                                # if presynaptic_neuron in postsynaptic_neuron_neighbors:
+                                #     longterm_potentiation_depression(
+                                #         src_cortical_area=cfcl_area,
+                                #         src_neuron_id=postsynaptic_neuron,
+                                #         dst_cortical_area=pfcl_area,
+                                #         dst_neuron_id=presynaptic_neuron,
+                                #         long_term_depression=True,
+                                #         impact_multiplier=1
+                                #     )
