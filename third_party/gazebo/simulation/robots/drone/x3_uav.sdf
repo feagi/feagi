@@ -54,8 +54,8 @@
         <topic>Camera0</topic>
         <camera>
           <image>
-            <width>64</width>
-            <height>64</height>
+            <width>600</width>
+            <height>600</height>
             <format>L_INT8</format>
           </image>
           <clip>
