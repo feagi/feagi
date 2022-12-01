@@ -33,9 +33,6 @@ func get_input_keyboard(delta):
 		y_rotation += 1
 	set_rotation(look_leftright_rotation(y_rotation * rotation_speed * delta))
 	if Input.is_action_just_pressed("reset"):
-		var x = 18
-		var y = 43.323002
-		var z = 6.711
 		set_rotation(Vector3(13.3, 0, 0))
 
 

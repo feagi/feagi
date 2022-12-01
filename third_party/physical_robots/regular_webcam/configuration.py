@@ -26,49 +26,18 @@ network_settings = {
 }
 
 capabilities = {
-    "motor": {
-        "type": "opu",
-        "disabled": False,
-        "count": 4,
-        'topic_identifier': '/M',
-        "refresh_rate": 1,
-        "cortical_mapping": "o__mot",
-        "power_coefficient": 11,
-        "wheel_diameter": 0.065,  # radius is in sdf under wheels inside <link></link>
-    },
     "camera": {
         "type": "ipu",
         "disabled": False,
         "count": 1,
         "width": 8,
         "height": 8,
-        "deviation_threshold": 0.1,
-        "retina_width_percent": 60,
-        "retina_height_percent": 40,
+        "deviation_threshold": 0.5,
+        "retina_width_percent": 90,
+        "retina_height_percent": 70,
         "central_vision_compression": [64, 64],
         "peripheral_vision_compression": [8, 8],
-        "previous_data": {},
-        "field_of_vision_x": 800,
-        "field_of_vision_y": 600,
-        "field_of_vision_origin": [100, 100]
-    },
-    "battery": {
-        "type": "ipu",
-        "disabled": False,
-        "count": 4,
-        "refresh_rate": 1,
-        "cortical_mapping": "i__bat",
-        "capacity": 100,
-        "depletion_per_burst": 0.01,
-        "charge_increment": 0.1
-    },
-    "gyro": {
-        "resolution": 20,
-        "range": [-180, 180]  # -180 to 180 degree
-    },
-    "acc": {
-        "resolution": 20,
-        "range": [-1200, 1200]
+        "previous_data": {}
     }
 }
 

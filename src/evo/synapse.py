@@ -77,6 +77,8 @@ def synapse(cortical_area, src_id, dst_cortical_area, dst_id, postsynaptic_curre
             {"cortical_area": dst_cortical_area, "postsynaptic_current": postsynaptic_current}
 
         # Adding upstream neuron list to the brain
+        if dst_id not in runtime_data.brain[dst_cortical_area]:
+            print(cortical_area, src_id, dst_cortical_area, dst_id, "....not found")
         if "upstream_neurons" not in runtime_data.brain[dst_cortical_area][dst_id]:
             runtime_data.brain[dst_cortical_area][dst_id]["upstream_neurons"] = {}
 
@@ -350,3 +352,23 @@ def cortical_mapping():
             mapping_str = mapping_str + "\n" + cortical_area + ' ' + dst
     print(mapping_str)
     return mapping_dict
+
+
+def synaptic_pruner(src_cortical_area, dst_cortical_area):
+    for neuron in runtime_data.brain[src_cortical_area].copy():
+        for neighbor in runtime_data.brain[src_cortical_area][neuron]['neighbors'].copy():
+            if runtime_data.brain[src_cortical_area][neuron]['neighbors'][neighbor]['cortical_area'] == \
+                    dst_cortical_area:
+                runtime_data.brain[src_cortical_area][neuron]['neighbors'].pop(neighbor)
+    return runtime_data.brain
+
+
+def cortical_areas_sharing_same_morphology(neuron_morphology):
+    cortical_list = list()
+    for cortical_area in runtime_data.genome['blueprint']:
+        for destination in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
+            for mapping in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][destination]:
+                print("mapping----", mapping, neuron_morphology)
+                if mapping['morphology_id'] == neuron_morphology:
+                    cortical_list.append([cortical_area, destination])
+    return cortical_list

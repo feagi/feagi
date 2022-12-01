@@ -10,11 +10,11 @@ import requests
 import numpy as np
 from feagi_agent import retina as retina
 from feagi_agent import feagi_interface as FEAGI
+import cv2
 
 from time import sleep
 from configuration import *
 from datetime import datetime
-from psychopy import visual, event, core, misc
 
 
 def chroma_keyer(frame, size, name_id):
@@ -91,53 +91,16 @@ if __name__ == "__main__":
     feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address)
     feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
     # FEAGI section ends
-
-    win = visual.Window((600, 600), allowGUI=False, winType='pyglet')
-
-    # Initialize some stimuli
-    fixSpot = visual.GratingStim(win, tex="none", mask="gauss",
-                                 pos=(0, 0), size=(0.05, 0.05), color='black', autoLog=False)
-    grating = visual.GratingStim(win, pos=(0.5, 0),
-                                 tex="sin", mask="gauss",
-                                 color=[1.0, 0.5, -1.0],
-                                 size=(1.0, 1.0), sf=(3, 0),
-                                 autoLog=False)  # autologging not useful for dynamic stimuli
-    redPill = visual.Circle(win, size=[0.1, 0.4], fillColor='red')
-    bluePill = visual.Circle(win, size=[0.1, 0.4], fillColor='blue')
-    myMouse = event.Mouse()  # will use win by default
-
-    # print(dotPatch)
-
-    message = visual.TextStim(win, text='Any key to quit', pos=(0, -0.5))
-    trialClock = core.Clock()
     previous_frame_data = dict()
     msg_counter = runtime_data["feagi_state"]['burst_counter']
-
-    redTheta = 0
-    blueTheta = 0
-    X = 0
-    Y = 0
-    flag = False
-    mouse_flag = False
-    redPill.pos = misc.pol2cart(redTheta, radius=0.6)
     rgb = dict()
+    flag = False
     rgb['camera'] = dict()
+    cam = cv2.VideoCapture(0)
 
-    while not event.getKeys():
+    while True:
         message_from_feagi = feagi_opu_channel.receive()
-        mouse_dX, mouse_dY = myMouse.getRel()
-        mouse1, mouse2, mouse3 = myMouse.getPressed()
-
-        # Handle the wheel(s):
-        # dY is the normal mouse wheel, but some have a dX as well
-        # wheel_dX, wheel_dY = myMouse.getWheelRel()
-        # grating.setOri(wheel_dY * 5, '+')
-        redPill.draw()
-
-        # Do the drawing
-        fixSpot.draw()
-        pixels = np.array(win._getFrame())
-        win.flip()
+        check, pixels = cam.read()
         retina_data = retina.frame_split(pixels, capabilities['camera']['retina_width_percent'],
                                          capabilities['camera']['retina_height_percent'])
         for i in retina_data:
@@ -186,70 +149,21 @@ if __name__ == "__main__":
             message_to_feagi["data"]["sensory_data"]['camera'] = rgb['camera']
         except Exception as e:
             pass
-        if opu_data is not None:
-            if 'motor' in opu_data:
-                if opu_data['motor']:
-                    for i in opu_data['motor']:
-                        if i // 2 == 0:
-                            if i % 2 == 0:
-                                X += opu_data['motor'][i] / 100
-                            else:
-                                X -= opu_data['motor'][i] / 100
-                        if i // 2 == 1:
-                            if i % 2 == 0:
-                                Y += opu_data['motor'][i] / 100
-                            else:
-                                Y -= opu_data['motor'][i] / 100
-                if opu_data['misc']:
-                    for i in opu_data['misc']:
-                        if i == 0:
-                            mouse1 = 1
-                        if i == 1:
-                            mouse2 = 1
-                        if i == 2:
-                            mouse3 = 1
-                fixSpot.setPos([X, Y])
-
-        # Psychopy game start here
-        # if mouse1:
-        #     print(fixSpot.pos)
-        #     for i in range(10):
-        #         for y in range(10):
-        #             print("*" * 5)
-        # if mouse2:
-        #     for i in range(10):
-        #         for y in range(10):
-        #             print("@" * 5)
-        # if mouse3:
-        #     for i in range(10):
-        #         for y in range(10):
-        #             print("z" * 5)
-        if mouse1 == 1:
-            if redPill.contains(fixSpot.pos):
-                rnd_number = random.randint(0, 2)
-                if rnd_number == 0:
-                    redPill = visual.Rect(win, size=[0.5, 0.5], fillColor='blue')
-                elif rnd_number == 1:
-                    redPill = visual.Circle(win, size=[0.5, 0.5], fillColor='red')
-                elif rnd_number == 2:
-                    redPill = visual.Polygon(win, size=[0.5, 0.5], fillColor='yellow')
-                redPill.pos = (random.uniform(-1, 1), random.uniform(-1, 1))
-
         # Psychopy game ends
         message_to_feagi['timestamp'] = datetime.now()
         message_to_feagi['counter'] = msg_counter
-        # msg_counter += 1
-        # flag += 1
-        # if flag == 10:
-        #     feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
-        #     feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
-        #     flag = 0
-        #     if msg_counter < feagi_burst_counter:
-        #         feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-        #         if feagi_burst_speed != network_settings['feagi_burst_speed']:
-        #             network_settings['feagi_burst_speed'] = feagi_burst_speed
+        msg_counter += 1
+        flag += 1
+        if flag == 10:
+            feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
+            feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
+            flag = 0
+            if msg_counter < feagi_burst_counter:
+                feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
+                if feagi_burst_speed != network_settings['feagi_burst_speed']:
+                    network_settings['feagi_burst_speed'] = feagi_burst_speed
         feagi_ipu_channel.send(message_to_feagi)
-        # sleep(network_settings['feagi_burst_speed'])
+        sleep(network_settings['feagi_burst_speed'])
         message_to_feagi.clear()
         for i in rgb['camera']:
             rgb['camera'][i].clear()

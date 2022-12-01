@@ -15,14 +15,15 @@
 import datetime
 import json
 import os
+import traceback
 from time import sleep
 
 from fastapi import FastAPI, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field
+from typing import Optional, Literal
 from ast import literal_eval
 from threading import Thread
 from queue import Queue
@@ -96,6 +97,74 @@ class Logs(BaseModel):
 class BurstEngine(BaseModel):
     burst_duration: Optional[float]
     burst_duration = 1
+
+
+class MorphologyProperties(BaseModel):
+    name: str
+    type: Literal['vectors', 'patterns', 'functions']
+    morphology: list
+
+
+class NewCorticalProperties(BaseModel):
+    cortical_id: str = Field(None, max_length=6, min_length=6)
+    cortical_name: str
+    cortical_group: str
+    cortical_neuron_per_vox_count: int
+    cortical_visibility: bool
+    cortical_coordinates: dict = {
+        'x': 0,
+        'y': 0,
+        'z': 0,
+    }
+    cortical_dimensions: dict = {
+        'x': 1,
+        'y': 1,
+        'z': 1,
+    }
+    cortical_destinations: dict = {
+    }
+    cortical_synaptic_attractivity: int
+    neuron_post_synaptic_potential: float
+    neuron_post_synaptic_potential_max: float
+    neuron_plasticity_constant: float
+    neuron_fire_threshold: float
+    neuron_refractory_period: int
+    neuron_leak_coefficient: float
+    neuron_consecutive_fire_count: int
+    neuron_snooze_period: int
+    neuron_degeneracy_coefficient: float
+    neuron_psp_uniform_distribution: bool
+
+
+class UpdateCorticalProperties(BaseModel):
+    cortical_id: str = Field(None, max_length=6, min_length=6)
+    cortical_name: Optional[str]
+    cortical_group: Optional[str]
+    cortical_neuron_per_vox_count: Optional[int]
+    cortical_visibility: Optional[bool]
+    cortical_coordinates: Optional[dict] = {
+        'x': 0,
+        'y': 0,
+        'z': 0,
+    }
+    cortical_dimensions: Optional[dict] = {
+        'x': 1,
+        'y': 1,
+        'z': 1,
+    }
+    cortical_destinations: Optional[dict] = {
+    }
+    cortical_synaptic_attractivity: Optional[int]
+    neuron_post_synaptic_potential: Optional[float]
+    neuron_post_synaptic_potential_max: Optional[float]
+    neuron_plasticity_constant: Optional[float]
+    neuron_fire_threshold: Optional[float]
+    neuron_refractory_period: Optional[int]
+    neuron_leak_coefficient: Optional[float]
+    neuron_consecutive_fire_count: Optional[int]
+    neuron_snooze_period: Optional[int]
+    neuron_degeneracy_coefficient: Optional[float]
+    neuron_psp_uniform_distribution: Optional[bool]
 
 
 class Network(BaseModel):
@@ -308,6 +377,256 @@ async def reset_genome():
         print("API call has triggered a genome reset")
         runtime_data.genome_reset_flag = True
         return
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_area", methods=['GET'], tags=["Genome"])
+async def fetch_cortical_properties(cortical_area):
+    """
+    Returns the properties of cortical areas
+    """
+    try:
+        cortical_data = runtime_data.genome['blueprint'][cortical_area]
+
+        cortical_properties = {
+            "cortical_id": cortical_area,
+            "cortical_name": cortical_data['cortical_name'],
+            "cortical_group": cortical_data['group_id'],
+            "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
+            "cortical_visibility": cortical_data['neuron_params']['visualization'],
+            "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
+            "cortical_coordinates": {
+                'x': cortical_data['neuron_params']['relative_coordinate'][0],
+                'y': cortical_data['neuron_params']['relative_coordinate'][1],
+                'z': cortical_data['neuron_params']['relative_coordinate'][2]
+            },
+            "cortical_dimensions": {
+                'x': cortical_data['neuron_params']['block_boundaries'][0],
+                'y': cortical_data['neuron_params']['block_boundaries'][1],
+                'z': cortical_data['neuron_params']['block_boundaries'][2]
+            },
+            "cortical_destinations": cortical_data['cortical_mapping_dst'],
+            "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
+            "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
+            "neuron_plasticity_constant": cortical_data['plasticity_constant'],
+            "neuron_fire_threshold": cortical_data['neuron_params']['firing_threshold'],
+            "neuron_refractory_period": cortical_data['neuron_params']['refractory_period'],
+            "neuron_leak_coefficient": cortical_data['neuron_params']['leak_coefficient'],
+            "neuron_consecutive_fire_count": cortical_data['neuron_params']['consecutive_fire_cnt_max'],
+            "neuron_snooze_period": cortical_data['neuron_params']['snooze_length'],
+            "neuron_degeneracy_coefficient": cortical_data['degeneration'],
+            "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution']
+        }
+        return cortical_properties
+    except Exception as e:
+        print("API Error:", traceback.print_exc())
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_area", methods=['PUT'], tags=["Genome"])
+async def update_cortical_properties(message: UpdateCorticalProperties):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        message = message.dict()
+        message = {'update_cortical_properties': message}
+        print("*" * 50 + "\n", message)
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_area", methods=['POST'], tags=["Genome"])
+async def add_cortical_area(message: NewCorticalProperties):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        message = message.dict()
+        message = {'add_cortical_area': message}
+        print("*" * 50 + "\n", message)
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_area", methods=['DELETE'], tags=["Genome"])
+async def delete_cortical_area(cortical_area_name):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        message = {'delete_cortical_area': cortical_area_name}
+        print("*" * 50 + "\n", message)
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_area_name_list", methods=['GET'], tags=["Genome"])
+async def genome_cortical_names():
+    """
+    Returns a comprehensive list of all cortical area names.
+    """
+    cortical_names = set()
+    try:
+        for cortical_area in runtime_data.genome['blueprint']:
+            cortical_names.add(runtime_data.genome['blueprint'][cortical_area]['cortical_name'])
+        return cortical_names
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/morphology_list", methods=['GET'], tags=["Genome"])
+async def genome_neuron_morphologies():
+    """
+    Returns a comprehensive list of all neuron morphologies.
+    """
+    morphology_names = set()
+    try:
+        for morphology in runtime_data.genome['neuron_morphologies']:
+            morphology_names.add(morphology)
+        return morphology_names
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/morphology_types", methods=['GET'], tags=["Genome"])
+async def genome_neuron_morphology_types():
+    """
+    Returns the properties of a neuron morphology.
+    """
+    try:
+        return {"vectors", "patterns", "functions"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/morphology", methods=['GET'], tags=["Genome"])
+async def genome_neuron_morphology_properties(morphology_name):
+    """
+    Returns the properties of a neuron morphology.
+    """
+    try:
+        if morphology_name in runtime_data.genome['neuron_morphologies']:
+            return runtime_data.genome['neuron_morphologies'][morphology_name]
+        else:
+            return {}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/morphology", methods=['PUT'], tags=["Genome"])
+async def genome_update_neuron_morphology(message: MorphologyProperties):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        message = message.dict()
+        message = {'update_morphology_properties': message}
+        print("*" * 50 + "\n", message)
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/morphology", methods=['POST'], tags=["Genome"])
+async def genome_add_neuron_morphology(message: MorphologyProperties):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        if message.name not in runtime_data.genome['neuron_morphologies']:
+            runtime_data.genome['neuron_morphologies'][message.name] = {}
+            runtime_data.genome['neuron_morphologies'][message.name][message.type] = list()
+            runtime_data.genome['neuron_morphologies'][message.name][message.type].append(message.morphology)
+        else:
+            return {"Morphology already exists! Nothing was added."}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/morphology", methods=['DELETE'], tags=["Genome"])
+async def genome_delete_neuron_morphology(morphology_name):
+    """
+    Returns the properties of a neuron morphology.
+    """
+    try:
+        if morphology_name in runtime_data.genome['neuron_morphologies']:
+            return runtime_data.genome['neuron_morphologies'].pop(morphology_name)
+        else:
+            return {"Error deleting neuron morphology. Morphology not found!"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+#
+# @app.api_route("/v1/feagi/genome/cortical_mappings", methods=['POST'], tags=["Genome"])
+# async def add_cortical_mapping(cortical_area):
+#     """
+#     Returns the list of cortical areas downstream to the given cortical areas
+#     """
+#     try:
+#         return runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']
+#
+#     except Exception as e:
+#         print("API Error:", e)
+#         return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_mappings", methods=['GET'], tags=["Genome"])
+async def fetch_cortical_mappings(cortical_area):
+    """
+    Returns the list of cortical areas downstream to the given cortical areas
+    """
+    try:
+        cortical_mappings = set()
+        for destination in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
+            cortical_mappings.add(destination)
+        return cortical_mappings
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_mappings_detailed", methods=['GET'], tags=["Genome"])
+async def fetch_cortical_mappings(cortical_area):
+    """
+    Returns the list of cortical areas downstream to the given cortical areas
+    """
+    try:
+        return runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']
+
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/mapping_properties", methods=['GET'], tags=["Genome"])
+async def fetch_cortical_mapping_properties(src_cortical_area, dst_cortical_area):
+    """
+    Returns the list of cortical areas downstream to the given cortical areas
+    """
+    try:
+        if dst_cortical_area in runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst']:
+            return runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'][dst_cortical_area]
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
