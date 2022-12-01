@@ -142,6 +142,8 @@ def update_cortical_properties(cortical_properties, new_area=False):
             for dst_neuron in runtime_data.brain[cortical_area][neuron_id]["neighbors"]:
                 runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron]["postsynaptic_current"] = \
                     cortical_properties['neuron_post_synaptic_potential']
+        runtime_data.genome['blueprint'][cortical_area]['postsynaptic_current'] = \
+            cortical_properties['neuron_post_synaptic_potential']
 
     if cortical_properties['neuron_refractory_period'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["refractory_period"] = \
