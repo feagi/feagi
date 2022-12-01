@@ -113,10 +113,10 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
         # When long term depression flag is set, there will be negative synaptic influence caused
         plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"] * (-1) * \
                               impact_multiplier
-    #     print("<> <> <> <> <> <> <> <> <>     LTD     <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
-    #
-    # else:
-    #     print("<> <> <> <> <> <> <> <> <>      LTP      <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
+        print("<> <> <> <> <> <> <> <> <>     LTD     <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
+
+    else:
+        print("<> <> <> <> <> <> <> <> <>      LTP      <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
 
     try:
         new_psc = \
@@ -214,7 +214,7 @@ def neuroplasticity():
                                 LTD occurs when a pre-synaptic neuron fires in burst (n) and its associated 
                                 post-synaptic neuron is fired during burst (n+1) 
                                 """
-                                # Todo: Enable LTD
+
                                 # if presynaptic_neuron in postsynaptic_neuron_neighbors:
                                 #     longterm_potentiation_depression(
                                 #         src_cortical_area=cfcl_area,

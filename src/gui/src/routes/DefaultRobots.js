@@ -61,7 +61,7 @@ const DefaultRobots = (props) => {
             <MenuCard
               image={<Img src={require('../assets/drone.png')} width="225" height="225" />}
               onClick={() =>
-                handleRobotSelection('"drone.sdf"', '"/robots/drone/"')
+                handleRobotSelection('"x3_uav.sdf"', '"/robots/drone/"')
               }
               changeColorOnClick={false}
             />
