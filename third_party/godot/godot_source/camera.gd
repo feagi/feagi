@@ -31,38 +31,36 @@ var x_rotation = rotate_x(13.3)
 var direction = Vector3(0, 0, 0)
 var velocity = Vector3(0, 0, 0)
 var flagged = false ## This allows space and del to be able to send data without being overwritten by spam "{}"
-var is_not_typing = true
 
 const CAMERA_TURN_SPEED = 200
 
 func get_input_keyboard(_delta):
 	# Rotate outer gimbal around y axis
-	if Input.is_action_pressed("ui_left") and is_not_typing:
+	
+	if Input.is_action_pressed("ui_left"):
 		x = x - 1
 		translation=Vector3(x,y,z)
-	elif Input.is_action_pressed("ui_right") and is_not_typing:
+	elif Input.is_action_pressed("ui_right"):
 		x = x + 1
 		translation=Vector3(x,y,z)
-	elif Input.is_action_pressed("ui_down") and is_not_typing:
+	elif Input.is_action_pressed("ui_down"):
 		z = z + 1
 		translation=Vector3(x,y,z)
-	elif Input.is_action_pressed("ui_up") and is_not_typing:
+	elif Input.is_action_pressed("ui_up"):
 		z = z - 1
 		transform.origin=Vector3(x+rotation.x,(y+rotation.y),z)
-	elif Input.is_action_pressed("ui_page_up") and is_not_typing:
+	elif Input.is_action_pressed("ui_page_up"):
 		y = y - 1
 		transform.origin=Vector3(x,y,z)
-	elif Input.is_action_pressed("ui_page_down") and is_not_typing:
+	elif Input.is_action_pressed("ui_page_down"):
 		y = y + 1
 		transform.origin=Vector3(x,y,z)
-	if Input.is_action_just_pressed("ui_select") and is_not_typing: ##It's actually spacebar
+	if Input.is_action_just_pressed("ui_select"): ##It's actually spacebar
 		flagged = true
 		websocket.send(String(Godot_list.godot_list))
 		print(Godot_list.godot_list)
 	if Input.is_action_just_pressed("ui_del"):
 		#print(Input.is_action_just_pressed("ui_del"))
-		$Menu/cortical_menu.visible = false
-		$Menu/menu_background.visible = false
 		flagged = true
 		websocket.send("refresh")
 		for key in Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"]:
@@ -101,10 +99,4 @@ func move_left_right(in_direction: int):
 	"""
 	direction.x += in_direction
 	velocity += get_transform().basis.x * in_direction * rotation_speed
-
-
-func _on_LineEdit_text_changed(_new_text):
-	is_not_typing = false
-
-func _on_LineEdit_focus_exited():
-	is_not_typing = true
+	

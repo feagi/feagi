@@ -24,23 +24,25 @@ onready var Camera = $Camera
 
 var rotation_speed = PI/2
 var x_rotation = rotate_x(13.3)
-var is_not_typing = true
 
 func get_input_keyboard(delta):
 	var y_rotation = 0
-	if Input.is_action_pressed("cam_right") and is_not_typing:
+	if Input.is_action_pressed("cam_right"):
 		y_rotation += -1
-	if Input.is_action_pressed("cam_left") and is_not_typing:
+	if Input.is_action_pressed("cam_left"):
 		y_rotation += 1
 	set_rotation(look_leftright_rotation(y_rotation * rotation_speed * delta))
-	if Input.is_action_just_pressed("reset") and is_not_typing:
+	if Input.is_action_just_pressed("reset"):
+		var x = 18
+		var y = 43.323002
+		var z = 6.711
 		set_rotation(Vector3(13.3, 0, 0))
 
 
 	x_rotation = 0
-	if Input.is_action_pressed("cam_up") and is_not_typing:
+	if Input.is_action_pressed("cam_up"):
 		x_rotation += 1
-	if Input.is_action_pressed("cam_down") and is_not_typing:
+	if Input.is_action_pressed("cam_down"):
 		x_rotation += -1
 	rotate_object_local(Vector3.RIGHT, x_rotation * rotation_speed * delta)
 	
@@ -53,10 +55,3 @@ func look_leftright_rotation(rotation = 0):
 
 func _process(delta):
 	get_input_keyboard(delta)
-
-
-func _on_LineEdit_text_changed(_new_text):
-	is_not_typing = false
-
-func _on_LineEdit_focus_exited():
-	is_not_typing = true
