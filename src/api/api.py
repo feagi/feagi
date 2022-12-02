@@ -33,6 +33,7 @@ from inf.baseline import gui_baseline
 from evo import static_genome, autopilot
 from evo.synapse import cortical_mapping
 from evo.templates import cortical_types
+from evo.neuroembryogenesis import cortical_name_list
 
 
 description = """
@@ -130,7 +131,6 @@ class NewCustomCorticalProperties(BaseModel):
         'y': 1,
         'z': 1,
     }
-    channel_count: Optional[int]
 
 
 # class NewCorticalProperties_old(BaseModel):
@@ -534,11 +534,8 @@ async def genome_cortical_names():
     """
     Returns a comprehensive list of all cortical area names.
     """
-    cortical_names = set()
     try:
-        for cortical_area in runtime_data.genome['blueprint']:
-            cortical_names.add(runtime_data.genome['blueprint'][cortical_area]['cortical_name'])
-        return cortical_names
+        return cortical_name_list()
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}

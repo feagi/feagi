@@ -421,3 +421,10 @@ def generate_plasticity_dict():
                         runtime_data.plasticity_dict[mapping_dst][area] = 'afferent'
 
     print("Plasticity dict:", runtime_data.plasticity_dict)
+
+
+def cortical_name_list():
+    cortical_names = set()
+    for cortical_area in runtime_data.genome['blueprint']:
+        cortical_names.add(runtime_data.genome['blueprint'][cortical_area]['cortical_name'])
+    return cortical_names
