@@ -32,6 +32,7 @@ from inf import runtime_data
 from inf.baseline import gui_baseline
 from evo import static_genome, autopilot
 from evo.synapse import cortical_mapping
+from evo.templates import cortical_types
 
 
 description = """
@@ -106,11 +107,19 @@ class MorphologyProperties(BaseModel):
 
 
 class NewCorticalProperties(BaseModel):
-    cortical_id: str = Field(None, max_length=6, min_length=6)
+    cortical_type: str
     cortical_name: str
-    cortical_group: str
-    cortical_neuron_per_vox_count: int
-    cortical_visibility: bool
+    cortical_coordinates: dict = {
+        'x': 0,
+        'y': 0,
+        'z': 0,
+    }
+    channel_count: Optional[int]
+
+
+class NewCustomCorticalProperties(BaseModel):
+    cortical_type: str
+    cortical_name: str
     cortical_coordinates: dict = {
         'x': 0,
         'y': 0,
@@ -121,19 +130,38 @@ class NewCorticalProperties(BaseModel):
         'y': 1,
         'z': 1,
     }
-    cortical_destinations: dict = {
-    }
-    cortical_synaptic_attractivity: int
-    neuron_post_synaptic_potential: float
-    neuron_post_synaptic_potential_max: float
-    neuron_plasticity_constant: float
-    neuron_fire_threshold: float
-    neuron_refractory_period: int
-    neuron_leak_coefficient: float
-    neuron_consecutive_fire_count: int
-    neuron_snooze_period: int
-    neuron_degeneracy_coefficient: float
-    neuron_psp_uniform_distribution: bool
+    channel_count: Optional[int]
+
+
+# class NewCorticalProperties_old(BaseModel):
+#     cortical_id: str = Field(None, max_length=6, min_length=6)
+#     cortical_name: str
+#     cortical_group: str
+#     cortical_neuron_per_vox_count: int
+#     cortical_visibility: bool
+#     cortical_coordinates: dict = {
+#         'x': 0,
+#         'y': 0,
+#         'z': 0,
+#     }
+#     cortical_dimensions: dict = {
+#         'x': 1,
+#         'y': 1,
+#         'z': 1,
+#     }
+#     cortical_destinations: dict = {
+#     }
+#     cortical_synaptic_attractivity: int
+#     neuron_post_synaptic_potential: float
+#     neuron_post_synaptic_potential_max: float
+#     neuron_plasticity_constant: float
+#     neuron_fire_threshold: float
+#     neuron_refractory_period: int
+#     neuron_leak_coefficient: float
+#     neuron_consecutive_fire_count: int
+#     neuron_snooze_period: int
+#     neuron_degeneracy_coefficient: float
+#     neuron_psp_uniform_distribution: bool
 
 
 class UpdateCorticalProperties(BaseModel):
@@ -470,6 +498,22 @@ async def add_cortical_area(message: NewCorticalProperties):
         return {"Request failed...", e}
 
 
+@app.api_route("/v1/feagi/genome/custom_cortical_area", methods=['POST'], tags=["Genome"])
+async def add_cortical_area(message: NewCustomCorticalProperties):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        message = message.dict()
+        message = {'add_custom_cortical_area': message}
+        print("*" * 50 + "\n", message)
+        api_queue.put(item=message)
+        return {"Request sent!"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
 @app.api_route("/v1/feagi/genome/cortical_area", methods=['DELETE'], tags=["Genome"])
 async def delete_cortical_area(cortical_area_name):
     """
@@ -640,6 +684,39 @@ async def fetch_cortical_mapping_properties(src_cortical_area, dst_cortical_area
     try:
         if dst_cortical_area in runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst']:
             return runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'][dst_cortical_area]
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_types", methods=['GET'], tags=["Genome"])
+async def cortical_area_types():
+    """
+    Returns the list of supported cortical types
+    """
+    try:
+        return runtime_data.cortical_types
+
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_type_list", methods=['GET'], tags=["Genome"])
+async def cortical_area_types(cortical_type):
+    """
+    Returns the list of supported cortical area for a given type
+    """
+    try:
+        if cortical_type in cortical_types:
+            cortical_list = set()
+            for item in cortical_types[cortical_type]['supported_devices']:
+                if cortical_types[cortical_type]['supported_devices'][item]['enabled']:
+                    cortical_list.add(item)
+            return cortical_list
+        else:
+            return None
+
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
@@ -1120,8 +1197,8 @@ async def network_management(message: Network):
 # ######  Peripheral Nervous System Endpoints #########
 # #####################################################
 
-@app.api_route("/v1/feagi/feagi/pns/ipu", methods=['GET'], tags=["Peripheral Nervous System"])
-async def ipu_list():
+@app.api_route("/v1/feagi/feagi/pns/current/ipu", methods=['GET'], tags=["Peripheral Nervous System"])
+async def current_ipu_list():
     try:
         return runtime_data.ipu_list
     except Exception as e:
@@ -1129,8 +1206,8 @@ async def ipu_list():
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/feagi/pns/opu", methods=['GET'], tags=["Peripheral Nervous System"])
-async def ipu_list():
+@app.api_route("/v1/feagi/feagi/pns/current/opu", methods=['GET'], tags=["Peripheral Nervous System"])
+async def current_opu_list():
     try:
         return runtime_data.opu_list
     except Exception as e:

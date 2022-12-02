@@ -22,14 +22,17 @@ import logging
 import json
 import datetime
 import concurrent.futures
+import random
+import string
 import traceback
 
-from evo import neuron, synapse, stats, genetics, voxels, neuroembryogenesis
+from evo import neuron, synapse, stats, genetics, voxels, neuroembryogenesis, templates
 from functools import partial
 from multiprocessing import Pool, Process
 from inf import disk_ops
 from inf import settings
 from inf import runtime_data
+from evo.genome_processor import genome_1_cortical_list
 
 
 def x_neurogenesis():
@@ -82,7 +85,7 @@ def x_neurodegeneration():
     pass
 
 
-def update_cortical_properties(cortical_properties, new_area=False):
+def update_cortical_properties(cortical_properties):
     """
     Supported changes:
     - Cortical coordinates
@@ -100,19 +103,6 @@ def update_cortical_properties(cortical_properties, new_area=False):
         return
 
     cortical_area = cortical_properties['cortical_id']
-
-    if new_area:
-        neuroembryogenesis.reset_connectome_file(cortical_area=cortical_area)
-        runtime_data.voxel_dict[cortical_area] = dict()
-        runtime_data.genome['blueprint'][cortical_area] = dict()
-        runtime_data.genome['blueprint'][cortical_area]['neuron_params'] = dict()
-        runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'] = [1, 1, 1]
-        runtime_data.genome['blueprint'][cortical_area]['neuron_params']['relative_coordinate'] = [0, 0, 0]
-        runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'] = dict()
-        runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"] = \
-            cortical_properties["cortical_neuron_per_vox_count"]
-        runtime_data.genome["blueprint"][cortical_area]["synapse_attractivity"] = \
-            cortical_properties["cortical_synaptic_attractivity"]
 
     if cortical_properties['cortical_name'] is not None:
         runtime_data.genome['blueprint'][cortical_area]["cortical_name"] = \
@@ -240,7 +230,7 @@ def update_cortical_properties(cortical_properties, new_area=False):
             runtime_data.genome["blueprint"][cortical_area]["synapse_attractivity"] = \
                 cortical_properties['cortical_synaptic_attractivity']
 
-    if regeneration_flag or new_area:
+    if regeneration_flag:
         cortical_regeneration(cortical_area=cortical_area)
 
 
@@ -310,6 +300,9 @@ def cortical_regeneration(cortical_area):
     # Reset effected areas
     cortical_removal(cortical_area=cortical_area)
 
+    # Recreate voxels
+    neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
+
     # Recreate neurons
     neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
 
@@ -346,3 +339,104 @@ def mapping_change_report(cortical_area, new_mapping):
         if area not in new_mapping:
             removed.add(area)
     return added, removed, modified
+
+
+def cortical_id_gen(seed='___'):
+    while True:
+        chars = string.ascii_uppercase + string.digits
+        random_id = 'C' + str('').join(random.choice(chars) for _ in range(2)) + seed
+        if random_id not in runtime_data.cortical_list:
+            return random_id
+
+
+def add_cortical_area(cortical_properties):
+    try:
+        cortical_area = \
+            templates.cortical_types[cortical_properties['cortical_type']]["supported_devices"][cortical_properties['cortical_name']]['cortical_id']
+
+        if cortical_area in runtime_data.genome['blueprint']:
+            print("Warning! Cortical area already part of genome. Nothing got added.")
+        else:
+            neuroembryogenesis.reset_connectome_file(cortical_area=cortical_area)
+            runtime_data.voxel_dict[cortical_area] = dict()
+            runtime_data.genome['blueprint'][cortical_area] = dict()
+            runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
+            runtime_data.genome['blueprint'][cortical_area]['neuron_params'] = dict()
+            runtime_data.genome["blueprint"][cortical_area]["neuron_params"] = \
+                templates.cortical_properties['neuron_params']
+
+            runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'] = \
+                [cortical_properties['channel_count'] *
+                 templates.cortical_types['cortical_type']['cortical_name']['resolution'][0],
+                 templates.cortical_types['cortical_type']['cortical_name']['resolution'][1],
+                 templates.cortical_types['cortical_type']['cortical_name']['resolution'][2],
+                 ]
+
+            runtime_data.genome['blueprint'][cortical_area]['neuron_params']['relative_coordinate'] = \
+                [cortical_properties['cortical_coordinates']['x'],
+                 cortical_properties['cortical_coordinates']['y'],
+                 cortical_properties['cortical_coordinates']['z']]
+            runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'] = dict()
+            runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"] = \
+                templates.cortical_properties['per_voxel_neuron_cnt']
+            runtime_data.genome["blueprint"][cortical_area]["synapse_attractivity"] = \
+                templates.cortical_properties['synapse_attractivity']
+            runtime_data.genome["blueprint"][cortical_area]["postsynaptic_current"] = \
+                templates.cortical_properties['postsynaptic_current']
+            runtime_data.genome["blueprint"][cortical_area]["plasticity_constant"] = \
+                templates.cortical_properties['plasticity_constant']
+            runtime_data.genome["blueprint"][cortical_area]["degeneration"] = \
+                templates.cortical_properties['degeneration']
+            runtime_data.genome["blueprint"][cortical_area]["psp_uniform_distribution"] = \
+                templates.cortical_properties['psp_uniform_distribution']
+            runtime_data.genome["blueprint"][cortical_area]["postsynaptic_current_max"] = \
+                templates.cortical_properties['postsynaptic_current_max']
+
+            neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
+            neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
+    except KeyError:
+        print("Error: New cortical area was not added.", traceback.print_exc())
+
+
+def add_custom_cortical_area(cortical_properties):
+    # Generate Cortical ID
+    # todo: instead of hardcoding the length have the genome properties captured and reference instead
+    cortical_area = cortical_id_gen(cortical_properties['cortical_name'][:3])
+
+    neuroembryogenesis.reset_connectome_file(cortical_area=cortical_area)
+    runtime_data.voxel_dict[cortical_area] = dict()
+    runtime_data.genome['blueprint'][cortical_area] = dict()
+    runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
+    runtime_data.genome['blueprint'][cortical_area]['neuron_params'] = dict()
+    runtime_data.genome["blueprint"][cortical_area]["neuron_params"] = \
+        templates.cortical_properties['neuron_params']
+
+    runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'] = \
+        [cortical_properties['cortical_dimensions']['x'],
+         cortical_properties['cortical_dimensions']['y'],
+         cortical_properties['cortical_dimensions']['z']]
+
+    runtime_data.genome['blueprint'][cortical_area]['neuron_params']['relative_coordinate'] = \
+        [cortical_properties['cortical_coordinates']['x'],
+         cortical_properties['cortical_coordinates']['y'],
+         cortical_properties['cortical_coordinates']['z']]
+    runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'] = dict()
+    runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"] = \
+        templates.cortical_properties['per_voxel_neuron_cnt']
+    runtime_data.genome["blueprint"][cortical_area]["synapse_attractivity"] = \
+        templates.cortical_properties['synapse_attractivity']
+    runtime_data.genome["blueprint"][cortical_area]["postsynaptic_current"] = \
+        templates.cortical_properties['postsynaptic_current']
+    runtime_data.genome["blueprint"][cortical_area]["plasticity_constant"] = \
+        templates.cortical_properties['plasticity_constant']
+    runtime_data.genome["blueprint"][cortical_area]["degeneration"] = \
+        templates.cortical_properties['degeneration']
+    runtime_data.genome["blueprint"][cortical_area]["psp_uniform_distribution"] = \
+        templates.cortical_properties['psp_uniform_distribution']
+    runtime_data.genome["blueprint"][cortical_area]["postsynaptic_current_max"] = \
+        templates.cortical_properties['postsynaptic_current_max']
+
+    print("$$ $$ $$ " * 20)
+    print(cortical_area, runtime_data.genome["blueprint"][cortical_area])
+    neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
+    neuroembryogenesis.neurogenesis(cortical_area=cortical_area)

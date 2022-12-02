@@ -224,7 +224,7 @@ def develop_brain(reincarnation_mode=False):
         print("\nBrain development lasted %s\n" % (datetime.datetime.now()-start_time))
 
 
-def voxelogenesis():
+def voxelogenesis(cortical_area):
     """
     develop an empty dictionary structure for the entire brain that holds location for each voxel and neuron ids in it
     
@@ -240,19 +240,19 @@ def voxelogenesis():
         ...
     }
     """
-    runtime_data.voxel_dict = {}
-    for cortical_area in runtime_data.genome["blueprint"]:
-        x_dim = int(runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][0])
-        y_dim = int(runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][1])
-        z_dim = int(runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][2])
-        
-        runtime_data.voxel_dict[cortical_area] = {}
-        
-        for x in range(x_dim):
-            for y in range(y_dim):
-                for z in range(z_dim):
-                    voxel_id = voxels.block_reference_builder([x, y, z])
-                    runtime_data.voxel_dict[cortical_area][voxel_id] = set()
+    runtime_data.voxel_dict[cortical_area] = {}
+
+    x_dim = int(runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][0])
+    y_dim = int(runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][1])
+    z_dim = int(runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][2])
+
+    runtime_data.voxel_dict[cortical_area] = {}
+
+    for x in range(x_dim):
+        for y in range(y_dim):
+            for z in range(z_dim):
+                voxel_id = voxels.block_reference_builder([x, y, z])
+                runtime_data.voxel_dict[cortical_area][voxel_id] = set()
 
 
 def neurogenesis(cortical_area):
@@ -350,7 +350,8 @@ def develop():
     reset_connectome_files()
     
     # --Voxelogenesis-- Create an empty dictionary for each voxel
-    voxelogenesis()
+    for cortical_area in runtime_data.cortical_list:
+        voxelogenesis(cortical_area=cortical_area)
     
     # --Neurogenesis-- Creation of all Neurons across all cortical areas
     for cortical_area in runtime_data.cortical_list:

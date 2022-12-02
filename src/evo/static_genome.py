@@ -18,7 +18,7 @@ genome = {
     "version": "2.0",
     "max_burst_count": 3,
     "burst_delay": 1,
-    "max_age": 10000,
+    "max_age": 10000000,
     "evolution_burst_count": 50,
     "ipu_idle_threshold": 1000,
     "neuron_morphologies": {
@@ -186,12 +186,6 @@ genome = {
     },
     "blueprint": {
         "_____10b-_____s-__-__name-t": "smart_car",
-
-        # +++ Memory +++
-
-        # +++ Misc +++
-
-        # +++ Thalami +++
 
         # vvvvvvv   Input and Output processing related Cortical Areas are all listed below  vvvvvvvv
 

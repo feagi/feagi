@@ -88,12 +88,8 @@ def init_neuron(cortical_area, soma_location):
 
     #   runtime_data.brain[cortical_area][neuron_id]["group_id"] = ""
     #  consider using the group name part of Genome instead
-    runtime_data.brain[cortical_area][neuron_id]["firing_pattern_id"] = \
-        genome['blueprint'][cortical_area]['neuron_params']['firing_pattern_id']
-    runtime_data.brain[cortical_area][neuron_id]["activation_function_id"] = \
-        genome['blueprint'][cortical_area]['neuron_params']['activation_function_id']
-    runtime_data.brain[cortical_area][neuron_id]["depolarization_threshold"] = \
-        genome['blueprint'][cortical_area]['neuron_params']['depolarization_threshold']
+    # runtime_data.brain[cortical_area][neuron_id]["depolarization_threshold"] = \
+    #     genome['blueprint'][cortical_area]['neuron_params']['depolarization_threshold']
     runtime_data.brain[cortical_area][neuron_id]["firing_threshold"] = \
         genome['blueprint'][cortical_area]['neuron_params']['firing_threshold']
 

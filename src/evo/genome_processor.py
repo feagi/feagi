@@ -234,7 +234,6 @@ gene_decoder = {
 
 genome_1_template = {
           "per_voxel_neuron_cnt": None,
-          "location_generation_type": None,
           "synapse_attractivity": None,
           "postsynaptic_current": None,
           "plasticity_constant": None,
@@ -243,16 +242,9 @@ genome_1_template = {
           "postsynaptic_current_max": None,
           "cortical_mapping_dst": {},
           "neuron_params": {
-              "activation_function_id": None,
-              "orientation_selectivity_id": None,
-              "depolarization_threshold": None,
               "firing_threshold": None,
-              "firing_pattern_id": None,
               "refractory_period": None,
-              "axon_avg_length": None,
               "leak_coefficient": None,
-              "axon_avg_connections": None,
-              "axon_orientation function": None,
               "consecutive_fire_cnt_max": None,
               "snooze_length": None,
               "block_boundaries": [

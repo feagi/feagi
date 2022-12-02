@@ -36,6 +36,7 @@ from inf.messenger import Pub
 from evo.neuroembryogenesis import generate_plasticity_dict
 from evo.genome_processor import *
 from evo.genome_validator import *
+from evo.templates import cortical_types
 
 log = logging.getLogger(__name__)
 
@@ -294,6 +295,7 @@ def init_resources():
 
 def init_infrastructure():
     init_io_channels()
+    init_cortical_defaults()
     init_working_directory()
     init_container_variables()
     init_data_sources()
@@ -336,6 +338,14 @@ def init_brain():
     runtime_data.new_genome = True
     if 'burst_delay' in runtime_data.genome:
         runtime_data.burst_timer = float(runtime_data.genome['burst_delay'])
+
+
+def init_cortical_defaults():
+    cortical_types = set()
+    for entry in cortical_types:
+        cortical_types.add(entry)
+    runtime_data.cortical_types = cortical_types
+    runtime_data.cortical_defaults = cortical_types
 
 
 def init_burst_engine():

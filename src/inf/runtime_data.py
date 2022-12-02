@@ -60,6 +60,8 @@ controller_config = None
 opu_data = {}
 cortical_dimensions = {}
 voxel_dict = {}
+cortical_types = {}
+cortical_defaults = None
 
 
 # System
