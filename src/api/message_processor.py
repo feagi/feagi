@@ -1,4 +1,4 @@
-
+import datetime
 import json
 from inf import runtime_data, disk_ops
 from inf.initialize import init_brain, reset_runtime_data, id_gen
@@ -101,6 +101,7 @@ def api_message_processor(api_message):
         runtime_data.genome_counter += 1
         runtime_data.genome_reset_flag = False
         runtime_data.genome_ver = None
+        runtime_data.last_genome_modification_time = datetime.datetime.now()
         runtime_data.genome_orig = dict(api_message['genome']).copy()
         runtime_data.genome = api_message['genome']
         runtime_data.genome = genome_ver_check(runtime_data.genome)

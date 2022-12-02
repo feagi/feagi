@@ -86,6 +86,7 @@ generation_dict = None
 current_generation_dict_id = None
 generation_id = None
 genome_reset_flag = False
+last_genome_modification_time = None
 
 
 # Burst Engine

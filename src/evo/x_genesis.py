@@ -312,6 +312,8 @@ def cortical_regeneration(cortical_area):
     for dst_cortical_area in downstream_cortical_areas:
         neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
 
+    runtime_data.last_genome_modification_time = datetime.datetime.now()
+
 
 def cortical_rewiring(src_cortical_area, dst_cortical_area):
     synapse.synaptic_pruner(src_cortical_area=src_cortical_area, dst_cortical_area=dst_cortical_area)
@@ -394,6 +396,7 @@ def add_cortical_area(cortical_properties):
 
             neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
             neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
+            runtime_data.last_genome_modification_time = datetime.datetime.now()
     except KeyError:
         print("Error: New cortical area was not added.", traceback.print_exc())
 
@@ -447,3 +450,5 @@ def add_custom_cortical_area(cortical_properties):
         print(cortical_area, runtime_data.genome["blueprint"][cortical_area])
         neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
         neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
+
+        runtime_data.last_genome_modification_time = datetime.datetime.now()
