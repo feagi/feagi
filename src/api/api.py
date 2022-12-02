@@ -702,7 +702,7 @@ async def cortical_area_types():
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/genome/cortical_type_list", methods=['GET'], tags=["Genome"])
+@app.api_route("/v1/feagi/genome/cortical_type_options", methods=['GET'], tags=["Genome"])
 async def cortical_area_types(cortical_type):
     """
     Returns the list of supported cortical area for a given type
