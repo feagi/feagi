@@ -119,7 +119,6 @@ class NewCorticalProperties(BaseModel):
 
 
 class NewCustomCorticalProperties(BaseModel):
-    cortical_type: str
     cortical_name: str
     cortical_coordinates: dict = {
         'x': 0,

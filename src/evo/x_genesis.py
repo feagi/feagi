@@ -394,6 +394,8 @@ def add_cortical_area(cortical_properties):
             runtime_data.genome["blueprint"][cortical_area]["postsynaptic_current_max"] = \
                 templates.cortical_properties['postsynaptic_current_max']
 
+            runtime_data.genome["blueprint"][cortical_area]["group_id"] = cortical_properties['cortical_type']
+
             neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
             neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
             runtime_data.last_genome_modification_time = datetime.datetime.now()
@@ -445,6 +447,8 @@ def add_custom_cortical_area(cortical_properties):
             templates.cortical_properties['psp_uniform_distribution']
         runtime_data.genome["blueprint"][cortical_area]["postsynaptic_current_max"] = \
             templates.cortical_properties['postsynaptic_current_max']
+
+        runtime_data.genome["blueprint"][cortical_area]["group_id"] = "CUSTOM"
 
         print("$$ $$ $$ " * 20)
         print(cortical_area, runtime_data.genome["blueprint"][cortical_area])
