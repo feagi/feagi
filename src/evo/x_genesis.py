@@ -115,9 +115,9 @@ def update_cortical_properties(cortical_properties):
     if cortical_properties['neuron_fire_threshold'] is not None:
         runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["firing_threshold"] = \
             cortical_properties['neuron_fire_threshold']
-        if not new_area:
-            for neuron_ in runtime_data.brain[cortical_area]:
-                runtime_data.brain[cortical_area][neuron_]['firing_threshold'] = cortical_properties['neuron_fire_threshold']
+
+        for neuron_ in runtime_data.brain[cortical_area]:
+            runtime_data.brain[cortical_area][neuron_]['firing_threshold'] = cortical_properties['neuron_fire_threshold']
 
     if cortical_properties['neuron_leak_coefficient'] is not None:
         runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["leak_coefficient"] = \
