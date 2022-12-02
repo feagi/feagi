@@ -21,6 +21,8 @@ import { Route, Routes, Navigate, useNavigate } from "react-router-dom";
 import { MdAutoGraph } from 'react-icons/md';
 import { BiDna } from 'react-icons/bi';
 import { FiZap } from 'react-icons/fi';
+import { FiDownload } from 'react-icons/fi';
+import { FiUpload } from 'react-icons/fi';
 import { GrRobot } from 'react-icons/gr';
 import { FaRegMap } from 'react-icons/fa';
 import { GiBrainDump } from 'react-icons/gi';
@@ -47,6 +49,11 @@ import MenuCard from "../components/MenuCard";
 import {Img} from "react-image";
 import map2 from "../assets/map2.png"
 import {Image} from "@mui/icons-material";
+import genomeUploadCard from "../components/GenomeUploadCard";
+import Card from "@mui/material/Card";
+import CardActionArea from "@mui/material/CardActionArea";
+import CardContent from "@mui/material/CardContent";
+import {styled} from "@mui/material/styles";
 
 
 const MonitoringDashboard = (props) => {
@@ -88,6 +95,7 @@ const MonitoringDashboard = (props) => {
     });
     navigate("/genome/mode");
   };
+
 
   const handleActicityMonitor = () => {
     window.open("http://localhost:6082/d/Se3OI7f7k/feagi-brain-activity-analyzer?orgId=1&refresh=1s", "_blank", "noopener,noreferrer");
@@ -172,7 +180,6 @@ const MonitoringDashboard = (props) => {
 
   const [robotSelectorDialogOpen, setRobotSelectorDialogOpen] = useState(false);
   const [environmentSelectorDialogOpen, setEnvironmentSelectorDialogOpen] = useState(false);
-
 
   const handleRobotSelectorDialogOpen = () => {
     setRobotSelectorDialogOpen(true);
@@ -311,6 +318,78 @@ const MonitoringDashboard = (props) => {
     );
   };
 
+  const Input = styled("input")({
+    display: "none",
+  });
+
+  const GenomeUpload = (props) => {
+    const [fileUploaded, setFileUploaded] = useState(false);
+
+    const sendToMonitoringDashboard = () => {
+      return <Navigate to="/monitoring" />;
+    };
+
+    const handleFileUpload = (event) => {
+      try {
+        let fileData = { file: event.target.files[0] };
+        FeagiAPI.postGenomeFile(fileData);
+        setFileUploaded(true);
+      } catch (error) {
+        console.error(error);
+        throw error;
+      }
+    };
+
+    return (
+      <div onClick={props.onClick ? (e) => props.onClick(e, props.label) : null}>
+        {fileUploaded ? (
+          sendToMonitoringDashboard()
+        ) : (
+          <Card
+              // onClick={handleFileUpload}
+              sx={{
+                width: "260px",
+                height: "260px",
+                backgroundColor: props.grayedOut
+                  ? "lightgray"
+                  : !props.changeColorOnClick
+                  // ? null
+                  // : !clicked
+                  ? null
+                  : "lightblue",
+          }}
+        >
+            <CardActionArea>
+              <label htmlFor="contained-button-file">
+              <Input
+                accept=".py"
+                id="contained-button-file"
+                type="file"
+                onChange={handleFileUpload}
+              />
+              <CardContent>
+                {props.image}
+                <Typography
+                  gutterBottom
+                  variant="h5"
+                  component="div"
+                  sx={{ mt: 4 }}
+                >
+                  {props.label}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {props.info}
+                </Typography>
+              </CardContent>
+              </label>
+            </CardActionArea>
+          </Card>
+        )}
+      </div>
+    );
+  };
+
+
 
   return (
     <>
@@ -413,6 +492,27 @@ const MonitoringDashboard = (props) => {
                   </List>
                 </Menu>
               </div>
+            </Tooltip>
+
+
+            <Tooltip title="Download Genome" placement="top">
+                <IconButton
+                  color="inherit"
+                  onClick={handleRobotSelectorDialogOpen}
+                  // edge="start"
+                >
+                  <FiDownload />
+                </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Upload Genome" placement="top">
+                <IconButton
+                  color="inherit"
+                  onClick={GenomeUpload}
+                  // edge="start"
+                >
+                  <FiUpload />
+                </IconButton>
             </Tooltip>
 
 
