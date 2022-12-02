@@ -32,7 +32,8 @@ from multiprocessing import Pool, Process
 from inf import disk_ops
 from inf import settings
 from inf import runtime_data
-from evo.genome_processor import genome_1_cortical_list
+from evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter
+from evo.genome_editor import save_genome
 
 
 def x_neurogenesis():
@@ -233,6 +234,9 @@ def update_cortical_properties(cortical_properties):
     if regeneration_flag:
         cortical_regeneration(cortical_area=cortical_area)
 
+    save_genome(genome=genome_v1_v2_converter(runtime_data.genome), file_name="../runtime_genome.py")
+    runtime_data.last_genome_modification_time = datetime.datetime.now()
+
 
 def update_morphology_properties(morphology_properties):
     try:
@@ -311,8 +315,6 @@ def cortical_regeneration(cortical_area):
         neuroembryogenesis.synaptogenesis(cortical_area=src_cortical_area, dst_cortical_area=cortical_area)
     for dst_cortical_area in downstream_cortical_areas:
         neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
-
-    runtime_data.last_genome_modification_time = datetime.datetime.now()
 
 
 def cortical_rewiring(src_cortical_area, dst_cortical_area):
@@ -398,7 +400,10 @@ def add_cortical_area(cortical_properties):
 
             neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
             neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
+
+            save_genome(genome=genome_v1_v2_converter(runtime_data.genome), file_name="../runtime_genome.py")
             runtime_data.last_genome_modification_time = datetime.datetime.now()
+
     except KeyError:
         print("Error: New cortical area was not added.", traceback.print_exc())
 
@@ -455,4 +460,5 @@ def add_custom_cortical_area(cortical_properties):
         neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
         neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
 
+        save_genome(genome=genome_v1_v2_converter(runtime_data.genome), file_name="../runtime_genome.py")
         runtime_data.last_genome_modification_time = datetime.datetime.now()
