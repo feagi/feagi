@@ -127,7 +127,7 @@ def update_cortical_properties(cortical_properties):
         runtime_data.genome['blueprint'][cortical_area]["psp_uniform_distribution"] = \
             cortical_properties['neuron_psp_uniform_distribution']
 
-    if cortical_properties['neuron_post_synaptic_potential'] is not None and not new_area:
+    if cortical_properties['neuron_post_synaptic_potential'] is not None:
         for neuron_id in runtime_data.brain[cortical_area]:
             for dst_neuron in runtime_data.brain[cortical_area][neuron_id]["neighbors"]:
                 runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron]["postsynaptic_current"] = \
