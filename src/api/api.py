@@ -300,17 +300,19 @@ app.mount("/home", SPAStaticFiles(directory="gui", html=True), name="static")
 # ######  Genome Endpoints #########
 # ##################################
 
-# @app.api_route("/v1/feagi/genome/upload/default", methods=['POST'], tags=["Genome"])
-# async def genome_default_upload():
-#     try:
-#
-#         message = {'genome': static_genome.genome.copy()}
-#
-#         api_queue.put(item=message)
-#         return {"FEAGI started using a static genome.", message}
-#     except Exception as e:
-#         print("API Error:", e)
-#         return {"FEAGI start using genome string failed ...", e}
+@app.api_route("/v1/feagi/genome/upload/default", methods=['POST'], tags=["Genome"])
+async def genome_default_upload():
+    try:
+
+        with open("./evo/static_genome.json", "r") as genome_file:
+            genome_data = json.load(genome_file)
+        message = {'genome': genome_data}
+
+        api_queue.put(item=message)
+        return {"FEAGI started using a static genome.", message}
+    except Exception as e:
+        print("API Error:", e)
+        return {"FEAGI start using genome string failed ...", e}
 
 
 @app.post("/v1/feagi/genome/upload/file", tags=["Genome"])
