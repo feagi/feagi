@@ -246,6 +246,8 @@ def feagi_init(feagi_host, api_port):
                     data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
                                                     '/v1/feagi/genome/download').json()
 
+                    print("% % % &&&&&&& -------- ^^^^^^^ " * 8)
+                    print(data_from_genome)
                     print("+++ b +++")
                     cortical_area_name = requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
                     runtime_data["cortical_data"] = data_from_genome
