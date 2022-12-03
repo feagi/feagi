@@ -30,7 +30,7 @@ from queue import Queue
 from inf import feagi
 from inf import runtime_data
 from inf.baseline import gui_baseline
-from evo import static_genome, autopilot
+from evo import autopilot
 from evo.synapse import cortical_mapping
 from evo.templates import cortical_types
 from evo.neuroembryogenesis import cortical_name_list
@@ -300,16 +300,17 @@ app.mount("/home", SPAStaticFiles(directory="gui", html=True), name="static")
 # ######  Genome Endpoints #########
 # ##################################
 
-@app.api_route("/v1/feagi/genome/upload/default", methods=['POST'], tags=["Genome"])
-async def genome_default_upload():
-    try:
-        message = {'genome': static_genome.genome.copy()}
-
-        api_queue.put(item=message)
-        return {"FEAGI started using a static genome.", message}
-    except Exception as e:
-        print("API Error:", e)
-        return {"FEAGI start using genome string failed ...", e}
+# @app.api_route("/v1/feagi/genome/upload/default", methods=['POST'], tags=["Genome"])
+# async def genome_default_upload():
+#     try:
+#
+#         message = {'genome': static_genome.genome.copy()}
+#
+#         api_queue.put(item=message)
+#         return {"FEAGI started using a static genome.", message}
+#     except Exception as e:
+#         print("API Error:", e)
+#         return {"FEAGI start using genome string failed ...", e}
 
 
 @app.post("/v1/feagi/genome/upload/file", tags=["Genome"])
