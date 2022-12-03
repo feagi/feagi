@@ -21,7 +21,6 @@ Supporting Genome Versions: 2.0
 """
 
 from evo.genome_properties import *
-from evo import static_genome
 from inf import settings
 
 
@@ -103,5 +102,3 @@ def blueprint_validator(genome):
         return False
 
 
-if __name__ == "__main__":
-    blueprint_validator(genome=static_genome.genome)
