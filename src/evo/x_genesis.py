@@ -259,35 +259,45 @@ def update_morphology_properties(morphology_properties):
 
 
 def neighboring_cortical_areas(cortical_area):
-    cortical_mappings = synapse.cortical_mapping()
-    upstream_cortical_areas = set()
-    downstream_cortical_areas = set(cortical_mappings[cortical_area])
-    for area in cortical_mappings:
-        if cortical_area in cortical_mappings[area]:
-            upstream_cortical_areas.add(area)
-    return upstream_cortical_areas, downstream_cortical_areas
+    try:
+        cortical_mappings = synapse.cortical_mapping()
+        upstream_cortical_areas = set()
+        downstream_cortical_areas = set(cortical_mappings[cortical_area])
+        for area in cortical_mappings:
+            if cortical_area in cortical_mappings[area]:
+                upstream_cortical_areas.add(area)
+        return upstream_cortical_areas, downstream_cortical_areas
+    except KeyError:
+        print("Error: Cortical area not found", traceback.print_exc())
 
 
 def cortical_removal(cortical_area, genome_scrub=False):
-    # cortical_area = cortical_id(cortical_name=cortical_name)
-    upstream_cortical_areas, downstream_cortical_areas = neighboring_cortical_areas(cortical_area)
+    if cortical_area not in runtime_data.cortical_list:
+        print("Error: Cortical area requested for removal does not exist:", cortical_area)
+    else:
+        # cortical_area = cortical_id(cortical_name=cortical_name)
+        upstream_cortical_areas, downstream_cortical_areas = neighboring_cortical_areas(cortical_area)
 
-    # Prune affected synapses
-    prune_cortical_synapses(cortical_area=cortical_area)
-    
-    # Clear connectome entries
-    runtime_data.brain[cortical_area] = {}
-    
-    # Clear voxel indexes
-    voxels.voxel_reset(cortical_area=cortical_area)
+        # Prune affected synapses
+        prune_cortical_synapses(cortical_area=cortical_area)
 
-    # todo: plasticity dict
-    
-    # Optional genome scrub
-    if genome_scrub:
-        runtime_data.genome['blueprint'].pop(cortical_area)
-        for upstream_area in upstream_cortical_areas:
-            runtime_data.genome['blueprint'][upstream_area]['cortical_mapping_dst'].pop(cortical_area)
+        # Clear connectome entries
+        runtime_data.brain[cortical_area] = {}
+
+        # Clear voxel indexes
+        voxels.voxel_reset(cortical_area=cortical_area)
+
+        # todo: plasticity dict
+
+        # Optional genome scrub
+        if genome_scrub:
+            runtime_data.genome['blueprint'].pop(cortical_area)
+            runtime_data.fire_candidate_list.pop(cortical_area)
+            runtime_data.previous_fcl.pop(cortical_area)
+            runtime_data.future_fcl.pop(cortical_area)
+            runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
+            for upstream_area in upstream_cortical_areas:
+                runtime_data.genome['blueprint'][upstream_area]['cortical_mapping_dst'].pop(cortical_area)
 
 
 def prune_cortical_synapses(cortical_area):

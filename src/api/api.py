@@ -536,6 +536,18 @@ async def delete_cortical_area(cortical_area_name):
         return {"Request failed...", e}
 
 
+@app.api_route("/v1/feagi/genome/cortical_area_id_list", methods=['GET'], tags=["Genome"])
+async def genome_cortical_ids():
+    """
+    Returns a comprehensive list of all cortical area names.
+    """
+    try:
+        return runtime_data.cortical_list
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
 @app.api_route("/v1/feagi/genome/cortical_area_name_list", methods=['GET'], tags=["Genome"])
 async def genome_cortical_names():
     """

@@ -181,7 +181,7 @@ def api_message_processor(api_message):
         update_morphology_properties(morphology_properties=api_message['update_morphology_properties'])
 
     if 'delete_cortical_area' in api_message:
-        cortical_removal(cortical_name=api_message['delete_cortical_area'],
+        cortical_removal(cortical_area=api_message['delete_cortical_area'],
                          genome_scrub=True)
 
     if 'add_cortical_area' in api_message:
