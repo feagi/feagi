@@ -34,6 +34,7 @@ from inf import settings
 from inf import runtime_data
 from evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter
 from evo.genome_editor import save_genome
+from inf.initialize import generate_cortical_dimensions
 
 
 def x_neurogenesis():
@@ -234,6 +235,7 @@ def update_cortical_properties(cortical_properties):
     if regeneration_flag:
         cortical_regeneration(cortical_area=cortical_area)
 
+    runtime_data.cortical_dimensions = generate_cortical_dimensions()
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome), file_name="../runtime_genome.json")
     runtime_data.last_genome_modification_time = datetime.datetime.now()
 
@@ -296,6 +298,7 @@ def cortical_removal(cortical_area, genome_scrub=False):
             runtime_data.previous_fcl.pop(cortical_area)
             runtime_data.future_fcl.pop(cortical_area)
             runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
+            runtime_data.cortical_dimensions = generate_cortical_dimensions()
             for upstream_area in upstream_cortical_areas:
                 runtime_data.genome['blueprint'][upstream_area]['cortical_mapping_dst'].pop(cortical_area)
 
@@ -410,6 +413,7 @@ def add_cortical_area(cortical_properties):
 
             neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
             neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
+            runtime_data.cortical_dimensions = generate_cortical_dimensions()
 
             save_genome(genome=genome_v1_v2_converter(runtime_data.genome), file_name="../runtime_genome.json")
             runtime_data.last_genome_modification_time = datetime.datetime.now()
@@ -469,6 +473,7 @@ def add_custom_cortical_area(cortical_properties):
         print(cortical_area, runtime_data.genome["blueprint"][cortical_area])
         neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
         neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
+        runtime_data.cortical_dimensions = generate_cortical_dimensions()
 
         save_genome(genome=genome_v1_v2_converter(runtime_data.genome), file_name="../runtime_genome.json")
         runtime_data.last_genome_modification_time = datetime.datetime.now()

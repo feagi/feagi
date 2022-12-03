@@ -6,7 +6,7 @@ The genome is a data structure comprised of key-value pairs that provides user-c
 
 ## **Genome structure**     
 
-The existing genome contains cortical areas nested under the `"blueprint"` key in `src/evo/static_genome.py` and are useful examples for creating new cortical areas. Other keys at the `"blueprint"` level are used for further defining neurophysiologic and synaptogenic properties within a cortical area. Each cortical area belongs to a specific group (`"...-_group-..."`), possesses a user-defined cortical neuron count (`...-_n_cnt_...`), among other parameters, and is capable of being mapped to another region in the artificial brain.
+The existing genome contains cortical areas nested under the `"blueprint"` key in `src/evo/static_genome.json` and are useful examples for creating new cortical areas. Other keys at the `"blueprint"` level are used for further defining neurophysiologic and synaptogenic properties within a cortical area. Each cortical area belongs to a specific group (`"...-_group-..."`), possesses a user-defined cortical neuron count (`...-_n_cnt_...`), among other parameters, and is capable of being mapped to another region in the artificial brain.
 
 ![gene_example](../../_static/gene_id.png)
 
@@ -22,7 +22,7 @@ Cortical areas in the genome have dimensions for accommodating the proliferation
 
 ## **Editing the genome file**
 
-- Open the genome file (`src/evo/static_genome.py`) using a text editor or IDE.
+- Open the genome file (`src/evo/static_genome.json`) using a text editor or IDE.
 - Navigate to the end of the data present under the `"blueprint"` key, which contains all of the existing cortical area definitions, and enter the data defining the new cortical area (it will likely be easier to copy a single existing cortical area definition in the genome, paste it at the end of the file and update the values accordingly).
 - Give the cortical area a unique name.
 - Enter a group ID (`...-_group-...` - typically `"IPU"` if defining an area for processing input data, `"Memory"` when defining a memory area, etc.).
@@ -75,7 +75,7 @@ After adding the desired data to the genome file, users should confirm that FEAG
 If newly-created cortical areas are not present in the output of FEAGI initialization or users encounter other runtime errors following genome modification, consider the following:    
 
 - **Genome file**
-  - Were changes made to the correct genome file? Users should add new cortical areas to `src/evo/static_genome.py`.
+  - Were changes made to the correct genome file? Users should add new cortical areas to `src/evo/static_genome.json`.
 - **Genome file syntax**
   - Did the changes made to the genome file introduce syntax errors? Ensure that all new cortical areas are added under the `"blueprint"` key and indented to the appropriate levels. All opening brackets ( `{`, `(`, `[` ) should have a corresponding closing bracket ( `}`, `)`, `]` ), commas ( `,` ) must separate each key-value pair and no values should be empty/blank.
 
