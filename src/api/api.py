@@ -320,15 +320,23 @@ async def genome_file_upload(file: UploadFile = File(...)):
     """
     try:
         data = await file.read()
+
         runtime_data.genome_file_name = file.filename
 
-        genome_str = data.decode("utf-8").split(" = ")[1]
-        message = {'genome': literal_eval(genome_str)}
+        genome_str = json.loads(data)
+
+        print("=======" * 5)
+        print(genome_str)
+        print("=======" * 5)
+
+        # genome_str = genome_str.replace('\'', '\"')
+        # genome_str = data.decode("utf-8").split(" = ")[1]
+        message = {'genome': genome_str}
         api_queue.put(item=message)
 
         return {"Genome received as a file"}
     except Exception as e:
-        print("API ERROR during genome file upload:\n", e)
+        print("API ERROR during genome file upload:\n", e, traceback.print_exc())
         return {"Request failed..."}
 
 
@@ -340,7 +348,7 @@ async def genome_file_name():
     try:
         return runtime_data.genome_file_name
     except Exception as e:
-        print("API Error:", e)
+        print("API Error:", e, traceback.print_exc())
         return {"Request failed..."}
 
 
@@ -358,13 +366,13 @@ async def genome_string_upload(str_genome: Genome):
         return {"FEAGI start using genome string failed ...", e}
 
 
-@app.get("/v1/feagi/genome/download/python", tags=["Genome"])
+@app.get("/v1/feagi/genome/download", tags=["Genome"])
 async def genome_download():
     print("Downloading Genome...")
     try:
-        file_name = "genome_" + datetime.datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".py"
+        file_name = "genome_" + datetime.datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".json"
         print(file_name)
-        return FileResponse(path="../runtime_genome.py", filename=file_name)
+        return FileResponse(path="../runtime_genome.json", filename=file_name)
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}

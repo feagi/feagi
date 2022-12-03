@@ -244,7 +244,7 @@ def feagi_init(feagi_host, api_port):
                 print("+++ a +++")
                 try:
                     data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
-                                                    '/v1/feagi/genome/download/python').json()
+                                                    '/v1/feagi/genome/download').json()
 
                     print("+++ b +++")
                     cortical_area_name = requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
@@ -377,9 +377,8 @@ if __name__ == "__main__":
         if data_from_godot == "empty":
             data_from_godot = "{}"
             data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
-                                            '/v1/feagi/genome/download/python').json()
-            test = current_cortical_area
-            json_object = json.dumps(test)
+                                            '/v1/feagi/genome/download').json()
+            json_object = json.dumps(current_cortical_area)
             zmq_queue.append(json_object)
         if "cortical_name" in data_from_godot:
             # data_from_godot = data_from_godot.replace("relocate", "\"relocate\"")

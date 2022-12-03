@@ -28,7 +28,7 @@ def genome_ver_check(genome):
                 blueprint_validator(genome)
             except Exception:
                 print("Error during genome validation!!\n", traceback.print_exc())
-            save_genome(genome=genome, file_name="../runtime_genome.py")
+            save_genome(genome=genome, file_name="../runtime_genome.json")
             genome2 = genome_2_1_convertor(flat_genome=genome['blueprint'])
             genome_2_hierarchifier(flat_genome=genome['blueprint'])
             genome['blueprint'] = genome2['blueprint']
@@ -249,25 +249,25 @@ def genome_v1_v2_converter(genome_v1):
                             genome_v2['blueprint'][genez] = \
                                 genome_v1['blueprint'][cortical_area]['neuron_params']['relative_coordinate'][2]
 
-                elif key == "cortical_mapping_dst":
-                    gene = "_____10c-" + cortical_area + "-dstmap-d"
-                    destination_map = {}
-                    for destination in genome_v1['blueprint'][cortical_area]["cortical_mapping_dst"]:
-                        destination_map[destination] = list()
-                        for entry in genome_v1['blueprint'][cortical_area]["cortical_mapping_dst"][destination]:
-                            morphology_id = genome_v1['blueprint'][cortical_area]["cortical_mapping_dst"][destination]["morphology_id"]
-                            morphology_scalar = genome_v1['blueprint'][cortical_area]["cortical_mapping_dst"][destination]["morphology_scalar"]
-                            postSynapticCurrent_multiplier = genome_v1['blueprint'][cortical_area]["cortical_mapping_dst"][destination]["postSynapticCurrent_multiplier"]
-                            plasticity_flag = genome_v1['blueprint'][cortical_area]["cortical_mapping_dst"][destination]["plasticity_flag"]
+            elif key == "cortical_mapping_dst":
+                gene = "_____10c-" + cortical_area + "-dstmap-d"
+                destination_map = {}
+                for destination in genome_v1['blueprint'][cortical_area]["cortical_mapping_dst"]:
+                    destination_map[destination] = list()
+                    for entry in genome_v1['blueprint'][cortical_area]["cortical_mapping_dst"][destination]:
+                        morphology_id = entry["morphology_id"]
+                        morphology_scalar = entry["morphology_scalar"]
+                        postSynapticCurrent_multiplier = entry["postSynapticCurrent_multiplier"]
+                        plasticity_flag = entry["plasticity_flag"]
 
-                            destination_map[destination].append([morphology_id,
-                                                                morphology_scalar,
-                                                                postSynapticCurrent_multiplier,
-                                                                plasticity_flag])
+                        destination_map[destination].append([morphology_id,
+                                                            morphology_scalar,
+                                                            postSynapticCurrent_multiplier,
+                                                            plasticity_flag])
 
-                    genome_v2['blueprint'][gene] = destination_map
-                else:
-                    print("Warning! ", key, " not found in genome_1_template!")
+                genome_v2['blueprint'][gene] = destination_map
+            else:
+                print("Warning! ", key, " not found in genome_1_template!")
 
     return genome_v2
 

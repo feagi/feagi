@@ -45,7 +45,7 @@ def save_genome(genome, file_name=''):
     if file_name != '':
         genome_file = file_name
     else:
-        genome_file = "genome" + datetime.now().isoformat() + ".py"
+        genome_file = "genome" + datetime.now().isoformat() + ".json"
 
     try:
         with open(genome_file, "w") as data_file:
