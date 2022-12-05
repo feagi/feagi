@@ -98,12 +98,15 @@ def update_cortical_properties(cortical_properties):
     - Cortical name
 
     """
+
     regeneration_flag = False
 
     if 'cortical_id' not in cortical_properties:
         print("ERROR: Cortical change request did not include --cortical id--")
         return
 
+    print("+++++++++++++++++++++   Cortical Change Request Received for %s ++++++++++++++++++++++++ " %
+          cortical_properties['cortical_id'])
     cortical_area = cortical_properties['cortical_id']
 
     if cortical_properties['cortical_name'] is not None:
@@ -306,8 +309,9 @@ def cortical_removal(cortical_area, genome_scrub=False):
             runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
             runtime_data.cortical_dimensions = generate_cortical_dimensions()
             for upstream_area in upstream_cortical_areas:
-                if cortical_area in runtime_data.genome['blueprint'][upstream_area]['cortical_mapping_dst']:
-                    runtime_data.genome['blueprint'][upstream_area]['cortical_mapping_dst'].pop(cortical_area)
+                if upstream_area in runtime_data.genome['blueprint']:
+                    if cortical_area in runtime_data.genome['blueprint'][upstream_area]['cortical_mapping_dst']:
+                        runtime_data.genome['blueprint'][upstream_area]['cortical_mapping_dst'].pop(cortical_area)
 
 
 def prune_cortical_synapses(cortical_area):
