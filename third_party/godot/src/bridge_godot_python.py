@@ -39,6 +39,7 @@ from collections import deque
 ws_queue = deque()
 zmq_queue = deque()
 burst_second = 0
+previous_genome_timestamp = 0  # TO keep record of timestamp
 current_cortical_area = dict()
 
 runtime_data = {
@@ -54,7 +55,6 @@ runtime_data = {
 }
 
 dimensions_endpoint = '/v1/feagi/connectome/properties/dimensions'
-
 
 
 def simulation_testing():
@@ -166,7 +166,7 @@ def feagi_breakdown(data):
                 requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
         if data != "{}":
             if runtime_data["old_cortical_data"] != runtime_data["cortical_data"]:
-                pass # TODO: add to detect if cortical is changed
+                pass  # TODO: add to detect if cortical is changed
             #     csv_writer(runtime_data["cortical_data"])
         runtime_data["genome_number"] = new_genome_num
     for i in data['godot']:
@@ -226,6 +226,62 @@ def feagi_registration(feagi_host, api_port):
         sleep(1)
 
 
+def reload_genome():
+    bool_flag = True
+    cortical_name = []
+    cortical_genome_dictionary = {"genome": {}}
+    print("+++ 0 +++")
+    while bool_flag:
+        if len(cortical_genome_dictionary["genome"]) == 0:
+            print("+++ a +++")
+            try:
+                data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
+                                                '/v1/feagi/genome/download').json()
+                print("% % % &&&&&&& -------- ^^^^^^^ " * 8)
+                print(data_from_genome)
+                print("+++ b +++")
+                cortical_area_name = requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
+                runtime_data["cortical_data"] = data_from_genome
+                print("cortical_area_name: ", cortical_area_name)
+
+                for x in cortical_area_name:
+                    # print("worked: ", x)
+                    cortical_name.append(cortical_area_name[x][7])
+
+                # print(50 * "*")
+                # print(runtime_data["cortical_data"])
+                # print(50 * "*")
+                # print(50 * "#")
+                # print(cortical_genome_dictionary)
+                # print(50 * "#")
+
+
+                if runtime_data["cortical_data"]:
+                    print("###### ------------------------------------------------------------#######")
+                    #print("Cortical Dimensions:\n", runtime_data["cortical_data"])
+                    for i in runtime_data["cortical_data"]["blueprint"]:
+                        # print("i: ", runtime_data["cortical_data"]["blueprint"][i], " and solo i: ", i)
+                        for x in cortical_name:
+                            # print("CURRENT: ", cortical_name)
+                            if x in i:
+                                if x not in cortical_genome_dictionary['genome']:
+                                    # print("NOT FOUND: ", x)
+                                    cortical_genome_dictionary['genome'][x] = list()
+                                cortical_genome_dictionary['genome'][x].append(
+                                    runtime_data["cortical_data"]["blueprint"][i])
+                    print("bwuk: ", cortical_genome_dictionary)
+                    json_object = json.dumps(cortical_genome_dictionary)
+                    zmq_queue.append(json_object)
+                    # zmq_queue.append(cortical_genome_dictionary)
+            except Exception as e:
+                bool_flag = True
+                print("Error while fetching genome from FEAGI\n", traceback.print_exc())
+        else:
+            bool_flag = False
+        time.sleep(2)
+    return cortical_genome_dictionary.copy()
+
+
 def feagi_init(feagi_host, api_port):
     # Send a request to FEAGI for cortical dimensions
     awaiting_feagi_registration = True
@@ -245,11 +301,11 @@ def feagi_init(feagi_host, api_port):
                 try:
                     data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
                                                     '/v1/feagi/genome/download').json()
-
                     print("% % % &&&&&&& -------- ^^^^^^^ " * 8)
                     print(data_from_genome)
                     print("+++ b +++")
-                    cortical_area_name = requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
+                    cortical_area_name = requests.get(
+                        'http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
                     runtime_data["cortical_data"] = data_from_genome
 
                     for x in cortical_area_name:
@@ -263,7 +319,8 @@ def feagi_init(feagi_host, api_port):
                                 if x in i:
                                     if x not in cortical_genome_dictionary['genome']:
                                         cortical_genome_dictionary['genome'][x] = list()
-                                    cortical_genome_dictionary['genome'][x].append(runtime_data["cortical_data"]["blueprint"][i])
+                                    cortical_genome_dictionary['genome'][x].append(
+                                        runtime_data["cortical_data"]["blueprint"][i])
                         json_object = json.dumps(cortical_genome_dictionary)
                         zmq_queue.append(json_object)
                         # zmq_queue.append(cortical_genome_dictionary)
@@ -343,6 +400,8 @@ if __name__ == "__main__":
     new_FEAGI_sub = FEAGI_sub
     flag = 0
     data_from_genome = 0
+    one_frame = new_FEAGI_sub.receive()
+    # previous_genome_timestamp = one_frame["genome_changed"]
     while True:
         if detect_lag:
             opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
@@ -353,6 +412,10 @@ if __name__ == "__main__":
             detect_lag = False
         one_frame = new_FEAGI_sub.receive()
         if one_frame is not None:
+            if one_frame["genome_changed"] != previous_genome_timestamp:
+                previous_genome_timestamp = one_frame["genome_changed"]
+                print("updated time")
+                zmq_queue.append("updated")
             burst_second = one_frame['burst_frequency']
             if 'genome_reset' in one_frame:
                 runtime_data["cortical_data"] = {}
@@ -382,6 +445,9 @@ if __name__ == "__main__":
                                             '/v1/feagi/genome/download').json()
             json_object = json.dumps(current_cortical_area)
             zmq_queue.append(json_object)
+        # if "new" in data_from_godot:
+        #     json_object = json.dumps(data_from_godot)
+        #     print(json_object)
         if "cortical_name" in data_from_godot:
             # data_from_godot = data_from_godot.replace("relocate", "\"relocate\"")
             url = "http://127.0.0.1:8000/v1/feagi/genome/cortical_area"
