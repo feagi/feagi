@@ -191,7 +191,8 @@ def update_cortical_properties(cortical_properties):
             runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=cortical_area,
                                                          dst_cortical_area=dst_cortical_area)
 
-            runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'].pop(dst_cortical_area)
+            if dst_cortical_area in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
+                runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'].pop(dst_cortical_area)
             runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][dst_cortical_area] = \
                 cortical_properties['cortical_destinations'][dst_cortical_area]
 
@@ -243,7 +244,8 @@ def update_cortical_properties(cortical_properties):
 def update_morphology_properties(morphology_properties):
     try:
         if morphology_properties['name'] in runtime_data.genome['neuron_morphologies']:
-            runtime_data.genome['neuron_morphologies'].pop(morphology_properties['name'])
+            if morphology_properties['name'] in runtime_data.genome['neuron_morphologies']:
+                runtime_data.genome['neuron_morphologies'].pop(morphology_properties['name'])
             runtime_data.genome['neuron_morphologies'][morphology_properties['name']] = dict()
             runtime_data.genome['neuron_morphologies'][morphology_properties['name']][morphology_properties['type']] = list()
             for entry in morphology_properties['morphology']:
@@ -293,14 +295,19 @@ def cortical_removal(cortical_area, genome_scrub=False):
 
         # Optional genome scrub
         if genome_scrub:
-            runtime_data.genome['blueprint'].pop(cortical_area)
-            runtime_data.fire_candidate_list.pop(cortical_area)
-            runtime_data.previous_fcl.pop(cortical_area)
-            runtime_data.future_fcl.pop(cortical_area)
+            if cortical_area in runtime_data.genome['blueprint']:
+                runtime_data.genome['blueprint'].pop(cortical_area)
+            if cortical_area in runtime_data.fire_candidate_list:
+                runtime_data.fire_candidate_list.pop(cortical_area)
+            if cortical_area in runtime_data.previous_fcl:
+                runtime_data.previous_fcl.pop(cortical_area)
+            if cortical_area in runtime_data.future_fcl:
+                runtime_data.future_fcl.pop(cortical_area)
             runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
             runtime_data.cortical_dimensions = generate_cortical_dimensions()
             for upstream_area in upstream_cortical_areas:
-                runtime_data.genome['blueprint'][upstream_area]['cortical_mapping_dst'].pop(cortical_area)
+                if cortical_area in runtime_data.genome['blueprint'][upstream_area]['cortical_mapping_dst']:
+                    runtime_data.genome['blueprint'][upstream_area]['cortical_mapping_dst'].pop(cortical_area)
 
 
 def prune_cortical_synapses(cortical_area):
