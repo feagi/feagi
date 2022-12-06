@@ -145,7 +145,7 @@ cortical_types = {
 }
 
 
-cortical_properties = {
+cortical_template = {
     "per_voxel_neuron_cnt": 1,
     "synapse_attractivity": 100,
     "postsynaptic_current": 1,

@@ -429,5 +429,3 @@ def generate_cortical_dimensions():
         data_file.truncate()
 
     return cortical_information
-
-
