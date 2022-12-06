@@ -446,22 +446,22 @@ async def fetch_cortical_properties(cortical_area):
             "cortical_name": cortical_data['cortical_name'],
             "cortical_group": cortical_data['group_id'],
             "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
-            "cortical_visibility": cortical_data['neuron_params']['visualization'],
+            "cortical_visibility": cortical_data['visualization'],
             "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
             "cortical_coordinates": {
-                'x': cortical_data['neuron_params']['relative_coordinate'][0],
-                'y': cortical_data['neuron_params']['relative_coordinate'][1],
-                'z': cortical_data['neuron_params']['relative_coordinate'][2]
+                'x': cortical_data["relative_coordinate"][0],
+                'y': cortical_data["relative_coordinate"][1],
+                'z': cortical_data["relative_coordinate"][2]
             },
             "cortical_dimensions": {
-                'x': cortical_data['neuron_params']['block_boundaries'][0],
-                'y': cortical_data['neuron_params']['block_boundaries'][1],
-                'z': cortical_data['neuron_params']['block_boundaries'][2]
+                'x': cortical_data["block_boundaries"][0],
+                'y': cortical_data["block_boundaries"][1],
+                'z': cortical_data["block_boundaries"][2]
             },
             "cortical_destinations": cortical_data['cortical_mapping_dst'],
-            "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
-            "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
-            "neuron_plasticity_constant": cortical_data['plasticity_constant'],
+            "neuron_post_synaptic_potential": cortical_data['neuron_params']['postsynaptic_current'],
+            "neuron_post_synaptic_potential_max": cortical_data['neuron_params']['postsynaptic_current_max'],
+            "neuron_plasticity_constant": cortical_data['neuron_params']['plasticity_constant'],
             "neuron_fire_threshold": cortical_data['neuron_params']['firing_threshold'],
             "neuron_refractory_period": cortical_data['neuron_params']['refractory_period'],
             "neuron_leak_coefficient": cortical_data['neuron_params']['leak_coefficient'],

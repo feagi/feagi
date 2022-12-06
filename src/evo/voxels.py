@@ -26,7 +26,7 @@ def block_size_checker(cortical_area, block):
     """
     Tests if the given block fits inside the cortical area block boundary
     """
-    block_boundary = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"]
+    block_boundary = runtime_data.genome["blueprint"][cortical_area]["block_boundaries"]
     block_in_list = block_ref_2_id(block)
 
     for _ in range(3):
@@ -40,7 +40,7 @@ def block_trimmer(cortical_area, block):
     limits the size of a block to stay within the block boundary of a cortical area
     """
     trimmed_block = [None, None, None]
-    block_boundary = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"]
+    block_boundary = runtime_data.genome["blueprint"][cortical_area]["block_boundaries"]
     if isinstance(block, list):
         for _ in range(3):
             trimmed_block[_] = min(block_boundary[_] - 1, block[_])
@@ -62,7 +62,7 @@ def block_id_gen(cortical_area, coordinate):
     """
 
     cortical_area_dim = []
-    block_boundaries = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries']
+    block_boundaries = runtime_data.genome['blueprint'][cortical_area]["block_boundaries"]
 
     block_id = []
     index = 0
@@ -164,7 +164,7 @@ def all_block_refs(cortical_area):
     Returns the list of all blocks in a given cortical area in a block_ref format
     """
     block_ref_list = list()
-    block_boundaries = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries']
+    block_boundaries = runtime_data.genome['blueprint'][cortical_area]["block_boundaries"]
     for x in range(block_boundaries[0]):
         for y in range(block_boundaries[1]):
             for z in range(block_boundaries[2]):
@@ -177,7 +177,7 @@ def x_block_refs(cortical_area, y_ref, z_ref):
     Returns the list of all blocks in a given cortical area in a block_ref format
     """
     block_ref_list = list()
-    block_boundaries = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries']
+    block_boundaries = runtime_data.genome['blueprint'][cortical_area]["block_boundaries"]
     for x in range(block_boundaries[0]):
         block_ref_list.append(block_reference_builder([x, y_ref, z_ref]))
     return block_ref_list
@@ -188,7 +188,7 @@ def y_block_refs(cortical_area, x_ref, z_ref):
     Returns the list of all blocks in a given cortical area in a block_ref format
     """
     block_ref_list = list()
-    block_boundaries = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries']
+    block_boundaries = runtime_data.genome['blueprint'][cortical_area]["block_boundaries"]
     for y in range(block_boundaries[1]):
         block_ref_list.append(block_reference_builder([x_ref, y, z_ref]))
     return block_ref_list
@@ -199,7 +199,7 @@ def z_block_refs(cortical_area, x_ref, y_ref):
     Returns the list of all blocks in a given cortical area in a block_ref format
     """
     block_ref_list = list()
-    block_boundaries = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries']
+    block_boundaries = runtime_data.genome['blueprint'][cortical_area]["block_boundaries"]
     for z in range(block_boundaries[2]):
         block_ref_list.append(block_reference_builder([x_ref, y_ref, z]))
     return block_ref_list

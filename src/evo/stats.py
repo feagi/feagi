@@ -266,7 +266,7 @@ def opu_activity_report(cortical_area):
     """
     Returns percentage of neuronal activity in each block
     """
-    block_boundaries = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries']
+    block_boundaries = runtime_data.genome['blueprint'][cortical_area]["block_boundaries"]
     report = dict()
     # The X axis of the OPU cortical areas are designated as device indicators
     for device in range(block_boundaries[0]):

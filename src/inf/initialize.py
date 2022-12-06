@@ -216,8 +216,9 @@ def init_genome_post_processes():
     """
     # Augment cortical dimension dominance e.g. is it longer in x dimension or z
     for cortical_area in runtime_data.cortical_list:
-        block_boundaries = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"]
+        block_boundaries = runtime_data.genome["blueprint"][cortical_area]["block_boundaries"]
         # block_boundaries = runtime_data.genome["blueprint"][]
+        print("%^ Block bounaries:", cortical_area, block_boundaries, runtime_data.genome["blueprint"][cortical_area]["neuron_params"])
         dominance = block_boundaries.index(max(block_boundaries))
         runtime_data.genome['blueprint'][cortical_area]['dimension_dominance'] = dominance
 
@@ -236,6 +237,7 @@ def init_timeseries_db():
 
 def init_cortical_info():
     genome = runtime_data.genome
+
     for cortical_area in genome['blueprint']:
         try:
             if genome['blueprint'][cortical_area]['group_id'] == 'IPU':
@@ -244,6 +246,8 @@ def init_cortical_info():
                 runtime_data.opu_list.add(cortical_area)
             if genome['blueprint'][cortical_area]['group_id'] == 'MEMORY':
                 runtime_data.mem_list.add(cortical_area)
+            if genome['blueprint'][cortical_area]['group_id'] == 'CORE':
+                runtime_data.core_list.add(cortical_area)
 
         except KeyError:
             print("Error: Cortical area %s missing cortical definition" % cortical_area)
@@ -251,6 +255,7 @@ def init_cortical_info():
     print("IPU list:", runtime_data.ipu_list)
     print("OPU list:", runtime_data.opu_list)
     print("Mem list:", runtime_data.mem_list)
+    print("Core list:", runtime_data.core_list)
 
 
 def init_genome_db():
@@ -330,6 +335,7 @@ def init_brain():
     init_cortical_info()
     runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
+    print(print("**^**^**^**^  $$$ ^^*^**^**^**^" * 10, runtime_data.cortical_dimensions))
     # genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
     # genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])
     # runtime_data.genome['blueprint'] = genome2['blueprint']
@@ -413,7 +419,7 @@ def generate_cortical_dimensions():
     for cortical_area in runtime_data.genome["blueprint"]:
         cortical_name = runtime_data.genome["blueprint"][cortical_area]["cortical_name"]
         cortical_information[cortical_name] = []
-        genes = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]
+        genes = runtime_data.genome["blueprint"][cortical_area]
         cortical_information[cortical_name].append(genes["relative_coordinate"][0])
         cortical_information[cortical_name].append(genes["relative_coordinate"][1])
         cortical_information[cortical_name].append(genes["relative_coordinate"][2])

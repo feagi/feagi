@@ -108,6 +108,7 @@ neuron_psp_collection_scope = {}
 ipu_list = set()
 opu_list = set()
 mem_list = set()
+core_list = set()
 
 
 # Queues

@@ -194,7 +194,7 @@ def convert_ir_to_fire_list(ir_data):
         if cortical_area_in_genome('ii_inf'):
             if 'ii_inf' not in runtime_data.fire_candidate_list:
                 runtime_data.fire_candidate_list['ii_inf'] = set()
-            for index in range(runtime_data.genome['blueprint']['ii_inf']["neuron_params"]["block_boundaries"][0]):
+            for index in range(runtime_data.genome['blueprint']['ii_inf']["block_boundaries"][0]):
                 if index not in active_ir_indexes:
                     inverse_ir_indexes.append(index)
 

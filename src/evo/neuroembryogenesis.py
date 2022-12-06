@@ -242,9 +242,9 @@ def voxelogenesis(cortical_area):
     """
     runtime_data.voxel_dict[cortical_area] = {}
 
-    x_dim = int(runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][0])
-    y_dim = int(runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][1])
-    z_dim = int(runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"][2])
+    x_dim = int(runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][0])
+    y_dim = int(runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][1])
+    z_dim = int(runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][2])
 
     runtime_data.voxel_dict[cortical_area] = {}
 

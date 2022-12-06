@@ -141,8 +141,8 @@ def genome_2_1_convertor(flat_genome):
                 exon = gene[16:]
                 gene_type = gene[16:18]
                 if cortical_id == cortical_area:
-                    try:
-                        if gene_type == 'cx':
+                    if gene_type == 'cx':
+                        try:
                             if genome_2_to_1[exon] == "cortical_name":
                                 genome['blueprint'][cortical_area][genome_2_to_1[exon]] = flat_genome[gene]
                             elif genome_2_to_1[exon] == "location_generation_type":
@@ -166,45 +166,47 @@ def genome_2_1_convertor(flat_genome):
 
                                             genome['blueprint'][
                                                 cortical_area][genome_2_to_1[exon]][destination].append(temp_dict)
-                            else:
-                                try:
-                                    genome['blueprint'][cortical_area][genome_2_to_1[exon]] = flat_genome[gene]
-                                except:
-                                    print("Key not processed: ", cortical_area)
-                        elif gene_type == 'nx':
-                            if genome_2_to_1[exon] == "block_boundaries":
+
+                            elif genome_2_to_1[exon] == "block_boundaries":
                                 if gene[24] == 'x':
-                                    genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][0] = \
+                                    genome['blueprint'][cortical_area]["block_boundaries"][0] = \
                                         flat_genome[gene]
                                 elif gene[24] == 'y':
-                                    genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][1] = \
+                                    genome['blueprint'][cortical_area]["block_boundaries"][1] = \
                                         flat_genome[gene]
                                 elif gene[24] == 'z':
-                                    genome['blueprint'][cortical_area]["neuron_params"]["block_boundaries"][2] = \
+                                    genome['blueprint'][cortical_area]["block_boundaries"][2] = \
                                         flat_genome[gene]
                                 else:
                                     pass
 
                             elif genome_2_to_1[exon] == "relative_coordinate":
                                 if gene[24] == 'x':
-                                    genome['blueprint'][cortical_area]["neuron_params"]["relative_coordinate"][0] = \
+                                    genome['blueprint'][cortical_area]["relative_coordinate"][0] = \
                                         flat_genome[gene]
                                 elif gene[24] == 'y':
-                                    genome['blueprint'][cortical_area]["neuron_params"]["relative_coordinate"][1] = \
+                                    genome['blueprint'][cortical_area]["relative_coordinate"][1] = \
                                         flat_genome[gene]
                                 elif gene[24] == 'z':
-                                    genome['blueprint'][cortical_area]["neuron_params"]["relative_coordinate"][2] = \
+                                    genome['blueprint'][cortical_area]["relative_coordinate"][2] = \
                                         flat_genome[gene]
                                 else:
                                     pass
-
                             else:
-                                genome['blueprint'][cortical_area]["neuron_params"][genome_2_to_1[exon]] = flat_genome[gene]
-                        else:
-                            pass
-                    except KeyError as e:
-                        print("Error while converting a gene:", e, cortical_area, gene)
-    print(genome)
+                                try:
+                                    genome['blueprint'][cortical_area][genome_2_to_1[exon]] = flat_genome[gene]
+                                except:
+                                    print("Key not processed: ", cortical_area)
+                        except KeyError as e:
+                            print("Error while converting a \"cx\" gene:", e, cortical_area, gene, traceback.print_exc())
+                    elif gene_type == 'nx':
+                        try:
+                            genome['blueprint'][cortical_area]["neuron_params"][genome_2_to_1[exon]] = flat_genome[gene]
+                        except KeyError as e:
+                            print("Error while converting a \"nx\" gene:", e, cortical_area, gene, traceback.print_exc())
+                    else:
+                        pass
+
     return genome
 
 
@@ -232,25 +234,25 @@ def genome_v1_v2_converter(genome_v1):
                             genez = "_____10c-" + cortical_area + "-" + "cx-___bbz-i"
 
                             genome_v2['blueprint'][genex] = \
-                                genome_v1['blueprint'][cortical_area]['neuron_params']['block_boundaries'][0]
+                                genome_v1['blueprint'][cortical_area]["block_boundaries"][0]
                             genome_v2['blueprint'][geney] = \
-                                genome_v1['blueprint'][cortical_area]['neuron_params']['block_boundaries'][1]
+                                genome_v1['blueprint'][cortical_area]["block_boundaries"][1]
                             genome_v2['blueprint'][genez] = \
-                                genome_v1['blueprint'][cortical_area]['neuron_params']['block_boundaries'][2]
+                                genome_v1['blueprint'][cortical_area]["block_boundaries"][2]
                         elif subkey == "relative_coordinate":
                             genex = "_____10c-" + cortical_area + "-" + "cx-rcordx-i"
                             geney = "_____10c-" + cortical_area + "-" + "cx-rcordy-i"
                             genez = "_____10c-" + cortical_area + "-" + "cx-rcordz-i"
 
                             genome_v2['blueprint'][genex] = \
-                                genome_v1['blueprint'][cortical_area]['neuron_params']['relative_coordinate'][0]
+                                genome_v1['blueprint'][cortical_area]["relative_coordinate"][0]
                             genome_v2['blueprint'][geney] = \
-                                genome_v1['blueprint'][cortical_area]['neuron_params']['relative_coordinate'][1]
+                                genome_v1['blueprint'][cortical_area]["relative_coordinate"][1]
                             genome_v2['blueprint'][genez] = \
-                                genome_v1['blueprint'][cortical_area]['neuron_params']['relative_coordinate'][2]
+                                genome_v1['blueprint'][cortical_area]["relative_coordinate"][2]
 
             elif key == "cortical_mapping_dst":
-                gene = "_____10c-" + cortical_area + "-dstmap-d"
+                gene = "_____10c-" + cortical_area + "-cx-dstmap-d"
                 destination_map = {}
                 for destination in genome_v1['blueprint'][cortical_area]["cortical_mapping_dst"]:
                     destination_map[destination] = list()
@@ -284,6 +286,9 @@ gene_decoder = {
     "_______c-______-cx-___bby-i": "block_boundary_y",
     "_______c-______-cx-___bbz-i": "block_boundary_z",
     "_______c-______-cx-synatt-i": "synapse_attractivity",
+    "_______c-______-cx-__rand-b": "location_generation_type",
+    "_______c-______-cx-dstmap-d": "cortical_mapping_dst",
+    "_______c-______-cx-de_gen-f": "degeneration",
     "_______c-______-nx-pstcr_-f": "postsynaptic_current",
     "_______c-______-nx-pstcrm-f": "postsynaptic_current_max",
     "_______c-______-nx-plst_c-f": "plasticity_constant",
@@ -291,55 +296,53 @@ gene_decoder = {
     "_______c-______-nx-refrac-i": "refractory_period",
     "_______c-______-nx-leak_c-f": "leak_coefficient",
     "_______c-______-nx-c_fr_c-i": "consecutive_fire_cnt_max",
-    "_______c-______-nx-snooze-f": "snooze_length",
-    "_______c-______-cx-__rand-b": "location_generation_type",
-    "_______c-______-cs-dstmap-d": "cortical_mapping_dst"
+    "_______c-______-nx-snooze-f": "snooze_length"
 }
 
 genome_1_template = {
           "per_voxel_neuron_cnt": None,
           "synapse_attractivity": None,
-          "postsynaptic_current": None,
-          "plasticity_constant": None,
           "degeneration": None,
           "psp_uniform_distribution": False,
           "postsynaptic_current_max": None,
           "cortical_mapping_dst": {},
+          "block_boundaries": [
+                None,
+                None,
+                None
+            ],
+          "relative_coordinate": [
+                None,
+                None,
+                None
+            ],
+          "visualization": None,
           "neuron_params": {
+              "postsynaptic_current": None,
+              "plasticity_constant": None,
               "firing_threshold": None,
               "refractory_period": None,
               "leak_coefficient": None,
               "consecutive_fire_cnt_max": None,
-              "snooze_length": None,
-              "block_boundaries": [
-                  None,
-                  None,
-                  None
-              ],
-              "relative_coordinate": [
-                  None,
-                  None,
-                  None
-              ],
-              "visualization": None,
+              "snooze_length": None
           }
       }
 
 genome_2_to_1 = {
     "cx-_n_cnt-i": "per_voxel_neuron_cnt",
-    "nx-gd_vis-b": "visualization",
+    "cx-gd_vis-b": "visualization",
     "cx-__name-t": "cortical_name",
-    "nx-rcordx-i": "relative_coordinate",
-    "nx-rcordy-i": "relative_coordinate",
-    "nx-rcordz-i": "relative_coordinate",
-    "nx-___bbx-i": "block_boundaries",
-    "nx-___bby-i": "block_boundaries",
-    "nx-___bbz-i": "block_boundaries",
+    "cx-rcordx-i": "relative_coordinate",
+    "cx-rcordy-i": "relative_coordinate",
+    "cx-rcordz-i": "relative_coordinate",
+    "cx-___bbx-i": "block_boundaries",
+    "cx-___bby-i": "block_boundaries",
+    "cx-___bbz-i": "block_boundaries",
     "cx-__rand-b": "location_generation_type",
     "cx-synatt-i": "synapse_attractivity",
-    "cx-pstcr_-f": "postsynaptic_current",
-    "cx-pstcrm-f": "postsynaptic_current_max",
-    "cx-plst_c-f": "plasticity_constant",
+    "nx-pstcr_-f": "postsynaptic_current",
+    "nx-pstcrm-f": "postsynaptic_current_max",
+    "nx-plst_c-f": "plasticity_constant",
     "nx-fire_t-f": "firing_threshold",
     "nx-refrac-i": "refractory_period",
     "nx-leak_c-f": "leak_coefficient",
@@ -370,5 +373,5 @@ genome_1_to_2 = {
     "snooze_length": "nx-snooze-f",
     "degeneration": "cx-de_gen-f",
     "psp_uniform_distribution": "cx-pspuni-b",
-    "cortical_mapping_dst": "cs-dstmap-d"
+    "cortical_mapping_dst": "cx-dstmap-d"
 }

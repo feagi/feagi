@@ -44,7 +44,7 @@ from random import randrange
 #     # todo: generalize this function so it takes the direction of the source and destination cortical areas as input
 #     candidate_list = list()
 #     block_list = blocks.z_block_refs(cortical_area=dst_cortical_area, x_ref=0, y_ref=0)
-#     source_x_depth = runtime_data.genome['blueprint'][src_cortical_area]['neuron_params']['block_boundaries'][0]
+#     source_x_depth = runtime_data.genome['blueprint'][src_cortical_area]["block_boundaries"][0]
 #
 #     for offset in range(source_x_depth):
 #         for block_ref in block_list:
@@ -59,8 +59,8 @@ def expander_x(src_cortical_area, dst_cortical_area, src_neuron_id, dst_y_index=
     This rule represents a unique combination of all blocks from the source cortical area on the destination side
     in x dim.
     """
-    src_cortical_dim_x = runtime_data.genome['blueprint'][src_cortical_area]['neuron_params']['block_boundaries'][0]
-    dst_cortical_dim_x = runtime_data.genome['blueprint'][dst_cortical_area]['neuron_params']['block_boundaries'][0]
+    src_cortical_dim_x = runtime_data.genome['blueprint'][src_cortical_area]["block_boundaries"][0]
+    dst_cortical_dim_x = runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][0]
 
     cortical_length_binary = len(bin(dst_cortical_dim_x)) - 2
 
@@ -98,8 +98,8 @@ def reducer_x(src_cortical_area, dst_cortical_area, src_neuron_id, dst_y_index=0
     Acts in reverse of the expander rule. It reduces the combination of various blocks down to its building blocks
     representation through synaptic connections.
     """
-    src_cortical_dim_x = runtime_data.genome['blueprint'][src_cortical_area]['neuron_params']['block_boundaries'][0]
-    dst_cortical_dim_x = runtime_data.genome['blueprint'][dst_cortical_area]['neuron_params']['block_boundaries'][0]
+    src_cortical_dim_x = runtime_data.genome['blueprint'][src_cortical_area]["block_boundaries"][0]
+    dst_cortical_dim_x = runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][0]
 
     # Note that the destination cortical area is expected to have at least 2 ^ (source block count) to be able to
     # address all the combinations
@@ -128,9 +128,9 @@ def randomizer(dst_cortical_area):
     Identifies a random voxel from the destination cortical area.
     """
 
-    dst_cortical_dim_x = runtime_data.genome['blueprint'][dst_cortical_area]['neuron_params']['block_boundaries'][0]
-    dst_cortical_dim_y = runtime_data.genome['blueprint'][dst_cortical_area]['neuron_params']['block_boundaries'][1]
-    dst_cortical_dim_z = runtime_data.genome['blueprint'][dst_cortical_area]['neuron_params']['block_boundaries'][2]
+    dst_cortical_dim_x = runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][0]
+    dst_cortical_dim_y = runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][1]
+    dst_cortical_dim_z = runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][2]
 
     random_location = [randrange(0, dst_cortical_dim_x),
                        randrange(0, dst_cortical_dim_y),
@@ -147,7 +147,7 @@ def lateral_pairs_x(neuron_id, cortical_area):
     0<-1  2<-3 ...
     """
 
-    cortical_dim_x = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][0]
+    cortical_dim_x = runtime_data.genome['blueprint'][cortical_area]["block_boundaries"][0]
 
     neuron_block_index_x = runtime_data.brain[cortical_area][neuron_id]['soma_location'][0]
     neuron_block_index_y = runtime_data.brain[cortical_area][neuron_id]['soma_location'][1]
@@ -165,8 +165,8 @@ def block_connection(src_cortical_area, dst_cortical_area, src_neuron_id, s=10):
     """
         voxel x to x+s from source connected to voxel x//s from destination on the axis x
     """
-    src_cortical_dim_x = runtime_data.genome['blueprint'][src_cortical_area]['neuron_params']['block_boundaries'][0]
-    dst_cortical_dim_x = runtime_data.genome['blueprint'][dst_cortical_area]['neuron_params']['block_boundaries'][0]
+    src_cortical_dim_x = runtime_data.genome['blueprint'][src_cortical_area]["block_boundaries"][0]
+    dst_cortical_dim_x = runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][0]
 
     if src_cortical_dim_x != dst_cortical_dim_x * s:
         print("Warning: %s and %s do not have matching blocks on x dim to support the needed synaptogenesis!"
