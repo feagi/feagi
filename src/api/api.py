@@ -499,7 +499,7 @@ async def add_cortical_area(message: NewCorticalProperties):
     """
     try:
         message = message.dict()
-        message = {'add_cortical_area': message}
+        message = {'add_core_cortical_area': message}
         print("*" * 50 + "\n", message)
         api_queue.put(item=message)
         return {"Request sent!"}

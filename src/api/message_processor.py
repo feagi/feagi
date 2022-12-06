@@ -6,7 +6,7 @@ from evo.genome_processor import genome_ver_check
 from evo.neuroembryogenesis import develop_brain
 from evo.autopilot import update_generation_dict
 from evo.x_genesis import update_cortical_properties, update_morphology_properties
-from evo.x_genesis import add_cortical_area, add_custom_cortical_area, cortical_removal
+from evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal
 
 
 def api_message_processor(api_message):
@@ -184,8 +184,8 @@ def api_message_processor(api_message):
         cortical_removal(cortical_area=api_message['delete_cortical_area'],
                          genome_scrub=True)
 
-    if 'add_cortical_area' in api_message:
-        add_cortical_area(cortical_properties=api_message['add_cortical_area'])
+    if 'add_core_cortical_area' in api_message:
+        add_core_cortical_area(cortical_properties=api_message['add_core_cortical_area'])
 
     if 'add_custom_cortical_area' in api_message:
         add_custom_cortical_area(cortical_properties=api_message['add_custom_cortical_area'])
