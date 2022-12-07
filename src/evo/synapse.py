@@ -31,9 +31,9 @@ def cortical_area_lengths(cortical_area):
     coordinates = ['x', 'y', 'z']
     for _ in coordinates:
         length.append(
-            runtime_data.genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries'][_][
+            runtime_data.genome['blueprint'][cortical_area]['geometric_boundaries'][_][
                 1] -
-            runtime_data.genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries'][_][0])
+            runtime_data.genome['blueprint'][cortical_area]['geometric_boundaries'][_][0])
 
     return length
 
@@ -52,7 +52,7 @@ def psc_calculator(cortical_area, dst_cortical_area):
             dst_cortical_area]["postSynapticCurrent_multiplier"]
 
     postsynaptic_current = \
-        runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["postsynaptic_current"] * psc_multiplier
+        runtime_data.genome['blueprint'][cortical_area]["postsynaptic_current"] * psc_multiplier
     return postsynaptic_current
 
 
@@ -235,7 +235,7 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
         neuron_morphology = morphology_['morphology_id']
         morphology_scalar = morphology_['morphology_scalar']
         psc_multiplier = morphology_['postSynapticCurrent_multiplier']
-        psc_base = runtime_data.genome["blueprint"][cortical_area_src]['neuron_params']['postsynaptic_current']
+        psc_base = runtime_data.genome["blueprint"][cortical_area_src]['postsynaptic_current']
         postSynapticCurrent = psc_multiplier * psc_base
 
         try:

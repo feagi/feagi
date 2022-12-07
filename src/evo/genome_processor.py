@@ -201,7 +201,7 @@ def genome_2_1_convertor(flat_genome):
                             print("Error while converting a \"cx\" gene:", e, cortical_area, gene, traceback.print_exc())
                     elif gene_type == 'nx':
                         try:
-                            genome['blueprint'][cortical_area]["neuron_params"][genome_2_to_1[exon]] = flat_genome[gene]
+                            genome['blueprint'][cortical_area][genome_2_to_1[exon]] = flat_genome[gene]
                         except KeyError as e:
                             print("Error while converting a \"nx\" gene:", e, cortical_area, gene, traceback.print_exc())
                     else:
@@ -222,12 +222,12 @@ def genome_v1_v2_converter(genome_v1):
                     gene = "_____10c-" + cortical_area + "-" + genome_1_to_2[key]
                     genome_v2['blueprint'][gene] = genome_v1['blueprint'][cortical_area][key]
                 elif key == "neuron_params":
-                    for subkey in genome_v1['blueprint'][cortical_area]["neuron_params"]:
+                    for subkey in genome_v1['blueprint'][cortical_area]:
                         print(">>->>", subkey)
                         if subkey not in ["block_boundaries", "relative_coordinate"]:
                             if subkey in genome_1_to_2:
                                 gene = "_____10c-" + cortical_area + "-" + genome_1_to_2[subkey]
-                                genome_v2['blueprint'][gene] = genome_v1['blueprint'][cortical_area]['neuron_params'][subkey]
+                                genome_v2['blueprint'][gene] = genome_v1['blueprint'][cortical_area][subkey]
                         elif subkey == "block_boundaries":
                             genex = "_____10c-" + cortical_area + "-" + "cx-___bbx-i"
                             geney = "_____10c-" + cortical_area + "-" + "cx-___bby-i"
@@ -317,15 +317,13 @@ genome_1_template = {
                 None
             ],
           "visualization": None,
-          "neuron_params": {
-              "postsynaptic_current": None,
-              "plasticity_constant": None,
-              "firing_threshold": None,
-              "refractory_period": None,
-              "leak_coefficient": None,
-              "consecutive_fire_cnt_max": None,
-              "snooze_length": None
-          }
+          "postsynaptic_current": None,
+          "plasticity_constant": None,
+          "firing_threshold": None,
+          "refractory_period": None,
+          "leak_coefficient": None,
+          "consecutive_fire_cnt_max": None,
+          "snooze_length": None
       }
 
 genome_2_to_1 = {

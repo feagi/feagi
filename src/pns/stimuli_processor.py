@@ -106,17 +106,17 @@ def sonar_to_coords(sonar_data, threshold=10):
 
     X_MAX = runtime_data.genome['blueprint'] \
         ['i__pro'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][0]
 
     Y_MAX = runtime_data.genome['blueprint'] \
         ['i__pro'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][1]
 
     Z_MAX = runtime_data.genome['blueprint'] \
         ['i__pro'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][2]
 
     try:
@@ -142,17 +142,17 @@ def gyro_to_coords(gyro_data, direction):
 
     X_MAX = runtime_data.genome['blueprint'] \
         ['i__gyr'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][0]
 
     Y_MAX = runtime_data.genome['blueprint'] \
         ['i__gyr'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][1]
 
     Z_MAX = runtime_data.genome['blueprint'] \
         ['i__gyr'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][2]
     try:
         dist_map = round(map_value(float(gyro_data), -20, 20, 0, Z_MAX - 1))
@@ -172,17 +172,17 @@ def accelerator_to_coords(acc_data, direction):
     """
     X_MAX = runtime_data.genome['blueprint'] \
         ['i__acc'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][0]
 
     Y_MAX = runtime_data.genome['blueprint'] \
         ['i__acc'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][1]
 
     Z_MAX = runtime_data.genome['blueprint'] \
         ['i__acc'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][2]
     try:
         dist_map = round(map_value(float(acc_data), -20, 20, 0, Z_MAX - 1))
@@ -201,11 +201,11 @@ def vision_to_coords(vision_data):
     """
     X_MAX = runtime_data.genome['blueprint'] \
         ['i__vis'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][0]
     Y_MAX = runtime_data.genome['blueprint'] \
         ['i__vis'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][1]
     vision_data = vision_data.split("-")
     return [(int(vision_data[0]), int(vision_data[1]), int(vision_data[2]))]

@@ -459,14 +459,14 @@ async def fetch_cortical_properties(cortical_area):
                 'z': cortical_data["block_boundaries"][2]
             },
             "cortical_destinations": cortical_data['cortical_mapping_dst'],
-            "neuron_post_synaptic_potential": cortical_data['neuron_params']['postsynaptic_current'],
-            "neuron_post_synaptic_potential_max": cortical_data['neuron_params']['postsynaptic_current_max'],
-            "neuron_plasticity_constant": cortical_data['neuron_params']['plasticity_constant'],
-            "neuron_fire_threshold": cortical_data['neuron_params']['firing_threshold'],
-            "neuron_refractory_period": cortical_data['neuron_params']['refractory_period'],
-            "neuron_leak_coefficient": cortical_data['neuron_params']['leak_coefficient'],
-            "neuron_consecutive_fire_count": cortical_data['neuron_params']['consecutive_fire_cnt_max'],
-            "neuron_snooze_period": cortical_data['neuron_params']['snooze_length'],
+            "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
+            "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
+            "neuron_plasticity_constant": cortical_data['plasticity_constant'],
+            "neuron_fire_threshold": cortical_data['firing_threshold'],
+            "neuron_refractory_period": cortical_data['refractory_period'],
+            "neuron_leak_coefficient": cortical_data['leak_coefficient'],
+            "neuron_consecutive_fire_count": cortical_data['consecutive_fire_cnt_max'],
+            "neuron_snooze_period": cortical_data['snooze_length'],
             "neuron_degeneracy_coefficient": cortical_data['degeneration'],
             "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution']
         }

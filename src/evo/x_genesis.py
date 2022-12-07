@@ -118,14 +118,14 @@ def update_cortical_properties(cortical_properties):
                               new_coordinates=cortical_properties['cortical_coordinates'])
 
     if cortical_properties['neuron_fire_threshold'] is not None:
-        runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["firing_threshold"] = \
+        runtime_data.genome['blueprint'][cortical_area]["firing_threshold"] = \
             cortical_properties['neuron_fire_threshold']
 
         for neuron_ in runtime_data.brain[cortical_area]:
             runtime_data.brain[cortical_area][neuron_]['firing_threshold'] = cortical_properties['neuron_fire_threshold']
 
     if cortical_properties['neuron_leak_coefficient'] is not None:
-        runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["leak_coefficient"] = \
+        runtime_data.genome['blueprint'][cortical_area]["leak_coefficient"] = \
             cortical_properties['neuron_leak_coefficient']
 
     if cortical_properties['neuron_psp_uniform_distribution'] is not None:
@@ -137,15 +137,15 @@ def update_cortical_properties(cortical_properties):
             for dst_neuron in runtime_data.brain[cortical_area][neuron_id]["neighbors"]:
                 runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron]["postsynaptic_current"] = \
                     cortical_properties['neuron_post_synaptic_potential']
-        runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["postsynaptic_current"] = \
+        runtime_data.genome['blueprint'][cortical_area]["postsynaptic_current"] = \
             cortical_properties['neuron_post_synaptic_potential']
 
     if cortical_properties['neuron_refractory_period'] is not None:
-        runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["refractory_period"] = \
+        runtime_data.genome["blueprint"][cortical_area]["refractory_period"] = \
             cortical_properties['neuron_refractory_period']
 
     if cortical_properties['neuron_snooze_period'] is not None:
-        runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["snooze_length"] = \
+        runtime_data.genome["blueprint"][cortical_area]["snooze_length"] = \
             cortical_properties['neuron_snooze_period']
 
     if cortical_properties['neuron_degeneracy_coefficient'] is not None:
@@ -161,7 +161,7 @@ def update_cortical_properties(cortical_properties):
             cortical_properties['neuron_post_synaptic_potential_max']
 
     if cortical_properties['neuron_consecutive_fire_count'] is not None:
-        runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["consecutive_fire_cnt_max"] = \
+        runtime_data.genome["blueprint"][cortical_area]["consecutive_fire_cnt_max"] = \
             cortical_properties['neuron_consecutive_fire_count']
 
     if cortical_properties['cortical_visibility'] is not None:
@@ -393,9 +393,9 @@ def add_core_cortical_area(cortical_properties):
             runtime_data.genome['blueprint'][cortical_area] = dict()
             runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
             runtime_data.genome["blueprint"][cortical_area]["cortical_name"] = cortical_name
-            runtime_data.genome['blueprint'][cortical_area]['neuron_params'] = dict()
-            runtime_data.genome["blueprint"][cortical_area]["neuron_params"] = \
-                template['neuron_params'].copy()
+            runtime_data.genome['blueprint'][cortical_area] = dict()
+            runtime_data.genome["blueprint"][cortical_area] = \
+                template.copy()
 
             runtime_data.genome['blueprint'][cortical_area]["block_boundaries"] = \
                 [cortical_properties['channel_count'] *
@@ -413,7 +413,7 @@ def add_core_cortical_area(cortical_properties):
                 template['per_voxel_neuron_cnt']
             runtime_data.genome["blueprint"][cortical_area]["synapse_attractivity"] = \
                 template['synapse_attractivity']
-            runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["postsynaptic_current"] = \
+            runtime_data.genome["blueprint"][cortical_area]["postsynaptic_current"] = \
                 template['postsynaptic_current']
             runtime_data.genome["blueprint"][cortical_area]["plasticity_constant"] = \
                 template['plasticity_constant']
@@ -454,10 +454,10 @@ def add_custom_cortical_area(cortical_properties):
         runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
 
         runtime_data.genome['blueprint'][cortical_area]['cortical_name'] = cortical_properties['cortical_name']
-        runtime_data.genome['blueprint'][cortical_area]['neuron_params'] = {}
+        runtime_data.genome['blueprint'][cortical_area] = {}
 
-        runtime_data.genome["blueprint"][cortical_area]["neuron_params"] = \
-            template['neuron_params'].copy()
+        runtime_data.genome["blueprint"][cortical_area] = \
+            template.copy()
 
         runtime_data.genome['blueprint'][cortical_area]["block_boundaries"] = \
             [cortical_properties['cortical_dimensions']['x'],
@@ -474,7 +474,7 @@ def add_custom_cortical_area(cortical_properties):
             template['per_voxel_neuron_cnt']
         runtime_data.genome["blueprint"][cortical_area]["synapse_attractivity"] = \
             template['synapse_attractivity']
-        runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["postsynaptic_current"] = \
+        runtime_data.genome["blueprint"][cortical_area]["postsynaptic_current"] = \
             template['postsynaptic_current']
         runtime_data.genome["blueprint"][cortical_area]["plasticity_constant"] = \
             template['plasticity_constant']

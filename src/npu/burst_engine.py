@@ -127,9 +127,9 @@ def burst_manager():
                     print(settings.Bcolors.RED + '    %s : %i/%i %s  '
                           % (cortical_area_, cortical_neuron_count,
                              runtime_data.genome['blueprint'][cortical_area_]['per_voxel_neuron_cnt'] *
-                             runtime_data.genome['blueprint'][cortical_area_]["neuron_params"]['block_boundaries'][0] *
-                             runtime_data.genome['blueprint'][cortical_area_]["neuron_params"]['block_boundaries'][1] *
-                             runtime_data.genome['blueprint'][cortical_area_]["neuron_params"]['block_boundaries'][2]
+                             runtime_data.genome['blueprint'][cortical_area_]['block_boundaries'][0] *
+                             runtime_data.genome['blueprint'][cortical_area_]['block_boundaries'][1] *
+                             runtime_data.genome['blueprint'][cortical_area_]['block_boundaries'][2]
                              , active_neurons_in_blocks(cortical_area_)) + settings.Bcolors.ENDC)
                 elif runtime_data.parameters["Logs"]["print_cortical_activity_counters_all"]:
                     print(settings.Bcolors.YELLOW + '    %s : %i  '
@@ -174,7 +174,7 @@ def burst_manager():
         dst_neuron_obj = runtime_data.brain[cortical_area][neuron_id]
         if dst_neuron_obj["last_burst_num"] > 0:
             if dst_neuron_obj["last_burst_num"] + \
-                    runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["refractory_period"] <= \
+                    runtime_data.genome["blueprint"][cortical_area]["refractory_period"] <= \
                     runtime_data.burst_count:
                 # Inhibitory effect check
                 if dst_neuron_obj["snooze_till_burst_num"] <= runtime_data.burst_count:
@@ -191,9 +191,9 @@ def burst_manager():
     def consecutive_fire_threshold_check(cortical_area_, neuron_id):
         # Condition to snooze the neuron if consecutive fire count reaches threshold
         if runtime_data.brain[cortical_area_][neuron_id]["consecutive_fire_cnt"] > \
-                runtime_data.genome["blueprint"][cortical_area_]["neuron_params"]["consecutive_fire_cnt_max"]:
+                runtime_data.genome["blueprint"][cortical_area_]["consecutive_fire_cnt_max"]:
             snooze_till(cortical_area_, neuron_id, runtime_data.burst_count +
-                        runtime_data.genome["blueprint"][cortical_area_]["neuron_params"]["snooze_length"])
+                        runtime_data.genome["blueprint"][cortical_area_]["snooze_length"])
             return False
         else:
             return True
@@ -351,11 +351,11 @@ def burst_manager():
 
         for _ in runtime_data.fire_candidate_list:
             fire_list = set(runtime_data.fire_candidate_list[_])
-            if runtime_data.genome['blueprint'][_]['neuron_params'].get('visualization'):
+            if runtime_data.genome['blueprint'][_].get('visualization'):
                 while fire_list:
                     firing_neuron = fire_list.pop()
                     firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
-                    relative_coords = runtime_data.genome['blueprint'][_]['neuron_params'].get('relative_coordinate')
+                    relative_coords = runtime_data.genome['blueprint'][_].get('relative_coordinate')
                     broadcast_message.add(
                         (
                             runtime_data.burst_count,

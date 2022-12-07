@@ -61,7 +61,7 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
                           filter_criteria=runtime_data.neuron_mp_collection_scope[cortical_area]):
 
             vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
-            fire_threshold = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["firing_threshold"]
+            fire_threshold = runtime_data.genome["blueprint"][cortical_area]["firing_threshold"]
 
             mem_pot = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
 
@@ -154,7 +154,7 @@ def neuron_leak(cortical_area, neuron_id):
 
     # Leaky behavior
     leak_coefficient = \
-        runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["leak_coefficient"]
+        runtime_data.genome["blueprint"][cortical_area]["leak_coefficient"]
     if leak_coefficient > 0:
         if not runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] or \
                 runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] < 5:
@@ -321,7 +321,7 @@ def snooze_till(cortical_area, neuron_id, burst_id):
 
     """
     runtime_data.brain[cortical_area][neuron_id]["snooze_till_burst_num"] \
-        = burst_id + runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["snooze_length"]
+        = burst_id + runtime_data.genome["blueprint"][cortical_area]["snooze_length"]
     # print("%s : %s has been snoozed!" % (cortical_area, neuron_id))
     return
 

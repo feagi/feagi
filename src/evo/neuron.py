@@ -89,9 +89,9 @@ def init_neuron(cortical_area, soma_location):
     #   runtime_data.brain[cortical_area][neuron_id]["group_id"] = ""
     #  consider using the group name part of Genome instead
     # runtime_data.brain[cortical_area][neuron_id]["depolarization_threshold"] = \
-    #     genome['blueprint'][cortical_area]['neuron_params']['depolarization_threshold']
+    #     genome['blueprint'][cortical_area]['depolarization_threshold']
     runtime_data.brain[cortical_area][neuron_id]["firing_threshold"] = \
-        genome['blueprint'][cortical_area]['neuron_params']['firing_threshold']
+        genome['blueprint'][cortical_area]['firing_threshold']
 
     return neuron_id
 
@@ -125,12 +125,12 @@ def init_neuron(cortical_area, soma_location):
 #         for _ in range(0, genome["blueprint"][cortical_area]["cortical_neuron_count"] *
 #                        int(runtime_data.parameters['Brain_Development']['neuron_multiplier'])):
 #             neuron_loc_list.append(neuron_location_gen(
-#                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][0],
-#                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][0],
-#                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][0],
-#                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][1],
-#                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][1],
-#                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][1]))
+#                 genome["blueprint"][cortical_area]["geometric_boundaries"]["x"][0],
+#                 genome["blueprint"][cortical_area]["geometric_boundaries"]["y"][0],
+#                 genome["blueprint"][cortical_area]["geometric_boundaries"]["z"][0],
+#                 genome["blueprint"][cortical_area]["geometric_boundaries"]["x"][1],
+#                 genome["blueprint"][cortical_area]["geometric_boundaries"]["y"][1],
+#                 genome["blueprint"][cortical_area]["geometric_boundaries"]["z"][1]))
 #     elif location_generation_type == "sequential":
 #         # Following formula calculates the proper distance between neurons to be used to have n number of them
 #         # evenly distributed within the given cortical area
@@ -145,8 +145,8 @@ def init_neuron(cortical_area, soma_location):
 #         non_dominant_axis = list(filter(lambda x: x != dominant_dimension, dimension_map))
 #         neuron_count = genome["blueprint"][cortical_area]["cortical_neuron_count"]
 #         dominant_distance = \
-#             runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"][dominant_index][1]\
-#             - runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"][dominant_index][0]
+#             runtime_data.genome['blueprint'][cortical_area]["geometric_boundaries"][dominant_index][1]\
+#             - runtime_data.genome['blueprint'][cortical_area]["geometric_boundaries"][dominant_index][0]
 #
 #         neuron_gap = int(dominant_distance / neuron_count)
 #
@@ -166,8 +166,8 @@ def init_neuron(cortical_area, soma_location):
 #                 else:
 #                     # todo: store the midpoint values in a list once
 #                     coordinate_value[coordinate] = \
-#                         (genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"][dimension_map[coordinate]][1] -
-#                          genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"][dimension_map[coordinate]][0]) / 2
+#                         (genome["blueprint"][cortical_area]["geometric_boundaries"][dimension_map[coordinate]][1] -
+#                          genome["blueprint"][cortical_area]["geometric_boundaries"][dimension_map[coordinate]][0]) / 2
 #
 #             neuron_loc_list.append([int(coordinate_value[0]), int(coordinate_value[1]), int(coordinate_value[2])])
 #

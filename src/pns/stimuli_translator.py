@@ -95,7 +95,7 @@ def stimulation_injector(stimulation_data):
 #         for voxel in stimulation_data[cortical_area]:
 #             voxel = block_ref_2_id(voxel)
 #             relative_coords = \
-#                 runtime_data.genome['blueprint'][cortical_area]['neuron_params'].get('relative_coordinate')
+#                 runtime_data.genome['blueprint'][cortical_area].get('relative_coordinate')
 #             cortical_block_ref = [voxel[0] - relative_coords[0],
 #                                   voxel[1] - relative_coords[1],
 #                                   voxel[2] - relative_coords[2]]
