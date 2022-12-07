@@ -717,6 +717,21 @@ async def fetch_cortical_mappings(cortical_area):
         return {"Request failed...", e}
 
 
+@app.api_route("/v1/feagi/genome/cortical_mappings_by_name", methods=['GET'], tags=["Genome"])
+async def fetch_cortical_mappings(cortical_area):
+    """
+    Returns the list of cortical names being downstream to the given cortical areas
+    """
+    try:
+        cortical_mappings = set()
+        for destination in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
+            cortical_mappings.add(runtime_data.genome['blueprint'][destination]['cortical_name'])
+        return cortical_mappings
+    except Exception as e:
+        print("API Error:", e, traceback.print_exc())
+        return {"Request failed...", e}
+
+
 @app.api_route("/v1/feagi/genome/cortical_mappings_detailed", methods=['GET'], tags=["Genome"])
 async def fetch_cortical_mappings(cortical_area):
     """
