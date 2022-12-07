@@ -54,7 +54,7 @@ from random import randrange
 #     return candidate_list
 
 
-def expander_x(src_cortical_area, dst_cortical_area, src_neuron_id, dst_y_index=0, dst_z_index=0):
+def syn_expander_x(src_cortical_area, dst_cortical_area, src_neuron_id, dst_y_index=0, dst_z_index=0):
     """
     This rule represents a unique combination of all blocks from the source cortical area on the destination side
     in x dim.
@@ -93,7 +93,7 @@ def expander_x(src_cortical_area, dst_cortical_area, src_neuron_id, dst_y_index=
     return candidate_list
 
 
-def reducer_x(src_cortical_area, dst_cortical_area, src_neuron_id, dst_y_index=0, dst_z_index=0):
+def syn_reducer_x(src_cortical_area, dst_cortical_area, src_neuron_id, dst_y_index=0, dst_z_index=0):
     """
     Acts in reverse of the expander rule. It reduces the combination of various blocks down to its building blocks
     representation through synaptic connections.
@@ -123,7 +123,7 @@ def reducer_x(src_cortical_area, dst_cortical_area, src_neuron_id, dst_y_index=0
     return candidate_list
 
 
-def randomizer(dst_cortical_area):
+def syn_randomizer(dst_cortical_area):
     """
     Identifies a random voxel from the destination cortical area.
     """
@@ -139,7 +139,7 @@ def randomizer(dst_cortical_area):
     return random_location
 
 
-def lateral_pairs_x(neuron_id, cortical_area):
+def syn_lateral_pairs_x(neuron_id, cortical_area):
     """
     Identifies lateral pairs on x direction within the same cortical area
 
@@ -161,7 +161,7 @@ def lateral_pairs_x(neuron_id, cortical_area):
             return [neuron_block_index_x - 1, neuron_block_index_y, neuron_block_index_z]
 
 
-def block_connection(src_cortical_area, dst_cortical_area, src_neuron_id, s=10):
+def syn_block_connection(src_cortical_area, dst_cortical_area, src_neuron_id, s=10):
     """
         voxel x to x+s from source connected to voxel x//s from destination on the axis x
     """

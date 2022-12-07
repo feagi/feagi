@@ -34,6 +34,7 @@ from evo import autopilot
 from evo.synapse import cortical_mapping
 from evo.templates import cortical_types
 from evo.neuroembryogenesis import cortical_name_list
+from evo import synaptogenesis_rules
 
 
 description = """
@@ -590,6 +591,22 @@ async def genome_neuron_morphology_types():
         return {"Request failed...", e}
 
 
+@app.api_route("/v1/feagi/genome/morphology_functions", methods=['GET'], tags=["Genome"])
+async def genome_neuron_morphology_functions():
+    """
+    Returns the list of morphology function names.
+    """
+    try:
+        morphology_list = set()
+        for entry in dir(synaptogenesis_rules):
+            if str(entry)[:4] == "syn_":
+                morphology_list.add(str(entry))
+        return morphology_list
+    except Exception as e:
+        print("API Error:", e, traceback.print_exc())
+        return {"Request failed...", e}
+
+
 @app.api_route("/v1/feagi/genome/morphology", methods=['GET'], tags=["Genome"])
 async def genome_neuron_morphology_properties(morphology_name):
     """
@@ -632,7 +649,7 @@ async def genome_add_neuron_morphology(message: MorphologyProperties):
             runtime_data.genome['neuron_morphologies'][message.name][message.type] = list()
             runtime_data.genome['neuron_morphologies'][message.name][message.type].append(message.morphology)
         else:
-            return {"Morphology already exists! Nothing was added."}
+            return "Morphology already exists! Nothing was added."
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
@@ -645,7 +662,8 @@ async def genome_delete_neuron_morphology(morphology_name):
     """
     try:
         if morphology_name in runtime_data.genome['neuron_morphologies']:
-            return runtime_data.genome['neuron_morphologies'].pop(morphology_name)
+            runtime_data.genome['neuron_morphologies'].pop(morphology_name)
+            return "Morphology has been successfully deleted."
         else:
             return {"Error deleting neuron morphology. Morphology not found!"}
     except Exception as e:
