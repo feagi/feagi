@@ -31,7 +31,7 @@ from inf import feagi
 from inf import runtime_data
 from inf.baseline import gui_baseline
 from evo import autopilot
-from evo.synapse import cortical_mapping
+from evo.synapse import cortical_mapping, morphology_usage_list
 from evo.templates import cortical_types
 from evo.neuroembryogenesis import cortical_name_list
 from evo import synaptogenesis_rules
@@ -662,12 +662,17 @@ async def genome_delete_neuron_morphology(morphology_name):
     """
     try:
         if morphology_name in runtime_data.genome['neuron_morphologies']:
-            runtime_data.genome['neuron_morphologies'].pop(morphology_name)
-            return "Morphology has been successfully deleted."
+            usage = morphology_usage_list(morphology_name=morphology_name)
+            if not usage:
+                runtime_data.genome['neuron_morphologies'].pop(morphology_name)
+                return {"message": "Morphology has been successfully deleted."}
+            else:
+                return {"message": "Morphology could not be removed due to existing mappings",
+                        "data": usage}
         else:
-            return {"Error deleting neuron morphology. Morphology not found!"}
+            return {"message": "Morphology not found!"}
     except Exception as e:
-        print("API Error:", e)
+        print("API Error:", e, traceback.print_exc())
         return {"Request failed...", e}
 
 

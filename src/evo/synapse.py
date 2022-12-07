@@ -258,21 +258,21 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
 
                 elif key == "functions":
                     if neuron_morphology == "expander_x":
-                        candidate_list = expander_x(cortical_area_src, cortical_area_dst, src_neuron_id)
+                        candidate_list = syn_expander_x(cortical_area_src, cortical_area_dst, src_neuron_id)
                         for candidate in candidate_list:
                             candidate_voxel_list.append([candidate, postSynapticCurrent])
                     elif neuron_morphology == "reducer_x":
-                        candidate_list = reducer_x(cortical_area_src, cortical_area_dst, src_neuron_id)
+                        candidate_list = syn_reducer_x(cortical_area_src, cortical_area_dst, src_neuron_id)
                         for candidate in candidate_list:
                             candidate_voxel_list.append([candidate, postSynapticCurrent])
                     elif neuron_morphology == "randomizer":
-                        candidate = randomizer(dst_cortical_area=cortical_area_dst)
+                        candidate = syn_randomizer(dst_cortical_area=cortical_area_dst)
                         candidate_voxel_list.append([candidate, postSynapticCurrent])
                     elif neuron_morphology == "lateral_pairs_x":
-                        candidate = lateral_pairs_x(neuron_id=src_neuron_id, cortical_area=cortical_area_src)
+                        candidate = syn_lateral_pairs_x(neuron_id=src_neuron_id, cortical_area=cortical_area_src)
                         candidate_voxel_list.append([candidate, postSynapticCurrent])
                     elif neuron_morphology == "block_connection":
-                        candidate = block_connection(cortical_area_src, cortical_area_dst, src_neuron_id, s=10)
+                        candidate = syn_block_connection(cortical_area_src, cortical_area_dst, src_neuron_id, s=10)
                         candidate_voxel_list.append([candidate, postSynapticCurrent])
                 elif key == "placeholder":
                     pass
@@ -372,3 +372,14 @@ def cortical_areas_sharing_same_morphology(neuron_morphology):
                 if mapping['morphology_id'] == neuron_morphology:
                     cortical_list.append([cortical_area, destination])
     return cortical_list
+
+
+def morphology_usage_list(morphology_name):
+    usage_list = set()
+    for cortical_area in runtime_data.genome['blueprint']:
+        for destination in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
+            for mapping in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][destination]:
+                if mapping["morphology_id"] \
+                        == morphology_name:
+                    usage_list.add((cortical_area, destination))
+    return usage_list
