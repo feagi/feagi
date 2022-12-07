@@ -622,6 +622,18 @@ async def genome_neuron_morphology_properties(morphology_name):
         return {"Request failed...", e}
 
 
+@app.api_route("/v1/feagi/genome/morphology_usage", methods=['GET'], tags=["Genome"])
+async def genome_neuron_morphology_usage_report(morphology_name):
+    """
+    Returns the properties of a neuron morphology.
+    """
+    try:
+        return morphology_usage_list(morphology_name=morphology_name)
+    except Exception as e:
+        print("API Error:", e, traceback.print_exc())
+        return {"Request failed...", e}
+
+
 @app.api_route("/v1/feagi/genome/morphology", methods=['PUT'], tags=["Genome"])
 async def genome_update_neuron_morphology(message: MorphologyProperties):
     """
