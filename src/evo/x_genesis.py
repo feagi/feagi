@@ -456,11 +456,11 @@ def add_custom_cortical_area(cortical_properties):
         runtime_data.genome['blueprint'][cortical_area] = {}
         runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
 
-        runtime_data.genome['blueprint'][cortical_area]['cortical_name'] = cortical_properties['cortical_name']
-        runtime_data.genome['blueprint'][cortical_area] = {}
 
         runtime_data.genome["blueprint"][cortical_area] = \
             template.copy()
+
+        runtime_data.genome['blueprint'][cortical_area]['cortical_name'] = cortical_properties['cortical_name']
 
         runtime_data.genome['blueprint'][cortical_area]["block_boundaries"] = \
             [cortical_properties['cortical_dimensions']['x'],
