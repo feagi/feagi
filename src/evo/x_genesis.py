@@ -256,13 +256,16 @@ def update_morphology_properties(morphology_properties):
             impacted_cortical_areas = synapse.cortical_areas_sharing_same_morphology(morphology_properties['name'])
             print("<><><><><>   <><><><> Impacted areas", impacted_cortical_areas)
             for impacted_area in impacted_cortical_areas:
+                print(impacted_area[0], impacted_area[1])
                 cortical_rewiring(src_cortical_area=impacted_area[0], dst_cortical_area=impacted_area[1])
+
+        else:
+            print("Error during processing morphology change request!\n Morphology name not found: ",
+                  morphology_properties['name'])
 
     except Exception as e:
         print("Error during morphology update\n", e, traceback.print_exc())
 
-    else:
-        print("Error during processing morphology change request!")
 
 
 def neighboring_cortical_areas(cortical_area):
