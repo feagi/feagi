@@ -250,7 +250,8 @@ def update_morphology_properties(morphology_properties):
             if morphology_properties['name'] in runtime_data.genome['neuron_morphologies']:
                 runtime_data.genome['neuron_morphologies'].pop(morphology_properties['name'])
             runtime_data.genome['neuron_morphologies'][morphology_properties['name']] = dict()
-            runtime_data.genome['neuron_morphologies'][morphology_properties['name']][morphology_properties['type']] = list()
+            runtime_data.genome['neuron_morphologies'][morphology_properties['name']][morphology_properties['type']] = \
+                list()
             for entry in morphology_properties['morphology']:
                 runtime_data.genome['neuron_morphologies'][morphology_properties['name']][morphology_properties['type']].append(entry)
             impacted_cortical_areas = synapse.cortical_areas_sharing_same_morphology(morphology_properties['name'])
@@ -265,7 +266,6 @@ def update_morphology_properties(morphology_properties):
 
     except Exception as e:
         print("Error during morphology update\n", e, traceback.print_exc())
-
 
 
 def neighboring_cortical_areas(cortical_area):

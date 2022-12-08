@@ -211,35 +211,33 @@ def genome_v1_v2_converter(genome_v1):
                 if key in genome_1_to_2:
                     gene = "_____10c-" + cortical_area + "-" + genome_1_to_2[key]
                     genome_v2['blueprint'][gene] = genome_v1['blueprint'][cortical_area][key]
-                elif key == "neuron_params":
-                    for subkey in genome_v1['blueprint'][cortical_area]:
-                        print(">>->>", subkey)
-                        if subkey not in ["block_boundaries", "relative_coordinate"]:
-                            if subkey in genome_1_to_2:
-                                gene = "_____10c-" + cortical_area + "-" + genome_1_to_2[subkey]
-                                genome_v2['blueprint'][gene] = genome_v1['blueprint'][cortical_area][subkey]
-                        elif subkey == "block_boundaries":
-                            genex = "_____10c-" + cortical_area + "-" + "cx-___bbx-i"
-                            geney = "_____10c-" + cortical_area + "-" + "cx-___bby-i"
-                            genez = "_____10c-" + cortical_area + "-" + "cx-___bbz-i"
+                else:
+                    if key not in ["block_boundaries", "relative_coordinate"]:
+                        if key in genome_1_to_2:
+                            gene = "_____10c-" + cortical_area + "-" + genome_1_to_2[key]
+                            genome_v2['blueprint'][gene] = genome_v1['blueprint'][cortical_area][key]
+                    if key == "block_boundaries":
+                        genex = "_____10c-" + cortical_area + "-" + "cx-___bbx-i"
+                        geney = "_____10c-" + cortical_area + "-" + "cx-___bby-i"
+                        genez = "_____10c-" + cortical_area + "-" + "cx-___bbz-i"
 
-                            genome_v2['blueprint'][genex] = \
-                                genome_v1['blueprint'][cortical_area]["block_boundaries"][0]
-                            genome_v2['blueprint'][geney] = \
-                                genome_v1['blueprint'][cortical_area]["block_boundaries"][1]
-                            genome_v2['blueprint'][genez] = \
-                                genome_v1['blueprint'][cortical_area]["block_boundaries"][2]
-                        elif subkey == "relative_coordinate":
-                            genex = "_____10c-" + cortical_area + "-" + "cx-rcordx-i"
-                            geney = "_____10c-" + cortical_area + "-" + "cx-rcordy-i"
-                            genez = "_____10c-" + cortical_area + "-" + "cx-rcordz-i"
+                        genome_v2['blueprint'][genex] = \
+                            genome_v1['blueprint'][cortical_area]["block_boundaries"][0]
+                        genome_v2['blueprint'][geney] = \
+                            genome_v1['blueprint'][cortical_area]["block_boundaries"][1]
+                        genome_v2['blueprint'][genez] = \
+                            genome_v1['blueprint'][cortical_area]["block_boundaries"][2]
+                    if key == "relative_coordinate":
+                        genex = "_____10c-" + cortical_area + "-" + "cx-rcordx-i"
+                        geney = "_____10c-" + cortical_area + "-" + "cx-rcordy-i"
+                        genez = "_____10c-" + cortical_area + "-" + "cx-rcordz-i"
 
-                            genome_v2['blueprint'][genex] = \
-                                genome_v1['blueprint'][cortical_area]["relative_coordinate"][0]
-                            genome_v2['blueprint'][geney] = \
-                                genome_v1['blueprint'][cortical_area]["relative_coordinate"][1]
-                            genome_v2['blueprint'][genez] = \
-                                genome_v1['blueprint'][cortical_area]["relative_coordinate"][2]
+                        genome_v2['blueprint'][genex] = \
+                            genome_v1['blueprint'][cortical_area]["relative_coordinate"][0]
+                        genome_v2['blueprint'][geney] = \
+                            genome_v1['blueprint'][cortical_area]["relative_coordinate"][1]
+                        genome_v2['blueprint'][genez] = \
+                            genome_v1['blueprint'][cortical_area]["relative_coordinate"][2]
 
             elif key == "cortical_mapping_dst":
                 gene = "_____10c-" + cortical_area + "-cx-dstmap-d"
@@ -347,8 +345,6 @@ genome_1_to_2 = {
     "group_id": "cx-_group-t",
     "per_voxel_neuron_cnt": "cx-_n_cnt-i",
     "visualization": "cx-gd_vis-b",
-    "relative_coordinate": "cx-rcord_-i",
-    "block_boundaries": "cx-___bb_-i",
     "location_generation_type": "cx-__rand-b",
     "synapse_attractivity": "cx-synatt-i",
     "postsynaptic_current": "nx-pstcr_-f",
