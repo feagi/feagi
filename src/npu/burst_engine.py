@@ -36,7 +36,7 @@ from npu import stimulator
 from mem.memory import neuroplasticity
 from evo.stats import *
 from evo.death import death_manager
-from inf.initialize import init_burst_engine
+from inf.initialize import init_burst_engine, init_fcl
 from inf.messenger import Pub, Sub
 from pns.pns_router import opu_router, stimuli_router
 from api.message_processor import api_message_processor
@@ -95,12 +95,6 @@ def burst_manager():
     #         print(">> >> Brain waking up from sleep..")
     #
     #         # todo: adjust burst frequency
-
-    def init_fcl(cortical_area_):
-        runtime_data.fire_candidate_list[cortical_area_] = set()
-        runtime_data.future_fcl[cortical_area_] = set()
-        runtime_data.previous_fcl[cortical_area_] = set()
-        # runtime_data.upstream_neurons[cortical_area_] = {}
 
     def capture_cortical_activity_stats():
         # print('@@@--- Activity Stats:', runtime_data.activity_stats)

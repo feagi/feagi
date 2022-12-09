@@ -18,7 +18,7 @@ import os
 import traceback
 from time import sleep
 
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, Response, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse
@@ -35,6 +35,7 @@ from evo.synapse import cortical_mapping, morphology_usage_list
 from evo.templates import cortical_types
 from evo.neuroembryogenesis import cortical_name_list
 from evo import synaptogenesis_rules
+from evo.genome_properties import genome_properties
 
 
 description = """
@@ -435,43 +436,48 @@ async def reset_genome():
 
 
 @app.api_route("/v1/feagi/genome/cortical_area", methods=['GET'], tags=["Genome"])
-async def fetch_cortical_properties(cortical_area):
+async def fetch_cortical_properties(cortical_area, response: Response):
     """
     Returns the properties of cortical areas
     """
     try:
-        cortical_data = runtime_data.genome['blueprint'][cortical_area]
+        if len(cortical_area) == genome_properties["structure"]["cortical_name_length"]:
+            cortical_data = runtime_data.genome['blueprint'][cortical_area]
 
-        cortical_properties = {
-            "cortical_id": cortical_area,
-            "cortical_name": cortical_data['cortical_name'],
-            "cortical_group": cortical_data['group_id'],
-            "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
-            "cortical_visibility": cortical_data['visualization'],
-            "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
-            "cortical_coordinates": {
-                'x': cortical_data["relative_coordinate"][0],
-                'y': cortical_data["relative_coordinate"][1],
-                'z': cortical_data["relative_coordinate"][2]
-            },
-            "cortical_dimensions": {
-                'x': cortical_data["block_boundaries"][0],
-                'y': cortical_data["block_boundaries"][1],
-                'z': cortical_data["block_boundaries"][2]
-            },
-            "cortical_destinations": cortical_data['cortical_mapping_dst'],
-            "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
-            "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
-            "neuron_plasticity_constant": cortical_data['plasticity_constant'],
-            "neuron_fire_threshold": cortical_data['firing_threshold'],
-            "neuron_refractory_period": cortical_data['refractory_period'],
-            "neuron_leak_coefficient": cortical_data['leak_coefficient'],
-            "neuron_consecutive_fire_count": cortical_data['consecutive_fire_cnt_max'],
-            "neuron_snooze_period": cortical_data['snooze_length'],
-            "neuron_degeneracy_coefficient": cortical_data['degeneration'],
-            "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution']
-        }
-        return cortical_properties
+            cortical_properties = {
+                "cortical_id": cortical_area,
+                "cortical_name": cortical_data['cortical_name'],
+                "cortical_group": cortical_data['group_id'],
+                "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
+                "cortical_visibility": cortical_data['visualization'],
+                "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
+                "cortical_coordinates": {
+                    'x': cortical_data["relative_coordinate"][0],
+                    'y': cortical_data["relative_coordinate"][1],
+                    'z': cortical_data["relative_coordinate"][2]
+                },
+                "cortical_dimensions": {
+                    'x': cortical_data["block_boundaries"][0],
+                    'y': cortical_data["block_boundaries"][1],
+                    'z': cortical_data["block_boundaries"][2]
+                },
+                "cortical_destinations": cortical_data['cortical_mapping_dst'],
+                "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
+                "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
+                "neuron_plasticity_constant": cortical_data['plasticity_constant'],
+                "neuron_fire_threshold": cortical_data['firing_threshold'],
+                "neuron_refractory_period": cortical_data['refractory_period'],
+                "neuron_leak_coefficient": cortical_data['leak_coefficient'],
+                "neuron_consecutive_fire_count": cortical_data['consecutive_fire_cnt_max'],
+                "neuron_snooze_period": cortical_data['snooze_length'],
+                "neuron_degeneracy_coefficient": cortical_data['degeneration'],
+                "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution']
+            }
+            response.status_code = status.HTTP_200_OK
+            return cortical_properties
+        else:
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return {"message": "Error! Cortical area id should be only 6 characters long"}
     except Exception as e:
         print("API Error:", traceback.print_exc())
         return {"Request failed...", e}
@@ -546,7 +552,7 @@ async def genome_cortical_ids():
     Returns a comprehensive list of all cortical area names.
     """
     try:
-        return runtime_data.cortical_list
+        return sorted(runtime_data.cortical_list)
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
@@ -558,7 +564,7 @@ async def genome_cortical_names():
     Returns a comprehensive list of all cortical area names.
     """
     try:
-        return cortical_name_list()
+        return sorted(cortical_name_list())
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
@@ -573,7 +579,7 @@ async def genome_neuron_morphologies():
     try:
         for morphology in runtime_data.genome['neuron_morphologies']:
             morphology_names.add(morphology)
-        return morphology_names
+        return sorted(morphology_names)
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
@@ -703,15 +709,20 @@ async def genome_delete_neuron_morphology(morphology_name):
 
 
 @app.api_route("/v1/feagi/genome/cortical_mappings", methods=['GET'], tags=["Genome"])
-async def fetch_cortical_mappings(cortical_area):
+async def fetch_cortical_mappings(cortical_area, response:Response):
     """
     Returns the list of cortical areas downstream to the given cortical areas
     """
     try:
-        cortical_mappings = set()
-        for destination in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
-            cortical_mappings.add(destination)
-        return cortical_mappings
+        if len(cortical_area) == genome_properties["structure"]["cortical_name_length"]:
+            cortical_mappings = set()
+            for destination in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
+                cortical_mappings.add(destination)
+            response.status_code = status.HTTP_200_OK
+            return cortical_mappings
+        else:
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return {"message": "Error! Cortical area id should be only 6 characters long"}
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}

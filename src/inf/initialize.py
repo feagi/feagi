@@ -329,6 +329,13 @@ def reset_runtime_data():
     runtime_data.current_age = 0
 
 
+def init_fcl(cortical_area_):
+    runtime_data.fire_candidate_list[cortical_area_] = set()
+    runtime_data.future_fcl[cortical_area_] = set()
+    runtime_data.previous_fcl[cortical_area_] = set()
+    # runtime_data.upstream_neurons[cortical_area_] = {}
+
+
 def init_brain():
     runtime_data.last_alertness_trigger = datetime.now()
     runtime_data.brain_run_id = id_gen(signature='_R')

@@ -34,7 +34,7 @@ from inf import settings
 from inf import runtime_data
 from evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter
 from evo.genome_editor import save_genome
-from inf.initialize import generate_cortical_dimensions
+from inf.initialize import generate_cortical_dimensions, init_fcl
 
 
 def x_neurogenesis():
@@ -431,6 +431,7 @@ def add_core_cortical_area(cortical_properties):
 
             neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
             neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
+            init_fcl(cortical_area)
             runtime_data.cortical_dimensions = generate_cortical_dimensions()
 
             save_genome(genome=genome_v1_v2_converter(runtime_data.genome), file_name="../runtime_genome.json")
@@ -455,7 +456,6 @@ def add_custom_cortical_area(cortical_properties):
         runtime_data.voxel_dict[cortical_area] = {}
         runtime_data.genome['blueprint'][cortical_area] = {}
         runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
-
 
         runtime_data.genome["blueprint"][cortical_area] = \
             template.copy()
@@ -492,6 +492,7 @@ def add_custom_cortical_area(cortical_properties):
 
         neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
         neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
+        init_fcl(cortical_area)
         runtime_data.cortical_dimensions = generate_cortical_dimensions()
 
         save_genome(genome=genome_v1_v2_converter(runtime_data.genome), file_name="../runtime_genome.json")
