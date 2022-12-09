@@ -445,6 +445,9 @@ if __name__ == "__main__":
                                             '/v1/feagi/genome/download').json()
             json_object = json.dumps(current_cortical_area)
             zmq_queue.append(json_object)
+        if data_from_godot == "updated":
+            data_from_godot = "{}"
+            reload_genome()
         # if "new" in data_from_godot:
         #     json_object = json.dumps(data_from_godot)
         #     print(json_object)
@@ -463,6 +466,7 @@ if __name__ == "__main__":
                                                                          "cortical_data"])
             print(">>> > > > >> > converted data:", converted_data)
             FEAGI_pub.send(converted_data)
+
         if data_from_godot == "refresh":
             godot_list = {}
             converted_data = {}
