@@ -428,3 +428,9 @@ def cortical_name_list():
     for cortical_area in runtime_data.genome['blueprint']:
         cortical_names.add(runtime_data.genome['blueprint'][cortical_area]['cortical_name'])
     return cortical_names
+
+
+def cortical_name_to_id(cortical_name):
+    for cortical_area in runtime_data.genome["blueprint"]:
+        if runtime_data.genome['blueprint'][cortical_area]['cortical_name'] == cortical_name:
+            return cortical_area

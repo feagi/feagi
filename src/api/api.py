@@ -33,7 +33,7 @@ from inf.baseline import gui_baseline
 from evo import autopilot
 from evo.synapse import cortical_mapping, morphology_usage_list
 from evo.templates import cortical_types
-from evo.neuroembryogenesis import cortical_name_list
+from evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
 from evo import synaptogenesis_rules
 from evo.genome_properties import genome_properties
 
@@ -553,6 +553,19 @@ async def genome_cortical_ids():
     """
     try:
         return sorted(runtime_data.cortical_list)
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_name_location", methods=['GET'], tags=["Genome"])
+async def genome_cortical_location_by_name(cortical_name):
+    """
+    Returns a comprehensive list of all cortical area names.
+    """
+    try:
+        cortical_area = cortical_name_to_id(cortical_name=cortical_name)
+        return runtime_data.genome["blueprint"][cortical_area]["relative_coordinate"]
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
