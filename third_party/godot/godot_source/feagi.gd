@@ -94,7 +94,9 @@ func _ready():
 		_process(self)
 		stored_value = data
 		if "genome" in data:
-			genome_data = parse_json(data)
+			genome_data = {}
+			data = data.replace("genome: ", "")
+			genome_data["genome"] = parse_json(data)
 			if str(genome_data) != str(previous_genome_data):
 				_csv_generator()
 				stored_value = ""
@@ -153,8 +155,8 @@ func _csv_generator(): # After you are done with testing, change the name to gen
 	_clear_node_name_list(global_name_list)
 	for k in genome_data["genome"]:
 		var CSV_data = genome_data["genome"][k]
-		var x = CSV_data[4]; var y = CSV_data[5]; var z = CSV_data[6]; var width= int(CSV_data[7]) 
-		var height = int(CSV_data[8]); var depth = int(CSV_data[9]); var name_input = CSV_data[0]
+		var x = CSV_data[0]; var y = CSV_data[1]; var z = CSV_data[2]; var width= int(CSV_data[4]) 
+		var height = int(CSV_data[5]); var depth = int(CSV_data[6]); var name_input = k
 		$Floor_grid.set_cell_item(int(x),0,int(z),0)
 		if sign(int(width)) > 0:
 			x_increment = (int(width) / floor_size) + 1
