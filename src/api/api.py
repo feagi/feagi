@@ -372,12 +372,16 @@ async def genome_string_upload(str_genome: Genome):
 
 
 @app.get("/v1/feagi/genome/download", tags=["Genome"])
-async def genome_download():
+async def genome_download(response:Response):
     print("Downloading Genome...")
     try:
         file_name = "genome_" + datetime.datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".json"
         print(file_name)
-        return FileResponse(path="../runtime_genome.json", filename=file_name)
+        if runtime_data.genome:
+            response.status_code = status.HTTP_200_OK
+            return FileResponse(path="../runtime_genome.json", filename=file_name)
+        else:
+            response.status_code = status.HTTP_404_NOT_FOUND
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
