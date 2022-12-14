@@ -14,12 +14,12 @@
 # limitations under the License.
 # ==============================================================================
 import json
-import logging
 import os
 import platform
 import psutil
 import string
 import random
+import logging
 from queue import Queue
 from configparser import ConfigParser
 from tempfile import gettempdir
@@ -38,7 +38,8 @@ from evo.genome_processor import *
 from evo.genome_validator import *
 from evo.templates import cortical_types
 
-log = logging.getLogger(__name__)
+
+logger = logging.getLogger(__name__)
 
 
 def id_gen(size=6, chars=string.ascii_uppercase + string.digits, signature=''):
@@ -136,7 +137,7 @@ def init_parameters(ini_path='./feagi_configuration.ini'):
     # print("runtime_data.parameters ", runtime_data.parameters)
     if not runtime_data.parameters["InitData"]["working_directory"]:
         runtime_data.parameters["InitData"]["working_directory"] = gettempdir()
-    log.info("All parameters have been initialized.")
+    logger.info("All parameters have been initialized.")
 
 
 def init_working_directory():
@@ -283,7 +284,7 @@ def init_data_sources():
         else:
             print("    InfluxDb:", settings.Bcolors.RED + "Disabled" + settings.Bcolors.ENDC)
 
-        log.info("All data sources have been initialized.")
+        logger.info("All data sources have been initialized.")
     else:
         print("FEAGI is operating in LIGHT MODE where no database is utilized.")
 

@@ -240,6 +240,7 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
 
         try:
             for key in runtime_data.genome["neuron_morphologies"][neuron_morphology]:
+                # print("Morphology:", key)
                 if key == "vectors":
                     for vector in runtime_data.genome["neuron_morphologies"][neuron_morphology]["vectors"]:
                         matching_vectors = match_vectors(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,

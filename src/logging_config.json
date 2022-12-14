@@ -31,6 +31,13 @@
          "level": "WARNING",
          "propagate": false
       },
+      "api.api": {
+         "handlers": [
+            "file"
+         ],
+         "level": "INFO",
+         "propagate": false
+      },
       "inf.initialize": {
          "handlers": [
             "file"

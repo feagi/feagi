@@ -16,9 +16,14 @@ import datetime
 import json
 import os
 import traceback
+import time
+import string
+import logging
+import random
+
 from time import sleep
 
-from fastapi import FastAPI, File, UploadFile, Response, status
+from fastapi import FastAPI, File, UploadFile, Response, status, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse
@@ -36,6 +41,9 @@ from evo.templates import cortical_types
 from evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
 from evo import synaptogenesis_rules
 from evo.genome_properties import genome_properties
+
+
+logger = logging.getLogger(__name__)
 
 
 description = """
@@ -299,6 +307,24 @@ class RobotModel(BaseModel):
 app.mount("/home", SPAStaticFiles(directory="gui", html=True), name="static")
 
 
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """
+    Credit: Phil Girard
+    """
+    idem = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    logger.info(f"rid={idem} start request path={request.url.path}")
+    start_time = time.time()
+    print(request.url.path)
+    response = await call_next(request)
+
+    process_time = (time.time() - start_time) * 1000
+    formatted_process_time = '{0:.2f}'.format(process_time)
+    logger.info(f"rid={idem} completed_in={formatted_process_time}ms status_code={response.status_code}")
+
+    return response
+
+
 # ######  Genome Endpoints #########
 # ##################################
 
@@ -330,10 +356,6 @@ async def genome_file_upload(file: UploadFile = File(...)):
         runtime_data.genome_file_name = file.filename
 
         genome_str = json.loads(data)
-
-        print("=======" * 5)
-        print(genome_str)
-        print("=======" * 5)
 
         # genome_str = genome_str.replace('\'', '\"')
         # genome_str = data.decode("utf-8").split(" = ")[1]
