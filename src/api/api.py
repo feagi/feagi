@@ -121,7 +121,7 @@ class NewCorticalProperties(BaseModel):
 
 
 class NewCustomCorticalProperties(BaseModel):
-    cortical_name: str
+    cortical_name: str = Field(None, max_length=20, min_length=1)
     cortical_coordinates: dict = {
         'x': 0,
         'y': 0,
@@ -308,6 +308,7 @@ async def genome_default_upload():
 
         with open("./evo/static_genome.json", "r") as genome_file:
             genome_data = json.load(genome_file)
+            runtime_data.genome_file_name = "static_genome.json"
         message = {'genome': genome_data}
 
         api_queue.put(item=message)

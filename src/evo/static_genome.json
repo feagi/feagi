@@ -829,20 +829,7 @@
       "_____10c-___pwr-nx-c_fr_c-i": 3,
       "_____10c-___pwr-nx-snooze-f": 0,
       "_____10c-___pwr-cx-de_gen-f": 0.01,
-      "_____10c-___pwr-cx-dstmap-d": {
-         "___inb": [
-            [
-               "block_to_block",
-               [
-                  1,
-                  1,
-                  1
-               ],
-               1,
-               false
-            ]
-         ]
-      },
+      "_____10c-___pwr-cx-dstmap-d": {},
       "_____10c-_death-cx-__name-t": "Brain_Death",
       "_____10c-_death-cx-_group-t": "IPU",
       "_____10c-_death-cx-_n_cnt-i": 1,
