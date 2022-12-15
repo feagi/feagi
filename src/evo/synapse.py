@@ -18,12 +18,15 @@
 This module covers needed tools for synapse creation.
 """
 import random
+import logging
 from evo.synaptogenesis_rules import *
 from evo.voxels import block_reference_builder
 from inf import runtime_data
 import traceback
 from math import prod
 from npu.physiology import post_synaptic_current_update
+
+logger = logging.getLogger(__name__)
 
 
 def cortical_area_lengths(cortical_area):

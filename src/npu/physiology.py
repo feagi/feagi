@@ -15,12 +15,16 @@
 # ==============================================================================
 
 import json
+import logging
 # from collections import deque
 # from evo.neuron import block_reference_builder
 # from evo.synapse import synapse
 # from evo.voxels import block_reference_builder
 from inf import runtime_data, settings
 # from cython_lib import neuron_functions_cy as cy
+
+
+logger = logging.getLogger(__name__)
 
 
 def activation_function(postsynaptic_current):

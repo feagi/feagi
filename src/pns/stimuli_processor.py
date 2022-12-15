@@ -16,9 +16,13 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 from math import inf
 from evo.voxels import *
 from inf import runtime_data
+
+
+logger = logging.getLogger(__name__)
 
 """
 This module processes LIDAR data from a message queue and converts it to neuronal activity

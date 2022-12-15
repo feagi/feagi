@@ -14,10 +14,13 @@
 # limitations under the License.
 # ==============================================================================
 
-
+import logging
 from evo import voxels
 from inf import runtime_data
 from random import randrange
+
+
+logger = logging.getLogger(__name__)
 
 
 # def rule_neuron_to_neuron(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset):

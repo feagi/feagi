@@ -187,7 +187,7 @@ def init_working_directory():
 
 # Todo: Check of the following init is needed anymore
 def init_genome(genome):
-    print("\nInitializing genome...\n")
+    logger.info("Initializing genome...")
     # The following stages the genome in the proper connectome path and loads it into the memory
     disk_ops.genome_handler(runtime_data.connectome_path)
 

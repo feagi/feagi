@@ -16,8 +16,11 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 from evo.voxels import *
 from pns import stimuli_processor
+
+logger = logging.getLogger(__name__)
 
 """
 Translates device specific data into neuronal stimulation

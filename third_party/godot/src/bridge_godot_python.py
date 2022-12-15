@@ -471,8 +471,11 @@ if __name__ == "__main__":
             converted_data = convert_absolute_to_relative_coordinate(stimulation_from_godot=godot_list,
                                                                      cortical_data=runtime_data[
                                                                          "cortical_data"])
+            print("raw data from godot:", godot_list)
             print(">>> > > > >> > converted data:", converted_data)
             FEAGI_pub.send(converted_data)
+            godot_list = {}
+            converted_data = {}
 
         if data_from_godot == "refresh":
             godot_list = {}

@@ -49,10 +49,13 @@ reduced) and incorporated in the new neuroplasticity function (below).
                                                         long_term_depression=True, impact_multiplier=4)
 """
 import traceback
-
+import logging
 from inf import runtime_data
 from evo.synapse import bidirectional_synapse, synapse
 from npu.physiology import list_upstream_neurons, post_synaptic_current_update
+
+
+logger = logging.getLogger(__name__)
 
 
 def form_memories(cortical_area, src_neuron, dst_neuron):

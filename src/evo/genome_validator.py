@@ -20,8 +20,12 @@ Provides a series of methods to validate genome syntax
 Supporting Genome Versions: 2.0
 """
 
+import logging
 from evo.genome_properties import *
 from inf import settings
+
+
+logger = logging.getLogger(__name__)
 
 
 def cortical_list_gen(blueprint):

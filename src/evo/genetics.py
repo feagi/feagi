@@ -19,11 +19,15 @@ This module contains functions related to genome handling mainly inspired by nat
 
 """
 
+import logging
 import datetime
 import random
 import string
 from math import floor
 from inf import db_handler, settings, runtime_data
+
+
+logger = logging.getLogger(__name__)
 
 
 def selection():

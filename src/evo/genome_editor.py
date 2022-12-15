@@ -20,10 +20,14 @@ A tool to help add custom keys to genome
 Todo: Make improvements to this tool as it will have further use-cases.
 """
 
+import logging
 from inf import runtime_data
 from datetime import datetime
 from time import sleep
 import json
+
+
+logger = logging.getLogger(__name__)
 
 
 def set_default(obj):

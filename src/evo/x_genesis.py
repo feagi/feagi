@@ -36,6 +36,8 @@ from evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter
 from evo.genome_editor import save_genome
 from inf.initialize import generate_cortical_dimensions, init_fcl
 
+logger = logging.getLogger(__name__)
+
 
 def x_neurogenesis():
     pass
@@ -105,8 +107,8 @@ def update_cortical_properties(cortical_properties):
         print("ERROR: Cortical change request did not include --cortical id--")
         return
 
-    print("+++++++++++++++++++++   Cortical Change Request Received for %s ++++++++++++++++++++++++ " %
-          cortical_properties['cortical_id'])
+    logger.info(f"+++++++++++++++++++++   Cortical Change Request Received for %s ++++++++++++++++++++++++"
+                f"  {cortical_properties['cortical_id']}")
     cortical_area = cortical_properties['cortical_id']
 
     if cortical_properties['cortical_name'] is not None:
@@ -285,6 +287,9 @@ def cortical_removal(cortical_area, genome_scrub=False):
     if cortical_area not in runtime_data.cortical_list:
         print("Error: Cortical area requested for removal does not exist:", cortical_area)
     else:
+        print("Processing cortical removal for", cortical_area)
+        msg = "Processing cortical removal request for" + cortical_area
+        logger.info(msg=msg)
         # cortical_area = cortical_id(cortical_name=cortical_name)
         upstream_cortical_areas, downstream_cortical_areas = neighboring_cortical_areas(cortical_area)
 

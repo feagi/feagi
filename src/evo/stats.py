@@ -18,9 +18,13 @@
 """
 Provides functions performing statistical analysis on the Connectome and Cortical behavior
 """
+
+import logging
 from evo.voxels import *
 from inf import runtime_data, db_handler
 
+
+logger = logging.getLogger(__name__)
 
 
 def cortical_area_neuron_count(cortical_area):

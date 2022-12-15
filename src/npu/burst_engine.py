@@ -44,6 +44,9 @@ from trn.shock import shock_manager
 from evo.autopilot import load_new_genome
 
 
+logger = logging.getLogger(__name__)
+
+
 def cortical_group_members(group):
     # members = []
     # for item in runtime_data.cortical_list:

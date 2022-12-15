@@ -323,7 +323,7 @@ async def log_requests(request: Request, call_next):
     formatted_process_time = '{0:.2f}'.format(process_time)
     logger.info(f"rid={idem} completed_in={formatted_process_time}ms status_code={response.status_code}")
 
-    print(response.status_code, ":", request.method, ":", request.url.path)
+    # print(response.status_code, ":", request.method, ":", request.url.path)
 
     return response
 

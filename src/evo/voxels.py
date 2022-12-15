@@ -16,8 +16,11 @@
 
 from math import floor
 from inf import runtime_data
+import logging
 import traceback
 
+
+logger = logging.getLogger(__name__)
 
 # todo: rename block to voxel
 

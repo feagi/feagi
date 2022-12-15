@@ -14,10 +14,13 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 import copy
 import traceback
 from evo.genome_editor import save_genome
 from evo.genome_validator import *
+
+logger = logging.getLogger(__name__)
 
 
 def genome_ver_check(genome):

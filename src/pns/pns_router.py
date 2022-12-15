@@ -16,11 +16,15 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 from pns import stimuli_translator
 import traceback
 from datetime import datetime
 from evo.voxels import *
 from evo.stats import opu_activity_report
+
+
+logger = logging.getLogger(__name__)
 
 """
 This module manages the routing of all IPU/OPU related data

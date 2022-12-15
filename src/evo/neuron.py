@@ -21,11 +21,13 @@ A collection of functions related to Neurons
 import random
 import string
 import datetime
+import logging
 # import collections
 # import numpy as np
 from evo.voxels import *
 
 
+logger = logging.getLogger(__name__)
 
 # def neuron_location_gen(x1, y1, z1, x2, y2, z2):
 #     """
