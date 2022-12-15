@@ -41,6 +41,7 @@ from evo.templates import cortical_types
 from evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
 from evo import synaptogenesis_rules
 from evo.genome_properties import genome_properties
+from evo.x_genesis import neighboring_cortical_areas
 
 
 logger = logging.getLogger(__name__)
@@ -508,6 +509,7 @@ async def fetch_cortical_properties(cortical_area, response: Response):
             response.status_code = status.HTTP_400_BAD_REQUEST
             return {"message": "Error! Cortical area id should be only 6 characters long"}
     except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", traceback.print_exc())
         return {"Request failed...", e}
 
@@ -750,8 +752,8 @@ async def genome_delete_neuron_morphology(morphology_name):
 #         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/genome/cortical_mappings", methods=['GET'], tags=["Genome"])
-async def fetch_cortical_mappings(cortical_area, response:Response):
+@app.api_route("/v1/feagi/genome/cortical_mappings/efferents", methods=['GET'], tags=["Genome"])
+async def fetch_cortical_mappings(cortical_area, response: Response):
     """
     Returns the list of cortical areas downstream to the given cortical areas
     """
@@ -762,6 +764,24 @@ async def fetch_cortical_mappings(cortical_area, response:Response):
                 cortical_mappings.add(destination)
             response.status_code = status.HTTP_200_OK
             return cortical_mappings
+        else:
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return {"message": "Error! Cortical area id should be only 6 characters long"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/cortical_mappings/afferents", methods=['GET'], tags=["Genome"])
+async def fetch_cortical_mappings(cortical_area, response: Response):
+    """
+    Returns the list of cortical areas downstream to the given cortical areas
+    """
+    try:
+        if len(cortical_area) == genome_properties["structure"]["cortical_name_length"]:
+            upstream_cortical_areas, downstream_cortical_areas = neighboring_cortical_areas(cortical_area)
+
+            return upstream_cortical_areas
         else:
             response.status_code = status.HTTP_400_BAD_REQUEST
             return {"message": "Error! Cortical area id should be only 6 characters long"}
@@ -1226,7 +1246,6 @@ async def connectome_snapshot(message: ConnectomePath):
 
 @app.api_route("/v1/feagi/connectome/properties/dimensions", methods=['GET'], tags=["Connectome"])
 async def connectome_dimensions_report():
-    print("cortical_dimensions_", runtime_data.cortical_dimensions)
     try:
         return runtime_data.cortical_dimensions
     except Exception as e:
