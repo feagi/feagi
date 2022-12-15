@@ -274,6 +274,9 @@ def reload_genome():
             bool_flag = False
         time.sleep(2)
     print("Genome reloaded.")
+    if len(ws_queue[0]) > 2:
+        ws_queue.clear()
+    # print("ws queue: ", len(ws_queue[0]))
     return cortical_genome_dictionary.copy()
 
 
@@ -334,6 +337,7 @@ async def echo(websocket):
             if "genome" in zmq_queue[0]:
                 cortical_genome_list = str(zmq_queue[0])
                 zmq_queue.pop()
+                cortical_area_name = requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
                 await websocket.send(cortical_genome_list)
             if len(zmq_queue) > 2:  # This will eliminate any stack up queue
                 stored_value = zmq_queue[len(zmq_queue) - 1]
@@ -410,6 +414,8 @@ if __name__ == "__main__":
         if one_frame is not None:
             if one_frame["genome_changed"] != previous_genome_timestamp:
                 previous_genome_timestamp = one_frame["genome_changed"]
+                runtime_data["cortical_data"] = \
+                    requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
                 print("updated time")
                 zmq_queue.append("updated")
             burst_second = one_frame['burst_frequency']
@@ -430,6 +436,7 @@ if __name__ == "__main__":
             ws_queue.pop()
         else:
             data_from_godot = "{}"
+        # print("DATA FROM GODOT: ", data_from_godot)
         if data_from_godot != "{}":
             print(data_from_godot)
         if data_from_godot == "lagged":
