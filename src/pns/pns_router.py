@@ -33,7 +33,7 @@ todo: figure how the exposure counter can work in synchrony with the burst engin
 todo: convert IPU library to a plug-in based architecture
 """
 
-print("IPU controller initialized")
+logger.info("IPU controller initialized")
 runtime_data.last_ipu_activity = datetime.now()
 
 

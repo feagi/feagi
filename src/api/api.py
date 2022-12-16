@@ -190,8 +190,6 @@ class UpdateCorticalProperties(BaseModel):
         'y': 1,
         'z': 1,
     }
-    cortical_destinations: Optional[dict] = {
-    }
     cortical_synaptic_attractivity: Optional[int]
     neuron_post_synaptic_potential: Optional[float]
     neuron_post_synaptic_potential_max: Optional[float]
@@ -203,6 +201,10 @@ class UpdateCorticalProperties(BaseModel):
     neuron_snooze_period: Optional[int]
     neuron_degeneracy_coefficient: Optional[float]
     neuron_psp_uniform_distribution: Optional[bool]
+
+
+class UpdateCorticalMappings(BaseModel):
+    mapping: list
 
 
 class Network(BaseModel):
@@ -828,6 +830,29 @@ async def fetch_cortical_mapping_properties(src_cortical_area, dst_cortical_area
             return runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'][dst_cortical_area]
     except Exception as e:
         print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/mapping_properties", methods=['PUT'], tags=["Genome"])
+async def update_cortical_mapping_properties(src_cortical_area, dst_cortical_area, mapping_string: list):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        print("$$ $$ " * 30)
+        print(mapping_string)
+        data = dict()
+        data["mapping_data"] = mapping_string
+        data["src_cortical_area"] = src_cortical_area
+        data["dst_cortical_area"] = dst_cortical_area
+
+        data = {'update_cortical_mappings': data}
+        print("*" * 50 + "\n", data)
+        api_queue.put(item=data)
+        return {"Request sent!"}
+    except Exception as e:
+        print("API Error:", e, traceback.print_exc())
+        logger.error(traceback.print_exc())
         return {"Request failed...", e}
 
 

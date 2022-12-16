@@ -170,39 +170,6 @@ def update_cortical_properties(cortical_properties):
         runtime_data.genome["blueprint"][cortical_area]["visualization"] = \
             cortical_properties['cortical_visibility']
 
-    if cortical_properties['cortical_destinations'] is not None:
-        added_mappings, removed_mappings, modified_mappings = \
-            mapping_change_report(cortical_area=cortical_area, new_mapping=cortical_properties['cortical_destinations'])
-
-        print(added_mappings, removed_mappings, modified_mappings)
-
-        # Handle new mappings
-        for dst_cortical_area in added_mappings:
-            neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
-
-            runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][dst_cortical_area] = \
-                cortical_properties['cortical_destinations'][dst_cortical_area]
-
-        # Handle removed mappings
-        for dst_cortical_area in removed_mappings:
-            runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=cortical_area,
-                                                         dst_cortical_area=dst_cortical_area)
-
-            if dst_cortical_area in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
-                runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'].pop(dst_cortical_area)
-
-        # Handle modified mappings
-        for dst_cortical_area in modified_mappings:
-            runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=cortical_area,
-                                                         dst_cortical_area=dst_cortical_area)
-
-            if dst_cortical_area in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
-                runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'].pop(dst_cortical_area)
-            runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][dst_cortical_area] = \
-                cortical_properties['cortical_destinations'][dst_cortical_area]
-
-            neuroembryogenesis.synaptogenesis(cortical_area=cortical_area,
-                                              dst_cortical_area=dst_cortical_area)
 
     # ####################################################
     # Conditions that require cortical regeneration
@@ -244,6 +211,57 @@ def update_cortical_properties(cortical_properties):
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome), file_name="../runtime_genome.json")
     runtime_data.last_genome_modification_time = datetime.datetime.now()
+
+
+def update_cortical_mappings(cortical_mappings):
+    cortical_area = cortical_mappings["src_cortical_area"]
+    dst_cortical_area = cortical_mappings["dst_cortical_area"]
+    mappings = cortical_mappings["mapping_data"]
+
+    runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=cortical_area,
+                                                 dst_cortical_area=dst_cortical_area)
+
+    if dst_cortical_area in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
+        runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'].pop(dst_cortical_area)
+
+    runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][dst_cortical_area] = mappings
+    print("mappings:", mappings)
+
+    neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
+
+    # added_mappings, removed_mappings, modified_mappings = \
+    #     mapping_change_report(cortical_area=cortical_area, new_mapping=cortical_properties['cortical_destinations'])
+    #
+    # print(added_mappings, removed_mappings, modified_mappings)
+    #
+    # # Handle new mappings
+    # for dst_cortical_area in added_mappings:
+    #     neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
+    #
+    #     runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][dst_cortical_area] = \
+    #         cortical_properties['cortical_destinations'][dst_cortical_area]
+    #
+    # # Handle removed mappings
+    # for dst_cortical_area in removed_mappings:
+    #     runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=cortical_area,
+    #                                                  dst_cortical_area=dst_cortical_area)
+    #
+    #     if dst_cortical_area in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
+    #         runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'].pop(dst_cortical_area)
+    #
+    # # Handle modified mappings
+    # for dst_cortical_area in modified_mappings:
+    #     runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=cortical_area,
+    #                                                  dst_cortical_area=dst_cortical_area)
+    #
+    #     if dst_cortical_area in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
+    #         runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'].pop(dst_cortical_area)
+    #     runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][dst_cortical_area] = \
+    #         cortical_properties['cortical_destinations'][dst_cortical_area]
+    #
+    #     neuroembryogenesis.synaptogenesis(cortical_area=cortical_area,
+    #                                       dst_cortical_area=dst_cortical_area)
+
 
 
 def update_morphology_properties(morphology_properties):

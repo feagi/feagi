@@ -5,7 +5,7 @@ from inf.initialize import init_brain, reset_runtime_data, id_gen
 from evo.genome_processor import genome_ver_check
 from evo.neuroembryogenesis import develop_brain
 from evo.autopilot import update_generation_dict
-from evo.x_genesis import update_cortical_properties, update_morphology_properties
+from evo.x_genesis import update_cortical_properties, update_morphology_properties, update_cortical_mappings
 from evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal
 
 
@@ -176,6 +176,9 @@ def api_message_processor(api_message):
 
     if 'update_cortical_properties' in api_message:
         update_cortical_properties(cortical_properties=api_message['update_cortical_properties'])
+
+    if 'update_cortical_mappings' in api_message:
+        update_cortical_mappings(cortical_mappings=api_message['update_cortical_mappings'])
 
     if 'update_morphology_properties' in api_message:
         update_morphology_properties(morphology_properties=api_message['update_morphology_properties'])
