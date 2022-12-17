@@ -218,12 +218,12 @@ def neuroplasticity():
                                 post-synaptic neuron is fired during burst (n+1) 
                                 """
 
-                                # if presynaptic_neuron in postsynaptic_neuron_neighbors:
-                                #     longterm_potentiation_depression(
-                                #         src_cortical_area=cfcl_area,
-                                #         src_neuron_id=postsynaptic_neuron,
-                                #         dst_cortical_area=pfcl_area,
-                                #         dst_neuron_id=presynaptic_neuron,
-                                #         long_term_depression=True,
-                                #         impact_multiplier=1
-                                #     )
+                                if presynaptic_neuron in postsynaptic_neuron_neighbors:
+                                    longterm_potentiation_depression(
+                                        src_cortical_area=cfcl_area,
+                                        src_neuron_id=postsynaptic_neuron,
+                                        dst_cortical_area=pfcl_area,
+                                        dst_neuron_id=presynaptic_neuron,
+                                        long_term_depression=True,
+                                        impact_multiplier=1
+                                    )

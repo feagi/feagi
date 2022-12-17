@@ -203,10 +203,6 @@ class UpdateCorticalProperties(BaseModel):
     neuron_psp_uniform_distribution: Optional[bool]
 
 
-class UpdateCorticalMappings(BaseModel):
-    mapping: list
-
-
 class Network(BaseModel):
     godot_host: Optional[str] = runtime_data.parameters['Sockets']['godot_host_name']
     godot_data_port: Optional[int] = runtime_data.parameters['Sockets']['feagi_inbound_port_godot']
@@ -827,6 +823,7 @@ async def fetch_cortical_mapping_properties(src_cortical_area, dst_cortical_area
     """
     try:
         if dst_cortical_area in runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst']:
+            print("get mapping data:", runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'])
             return runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'][dst_cortical_area]
     except Exception as e:
         print("API Error:", e)
