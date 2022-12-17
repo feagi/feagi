@@ -313,6 +313,7 @@ genome_1_template = {
           "firing_threshold": None,
           "refractory_period": None,
           "leak_coefficient": None,
+          "leak_variability": None,
           "consecutive_fire_cnt_max": None,
           "snooze_length": None
       }
@@ -335,6 +336,7 @@ genome_2_to_1 = {
     "fire_t-f": "firing_threshold",
     "refrac-i": "refractory_period",
     "leak_c-f": "leak_coefficient",
+    "leak_v-f": "leak_variability",
     "c_fr_c-i": "consecutive_fire_cnt_max",
     "snooze-f": "snooze_length",
     "_group-t": "group_id",
@@ -356,6 +358,7 @@ genome_1_to_2 = {
     "firing_threshold": "nx-fire_t-f",
     "refractory_period": "nx-refrac-i",
     "leak_coefficient": "nx-leak_c-f",
+    "leak_variability": "leak_v-f",
     "consecutive_fire_cnt_max": "nx-c_fr_c-i",
     "snooze_length": "nx-snooze-f",
     "degeneration": "cx-de_gen-f",

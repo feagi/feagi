@@ -95,6 +95,11 @@ def init_neuron(cortical_area, soma_location):
     runtime_data.brain[cortical_area][neuron_id]["firing_threshold"] = \
         genome['blueprint'][cortical_area]['firing_threshold']
 
+    leak = genome['blueprint'][cortical_area]['leak_coefficient']
+    if genome['blueprint'][cortical_area]['leak_variability']:
+        leak = leak + leak * random.randrange(1, genome['blueprint'][cortical_area]['leak_variability'], 1) / 100
+    runtime_data.brain[cortical_area][neuron_id]["leak_coefficient"] = leak
+
     return neuron_id
 
 
