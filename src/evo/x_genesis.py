@@ -170,7 +170,6 @@ def update_cortical_properties(cortical_properties):
         runtime_data.genome["blueprint"][cortical_area]["visualization"] = \
             cortical_properties['cortical_visibility']
 
-
     # ####################################################
     # Conditions that require cortical regeneration
     # ####################################################
@@ -206,6 +205,7 @@ def update_cortical_properties(cortical_properties):
                 cortical_properties['cortical_synaptic_attractivity']
 
     if regeneration_flag:
+        logger.info(f"Cortical regeneration triggered for {cortical_area}")
         cortical_regeneration(cortical_area=cortical_area)
 
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
@@ -261,7 +261,6 @@ def update_cortical_mappings(cortical_mappings):
     #
     #     neuroembryogenesis.synaptogenesis(cortical_area=cortical_area,
     #                                       dst_cortical_area=dst_cortical_area)
-
 
 
 def update_morphology_properties(morphology_properties):
@@ -349,6 +348,9 @@ def prune_cortical_synapses(cortical_area):
 
 
 def cortical_regeneration(cortical_area):
+    # Clearing the burst engine from neuronal activities
+    init_fcl(cortical_area)
+
     upstream_cortical_areas, downstream_cortical_areas = neighboring_cortical_areas(cortical_area)
     
     # Reset effected areas

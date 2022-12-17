@@ -134,13 +134,8 @@ def burst_manager():
                           + settings.Bcolors.ENDC)
 
     def burst_stats(burst_start_time):
-        if runtime_data.parameters["Logs"]["print_burst_stats"]:
-            for area in runtime_data.brain:
-                print("### Average postSynaptic current in --- %s --- was: %i"
-                      % (area, average_postsynaptic_current(area)))
-
-        burst_duration = datetime.now() - burst_start_time
-        if runtime_data.parameters["Logs"]["print_burst_info"]:
+        if runtime_data.parameters["Logs"]["print_burst_info"] and runtime_data.burst_timer > 0.1:
+            burst_duration = datetime.now() - burst_start_time
             if runtime_data.genome:
                 print(settings.Bcolors.UPDATE +
                       ">>> Burst duration: %s %i %i --- ---- ---- ---- ---- ---- ----"

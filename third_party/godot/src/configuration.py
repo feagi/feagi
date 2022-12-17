@@ -8,7 +8,7 @@ network_settings = {
     'TTL': 2,
     'last_message': 0,
     'godot_websocket_port': 9050,
-    'burst_duration_threshold': 0.02
+    'burst_duration_threshold': 0.002
 }
 
 capabilities = {
