@@ -157,6 +157,7 @@ cortical_template = {
     "firing_threshold": 1,
     "refractory_period": 0,
     "leak_coefficient": 0,
+    "leak_variability": 0,
     "consecutive_fire_cnt_max": 0,
     "snooze_length": 0,
     "visualization": True

@@ -1001,16 +1001,18 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area):
 
 
 @app.post("/v1/feagi/monitoring/neuron/membrane_potential", tags=["Insights"])
-async def cortical_neuron_membrane_potential_monitoring(cortical_area):
+async def cortical_neuron_membrane_potential_monitoring(cortical_area, state: bool):
     print("Cortical membrane potential monitoring", runtime_data.neuron_mp_collection_scope)
     try:
         print("influx:", runtime_data.influxdb)
         if runtime_data.influxdb:
-            if cortical_area in runtime_data.genome['blueprint'] and \
-                    cortical_area not in runtime_data.neuron_mp_collection_scope:
-                runtime_data.neuron_mp_collection_scope[cortical_area] = {}
-            else:
-                pass
+            if cortical_area in runtime_data.genome['blueprint']:
+                if state and cortical_area not in runtime_data.neuron_mp_collection_scope:
+                    runtime_data.neuron_mp_collection_scope[cortical_area] = {}
+                elif not state and cortical_area in runtime_data.neuron_mp_collection_scope:
+                    runtime_data.neuron_mp_collection_scope.pop(cortical_area)
+                else:
+                    pass
         else:
             print("Error: InfluxDb is not setup to collect timeseries data!")
     except Exception as e:
@@ -1032,15 +1034,17 @@ async def cortical_synaptic_potential_monitoring(cortical_area):
 
 
 @app.post("/v1/feagi/monitoring/neuron/synaptic_potential", tags=["Insights"])
-async def cortical_synaptic_potential_monitoring(cortical_area):
+async def cortical_synaptic_potential_monitoring(cortical_area, state: bool):
     print("Cortical synaptic potential monitoring flag", runtime_data.neuron_mp_collection_scope)
     try:
         if runtime_data.influxdb:
-            if cortical_area in runtime_data.genome['blueprint'] and \
-                    cortical_area not in runtime_data.neuron_mp_collection_scope:
-                runtime_data.neuron_mp_collection_scope[cortical_area] = {}
-            else:
-                pass
+            if cortical_area in runtime_data.genome['blueprint']:
+                if state and cortical_area not in runtime_data.neuron_psp_collection_scope:
+                    runtime_data.neuron_psp_collection_scope[cortical_area] = {}
+                elif not state and cortical_area in runtime_data.neuron_psp_collection_scope:
+                    runtime_data.neuron_psp_collection_scope.pop(cortical_area)
+                else:
+                    pass
         else:
             print("Error: InfluxDb is not setup to collect timeseries data!")
     except Exception as e:
