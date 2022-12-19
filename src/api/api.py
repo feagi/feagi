@@ -168,6 +168,7 @@ class NewCustomCorticalProperties(BaseModel):
 #     neuron_fire_threshold: float
 #     neuron_refractory_period: int
 #     neuron_leak_coefficient: float
+#     neuron_leak_variability: int
 #     neuron_consecutive_fire_count: int
 #     neuron_snooze_period: int
 #     neuron_degeneracy_coefficient: float
@@ -197,6 +198,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_fire_threshold: Optional[float]
     neuron_refractory_period: Optional[int]
     neuron_leak_coefficient: Optional[float]
+    neuron_leak_variability: Optional[int]
     neuron_consecutive_fire_count: Optional[int]
     neuron_snooze_period: Optional[int]
     neuron_degeneracy_coefficient: Optional[float]
@@ -492,6 +494,7 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "neuron_fire_threshold": cortical_data['firing_threshold'],
                 "neuron_refractory_period": cortical_data['refractory_period'],
                 "neuron_leak_coefficient": cortical_data['leak_coefficient'],
+                "neuron_leak_variability": cortical_data['leak_variability'],
                 "neuron_consecutive_fire_count": cortical_data['consecutive_fire_cnt_max'],
                 "neuron_snooze_period": cortical_data['snooze_length'],
                 "neuron_degeneracy_coefficient": cortical_data['degeneration'],

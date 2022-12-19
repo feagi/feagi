@@ -98,7 +98,6 @@ def init_neuron(cortical_area, soma_location):
     leak = genome['blueprint'][cortical_area]['leak_coefficient']
     leak_variability = genome['blueprint'][cortical_area]['leak_variability']
     if leak_variability:
-        leak_variability = int(leak_variability)
         if abs(leak_variability) > 1:
             leak = leak + leak * random.randrange(1, leak_variability, 1) / 100
 

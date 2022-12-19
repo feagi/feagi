@@ -286,7 +286,7 @@ gene_decoder = {
     "_______c-______-nx-fire_t-f": "firing_threshold",
     "_______c-______-nx-refrac-i": "refractory_period",
     "_______c-______-nx-leak_c-f": "leak_coefficient",
-    "_______c-______-nx-leak_v-f": "leak_variability",
+    "_______c-______-nx-leak_v-i": "leak_variability",
     "_______c-______-nx-c_fr_c-i": "consecutive_fire_cnt_max",
     "_______c-______-nx-snooze-f": "snooze_length"
 }
@@ -337,7 +337,7 @@ genome_2_to_1 = {
     "fire_t-f": "firing_threshold",
     "refrac-i": "refractory_period",
     "leak_c-f": "leak_coefficient",
-    "leak_v-f": "leak_variability",
+    "leak_v-i": "leak_variability",
     "c_fr_c-i": "consecutive_fire_cnt_max",
     "snooze-f": "snooze_length",
     "_group-t": "group_id",
@@ -359,7 +359,7 @@ genome_1_to_2 = {
     "firing_threshold": "nx-fire_t-f",
     "refractory_period": "nx-refrac-i",
     "leak_coefficient": "nx-leak_c-f",
-    "leak_variability": "nx-leak_v-f",
+    "leak_variability": "nx-leak_v-i",
     "consecutive_fire_cnt_max": "nx-c_fr_c-i",
     "snooze_length": "nx-snooze-f",
     "degeneration": "cx-de_gen-f",
