@@ -286,6 +286,7 @@ gene_decoder = {
     "_______c-______-nx-fire_t-f": "firing_threshold",
     "_______c-______-nx-refrac-i": "refractory_period",
     "_______c-______-nx-leak_c-f": "leak_coefficient",
+    "_______c-______-nx-leak_v-f": "leak_variability",
     "_______c-______-nx-c_fr_c-i": "consecutive_fire_cnt_max",
     "_______c-______-nx-snooze-f": "snooze_length"
 }
