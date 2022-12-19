@@ -239,10 +239,6 @@ class Stimulation(BaseModel):
     stimulation_script: dict
 
 
-class StatsCollectionScope(BaseModel):
-    collection_scope: dict
-
-
 class Training(BaseModel):
     shock: tuple
 
@@ -991,6 +987,67 @@ async def stimulation_string_upload():
 # ######  Statistics and Reporting Endpoints #########
 # ####################################################
 
+@app.get("/v1/feagi/monitoring/neuron/membrane_potential", tags=["Insights"])
+async def cortical_neuron_membrane_potential_monitoring(cortical_area):
+    print("Cortical membrane potential monitoring", runtime_data.neuron_mp_collection_scope)
+    try:
+        if cortical_area in runtime_data.neuron_mp_collection_scope:
+            return True
+        else:
+            return False
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.post("/v1/feagi/monitoring/neuron/membrane_potential", tags=["Insights"])
+async def cortical_neuron_membrane_potential_monitoring(cortical_area):
+    print("Cortical membrane potential monitoring", runtime_data.neuron_mp_collection_scope)
+    try:
+        print("influx:", runtime_data.influxdb)
+        if runtime_data.influxdb:
+            if cortical_area in runtime_data.genome['blueprint'] and \
+                    cortical_area not in runtime_data.neuron_mp_collection_scope:
+                runtime_data.neuron_mp_collection_scope[cortical_area] = {}
+            else:
+                pass
+        else:
+            print("Error: InfluxDb is not setup to collect timeseries data!")
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.get("/v1/feagi/monitoring/neuron/synaptic_potential", tags=["Insights"])
+async def cortical_synaptic_potential_monitoring(cortical_area):
+    print("Cortical synaptic potential monitoring flag", runtime_data.neuron_mp_collection_scope)
+    try:
+        if cortical_area in runtime_data.neuron_mp_collection_scope:
+            return True
+        else:
+            return False
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.post("/v1/feagi/monitoring/neuron/synaptic_potential", tags=["Insights"])
+async def cortical_synaptic_potential_monitoring(cortical_area):
+    print("Cortical synaptic potential monitoring flag", runtime_data.neuron_mp_collection_scope)
+    try:
+        if runtime_data.influxdb:
+            if cortical_area in runtime_data.genome['blueprint'] and \
+                    cortical_area not in runtime_data.neuron_mp_collection_scope:
+                runtime_data.neuron_mp_collection_scope[cortical_area] = {}
+            else:
+                pass
+        else:
+            print("Error: InfluxDb is not setup to collect timeseries data!")
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
 @app.get("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting", tags=["Insights"])
 async def neuron_membrane_potential_collection_filters():
     print("Membrane potential monitoring filter setting:", runtime_data.neuron_mp_collection_scope)
@@ -1012,12 +1069,10 @@ async def neuron_postsynaptic_potential_collection_filters():
 
 
 @app.api_route("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting", methods=['POST'], tags=["Insights"])
-async def neuron_membrane_potential_monitoring_scope(message: StatsCollectionScope):
+async def neuron_membrane_potential_monitoring_scope(message: dict):
     """
     Monitor the membrane potential of select cortical areas and voxels in Grafana.
     Message Template:
-    {
-        "collection_scope":
             {
                 "o__mot": {
                     "voxels": [[0, 0, 0], [2, 0, 0]],
@@ -1029,11 +1084,9 @@ async def neuron_membrane_potential_monitoring_scope(message: StatsCollectionSco
                 },
                 ...
             }
-    }
     """
 
     try:
-        message = message.dict()
         message = {'neuron_mp_collection_scope': message}
         api_queue.put(item=message)
         return {"Request sent!"}
@@ -1043,13 +1096,11 @@ async def neuron_membrane_potential_monitoring_scope(message: StatsCollectionSco
 
 
 @app.api_route("/v1/feagi/neuron/physiology/postsynaptic_potential_monitoring", methods=['POST'], tags=["Insights"])
-async def neuron_postsynaptic_potential_monitoring_scope(message: StatsCollectionScope):
+async def neuron_postsynaptic_potential_monitoring_scope(message: dict):
     """
     Monitor the post synaptic potentials of select cortical areas and voxels in Grafana.
 
     Message Template:
-    {
-        "collection_scope":
             {
                 "o__mot": {
                     "dst_filter": {
@@ -1080,11 +1131,9 @@ async def neuron_postsynaptic_potential_monitoring_scope(message: StatsCollectio
                     }
                 }
             }
-    }
     """
 
     try:
-        message = message.dict()
         message = {'neuron_psp_collection_scope': message}
         api_queue.put(item=message)
         return {"Request sent!"}
