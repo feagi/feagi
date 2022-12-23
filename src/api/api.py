@@ -42,6 +42,7 @@ from evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
 from evo import synaptogenesis_rules
 from evo.genome_properties import genome_properties
 from evo.x_genesis import neighboring_cortical_areas
+from .config import settings
 
 
 logger = logging.getLogger(__name__)
@@ -54,31 +55,20 @@ FEAGI.
 """
 
 app = FastAPI(
-    title="FEAGI API Documentation",
-    description=description,
-    version="1",
-    terms_of_service="http://feagi.org",
-    contact={
-        "name": "FEAGI Community",
-        "url": "http://feagi.org",
-        "email": "info@neuraville.com",
-    },
-    license_info={
-        "name": "Apache 2.0",
-        "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
-    },
+    title=settings.title,
+    description=settings.description,
+    version=settings.version,
+    terms_of_service=settings.terms_of_service,
+    contact=settings.contact,
+    license_info=settings.license_info,
 )
 
 
-favicon_path = 'favicon.svg'
+favicon_path = settings.favicon_path
 
 api_queue = Queue()
 
-ORIGINS = [
-    "http://localhost:6080",
-    "http://localhost:6081",
-    "http://localhost:3000"
-]
+ORIGINS = settings.origins
 
 app.add_middleware(
     CORSMiddleware,
