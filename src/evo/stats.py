@@ -290,6 +290,31 @@ def opu_activity_report(cortical_area):
     return report
 
 
+def circuit_size(blueprint):
+    """
+    Returns the size of genome in the form of voxel count in each axis
+
+    Returns:
+        (x, y, z)
+    """
+    dimensions = [0, 0, 0]
+
+    for cortical_area in blueprint:
+        x_coord = blueprint[cortical_area]["block_boundaries"][0] + blueprint[cortical_area]["relative_coordinate"][0]
+        y_coord = blueprint[cortical_area]["block_boundaries"][1] + blueprint[cortical_area]["relative_coordinate"][1]
+        z_coord = blueprint[cortical_area]["block_boundaries"][2] + blueprint[cortical_area]["relative_coordinate"][2]
+
+        if x_coord > dimensions[0]:
+            dimensions[0] = x_coord
+
+        if y_coord > dimensions[1]:
+            dimensions[1] = y_coord
+
+        if z_coord > dimensions[2]:
+            dimensions[2] = z_coord
+
+    return dimensions
+
 # def tbd():
 #     for key in blueprint:
 #         connectome_neighbor_histogram(key)

@@ -40,8 +40,10 @@ from evo.synapse import cortical_mapping, morphology_usage_list
 from evo.templates import cortical_types
 from evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
 from evo import synaptogenesis_rules
+from evo.stats import circuit_size
 from evo.genome_properties import genome_properties
 from evo.x_genesis import neighboring_cortical_areas
+from evo.genome_processor import genome_2_1_convertor
 from .config import settings
 
 
@@ -870,6 +872,51 @@ async def cortical_area_types(cortical_type):
         else:
             return None
 
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/circuits", methods=['GET'], tags=["Genome"])
+async def cortical_area_types():
+    """
+    Returns the list of neuronal circuits under /evo/circuits
+    """
+    try:
+        circuit_list = os.listdir("./evo/circuits")
+        return circuit_list
+
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/circuit_size", methods=['GET'], tags=["Genome"])
+async def cortical_area_types(circuit_name):
+    """
+    Returns the overall size of a circuit
+    """
+    try:
+        with open("./evo/circuits/" + circuit_name, "r") as genome_file:
+            genome_data = json.load(genome_file)
+
+        genome2 = genome_2_1_convertor(flat_genome=genome_data["blueprint"])
+        circuit_size_ = circuit_size(blueprint=genome2["blueprint"])
+
+        return circuit_size_
+
+    except Exception as e:
+        print("API Error:", e, traceback.print_exc())
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/genome/append", methods=['POST'], tags=["Genome"])
+async def genome_add_neuron_morphology(circuit_name: str, location: list):
+    """
+    Appends a given circuit to the running genome at a specific location.
+    """
+    try:
+        print("Placeholder")
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
