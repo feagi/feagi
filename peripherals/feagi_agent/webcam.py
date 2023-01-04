@@ -5,6 +5,7 @@
 Demo of dot kinematogram
 """
 
+import sys
 import requests
 import retina as retina
 import feagi_interface as FEAGI
@@ -67,15 +68,24 @@ if __name__ == "__main__":
     # FEAGI section start
     print("Connecting to FEAGI resources...")
 
-    # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_outbound_port']
+    try:
+        if sys.argv[1]:
+            feagi_host = sys.argv[1]
+            ignore, api_port, app_data_port = FEAGI.feagi_setting_for_registration()
+    except IndexError:
+        feagi_host, api_port, app_data_port = FEAGI.feagi_setting_for_registration()
 
-    feagi_host, api_port = FEAGI.feagi_setting_for_registration()
+
+    # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_zmq_port']
+
     api_address = FEAGI.feagi_gui_address(feagi_host, api_port)
 
     stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
     burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
 
-    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host, api_port=api_port)
+    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host,
+                                                           api_port=api_port,
+                                                           app_data_port=app_data_port)
 
     print("** **", runtime_data["feagi_state"])
     network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
@@ -84,7 +94,7 @@ if __name__ == "__main__":
     ipu_channel_address = FEAGI.feagi_inbound(runtime_data["feagi_state"]['feagi_inbound_port_gazebo'])
     print("IPU_channel_address=", ipu_channel_address)
     opu_channel_address = FEAGI.feagi_outbound(network_settings['feagi_host'],
-                                               runtime_data["feagi_state"]['feagi_outbound_port'])
+                                               runtime_data["feagi_state"]['feagi_zmq_port'])
 
     feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address)
     feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)

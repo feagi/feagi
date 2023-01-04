@@ -261,7 +261,7 @@ def burst_manager():
 
     def init_burst_pub():
         # Initialize a broadcaster
-        burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_outbound_port']
+        burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_zmq_port']
         runtime_data.burst_publisher = Pub(address=burst_engine_pub_address)
         print("Burst publisher has been initialized @ ", burst_engine_pub_address)
 

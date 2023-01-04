@@ -878,7 +878,7 @@ def convert_feagi_to_english(feagi):
 def main(args=None):
     print("Connecting to FEAGI resources...")
 
-    # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_outbound_port']
+    # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_zmq_port']
 
     feagi_host, api_port = FEAGI.feagi_setting_for_registration()
     api_address = FEAGI.feagi_gui_address(feagi_host, api_port)
@@ -895,7 +895,7 @@ def main(args=None):
     ipu_channel_address = FEAGI.feagi_inbound(runtime_data["feagi_state"]['feagi_inbound_port_gazebo'])
     print("IPU_channel_address=", ipu_channel_address)
     opu_channel_address = FEAGI.feagi_outbound(network_settings['feagi_host'],
-                                               runtime_data["feagi_state"]['feagi_outbound_port'])
+                                               runtime_data["feagi_state"]['feagi_zmq_port'])
 
     feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address)
     feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)

@@ -3,7 +3,7 @@
 app_name = 'godot'
 
 network_settings = {
-    "feagi_host": "feagi",
+    "feagi_host": "127.0.0.1",
     "feagi_api_port": "8000",
     'TTL': 2,
     'last_message': 0,

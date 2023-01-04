@@ -21,7 +21,7 @@ app_name = 'gazebo'
 network_settings = {
     "feagi_host": "127.0.0.1",
     "feagi_api_port": "8000",
-    "feagi_outbound_port": "30000",
+    "feagi_zmq_port": "30000",
     "feagi_inbound_port_gazebo": "30002",
     'TTL': 2,
     'last_message': 0,

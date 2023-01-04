@@ -1,3 +1,5 @@
+import traceback
+import router
 import configuration
 from feagi_agent import router
 from time import sleep
@@ -11,7 +13,7 @@ def sub_initializer(opu_address, flags=router.zmq.NOBLOCK):
     return router.Sub(address=opu_address, flags=flags)
 
 
-def feagi_registration(feagi_host, api_port, host_info=router.app_host_info()):
+def feagi_registration(feagi_host, api_port, app_data_port, host_info=router.app_host_info()):
     runtime_data = {
         "host_network": {},
         "feagi_state": None
@@ -20,16 +22,17 @@ def feagi_registration(feagi_host, api_port, host_info=router.app_host_info()):
     runtime_data["host_network"]["ip_address"] = host_info["ip_address"]
 
     while runtime_data["feagi_state"] is None:
-        print("Awaiting registration with FEAGI...")
+        print("\nAwaiting registration with FEAGI...")
         try:
             runtime_data["feagi_state"] = router.register_with_feagi(app_name=configuration.app_name,
                                                                      feagi_host=feagi_host,
                                                                      api_port=api_port,
+                                                                     app_data_port=app_data_port,
                                                                      app_capabilities=configuration.capabilities,
                                                                      app_host_info=runtime_data["host_network"]
                                                                      )
         except Exception as e:
-            # print("ERROR: ", e)
+            print("ERROR: ", e, traceback.print_exc())
             pass
         sleep(1)
     return runtime_data["feagi_state"]
@@ -47,8 +50,9 @@ def feagi_setting_for_registration():
     FEAGI
     """
     feagi_ip_host = configuration.network_settings["feagi_host"]
-    api_data = configuration.network_settings["feagi_api_port"]
-    return feagi_ip_host, api_data
+    api_port = configuration.network_settings["feagi_api_port"]
+    app_data_port = configuration.network_settings["app_data_port"]
+    return feagi_ip_host, api_port, app_data_port
 
 
 def feagi_gui_address(feagi_ip_host, api_data):
@@ -73,12 +77,12 @@ def feagi_inbound(feagi_inbound_port):
     return 'tcp://0.0.0.0:' + feagi_inbound_port
 
 
-def feagi_outbound(feagi_ip_host, feagi_outbound_port):
+def feagi_outbound(feagi_ip_host, feagi_zmq_port):
     """
     Return the zmq address of outbound
     """
     return 'tcp://' + feagi_ip_host + ':' + \
-           feagi_outbound_port
+           feagi_zmq_port
 
 
 def msg_processor(self, msg, msg_type):

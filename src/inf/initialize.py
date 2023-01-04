@@ -390,11 +390,11 @@ def init_burst_engine():
 def init_io_channels():
     # Initialize ZMQ connections
     try:
-        # opu_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_outbound_port']
+        # opu_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_zmq_port']
         # print("OPU socket is:", opu_socket)
         # runtime_data.opu_pub = Pub(opu_socket)
         # print("OPU channel as been successfully established at ",
-        #       runtime_data.parameters['Sockets']['feagi_outbound_port'])
+        #       runtime_data.parameters['Sockets']['feagi_zmq_port'])
 
         if runtime_data.parameters['Switches']['zmq_activity_publisher']:
             runtime_data.brain_activity_pub = True
@@ -402,13 +402,14 @@ def init_io_channels():
         #     print("Brain activity publisher socket is:", brain_activities_socket)
         #     runtime_data.brain_activity_pub = PubBrainActivities(brain_activities_socket)
 
-        print(">>>  >>>> >>> >>>> >>> >> > >> > >> > > >   Brain is running in a container")
-        if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
-            runtime_data.router_address_godot = "tcp://" + runtime_data.parameters['Sockets']['godot_host_name'] + ':' + runtime_data.parameters['Sockets'][
-                'feagi_inbound_port_godot']
-        if runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']:
-            runtime_data.router_address_gazebo = "tcp://" + runtime_data.parameters['Sockets']['gazebo_host_name'] + ':' + runtime_data.parameters['Sockets'][
-                'feagi_inbound_port_gazebo']
+        # if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
+        #     runtime_data.router_address_godot = "tcp://" + runtime_data.parameters['Sockets']['godot_host_name'] + ':' + runtime_data.parameters['Sockets'][
+        #         'feagi_inbound_port_godot']
+        #
+        # if runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']:
+        #     runtime_data.router_address_gazebo = "tcp://" + runtime_data.parameters['Sockets']['gazebo_host_name'] + ':' + runtime_data.parameters['Sockets'][
+        #         'feagi_inbound_port_gazebo']
+
         # if runtime_data.parameters['Sockets']['feagi_inbound_port_embodiment']:
         #     runtime_data.router_address_embodiment = "tcp://" + runtime_data.parameters['Sockets']['embodiment_host_name'] \
         #                                          + ':' + runtime_data.parameters['Sockets']['feagi_inbound_port_embodiment']

@@ -197,13 +197,13 @@ class UpdateCorticalProperties(BaseModel):
     neuron_psp_uniform_distribution: Optional[bool]
 
 
-class Network(BaseModel):
-    godot_host: Optional[str] = runtime_data.parameters['Sockets']['godot_host_name']
-    godot_data_port: Optional[int] = runtime_data.parameters['Sockets']['feagi_inbound_port_godot']
-    godot_web_port: Optional[int] = 6081
-    gazebo_host: Optional[str] = runtime_data.parameters['Sockets']['gazebo_host_name']
-    gazebo_data_port: Optional[int] = runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']
-    gazebo_web_port: Optional[int] = 6080
+# class Network(BaseModel):
+#     godot_host: Optional[str] = runtime_data.parameters['Sockets']['godot_host_name']
+#     godot_data_port: Optional[int] = runtime_data.parameters['Sockets']['feagi_inbound_port_godot']
+#     godot_web_port: Optional[int] = 6081
+#     gazebo_host: Optional[str] = runtime_data.parameters['Sockets']['gazebo_host_name']
+#     gazebo_data_port: Optional[int] = runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']
+#     gazebo_web_port: Optional[int] = 6080
 
 
 class ConnectomePath(BaseModel):
@@ -313,6 +313,16 @@ async def log_requests(request: Request, call_next):
 
     # print(response.status_code, ":", request.method, ":", request.url.path)
 
+    return response
+
+
+# Append to the CORS origin
+@app.middleware("http")
+async def update_cors_origin(request, call_next):
+    response = await call_next(request)
+    origin = response.headers.get("Access-Control-Allow-Origin", "")
+    new_origin = ""
+    response.headers["Access-Control-Allow-Origin"] = f"{origin},{new_origin}"
     return response
 
 
@@ -1438,16 +1448,16 @@ async def network_management():
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/feagi/network", methods=['POST'], tags=["Networking"])
-async def network_management(message: Network):
-    try:
-        message = message.dict()
-        message = {'network_management': message}
-        api_queue.put(item=message)
-        return runtime_data.parameters['Sockets']
-    except Exception as e:
-        print("API Error:", e)
-        return {"Request failed...", e}
+# @app.api_route("/v1/feagi/feagi/network", methods=['POST'], tags=["Networking"])
+# async def network_management(message: Network):
+#     try:
+#         message = message.dict()
+#         message = {'network_management': message}
+#         api_queue.put(item=message)
+#         return runtime_data.parameters['Sockets']
+#     except Exception as e:
+#         print("API Error:", e)
+#         return {"Request failed...", e}
 
 
 # ######  Peripheral Nervous System Endpoints #########
@@ -1473,11 +1483,12 @@ async def current_opu_list():
 # ######   System Endpoints #########
 # ###################################
 
-@app.api_route("/v1/feagi/feagi/register", methods=['POST'], tags=["System"])
+@app.api_route("/v1/feagi/register", methods=['POST'], tags=["System"])
 async def feagi_registration(message: Registration):
     try:
         message = message.dict()
         source = message['source']
+
         host = message['host']
         capabilities = message['capabilities']
         print("########## ###### >>>>>> >>>> ", source, host, capabilities)
@@ -1540,6 +1551,26 @@ async def beacon_unsubscribe(message:Subscriber):
         message = {"beacon_unsub": message.subscriber_address}
         api_queue.put(item=message)
         return {"Request sent!"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/godot/register", methods=['POST'], tags=["System"])
+async def godot_registration(host: str, port: int):
+    try:
+        runtime_data.router_address_godot = 'tcp://' + host + ':' + str(port)
+        return runtime_data.parameters['Sockets']['feagi_inbound_port_godot']
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/embodiment/register", methods=['POST'], tags=["System"])
+async def embodiment_registration(host: str, port: int):
+    try:
+        runtime_data.router_address_gazebo = 'tcp://' + host + ':' + str(port)
+        return runtime_data.parameters['Sockets']['feagi_inbound_port_embodiment']
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}

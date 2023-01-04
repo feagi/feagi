@@ -93,10 +93,10 @@ def register_with_feagi(app_name, feagi_host, api_port, app_capabilities, app_ho
         feagi_settings = requests.get(api_address + network_endpoint).json()
 
         app_port_id = 'feagi_inbound_port_' + app_name
-        zmq_address = 'tcp://' + feagi_host + ':' + feagi_settings[app_port_id]
+        # zmq_address = 'tcp://' + feagi_host + ':' + feagi_settings[app_port_id]
 
-        print('Awaiting connection with FEAGI at...', zmq_address)
-        subscriber = Sub(address=zmq_address, flags=zmq.SUB)
+        # print('Awaiting connection with FEAGI at...', zmq_address)
+        # subscriber = Sub(address=zmq_address, flags=zmq.SUB)
 
         # Receive FEAGI settings
         feagi_settings['burst_duration'] = requests.get(api_address + stimulation_period_endpoint).json()
