@@ -80,9 +80,7 @@ if __name__ == "__main__":
     burst_counter_endpoint = feagi.feagi_api_burst_counter()
     print("^ ^ ^")
     runtime_data["feagi_state"] = feagi.feagi_registration(feagi_host=feagi_host,
-                                                           api_port=api_port,
-                                                           app_data_port_=app_data_port
-                                                           )
+                                                           api_port=api_port)
 
     print("** **", runtime_data["feagi_state"])
     feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
