@@ -303,9 +303,9 @@ def burst_manager():
 
     def message_router():
         # IPU listener: Receives IPU data through ZMQ channel
-        if runtime_data.router_address_gazebo is not None:
+        if runtime_data.router_address_embodiment is not None:
             try:
-                gazebo_data = gazebo_listener.receive()
+                gazebo_data = embodiment_listener.receive()
                 # Dynamically adjusting burst duration based on Controller needs
                 runtime_data.burst_timer = burst_duration_calculator(gazebo_data)
                 if gazebo_data:
@@ -413,7 +413,7 @@ def burst_manager():
                   "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
             runtime_data.burst_publisher.terminate()
             godot_listener.terminate()
-            gazebo_listener.terminate()
+            embodiment_listener.terminate()
             return
         # todo: the following sleep value should be tied to Autopilot status
         sleep(float(runtime_data.burst_timer))
@@ -514,10 +514,11 @@ def burst_manager():
         print("runtime_data.router_address_godot=", runtime_data.router_address_godot)
         print("Subscribing Godot incoming port...                                             ++++++++++++++++++++++++")
         godot_listener = Sub(address=runtime_data.router_address_godot)
-    if runtime_data.router_address_gazebo is not None:
-        print("runtime_data.router_address_gazebo=", runtime_data.router_address_gazebo)
+    if runtime_data.router_address_embodiment is not None:
+        print("\n*% *5 " * 100)
+        print("runtime_data.router_address_embodiment=", runtime_data.router_address_embodiment)
         print("Subscribing Gazebo incoming port...                                            ++++++++++++++++++++++++")
-        gazebo_listener = Sub(address=runtime_data.router_address_gazebo)
+        embodiment_listener = Sub(address=runtime_data.router_address_embodiment)
 
     else:
         print("Router address is None!")

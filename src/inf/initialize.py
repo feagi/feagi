@@ -407,7 +407,7 @@ def init_io_channels():
         #         'feagi_inbound_port_godot']
         #
         # if runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']:
-        #     runtime_data.router_address_gazebo = "tcp://" + runtime_data.parameters['Sockets']['gazebo_host_name'] + ':' + runtime_data.parameters['Sockets'][
+        #     runtime_data.router_address_embodiment = "tcp://" + runtime_data.parameters['Sockets']['gazebo_host_name'] + ':' + runtime_data.parameters['Sockets'][
         #         'feagi_inbound_port_gazebo']
 
         # if runtime_data.parameters['Sockets']['feagi_inbound_port_embodiment']:

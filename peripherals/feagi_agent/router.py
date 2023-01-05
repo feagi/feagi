@@ -1,5 +1,6 @@
 """
 """
+import json
 
 import zmq
 import socket
@@ -83,6 +84,8 @@ def register_with_feagi(app_name, feagi_host, api_port, app_data_port, app_capab
     print("-----3", registration_data)
     registration_complete = False
 
+    feagi_settings = dict()
+
     while not registration_complete:
 
         print("Registration data:", registration_data)
@@ -92,11 +95,14 @@ def register_with_feagi(app_name, feagi_host, api_port, app_data_port, app_capab
         # print("FEAGI registration results: ", feagi_registration_result)
         print("-----*****--------")
         feagi_settings = requests.get(api_address + network_endpoint).json()
-        print("-----=--------")
-        data = {}
-        data['app_name'] = app_name
-        data['app_data_port'] = app_data_port
-        requests.post(api_address + embodiment_registration_endpoint, json=data)
+        if feagi_settings:
+            print("feagi_settings:", feagi_settings)
+        data = dict()
+        data["host"] = str(app_name)
+        data["port"] = int(app_data_port)
+        # data = json.dumps(data)
+        print("\n\ndata:", data)
+        requests.post(api_address + embodiment_registration_endpoint, params=data)
         print('embodiment_port', app_data_port)
         # app_port_id = 'feagi_inbound_port_' + app_name
         # zmq_address = 'tcp://' + feagi_host + ':' + feagi_settings[app_port_id]

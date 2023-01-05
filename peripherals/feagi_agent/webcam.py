@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
     # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_zmq_port']
 
-    api_address = feagi_host + ':' + api_port
+    api_address = 'http://' + feagi_host + ':' + api_port
 
     stimulation_period_endpoint = feagi.feagi_api_burst_engine()
     burst_counter_endpoint = feagi.feagi_api_burst_counter()

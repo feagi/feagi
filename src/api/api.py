@@ -1569,10 +1569,11 @@ async def godot_registration(host: str, port: int):
 @app.api_route("/v1/embodiment/register", methods=['POST'], tags=["System"])
 async def embodiment_registration(host: str, port: int):
     try:
-        runtime_data.router_address_gazebo = 'tcp://' + host + ':' + str(port)
-        return runtime_data.parameters['Sockets']['feagi_inbound_port_embodiment']
+        runtime_data.router_address_embodiment = 'tcp://' + host + ':' + str(port)
+        print("\n### ### #===# ### ###" * 30)
+        return True
     except Exception as e:
-        print("API Error:", e)
+        print("API Error:", e, traceback.print_exc())
         return {"Request failed...", e}
 
 
