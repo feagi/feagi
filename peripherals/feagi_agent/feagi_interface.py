@@ -1,7 +1,6 @@
 import traceback
 import router
 import configuration
-from feagi_agent import router
 from time import sleep
 
 
@@ -13,7 +12,8 @@ def sub_initializer(opu_address, flags=router.zmq.NOBLOCK):
     return router.Sub(address=opu_address, flags=flags)
 
 
-def feagi_registration(feagi_host, api_port, app_data_port, host_info=router.app_host_info()):
+def feagi_registration(feagi_host, api_port, app_data_port_):
+    host_info = router.app_host_info()
     runtime_data = {
         "host_network": {},
         "feagi_state": None
@@ -24,15 +24,16 @@ def feagi_registration(feagi_host, api_port, app_data_port, host_info=router.app
     while runtime_data["feagi_state"] is None:
         print("\nAwaiting registration with FEAGI...")
         try:
+            print("MNM")
             runtime_data["feagi_state"] = router.register_with_feagi(app_name=configuration.app_name,
                                                                      feagi_host=feagi_host,
                                                                      api_port=api_port,
-                                                                     app_data_port=app_data_port,
+                                                                     app_data_port=app_data_port_,
                                                                      app_capabilities=configuration.capabilities,
                                                                      app_host_info=runtime_data["host_network"]
                                                                      )
         except Exception as e:
-            print("ERROR: ", e, traceback.print_exc())
+            print("ERROR__: ", e, traceback.print_exc())
             pass
         sleep(1)
     return runtime_data["feagi_state"]
@@ -53,13 +54,6 @@ def feagi_setting_for_registration():
     api_port = configuration.network_settings["feagi_api_port"]
     app_data_port = configuration.network_settings["app_data_port"]
     return feagi_ip_host, api_port, app_data_port
-
-
-def feagi_gui_address(feagi_ip_host, api_data):
-    """
-    return a full path to api
-    """
-    return 'http://' + feagi_ip_host + ':' + api_data
 
 
 def feagi_api_burst_engine():

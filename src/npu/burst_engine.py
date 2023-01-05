@@ -304,19 +304,25 @@ def burst_manager():
     def message_router():
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.router_address_gazebo is not None:
-            gazebo_data = gazebo_listener.receive()
-            # Dynamically adjusting burst duration based on Controller needs
-            runtime_data.burst_timer = burst_duration_calculator(gazebo_data)
-            if gazebo_data:
-                stimuli_router(gazebo_data)
+            try:
+                gazebo_data = gazebo_listener.receive()
+                # Dynamically adjusting burst duration based on Controller needs
+                runtime_data.burst_timer = burst_duration_calculator(gazebo_data)
+                if gazebo_data:
+                    stimuli_router(gazebo_data)
+            except:
+                pass
 
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.router_address_godot is not None:
-            godot_data = godot_listener.receive()
-            # Dynamically adjusting burst duration based on Controller needs
-            runtime_data.burst_timer = burst_duration_calculator(godot_data)
-            if godot_data:
-                stimuli_router(godot_data)
+            try:
+                godot_data = godot_listener.receive()
+                # Dynamically adjusting burst duration based on Controller needs
+                runtime_data.burst_timer = burst_duration_calculator(godot_data)
+                if godot_data:
+                    stimuli_router(godot_data)
+            except:
+                pass
 
         # IPU listener: Receives IPU data through REST API
         if runtime_data.stimulation_script is not None:

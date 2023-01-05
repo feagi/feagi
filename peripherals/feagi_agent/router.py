@@ -96,8 +96,8 @@ def register_with_feagi(app_name, feagi_host, api_port, app_data_port, app_capab
         data = {}
         data['app_name'] = app_name
         data['app_data_port'] = app_data_port
-        embodiment_port = requests.post(api_address + embodiment_registration_endpoint, json=data)
-        print('embodiment_port', embodiment_port)
+        requests.post(api_address + embodiment_registration_endpoint, json=data)
+        print('embodiment_port', app_data_port)
         # app_port_id = 'feagi_inbound_port_' + app_name
         # zmq_address = 'tcp://' + feagi_host + ':' + feagi_settings[app_port_id]
 
@@ -115,7 +115,7 @@ def register_with_feagi(app_name, feagi_host, api_port, app_data_port, app_capab
         sleep(1)
 
     # Transmit Controller Capabilities
-    pub_address = "tcp://0.0.0.0:" + embodiment_port
+    pub_address = "tcp://0.0.0.0:" + str(app_data_port)
     publisher = Pub(address=pub_address)
     publisher.send(app_capabilities)
 
