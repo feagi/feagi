@@ -12,7 +12,7 @@ def sub_initializer(opu_address, flags=router.zmq.NOBLOCK):
     return router.Sub(address=opu_address, flags=flags)
 
 
-def feagi_registration(feagi_host, api_port, app_data_port_):
+def feagi_registration(feagi_host, api_port):
     host_info = router.app_host_info()
     runtime_data = {
         "host_network": {},

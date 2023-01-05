@@ -207,23 +207,31 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
 
 
 def feagi_registration(feagi_host, api_port):
-    app_host_info = router.app_host_info()
-    runtime_data["host_network"]["host_name"] = app_host_info["host_name"]
-    runtime_data["host_network"]["ip_address"] = app_host_info["ip_address"]
+    host_info = router.app_host_info()
+    runtime_data = {
+        "host_network": {},
+        "feagi_state": None
+    }
+    runtime_data["host_network"]["host_name"] = host_info["host_name"]
+    runtime_data["host_network"]["ip_address"] = host_info["ip_address"]
 
     while runtime_data["feagi_state"] is None:
-        print("Awaiting registration with FEAGI...1")
+        print("\nAwaiting registration with FEAGI...")
         try:
-            runtime_data["feagi_state"] = router.register_with_feagi(app_name=configuration.app_name,
-                                                                     feagi_host=feagi_host,
-                                                                     api_port=api_port,
-                                                                     app_capabilities=configuration.capabilities,
-                                                                     app_host_info=runtime_data["host_network"]
-                                                                     )
+            print("MNM")
+            runtime_data["feagi_state"] = \
+                router.register_with_feagi(feagi_ip=feagi_host,
+                                           feagi_api_port=api_port,
+                                           agent_type=configuration.agent_settings['agent_type'],
+                                           agent_id=configuration.agent_settings['agent_id'],
+                                           agent_ip=runtime_data["host_network"]["ip_address"],
+                                           agent_data_port=configuration.agent_settings['agent_data_port'],
+                                           agent_capabilities=configuration.capabilities)
         except Exception as e:
-            print("Error: The following occurred during registration with FEAGI\n", e)
+            print("ERROR__: ", e, traceback.print_exc())
             pass
         sleep(1)
+    return runtime_data["feagi_state"]
 
 
 def reload_genome():
@@ -352,7 +360,7 @@ async def echo(websocket):
 
 
 async def websocket_main():
-    async with websockets.serve(echo, "0.0.0.0", configuration.network_settings['godot_websocket_port'], max_size=None,
+    async with websockets.serve(echo, "0.0.0.0", configuration.agent_settings['godot_websocket_port'], max_size=None,
                                 max_queue=None, write_limit=None, compression=None):
         await asyncio.Future()
 
@@ -371,14 +379,14 @@ if __name__ == "__main__":
     print("================================ @@@@@@@@@@@@@@@ ==========================================")
     print("================================ @@@@@@@@@@@@@@@ ==========================================")
 
-    feagi_host = configuration.network_settings["feagi_host"]
-    api_port = configuration.network_settings["feagi_api_port"]
+    feagi_host = configuration.feagi_settings["feagi_host"]
+    api_port = configuration.feagi_settings["feagi_api_port"]
 
-    feagi_registration(feagi_host=feagi_host, api_port=api_port)
+    runtime_data["feagi_state"] = feagi_registration(feagi_host=feagi_host, api_port=api_port)
 
     print("** **", runtime_data["feagi_state"])
 
-    api_address = 'http://' + network_settings['feagi_host'] + ':' + network_settings['feagi_api_port']
+    api_address = 'http://' + feagi_settings['feagi_host'] + ':' + feagi_settings['feagi_api_port']
 
     sockets = requests.get(api_address + '/v1/feagi/feagi/network').json()
     stimulation_period = requests.get(api_address + '/v1/feagi/feagi/burst_engine/stimulation_period').json()
@@ -386,9 +394,9 @@ if __name__ == "__main__":
 
     bgsk = threading.Thread(target=websocket_operation, daemon=True).start()
 
-    print("--->> >> >> \n", sockets, network_settings)
-    FEAGI_pub = Pub(address='tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_godot'])
-    opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
+    print("--->> >> >> \n", sockets, agent_settings)
+    FEAGI_pub = Pub(address='tcp://0.0.0.0:' + agent_settings["agent_data_port"])
+    opu_channel_address = 'tcp://' + feagi_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
         'feagi_opu_port']
     FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
@@ -403,7 +411,7 @@ if __name__ == "__main__":
     # previous_genome_timestamp = one_frame["genome_changed"]
     while True:
         if detect_lag:
-            opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
+            opu_channel_address = 'tcp://' + feagi_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
                 'feagi_opu_port']
             new_FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
             zmq_queue.clear()
@@ -429,7 +437,7 @@ if __name__ == "__main__":
                     print("Error during genome reset:\n", e)
             one_frame = feagi_breakdown(one_frame)
             # one_frame = simulation_testing() # This is to test the stress
-            if burst_second > network_settings['burst_duration_threshold']:
+            if burst_second > agent_settings['burst_duration_threshold']:
                 zmq_queue.append(one_frame)
         if ws_queue:
             data_from_godot = ws_queue[0].decode('UTF-8')  # ADDED this line to decode into string only

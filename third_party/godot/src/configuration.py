@@ -2,9 +2,15 @@
 
 app_name = 'godot'
 
-network_settings = {
+feagi_settings = {
     "feagi_host": "127.0.0.1",
     "feagi_api_port": "8000",
+}
+
+agent_settings = {
+    "agent_data_port": "30001",
+    "agent_id": "godot",
+    "agent_type": "monitor",
     'TTL': 2,
     'last_message': 0,
     'godot_websocket_port': 9050,

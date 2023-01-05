@@ -75,7 +75,7 @@ def register_with_feagi(feagi_ip, feagi_api_port, agent_type: str, agent_id: str
     network_endpoint = '/v1/feagi/feagi/network'
     stimulation_period_endpoint = '/v1/feagi/feagi/burst_engine/stimulation_period'
     burst_counter_endpoint = '/v1/feagi/feagi/burst_engine/burst_counter'
-    embodiment_registration_endpoint = '/v1/agent/register'
+    registration_endpoint = '/v1/agent/register'
 
     registration_complete = False
 
@@ -95,7 +95,7 @@ def register_with_feagi(feagi_ip, feagi_api_port, agent_type: str, agent_id: str
         agent_registration_data["agent_data_port"] = int(agent_data_port)
         
         print("\n\ndata:", agent_registration_data)
-        requests.post(api_address + embodiment_registration_endpoint, params=agent_registration_data)
+        requests.post(api_address + registration_endpoint, params=agent_registration_data)
 
         # Receive FEAGI settings
         feagi_settings['burst_duration'] = requests.get(api_address + stimulation_period_endpoint).json()

@@ -314,7 +314,7 @@ def burst_manager():
                         runtime_data.burst_timer = burst_duration_calculator(gazebo_data)
                         if gazebo_data:
                             stimuli_router(gazebo_data)
-                    if runtime_data.agent_registry[agent]["agent_type"] == "godot":
+                    if runtime_data.agent_registry[agent]["agent_type"] == "monitor":
                         godot_data = runtime_data.agent_registry[agent]["listener"].receive()
                         print("YY ZZ YY ZZ YY ZZ --------- XXXX")
                         if godot_data:
