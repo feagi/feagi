@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     print(feagi_host, api_port, app_data_port)
 
-    # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_zmq_port']
+    # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_opu_port']
 
     api_address = 'http://' + feagi_host + ':' + api_port
 
@@ -88,10 +88,10 @@ if __name__ == "__main__":
     network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
 
     # todo: to obtain this info directly from FEAGI as part of registration
-    ipu_channel_address = feagi.feagi_inbound(network_settings["app_data_port"])
+    ipu_channel_address = feagi.feagi_inbound(network_settings["agent_data_port"])
     print("IPU_channel_address=", ipu_channel_address)
     opu_channel_address = feagi.feagi_outbound(network_settings['feagi_host'],
-                                               runtime_data["feagi_state"]['feagi_zmq_port'])
+                                               runtime_data["feagi_state"]['feagi_opu_port'])
 
     feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address)
     feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)

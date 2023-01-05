@@ -389,7 +389,7 @@ if __name__ == "__main__":
     print("--->> >> >> \n", sockets, network_settings)
     FEAGI_pub = Pub(address='tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_godot'])
     opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
-        'feagi_zmq_port']
+        'feagi_opu_port']
     FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
 
     current_cortical_area = feagi_init(feagi_host=feagi_host, api_port=api_port)
@@ -404,7 +404,7 @@ if __name__ == "__main__":
     while True:
         if detect_lag:
             opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
-                'feagi_zmq_port']
+                'feagi_opu_port']
             new_FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
             zmq_queue.clear()
             ws_queue.clear()

@@ -45,6 +45,7 @@ from evo.genome_properties import genome_properties
 from evo.x_genesis import neighboring_cortical_areas
 from evo.genome_processor import genome_2_1_convertor
 from .config import settings
+from inf.messenger import Pub, Sub
 
 
 logger = logging.getLogger(__name__)
@@ -1556,30 +1557,32 @@ async def beacon_unsubscribe(message:Subscriber):
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/godot/register", methods=['POST'], tags=["System"])
-async def godot_registration(host: str, port: int):
+@app.api_route("/v1/agent/register", methods=['POST'], tags=["System"])
+async def agent_registration(agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int):
     try:
-        runtime_data.router_address_godot = 'tcp://' + host + ':' + str(port)
-        return runtime_data.parameters['Sockets']['feagi_inbound_port_godot']
+        if agent_id not in runtime_data.agent_registry:
+            # Add new agent to the registry
+            runtime_data.agent_registry[agent_id] = {}
+            runtime_data.agent_registry[agent_id]["agent_type"] = agent_type
+            runtime_data.agent_registry[agent_id]["agent_ip"] = agent_ip
+            runtime_data.agent_registry[agent_id]["agent_data_port"] = agent_data_port
+
+            # Create the needed ZMQ listener for new agent
+            agent_router_address = "tcp://" + agent_ip + ':' + str(agent_data_port)
+            runtime_data.agent_registry[agent_id]["listener"] = Sub(address=agent_router_address)
+
+            print("New agent has been successfully registered:", runtime_data.agent_registry[agent_id])
+        else:
+            print("Error during agent registration. Agent with the same id is currently registered:", agent_id)
+
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/embodiment/register", methods=['POST'], tags=["System"])
-async def embodiment_registration(host: str, port: int):
-    try:
-        runtime_data.router_address_embodiment = 'tcp://' + host + ':' + str(port)
-        print("\n### ### #===# ### ###" * 30)
-        return True
-    except Exception as e:
-        print("API Error:", e, traceback.print_exc())
-        return {"Request failed...", e}
-
 
 # ######   GUI  Endpoints #########
 # ###################################
-
 
 @app.api_route("/v1/feagi/feagi/gui_baseline/ipu", methods=['GET'], tags=["GUI"])
 async def supported_ipu_list():

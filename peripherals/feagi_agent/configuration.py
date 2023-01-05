@@ -16,12 +16,12 @@ limitations under the License.
 ==============================================================================
 """
 
-app_name = 'webcam'
-
 network_settings = {
     "feagi_host": "127.0.0.1",
     "feagi_api_port": "8000",
-    "app_data_port": "30002",
+    "agent_data_port": "30002",
+    "agent_id": "webcam",
+    "agent_type": "embodiment",
     'TTL': 2,
     'last_message': 0,
 }

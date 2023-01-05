@@ -62,53 +62,40 @@ class Sub:
                 print(e)
 
 
-def register_with_feagi(app_name, feagi_host, api_port, app_data_port, app_capabilities, app_host_info):
+def register_with_feagi(feagi_ip, feagi_api_port, agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int,
+                        agent_capabilities):
     """
     To trade information between FEAGI and Controller
 
     Controller                      <--     FEAGI(IPU/OPU socket info)
     Controller (Capabilities)       -->     FEAGI
     """
-    print("-----1")
-    api_address = 'http://' + feagi_host + ':' + api_port
 
-    registration_endpoint = '/v1/feagi/register'
+    api_address = 'http://' + feagi_ip + ':' + feagi_api_port
     network_endpoint = '/v1/feagi/feagi/network'
     stimulation_period_endpoint = '/v1/feagi/feagi/burst_engine/stimulation_period'
     burst_counter_endpoint = '/v1/feagi/feagi/burst_engine/burst_counter'
-    embodiment_registration_endpoint = '/v1/embodiment/register'
-    print("-----2")
-    registration_data = {"source": app_name,
-                         "host": app_host_info["ip_address"],
-                         "capabilities": app_capabilities}
-    print("-----3", registration_data)
+    embodiment_registration_endpoint = '/v1/agent/register'
+
     registration_complete = False
 
     feagi_settings = dict()
 
     while not registration_complete:
 
-        print("Registration data:", registration_data)
-
-        # feagi_registration_result = requests.post(api_address + registration_endpoint, data=registration_data)
-
-        # print("FEAGI registration results: ", feagi_registration_result)
         print("-----*****--------")
         feagi_settings = requests.get(api_address + network_endpoint).json()
         if feagi_settings:
             print("feagi_settings:", feagi_settings)
-        data = dict()
-        data["host"] = str(app_name)
-        data["port"] = int(app_data_port)
-        # data = json.dumps(data)
-        print("\n\ndata:", data)
-        requests.post(api_address + embodiment_registration_endpoint, params=data)
-        print('embodiment_port', app_data_port)
-        # app_port_id = 'feagi_inbound_port_' + app_name
-        # zmq_address = 'tcp://' + feagi_host + ':' + feagi_settings[app_port_id]
-
-        # print('Awaiting connection with FEAGI at...', zmq_address)
-        # subscriber = Sub(address=zmq_address, flags=zmq.SUB)
+            
+        agent_registration_data = dict()
+        agent_registration_data["agent_type"] = str(agent_type)
+        agent_registration_data["agent_id"] = str(agent_id)
+        agent_registration_data["agent_ip"] = str(agent_ip)
+        agent_registration_data["agent_data_port"] = int(agent_data_port)
+        
+        print("\n\ndata:", agent_registration_data)
+        requests.post(api_address + embodiment_registration_endpoint, params=agent_registration_data)
 
         # Receive FEAGI settings
         feagi_settings['burst_duration'] = requests.get(api_address + stimulation_period_endpoint).json()
@@ -121,8 +108,8 @@ def register_with_feagi(app_name, feagi_host, api_port, app_data_port, app_capab
         sleep(1)
 
     # Transmit Controller Capabilities
-    pub_address = "tcp://0.0.0.0:" + str(app_data_port)
+    pub_address = "tcp://0.0.0.0:" + str(agent_data_port)
     publisher = Pub(address=pub_address)
-    publisher.send(app_capabilities)
+    publisher.send(agent_capabilities)
 
     return feagi_settings

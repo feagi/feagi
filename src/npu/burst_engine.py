@@ -261,7 +261,7 @@ def burst_manager():
 
     def init_burst_pub():
         # Initialize a broadcaster
-        burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_zmq_port']
+        burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_opu_port']
         runtime_data.burst_publisher = Pub(address=burst_engine_pub_address)
         print("Burst publisher has been initialized @ ", burst_engine_pub_address)
 
@@ -303,24 +303,17 @@ def burst_manager():
 
     def message_router():
         # IPU listener: Receives IPU data through ZMQ channel
-        if runtime_data.router_address_embodiment is not None:
+        if runtime_data.agent_registry is not {}:
+            print("^^^^^ ---  ^^^^^^^^", runtime_data.agent_registry)
             try:
-                gazebo_data = embodiment_listener.receive()
-                # Dynamically adjusting burst duration based on Controller needs
-                runtime_data.burst_timer = burst_duration_calculator(gazebo_data)
-                if gazebo_data:
-                    stimuli_router(gazebo_data)
-            except:
-                pass
-
-        # IPU listener: Receives IPU data through ZMQ channel
-        if runtime_data.router_address_godot is not None:
-            try:
-                godot_data = godot_listener.receive()
-                # Dynamically adjusting burst duration based on Controller needs
-                runtime_data.burst_timer = burst_duration_calculator(godot_data)
-                if godot_data:
-                    stimuli_router(godot_data)
+                for agent in runtime_data.agent_registry:
+                    if runtime_data.agent_registry[agent]["agent_type"] == "embodiment":
+                        gazebo_data = runtime_data.agent_registry[agent]["listener"].receive()
+                        print("// \\ // \\ // \\")
+                        # Dynamically adjusting burst duration based on Controller needs
+                        runtime_data.burst_timer = burst_duration_calculator(gazebo_data)
+                        if gazebo_data:
+                            stimuli_router(gazebo_data)
             except:
                 pass
 
@@ -508,20 +501,21 @@ def burst_manager():
 
     init_burst_pub()
 
-    # todo: consolidate all the listeners into a class
-    # Initialize IPU listener
-    if runtime_data.router_address_godot is not None:
-        print("runtime_data.router_address_godot=", runtime_data.router_address_godot)
-        print("Subscribing Godot incoming port...                                             ++++++++++++++++++++++++")
-        godot_listener = Sub(address=runtime_data.router_address_godot)
-    if runtime_data.router_address_embodiment is not None:
-        print("\n*% *5 " * 100)
-        print("runtime_data.router_address_embodiment=", runtime_data.router_address_embodiment)
-        print("Subscribing Gazebo incoming port...                                            ++++++++++++++++++++++++")
-        embodiment_listener = Sub(address=runtime_data.router_address_embodiment)
-
-    else:
-        print("Router address is None!")
+    # # todo: consolidate all the listeners into a class
+    # # Initialize IPU listener
+    # print("runtime_data.router_address_embodiment:", runtime_data.router_address_embodiment)
+    # if runtime_data.router_address_godot is not None:
+    #     print("runtime_data.router_address_godot=", runtime_data.router_address_godot)
+    #     print("Subscribing Godot incoming port...                                             ++++++++++++++++++++++++")
+    #     godot_listener = Sub(address=runtime_data.router_address_godot)
+    # if runtime_data.router_address_embodiment is not None:
+    #     print("\n*% *5 " * 100)
+    #     print("runtime_data.router_address_embodiment=", runtime_data.router_address_embodiment)
+    #     print("Subscribing Gazebo incoming port...                                            ++++++++++++++++++++++++")
+    #     embodiment_listener = Sub(address=runtime_data.router_address_embodiment)
+    #
+    # else:
+    #     print("Router address is None!")
 
     # todo: need to figure how to incorporate FCL injection
     # feeder = Feeder()

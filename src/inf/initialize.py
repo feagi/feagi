@@ -390,11 +390,11 @@ def init_burst_engine():
 def init_io_channels():
     # Initialize ZMQ connections
     try:
-        # opu_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_zmq_port']
+        # opu_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_opu_port']
         # print("OPU socket is:", opu_socket)
         # runtime_data.opu_pub = Pub(opu_socket)
         # print("OPU channel as been successfully established at ",
-        #       runtime_data.parameters['Sockets']['feagi_zmq_port'])
+        #       runtime_data.parameters['Sockets']['feagi_opu_port'])
 
         if runtime_data.parameters['Switches']['zmq_activity_publisher']:
             runtime_data.brain_activity_pub = True

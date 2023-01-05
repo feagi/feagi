@@ -52,9 +52,6 @@ hw_controller = None
 opu_pub = None
 brain_activity_pub = None
 brain_activity_pub_freq = 1
-router_address_embodiment = None
-router_address_godot = None
-router_address_virtual = None
 fire_queue = {}
 controller_config = None
 opu_data = {}
@@ -95,6 +92,7 @@ burst_activities = {}
 burst_timer = None
 exit_condition = False
 new_genome = False
+
 
 # Stats Collection
 neuron_mp_collection_scope = {}
@@ -171,3 +169,18 @@ robot_file_path = None
 environment_id = None
 environment_map_file = None
 environment_map_path = None
+
+# ZMQ
+godot_listener = None
+embodiment_listener = None
+
+# Agents
+"""
+agent_registry = {
+    "agent_ip": {
+     ...   
+    }
+
+}
+"""
+agent_registry = {}

@@ -25,13 +25,14 @@ def feagi_registration(feagi_host, api_port, app_data_port_):
         print("\nAwaiting registration with FEAGI...")
         try:
             print("MNM")
-            runtime_data["feagi_state"] = router.register_with_feagi(app_name=configuration.app_name,
-                                                                     feagi_host=feagi_host,
-                                                                     api_port=api_port,
-                                                                     app_data_port=app_data_port_,
-                                                                     app_capabilities=configuration.capabilities,
-                                                                     app_host_info=runtime_data["host_network"]
-                                                                     )
+            runtime_data["feagi_state"] = \
+                router.register_with_feagi(feagi_ip=feagi_host,
+                                           feagi_api_port=api_port,
+                                           agent_type=configuration.network_settings['agent_type'],
+                                           agent_id=configuration.network_settings['agent_id'],
+                                           agent_ip=runtime_data["host_network"]["ip_address"],
+                                           agent_data_port=configuration.network_settings['agent_data_port'],
+                                           agent_capabilities=configuration.capabilities)
         except Exception as e:
             print("ERROR__: ", e, traceback.print_exc())
             pass
@@ -52,7 +53,7 @@ def feagi_setting_for_registration():
     """
     feagi_ip_host = configuration.network_settings["feagi_host"]
     api_port = configuration.network_settings["feagi_api_port"]
-    app_data_port = configuration.network_settings["app_data_port"]
+    app_data_port = configuration.network_settings["agent_data_port"]
     return feagi_ip_host, api_port, app_data_port
 
 
@@ -71,12 +72,12 @@ def feagi_inbound(feagi_inbound_port):
     return 'tcp://0.0.0.0:' + feagi_inbound_port
 
 
-def feagi_outbound(feagi_ip_host, feagi_zmq_port):
+def feagi_outbound(feagi_ip_host, feagi_opu_port):
     """
     Return the zmq address of outbound
     """
     return 'tcp://' + feagi_ip_host + ':' + \
-           feagi_zmq_port
+           feagi_opu_port
 
 
 def msg_processor(self, msg, msg_type):
