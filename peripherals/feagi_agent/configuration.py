@@ -22,8 +22,8 @@ feagi_settings = {
 }
 
 agent_settings = {
-    "agent_data_port": "30002",
-    "agent_id": "webcam",
+    "agent_data_port": "30004",
+    "agent_id": "webcam2",
     "agent_type": "embodiment",
     'TTL': 2,
     'last_message': 0,
@@ -42,7 +42,7 @@ capabilities = {
         "central_vision_compression": [64, 64],
         "peripheral_vision_compression": [8, 8],
         "previous_data": {},
-        "video_device_index": 1
+        "video_device_index": 0
     }
 }
 

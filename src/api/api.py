@@ -1481,6 +1481,63 @@ async def current_opu_list():
         return {"Request failed...", e}
 
 
+@app.api_route("/v1/agent/list", methods=['GET'], tags=["Peripheral Nervous System"])
+async def beacon_query():
+    try:
+        return set(runtime_data.agent_registry.keys())
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/agent/properties", methods=['GET'], tags=["Peripheral Nervous System"])
+async def beacon_query(agent_id: str):
+    try:
+        if agent_id in runtime_data.agent_registry:
+            return runtime_data.agent_registry[agent_id]
+        else:
+            return {"Agent not found!"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/agent/register", methods=['POST'], tags=["Peripheral Nervous System"])
+async def agent_registration(agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int):
+    try:
+        if agent_id not in runtime_data.agent_registry:
+            # Add new agent to the registry
+            runtime_data.agent_registry[agent_id] = {}
+            runtime_data.agent_registry[agent_id]["agent_type"] = agent_type
+            runtime_data.agent_registry[agent_id]["agent_ip"] = agent_ip
+            runtime_data.agent_registry[agent_id]["agent_data_port"] = agent_data_port
+
+            # Create the needed ZMQ listener for new agent
+            agent_router_address = "tcp://" + agent_ip + ':' + str(agent_data_port)
+            runtime_data.agent_registry[agent_id]["listener"] = Sub(address=agent_router_address)
+
+            print("New agent has been successfully registered:", runtime_data.agent_registry[agent_id])
+        else:
+            print("Error during agent registration. Agent with the same id is currently registered:", agent_id)
+
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/agent/deregister", methods=['DELETE'], tags=["Peripheral Nervous System"])
+async def agent_deregisteration(agent_id: str):
+    try:
+        if agent_id in runtime_data.agent_registry:
+            runtime_data.agent_registry.pop(agent_id)
+            return {"Agent has been removed!"}
+        else:
+            return {"Requested agent not found!"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
 # ######   System Endpoints #########
 # ###################################
 
@@ -1555,30 +1612,6 @@ async def beacon_unsubscribe(message:Subscriber):
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
-
-
-@app.api_route("/v1/agent/register", methods=['POST'], tags=["System"])
-async def agent_registration(agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int):
-    try:
-        if agent_id not in runtime_data.agent_registry:
-            # Add new agent to the registry
-            runtime_data.agent_registry[agent_id] = {}
-            runtime_data.agent_registry[agent_id]["agent_type"] = agent_type
-            runtime_data.agent_registry[agent_id]["agent_ip"] = agent_ip
-            runtime_data.agent_registry[agent_id]["agent_data_port"] = agent_data_port
-
-            # Create the needed ZMQ listener for new agent
-            agent_router_address = "tcp://" + agent_ip + ':' + str(agent_data_port)
-            runtime_data.agent_registry[agent_id]["listener"] = Sub(address=agent_router_address)
-
-            print("New agent has been successfully registered:", runtime_data.agent_registry[agent_id])
-        else:
-            print("Error during agent registration. Agent with the same id is currently registered:", agent_id)
-
-    except Exception as e:
-        print("API Error:", e)
-        return {"Request failed...", e}
-
 
 
 # ######   GUI  Endpoints #########
