@@ -1503,7 +1503,7 @@ async def beacon_query(agent_id: str):
 
 
 @app.api_route("/v1/agent/register", methods=['POST'], tags=["Peripheral Nervous System"])
-async def agent_registration(agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int):
+async def agent_registration(agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int, response: Response):
     try:
         if agent_id not in runtime_data.agent_registry:
             # Add new agent to the registry
@@ -1517,9 +1517,12 @@ async def agent_registration(agent_type: str, agent_id: str, agent_ip: str, agen
             runtime_data.agent_registry[agent_id]["listener"] = Sub(address=agent_router_address)
 
             print("New agent has been successfully registered:", runtime_data.agent_registry[agent_id])
+            response.status_code = status.HTTP_200_OK
+            return True
         else:
             print("Error during agent registration. Agent with the same id is currently registered:", agent_id)
-
+            response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+            return False
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}

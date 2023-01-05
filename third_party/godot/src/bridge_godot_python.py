@@ -300,16 +300,11 @@ def feagi_init(feagi_host, api_port):
 
         cortical_name = []
         cortical_genome_dictionary = {"genome": {}}
-        print("+++ 0 +++")
         while awaiting_feagi_registration:
             if len(cortical_genome_dictionary["genome"]) == 0:
-                print("+++ a +++")
                 try:
                     data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
                                                     '/v1/feagi/genome/download').json()
-                    print("% % % &&&&&&& -------- ^^^^^^^ " * 8)
-                    print(data_from_genome)
-                    print("+++ b +++")
                     cortical_area_name = requests.get(
                         'http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
                     runtime_data["cortical_data"] = data_from_genome
@@ -318,8 +313,6 @@ def feagi_init(feagi_host, api_port):
                         cortical_name.append(cortical_area_name[x][7])
 
                     if runtime_data["cortical_data"]:
-                        print("###### ------------------------------------------------------------#######")
-                        print("Cortical Dimensions:\n", runtime_data["cortical_data"])
                         for i in runtime_data["cortical_data"]["blueprint"]:
                             for x in cortical_name:
                                 if x in i:
@@ -384,8 +377,6 @@ if __name__ == "__main__":
 
     runtime_data["feagi_state"] = feagi_registration(feagi_host=feagi_host, api_port=api_port)
 
-    print("** **", runtime_data["feagi_state"])
-
     api_address = 'http://' + feagi_settings['feagi_host'] + ':' + feagi_settings['feagi_api_port']
 
     sockets = requests.get(api_address + '/v1/feagi/feagi/network').json()
@@ -394,7 +385,6 @@ if __name__ == "__main__":
 
     bgsk = threading.Thread(target=websocket_operation, daemon=True).start()
 
-    print("--->> >> >> \n", sockets, agent_settings)
     FEAGI_pub = Pub(address='tcp://0.0.0.0:' + agent_settings["agent_data_port"])
     opu_channel_address = 'tcp://' + feagi_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
         'feagi_opu_port']

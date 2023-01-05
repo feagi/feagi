@@ -304,19 +304,16 @@ def burst_manager():
     def message_router():
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.agent_registry is not {}:
-            print("^^^^^ ---  ^^^^^^^^", runtime_data.agent_registry)
             try:
                 for agent in runtime_data.agent_registry:
                     if runtime_data.agent_registry[agent]["agent_type"] == "embodiment":
                         gazebo_data = runtime_data.agent_registry[agent]["listener"].receive()
-                        print("// \\ // \\ // \\")
                         # Dynamically adjusting burst duration based on Controller needs
                         runtime_data.burst_timer = burst_duration_calculator(gazebo_data)
                         if gazebo_data:
                             stimuli_router(gazebo_data)
                     if runtime_data.agent_registry[agent]["agent_type"] == "monitor":
                         godot_data = runtime_data.agent_registry[agent]["listener"].receive()
-                        print("YY ZZ YY ZZ YY ZZ --------- XXXX")
                         if godot_data:
                             stimuli_router(godot_data)
             except Exception as e:

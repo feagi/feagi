@@ -82,11 +82,9 @@ def register_with_feagi(feagi_ip, feagi_api_port, agent_type: str, agent_id: str
     feagi_settings = dict()
 
     while not registration_complete:
-
-        print("-----*** **--------")
         feagi_settings = requests.get(api_address + network_endpoint).json()
         if feagi_settings:
-            print("feagi_settings:", feagi_settings)
+            print("Data from FEAGI::", feagi_settings)
         else:
             print("No feagi settings!")
 
@@ -96,17 +94,19 @@ def register_with_feagi(feagi_ip, feagi_api_port, agent_type: str, agent_id: str
         agent_registration_data["agent_ip"] = str(agent_ip)
         agent_registration_data["agent_data_port"] = int(agent_data_port)
 
-        print("\n\ndata:", agent_registration_data)
-        requests.post(api_address + registration_endpoint, params=agent_registration_data)
+        registration_status = requests.post(api_address + registration_endpoint, params=agent_registration_data)
 
-        # Receive FEAGI settings
-        feagi_settings['burst_duration'] = requests.get(api_address + stimulation_period_endpoint).json()
-        feagi_settings['burst_counter'] = requests.get(api_address + burst_counter_endpoint).json()
+        if registration_status:
+            print("Agent successfully registered with FEAGI!")
+            # Receive FEAGI settings
+            feagi_settings['burst_duration'] = requests.get(api_address + stimulation_period_endpoint).json()
+            feagi_settings['burst_counter'] = requests.get(api_address + burst_counter_endpoint).json()
 
-        print("\nFEAGI settings received as:\n", feagi_settings, "\n\n")
-        if feagi_settings and feagi_settings['burst_duration'] and feagi_settings['burst_counter']:
-            print("\n\n\n\nRegistration is complete....")
-            registration_complete = True
+            if feagi_settings and feagi_settings['burst_duration'] and feagi_settings['burst_counter']:
+                print("\n\n\n\nRegistration is complete....")
+                registration_complete = True
+        else:
+            print("Registration attempt with FEAGI failed!")
         sleep(1)
 
     # Transmit Controller Capabilities
