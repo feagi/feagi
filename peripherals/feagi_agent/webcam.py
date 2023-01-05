@@ -85,12 +85,12 @@ if __name__ == "__main__":
                                                            )
 
     print("** **", runtime_data["feagi_state"])
-    network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
+    feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
 
     # todo: to obtain this info directly from FEAGI as part of registration
-    ipu_channel_address = feagi.feagi_inbound(network_settings["agent_data_port"])
+    ipu_channel_address = feagi.feagi_inbound(agent_settings["agent_data_port"])
     print("IPU_channel_address=", ipu_channel_address)
-    opu_channel_address = feagi.feagi_outbound(network_settings['feagi_host'],
+    opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
 
     feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address)
@@ -166,12 +166,12 @@ if __name__ == "__main__":
             flag = 0
             if msg_counter < feagi_burst_counter:
                 feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
-                if feagi_burst_speed != network_settings['feagi_burst_speed']:
-                    network_settings['feagi_burst_speed'] = feagi_burst_speed
+                if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
+                    feagi_settings['feagi_burst_speed'] = feagi_burst_speed
 
         print(len(message_to_feagi['data']['sensory_data']['camera']['C']))
         feagi_ipu_channel.send(message_to_feagi)
-        sleep(network_settings['feagi_burst_speed'])
+        sleep(feagi_settings['feagi_burst_speed'])
         message_to_feagi.clear()
         for i in rgb['camera']:
             rgb['camera'][i].clear()

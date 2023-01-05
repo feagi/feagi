@@ -28,10 +28,10 @@ def feagi_registration(feagi_host, api_port, app_data_port_):
             runtime_data["feagi_state"] = \
                 router.register_with_feagi(feagi_ip=feagi_host,
                                            feagi_api_port=api_port,
-                                           agent_type=configuration.network_settings['agent_type'],
-                                           agent_id=configuration.network_settings['agent_id'],
+                                           agent_type=configuration.agent_settings['agent_type'],
+                                           agent_id=configuration.agent_settings['agent_id'],
                                            agent_ip=runtime_data["host_network"]["ip_address"],
-                                           agent_data_port=configuration.network_settings['agent_data_port'],
+                                           agent_data_port=configuration.agent_settings['agent_data_port'],
                                            agent_capabilities=configuration.capabilities)
         except Exception as e:
             print("ERROR__: ", e, traceback.print_exc())
@@ -51,9 +51,9 @@ def feagi_setting_for_registration():
     Generate all needed information and return the full data to make it easier to connect with
     FEAGI
     """
-    feagi_ip_host = configuration.network_settings["feagi_host"]
-    api_port = configuration.network_settings["feagi_api_port"]
-    app_data_port = configuration.network_settings["agent_data_port"]
+    feagi_ip_host = configuration.feagi_settings["feagi_host"]
+    api_port = configuration.feagi_settings["feagi_api_port"]
+    app_data_port = configuration.agent_settings["agent_data_port"]
     return feagi_ip_host, api_port, app_data_port
 
 
