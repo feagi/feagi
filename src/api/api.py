@@ -71,13 +71,7 @@ favicon_path = settings.favicon_path
 
 api_queue = Queue()
 
-ORIGINS = [
-    "http://localhost:6080",
-    "http://localhost:6081",
-    "http://localhost:3000",
-    "http://192.168.50.246:8080",
-    "http://192.168.50.246:6081"
-]
+ORIGINS = settings.origins
 
 app.add_middleware(
     CORSMiddleware,
