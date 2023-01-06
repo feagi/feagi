@@ -1508,24 +1508,22 @@ async def agent_registration(agent_type: str, agent_id: str, agent_ip: str, agen
         if agent_id not in runtime_data.agent_registry:
             # Add new agent to the registry
             runtime_data.agent_registry[agent_id] = {}
-            runtime_data.agent_registry[agent_id]["agent_type"] = agent_type
-            runtime_data.agent_registry[agent_id]["agent_ip"] = agent_ip
-            runtime_data.agent_registry[agent_id]["agent_data_port"] = agent_data_port
+        runtime_data.agent_registry[agent_id]["agent_type"] = agent_type
+        runtime_data.agent_registry[agent_id]["agent_ip"] = agent_ip
+        runtime_data.agent_registry[agent_id]["agent_data_port"] = agent_data_port
 
-            # Create the needed ZMQ listener for new agent
-            agent_router_address = "tcp://" + agent_ip + ':' + str(agent_data_port)
-            runtime_data.agent_registry[agent_id]["listener"] = Sub(address=agent_router_address)
+        # Create the needed ZMQ listener for new agent
+        agent_router_address = "tcp://" + agent_ip + ':' + str(agent_data_port)
+        runtime_data.agent_registry[agent_id]["listener"] = Sub(address=agent_router_address)
 
-            print("New agent has been successfully registered:", runtime_data.agent_registry[agent_id])
-            response.status_code = status.HTTP_200_OK
-            return True
-        else:
-            print("Error during agent registration. Agent with the same id is currently registered:", agent_id)
-            response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-            return False
+        print("New agent has been successfully registered:", runtime_data.agent_registry[agent_id])
+        response.status_code = status.HTTP_200_OK
+        return True
     except Exception as e:
-        print("API Error:", e)
-        return {"Request failed...", e}
+        print("API Error:", e, traceback.print_exc())
+        print("Error during agent registration.:", agent_id)
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        return False
 
 
 @app.api_route("/v1/agent/deregister", methods=['DELETE'], tags=["Peripheral Nervous System"])
