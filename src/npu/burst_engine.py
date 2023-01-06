@@ -312,7 +312,6 @@ def burst_manager():
                         # Dynamically adjusting burst duration based on Controller needs
                         runtime_data.burst_timer = burst_duration_calculator(embodiment_data)
                         if embodiment_data:
-                            print("embodiment_data-->>", embodiment_data)
                             stimuli_router(embodiment_data)
                     if runtime_data.agent_registry[agent]["agent_type"] == "monitor":
                         godot_data = runtime_data.agent_registry[agent]["listener"].receive()
