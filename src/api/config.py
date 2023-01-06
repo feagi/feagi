@@ -3,10 +3,12 @@ import os
 from inf import runtime_data
 from pydantic import BaseSettings
 
-k8_server = os.getenv("k8_server")
+k8_server = os.getenv("ip_server")
 if not k8_server:
     k8_server = "placeholder"
-k8_server_godot = "http://" + k8_server + ":" + "30001"
+k8_server_api = "http://" + k8_server + ":" + "8000"
+k8_server_gazebo = "http://" + k8_server + ":" + "6080"
+k8_server_gadot = "http://" + k8_server + ":" + "6081"
 
 
 class Settings(BaseSettings):
@@ -30,7 +32,9 @@ class Settings(BaseSettings):
                      "http://localhost:6081",
                      "http://localhost:3000",
                      "http://localhost:8000",
-                     k8_server_godot]
+                     k8_server_api,
+                     k8_server_gazebo,
+                     k8_server_gadot]
 
 
 settings = Settings()
