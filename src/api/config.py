@@ -6,7 +6,7 @@ from pydantic import BaseSettings
 k8_server = os.getenv("k8_server")
 if not k8_server:
     k8_server = "placeholder"
-# k8_server_godot = "http://" + k8_server + ":" + runtime_data.parameters["Sockets"]["godot_port"]
+k8_server_godot = "http://" + k8_server + ":" + "30001"
 
 
 class Settings(BaseSettings):
