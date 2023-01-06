@@ -307,7 +307,6 @@ def burst_manager():
             try:
                 for agent in runtime_data.agent_registry:
                     if runtime_data.agent_registry[agent]["agent_type"] == "embodiment":
-                        print("Attempting to receive from ", agent)
                         embodiment_data = runtime_data.agent_registry[agent]["listener"].receive()
                         # Dynamically adjusting burst duration based on Controller needs
                         runtime_data.burst_timer = burst_duration_calculator(embodiment_data)
