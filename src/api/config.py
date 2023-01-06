@@ -28,7 +28,8 @@ class Settings(BaseSettings):
     }
     origins: list = ["http://localhost:6080",
                      "http://localhost:6081",
-                     "http://localhost:3000"]
+                     "http://localhost:3000",
+                     "http://localhost:8000"]
 
 
 settings = Settings()
