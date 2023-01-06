@@ -1,5 +1,5 @@
 import traceback
-import router
+from feagi_agent import router
 import configuration
 from time import sleep
 

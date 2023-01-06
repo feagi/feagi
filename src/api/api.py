@@ -397,7 +397,7 @@ async def genome_string_upload(str_genome: Genome):
 
 
 @app.get("/v1/feagi/genome/download", tags=["Genome"])
-async def genome_download(response:Response):
+async def genome_download(response: Response):
     print("Downloading Genome...")
     try:
         file_name = "genome_" + datetime.datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".json"
