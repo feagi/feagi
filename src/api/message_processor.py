@@ -24,6 +24,9 @@ def api_message_processor(api_message):
         runtime_data.stimulation_script = api_message['stimulation_script']['stimulation_script']
 
     if 'log_management' in api_message:
+        if 'print_cortical_activity_counters' in api_message['log_management']:
+            runtime_data.parameters['Logs']['print_cortical_activity_counters'] \
+                = api_message['log_management']['print_messenger_logs']
         if 'print_burst_info' in api_message['log_management']:
             runtime_data.parameters['Logs']['print_burst_info'] \
                 = api_message['log_management']['print_burst_info']

@@ -95,6 +95,7 @@ class Launch(BaseModel):
 
 
 class Logs(BaseModel):
+    print_cortical_activity_counters: Optional[bool]
     print_burst_info: Optional[bool]
     print_messenger_logs: Optional[bool]
     print_brain_gen_activities: Optional[bool]
@@ -316,15 +317,15 @@ async def log_requests(request: Request, call_next):
 
     return response
 
-
-# Append to the CORS origin
-@app.middleware("http")
-async def update_cors_origin(request, call_next):
-    response = await call_next(request)
-    origin = response.headers.get("Access-Control-Allow-Origin", "")
-    new_origin = ""
-    response.headers["Access-Control-Allow-Origin"] = f"{origin},{new_origin}"
-    return response
+# todo: To add the ability of updating allowable cors list on the fly
+# # Append to the CORS origin
+# @app.middleware("http")
+# async def update_cors_origin(request, call_next):
+#     response = await call_next(request)
+#     origin = response.headers.get("Access-Control-Allow-Origin", "")
+#     new_origin = ""
+#     response.headers["Access-Control-Allow-Origin"] = f"{origin},{new_origin}"
+#     return response
 
 
 # ######  Genome Endpoints #########

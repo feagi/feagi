@@ -307,11 +307,13 @@ def burst_manager():
             try:
                 for agent in runtime_data.agent_registry:
                     if runtime_data.agent_registry[agent]["agent_type"] == "embodiment":
-                        gazebo_data = runtime_data.agent_registry[agent]["listener"].receive()
+                        print("Attempting to receive from ", agent)
+                        embodiment_data = runtime_data.agent_registry[agent]["listener"].receive()
                         # Dynamically adjusting burst duration based on Controller needs
-                        runtime_data.burst_timer = burst_duration_calculator(gazebo_data)
-                        if gazebo_data:
-                            stimuli_router(gazebo_data)
+                        runtime_data.burst_timer = burst_duration_calculator(embodiment_data)
+                        if embodiment_data:
+                            print("embodiment_data-->>", embodiment_data)
+                            stimuli_router(embodiment_data)
                     if runtime_data.agent_registry[agent]["agent_type"] == "monitor":
                         godot_data = runtime_data.agent_registry[agent]["listener"].receive()
                         if godot_data:
@@ -505,22 +507,6 @@ def burst_manager():
 
     init_burst_pub()
 
-    # # todo: consolidate all the listeners into a class
-    # # Initialize IPU listener
-    # print("runtime_data.router_address_embodiment:", runtime_data.router_address_embodiment)
-    # if runtime_data.router_address_godot is not None:
-    #     print("runtime_data.router_address_godot=", runtime_data.router_address_godot)
-    #     print("Subscribing Godot incoming port...                                             ++++++++++++++++++++++++")
-    #     godot_listener = Sub(address=runtime_data.router_address_godot)
-    # if runtime_data.router_address_embodiment is not None:
-    #     print("\n*% *5 " * 100)
-    #     print("runtime_data.router_address_embodiment=", runtime_data.router_address_embodiment)
-    #     print("Subscribing Gazebo incoming port...                                            ++++++++++++++++++++++++")
-    #     embodiment_listener = Sub(address=runtime_data.router_address_embodiment)
-    #
-    # else:
-    #     print("Router address is None!")
-
     # todo: need to figure how to incorporate FCL injection
     # feeder = Feeder()
     # mongo = db_handler.MongoManagement()
@@ -548,14 +534,11 @@ def burst_manager():
 
 
 def fcl_feeder(fire_list, fcl_queue):
-    # print("Injecting to FCL.../\/\/\/")
     # Update FCL with new input data. FCL is read from the Queue and updated
     flc = fcl_queue.get()
     for item in fire_list:
         flc.append(item)
     fcl_queue.put(flc)
-
-    print("Injected to FCL.../\/\/\/")
 
     # todo: add the check so if the there is limited IPU activity for multiple consequtive rounds to set a flag
 
