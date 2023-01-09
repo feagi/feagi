@@ -192,7 +192,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_fire_threshold: Optional[float]
     neuron_refractory_period: Optional[int]
     neuron_leak_coefficient: Optional[float]
-    neuron_leak_variability: Optional[int]
+    neuron_leak_variability: Optional[float]
     neuron_consecutive_fire_count: Optional[int]
     neuron_snooze_period: Optional[int]
     neuron_degeneracy_coefficient: Optional[float]
