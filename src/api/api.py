@@ -227,10 +227,6 @@ class Stats(BaseModel):
     synapse_stat_collection: Optional[bool] = False
 
 
-class Genome(BaseModel):
-    genome: dict
-
-
 class Stimulation(BaseModel):
     stimulation_script: dict
 
@@ -384,10 +380,8 @@ async def genome_file_name():
 
 
 @app.api_route("/v1/feagi/genome/upload/string", methods=['POST'], tags=["Genome"])
-async def genome_string_upload(str_genome: Genome):
+async def genome_string_upload(genome: dict):
     try:
-        genome = str_genome.genome
-        print("@@@@@@@@@   @@@@@@@\n", genome)
         message = {'genome': genome}
         api_queue.put(item=message)
 
@@ -434,9 +428,11 @@ async def genome_default_files():
             if genome[:2] != '__':
                 with open(os.path.join(default_genomes_path, genome)) as file:
                     data = file.read()
-                    data_dict = literal_eval(data.split(" = ")[1])
-                    genome_mappings[genome.split(".")[0]] = json.dumps(data_dict)
-        return {"genomes": genome_mappings}
+                    # genome_mappings = json.loads(data)
+                    # data_dict = literal_eval(data.split(" = ")[1])
+                    genome_mappings[genome.split(".")[0]] = json.loads(data)
+                    # print("genome_mappings\n", genome_mappings)
+        return {"genome": genome_mappings}
     except Exception as e:
         print("API Error:", e)
         return {"Request failed..."}

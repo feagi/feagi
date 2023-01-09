@@ -13,9 +13,9 @@ const DefaultGenomes = (props) => {
   let navigate = useNavigate();
 
   const handleGenomeSelection = (type) => {
-    FeagiAPI.postGenomeString({
-      genome: JSON.parse(props.defaultGenomeData[type]),
-    });
+    FeagiAPI.postGenomeString(
+      props.defaultGenomeData[type]
+    );
     navigate("/monitoring");
   };
 
