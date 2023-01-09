@@ -6,6 +6,9 @@ todo: Need to have all of the controller.py modules follow the same convention a
 """
 
 from inf import runtime_data
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def stimulate():

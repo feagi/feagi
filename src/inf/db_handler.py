@@ -14,10 +14,14 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 import random
 from pymongo.errors import ServerSelectionTimeoutError
 from pymongo import MongoClient, DESCENDING, ASCENDING
 from inf import runtime_data, settings
+
+
+logger = logging.getLogger(__name__)
 
 
 class MongoManagement:

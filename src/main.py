@@ -24,7 +24,20 @@ is intended to run within a container and scale up to many container instances.
 """
 
 import uvicorn
-from inf.initialize import *
+import json
+import logging.config
+from inf.initialize import init_parameters, runtime_data
+
+
+with open("logging_config.json", "r") as config_file:
+    logging_config_data = json.load(config_file)
+
+# setup loggers
+logging.config.dictConfig(logging_config_data)
+
+# get root logger
+logger = logging.getLogger(__name__)
+
 
 init_parameters()
 

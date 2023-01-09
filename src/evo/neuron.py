@@ -21,11 +21,13 @@ A collection of functions related to Neurons
 import random
 import string
 import datetime
+import logging
 # import collections
 # import numpy as np
 from evo.voxels import *
 
 
+logger = logging.getLogger(__name__)
 
 # def neuron_location_gen(x1, y1, z1, x2, y2, z2):
 #     """
@@ -88,14 +90,18 @@ def init_neuron(cortical_area, soma_location):
 
     #   runtime_data.brain[cortical_area][neuron_id]["group_id"] = ""
     #  consider using the group name part of Genome instead
-    runtime_data.brain[cortical_area][neuron_id]["firing_pattern_id"] = \
-        genome['blueprint'][cortical_area]['neuron_params']['firing_pattern_id']
-    runtime_data.brain[cortical_area][neuron_id]["activation_function_id"] = \
-        genome['blueprint'][cortical_area]['neuron_params']['activation_function_id']
-    runtime_data.brain[cortical_area][neuron_id]["depolarization_threshold"] = \
-        genome['blueprint'][cortical_area]['neuron_params']['depolarization_threshold']
+    # runtime_data.brain[cortical_area][neuron_id]["depolarization_threshold"] = \
+    #     genome['blueprint'][cortical_area]['depolarization_threshold']
     runtime_data.brain[cortical_area][neuron_id]["firing_threshold"] = \
-        genome['blueprint'][cortical_area]['neuron_params']['firing_threshold']
+        genome['blueprint'][cortical_area]['firing_threshold']
+
+    leak = genome['blueprint'][cortical_area]['leak_coefficient']
+    leak_variability = genome['blueprint'][cortical_area]['leak_variability']
+    if leak_variability:
+        if abs(leak_variability) > 1:
+            leak = leak + leak * random.randrange(1, leak_variability, 1) / 100
+
+    runtime_data.brain[cortical_area][neuron_id]["leak_coefficient"] = leak
 
     return neuron_id
 
@@ -129,12 +135,12 @@ def init_neuron(cortical_area, soma_location):
 #         for _ in range(0, genome["blueprint"][cortical_area]["cortical_neuron_count"] *
 #                        int(runtime_data.parameters['Brain_Development']['neuron_multiplier'])):
 #             neuron_loc_list.append(neuron_location_gen(
-#                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][0],
-#                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][0],
-#                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][0],
-#                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["x"][1],
-#                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["y"][1],
-#                 genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"]["z"][1]))
+#                 genome["blueprint"][cortical_area]["geometric_boundaries"]["x"][0],
+#                 genome["blueprint"][cortical_area]["geometric_boundaries"]["y"][0],
+#                 genome["blueprint"][cortical_area]["geometric_boundaries"]["z"][0],
+#                 genome["blueprint"][cortical_area]["geometric_boundaries"]["x"][1],
+#                 genome["blueprint"][cortical_area]["geometric_boundaries"]["y"][1],
+#                 genome["blueprint"][cortical_area]["geometric_boundaries"]["z"][1]))
 #     elif location_generation_type == "sequential":
 #         # Following formula calculates the proper distance between neurons to be used to have n number of them
 #         # evenly distributed within the given cortical area
@@ -149,8 +155,8 @@ def init_neuron(cortical_area, soma_location):
 #         non_dominant_axis = list(filter(lambda x: x != dominant_dimension, dimension_map))
 #         neuron_count = genome["blueprint"][cortical_area]["cortical_neuron_count"]
 #         dominant_distance = \
-#             runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"][dominant_index][1]\
-#             - runtime_data.genome['blueprint'][cortical_area]["neuron_params"]["geometric_boundaries"][dominant_index][0]
+#             runtime_data.genome['blueprint'][cortical_area]["geometric_boundaries"][dominant_index][1]\
+#             - runtime_data.genome['blueprint'][cortical_area]["geometric_boundaries"][dominant_index][0]
 #
 #         neuron_gap = int(dominant_distance / neuron_count)
 #
@@ -170,8 +176,8 @@ def init_neuron(cortical_area, soma_location):
 #                 else:
 #                     # todo: store the midpoint values in a list once
 #                     coordinate_value[coordinate] = \
-#                         (genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"][dimension_map[coordinate]][1] -
-#                          genome["blueprint"][cortical_area]["neuron_params"]["geometric_boundaries"][dimension_map[coordinate]][0]) / 2
+#                         (genome["blueprint"][cortical_area]["geometric_boundaries"][dimension_map[coordinate]][1] -
+#                          genome["blueprint"][cortical_area]["geometric_boundaries"][dimension_map[coordinate]][0]) / 2
 #
 #             neuron_loc_list.append([int(coordinate_value[0]), int(coordinate_value[1]), int(coordinate_value[2])])
 #

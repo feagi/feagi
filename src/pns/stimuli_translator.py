@@ -16,8 +16,11 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 from evo.voxels import *
 from pns import stimuli_processor
+
+logger = logging.getLogger(__name__)
 
 """
 Translates device specific data into neuronal stimulation
@@ -95,7 +98,7 @@ def stimulation_injector(stimulation_data):
 #         for voxel in stimulation_data[cortical_area]:
 #             voxel = block_ref_2_id(voxel)
 #             relative_coords = \
-#                 runtime_data.genome['blueprint'][cortical_area]['neuron_params'].get('relative_coordinate')
+#                 runtime_data.genome['blueprint'][cortical_area].get('relative_coordinate')
 #             cortical_block_ref = [voxel[0] - relative_coords[0],
 #                                   voxel[1] - relative_coords[1],
 #                                   voxel[2] - relative_coords[2]]
@@ -194,7 +197,7 @@ def convert_ir_to_fire_list(ir_data):
         if cortical_area_in_genome('ii_inf'):
             if 'ii_inf' not in runtime_data.fire_candidate_list:
                 runtime_data.fire_candidate_list['ii_inf'] = set()
-            for index in range(runtime_data.genome['blueprint']['ii_inf']["neuron_params"]["block_boundaries"][0]):
+            for index in range(runtime_data.genome['blueprint']['ii_inf']["block_boundaries"][0]):
                 if index not in active_ir_indexes:
                     inverse_ir_indexes.append(index)
 

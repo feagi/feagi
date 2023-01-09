@@ -16,11 +16,15 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 from pns import stimuli_translator
 import traceback
 from datetime import datetime
 from evo.voxels import *
 from evo.stats import opu_activity_report
+
+
+logger = logging.getLogger(__name__)
 
 """
 This module manages the routing of all IPU/OPU related data
@@ -29,7 +33,7 @@ todo: figure how the exposure counter can work in synchrony with the burst engin
 todo: convert IPU library to a plug-in based architecture
 """
 
-print("IPU controller initialized")
+logger.info("IPU controller initialized")
 runtime_data.last_ipu_activity = datetime.now()
 
 
@@ -74,7 +78,8 @@ def stimuli_router(ipu_data):
                 try:
                     stimuli_translator.stimulation_injector(stimulation_data=ipu_data["data"]["direct_stimulation"])
                 except Exception as e:
-                    print("ERROR while processing Stimulation IPU", ipu_data["data"]["direct_stimulation"], ">>", e)
+                    print("ERROR while processing Stimulation IPU", ipu_data["data"]["direct_stimulation"], ">>", e,
+                          traceback.format_exc())
 
         if "sensory_data" in ipu_data["data"]:
             for sensor_type in ipu_data["data"]["sensory_data"]:

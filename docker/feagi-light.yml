@@ -36,7 +36,7 @@ services:
       - CONTAINERIZED=true
       - PYTHONUNBUFFERED=1
     volumes:
-      - ../src/evo/static_genome.py:/opt/source-code/feagi/src/evo/static_genome.py
+      - ../src/evo/static_genome.json:/opt/source-code/feagi/src/evo/static_genome.json
       - ../src/feagi_configuration.ini:/opt/source-code/feagi/src/feagi_configuration.ini
     networks:
       - net

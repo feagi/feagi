@@ -19,11 +19,15 @@ This module contains functions related to genome handling mainly inspired by nat
 
 """
 
+import logging
 import datetime
 import random
 import string
 from math import floor
 from inf import db_handler, settings, runtime_data
+
+
+logger = logging.getLogger(__name__)
 
 
 def selection():
@@ -113,74 +117,74 @@ class GeneModifier:
     @staticmethod
     def change_cortical_dimensions(genome, cortical_area, change_percentage):
         """ Function to increase or decrease the size of a cortical area's dimension"""
-        genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["x"][1] += \
-            genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["x"][1] * change_percentage
-        if genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["x"][1] < 10:
-            genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["x"][1] = 10
-        genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["x"][1] = \
-            floor(genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["x"][1])
+        genome['blueprint'][cortical_area]['geometric_boundaries']["x"][1] += \
+            genome['blueprint'][cortical_area]['geometric_boundaries']["x"][1] * change_percentage
+        if genome['blueprint'][cortical_area]['geometric_boundaries']["x"][1] < 10:
+            genome['blueprint'][cortical_area]['geometric_boundaries']["x"][1] = 10
+        genome['blueprint'][cortical_area]['geometric_boundaries']["x"][1] = \
+            floor(genome['blueprint'][cortical_area]['geometric_boundaries']["x"][1])
 
-        genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["y"][1] += \
-            genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["y"][1] * change_percentage
-        if genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["y"][1] < 10:
-            genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["y"][1] = 10
-        genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["y"][1] = \
-            floor(genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["y"][1])
+        genome['blueprint'][cortical_area]['geometric_boundaries']["y"][1] += \
+            genome['blueprint'][cortical_area]['geometric_boundaries']["y"][1] * change_percentage
+        if genome['blueprint'][cortical_area]['geometric_boundaries']["y"][1] < 10:
+            genome['blueprint'][cortical_area]['geometric_boundaries']["y"][1] = 10
+        genome['blueprint'][cortical_area]['geometric_boundaries']["y"][1] = \
+            floor(genome['blueprint'][cortical_area]['geometric_boundaries']["y"][1])
 
-        genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["z"][1] += \
-            genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["z"][1] * change_percentage
-        if genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["z"][1] < 10:
-            genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["z"][1] = 10
-        genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["z"][1] = \
-            floor(genome['blueprint'][cortical_area]['neuron_params']['geometric_boundaries']["z"][1])
+        genome['blueprint'][cortical_area]['geometric_boundaries']["z"][1] += \
+            genome['blueprint'][cortical_area]['geometric_boundaries']["z"][1] * change_percentage
+        if genome['blueprint'][cortical_area]['geometric_boundaries']["z"][1] < 10:
+            genome['blueprint'][cortical_area]['geometric_boundaries']["z"][1] = 10
+        genome['blueprint'][cortical_area]['geometric_boundaries']["z"][1] = \
+            floor(genome['blueprint'][cortical_area]['geometric_boundaries']["z"][1])
         return genome
 
 
     @staticmethod
     def change_firing_threshold(genome, cortical_area, change_percentage):
         """ Function to increase or decrease the neuron firing threshold in a given cortical area"""
-        genome['blueprint'][cortical_area]['neuron_params']['firing_threshold'] += \
-            genome['blueprint'][cortical_area]['neuron_params']['firing_threshold'] * change_percentage
-        if genome['blueprint'][cortical_area]['neuron_params']['firing_threshold'] < 0:
-            genome['blueprint'][cortical_area]['neuron_params']['firing_threshold'] = 0
+        genome['blueprint'][cortical_area]['firing_threshold'] += \
+            genome['blueprint'][cortical_area]['firing_threshold'] * change_percentage
+        if genome['blueprint'][cortical_area]['firing_threshold'] < 0:
+            genome['blueprint'][cortical_area]['firing_threshold'] = 0
         return genome
 
     @staticmethod
     def change_consecutive_fire_cnt_max(genome, cortical_area, change_percentage):
         """ Function to increase or decrease the neuron firing threshold in a given cortical area"""
-        genome['blueprint'][cortical_area]['neuron_params']['consecutive_fire_cnt_max'] += \
-            genome['blueprint'][cortical_area]['neuron_params']['consecutive_fire_cnt_max'] * change_percentage
-        if genome['blueprint'][cortical_area]['neuron_params']['consecutive_fire_cnt_max'] <= 1:
-            genome['blueprint'][cortical_area]['neuron_params']['consecutive_fire_cnt_max'] = 1
-        genome['blueprint'][cortical_area]['neuron_params']['consecutive_fire_cnt_max'] = \
-            floor(genome['blueprint'][cortical_area]['neuron_params']['consecutive_fire_cnt_max'])
+        genome['blueprint'][cortical_area]['consecutive_fire_cnt_max'] += \
+            genome['blueprint'][cortical_area]['consecutive_fire_cnt_max'] * change_percentage
+        if genome['blueprint'][cortical_area]['consecutive_fire_cnt_max'] <= 1:
+            genome['blueprint'][cortical_area]['consecutive_fire_cnt_max'] = 1
+        genome['blueprint'][cortical_area]['consecutive_fire_cnt_max'] = \
+            floor(genome['blueprint'][cortical_area]['consecutive_fire_cnt_max'])
         return genome
 
     @staticmethod
     def change_depolarization_timer_threshold(genome, cortical_area, change_percentage):
         """ Function to increase or decrease the neuron timer threshold in a given cortical area"""
-        genome['blueprint'][cortical_area]['neuron_params']['depolarization_threshold'] += \
-            genome['blueprint'][cortical_area]['neuron_params']['depolarization_threshold'] * change_percentage
-        if genome['blueprint'][cortical_area]['neuron_params']['depolarization_threshold'] < 0:
-            genome['blueprint'][cortical_area]['neuron_params']['depolarization_threshold'] = 0
+        genome['blueprint'][cortical_area]['depolarization_threshold'] += \
+            genome['blueprint'][cortical_area]['depolarization_threshold'] * change_percentage
+        if genome['blueprint'][cortical_area]['depolarization_threshold'] < 0:
+            genome['blueprint'][cortical_area]['depolarization_threshold'] = 0
         return genome
 
     @staticmethod
     def change_consecutive_fire_cnt_max(genome, cortical_area, change_percentage):
         """ Function to increase or decrease the neuron consecutive_fire_cnt_max in a given cortical area"""
-        genome['blueprint'][cortical_area]['neuron_params']['consecutive_fire_cnt_max'] += \
-            floor(genome['blueprint'][cortical_area]['neuron_params']['consecutive_fire_cnt_max'] * change_percentage)
-        if genome['blueprint'][cortical_area]['neuron_params']['consecutive_fire_cnt_max'] < 0:
-            genome['blueprint'][cortical_area]['neuron_params']['consecutive_fire_cnt_max'] = 0
+        genome['blueprint'][cortical_area]['consecutive_fire_cnt_max'] += \
+            floor(genome['blueprint'][cortical_area]['consecutive_fire_cnt_max'] * change_percentage)
+        if genome['blueprint'][cortical_area]['consecutive_fire_cnt_max'] < 0:
+            genome['blueprint'][cortical_area]['consecutive_fire_cnt_max'] = 0
         return genome
 
     @staticmethod
     def change_snooze_length(genome, cortical_area, change_percentage):
         """ Function to increase or decrease the neuron snooze_length in a given cortical area"""
-        genome['blueprint'][cortical_area]['neuron_params']['snooze_length'] += \
-            genome['blueprint'][cortical_area]['neuron_params']['snooze_length'] * change_percentage
-        if genome['blueprint'][cortical_area]['neuron_params']['snooze_length'] < 0:
-            genome['blueprint'][cortical_area]['neuron_params']['snooze_length'] = 0
+        genome['blueprint'][cortical_area]['snooze_length'] += \
+            genome['blueprint'][cortical_area]['snooze_length'] * change_percentage
+        if genome['blueprint'][cortical_area]['snooze_length'] < 0:
+            genome['blueprint'][cortical_area]['snooze_length'] = 0
         return genome
 
     @staticmethod

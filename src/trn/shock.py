@@ -29,9 +29,13 @@ todo: a system that can trigger multiple data feeder instances at the same time
 
 """
 
+import logging
 from inf import runtime_data
 from evo.voxels import neurons_in_the_block
 import traceback
+
+
+logger = logging.getLogger(__name__)
 
 runtime_data.shock_scenarios_options = ["shock_scenario_1", "shock_scenario_2"]
 

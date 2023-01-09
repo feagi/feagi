@@ -16,11 +16,15 @@ limitations under the License.
 ==============================================================================
 """
 
-app_name = 'gazebo'
-
-network_settings = {
+feagi_settings = {
     "feagi_host": "127.0.0.1",
     "feagi_api_port": "8000",
+}
+
+agent_settings = {
+    "agent_data_port": "30004",
+    "agent_id": "psychopy",
+    "agent_type": "embodiment",
     'TTL': 2,
     'last_message': 0,
 }

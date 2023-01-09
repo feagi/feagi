@@ -76,7 +76,7 @@ ubit.connect()
 print("Microbit has been connected.")
 print("Connecting to FEAGI resources...")
 
-# address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_outbound_port']
+# address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_opu_port']
 
 feagi_host = configuration.network_settings["feagi_host"]
 api_port = configuration.network_settings["feagi_api_port"]
@@ -90,7 +90,7 @@ network_settings['feagi_burst_speed'] = runtime_data["feagi_state"]['burst_durat
 ipu_channel_address = 'tcp://0.0.0.0:' + runtime_data["feagi_state"]['feagi_inbound_port_gazebo']
 print("IPU_channel_address=", ipu_channel_address)
 opu_channel_address = 'tcp://' + network_settings['feagi_host'] + ':' + \
-                      runtime_data["feagi_state"]['feagi_outbound_port']
+                      runtime_data["feagi_state"]['feagi_opu_port']
 
 feagi_ipu_channel = router.Pub(address=ipu_channel_address)
 feagi_opu_channel = router.Sub(address=opu_channel_address, flags=router.zmq.NOBLOCK)

@@ -21,6 +21,10 @@ preparations so a new brain can come into life.
 
 from inf import runtime_data
 from inf.initialize import reset_runtime_data
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def cleanup():

@@ -99,7 +99,7 @@ function App() {
     );
 
     FeagiAPI.getDefaultGenomes().then((response) => {
-      setDefaultGenomeData(response["genomes"]);
+      setDefaultGenomeData(response["genome"]);
     });
 
 
