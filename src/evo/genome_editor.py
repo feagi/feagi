@@ -20,10 +20,14 @@ A tool to help add custom keys to genome
 Todo: Make improvements to this tool as it will have further use-cases.
 """
 
+import logging
 from inf import runtime_data
 from datetime import datetime
 from time import sleep
 import json
+
+
+logger = logging.getLogger(__name__)
 
 
 def set_default(obj):
@@ -45,7 +49,7 @@ def save_genome(genome, file_name=''):
     if file_name != '':
         genome_file = file_name
     else:
-        genome_file = "genome" + datetime.now().isoformat() + ".py"
+        genome_file = "genome" + datetime.now().isoformat() + ".json"
 
     try:
         with open(genome_file, "w") as data_file:

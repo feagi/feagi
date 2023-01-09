@@ -1,6 +1,6 @@
 {
    "version": 1,
-   "disable_existing_loggers": true,
+   "disable_existing_loggers": false,
    "formatters": {
       "standard": {
          "format": "%(asctime)s:%(levelname)s:%(name)s:%(funcName)s:%(lineno)d:%(message)s"
@@ -13,11 +13,20 @@
          "class": "logging.StreamHandler",
          "stream": "ext://sys.stdout"
       },
-      "file": {
+      "misc_logs": {
          "level": "INFO",
          "formatter": "standard",
          "class": "logging.handlers.RotatingFileHandler",
-         "filename": "/tmp/sample.log",
+         "filename": "/tmp/feagi-misc.log",
+         "mode": "a",
+         "maxBytes": 1000000,
+         "backupCount": 5
+      },
+      "api_logs": {
+         "level": "INFO",
+         "formatter": "standard",
+         "class": "logging.handlers.RotatingFileHandler",
+         "filename": "/tmp/feagi-api.log",
          "mode": "a",
          "maxBytes": 1000000,
          "backupCount": 5
@@ -28,33 +37,26 @@
          "handlers": [
             "default"
          ],
-         "level": "WARNING",
+         "level": "INFO",
          "propagate": false
       },
-      "inf.initialize": {
+      "evo": {
          "handlers": [
-            "file"
+            "misc_logs"
          ],
          "level": "INFO",
          "propagate": false
       },
-      "evo.neuroembryogenesis": {
+      "inf": {
          "handlers": [
-            "file"
+            "misc_logs"
          ],
          "level": "INFO",
          "propagate": false
       },
-      "evo.connectome": {
+      "src.api": {
          "handlers": [
-            "file"
-         ],
-         "level": "INFO",
-         "propagate": false
-      },
-      "evo.genome": {
-         "handlers": [
-            "file"
+            "api_logs"
          ],
          "level": "INFO",
          "propagate": false

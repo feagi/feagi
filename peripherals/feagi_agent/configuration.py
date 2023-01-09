@@ -16,11 +16,15 @@ limitations under the License.
 ==============================================================================
 """
 
-app_name = 'gazebo'
-
-network_settings = {
+feagi_settings = {
     "feagi_host": "127.0.0.1",
     "feagi_api_port": "8000",
+}
+
+agent_settings = {
+    "agent_data_port": "30010",
+    "agent_id": "webcam-mnt",
+    "agent_type": "embodiment",
     'TTL': 2,
     'last_message': 0,
 }
@@ -38,7 +42,7 @@ capabilities = {
         "central_vision_compression": [64, 64],
         "peripheral_vision_compression": [8, 8],
         "previous_data": {},
-        "video_device_index": 1
+        "video_device_index": 0
     }
 }
 

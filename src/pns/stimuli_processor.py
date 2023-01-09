@@ -16,9 +16,13 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 from math import inf
 from evo.voxels import *
 from inf import runtime_data
+
+
+logger = logging.getLogger(__name__)
 
 """
 This module processes LIDAR data from a message queue and converts it to neuronal activity
@@ -34,9 +38,9 @@ def range_to_coords(cortical_area, range_data, range_min, range_max, threshold):
     :param threshold: threshold for detection distance (int)
     :return: list of tuple detection locations (x, y, z)
     """
-    x_max = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][0]
-    y_max = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][1]
-    z_max = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries'][2]
+    x_max = runtime_data.genome['blueprint'][cortical_area]["block_boundaries"][0]
+    y_max = runtime_data.genome['blueprint'][cortical_area]["block_boundaries"][1]
+    z_max = runtime_data.genome['blueprint'][cortical_area]["block_boundaries"][2]
     detection_locations = list
     if hasattr(range_data, '__iter__'):
         for idx, dist in enumerate(range_data):
@@ -75,8 +79,8 @@ def lidar_to_coords(lidar_data, threshold=5):
     LIDAR_MIN = 0.12
     LIDAR_MAX = 3.5
 
-    Y_MAX = runtime_data.genome['blueprint']['i__pro']['neuron_params']['block_boundaries'][1]
-    Z_MAX = runtime_data.genome['blueprint']['i__pro']['neuron_params']['block_boundaries'][2]
+    Y_MAX = runtime_data.genome['blueprint']['i__pro']["block_boundaries"][1]
+    Z_MAX = runtime_data.genome['blueprint']['i__pro']["block_boundaries"][2]
 
     detection_locations = []
     for idx, dist in enumerate(lidar_data):
@@ -106,17 +110,17 @@ def sonar_to_coords(sonar_data, threshold=10):
 
     X_MAX = runtime_data.genome['blueprint'] \
         ['i__pro'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][0]
 
     Y_MAX = runtime_data.genome['blueprint'] \
         ['i__pro'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][1]
 
     Z_MAX = runtime_data.genome['blueprint'] \
         ['i__pro'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][2]
 
     try:
@@ -142,17 +146,17 @@ def gyro_to_coords(gyro_data, direction):
 
     X_MAX = runtime_data.genome['blueprint'] \
         ['i__gyr'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][0]
 
     Y_MAX = runtime_data.genome['blueprint'] \
         ['i__gyr'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][1]
 
     Z_MAX = runtime_data.genome['blueprint'] \
         ['i__gyr'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][2]
     try:
         dist_map = round(map_value(float(gyro_data), -20, 20, 0, Z_MAX - 1))
@@ -172,17 +176,17 @@ def accelerator_to_coords(acc_data, direction):
     """
     X_MAX = runtime_data.genome['blueprint'] \
         ['i__acc'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][0]
 
     Y_MAX = runtime_data.genome['blueprint'] \
         ['i__acc'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][1]
 
     Z_MAX = runtime_data.genome['blueprint'] \
         ['i__acc'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][2]
     try:
         dist_map = round(map_value(float(acc_data), -20, 20, 0, Z_MAX - 1))
@@ -201,11 +205,11 @@ def vision_to_coords(vision_data):
     """
     X_MAX = runtime_data.genome['blueprint'] \
         ['i__vis'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][0]
     Y_MAX = runtime_data.genome['blueprint'] \
         ['i__vis'] \
-        ['neuron_params'] \
+         \
         ['block_boundaries'][1]
     vision_data = vision_data.split("-")
     return [(int(vision_data[0]), int(vision_data[1]), int(vision_data[2]))]
@@ -229,8 +233,8 @@ def servo_positions_to_coords(servo_data, servo_id):
         '6': [0, 4096]
     }
 
-    Y_MAX = runtime_data.genome['blueprint']['i__pos']['neuron_params']['block_boundaries'][1]
-    Z_MAX = runtime_data.genome['blueprint']['i__pos']['neuron_params']['block_boundaries'][2]
+    Y_MAX = runtime_data.genome['blueprint']['i__pos']["block_boundaries"][1]
+    Z_MAX = runtime_data.genome['blueprint']['i__pos']["block_boundaries"][2]
 
     detection_locations = []
     idx = servo_id
@@ -251,8 +255,8 @@ def encoder_to_coords(encoder_data, servo_id):
     :param servo_id: servo id (from 1 to 6)
     :return: list of tuple detection locations (x, y, z)
     """
-    Y_MAX = runtime_data.genome['blueprint']['i__enc']['neuron_params']['block_boundaries'][1]
-    Z_MAX = runtime_data.genome['blueprint']['i__enc']['neuron_params']['block_boundaries'][2]
+    Y_MAX = runtime_data.genome['blueprint']['i__enc']["block_boundaries"][1]
+    Z_MAX = runtime_data.genome['blueprint']['i__enc']["block_boundaries"][2]
 
     detection_locations = []
     idx = servo_id
@@ -273,8 +277,8 @@ def encoder_speed_to_coords(encoder_data):
     :param servo_id: servo id (from 1 to 6)
     :return: list of tuple detection locations (x, y, z)
     """
-    Y_MAX = runtime_data.genome['blueprint']['i__esp']['neuron_params']['block_boundaries'][1]
-    Z_MAX = runtime_data.genome['blueprint']['i__esp']['neuron_params']['block_boundaries'][2]
+    Y_MAX = runtime_data.genome['blueprint']['i__esp']["block_boundaries"][1]
+    Z_MAX = runtime_data.genome['blueprint']['i__esp']["block_boundaries"][2]
 
     detection_locations = []
     for i in encoder_data:

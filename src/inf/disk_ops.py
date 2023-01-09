@@ -14,11 +14,13 @@
 # limitations under the License.
 # ==============================================================================
 
-
+import logging
 import os.path
 import json
 import pickle
 from inf import runtime_data
+
+logger = logging.getLogger(__name__)
 
 
 def load_brain_in_memory(connectome_path=None, cortical_list=None):

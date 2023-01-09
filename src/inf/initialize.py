@@ -14,12 +14,12 @@
 # limitations under the License.
 # ==============================================================================
 import json
-import logging
 import os
 import platform
 import psutil
 import string
 import random
+import logging
 from queue import Queue
 from configparser import ConfigParser
 from tempfile import gettempdir
@@ -36,8 +36,10 @@ from inf.messenger import Pub
 from evo.neuroembryogenesis import generate_plasticity_dict
 from evo.genome_processor import *
 from evo.genome_validator import *
+from evo.templates import cortical_types
 
-log = logging.getLogger(__name__)
+
+logger = logging.getLogger(__name__)
 
 
 def id_gen(size=6, chars=string.ascii_uppercase + string.digits, signature=''):
@@ -135,7 +137,7 @@ def init_parameters(ini_path='./feagi_configuration.ini'):
     # print("runtime_data.parameters ", runtime_data.parameters)
     if not runtime_data.parameters["InitData"]["working_directory"]:
         runtime_data.parameters["InitData"]["working_directory"] = gettempdir()
-    log.info("All parameters have been initialized.")
+    logger.info("All parameters have been initialized.")
 
 
 def init_working_directory():
@@ -183,30 +185,30 @@ def init_working_directory():
         # print(runtime_data.paths)
 
 
-# Todo: Check of the following init is needed anymore
-def init_genome(genome):
-    print("\nInitializing genome...\n")
-    # The following stages the genome in the proper connectome path and loads it into the memory
-    disk_ops.genome_handler(runtime_data.connectome_path)
-
-    try:
-        if runtime_data.genome['version'] == "2.0":
-            print("\n\n\n"
-                  ""
-                  "******* ***** Genome Version 2.0 has been detected **************\n\n\n")
-            runtime_data.genome_ver = "2.0"
-            runtime_data.cortical_list = genome_2_cortical_list(runtime_data.genome['blueprint'])
-            genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
-            genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])
-            runtime_data.genome['blueprint'] = genome2['blueprint']
-            blueprint_validator(runtime_data.genome)
-        else:
-            print("ERROR! Genome is not compatible with 2.0 standard")
-    except KeyError as e:
-        print("Error:", e)
-        print("Genome version not available; assuming Genome 1.0 procedures.")
-        runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome['blueprint'])
-        pass
+# # Todo: Check of the following init is needed anymore
+# def init_genome(genome):
+#     logger.info("Initializing genome...")
+#     # The following stages the genome in the proper connectome path and loads it into the memory
+#     disk_ops.genome_handler(runtime_data.connectome_path)
+#
+#     try:
+#         if runtime_data.genome['version'] == "2.0":
+#             print("\n\n\n"
+#                   ""
+#                   "******* ***** Genome Version 2.0 has been detected **************\n\n\n")
+#             runtime_data.genome_ver = "2.0"
+#             runtime_data.cortical_list = genome_2_cortical_list(runtime_data.genome['blueprint'])
+#             genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
+#             genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])
+#             runtime_data.genome['blueprint'] = genome2['blueprint']
+#             blueprint_validator(runtime_data.genome)
+#         else:
+#             print("ERROR! Genome is not compatible with 2.0 standard")
+#     except KeyError as e:
+#         print("Error:", e)
+#         print("Genome version not available; assuming Genome 1.0 procedures.")
+#         runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome['blueprint'])
+#         pass
 
 
 def init_genome_post_processes():
@@ -215,8 +217,9 @@ def init_genome_post_processes():
     """
     # Augment cortical dimension dominance e.g. is it longer in x dimension or z
     for cortical_area in runtime_data.cortical_list:
-        block_boundaries = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["block_boundaries"]
+        block_boundaries = runtime_data.genome["blueprint"][cortical_area]["block_boundaries"]
         # block_boundaries = runtime_data.genome["blueprint"][]
+        print("%^ Block bounaries:", cortical_area, block_boundaries, runtime_data.genome["blueprint"][cortical_area])
         dominance = block_boundaries.index(max(block_boundaries))
         runtime_data.genome['blueprint'][cortical_area]['dimension_dominance'] = dominance
 
@@ -235,6 +238,7 @@ def init_timeseries_db():
 
 def init_cortical_info():
     genome = runtime_data.genome
+
     for cortical_area in genome['blueprint']:
         try:
             if genome['blueprint'][cortical_area]['group_id'] == 'IPU':
@@ -243,6 +247,8 @@ def init_cortical_info():
                 runtime_data.opu_list.add(cortical_area)
             if genome['blueprint'][cortical_area]['group_id'] == 'MEMORY':
                 runtime_data.mem_list.add(cortical_area)
+            if genome['blueprint'][cortical_area]['group_id'] == 'CORE':
+                runtime_data.core_list.add(cortical_area)
 
         except KeyError:
             print("Error: Cortical area %s missing cortical definition" % cortical_area)
@@ -250,6 +256,7 @@ def init_cortical_info():
     print("IPU list:", runtime_data.ipu_list)
     print("OPU list:", runtime_data.opu_list)
     print("Mem list:", runtime_data.mem_list)
+    print("Core list:", runtime_data.core_list)
 
 
 def init_genome_db():
@@ -277,7 +284,7 @@ def init_data_sources():
         else:
             print("    InfluxDb:", settings.Bcolors.RED + "Disabled" + settings.Bcolors.ENDC)
 
-        log.info("All data sources have been initialized.")
+        logger.info("All data sources have been initialized.")
     else:
         print("FEAGI is operating in LIGHT MODE where no database is utilized.")
 
@@ -294,6 +301,7 @@ def init_resources():
 
 def init_infrastructure():
     init_io_channels()
+    init_cortical_defaults()
     init_working_directory()
     init_container_variables()
     init_data_sources()
@@ -322,12 +330,20 @@ def reset_runtime_data():
     runtime_data.current_age = 0
 
 
+def init_fcl(cortical_area_):
+    runtime_data.fire_candidate_list[cortical_area_] = set()
+    runtime_data.future_fcl[cortical_area_] = set()
+    runtime_data.previous_fcl[cortical_area_] = set()
+    # runtime_data.upstream_neurons[cortical_area_] = {}
+
+
 def init_brain():
     runtime_data.last_alertness_trigger = datetime.now()
     runtime_data.brain_run_id = id_gen(signature='_R')
     init_cortical_info()
     runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
+    print(print("**^**^**^**^  $$$ ^^*^**^**^**^" * 10, runtime_data.cortical_dimensions))
     # genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
     # genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])
     # runtime_data.genome['blueprint'] = genome2['blueprint']
@@ -336,6 +352,14 @@ def init_brain():
     runtime_data.new_genome = True
     if 'burst_delay' in runtime_data.genome:
         runtime_data.burst_timer = float(runtime_data.genome['burst_delay'])
+
+
+def init_cortical_defaults():
+    cortical_types = set()
+    for entry in cortical_types:
+        cortical_types.add(entry)
+    runtime_data.cortical_types = cortical_types
+    runtime_data.cortical_defaults = cortical_types
 
 
 def init_burst_engine():
@@ -366,11 +390,11 @@ def init_burst_engine():
 def init_io_channels():
     # Initialize ZMQ connections
     try:
-        # opu_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_outbound_port']
+        # opu_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_opu_port']
         # print("OPU socket is:", opu_socket)
         # runtime_data.opu_pub = Pub(opu_socket)
         # print("OPU channel as been successfully established at ",
-        #       runtime_data.parameters['Sockets']['feagi_outbound_port'])
+        #       runtime_data.parameters['Sockets']['feagi_opu_port'])
 
         if runtime_data.parameters['Switches']['zmq_activity_publisher']:
             runtime_data.brain_activity_pub = True
@@ -378,13 +402,14 @@ def init_io_channels():
         #     print("Brain activity publisher socket is:", brain_activities_socket)
         #     runtime_data.brain_activity_pub = PubBrainActivities(brain_activities_socket)
 
-        print(">>>  >>>> >>> >>>> >>> >> > >> > >> > > >   Brain is running in a container")
-        if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
-            runtime_data.router_address_godot = "tcp://" + runtime_data.parameters['Sockets']['godot_host_name'] + ':' + runtime_data.parameters['Sockets'][
-                'feagi_inbound_port_godot']
-        if runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']:
-            runtime_data.router_address_gazebo = "tcp://" + runtime_data.parameters['Sockets']['gazebo_host_name'] + ':' + runtime_data.parameters['Sockets'][
-                'feagi_inbound_port_gazebo']
+        # if runtime_data.parameters['Sockets']['feagi_inbound_port_godot']:
+        #     runtime_data.router_address_godot = "tcp://" + runtime_data.parameters['Sockets']['godot_host_name'] + ':' + runtime_data.parameters['Sockets'][
+        #         'feagi_inbound_port_godot']
+        #
+        # if runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']:
+        #     runtime_data.router_address_embodiment = "tcp://" + runtime_data.parameters['Sockets']['gazebo_host_name'] + ':' + runtime_data.parameters['Sockets'][
+        #         'feagi_inbound_port_gazebo']
+
         # if runtime_data.parameters['Sockets']['feagi_inbound_port_embodiment']:
         #     runtime_data.router_address_embodiment = "tcp://" + runtime_data.parameters['Sockets']['embodiment_host_name'] \
         #                                          + ':' + runtime_data.parameters['Sockets']['feagi_inbound_port_embodiment']
@@ -403,7 +428,7 @@ def generate_cortical_dimensions():
     for cortical_area in runtime_data.genome["blueprint"]:
         cortical_name = runtime_data.genome["blueprint"][cortical_area]["cortical_name"]
         cortical_information[cortical_name] = []
-        genes = runtime_data.genome["blueprint"][cortical_area]["neuron_params"]
+        genes = runtime_data.genome["blueprint"][cortical_area]
         cortical_information[cortical_name].append(genes["relative_coordinate"][0])
         cortical_information[cortical_name].append(genes["relative_coordinate"][1])
         cortical_information[cortical_name].append(genes["relative_coordinate"][2])
@@ -419,5 +444,3 @@ def generate_cortical_dimensions():
         data_file.truncate()
 
     return cortical_information
-
-

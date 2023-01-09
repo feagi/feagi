@@ -49,10 +49,13 @@ reduced) and incorporated in the new neuroplasticity function (below).
                                                         long_term_depression=True, impact_multiplier=4)
 """
 import traceback
-
+import logging
 from inf import runtime_data
 from evo.synapse import bidirectional_synapse, synapse
 from npu.physiology import list_upstream_neurons, post_synaptic_current_update
+
+
+logger = logging.getLogger(__name__)
 
 
 def form_memories(cortical_area, src_neuron, dst_neuron):
@@ -215,12 +218,12 @@ def neuroplasticity():
                                 post-synaptic neuron is fired during burst (n+1) 
                                 """
 
-                                # if presynaptic_neuron in postsynaptic_neuron_neighbors:
-                                #     longterm_potentiation_depression(
-                                #         src_cortical_area=cfcl_area,
-                                #         src_neuron_id=postsynaptic_neuron,
-                                #         dst_cortical_area=pfcl_area,
-                                #         dst_neuron_id=presynaptic_neuron,
-                                #         long_term_depression=True,
-                                #         impact_multiplier=1
-                                #     )
+                                if presynaptic_neuron in postsynaptic_neuron_neighbors:
+                                    longterm_potentiation_depression(
+                                        src_cortical_area=cfcl_area,
+                                        src_neuron_id=postsynaptic_neuron,
+                                        dst_cortical_area=pfcl_area,
+                                        dst_neuron_id=presynaptic_neuron,
+                                        long_term_depression=True,
+                                        impact_multiplier=1
+                                    )

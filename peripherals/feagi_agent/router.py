@@ -1,5 +1,6 @@
 """
 """
+import json
 
 import zmq
 import socket
@@ -61,7 +62,8 @@ class Sub:
                 print(e)
 
 
-def register_with_feagi(app_name, feagi_host, api_port, app_capabilities, app_host_info):
+def register_with_feagi(feagi_ip, feagi_api_port, agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int,
+                        agent_capabilities):
     """
     To trade information between FEAGI and Controller
 
@@ -69,48 +71,47 @@ def register_with_feagi(app_name, feagi_host, api_port, app_capabilities, app_ho
     Controller (Capabilities)       -->     FEAGI
     """
 
-    api_address = 'http://' + feagi_host + ':' + api_port
-
-    registration_endpoint = '/v1/feagi/register'
+    api_address = 'http://' + feagi_ip + ':' + feagi_api_port
     network_endpoint = '/v1/feagi/feagi/network'
     stimulation_period_endpoint = '/v1/feagi/feagi/burst_engine/stimulation_period'
     burst_counter_endpoint = '/v1/feagi/feagi/burst_engine/burst_counter'
-
-    registration_data = {"source": app_name,
-                         "host": app_host_info["ip_address"],
-                         "capabilities": app_capabilities}
+    registration_endpoint = '/v1/agent/register'
 
     registration_complete = False
 
+    feagi_settings = dict()
+
     while not registration_complete:
-
-        print("Registration data:", registration_data)
-
-        feagi_registration_result = requests.post(api_address + registration_endpoint, data=registration_data)
-
-        print("FEAGI registration results: ", feagi_registration_result)
-
         feagi_settings = requests.get(api_address + network_endpoint).json()
+        if feagi_settings:
+            print("Data from FEAGI::", feagi_settings)
+        else:
+            print("No feagi settings!")
 
-        app_port_id = 'feagi_inbound_port_' + app_name
-        zmq_address = 'tcp://' + feagi_host + ':' + feagi_settings[app_port_id]
+        agent_registration_data = dict()
+        agent_registration_data["agent_type"] = str(agent_type)
+        agent_registration_data["agent_id"] = str(agent_id)
+        agent_registration_data["agent_ip"] = str(agent_ip)
+        agent_registration_data["agent_data_port"] = int(agent_data_port)
 
-        print('Awaiting connection with FEAGI at...', zmq_address)
-        subscriber = Sub(address=zmq_address, flags=zmq.SUB)
+        registration_status = requests.post(api_address + registration_endpoint, params=agent_registration_data)
 
-        # Receive FEAGI settings
-        feagi_settings['burst_duration'] = requests.get(api_address + stimulation_period_endpoint).json()
-        feagi_settings['burst_counter'] = requests.get(api_address + burst_counter_endpoint).json()
+        if registration_status:
+            print("Agent successfully registered with FEAGI!")
+            # Receive FEAGI settings
+            feagi_settings['burst_duration'] = requests.get(api_address + stimulation_period_endpoint).json()
+            feagi_settings['burst_counter'] = requests.get(api_address + burst_counter_endpoint).json()
 
-        print("\nFEAGI settings received as:\n", feagi_settings, "\n\n")
-        if feagi_settings and feagi_settings['burst_duration'] and feagi_settings['burst_counter']:
-            print("\n\n\n\nRegistration is complete....")
-            registration_complete = True
+            if feagi_settings and feagi_settings['burst_duration'] and feagi_settings['burst_counter']:
+                print("\n\n\n\nRegistration is complete....")
+                registration_complete = True
+        else:
+            print("Registration attempt with FEAGI failed! Most likely an agent with the same id is already registered")
         sleep(1)
 
     # Transmit Controller Capabilities
-    pub_address = "tcp://0.0.0.0:" + feagi_settings[app_port_id]
+    pub_address = "tcp://0.0.0.0:" + str(agent_data_port)
     publisher = Pub(address=pub_address)
-    publisher.send(app_capabilities)
+    publisher.send(agent_capabilities)
 
     return feagi_settings

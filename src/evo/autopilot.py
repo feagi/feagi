@@ -22,9 +22,13 @@ import os
 import random
 import json
 import traceback
+import logging
 from inf import runtime_data
 from inf.initialize import id_gen
 from api import message_processor
+
+
+logger = logging.getLogger(__name__)
 
 
 def init_autopilot_folders():

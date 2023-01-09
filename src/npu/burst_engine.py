@@ -36,12 +36,15 @@ from npu import stimulator
 from mem.memory import neuroplasticity
 from evo.stats import *
 from evo.death import death_manager
-from inf.initialize import init_burst_engine
+from inf.initialize import init_burst_engine, init_fcl
 from inf.messenger import Pub, Sub
 from pns.pns_router import opu_router, stimuli_router
 from api.message_processor import api_message_processor
 from trn.shock import shock_manager
 from evo.autopilot import load_new_genome
+
+
+logger = logging.getLogger(__name__)
 
 
 def cortical_group_members(group):
@@ -96,12 +99,6 @@ def burst_manager():
     #
     #         # todo: adjust burst frequency
 
-    def init_fcl(cortical_area_):
-        runtime_data.fire_candidate_list[cortical_area_] = set()
-        runtime_data.future_fcl[cortical_area_] = set()
-        runtime_data.previous_fcl[cortical_area_] = set()
-        # runtime_data.upstream_neurons[cortical_area_] = {}
-
     def capture_cortical_activity_stats():
         # print('@@@--- Activity Stats:', runtime_data.activity_stats)
         for cortical_area_ in runtime_data.fire_candidate_list:
@@ -127,9 +124,9 @@ def burst_manager():
                     print(settings.Bcolors.RED + '    %s : %i/%i %s  '
                           % (cortical_area_, cortical_neuron_count,
                              runtime_data.genome['blueprint'][cortical_area_]['per_voxel_neuron_cnt'] *
-                             runtime_data.genome['blueprint'][cortical_area_]["neuron_params"]['block_boundaries'][0] *
-                             runtime_data.genome['blueprint'][cortical_area_]["neuron_params"]['block_boundaries'][1] *
-                             runtime_data.genome['blueprint'][cortical_area_]["neuron_params"]['block_boundaries'][2]
+                             runtime_data.genome['blueprint'][cortical_area_]['block_boundaries'][0] *
+                             runtime_data.genome['blueprint'][cortical_area_]['block_boundaries'][1] *
+                             runtime_data.genome['blueprint'][cortical_area_]['block_boundaries'][2]
                              , active_neurons_in_blocks(cortical_area_)) + settings.Bcolors.ENDC)
                 elif runtime_data.parameters["Logs"]["print_cortical_activity_counters_all"]:
                     print(settings.Bcolors.YELLOW + '    %s : %i  '
@@ -137,13 +134,8 @@ def burst_manager():
                           + settings.Bcolors.ENDC)
 
     def burst_stats(burst_start_time):
-        if runtime_data.parameters["Logs"]["print_burst_stats"]:
-            for area in runtime_data.brain:
-                print("### Average postSynaptic current in --- %s --- was: %i"
-                      % (area, average_postsynaptic_current(area)))
-
-        burst_duration = datetime.now() - burst_start_time
-        if runtime_data.parameters["Logs"]["print_burst_info"]:
+        if runtime_data.parameters["Logs"]["print_burst_info"] and runtime_data.burst_timer > 0.1:
+            burst_duration = datetime.now() - burst_start_time
             if runtime_data.genome:
                 print(settings.Bcolors.UPDATE +
                       ">>> Burst duration: %s %i %i --- ---- ---- ---- ---- ---- ----"
@@ -174,7 +166,7 @@ def burst_manager():
         dst_neuron_obj = runtime_data.brain[cortical_area][neuron_id]
         if dst_neuron_obj["last_burst_num"] > 0:
             if dst_neuron_obj["last_burst_num"] + \
-                    runtime_data.genome["blueprint"][cortical_area]["neuron_params"]["refractory_period"] <= \
+                    runtime_data.genome["blueprint"][cortical_area]["refractory_period"] <= \
                     runtime_data.burst_count:
                 # Inhibitory effect check
                 if dst_neuron_obj["snooze_till_burst_num"] <= runtime_data.burst_count:
@@ -191,9 +183,9 @@ def burst_manager():
     def consecutive_fire_threshold_check(cortical_area_, neuron_id):
         # Condition to snooze the neuron if consecutive fire count reaches threshold
         if runtime_data.brain[cortical_area_][neuron_id]["consecutive_fire_cnt"] > \
-                runtime_data.genome["blueprint"][cortical_area_]["neuron_params"]["consecutive_fire_cnt_max"]:
+                runtime_data.genome["blueprint"][cortical_area_]["consecutive_fire_cnt_max"]:
             snooze_till(cortical_area_, neuron_id, runtime_data.burst_count +
-                        runtime_data.genome["blueprint"][cortical_area_]["neuron_params"]["snooze_length"])
+                        runtime_data.genome["blueprint"][cortical_area_]["snooze_length"])
             return False
         else:
             return True
@@ -269,7 +261,7 @@ def burst_manager():
 
     def init_burst_pub():
         # Initialize a broadcaster
-        burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_outbound_port']
+        burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_opu_port']
         runtime_data.burst_publisher = Pub(address=burst_engine_pub_address)
         print("Burst publisher has been initialized @ ", burst_engine_pub_address)
 
@@ -282,6 +274,7 @@ def burst_manager():
         broadcast_message['opu_data'] = runtime_data.opu_data
         broadcast_message['genome_num'] = runtime_data.genome_counter
         broadcast_message['control_data'] = runtime_data.robot_controller
+        broadcast_message['genome_changed'] = runtime_data.last_genome_modification_time
         if runtime_data.robot_model:
             broadcast_message['model_data'] = runtime_data.robot_model
             print("R--" * 20)
@@ -310,20 +303,22 @@ def burst_manager():
 
     def message_router():
         # IPU listener: Receives IPU data through ZMQ channel
-        if runtime_data.router_address_gazebo is not None:
-            gazebo_data = gazebo_listener.receive()
-            # Dynamically adjusting burst duration based on Controller needs
-            runtime_data.burst_timer = burst_duration_calculator(gazebo_data)
-            if gazebo_data:
-                stimuli_router(gazebo_data)
-
-        # IPU listener: Receives IPU data through ZMQ channel
-        if runtime_data.router_address_godot is not None:
-            godot_data = godot_listener.receive()
-            # Dynamically adjusting burst duration based on Controller needs
-            runtime_data.burst_timer = burst_duration_calculator(godot_data)
-            if godot_data:
-                stimuli_router(godot_data)
+        if runtime_data.agent_registry is not {}:
+            try:
+                for agent in runtime_data.agent_registry:
+                    if runtime_data.agent_registry[agent]["agent_type"] == "embodiment":
+                        embodiment_data = runtime_data.agent_registry[agent]["listener"].receive()
+                        # Dynamically adjusting burst duration based on Controller needs
+                        runtime_data.burst_timer = burst_duration_calculator(embodiment_data)
+                        if embodiment_data:
+                            stimuli_router(embodiment_data)
+                    if runtime_data.agent_registry[agent]["agent_type"] == "monitor":
+                        godot_data = runtime_data.agent_registry[agent]["listener"].receive()
+                        if godot_data:
+                            stimuli_router(godot_data)
+            except Exception as e:
+                print("Error on message router:", e, traceback.print_exc())
+                pass
 
         # IPU listener: Receives IPU data through REST API
         if runtime_data.stimulation_script is not None:
@@ -350,11 +345,11 @@ def burst_manager():
 
         for _ in runtime_data.fire_candidate_list:
             fire_list = set(runtime_data.fire_candidate_list[_])
-            if runtime_data.genome['blueprint'][_]['neuron_params'].get('visualization'):
+            if runtime_data.genome['blueprint'][_].get('visualization'):
                 while fire_list:
                     firing_neuron = fire_list.pop()
                     firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
-                    relative_coords = runtime_data.genome['blueprint'][_]['neuron_params'].get('relative_coordinate')
+                    relative_coords = runtime_data.genome['blueprint'][_].get('relative_coordinate')
                     broadcast_message.add(
                         (
                             runtime_data.burst_count,
@@ -413,8 +408,9 @@ def burst_manager():
                   "##   Exit Condition Triggered   ##\n"
                   "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
             runtime_data.burst_publisher.terminate()
-            godot_listener.terminate()
-            gazebo_listener.terminate()
+            for agent in runtime_data.agent_registry:
+                runtime_data.agent_registry[agent]["listener"].terminate()
+
             return
         # todo: the following sleep value should be tied to Autopilot status
         sleep(float(runtime_data.burst_timer))
@@ -509,20 +505,6 @@ def burst_manager():
 
     init_burst_pub()
 
-    # todo: consolidate all the listeners into a class
-    # Initialize IPU listener
-    if runtime_data.router_address_godot is not None:
-        print("runtime_data.router_address_godot=", runtime_data.router_address_godot)
-        print("Subscribing Godot incoming port...                                             ++++++++++++++++++++++++")
-        godot_listener = Sub(address=runtime_data.router_address_godot)
-    if runtime_data.router_address_gazebo is not None:
-        print("runtime_data.router_address_gazebo=", runtime_data.router_address_gazebo)
-        print("Subscribing Gazebo incoming port...                                            ++++++++++++++++++++++++")
-        gazebo_listener = Sub(address=runtime_data.router_address_gazebo)
-
-    else:
-        print("Router address is None!")
-
     # todo: need to figure how to incorporate FCL injection
     # feeder = Feeder()
     # mongo = db_handler.MongoManagement()
@@ -550,14 +532,11 @@ def burst_manager():
 
 
 def fcl_feeder(fire_list, fcl_queue):
-    # print("Injecting to FCL.../\/\/\/")
     # Update FCL with new input data. FCL is read from the Queue and updated
     flc = fcl_queue.get()
     for item in fire_list:
         flc.append(item)
     fcl_queue.put(flc)
-
-    print("Injected to FCL.../\/\/\/")
 
     # todo: add the check so if the there is limited IPU activity for multiple consequtive rounds to set a flag
 

@@ -18,9 +18,13 @@
 """
 Provides functions performing statistical analysis on the Connectome and Cortical behavior
 """
+
+import logging
 from evo.voxels import *
 from inf import runtime_data, db_handler
 
+
+logger = logging.getLogger(__name__)
 
 
 def cortical_area_neuron_count(cortical_area):
@@ -266,7 +270,7 @@ def opu_activity_report(cortical_area):
     """
     Returns percentage of neuronal activity in each block
     """
-    block_boundaries = runtime_data.genome['blueprint'][cortical_area]['neuron_params']['block_boundaries']
+    block_boundaries = runtime_data.genome['blueprint'][cortical_area]["block_boundaries"]
     report = dict()
     # The X axis of the OPU cortical areas are designated as device indicators
     for device in range(block_boundaries[0]):
@@ -285,6 +289,31 @@ def opu_activity_report(cortical_area):
         report[device] = device_activity_report
     return report
 
+
+def circuit_size(blueprint):
+    """
+    Returns the size of genome in the form of voxel count in each axis
+
+    Returns:
+        (x, y, z)
+    """
+    dimensions = [0, 0, 0]
+
+    for cortical_area in blueprint:
+        x_coord = blueprint[cortical_area]["block_boundaries"][0] + blueprint[cortical_area]["relative_coordinate"][0]
+        y_coord = blueprint[cortical_area]["block_boundaries"][1] + blueprint[cortical_area]["relative_coordinate"][1]
+        z_coord = blueprint[cortical_area]["block_boundaries"][2] + blueprint[cortical_area]["relative_coordinate"][2]
+
+        if x_coord > dimensions[0]:
+            dimensions[0] = x_coord
+
+        if y_coord > dimensions[1]:
+            dimensions[1] = y_coord
+
+        if z_coord > dimensions[2]:
+            dimensions[2] = z_coord
+
+    return dimensions
 
 # def tbd():
 #     for key in blueprint:

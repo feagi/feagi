@@ -52,14 +52,13 @@ hw_controller = None
 opu_pub = None
 brain_activity_pub = None
 brain_activity_pub_freq = 1
-router_address_gazebo = None
-router_address_godot = None
-router_address_virtual = None
 fire_queue = {}
 controller_config = None
 opu_data = {}
 cortical_dimensions = {}
 voxel_dict = {}
+cortical_types = {}
+cortical_defaults = None
 
 
 # System
@@ -77,12 +76,14 @@ genome_orig = {}
 genome2 = {}
 genome_ver = None
 genome_id = ""
+genome_file_name = None
 genome_counter = 0
 autopilot = False
 generation_dict = None
 current_generation_dict_id = None
 generation_id = None
 genome_reset_flag = False
+last_genome_modification_time = None
 
 
 # Burst Engine
@@ -91,6 +92,7 @@ burst_activities = {}
 burst_timer = None
 exit_condition = False
 new_genome = False
+
 
 # Stats Collection
 neuron_mp_collection_scope = {}
@@ -104,6 +106,7 @@ neuron_psp_collection_scope = {}
 ipu_list = set()
 opu_list = set()
 mem_list = set()
+core_list = set()
 
 
 # Queues
@@ -166,3 +169,18 @@ robot_file_path = None
 environment_id = None
 environment_map_file = None
 environment_map_path = None
+
+# ZMQ
+godot_listener = None
+embodiment_listener = None
+
+# Agents
+"""
+agent_registry = {
+    "agent_ip": {
+     ...   
+    }
+
+}
+"""
+agent_registry = {}

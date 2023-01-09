@@ -1,19 +1,18 @@
-
+import datetime
 import json
 from inf import runtime_data, disk_ops
 from inf.initialize import init_brain, reset_runtime_data, id_gen
 from evo.genome_processor import genome_ver_check
 from evo.neuroembryogenesis import develop_brain
 from evo.autopilot import update_generation_dict
-from evo.x_genesis import update_cortical_properties, update_morphology_properties, cortical_removal
+from evo.x_genesis import update_cortical_properties, update_morphology_properties, update_cortical_mappings
+from evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal
 
 
 def api_message_processor(api_message):
     """
     Processes the incoming API calls to FEAGI
     """
-    print("*---*---" * 30)
-    print("API message:\n", api_message)
     if 'burst_management' in api_message:
         if 'burst_duration' in api_message['burst_management']:
             if api_message['burst_management']['burst_duration'] is not None:
@@ -23,6 +22,9 @@ def api_message_processor(api_message):
         runtime_data.stimulation_script = api_message['stimulation_script']['stimulation_script']
 
     if 'log_management' in api_message:
+        if 'print_cortical_activity_counters' in api_message['log_management']:
+            runtime_data.parameters['Logs']['print_cortical_activity_counters'] \
+                = api_message['log_management']['print_messenger_logs']
         if 'print_burst_info' in api_message['log_management']:
             runtime_data.parameters['Logs']['print_burst_info'] \
                 = api_message['log_management']['print_burst_info']
@@ -100,6 +102,7 @@ def api_message_processor(api_message):
         runtime_data.genome_counter += 1
         runtime_data.genome_reset_flag = False
         runtime_data.genome_ver = None
+        runtime_data.last_genome_modification_time = datetime.datetime.now()
         runtime_data.genome_orig = dict(api_message['genome']).copy()
         runtime_data.genome = api_message['genome']
         runtime_data.genome = genome_ver_check(runtime_data.genome)
@@ -175,14 +178,20 @@ def api_message_processor(api_message):
     if 'update_cortical_properties' in api_message:
         update_cortical_properties(cortical_properties=api_message['update_cortical_properties'])
 
+    if 'update_cortical_mappings' in api_message:
+        update_cortical_mappings(cortical_mappings=api_message['update_cortical_mappings'])
+
     if 'update_morphology_properties' in api_message:
         update_morphology_properties(morphology_properties=api_message['update_morphology_properties'])
 
     if 'delete_cortical_area' in api_message:
-        cortical_removal(cortical_name=api_message['delete_cortical_area'],
+        cortical_removal(cortical_area=api_message['delete_cortical_area'],
                          genome_scrub=True)
 
-    if 'add_cortical_area' in api_message:
-        update_cortical_properties(cortical_properties=api_message['add_cortical_area'], new_area=True)
+    if 'add_core_cortical_area' in api_message:
+        add_core_cortical_area(cortical_properties=api_message['add_core_cortical_area'])
+
+    if 'add_custom_cortical_area' in api_message:
+        add_custom_cortical_area(cortical_properties=api_message['add_custom_cortical_area'])
 
     api_message = {}

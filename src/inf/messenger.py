@@ -27,9 +27,11 @@ All communications to and from FEAGI to follow the standard below:
 
 """
 from datetime import datetime
-
+import logging
 import zmq
 from inf import runtime_data
+
+logger = logging.getLogger(__name__)
 
 # todo: consolidate the two publishers in a modular fashion
 
