@@ -17,7 +17,7 @@ limitations under the License.
 """
 
 feagi_settings = {
-    "feagi_host": "192.168.50.246",
+    "feagi_host": "127.0.0.1",
     "feagi_api_port": "8000",
 }
 
