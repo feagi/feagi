@@ -204,6 +204,13 @@ def update_cortical_properties(cortical_properties):
             runtime_data.genome["blueprint"][cortical_area]["synapse_attractivity"] = \
                 cortical_properties['cortical_synaptic_attractivity']
 
+    if cortical_properties['neuron_leak_variability'] is not None:
+        if runtime_data.genome["blueprint"][cortical_area]["leak_variability"] != \
+                cortical_properties['neuron_leak_variability']:
+            regeneration_flag = True
+            runtime_data.genome['blueprint'][cortical_area]["leak_variability"] = \
+                cortical_properties['neuron_leak_variability']
+
     if regeneration_flag:
         logger.info(f"Cortical regeneration triggered for {cortical_area}")
         cortical_regeneration(cortical_area=cortical_area)
