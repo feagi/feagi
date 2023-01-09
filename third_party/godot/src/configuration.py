@@ -3,7 +3,7 @@
 app_name = 'godot'
 
 feagi_settings = {
-    "feagi_host": "127.0.0.1",
+    "feagi_host": "feagi",
     "feagi_api_port": "8000",
 }
 
