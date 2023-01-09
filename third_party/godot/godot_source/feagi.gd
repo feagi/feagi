@@ -31,17 +31,11 @@ var test = 0
 var data
 var stored_value = ""
 var current_pos = Vector3()
-var x = 0
-var y = 1
-var z = 2
 var total = []
 var array_test = []
 var number = 0
 var voxel_history = 0
 var history_total = 0
-var depth = 0
-var height = 0
-var width = 0
 var cortical_area = {}
 var cortical_area_stored = {}
 var Godot_list = {}
@@ -69,7 +63,7 @@ func _ready():
 	create_textbox_axis.set_name("x_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
 	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, 5,0,0,"x")
+	generate_textbox(create_textbox_axis, 5,0,0,"x", 1, 0)
 	for j in 6:
 		$GridMap3.set_cell_item(0,j,0,0)
 	create_textbox_axis = create_textbox_axis.duplicate() #generate a new node to re-use the model
@@ -78,7 +72,7 @@ func _ready():
 	create_textbox_axis.set_name("y_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
 	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, 0,5,0,"y")
+	generate_textbox(create_textbox_axis, 0,5,0,"y", 1,0)
 	for k in 6: 
 		$GridMap3.set_cell_item(0,0,k,0)
 	create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
@@ -87,7 +81,7 @@ func _ready():
 	create_textbox_axis.set_name("z_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
 	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, -2,0.5,6,"z")
+	generate_textbox(create_textbox_axis, -2,0.5,6,"z", 1, 0)
 	$GridMap.clear()
 	
 	while true:
@@ -125,7 +119,7 @@ func generate_one_model(node, x_input, y_input, z_input, width_input, depth_inpu
 	global_name_list.append(new)
 	new.scale = Vector3(width_input, height_input, depth_input)
 	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), depth_input/2 + int(z_input))
-	generate_textbox(node, x_input,height_input,z_input, name_input)
+	generate_textbox(node, x_input,height_input,z_input, name_input, y_input, width_input)
 	
 	
 func generate_model(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
@@ -138,12 +132,13 @@ func generate_model(node, x_input, y_input, z_input, width_input, depth_input, h
 					add_child(new)
 					global_name_list.append(new)
 					new.transform.origin = Vector3(x_gain+int(x_input), y_gain+int(y_input), z_gain+int(z_input))
-					generate_textbox(node, x_input,height_input,z_input, name_input)
+					generate_textbox(node, x_input,height_input,z_input, name_input, y_input, width_input)
 
-func generate_textbox(node, x_input,height_input,z_input, name_input):
-	node.transform.origin = Vector3(int(x_input) + (width/1.5), int(int(y)+2 + (height_input)),z_input)
+func generate_textbox(node, x_input,height_input,z_input, name_input, input_y, width_input):
+	node.transform.origin = Vector3(int(x_input) + (width_input/1.5), int(int(input_y)+2 + (height_input)),z_input)
 	node.get_node("Viewport/Label").set_text(str(name_input))
 	node.get_node("Viewport").get_texture()
+	global_name_list.append({name_input.replace(" ", ""): [node, x_input, 0, z_input, 0, 0, height_input]})
 
 func adding_cortical_areas(name, x_input,y_input,z_input,width_input,height_input,depth_input):
 	cortical_area[name]=[x_input,y_input,z_input,width_input,height_input,depth_input] ##This is just adding the list
@@ -191,12 +186,16 @@ func _csv_generator(): # After you are done with testing, change the name to gen
 			generate_one_model(create_textbox, x,y,z,width, depth, height, name_input)
 
 func _clear_node_name_list(node_name):
+	"""
+	clear all cortical area along with the library list/dict
+	"""
 	var list = node_name
 	if list.empty() != true:
-		for search_name in list:
-			print(search_name)
-			search_name.queue_free()
-	global_name_list = []
+		var list_size = global_name_list.size()
+		for i in list_size:
+			for iteration_name in global_name_list[i]:
+				global_name_list[i][iteration_name][0].queue_free()
+		global_name_list = []
 	$Floor_grid.clear()
 
 func check_csv():
@@ -229,6 +228,9 @@ func generate_voxels():
 		$red_voxel.multimesh.instance_count = total
 		$red_voxel.multimesh.visible_instance_count = total
 		var key = 0
+		var x
+		var y
+		var z
 		flag=0
 		while key < total:
 			if flag == 0:
