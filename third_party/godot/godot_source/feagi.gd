@@ -17,7 +17,6 @@ limitations under the License.
 extends Spatial
 
 
-onready var file = 'res://csv_data.gdc'
 onready var textbox_display = get_node("Sprite3D")
 onready var selected =  preload("res://selected.meshlib")
 onready var deselected = preload("res://Cortical_area_box.meshlib")
@@ -197,27 +196,6 @@ func _clear_node_name_list(node_name):
 				global_name_list[i][iteration_name][0].queue_free()
 		global_name_list = []
 	$Floor_grid.clear()
-
-func check_csv():
-	if csv_flag == false:
-		var check = File.new()
-		if check.file_exists('res://csv_data.gdc'):
-			csv_flag = true
-			check.open(file, File.READ)
-			var current_csv = check.get_as_text()
-			check.close()
-			#print(stored_csv)
-			if stored_csv != current_csv:
-				_csv_generator()
-				stored_csv = current_csv
-	else:
-		var check = File.new()
-		check.open(file, File.READ)
-		var current_csv = check.get_as_text()
-		check.close()
-		if stored_csv != current_csv:
-			stored_csv = current_csv
-			_csv_generator()
 			
 func generate_voxels():
 	if stored_value != "" and stored_value != null:
