@@ -18,9 +18,15 @@ limitations under the License.
 
 app_name = 'gazebo'
 
-network_settings = {
+feagi_settings = {
     "feagi_host": "feagi",
     "feagi_api_port": "8000",
+}
+
+agent_settings = {
+    "agent_data_port": "30002",
+    "agent_id": "gazebo",
+    "agent_type": "monitor",
     'TTL': 2,
     'last_message': 0,
 }
