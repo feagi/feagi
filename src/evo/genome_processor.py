@@ -39,8 +39,7 @@ def genome_ver_check(genome):
         else:
             print("ERROR! Genome is not compatible with 2.0 standard")
     except KeyError as e:
-        print("Error:", e)
-        print("Genome version not available; assuming Genome 1.0 procedures.")
+        print("Error:", e, traceback.print_exc())
         pass
 
 
@@ -337,7 +336,7 @@ genome_2_to_1 = {
     "fire_t-f": "firing_threshold",
     "refrac-i": "refractory_period",
     "leak_c-f": "leak_coefficient",
-    "leak_v-i": "leak_variability",
+    "leak_v-f": "leak_variability",
     "c_fr_c-i": "consecutive_fire_cnt_max",
     "snooze-f": "snooze_length",
     "_group-t": "group_id",

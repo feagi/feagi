@@ -13,8 +13,6 @@ def api_message_processor(api_message):
     """
     Processes the incoming API calls to FEAGI
     """
-    print("*---*---" * 30)
-    print("API message:\n", api_message)
     if 'burst_management' in api_message:
         if 'burst_duration' in api_message['burst_management']:
             if api_message['burst_management']['burst_duration'] is not None:
