@@ -64,24 +64,6 @@ services:
     privileged: true
     networks:
       - net
-#    volumes:
-#      - ../../faas/ibam:/root/godot_source/
-
-#  psychopy:
-#    build: ../third_party/psychopy/
-#    deploy:
-#      resources:
-#        limits:
-#          cpus: '1'
-#          memory: '2g'
-#    ports:
-#      - "6083:80"
-#    environment:
-#      - CONTAINERIZED=true
-#      - PYTHONUNBUFFERED=1
-#    privileged: true
-#    networks:
-#      - net
 
   grafana:
     build: ../third_party/grafana/
