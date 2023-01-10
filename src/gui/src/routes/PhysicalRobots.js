@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { GrRaspberry } from "react-icons/gr";
 import { SiMicrobit } from "react-icons/si";
+import { MdOutlinePsychology } from "react-icons/md";
+import {HiOutlineVideoCamera} from "react-icons/hi"
 import Dialog from "@mui/material/Dialog";
 import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
@@ -12,11 +14,14 @@ import MenuCard from "../components/MenuCard";
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import { useNavigate } from "react-router-dom";
+import {Img} from "react-image";
 
 
 const PhysicalRobots = () => {
   const [freenoveDialogOpen, setFreenoveDialogOpen] = useState(false);
   const [microbitDialogOpen, setMicrobitDialogOpen] = useState(false);
+  const [psychopyDialogOpen, setPsychopyDialogOpen] = useState(false);
+  const [webcamDialogOpen, setWebcamDialogOpen] = useState(false);
   let navigate = useNavigate();
 
   const handleFreenoveDialogOpen = () => {
@@ -35,8 +40,24 @@ const PhysicalRobots = () => {
     setMicrobitDialogOpen(false);
   };
 
+  const handlePsychopyDialogOpen = () => {
+    setPsychopyDialogOpen(true);
+  };
+
+  const handlePsychopyDialogClose = () => {
+    setPsychopyDialogOpen(false);
+  };
+
+  const handleWebcamDialogOpen = () => {
+    setWebcamDialogOpen(true);
+  };
+
+  const handleWebcamDialogClose = () => {
+    setWebcamDialogOpen(false);
+  };
+
   const genomeActions = () => {
-    navigate("/genome/mode");
+    navigate("/monitoring-go");
   };
 
   const showFreenoveDialog = () => {
@@ -59,7 +80,7 @@ const PhysicalRobots = () => {
           </DialogContent>
           <DialogActions>
             <Button autoFocus onClick={genomeActions}>
-              Proceed to genome actions...
+              Start monitoring...
             </Button>
         </DialogActions>
         </Dialog>
@@ -87,7 +108,51 @@ const PhysicalRobots = () => {
             </DialogContentText>
             <DialogActions>
             <Button autoFocus onClick={genomeActions}>
-              Proceed to genome actions...
+              Start monitoring...
+            </Button>
+        </DialogActions>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  };
+
+  const showPsychopyDialog = () => {
+    return (
+      <>
+        <Dialog open={psychopyDialogOpen} onClose={handlePsychopyDialogClose}>
+          <DialogTitle>Psychopy Setup</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              TBD
+
+
+
+            </DialogContentText>
+            <DialogActions>
+            <Button autoFocus onClick={genomeActions}>
+              Start monitoring...
+            </Button>
+        </DialogActions>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  };
+
+
+  const showWebcamDialog = () => {
+    return (
+      <>
+        <Dialog open={webcamDialogOpen} onClose={handleWebcamDialogClose}>
+          <DialogTitle>Webcam Setup</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              TBD
+            </DialogContentText>
+            <DialogActions>
+            <Button autoFocus onClick={genomeActions}>
+              Start monitoring...
             </Button>
         </DialogActions>
           </DialogContent>
@@ -104,7 +169,7 @@ const PhysicalRobots = () => {
         sx={{ p: 4, mt: 8 }}
         component="div"
       >
-        Select Robot Controller Type
+        Choose Your Embodiment
       </Typography>
       <Stack
         direction="row"
@@ -133,9 +198,33 @@ const PhysicalRobots = () => {
             />
           </label>
         </Item>
+        <Item>
+          <label htmlFor="robot-card">
+            <MenuCard
+              // image={<Img src={require('../assets/Psychopy.png')} width="150" height="150" />}
+
+                image={<MdOutlinePsychology size={150} />}
+              label="Psychopy"
+              onClick={handlePsychopyDialogOpen}
+              changeColorOnClick={false}
+            />
+          </label>
+        </Item>
+        <Item>
+          <label htmlFor="robot-card">
+            <MenuCard
+              image={<HiOutlineVideoCamera size={150} />}
+              label="Webcam"
+              onClick={handleWebcamDialogOpen}
+              changeColorOnClick={false}
+            />
+          </label>
+        </Item>
       </Stack>
       {showFreenoveDialog()}
       {showMicrobitDialog()}
+      {showPsychopyDialog()}
+      {showWebcamDialog()}
     </>
   );
 };

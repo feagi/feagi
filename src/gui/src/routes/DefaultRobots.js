@@ -18,7 +18,7 @@ const DefaultRobots = (props) => {
         robot_sdf_file_name: JSON.parse(type),
         robot_sdf_file_name_path: JSON.parse(path)
        });
-    navigate("/genome/mode");
+    navigate("/monitoring-goga");
   };
 
   return (

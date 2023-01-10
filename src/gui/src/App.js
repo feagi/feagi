@@ -29,6 +29,7 @@ const CorticalAreaEditor = lazy(() => import("./routes/CorticalAreaEditor"));
 const Mapping = lazy(() => import("./routes/Mapping"));
 const Sensorimotor = lazy(() => import("./routes/Sensorimotor"));
 const MonitoringDashboard = lazy(() => import("./routes/MonitoringDashboard"));
+const MonitoringDashboardGG = lazy(() => import("./routes/MonitoringDashboardGG"));
 const PhysicalRobots = lazy(() => import("./routes/PhysicalRobots"));
 const DefaultGenomes = lazy(() => import("./routes/DefaultGenomes"));
 const DefaultRobots = lazy(() => import("./routes/DefaultRobots"));
@@ -271,9 +272,17 @@ function App() {
               }
             />
             <Route
-                path="/monitoring"
+                path="/monitoring-go"
                 element={
               <MonitoringDashboard
+                defaultShockOptions={defaultShockOptions}
+              />
+            }
+            />
+            <Route
+                path="/monitoring-goga"
+                element={
+              <MonitoringDashboardGG
                 defaultShockOptions={defaultShockOptions}
               />
             }

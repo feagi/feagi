@@ -23,10 +23,6 @@ import { BiDna } from 'react-icons/bi';
 import { FiZap } from 'react-icons/fi';
 import { GrRobot } from 'react-icons/gr';
 import { FaRegMap } from 'react-icons/fa';
-import { MdArchitecture } from "react-icons/md";
-import { GiDna2 } from "react-icons/gi";
-import { MdUploadFile } from "react-icons/md";
-import { GiRegeneration } from "react-icons/gi";
 import { GiBrainDump } from 'react-icons/gi';
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
@@ -48,12 +44,15 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogActions from "@mui/material/DialogActions";
 import Item from "../components/Item";
 import MenuCard from "../components/MenuCard";
-import GenomeUploadCard from "../components/GenomeUploadCard";
+import {Img} from "react-image";
+import map2 from "../assets/map2.png"
+import {Image} from "@mui/icons-material";
 
 
 const MonitoringDashboard = (props) => {
   const [frameHeight, setFrameHeight] = useState("");
   const [godotFrameLoaded, setGodotFrameLoaded] = useState(false);
+  const [gazeboFrameLoaded, setGazeboFrameLoaded] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   let navigate = useNavigate();
 
@@ -75,6 +74,10 @@ const MonitoringDashboard = (props) => {
 
   const scrollHeightScaled =
     Math.round(document.documentElement.scrollHeight / 1.3) + "px";
+
+  const handleGazeboLoad = () => {
+    setGazeboFrameLoaded(true);
+  };
 
   const handleMenuClick = () => {
     setDrawerOpen(!drawerOpen);
@@ -167,38 +170,36 @@ const MonitoringDashboard = (props) => {
     setAnchorEl(null);
   };
 
-  const [genomeSelectorDialogOpen, setGenomeSelectorDialogOpen] = useState(false);
+  const [robotSelectorDialogOpen, setRobotSelectorDialogOpen] = useState(false);
+  const [environmentSelectorDialogOpen, setEnvironmentSelectorDialogOpen] = useState(false);
 
 
-  const handleGenomeSelectorDialogOpen = () => {
-    setGenomeSelectorDialogOpen(true);
+  const handleRobotSelectorDialogOpen = () => {
+    setRobotSelectorDialogOpen(true);
   };
 
-  const handleGenomeSelectorDialogClose = () => {
-    setGenomeSelectorDialogOpen(false);
+  const handleRobotSelectorDialogClose = () => {
+    setRobotSelectorDialogOpen(false);
   };
 
-  const showGenomeSelectorDialog = () => {
+  const handleEnvironmentSelectorDialogOpen = () => {
+    setEnvironmentSelectorDialogOpen(true);
+  };
 
-      const handleDefaultClick = () => {
-        navigate("/genome/defaults");
-      };
+  const handleEnvironmentSelectorDialogClose = () => {
+    setEnvironmentSelectorDialogOpen(false);
+  };
 
-      const handleAutopilot = (type) => {
-        FeagiAPI.postAutopilot({
-        });
-        navigate("/monitoring");
-      };
+  const showRobotSelectorDialog = () => {
+    return (
+      <>
+        <Dialog open={robotSelectorDialogOpen} onClose={handleRobotSelectorDialogClose}
+                fullWidth
+                maxWidth="md"
 
-
-  return (
-    <>
-      <Dialog open={genomeSelectorDialogOpen} onClose={handleGenomeSelectorDialogClose}
-              fullWidth
-              maxWidth="lg"
-      >
-        <DialogTitle>Select a genome mode</DialogTitle>
-        {/*<DialogContent>*/}
+        >
+          <DialogTitle>Select a Robot</DialogTitle>
+          {/*<DialogContent>*/}
           <Stack
             direction="row"
             alignItems="center"
@@ -206,55 +207,110 @@ const MonitoringDashboard = (props) => {
             spacing={2}
             sx={{ m: 2 }}
           >
-
-          <Item>
-            <label htmlFor="genome-card">
-              <MenuCard
-                image={<GiDna2 size={150} />}
-                label="Sample Genomes"
-                onClick={handleDefaultClick}
-                changeColorOnClick={false}
-              />
-            </label>
-          </Item>
-          <Item>
-            <label htmlFor="genome-upload-card">
-              <GenomeUploadCard
-                image={<MdUploadFile size={150} />}
-                label="Upload Genome"
-              />
-            </label>
-          </Item>
-                  <Item>
-            <label htmlFor="genome-card">
-              <MenuCard
-                image={<GiRegeneration size={150} />}
-                label="Autopilot"
-                onClick={handleAutopilot}
-                changeColorOnClick={false}
-              />
-            </label>
-          </Item>
-          <Tooltip title="Coming soon...">
-          <Item sx={{ position: "relative" }}>
-            <label htmlFor="genome-create-card">
-              <MenuCard
-                image={<MdArchitecture size={150} />}
-                label="Design Genome"
-                // onClick={handleCreateGenomeClick}
-                changeColorOnClick={false}
-                grayedOut={true}
-              />
-            </label>
-
-          </Item>
-          </Tooltip>
+            <Item>
+              <label htmlFor="robot-card">
+                <MenuCard
+                  image={<img src={require('../assets/smart_car.png')} width="225" height="225" />}
+                  onClick={() => {handleRobotSelection('"smart_car.sdf"', '"/robots/smart_car/"'); handleRobotSelectorDialogClose()}}
+                  changeColorOnClick={false}
+                />
+              </label>
+            </Item>
+            <Item>
+              <label htmlFor="robot-card">
+                <MenuCard
+                  image={<img src={require('../assets/stick-bot.png')} width="225" height="225" />}
+                  onClick={() => {handleRobotSelection('"stick-bot.sdf"', '"/robots/stick-bot/"'); handleRobotSelectorDialogClose()}}
+                  changeColorOnClick={false}
+                />
+              </label>
+            </Item>
+            <Item>
+              <label htmlFor="robot-card">
+                <MenuCard
+                  image={<img src={require('../assets/drone.png')} width="225" height="225" />}
+                  onClick={() => {handleRobotSelection('"drone.sdf"', '"/robots/drone/"'); handleRobotSelectorDialogClose()}}
+                  changeColorOnClick={false}
+                />
+              </label>
+            </Item>
           </Stack>
-        {/*</DialogContent>*/}
-      </Dialog>
-    </>
-  );
-};
+          {/*</DialogContent>*/}
+        </Dialog>
+      </>
+    );
+  }
+
+  const handleMapSelection = (type) => {
+      FeagiAPI.postRobotModel({
+        gazebo_floor_img_file: JSON.parse(type),
+        gazebo_floor_img_file_path: JSON.parse('"./src/evo/defaults/maps/"')
+       });
+  };
+
+  const handleRobotSelection = (type, path) => {
+      FeagiAPI.postRobotModel({
+        robot_sdf_file_name: JSON.parse(type),
+        robot_sdf_file_name_path: JSON.parse(path)
+       });
+  };
+
+
+  const showEnvironmentSelectorDialog = () => {
+    return (
+      <>
+        <Dialog open={environmentSelectorDialogOpen} onClose={handleEnvironmentSelectorDialogClose}
+                fullWidth
+                maxWidth="md"
+
+        >
+          <DialogTitle>Select an Environment</DialogTitle>
+          {/*<DialogContent>*/}
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="center"
+              spacing={2}
+              sx={{ m: 2 }}
+            >
+              <Item>
+                <label htmlFor="map-card">
+                  <MenuCard
+                    image={<img src={require('../assets/map1.png')} width="225" height="225" />}
+                    // label="Golf Course"
+                    onClick={() => {handleMapSelection('"map1.png"'); handleEnvironmentSelectorDialogClose()}}
+                    changeColorOnClick={false}
+                  />
+                </label>
+              </Item>
+              <Item>
+                <label htmlFor="map-card">
+                  <MenuCard
+                    image={<img src={require('../assets/map2.png')} width="225" height="225" />}
+                    // label="Chess Board"
+                    onClick={() => {handleMapSelection('"map2.png"'); handleEnvironmentSelectorDialogClose()}}
+                    changeColorOnClick={false}
+                  />
+                </label>
+              </Item>
+              <Item>
+                <label htmlFor="map-card">
+                  <MenuCard
+
+                    image={<img src={require('../assets/map3.png')} width="225" height="225" />}
+                    // label="Race Track"
+                    onClick={() => {handleMapSelection('"map3.png"'); handleEnvironmentSelectorDialogClose()}}
+                    changeColorOnClick={false}
+                  />
+                </label>
+              </Item>
+            </Stack>
+          {/*</DialogContent>*/}
+        </Dialog>
+      </>
+    );
+  };
+
 
   return (
     <>
@@ -268,7 +324,7 @@ const MonitoringDashboard = (props) => {
             <Tooltip title="Reload Genome" placement="top">
             <IconButton
               color="inherit"
-              onClick={handleGenomeSelectorDialogOpen}
+              onClick={handleGenomeReload}
               // edge="start"
             >
               <BiDna />
@@ -282,6 +338,26 @@ const MonitoringDashboard = (props) => {
                   // edge="start"
                 >
                   <MdAutoGraph />
+                </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Environment Selector" placement="top">
+                <IconButton
+                  color="inherit"
+                  onClick={handleEnvironmentSelectorDialogOpen}
+                  // edge="start"
+                >
+                  <FaRegMap />
+                </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Robot Selector" placement="top">
+                <IconButton
+                  color="inherit"
+                  onClick={handleRobotSelectorDialogOpen}
+                  // edge="start"
+                >
+                  <GrRobot />
                 </IconButton>
             </Tooltip>
 
@@ -337,6 +413,18 @@ const MonitoringDashboard = (props) => {
                 </Menu>
               </div>
             </Tooltip>
+
+
+            {/*<Tooltip title="Preserve Brain State (Coming Soon..)">*/}
+            {/*    <IconButton*/}
+            {/*      color="inherit"*/}
+            {/*      // onClick={handleActicityMonitor}*/}
+            {/*      // edge="start"*/}
+            {/*    >*/}
+            {/*      <GiBrainDump />*/}
+            {/*    </IconButton>*/}
+            {/*</Tooltip>*/}
+
           </Toolbar>
         </AppBar>
     </Stack>
@@ -368,7 +456,7 @@ const MonitoringDashboard = (props) => {
       <iframe
         id="godotFrame"
         src="http://localhost:6081"
-        width="100%"
+        width="50%"
         height={scrollHeightScaled}
       />
       {/* ) : (
@@ -384,8 +472,17 @@ const MonitoringDashboard = (props) => {
           <CircularProgress size="150px" />
         </div>
       )} */}
+      <Iframe
+        className="iframe"
+        id="gazeboFrame"
+        url="http://localhost:6080"
+        width="50%"
+        height={scrollHeightScaled}
+        onLoad={handleGazeboLoad}
+      />
     </Stack>
-    {showGenomeSelectorDialog()}
+    {showRobotSelectorDialog()}
+    {showEnvironmentSelectorDialog()}
     </>
 
   );
