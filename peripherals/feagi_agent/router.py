@@ -10,7 +10,15 @@ from time import sleep
 
 def app_host_info():
     host_name = socket.gethostname()
-    ip_address = socket.gethostbyname(socket.gethostname())
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(0)
+    try:
+        s.connect(('10.254.254.254', 1))
+        ip_address = s.getsockname()[0]
+    except Exception:
+        ip_address = '127.0.0.1'
+    finally:
+        s.close()
     return {"ip_address": ip_address, "host_name": host_name}
 
 
