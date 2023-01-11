@@ -38,8 +38,7 @@ def reset_cumulative_counters(cortical_area, neuron_id):
     runtime_data.brain[cortical_area][neuron_id]["cumulative_fire_count"] += 1
     runtime_data.brain[cortical_area][neuron_id]["cumulative_fire_count_inst"] += 1
     # Condition to increase the consecutive fire count
-    if runtime_data.burst_count == runtime_data.brain[cortical_area][neuron_id]["last_burst_num"] + 1:
-        runtime_data.brain[cortical_area][neuron_id]["consecutive_fire_cnt"] += 1
+    runtime_data.brain[cortical_area][neuron_id]["consecutive_fire_cnt"] += 1
 
 
 def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
@@ -325,7 +324,7 @@ def snooze_till(cortical_area, neuron_id, burst_id):
 
     """
     runtime_data.brain[cortical_area][neuron_id]["snooze_till_burst_num"] \
-        = burst_id + runtime_data.genome["blueprint"][cortical_area]["snooze_length"]
+        = burst_id + runtime_data.genome["blueprint"][cortical_area]["snooze_length"] - 1
     # print("%s : %s has been snoozed!" % (cortical_area, neuron_id))
     return
 
