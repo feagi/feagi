@@ -1061,8 +1061,10 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area, state: bo
                     runtime_data.neuron_mp_collection_scope.pop(cortical_area)
                 else:
                     pass
+            return True
         else:
             print("Error: InfluxDb is not setup to collect timeseries data!")
+            return "Error: Timeseries database is not setup!"
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
@@ -1120,7 +1122,8 @@ async def neuron_postsynaptic_potential_collection_filters():
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting", methods=['POST'], tags=["Insights"])
+@app.api_route("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting", methods=['POST'],
+               tags=["Insights"])
 async def neuron_membrane_potential_monitoring_scope(message: dict):
     """
     Monitor the membrane potential of select cortical areas and voxels in Grafana.

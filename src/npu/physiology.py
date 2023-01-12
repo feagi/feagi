@@ -165,6 +165,7 @@ def neuron_leak(cortical_area, neuron_id):
         else:
             last_membrane_potential_update = \
                 runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"]
+
         if last_membrane_potential_update < runtime_data.burst_count:
             leak_window = runtime_data.burst_count - last_membrane_potential_update
             leak_value = leak_window * leak_coefficient
