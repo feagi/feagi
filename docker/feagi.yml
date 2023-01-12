@@ -13,6 +13,7 @@ services:
           cpus: '1'
           memory: '2g'
     environment:
+      - INFLUXDB=true
       - DOCKER_INFLUXDB_INIT_MODE=$INFLUXDB_MODE
       - DOCKER_INFLUXDB_INIT_RETENTION=$INFLUXDB_RETENTION
       - DOCKER_INFLUXDB_INIT_USERNAME=$INFLUXDB_USERNAME
@@ -24,10 +25,15 @@ services:
       - 8086:8086
     volumes:
       - influxdb_data:/var/lib/influxdb
-    healthcheck:
-      test: "exit 0"
+#    healthcheck:
+#      test: "exit 0"
     networks:
       - net
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8086" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   ros-gazebo:
     build: ../third_party/gazebo/simulation
@@ -64,6 +70,8 @@ services:
     privileged: true
     networks:
       - net
+    depends_on:
+      - feagi
 
   grafana:
     build: ../third_party/grafana/
@@ -84,6 +92,8 @@ services:
       - grafana_data:/var/lib/grafana
     networks:
       - net
+    depends_on:
+      - influxdb
 
   feagi:
     build: ./
@@ -96,6 +106,7 @@ services:
       - "8000:8000"
       - "30000:30000"
     environment:
+      - INFLUXDB=influxdb.environment.INFLUXDB
       - CONTAINERIZED=true
       - PYTHONUNBUFFERED=1
     volumes:
@@ -115,6 +126,8 @@ services:
       - "3000:3000"
     networks:
       - net
+    depends_on:
+      - feagi
 
 volumes:
   grafana_data:
