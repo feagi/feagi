@@ -1053,7 +1053,7 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area, state: bo
     print("Cortical membrane potential monitoring", runtime_data.neuron_mp_collection_scope)
     try:
         print("influx:", runtime_data.influxdb)
-        if runtime_data.influxdb:
+        if runtime_data.influxdb.test_influxdb():
             if cortical_area in runtime_data.genome['blueprint']:
                 if state and cortical_area not in runtime_data.neuron_mp_collection_scope:
                     runtime_data.neuron_mp_collection_scope[cortical_area] = {}
@@ -1087,7 +1087,7 @@ async def cortical_synaptic_potential_monitoring(cortical_area):
 async def cortical_synaptic_potential_monitoring(cortical_area, state: bool):
     print("Cortical synaptic potential monitoring flag", runtime_data.neuron_mp_collection_scope)
     try:
-        if runtime_data.influxdb:
+        if runtime_data.influxdb.test_influxdb():
             if cortical_area in runtime_data.genome['blueprint']:
                 if state and cortical_area not in runtime_data.neuron_psp_collection_scope:
                     runtime_data.neuron_psp_collection_scope[cortical_area] = {}
@@ -1122,8 +1122,8 @@ async def neuron_postsynaptic_potential_collection_filters():
         return {"Request failed...", e}
 
 
-@app.api_route("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting", methods=['POST'],
-               tags=["Insights"])
+@app.api_route("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting",
+               methods=['POST'], tags=["Insights"])
 async def neuron_membrane_potential_monitoring_scope(message: dict):
     """
     Monitor the membrane potential of select cortical areas and voxels in Grafana.
@@ -1605,11 +1605,23 @@ async def beacon_subscribe(message: Subscriber):
 
 
 @app.api_route("/v1/feagi/feagi/beacon/unsubscribe", methods=['DELETE'], tags=["System"])
-async def beacon_unsubscribe(message:Subscriber):
+async def beacon_unsubscribe(message: Subscriber):
     try:
         message = {"beacon_unsub": message.subscriber_address}
         api_queue.put(item=message)
         return {"Request sent!"}
+    except Exception as e:
+        print("API Error:", e)
+        return {"Request failed...", e}
+
+
+@app.api_route("/v1/feagi/db/influxdb/test", methods=['GET'], tags=["System"])
+async def test_influxdb():
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        return runtime_data.influxdb.test_influxdb()
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}

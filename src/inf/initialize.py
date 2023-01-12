@@ -82,8 +82,9 @@ def init_container_variables():
 
     if os.environ.get('CONTAINERIZED', False):
         runtime_data.running_in_container = True
-    if os.environ.get('influxdb', False):
-        runtime_data.influxdb = True
+    if os.environ.get('INFLUXDB', False):
+        init_timeseries_db()
+        # runtime_data.influxdb = True
     if os.environ.get('mongodb', False):
         runtime_data.mongodb = True
     if os.environ.get('gazebo', False):

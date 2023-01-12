@@ -16,6 +16,8 @@
 
 import logging
 import random
+import traceback
+
 from pymongo.errors import ServerSelectionTimeoutError
 from pymongo import MongoClient, DESCENDING, ASCENDING
 from inf import runtime_data, settings
@@ -239,8 +241,10 @@ class InfluxManagement:
                     org=self.org
                 )
                 self.write_client = self.client.write_api(write_options=SYNCHRONOUS)
-            except:
-                print("ERROR: Influx service is not running!!!")
+                print("Successfully connected to InfluxDb! ")
+
+            except Exception as e:
+                print("ERROR: Influx service is not running!!!", e, traceback.print_exc())
         else:
             print("ERROR: Parameters are not set for InfluxDb configuration!")
 
@@ -439,9 +443,12 @@ class InfluxManagement:
         try:
             if self.client.buckets_api().find_buckets(name=self.stats_bucket):
                 print("    InfluxDb: ", settings.Bcolors.OKGREEN + "Enabled" + settings.Bcolors.ENDC)
-        except Exception:
+                return True
+        except Exception as e:
             runtime_data.parameters["Database"]["influxdb_enabled"] = False
             print("    InfluxDb:", settings.Bcolors.RED + "Disabled" + settings.Bcolors.ENDC)
+            print("Error while testing InfluxDb", e, traceback.print_exc())
+            return False
 
 
 if __name__ == "__main__":
