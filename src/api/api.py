@@ -1061,8 +1061,10 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area, state: bo
                     runtime_data.neuron_mp_collection_scope.pop(cortical_area)
                 else:
                     pass
+            return True
         else:
             print("Error: InfluxDb is not setup to collect timeseries data!")
+            return "Error: Timeseries database is not setup!"
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
