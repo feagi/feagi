@@ -159,18 +159,21 @@ def neuron_leak(cortical_area, neuron_id):
     leak_coefficient = \
         runtime_data.genome["blueprint"][cortical_area]["leak_coefficient"]
     if leak_coefficient > 0:
-        if not runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] or \
-                runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] < 5:
-            last_membrane_potential_update = runtime_data.burst_count
-        else:
+        if runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] and \
+                runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] > 5:
+
             last_membrane_potential_update = \
                 runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"]
-        if last_membrane_potential_update < runtime_data.burst_count:
+
             leak_window = runtime_data.burst_count - last_membrane_potential_update
             leak_value = leak_window * leak_coefficient
 
             # Capping the leak to the max allowable membrane potential
             leak_value = min(leak_value, runtime_data.brain[cortical_area][neuron_id]["residual_membrane_potential"])
+
+            if leak_value < 0:
+                print("Warning! Leak less than 0 detected! ", leak_value)
+
     return leak_value
 
 

@@ -231,6 +231,7 @@ def burst_manager():
                         # The actual trigger to fire the neuron
                         runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"] = \
                             runtime_data.burst_count
+                        # todo: Refactor the membrane potential update
                         # Setting the membrane potential of the neuron to 0 after being added to fire list
                         membrane_potential_update(cortical_area=cortical_area, neuron_id=neuron_id,
                                                   membrane_potential_change=0, overwrite=True,
@@ -416,8 +417,6 @@ def burst_manager():
             return
         # todo: the following sleep value should be tied to Autopilot status
         sleep(float(runtime_data.burst_timer))
-
-        runtime_data.neuron_leak_dict = {}
 
         burst_start_time = datetime.now()
         log_burst_activity_influx()
