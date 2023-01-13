@@ -222,6 +222,7 @@ def burst_manager():
                 for neuron_id in runtime_data.fire_queue[cortical_area]:
                     leak_amount = neuron_leak(cortical_area=cortical_area, neuron_id=neuron_id)
                     membrane_potential = runtime_data.fire_queue[cortical_area][neuron_id][0] - leak_amount
+                    print("cortical area, mp, leak", cortical_area, membrane_potential, leak_amount)
                     fire_threshold = runtime_data.fire_queue[cortical_area][neuron_id][1]
 
                     # When neuron is ready to fire
@@ -245,7 +246,7 @@ def burst_manager():
                                                   overwrite_value=0)
 
                     else:
-                        runtime_data.brain[cortical_area][neuron_id]["residual_membrane_potential"] = membrane_potential
+                        membrane_potential = runtime_data.brain[cortical_area][neuron_id]["residual_membrane_potential"]
                         membrane_potential_update(cortical_area=cortical_area, neuron_id=neuron_id,
                                                   membrane_potential_change=0, overwrite=True,
                                                   overwrite_value=membrane_potential)
