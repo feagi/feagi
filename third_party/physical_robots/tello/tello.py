@@ -241,17 +241,18 @@ def main():
 
     # # # # # # # # # # # # # # # FEAGI registration # # # # # # # # # # # # # # # # # #
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-    feagi_host, api_port = FEAGI.feagi_setting_for_registration()
-    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host, api_port=api_port)
-    ipu_channel_address = FEAGI.feagi_inbound(runtime_data["feagi_state"]['feagi_inbound_port_gazebo'])
-    opu_channel_address = FEAGI.feagi_outbound(network_settings['feagi_host'],
+    feagi_host, api_port, app_data_port = FEAGI.feagi_setting_for_registration()
+    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host,
+                                                           api_port=api_port)
+    ipu_channel_address = FEAGI.feagi_inbound(agent_settings["agent_data_port"])
+    opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
     feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address)
     feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-    api_address = FEAGI.feagi_gui_address(feagi_host, api_port)
+    api_address = 'http://' + feagi_host + ':' + api_port
     stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
     burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
-    network_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
+    feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
@@ -369,9 +370,8 @@ def main():
                 flag = 0
                 if msg_counter < feagi_burst_counter:
                     feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-                    if feagi_burst_speed != network_settings['feagi_burst_speed']:
-                        network_settings['feagi_burst_speed'] = feagi_burst_speed
-            time.sleep((network_settings['feagi_burst_speed']))
+                    if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
+                        feagi_settings['feagi_burst_speed'] = feagi_burst_speed
 
         except KeyboardInterrupt as ke:
             print("ERROR: ", ke)
