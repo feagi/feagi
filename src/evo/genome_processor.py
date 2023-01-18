@@ -358,7 +358,7 @@ genome_1_to_2 = {
     "firing_threshold": "nx-fire_t-f",
     "refractory_period": "nx-refrac-i",
     "leak_coefficient": "nx-leak_c-f",
-    "leak_variability": "nx-leak_v-i",
+    "leak_variability": "nx-leak_v-f",
     "consecutive_fire_cnt_max": "nx-c_fr_c-i",
     "snooze_length": "nx-snooze-f",
     "degeneration": "cx-de_gen-f",

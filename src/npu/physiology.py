@@ -41,24 +41,8 @@ def reset_cumulative_counters(cortical_area, neuron_id):
     runtime_data.brain[cortical_area][neuron_id]["consecutive_fire_cnt"] += 1
 
 
-def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
-    """This function initiate the firing of Neuron in a given cortical area"""
-
-    neighbor_list = list()
-
-    # Setting Destination to the list of Neurons connected to the firing Neuron
-    try:
-        neighbor_list = runtime_data.brain[cortical_area][neuron_id]["neighbors"]
-
-    except KeyError:
-        print(settings.Bcolors.RED + "KeyError on accessing neighbor_list while firing a neuron" +
-              settings.Bcolors.ENDC)
-
-    # After neuron fires all cumulative counters on source gets reset
-    reset_cumulative_counters(cortical_area=cortical_area, neuron_id=neuron_id)
-
-    neighbor_count = len(neighbor_list)
-
+def neuron_stimulation_mp_logger(cortical_area, neuron_id):
+    # Update Time-Series Db with MP change
     if cortical_area in runtime_data.neuron_mp_collection_scope:
         if monitor_filter(cortical_area=cortical_area, neuron_id=neuron_id,
                           filter_criteria=runtime_data.neuron_mp_collection_scope[cortical_area]):
@@ -92,6 +76,25 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
                                                          dst_voxel_y=vox_y,
                                                          dst_voxel_z=vox_z,
                                                          membrane_potential=0 / 1)
+
+
+def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
+    """This function initiate the firing of Neuron in a given cortical area"""
+
+    neighbor_list = list()
+
+    # Setting Destination to the list of Neurons connected to the firing Neuron
+    try:
+        neighbor_list = runtime_data.brain[cortical_area][neuron_id]["neighbors"]
+
+    except KeyError:
+        print(settings.Bcolors.RED + "KeyError on accessing neighbor_list while firing a neuron" +
+              settings.Bcolors.ENDC)
+
+    # After neuron fires all cumulative counters on source gets reset
+    reset_cumulative_counters(cortical_area=cortical_area, neuron_id=neuron_id)
+
+    neighbor_count = len(neighbor_list)
 
     # Updating downstream neurons
     for dst_neuron_id in neighbor_list:
@@ -163,13 +166,13 @@ def neuron_leak(cortical_area, neuron_id):
                 runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] > 5:
 
             last_membrane_potential_update = \
-                runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"]
+                runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"]
 
             leak_window = runtime_data.burst_count - last_membrane_potential_update
             leak_value = leak_window * leak_coefficient
 
             # Capping the leak to the max allowable membrane potential
-            leak_value = min(leak_value, runtime_data.brain[cortical_area][neuron_id]["residual_membrane_potential"])
+            leak_value = min(leak_value, runtime_data.brain[cortical_area][neuron_id]["membrane_potential"])
 
             if leak_value < 0:
                 print("Warning! Leak less than 0 detected! ", leak_value)
@@ -207,10 +210,15 @@ def membrane_potential_update(cortical_area, neuron_id, membrane_potential_chang
     Responsible for updating the membrane potential of each neuron
     """
 
-    runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] += membrane_potential_change
-
     if overwrite:
         runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] = overwrite_value
+    else:
+        leak_amount = neuron_leak(cortical_area=cortical_area, neuron_id=neuron_id)
+        runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] += membrane_potential_change - leak_amount
+        if runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] > \
+                runtime_data.genome["blueprint"][cortical_area]["firing_threshold"]:
+            runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] = \
+                runtime_data.genome["blueprint"][cortical_area]["firing_threshold"]
 
     runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] = runtime_data.burst_count
 

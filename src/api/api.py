@@ -1072,9 +1072,9 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area, state: bo
 
 @app.get("/v1/feagi/monitoring/neuron/synaptic_potential", tags=["Insights"])
 async def cortical_synaptic_potential_monitoring(cortical_area):
-    print("Cortical synaptic potential monitoring flag", runtime_data.neuron_mp_collection_scope)
+    print("Cortical synaptic potential monitoring flag", runtime_data.neuron_psp_collection_scope)
     try:
-        if cortical_area in runtime_data.neuron_mp_collection_scope:
+        if cortical_area in runtime_data.neuron_psp_collection_scope:
             return True
         else:
             return False
@@ -1085,7 +1085,7 @@ async def cortical_synaptic_potential_monitoring(cortical_area):
 
 @app.post("/v1/feagi/monitoring/neuron/synaptic_potential", tags=["Insights"])
 async def cortical_synaptic_potential_monitoring(cortical_area, state: bool):
-    print("Cortical synaptic potential monitoring flag", runtime_data.neuron_mp_collection_scope)
+    print("Cortical synaptic potential monitoring flag", runtime_data.neuron_psp_collection_scope)
     try:
         if runtime_data.influxdb.test_influxdb():
             if cortical_area in runtime_data.genome['blueprint']:
@@ -1095,8 +1095,10 @@ async def cortical_synaptic_potential_monitoring(cortical_area, state: bool):
                     runtime_data.neuron_psp_collection_scope.pop(cortical_area)
                 else:
                     pass
+            return True
         else:
             print("Error: InfluxDb is not setup to collect timeseries data!")
+            return False
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}

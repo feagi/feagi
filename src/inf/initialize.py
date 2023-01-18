@@ -344,7 +344,6 @@ def init_brain():
     init_cortical_info()
     runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
-    print(print("**^**^**^**^  $$$ ^^*^**^**^**^" * 10, runtime_data.cortical_dimensions))
     # genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
     # genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])
     # runtime_data.genome['blueprint'] = genome2['blueprint']
