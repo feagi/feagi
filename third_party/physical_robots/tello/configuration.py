@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
 
@@ -16,14 +15,21 @@ limitations under the License.
 ==============================================================================
 """
 
-app_name = 'gazebo'
+# !/usr/bin/env python3
 
-network_settings = {
+feagi_settings = {
     "feagi_host": "127.0.0.1",
     "feagi_api_port": "8000",
+}
+
+agent_settings = {
+    "agent_data_port": "30009",
+    "agent_id": "tello_drone",
+    "agent_type": "embodiment",
     'TTL': 2,
     'last_message': 0,
 }
+
 
 capabilities = {
     "motor": {
@@ -42,7 +48,7 @@ capabilities = {
         "count": 1,
         "width": 8,
         "height": 8,
-        "deviation_threshold": 0.1,
+        "deviation_threshold": 0.3,
         "retina_width_percent": 60,
         "retina_height_percent": 40,
         "central_vision_compression": [64, 64],
