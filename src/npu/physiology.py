@@ -160,7 +160,7 @@ def neuron_leak(cortical_area, neuron_id):
 
     # Leaky behavior
     leak_coefficient = \
-        runtime_data.genome["blueprint"][cortical_area]["leak_coefficient"]
+        runtime_data.brain[cortical_area][neuron_id]["leak_coefficient"]
     if leak_coefficient > 0:
         if runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] and \
                 runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] > 5:
