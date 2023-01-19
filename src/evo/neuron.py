@@ -81,8 +81,6 @@ def init_neuron(cortical_area, soma_location):
     # loc_blk is a two element list where first element being the location of the neuron and second being the block
     # runtime_data.brain[cortical_area][neuron_id]["dendrite_locations"] = dendrite_locations
     runtime_data.brain[cortical_area][neuron_id]["status"] = "Passive"
-    runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_time"] = str(
-        datetime.datetime.now())
     runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"] = 0
 
     runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] = 0
