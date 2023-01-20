@@ -581,7 +581,7 @@ def main():
                             network_settings['feagi_burst_speed'] = feagi_burst_speed
                 for id in range(motor_count):
                     motor_power = window_average(rolling_window[id])
-                    motor_power = motor_power * 1100
+                    motor_power = motor_power * capabilities["motor"]["power_amount"]
                     motor.move(id, motor_power)
         except KeyboardInterrupt as ke:  # Keyboard error
             motor.stop()
