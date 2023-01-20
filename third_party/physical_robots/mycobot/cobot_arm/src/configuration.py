@@ -16,11 +16,15 @@ limitations under the License.
 """
 # !/usr/bin/env python3
 
-app_name = 'gazebo'
-
-network_settings = {
-    "feagi_host": "127.0.0.1",
+feagi_settings = {
+    "feagi_host": "feagi",
     "feagi_api_port": "8000",
+}
+
+agent_settings = {
+    "agent_data_port": "30012",
+    "agent_id": "mycobot",
+    "agent_type": "embodiment",
     'TTL': 2,
     'last_message': 0,
 }
