@@ -237,6 +237,7 @@ def update_cortical_mappings(cortical_mappings):
     print("mappings:", mappings)
 
     neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
+    save_genome(genome=genome_v1_v2_converter(runtime_data.genome), file_name="../runtime_genome.json")
 
     # added_mappings, removed_mappings, modified_mappings = \
     #     mapping_change_report(cortical_area=cortical_area, new_mapping=cortical_properties['cortical_destinations'])
@@ -287,6 +288,7 @@ def update_morphology_properties(morphology_properties):
             for impacted_area in impacted_cortical_areas:
                 print(impacted_area[0], impacted_area[1])
                 cortical_rewiring(src_cortical_area=impacted_area[0], dst_cortical_area=impacted_area[1])
+            save_genome(genome=genome_v1_v2_converter(runtime_data.genome), file_name="../runtime_genome.json")
 
         else:
             print("Error during processing morphology change request!\n Morphology name not found: ",
@@ -346,6 +348,7 @@ def cortical_removal(cortical_area, genome_scrub=False):
                 if upstream_area in runtime_data.genome['blueprint']:
                     if cortical_area in runtime_data.genome['blueprint'][upstream_area]['cortical_mapping_dst']:
                         runtime_data.genome['blueprint'][upstream_area]['cortical_mapping_dst'].pop(cortical_area)
+        save_genome(genome=genome_v1_v2_converter(runtime_data.genome), file_name="../runtime_genome.json")
 
 
 def prune_cortical_synapses(cortical_area):
