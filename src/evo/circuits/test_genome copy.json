@@ -1,0 +1,1042 @@
+{
+   "genome_id": "2022-07-10_21:53:10_961677_111111_G",
+   "version": "2.0",
+   "max_burst_count": 3,
+   "burst_delay": 1,
+   "max_age": 10000,
+   "evolution_burst_count": 50,
+   "ipu_idle_threshold": 1000,
+   "neuron_morphologies": {
+      "placeholder": {},
+      "block_to_block": {
+         "vectors": [
+            [
+               0,
+               0,
+               0
+            ]
+         ]
+      },
+      "decrease_filter_diagonal": {
+         "vectors": [
+            [
+               0,
+               1,
+               1
+            ]
+         ]
+      },
+      "decrease_filter_diagonal2": {
+         "vectors": [
+            [
+               0,
+               2,
+               1
+            ]
+         ]
+      },
+      "increase_filter_diagonal": {
+         "vectors": [
+            [
+               0,
+               1,
+               -1
+            ]
+         ]
+      },
+      "increase_filter_diagonal2": {
+         "vectors": [
+            [
+               0,
+               2,
+               -1
+            ]
+         ]
+      },
+      "y_consolidator": {
+         "patterns": [
+            [
+               [
+                  "*",
+                  "*",
+                  "*"
+               ],
+               [
+                  "*",
+                  "?",
+                  "*"
+               ]
+            ]
+         ]
+      },
+      "lateral_+x": {
+         "vectors": [
+            [
+               1,
+               0,
+               0
+            ]
+         ]
+      },
+      "lateral_-x": {
+         "vectors": [
+            [
+               -1,
+               0,
+               0
+            ]
+         ]
+      },
+      "lateral_+y": {
+         "vectors": [
+            [
+               0,
+               1,
+               0
+            ]
+         ]
+      },
+      "lateral_-y": {
+         "vectors": [
+            [
+               0,
+               -1,
+               0
+            ]
+         ]
+      },
+      "lateral_+z": {
+         "vectors": [
+            [
+               0,
+               0,
+               1
+            ]
+         ]
+      },
+      "lateral_-z": {
+         "vectors": [
+            [
+               0,
+               0,
+               -1
+            ]
+         ]
+      },
+      "one_to_all": {
+         "patterns": [
+            [
+               [
+                  1,
+                  1,
+                  1
+               ],
+               [
+                  "*",
+                  "*",
+                  "*"
+               ]
+            ]
+         ]
+      },
+      "last_to_first": {
+         "patterns": [
+            [
+               [
+                  0,
+                  9,
+                  0
+               ],
+               [
+                  0,
+                  0,
+                  0
+               ]
+            ]
+         ]
+      },
+      "all_to_one": {
+         "patterns": [
+            [
+               [
+                  "*",
+                  "*",
+                  "*"
+               ],
+               [
+                  0,
+                  0,
+                  0
+               ]
+            ]
+         ]
+      },
+      "to_block_[5, 7, 4]": {
+         "patterns": [
+            [
+               [
+                  "*",
+                  "*",
+                  "*"
+               ],
+               [
+                  5,
+                  7,
+                  4
+               ]
+            ]
+         ]
+      },
+      "switch_on": {
+         "patterns": [
+            [
+               [
+                  0,
+                  1,
+                  0
+               ],
+               [
+                  0,
+                  0,
+                  0
+               ]
+            ]
+         ]
+      },
+      "switch_off": {
+         "patterns": [
+            [
+               [
+                  1,
+                  1,
+                  0
+               ],
+               [
+                  0,
+                  0,
+                  0
+               ]
+            ]
+         ]
+      },
+      "switch_power": {
+         "patterns": [
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  0,
+                  0,
+                  0
+               ]
+            ]
+         ]
+      },
+      "switch_to_mem": {
+         "patterns": [
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  0,
+                  "*",
+                  0
+               ]
+            ]
+         ]
+      },
+      "switch_self_stimulation": {
+         "patterns": [
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  0,
+                  0,
+                  0
+               ]
+            ]
+         ]
+      },
+      "expander_x": {
+         "functions": true
+      },
+      "reducer_x": {
+         "functions": true
+      },
+      "randomizer": {
+         "functions": true
+      },
+      "lateral_pairs_x": {
+         "functions": true
+      },
+      "turn_left_level_one": {
+         "patterns": [
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  0,
+                  0,
+                  3
+               ]
+            ],
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  2,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  4,
+                  0,
+                  3
+               ]
+            ],
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  6,
+                  0,
+                  4
+               ]
+            ]
+         ]
+      },
+      "turn_left_level_two": {
+         "patterns": [
+            [
+               [
+                  1,
+                  0,
+                  0
+               ],
+               [
+                  0,
+                  0,
+                  2
+               ]
+            ],
+            [
+               [
+                  1,
+                  0,
+                  0
+               ],
+               [
+                  2,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  1,
+                  0,
+                  0
+               ],
+               [
+                  4,
+                  0,
+                  2
+               ]
+            ],
+            [
+               [
+                  1,
+                  0,
+                  0
+               ],
+               [
+                  6,
+                  0,
+                  4
+               ]
+            ]
+         ]
+      },
+      "turn_left_level_three": {
+         "patterns": [
+            [
+               [
+                  2,
+                  0,
+                  0
+               ],
+               [
+                  0,
+                  0,
+                  1
+               ]
+            ],
+            [
+               [
+                  2,
+                  0,
+                  0
+               ],
+               [
+                  2,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  2,
+                  0,
+                  0
+               ],
+               [
+                  4,
+                  0,
+                  1
+               ]
+            ],
+            [
+               [
+                  2,
+                  0,
+                  0
+               ],
+               [
+                  6,
+                  0,
+                  4
+               ]
+            ]
+         ]
+      },
+      "turn_left_level_four": {
+         "patterns": [
+            [
+               [
+                  3,
+                  0,
+                  0
+               ],
+               [
+                  0,
+                  0,
+                  2
+               ]
+            ],
+            [
+               [
+                  3,
+                  0,
+                  0
+               ],
+               [
+                  2,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  3,
+                  0,
+                  0
+               ],
+               [
+                  4,
+                  0,
+                  2
+               ]
+            ],
+            [
+               [
+                  3,
+                  0,
+                  0
+               ],
+               [
+                  6,
+                  0,
+                  4
+               ]
+            ]
+         ]
+      },
+      "turn_left_level_five": {
+         "patterns": [
+            [
+               [
+                  4,
+                  0,
+                  0
+               ],
+               [
+                  1,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  4,
+                  0,
+                  0
+               ],
+               [
+                  2,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  4,
+                  0,
+                  0
+               ],
+               [
+                  5,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  4,
+                  0,
+                  0
+               ],
+               [
+                  6,
+                  0,
+                  4
+               ]
+            ]
+         ]
+      },
+      "turn_right_level_one": {
+         "patterns": [
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  0,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  2,
+                  0,
+                  3
+               ]
+            ],
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  4,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  6,
+                  0,
+                  3
+               ]
+            ]
+         ]
+      },
+      "turn_right_level_two": {
+         "patterns": [
+            [
+               [
+                  1,
+                  0,
+                  0
+               ],
+               [
+                  0,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  1,
+                  0,
+                  0
+               ],
+               [
+                  2,
+                  0,
+                  2
+               ]
+            ],
+            [
+               [
+                  1,
+                  0,
+                  0
+               ],
+               [
+                  4,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  1,
+                  0,
+                  0
+               ],
+               [
+                  6,
+                  0,
+                  2
+               ]
+            ]
+         ]
+      },
+      "turn_right_level_three": {
+         "patterns": [
+            [
+               [
+                  2,
+                  0,
+                  0
+               ],
+               [
+                  0,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  2,
+                  0,
+                  0
+               ],
+               [
+                  2,
+                  0,
+                  1
+               ]
+            ],
+            [
+               [
+                  2,
+                  0,
+                  0
+               ],
+               [
+                  4,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  2,
+                  0,
+                  0
+               ],
+               [
+                  6,
+                  0,
+                  1
+               ]
+            ]
+         ]
+      },
+      "turn_right_level_four": {
+         "patterns": [
+            [
+               [
+                  3,
+                  0,
+                  0
+               ],
+               [
+                  0,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  3,
+                  0,
+                  0
+               ],
+               [
+                  2,
+                  0,
+                  2
+               ]
+            ],
+            [
+               [
+                  3,
+                  0,
+                  0
+               ],
+               [
+                  4,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  3,
+                  0,
+                  0
+               ],
+               [
+                  6,
+                  0,
+                  2
+               ]
+            ]
+         ]
+      },
+      "turn_right_level_five": {
+         "patterns": [
+            [
+               [
+                  4,
+                  0,
+                  0
+               ],
+               [
+                  0,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  4,
+                  0,
+                  0
+               ],
+               [
+                  3,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  4,
+                  0,
+                  0
+               ],
+               [
+                  4,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  4,
+                  0,
+                  0
+               ],
+               [
+                  7,
+                  0,
+                  4
+               ]
+            ]
+         ]
+      },
+      "motor_forward": {
+         "patterns": [
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  0,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  2,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  4,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  6,
+                  0,
+                  4
+               ]
+            ]
+         ]
+      },
+      "motor_backward": {
+         "patterns": [
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  1,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  3,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  5,
+                  0,
+                  4
+               ]
+            ],
+            [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  7,
+                  0,
+                  4
+               ]
+            ]
+         ]
+      }
+   },
+   "species": {
+      "parents": {},
+      "species_id": "",
+      "class": "toy",
+      "brand": "gazebo",
+      "model": "smart_car"
+   },
+   "blueprint": {
+      "_____10b-_____s-__-__name-t": "smart_car",
+      "_____10c-___pwr-cx-__name-t": "Brain_Power",
+      "_____10c-___pwr-cx-_group-t": "IPU",
+      "_____10c-___pwr-cx-_n_cnt-i": 1,
+      "_____10c-___pwr-nx-gd_vis-b": true,
+      "_____10c-___pwr-nx-rcordx-i": 10,
+      "_____10c-___pwr-nx-rcordy-i": 0,
+      "_____10c-___pwr-nx-rcordz-i": -20,
+      "_____10c-___pwr-nx-___bbx-i": 1,
+      "_____10c-___pwr-nx-___bby-i": 1,
+      "_____10c-___pwr-nx-___bbz-i": 1,
+      "_____10c-___pwr-cx-synatt-i": 100,
+      "_____10c-___pwr-cx-pstcr_-f": 0.5,
+      "_____10c-___pwr-cx-pstcrm-f": 35,
+      "_____10c-___pwr-cx-plst_c-f": 0.05,
+      "_____10c-___pwr-nx-fire_t-f": 1,
+      "_____10c-___pwr-nx-refrac-i": 0,
+      "_____10c-___pwr-nx-leak_c-f": 10,
+      "_____10c-___pwr-nx-leak_v-f": 10,
+      "_____10c-___pwr-nx-c_fr_c-i": 3,
+      "_____10c-___pwr-nx-snooze-f": 0,
+      "_____10c-___pwr-cx-de_gen-f": 0.01,
+      "_____10c-___pwr-cx-dstmap-d": {
+         "i_O_15": [
+            [
+               "block_to_block",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               -10,
+               false
+            ],
+            [
+               "decrease_filter_diagonal",
+               [
+                  2,
+                  3,
+                  5
+               ],
+               3,
+               true
+            ],
+            [
+               "increase_filter_diagonal",
+               [
+                  1,
+                  2,
+                  1
+               ],
+               2,
+               true
+            ]
+
+         ],
+         "CIS85_": [
+            [
+               "y_consolidator",
+               [
+                  2,
+                  1,
+                  -1
+               ],
+               -5,
+               true
+            ],
+            [
+               "decrease_filter_diagonal",
+               [
+                  1,
+                  2,
+                  3
+               ],
+               13,
+               false
+            ]
+         ]
+      },
+      "_____10c-i_O_15-cx-_n_cnt-i": 1,
+      "_____10c-i_O_15-cx-synatt-i": 100,
+      "_____10c-i_O_15-nx-pstcr_-f": 1,
+      "_____10c-i_O_15-nx-plst_c-f": 0.05,
+      "_____10c-i_O_15-cx-de_gen-f": 0,
+      "_____10c-i_O_15-cx-pspuni-b": true,
+      "_____10c-i_O_15-nx-pstcrm-f": 35,
+      "_____10c-i_O_15-cx-dstmap-d": {
+
+      },
+      "_____10c-i_O_15-nx-fire_t-f": 80,
+      "_____10c-i_O_15-nx-refrac-i": 0,
+      "_____10c-i_O_15-nx-leak_c-f": 115,
+      "_____10c-i_O_15-nx-c_fr_c-i": 3,
+      "_____10c-i_O_15-nx-snooze-f": 0,
+      "_____10c-i_O_15-cx-___bbx-i": 64,
+      "_____10c-i_O_15-cx-___bby-i": 64,
+      "_____10c-i_O_15-cx-___bbz-i": 1,
+      "_____10c-i_O_15-cx-rcordx-i": 220,
+      "_____10c-i_O_15-cx-rcordy-i": 40,
+      "_____10c-i_O_15-cx-rcordz-i": -200,
+      "_____10c-i_O_15-cx-gd_vis-b": true,
+      "_____10c-i_O_15-cx-__name-t": "15_degree_detector",
+      "_____10c-i_O_15-cx-_group-t": "IPU",
+
+      "_____10c-CIS85_-cx-__name-t": "85_degree_detector",
+      "_____10c-CIS85_-nx-fire_t-f": 80.0,
+      "_____10c-CIS85_-nx-refrac-i": 0,
+      "_____10c-CIS85_-nx-leak_c-f": 115.0,
+      "_____10c-CIS85_-nx-c_fr_c-i": 0,
+      "_____10c-CIS85_-nx-snooze-f": 0,
+      "_____10c-CIS85_-cx-gd_vis-b": true,
+      "_____10c-CIS85_-cx-___bbx-i": 64,
+      "_____10c-CIS85_-cx-___bby-i": 64,
+      "_____10c-CIS85_-cx-___bbz-i": 1,
+      "_____10c-CIS85_-cx-rcordx-i": 80,
+      "_____10c-CIS85_-cx-rcordy-i": 110,
+      "_____10c-CIS85_-cx-rcordz-i": -200,
+      "_____10c-CIS85_-cx-dstmap-d": {},
+      "_____10c-CIS85_-cx-_n_cnt-i": 1,
+      "_____10c-CIS85_-cx-synatt-i": 100,
+      "_____10c-CIS85_-nx-pstcr_-f": 1.0,
+      "_____10c-CIS85_-nx-plst_c-f": 1.0,
+      "_____10c-CIS85_-cx-de_gen-f": 0.0,
+      "_____10c-CIS85_-cx-pspuni-b": true,
+      "_____10c-CIS85_-nx-pstcrm-f": 35.0,
+      "_____10c-CIS85_-cx-_group-t": "CUSTOM"
+   }
+}
