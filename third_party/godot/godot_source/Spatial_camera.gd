@@ -24,22 +24,27 @@ onready var Camera = $Camera
 
 var rotation_speed = PI/2
 var x_rotation = rotate_x(13.3)
+var is_not_typing = true
 
 func get_input_keyboard(delta):
+	if Godot_list.Node_2D_control:
+		is_not_typing = false
+	else:
+		is_not_typing = true
 	var y_rotation = 0
-	if Input.is_action_pressed("cam_right"):
+	if Input.is_action_pressed("cam_right") and is_not_typing:
 		y_rotation += -1
-	if Input.is_action_pressed("cam_left"):
+	if Input.is_action_pressed("cam_left") and is_not_typing:
 		y_rotation += 1
 	set_rotation(look_leftright_rotation(y_rotation * rotation_speed * delta))
-	if Input.is_action_just_pressed("reset"):
+	if Input.is_action_just_pressed("reset") and is_not_typing:
 		set_rotation(Vector3(13.3, 0, 0))
 
 
 	x_rotation = 0
-	if Input.is_action_pressed("cam_up"):
+	if Input.is_action_pressed("cam_up") and is_not_typing:
 		x_rotation += 1
-	if Input.is_action_pressed("cam_down"):
+	if Input.is_action_pressed("cam_down") and is_not_typing:
 		x_rotation += -1
 	rotate_object_local(Vector3.RIGHT, x_rotation * rotation_speed * delta)
 	
@@ -52,3 +57,10 @@ func look_leftright_rotation(rotation = 0):
 
 func _process(delta):
 	get_input_keyboard(delta)
+
+func _on_morphology_name_text_changed(_new_text):
+	is_not_typing = false
+
+
+func _on_morphology_name_text_entered(_new_text):
+	is_not_typing = true
