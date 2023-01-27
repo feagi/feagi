@@ -21,20 +21,23 @@ var Gz = 0
 var flag = false
 var cortical_area_name = ""
 var connected = false
-
+var mouse_in = false
+var dragging = false
+var screenpos
 
 func _on_Area_input_event(_camera, event, _position, _normal, _shape_idx):
-	if event is InputEventMouseButton and event.pressed:
+	if event is InputEventMouseButton and event.pressed and Input.is_action_pressed("shift"):
+		cortical_area_name = get_name().rsplit("@", true, 1)
+		cortical_area_name = cortical_area_name[0].replace(" ", "")
+		cortical_area_name = cortical_area_name.replace("@", "")
+		cortical_area_name = "\'{s}\'".format({"s": cortical_area_name})
+		#select_cortical.selected.append(cortical_area_name)
 		if event.button_index == BUTTON_LEFT and get_surface_material(0) == global_material.selected and event.pressed == true:
 			if get_surface_material(0) == global_material.selected:
 				Gx = transform.origin.x
 				Gy = transform.origin.y
 				Gz = transform.origin.z
 				location = Vector3(Gx, Gy, Gz)
-				cortical_area_name = get_name().rsplit("@", true, 1)
-				cortical_area_name = cortical_area_name[0].replace(" ", "")
-				cortical_area_name = cortical_area_name.replace("@", "")
-				cortical_area_name = "\'{s}\'".format({"s": cortical_area_name})
 				for item in Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][cortical_area_name]:
 					if location == item:
 						Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][cortical_area_name].erase(item)
@@ -45,12 +48,8 @@ func _on_Area_input_event(_camera, event, _position, _normal, _shape_idx):
 				Gy = transform.origin.y
 				Gz = transform.origin.z
 				location = Vector3(Gx, Gy, Gz)
-				print(location)
-				cortical_area_name = get_name().rsplit("@", true, 1)
-				cortical_area_name = cortical_area_name[0].replace(" ", "")
-				cortical_area_name = cortical_area_name.replace("@", "")
-				cortical_area_name = "\'{s}\'".format({"s": cortical_area_name})
-				print("UPDATED CORTICAL_AREA_NAME: ", cortical_area_name)
+#				print(location)
+#				print("UPDATED CORTICAL_AREA_NAME: ", cortical_area_name)
 				if Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"].get(cortical_area_name):
 					Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][cortical_area_name].append(location)
 				else:
@@ -75,8 +74,14 @@ func _on_Area_input_event(_camera, event, _position, _normal, _shape_idx):
 					Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][cortical_area_name] = []
 					Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][cortical_area_name].append(location)
 			set_surface_material(0, global_material.selected)
-
+	elif event is InputEventMouseButton and event.pressed:
+		cortical_area_name = get_name().rsplit("@", true, 1)
+		cortical_area_name = cortical_area_name[0].replace(" ", "")
+		cortical_area_name = cortical_area_name.replace("@", "")
+		cortical_area_name = "\'{s}\'".format({"s": cortical_area_name})
+		select_cortical.selected.append(cortical_area_name)
 func _on_Area_mouse_entered():
+#	mouse_in = true
 	if get_surface_material(0) == global_material.selected:
 		set_surface_material(0, global_material.selected)
 	else:
@@ -91,4 +96,3 @@ func _on_Area_mouse_exited():
 func _input(_event):
 	if Input.is_action_just_pressed("ui_del"):
 		set_surface_material(0, global_material.deselected)
-
