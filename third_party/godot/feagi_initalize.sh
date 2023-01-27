@@ -7,7 +7,7 @@ cd ../html
 live-server &
 
 cd ../godot_source/
-../Godot_v3.4.4-stable_linux_headless.64 --export "HTML5"
+./Godot_v3.4.4-stable_linux_headless.64 --export "HTML5"
 
 while true
   do
