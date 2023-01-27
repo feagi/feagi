@@ -157,17 +157,19 @@ if __name__ == "__main__":
         message_to_feagi['timestamp'] = datetime.now()
         message_to_feagi['counter'] = msg_counter
         msg_counter += 1
-        flag += 1
-        if flag == 10:
-            feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
-            feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
-            flag = 0
-            if msg_counter < feagi_burst_counter:
-                feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
-                if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
-                    feagi_settings['feagi_burst_speed'] = feagi_burst_speed
-
-        print(len(message_to_feagi['data']['sensory_data']['camera']['C']))
+        # flag += 1
+        # if flag == 10:
+        #     feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
+        #     feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
+        #     flag = 0
+        #     if msg_counter < feagi_burst_counter:
+        #         feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
+        #         if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
+        #             feagi_settings['feagi_burst_speed'] = feagi_burst_speed
+        try:
+            print(len(message_to_feagi['data']['sensory_data']['camera']['C']))
+        except:
+            pass
         feagi_ipu_channel.send(message_to_feagi)
         sleep(feagi_settings['feagi_burst_speed'])
         message_to_feagi.clear()
