@@ -1,14 +1,21 @@
 extends Node
 
 # The URL we will connect to
-export var websocket_url = "ws://127.0.0.1:9050"
+var api_ip_address = "127.0.0.1" # For API and Websocket
+export var websocket_url = ""
+#export var websocket_url = ""
+var k8_ip_address = OS.get_environment("k8_server")
 var green_light = false #Moved from feagi to here
 var one_frame = ""
+#var config_file= "res://ip_address.cfg" 
 
 # Our WebSocketClient instance
 var _client = WebSocketClient.new()
 
 func _ready():
+
+	websocket_url = "ws://" + str(api_ip_address) + ":9050"
+	print("result: ", websocket_url)
 	# Connect base signals to get notified of connection open, close, and errors.
 	_client.connect("connection_closed", self, "_closed")
 	_client.connect("connection_error", self, "_closed")
@@ -24,7 +31,6 @@ func _ready():
 		print("Unable to connect")
 	else:
 		print("Connected")
-		green_light = true
 		#set_process(false)
 
 func _closed(was_clean = false):
@@ -38,25 +44,26 @@ func _connected(proto = ""):
 	# sub-protocol (which is optional)
 	print("Connected with protocol: ", proto)
 	# You MUST always use get_peer(1).put_packet to send data to server,
-	# and not put_packet directly when not using the MultiplayerAPI.
+	# and not put_packet directly when not using the Multiplayernetwork_setting.
+	green_light = true
 	_client.get_peer(1).put_packet("{}".to_utf8())
 
 func _on_data():
 	# Print the received packet, you MUST always use get_peer(1).get_packet
 	# to receive data from server, and not get_packet directly when not
-	# using the MultiplayerAPI.
+	# using the Multiplayernetwork_setting.
 	one_frame = _client.get_peer(1).get_packet().get_string_from_utf8()
 	#print("Got data from server: ", one_frame)
-	
-	
+
+
 func _process(_delta):
 	# Call this in _process or _physics_process. Data transfer, and signals
 	# emission will only happen when calling this function.
 	_client.poll()
-	
+
 func send(data):
-	_client.get_peer(1).put_packet(data.to_utf8())
-	
+	if green_light:
+		_client.get_peer(1).put_packet(data.to_utf8())
+
 func disconnect_from_host():
 	_client.disconnect_from_host(1000, "Close per request")
-
