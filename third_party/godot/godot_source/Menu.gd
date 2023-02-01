@@ -52,7 +52,7 @@ func _on_info_map_def_pressed():
 	if rule_name != " ":
 		if "+" in rule_name:
 			rule_name = rule_name.replace("+", "%2B")
-		var combine_url = 'http://' + network_setting.api_ip_address + ':8000/v1/feagi/genome/morphology?morphology_name=' + rule_name
+		var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology?morphology_name=' + rule_name
 		$rule_properties/get_morphology.request(combine_url)
 	
 func visibility_Mapping_Properties():

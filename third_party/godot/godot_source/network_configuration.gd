@@ -1,7 +1,9 @@
 extends Node
 
 # The URL we will connect to
-var api_ip_address = "127.0.0.1" # For API and Websocket
+var api_ip_address = "192.168.50.218" # For API and Websocket
+var api_port_address = "8001"         # For API port
+var websocket_port_address = "9050"   # For Websocket Port
 export var websocket_url = ""
 #export var websocket_url = ""
 var k8_ip_address = OS.get_environment("k8_server")
@@ -14,7 +16,7 @@ var _client = WebSocketClient.new()
 
 func _ready():
 
-	websocket_url = "ws://" + str(api_ip_address) + ":9050"
+	websocket_url = "ws://" + str(api_ip_address) + ":" + websocket_port_address
 	print("result: ", websocket_url)
 	# Connect base signals to get notified of connection open, close, and errors.
 	_client.connect("connection_closed", self, "_closed")
