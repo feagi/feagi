@@ -1,9 +1,9 @@
 extends Node
 
 # The URL we will connect to
-var api_ip_address = "192.168.50.218" # For API and Websocket
+var api_ip_address = "127.0.0.1" # For API and Websocket
 var api_port_address = "8000"         # For API port
-var websocket_ip_address = "192.168.50.218"
+var websocket_ip_address = "127.0.0.1"
 var websocket_port_address = "9050"   # For Websocket Port
 export var websocket_url = ""
 #export var websocket_url = ""
