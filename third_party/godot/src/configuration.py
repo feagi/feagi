@@ -13,6 +13,7 @@ agent_settings = {
     "agent_type": "monitor",
     'TTL': 2,
     'last_message': 0,
+    'godot_websocket_ip': "192.168.50.218",
     'godot_websocket_port': 9050,
     'burst_duration_threshold': 0.002
 }
