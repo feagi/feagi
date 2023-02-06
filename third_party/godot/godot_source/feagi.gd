@@ -138,6 +138,8 @@ func install_voxel_inside(x_input,y_input,z_input):
 	$GridMap.set_cell_item(x_input,y_input,z_input, 0)
 
 func _csv_generator(): # After you are done with testing, change the name to genome_generator.
+	for key in Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"]:
+		Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][key] = []
 	_clear_node_name_list(global_name_list)
 	for k in genome_data["genome"]:
 		var CSV_data = genome_data["genome"][k]
