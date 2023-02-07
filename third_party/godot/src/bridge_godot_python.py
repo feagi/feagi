@@ -353,7 +353,7 @@ async def echo(websocket):
 
 
 async def websocket_main():
-    async with websockets.serve(echo, "0.0.0.0", configuration.agent_settings['godot_websocket_port'], max_size=None,
+    async with websockets.serve(echo, configuration.agent_settings["godot_websocket_ip"], configuration.agent_settings['godot_websocket_port'], max_size=None,
                                 max_queue=None, write_limit=None, compression=None):
         await asyncio.Future()
 

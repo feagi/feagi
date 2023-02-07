@@ -18,6 +18,10 @@ func check_esc():
 			visible = true
 
 func _process(_delta):
+	if Godot_list.Node_2D_control:
+		$"3D_enable".visible = true
+	else:
+		$"3D_enable".visible = false 
 	check_esc()
 	visibility_Mapping_Properties()
 	if $Mapping_Properties/cortical_dropdown.get_item_count() != $information_menu/cortical_cam_label/menu_itemlist.get_item_count() or $Mapping_Properties/cortical_dropdown.get_item_count() != $Mapping_Properties/source_dropdown.get_item_count():
@@ -52,7 +56,7 @@ func _on_info_map_def_pressed():
 	if rule_name != " ":
 		if "+" in rule_name:
 			rule_name = rule_name.replace("+", "%2B")
-		var combine_url = 'http://' + network_setting.api_ip_address + ':8000/v1/feagi/genome/morphology?morphology_name=' + rule_name
+		var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology?morphology_name=' + rule_name
 		$rule_properties/get_morphology.request(combine_url)
 	
 func visibility_Mapping_Properties():
@@ -236,6 +240,9 @@ func resize_buttons():
 	$collapse_4.rect_position.y = $close_for_all.rect_size.y + $close_for_all.rect_position.y - 5
 	$collapse_4.rect_size = Vector2(35,35)
 	
+	$"3D_enable".rect_position.x = $properties.rect_size.x
+	$"3D_enable".rect_size.x = OS.get_window_size().x
+	$"3D_enable".rect_size.y = OS.get_window_size().y
 #	if one_time_flag:
 #		$button_choice.visible = true
 #		$cortical_mapping.rect_position.y = $properties.rect_size.y + $properties.rect_position.y

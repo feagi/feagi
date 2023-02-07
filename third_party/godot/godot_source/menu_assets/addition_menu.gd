@@ -50,7 +50,7 @@ func _process(_delta):
 		$OptionButton.select(0)
 
 func add_list():
-	$OPU_list.request('http://' + network_setting.api_ip_address + ':8000/v1/feagi/genome/cortical_type_options?cortical_type=OPU')
+	$OPU_list.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_type_options?cortical_type=OPU')
 
 func _on_cortical_type_options_request_request_completed(_result, _response_code, _headers, body):
 	opu_list = []
@@ -59,7 +59,7 @@ func _on_cortical_type_options_request_request_completed(_result, _response_code
 	opu_list.append(" ")
 	for i in api_data:
 		opu_list.append(i)
-	$IPU_list.request('http://' + network_setting.api_ip_address + ':8000/v1/feagi/genome/cortical_type_options?cortical_type=IPU')
+	$IPU_list.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_type_options?cortical_type=IPU')
 
 func _on_IPU_list_request_completed(_result, _response_code, _headers, body):
 	ipu_list = []
