@@ -265,3 +265,12 @@ func _on_z_spinbox_mouse_entered():
 
 func _on_z_spinbox_mouse_exited():
 	Godot_list.Node_2D_control = false
+
+
+func _on_ColorRect_pressed():
+	print("PRESSED")
+
+
+func _on_neuron_count_gui_input(event):
+	print(event)
+
