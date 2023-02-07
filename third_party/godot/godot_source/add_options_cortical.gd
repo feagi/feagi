@@ -10,7 +10,7 @@ func _ready():
 		loading_in_two_seconds()
 	
 func load_options():
-	$load_options_cortical_name.request('http://' + network_setting.api_ip_address + ':8000/v1/feagi/genome/cortical_area_name_list')
+	$load_options_cortical_name.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_area_name_list')
 	
 func _on_load_options_cortical_name_request_completed(_result, _response_code, _headers, body):
 	clear()

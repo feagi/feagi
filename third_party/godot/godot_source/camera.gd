@@ -127,7 +127,7 @@ func move_left_right(in_direction: int):
 #		var names = $Menu/Mapping_Properties/cortical_dropdown.get_item_text($Menu/Mapping_Properties/cortical_dropdown.get_selected_id())
 #		print(names)
 #		if names != " " and cortical_pointer != names:
-#			var combine_url = "http://" + network_setting.api_ip_address + ":8000/v1/feagi/genome/cortical_name_location?cortical_name=" + names
+#			var combine_url = "http://" + network_setting.api_ip_address + ":" + network_setting.api_port_address + "/v1/feagi/genome/cortical_name_location?cortical_name=" + names
 #			$Menu/information_menu/cortical_cam_label/grab_location_of_cortical.request(combine_url)
 #			cortical_pointer = names
 
@@ -168,7 +168,7 @@ func _on_morphology_name_text_entered(_new_text):
 func _on_menu_itemlist_item_selected(index):
 	var names = $Menu/information_menu/cortical_cam_label/menu_itemlist.get_item_text(index)
 	if names != " " and cortical_pointer != names:
-		var combine_url = "http://" + network_setting.api_ip_address + ":8000/v1/feagi/genome/cortical_name_location?cortical_name=" + names
+		var combine_url = "http://" + network_setting.api_ip_address + ":" + network_setting.api_port_address + "/v1/feagi/genome/cortical_name_location?cortical_name=" + names
 		$Menu/information_menu/cortical_cam_label/grab_location_of_cortical.request(combine_url)
 		cortical_pointer = names
 		$Menu/information_menu/cortical_cam_label/menu.text = cortical_pointer

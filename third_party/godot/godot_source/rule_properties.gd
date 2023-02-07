@@ -11,9 +11,9 @@ func _on_mapping_rule_options_item_selected(index):
 	if rule_name != " ":
 		if "+" in rule_name:
 			rule_name = rule_name.replace("+", "%2B")
-		var combine_url = 'http://' + network_setting.api_ip_address + ':8000/v1/feagi/genome/morphology?morphology_name=' + rule_name
+		var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology?morphology_name=' + rule_name
 		$get_morphology.request(combine_url)
-		combine_url = 'http://' + network_setting.api_ip_address + ':8000/v1/feagi/genome/morphology_usage?morphology_name=' + rule_name
+		combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology_usage?morphology_name=' + rule_name
 		$get_morphology_usuage.request(combine_url)
 
 func _process(_delta):
