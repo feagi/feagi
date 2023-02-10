@@ -37,7 +37,7 @@ Click on each dependency for installation instructions
 * Run the command `git clone https://github.com/feagi/feagi.git`
 
 ## 2. Launch Docker Desktop
-There are multiple ways to launch docker desktop. The easiest is to search for the docker desktop application on your system and open the application. You should see a window that looks like this:  
+Docker desktop application is required to launch FEAGI. If you do not have it installed you can download a free version at https://www.docker.com/products/docker-desktop/. There are multiple ways to launch docker desktop. The easiest is to search for the docker desktop application on your system and open the application. You should see a window that looks like this:  
 <img src="https://user-images.githubusercontent.com/52722031/176945282-3fdfc4b7-f82c-4a2b-a8a1-0d6c86ac8acf.png"  width=50% height=50%>
 
 
