@@ -79,7 +79,7 @@ def feagi_outbound(feagi_ip_host, feagi_opu_port):
            feagi_opu_port
 
 
-def msg_processor(self, msg, msg_type):
+def msg_processor(self, msg, msg_type, capabilities):
     # TODO: give each subclass a specific msg processor method?
     # TODO: add an attribute that explicitly defines message type (instead of parsing topic name)?
     if 'ultrasonic' in msg_type and msg.ranges[1]:
@@ -96,7 +96,7 @@ def msg_processor(self, msg, msg_type):
         sensor_id = int(''.join(filter(str.isdigit, sensor_topic)))
 
         # print("\n***\nAverage Intensity = ", avg_intensity)
-        if avg_intensity > configuration.capabilities["infrared"]["threshold"]:
+        if avg_intensity > capabilities["infrared"]["threshold"]:
             return {
                 'ir': {
                     sensor_id: False
