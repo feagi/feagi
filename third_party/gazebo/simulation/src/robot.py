@@ -122,7 +122,7 @@ class ScalableSubscriber(Node):
         # self.get_logger().info("Raw Message: {}".format(msg))
         try:
             # This generated none
-            formatted_msg = FEAGI.msg_processor(self, msg=msg, msg_type=self.topic)  # Needs to check on this
+            formatted_msg = FEAGI.msg_processor(self, msg=msg, msg_type=self.topic, capabilities=capabilities)  # Needs to check on this
             configuration.message_to_feagi, runtime_data["battery_charge_level"] = FEAGI.compose_message_to_feagi(
                 original_message=formatted_msg, data=message_to_feagi, battery=runtime_data["battery_charge_level"])
             self.counter += 1
@@ -454,29 +454,29 @@ class Camera_Subscriber(Node):
         for i in retina_data:
             name = i
             if 'prev' not in i:
-                #data = retina_data[i] # data is very straightforward from gazebo
+                # data = retina_data[i] # data is very straightforward from gazebo
                 data = retina.ndarray_to_list(retina_data[i])
                 if 'C' in i:
                     previous_name = str(i) + "_prev"
                     rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
-                                                                                      capabilities['camera'][
-                                                                                          'central_vision_compression'],
-                                                                                      previous_data_frame[
-                                                                                          previous_name], name,
-                                                                                      configuration.capabilities[
-                                                                                          'camera'][
-                                                                                          'deviation_threshold'])
+                                                                                  capabilities['camera'][
+                                                                                      'central_vision_compression'],
+                                                                                  previous_data_frame[
+                                                                                      previous_name], name,
+                                                                                  configuration.capabilities[
+                                                                                      'camera'][
+                                                                                      'deviation_threshold'])
                 else:
                     previous_name = str(i) + "_prev"
                     rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
-                                                                                      capabilities['camera'][
-                                                                                        'peripheral_vision_compression']
-                                                                                      ,
-                                                                                      previous_data_frame[
-                                                                                          previous_name], name,
-                                                                                      configuration.capabilities[
-                                                                                          'camera'][
-                                                                                          'deviation_threshold'])
+                                                                                  capabilities['camera'][
+                                                                                      'peripheral_vision_compression']
+                                                                                  ,
+                                                                                  previous_data_frame[
+                                                                                      previous_name], name,
+                                                                                  configuration.capabilities[
+                                                                                      'camera'][
+                                                                                      'deviation_threshold'])
                 for a in rgb_data['camera']:
                     rgb['camera'][a] = rgb_data['camera'][a]
         runtime_data['pixel'] = rgb
@@ -880,14 +880,16 @@ def main(args=None):
 
     # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_opu_port']
 
-    feagi_host, api_port, app_data_port= FEAGI.feagi_setting_for_registration()
+    feagi_host, api_port, app_data_port = FEAGI.feagi_setting_for_registration(feagi_settings, agent_settings)
     # api_address = 'http://' + feagi_settings['feagi_host'] + ':' + feagi_settings['feagi_api_port']
     api_address = 'http://' + feagi_host + ':' + api_port
 
     stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
     burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
 
-    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host, api_port=api_port)
+    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host, api_port=api_port,
+                                                           agent_settings=agent_settings,
+                                                           capabilities=capabilities)
 
     print("** **", runtime_data["feagi_state"])
     agent_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])

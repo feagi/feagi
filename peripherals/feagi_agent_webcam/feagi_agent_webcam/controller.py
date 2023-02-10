@@ -6,14 +6,13 @@ Demo of dot kinematogram
 """
 
 import sys
-import requests
-import retina as retina
-import feagi_interface as feagi
 import cv2
-
+import requests
 from time import sleep
-from configuration import *
 from datetime import datetime
+from feagi_agent import retina as retina
+from feagi_agent_webcam.configuration import *
+from feagi_agent import feagi_interface as feagi
 
 
 def chroma_keyer(frame, size, name_id):
@@ -59,7 +58,7 @@ def chroma_keyer(frame, size, name_id):
         return {'camera': {name_id: vision_dict}}
 
 
-if __name__ == "__main__":
+def main():
     # Generate runtime dictionary
     previous_data_frame = dict()
     runtime_data = {"cortical_data": {}, "current_burst_id": None, "stimulation_period": None, "feagi_state": None,
@@ -68,7 +67,7 @@ if __name__ == "__main__":
     # FEAGI section start
     print("Connecting to FEAGI resources...")
 
-    feagi_host, api_port, app_data_port = feagi.feagi_setting_for_registration()
+    feagi_host, api_port, app_data_port = feagi.feagi_setting_for_registration(feagi_settings, agent_settings)
 
     print(feagi_host, api_port, app_data_port)
 
@@ -80,7 +79,8 @@ if __name__ == "__main__":
     burst_counter_endpoint = feagi.feagi_api_burst_counter()
     print("^ ^ ^")
     runtime_data["feagi_state"] = feagi.feagi_registration(feagi_host=feagi_host,
-                                                           api_port=api_port)
+                                                           api_port=api_port, agent_settings=agent_settings,
+                                                           capabilities=capabilities)
 
     print("** **", runtime_data["feagi_state"])
     feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])

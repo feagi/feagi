@@ -47,7 +47,7 @@ capabilities = {
         "cortical_mapping": "o__mot",
         "rolling_window_len": 5,
         "diameter_of_wheel": 0.065,
-        "power_amount": 350
+        "power_amount": 650
     },
     "infrared": {
         "type": "ipu",

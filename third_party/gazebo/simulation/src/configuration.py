@@ -24,7 +24,7 @@ feagi_settings = {
 }
 
 agent_settings = {
-    "agent_data_port": "30002",
+    "agent_data_port": "30009",
     "agent_id": "gazebo",
     "agent_type": "monitor",
     'TTL': 2,

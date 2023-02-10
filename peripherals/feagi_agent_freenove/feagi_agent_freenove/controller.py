@@ -1,13 +1,12 @@
 from feagi_agent import feagi_interface as FEAGI
 import RPi.GPIO as GPIO
 from feagi_agent import retina as retina
-import configuration
 import traceback
 import requests
 import sys
-from Led import *
-from PCA9685 import PCA9685
-from configuration import *
+from feagi_agent_freenove.Led import *
+from feagi_agent_freenove.PCA9685 import PCA9685
+from feagi_agent_freenove.configuration import  *
 from picamera import PiCamera
 from datetime import datetime
 from collections import deque
@@ -415,9 +414,10 @@ def main():
 
     # # # FEAGI registration # # #
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-    feagi_host, api_port, app_data_port = FEAGI.feagi_setting_for_registration()
+    feagi_host, api_port, app_data_port = FEAGI.feagi_setting_for_registration(feagi_settings, agent_settings)
     runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host,
-                                                           api_port=api_port)
+                                                           api_port=api_port, agent_settings=agent_settings,
+                                                           capabilities=capabilities)
     ipu_channel_address = FEAGI.feagi_inbound(agent_settings["agent_data_port"])
     opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
@@ -440,8 +440,8 @@ def main():
 
     flag = False
     keyboard_flag = True
-    rolling_window_len = configuration.capabilities['motor']['rolling_window_len']
-    motor_count = configuration.capabilities['motor']['count']
+    rolling_window_len = capabilities['motor']['rolling_window_len']
+    motor_count = capabilities['motor']['count']
     msg_counter = 0
     # rpm = (50 * 60) / 2
     # DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60 is the
@@ -467,8 +467,8 @@ def main():
                     rawCapture.truncate(0)
                     if capabilities['camera']['disabled'] is not True:
                         retina_data = retina.frame_split(image,
-                                                         configuration.capabilities['camera']['retina_width_percent'],
-                                                         configuration.capabilities['camera']['retina_height_percent'])
+                                                         capabilities['camera']['retina_width_percent'],
+                                                         capabilities['camera']['retina_height_percent'])
                         for i in retina_data:
                             if 'C' in i:
                                 retina_data[i] = retina.center_data_compression(retina_data[i],
@@ -517,15 +517,15 @@ def main():
                     formatted_ir_data = {}
 
                 if ir_data:
-                    for ir_sensor in range(int(configuration.capabilities['infrared']['count'])):
+                    for ir_sensor in range(int(capabilities['infrared']['count'])):
                         if ir_sensor not in formatted_ir_data['ir']:
                             formatted_ir_data['ir'][ir_sensor] = False
                 else:
                     formatted_ir_data['ir'] = {}
-                    for ir_sensor in range(int(configuration.capabilities['infrared']['count'])):
+                    for ir_sensor in range(int(capabilities['infrared']['count'])):
                         formatted_ir_data['ir'][ir_sensor] = False
 
-                for ir_sensor in range(int(configuration.capabilities['infrared']['count'])):
+                for ir_sensor in range(int(capabilities['infrared']['count'])):
                     if ir_sensor not in formatted_ir_data['ir']:
                         formatted_ir_data['ir'][ir_sensor] = False
                 ultrasonic_data = ultrasonic.get_distance()
@@ -537,7 +537,7 @@ def main():
                     }
                 else:
                     formatted_ultrasonic_data = {}
-                configuration.message_to_feagi, battery = FEAGI.compose_message_to_feagi(
+                message_to_feagi, battery = FEAGI.compose_message_to_feagi(
                     original_message={**formatted_ir_data, **formatted_ultrasonic_data,
                                       **rgb})  # Removed battery due to error
                 # Process OPU data received from FEAGI and pass it along
@@ -566,10 +566,10 @@ def main():
                                 device_id = data_point
                                 device_power = opu_data['servo'][data_point]
                                 servo.move(feagi_device_id=device_id, power=device_power)
-                configuration.message_to_feagi['timestamp'] = datetime.now()
-                configuration.message_to_feagi['counter'] = msg_counter
-                feagi_ipu_channel.send(configuration.message_to_feagi)
-                configuration.message_to_feagi.clear()
+                message_to_feagi['timestamp'] = datetime.now()
+                message_to_feagi['counter'] = msg_counter
+                feagi_ipu_channel.send(message_to_feagi)
+                message_to_feagi.clear()
                 msg_counter += 1
                 flag += 1
                 if flag == 10:
@@ -592,3 +592,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+

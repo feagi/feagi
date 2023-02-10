@@ -1,6 +1,5 @@
 import traceback
 from feagi_agent import router
-import configuration
 from time import sleep
 
 
@@ -12,7 +11,7 @@ def sub_initializer(opu_address, flags=router.zmq.NOBLOCK):
     return router.Sub(address=opu_address, flags=flags)
 
 
-def feagi_registration(feagi_host, api_port):
+def feagi_registration(feagi_host, api_port, agent_settings, capabilities):
     host_info = router.app_host_info()
     runtime_data = {
         "host_network": {},
@@ -28,11 +27,11 @@ def feagi_registration(feagi_host, api_port):
             runtime_data["feagi_state"] = \
                 router.register_with_feagi(feagi_ip=feagi_host,
                                            feagi_api_port=api_port,
-                                           agent_type=configuration.agent_settings['agent_type'],
-                                           agent_id=configuration.agent_settings['agent_id'],
+                                           agent_type=agent_settings['agent_type'],
+                                           agent_id=agent_settings['agent_id'],
                                            agent_ip=runtime_data["host_network"]["ip_address"],
-                                           agent_data_port=configuration.agent_settings['agent_data_port'],
-                                           agent_capabilities=configuration.capabilities)
+                                           agent_data_port=agent_settings['agent_data_port'],
+                                           agent_capabilities=capabilities)
         except Exception as e:
             print("ERROR__: ", e, traceback.print_exc())
             pass
@@ -46,14 +45,14 @@ def block_to_array(block_ref):
     return array
 
 
-def feagi_setting_for_registration():
+def feagi_setting_for_registration(feagi_settings, agent_settings):
     """
     Generate all needed information and return the full data to make it easier to connect with
     FEAGI
     """
-    feagi_ip_host = configuration.feagi_settings["feagi_host"]
-    api_port = configuration.feagi_settings["feagi_api_port"]
-    app_data_port = configuration.agent_settings["agent_data_port"]
+    feagi_ip_host = feagi_settings["feagi_host"]
+    api_port = feagi_settings["feagi_api_port"]
+    app_data_port = agent_settings["agent_data_port"]
     return feagi_ip_host, api_port, app_data_port
 
 
@@ -80,7 +79,7 @@ def feagi_outbound(feagi_ip_host, feagi_opu_port):
            feagi_opu_port
 
 
-def msg_processor(self, msg, msg_type):
+def msg_processor(self, msg, msg_type, capabilities):
     # TODO: give each subclass a specific msg processor method?
     # TODO: add an attribute that explicitly defines message type (instead of parsing topic name)?
     if 'ultrasonic' in msg_type and msg.ranges[1]:
@@ -97,7 +96,7 @@ def msg_processor(self, msg, msg_type):
         sensor_id = int(''.join(filter(str.isdigit, sensor_topic)))
 
         # print("\n***\nAverage Intensity = ", avg_intensity)
-        if avg_intensity > configuration.capabilities["infrared"]["threshold"]:
+        if avg_intensity > capabilities["infrared"]["threshold"]:
             return {
                 'ir': {
                     sensor_id: False
@@ -222,4 +221,3 @@ def control_data_processor(data):
                     float(control_data['robot_starting_position'][position_index][2])
         return configuration.capabilities["motor"]["power_coefficient"], \
                configuration.capabilities["position"]
-
