@@ -5,6 +5,9 @@ import sys
 import os
 import sysconfig
 import feagi_agent_mycobot
+import platform
+
+
 
 
 def read_contents(file_path):
@@ -13,21 +16,24 @@ def read_contents(file_path):
 
 
 if __name__ == '__main__':
-    # Check if feagi_agent has arg
-    parser = argparse.ArgumentParser(description='configuration for any webcam')
-    parser.add_argument('-ip', '--ip', help='Description for ip address argument', required=False)
-    args = vars(parser.parse_args())
-    current_path = feagi_agent_mycobot.__path__
-    path = current_path[0] + "/src/configuration.py"
-    obtain_line = ""
-    whole_file = ""
-    if args['ip']:
-        with open(path, "r") as f:
-            for textline in f:
-                if "feagi_host" in textline:
-                    obtain_line = textline
-        whole_file = read_contents(path)
-        with open(path, "w") as f:
-            new_file = whole_file.replace(obtain_line, "     \"feagi_host\": \"" + args['ip'] + "\",\n")
-            f.write(new_file)
-    subprocess.run(["./start_mycobot.sh"], cwd=current_path[0])
+    if platform.uname()[0] == "Linux":
+        # Check if feagi_agent has arg
+        parser = argparse.ArgumentParser(description='configuration for any webcam')
+        parser.add_argument('-ip', '--ip', help='Description for ip address argument', required=False)
+        args = vars(parser.parse_args())
+        current_path = feagi_agent_mycobot.__path__
+        path = current_path[0] + "/src/configuration.py"
+        obtain_line = ""
+        whole_file = ""
+        if args['ip']:
+            with open(path, "r") as f:
+                for textline in f:
+                    if "feagi_host" in textline:
+                        obtain_line = textline
+            whole_file = read_contents(path)
+            with open(path, "w") as f:
+                new_file = whole_file.replace(obtain_line, "     \"feagi_host\": \"" + args['ip'] + "\",\n")
+                f.write(new_file)
+        subprocess.run(["./start_mycobot.sh"], cwd=current_path[0])
+    else:
+        print(platform.uname())
