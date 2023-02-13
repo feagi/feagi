@@ -36,9 +36,15 @@ if __name__ == '__main__':
     elif platform.uname()[0] == "Windows":
         print("This feature is currently not supported on Windows.")
         print("Please report any issues at https://github.com/feagi/feagi/issues.")
+        print("Currently, only Linux is supported. Windows and Mac are still under development. "
+              "If you are interested in making this work, please submit an issue on the Feagi GitHub page. "
+              "We will get in touch with you.")
     elif platform.uname()[0] == "Darwin":
         print("This feature is currently not supported on Mac.")
         print("Please report any issues at https://github.com/feagi/feagi/issues.")
+        print("Currently, only Linux is supported. Windows and Mac are still under development. "
+              "If you are interested in making this work, please submit an issue on the Feagi GitHub page. "
+              "We will get in touch with you.")
     else:
         print(platform.uname())
         print("Please report any issues at https://github.com/feagi/feagi/issues.")
