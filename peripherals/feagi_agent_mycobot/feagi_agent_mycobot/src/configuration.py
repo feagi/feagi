@@ -17,7 +17,7 @@ limitations under the License.
 # !/usr/bin/env python3
 
 feagi_settings = {
-    "feagi_host": "192.168.50.246",
+    "feagi_host": "feagi",
     "feagi_api_port": "8000",
 }
 
