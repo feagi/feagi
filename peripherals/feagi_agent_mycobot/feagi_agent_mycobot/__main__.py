@@ -8,8 +8,6 @@ import feagi_agent_mycobot
 import platform
 
 
-
-
 def read_contents(file_path):
     with open(file_path, 'r') as f:
         return f.read()
@@ -35,5 +33,12 @@ if __name__ == '__main__':
                 new_file = whole_file.replace(obtain_line, "     \"feagi_host\": \"" + args['ip'] + "\",\n")
                 f.write(new_file)
         subprocess.run(["./start_mycobot.sh"], cwd=current_path[0])
+    elif platform.uname()[0] == "Windows":
+        print("This feature is currently not supported on Windows.")
+        print("Please report any issues at https://github.com/feagi/feagi/issues.")
+    elif platform.uname()[0] == "Darwin":
+        print("This feature is currently not supported on Mac.")
+        print("Please report any issues at https://github.com/feagi/feagi/issues.")
     else:
         print(platform.uname())
+        print("Please report any issues at https://github.com/feagi/feagi/issues.")
