@@ -7,5 +7,12 @@ If you would like to learn more about how to run Feagi, please visit: https://gi
 # Quick Start:
 You can start with any of the quick start options. The easiest and simplest method is to use feagi_agent_webcam, which focuses solely on webcam functionality. Once you have installed it using pip3 install feagi_agent_webcam, simply type python3 -m feagi_agent_webcam --ip 127.0.0.1 to run it.
 
+If you would like to create your own code using the Feagi API and call `feagi_interface` or `retina`, you can use the following code:
+
+`from feagi_agent import feagi_interface`
+
+`from feagi_agent import retina`
+
 # Feagi Agent Packages:
 Currently, we have more than 2 packages: `feagi_agent_webcam`, `feagi_agent_freenove`, and `feagi_agent_mycobot`. You can find more packages here: https://github.com/feagi/feagi/tree/feature-mycobot-updated/peripherals
+The requirements for `feagi-agent` can be found here: [feagi-agent requirements](https://github.com/feagi/feagi/blob/staging/peripherals/feagi_agent_core/feagi_agent/requirements.txt)
