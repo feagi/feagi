@@ -76,7 +76,7 @@ class Servo(Node):
         # elif self.check_direction_extra_sensitive(encoder_id) == "no_movement" and (a < b or a > b):
         #     print("touched while not moving")
         try:
-            if runtime_data['actual_encoder_position'][encoder_id][4] !=\
+            if runtime_data['actual_encoder_position'][encoder_id][4] != \
                     runtime_data['target_position'][encoder_id]:
                 if capabilities['servo']['servo_range'][str(encoder_id)][1] >= (
                         runtime_data['target_position'][encoder_id]) >= \
@@ -273,9 +273,11 @@ global_arm['0'].set_speed(100)
 
 # # # FEAGI registration # # #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-feagi_host, api_port, app_data_port = FEAGI.feagi_setting_for_registration()
+feagi_host, api_port, app_data_port = FEAGI.feagi_setting_for_registration(feagi_settings, agent_settings)
 runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host,
-                                                       api_port=api_port)
+                                                       api_port=api_port,
+                                                       agent_settings=agent_settings,
+                                                       capabilities=capabilities)
 ipu_channel_address = FEAGI.feagi_inbound(agent_settings["agent_data_port"])
 opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
                                            runtime_data["feagi_state"]['feagi_opu_port'])
@@ -330,7 +332,9 @@ while keyboard_flag:
                     if opu_data['servo_position'] is not {}:
                         for data_point in opu_data['servo_position']:
                             device_id = data_point + 1
-                            encoder_position = ((capabilities['servo']['servo_range'][str(device_id)][1] - capabilities['servo']['servo_range'][str(device_id)][0]) / 20) * opu_data['servo_position'][data_point]
+                            encoder_position = ((capabilities['servo']['servo_range'][str(device_id)][1] -
+                                                 capabilities['servo']['servo_range'][str(device_id)][0]) / 20) * \
+                                               opu_data['servo_position'][data_point]
                             runtime_data['target_position'][device_id] = encoder_position
                             # print(encoder_position, " is encoder id: ", device_id)
                             # print(runtime_data['target_position'][device_id])
