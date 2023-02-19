@@ -32,6 +32,7 @@ import ListItemButton from '@mui/material/ListItemButton';
 import Checkbox from '@mui/material/Checkbox';
 import CommentIcon from '@mui/icons-material/Comment';
 import FormHelperText from "@mui/material/FormHelperText";
+import { env } from './env';
 
 import ListSubheader from '@mui/material/ListSubheader';
 import Switch from '@mui/material/Switch';
@@ -48,6 +49,13 @@ import {Img} from "react-image";
 import map2 from "../assets/map2.png"
 import {Image} from "@mui/icons-material";
 
+export const App = () => {
+return (
+  <div>
+    <span>{env.GUI_IP}</span>
+  </div>
+  )
+}
 
 const MonitoringDashboard = (props) => {
   const [frameHeight, setFrameHeight] = useState("");
@@ -454,12 +462,12 @@ const MonitoringDashboard = (props) => {
         </Box>
         {drawerList()}
       </Drawer>
-      <iframe
-        id="godotFrame"
-        src="http://localhost:6081"
-        width="50%"
-        height={scrollHeightScaled}
-      />
+        <iframe
+          id="godotFrame"
+          src={"http://" + env.GUI_IP + ":6081"}
+          width="50%"
+          height={scrollHeightScaled}
+        />
       {/* ) : (
         <div
           style={{
