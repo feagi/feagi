@@ -129,7 +129,8 @@ services:
     depends_on:
       - feagi
     environment:
-      - REACT_APP_INSTANCE_IP=$INSTANCE_IP
+      - INSTANCE_IP=$INSTANCE_IP
+
 
 volumes:
   grafana_data:
