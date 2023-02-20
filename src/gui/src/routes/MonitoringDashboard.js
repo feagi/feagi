@@ -48,6 +48,8 @@ import {Img} from "react-image";
 import map2 from "../assets/map2.png"
 import {Image} from "@mui/icons-material";
 
+const instance_ip = process.env.REACT_APP_INSTANCE_IP;
+
 
 const MonitoringDashboard = (props) => {
   const [frameHeight, setFrameHeight] = useState("");
@@ -90,7 +92,7 @@ const MonitoringDashboard = (props) => {
   };
 
   const handleActicityMonitor = () => {
-    window.open("http://localhost:6082/d/Se3OI7f7k/feagi-brain-activity-analyzer?orgId=1&refresh=1s", "_blank", "noopener,noreferrer");
+    window.open("http://" + instance_ip + ":6082/d/Se3OI7f7k/feagi-brain-activity-analyzer?orgId=1&refresh=1s", "_blank", "noopener,noreferrer");
   };
 
 
@@ -456,7 +458,7 @@ const MonitoringDashboard = (props) => {
       </Drawer>
       <iframe
         id="godotFrame"
-        src="http://localhost:6081"
+        url={`http://${instance_ip}:6081`}
         width="50%"
         height={scrollHeightScaled}
       />
@@ -476,7 +478,7 @@ const MonitoringDashboard = (props) => {
       <Iframe
         className="iframe"
         id="gazeboFrame"
-        url="http://localhost:6080"
+        url={`http://${instance_ip}:6080`}
         width="50%"
         height={scrollHeightScaled}
         onLoad={handleGazeboLoad}
