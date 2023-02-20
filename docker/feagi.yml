@@ -116,7 +116,10 @@ services:
       - net
 
   gui:
-    build: ../src/gui/
+    build:
+      context: ../src/gui/
+      args:
+        INSTANCE_IP: ${INSTANCE_IP}
     deploy:
       resources:
         limits:
@@ -128,8 +131,6 @@ services:
       - net
     depends_on:
       - feagi
-    environment:
-      - INSTANCE_IP=$INSTANCE_IP
 
 
 volumes:
