@@ -41,6 +41,22 @@ from evo.templates import cortical_types
 
 logger = logging.getLogger(__name__)
 
+import os
+
+def update_ini_variables_from_environment(var_dict):
+    """
+    Function to update ini variables from environment
+    Any ini variable starting with $ will be referenced from environment
+    """
+    new_var_dict = {}
+    for key, val in var_dict.items():
+        new_var_dict[key] = val
+        if val.startswith('$'):
+            new_val = os.environ.get(val.lstrip('$'))
+            print(f"Fetching {key} from environment with ENV {val} - NEW VAL - {new_val}")
+            new_var_dict[key] = new_val
+    return new_var_dict
+
 
 def id_gen(size=6, chars=string.ascii_uppercase + string.digits, signature=''):
     return (str(datetime.now()).replace(' ', '_')).replace('.', '_')+'_'+(''.join(random.choice(chars) for
@@ -134,7 +150,10 @@ def init_parameters(ini_path='./feagi_configuration.ini'):
     print("_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+\n")
     feagi_config = ConfigParser()
     feagi_config.read(ini_path)
-    runtime_data.parameters = {s: dict(feagi_config.items(s)) for s in feagi_config.sections()}
+    runtime_data.parameters = { 
+        s: update_ini_variables_from_environment(dict(feagi_config.items(s))) \
+        for s in feagi_config.sections()
+    }
     # print("runtime_data.parameters ", runtime_data.parameters)
     if not runtime_data.parameters["InitData"]["working_directory"]:
         runtime_data.parameters["InitData"]["working_directory"] = gettempdir()

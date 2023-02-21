@@ -12,17 +12,10 @@ services:
         limits:
           cpus: '1'
           memory: '2g'
-    environment:
-      - INFLUXDB=true
-      - DOCKER_INFLUXDB_INIT_MODE=$INFLUXDB_MODE
-      - DOCKER_INFLUXDB_INIT_RETENTION=$INFLUXDB_RETENTION
-      - DOCKER_INFLUXDB_INIT_USERNAME=$INFLUXDB_USERNAME
-      - DOCKER_INFLUXDB_INIT_PASSWORD=$INFLUXDB_PASSWORD
-      - DOCKER_INFLUXDB_INIT_ORG=$INFLUXDB_ORG
-      - DOCKER_INFLUXDB_INIT_BUCKET=$INFLUXDB_BUCKET
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=$INFLUXDB_TOKEN
     ports:
       - 8086:8086
+    env_file:
+      - ./.env
     volumes:
       - influxdb_data:/var/lib/influxdb
 #    healthcheck:
@@ -44,6 +37,8 @@ services:
           memory: '3g'
     ports:
       - "6080:80"
+    env_file:
+      - ./.env
     privileged: true
     networks:
       - net
@@ -64,9 +59,8 @@ services:
     ports:
       - "6081:8080"
       - "9050:9050"
-    environment:
-      - CONTAINERIZED=true
-      - PYTHONUNBUFFERED=1
+    env_file:
+      - ./.env
     privileged: true
     networks:
       - net
@@ -80,12 +74,8 @@ services:
         limits:
           cpus: '1'
           memory: '2g'
-    environment:
-      - INFLUXDB_USER=$INFLUXDB_USERNAME
-      - INFLUXDB_PASSWORD=$INFLUXDB_PASSWORD
-      - INFLUXDB_TOKEN=$INFLUXDB_TOKEN
-      - INFLUXDB_ORG=$INFLUXDB_ORG
-      - INFLUXDB_BUCKET=$INFLUXDB_BUCKET
+    env_file:
+      - ./.env
     ports:
       - 6082:3000
     volumes:
@@ -105,21 +95,16 @@ services:
     ports:
       - "8000:8000"
       - "30000:30000"
-    environment:
-      - INFLUXDB=influxdb.environment.INFLUXDB
-      - CONTAINERIZED=true
-      - PYTHONUNBUFFERED=1
+    env_file:
+      - ./.env
     volumes:
       - ../src/:/opt/source-code/feagi/src
-
     networks:
       - net
 
   gui:
     build:
       context: ../src/gui/
-      args:
-        INSTANCE_IP: ${INSTANCE_IP}
     deploy:
       resources:
         limits:
@@ -127,12 +112,18 @@ services:
           memory: '2g'
     ports:
       - "3000:3000"
+    env_file:
+      - ./.env
     networks:
       - net
     depends_on:
       - feagi
 
 
+
 volumes:
   grafana_data:
   influxdb_data:
+
+
+# docker compose -f feagi.yml up --build

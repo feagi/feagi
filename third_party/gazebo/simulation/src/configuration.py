@@ -16,11 +16,15 @@ limitations under the License.
 ==============================================================================
 """
 
+import os
+feagi_host = os.environ.get('FEAGI_HOST', "127.0.0.1")
+feagi_port = os.environ.get('FEAGI_PORT', "8000") 
+
 app_name = 'gazebo'
 
 feagi_settings = {
-    "feagi_host": "feagi",
-    "feagi_api_port": "8000",
+    "feagi_host": feagi_host,
+    "feagi_api_port": feagi_port,
 }
 
 agent_settings = {
