@@ -465,7 +465,7 @@ const MonitoringDashboard = (props) => {
       </Drawer>
       <iframe
         id="godotFrame"
-        url={gadot_url}
+        src={gadot_url}
         width="50%"
         height={scrollHeightScaled}
       />
