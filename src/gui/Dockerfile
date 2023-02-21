@@ -1,12 +1,19 @@
 FROM neuraville/feagi-base-gui-prod
 ARG INSTANCE_IP
 ENV PATH /gui/node_modules/.bin:$PATH
-ENV REACT_APP_INSTANCE_IP=$INSTANCE_IP
-RUN echo "111 instance id is $INSTANCE_IP"
-RUN echo "222 instance id is $REACT_APP_INSTANCE_IP"
 COPY package.json package-lock.json ./
 RUN npm install
-COPY . ./
+
+COPY public ./public
+COPY src ./src
 RUN npm run build
-RUN echo "app instance id is $REACT_APP_INSTANCE_IP"
-CMD ["serve", "-s", "build"]
+
+COPY ./env.sh .
+COPY .env .
+
+# Add bash
+RUN apk add --no-cache bash
+RUN chmod +x env.sh
+
+# CMD ["serve", "-s", "build"]
+CMD ["/bin/bash", "-c", "./env.sh && cp ./env-config.js ./build/. && serve -s build"]
