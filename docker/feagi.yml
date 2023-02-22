@@ -29,6 +29,7 @@ services:
       retries: 5
 
   ros-gazebo:
+    image: gcr.io/feagi-poc/feagi/gazebo:v0.0.1
     build: ../third_party/gazebo/simulation
     deploy:
       resources:
@@ -50,6 +51,7 @@ services:
       - ../third_party/gazebo/simulation/environments/material/map1.png:/opt/source-code/simulation/environments/material/map1.png
 
   godot:
+    image: gcr.io/feagi-poc/feagi/gadot:v0.0.1
     build: ../third_party/godot/
     deploy:
       resources:
@@ -68,6 +70,7 @@ services:
       - feagi
 
   grafana:
+    image: gcr.io/feagi-poc/feagi/grafana:v0.0.1
     build: ../third_party/grafana/
     deploy:
       resources:
@@ -86,6 +89,7 @@ services:
       - influxdb
 
   feagi:
+    image: gcr.io/feagi-poc/feagi/grafana:v0.0.1
     build: ./
     deploy:
       resources:
@@ -103,6 +107,7 @@ services:
       - net
 
   gui:
+    image: gcr.io/feagi-poc/feagi/gui:v0.0.1
     build:
       context: ../src/gui/
     deploy:
