@@ -1,13 +1,15 @@
 extends Node
 
 # The URL we will connect to
-var api_ip_address = "127.0.0.1" # For API and Websocket
-var api_port_address = "8000"         # For API port
+ # For API IP
+var api_ip_address = "127.0.0.1"
+# For API port
+var api_port_address = "8000"
+# For Websocket port
 var websocket_ip_address = "127.0.0.1"
-var websocket_port_address = "9050"   # For Websocket Port
+# For Websocket Port
+var websocket_port_address = "9050"
 export var websocket_url = ""
-#export var websocket_url = ""
-var k8_ip_address = OS.get_environment("k8_server")
 var green_light = false #Moved from feagi to here
 var one_frame = ""
 #var config_file= "res://ip_address.cfg" 
@@ -16,7 +18,6 @@ var one_frame = ""
 var _client = WebSocketClient.new()
 
 func _ready():
-
 	websocket_url = "ws://" + str(websocket_ip_address) + ":" + websocket_port_address
 	print("result: ", websocket_url)
 	# Connect base signals to get notified of connection open, close, and errors.
