@@ -313,6 +313,10 @@ async def log_requests(request: Request, call_next):
 
     return response
 
+app.get("/server_check")
+async def server_check(response: Response):
+    response.status_code = status.HTTP_200_OK
+
 # todo: To add the ability of updating allowable cors list on the fly
 # # Append to the CORS origin
 # @app.middleware("http")
@@ -1505,7 +1509,7 @@ async def beacon_query(agent_id: str):
 
 
 @app.api_route("/v1/agent/register", methods=['POST'], tags=["Peripheral Nervous System"])
-async def agent_registration(agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int, response: Response):
+async def agent_registration(request: Request, agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int, response: Response):
     try:
         if agent_id not in runtime_data.agent_registry:
             # Add new agent to the registry
@@ -1513,10 +1517,21 @@ async def agent_registration(agent_type: str, agent_id: str, agent_ip: str, agen
         runtime_data.agent_registry[agent_id]["agent_type"] = agent_type
         runtime_data.agent_registry[agent_id]["agent_ip"] = agent_ip
         runtime_data.agent_registry[agent_id]["agent_data_port"] = agent_data_port
+        print(f"AGENT Details -- {agent_id} -- {agent_ip} -- {agent_type} -- {agent_data_port}")
+        print(f"Client IP ------------------------- {request.client.host}")
+        runtime_data.agent_registry[agent_id]["agent_ip"] = request.client.host
+
 
         # Create the needed ZMQ listener for new agent
-        agent_router_address = "tcp://" + agent_ip + ':' + str(agent_data_port)
-        runtime_data.agent_registry[agent_id]["listener"] = Sub(address=agent_router_address)
+        if agent_type == 'monitor':
+            # FEAGI will connect to remote ZMQ for messages
+            agent_router_address = "tcp://" + request.client.host + ':' + str(agent_data_port)
+            runtime_data.agent_registry[agent_id]["listener"] = Sub(address=agent_router_address)
+        else:
+            agent_router_address = f"tcp://*:{str(agent_data_port)}"
+            # FEAGI will open output_data_port for Agents to connect for messages
+            if 'listener' not in runtime_data.agent_registry[agent_id]:
+                runtime_data.agent_registry[agent_id]["listener"] = Sub(address=agent_router_address, bind=True)
 
         print("New agent has been successfully registered:", runtime_data.agent_registry[agent_id])
         response.status_code = status.HTTP_200_OK

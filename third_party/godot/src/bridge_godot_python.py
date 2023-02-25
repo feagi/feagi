@@ -30,7 +30,7 @@ import random
 import shutil
 import threading
 from time import sleep
-from router import *
+from router import Pub, Sub
 from configuration import *
 import concurrent.futures
 from threading import Thread
@@ -386,10 +386,12 @@ if __name__ == "__main__":
 
     bgsk = threading.Thread(target=websocket_operation, daemon=True).start()
 
-    FEAGI_pub = Pub(address='tcp://0.0.0.0:' + agent_settings["agent_data_port"])
-    opu_channel_address = 'tcp://' + feagi_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
-        'feagi_opu_port']
-    FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+    ipu_channel_address = f"tcp://*:{agent_settings['agent_data_port']}"
+    # ipu_channel_address = f"tcp://{feagi_host}:{agent_settings["agent_data_port"]}"
+    FEAGI_pub = Pub(ipu_channel_address, bind=True)
+
+    opu_channel_address = f"tcp://{feagi_settings['feagi_host']}:{runtime_data['feagi_state']['feagi_opu_port']}"
+    FEAGI_sub = Sub(address=opu_channel_address, bind=False, flags=zmq.NOBLOCK)
 
     current_cortical_area = feagi_init(feagi_host=feagi_host, api_port=api_port)
     print("FEAGI initialization completed successfully")
@@ -404,7 +406,7 @@ if __name__ == "__main__":
         if detect_lag:
             opu_channel_address = 'tcp://' + feagi_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
                 'feagi_opu_port']
-            new_FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+            new_FEAGI_sub = Sub(address=opu_channel_address, bind=False, flags=zmq.NOBLOCK)
             zmq_queue.clear()
             ws_queue.clear()
             detect_lag = False

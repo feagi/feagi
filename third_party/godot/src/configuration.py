@@ -5,12 +5,12 @@ import os
 app_name = 'godot'
 
 feagi_settings = {
-    "feagi_host": os.environ.get('FEAGI_HOST', "127.0.0.1"),
-    "feagi_api_port": os.environ.get('FEAGI_PORT', "8000"),
+    "feagi_host": os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"),
+    "feagi_api_port": os.environ.get('FEAGI_API_PORT', "8000"),
 }
 
-host_network = {
-    "ip_address": os.environ.get('GADOT_ADDRESS') 
+host_info = {
+    "ip_address": os.environ.get('GADOT_HOST') 
 }
 
 agent_settings = {
