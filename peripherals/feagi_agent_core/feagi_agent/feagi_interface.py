@@ -3,8 +3,8 @@ from feagi_agent import router
 from time import sleep
 
 
-def pub_initializer(ipu_address):
-    return router.Pub(address=ipu_address)
+def pub_initializer(ipu_address, bind=True):
+    return router.Pub(address=ipu_address, bind=bind)
 
 
 def sub_initializer(opu_address, flags=router.zmq.NOBLOCK):

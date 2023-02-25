@@ -8,10 +8,10 @@ live-server &
 
 cd ../godot_source/
 
-api_ip="$GODOT_TO_API"
-api_port="$API_PORT"
-websocket_ip="$GODOT_WEBSOCKET"
-websocket_port="$WEBSOCKET_PORT"
+api_ip="$FEAGI_HOST"
+api_port="$FEAGI_API_PORT"
+websocket_ip="$GODOT_WEBSOCKET_HOST"
+websocket_port="$GADOT_WEBSOCKET_PORT"
 
 if [[ -n "$websocket_ip" ]]; then
   sed -i "s/var websocket_ip_address = \"127\.0\.0\.1\"/var websocket_ip_address = \"$websocket_ip\"/g" network_configuration.gd
