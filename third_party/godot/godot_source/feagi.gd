@@ -49,6 +49,8 @@ var afferent_child_holder = []
 var get_id_from_dst
 var plus_node = []
 var dst_data_holder
+var ghost_morphology = []
+
 
 
 func _ready():
@@ -58,6 +60,8 @@ func _ready():
 	$HTTP_node/morphology_types.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology_types')
 	$HTTP_node/genome_data.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/connectome/properties/dimensions')
 	while true:
+		if $Spatial/Camera/Menu/box_loading.visible:
+			$Spatial/Camera/Menu/box_loading.visible = false
 		if $Spatial/Camera/Menu/insert_menu.visible == false:
 			_clear_single_cortical("example", global_name_list)
 #		if not($Spatial/Camera/Menu/cortical_menu.visible) and child_node_holder:
@@ -78,6 +82,7 @@ func _ready():
 		_process(self)
 #		print("FROM PYTHON: ", data)
 		if "update" in data:
+			$Spatial/Camera/Menu/box_loading.visible = true
 			if timer_api.bool_flag:
 				timer_api.trigger_api_timer()
 				$HTTP_node/genome_data.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/connectome/properties/dimensions')
@@ -538,10 +543,8 @@ func child_holder_clear():
 		for i in child_node_holder:
 			i.queue_free()
 		child_node_holder = []
-#	$Spatial/Camera/Menu/cortical_mapping/Control/white_background.rect_size.y = 242
-#	$Spatial/Camera/Menu/cortical_menu/Control/Update.rect_position.y = 909 
-#	$Spatial/Camera/Menu/cortical_mapping.rect_position.y = 589
-#	$Spatial/Camera/Menu/cortical_menu/Control/white_background.rect_position.y = 512
+	if ghost_morphology:
+		ghost_morphology = []
 
 func _on_get_genome_name_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
@@ -553,7 +556,7 @@ func _on_get_genome_name_request_completed(_result, _response_code, _headers, bo
 func _on_get_burst_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
 	var api_data = json.result
-	$Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.text = str(api_data)
+	$Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.text = str(float(api_data))
 
 func _on_download_pressed():
 	_clear_node_name_list(global_name_list)
@@ -623,6 +626,10 @@ func _on_update_destination_info_request_completed(_result, _response_code, _hea
 				new_node.rect_position.y = (50 * (plus_node.size()))
 				plus_node.append(new_node)
 				$Spatial/Camera/Menu/"Mapping_Properties"/inside_mapping_menu.rect_size.y += (30 * plus_node.size())
+				new_node.get_child(0).connect("pressed", self, "_on_Mapping_def_pressed")
+				new_node.get_child(4).connect("text_changed", self, "_on_text_changed")
+				ghost_morphology.append(new_node.get_child(0))
+				
 				for x in new_node.get_child(0).get_item_count():
 					if new_node.get_child(0).get_item_text(x) == api_data[i]["morphology_id"]:
 						new_node.get_child(0).selected = x
@@ -751,6 +758,9 @@ func _on_plus_add_pressed():
 	var new_node = $Spatial/Camera/Menu/"Mapping_Properties"/inside_mapping_menu/Control.duplicate()
 	$Spatial/Camera/Menu/"Mapping_Properties"/inside_mapping_menu.add_child(new_node)
 	plus_node.append(new_node)
+	new_node.get_child(0).connect("pressed", self, "_on_Mapping_def_pressed")
+	new_node.get_child(4).connect("text_changed", self, "_on_text_changed")
+	ghost_morphology.append(new_node.get_child(0))
 	new_node.visible = true
 	new_node.get_child(1).value = 1
 	new_node.get_child(2).value = 1
@@ -883,19 +893,21 @@ func _on_cortical_dropdown_pressed():
 
 func _on_burst_value_text_entered(new_text):
 	var json = {}
-	json["burst_duration"] = float(new_text)
+	json["burst_duration"] = float(1/float(new_text))
 	_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/feagi/burst_engine', false, json)
 	$Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.release_focus()
 
 
 func _on_burst_value_mouse_exited():
 	var json = {}
-	json["burst_duration"] = float($Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.text)
+	var new_text = $Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.text
+	json["burst_duration"] = float(1/float(new_text))
 	_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/feagi/burst_engine', false, json)
 
 func _on_burst_value_focus_exited():
 	var json = {}
-	json["burst_duration"] = float($Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.text)
+	var new_text = $Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.text
+	json["burst_duration"] = float(1/float(new_text))
 	_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/feagi/burst_engine', false, json)
 	$Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.release_focus()
 
@@ -945,6 +957,7 @@ func _on_create_pressed():
 		json["name"] = $Spatial/Camera/Menu/Control/inner_box/morphology_name.text
 		json["type"] = $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.get_selected_id())
 		json["morphology"] = parse_json($Spatial/Camera/Menu/Control/inner_box/TextEdit.text)
+		print("morphology: ", json["morphology"])
 		_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology', false, json)
 		$Spatial/Camera/Menu/Control.visible = false
 
@@ -1116,3 +1129,37 @@ func _on_Neuron_morphologies_item_item_selected(index):
 	$Spatial/Camera/Menu/rule_properties/mapping_rule_options.selected = index
 	$Spatial/Camera/Menu/rule_properties/mapping_rule_options.emit_signal("item_selected", index)
 	$Spatial/Camera/Menu/rule_properties/mapping_rule_options.release_focus()
+	
+
+
+func _on_Mapping_def_pressed():
+	$HTTP_node/ghost_morphology_list.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology_list')
+	
+func _on_ghost_morphology_list_request_completed(_result, _response_code, _headers, body):
+	var json = JSON.parse(body.get_string_from_utf8())
+	var api_data = json.result
+	$Spatial/Camera/Menu/information_menu/Neuron_morphologies_item.clear()
+	$Spatial/Camera/Menu/rule_properties/mapping_rule_options.clear()
+	$Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.clear()
+	$Spatial/Camera/Menu/information_menu/Neuron_morphologies_item.add_item(" ")
+	$Spatial/Camera/Menu/rule_properties/mapping_rule_options.add_item(" ")
+	$Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.add_item(" ")
+	for i in api_data:
+		$Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.add_item(i)
+		$Spatial/Camera/Menu/rule_properties/mapping_rule_options.add_item(i)
+#		$Spatial/Camera/Menu/information_menu/Neuron_morphologies.add_item(i)
+		$Spatial/Camera/Menu/information_menu/Neuron_morphologies_item.add_item(i, null, true)
+	if ghost_morphology:
+		for a in ghost_morphology:
+			var node_ghost = a
+			if node_ghost.get_item_count() != $Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.get_item_count():
+				node_ghost.clear()
+				for i in $Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.get_item_count():
+					node_ghost.add_item($Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.get_item_text(i), i)
+
+
+func _on_text_changed(new_text):
+	Godot_list.Node_2D_control = true
+	if new_text != "":
+		if new_text.is_valid_float():
+			self.value = float(new_text)

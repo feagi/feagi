@@ -10,6 +10,7 @@ from datetime import datetime
 from feagi_agent import feagi_interface as FEAGI
 
 previous_data_frame = dict()
+flag = False
 
 
 def get_battery(full_data):
@@ -115,13 +116,22 @@ def control_drone(self, direction, cm_distance):
 
 
 def misc_control(self, data, battery_level):
+    global flag
     if data == 0:
+        print("flag: ", flag)
         try:
-            self.send_command_without_return("takeoff")
+            if flag == False:
+                print("takeoff!")
+                self.send_command_without_return("takeoff")
+                flag = True
         except Exception as e:
             print("ERROR AT: ", e)
     if data == 1:
-        self.send_command_without_return("land")
+        print("flag: ", flag)
+        if flag:
+            print("landed!")
+            self.send_command_without_return("land")
+            flag = False
     if data == 2:
         try:
             if battery_level >= 50:
@@ -267,6 +277,8 @@ def main():
     print("Connected with Tello drone.")
     start_camera(tello)
 
+    flying_flag = False
+
     while True:
         try:
             # Gather all data from the robot to prepare for FEAGI
@@ -340,25 +352,26 @@ def main():
                 if 'misc' in opu_data:
                     for i in opu_data['misc']:
                         misc_control(tello, i, battery)
-                if 'navigation' in opu_data:
-                    if opu_data['navigation']:
-                        try:
-                            data0 = opu_data['navigation'][0] * 10
-                        except Exception as e:
-                            data0 = 0
-                        try:
-                            data1 = opu_data['navigation'][1] * 10
-                        except Exception as e:
-                            data1 = 0
-                        try:
-                            data2 = opu_data['navigation'][2] * 10
-                        except Exception as e:
-                            data2 = 0
-                        try:
-                            speed = opu_data['speed'][0] * 10
-                        except Exception as e:
-                            speed = 0
-                        navigate_to_xyz(tello, data0, data1, data2, speed)
+                if flying_flag:
+                    if 'navigation' in opu_data:
+                        if opu_data['navigation']:
+                            try:
+                                data0 = opu_data['navigation'][0] * 10
+                            except Exception as e:
+                                data0 = 0
+                            try:
+                                data1 = opu_data['navigation'][1] * 10
+                            except Exception as e:
+                                data1 = 0
+                            try:
+                                data2 = opu_data['navigation'][2] * 10
+                            except Exception as e:
+                                data2 = 0
+                            try:
+                                speed = opu_data['speed'][0] * 10
+                            except Exception as e:
+                                speed = 0
+                            navigate_to_xyz(tello, data0, data1, data2, speed)
 
             # Preparing to send data to FEAGI
             configuration.message_to_feagi['timestamp'] = datetime.now()
@@ -366,15 +379,15 @@ def main():
             feagi_ipu_channel.send(configuration.message_to_feagi)
             configuration.message_to_feagi.clear()
             msg_counter += 1
-            # flag += 1
-            # if flag == 10:
-            #     feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
-            #     feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
-            #     flag = 0
-            #     if msg_counter < feagi_burst_counter:
-            #         feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-            #         if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
-            #             feagi_settings['feagi_burst_speed'] = feagi_burst_speed
+            flag += 1
+            if flag == 10:
+                feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
+                feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
+                flag = 0
+                if msg_counter < feagi_burst_counter:
+                    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
+                    if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
+                        feagi_settings['feagi_burst_speed'] = feagi_burst_speed
 
         except KeyboardInterrupt as ke:
             print("ERROR: ", ke)
