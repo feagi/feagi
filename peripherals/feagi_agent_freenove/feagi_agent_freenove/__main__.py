@@ -16,6 +16,7 @@ if __name__ == '__main__':
     # Check if feagi_agent has arg
     parser = argparse.ArgumentParser(description='configuration for any webcam')
     parser.add_argument('-ip', '--ip', help='Description for ip address argument', required=False)
+    parser.add_argument('-setup', '--setup', help='Description for ip address argument', required=False)
     args = vars(parser.parse_args())
     current_path = feagi_agent_freenove.__path__
     path = current_path[0] + "/configuration.py"
@@ -30,5 +31,8 @@ if __name__ == '__main__':
         with open(path, "w") as f:
             new_file = whole_file.replace(obtain_line, "     \"feagi_host\": \"" + args['ip'] + "\",\n")
             f.write(new_file)
+    if args['setup']:
+        new_path = current_path[0] + "/setup.sh " + current_path[0]
+        subprocess.run([new_path, "arguments"], shell=True)
     from feagi_agent_freenove import controller as freenove_smartcar_controller
     freenove_smartcar_controller.main()
