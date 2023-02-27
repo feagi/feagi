@@ -34,6 +34,8 @@ const DefaultGenomes = lazy(() => import("./routes/DefaultGenomes"));
 const DefaultRobots = lazy(() => import("./routes/DefaultRobots"));
 const DefaultMaps = lazy(() => import("./routes/DefaultMaps"));
 
+const instance_ip = process.env.REACT_APP_INSTANCE_IP;
+
 function App() {
   const [definedMotor, setDefinedMotor] = useState([]);
   const [selectedMotor, setSelectedMotor] = useState([]);
@@ -114,7 +116,7 @@ function App() {
   });
 
   const handleApiDocsClick = () => {
-    window.open("http://localhost:8000/docs", "_blank", "noopener,noreferrer");
+    window.open("http://" + instance_ip + ":8000/docs", "_blank", "noopener,noreferrer");
   };
 
   const handleHelpClick = () => {
@@ -142,7 +144,7 @@ function App() {
               {/*</IconButton>*/}
               <Typography variant="h6" sx={{ ml: 4, flexGrow: 1 }}>
                 Framework for Evolutionary Artificial General Intelligence
-                (FEAGI)
+                (FEAGI) ${instance_ip}
               </Typography>
               <div
                 style={{

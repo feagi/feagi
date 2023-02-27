@@ -29,95 +29,73 @@ All communications to and from FEAGI to follow the standard below:
 from datetime import datetime
 import logging
 import zmq
+import time
 from inf import runtime_data
 
 logger = logging.getLogger(__name__)
 
 # todo: consolidate the two publishers in a modular fashion
 
-
-class Pub:
-    def __init__(self, address):
-        self.address = address
-        context = zmq.Context()
-        self.socket = context.socket(zmq.PUB)
-        # self.socket.setsockopt(zmq.SNDHWM, 0)
-        self.socket.bind(address)
+class PubSub:
+    def __init__(self):
+        self.context = zmq.Context()
 
     def send(self, message):
         self.socket.send_pyobj(message)
-        if runtime_data.parameters["Logs"]["print_messenger_logs"]:
-            print("FEAGI published a message:", message, "on ", self.address)
-
-    def terminate(self):
-        self.socket.close()
-
-# class PubBrainActivities:
-#     def __init__(self, address):
-#         context = zmq.Context()
-#         self.socket = context.socket(zmq.PUB)
-#         # self.socket.setsockopt(zmq.SNDHWM, 0)
-#         self.socket.bind(address)
-#
-#     def send(self, message):
-#         self.socket.send_pyobj(message)
-#         print("Message sent to device is:", message)
-
-
-class Sub:
-    def __init__(self, address):
-        context = zmq.Context()
-        self.socket = context.socket(zmq.SUB)
-        self.socket.setsockopt(zmq.CONFLATE, 1)
-        # self.socket.setsockopt(zmq.RCVHWM, 0)
-        self.socket.connect(address)
-        self.socket.set(zmq.SUBSCRIBE, ''.encode('utf-8'))
-
-    def terminate(self):
-        self.socket.close()
-
-    @staticmethod
-    def validate(payload):
-        """
-        This function ensures the received payload meets a certain expectations
-        """
-        try:
-            print("<< Incomplete TRY Code >>")
-            return True
-        except:
-            print("<< Incomplete EXCEPTION Code >>")
-            return False
-
+            
     def receive(self):
         try:
-            # print("listening for ipu data...")
             payload = self.socket.recv_pyobj(flags=zmq.NOBLOCK)
-            # timestamp_recv = datetime.now()
-            # diff = str(timestamp_recv - payload['timestamp'])
-            if runtime_data.parameters["Logs"]["print_messenger_logs"]:
-                print(">>>>>> >>>>>> PAYLOAD RECEIVED: ", payload)
-            # print(">>>>>>> >>>>>>>> >>>>>>> >>>>>>>>> >>>>>>>>>> TIME DIFF: ", diff)
-            # print(">>>>>>>>> >>>>>>>>>>> >>>>>>>>>>> >>>>>>> >>>>>> SEQUENCE VAL: ", payload['counter'])
             return payload
-
-        # if self.validate(payload):
-        #     return payload
-
         except zmq.ZMQError as e:
-            if runtime_data.parameters["Logs"]["print_debug_logs"]:
-                print("Error in messenger module receive: ", e)
             if e.errno == zmq.EAGAIN:
                 pass
             else:
                 print(e)
 
+    def terminate(self):
+        self.socket.close()
+        
+    def destroy(self):
+        self.context.destroy()
+        
+        
+class Pub(PubSub):
+    
+    def __init__(self, address, bind=True):
+        PubSub.__init__(self)
+        print(f"Pub -- Add - {address}, Bind - {bind}")
+        self.socket = self.context.socket(zmq.PUB)
+        self.socket.setsockopt(zmq.SNDHWM, 0)
+        if bind: 
+            self.socket.bind(address)
+        else:
+            self.socket.connect(address)
+            
+            
+class Sub(PubSub):
+    
+    def __init__(self, address, bind=False, topic=None):
+        PubSub.__init__(self)
+        print(f"Sub -- Add - {address}, Bind - {bind}")
+        self.socket = self.context.socket(zmq.SUB)
+        self.socket.setsockopt(zmq.SUBSCRIBE, ''.encode('utf-8'))
+        self.socket.setsockopt(zmq.CONFLATE, 1)
+        if bind: 
+            self.socket.bind(address)
+        else:
+            self.socket.connect(address)
 
-if __name__ == '__main__':
-    import time
 
-    pub = Pub("tcp://0.0.0.0:30000")
+# if __name__ == '__main__':
+#     address, bind = "tcp://localhost:30010", False
+#     # address, bind = "tcp://0.0.0.0:30010", True
 
-    while True:
+#     pub = Pub(address, bind)
 
-        pub.send(message='ABC')
-        time.sleep(1)
+#     i = 0
+#     while True:
+#         pub.send({"Hello": f"World {i}"})
+#         i+=-1
+#         time.sleep(2)
+#         print("Send")
