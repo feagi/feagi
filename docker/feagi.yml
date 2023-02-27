@@ -58,7 +58,6 @@ services:
           memory: '3g'
     ports:
       - "6080:80"
-      - "30009:30009"
     env_file:
       - ./.env
     privileged: true
