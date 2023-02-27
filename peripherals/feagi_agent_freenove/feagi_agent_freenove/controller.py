@@ -418,7 +418,6 @@ def main():
     runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host,
                                                            api_port=api_port, agent_settings=agent_settings,
                                                            capabilities=capabilities)
-    # ipu_channel_address = feagi.feagi_inbound(agent_settings["agent_data_port"])
     ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
                                                agent_settings["agent_data_port"])
     opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
