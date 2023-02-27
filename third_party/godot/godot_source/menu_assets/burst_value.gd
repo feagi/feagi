@@ -10,6 +10,7 @@ func _on_burst_value_text_changed(new_text): # "text_changed" signal handler
 		value = float(new_text)
 	else: # optional rollback to last good one
 		self.text = str(value)
+		set_cursor_position(1)
 
 
 func _on_burst_value_focus_exited():
