@@ -43,7 +43,6 @@ from api.message_processor import api_message_processor
 from trn.shock import shock_manager
 from evo.autopilot import load_new_genome
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -269,6 +268,8 @@ def burst_manager():
 
     def init_burst_pub():
         # Initialize a broadcaster
+        if runtime_data.parameters['Sockets']['feagi_opu_port'] is None:
+            runtime_data.parameters['Sockets']['feagi_opu_port'] = "3000"  # Default port
         burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_opu_port']
         runtime_data.burst_publisher = Pub(address=burst_engine_pub_address)
         print("Burst publisher has been initialized @ ", burst_engine_pub_address)

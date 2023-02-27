@@ -30,7 +30,7 @@ import random
 import shutil
 import threading
 from time import sleep
-from router import *
+from router import Pub, Sub
 from configuration import *
 import concurrent.futures
 from threading import Thread
@@ -213,7 +213,8 @@ def feagi_registration(feagi_host, api_port):
         "feagi_state": None
     }
     runtime_data["host_network"]["host_name"] = host_info["host_name"]
-    runtime_data["host_network"]["ip_address"] = host_info["ip_address"]
+    runtime_data["host_network"]["ip_address"] = host_info["ip_address"] if \
+        configuration.host_info["ip_address"] is None else configuration.host_info["ip_address"]
 
     while runtime_data["feagi_state"] is None:
         print("\nAwaiting registration with FEAGI...")
@@ -259,7 +260,6 @@ def reload_genome():
                 # print(50 * "#")
                 # print(cortical_genome_dictionary)
                 # print(50 * "#")
-
 
                 if runtime_data["cortical_data"]:
                     for i in runtime_data["cortical_data"]["blueprint"]:
@@ -353,7 +353,8 @@ async def echo(websocket):
 
 
 async def websocket_main():
-    async with websockets.serve(echo, configuration.agent_settings["godot_websocket_ip"], configuration.agent_settings['godot_websocket_port'], max_size=None,
+    async with websockets.serve(echo, configuration.agent_settings["godot_websocket_ip"],
+                                configuration.agent_settings['godot_websocket_port'], max_size=None,
                                 max_queue=None, write_limit=None, compression=None):
         await asyncio.Future()
 
@@ -385,10 +386,12 @@ if __name__ == "__main__":
 
     bgsk = threading.Thread(target=websocket_operation, daemon=True).start()
 
-    FEAGI_pub = Pub(address='tcp://0.0.0.0:' + agent_settings["agent_data_port"])
-    opu_channel_address = 'tcp://' + feagi_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
-        'feagi_opu_port']
-    FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+    ipu_channel_address = f"tcp://*:{agent_settings['agent_data_port']}"
+    # ipu_channel_address = f"tcp://{feagi_host}:{agent_settings["agent_data_port"]}"
+    FEAGI_pub = Pub(ipu_channel_address, bind=True)
+
+    opu_channel_address = f"tcp://{feagi_settings['feagi_host']}:{runtime_data['feagi_state']['feagi_opu_port']}"
+    FEAGI_sub = Sub(address=opu_channel_address, bind=False, flags=zmq.NOBLOCK)
 
     current_cortical_area = feagi_init(feagi_host=feagi_host, api_port=api_port)
     print("FEAGI initialization completed successfully")
@@ -403,7 +406,7 @@ if __name__ == "__main__":
         if detect_lag:
             opu_channel_address = 'tcp://' + feagi_settings['feagi_host'] + ':' + runtime_data["feagi_state"][
                 'feagi_opu_port']
-            new_FEAGI_sub = Sub(address=opu_channel_address, flags=zmq.NOBLOCK)
+            new_FEAGI_sub = Sub(address=opu_channel_address, bind=False, flags=zmq.NOBLOCK)
             zmq_queue.clear()
             ws_queue.clear()
             detect_lag = False
@@ -447,7 +450,7 @@ if __name__ == "__main__":
             data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
                                             '/v1/feagi/connectome/properties/dimensions').json()
             json_object = json.dumps(data_from_genome)
-            zmq_queue.append("genome: "+ json_object)
+            zmq_queue.append("genome: " + json_object)
         if data_from_godot == "updated":
             data_from_godot = "{}"
             reload_genome()

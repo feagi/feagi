@@ -246,10 +246,11 @@ def main():
                                                            api_port=api_port,
                                                            agent_settings=agent_settings,
                                                            capabilities=capabilities)
-    ipu_channel_address = FEAGI.feagi_inbound(agent_settings["agent_data_port"])
+    ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
+                                               agent_settings["agent_data_port"])
     opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
-    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address)
+    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
     feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
     api_address = 'http://' + feagi_host + ':' + api_port
     stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
@@ -311,7 +312,7 @@ def main():
                         previous_name = str(i) + "_prev"
                         rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
                                                                                       capabilities['camera'][
-                                                                                        'peripheral_vision_compression']
+                                                                                          'peripheral_vision_compression']
                                                                                       ,
                                                                                       previous_data_frame[
                                                                                           previous_name], name,
@@ -365,15 +366,15 @@ def main():
             feagi_ipu_channel.send(configuration.message_to_feagi)
             configuration.message_to_feagi.clear()
             msg_counter += 1
-            flag += 1
-            if flag == 10:
-                feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
-                feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
-                flag = 0
-                if msg_counter < feagi_burst_counter:
-                    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-                    if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
-                        feagi_settings['feagi_burst_speed'] = feagi_burst_speed
+            # flag += 1
+            # if flag == 10:
+            #     feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
+            #     feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
+            #     flag = 0
+            #     if msg_counter < feagi_burst_counter:
+            #         feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
+            #         if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
+            #             feagi_settings['feagi_burst_speed'] = feagi_burst_speed
 
         except KeyboardInterrupt as ke:
             print("ERROR: ", ke)
