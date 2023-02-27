@@ -243,22 +243,8 @@ func resize_buttons():
 	$"3D_enable".rect_position.x = $properties.rect_size.x
 	$"3D_enable".rect_size.x = OS.get_window_size().x
 	$"3D_enable".rect_size.y = OS.get_window_size().y
-#	if one_time_flag:
-#		$button_choice.visible = true
-#		$cortical_mapping.rect_position.y = $properties.rect_size.y + $properties.rect_position.y
-#		$cortical_mapping.rect_size.x = $button_choice.rect_size.x
-#		$collapse_2.emit_signal("pressed")
-#		$collapse_4.emit_signal("pressed")
-#		$cortical_menu.visible = false
-#		$cortical_mapping.visible = false
-#		$button_choice.visible = false
-#		$properties.visible = false
-#		$Mapping_Properties.visible = false
-#		$collapse_1.visible = false
-#		$collapse_2.visible = false
-#		$collapse_3.visible = false
-#		$collapse_4.visible = false
-#		one_time_flag = false
+	$box_loading.rect_position.x = OS.get_window_size().x/2- $box_loading.rect_size.x/2
+	$box_loading.rect_position.y = OS.get_window_size().y/2 - $box_loading.rect_size.y
 	
 func _on_Menu_resized():
 	flag = true
