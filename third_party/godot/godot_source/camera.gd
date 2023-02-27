@@ -154,15 +154,6 @@ func _on_grab_location_of_cortical_request_completed(_result, _response_code, _h
 			z = z + 20
 		transform.origin=Vector3(x, y, z)
 
-##### SECTION OF TRUE AND FALSE ONCE ENTER THE TEXTBOX #####
-
-
-func _on_morphology_name_text_changed(_new_text):
-	is_not_typing = false
-
-func _on_morphology_name_text_entered(_new_text):
-	is_not_typing = true
-
 
 
 func _on_menu_itemlist_item_selected(index):
