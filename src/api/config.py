@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     contact: dict = {
         "name": "FEAGI Community",
         "url": "http://feagi.org",
-        "email": "info@neuraville.com",
+        "email": "info@feagi.com",
     }
     license_info: dict = {
         "name": "Apache 2.0",
