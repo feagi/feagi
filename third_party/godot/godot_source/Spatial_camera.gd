@@ -58,9 +58,3 @@ func look_leftright_rotation(rotation = 0):
 func _process(delta):
 	get_input_keyboard(delta)
 
-func _on_morphology_name_text_changed(_new_text):
-	is_not_typing = false
-
-
-func _on_morphology_name_text_entered(_new_text):
-	is_not_typing = true
