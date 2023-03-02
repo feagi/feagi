@@ -896,14 +896,13 @@ def main(args=None):
     agent_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
 
     # todo: to obtain this info directly from FEAGI as part of registration
-    # ipu_channel_address = feagi.feagi_inbound(agent_settings["agent_data_port"])
     ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
-                                               agent_settings["agent_data_port"])
+                                            agent_settings["agent_data_port"])
     print("IPU_channel_address=", ipu_channel_address)
     opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
 
-    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address)
+    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
     feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
 
     rclpy.init(args=args)
