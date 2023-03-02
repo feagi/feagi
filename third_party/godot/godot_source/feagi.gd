@@ -556,7 +556,7 @@ func _on_get_genome_name_request_completed(_result, _response_code, _headers, bo
 func _on_get_burst_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
 	var api_data = json.result
-	$Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.text = str(float(api_data))
+	$Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.text = str(1/float(api_data))
 
 func _on_download_pressed():
 	_clear_node_name_list(global_name_list)
@@ -893,21 +893,20 @@ func _on_cortical_dropdown_pressed():
 
 func _on_burst_value_text_entered(new_text):
 	var json = {}
-	json["burst_duration"] = float(1/float(new_text))
+	if new_text == "0" or new_text == "":
+		json["burst_duration"] = float(1/float(1))
+	else:
+		json["burst_duration"] = float(1/float(new_text))
 	_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/feagi/burst_engine', false, json)
 	$Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.release_focus()
-
-
-func _on_burst_value_mouse_exited():
-	var json = {}
-	var new_text = $Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.text
-	json["burst_duration"] = float(1/float(new_text))
-	_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/feagi/burst_engine', false, json)
 
 func _on_burst_value_focus_exited():
 	var json = {}
 	var new_text = $Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.text
-	json["burst_duration"] = float(1/float(new_text))
+	if new_text == "0" or new_text == "":
+		json["burst_duration"] = float(1/float(1))
+	else:
+		json["burst_duration"] = float(1/float(new_text))
 	_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/feagi/burst_engine', false, json)
 	$Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.release_focus()
 
