@@ -903,7 +903,7 @@ def main(args=None):
     opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
 
-    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address)
+    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
     feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
 
     rclpy.init(args=args)
