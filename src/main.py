@@ -28,7 +28,6 @@ import json
 import logging.config
 from inf.initialize import init_parameters, runtime_data
 
-
 with open("logging_config.json", "r") as config_file:
     logging_config_data = json.load(config_file)
 
@@ -38,10 +37,11 @@ logging.config.dictConfig(logging_config_data)
 # get root logger
 logger = logging.getLogger(__name__)
 
-
 init_parameters()
 
 if __name__ == "__main__":
     print("Starting FEAGI API on port ", runtime_data.parameters['Sockets']['feagi_api_port'])
+    if runtime_data.parameters['Sockets']['feagi_api_port'] is None:
+        runtime_data.parameters['Sockets']['feagi_api_port'] = 8000  # Default port
     uvicorn.run("src.api.api:app", host="0.0.0.0", port=int(runtime_data.parameters['Sockets']['feagi_api_port']),
                 reload=False, log_level="debug", debug=True)

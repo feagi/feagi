@@ -64,7 +64,7 @@ class Sub(PubSub):
     
     def __init__(self, address, bind=False, flags=None):
         PubSub.__init__(self)
-        print(f"Sub -- Add - {address}, Bind - {bind}")
+        # print(f"Sub -- Add - {address}, Bind - {bind}")
         self.flags = flags
         self.socket = self.context.socket(zmq.SUB)
         self.socket.setsockopt(zmq.SUBSCRIBE, ''.encode('utf-8'))

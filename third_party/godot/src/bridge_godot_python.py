@@ -261,7 +261,6 @@ def reload_genome():
                 # print(cortical_genome_dictionary)
                 # print(50 * "#")
 
-
                 if runtime_data["cortical_data"]:
                     for i in runtime_data["cortical_data"]["blueprint"]:
                         # print("i: ", runtime_data["cortical_data"]["blueprint"][i], " and solo i: ", i)
@@ -354,7 +353,8 @@ async def echo(websocket):
 
 
 async def websocket_main():
-    async with websockets.serve(echo, configuration.agent_settings["godot_websocket_ip"], configuration.agent_settings['godot_websocket_port'], max_size=None,
+    async with websockets.serve(echo, configuration.agent_settings["godot_websocket_ip"],
+                                configuration.agent_settings['godot_websocket_port'], max_size=None,
                                 max_queue=None, write_limit=None, compression=None):
         await asyncio.Future()
 
@@ -450,7 +450,7 @@ if __name__ == "__main__":
             data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
                                             '/v1/feagi/connectome/properties/dimensions').json()
             json_object = json.dumps(data_from_genome)
-            zmq_queue.append("genome: "+ json_object)
+            zmq_queue.append("genome: " + json_object)
         if data_from_godot == "updated":
             data_from_godot = "{}"
             reload_genome()

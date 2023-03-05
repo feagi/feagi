@@ -12,25 +12,25 @@ services:
         limits:
           cpus: '1'
           memory: '2g'
-    environment:
-      - DOCKER_INFLUXDB_INIT_MODE=$INFLUXDB_MODE
-      - DOCKER_INFLUXDB_INIT_RETENTION=$INFLUXDB_RETENTION
-      - DOCKER_INFLUXDB_INIT_USERNAME=$INFLUXDB_USERNAME
-      - DOCKER_INFLUXDB_INIT_PASSWORD=$INFLUXDB_PASSWORD
-      - DOCKER_INFLUXDB_INIT_ORG=$INFLUXDB_ORG
-      - DOCKER_INFLUXDB_INIT_BUCKET=$INFLUXDB_BUCKET
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=$INFLUXDB_TOKEN
     ports:
       - 8086:8086
+    env_file:
+      - ./.env
     volumes:
       - influxdb_data:/var/lib/influxdb
-    healthcheck:
-      test: "exit 0"
+#    healthcheck:
+#      test: "exit 0"
     networks:
       - net
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8086" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
 
-        
+
   ros-gazebo:
+    image: gcr.io/feagi-poc/feagi/gazebo:v0.0.1
     build:
       context: ../third_party/gazebo/simulation
       dockerfile: Dockerfile.M1
@@ -38,10 +38,12 @@ services:
       resources:
         limits:
           cpus: '4'
-          memory: '2g'
+          memory: '3g'
     ports:
       - "6080:80"
-    privileged: false
+    env_file:
+      - ./.env
+    privileged: true
     networks:
       - net
     volumes:
@@ -50,8 +52,12 @@ services:
       - ../third_party/gazebo/simulation/robots/smart_car/smart_car.sdf:/opt/source-code/simulation/robots/smart_car/smart_car.sdf
       # Environment mapping
       - ../third_party/gazebo/simulation/environments/material/map1.png:/opt/source-code/simulation/environments/material/map1.png
+    depends_on:
+      influxdb:
+        condition: service_healthy
 
   godot:
+    image: gcr.io/feagi-poc/feagi/gadot:v0.0.1
     build: ../third_party/godot/
     deploy:
       resources:
@@ -61,47 +67,37 @@ services:
     ports:
       - "6081:8080"
       - "9050:9050"
+      - "30001:30001" # ZMQ port for feagi to connect for Gadot
+    env_file:
+      - ./.env
     privileged: true
     networks:
       - net
-
-#  psychopy:
-#    build: ../third_party/psychopy/
-#    deploy:
-#      resources:
-#        limits:
-#          cpus: '1'
-#          memory: '2g'
-#    ports:
-#      - "6083:80"
-#    environment:
-#      - CONTAINERIZED=true
-#      - PYTHONUNBUFFERED=1
-#    privileged: true
-#    networks:
-#      - net
+    depends_on:
+      - feagi
 
   grafana:
+    image: gcr.io/feagi-poc/feagi/grafana:v0.0.1
     build: ../third_party/grafana/
     deploy:
       resources:
         limits:
           cpus: '1'
           memory: '2g'
-    environment:
-      - INFLUXDB_USER=$INFLUXDB_USERNAME
-      - INFLUXDB_PASSWORD=$INFLUXDB_PASSWORD
-      - INFLUXDB_TOKEN=$INFLUXDB_TOKEN
-      - INFLUXDB_ORG=$INFLUXDB_ORG
-      - INFLUXDB_BUCKET=$INFLUXDB_BUCKET
+    env_file:
+      - ./.env
     ports:
       - 6082:3000
     volumes:
       - grafana_data:/var/lib/grafana
     networks:
       - net
+    depends_on:
+      influxdb:
+        condition: service_healthy
 
   feagi:
+    image: gcr.io/feagi-poc/feagi/feagi:v0.0.1
     build: ./
     deploy:
       resources:
@@ -111,16 +107,21 @@ services:
     ports:
       - "8000:8000"
       - "30000:30000"
-    environment:
-      - CONTAINERIZED=true
-      - PYTHONUNBUFFERED=1
+      - "30010:30010" # ZMQ Port for Agent to Connect to Feagi
+    env_file:
+      - ./.env
     volumes:
       - ../src/:/opt/source-code/feagi/src
     networks:
       - net
+    depends_on:
+      influxdb:
+        condition: service_healthy
 
   gui:
-    build: ../src/gui/
+    image: gcr.io/feagi-poc/feagi/gui:v0.0.1
+    build:
+      context: ../src/gui/
     deploy:
       resources:
         limits:
@@ -128,8 +129,12 @@ services:
           memory: '2g'
     ports:
       - "3000:3000"
+    env_file:
+      - ./.env
     networks:
       - net
+    depends_on:
+      - feagi
 
 volumes:
   grafana_data:

@@ -18,12 +18,6 @@ func _on_burst_value_focus_exited():
 func _on_name_string_text_changed(_new_text):
 	Godot_list.Node_2D_control = true
 
-func _on_name_string_mouse_entered():
-	Godot_list.Node_2D_control = true
-
-func _on_name_string_mouse_exited():
-	Godot_list.Node_2D_control = false
-
 func _on_X_mouse_entered():
 	Godot_list.Node_2D_control = true
 
@@ -135,20 +129,9 @@ func _on_plst_mouse_entered():
 func _on_leak_mouse_entered():
 	Godot_list.Node_2D_control = true
 
-func _on_leak_mouse_exited():
-	Godot_list.Node_2D_control = false
-
-func _on_leak_Vtext_mouse_exited():
-	Godot_list.Node_2D_control = false
-
 func _on_leak_Vtext_mouse_entered():
 	Godot_list.Node_2D_control = true
 
-func _on_morphology_name_mouse_entered():
-	Godot_list.Node_2D_control = true
-
-func _on_morphology_name_mouse_exited():
-	Godot_list.Node_2D_control = false
 
 func _on_over1_mouse_entered():
 	Godot_list.Node_2D_control = true
@@ -172,12 +155,6 @@ func _on_over3_mouse_exited():
 func _on_over3_mouse_entered():
 	Godot_list.Node_2D_control = true
 
-func _on_name_cortical_mouse_entered():
-	Godot_list.Node_2D_control = true
-
-func _on_name_cortical_mouse_exited():
-	Godot_list.Node_2D_control = false
-
 
 func _on_count_spinbox_mouse_entered():
 	Godot_list.Node_2D_control = true
@@ -185,63 +162,6 @@ func _on_count_spinbox_mouse_entered():
 
 func _on_count_spinbox_mouse_exited():
 	Godot_list.Node_2D_control = false
-
-
-func _on_X_SpinBox_mouse_entered():
-	Godot_list.Node_2D_control = true
-
-
-func _on_X_SpinBox_mouse_exited():
-	Godot_list.Node_2D_control = false
-
-
-func _on_Y_Spinbox_mouse_entered():
-	Godot_list.Node_2D_control = true
-
-
-func _on_Y_Spinbox_mouse_exited():
-	Godot_list.Node_2D_control = false
-
-
-func _on_Z_Spinbox_mouse_entered():
-	Godot_list.Node_2D_control = true
-
-
-func _on_Z_Spinbox_mouse_exited():
-	Godot_list.Node_2D_control = false
-
-
-func _on_type_mouse_entered():
-	Godot_list.Node_2D_control = true
-
-
-func _on_type_mouse_exited():
-	Godot_list.Node_2D_control = false
-
-
-func _on_W_Spinbox_mouse_entered():
-	Godot_list.Node_2D_control = true
-
-
-func _on_W_Spinbox_mouse_exited():
-	Godot_list.Node_2D_control = false
-
-
-func _on_H_Spinbox_mouse_entered():
-	Godot_list.Node_2D_control = true
-
-
-func _on_H_Spinbox_mouse_exited():
-	Godot_list.Node_2D_control = false
-
-
-func _on_D_Spinbox_mouse_entered():
-	Godot_list.Node_2D_control = true
-
-
-func _on_D_Spinbox_mouse_exited():
-	Godot_list.Node_2D_control = false
-
 
 func _on_x_spinbox_mouse_entered():
 	Godot_list.Node_2D_control = true
@@ -267,10 +187,15 @@ func _on_z_spinbox_mouse_exited():
 	Godot_list.Node_2D_control = false
 
 
-func _on_ColorRect_pressed():
-	print("PRESSED")
 
 
-func _on_neuron_count_gui_input(event):
-	print(event)
+func _on_morphology_name_text_changed(_new_text):
+	Godot_list.Node_2D_control = true
 
+
+func _on_morphology_name_text_entered(_new_text):
+	Godot_list.Node_2D_control = false
+
+
+func _on_type_text_changed(_new_text):
+	Godot_list.Node_2D_control = true

@@ -122,7 +122,8 @@ class ScalableSubscriber(Node):
         # self.get_logger().info("Raw Message: {}".format(msg))
         try:
             # This generated none
-            formatted_msg = FEAGI.msg_processor(self, msg=msg, msg_type=self.topic, capabilities=capabilities)  # Needs to check on this
+            formatted_msg = FEAGI.msg_processor(self, msg=msg, msg_type=self.topic,
+                                                capabilities=capabilities)  # Needs to check on this
             configuration.message_to_feagi, runtime_data["battery_charge_level"] = FEAGI.compose_message_to_feagi(
                 original_message=formatted_msg, data=message_to_feagi, battery=runtime_data["battery_charge_level"])
             self.counter += 1
@@ -895,12 +896,13 @@ def main(args=None):
     agent_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
 
     # todo: to obtain this info directly from FEAGI as part of registration
-    ipu_channel_address = FEAGI.feagi_inbound(agent_settings["agent_data_port"])
+    ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
+                                            agent_settings["agent_data_port"])
     print("IPU_channel_address=", ipu_channel_address)
     opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
 
-    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address)
+    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
     feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
 
     rclpy.init(args=args)

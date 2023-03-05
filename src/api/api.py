@@ -709,8 +709,7 @@ async def genome_add_neuron_morphology(message: MorphologyProperties):
     try:
         if message.name not in runtime_data.genome['neuron_morphologies']:
             runtime_data.genome['neuron_morphologies'][message.name] = {}
-            runtime_data.genome['neuron_morphologies'][message.name][message.type] = list()
-            runtime_data.genome['neuron_morphologies'][message.name][message.type].append(message.morphology)
+            runtime_data.genome['neuron_morphologies'][message.name][message.type] = message.morphology
         else:
             return "Morphology already exists! Nothing was added."
     except Exception as e:

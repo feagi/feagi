@@ -10,6 +10,7 @@ from datetime import datetime
 from feagi_agent import feagi_interface as FEAGI
 
 previous_data_frame = dict()
+flag = False
 
 
 def get_battery(full_data):
@@ -115,13 +116,22 @@ def control_drone(self, direction, cm_distance):
 
 
 def misc_control(self, data, battery_level):
+    global flag
     if data == 0:
+        print("flag: ", flag)
         try:
-            self.send_command_without_return("takeoff")
+            if flag == False:
+                print("takeoff!")
+                self.send_command_without_return("takeoff")
+                flag = True
         except Exception as e:
             print("ERROR AT: ", e)
     if data == 1:
-        self.send_command_without_return("land")
+        print("flag: ", flag)
+        if flag:
+            print("landed!")
+            self.send_command_without_return("land")
+            flag = False
     if data == 2:
         try:
             if battery_level >= 50:
@@ -246,10 +256,11 @@ def main():
                                                            api_port=api_port,
                                                            agent_settings=agent_settings,
                                                            capabilities=capabilities)
-    ipu_channel_address = FEAGI.feagi_inbound(agent_settings["agent_data_port"])
+    ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
+                                               agent_settings["agent_data_port"])
     opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
-    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address)
+    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
     feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
     api_address = 'http://' + feagi_host + ':' + api_port
     stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
@@ -265,6 +276,8 @@ def main():
     tello.connect()
     print("Connected with Tello drone.")
     start_camera(tello)
+
+    flying_flag = False
 
     while True:
         try:
@@ -311,7 +324,7 @@ def main():
                         previous_name = str(i) + "_prev"
                         rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
                                                                                       capabilities['camera'][
-                                                                                        'peripheral_vision_compression']
+                                                                                          'peripheral_vision_compression']
                                                                                       ,
                                                                                       previous_data_frame[
                                                                                           previous_name], name,
@@ -339,25 +352,26 @@ def main():
                 if 'misc' in opu_data:
                     for i in opu_data['misc']:
                         misc_control(tello, i, battery)
-                if 'navigation' in opu_data:
-                    if opu_data['navigation']:
-                        try:
-                            data0 = opu_data['navigation'][0] * 10
-                        except Exception as e:
-                            data0 = 0
-                        try:
-                            data1 = opu_data['navigation'][1] * 10
-                        except Exception as e:
-                            data1 = 0
-                        try:
-                            data2 = opu_data['navigation'][2] * 10
-                        except Exception as e:
-                            data2 = 0
-                        try:
-                            speed = opu_data['speed'][0] * 10
-                        except Exception as e:
-                            speed = 0
-                        navigate_to_xyz(tello, data0, data1, data2, speed)
+                if flying_flag:
+                    if 'navigation' in opu_data:
+                        if opu_data['navigation']:
+                            try:
+                                data0 = opu_data['navigation'][0] * 10
+                            except Exception as e:
+                                data0 = 0
+                            try:
+                                data1 = opu_data['navigation'][1] * 10
+                            except Exception as e:
+                                data1 = 0
+                            try:
+                                data2 = opu_data['navigation'][2] * 10
+                            except Exception as e:
+                                data2 = 0
+                            try:
+                                speed = opu_data['speed'][0] * 10
+                            except Exception as e:
+                                speed = 0
+                            navigate_to_xyz(tello, data0, data1, data2, speed)
 
             # Preparing to send data to FEAGI
             configuration.message_to_feagi['timestamp'] = datetime.now()
