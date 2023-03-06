@@ -29,7 +29,7 @@ from configparser import ConfigParser
 from tempfile import gettempdir
 import logging
 
-log = logging.getLogger(__name__)
+# log = logging.getLogger(__name__)
 
 
 init_parameters()
@@ -57,14 +57,14 @@ def start_feagi(api_queue=None):
     splash_screen()
 
     runtime_data.api_queue = api_queue
-    logging_config_file = './logging_config.json'
-
-    with open(logging_config_file, 'r') as data_file:
-        LOGGING_CONFIG = json.load(data_file)
-        if platform.system() == 'Windows':
-            win_temp_dir = os.path.join(tempfile.gettempdir(), os.urandom(24).hex())
-            LOGGING_CONFIG['handlers']['file']['filename'] = win_temp_dir
-        logging.config.dictConfig(LOGGING_CONFIG)
+    # logging_config_file = './logging_config.json'
+    #
+    # with open(logging_config_file, 'r') as data_file:
+    #     LOGGING_CONFIG = json.load(data_file)
+    #     if platform.system() == 'Windows':
+    #         win_temp_dir = os.path.join(tempfile.gettempdir(), os.urandom(24).hex())
+    #         LOGGING_CONFIG['handlers']['file']['filename'] = win_temp_dir
+    #     logging.config.dictConfig(LOGGING_CONFIG)
 
     runtime_data.exit_condition = False
 
