@@ -246,7 +246,9 @@ def main():
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
     runtime_data = dict()
     msg_counter = 0
-    flag = False
+    flag_counter = 0
+    checkpoint_total = 5
+    flying_flag = False
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
     # # # # # # # # # # # # # # # FEAGI registration # # # # # # # # # # # # # # # # # #
@@ -276,8 +278,6 @@ def main():
     tello.connect()
     print("Connected with Tello drone.")
     start_camera(tello)
-
-    flying_flag = False
 
     while True:
         try:
@@ -379,16 +379,23 @@ def main():
             feagi_ipu_channel.send(configuration.message_to_feagi)
             configuration.message_to_feagi.clear()
             msg_counter += 1
-            flag += 1
-            if flag == 10:
+            flag_counter += 1
+            if flag_counter == int(checkpoint_total):
                 feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
                 feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
-                flag = 0
+                flag_counter = 0
+                if feagi_burst_speed > 1:
+                    checkpoint_total = 5
+                if feagi_burst_speed < 1:
+                    checkpoint_total = 5/feagi_burst_speed
                 if msg_counter < feagi_burst_counter:
                     feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
                     if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
                         feagi_settings['feagi_burst_speed'] = feagi_burst_speed
-
+                if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
+                    feagi_settings['feagi_burst_speed'] = feagi_burst_speed
+                    msg_counter = feagi_burst_counter
+            time.sleep(feagi_settings['feagi_burst_speed'])
         except KeyboardInterrupt as ke:
             print("ERROR: ", ke)
             tello.end()
