@@ -953,7 +953,8 @@ def main(args=None):
     msg_counter = 0
     flag = 0
     IsFlying = False
-    checkpoint_total = 0
+    checkpoint_total = 5
+    flag_counter = 0
 
     # Positioning servos to a default position
     servo.set_default_position()
@@ -1130,23 +1131,23 @@ def main(args=None):
             message_to_feagi.clear()
             runtime_data['pixel'].clear()
             msg_counter += 1
-            flag += 1
-            # if flag == checkpoint_total:
-            #     feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
-            #     feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
-            #     flag = 0
-            #     if feagi_burst_speed > 1:
-            #         checkpoint_total = 5
-            #     if feagi_burst_speed < 1:
-            #         checkpoint_total = 5/feagi_burst_speed
-            #     if msg_counter < feagi_burst_counter:
-            #         feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-            #         if feagi_burst_speed != agent_settings['feagi_burst_speed']:
-            #             agent_settings['feagi_burst_speed'] = feagi_burst_speed
-            #     if feagi_burst_speed != agent_settings['feagi_burst_speed']:
-            #         agent_settings['feagi_burst_speed'] = feagi_burst_speed
-            #         msg_counter = feagi_burst_counter
-            sleep(agent_settings['feagi_burst_speed'])
+            flag_counter += 1
+            if flag_counter == int(checkpoint_total):
+                feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
+                feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
+                flag_counter = 0
+                if feagi_burst_speed > 1:
+                    checkpoint_total = 5
+                if feagi_burst_speed < 1:
+                    checkpoint_total = 5/feagi_burst_speed
+                if msg_counter < feagi_burst_counter:
+                    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
+                    if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
+                        feagi_settings['feagi_burst_speed'] = feagi_burst_speed
+                if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
+                    feagi_settings['feagi_burst_speed'] = feagi_burst_speed
+                    msg_counter = feagi_burst_counter
+            sleep(feagi_settings['feagi_burst_speed'])
     except KeyboardInterrupt:
         pass
 
