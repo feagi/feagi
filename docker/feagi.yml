@@ -29,7 +29,6 @@ services:
       retries: 5
 
   grafana:
-    image: gcr.io/feagi-poc/feagi/grafana:v0.0.1
     build: ../third_party/grafana/
     deploy:
       resources:
@@ -49,7 +48,6 @@ services:
         condition: service_healthy
 
   ros-gazebo:
-    image: gcr.io/feagi-poc/feagi/gazebo:v0.0.1
     build: ../third_party/gazebo/simulation
     deploy:
       resources:
@@ -58,6 +56,7 @@ services:
           memory: '3g'
     ports:
       - "6080:80"
+      - "30009:30009"
     env_file:
       - ./.env
     privileged: true
@@ -71,7 +70,6 @@ services:
       - ../third_party/gazebo/simulation/environments/material/map1.png:/opt/source-code/simulation/environments/material/map1.png
 
   godot:
-    image: gcr.io/feagi-poc/feagi/gadot:v0.0.1
     build: ../third_party/godot/
     deploy:
       resources:
@@ -91,7 +89,6 @@ services:
       - feagi
 
   feagi:
-    image: gcr.io/feagi-poc/feagi/feagi:v0.0.1
     build: ./
     deploy:
       resources:
@@ -113,7 +110,6 @@ services:
         condition: service_healthy
 
   gui:
-    image: gcr.io/feagi-poc/feagi/gui:v0.0.1
     build:
       context: ../src/gui/
     deploy:
