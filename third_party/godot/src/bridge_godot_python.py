@@ -214,7 +214,7 @@ def feagi_registration(feagi_host, api_port):
     }
     runtime_data["host_network"]["host_name"] = host_info["host_name"]
     runtime_data["host_network"]["ip_address"] = host_info["ip_address"] if \
-        configuration.host_info["ip_address"] is None else configuration.host_info["ip_address"]
+       configuration.host_info["ip_address"] is None else  configuration.host_info["ip_address"]
 
     while runtime_data["feagi_state"] is None:
         print("\nAwaiting registration with FEAGI...")

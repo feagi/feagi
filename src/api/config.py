@@ -47,5 +47,7 @@ class Settings(BaseSettings):
                      "http://127.0.0.1:8080"
                      ]
 
+    # overriding origin for fixing CORS problems
+    origins: list = ["*"]
 
 settings = Settings()
