@@ -22,7 +22,7 @@ app_name = 'gazebo'
 
 feagi_settings = {
     "feagi_host": os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"),
-    "feagi_api_port": os.environ.get('FEAGI_PORT', "8000") ,
+    "feagi_api_port": os.environ.get('FEAGI_PORT', "8000"),
 }
 
 agent_settings = {
@@ -123,7 +123,6 @@ Gazebo_world = {
 }
 
 message_to_feagi = {"data": {}}
-
 
 Model_data = {
     "robot_model_path": "robots/smart_car/",

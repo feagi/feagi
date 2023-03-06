@@ -878,32 +878,25 @@ def convert_feagi_to_english(feagi):
 
 def main(args=None):
     print("Connecting to FEAGI resources...")
-
-    # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_opu_port']
-
+    # # # # # # # # # # # # # # # FEAGI registration # # # # # # # # # # # # # # # # # #
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
     feagi_host, api_port, app_data_port = FEAGI.feagi_setting_for_registration(feagi_settings, agent_settings)
-    # api_address = 'http://' + feagi_settings['feagi_host'] + ':' + feagi_settings['feagi_api_port']
-    api_address = 'http://' + feagi_host + ':' + api_port
-
-    stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
-    burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
-
-    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host, api_port=api_port,
+    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host,
+                                                           api_port=api_port,
                                                            agent_settings=agent_settings,
                                                            capabilities=capabilities)
-
-    print("** **", runtime_data["feagi_state"])
-    agent_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
-
-    # todo: to obtain this info directly from FEAGI as part of registration
     ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
-                                            agent_settings["agent_data_port"])
-    print("IPU_channel_address=", ipu_channel_address)
+                                               agent_settings["agent_data_port"])
     opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
-
     feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
     feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
+    api_address = 'http://' + feagi_host + ':' + api_port
+    stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
+    burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
+    feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+
 
     rclpy.init(args=args)
     executor = rclpy.executors.MultiThreadedExecutor()
