@@ -11,7 +11,6 @@ import requests
 from time import sleep
 from datetime import datetime
 from feagi_agent import retina as retina
-from feagi_agent_webcam.configuration import *
 from feagi_agent import feagi_interface as feagi
 
 
@@ -58,7 +57,11 @@ def chroma_keyer(frame, size, name_id):
         return {'camera': {name_id: vision_dict}}
 
 
-def main():
+def main(feagi_settings, agent_settings, capabilities, message_to_feagi):
+    print("feagi setting: ", feagi_settings)
+    print("agent setting: ", agent_settings)
+    print("capa: ", capabilities)
+    print("message: ", message_to_feagi)
     # Generate runtime dictionary
     previous_data_frame = dict()
     runtime_data = {"cortical_data": {}, "current_burst_id": None, "stimulation_period": None, "feagi_state": None,
@@ -87,8 +90,8 @@ def main():
 
     # todo: to obtain this info directly from FEAGI as part of registration
     # ipu_channel_address = feagi.feagi_inbound(agent_settings["agent_data_port"])
-    ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'], 
-                                            agent_settings["agent_data_port"]) 
+    ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
+                                               agent_settings["agent_data_port"])
     print("IPU_channel_address=", ipu_channel_address)
     opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
@@ -99,7 +102,8 @@ def main():
     previous_frame_data = dict()
     msg_counter = runtime_data["feagi_state"]['burst_counter']
     rgb = dict()
-    flag = False
+    checkpoint_total = 5
+    flag_counter = 0
     rgb['camera'] = dict()
 
     cam = cv2.VideoCapture(capabilities['camera']['video_device_index'])
@@ -107,6 +111,12 @@ def main():
     while True:
         message_from_feagi = feagi_opu_channel.receive()
         check, pixels = cam.read()
+        if bool(capabilities["camera"]["video_loop"]):
+            if check:
+                pass
+            else:
+                cam.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                # check, pixels = cam.read()
         retina_data = retina.frame_split(pixels, capabilities['camera']['retina_width_percent'],
                                          capabilities['camera']['retina_height_percent'])
         for i in retina_data:
@@ -159,21 +169,28 @@ def main():
         message_to_feagi['timestamp'] = datetime.now()
         message_to_feagi['counter'] = msg_counter
         msg_counter += 1
-        # flag += 1
-        # if flag == 10:
-        #     feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
-        #     feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
-        #     flag = 0
-        #     if msg_counter < feagi_burst_counter:
-        #         feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
-        #         if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
-        #             feagi_settings['feagi_burst_speed'] = feagi_burst_speed
+        flag_counter += 1
+        if flag_counter == int(checkpoint_total):
+            feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
+            feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
+            flag_counter = 0
+            if feagi_burst_speed > 1:
+                checkpoint_total = 5
+            if feagi_burst_speed < 1:
+                checkpoint_total = 5 / feagi_burst_speed
+            if msg_counter < feagi_burst_counter:
+                feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
+                if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
+                    feagi_settings['feagi_burst_speed'] = feagi_burst_speed
+            if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
+                feagi_settings['feagi_burst_speed'] = feagi_burst_speed
+                msg_counter = feagi_burst_counter
+        sleep(feagi_settings['feagi_burst_speed'])
         try:
             print(len(message_to_feagi['data']['sensory_data']['camera']['C']))
         except:
             pass
         feagi_ipu_channel.send(message_to_feagi)
-        sleep(feagi_settings['feagi_burst_speed'])
         message_to_feagi.clear()
         for i in rgb['camera']:
             rgb['camera'][i].clear()
