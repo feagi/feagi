@@ -34,7 +34,7 @@ if platform.system() == 'Windows':
         logging_config_data = json.load(config_file)
 
     # setup loggers
-        logging.config.dictConfig(logging_config_data)
+    logging.config.dictConfig(logging_config_data)
 
     # get root logger
     logger = logging.getLogger(__name__)
