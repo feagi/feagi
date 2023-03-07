@@ -29,7 +29,7 @@ from configparser import ConfigParser
 from tempfile import gettempdir
 import logging
 
-# log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 init_parameters()
