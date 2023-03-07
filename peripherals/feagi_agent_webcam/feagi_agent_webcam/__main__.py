@@ -7,12 +7,6 @@ import sysconfig
 import feagi_agent_webcam
 from feagi_agent_webcam.configuration import *
 
-
-def read_contents(file_path):
-    with open(file_path, 'r') as f:
-        return f.read()
-
-
 if __name__ == '__main__':
     # Check if feagi_agent has arg
     parser = argparse.ArgumentParser(description='configuration for any webcam')
