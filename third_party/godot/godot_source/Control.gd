@@ -15,3 +15,23 @@ func _process(_delta):
 		$create.disabled = false
 	else:
 		$create.disabled = true
+	if $inner_box/morphology_type.get_item_count() >= 1:
+		if $inner_box/morphology_type.selected != 0:
+			if $inner_box/morphology_type.get_item_text($inner_box/morphology_type.selected) == "patterns":
+				$inner_box/box_of_pattern.visible = true
+				$inner_box/box_of_pattern/labels.visible = true
+			else:
+				$inner_box/box_of_pattern.visible = false
+				$inner_box/box_of_pattern/labels.visible = false
+			if $inner_box/morphology_type.get_item_text($inner_box/morphology_type.selected) == "vectors":
+				$inner_box/box_of_vectors.visible = true
+				$inner_box/box_of_vectors/labels.visible = true
+			else:
+				$inner_box/box_of_vectors.visible = false
+				$inner_box/box_of_vectors/labels.visible = false
+		else:
+				$inner_box/box_of_pattern.visible = false
+				$inner_box/box_of_vectors.visible = false
+				$inner_box/box_of_vectors/labels.visible = false
+				$inner_box/box_of_pattern/labels.visible = false
+			
