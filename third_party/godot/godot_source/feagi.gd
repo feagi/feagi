@@ -1133,8 +1133,6 @@ func _on_Neuron_morphologies_item_item_selected(index):
 	$Spatial/Camera/Menu/rule_properties/mapping_rule_options.selected = index
 	$Spatial/Camera/Menu/rule_properties/mapping_rule_options.emit_signal("item_selected", index)
 	$Spatial/Camera/Menu/rule_properties/mapping_rule_options.release_focus()
-	
-
 
 func _on_Mapping_def_pressed():
 	$HTTP_node/ghost_morphology_list.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology_list')
@@ -1176,3 +1174,15 @@ func _on_get_morphology_usuage_request_completed(_result, _response_code, _heade
 	for i in api_data:
 		string_list = string_list + str(id_to_name(i[0]), " > ", id_to_name(i[1])) + "\n"
 	$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/associations_data.text += str(string_list)
+
+
+func _morphology_button_pressed():
+	var counter = 0
+	if $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.selected) == "patterns":
+		var new_node = $Spatial/Camera/Menu/Control/inner_box/box_of_pattern/ScrollContainer/VBoxContainer/Control.duplicate()
+		$Spatial/Camera/Menu/Control/inner_box/box_of_pattern/ScrollContainer/VBoxContainer.add_child(new_node)
+		new_node.rect_position.x = $Spatial/Camera/Menu/Control/inner_box/box_of_pattern/ScrollContainer/VBoxContainer.rect_position.x + $Spatial/Camera/Menu/Control/inner_box/box_of_pattern/ScrollContainer/VBoxContainer.rect_size.x
+		new_node.rect_position.y = $Spatial/Camera/Menu/Control/inner_box/box_of_pattern/ScrollContainer/VBoxContainer.rect_position.y + 25
+		counter += 1
+		
+		
