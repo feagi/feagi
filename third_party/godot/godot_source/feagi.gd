@@ -1162,3 +1162,12 @@ func _on_text_changed(new_text):
 	if new_text != "":
 		if new_text.is_valid_float():
 			self.value = float(new_text)
+
+func _on_get_morphology_usuage_request_completed(_result, _response_code, _headers, body):
+	var json = JSON.parse(body.get_string_from_utf8())
+	var api_data = json.result
+	var string_list = ""
+	$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/associations_data.text = ""
+	for i in api_data:
+		string_list = string_list + str(id_to_name(i[0]), " > ", id_to_name(i[1])) + "\n"
+	$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/associations_data.text += str(string_list)
