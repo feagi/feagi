@@ -1487,7 +1487,7 @@ async def current_opu_list():
 
 
 @app.api_route("/v1/agent/list", methods=['GET'], tags=["Peripheral Nervous System"])
-async def beacon_query():
+async def agent_list():
     try:
         return set(runtime_data.agent_registry.keys())
     except Exception as e:
@@ -1496,14 +1496,21 @@ async def beacon_query():
 
 
 @app.api_route("/v1/agent/properties", methods=['GET'], tags=["Peripheral Nervous System"])
-async def beacon_query(agent_id: str):
+async def agent_properties(agent_id: str):
     try:
+        print("agent_id", agent_id)
+        print("agent_registry", runtime_data.agent_registry)
+        agent_info = {}
         if agent_id in runtime_data.agent_registry:
-            return runtime_data.agent_registry[agent_id]
+            agent_info["agent_type"] = runtime_data.agent_registry[agent_id]["agent_type"]
+            agent_info["agent_ip"] = runtime_data.agent_registry[agent_id]["agent_ip"]
+            agent_info["agent_data_port"] = runtime_data.agent_registry[agent_id]["agent_data_port"]
+            agent_info["agent_router_address"] = runtime_data.agent_registry[agent_id]["agent_router_address"]
+            return agent_info
         else:
             return {"Agent not found!"}
     except Exception as e:
-        print("API Error:", e)
+        print("API Error:", e, traceback.print_exc)
         return {"Request failed...", e}
 
 
@@ -1520,14 +1527,15 @@ async def agent_registration(request: Request, agent_type: str, agent_id: str, a
         print(f"Client IP ------------------------- {request.client.host}")
         runtime_data.agent_registry[agent_id]["agent_ip"] = request.client.host
 
-
         # Create the needed ZMQ listener for new agent
         if agent_type == 'monitor':
             # FEAGI will connect to remote ZMQ for messages
             agent_router_address = "tcp://" + request.client.host + ':' + str(agent_data_port)
+            runtime_data.agent_registry[agent_id]["agent_router_address"] = agent_router_address
             runtime_data.agent_registry[agent_id]["listener"] = Sub(address=agent_router_address)
         else:
             agent_router_address = f"tcp://*:{str(agent_data_port)}"
+            runtime_data.agent_registry[agent_id]["agent_router_address"] = agent_router_address
             # FEAGI will open output_data_port for Agents to connect for messages
             if 'listener' not in runtime_data.agent_registry[agent_id]:
                 runtime_data.agent_registry[agent_id]["listener"] = Sub(address=agent_router_address, bind=True)
