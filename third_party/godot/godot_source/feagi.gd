@@ -615,7 +615,7 @@ func _on_update_destination_info_request_completed(_result, _response_code, _hea
 	var json = JSON.parse(body.get_string_from_utf8())
 	var api_data = json.result
 	plus_node_clear()
-	
+	ghost_morphology_clear()
 	if api_data != null:
 		if api_data.has("Request failed..."):
 			pass
@@ -973,7 +973,7 @@ func _on_afferent_request_completed(_result, _response_code, _headers, body):
 		$Spatial/Camera/Menu/cortical_mapping/Control/afferent/VBoxContainer.add_child(new_node)
 		afferent_child_holder.append(new_node)
 		new_node.visible = true
-		new_node.text = i
+		new_node.text = id_to_name(i)
 		new_node.visible = true
 		new_node.rect_position.x = $Spatial/Camera/Menu/cortical_mapping/Control/afferent/VBoxContainer.rect_position.x + 5
 		new_node.rect_position.y = $Spatial/Camera/Menu/cortical_mapping/Control/afferent/VBoxContainer.rect_position.y + (counter * 20)
@@ -997,6 +997,11 @@ func plus_node_clear():
 	for i in plus_node:
 		i.queue_free()
 	plus_node.clear()
+
+func ghost_morphology_clear():
+	for i in ghost_morphology:
+		i.queue_free()
+	ghost_morphology.clear()
 
 func _on_cortical_dropdown_item_selected(index):
 	if index != 0:
