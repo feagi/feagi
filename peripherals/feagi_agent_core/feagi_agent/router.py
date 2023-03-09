@@ -51,17 +51,17 @@ class Pub(PubSub):
     
     def __init__(self, address, bind=True, flags=None):
         PubSub.__init__(self, flags)
-        print(f"Pub -- Add - {address}, Bind - {bind}")
+        print(f"Pub -|- Add - {address}, Bind - {bind}")
         self.socket = self.context.socket(zmq.PUB)
         self.socket.setsockopt(zmq.SNDHWM, 0)
-        if bind: 
+        if bind:
             self.socket.bind(address)
         else:
             self.socket.connect(address)
-            
-            
+
+
 class Sub(PubSub):
-    
+
     def __init__(self, address, bind=False, flags=None):
         PubSub.__init__(self)
         # print(f"Sub -- Add - {address}, Bind - {bind}")
@@ -69,7 +69,7 @@ class Sub(PubSub):
         self.socket = self.context.socket(zmq.SUB)
         self.socket.setsockopt(zmq.SUBSCRIBE, ''.encode('utf-8'))
         self.socket.setsockopt(zmq.CONFLATE, 1)
-        if bind: 
+        if bind:
             self.socket.bind(address)
         else:
             self.socket.connect(address)
@@ -83,7 +83,6 @@ def register_with_feagi(feagi_ip, feagi_api_port, agent_type: str, agent_id: str
     Controller                      <--     FEAGI(IPU/OPU socket info)
     Controller (Capabilities)       -->     FEAGI
     """
-
     api_address = 'http://' + feagi_ip + ':' + feagi_api_port
     network_endpoint = '/v1/feagi/feagi/network'
     stimulation_period_endpoint = '/v1/feagi/feagi/burst_engine/stimulation_period'
@@ -91,37 +90,36 @@ def register_with_feagi(feagi_ip, feagi_api_port, agent_type: str, agent_id: str
     registration_endpoint = '/v1/agent/register'
 
     registration_complete = False
-
     feagi_settings = dict()
-
     while not registration_complete:
-        feagi_settings = requests.get(api_address + network_endpoint).json()
-        if feagi_settings:
-            print("Data from FEAGI::", feagi_settings)
-        else:
-            print("No feagi settings!")
+        try:
+            feagi_settings = requests.get(api_address + network_endpoint).json()
+            if feagi_settings:
+                print("Data from FEAGI::", feagi_settings)
+            else:
+                print("No feagi settings!")
 
-        agent_registration_data = dict()
-        agent_registration_data["agent_type"] = str(agent_type)
-        agent_registration_data["agent_id"] = str(agent_id)
-        agent_registration_data["agent_ip"] = str(agent_ip)
-        agent_registration_data["agent_data_port"] = int(agent_data_port)
+            agent_registration_data = dict()
+            agent_registration_data["agent_type"] = str(agent_type)
+            agent_registration_data["agent_id"] = str(agent_id)
+            agent_registration_data["agent_ip"] = str(agent_ip)
+            agent_registration_data["agent_data_port"] = int(agent_data_port)
 
-        registration_status = requests.post(api_address + registration_endpoint, params=agent_registration_data)
+            registration_status = requests.post(api_address + registration_endpoint, params=agent_registration_data)
+            if registration_status:
+                print("Agent successfully registered with FEAGI!")
+                # Receive FEAGI settings
+                feagi_settings['burst_duration'] = requests.get(api_address + stimulation_period_endpoint).json()
+                feagi_settings['burst_counter'] = requests.get(api_address + burst_counter_endpoint).json()
 
-        if registration_status:
-            print("Agent successfully registered with FEAGI!")
-            # Receive FEAGI settings
-            feagi_settings['burst_duration'] = requests.get(api_address + stimulation_period_endpoint).json()
-            feagi_settings['burst_counter'] = requests.get(api_address + burst_counter_endpoint).json()
-
-            if feagi_settings and feagi_settings['burst_duration'] and feagi_settings['burst_counter']:
-                print("\n\n\n\nRegistration is complete....")
-                registration_complete = True
-        else:
-            print("Registration attempt with FEAGI failed! Most likely an agent with the same id is already registered")
+                if feagi_settings and feagi_settings['burst_duration'] and feagi_settings['burst_counter']:
+                    print("\n\n\n\nRegistration is complete....")
+                    registration_complete = True
+        except Exception as e:
+            print("Trying to register with FEAGI at ", api_address)
         sleep(1)
 
+    print("feagi_ip:agent_data_port", feagi_ip, agent_data_port)
     # Transmit Controller Capabilities
     # address, bind = f"tcp://*:{agent_data_port}", True
     address, bind = f"tcp://{feagi_ip}:{agent_data_port}", False

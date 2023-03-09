@@ -30,7 +30,6 @@ services:
 
 
   ros-gazebo:
-    image: gcr.io/feagi-poc/feagi/gazebo:v0.0.1
     build:
       context: ../third_party/gazebo/simulation
       dockerfile: Dockerfile.M1
@@ -57,7 +56,6 @@ services:
         condition: service_healthy
 
   godot:
-    image: gcr.io/feagi-poc/feagi/gadot:v0.0.1
     build: ../third_party/godot/
     deploy:
       resources:
@@ -77,7 +75,6 @@ services:
       - feagi
 
   grafana:
-    image: gcr.io/feagi-poc/feagi/grafana:v0.0.1
     build: ../third_party/grafana/
     deploy:
       resources:
@@ -97,7 +94,6 @@ services:
         condition: service_healthy
 
   feagi:
-    image: gcr.io/feagi-poc/feagi/feagi:v0.0.1
     build: ./
     deploy:
       resources:
@@ -119,7 +115,6 @@ services:
         condition: service_healthy
 
   gui:
-    image: gcr.io/feagi-poc/feagi/gui:v0.0.1
     build:
       context: ../src/gui/
     deploy:

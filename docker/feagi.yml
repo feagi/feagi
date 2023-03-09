@@ -56,7 +56,6 @@ services:
           memory: '3g'
     ports:
       - "6080:80"
-      - "30009:30009"
     env_file:
       - ./.env
     privileged: true
@@ -97,8 +96,7 @@ services:
           memory: '2g'
     ports:
       - "8000:8000"
-      - "30000:30000"
-      - "30010:30010" # ZMQ Port for Agent to Connect to Feagi
+      - "40000-40050:40000-40050" # ZMQ Port for Agent to Connect to Feagi
     env_file:
       - ./.env
     volumes:
