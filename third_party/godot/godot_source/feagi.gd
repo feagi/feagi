@@ -791,12 +791,6 @@ func _on_save_pressed():
 	json_data["type"] = $Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_item_text($Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_selected_id())
 	var array_string = ""
 	array_string = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/morphology_def.text
-#	if $Spatial/Camera/Menu/rule_properties/rules/vectors.visible:
-#		array_string = $Spatial/Camera/Menu/rule_properties/rules/vectors/vectors.text
-#	elif $Spatial/Camera/Menu/rule_properties/rules/patterns.visible:
-#		array_string = $Spatial/Camera/Menu/rule_properties/rules/patterns/patterns.text
-#	elif $Spatial/Camera/Menu/rule_properties/rules/functions.visible:
-#		array_string = $Spatial/Camera/Menu/rule_properties/rules/functions/functions.text
 	test = JSON.parse(array_string)
 	json_data["morphology"] = test.result
 	_make_put_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology',json_data, false)
