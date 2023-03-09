@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 # todo: consolidate the two publishers in a modular fashion
 
+
 class PubSub:
     def __init__(self):
         self.context = zmq.Context()
