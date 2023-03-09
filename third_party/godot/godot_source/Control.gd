@@ -11,7 +11,7 @@ func _ready():
 	visible = false
 
 func _process(_delta):
-	if $inner_box/morphology_name.text != "" and $inner_box/morphology_type.selected != 0 and $inner_box/TextEdit.text != "":
+	if $inner_box/morphology_type.selected != 0:
 		$create.disabled = false
 	else:
 		$create.disabled = true
