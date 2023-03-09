@@ -90,13 +90,10 @@ def register_with_feagi(feagi_ip, feagi_api_port, agent_type: str, agent_id: str
     registration_endpoint = '/v1/agent/register'
 
     registration_complete = False
-    print("--/--")
     feagi_settings = dict()
     while not registration_complete:
         try:
-            print("--1--")
             feagi_settings = requests.get(api_address + network_endpoint).json()
-            print("--2--")
             if feagi_settings:
                 print("Data from FEAGI::", feagi_settings)
             else:
@@ -109,7 +106,6 @@ def register_with_feagi(feagi_ip, feagi_api_port, agent_type: str, agent_id: str
             agent_registration_data["agent_data_port"] = int(agent_data_port)
 
             registration_status = requests.post(api_address + registration_endpoint, params=agent_registration_data)
-            print("--3--")
             if registration_status:
                 print("Agent successfully registered with FEAGI!")
                 # Receive FEAGI settings
@@ -121,7 +117,6 @@ def register_with_feagi(feagi_ip, feagi_api_port, agent_type: str, agent_id: str
                     registration_complete = True
         except Exception as e:
             print("Trying to register with FEAGI at ", api_address)
-        print("...")
         sleep(1)
 
     print("feagi_ip:agent_data_port", feagi_ip, agent_data_port)
