@@ -96,7 +96,6 @@ services:
           memory: '2g'
     ports:
       - "8000:8000"
-      - "30009:30009"
       - "40000-40050:40000-40050" # ZMQ Port for Agent to Connect to Feagi
     env_file:
       - ./.env
