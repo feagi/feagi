@@ -22,8 +22,10 @@ def feagi_registration(feagi_host, api_port, agent_settings, capabilities):
 
     while runtime_data["feagi_state"] is None:
         print("\nAwaiting registration with FEAGI...")
+        print("feagi_host:", feagi_host,
+              "\tapi_port:", api_port,
+              "\nagent_settings:", agent_settings)
         try:
-            print("MNM")
             runtime_data["feagi_state"] = \
                 router.register_with_feagi(feagi_ip=feagi_host,
                                            feagi_api_port=api_port,

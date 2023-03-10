@@ -22,7 +22,7 @@ feagi_settings = {
 }
 
 agent_settings = {
-    "agent_data_port": "30010",
+    "agent_data_port": "40010",
     "agent_id": "camera_1",
     "agent_type": "embodiment",
     'TTL': 2,

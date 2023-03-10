@@ -22,7 +22,7 @@ feagi_settings = {
 }
 
 agent_settings = {
-    "agent_data_port": "30012",
+    "agent_data_port": "40012",
     "agent_id": "mycobot",
     "agent_type": "embodiment",
     'TTL': 2,

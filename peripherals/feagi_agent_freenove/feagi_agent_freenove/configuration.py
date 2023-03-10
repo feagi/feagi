@@ -22,7 +22,7 @@ feagi_settings = {
 }
 
 agent_settings = {
-    "agent_data_port": "30011",
+    "agent_data_port": "40011",
     "agent_id": "freenove",
     "agent_type": "embodiment",
     'TTL': 2,
