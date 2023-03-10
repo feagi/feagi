@@ -949,18 +949,48 @@ func _on_Button_pressed():
 
 func _on_create_pressed():
 	if $Spatial/Camera/Menu/Control/inner_box/morphology_name.text != "":
+		if $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.selected) == "patterns":
+			var json = {}
+			json["name"] = $Spatial/Camera/Menu/Control/inner_box/morphology_name.text
+			json["type"] = $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.get_selected_id())
+			var string_input = []
+			var empty_array1 = []
+			var empty_array2 = []
+			var full_array = []
+			var empty_flag = 0
+			for i in new_morphology_node:
+				for _x in range(7):
+					if not "?" in i.get_child(empty_flag).text and not "*" in i.get_child(empty_flag).text:
+						if empty_flag < 3:
+							empty_array1.append(int(i.get_child(empty_flag).text))
+						elif empty_flag > 3:
+							empty_array2.append(int(i.get_child(empty_flag).text))
+					else:
+						if empty_flag < 3:
+							empty_array1.append(str(i.get_child(empty_flag).text))
+						elif empty_flag > 3:
+							empty_array2.append(str(i.get_child(empty_flag).text))
+					empty_flag += 1
+				full_array.append(empty_array1)
+				full_array.append(empty_array2)
+				string_input.append(full_array)
+			json["morphology"] = string_input
+			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology', false, json)
+			$Spatial/Camera/Menu/Control.visible = false
+			new_morphology_clear()
+			$Spatial/Camera/Menu/Control/inner_box/morphology_name.text = ""
+	if $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.selected) == "vectors":
 		var json = {}
 		json["name"] = $Spatial/Camera/Menu/Control/inner_box/morphology_name.text
 		json["type"] = $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.get_selected_id())
-		var string_input = []
+		var empty_array1 = []
 		for i in new_morphology_node:
-			var full_array = []
-			var empty_array1 = [i.get_child(0).text, i.get_child(1).text, i.get_child(2).text]
-			var empty_array2 = [i.get_child(3).text, i.get_child(4).text, i.get_child(5).text]
-			full_array.append(empty_array1)
-			full_array.append(empty_array2)
-			string_input.append(full_array)
-		json["morphology"] = string_input
+			var temp_array = []
+			temp_array.append(i.get_child(0).value)
+			temp_array.append(i.get_child(1).value)
+			temp_array.append(i.get_child(2).value)
+			empty_array1.append(temp_array)
+		json["morphology"] = empty_array1
 		_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology', false, json)
 		$Spatial/Camera/Menu/Control.visible = false
 		new_morphology_clear()
@@ -1198,7 +1228,17 @@ func _morphology_button_pressed():
 		new_node.visible = true
 		new_node.get_child(7).connect("pressed", self, "delete_morphology", [new_node])
 		new_node.rect_position.x = $Spatial/Camera/Menu/Control/inner_box/box_of_pattern/Control.rect_position.x + $Spatial/Camera/Menu/Control/inner_box/box_of_pattern/Control.rect_size.x
-		new_node.rect_position.y = $Spatial/Camera/Menu/Control/inner_box/box_of_pattern/Control.rect_position.y + (30 * counter) 
+		new_node.rect_position.y = $Spatial/Camera/Menu/Control/inner_box/box_of_pattern/Control.rect_position.y + (30 * counter)
+	elif $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.selected) == "vectors":
+		var new_node = $Spatial/Camera/Menu/Control/inner_box/box_of_vectors/Control.duplicate()
+		new_morphology_node.append(new_node)
+		$Spatial/Camera/Menu/Control/inner_box/box_of_vectors.add_child(new_node)
+		new_node.visible = true
+		new_node.get_child(3).connect("pressed", self, "delete_morphology", [new_node])
+		new_node.rect_size = $Spatial/Camera/Menu/Control/inner_box/box_of_vectors/Control.rect_size
+		new_node.rect_position.x = $Spatial/Camera/Menu/Control/inner_box/box_of_vectors/Control.rect_position.x
+		new_node.rect_position.y = $Spatial/Camera/Menu/Control/inner_box/box_of_vectors/Control.rect_position.y + (30 * counter)
+
 
 func _on_morphology_name_focus_exited():
 	$Spatial/Camera/Menu/Control/create.visible = true
@@ -1240,6 +1280,7 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 					new_node.rect_position.x = $Spatial/Camera/Menu/Control/inner_box/box_of_pattern/Control.rect_position.x + $Spatial/Camera/Menu/Control/inner_box/box_of_pattern/Control.rect_size.x
 					new_node.rect_position.y = $Spatial/Camera/Menu/Control/inner_box/box_of_pattern/Control.rect_position.y + (30 * counter)
 					if len(x) == 2:
+						print("api data: ", api_data)
 						new_node.get_child(0).text = str(x[0][0])
 						new_node.get_child(1).text = str(x[0][1])
 						new_node.get_child(2).text = str(x[0][2])
@@ -1250,8 +1291,20 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 						print("This morphology is outdated! Please use the manage neuron morphology to update the morphology.")
 						print("The last array: ", x, " and the name of morphology: ", $Spatial/Camera/Menu/Control/inner_box/morphology_name.text)
 						break
-				if i == "vectors":
-					pass
+				elif i == "vectors":
+					$Spatial/Camera/Menu/Control/create.visible = false
+					$Spatial/Camera/Menu/Control/update.visible = true
+					counter = len(new_morphology_node)
+					var new_node = $Spatial/Camera/Menu/Control/inner_box/box_of_vectors/Control.duplicate()
+					$Spatial/Camera/Menu/Control/inner_box/box_of_vectors.add_child(new_node)
+					new_morphology_node.append(new_node)
+					new_node.visible = true
+					new_node.get_child(3).connect("pressed", self, "delete_morphology", [new_node])
+					new_node.rect_position.x = $Spatial/Camera/Menu/Control/inner_box/box_of_vectors/Control.rect_position.x
+					new_node.rect_position.y = $Spatial/Camera/Menu/Control/inner_box/box_of_vectors/Control.rect_position.y + (30 * counter)
+					new_node.get_child(0).value = int(x[0])
+					new_node.get_child(1).value = int(x[1])
+					new_node.get_child(2).value = int(x[2])
 
 		for x in $Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_item_count():
 			if $Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_item_text(x) == i:
