@@ -959,6 +959,10 @@ func _on_create_pressed():
 			var full_array = []
 			var empty_flag = 0
 			for i in new_morphology_node:
+				empty_flag = 0
+				full_array = []
+				empty_array1 = []
+				empty_array2 = []
 				for _x in range(7):
 					if not "?" in i.get_child(empty_flag).text and not "*" in i.get_child(empty_flag).text:
 						if empty_flag < 3:
@@ -1241,8 +1245,6 @@ func _morphology_button_pressed():
 
 
 func _on_morphology_name_focus_exited():
-	$Spatial/Camera/Menu/Control/create.visible = true
-	$Spatial/Camera/Menu/Control/update.visible = false
 	new_morphology_clear()
 	for i in $Spatial/Camera/Menu/information_menu/Neuron_morphologies_item.get_item_count():
 		var name_morphology = $Spatial/Camera/Menu/information_menu/Neuron_morphologies_item.get_item_text(i) 
@@ -1266,11 +1268,10 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 	var counter = 0
 	for i in api_data:
 		new_name = str(api_data[i])
+		print("HERE: ", new_name)
 		if $Spatial/Camera/Menu/Control.visible:
 			for x in api_data[i]:
 				if i == "patterns":
-					$Spatial/Camera/Menu/Control/create.visible = false
-					$Spatial/Camera/Menu/Control/update.visible = true
 					counter = len(new_morphology_node)
 					var new_node = $Spatial/Camera/Menu/Control/inner_box/box_of_pattern/Control.duplicate()
 					$Spatial/Camera/Menu/Control/inner_box/box_of_pattern.add_child(new_node)
