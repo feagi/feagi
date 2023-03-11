@@ -86,7 +86,7 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold):
         print("Error: Raw data frame does not match frame resolution")
         print("Error due to this: ", e)
 
-    if len(vision_dict) > 3500:
+    if len(vision_dict) > (frame_row_count * frame_col_count)/2:
         return {'camera': {name_id: {}}}, previous_frame_data
     else:
         return {'camera': {name_id: vision_dict}}, previous_frame_data
