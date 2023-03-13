@@ -1284,7 +1284,7 @@ func _morphology_button_pressed():
 		new_node.rect_size = $Spatial/Camera/Menu/Control/inner_box/box_of_vectors/Control.rect_size
 		new_node.rect_position.x = $Spatial/Camera/Menu/Control/inner_box/box_of_vectors/Control.rect_position.x
 		new_node.rect_position.y = $Spatial/Camera/Menu/Control/inner_box/box_of_vectors/Control.rect_position.y + (30 * counter)
-
+	
 
 func _on_morphology_name_focus_exited():
 	new_morphology_clear()
@@ -1315,6 +1315,8 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 			for x in api_data[i]:
 				if i == "patterns":
 					counter = len(new_morphology_node)
+					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/pattern_label.visible = true
+					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/labels.visible = false
 					var new_node = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/pattern_label/Control.duplicate()
 					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition.add_child(new_node)
 					new_morphology_node.append(new_node)
@@ -1335,6 +1337,8 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 						break
 				elif i == "vectors":
 					counter = len(new_morphology_node)
+					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/pattern_label.visible = false
+					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/labels.visible = true
 					var new_node = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/Control.duplicate()
 					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/.add_child(new_node)
 					new_morphology_node.append(new_node)
