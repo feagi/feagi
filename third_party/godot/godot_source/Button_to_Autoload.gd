@@ -199,3 +199,43 @@ func _on_morphology_name_text_entered(_new_text):
 
 func _on_type_text_changed(_new_text):
 	Godot_list.Node_2D_control = true
+
+
+func _on_TextEdit_text_changed(_new_text):
+	Godot_list.Node_2D_control = true
+
+func _on_TextEdit_text_entered(_new_text):
+	Godot_list.Node_2D_control = false
+	
+
+func _on_TextEdit2_text_changed(_new_text):
+	Godot_list.Node_2D_control = true
+
+
+func _on_TextEdit2_text_entered(_new_text):
+	Godot_list.Node_2D_control = false
+
+
+func _on_TextEdit7_text_changed(_new_text):
+	Godot_list.Node_2D_control = true
+
+func _on_TextEdit7_text_entered(_new_text):
+	Godot_list.Node_2D_control = false
+
+func _on_TextEdit8_text_changed(_new_text):
+	Godot_list.Node_2D_control = true
+
+func _on_TextEdit8_text_entered(_new_text):
+	Godot_list.Node_2D_control = false
+
+func _on_TextEdit9_text_changed(_new_text):
+	Godot_list.Node_2D_control = true
+
+func _on_TextEdit9_text_entered(_new_text):
+	Godot_list.Node_2D_control = false
+
+func _on_TextEdit10_text_changed(_new_text):
+	Godot_list.Node_2D_control = true
+
+func _on_TextEdit10_text_entered(_new_text):
+	Godot_list.Node_2D_control = false

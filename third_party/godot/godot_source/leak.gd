@@ -5,7 +5,7 @@ onready var line = self
 
 func _ready():
 	line.connect("text_changed", self, "_on_text_changed")
-	line.connect("text_entered", self, "_on_text_entered")
+#	line.connect("text_entered", self, "_on_text_entered")
 
 func _on_text_changed(new_text):
 	if new_text.is_valid_float():
