@@ -1067,6 +1067,16 @@ func new_morphology_clear():
 		for i in new_morphology_node:
 			i.queue_free()
 		new_morphology_node = []
+		$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/Label2.rect_position.y = 160
+		$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/associations_data.rect_position.y = 180
+		$Spatial/Camera/Menu/rule_properties/rules.rect_size.y = 436
+		$Spatial/Camera/Menu/rule_properties.rect_size.y = 608
+		$Spatial/Camera/Menu/rule_properties/rules/save.rect_position.y = 477.001
+		$Spatial/Camera/Menu/rule_properties/rules/delete.rect_position.y = 477.001
+		$Spatial/Camera/Menu/Control/inner_box/grey_bg.rect_size.y = 283
+		$Spatial/Camera/Menu/Control/ColorRect.rect_size.y = 394
+		$Spatial/Camera/Menu/Control/update.rect_position.y = 330
+		$Spatial/Camera/Menu/Control/inner_box/Button.disabled = false
 
 func _on_source_dropdown_item_selected(index):
 	if index != 0:
@@ -1343,10 +1353,16 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 					new_node.get_child(0).value = int(x[0])
 					new_node.get_child(1).value = int(x[1])
 					new_node.get_child(2).value = int(x[2])
+				if len(new_morphology_node) > 4:
+					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/Label2.rect_position.y = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/Label2.rect_position.y + (4 * counter)
+					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/associations_data.rect_position.y = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/associations_data.rect_position.y + (4 * counter)
+					$Spatial/Camera/Menu/rule_properties/rules.rect_size.y += (counter * 4)
+					$Spatial/Camera/Menu/rule_properties.rect_size.y += (counter * 4)
+			counter = 0
 			if $Spatial/Camera/Menu/Control.visible:
 				for x in api_data[i]:
 					if i == "patterns":
-						counter = len(new_morphology_node)
+						counter += 1
 						var new_node = $Spatial/Camera/Menu/Control/inner_box/box_of_pattern/Control.duplicate()
 						$Spatial/Camera/Menu/Control/inner_box/box_of_pattern.add_child(new_node)
 						new_morphology_node.append(new_node)
@@ -1368,7 +1384,7 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 					elif i == "vectors":
 						$Spatial/Camera/Menu/Control/create.visible = false
 						$Spatial/Camera/Menu/Control/update.visible = true
-						counter = len(new_morphology_node)
+						counter += 1
 						var new_node = $Spatial/Camera/Menu/Control/inner_box/box_of_vectors/Control.duplicate()
 						$Spatial/Camera/Menu/Control/inner_box/box_of_vectors.add_child(new_node)
 						new_morphology_node.append(new_node)
@@ -1379,6 +1395,11 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 						new_node.get_child(0).value = int(x[0])
 						new_node.get_child(1).value = int(x[1])
 						new_node.get_child(2).value = int(x[2])
+						if len(new_morphology_node) > 4:
+							$Spatial/Camera/Menu/Control/inner_box/grey_bg.rect_size.y += (4 * counter)
+							$Spatial/Camera/Menu/Control/ColorRect.rect_size.y += (4 * counter)
+							$Spatial/Camera/Menu/Control/update.rect_position.y += (4 * counter)
+						$Spatial/Camera/Menu/Control/inner_box/Button.disabled = true
 
 			for x in $Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_item_count():
 				if $Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_item_text(x) == i:
@@ -1430,3 +1451,10 @@ func _morphology_button_inside_red():
 		new_node.get_child(0).value = 0
 		new_node.get_child(1).value = 0
 		new_node.get_child(2).value = 0
+	if counter > 4:
+		$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/Label2.rect_position.y = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/Label2.rect_position.y + (3 * counter)
+		$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/associations_data.rect_position.y = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/associations_data.rect_position.y + (3 * counter)
+		$Spatial/Camera/Menu/rule_properties/rules.rect_size.y += (counter * 3)
+		$Spatial/Camera/Menu/rule_properties.rect_size.y += (counter * 3)
+		$Spatial/Camera/Menu/rule_properties/rules/save.rect_position.y -= 2
+		$Spatial/Camera/Menu/rule_properties/rules/delete.rect_position.y -=2
