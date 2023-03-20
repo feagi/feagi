@@ -180,3 +180,46 @@ def syn_block_connection(src_cortical_area, dst_cortical_area, src_neuron_id, s=
     neuron_block_index_z = runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][2]
 
     return [neuron_block_index_x // s, neuron_block_index_y, neuron_block_index_z]
+
+
+def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id):
+    candidate_list = list()
+    src_shape = runtime_data.genome['blueprint'][src_cortical_area]["block_boundaries"]
+    dst_shape = runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"]
+
+    neuron_location = [runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][0],
+                       runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1],
+                       runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][2]]
+
+    dst_vox_dict = dict()
+
+    for i in range(3):
+        dst_vox_dict[i] = set()
+        if src_shape[i] > dst_shape[i]:
+            ratio = src_shape[i]//dst_shape[i]
+            target_vox = neuron_location[i]//ratio
+            dst_vox_dict[i].add(target_vox)
+        elif src_shape[i] < dst_shape[i]:
+            ratio = dst_shape[i]//src_shape[i]
+            for vox in range(dst_shape[i]):
+                if vox//ratio == neuron_location[i]:
+                    target_vox = vox
+                    dst_vox_dict[i].add(target_vox)
+        elif src_shape[i] == dst_shape[i]:
+            target_vox = neuron_location[i]
+            dst_vox_dict[i].add(target_vox)
+        else:
+            pass
+
+    if dst_vox_dict[0] and dst_vox_dict[1] and dst_vox_dict[2]:
+        for x in dst_vox_dict[0]:
+            for y in dst_vox_dict[1]:
+                for z in dst_vox_dict[2]:
+                    candidate_list.append([
+                        x, y, z
+                    ])
+
+    return candidate_list
+
+
+
