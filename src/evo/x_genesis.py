@@ -481,7 +481,9 @@ def add_core_cortical_area(cortical_properties):
 def add_custom_cortical_area(cortical_properties):
     # Generate Cortical ID
     # todo: instead of hard coding the length have the genome properties captured and reference instead
-    cortical_area = cortical_id_gen(cortical_properties['cortical_name'][:3])
+    if len(cortical_properties['cortical_name']) < 3:
+        temp_name = cortical_properties['cortical_name'] + "000"
+    cortical_area = cortical_id_gen(temp_name[:3])
 
     cortical_names = neuroembryogenesis.cortical_name_list()
     template = templates.cortical_template.copy()
