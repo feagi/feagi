@@ -166,6 +166,9 @@
       "expander_x": {
          "functions": true
       },
+      "projector": {
+         "functions": true
+      },
       "reducer_x": {
          "functions": true
       },

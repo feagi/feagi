@@ -266,6 +266,11 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
                     elif neuron_morphology == "block_connection":
                         candidate = syn_block_connection(cortical_area_src, cortical_area_dst, src_neuron_id, s=10)
                         candidate_voxel_list.append([candidate, post_synaptic_current])
+                    elif neuron_morphology == "projector":
+                        candidate_list = syn_projector(cortical_area_src, cortical_area_dst, src_neuron_id)
+                        for candidate in candidate_list:
+                            candidate_voxel_list.append([candidate, post_synaptic_current])
+                        
                 elif key == "placeholder":
                     pass
 
