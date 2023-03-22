@@ -25,6 +25,18 @@ logger = logging.getLogger(__name__)
 # todo: rename block to voxel
 
 
+def voxel_list_to_neuron_list(cortical_area, voxel_list):
+    neuron_list = list()
+
+    for voxel in voxel_list:
+        voxel_ref = block_reference_builder(voxel[0])
+        neurons = neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel_ref)
+        for neuron in neurons:
+            neuron_list.append([neuron, voxel[1]])
+
+    return neuron_list
+
+
 def block_size_checker(cortical_area, block):
     """
     Tests if the given block fits inside the cortical area block boundary
