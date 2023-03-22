@@ -553,6 +553,7 @@ async def add_cortical_area(message: NewCustomCorticalProperties):
     Enables changes against various Burst Engine parameters.
     """
     try:
+        print("NewCustomCorticalProperties:\n", NewCustomCorticalProperties)
         message = message.dict()
         message = {'add_custom_cortical_area': message}
         print("*" * 50 + "\n", message)

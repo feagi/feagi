@@ -136,7 +136,7 @@ def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar):
     within_limits = voxels.block_size_checker(cortical_area=cortical_area_dst,
                                               block=voxels.block_reference_builder(candidate_vector))
     if within_limits:
-        return candidate_vector
+        return [candidate_vector]
 
 
 def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar):
@@ -213,6 +213,7 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
 
     # Candidate_voxel_list includes a list of destination neuron and associated postSynapticCurrent pairs
     candidate_voxel_list = list()
+    raw_candidate_list = set()
 
     # rule_manager = SynaptogenesisRuleManager(src_neuron_id=src_neuron_id, src_cortical_area=cortical_area_src,
     #                                          dst_cortical_area=cortical_area_dst)
@@ -234,43 +235,53 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
                 # print("Morphology:", key)
                 if key == "vectors":
                     for vector in runtime_data.genome["neuron_morphologies"][neuron_morphology]["vectors"]:
-                        matching_vectors = match_vectors(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
-                                                         vector=vector, morphology_scalar=morphology_scalar)
-                        if matching_vectors:
-                            candidate_voxel_list.append([matching_vectors, post_synaptic_current])
+                        candidate_list = match_vectors(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
+                                                       vector=vector, morphology_scalar=morphology_scalar)
+                        if candidate_list:
+                            for candidate in candidate_list:
+                                raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+                            # candidate_voxel_list.append([matching_vectors, post_synaptic_current])
+                        candidate_list = None
 
                 elif key == "patterns":
                     for pattern in runtime_data.genome["neuron_morphologies"][neuron_morphology]["patterns"]:
 
-                        matching_vectors = match_patterns(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
-                                                          pattern=pattern, morphology_scalar=morphology_scalar)
-                        if matching_vectors:
-                            for item in matching_vectors:
-                                candidate_voxel_list.append([item, post_synaptic_current])
-
+                        candidate_list = match_patterns(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
+                                                        pattern=pattern, morphology_scalar=morphology_scalar)
+                        if candidate_list:
+                            for candidate in candidate_list:
+                                raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+                                # candidate_voxel_list.append([item, post_synaptic_current])
+                        candidate_list = None
                 elif key == "functions":
                     if neuron_morphology == "expander_x":
                         candidate_list = syn_expander_x(cortical_area_src, cortical_area_dst, src_neuron_id)
                         for candidate in candidate_list:
-                            candidate_voxel_list.append([candidate, post_synaptic_current])
+                            raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+                            # candidate_voxel_list.append([candidate, post_synaptic_current])
                     elif neuron_morphology == "reducer_x":
                         candidate_list = syn_reducer_x(cortical_area_src, cortical_area_dst, src_neuron_id)
                         for candidate in candidate_list:
-                            candidate_voxel_list.append([candidate, post_synaptic_current])
+                            raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+                            # candidate_voxel_list.append([candidate, post_synaptic_current])
                     elif neuron_morphology == "randomizer":
                         candidate = syn_randomizer(dst_cortical_area=cortical_area_dst)
-                        candidate_voxel_list.append([candidate, post_synaptic_current])
+                        raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+                        # candidate_voxel_list.append([candidate, post_synaptic_current])
                     elif neuron_morphology == "lateral_pairs_x":
                         candidate = syn_lateral_pairs_x(neuron_id=src_neuron_id, cortical_area=cortical_area_src)
-                        candidate_voxel_list.append([candidate, post_synaptic_current])
+                        raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+                        # candidate_voxel_list.append([candidate, post_synaptic_current])
                     elif neuron_morphology == "block_connection":
                         candidate = syn_block_connection(cortical_area_src, cortical_area_dst, src_neuron_id, s=10)
-                        candidate_voxel_list.append([candidate, post_synaptic_current])
+                        raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+                        # candidate_voxel_list.append([candidate, post_synaptic_current])
                     elif neuron_morphology == "projector":
                         candidate_list = syn_projector(cortical_area_src, cortical_area_dst, src_neuron_id)
                         for candidate in candidate_list:
-                            candidate_voxel_list.append([candidate, post_synaptic_current])
-                        
+                            raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+                            # candidate_voxel_list.append([candidate, post_synaptic_current])
+                    candidate_list = None
                 elif key == "placeholder":
                     pass
 
@@ -280,6 +291,9 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id):
         except Exception as e:
             print("Error during synaptogenesis of %s and %s" % (cortical_area_src, cortical_area_dst))
             print(traceback.format_exc())
+
+        for candidate in raw_candidate_list:
+            candidate_voxel_list.append([list(candidate), post_synaptic_current])
 
     if candidate_voxel_list:
         candidate_neuron_list = \

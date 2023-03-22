@@ -23,40 +23,6 @@ from random import randrange
 logger = logging.getLogger(__name__)
 
 
-# def rule_neuron_to_neuron(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset):
-#     candidate_list = list()
-#     # Input: neuron id of which we desire to find all candidate neurons for from another cortical region
-#     src_data = runtime_data.brain[src_cortical_area]
-#     dst_data = runtime_data.brain[dst_cortical_area]
-#     for dst_neuron_id in dst_data:
-#         if src_data[src_neuron_id]['soma_location'][0] == dst_data[dst_neuron_id]['soma_location'][0]:
-#             candidate_list.append(dst_neuron_id)
-#             break
-#     return candidate_list
-
-
-# def rule_block_distributor(rule_param, src_cortical_area, dst_cortical_area, src_neuron_id, z_offset):
-#     """
-#     This rule helps to take a set of unique inputs from one cortical area and develop synaptic projections that can
-#     lead to a comprehensive set of unique connections that covers all the combinations of the input values.
-#
-#     Note: This function is designed for the corner case of the destination cortical area being 1 dimensional in z
-#     direction
-#     """
-#
-#     # todo: generalize this function so it takes the direction of the source and destination cortical areas as input
-#     candidate_list = list()
-#     block_list = blocks.z_block_refs(cortical_area=dst_cortical_area, x_ref=0, y_ref=0)
-#     source_x_depth = runtime_data.genome['blueprint'][src_cortical_area]["block_boundaries"][0]
-#
-#     for offset in range(source_x_depth):
-#         for block_ref in block_list:
-#             if blocks.block_ref_2_id(block_ref)[2] // (2 ** offset) % 2 == 0:
-#                 for neuron in blocks.neurons_in_the_block(cortical_area=dst_cortical_area, block_ref=block_ref):
-#                     candidate_list.append(neuron)
-#     return candidate_list
-
-
 def syn_expander_x(src_cortical_area, dst_cortical_area, src_neuron_id, dst_y_index=0, dst_z_index=0):
     """
     This rule represents a unique combination of all blocks from the source cortical area on the destination side
