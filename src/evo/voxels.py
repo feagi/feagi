@@ -275,3 +275,27 @@ def active_neurons_in_blocks(cortical_area, current_fcl=True, include_neurons=Fa
 def voxel_reset(cortical_area):
     for voxel in runtime_data.voxel_dict[cortical_area]:
         runtime_data.voxel_dict[cortical_area][voxel] = set()
+
+
+def subregion_voxels(src_cortical_area, region_definition):
+    voxels = set()
+    limits = runtime_data.genome['blueprint'][src_cortical_area]["block_boundaries"]
+    if limits[0] >= region_definition[1][0] > region_definition[0][0] and \
+            limits[1] >= region_definition[1][1] > region_definition[0][1] and \
+            limits[2] >= region_definition[1][2] > region_definition[0][2]:
+        for x in range(region_definition[0][0], region_definition[1][0], 1):
+            for y in range(region_definition[0][1], region_definition[1][1], 1):
+                for z in range(region_definition[0][2], region_definition[1][2], 1):
+                    voxels.add((x, y, z))
+        return voxels
+
+
+def subregion_neurons(src_cortical_area, region_definition):
+    neurons = set()
+    voxels = subregion_voxels(src_cortical_area=src_cortical_area,
+                              region_definition=region_definition)
+    for voxel in voxels:
+        voxel_neurons = neurons_in_the_block(cortical_area=src_cortical_area, block_ref=block_reference_builder(list(voxel)))
+        for neuron in voxel_neurons:
+            neurons.add(neuron)
+    return neurons
