@@ -143,6 +143,7 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
         # Example: ((x1, y1, z1), (x2, y2, z2))
         # src_subregions with be a collection of all subregions associated with a select composite morphology
         morphology_properties = runtime_data.genome["neuron_morphologies"][morphology["morphology_id"]]
+        mapper_morphology = None
         for growth_rule in morphology_properties:
             src_subregions = set()
             if growth_rule == "composite":
@@ -151,8 +152,6 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
                                                    parameters=morphology_properties["composite"]["parameters"])
 
                 mapper_morphology = morphology_properties["composite"]["mapper_morphology"]
-                morphology['morphology_id'] = mapper_morphology
-
             else:
                 src_subregion = (
                     (0, 0, 0),
@@ -173,7 +172,8 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
                     neighbor_candidates = neighbor_finder(cortical_area_src=cortical_area,
                                                           cortical_area_dst=cortical_area_dst,
                                                           src_neuron_id=src_id,
-                                                          morphology_=morphology)
+                                                          morphology_=morphology,
+                                                          morphology_id_overwrite=mapper_morphology)
 
                     if neighbor_candidates:
                         for dst_id, psc in neighbor_candidates:
