@@ -136,7 +136,6 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
     synapse_count = 0
 
     mappings = runtime_data.genome["blueprint"][cortical_area]['cortical_mapping_dst'][cortical_area_dst]
-    print("mappings:", mappings)
 
     for morphology in mappings:
         # subregion definition is the start and end points of a vector defining a subregion
@@ -147,7 +146,6 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
         for growth_rule in morphology_properties:
             src_subregions = set()
             if growth_rule == "composite":
-                print("$$$ " * 20)
                 src_subregions = define_subregions(cortical_area=cortical_area,
                                                    parameters=morphology_properties["composite"]["parameters"])
 
@@ -158,12 +156,11 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
                     tuple(runtime_data.genome["blueprint"][cortical_area]["block_boundaries"])
                 )
                 src_subregions.add(src_subregion)
-            print("= " * 20)
-            print("src_subregions:", cortical_area, src_subregions)
 
             for src_subregion in src_subregions:
                 subregion_neuron_list = subregion_neurons(src_cortical_area=cortical_area,
                                                           region_definition=src_subregion)
+
                 for src_id in subregion_neuron_list:
                     # Cycle through the neighbor_candidate_list and establish Synapses
                     # neighbor_candidates contain the list of candidate connections along with associated
@@ -173,7 +170,8 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
                                                           cortical_area_dst=cortical_area_dst,
                                                           src_neuron_id=src_id,
                                                           morphology_=morphology,
-                                                          morphology_id_overwrite=mapper_morphology)
+                                                          morphology_id_overwrite=mapper_morphology,
+                                                          src_subregion=src_subregion)
 
                     if neighbor_candidates:
                         for dst_id, psc in neighbor_candidates:
@@ -212,7 +210,6 @@ def cortical_mapping():
     for cortical_area in mapping_dict:
         for dst in mapping_dict[cortical_area]:
             mapping_str = mapping_str + "\n" + cortical_area + ' ' + dst
-    print(mapping_str)
     return mapping_dict
 
 
@@ -230,7 +227,6 @@ def cortical_areas_sharing_same_morphology(neuron_morphology):
     for cortical_area in runtime_data.genome['blueprint']:
         for destination in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
             for mapping in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][destination]:
-                print("mapping----", mapping, neuron_morphology)
                 if mapping['morphology_id'] == neuron_morphology:
                     cortical_list.append([cortical_area, destination])
     return cortical_list

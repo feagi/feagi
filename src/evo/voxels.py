@@ -294,8 +294,12 @@ def subregion_neurons(src_cortical_area, region_definition):
     neurons = set()
     voxels = subregion_voxels(src_cortical_area=src_cortical_area,
                               region_definition=region_definition)
-    for voxel in voxels:
-        voxel_neurons = neurons_in_the_block(cortical_area=src_cortical_area, block_ref=block_reference_builder(list(voxel)))
-        for neuron in voxel_neurons:
-            neurons.add(neuron)
+    try:
+        for voxel in voxels:
+            voxel_neurons = neurons_in_the_block(cortical_area=src_cortical_area,
+                                                 block_ref=block_reference_builder(list(voxel)))
+            for neuron in voxel_neurons:
+                neurons.add(neuron)
+    except Exception:
+        pass
     return neurons
