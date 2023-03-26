@@ -32,9 +32,10 @@ def genome_ver_check(genome):
             except Exception:
                 print("Error during genome validation!!\n", traceback.print_exc())
             save_genome(genome=genome, file_name="../runtime_genome.json")
-            genome2 = genome_2_1_convertor(flat_genome=genome['blueprint'])
+            genome = genome_morphology_updator(genome)
+            genome1 = genome_2_1_convertor(flat_genome=genome['blueprint'])
             genome_2_hierarchifier(flat_genome=genome['blueprint'])
-            genome['blueprint'] = genome2['blueprint']
+            genome['blueprint'] = genome1['blueprint']
             return genome
         else:
             print("ERROR! Genome is not compatible with 2.0 standard")
@@ -262,6 +263,29 @@ def genome_v1_v2_converter(genome_v1):
                 print("Warning! ", key, " not found in genome_1_template!")
 
     return genome_v2
+
+
+def morphology_convertor(morphology_in):
+    morphology_out = dict()
+    morphology_out["parameters"] = dict()
+    if "vectors" in morphology_in:
+        morphology_out["type"] = "vectors"
+        morphology_out["parameters"]["vectors"] = []
+        morphology_out["parameters"]["vectors"].append(morphology_in["vectors"])
+    elif "patterns" in morphology_in:
+        morphology_out["type"] = "patterns"
+        morphology_out["parameters"]["patterns"] = []
+        morphology_out["parameters"]["patterns"].append(morphology_in["patterns"])
+    else:
+        print("Morphology did not include vector nor pattern")
+
+    return morphology_out
+
+
+def genome_morphology_updator(genome):
+    for morphology in genome["neuron_morphologies"]:
+        genome["neuron_morphologies"][morphology] = morphology_convertor(genome["neuron_morphologies"][morphology])
+    return genome
 
 
 gene_decoder = {
