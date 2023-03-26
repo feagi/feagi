@@ -143,7 +143,7 @@ func resize_buttons():
 	$cortical_menu/Control/D_string.rect_position.y = $cortical_menu/Control/Z.rect_position.y + $cortical_menu/Control/Z.rect_size.y + 5
 	$cortical_menu/Control/H_string.rect_position.y = $cortical_menu/Control/Y.rect_position.y + $cortical_menu/Control/Y.rect_size.y + 5
 	$cortical_menu/Control/W_string.rect_position.y = $cortical_menu/Control/X.rect_position.y + $cortical_menu/Control/X.rect_size.y + 5
-	$cortical_menu/Control/W.rect_position.y = $cortical_menu/Control/W_string.rect_size.y + $cortical_menu/Control/W_string.rect_position.y 
+	$cortical_menu/Control/W.rect_position.y = $cortical_menu/Control/W_string.rect_size.y + $cortical_menu/Control/W_string.rect_position.y + 5
 	$cortical_menu/Control/D.rect_position.y = $cortical_menu/Control/D_string.rect_size.y + $cortical_menu/Control/D_string.rect_position.y + 5
 	$cortical_menu/Control/H.rect_position.y = $cortical_menu/Control/H_string.rect_size.y + $cortical_menu/Control/H_string.rect_position.y + 5
 
