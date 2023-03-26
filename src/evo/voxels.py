@@ -25,6 +25,18 @@ logger = logging.getLogger(__name__)
 # todo: rename block to voxel
 
 
+def voxel_list_to_neuron_list(cortical_area, voxel_list):
+    neuron_list = list()
+
+    for voxel in voxel_list:
+        voxel_ref = block_reference_builder(voxel[0])
+        neurons = neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel_ref)
+        for neuron in neurons:
+            neuron_list.append([neuron, voxel[1]])
+
+    return neuron_list
+
+
 def block_size_checker(cortical_area, block):
     """
     Tests if the given block fits inside the cortical area block boundary
@@ -263,3 +275,31 @@ def active_neurons_in_blocks(cortical_area, current_fcl=True, include_neurons=Fa
 def voxel_reset(cortical_area):
     for voxel in runtime_data.voxel_dict[cortical_area]:
         runtime_data.voxel_dict[cortical_area][voxel] = set()
+
+
+def subregion_voxels(src_cortical_area, region_definition):
+    voxels = set()
+    limits = runtime_data.genome['blueprint'][src_cortical_area]["block_boundaries"]
+    if limits[0] >= region_definition[1][0] > region_definition[0][0] and \
+            limits[1] >= region_definition[1][1] > region_definition[0][1] and \
+            limits[2] >= region_definition[1][2] > region_definition[0][2]:
+        for x in range(region_definition[0][0], region_definition[1][0], 1):
+            for y in range(region_definition[0][1], region_definition[1][1], 1):
+                for z in range(region_definition[0][2], region_definition[1][2], 1):
+                    voxels.add((x, y, z))
+        return voxels
+
+
+def subregion_neurons(src_cortical_area, region_definition):
+    neurons = set()
+    voxels = subregion_voxels(src_cortical_area=src_cortical_area,
+                              region_definition=region_definition)
+    try:
+        for voxel in voxels:
+            voxel_neurons = neurons_in_the_block(cortical_area=src_cortical_area,
+                                                 block_ref=block_reference_builder(list(voxel)))
+            for neuron in voxel_neurons:
+                neurons.add(neuron)
+    except Exception:
+        pass
+    return neurons

@@ -108,7 +108,7 @@ class BurstEngine(BaseModel):
 
 class MorphologyProperties(BaseModel):
     name: str
-    type: Literal['vectors', 'patterns', 'functions']
+    type: Literal['vectors', 'patterns', 'composite', 'functions']
     morphology: list
 
 
@@ -553,6 +553,7 @@ async def add_cortical_area(message: NewCustomCorticalProperties):
     Enables changes against various Burst Engine parameters.
     """
     try:
+        print("NewCustomCorticalProperties:\n", NewCustomCorticalProperties)
         message = message.dict()
         message = {'add_custom_cortical_area': message}
         print("*" * 50 + "\n", message)
@@ -636,7 +637,7 @@ async def genome_neuron_morphology_types():
     Returns the properties of a neuron morphology.
     """
     try:
-        return {"vectors", "patterns", "functions"}
+        return {"vectors", "patterns", "composite", "functions"}
     except Exception as e:
         print("API Error:", e)
         return {"Request failed...", e}
