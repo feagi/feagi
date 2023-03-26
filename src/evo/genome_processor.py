@@ -31,8 +31,8 @@ def genome_ver_check(genome):
                 blueprint_validator(genome)
             except Exception:
                 print("Error during genome validation!!\n", traceback.print_exc())
-            save_genome(genome=genome, file_name="../runtime_genome.json")
             genome = genome_morphology_updator(genome)
+            save_genome(genome=genome, file_name="../runtime_genome.json")
             genome1 = genome_2_1_convertor(flat_genome=genome['blueprint'])
             genome_2_hierarchifier(flat_genome=genome['blueprint'])
             genome['blueprint'] = genome1['blueprint']
@@ -276,15 +276,28 @@ def morphology_convertor(morphology_in):
         morphology_out["type"] = "patterns"
         morphology_out["parameters"]["patterns"] = []
         morphology_out["parameters"]["patterns"].append(morphology_in["patterns"])
+    elif "composite" in morphology_in:
+        morphology_out["type"] = "composite"
+        morphology_out["parameters"]["src_seed"] = append(morphology_in["parameters"]["src_seed"])
+        morphology_out["parameters"]["src_pattern"] = append(morphology_in["parameters"][src_pattern])
+        morphology_out["parameters"]["mapper_morphology"] = append(morphology_in["parameters"][mapper_morphology])
+    elif "functions" in morphology_in:
+        morphology_out["type"] = "functions"
+
     else:
-        print("Morphology did not include vector nor pattern")
+        print("% % % % %" * 200)
+        print("Morphology did not match...", morphology_in)
 
     return morphology_out
 
 
 def genome_morphology_updator(genome):
-    for morphology in genome["neuron_morphologies"]:
-        genome["neuron_morphologies"][morphology] = morphology_convertor(genome["neuron_morphologies"][morphology])
+    try:
+        for morphology in genome["neuron_morphologies"]:
+            genome["neuron_morphologies"][morphology] = morphology_convertor(genome["neuron_morphologies"][morphology])
+    except Exception as e:
+        print("Error during genome morphology update!", e, traceback.print_exc())
+
     return genome
 
 
