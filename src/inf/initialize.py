@@ -238,8 +238,6 @@ def init_genome_post_processes():
     # Augment cortical dimension dominance e.g. is it longer in x dimension or z
     for cortical_area in runtime_data.cortical_list:
         block_boundaries = runtime_data.genome["blueprint"][cortical_area]["block_boundaries"]
-        # block_boundaries = runtime_data.genome["blueprint"][]
-        print("%^ Block bounaries:", cortical_area, block_boundaries, runtime_data.genome["blueprint"][cortical_area])
         dominance = block_boundaries.index(max(block_boundaries))
         runtime_data.genome['blueprint'][cortical_area]['dimension_dominance'] = dominance
 
