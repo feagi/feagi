@@ -835,7 +835,6 @@ func _on_save_pressed():
 		json_data["composite"]['parameters']['src_pattern'].append($Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/x.value)
 		json_data["composite"]['parameters']['src_seed'] = [$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/x.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/y.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/z.value]
 		json_data["composite"]["mapper_morphology"] = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.get_item_text($Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.selected)
-		print("save: ", json_data)
 	var combine_url = '/v1/feagi/genome/morphology?morphology_name=' + new_name + '&morphology_type=' + new_type
 	_make_put_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, json_data, false)
 	$Spatial/Camera/Menu/rule_properties.visible = false
@@ -1060,7 +1059,6 @@ func _on_create_pressed():
 			json["composite"]["parameters"]["src_seed"] = [$Spatial/Camera/Menu/Control/inner_box/box_of_composite/X.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Y.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Z.value]
 			json["composite"]["parameters"]["src_pattern"] = [[$Spatial/Camera/Menu/Control/inner_box/box_of_composite/X_box/C.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/X_box/S.value], [$Spatial/Camera/Menu/Control/inner_box/box_of_composite/Y_box/C.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Y_box/S.value], [$Spatial/Camera/Menu/Control/inner_box/box_of_composite/Z_box/C.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Z_box/S.value]]
 			json["composite"]["mapper_morphology"] = $Spatial/Camera/Menu/Control/inner_box/box_of_composite/mapper_composite.get_item_text($Spatial/Camera/Menu/Control/inner_box/box_of_composite/mapper_composite.selected)
-			print("created: ", json)
 			var combine_url = '/v1/feagi/genome/morphology' + '?morphology_name=' + new_name + '&morphology_type=' + new_type
 			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, false, json)
 			$Spatial/Camera/Menu/Control.visible = false
