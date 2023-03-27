@@ -73,9 +73,6 @@ func _ready():
 			$Spatial/Camera/Menu/button_choice.visible = true
 			$Spatial/Camera/Menu/properties.visible = true
 			$Spatial/Camera/Menu/Mapping_Properties.visible = false
-#			$Spatial/Camera/Menu/collapse_1.visible = true
-#			$Spatial/Camera/Menu/collapse_2.visible = true
-#			$Spatial/Camera/Menu/collapse_3.visible = true
 			$Spatial/Camera/Menu/collapse_4.visible = true
 			$Spatial/Camera/Menu/cortical_menu/title.visible = true
 		elif select_cortical.selected.empty() != true:
@@ -787,10 +784,10 @@ func _on_type_rules_request_completed(_result, _response_code, _headers, body):
 
 func _on_save_pressed():
 	var json_data = {}
-	json_data["name"] = $Spatial/Camera/Menu/rule_properties/mapping_rule_options.get_item_text($Spatial/Camera/Menu/rule_properties/mapping_rule_options.get_selected_id())
-	json_data["type"] = $Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_item_text($Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_selected_id())
-	if json_data["type"] == "patterns":
-		json_data["morphology"] = []
+	var new_name = $Spatial/Camera/Menu/rule_properties/mapping_rule_options.get_item_text($Spatial/Camera/Menu/rule_properties/mapping_rule_options.get_selected_id())
+	var new_type = $Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_item_text($Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_selected_id())
+	if new_type == "patterns":
+		json_data["patterns"] = []
 		var string_input = []
 		var empty_array1 = []
 		var empty_array2 = []
@@ -816,21 +813,31 @@ func _on_save_pressed():
 			full_array.append(empty_array1)
 			full_array.append(empty_array2)
 			string_input.append(full_array)
-		json_data["morphology"] = string_input
+		json_data["patterns"] = string_input
 		$Spatial/Camera/Menu/rule_properties.visible = false
 		new_morphology_clear()
-	if json_data["type"] == "vectors":
-		json_data["morphology"] = []
+	if new_type == "vectors":
+		json_data["vectors"] = []
 		var empty_array1 = []
 		for i in new_morphology_node:
 			var temp_array = []
 			temp_array = [i.get_child(0).value, i.get_child(1).value, i.get_child(2).value]
 			empty_array1.append(temp_array)
-		json_data["morphology"] = empty_array1
+		json_data["vectors"] = [empty_array1]
 		new_morphology_clear()
-#	if json_data["type"] == "composite":
-#
-	_make_put_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology',json_data, false)
+	if new_type== "composite":
+		json_data["composite"] = {}
+		json_data["composite"]['parameters'] = {}
+		json_data["composite"]['parameters']['src_pattern'] = []
+		json_data["composite"]['parameters']['src_pattern'].append([$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/X_box/C.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/X_box/S.value])
+		json_data["composite"]['parameters']['src_pattern'].append([$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Y_box/C.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Y_box/S.value])
+		json_data["composite"]['parameters']['src_pattern'].append([$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Z_box/C.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Z_box/S.value])
+		json_data["composite"]['parameters']['src_pattern'].append($Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/x.value)
+		json_data["composite"]['parameters']['src_seed'] = [$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/x.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/y.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/z.value]
+		json_data["composite"]["mapper_morphology"] = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.get_item_text($Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.selected)
+		print("save: ", json_data)
+	var combine_url = '/v1/feagi/genome/morphology?morphology_name=' + new_name + '&morphology_type=' + new_type
+	_make_put_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, json_data, false)
 	$Spatial/Camera/Menu/rule_properties.visible = false
 
 
@@ -1027,37 +1034,38 @@ func _on_create_pressed():
 			$Spatial/Camera/Menu/Control.visible = false
 			new_morphology_clear()
 			$Spatial/Camera/Menu/Control/inner_box/morphology_name.text = ""
-	if $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.selected) == "vectors":
-		var json = {}
-		var new_name= $Spatial/Camera/Menu/Control/inner_box/morphology_name.text
-		var new_type = $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.get_selected_id())
-		var empty_array1 = []
-		for i in new_morphology_node:
-			var temp_array = []
-			temp_array.append(i.get_child(0).value)
-			temp_array.append(i.get_child(1).value)
-			temp_array.append(i.get_child(2).value)
-			empty_array1.append(temp_array)
-		json["vectors"] = [empty_array1]
-		var combine_url = '/v1/feagi/genome/morphology?morphology_name=' + new_name + '&morphology_type=' + new_type
-		_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, false, json)
-		$Spatial/Camera/Menu/Control.visible = false
-		new_morphology_clear()
-		$Spatial/Camera/Menu/Control/inner_box/morphology_name.text = ""
-	if $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.selected) == "composite":
-		var json = {}
-		var new_name = $Spatial/Camera/Menu/Control/inner_box/morphology_name.text
-		var new_type = $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.get_selected_id())
-		json["composite"] = {}
-		json["composite"]["parameters"] = {}
-		json["composite"]["parameters"]["src_seed"] = [$Spatial/Camera/Menu/Control/inner_box/box_of_composite/X.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Y.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Z.value]
-		json["composite"]["parameters"]["src_pattern"] = [[$Spatial/Camera/Menu/Control/inner_box/box_of_composite/X_box/C.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/X_box/S.value], [$Spatial/Camera/Menu/Control/inner_box/box_of_composite/Y_box/C.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Y_box/S.value], [$Spatial/Camera/Menu/Control/inner_box/box_of_composite/Z_box/C.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Z_box/S.value]]
-		json["composite"]["mapper_morphology"] = $Spatial/Camera/Menu/Control/inner_box/box_of_composite/mapper_composite.get_item_text($Spatial/Camera/Menu/Control/inner_box/box_of_composite/mapper_composite.selected)
-		var combine_url = '/v1/feagi/genome/morphology' + '?morphology_name=' + new_name + '&morphology_type=' + new_type
-		_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, false, json)
-		$Spatial/Camera/Menu/Control.visible = false
-		new_morphology_clear()
-		$Spatial/Camera/Menu/Control/inner_box/morphology_name.text = ""
+		if $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.selected) == "vectors":
+			var json = {}
+			var new_name= $Spatial/Camera/Menu/Control/inner_box/morphology_name.text
+			var new_type = $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.get_selected_id())
+			var empty_array1 = []
+			for i in new_morphology_node:
+				var temp_array = []
+				temp_array.append(i.get_child(0).value)
+				temp_array.append(i.get_child(1).value)
+				temp_array.append(i.get_child(2).value)
+				empty_array1.append(temp_array)
+			json["vectors"] = [empty_array1]
+			var combine_url = '/v1/feagi/genome/morphology?morphology_name=' + new_name + '&morphology_type=' + new_type
+			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, false, json)
+			$Spatial/Camera/Menu/Control.visible = false
+			new_morphology_clear()
+			$Spatial/Camera/Menu/Control/inner_box/morphology_name.text = ""
+		if $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.selected) == "composite":
+			var json = {}
+			var new_name = $Spatial/Camera/Menu/Control/inner_box/morphology_name.text
+			var new_type = $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.get_selected_id())
+			json["composite"] = {}
+			json["composite"]["parameters"] = {}
+			json["composite"]["parameters"]["src_seed"] = [$Spatial/Camera/Menu/Control/inner_box/box_of_composite/X.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Y.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Z.value]
+			json["composite"]["parameters"]["src_pattern"] = [[$Spatial/Camera/Menu/Control/inner_box/box_of_composite/X_box/C.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/X_box/S.value], [$Spatial/Camera/Menu/Control/inner_box/box_of_composite/Y_box/C.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Y_box/S.value], [$Spatial/Camera/Menu/Control/inner_box/box_of_composite/Z_box/C.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Z_box/S.value]]
+			json["composite"]["mapper_morphology"] = $Spatial/Camera/Menu/Control/inner_box/box_of_composite/mapper_composite.get_item_text($Spatial/Camera/Menu/Control/inner_box/box_of_composite/mapper_composite.selected)
+			print("created: ", json)
+			var combine_url = '/v1/feagi/genome/morphology' + '?morphology_name=' + new_name + '&morphology_type=' + new_type
+			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, false, json)
+			$Spatial/Camera/Menu/Control.visible = false
+			new_morphology_clear()
+			$Spatial/Camera/Menu/Control/inner_box/morphology_name.text = ""
 func _on_X_inside_inner_box_pressed():
 	$Spatial/Camera/Menu/Control.visible = false
 	new_morphology_clear()
