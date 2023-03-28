@@ -243,7 +243,7 @@ func resize_buttons():
 	$"3D_enable".rect_position.x = $properties.rect_size.x
 	$"3D_enable".rect_size.x = OS.get_window_size().x
 	$"3D_enable".rect_size.y = OS.get_window_size().y
-	$box_loading.rect_position.x = OS.get_window_size().x/2- $box_loading.rect_size.x/2
+	$box_loading.rect_position.x = OS.get_window_size().x- $box_loading.rect_size.x
 	$box_loading.rect_position.y = OS.get_window_size().y/2 - $box_loading.rect_size.y
 	
 func _on_Menu_resized():
