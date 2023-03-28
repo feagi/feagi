@@ -36,6 +36,6 @@ func _on_load_options_cortical_name_request_completed(_result, _response_code, _
 	get_parent().get_parent().get_parent().get_parent().get_parent().get_node("notification/Label2").text = "_on_cortical_type_options_request_request_completed"
 		
 func loading_in_two_seconds():
-	yield(get_tree().create_timer(2), "timeout")
+	yield(get_tree().create_timer(1), "timeout") #updated gto 1
 	load_options()
 	timer=false
