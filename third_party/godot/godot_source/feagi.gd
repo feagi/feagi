@@ -97,7 +97,6 @@ func _ready():
 			network_setting.send("lagged")
 
 func _process(_delta):
-	print($Spatial/Camera/Menu/Mapping_Properties/source_dropdown.get_item_count())
 	data = network_setting.one_frame
 
 func generate_one_model(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
