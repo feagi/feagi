@@ -1,17 +1,21 @@
 extends OptionButton
 
-var flag = false
 var timer = false
+var waiting_in_the_line = []
 
 func _ready():
 	load_options()
-	flag = true
 	if timer:
 		loading_in_two_seconds()
 	
 func load_options():
-	$load_options_cortical_name.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_area_name_list')
-	
+	if timer:
+		waiting_in_the_line.append(1)
+		loading_in_two_seconds()
+	else:
+		timer = true
+		$load_options_cortical_name.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_area_name_list')
+
 func _on_load_options_cortical_name_request_completed(_result, _response_code, _headers, body):
 	clear()
 	get_parent().get_node("inside_mapping_menu/Control/Mapping_def").clear()
@@ -36,6 +40,15 @@ func _on_load_options_cortical_name_request_completed(_result, _response_code, _
 	get_parent().get_parent().get_parent().get_parent().get_parent().get_node("notification/Label2").text = "_on_cortical_type_options_request_request_completed"
 		
 func loading_in_two_seconds():
-	yield(get_tree().create_timer(1), "timeout") #updated gto 1
+	yield(get_tree().create_timer(2), "timeout")
 	load_options()
 	timer=false
+
+func _process(delta):
+	if timer == false:
+		if len(waiting_in_the_line) != 0:
+#			waiting_item = waiting_in_the_line[0]
+			waiting_in_the_line.remove(0)
+			$load_options_cortical_name.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_area_name_list')
+	else:
+		timer = false
