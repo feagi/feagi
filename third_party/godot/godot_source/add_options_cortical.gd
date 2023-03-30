@@ -44,7 +44,7 @@ func loading_in_two_seconds():
 	load_options()
 	timer=false
 
-func _process(delta):
+func _process(_delta):
 	if timer == false:
 		if len(waiting_in_the_line) != 0:
 #			waiting_item = waiting_in_the_line[0]
