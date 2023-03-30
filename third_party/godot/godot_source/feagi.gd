@@ -851,16 +851,17 @@ func _on_save_pressed():
 			full_array = []
 			empty_array1 = []
 			empty_array2 = []
-			for _x in range(7):
+			for _x in range(6):
+				print("i: ", i.get_child(empty_flag))
 				if not "?" in i.get_child(empty_flag).text and not "*" in i.get_child(empty_flag).text:
 					if empty_flag < 3:
 						empty_array1.append(int(i.get_child(empty_flag).text))
-					elif empty_flag > 3:
+					elif empty_flag >= 3:
 						empty_array2.append(int(i.get_child(empty_flag).text))
 				else:
 					if empty_flag < 3:
 						empty_array1.append(str(i.get_child(empty_flag).text))
-					elif empty_flag > 3:
+					elif empty_flag >= 3:
 						empty_array2.append(str(i.get_child(empty_flag).text))
 				empty_flag += 1
 			full_array.append(empty_array1)
