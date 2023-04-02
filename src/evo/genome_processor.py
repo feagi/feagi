@@ -266,6 +266,7 @@ def genome_v1_v2_converter(genome_v1):
 
 
 def morphology_convertor(morphology_in):
+    print("morphology_in:", morphology_in)
     morphology_out = dict()
     morphology_out["parameters"] = dict()
     if "vectors" in morphology_in:
@@ -285,8 +286,7 @@ def morphology_convertor(morphology_in):
         morphology_out["type"] = "functions"
 
     else:
-        print("% % % % %" * 200)
-        print("Morphology did not match...", morphology_in)
+        pass
 
     return morphology_out
 
