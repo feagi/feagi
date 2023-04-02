@@ -73,9 +73,6 @@ func _ready():
 			$Spatial/Camera/Menu/button_choice.visible = true
 			$Spatial/Camera/Menu/properties.visible = true
 			$Spatial/Camera/Menu/Mapping_Properties.visible = false
-#			$Spatial/Camera/Menu/collapse_1.visible = true
-#			$Spatial/Camera/Menu/collapse_2.visible = true
-#			$Spatial/Camera/Menu/collapse_3.visible = true
 			$Spatial/Camera/Menu/collapse_4.visible = true
 			$Spatial/Camera/Menu/cortical_menu/title.visible = true
 		elif select_cortical.selected.empty() != true:
@@ -288,9 +285,9 @@ func generate_single_cortical(x,y,z,width, depth, height, name_input):
 	erase_single_cortical_library(name_input)
 	
 	if int(width) * int(depth) * int(height) < 999: # Prevent massive cortical area 
-		generate_model(create_textbox, x,y,z,width, depth, height, name_input)
+		generate_model(create_textbox, x,y,z,width, height, depth, name_input)
 	else:
-		generate_one_model(create_textbox, x,y,z,width, depth, height, name_input)
+		generate_one_model(create_textbox, x,y,z,width, height, depth, name_input)
 
 func _on_Update_pressed():
 	var x = int($Spatial/Camera/Menu/cortical_menu/Control/X.value);
@@ -441,32 +438,36 @@ func add_3D_indicator():
 func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
 	var genome_properties = json.result
-	$Spatial/Camera/Menu/cortical_menu/Control/cortical_id.text = genome_properties["cortical_id"]
-	$Spatial/Camera/Menu/cortical_menu/title.text = genome_properties["cortical_name"]
-	$Spatial/Camera/Menu/cortical_menu/Control/name_string.text = $Spatial/Camera/Menu/cortical_menu/title.text
-#	$Spatial/Camera/Menu/cortical_menu/Control/OptionButton.selected(1) = genome_properties["cortical_group"]
-	$Spatial/Camera/Menu/properties/Control/neuron_count.value = genome_properties["cortical_neuron_per_vox_count"]
-	$Spatial/Camera/Menu/cortical_menu/Control/X.value = genome_properties["cortical_coordinates"]["x"]
-	$Spatial/Camera/Menu/cortical_menu/Control/Y.value = genome_properties["cortical_coordinates"]["y"]
-	$Spatial/Camera/Menu/cortical_menu/Control/Z.value = genome_properties["cortical_coordinates"]["z"]
-	$Spatial/Camera/Menu/cortical_menu/Control/W.value = genome_properties["cortical_dimensions"]["x"]
-	$Spatial/Camera/Menu/cortical_menu/Control/D.value = genome_properties["cortical_dimensions"]["z"]
-	$Spatial/Camera/Menu/cortical_menu/Control/H.value = genome_properties["cortical_dimensions"]["y"]
-	$Spatial/Camera/Menu/properties/Control/syn.value = genome_properties["cortical_synaptic_attractivity"]
-	$Spatial/Camera/Menu/properties/Control/pst_syn.value = genome_properties["neuron_post_synaptic_potential"]
-	$Spatial/Camera/Menu/properties/Control/pst_syn_max.value = float(genome_properties["neuron_post_synaptic_potential_max"])
-	$Spatial/Camera/Menu/properties/Control/plst.value = genome_properties["neuron_plasticity_constant"]
-	$Spatial/Camera/Menu/properties/Control/fire.value = genome_properties["neuron_fire_threshold"]
-	$Spatial/Camera/Menu/properties/Control/refa.value = genome_properties["neuron_refractory_period"]
-	$Spatial/Camera/Menu/properties/Control/leak.text = str(float(genome_properties["neuron_leak_coefficient"]))
-	$Spatial/Camera/Menu/properties/Control/leak_Vtext.text = str((genome_properties["neuron_leak_variability"]))
-	$Spatial/Camera/Menu/properties/Control/cfr.value = genome_properties["neuron_consecutive_fire_count"]
-	$Spatial/Camera/Menu/properties/Control/snze.value = genome_properties["neuron_snooze_period"]
-	$Spatial/Camera/Menu/properties/Control/dege.value = genome_properties["neuron_degeneracy_coefficient"]
-	$Spatial/Camera/Menu/properties/Control/psud.set_pressed(genome_properties["neuron_psp_uniform_distribution"])
-	last_cortical_selected = genome_properties
-	var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_mappings/afferents?cortical_area=' + genome_properties["cortical_id"]
-	$HTTP_node/afferent.request(combine_url)
+	if _response_code == 200:
+		$Spatial/Camera/Menu/cortical_menu/Control/cortical_id.text = genome_properties["cortical_id"]
+		$Spatial/Camera/Menu/cortical_menu/title.text = genome_properties["cortical_name"]
+		$Spatial/Camera/Menu/cortical_menu/Control/name_string.text = $Spatial/Camera/Menu/cortical_menu/title.text
+	#	$Spatial/Camera/Menu/cortical_menu/Control/OptionButton.selected(1) = genome_properties["cortical_group"]
+		$Spatial/Camera/Menu/properties/Control/neuron_count.value = genome_properties["cortical_neuron_per_vox_count"]
+		$Spatial/Camera/Menu/cortical_menu/Control/X.value = genome_properties["cortical_coordinates"]["x"]
+		$Spatial/Camera/Menu/cortical_menu/Control/Y.value = genome_properties["cortical_coordinates"]["y"]
+		$Spatial/Camera/Menu/cortical_menu/Control/Z.value = genome_properties["cortical_coordinates"]["z"]
+		$Spatial/Camera/Menu/cortical_menu/Control/W.value = genome_properties["cortical_dimensions"]["x"]
+		$Spatial/Camera/Menu/cortical_menu/Control/D.value = genome_properties["cortical_dimensions"]["z"]
+		$Spatial/Camera/Menu/cortical_menu/Control/H.value = genome_properties["cortical_dimensions"]["y"]
+		$Spatial/Camera/Menu/properties/Control/syn.value = genome_properties["cortical_synaptic_attractivity"]
+		$Spatial/Camera/Menu/properties/Control/pst_syn.value = genome_properties["neuron_post_synaptic_potential"]
+		$Spatial/Camera/Menu/properties/Control/pst_syn_max.value = float(genome_properties["neuron_post_synaptic_potential_max"])
+		$Spatial/Camera/Menu/properties/Control/plst.value = genome_properties["neuron_plasticity_constant"]
+		$Spatial/Camera/Menu/properties/Control/fire.value = genome_properties["neuron_fire_threshold"]
+		$Spatial/Camera/Menu/properties/Control/refa.value = genome_properties["neuron_refractory_period"]
+		$Spatial/Camera/Menu/properties/Control/leak.text = str(float(genome_properties["neuron_leak_coefficient"]))
+		$Spatial/Camera/Menu/properties/Control/leak_Vtext.text = str((genome_properties["neuron_leak_variability"]))
+		$Spatial/Camera/Menu/properties/Control/cfr.value = genome_properties["neuron_consecutive_fire_count"]
+		$Spatial/Camera/Menu/properties/Control/snze.value = genome_properties["neuron_snooze_period"]
+		$Spatial/Camera/Menu/properties/Control/dege.value = genome_properties["neuron_degeneracy_coefficient"]
+		$Spatial/Camera/Menu/properties/Control/psud.set_pressed(genome_properties["neuron_psp_uniform_distribution"])
+		last_cortical_selected = genome_properties
+		var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_mappings/afferents?cortical_area=' + genome_properties["cortical_id"]
+		$HTTP_node/afferent.request(combine_url)
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(genome_properties)
 
 func _make_post_request(url, use_ssl, data_to_send):
 	# Convert data to json string:
@@ -488,8 +489,12 @@ func _make_delete_request(url, use_ssl):
 	var headers = ["Content-Type: application/json"]
 	$HTTP_node/send_feagi.request(url, headers, use_ssl, HTTPClient.METHOD_DELETE)
 
-func _on_send_feagi_request_completed(_result, _response_code, _headers, _body):
-	pass
+func _on_send_feagi_request_completed(_result, _response_code, _headers, body):
+	var json = JSON.parse(body.get_string_from_utf8())
+	var api_data = json.result
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str("Send feagi status: ", api_data)
 
 func _on_info_pressed():
 	for i in plus_node:
@@ -511,32 +516,37 @@ func _on_information_button_request_completed(_result, _response_code, _headers,
 	# Obtain the data from API and convert it into json/string
 	var json = JSON.parse(body.get_string_from_utf8())
 	var api_data = json.result
-	var new_name = ""
-	var counter = 0 # To increase the height between two different duplicated nodes
-#	$Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.visible = false
-	var cap = 120 # Keep nodes inside the white rectangle
-	for i in api_data:
-		var new_node = $Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.duplicate()
-		$Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer.add_child(new_node)
-		child_node_holder.append(new_node)
-		new_name = id_to_name(i)
-		new_node.visible = true
-		new_node.text = new_name
-		new_node.rect_position.x = $Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.rect_position.x
-		new_node.rect_position.y = $Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.rect_position.y + (counter * 30)
-		if new_node.rect_position.y > cap:
-#			$Spatial/Camera/Menu/button_choice/white_background.rect_size.y += 30
-			cap += 30 
-#		$Spatial/Camera/Menu/button_choice.rect_position.y = $Spatial/Camera/Menu/button_choice.rect_position.y + (counter * 5)
-		new_node.rect_size.x = $Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.rect_size.x 
-		new_node.rect_size.y = $Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.rect_size.y
-		new_node.visible = true
-		new_node.get_child(3).connect("pressed", self, "dst_remove_pressed", [new_node])
-		new_node.get_child(2).connect("pressed", self, "info_pressed", [new_node])
-		counter += 1
-	map_colorful()
-#	$Spatial/Camera/Menu/cortical_menu/Control/Update.rect_position.y = 10 + $Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer.rect_size.y + $Spatial/Camera/Menu/cortical_mapping.rect_position.y
-
+	if _response_code == 200 and not api_data.has("Request failed..."):
+		var new_name = ""
+		var counter = 0 # To increase the height between two different duplicated nodes
+	#	$Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.visible = false
+		var cap = 120 # Keep nodes inside the white rectangle
+		for i in api_data:
+			var new_node = $Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.duplicate()
+			$Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer.add_child(new_node)
+			child_node_holder.append(new_node)
+			new_name = id_to_name(i)
+			new_node.visible = true
+			new_node.text = new_name
+			new_node.rect_position.x = $Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.rect_position.x
+			new_node.rect_position.y = $Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.rect_position.y + (counter * 30)
+			if new_node.rect_position.y > cap:
+	#			$Spatial/Camera/Menu/button_choice/white_background.rect_size.y += 30
+				cap += 30 
+	#		$Spatial/Camera/Menu/button_choice.rect_position.y = $Spatial/Camera/Menu/button_choice.rect_position.y + (counter * 5)
+			new_node.rect_size.x = $Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.rect_size.x 
+			new_node.rect_size.y = $Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.rect_size.y
+			new_node.visible = true
+			new_node.get_child(3).connect("pressed", self, "dst_remove_pressed", [new_node])
+			new_node.get_child(2).connect("pressed", self, "info_pressed", [new_node])
+			counter += 1
+		map_colorful()
+	#	$Spatial/Camera/Menu/cortical_menu/Control/Update.rect_position.y = 10 + $Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer.rect_size.y + $Spatial/Camera/Menu/cortical_mapping.rect_position.y
+	else:
+		$notification.visible = true
+		$notification/Label.text = str(_response_code)
+		$notification/TextEdit.text = str(api_data)
+		$notification/Label2.text = "_on_information_button_request_completed"
 
 func child_holder_clear():
 	# Clear duplicate cortical maps name up
@@ -553,11 +563,19 @@ func _on_get_genome_name_request_completed(_result, _response_code, _headers, bo
 	if api_data != null:
 		$Spatial/Camera/Menu/information_menu/genome_string.text = api_data
 		$HTTP_node/get_burst.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/feagi/burst_engine/stimulation_period')
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = "_on_get_genome_name_request_completed"
 
 func _on_get_burst_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
 	var api_data = json.result
 	$Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.text = str(1/float(api_data))
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = "_on_get_burst_request_completed"
 
 func _on_download_pressed():
 	_clear_node_name_list(global_name_list)
@@ -577,6 +595,7 @@ func _on_add_pressed():
 		json_data["channel_count"] = $Spatial/Camera/Menu/addition_menu/count/count_spinbox.value
 
 		_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_area', false, json_data)
+		
 
 	if $"Spatial/Camera/Menu/addition_menu/OptionButton".selected == 3:
 		if $Spatial/Camera/Menu/addition_menu/cortical_name_textbox/type.text != "" and $Spatial/Camera/Menu/addition_menu/cortical_name_textbox/type.text != " ":
@@ -601,8 +620,10 @@ func _on_add_pressed():
 			flag_boolean = true
 	if flag_boolean != true:
 		$Spatial/Camera/Menu/addition_menu.visible = false
+		$Spatial/Camera/Menu/Mapping_Properties/cortical_dropdown.load_options()
 #	$Spatial/Camera/Menu/Mapping_Properties/cortical_dropdown.timer = true
 #		network_setting.send("updated")
+	$Spatial/Camera/Menu/Mapping_Properties/cortical_dropdown.load_options()
 
 func _on_remove_pressed():
 	var get_name = $Spatial/Camera/Menu/cortical_menu/Control/cortical_id.text
@@ -643,15 +664,20 @@ func _on_update_destination_info_request_completed(_result, _response_code, _hea
 				new_node.get_child(5).set_pressed(api_data[i]["plasticity_flag"])
 				new_node.get_child(6).connect("pressed", self, "map_info_pressed", [new_node])
 				new_node.get_child(7).connect("pressed", self, "remove_button_inside_dst", [new_node])
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = "_on_update_destination_info_request_completed"
 
 func _on_genome_data_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
 	var api_data = json.result
 	var create_json = {}
-	for i in api_data:
-		create_json[i] = api_data[i]
-	genome_data["genome"] = create_json
-	_csv_generator()
+	if api_data != null:
+		for i in api_data:
+			create_json[i] = api_data[i]
+		genome_data["genome"] = create_json
+		_csv_generator()
 #	if one_time_flag:
 #		for i in api_data:
 #			create_json[i] = api_data[i]
@@ -667,10 +693,19 @@ func _on_genome_data_request_completed(_result, _response_code, _headers, body):
 #				if api_data[i].hash() != genome_data["genome"][i].hash():
 #					_clear_single_cortical(i, global_name_list)
 #					generate_single_cortical(api_data[i][0], api_data[i][1], api_data[i][2], api_data[i][4], api_data[i][5], api_data[i][6], api_data[i][7])
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = "_on_genome_data_request_completed"
 
 
 func _on_remove_cortical_request_completed(_result, _response_code, _headers, _body):
-	pass # Replace with function body.
+	var json = JSON.parse(_body.get_string_from_utf8())
+	var api_data = json.result
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = "_on_remove_cortical_request_completed"
 
 func map_info_pressed(node_duplicated):
 	$Spatial/Camera/Menu/rule_properties/mapping_rule_options.selected = node_duplicated.get_child(0).get_selected_id()
@@ -744,20 +779,31 @@ func delete_morphology(input_node):
 func _on_mapping_def_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
 	var api_data = json.result
-	$"Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def".clear()
-	$Spatial/Camera/Menu/rule_properties/mapping_rule_options.clear()
-	$"Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def".add_item(" ")
-	$Spatial/Camera/Menu/rule_properties/mapping_rule_options.add_item(" ")
-	for i in api_data:
-		$Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.add_item(i)
-		$Spatial/Camera/Menu/rule_properties/mapping_rule_options.add_item(i)
+	if api_data != null:
+		$"Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def".clear()
+		$Spatial/Camera/Menu/rule_properties/mapping_rule_options.clear()
+		$"Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def".add_item(" ")
+		$Spatial/Camera/Menu/rule_properties/mapping_rule_options.add_item(" ")
+		for i in api_data:
+			$Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.add_item(i)
+			$Spatial/Camera/Menu/rule_properties/mapping_rule_options.add_item(i)
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = "_on_mapping_def_request_completed"
 
 func _on_morphology_types_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
 	var api_data = json.result
 	$Spatial/Camera/Menu/rule_properties/rules/rule_type_options.add_item(" ")
-	for i in api_data:
-		$Spatial/Camera/Menu/rule_properties/rules/rule_type_options.add_item(i)
+	if api_data != null:
+		for i in api_data:
+			$Spatial/Camera/Menu/rule_properties/rules/rule_type_options.add_item(i)
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = "_on_morphology_types_request_completed"
+	
 
 func _on_plus_add_pressed():
 	var new_node = $Spatial/Camera/Menu/"Mapping_Properties"/inside_mapping_menu/Control.duplicate()
@@ -783,14 +829,18 @@ func _on_type_rules_request_completed(_result, _response_code, _headers, body):
 		for x in api_data:
 			if $Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_item_text(i) == x:
 				$Spatial/Camera/Menu/rule_properties/rules/rule_type_options.select(i)
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = "_on_type_rules_request_completed"
 
 
 func _on_save_pressed():
 	var json_data = {}
-	json_data["name"] = $Spatial/Camera/Menu/rule_properties/mapping_rule_options.get_item_text($Spatial/Camera/Menu/rule_properties/mapping_rule_options.get_selected_id())
-	json_data["type"] = $Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_item_text($Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_selected_id())
-	if json_data["type"] == "patterns":
-		json_data["morphology"] = []
+	var new_name = $Spatial/Camera/Menu/rule_properties/mapping_rule_options.get_item_text($Spatial/Camera/Menu/rule_properties/mapping_rule_options.get_selected_id())
+	var new_type = $Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_item_text($Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_selected_id())
+	if new_type == "patterns":
+		json_data["patterns"] = []
 		var string_input = []
 		var empty_array1 = []
 		var empty_array2 = []
@@ -801,34 +851,46 @@ func _on_save_pressed():
 			full_array = []
 			empty_array1 = []
 			empty_array2 = []
-			for _x in range(7):
+			for _x in range(6):
+				print("i: ", i.get_child(empty_flag))
 				if not "?" in i.get_child(empty_flag).text and not "*" in i.get_child(empty_flag).text:
 					if empty_flag < 3:
 						empty_array1.append(int(i.get_child(empty_flag).text))
-					elif empty_flag > 3:
+					elif empty_flag >= 3:
 						empty_array2.append(int(i.get_child(empty_flag).text))
 				else:
 					if empty_flag < 3:
 						empty_array1.append(str(i.get_child(empty_flag).text))
-					elif empty_flag > 3:
+					elif empty_flag >= 3:
 						empty_array2.append(str(i.get_child(empty_flag).text))
 				empty_flag += 1
 			full_array.append(empty_array1)
 			full_array.append(empty_array2)
 			string_input.append(full_array)
-		json_data["morphology"] = string_input
+		json_data["patterns"] = string_input
 		$Spatial/Camera/Menu/rule_properties.visible = false
 		new_morphology_clear()
-	if json_data["type"] == "vectors":
-		json_data["morphology"] = []
+	if new_type == "vectors":
+		json_data["vectors"] = []
 		var empty_array1 = []
 		for i in new_morphology_node:
 			var temp_array = []
 			temp_array = [i.get_child(0).value, i.get_child(1).value, i.get_child(2).value]
 			empty_array1.append(temp_array)
-		json_data["morphology"] = empty_array1
+		json_data["vectors"] = [empty_array1]
 		new_morphology_clear()
-	_make_put_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology',json_data, false)
+	if new_type== "composite":
+		json_data["composite"] = {}
+		json_data["composite"]['parameters'] = {}
+		json_data["composite"]['parameters']['src_pattern'] = []
+		json_data["composite"]['parameters']['src_pattern'].append([$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/X_box/C.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/X_box/S.value])
+		json_data["composite"]['parameters']['src_pattern'].append([$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Y_box/C.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Y_box/S.value])
+		json_data["composite"]['parameters']['src_pattern'].append([$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Z_box/C.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Z_box/S.value])
+		json_data["composite"]['parameters']['src_pattern'].append($Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/x.value)
+		json_data["composite"]['parameters']['src_seed'] = [$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/x.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/y.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/z.value]
+		json_data["composite"]["mapper_morphology"] = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.get_item_text($Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.selected)
+	var combine_url = '/v1/feagi/genome/morphology?morphology_name=' + new_name + '&morphology_type=' + new_type
+	_make_put_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, json_data, false)
 	$Spatial/Camera/Menu/rule_properties.visible = false
 
 
@@ -845,19 +907,24 @@ func _on_delete_pressed():
 func _on_get_cortical_dst_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
 	var api_data = json.result
-	var dst_data = {}
-	for i in api_data["cortical_destinations"]:
-		for x in genome_data["genome"]:
-			for b in child_node_holder:
-				if x == b.text:
-					if i in genome_data["genome"][x][7]:
-						dst_data[i] = api_data["cortical_destinations"][i]
-	dst_data_holder = dst_data.duplicate()
-	$Spatial/Camera/Menu/cortical_menu/Control/Update.rect_position.y = 749 
-	if $Spatial/Camera/Menu/cortical_menu/Control/cortical_id.text != "":
-		var get_id = $Spatial/Camera/Menu/cortical_menu/Control/cortical_id.text
-		var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/monitoring/neuron/membrane_potential?cortical_area=' + get_id
-		$HTTP_node/mem_request.request(combine_url)
+	if _response_code == 200:
+		var dst_data = {}
+		for i in api_data["cortical_destinations"]:
+			for x in genome_data["genome"]:
+				for b in child_node_holder:
+					if x == b.text:
+						if i in genome_data["genome"][x][7]:
+							dst_data[i] = api_data["cortical_destinations"][i]
+		dst_data_holder = dst_data.duplicate()
+		$Spatial/Camera/Menu/cortical_menu/Control/Update.rect_position.y = 749 
+		if $Spatial/Camera/Menu/cortical_menu/Control/cortical_id.text != "":
+			var get_id = $Spatial/Camera/Menu/cortical_menu/Control/cortical_id.text
+			var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/monitoring/neuron/membrane_potential?cortical_area=' + get_id
+			$HTTP_node/mem_request.request(combine_url)
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = "_on_get_cortical_dst_request_completed"
 
 func _on_cortical_mapping_add_pressed():
 	_on_info_pressed() # leveraging the same function to clear all infos on the box
@@ -954,15 +1021,25 @@ func _on_morphology_list_request_completed(_result, _response_code, _headers, bo
 	var api_data = json.result
 	$Spatial/Camera/Menu/information_menu/Neuron_morphologies_item.clear()
 	$Spatial/Camera/Menu/rule_properties/mapping_rule_options.clear()
+	$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.clear()
 	$Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.clear()
+	$Spatial/Camera/Menu/Control/inner_box/box_of_composite/mapper_composite.clear()
 	$Spatial/Camera/Menu/information_menu/Neuron_morphologies_item.add_item(" ")
 	$Spatial/Camera/Menu/rule_properties/mapping_rule_options.add_item(" ")
+	$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.add_item(" ")
 	$Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.add_item(" ")
+	$Spatial/Camera/Menu/Control/inner_box/box_of_composite/mapper_composite.add_item(" ")
 	for i in api_data:
 		$Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.add_item(i)
 		$Spatial/Camera/Menu/rule_properties/mapping_rule_options.add_item(i)
+		$Spatial/Camera/Menu/Control/inner_box/box_of_composite/mapper_composite.add_item(i)
+		$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.add_item(i)
 #		$Spatial/Camera/Menu/information_menu/Neuron_morphologies.add_item(i)
 		$Spatial/Camera/Menu/information_menu/Neuron_morphologies_item.add_item(i, null, true)
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = "_on_morphology_list_request_completed"
 
 
 func _on_Neuron_morphologies_item_selected(index):
@@ -986,8 +1063,8 @@ func _on_create_pressed():
 	if $Spatial/Camera/Menu/Control/inner_box/morphology_name.text != "":
 		if $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.selected) == "patterns":
 			var json = {}
-			json["name"] = $Spatial/Camera/Menu/Control/inner_box/morphology_name.text
-			json["type"] = $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.get_selected_id())
+			var new_name = $Spatial/Camera/Menu/Control/inner_box/morphology_name.text
+			var new_type = $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.get_selected_id())
 			var string_input = []
 			var empty_array1 = []
 			var empty_array2 = []
@@ -1013,28 +1090,43 @@ func _on_create_pressed():
 				full_array.append(empty_array1)
 				full_array.append(empty_array2)
 				string_input.append(full_array)
-			json["morphology"] = string_input
-			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology', false, json)
+			json["patterns"] = string_input
+			var combine_url = '/v1/feagi/genome/morphology?morphology_name=' + new_name + '&morphology_type=' + new_type
+			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, false, json)
 			$Spatial/Camera/Menu/Control.visible = false
 			new_morphology_clear()
 			$Spatial/Camera/Menu/Control/inner_box/morphology_name.text = ""
-	if $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.selected) == "vectors":
-		var json = {}
-		json["name"] = $Spatial/Camera/Menu/Control/inner_box/morphology_name.text
-		json["type"] = $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.get_selected_id())
-		var empty_array1 = []
-		for i in new_morphology_node:
-			var temp_array = []
-			temp_array.append(i.get_child(0).value)
-			temp_array.append(i.get_child(1).value)
-			temp_array.append(i.get_child(2).value)
-			empty_array1.append(temp_array)
-		json["morphology"] = empty_array1
-		_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology', false, json)
-		$Spatial/Camera/Menu/Control.visible = false
-		new_morphology_clear()
-		$Spatial/Camera/Menu/Control/inner_box/morphology_name.text = ""
-
+		if $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.selected) == "vectors":
+			var json = {}
+			var new_name= $Spatial/Camera/Menu/Control/inner_box/morphology_name.text
+			var new_type = $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.get_selected_id())
+			var empty_array1 = []
+			for i in new_morphology_node:
+				var temp_array = []
+				temp_array.append(i.get_child(0).value)
+				temp_array.append(i.get_child(1).value)
+				temp_array.append(i.get_child(2).value)
+				empty_array1.append(temp_array)
+			json["vectors"] = [empty_array1]
+			var combine_url = '/v1/feagi/genome/morphology?morphology_name=' + new_name + '&morphology_type=' + new_type
+			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, false, json)
+			$Spatial/Camera/Menu/Control.visible = false
+			new_morphology_clear()
+			$Spatial/Camera/Menu/Control/inner_box/morphology_name.text = ""
+		if $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.selected) == "composite":
+			var json = {}
+			var new_name = $Spatial/Camera/Menu/Control/inner_box/morphology_name.text
+			var new_type = $Spatial/Camera/Menu/Control/inner_box/morphology_type.get_item_text($Spatial/Camera/Menu/Control/inner_box/morphology_type.get_selected_id())
+			json["composite"] = {}
+			json["composite"]["parameters"] = {}
+			json["composite"]["parameters"]["src_seed"] = [$Spatial/Camera/Menu/Control/inner_box/box_of_composite/X.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Y.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Z.value]
+			json["composite"]["parameters"]["src_pattern"] = [[$Spatial/Camera/Menu/Control/inner_box/box_of_composite/X_box/C.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/X_box/S.value], [$Spatial/Camera/Menu/Control/inner_box/box_of_composite/Y_box/C.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Y_box/S.value], [$Spatial/Camera/Menu/Control/inner_box/box_of_composite/Z_box/C.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Z_box/S.value]]
+			json["composite"]["mapper_morphology"] = $Spatial/Camera/Menu/Control/inner_box/box_of_composite/mapper_composite.get_item_text($Spatial/Camera/Menu/Control/inner_box/box_of_composite/mapper_composite.selected)
+			var combine_url = '/v1/feagi/genome/morphology' + '?morphology_name=' + new_name + '&morphology_type=' + new_type
+			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, false, json)
+			$Spatial/Camera/Menu/Control.visible = false
+			new_morphology_clear()
+			$Spatial/Camera/Menu/Control/inner_box/morphology_name.text = ""
 func _on_X_inside_inner_box_pressed():
 	$Spatial/Camera/Menu/Control.visible = false
 	new_morphology_clear()
@@ -1054,6 +1146,10 @@ func _on_afferent_request_completed(_result, _response_code, _headers, body):
 		new_node.rect_position.x = $Spatial/Camera/Menu/cortical_mapping/Control/afferent/VBoxContainer.rect_position.x + 5
 		new_node.rect_position.y = $Spatial/Camera/Menu/cortical_mapping/Control/afferent/VBoxContainer.rect_position.y + (counter * 20)
 		counter += 1
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = "_on_afferent_request_completed"
 	
 func afferent_holder_clear():
 	# Clear duplicate cortical maps name up
@@ -1078,12 +1174,12 @@ func new_morphology_clear():
 		$Spatial/Camera/Menu/Control/update.rect_position.y = 330
 		$Spatial/Camera/Menu/Control/inner_box/Button.disabled = false
 
-func _on_source_dropdown_item_selected(index):
-	if index != 0:
-		if $Spatial/Camera/Menu/Mapping_Properties/cortical_dropdown.selected != 0:
-			var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/mapping_properties?src_cortical_area=#&dst_cortical_area=$'.replace("#", name_to_id($Spatial/Camera/Menu/Mapping_Properties/source_dropdown.get_item_text(index)))
-			combine_url= combine_url.replace("$", name_to_id($Spatial/Camera/Menu/Mapping_Properties/cortical_dropdown.get_item_text($Spatial/Camera/Menu/Mapping_Properties/cortical_dropdown.get_selected_id())))
-			$HTTP_node/update_destination_info.request(combine_url)
+#func _on_source_dropdown_item_selected(index):
+#	if index != 0:
+#		if $Spatial/Camera/Menu/Mapping_Properties/cortical_dropdown.selected != 0:
+#			var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/mapping_properties?src_cortical_area=#&dst_cortical_area=$'.replace("#", name_to_id($Spatial/Camera/Menu/Mapping_Properties/source_dropdown.get_item_text(index)))
+#			combine_url= combine_url.replace("$", name_to_id($Spatial/Camera/Menu/Mapping_Properties/cortical_dropdown.get_item_text($Spatial/Camera/Menu/Mapping_Properties/cortical_dropdown.get_selected_id())))
+#			$HTTP_node/update_destination_info.request(combine_url)
 
 func plus_node_clear():
 	for i in plus_node:
@@ -1152,11 +1248,19 @@ func _on_mem_request_request_completed(_result, _response_code, _headers, body):
 	$Spatial/Camera/Menu/button_choice/Control/mem.set_pressed(api_data)
 	var combnine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/monitoring/neuron/synaptic_potential?cortical_area=' + get_id
 	$HTTP_node/syn_request.request(combnine_url)
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = "_on_mem_request_request_completed"
 
 func _on_syn_request_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
 	var api_data = json.result
 	$Spatial/Camera/Menu/button_choice/Control/syn.set_pressed(api_data)
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = "_on_syn_request_request_completed"
 
 func _on_syn_pressed():
 	var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/monitoring/neuron/synaptic_potential?cortical_area=' + $Spatial/Camera/Menu/cortical_menu/Control/cortical_id.text + '&state=' + str($Spatial/Camera/Menu/button_choice/Control/syn.is_pressed())
@@ -1175,6 +1279,10 @@ func _on_circuit_request_request_completed(_result, _response_code, _headers, bo
 	var api_data = json.result
 	for i in api_data:
 		$Spatial/Camera/Menu/insert_menu/insert_button/ItemList.add_item(i, null, true)
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = "_on_circuit_request_request_completed"
 
 
 func _on_import_pressed():
@@ -1198,6 +1306,10 @@ func _on_circuit_size_request_completed(_result, _response_code, _headers, body)
 	$Spatial/Camera/Menu/insert_menu/inner_box/D_spinbox.value = api_data[1]
 	$Spatial/Camera/Menu/insert_menu/inner_box/H_spinbox.value = api_data[2]
 	generate_single_cortical($Spatial/Camera/Menu/insert_menu/x_spinbox.value, $Spatial/Camera/Menu/insert_menu/y_spinbox.value, $Spatial/Camera/Menu/insert_menu/z_spinbox.value, $Spatial/Camera/Menu/insert_menu/inner_box/W_spinbox.value, $Spatial/Camera/Menu/insert_menu/inner_box/D_spinbox.value, $Spatial/Camera/Menu/insert_menu/inner_box/H_spinbox.value, "example")
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = "_on_circuit_size_request_completed"
 	
 func symbols_checker_for_api(string_data):
 	if " " in string_data:
@@ -1250,7 +1362,10 @@ func _on_ghost_morphology_list_request_completed(_result, _response_code, _heade
 				node_ghost.clear()
 				for i in $Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.get_item_count():
 					node_ghost.add_item($Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.get_item_text(i), i)
-
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = str("_on_circuit_size_request_completed")
 
 func _on_text_changed(new_text):
 	Godot_list.Node_2D_control = true
@@ -1266,6 +1381,10 @@ func _on_get_morphology_usuage_request_completed(_result, _response_code, _heade
 	for i in api_data:
 		string_list = string_list + str(id_to_name(i[0]), " > ", id_to_name(i[1])) + "\n"
 	$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/associations_data.text += str(string_list)
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = str("_on_get_morphology_usuage_request_completed")
 
 func _morphology_button_pressed():
 	var counter = 0
@@ -1311,53 +1430,83 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 	var json = JSON.parse(body.get_string_from_utf8()) # Every http data, it's done in poolbytearray
 	var api_data = json.result
 	var new_name = ""
+	var type_name = " "
 	var counter = 0
 	for i in api_data:
-		if i != "functions":
-			new_name = str(api_data[i])
+		if i == "parameters":
 			for x in api_data[i]:
-				if i == "patterns":
-					counter = len(new_morphology_node)
-					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/pattern_label.visible = true
-					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/labels.visible = false
-					var new_node = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/pattern_label/Control.duplicate()
-					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition.add_child(new_node)
-					new_morphology_node.append(new_node)
-					new_node.visible = true
-					new_node.get_child(6).connect("pressed", self, "delete_morphology", [new_node])
-					new_node.rect_position.x = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/pattern_label/Control.rect_position.x
-					new_node.rect_position.y = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/pattern_label/Control.rect_position.y + (25 * counter)
-					if len(x) == 2:
-						new_node.get_child(0).text = str(x[0][0])
-						new_node.get_child(1).text = str(x[0][1])
-						new_node.get_child(2).text = str(x[0][2])
-						new_node.get_child(3).text = str(x[1][0])
-						new_node.get_child(4).text = str(x[1][1])
-						new_node.get_child(5).text = str(x[1][2])
-					else:
-						print("This morphology is outdated! Please use the manage neuron morphology to update the morphology.")
-						print("The last array: ", x, " and the name of morphology: ", $Spatial/Camera/Menu/Control/inner_box/morphology_name.text)
-						break
-				elif i == "vectors":
-					counter = len(new_morphology_node)
+				new_name = str(api_data[i])
+				if x == "patterns":
+					type_name = x
+					for a in api_data[i][x]:
+						counter = len(new_morphology_node)
+						$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/pattern_label.visible = true
+						$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/labels.visible = false
+						$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label.visible = false
+						var new_node = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/pattern_label/Control.duplicate()
+						$Spatial/Camera/Menu/rule_properties/rules/morphology_definition.add_child(new_node)
+						new_morphology_node.append(new_node)
+						new_node.visible = true
+						new_node.get_child(6).connect("pressed", self, "delete_morphology", [new_node])
+						new_node.rect_position.x = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/pattern_label/Control.rect_position.x
+						new_node.rect_position.y = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/pattern_label/Control.rect_position.y + (25 * counter)
+						if len(a) == 2:
+							new_node.get_child(0).text = str(a[0][0])
+							new_node.get_child(1).text = str(a[0][1])
+							new_node.get_child(2).text = str(a[0][2])
+							new_node.get_child(3).text = str(a[1][0])
+							new_node.get_child(4).text = str(a[1][1])
+							new_node.get_child(5).text = str(a[1][2])
+						else:
+							print("This morphology is outdated! Please use the manage neuron morphology to update the morphology.")
+							print("The last array: ", x, " and the name of morphology: ", $Spatial/Camera/Menu/Control/inner_box/morphology_name.text)
+							break
+				elif x == "vectors":
+					type_name = x
+					for a in api_data[i][x]:
+						for y in a:
+							counter = len(new_morphology_node)
+							$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label.visible = false
+							$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/pattern_label.visible = false
+							$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/labels.visible = true
+							var new_node = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/Control.duplicate()
+							$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/.add_child(new_node)
+							new_morphology_node.append(new_node)
+							new_node.visible = true
+							new_node.get_child(3).connect("pressed", self, "delete_morphology", [new_node])
+							new_node.rect_size = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/Control.rect_size
+							new_node.rect_position.x = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/Control.rect_position.x
+							new_node.rect_position.y = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/Control.rect_position.y + (30 * counter)
+							if len(y) == 3:
+								new_node.get_child(0).value = int(y[0])
+								new_node.get_child(1).value = int(y[1])
+								new_node.get_child(2).value = int(y[2])
+							else:
+								print("This morphology is outdated! Please use the manage neuron morphology to update the morphology.")
+								print("The last array: ", x, " and the name of morphology: ", $Spatial/Camera/Menu/Control/inner_box/morphology_name.text)
+								break
+					if len(new_morphology_node) > 4:
+						$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/Label2.rect_position.y = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/Label2.rect_position.y + (4 * counter)
+						$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/associations_data.rect_position.y = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/associations_data.rect_position.y + (4 * counter)
+						$Spatial/Camera/Menu/rule_properties/rules.rect_size.y += (counter * 4)
+						$Spatial/Camera/Menu/rule_properties.rect_size.y += (counter * 4)
+				elif x == "composite":
+					type_name = x
 					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/pattern_label.visible = false
-					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/labels.visible = true
-					var new_node = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/Control.duplicate()
-					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/.add_child(new_node)
-					new_morphology_node.append(new_node)
-					new_node.visible = true
-					new_node.get_child(3).connect("pressed", self, "delete_morphology", [new_node])
-					new_node.rect_size = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/Control.rect_size
-					new_node.rect_position.x = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/Control.rect_position.x
-					new_node.rect_position.y = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/Control.rect_position.y + (30 * counter)
-					new_node.get_child(0).value = int(x[0])
-					new_node.get_child(1).value = int(x[1])
-					new_node.get_child(2).value = int(x[2])
-				if len(new_morphology_node) > 4:
-					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/Label2.rect_position.y = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/Label2.rect_position.y + (4 * counter)
-					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/associations_data.rect_position.y = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/associations_data.rect_position.y + (4 * counter)
-					$Spatial/Camera/Menu/rule_properties/rules.rect_size.y += (counter * 4)
-					$Spatial/Camera/Menu/rule_properties.rect_size.y += (counter * 4)
+					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/vectors_label/labels.visible = false
+					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label.visible = true
+					for a in $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.get_item_count():
+						if api_data[i][x]["mapper_morphology"] == $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.get_item_text(a):
+							$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.select(a)
+					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/X_box/C.value = api_data[i][x]['parameters']['src_pattern'][0][0]
+					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/X_box/S.value = api_data[i][x]['parameters']['src_pattern'][0][1]
+					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Y_box/C.value = api_data[i][x]['parameters']['src_pattern'][1][0]
+					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Y_box/S.value = api_data[i][x]['parameters']['src_pattern'][1][1]
+					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Z_box/C.value = api_data[i][x]['parameters']['src_pattern'][2][0]
+					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Z_box/S.value = api_data[i][x]['parameters']['src_pattern'][2][1]
+					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/x.value = api_data[i][x]['parameters']['src_seed'][0]
+					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/y.value = api_data[i][x]['parameters']['src_seed'][1]
+					$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/z.value = api_data[i][x]['parameters']['src_seed'][2]
 			counter = 0
 			if $Spatial/Camera/Menu/Control.visible:
 				for x in api_data[i]:
@@ -1382,8 +1531,6 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 							print("The last array: ", x, " and the name of morphology: ", $Spatial/Camera/Menu/Control/inner_box/morphology_name.text)
 							break
 					elif i == "vectors":
-						$Spatial/Camera/Menu/Control/create.visible = false
-						$Spatial/Camera/Menu/Control/update.visible = true
 						counter += 1
 						var new_node = $Spatial/Camera/Menu/Control/inner_box/box_of_vectors/Control.duplicate()
 						$Spatial/Camera/Menu/Control/inner_box/box_of_vectors.add_child(new_node)
@@ -1402,7 +1549,7 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 						$Spatial/Camera/Menu/Control/inner_box/Button.disabled = true
 
 			for x in $Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_item_count():
-				if $Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_item_text(x) == i:
+				if $Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_item_text(x) == type_name:
 					$Spatial/Camera/Menu/rule_properties/rules/rule_type_options.selected = x
 					if "*" in new_name:
 						new_name = new_name.replace("*", "\""+"*"+"\"")
@@ -1414,6 +1561,10 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 						$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/morphology_def.text = new_name
 					if flag == false:
 						$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/morphology_def.text = new_name
+	$notification.visible = true
+	$notification/Label.text = str(_response_code)
+	$notification/TextEdit.text = str(api_data)
+	$notification/Label2.text = str("_on_get_morphology_request_completed")
 
 
 func _morphology_button_inside_red():

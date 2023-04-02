@@ -11,7 +11,7 @@ func _ready():
 	visible = false
 
 func _process(_delta):
-	if $inner_box/morphology_type.selected != 0:
+	if $inner_box/morphology_type.selected != 0 and $inner_box/morphology_name.text != "":
 		$create.disabled = false
 	else:
 		$create.disabled = true
@@ -29,6 +29,18 @@ func _process(_delta):
 			else:
 				$inner_box/box_of_vectors.visible = false
 				$inner_box/box_of_vectors/labels.visible = false
+			if $inner_box/morphology_type.get_item_text($inner_box/morphology_type.selected) == "composite":
+				$inner_box/grey_bg.rect_size = Vector2(481, 342)
+				$ColorRect.rect_size = Vector2(519, 437)
+				$create.rect_position = Vector2(152, 387)
+				$inner_box/box_of_composite.visible = true
+				$inner_box/Button.visible = false
+			else:
+				$inner_box/grey_bg.rect_size = Vector2(481, 283)
+				$ColorRect.rect_size = Vector2(519, 394)
+				$create.rect_position = Vector2(152, 330)
+				$inner_box/box_of_composite.visible = false
+				$inner_box/Button.visible = true
 		else:
 				$inner_box/box_of_pattern.visible = false
 				$inner_box/box_of_vectors.visible = false

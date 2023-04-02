@@ -109,7 +109,7 @@ class BurstEngine(BaseModel):
 class MorphologyProperties(BaseModel):
     name: str
     type: Literal['vectors', 'patterns', 'composite', 'functions']
-    morphology: list
+    parameters: dict
 
 
 class NewCorticalProperties(BaseModel):
@@ -687,12 +687,18 @@ async def genome_neuron_morphology_usage_report(morphology_name):
 
 
 @app.api_route("/v1/feagi/genome/morphology", methods=['PUT'], tags=["Genome"])
-async def genome_update_neuron_morphology(message: MorphologyProperties):
+async def genome_update_neuron_morphology(morphology_name: str,
+                                          morphology_type: Literal['vectors', 'patterns', 'composite', 'functions'],
+                                          morphology_parameters: dict):
     """
     Enables changes against various Burst Engine parameters.
     """
     try:
-        message = message.dict()
+        message = {}
+        message["name"] = morphology_name
+        message["type"] = morphology_type
+        message["parameters"] = morphology_parameters
+
         message = {'update_morphology_properties': message}
         print("*" * 50 + "\n", message)
         api_queue.put(item=message)
@@ -703,14 +709,17 @@ async def genome_update_neuron_morphology(message: MorphologyProperties):
 
 
 @app.api_route("/v1/feagi/genome/morphology", methods=['POST'], tags=["Genome"])
-async def genome_add_neuron_morphology(message: MorphologyProperties):
+async def genome_add_neuron_morphology(morphology_name: str,
+                                       morphology_type: Literal['vectors', 'patterns', 'composite', 'functions'],
+                                       morphology_parameters: dict):
     """
     Enables changes against various Burst Engine parameters.
     """
     try:
-        if message.name not in runtime_data.genome['neuron_morphologies']:
-            runtime_data.genome['neuron_morphologies'][message.name] = {}
-            runtime_data.genome['neuron_morphologies'][message.name][message.type] = message.morphology
+        if morphology_name not in runtime_data.genome['neuron_morphologies']:
+            runtime_data.genome['neuron_morphologies'][morphology_name] = {}
+            runtime_data.genome['neuron_morphologies'][morphology_name]["type"] = morphology_type
+            runtime_data.genome['neuron_morphologies'][morphology_name]["parameters"] = morphology_parameters
         else:
             return "Morphology already exists! Nothing was added."
     except Exception as e:
