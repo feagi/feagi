@@ -143,7 +143,7 @@ func resize_buttons():
 	$cortical_menu/Control/D_string.rect_position.y = $cortical_menu/Control/Z.rect_position.y + $cortical_menu/Control/Z.rect_size.y + 5
 	$cortical_menu/Control/H_string.rect_position.y = $cortical_menu/Control/Y.rect_position.y + $cortical_menu/Control/Y.rect_size.y + 5
 	$cortical_menu/Control/W_string.rect_position.y = $cortical_menu/Control/X.rect_position.y + $cortical_menu/Control/X.rect_size.y + 5
-	$cortical_menu/Control/W.rect_position.y = $cortical_menu/Control/W_string.rect_size.y + $cortical_menu/Control/W_string.rect_position.y 
+	$cortical_menu/Control/W.rect_position.y = $cortical_menu/Control/W_string.rect_size.y + $cortical_menu/Control/W_string.rect_position.y + 5
 	$cortical_menu/Control/D.rect_position.y = $cortical_menu/Control/D_string.rect_size.y + $cortical_menu/Control/D_string.rect_position.y + 5
 	$cortical_menu/Control/H.rect_position.y = $cortical_menu/Control/H_string.rect_size.y + $cortical_menu/Control/H_string.rect_position.y + 5
 
@@ -243,7 +243,7 @@ func resize_buttons():
 	$"3D_enable".rect_position.x = $properties.rect_size.x
 	$"3D_enable".rect_size.x = OS.get_window_size().x
 	$"3D_enable".rect_size.y = OS.get_window_size().y
-	$box_loading.rect_position.x = OS.get_window_size().x/2- $box_loading.rect_size.x/2
+	$box_loading.rect_position.x = OS.get_window_size().x- $box_loading.rect_size.x
 	$box_loading.rect_position.y = OS.get_window_size().y/2 - $box_loading.rect_size.y
 	
 func _on_Menu_resized():
