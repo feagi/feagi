@@ -266,29 +266,28 @@ def genome_v1_v2_converter(genome_v1):
 
 
 def morphology_convertor(morphology_in):
-    print("morphology_in:", morphology_in)
     morphology_out = dict()
     morphology_out["parameters"] = dict()
-    if "vectors" in morphology_in:
-        morphology_out["type"] = "vectors"
-        morphology_out["parameters"]["vectors"] = []
-        morphology_out["parameters"]["vectors"].append(morphology_in["vectors"])
-    elif "patterns" in morphology_in:
-        morphology_out["type"] = "patterns"
-        morphology_out["parameters"]["patterns"] = []
-        morphology_out["parameters"]["patterns"].append(morphology_in["patterns"])
-    elif "composite" in morphology_in:
-        morphology_out["type"] = "composite"
-        morphology_out["parameters"]["src_seed"] = append(morphology_in["parameters"]["src_seed"])
-        morphology_out["parameters"]["src_pattern"] = append(morphology_in["parameters"][src_pattern])
-        morphology_out["parameters"]["mapper_morphology"] = append(morphology_in["parameters"][mapper_morphology])
-    elif "functions" in morphology_in:
-        morphology_out["type"] = "functions"
-
+    if "type" in morphology_in:
+        return morphology_in
     else:
-        pass
+        if "vectors" in morphology_in:
+            morphology_out["type"] = "vectors"
+            morphology_out["parameters"]["vectors"] = morphology_in["vectors"]
+        elif "patterns" in morphology_in:
+            morphology_out["type"] = "patterns"
+            morphology_out["parameters"]["patterns"] = morphology_in["patterns"]
+        elif "composite" in morphology_in:
+            morphology_out["type"] = "composite"
+            morphology_out["parameters"]["src_seed"] = append(morphology_in["parameters"]["src_seed"])
+            morphology_out["parameters"]["src_pattern"] = append(morphology_in["parameters"][src_pattern])
+            morphology_out["parameters"]["mapper_morphology"] = append(morphology_in["parameters"][mapper_morphology])
+        elif "functions" in morphology_in:
+            morphology_out["type"] = "functions"
 
-    return morphology_out
+        else:
+            pass
+        return morphology_out
 
 
 def genome_morphology_updator(genome):
