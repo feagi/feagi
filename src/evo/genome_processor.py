@@ -274,14 +274,15 @@ def morphology_convertor(morphology_in):
         if "vectors" in morphology_in:
             morphology_out["type"] = "vectors"
             morphology_out["parameters"]["vectors"] = morphology_in["vectors"]
+            print("morphology_out:", morphology_out)
         elif "patterns" in morphology_in:
             morphology_out["type"] = "patterns"
             morphology_out["parameters"]["patterns"] = morphology_in["patterns"]
         elif "composite" in morphology_in:
             morphology_out["type"] = "composite"
-            morphology_out["parameters"]["src_seed"] = append(morphology_in["parameters"]["src_seed"])
-            morphology_out["parameters"]["src_pattern"] = append(morphology_in["parameters"][src_pattern])
-            morphology_out["parameters"]["mapper_morphology"] = append(morphology_in["parameters"][mapper_morphology])
+            morphology_out["parameters"]["src_seed"] = morphology_in["composite"]["parameters"]["src_seed"]
+            morphology_out["parameters"]["src_pattern"] = morphology_in["composite"]["parameters"]["src_pattern"]
+            morphology_out["parameters"]["mapper_morphology"] = morphology_in["composite"]["mapper_morphology"]
         elif "functions" in morphology_in:
             morphology_out["type"] = "functions"
 
