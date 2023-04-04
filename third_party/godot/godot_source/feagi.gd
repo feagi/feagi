@@ -1609,3 +1609,7 @@ func _morphology_button_inside_red():
 		$Spatial/Camera/Menu/rule_properties.rect_size.y += (counter * 3)
 		$Spatial/Camera/Menu/rule_properties/rules/save.rect_position.y -= 2
 		$Spatial/Camera/Menu/rule_properties/rules/delete.rect_position.y -=2
+
+func _on_close_pressed_def():
+	plus_node_clear()
+	ghost_morphology_clear()

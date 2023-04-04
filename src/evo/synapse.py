@@ -143,50 +143,50 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
         # src_subregions with be a collection of all subregions associated with a select composite morphology
         morphology_properties = runtime_data.genome["neuron_morphologies"][morphology["morphology_id"]]
         mapper_morphology = None
-        for growth_rule in morphology_properties:
-            src_subregions = set()
-            if growth_rule == "composite":
-                src_subregions = define_subregions(cortical_area=cortical_area,
-                                                   parameters=morphology_properties["composite"]["parameters"])
 
-                mapper_morphology = morphology_properties["composite"]["mapper_morphology"]
-            else:
-                src_subregion = (
-                    (0, 0, 0),
-                    tuple(runtime_data.genome["blueprint"][cortical_area]["block_boundaries"])
-                )
-                src_subregions.add(src_subregion)
+        src_subregions = set()
+        if morphology_properties["type"] == "composite":
+            src_subregions = define_subregions(cortical_area=cortical_area,
+                                               parameters=morphology_properties["parameters"])
 
-            for src_subregion in src_subregions:
-                subregion_neuron_list = subregion_neurons(src_cortical_area=cortical_area,
-                                                          region_definition=src_subregion)
+            mapper_morphology = morphology_properties["parameters"]["mapper_morphology"]
+        else:
+            src_subregion = (
+                (0, 0, 0),
+                tuple(runtime_data.genome["blueprint"][cortical_area]["block_boundaries"])
+            )
+            src_subregions.add(src_subregion)
 
-                for src_id in subregion_neuron_list:
-                    # Cycle through the neighbor_candidate_list and establish Synapses
-                    # neighbor_candidates contain the list of candidate connections along with associated
-                    # postSynapticCurrent
-                    # morphology_ = runtime_data.genome["neuron_morphologies"][morphology["morphology_id"]]
-                    neighbor_candidates = neighbor_finder(cortical_area_src=cortical_area,
-                                                          cortical_area_dst=cortical_area_dst,
-                                                          src_neuron_id=src_id,
-                                                          morphology_=morphology,
-                                                          morphology_id_overwrite=mapper_morphology,
-                                                          src_subregion=src_subregion)
+        for src_subregion in src_subregions:
+            subregion_neuron_list = subregion_neurons(src_cortical_area=cortical_area,
+                                                      region_definition=src_subregion)
 
-                    if neighbor_candidates:
-                        for dst_id, psc in neighbor_candidates:
-                            # Throw a die to decide for synapse creation. This is to limit the amount of synapses.
-                            if random.randrange(1, 100) < \
-                                    runtime_data.genome['blueprint'][cortical_area_dst]['synapse_attractivity']:
-                                # Connect the source and destination neuron via creating a synapse
-                                synapse(cortical_area=cortical_area,
-                                        src_id=src_id,
-                                        dst_cortical_area=cortical_area_dst,
-                                        dst_id=dst_id,
-                                        postsynaptic_current=psc
-                                        )
-                                synapse_count += 1
-                                # print("Made a Synapse between %s and %s" % (src_id, dst_id))
+            for src_id in subregion_neuron_list:
+                # Cycle through the neighbor_candidate_list and establish Synapses
+                # neighbor_candidates contain the list of candidate connections along with associated
+                # postSynapticCurrent
+                # morphology_ = runtime_data.genome["neuron_morphologies"][morphology["morphology_id"]]
+                neighbor_candidates = neighbor_finder(cortical_area_src=cortical_area,
+                                                      cortical_area_dst=cortical_area_dst,
+                                                      src_neuron_id=src_id,
+                                                      morphology_=morphology,
+                                                      morphology_id_overwrite=mapper_morphology,
+                                                      src_subregion=src_subregion)
+
+                if neighbor_candidates:
+                    for dst_id, psc in neighbor_candidates:
+                        # Throw a die to decide for synapse creation. This is to limit the amount of synapses.
+                        if random.randrange(1, 100) < \
+                                runtime_data.genome['blueprint'][cortical_area_dst]['synapse_attractivity']:
+                            # Connect the source and destination neuron via creating a synapse
+                            synapse(cortical_area=cortical_area,
+                                    src_id=src_id,
+                                    dst_cortical_area=cortical_area_dst,
+                                    dst_id=dst_id,
+                                    postsynaptic_current=psc
+                                    )
+                            synapse_count += 1
+                            # print("Made a Synapse between %s and %s" % (src_id, dst_id))
 
     if brain_gen:
         brain = runtime_data.brain
