@@ -22,7 +22,7 @@ func _on_load_options_cortical_name_request_completed(_result, _response_code, _
 	get_parent().get_node("source_dropdown").clear()
 	var json = JSON.parse(body.get_string_from_utf8())
 	var api_data = json.result
-	if api_data != null:
+	if api_data != null and not api_data.has("Request failed..."):
 		add_item(" ")
 		get_parent().get_parent().get_node("rule_properties/mapping_rule_options").add_item(" ")
 		get_parent().get_node("source_dropdown").add_item(" ")
