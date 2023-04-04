@@ -892,11 +892,8 @@ func _on_save_pressed():
 	_make_put_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, json_data, false)
 	$Spatial/Camera/Menu/rule_properties.visible = false
 
-
-
 #func _on_update_morphology_request_completed(result, response_code, headers, body):
 #	pass # Replace with function body.
-
 
 func _on_delete_pressed():
 	var grab_name_rule = $Spatial/Camera/Menu/rule_properties/mapping_rule_options.get_item_text($Spatial/Camera/Menu/rule_properties/mapping_rule_options.get_selected_id())
