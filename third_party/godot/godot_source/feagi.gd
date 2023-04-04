@@ -888,7 +888,7 @@ func _on_save_pressed():
 		json_data["composite"]['parameters']['src_pattern'].append($Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/x.value)
 		json_data["composite"]['parameters']['src_seed'] = [$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/x.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/y.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/z.value]
 		json_data["composite"]["mapper_morphology"] = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.get_item_text($Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.selected)
-	var combine_url = '/v1/feagi/genome/morphology?morphology_name=' + new_name + '&morphology_type=' + new_type
+	var combine_url = '/v1/feagi/genome/morphology?morphology_name=' + symbols_checker_for_api(new_name) + '&morphology_type=' + new_type
 	_make_put_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, json_data, false)
 	$Spatial/Camera/Menu/rule_properties.visible = false
 
