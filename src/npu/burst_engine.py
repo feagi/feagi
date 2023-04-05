@@ -216,14 +216,19 @@ def burst_manager():
                 while runtime_data.fire_candidate_list[fcl_cortical_area]:
                     neuron_to_fire = runtime_data.fire_candidate_list[fcl_cortical_area].pop()
                     neuron_pre_fire_processing(fcl_cortical_area, neuron_to_fire, degenerate=degeneration_val)
+                    runtime_data.brain[fcl_cortical_area][neuron_to_fire][
+                        "last_membrane_potential_update"] = runtime_data.burst_count
                     neuron_stimulation_mp_logger(cortical_area=fcl_cortical_area, neuron_id=neuron_to_fire)
+                    runtime_data.brain[fcl_cortical_area][neuron_to_fire]["membrane_potential"] = 0
 
-            # Add neurons to future FCL
+            # Add neurons to future FCL   
+            # This is where neuron leak is considered and membrane potentials are updated+++
             for fq_cortical_area in runtime_data.fire_queue:
                 for neuron_id in runtime_data.fire_queue[fq_cortical_area]:
-
+                    # Neuron leak considerations
+                    leak_amount = neuron_leak(cortical_area=fq_cortical_area, neuron_id=neuron_id)
                     runtime_data.brain[fq_cortical_area][neuron_id]["membrane_potential"] = \
-                        runtime_data.fire_queue[fq_cortical_area][neuron_id][0]
+                        runtime_data.fire_queue[fq_cortical_area][neuron_id][0] - leak_amount
 
                     fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1]
                     membrane_potential = runtime_data.brain[fq_cortical_area][neuron_id]["membrane_potential"]
@@ -237,9 +242,18 @@ def burst_manager():
                             runtime_data.burst_count
                         # todo: Refactor the membrane potential update
                         # Setting the membrane potential of the neuron to 0 after being added to fire list
-                        membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
-                                                  membrane_potential_change=0, overwrite=True,
-                                                  overwrite_value=0)
+
+                        neuron_stimulation_mp_logger(cortical_area=fq_cortical_area, neuron_id=neuron_id)
+
+                        # membrane_potential = \
+                        #     runtime_data.brain[fq_cortical_area][neuron_id]["membrane_potential"]
+                        # membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
+                        #                           membrane_potential_change=0, overwrite=True,
+                        #                           overwrite_value=membrane_potential)
+                        # membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
+                        #                           membrane_potential_change=0, overwrite=True,
+                        #                           overwrite_value=0)
+                        runtime_data.brain[fq_cortical_area][neuron_id]["membrane_potential"] = 0
                         runtime_data.future_fcl[fq_cortical_area].add(neuron_id)
 
                     elif membrane_potential <= 0:
