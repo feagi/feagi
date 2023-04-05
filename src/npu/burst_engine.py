@@ -236,6 +236,7 @@ def burst_manager():
 
                     fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1]
                     membrane_potential = runtime_data.brain[fq_cortical_area][neuron_id]["membrane_potential"]
+                    membrane_potential = max(0, membrane_potential)
 
                     # When neuron is ready to fire
                     if membrane_potential >= fire_threshold and \
