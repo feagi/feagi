@@ -18,7 +18,8 @@ import logging
 import copy
 import traceback
 from evo.genome_editor import save_genome
-from evo.genome_validator import *
+from evo.genome_validator import genome_validator
+from inf import runtime_data
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ def genome_ver_check(genome):
         if genome['version'] == "2.0":
             print("\n\n\n************ Genome Version 2.0 has been detected **************\n\n\n")
             try:
-                blueprint_validator(genome)
+                runtime_data.genome_validity = genome_validator(genome)
             except Exception:
                 print("Error during genome validation!!\n", traceback.print_exc())
             genome = genome_morphology_updator(genome)
