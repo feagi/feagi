@@ -135,8 +135,12 @@ def burst_manager():
     def burst_stats(burst_start_time):
         if runtime_data.parameters["Logs"]["print_burst_info"] and runtime_data.burst_timer > 0.1:
             burst_duration = datetime.now() - burst_start_time
-            if runtime_data.genome:
+            if runtime_data.genome and runtime_data.genome_validity:
                 print(settings.Bcolors.UPDATE +
+                      ">>> Burst duration ###: %s %i %i --- ---- ---- ---- ---- ---- ----"
+                      % (burst_duration, runtime_data.burst_count, runtime_data.current_age) + settings.Bcolors.ENDC)
+            elif runtime_data.genome and not runtime_data.genome_validity:
+                print(settings.Bcolors.RED +
                       ">>> Burst duration ###: %s %i %i --- ---- ---- ---- ---- ---- ----"
                       % (burst_duration, runtime_data.burst_count, runtime_data.current_age) + settings.Bcolors.ENDC)
             else:

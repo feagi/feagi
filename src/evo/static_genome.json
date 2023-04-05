@@ -166,7 +166,7 @@
       },
       "to_block_[5, 7, 4]": {
          "parameters": {
-            "patterns": [
+            "patterns": [[
                [
                   "*",
                   "*",
@@ -177,7 +177,7 @@
                   7,
                   4
                ]
-            ]
+            ]]
          },
          "type": "patterns"
       },
