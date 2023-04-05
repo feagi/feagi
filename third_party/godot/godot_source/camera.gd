@@ -153,7 +153,7 @@ func _on_grab_location_of_cortical_request_completed(_result, _response_code, _h
 		else:
 			z = z + 20
 		transform.origin=Vector3(x, y, z)
-
+		get_parent().get_parent().get_node("notification").generate_notification_message(api_data, _response_code, "_on_grab_location_of_cortical_request_completed")
 
 
 func _on_menu_itemlist_item_selected(index):
