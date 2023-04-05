@@ -28,7 +28,7 @@ func _on_load_options_cortical_name_request_completed(_result, _response_code, _
 			add_item(i)
 			get_parent().get_node("source_dropdown").add_item(i)
 			
-	get_parent().get_parent().get_parent().get_parent().get_parent().get_node("notification").generate_notification_message(api_data, _response_code, "_on_cortical_type_options_request_request_completed")
+	get_parent().get_parent().get_parent().get_parent().get_parent().get_node("notification").generate_notification_message(api_data, _response_code, "_on_cortical_type_options_request_request_completed", "/v1/feagi/genome/cortical_area_name_list")
 
 func loading_in_two_seconds():
 	yield(get_tree().create_timer(2), "timeout")
