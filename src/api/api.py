@@ -1096,7 +1096,7 @@ async def stimulation_string_upload(response: Response):
 # ####################################################
 
 @app.get("/v1/feagi/monitoring/neuron/membrane_potential", tags=["Insights"])
-async def cortical_neuron_membrane_potential_monitoring(cortical_area):
+async def cortical_neuron_membrane_potential_monitoring(cortical_area, response: Response):
     print("Cortical membrane potential monitoring", runtime_data.neuron_mp_collection_scope)
     try:
         if cortical_area in runtime_data.neuron_mp_collection_scope:
