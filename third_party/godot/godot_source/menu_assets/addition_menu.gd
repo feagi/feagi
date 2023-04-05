@@ -48,6 +48,12 @@ func _process(_delta):
 		$cortical_name_label.visible = false
 	if visible == false:
 		$OptionButton.select(0)
+	
+	if $cortical_name_textbox/type.text != "":
+		$add.disabled = false
+	else:
+		$add.disabled = true
+
 
 func add_list():
 	$OPU_list.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_type_options?cortical_type=OPU')
