@@ -310,12 +310,13 @@ async def log_requests(request: Request, call_next):
     logger.info(f"rid={idem} completed_in={formatted_process_time}ms status_code={response.status_code}")
 
     # print(response.status_code, ":", request.method, ":", request.url.path)
-
     return response
 
-app.get("/server_check")
+
+@app.get("/server_check")
 async def server_check(response: Response):
     response.status_code = status.HTTP_200_OK
+
 
 # todo: To add the ability of updating allowable cors list on the fly
 # # Append to the CORS origin
@@ -342,11 +343,9 @@ async def genome_default_upload(response: Response):
 
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"FEAGI started using a static genome.", message}
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"FEAGI start using genome string failed ...", e}
 
 
 @app.post("/v1/feagi/genome/upload/file", tags=["Genome"])
@@ -367,11 +366,9 @@ async def genome_file_upload(response: Response, file: UploadFile = File(...)):
         message = {'genome': genome_str}
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Genome received as a file"}
     except Exception as e:
         response.status_code = status.HTTP_400_BAD_REQUEST
         print("API ERROR during genome file upload:\n", e, traceback.print_exc())
-        return {"Request failed..."}
 
 
 @app.get("/v1/feagi/genome/file_name", tags=["Genome"])
@@ -389,7 +386,6 @@ async def genome_file_name(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e, traceback.print_exc())
-        return {"Request failed..."}
 
 
 @app.api_route("/v1/feagi/genome/upload/string", methods=['POST'], tags=["Genome"])
@@ -398,11 +394,9 @@ async def genome_string_upload(genome: dict, response: Response):
         message = {'genome': genome}
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"FEAGI started using a genome string."}
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"FEAGI start using genome string failed ...", e}
 
 
 @app.get("/v1/feagi/genome/download", tags=["Genome"])
@@ -418,7 +412,6 @@ async def genome_download(response: Response):
             response.status_code = status.HTTP_404_NOT_FOUND
     except Exception as e:
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.post("/v1/feagi/genome/upload/file/edit", tags=["Genome"])
@@ -431,7 +424,6 @@ async def genome_file_upload_edit(response: Response, file: UploadFile = File(..
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.get("/v1/feagi/genome/defaults/files", tags=["Genome"])
@@ -453,7 +445,6 @@ async def genome_default_files(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed..."}
 
 
 @app.api_route("/v1/feagi/genome/genome_number", methods=['GET'], tags=["Genome"])
@@ -470,7 +461,6 @@ async def genome_number(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.post("/v1/feagi/genome/reset", tags=["Genome"])
@@ -479,11 +469,9 @@ async def reset_genome(response: Response):
         print("API call has triggered a genome reset")
         runtime_data.genome_reset_flag = True
         response.status_code = status.HTTP_200_OK
-        return
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/cortical_area", methods=['GET'], tags=["Genome"])
@@ -529,11 +517,9 @@ async def fetch_cortical_properties(cortical_area, response: Response):
             return cortical_properties
         else:
             response.status_code = status.HTTP_400_BAD_REQUEST
-            return {"message": "Error! Cortical area id should be only 6 characters long"}
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", traceback.print_exc())
-        return {"Request failed...", e}
+        print("API Error:", traceback.print_exc(), e)
 
 
 @app.api_route("/v1/feagi/genome/cortical_area", methods=['PUT'], tags=["Genome"])
@@ -547,11 +533,10 @@ async def update_cortical_properties(message: UpdateCorticalProperties, response
         print("*" * 50 + "\n", message)
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Cortical properties updated."}
+
     except Exception as e:
         response.status_code = status.HTTP_400_BAD_REQUEST
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/cortical_area", methods=['POST'], tags=["Genome"])
@@ -565,11 +550,9 @@ async def add_cortical_area(message: NewCorticalProperties, response: Response):
         print("*" * 50 + "\n", message)
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Request sent!"}
     except Exception as e:
         response.status_code = status.HTTP_400_BAD_REQUEST
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/custom_cortical_area", methods=['POST'], tags=["Genome"])
@@ -584,11 +567,9 @@ async def add_cortical_area(message: NewCustomCorticalProperties, response: Resp
         print("*" * 50 + "\n", message)
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Request sent!"}
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/cortical_area", methods=['DELETE'], tags=["Genome"])
@@ -601,11 +582,9 @@ async def delete_cortical_area(cortical_area_name, response: Response):
         print("*" * 50 + "\n", message)
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Request sent!"}
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/cortical_area_id_list", methods=['GET'], tags=["Genome"])
@@ -622,7 +601,6 @@ async def genome_cortical_ids(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/cortical_name_location", methods=['GET'], tags=["Genome"])
@@ -637,7 +615,6 @@ async def genome_cortical_location_by_name(cortical_name, response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/cortical_area_name_list", methods=['GET'], tags=["Genome"])
@@ -652,7 +629,6 @@ async def genome_cortical_names(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/morphology_list", methods=['GET'], tags=["Genome"])
@@ -669,7 +645,6 @@ async def genome_neuron_morphologies(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/morphology_types", methods=['GET'], tags=["Genome"])
@@ -683,7 +658,6 @@ async def genome_neuron_morphology_types(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/morphology_functions", methods=['GET'], tags=["Genome"])
@@ -701,7 +675,6 @@ async def genome_neuron_morphology_functions(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e, traceback.print_exc())
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/morphology", methods=['GET'], tags=["Genome"])
@@ -715,11 +688,9 @@ async def genome_neuron_morphology_properties(morphology_name, response: Respons
             return runtime_data.genome['neuron_morphologies'][morphology_name]
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
-            return {}
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/morphology_usage", methods=['GET'], tags=["Genome"])
@@ -737,7 +708,6 @@ async def genome_neuron_morphology_usage_report(morphology_name, response: Respo
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e, traceback.print_exc())
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/morphology", methods=['PUT'], tags=["Genome"])
@@ -758,11 +728,9 @@ async def genome_update_neuron_morphology(morphology_name: str,
         print("*" * 50 + "\n", message)
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Neuron morphology updated."}
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/morphology", methods=['POST'], tags=["Genome"])
@@ -779,12 +747,11 @@ async def genome_add_neuron_morphology(morphology_name: str,
             runtime_data.genome['neuron_morphologies'][morphology_name]["type"] = morphology_type
             runtime_data.genome['neuron_morphologies'][morphology_name]["parameters"] = morphology_parameters
         else:
-            return "Morphology already exists! Nothing was added."
+            pass
         response.status_code = status.HTTP_200_OK
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/morphology", methods=['DELETE'], tags=["Genome"])
@@ -798,17 +765,13 @@ async def genome_delete_neuron_morphology(morphology_name, response: Response):
             if not usage:
                 runtime_data.genome['neuron_morphologies'].pop(morphology_name)
                 response.status_code = status.HTTP_200_OK
-                return {"Morphology has been successfully deleted."}
             else:
-                return {"Morphology could not be removed due to existing mappings\n", usage}
-
+                response.status_code = status.HTTP_404_NOT_FOUND
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
-            return {"message": "Morphology not found!"}
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e, traceback.print_exc())
-        return {"Request failed...", e}
 
 
 #
@@ -822,7 +785,7 @@ async def genome_delete_neuron_morphology(morphology_name, response: Response):
 #
 #     except Exception as e:
 #         print("API Error:", e)
-#         return {"Request failed...", e}
+#         
 
 
 @app.api_route("/v1/feagi/genome/cortical_mappings/efferents", methods=['GET'], tags=["Genome"])
@@ -839,10 +802,8 @@ async def fetch_cortical_mappings(cortical_area, response: Response):
             return cortical_mappings
         else:
             response.status_code = status.HTTP_400_BAD_REQUEST
-            return {"message": "Error! Cortical area id should be only 6 characters long"}
     except Exception as e:
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/cortical_mappings/afferents", methods=['GET'], tags=["Genome"])
@@ -857,11 +818,9 @@ async def fetch_cortical_mappings(cortical_area, response: Response):
             return upstream_cortical_areas
         else:
             response.status_code = status.HTTP_400_BAD_REQUEST
-            return {"message": "Error! Cortical area id should be only 6 characters long"}
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/cortical_mappings_by_name", methods=['GET'], tags=["Genome"])
@@ -878,7 +837,6 @@ async def fetch_cortical_mappings(cortical_area, response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e, traceback.print_exc())
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/cortical_mappings_detailed", methods=['GET'], tags=["Genome"])
@@ -895,7 +853,6 @@ async def fetch_cortical_mappings(cortical_area, response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/mapping_properties", methods=['GET'], tags=["Genome"])
@@ -912,7 +869,6 @@ async def fetch_cortical_mapping_properties(src_cortical_area, dst_cortical_area
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/mapping_properties", methods=['PUT'], tags=["Genome"])
@@ -929,12 +885,10 @@ async def update_cortical_mapping_properties(src_cortical_area, dst_cortical_are
         data = {'update_cortical_mappings': data}
         api_queue.put(item=data)
         response.status_code = status.HTTP_200_OK
-        return {"Cortical mappings updated."}
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e, traceback.print_exc())
         logger.error(traceback.print_exc())
-        return {"Update cortical mapping failed", e}
 
 
 @app.api_route("/v1/feagi/genome/cortical_types", methods=['GET'], tags=["Genome"])
@@ -951,7 +905,6 @@ async def cortical_area_types(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/cortical_type_options", methods=['GET'], tags=["Genome"])
@@ -974,7 +927,6 @@ async def cortical_area_types(cortical_type, response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/circuits", methods=['GET'], tags=["Genome"])
@@ -990,7 +942,6 @@ async def cortical_area_types(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/circuit_size", methods=['GET'], tags=["Genome"])
@@ -1011,11 +962,10 @@ async def cortical_area_types(circuit_name, response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e, traceback.print_exc())
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/genome/append", methods=['POST'], tags=["Genome"])
-async def genome_add_neuron_morphology(circuit_name: str, location: list, response: Response):
+async def genome_append_circuit(circuit_name: str, location: list, response: Response):
     """
     Appends a given circuit to the running genome at a specific location.
     """
@@ -1025,7 +975,6 @@ async def genome_add_neuron_morphology(circuit_name: str, location: list, respon
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 # ######  Evolution #########
@@ -1045,7 +994,6 @@ async def retrun_autopilot_status(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.post("/v1/feagi/evolution/autopilot/on", tags=["Evolution"])
@@ -1062,7 +1010,6 @@ async def turn_autopilot_on(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.post("/v1/feagi/evolution/autopilot/off", tags=["Evolution"])
@@ -1074,7 +1021,6 @@ async def turn_autopilot_off(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/evolution/generations", methods=['GET'], tags=["Evolution"])
@@ -1091,7 +1037,6 @@ async def list_generations(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 # ######  Stimulation #########
@@ -1128,11 +1073,10 @@ async def stimulation_string_upload(stimulation_script: Stimulation, response: R
         message = {'stimulation_script': message}
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Request sent!"}
+        
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/stimulation/reset", methods=['POST'], tags=["Stimulation"])
@@ -1142,10 +1086,10 @@ async def stimulation_string_upload(response: Response):
         message = {'stimulation_script': message}
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Request sent!"}
+        
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        return {"Request failed...", e}
+        print("API Error:", e, traceback.print_exc)
 
 
 # ######  Statistics and Reporting Endpoints #########
@@ -1165,8 +1109,7 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
-
+        
 
 @app.post("/v1/feagi/monitoring/neuron/membrane_potential", tags=["Insights"])
 async def cortical_neuron_membrane_potential_monitoring(cortical_area, state: bool, response: Response):
@@ -1190,8 +1133,7 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area, state: bo
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
-
+        
 
 @app.get("/v1/feagi/monitoring/neuron/synaptic_potential", tags=["Insights"])
 async def cortical_synaptic_potential_monitoring(cortical_area, response: Response):
@@ -1206,8 +1148,7 @@ async def cortical_synaptic_potential_monitoring(cortical_area, response: Respon
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
-
+        
 
 @app.post("/v1/feagi/monitoring/neuron/synaptic_potential", tags=["Insights"])
 async def cortical_synaptic_potential_monitoring(cortical_area, state: bool, response: Response):
@@ -1225,12 +1166,10 @@ async def cortical_synaptic_potential_monitoring(cortical_area, state: bool, res
             return True
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
-            print("Error: InfluxDb is not setup to collect timeseries data!")
             return False
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.get("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting", tags=["Insights"])
@@ -1245,7 +1184,6 @@ async def neuron_membrane_potential_collection_filters(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.get("/v1/feagi/neuron/physiology/postsynaptic_potential_monitoring/filter_setting", tags=["Insights"])
@@ -1260,8 +1198,7 @@ async def neuron_postsynaptic_potential_collection_filters():
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
-
+        
 
 @app.api_route("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting",
                methods=['POST'], tags=["Insights"])
@@ -1286,11 +1223,10 @@ async def neuron_membrane_potential_monitoring_scope(message: dict, response: Re
         message = {'neuron_mp_collection_scope': message}
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Request sent!"}
+        
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/neuron/physiology/postsynaptic_potential_monitoring", methods=['POST'], tags=["Insights"])
@@ -1335,11 +1271,10 @@ async def neuron_postsynaptic_potential_monitoring_scope(message: dict, response
         message = {'neuron_psp_collection_scope': message}
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Request sent!"}
+        
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 # ######  Training Endpoints #######
@@ -1359,8 +1294,7 @@ async def list_available_shock_scenarios(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
-
+        
 
 @app.api_route("/v1/feagi/training/shock/status", methods=['Get'], tags=["Training"])
 async def list_activated_shock_scenarios(response: Response):
@@ -1373,7 +1307,6 @@ async def list_activated_shock_scenarios(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/training/shock/activate", methods=['POST'], tags=["Training"])
@@ -1395,11 +1328,10 @@ async def activate_shock_scenarios(training: Training, response: Response):
         print(message)
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Request sent!"}
+        
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 # #########  Robot   ###########
@@ -1415,11 +1347,10 @@ async def robot_controller_tunner(message: RobotController, response: Response):
         message = {'robot_controller': message}
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Request sent!"}
+        
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/robot/model", methods=['POST'], tags=["Robot"])
@@ -1432,11 +1363,10 @@ async def robot_model_modification(message: RobotModel, response: Response):
         message = {'robot_model': message}
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Request sent!"}
+        
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.get("/v1/feagi/robot/gazebo/files", tags=["Robot"])
@@ -1466,7 +1396,6 @@ async def connectome_cortical_areas(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/connectome/cortical_info", methods=['POST'], tags=["Connectome"])
@@ -1481,7 +1410,6 @@ async def connectome_cortical_info(connectome: Connectome, response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/connectome/all", methods=['Get'], tags=["Connectome"])
@@ -1495,7 +1423,6 @@ async def connectome_comprehensive_info(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/connectome/plasticity", methods=['Get'], tags=["Connectome"])
@@ -1509,7 +1436,6 @@ async def connectome_plasticity_info(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.post("/v1/feagi/connectome/upload", tags=["Connectome"])
@@ -1525,7 +1451,6 @@ async def connectome_file_upload(response: Response, file: UploadFile = File(...
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/connectome/source", methods=['POST'], tags=["Connectome"])
@@ -1534,11 +1459,10 @@ async def connectome_source_path(connectome_path: ConnectomePath, response: Resp
         feagi_thread = Thread(target=start_feagi, args=(api_queue, 'connectome', 'path',  connectome_path,))
         feagi_thread.start()
         response.status_code = status.HTTP_200_OK
-        return {"Request sent!"}
+        
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/connectome/snapshot", methods=['POST'], tags=["Connectome"])
@@ -1549,12 +1473,11 @@ async def connectome_snapshot(message: ConnectomePath, response: Response):
         print("Snapshot path:", message)
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Request sent!"}
+        
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
-
+        
 
 @app.api_route("/v1/feagi/connectome/properties/dimensions", methods=['GET'], tags=["Connectome"])
 async def connectome_dimensions_report(response: Response):
@@ -1567,8 +1490,7 @@ async def connectome_dimensions_report(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
-
+        
 
 @app.api_route("/v1/feagi/connectome/properties/mappings", methods=['GET'], tags=["Connectome"])
 async def connectome_mapping_report(response: Response):
@@ -1589,8 +1511,7 @@ async def connectome_mapping_report(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
-
+        
 
 # ######  Burst-Engine Endpoints #########
 # ########################################
@@ -1609,7 +1530,6 @@ async def burst_engine_params(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/feagi/burst_engine/stimulation_period", methods=['GET'], tags=["Burst Engine"])
@@ -1626,8 +1546,7 @@ async def burst_engine_params(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
-
+        
 
 @app.api_route("/v1/feagi/feagi/burst_engine", methods=['POST'], tags=["Burst Engine"])
 async def burst_management(message: BurstEngine, response: Response):
@@ -1639,12 +1558,11 @@ async def burst_management(message: BurstEngine, response: Response):
         message = {'burst_management': message}
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Request sent!"}
+        
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
-
+        
 
 # ######  Networking Endpoints #########
 # ##################################
@@ -1660,7 +1578,6 @@ async def network_management(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 # @app.api_route("/v1/feagi/feagi/network", methods=['POST'], tags=["Networking"])
@@ -1672,7 +1589,7 @@ async def network_management(response: Response):
 #         return runtime_data.parameters['Sockets']
 #     except Exception as e:
 #         print("API Error:", e)
-#         return {"Request failed...", e}
+#         
 
 
 # ######  Peripheral Nervous System Endpoints #########
@@ -1689,11 +1606,10 @@ async def current_ipu_list(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/feagi/pns/current/opu", methods=['GET'], tags=["Peripheral Nervous System"])
-async def current_opu_list():
+async def current_opu_list(response: Response):
     try:
         if runtime_data.opu_list:
             response.status_code = status.HTTP_200_OK
@@ -1702,11 +1618,11 @@ async def current_opu_list():
             response.status_code = status.HTTP_404_NOT_FOUND
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        return {"Request failed...", e}
-
+        print("API Error:", e, traceback.print_exc)
+        
 
 @app.api_route("/v1/agent/list", methods=['GET'], tags=["Peripheral Nervous System"])
-async def agent_list(respnse: Response):
+async def agent_list(response: Response):
     try:
         agents = set(runtime_data.agent_registry.keys())
         if agents:
@@ -1717,8 +1633,7 @@ async def agent_list(respnse: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
-
+        
 
 @app.api_route("/v1/agent/properties", methods=['GET'], tags=["Peripheral Nervous System"])
 async def agent_properties(agent_id: str, response: Response):
@@ -1735,15 +1650,14 @@ async def agent_properties(agent_id: str, response: Response):
             return agent_info
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
-            return {"Agent not found!"}
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e, traceback.print_exc)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/agent/register", methods=['POST'], tags=["Peripheral Nervous System"])
-async def agent_registration(request: Request, agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int, response: Response):
+async def agent_registration(request: Request, agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int,
+                             response: Response):
     try:
         if agent_id not in runtime_data.agent_registry:
             # Add new agent to the registry
@@ -1784,14 +1698,11 @@ async def agent_deregisteration(agent_id: str, response: Response):
         if agent_id in runtime_data.agent_registry:
             runtime_data.agent_registry.pop(agent_id)
             response.status_code = status.HTTP_200_OK
-            return {"Agent has been removed!"}
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
-            return {"Requested agent not found!"}
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 # ######   System Endpoints #########
@@ -1807,11 +1718,9 @@ async def feagi_registration(message: Registration, response: Response):
         capabilities = message['capabilities']
         print("########## ###### >>>>>> >>>> ", source, host, capabilities)
         response.status_code = status.HTTP_200_OK
-        return {"Registration was successful"}
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"FEAGI start failed ... error details to be provided here", e}
 
 
 @app.api_route("/v1/feagi/feagi/logs", methods=['POST'], tags=["System"])
@@ -1821,11 +1730,10 @@ async def log_management(message: Logs, response: Response):
         message = {"log_management": message}
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Request sent!"}
+        
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/feagi/configuration", methods=['Get'], tags=["System"])
@@ -1836,7 +1744,6 @@ async def configuration_parameters(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/feagi/beacon/subscribers", methods=['GET'], tags=["System"])
@@ -1853,7 +1760,6 @@ async def beacon_query(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/feagi/beacon/subscribe", methods=['POST'], tags=["System"])
@@ -1862,11 +1768,10 @@ async def beacon_subscribe(message: Subscriber, response: Response):
         message = {'beacon_sub': message.subscriber_address}
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Request sent!"}
+        
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/feagi/beacon/unsubscribe", methods=['DELETE'], tags=["System"])
@@ -1875,11 +1780,10 @@ async def beacon_unsubscribe(message: Subscriber, response: Response):
         message = {"beacon_unsub": message.subscriber_address}
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
-        return {"Request sent!"}
+        
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/db/influxdb/test", methods=['GET'], tags=["System"])
@@ -1898,7 +1802,6 @@ async def test_influxdb(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 # ######   GUI  Endpoints #########
@@ -1915,7 +1818,6 @@ async def supported_ipu_list(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/feagi/gui_baseline/opu", methods=['GET'], tags=["GUI"])
@@ -1929,7 +1831,6 @@ async def supported_opu_list(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/feagi/gui_baseline/morphology", methods=['GET'], tags=["GUI"])
@@ -1943,7 +1844,6 @@ async def supported_morphology_list(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/feagi/gui_baseline/cortical-genes", methods=['GET'], tags=["GUI"])
@@ -1957,8 +1857,7 @@ async def supported_cortical_genes_list(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
-
+        
 
 @app.api_route("/v1/feagi/feagi/gui_baseline/morphology-scalar", methods=['GET'], tags=["GUI"])
 async def supported_cortical_genes_list(response: Response):
@@ -1971,8 +1870,7 @@ async def supported_cortical_genes_list(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
-
+        
 
 @app.api_route("/v1/feagi/feagi/gui_baseline/psc-multiplier", methods=['GET'], tags=["GUI"])
 async def supported_cortical_genes_list(response: Response):
@@ -1985,7 +1883,6 @@ async def supported_cortical_genes_list(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
 
 
 @app.api_route("/v1/feagi/feagi/gui_baseline/plasticity-flag", methods=['GET'], tags=["GUI"])
@@ -1999,5 +1896,3 @@ async def supported_cortical_genes_list(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        return {"Request failed...", e}
-
