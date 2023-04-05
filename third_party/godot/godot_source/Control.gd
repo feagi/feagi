@@ -1,9 +1,7 @@
 extends Control
 
 
-# Declare member variables here. Examples:
-# var a = 2
-# var b = "text"
+var flag = true
 
 
 # Called when the node enters the scene tree for the first time.
@@ -15,6 +13,24 @@ func _process(_delta):
 		$create.disabled = false
 	else:
 		$create.disabled = true
+	if $inner_box/morphology_name.text != "":
+		$inner_box/Label3.visible = true
+		$inner_box/morphology_type.visible = true
+	else:
+		$inner_box/Label3.visible = false
+		$inner_box/morphology_type.visible = false
+		if $inner_box/morphology_type.get_item_count() > 0:
+			$inner_box/morphology_type.select(0)
+
+
+	if $inner_box/morphology_type.selected != 0:
+		$inner_box/Label4.visible = true
+		$inner_box/Button.visible = true
+	else:
+		$inner_box/Label4.visible = false
+		$inner_box/Button.visible = false
+
+	
 	if $inner_box/morphology_type.get_item_count() >= 1:
 		if $inner_box/morphology_type.selected != 0:
 			if $inner_box/morphology_type.get_item_text($inner_box/morphology_type.selected) == "patterns":
@@ -31,14 +47,17 @@ func _process(_delta):
 				$inner_box/box_of_vectors/labels.visible = false
 			if $inner_box/morphology_type.get_item_text($inner_box/morphology_type.selected) == "composite":
 				$inner_box/grey_bg.rect_size = Vector2(481, 342)
+				flag = true
 				$ColorRect.rect_size = Vector2(519, 437)
 				$create.rect_position = Vector2(152, 387)
 				$inner_box/box_of_composite.visible = true
 				$inner_box/Button.visible = false
 			else:
-				$inner_box/grey_bg.rect_size = Vector2(481, 283)
-				$ColorRect.rect_size = Vector2(519, 394)
-				$create.rect_position = Vector2(152, 330)
+				if flag:
+					$inner_box/grey_bg.rect_size = Vector2(481, 283)
+					$ColorRect.rect_size = Vector2(519, 394)
+					$create.rect_position = Vector2(152, 330)
+					flag = false
 				$inner_box/box_of_composite.visible = false
 				$inner_box/Button.visible = true
 		else:
@@ -46,4 +65,6 @@ func _process(_delta):
 				$inner_box/box_of_vectors.visible = false
 				$inner_box/box_of_vectors/labels.visible = false
 				$inner_box/box_of_pattern/labels.visible = false
+				$inner_box/box_of_composite.visible = false
+				$inner_box/box_of_composite.visible = false
 			
