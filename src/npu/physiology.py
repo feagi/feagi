@@ -54,6 +54,8 @@ def neuron_stimulation_mp_logger(cortical_area, neuron_id):
 
             # Note: dst_cortical_area is fed to the src_cortical_area field since the membrane potential of dst changes
 
+            mem_pot = min(mem_pot, fire_threshold)
+
             # To demonstrate a spike when a neuron is artificially stimulated to fire
             runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
                                                          src_cortical_area=cortical_area,
@@ -173,7 +175,7 @@ def neuron_leak(cortical_area, neuron_id):
             leak_window = runtime_data.burst_count - last_membrane_potential_update
             leak_value = leak_window * leak_coefficient
             # Capping the leak to the max allowable membrane potential
-            leak_value = min(leak_value, runtime_data.brain[cortical_area][neuron_id]["membrane_potential"])
+            # leak_value = min(leak_value, runtime_data.brain[cortical_area][neuron_id]["membrane_potential"])
 
             if leak_value < 0:
                 print("Warning! Leak less than 0 detected! ", leak_value)
