@@ -51,6 +51,7 @@ var plus_node = []
 var dst_data_holder
 var ghost_morphology = []
 var new_morphology_node = []
+var latest_send_feagi = ""
 
 
 
@@ -375,7 +376,7 @@ func _on_Update_pressed():
 	last_cortical_selected["neuron_snooze_period"] = snooze_period
 	last_cortical_selected["neuron_degeneracy_coefficient"] = degenerecy_coefficient
 	last_cortical_selected["neuron_psp_uniform_distribution"] = psp_uniform_distribution
-	_make_put_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_area',last_cortical_selected, false)
+	_make_put_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_area',last_cortical_selected, false, "/v1/feagi/genome/cortical_area")
 	$Spatial/Camera/Menu/cortical_menu/Control/Update.release_focus()
 	$Spatial/Camera/Menu/properties/Control/Update.release_focus()
 	
@@ -465,32 +466,35 @@ func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 		last_cortical_selected = genome_properties
 		var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_mappings/afferents?cortical_area=' + genome_properties["cortical_id"]
 		$HTTP_node/afferent.request(combine_url)
-	$notification.generate_notification_message(genome_properties, _response_code, "_on_HTTPRequest_request_completed")
+	$notification.generate_notification_message(genome_properties, _response_code, "_on_HTTPRequest_request_completed", "/v1/feagi/genome/cortical_area")
 
-func _make_post_request(url, use_ssl, data_to_send):
+func _make_post_request(url, use_ssl, data_to_send, feagi_string):
 	# Convert data to json string:
 	var query = JSON.print(data_to_send)
 	# Add 'Content-Type' header:
 	var headers = ["Content-Type: application/json"]
 	$HTTP_node/send_feagi.request(url, headers, use_ssl, HTTPClient.METHOD_POST, query)
+	latest_send_feagi = feagi_string
 
-func _make_put_request(url, data_to_send, use_ssl):
+func _make_put_request(url, data_to_send, use_ssl, feagi_string):
 	# Convert data to json string:
 	var query = JSON.print(data_to_send)
 	# Add 'Content-Type' header:
 	var headers = ["Content-Type: application/json"]
 	$HTTP_node/send_feagi.request(url, headers, use_ssl, HTTPClient.METHOD_PUT, query)
-	
-func _make_delete_request(url, use_ssl):
+	latest_send_feagi = feagi_string
+
+func _make_delete_request(url, use_ssl, feagi_string):
 	# Convert data to json string:
 	# Add 'Content-Type' header:
 	var headers = ["Content-Type: application/json"]
 	$HTTP_node/send_feagi.request(url, headers, use_ssl, HTTPClient.METHOD_DELETE)
+	latest_send_feagi = feagi_string
 
 func _on_send_feagi_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
 	var api_data = json.result
-	$notification.generate_notification_message(api_data, _response_code, "_on_send_feagi_request_completed")
+	$notification.generate_notification_message(api_data, _response_code, "_on_send_feagi_request_completed", latest_send_feagi)
 
 func _on_info_pressed():
 	for i in plus_node:
@@ -556,14 +560,14 @@ func _on_get_genome_name_request_completed(_result, _response_code, _headers, bo
 	if api_data != null:
 		$Spatial/Camera/Menu/information_menu/genome_string.text = api_data
 		$HTTP_node/get_burst.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/feagi/burst_engine/stimulation_period')
-	$notification.generate_notification_message(api_data, _response_code, "_on_get_genome_name_request_completed")
+	$notification.generate_notification_message(api_data, _response_code, "_on_get_genome_name_request_completed", "/v1/feagi/genome/file_name")
 	
 
 func _on_get_burst_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
 	var api_data = json.result
 	$Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.text = str(1/float(api_data))
-	$notification.generate_notification_message(api_data, _response_code, "_on_get_burst_request_completed")
+	$notification.generate_notification_message(api_data, _response_code, "_on_get_burst_request_completed", "/v1/feagi/feagi/burst_engine/stimulation_period")
 
 func _on_download_pressed():
 	_clear_node_name_list(global_name_list)
@@ -582,7 +586,7 @@ func _on_add_pressed():
 		json_data["cortical_coordinates"]["z"] = $Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value
 		json_data["channel_count"] = $Spatial/Camera/Menu/addition_menu/count/count_spinbox.value
 
-		_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_area', false, json_data)
+		_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_area', false, json_data, "/v1/feagi/genome/cortical_area")
 		
 
 	if $"Spatial/Camera/Menu/addition_menu/OptionButton".selected == 3:
@@ -601,7 +605,7 @@ func _on_add_pressed():
 			
 			generate_single_cortical(json_data["cortical_coordinates"]["x"], json_data["cortical_coordinates"]["y"], json_data["cortical_coordinates"]["z"], json_data["cortical_dimensions"]["x"], json_data["cortical_dimensions"]["y"], json_data["cortical_dimensions"]["z"], json_data["cortical_name"])
 			
-			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/custom_cortical_area', false, json_data)
+			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/custom_cortical_area', false, json_data, "/v1/feagi/genome/cortical_area")
 			$Spatial/Camera/Menu/addition_menu/add.release_focus()
 			$Spatial/Camera.transform.origin=Vector3(json_data["cortical_coordinates"]["x"]-20,json_data["cortical_coordinates"]["y"],json_data["cortical_coordinates"]["z"]+20)
 		else:
@@ -618,7 +622,7 @@ func _on_remove_pressed():
 	var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_area?cortical_area_name=' + get_name
 	_clear_single_cortical($Spatial/Camera/Menu/cortical_menu/title.text, global_name_list)
 #	$HTTP_node/remove_cortical.request(combine_url)
-	_make_delete_request(combine_url, false)
+	_make_delete_request(combine_url, false, "/v1/feagi/genome/cortical_area")
 	$Spatial/Camera/Menu/cortical_menu/Control/remove.release_focus()
 
 func _on_update_destination_info_request_completed(_result, _response_code, _headers, body):
@@ -652,7 +656,7 @@ func _on_update_destination_info_request_completed(_result, _response_code, _hea
 				new_node.get_child(5).set_pressed(api_data[i]["plasticity_flag"])
 				new_node.get_child(6).connect("pressed", self, "map_info_pressed", [new_node])
 				new_node.get_child(7).connect("pressed", self, "remove_button_inside_dst", [new_node])
-	$notification.generate_notification_message(api_data, _response_code, "_on_update_destination_info_request_completed")
+	$notification.generate_notification_message(api_data, _response_code, "_on_update_destination_info_request_completed", "/v1/feagi/genome/mapping_properties")
 
 func _on_genome_data_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
@@ -678,7 +682,7 @@ func _on_genome_data_request_completed(_result, _response_code, _headers, body):
 #				if api_data[i].hash() != genome_data["genome"][i].hash():
 #					_clear_single_cortical(i, global_name_list)
 #					generate_single_cortical(api_data[i][0], api_data[i][1], api_data[i][2], api_data[i][4], api_data[i][5], api_data[i][6], api_data[i][7])
-	$notification.generate_notification_message(api_data, _response_code, "_on_genome_data_request_completed")
+#	$notification.generate_notification_message(api_data, _response_code, "_on_genome_data_request_completed")
 
 
 func _on_remove_cortical_request_completed(_result, _response_code, _headers, _body):
@@ -747,7 +751,7 @@ func dst_remove_pressed(duplicated_node_lineedit):
 		for x in number_holder:
 			child_node_holder.pop_at(x - counter)
 			counter += 1
-		_make_put_request(combine_url,[], false)
+		_make_put_request(combine_url,[], false, "/v1/feagi/genome/mapping_properties")
 #		$Spatial/Camera/Menu/cortical_menu/Control/Update.rect_position.y = 10 + $Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer.rect_size.y + $Spatial/Camera/Menu/cortical_mapping.rect_position.y 
 #		$Spatial/Camera/Menu/cortical_mapping.rect_position.y = $Spatial/Camera/Menu/cortical_mapping.rect_position.y - (number_holder.size() * 5)
 
@@ -766,7 +770,7 @@ func _on_mapping_def_request_completed(_result, _response_code, _headers, body):
 		for i in api_data:
 			$Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.add_item(i)
 			$Spatial/Camera/Menu/rule_properties/mapping_rule_options.add_item(i)
-	$notification.generate_notification_message(api_data, _response_code, "_on_mapping_def_request_completed")
+	$notification.generate_notification_message(api_data, _response_code, "_on_mapping_def_request_completed", "/v1/feagi/genome/morphology_list")
 
 func _on_morphology_types_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
@@ -775,7 +779,7 @@ func _on_morphology_types_request_completed(_result, _response_code, _headers, b
 	if api_data != null:
 		for i in api_data:
 			$Spatial/Camera/Menu/rule_properties/rules/rule_type_options.add_item(i)
-	$notification.generate_notification_message(api_data, _response_code, "_on_morphology_types_request_completed")
+	$notification.generate_notification_message(api_data, _response_code, "_on_morphology_types_request_completed", "/v1/feagi/genome/morphology_types")
 	
 
 func _on_plus_add_pressed():
@@ -859,7 +863,7 @@ func _on_save_pressed():
 		json_data["composite"]['parameters']['src_seed'] = [$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/x.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/y.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/z.value]
 		json_data["composite"]["mapper_morphology"] = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.get_item_text($Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.selected)
 	var combine_url = '/v1/feagi/genome/morphology?morphology_name=' + symbols_checker_for_api(new_name) + '&morphology_type=' + new_type
-	_make_put_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, json_data, false)
+	_make_put_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, json_data, false, "/v1/feagi/genome/morphology")
 	$Spatial/Camera/Menu/rule_properties.visible = false
 
 #func _on_update_morphology_request_completed(result, response_code, headers, body):
@@ -869,7 +873,7 @@ func _on_delete_pressed():
 	var grab_name_rule = $Spatial/Camera/Menu/rule_properties/mapping_rule_options.get_item_text($Spatial/Camera/Menu/rule_properties/mapping_rule_options.get_selected_id())
 	grab_name_rule = symbols_checker_for_api(grab_name_rule)
 	var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology?morphology_name=' + grab_name_rule
-	_make_delete_request(combine_url, false)
+	_make_delete_request(combine_url, false, "/v1/feagi/genome/morphology")
 
 func _on_get_cortical_dst_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
@@ -888,7 +892,7 @@ func _on_get_cortical_dst_request_completed(_result, _response_code, _headers, b
 			var get_id = $Spatial/Camera/Menu/cortical_menu/Control/cortical_id.text
 			var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/monitoring/neuron/membrane_potential?cortical_area=' + get_id
 			$HTTP_node/mem_request.request(combine_url)
-	$notification.generate_notification_message(api_data, _response_code, "_on_get_cortical_dst_request_completed")
+	$notification.generate_notification_message(api_data, _response_code, "_on_get_cortical_dst_request_completed", "/v1/feagi/genome/cortical_area")
 
 func _on_cortical_mapping_add_pressed():
 	_on_info_pressed() # leveraging the same function to clear all infos on the box
@@ -958,7 +962,7 @@ func _on_burst_value_text_entered(new_text):
 		json["burst_duration"] = float(1/float(1))
 	else:
 		json["burst_duration"] = float(1/float(new_text))
-	_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/feagi/burst_engine', false, json)
+	_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/feagi/burst_engine', false, json, "/v1/feagi/feagi/burst_engine")
 	$Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.release_focus()
 
 func _on_burst_value_focus_exited():
@@ -968,7 +972,7 @@ func _on_burst_value_focus_exited():
 		json["burst_duration"] = float(1/float(1))
 	else:
 		json["burst_duration"] = float(1/float(new_text))
-	_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/feagi/burst_engine', false, json)
+	_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/feagi/burst_engine', false, json, "/v1/feagi/feagi/burst_engine")
 	$Spatial/Camera/Menu/information_menu/burst_duration_label/burst_value.release_focus()
 
 func _on_Neuron_morphologies_button_pressed():
@@ -1000,7 +1004,7 @@ func _on_morphology_list_request_completed(_result, _response_code, _headers, bo
 		$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.add_item(i)
 #		$Spatial/Camera/Menu/information_menu/Neuron_morphologies.add_item(i)
 		$Spatial/Camera/Menu/information_menu/Neuron_morphologies_item.add_item(i, null, true)
-	$notification.generate_notification_message(api_data, _response_code, "_on_morphology_list_request_completed")
+	$notification.generate_notification_message(api_data, _response_code, "_on_morphology_list_request_completed", "/v1/feagi/genome/morphology_list")
 
 
 func _on_Neuron_morphologies_item_selected(index):
@@ -1053,7 +1057,7 @@ func _on_create_pressed():
 				string_input.append(full_array)
 			json["patterns"] = string_input
 			var combine_url = '/v1/feagi/genome/morphology?morphology_name=' + new_name + '&morphology_type=' + new_type
-			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, false, json)
+			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, false, json, "/v1/feagi/genome/morphology")
 			$Spatial/Camera/Menu/Control.visible = false
 			new_morphology_clear()
 			$Spatial/Camera/Menu/Control/inner_box/morphology_name.text = ""
@@ -1070,7 +1074,7 @@ func _on_create_pressed():
 				empty_array1.append(temp_array)
 			json["vectors"] = empty_array1
 			var combine_url = '/v1/feagi/genome/morphology?morphology_name=' + new_name + '&morphology_type=' + new_type
-			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, false, json)
+			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, false, json, "/v1/feagi/genome/morphology")
 			$Spatial/Camera/Menu/Control.visible = false
 			new_morphology_clear()
 			$Spatial/Camera/Menu/Control/inner_box/morphology_name.text = ""
@@ -1082,7 +1086,7 @@ func _on_create_pressed():
 			json["src_pattern"] = [[$Spatial/Camera/Menu/Control/inner_box/box_of_composite/X_box/C.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/X_box/S.value], [$Spatial/Camera/Menu/Control/inner_box/box_of_composite/Y_box/C.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Y_box/S.value], [$Spatial/Camera/Menu/Control/inner_box/box_of_composite/Z_box/C.value, $Spatial/Camera/Menu/Control/inner_box/box_of_composite/Z_box/S.value]]
 			json["mapper_morphology"] = $Spatial/Camera/Menu/Control/inner_box/box_of_composite/mapper_composite.get_item_text($Spatial/Camera/Menu/Control/inner_box/box_of_composite/mapper_composite.selected)	
 			var combine_url = '/v1/feagi/genome/morphology' + '?morphology_name=' + new_name + '&morphology_type=' + new_type
-			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, false, json)
+			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, false, json, "/v1/feagi/genome/morphology")
 			$Spatial/Camera/Menu/Control.visible = false
 			new_morphology_clear()
 			$Spatial/Camera/Menu/Control/inner_box/morphology_name.text = ""
@@ -1106,7 +1110,7 @@ func _on_afferent_request_completed(_result, _response_code, _headers, body):
 		new_node.rect_position.x = $Spatial/Camera/Menu/cortical_mapping/Control/afferent/VBoxContainer.rect_position.x + 5
 		new_node.rect_position.y = $Spatial/Camera/Menu/cortical_mapping/Control/afferent/VBoxContainer.rect_position.y + (counter * 20)
 		counter += 1
-	$notification.generate_notification_message(api_data, _response_code, "_on_afferent_request_completed")
+	$notification.generate_notification_message(api_data, _response_code, "_on_afferent_request_completed", "/v1/feagi/genome/cortical_mappings/afferents")
 	
 func afferent_holder_clear():
 	# Clear duplicate cortical maps name up
@@ -1145,7 +1149,9 @@ func plus_node_clear():
 
 func ghost_morphology_clear():
 	for i in ghost_morphology:
-		i.queue_free()
+		print("i: ", i)
+		if is_instance_valid(i):
+			i.queue_free()
 	ghost_morphology.clear()
 
 func _on_cortical_dropdown_item_selected(index):
@@ -1178,9 +1184,9 @@ func _on_update_inside_map_pressed():
 			dst_data["cortical_destinations"][get_id] = []
 			dst_data["cortical_destinations"][get_id].append(dst)
 	if dst_data["cortical_destinations"].has(get_id):
-		_make_put_request(combine_url,dst_data["cortical_destinations"][get_id], false)
+		_make_put_request(combine_url,dst_data["cortical_destinations"][get_id], false, "/v1/feagi/genome/mapping_properties")
 	else:
-		_make_put_request(combine_url,[], false)
+		_make_put_request(combine_url,[], false, "/v1/feagi/genome/mapping_properties")
 		
 func map_colorful():
 	pass
@@ -1196,32 +1202,36 @@ func map_colorful():
 
 func _on_mem_pressed():
 	var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/monitoring/neuron/membrane_potential?cortical_area=' + $Spatial/Camera/Menu/cortical_menu/Control/cortical_id.text + '&state=' + str($Spatial/Camera/Menu/button_choice/Control/mem.is_pressed())
-	_make_post_request(combine_url, false, $Spatial/Camera/Menu/button_choice/Control/mem.is_pressed())
+	_make_post_request(combine_url, false, $Spatial/Camera/Menu/button_choice/Control/mem.is_pressed(), "/v1/feagi/monitoring/neuron/membrane_potential")
 
 func _on_mem_request_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
 	var api_data = json.result
+	print("api: ", body.get_string_from_utf8())
+	print("_result: ", _result)
+	print("response code: ", _response_code)
+	print("headers: ", _headers)
 	var get_id = $Spatial/Camera/Menu/cortical_menu/Control/cortical_id.text
 	$Spatial/Camera/Menu/button_choice/Control/mem.set_pressed(api_data)
 	var combnine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/monitoring/neuron/synaptic_potential?cortical_area=' + get_id
 	$HTTP_node/syn_request.request(combnine_url)
-	$notification.generate_notification_message(api_data, _response_code, "_on_mem_request_request_completed")
+	$notification.generate_notification_message(api_data, _response_code, "_on_mem_request_request_completed", "/v1/feagi/monitoring/neuron/membrane_potential")
 
 func _on_syn_request_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
 	var api_data = json.result
 	$Spatial/Camera/Menu/button_choice/Control/syn.set_pressed(api_data)
-	$notification.generate_notification_message(api_data, _response_code, "_on_syn_request_request_completed")
+	$notification.generate_notification_message(api_data, _response_code, "_on_syn_request_request_completed", "/v1/feagi/monitoring/neuron/synaptic_potential")
 
 func _on_syn_pressed():
 	var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/monitoring/neuron/synaptic_potential?cortical_area=' + $Spatial/Camera/Menu/cortical_menu/Control/cortical_id.text + '&state=' + str($Spatial/Camera/Menu/button_choice/Control/syn.is_pressed())
-	_make_post_request(combine_url, false, $Spatial/Camera/Menu/button_choice/Control/syn.is_pressed())
+	_make_post_request(combine_url, false, $Spatial/Camera/Menu/button_choice/Control/syn.is_pressed(), "/v1/feagi/monitoring/neuron/synaptic_potential")
 
 func _on_insert_button_pressed():
 	$Spatial/Camera/Menu/insert_menu/inner_box.visible = true
 	var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/append?circuit_name=' + $Spatial/Camera/Menu/insert_menu/inner_box/name_text.text
 	var new_data = ["placeholder"]
-	_make_post_request(combine_url, false, new_data)
+	_make_post_request(combine_url, false, new_data, "/v1/feagi/genome/append")
 
 
 func _on_circuit_request_request_completed(_result, _response_code, _headers, body):
@@ -1230,7 +1240,7 @@ func _on_circuit_request_request_completed(_result, _response_code, _headers, bo
 	var api_data = json.result
 	for i in api_data:
 		$Spatial/Camera/Menu/insert_menu/insert_button/ItemList.add_item(i, null, true)
-	$notification.generate_notification_message(api_data, _response_code, "_on_circuit_request_request_completed")
+	$notification.generate_notification_message(api_data, _response_code, "_on_circuit_request_request_completed", "/v1/feagi/genome/circuits")
 
 
 func _on_import_pressed():
@@ -1254,7 +1264,7 @@ func _on_circuit_size_request_completed(_result, _response_code, _headers, body)
 	$Spatial/Camera/Menu/insert_menu/inner_box/D_spinbox.value = api_data[1]
 	$Spatial/Camera/Menu/insert_menu/inner_box/H_spinbox.value = api_data[2]
 	generate_single_cortical($Spatial/Camera/Menu/insert_menu/x_spinbox.value, $Spatial/Camera/Menu/insert_menu/y_spinbox.value, $Spatial/Camera/Menu/insert_menu/z_spinbox.value, $Spatial/Camera/Menu/insert_menu/inner_box/W_spinbox.value, $Spatial/Camera/Menu/insert_menu/inner_box/D_spinbox.value, $Spatial/Camera/Menu/insert_menu/inner_box/H_spinbox.value, "example")
-	$notification.generate_notification_message(api_data, _response_code, "_on_circuit_size_request_completed")
+	$notification.generate_notification_message(api_data, _response_code, "_on_circuit_size_request_completed", "/v1/feagi/genome/circuit_size")
 	
 func symbols_checker_for_api(string_data):
 	if " " in string_data:
@@ -1309,7 +1319,7 @@ func _on_ghost_morphology_list_request_completed(_result, _response_code, _heade
 				node_ghost.clear()
 				for i in $Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.get_item_count():
 					node_ghost.add_item($Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.get_item_text(i), i)
-	$notification.generate_notification_message(api_data, _response_code, "_on_circuit_size_request_completed")
+	$notification.generate_notification_message(api_data, _response_code, "_on_circuit_size_request_completed", "/v1/feagi/genome/circuit_size")
 
 func _on_text_changed(new_text):
 	Godot_list.Node_2D_control = true
@@ -1322,10 +1332,11 @@ func _on_get_morphology_usuage_request_completed(_result, _response_code, _heade
 	var api_data = json.result
 	var string_list = ""
 	$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/associations_data.text = ""
-	for i in api_data:
-		string_list = string_list + str(id_to_name(i[0]), " > ", id_to_name(i[1])) + "\n"
-	$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/associations_data.text += str(string_list)
-	$notification.generate_notification_message(api_data, _response_code, "_on_get_morphology_usuage_request_completed")
+	if api_data != null:
+		for i in api_data:
+			string_list = string_list + str(id_to_name(i[0]), " > ", id_to_name(i[1])) + "\n"
+		$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/associations_data.text += str(string_list)
+	$notification.generate_notification_message(api_data, _response_code, "_on_get_morphology_usuage_request_completed", "/v1/feagi/genome/morphology")
 
 func _morphology_button_pressed():
 	var counter = 0
@@ -1513,7 +1524,7 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 						$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/morphology_def.text = new_name
 					if flag == false:
 						$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/morphology_def.text = new_name
-	$notification.generate_notification_message(api_data, _response_code, "_on_get_morphology_request_completed")
+	$notification.generate_notification_message(api_data, _response_code, "_on_get_morphology_request_completed", "/v1/feagi/monitoring/neuron/synaptic_potential")
 
 
 func _morphology_button_inside_red():

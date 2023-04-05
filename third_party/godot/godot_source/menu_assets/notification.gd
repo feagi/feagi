@@ -58,7 +58,7 @@ func timer(node):
 	node.queue_free()
 	dictionary_manager.erase(node)
 
-func generate_notification_message(api_data, API_response, func_name):
+func generate_notification_message(api_data, API_response, func_name, feagi_url):
 	var counter = len(dictionary_manager)
 	var node_duplicate_name = duplicate()
 	get_parent().add_child(node_duplicate_name)
