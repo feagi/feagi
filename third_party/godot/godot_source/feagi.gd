@@ -1125,6 +1125,7 @@ func _on_create_pressed():
 func _on_X_inside_inner_box_pressed():
 	$Spatial/Camera/Menu/Control.visible = false
 	new_morphology_clear()
+	$Spatial/Camera/Menu/Control/inner_box/morphology_name.text = ""
 
 func _on_afferent_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
@@ -1403,6 +1404,13 @@ func _morphology_button_pressed():
 		new_node.rect_size = $Spatial/Camera/Menu/Control/inner_box/box_of_vectors/Control.rect_size
 		new_node.rect_position.x = $Spatial/Camera/Menu/Control/inner_box/box_of_vectors/Control.rect_position.x
 		new_node.rect_position.y = $Spatial/Camera/Menu/Control/inner_box/box_of_vectors/Control.rect_position.y + (30 * counter)
+	if counter > 4:
+		$Spatial/Camera/Menu/Control/inner_box/grey_bg.rect_size.y += 35
+		$Spatial/Camera/Menu/Control/create.rect_position.y += 35
+		$Spatial/Camera/Menu/Control/ColorRect.rect_size.y += 35
+	else:
+		$Spatial/Camera/Menu/Control/create.rect_position = Vector2(152, 330)
+		$Spatial/Camera/Menu/Control/ColorRect.rect_size = Vector2(519, 394)
 	
 
 func _on_morphology_name_focus_exited():
@@ -1614,3 +1622,11 @@ func _morphology_button_inside_red():
 func _on_close_pressed_def():
 	plus_node_clear()
 	ghost_morphology_clear()
+
+
+func _on_morphology_type_item_selected(_index):
+	if len(new_morphology_node) > 0:
+		new_morphology_clear()
+		_morphology_button_pressed()
+	else:
+		_morphology_button_pressed()
