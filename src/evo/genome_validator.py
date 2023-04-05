@@ -44,7 +44,8 @@ def morphology_validator(genome):
         if "type" not in neuron_morphologies[morphology]:
             genome_validity = False
             print("Warning! Morphology \"%s\" does not have Type definition." % morphology)
-        elif neuron_morphologies[morphology]["type"] not in ["vectors", "patterns", "functions", "composite"]:
+
+        if neuron_morphologies[morphology]["type"] not in ["vectors", "patterns", "functions", "composite"]:
             genome_validity = False
             print("Warning! Morphology \"%s\" has an unsupported Type." % morphology)
             return genome_validity
@@ -54,7 +55,7 @@ def morphology_validator(genome):
             print("Warning! Morphology \"%s\" does not have Parameters definition." % morphology)
             return genome_validity
         
-        if type == "composite":
+        if neuron_morphologies[morphology]["type"] == "composite":
             if "src_seed" not in neuron_morphologies[morphology]["parameters"] or \
                 "src_pattern" not in neuron_morphologies[morphology]["parameters"] or \
                     "mapper_morphology" not in neuron_morphologies[morphology]["parameters"]:
@@ -62,7 +63,7 @@ def morphology_validator(genome):
                 print("Warning! Morphology \"%s\" has an incorrect set of parameters." % morphology)
                 return genome_validity
         
-        if type == "vectors":
+        if neuron_morphologies[morphology]["type"] == "vectors":
             if "vectors" not in neuron_morphologies[morphology]["parameters"]:
                 genome_validity = False
                 print("Warning! Morphology \"%s\" has an incorrect set of parameters." % morphology)
@@ -81,7 +82,7 @@ def morphology_validator(genome):
                                 "Warning! Morphology \"%s\" has an incorrect vector parameter definition." % morphology)
                             return genome_validity
         
-        if type == "patterns":
+        if neuron_morphologies[morphology]["type"] == "patterns":
             if "patterns" not in neuron_morphologies[morphology]["parameters"]:
                 genome_validity = False
                 print("Warning! Morphology \"%s\" has an incorrect set of parameters." % morphology)
@@ -100,7 +101,7 @@ def morphology_validator(genome):
                                 "Warning! Morphology \"%s\" has an incorrect pattern parameter definition." % morphology)
                             return genome_validity
                         else:
-                            for pattern_segment in pattern_definition[pattern]:
+                            for pattern_segment in pattern:
                                 if len(pattern_segment) != 3:
                                     genome_validity = False
                                     print(
