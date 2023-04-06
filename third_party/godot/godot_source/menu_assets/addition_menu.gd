@@ -48,6 +48,12 @@ func _process(_delta):
 		$cortical_name_label.visible = false
 	if visible == false:
 		$OptionButton.select(0)
+	
+	if $cortical_name_textbox/type.text != "":
+		$add.disabled = false
+	else:
+		$add.disabled = true
+
 
 func add_list():
 	$OPU_list.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_type_options?cortical_type=OPU')
@@ -61,10 +67,7 @@ func _on_cortical_type_options_request_request_completed(_result, _response_code
 		for i in api_data:
 			opu_list.append(i)
 	$IPU_list.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_type_options?cortical_type=IPU')
-	get_parent().get_parent().get_parent().get_parent().get_node("notification").visible = true
-	get_parent().get_parent().get_parent().get_parent().get_node("notification/Label").text = str(_response_code)
-	get_parent().get_parent().get_parent().get_parent().get_node("notification/TextEdit").text = str(api_data)
-	get_parent().get_parent().get_parent().get_parent().get_node("notification/Label2").text = "_on_cortical_type_options_request_request_completed"
+	get_parent().get_parent().get_parent().get_parent().get_node("notification").generate_notification_message(api_data, _response_code, "_on_cortical_type_options_request_request_completed", "/v1/feagi/genome/cortical_type_options")
 
 func _on_IPU_list_request_completed(_result, _response_code, _headers, body):
 	ipu_list = []
@@ -74,7 +77,4 @@ func _on_IPU_list_request_completed(_result, _response_code, _headers, body):
 	if api_data != null:
 		for i in api_data:
 			ipu_list.append(i)
-	get_parent().get_parent().get_parent().get_parent().get_node("notification").visible = true
-	get_parent().get_parent().get_parent().get_parent().get_node("notification/Label").text = str(_response_code)
-	get_parent().get_parent().get_parent().get_parent().get_node("notification/TextEdit").text = str(api_data)
-	get_parent().get_parent().get_parent().get_parent().get_node("notification/Label2").text = "_on_cortical_type_options_request_request_completed"
+	get_parent().get_parent().get_parent().get_parent().get_node("notification").generate_notification_message(api_data, _response_code, "_on_cortical_type_options_request_request_completed", "/v1/feagi/genome/cortical_type_options?cortical_type=IPU")
