@@ -1153,7 +1153,6 @@ func plus_node_clear():
 
 func ghost_morphology_clear():
 	for i in ghost_morphology:
-		print("i: ", i)
 		if is_instance_valid(i):
 			i.queue_free()
 	ghost_morphology.clear()
