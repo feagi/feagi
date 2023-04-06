@@ -53,7 +53,7 @@ func _process(_delta):
 
 
 func timer(node):
-	yield(get_tree().create_timer(20), "timeout")
+	yield(get_tree().create_timer(5), "timeout")
 	node.visible = false
 	node.queue_free()
 	dictionary_manager.erase(node)
