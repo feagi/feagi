@@ -9,15 +9,15 @@ var default_color: Color
 var dictionary_manager = {}
 var previous_dict_total = 0
 var default_y = 0
+var api_message
 
 
 func _ready():
-#	var path = "res://test.json"
-#	var filess = File.new()
-#	filess.open(path, filess.READ)
-#	var data = parse_json(filess.get_as_text())
-#	filess.close()
-#	print("test.json: ", data["create_cortical_area"]["200"]["english"], " anyway im going to resume on notifications")
+	var path = "res://api_messages.json"
+	var filess = File.new()
+	filess.open(path, filess.READ)
+	api_message = parse_json(filess.get_as_text())
+	filess.close()
 	visible = false
 	default_color = color
 	default_y = rect_position.y
@@ -53,25 +53,46 @@ func _process(_delta):
 
 
 func timer(node):
-	yield(get_tree().create_timer(3), "timeout")
+	yield(get_tree().create_timer(20), "timeout")
 	node.visible = false
 	node.queue_free()
 	dictionary_manager.erase(node)
 
-func generate_notification_message(api_data, API_response, func_name, feagi_url):
-	var counter = len(dictionary_manager)
-	var node_duplicate_name = duplicate()
-	get_parent().add_child(node_duplicate_name)
-	dictionary_manager[node_duplicate_name] = func_name
-	node_duplicate_name.rect_position.y += counter * 130
-	
-	node_duplicate_name.visible = true
-	if str(API_response) == "200":
-		node_duplicate_name.get_child(1).text = "Operation Succeeded"
-	elif str(API_response) == "400":
-		node_duplicate_name.get_child(1).text = "Operation Failed"
+func generate_notification_message(_api_data, API_response, func_name, feagi_url, type="GET"):
+	API_response = str(API_response)
+	if API_response != "0":
+		if api_message.has(feagi_url):
+			if api_message[feagi_url].has(type):
+				if api_message[feagi_url][type].has(API_response):
+					var counter = len(dictionary_manager)
+					var node_duplicate_name = duplicate()
+					get_parent().add_child(node_duplicate_name)
+					dictionary_manager[node_duplicate_name] = func_name
+					node_duplicate_name.rect_position.y += counter * 130
+					node_duplicate_name.visible = true
+					if str(API_response) == "200":
+						node_duplicate_name.get_child(1).text = "Operation Succeeded"
+						node_duplicate_name.get_child(1).add_color_override("font_color", "#1f9239")
+					elif str(API_response) == "400":
+						node_duplicate_name.get_child(1).text = "Operation Failed"
+						node_duplicate_name.get_child(1).add_color_override("font_color", "#ff0000")
+					else:
+						node_duplicate_name.get_child(1).text = str(API_response)
+					node_duplicate_name.get_child(0).text = str(api_message[feagi_url][type][API_response]["EN"])
+					node_duplicate_name.get_child(2).text = str(func_name)
+					timer(node_duplicate_name)
 	else:
-		node_duplicate_name.get_child(1).text = str(API_response)
-	node_duplicate_name.get_child(0).text = str(api_data)
-	node_duplicate_name.get_child(2).text = str(func_name)
-	timer(node_duplicate_name)
+		var counter = len(dictionary_manager)
+		var node_duplicate_name = duplicate()
+		get_parent().add_child(node_duplicate_name)
+		dictionary_manager[node_duplicate_name] = func_name
+		node_duplicate_name.rect_position.y += counter * 130
+		node_duplicate_name.visible = true
+		if str(API_response) == "0":
+			node_duplicate_name.get_child(1).text = "Operation Failed"
+			node_duplicate_name.get_child(1).add_color_override("font_color", "#ff0000")
+		else:
+			node_duplicate_name.get_child(1).text = str(API_response)
+		node_duplicate_name.get_child(0).text = str("FEAGI is not connected currently")
+		node_duplicate_name.get_child(2).text = str(func_name)
+		timer(node_duplicate_name)
