@@ -810,7 +810,7 @@ func _on_type_rules_request_completed(_result, _response_code, _headers, body):
 		for x in api_data:
 			if $Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_item_text(i) == x:
 				$Spatial/Camera/Menu/rule_properties/rules/rule_type_options.select(i)
-	$notification.generate_notification_message(api_data, _response_code, "_on_type_rules_request_completed")
+	$notification.generate_notification_message(api_data, _response_code, "_on_type_rules_request_completed", "/v1/feagi/genome/morphology")
 
 
 func _on_save_pressed():
@@ -1010,14 +1010,12 @@ func _on_morphology_list_request_completed(_result, _response_code, _headers, bo
 		$Spatial/Camera/Menu/information_menu/Neuron_morphologies_item.add_item(i, null, true)
 	$notification.generate_notification_message(api_data, _response_code, "_on_morphology_list_request_completed", "/v1/feagi/genome/morphology_list")
 
-
 func _on_Neuron_morphologies_item_selected(index):
 	if index != 0:
 		$Spatial/Camera/Menu/rule_properties.visible = true
 		$Spatial/Camera/Menu/rule_properties/mapping_rule_options.selected = index
 		$Spatial/Camera/Menu/rule_properties/mapping_rule_options.emit_signal("item_selected", index)
 		$Spatial/Camera/Menu/rule_properties/mapping_rule_options.release_focus()
-
 
 func _on_Button_pressed():
 	$Spatial/Camera/Menu/Control/inner_box/morphology_type.clear()
