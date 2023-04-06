@@ -52,6 +52,7 @@ var dst_data_holder
 var ghost_morphology = []
 var new_morphology_node = []
 var latest_send_feagi = ""
+var type = ""
 
 
 
@@ -475,6 +476,7 @@ func _make_post_request(url, use_ssl, data_to_send, feagi_string):
 	var headers = ["Content-Type: application/json"]
 	$HTTP_node/send_feagi.request(url, headers, use_ssl, HTTPClient.METHOD_POST, query)
 	latest_send_feagi = feagi_string
+	type = "POST"
 
 func _make_put_request(url, data_to_send, use_ssl, feagi_string):
 	# Convert data to json string:
@@ -483,6 +485,7 @@ func _make_put_request(url, data_to_send, use_ssl, feagi_string):
 	var headers = ["Content-Type: application/json"]
 	$HTTP_node/send_feagi.request(url, headers, use_ssl, HTTPClient.METHOD_PUT, query)
 	latest_send_feagi = feagi_string
+	type = "PUT"
 
 func _make_delete_request(url, use_ssl, feagi_string):
 	# Convert data to json string:
@@ -490,11 +493,12 @@ func _make_delete_request(url, use_ssl, feagi_string):
 	var headers = ["Content-Type: application/json"]
 	$HTTP_node/send_feagi.request(url, headers, use_ssl, HTTPClient.METHOD_DELETE)
 	latest_send_feagi = feagi_string
+	type = "DELETE"
 
 func _on_send_feagi_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
 	var api_data = json.result
-	$notification.generate_notification_message(api_data, _response_code, "_on_send_feagi_request_completed", latest_send_feagi)
+	$notification.generate_notification_message(api_data, _response_code, "_on_send_feagi_request_completed", latest_send_feagi, type)
 
 func _on_info_pressed():
 	for i in plus_node:
@@ -543,7 +547,7 @@ func _on_information_button_request_completed(_result, _response_code, _headers,
 		map_colorful()
 	#	$Spatial/Camera/Menu/cortical_menu/Control/Update.rect_position.y = 10 + $Spatial/Camera/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer.rect_size.y + $Spatial/Camera/Menu/cortical_mapping.rect_position.y
 	else:
-		$notification.generate_notification_message(api_data, _response_code, "_on_information_button_request_completed")
+		$notification.generate_notification_message(api_data, _response_code, "_on_information_button_request_completed", "/v1/feagi/genome/cortical_mappings/efferents")
 
 func child_holder_clear():
 	# Clear duplicate cortical maps name up
@@ -605,7 +609,7 @@ func _on_add_pressed():
 			
 			generate_single_cortical(json_data["cortical_coordinates"]["x"], json_data["cortical_coordinates"]["y"], json_data["cortical_coordinates"]["z"], json_data["cortical_dimensions"]["x"], json_data["cortical_dimensions"]["y"], json_data["cortical_dimensions"]["z"], json_data["cortical_name"])
 			
-			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/custom_cortical_area', false, json_data, "/v1/feagi/genome/cortical_area")
+			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/custom_cortical_area', false, json_data, "/v1/feagi/genome/custom_cortical_area")
 			$Spatial/Camera/Menu/addition_menu/add.release_focus()
 			$Spatial/Camera.transform.origin=Vector3(json_data["cortical_coordinates"]["x"]-20,json_data["cortical_coordinates"]["y"],json_data["cortical_coordinates"]["z"]+20)
 		else:
@@ -1207,10 +1211,6 @@ func _on_mem_pressed():
 func _on_mem_request_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
 	var api_data = json.result
-	print("api: ", body.get_string_from_utf8())
-	print("_result: ", _result)
-	print("response code: ", _response_code)
-	print("headers: ", _headers)
 	var get_id = $Spatial/Camera/Menu/cortical_menu/Control/cortical_id.text
 	$Spatial/Camera/Menu/button_choice/Control/mem.set_pressed(api_data)
 	var combnine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/monitoring/neuron/synaptic_potential?cortical_area=' + get_id
