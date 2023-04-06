@@ -36,7 +36,9 @@ capabilities = {
         "refresh_rate": 1,
         "cortical_mapping": "o__ser",
         'count': 2,
-        'topic_identifier': '/S'
+        'topic_identifier': '/S',
+        'power_amount': 0.5
+
     },
     "motor": {
         "type": "opu",
