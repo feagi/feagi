@@ -207,33 +207,19 @@ func _clear_single_cortical(cortical_name, node_list):
 		$Floor_grid.clear()
 
 func generate_voxels():
-	if stored_value != "" and stored_value != null:
-		array_test = stored_value.replace("[", "")
-		array_test = array_test.replace("]", "")
-		test=array_test.split(",", true, '0')
-		total = (test.size())
+	var start1 = OS.get_ticks_msec()
+	if stored_value != null:
+		total = len(stored_value)
 		$red_voxel.multimesh.instance_count = total
 		$red_voxel.multimesh.visible_instance_count = total
-		var key = 0
-		var x
-		var y
-		var z
-		flag=0
-		while key < total:
-			if flag == 0:
-				flag = flag + 1
-				x = int(test[key])
-			elif flag == 1:
-				flag = flag + 1
-				y = int(test[key])
-			elif flag == 2:
-				flag = 0
-				z = int(test[key])
-				var position = Transform()
-				position = position.translated(Vector3(int(x), int(y), int(z)))
-				$red_voxel.multimesh.set_instance_transform(key, position)
-			key+= 1
-		flag = 0 # keep x,y,z in correct place
+		flag = 0
+		for i in stored_value:
+			var position = Transform().translated(Vector3(i[0], i[1], i[2]))
+			$red_voxel.multimesh.set_instance_transform(flag, position)
+			flag += 1
+	var end1 = OS.get_ticks_msec()
+	var time_total = end1 - start1
+	print("total: ", time_total)
 
 func cortical_is_clicked():
 	if select_cortical.selected.empty() != true:
