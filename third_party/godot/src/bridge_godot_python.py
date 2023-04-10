@@ -170,8 +170,7 @@ def feagi_breakdown(data):
             #     csv_writer(runtime_data["cortical_data"])
         runtime_data["genome_number"] = new_genome_num
     for i in data['godot']:
-        xyz = i[1], i[2], i[3]
-        new_list.append(xyz)
+        new_list.append([i[1], i[2], i[3]])
     return new_list
 
 
