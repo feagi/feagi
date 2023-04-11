@@ -1,0 +1,30 @@
+FROM alpine:latest
+
+RUN apk add g++
+RUN apk update && \
+    apk add --no-cache \
+        python3 \
+        py3-pip \
+        build-base \
+        python3-dev \
+        musl-dev \
+        libressl-dev \
+        libffi-dev \
+        zeromq-dev  \
+        sdl2-dev \
+        sdl2_image-dev \
+        sdl2_mixer-dev \
+        sdl2_ttf-dev \
+        py3-numpy
+# Python
+RUN pip3 install --upgrade pip
+RUN pip install pyzmq==22.1.0
+RUN pip3 install pygame
+RUN pip3 install uvicorn==0.17.5
+RUN pip3 install fastapi==0.75.0
+RUN pip3 install requests==2.27.1
+# RUN pip3 install gymnasium[box2d]
+RUN pip3 install numpy
+RUN pip3 install opencv-python==4.7.0.68
+RUN pip3 install feagi_agent
+RUN pip3 install jinja2
