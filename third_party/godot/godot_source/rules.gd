@@ -11,3 +11,7 @@ func _process(_delta):
 		$delete.disabled = true
 	else:
 		$delete.disabled = false
+	if $morphology_definition/composite_label/morphology_name.get_selected_id() == 0:
+		$save.disabled = true
+	else:
+		$save.disabled = false
