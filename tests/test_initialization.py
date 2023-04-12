@@ -16,13 +16,25 @@
 """
 
 
-def add_numbers(x_input, y_input):
-    return x_input + y_input
+import requests
 
 
-def test_feagi_initialization():
-    """
-    Testing
-    """
-    assert add_numbers(2, 3) == 5
-    print("Done.")
+def test():
+    try:
+        data = requests.get('http://127.0.0.1:8000' + '/v1/feagi/feagi/burst_engine/stimulation_period')
+        if data.status_code == 200:
+            print("FEAGI is reachable and is not having any issue")
+            return "OK"
+        else:
+            return "FAILED"
+    except Exception as e:
+        err = "ERROR AT: " + str(e)
+        return err
+
+
+result = test()
+if result == "OK":
+    pass
+else:
+    print(result)
+    print(5 / 0)
