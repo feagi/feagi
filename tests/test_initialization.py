@@ -22,7 +22,7 @@ def test_feagi_initialization():
     """
     ensure runtime_data parameters are updated upon initialization
     """
-    init_parameters()
+    initialize.init_parameters()
     assert initialize.init_infrastructure()
     assert runtime_data.brain_run_id
     assert runtime_data.parameters
