@@ -19,7 +19,7 @@ from evo import neuroembryogenesis
 from inf import initialize, runtime_data
 
 
-def test_feagi_initialization():
+def test_feagi_initialization(test):
     # ensure runtime_data parameters are updated upon initialization
     initialize.init_infrastructure()
     print("succeed")
