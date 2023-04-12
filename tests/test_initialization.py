@@ -14,11 +14,10 @@
 # limitations under the License.
 # ==============================================================================
 """
-import pytest
 
 
-def add_numbers(x, y):
-    return x + y
+def add_numbers(x_input, y_input):
+    return x_input + y_input
 
 
 def test_feagi_initialization():
