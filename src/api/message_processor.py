@@ -32,14 +32,13 @@ def api_message_processor(api_message):
             runtime_data.parameters['Logs']['print_messenger_logs'] \
                 = api_message['log_management']['print_messenger_logs']
 
-    if 'connectome_snapshot' in api_message:
-        if 'connectome_path' in api_message['connectome_snapshot']:
-            if api_message['connectome_snapshot']['connectome_path']:
-                print("Taking a snapshot of the brain... ... ...")
-                disk_ops.save_brain_to_disk(connectome_path=api_message['connectome_snapshot']['connectome_path'],
-                                            type='snapshot')
-            else:
-                disk_ops.save_brain_to_disk()
+    if 'connectome_path' in api_message:
+        if api_message['connectome_path']:
+            print("Taking a snapshot of the brain... ... ...")
+            disk_ops.save_brain_to_disk(connectome_path=api_message['connectome_path'],
+                                        type='snapshot')
+        else:
+            disk_ops.save_brain_to_disk()
 
     if 'neuron_mp_collection_scope' in api_message:
         if api_message['neuron_mp_collection_scope'] is not None:

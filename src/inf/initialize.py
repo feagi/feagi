@@ -189,7 +189,7 @@ def init_working_directory():
     else:
         runtime_data.working_directory = runtime_data.parameters["InitData"]["working_directory"] + '/' + \
                                          runtime_data.brain_run_id
-        runtime_data.connectome_path = runtime_data.working_directory + '/connectome/'
+        runtime_data.connectome_path = runtime_data.working_directory + 'connectome/'
         runtime_data.parameters["InitData"]["connectome_path"] = runtime_data.connectome_path
 
         if not os.path.exists(runtime_data.connectome_path):
