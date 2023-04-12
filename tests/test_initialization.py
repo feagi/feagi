@@ -21,4 +21,5 @@ def test_feagi_initialization():
     """
     Testing
     """
-    assert(print("Done."))
+    assert add_numbers(2, 3) == 5
+    print("Done.")
