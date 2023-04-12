@@ -15,12 +15,14 @@
 # ==============================================================================
 
 import pytest
+import feagi_configuration
 from evo import neuroembryogenesis
 from inf import initialize, runtime_data
 
 
 def test_feagi_initialization():
     # ensure runtime_data parameters are updated upon initialization
+    assert init_parameters()
     assert initialize.init_infrastructure()
     assert runtime_data.brain_run_id
     assert runtime_data.parameters
