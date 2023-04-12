@@ -25,6 +25,7 @@ def test_feagi_initialization():
     """
     initialize.init_parameters()
     initialize.init_infrastructure()
+    initialize.init_brain()
     assert runtime_data.brain_run_id
     assert runtime_data.parameters
     assert runtime_data.working_directory
