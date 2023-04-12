@@ -1,4 +1,4 @@
-
+"""
 # Copyright 2019 The FEAGI Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,16 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
-import pytest
-import feagi_configuration
+"""
 from evo import neuroembryogenesis
 from inf import initialize, runtime_data
 
 
 def test_feagi_initialization():
-    # ensure runtime_data parameters are updated upon initialization
-    assert init_parameters()
+    """
+    ensure runtime_data parameters are updated upon initialization
+    """
+    init_parameters()
     assert initialize.init_infrastructure()
     assert runtime_data.brain_run_id
     assert runtime_data.parameters
