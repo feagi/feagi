@@ -36,4 +36,3 @@ jobs:
       working-directory: ./
     - name: Run tests using pytest
       run: pytest ../tests
-      working-directory: ./src
