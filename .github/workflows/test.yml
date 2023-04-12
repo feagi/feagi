@@ -1,0 +1,38 @@
+name: Testing
+
+on:
+  push:
+    branches: 
+      - staging
+  pull_request:
+    branches: 
+      - staging
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.8
+    - name: Install dependencies testing
+      run: |
+        python setup.py install
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov pylint
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        export PYTHONPATH="$PWD"
+        cd src && python3 main.py
+    - name: Analyze code using pylint
+      run: |
+        files=`git diff --name-only --diff-filter=d HEAD^ | grep -E '\.py$' | tr '\n' ' '` 
+        if [[ $files ]]; then pylint --fail-under=5 $files; fi
+      working-directory: ./
+    - name: Run tests using pytest
+      run: pytest ../tests
+      working-directory: ./src
