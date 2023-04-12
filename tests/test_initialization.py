@@ -17,6 +17,10 @@
 import pytest
 
 
+def add_numbers(x, y):
+    return x + y
+
+
 def test_feagi_initialization():
     """
     Testing
