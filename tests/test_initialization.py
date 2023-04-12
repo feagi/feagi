@@ -20,21 +20,22 @@ import requests
 
 
 def test():
+    """
+    A simple function to ping the endpoint of FEAGI's burst timer.
+    """
     try:
         data = requests.get('http://127.0.0.1:8000' + '/v1/feagi/feagi/burst_engine/stimulation_period')
         if data.status_code == 200:
             print("FEAGI is reachable and is not having any issue")
             return "OK"
-        else:
-            return "FAILED"
-    except Exception as e:
-        err = "ERROR AT: " + str(e)
+    except Exception as error:
+        err = "ERROR AT: " + str(error)
         return err
 
 
-result = test()
-if result == "OK":
+RESULT = test()
+if RESULT == "OK":
     pass
 else:
-    print(result)
+    print(RESULT)
     print(5 / 0)
