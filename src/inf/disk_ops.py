@@ -39,6 +39,20 @@ def load_brain_in_memory(connectome_path=None, cortical_list=None):
     return brain
 
 
+def load_genome_in_memory(connectome_path=None, cortical_list=None):
+    # todo: Need error handling added so if there is a corruption in brain data it can regenerate
+    if not connectome_path:
+        connectome_path = runtime_data.connectome_path
+    if not cortical_list:
+        cortical_list = runtime_data.cortical_list
+    genome = {}
+    if os.path.isfile(connectome_path + 'genome.json'):
+        with open(connectome_path + 'genome.json', "r") as data_file:
+            data = json.load(data_file)
+            runtime_data.genome = data
+    print("Genome has been successfully loaded into memory...")
+
+
 def serialize_brain_data(brain):
     for cortical_area in brain:
         for neuron_id in brain[cortical_area]:

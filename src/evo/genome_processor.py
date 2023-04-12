@@ -17,6 +17,7 @@
 import logging
 import copy
 import traceback
+import datetime
 from evo.genome_editor import save_genome
 from evo.genome_validator import genome_validator
 from inf import runtime_data
