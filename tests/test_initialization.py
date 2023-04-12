@@ -21,10 +21,15 @@ import requests
 
 def test():
     """
-    A simple function to ping the endpoint of FEAGI's burst timer.
+    A simple function to ping the FEAGI's endpoints.
     """
+
     try:
+        files = {'file': open('genome_test/static_genome.json', 'rb')}
+        response = requests.post('http://127.0.0.1:8000/v1/feagi/genome/upload/file', files=files)
         data = requests.get('http://127.0.0.1:8000' + '/v1/feagi/feagi/burst_engine/stimulation_period')
+        if response.status_code == 200:
+            print("Loaded OK!")
         if data.status_code == 200:
             print("FEAGI is reachable and is not having any issue")
             return "OK"
