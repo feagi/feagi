@@ -15,8 +15,9 @@
 # ==============================================================================
 
 import pytest
-from src.evo import neuroembryogenesis
-from src.inf import initialize, runtime_data
+from evo import neuroembryogenesis
+from inf import initialize, runtime_data
+import skeleton
 
 
 def test_feagi_initialization():
