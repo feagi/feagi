@@ -46,29 +46,46 @@ services:
     depends_on:
       influxdb:
         condition: service_healthy
+#
+#  ros-gazebo:
+#    build: ../third_party/gazebo/simulation
+#    deploy:
+#      resources:
+#        limits:
+#          cpus: '4'
+#          memory: '3g'
+#    ports:
+#      - "6080:80"
+#    env_file:
+#      - ./.env
+#    privileged: true
+#    networks:
+#      - net
+#    volumes:
+#      #- <local path>:<docker path>                                 Only update the local path, keep docker path static
+#      # Robot mapping
+#      - ../third_party/gazebo/simulation/robots/smart_car/smart_car.sdf:/opt/source-code/simulation/robots/smart_car/smart_car.sdf
+#      # Environment mapping
+#      - ../third_party/gazebo/simulation/environments/material/map1.png:/opt/source-code/simulation/environments/material/map1.png
 
-  ros-gazebo:
-    build: ../third_party/gazebo/simulation
+  brain_visualizer:
+    build: ../third_party/godot/html
     deploy:
       resources:
         limits:
-          cpus: '4'
-          memory: '3g'
+          cpus: '1'
+          memory: '2g'
     ports:
-      - "6080:80"
+      - "6085:6085"
     env_file:
       - ./.env
     privileged: true
     networks:
       - net
-    volumes:
-      #- <local path>:<docker path>                                 Only update the local path, keep docker path static
-      # Robot mapping
-      - ../third_party/gazebo/simulation/robots/smart_car/smart_car.sdf:/opt/source-code/simulation/robots/smart_car/smart_car.sdf
-      # Environment mapping
-      - ../third_party/gazebo/simulation/environments/material/map1.png:/opt/source-code/simulation/environments/material/map1.png
+    depends_on:
+      - godot_bridge
 
-  godot:
+  godot_bridge:
     build: ../third_party/godot/
     deploy:
       resources:
@@ -129,6 +146,3 @@ services:
 volumes:
   grafana_data:
   influxdb_data:
-
-
-# docker compose -f feagi.yml up --build
