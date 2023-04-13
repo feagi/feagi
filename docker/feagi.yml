@@ -28,6 +28,21 @@ services:
       timeout: 10s
       retries: 5
 
+  pygame:
+    build: ../third_party/pygame/aliens
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
+    ports:
+      - "6084:6084"
+#    env_file:
+#      - ./.env
+    privileged: true
+    networks:
+      - net
+
   grafana:
     build: ../third_party/grafana/
     deploy:
