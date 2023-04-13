@@ -1,8 +1,4 @@
-FROM python:3.8-slim
-# FROM python:3.8
-RUN pip3 install websockets
-RUN pip3 install pyzmq
-RUN pip3 install requests
+FROM neuraville/bridge-godot-base
 
 COPY ./src/* /root/src/
 WORKDIR /root/src
