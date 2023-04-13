@@ -17,13 +17,13 @@ limitations under the License.
 """
 
 feagi_settings = {
-    "feagi_host": "192.168.50.218",
+    "feagi_host": "feagi",
     "feagi_api_port": "8000",
 }
 
 agent_settings = {
-    "agent_data_port": "40005",
-    "agent_id": "webcam",
+    "agent_data_port": "40006",
+    "agent_id": "aliens",
     "agent_type": "embodiment",
     'TTL': 2,
     'last_message': 0,
