@@ -22,8 +22,8 @@ feagi_settings = {
 }
 
 agent_settings = {
-    "agent_data_port": "40005",
-    "agent_id": "webcam",
+    "agent_data_port": "40007",
+    "agent_id": "javascript_webcam",
     "agent_type": "embodiment",
     'TTL': 2,
     'last_message': 0,
