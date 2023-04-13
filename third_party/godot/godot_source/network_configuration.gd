@@ -18,6 +18,19 @@ var one_frame = ""
 var _client = WebSocketClient.new()
 
 func _ready():
+	if OS.has_feature('JavaScript'):
+		var ip_result = JavaScript.eval(""" 
+			function getIPAddress() {
+				var url_string = window.location.href;
+				var url = new URL(url_string);
+				const searchParams = new URLSearchParams(url.search);
+				const ipAddress = searchParams.get("ip_address");
+				return ipAddress;
+			}
+			getIPAddress();
+		""")
+		websocket_ip_address = ip_result
+		api_ip_address = ip_result
 	websocket_url = "ws://" + str(websocket_ip_address) + ":" + websocket_port_address
 	print("result: ", websocket_url)
 	# Connect base signals to get notified of connection open, close, and errors.
