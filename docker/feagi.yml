@@ -28,20 +28,15 @@ services:
       timeout: 10s
       retries: 5
 
-  pygame:
-    build: ../third_party/pygame/aliens
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: '2g'
-    ports:
-      - "6084:6084"
-#    env_file:
-#      - ./.env
-    privileged: true
-    networks:
-      - net
+#  pygame:
+#    build: ../third_party/pygame/aliens
+#    ports:
+#      - "6084:6084"
+##    env_file:
+##      - ./.env
+#    privileged: true
+#    networks:
+#      - net
 
   grafana:
     build: ../third_party/grafana/
@@ -160,17 +155,10 @@ services:
 
   javascript_webcam:
     build: ../third_party/physical_robots/webcam
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: '2g'
     ports:
       - "6086:6086"
     env_file:
       - ./.env
-    volumes:
-      - ../src/:/opt/source-code/feagi/src
     networks:
       - net
     depends_on:
