@@ -47,7 +47,7 @@ main_dir = os.path.split(os.path.abspath(__file__))[0]
 
 def load_image(file):
     """loads an image, prepares it for play"""
-    file = os.path.join(main_dir, "data", file)
+    file = os.path.join(main_dir, "assets", file)
     try:
         surface = pg.image.load(file)
     except pg.error:
@@ -59,7 +59,7 @@ def load_sound(file):
     """because pygame can be be compiled without mixer."""
     if not pg.mixer:
         return None
-    file = os.path.join(main_dir, "data", file)
+    file = os.path.join(main_dir, "assets", file)
     try:
         sound = pg.mixer.Sound(file)
         return sound
@@ -293,7 +293,7 @@ def main(winstyle, data_sharing, movement_data, path_stored):
     boom_sound = load_sound("boom.wav")
     shoot_sound = load_sound("car_door.wav")
     if pg.mixer:
-        music = os.path.join(main_dir, "data", "house_lo.wav")
+        music = os.path.join(main_dir, "assets", "house_lo.wav")
         pg.mixer.music.load(music)
         pg.mixer.music.play(-1)
 

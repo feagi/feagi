@@ -151,6 +151,7 @@ if __name__ == "__main__":
             aliens.pg.quit()
             bgsk = threading.Thread(target=aliens.main, args=(0, rgb_array, movement, save_pg_path), daemon=True)
             bgsk.start()
+            print("RENEW!")
         message_from_feagi = feagi_opu_channel.receive()  # Get data from FEAGI
         # print("START")
         # action = env.action_space.sample()  # agent policy that uses the observation and info

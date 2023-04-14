@@ -1,8 +1,8 @@
 FROM python:3.7-slim-buster
 
 RUN mkdir -p templates
-RUN mkdir -p data/
-COPY data/ data/
+RUN mkdir -p assets/
+COPY assets/ assets/
 COPY configuration.py .
 # COPY nginx.conf .
 COPY aliens.py .
