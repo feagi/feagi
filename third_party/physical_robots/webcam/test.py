@@ -52,6 +52,9 @@ async def main():
 
 
 def websocket_operation():
+    """
+    WebSocket initialized to call the echo function using asyncio.
+    """
     asyncio.run(main())
 
 
