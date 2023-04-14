@@ -52,11 +52,11 @@ def rgba2rgb(rgba, background=(255, 255, 255)):
 
     alpha = np.asarray(alpha, dtype='float32') / 255.0
 
-    R_channel, G_channel, B_channel = background
+    R_CHANNEL, G_CHANNEL, B_CHANNEL = background
 
-    rgb_input[:, :, 0] = r_channel * alpha + (1.0 - alpha) * R_channel
-    rgb_input[:, :, 1] = g_channel * alpha + (1.0 - alpha) * G_channel
-    rgb_input[:, :, 2] = b_channel * alpha + (1.0 - alpha) * B_channel
+    rgb_input[:, :, 0] = r_channel * alpha + (1.0 - alpha) * R_CHANNEL
+    rgb_input[:, :, 1] = g_channel * alpha + (1.0 - alpha) * G_CHANNEL
+    rgb_input[:, :, 2] = b_channel * alpha + (1.0 - alpha) * B_CHANNEL
 
     return np.asarray(rgb_input, dtype='uint8')
 
@@ -127,7 +127,7 @@ if __name__ == "__main__":
     feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=False)
     feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
 
-    previous_frame_data = dict()
+    previous_frame_data = {}
     msg_counter = runtime_data["feagi_state"]['burst_counter']
     rgb = {}
     CHECKPOINT_TOTAL = 5
