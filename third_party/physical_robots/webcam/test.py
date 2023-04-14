@@ -8,7 +8,6 @@ from datetime import datetime
 import numpy as np
 import websockets
 import requests
-from fastapi import Request
 
 from configuration import *
 from feagi_agent import retina as retina
@@ -97,11 +96,11 @@ if __name__ == "__main__":
     previous_frame_data = dict()
     msg_counter = runtime_data["feagi_state"]['burst_counter']
     rgb = dict()
-    checkpoint_total = 5
-    Flag_counter = 0
+    CHECKPOINT_TOTAL = 5
+    FLAG_COUNTER = 0
     rgb['camera'] = dict()
     rgb_array['current'] = dict()
-    bgsk = threading.Thread(target=websocket_operation, daemon=True).start()
+    BGSK = threading.Thread(target=websocket_operation, daemon=True).start()
     while True:
         message_from_feagi = feagi_opu_channel.receive()  # Get data from FEAGI
         # OPU section STARTS
@@ -122,32 +121,32 @@ if __name__ == "__main__":
                     retina_data[i] = retina.center_data_compression(retina_data[i],
                                                                     capabilities['camera']
                                                                     ['peripheral_vision_compression'])
-            if previous_data_frame == {}:
+            if not previous_data_frame:
                 for i in retina_data:
-                    Previous_name = str(i) + "_prev"
-                    previous_data_frame[Previous_name] = {}
+                    PREVIOUS_NAME = str(i) + "_prev"
+                    previous_data_frame[PREVIOUS_NAME] = {}
             for i in retina_data:
                 name = i
                 if 'prev' not in i:
                     data = retina.ndarray_to_list(retina_data[i])
                     if 'C' in i:
-                        Previous_name = str(i) + "_prev"
-                        rgb_data, previous_data_frame[Previous_name] = retina.get_rgb(data,
+                        PREVIOUS_NAME = str(i) + "_prev"
+                        rgb_data, previous_data_frame[PREVIOUS_NAME] = retina.get_rgb(data,
                                                                                       capabilities['camera'][
                                                                                           'central_vision_compression'],
                                                                                       previous_data_frame[
-                                                                                          Previous_name],
+                                                                                          PREVIOUS_NAME],
                                                                                       name,
                                                                                       capabilities[
                                                                                           'camera'][
                                                                                           'deviation_threshold'])
                     else:
-                        Previous_name = str(i) + "_prev"
-                        rgb_data, previous_data_frame[Previous_name] = retina.get_rgb(data,
+                        PREVIOUS_NAME = str(i) + "_prev"
+                        rgb_data, previous_data_frame[PREVIOUS_NAME] = retina.get_rgb(data,
                                                                                       capabilities['camera'][
                                                                                           'peripheral_vision_compression'],
                                                                                       previous_data_frame[
-                                                                                          Previous_name],
+                                                                                          PREVIOUS_NAME],
                                                                                       name,
                                                                                       capabilities[
                                                                                           'camera'][
@@ -156,9 +155,9 @@ if __name__ == "__main__":
                         rgb['camera'][a] = rgb_data['camera'][a]
             try:
                 if "data" not in message_to_feagi:
-                    message_to_feagi["data"] = dict()
+                    message_to_feagi["data"] = {}
                 if "sensory_data" not in message_to_feagi["data"]:
-                    message_to_feagi["data"]["sensory_data"] = dict()
+                    message_to_feagi["data"]["sensory_data"] = {}
                 message_to_feagi["data"]["sensory_data"]['camera'] = rgb['camera']
             except Exception as e:
                 pass
@@ -167,15 +166,15 @@ if __name__ == "__main__":
         message_to_feagi['timestamp'] = datetime.now()
         message_to_feagi['counter'] = msg_counter
         msg_counter += 1
-        Flag_counter += 1
-        if Flag_counter == int(checkpoint_total):
+        FLAG_COUNTER += 1
+        if FLAG_COUNTER == int(CHECKPOINT_TOTAL):
             feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
             feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
-            Flag_counter = 0
+            FLAG_COUNTER = 0
             if feagi_burst_speed > 1:
-                checkpoint_total = 5
+                CHECKPOINT_TOTAL = 5
             if feagi_burst_speed < 1:
-                checkpoint_total = 5 / feagi_burst_speed
+                CHECKPOINT_TOTAL = 5 / feagi_burst_speed
             if msg_counter < feagi_burst_counter:
                 feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
                 if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
@@ -187,7 +186,7 @@ if __name__ == "__main__":
         try:
             pass
             # print(len(message_to_feagi['data']['sensory_data']['camera']['C']))
-        except:
+        except Exception as error:
             pass
         feagi_ipu_channel.send(message_to_feagi)
         message_to_feagi.clear()
