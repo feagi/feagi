@@ -47,7 +47,8 @@ def rgba2rgb(rgba, background=(255, 255, 255)):
     assert channels == 4, 'RGBA image has 4 channels.'
 
     rgb_input = np.zeros((row, col, 3), dtype='float32')
-    r_channel, g_channel, b_channel, alpha = rgba[:, :, 0], rgba[:, :, 1], rgba[:, :, 2], rgba[:, :, 3]
+    r_channel, g_channel, b_channel, alpha = rgba[:, :, 0], rgba[:, :, 1], rgba[:, :, 2], rgba[:, :,
+                                                                                          3]
 
     alpha = np.asarray(alpha, dtype='float32') / 255.0
 
@@ -167,26 +168,29 @@ if __name__ == "__main__":
                     data = retina.ndarray_to_list(retina_data[i])
                     if 'C' in i:
                         PREVIOUS_NAME = str(i) + "_prev"
-                        rgb_data, previous_data_frame[PREVIOUS_NAME] = retina.get_rgb(data,
-                                                                                      capabilities['camera'][
-                                                                                          'central_vision_compression'],
-                                                                                      previous_data_frame[
-                                                                                          PREVIOUS_NAME],
-                                                                                      name,
-                                                                                      capabilities[
-                                                                                          'camera'][
-                                                                                          'deviation_threshold'])
+                        rgb_data, previous_data_frame[PREVIOUS_NAME] = \
+                            retina.get_rgb(data,
+                                           capabilities['camera'][
+                                               'central_vision_compression'],
+                                           previous_data_frame[
+                                               PREVIOUS_NAME],
+                                           name,
+                                           capabilities[
+                                               'camera'][
+                                               'deviation_threshold'])
                     else:
                         PREVIOUS_NAME = str(i) + "_prev"
-                        rgb_data, previous_data_frame[PREVIOUS_NAME] = retina.get_rgb(data,
-                                                                                      capabilities['camera'][
-                                                                                          'peripheral_vision_compression'],
-                                                                                      previous_data_frame[
-                                                                                          PREVIOUS_NAME],
-                                                                                      name,
-                                                                                      capabilities[
-                                                                                          'camera'][
-                                                                                          'deviation_threshold'])
+                        rgb_data, previous_data_frame[PREVIOUS_NAME] = \
+                            retina.get_rgb(data,
+                                           capabilities[
+                                               'camera'][
+                                               'peripheral_vision_compression'],
+                                           previous_data_frame[
+                                               PREVIOUS_NAME],
+                                           name,
+                                           capabilities[
+                                               'camera'][
+                                               'deviation_threshold'])
                     for a in rgb_data['camera']:
                         rgb['camera'][a] = rgb_data['camera'][a]
             try:
@@ -196,6 +200,7 @@ if __name__ == "__main__":
                     message_to_feagi["data"]["sensory_data"] = {}
                 message_to_feagi["data"]["sensory_data"]['camera'] = rgb['camera']
             except Exception as e:
+                print("error: ", e)
                 pass
             # Psychopy game ends
         # message_to_feagi, battery = feagi.compose_message_to_feagi({**rgb},
@@ -226,7 +231,7 @@ if __name__ == "__main__":
             pass
             # print(len(message_to_feagi['data']['sensory_data']['camera']['C']))
         except Exception as error:
-            pass
+            print("error2: ", error)
         feagi_ipu_channel.send(message_to_feagi)
         message_to_feagi.clear()
         for i in rgb['camera']:
