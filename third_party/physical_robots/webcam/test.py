@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 
-import numpy as np
 import asyncio
-import websockets
-import random
 import threading
-import requests
-from fastapi import Request
-from configuration import *
 from time import sleep
 from datetime import datetime
+
+import numpy as np
+import websockets
+import requests
+from fastapi import Request
+
+from configuration import *
 from feagi_agent import retina as retina
 from feagi_agent import feagi_interface as feagi
 
@@ -57,13 +58,15 @@ def websocket_operation():
 
 if __name__ == "__main__":
     previous_data_frame = dict()
-    runtime_data = {"cortical_data": {}, "current_burst_id": None, "stimulation_period": None, "feagi_state": None,
+    runtime_data = {"cortical_data": {}, "current_burst_id": None,
+                    "stimulation_period": None, "feagi_state": None,
                     "feagi_network": None}
 
     # FEAGI section start
     print("Connecting to FEAGI resources...")
 
-    feagi_host, api_port, app_data_port = feagi.feagi_setting_for_registration(feagi_settings, agent_settings)
+    feagi_host, api_port, app_data_port = \
+        feagi.feagi_setting_for_registration(feagi_settings, agent_settings)
 
     print(feagi_host, api_port, app_data_port)
 
