@@ -18,13 +18,13 @@ rgb_array = dict()
 
 def rgba2rgb(rgba, background=(255, 255, 255)):
     """
-    The rgba2rgb function takes an input image in the form of a numpy array with shape (row, col, ch), where ch is equal
-    to 4, indicating that the input image has an RGBA color space. The function converts the RGBA image to an RGB image
-    by blending the RGB channels of the input image with a specified background color using the alpha channel
-    as a weighting factor.
+    The rgba2rgb function takes an input image in the form of a numpy array with shape (row, col,
+    ch), where ch is equal to 4, indicating that the input image has an RGBA color space.
 
-    The resulting image is then returned as a numpy array with shape (row, col, 3), where ch is now equal to 3,
-    indicating that the output image is in the RGB color space.
+    The function converts the RGBA image to an RGB image by blending the RGB channels of the
+    input image with a specified background color using the alpha channel as a weighting factor.
+    The resulting image is then returned as a numpy array with shape (row, col, 3), where ch is
+    now equal to 3, indicating that the output image is in the RGB color space.
     """
     row, col, channels = rgba.shape
 
@@ -60,8 +60,8 @@ async def echo(websocket):
 
 async def main():
     """
-    The main function handles the websocket and spins the asyncio to run the echo function infinitely until it exits.
-    Once it exits, the function will resume to the next new websocket.
+    The main function handles the websocket and spins the asyncio to run the echo function
+    infinitely until it exits. Once it exits, the function will resume to the next new websocket.
     """
     async with websockets.serve(echo, "0.0.0.0", 9051, max_size=None,
                                 max_queue=None, write_limit=None, compression=None):
@@ -97,7 +97,8 @@ if __name__ == "__main__":
     burst_counter_endpoint = feagi.feagi_api_burst_counter()
     print("^ ^ ^")
     runtime_data["feagi_state"] = feagi.feagi_registration(feagi_host=feagi_host,
-                                                           api_port=api_port, agent_settings=agent_settings,
+                                                           api_port=api_port,
+                                                           agent_settings=agent_settings,
                                                            capabilities=capabilities)
 
     print("** **", runtime_data["feagi_state"])
@@ -136,12 +137,14 @@ if __name__ == "__main__":
             for i in retina_data:
                 if 'C' in i:
                     retina_data[i] = retina.center_data_compression(retina_data[i],
-                                                                    capabilities['camera']["central_vision_compression"]
+                                                                    capabilities['camera']
+                                                                    ["central_vision_compression"]
                                                                     )
                 else:
                     retina_data[i] = retina.center_data_compression(retina_data[i],
                                                                     capabilities['camera']
-                                                                    ['peripheral_vision_compression'])
+                                                                    ['peripheral_vision_compression'
+                                                                     ''])
             if not previous_data_frame:
                 for i in retina_data:
                     PREVIOUS_NAME = str(i) + "_prev"
@@ -183,14 +186,17 @@ if __name__ == "__main__":
             except Exception as e:
                 pass
             # Psychopy game ends
-        # message_to_feagi, battery = feagi.compose_message_to_feagi({**rgb}, battery=aliens.healthpoint*10)
+        # message_to_feagi, battery = feagi.compose_message_to_feagi({**rgb},
+        # battery=aliens.healthpoint*10)
         message_to_feagi['timestamp'] = datetime.now()
         message_to_feagi['counter'] = msg_counter
         msg_counter += 1
         FLAG_COUNTER += 1
         if FLAG_COUNTER == int(CHECKPOINT_TOTAL):
-            feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint, timeout=5).json()
-            feagi_burst_counter = requests.get(api_address + burst_counter_endpoint, timeout=5).json()
+            feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint,
+                                             timeout=5).json()
+            feagi_burst_counter = requests.get(api_address + burst_counter_endpoint,
+                                               timeout=5).json()
             FLAG_COUNTER = 0
             if feagi_burst_speed > 1:
                 CHECKPOINT_TOTAL = 5
