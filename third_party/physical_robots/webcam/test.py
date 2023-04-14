@@ -113,7 +113,8 @@ if __name__ == "__main__":
             new_rgb = new_rgb.reshape(480, 640, 4)
             # new_rgb = new_rgb.astype(np.uint8)
             new_rgb = rgba2rgb(new_rgb)
-            retina_data = retina.frame_split(new_rgb, capabilities['camera']['retina_width_percent'],
+            retina_data = retina.frame_split(new_rgb,
+                                             capabilities['camera']['retina_width_percent'],
                                              capabilities['camera']['retina_height_percent'])
             for i in retina_data:
                 if 'C' in i:
