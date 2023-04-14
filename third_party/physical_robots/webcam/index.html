@@ -14,7 +14,7 @@
 	  const mediaDevices = navigator.mediaDevices;
 	  vid.muted = true;
 
-	  const ws = new WebSocket("ws://feagi:9051");
+	  const ws = new WebSocket("ws://127.0.0.1:9051");
 
 	  let intervalId; // to store the setInterval ID
 
@@ -37,7 +37,7 @@
 				const imageData = context.getImageData(0, 0, canvas.width, canvas.height).data;
 <!--				const result = pako.gzip(imageData);-->
 				ws.send(imageData);
-			  }, 60); // send data every 1000 ms (1 second)
+			  }, 70); // send data every 1000 ms (1 second)
 			});
 		  })
 		  .catch(alert);
