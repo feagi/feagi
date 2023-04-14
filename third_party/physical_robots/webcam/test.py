@@ -17,28 +17,41 @@ rgb_array = dict()
 
 
 def rgba2rgb(rgba, background=(255, 255, 255)):
-    row, col, ch = rgba.shape
+    """
+    The rgba2rgb function takes an input image in the form of a numpy array with shape (row, col, ch), where ch is equal
+    to 4, indicating that the input image has an RGBA color space. The function converts the RGBA image to an RGB image
+    by blending the RGB channels of the input image with a specified background color using the alpha channel
+    as a weighting factor.
 
-    if ch == 3:
+    The resulting image is then returned as a numpy array with shape (row, col, 3), where ch is now equal to 3,
+    indicating that the output image is in the RGB color space.
+    """
+    row, col, channels = rgba.shape
+
+    if channels == 3:
         return rgba
 
-    assert ch == 4, 'RGBA image has 4 channels.'
+    assert channels == 4, 'RGBA image has 4 channels.'
 
     rgb_input = np.zeros((row, col, 3), dtype='float32')
-    r, g, b, a = rgba[:, :, 0], rgba[:, :, 1], rgba[:, :, 2], rgba[:, :, 3]
+    r, g, b, alpha = rgba[:, :, 0], rgba[:, :, 1], rgba[:, :, 2], rgba[:, :, 3]
 
-    a = np.asarray(a, dtype='float32') / 255.0
+    alpha = np.asarray(alpha, dtype='float32') / 255.0
 
     R, G, B = background
 
-    rgb_input[:, :, 0] = r * a + (1.0 - a) * R
-    rgb_input[:, :, 1] = g * a + (1.0 - a) * G
-    rgb_input[:, :, 2] = b * a + (1.0 - a) * B
+    rgb_input[:, :, 0] = r * alpha + (1.0 - alpha) * R
+    rgb_input[:, :, 1] = g * alpha + (1.0 - alpha) * G
+    rgb_input[:, :, 2] = b * alpha + (1.0 - alpha) * B
 
     return np.asarray(rgb_input, dtype='uint8')
 
 
 async def echo(websocket):
+    """
+    The function echoes the data it receives from other connected websockets
+    and sends the data from FEAGI to the connected websockets.
+    """
     async for message in websocket:
         test = message
         rgb_array['current'] = list(test)
@@ -46,6 +59,10 @@ async def echo(websocket):
 
 
 async def main():
+    """
+    The main function handles the websocket and spins the asyncio to run the echo function infinitely until it exits.
+    Once it exits, the function will resume to the next new websocket.
+    """
     async with websockets.serve(echo, "0.0.0.0", 9051, max_size=None,
                                 max_queue=None, write_limit=None, compression=None):
         await asyncio.Future()  # run forever
@@ -172,8 +189,8 @@ if __name__ == "__main__":
         msg_counter += 1
         FLAG_COUNTER += 1
         if FLAG_COUNTER == int(CHECKPOINT_TOTAL):
-            feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
-            feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
+            feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint, timeout=5).json()
+            feagi_burst_counter = requests.get(api_address + burst_counter_endpoint, timeout=5).json()
             FLAG_COUNTER = 0
             if feagi_burst_speed > 1:
                 CHECKPOINT_TOTAL = 5
