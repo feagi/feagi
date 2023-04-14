@@ -1,4 +1,17 @@
 #!/usr/bin/env python
+"""
+Copyright 2016-2023 The FEAGI Authors. All Rights Reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+"""
 
 import asyncio
 import threading
@@ -10,7 +23,7 @@ import websockets
 import requests
 
 from configuration import *
-from feagi_agent import retina as retina
+from feagi_agent import retina
 from feagi_agent import feagi_interface as feagi
 
 rgb_array = dict()
@@ -34,15 +47,15 @@ def rgba2rgb(rgba, background=(255, 255, 255)):
     assert channels == 4, 'RGBA image has 4 channels.'
 
     rgb_input = np.zeros((row, col, 3), dtype='float32')
-    r, g, b, alpha = rgba[:, :, 0], rgba[:, :, 1], rgba[:, :, 2], rgba[:, :, 3]
+    r_channel, g_channel, b_channel, alpha = rgba[:, :, 0], rgba[:, :, 1], rgba[:, :, 2], rgba[:, :, 3]
 
     alpha = np.asarray(alpha, dtype='float32') / 255.0
 
     R, G, B = background
 
-    rgb_input[:, :, 0] = r * alpha + (1.0 - alpha) * R
-    rgb_input[:, :, 1] = g * alpha + (1.0 - alpha) * G
-    rgb_input[:, :, 2] = b * alpha + (1.0 - alpha) * B
+    rgb_input[:, :, 0] = r_channel * alpha + (1.0 - alpha) * R
+    rgb_input[:, :, 1] = g_channel * alpha + (1.0 - alpha) * G
+    rgb_input[:, :, 2] = b_channel * alpha + (1.0 - alpha) * B
 
     return np.asarray(rgb_input, dtype='uint8')
 
@@ -104,7 +117,6 @@ if __name__ == "__main__":
     print("** **", runtime_data["feagi_state"])
     feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
 
-    # todo: to obtain this info directly from FEAGI as part of registration
     # ipu_channel_address = feagi.feagi_inbound(agent_settings["agent_data_port"])
     ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
                                                agent_settings["agent_data_port"])
