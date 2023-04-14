@@ -26,7 +26,7 @@ from configuration import *
 from feagi_agent import retina
 from feagi_agent import feagi_interface as feagi
 
-rgb_array = dict()
+rgb_array = {}
 
 
 def rgba2rgb(rgba, background=(255, 255, 255)):
@@ -52,11 +52,11 @@ def rgba2rgb(rgba, background=(255, 255, 255)):
 
     alpha = np.asarray(alpha, dtype='float32') / 255.0
 
-    R, G, B = background
+    R_channel, G_channel, B_channel = background
 
-    rgb_input[:, :, 0] = r_channel * alpha + (1.0 - alpha) * R
-    rgb_input[:, :, 1] = g_channel * alpha + (1.0 - alpha) * G
-    rgb_input[:, :, 2] = b_channel * alpha + (1.0 - alpha) * B
+    rgb_input[:, :, 0] = r_channel * alpha + (1.0 - alpha) * R_channel
+    rgb_input[:, :, 1] = g_channel * alpha + (1.0 - alpha) * G_channel
+    rgb_input[:, :, 2] = b_channel * alpha + (1.0 - alpha) * B_channel
 
     return np.asarray(rgb_input, dtype='uint8')
 
@@ -90,7 +90,7 @@ def websocket_operation():
 
 
 if __name__ == "__main__":
-    previous_data_frame = dict()
+    previous_data_frame = {}
     runtime_data = {"cortical_data": {}, "current_burst_id": None,
                     "stimulation_period": None, "feagi_state": None,
                     "feagi_network": None}
@@ -129,11 +129,11 @@ if __name__ == "__main__":
 
     previous_frame_data = dict()
     msg_counter = runtime_data["feagi_state"]['burst_counter']
-    rgb = dict()
+    rgb = {}
     CHECKPOINT_TOTAL = 5
     FLAG_COUNTER = 0
-    rgb['camera'] = dict()
-    rgb_array['current'] = dict()
+    rgb['camera'] = {}
+    rgb_array['current'] = {}
     BGSK = threading.Thread(target=websocket_operation, daemon=True).start()
     while True:
         message_from_feagi = feagi_opu_channel.receive()  # Get data from FEAGI
@@ -200,7 +200,6 @@ if __name__ == "__main__":
                     message_to_feagi["data"]["sensory_data"] = {}
                 message_to_feagi["data"]["sensory_data"]['camera'] = rgb['camera']
             except Exception as e:
-                print("error: ", e)
                 pass
             # Psychopy game ends
         # message_to_feagi, battery = feagi.compose_message_to_feagi({**rgb},
@@ -231,7 +230,7 @@ if __name__ == "__main__":
             pass
             # print(len(message_to_feagi['data']['sensory_data']['camera']['C']))
         except Exception as error:
-            print("error2: ", error)
+            pass
         feagi_ipu_channel.send(message_to_feagi)
         message_to_feagi.clear()
         for i in rgb['camera']:
