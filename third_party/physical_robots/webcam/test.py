@@ -1,24 +1,17 @@
 #!/usr/bin/env python
 
+import numpy as np
 import asyncio
 import websockets
-import gzip
-import struct
-
 import random
-
-# import gymnasium as gym
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, StreamingResponse
-import cv2
 import threading
 import requests
+from fastapi import Request
 from configuration import *
 from time import sleep
 from datetime import datetime
 from feagi_agent import retina as retina
 from feagi_agent import feagi_interface as feagi
-import numpy as np
 
 rgb_array = dict()
 
@@ -48,7 +41,6 @@ def rgba2rgb(rgba, background=(255, 255, 255)):
 async def echo(websocket):
     async for message in websocket:
         test = message
-        # test = gzip.decompress(message)
         rgb_array['current'] = list(test)
         await websocket.send("thanks")
 
@@ -103,9 +95,9 @@ if __name__ == "__main__":
     msg_counter = runtime_data["feagi_state"]['burst_counter']
     rgb = dict()
     checkpoint_total = 5
-    flag_counter = 0
+    Flag_counter = 0
     rgb['camera'] = dict()
-    rgb_array['current'] = {}
+    rgb_array['current'] = dict()
     bgsk = threading.Thread(target=websocket_operation, daemon=True).start()
     while True:
         message_from_feagi = feagi_opu_channel.receive()  # Get data from FEAGI
@@ -116,11 +108,6 @@ if __name__ == "__main__":
             new_rgb = new_rgb.reshape(480, 640, 4)
             # new_rgb = new_rgb.astype(np.uint8)
             new_rgb = rgba2rgb(new_rgb)
-            # cv2.imshow('Frame', new_rgb)
-            # if cv2.waitKey(10) & 0xFF == ord('q'):
-            #     break
-            # new_rgb = cv2.rotate(new_rgb, cv2.ROTATE_90_CLOCKWISE) # rotate 90 clockwise
-            # new_rgb = cv2.flip(new_rgb, 1) # flip horizontally
             retina_data = retina.frame_split(new_rgb, capabilities['camera']['retina_width_percent'],
                                              capabilities['camera']['retina_height_percent'])
             for i in retina_data:
@@ -134,30 +121,30 @@ if __name__ == "__main__":
                                                                     ['peripheral_vision_compression'])
             if previous_data_frame == {}:
                 for i in retina_data:
-                    previous_name = str(i) + "_prev"
-                    previous_data_frame[previous_name] = {}
+                    Previous_name = str(i) + "_prev"
+                    previous_data_frame[Previous_name] = {}
             for i in retina_data:
                 name = i
                 if 'prev' not in i:
                     data = retina.ndarray_to_list(retina_data[i])
                     if 'C' in i:
-                        previous_name = str(i) + "_prev"
-                        rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
+                        Previous_name = str(i) + "_prev"
+                        rgb_data, previous_data_frame[Previous_name] = retina.get_rgb(data,
                                                                                       capabilities['camera'][
                                                                                           'central_vision_compression'],
                                                                                       previous_data_frame[
-                                                                                          previous_name],
+                                                                                          Previous_name],
                                                                                       name,
                                                                                       capabilities[
                                                                                           'camera'][
                                                                                           'deviation_threshold'])
                     else:
-                        previous_name = str(i) + "_prev"
-                        rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
+                        Previous_name = str(i) + "_prev"
+                        rgb_data, previous_data_frame[Previous_name] = retina.get_rgb(data,
                                                                                       capabilities['camera'][
                                                                                           'peripheral_vision_compression'],
                                                                                       previous_data_frame[
-                                                                                          previous_name],
+                                                                                          Previous_name],
                                                                                       name,
                                                                                       capabilities[
                                                                                           'camera'][
@@ -177,11 +164,11 @@ if __name__ == "__main__":
         message_to_feagi['timestamp'] = datetime.now()
         message_to_feagi['counter'] = msg_counter
         msg_counter += 1
-        flag_counter += 1
-        if flag_counter == int(checkpoint_total):
+        Flag_counter += 1
+        if Flag_counter == int(checkpoint_total):
             feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
             feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
-            flag_counter = 0
+            Flag_counter = 0
             if feagi_burst_speed > 1:
                 checkpoint_total = 5
             if feagi_burst_speed < 1:
