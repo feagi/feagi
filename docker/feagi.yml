@@ -27,6 +27,16 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
+#
+#  pygame:
+#    build: ../third_party/pygame/aliens
+#    ports:
+#      - "6084:6084"
+##    env_file:
+##      - ./.env
+#    privileged: true
+#    networks:
+#      - net
 
   grafana:
     build: ../third_party/grafana/
@@ -70,13 +80,8 @@ services:
 
   brain_visualizer:
     build: ../third_party/godot/html
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: '2g'
     ports:
-      - "6085:6085"
+      - "6081:6081"
     env_file:
       - ./.env
     privileged: true
@@ -90,10 +95,9 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
+          cpus: '3'
           memory: '2g'
     ports:
-      - "6081:8080"
       - "9050:9050"
       - "30001:30001" # ZMQ port for feagi to connect for Gadot
     env_file:
@@ -103,6 +107,25 @@ services:
       - net
     depends_on:
       - feagi
+
+#  webcam_javascript_controller:
+#    build:
+#      context: ../third_party/physical_robots/webcam
+#      dockerfile: Dockerfile.python
+#    deploy:
+#      resources:
+#        limits:
+#          cpus: '1'
+#          memory: '2g'
+#    ports:
+#      - "9051:9051"
+#    env_file:
+#      - ./.env
+#    privileged: true
+#    networks:
+#      - net
+#    depends_on:
+#      - feagi
 
   feagi:
     build: ./
@@ -123,15 +146,22 @@ services:
     depends_on:
       influxdb:
         condition: service_healthy
+#
+#  javascript_webcam:
+#    build: ../third_party/physical_robots/webcam
+#    ports:
+#      - "6086:6086"
+#    env_file:
+#      - ./.env
+#    networks:
+#      - net
+#    depends_on:
+#      influxdb:
+#        condition: service_healthy
 
   gui:
     build:
       context: ../src/gui/
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: '2g'
     ports:
       - "3000:3000"
     env_file:
