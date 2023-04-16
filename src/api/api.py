@@ -24,7 +24,8 @@ import zipfile
 import tempfile
 
 from time import sleep
-from fastapi import FastAPI, File, UploadFile, Response, status, Request
+from fastapi import FastAPI, File, UploadFile, Response, status, Request, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse, StreamingResponse
@@ -1512,9 +1513,15 @@ def iter_zip_file(zip_name):
 
 
 @app.get("/v1/feagi/connectome/download", tags=["Connectome"])
-async def zip_folder(response: Response):
+async def download_zipped_connectome(response: Response):
     try:
         folder_path = runtime_data.connectome_path
+        print("Connetome Path=", folder_path)
+        new_file_list = os.listdir(folder_path)
+        print("^__" * 10)
+        print("Zipped connectome has been successfully uploaded and extracted as:")
+        for file_name in new_file_list:
+            print("___", file_name)
 
         # Preserve the Brain
         save_genome(genome=runtime_data.genome, file_name=runtime_data.connectome_path + "genome.json")
@@ -1559,36 +1566,51 @@ async def connectome_file_upload(response: Response, file: UploadFile = File(...
 
 
 @app.post("/v1/feagi/connectome/upload", tags=["Connectome"])
-async def unzip_folder(response: Response, zip_file: UploadFile = File(...)):
-    if zip_file.content_type != "application/zip":
-        raise HTTPException(status_code=400, detail="Invalid file type. Only zip files are allowed.")
-
-    output_folder = runtime_data.connectome_path
-
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-
-    # Create a temporary file to store the uploaded zip file
-    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-        temp_file.write(await zip_file.read())
-
-    # Extract the zip file to the output folder
+async def upload_zipped_connectome(response: Response, zip_file: UploadFile = File(...)):
     try:
+        if zip_file.content_type != "application/zip":
+            raise HTTPException(status_code=400, detail="Invalid file type. Only zip files are allowed.")
+
+        output_folder = runtime_data.connectome_path
+
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+        else:
+            # Clear connectome folder contents
+            shutil.rmtree(output_folder)
+
+        # Create a temporary file to store the uploaded zip file
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            print(f"Zip file: {zip_file.filename}, {zip_file.content_type}, {zip_file.file}")  # Add this line
+            temp_file.write(await zip_file.read())
+
+        # Extract the zip file to the output folder
         with zipfile.ZipFile(temp_file.name, "r") as zip_ref:
             zip_ref.extractall(output_folder)
-    except zipfile.BadZipFile:
+
         os.unlink(temp_file.name)
-        raise HTTPException(status_code=400, detail="Invalid zip file")
 
-    # Activate the new Connectome + Genome
-    load_brain_in_memory()
-    load_genome_in_memory()
+        new_file_list = os.listdir(runtime_data.connectome_path)
+        print("^__" * 10)
+        print("Zipped connectome has been successfully uploaded and extracted as:")
+        for file_name in new_file_list:
+            print("___", file_name)
+        print("\n\n")
+        # Activate the new Connectome + Genome
+        load_genome_in_memory()
+        print("#__" * 10)
+        load_brain_in_memory()
+        print("@__" * 10)
 
-    # Activate new genome without neuroembryogenesis
-    stage_genome()
+        # Activate new genome without neuroembryogenesis
+        stage_genome()
 
-    os.unlink(temp_file.name)
-    response.status_code = status.HTTP_200_OK
+        os.unlink(temp_file.name)
+        response.status_code = status.HTTP_200_OK
+
+        return {"message": "Zip file successfully extracted", "output_folder": output_folder}
+    except Exception as e:
+        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"detail": str(e)})
 
 
 @app.api_route("/v1/feagi/connectome/properties/dimensions", methods=['GET'], tags=["Connectome"])

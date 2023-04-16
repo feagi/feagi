@@ -32,6 +32,7 @@ connectome.
 import logging
 import json
 import datetime
+import shutil
 import concurrent.futures
 from evo import neuron, synapse, stats, genetics, voxels
 from functools import partial
@@ -40,66 +41,11 @@ from inf import disk_ops
 from inf import settings
 from inf import runtime_data
 from inf.db_handler import InfluxManagement
+
 # from igraph import *
 # from igraph.directed_graph import DirectGraph
 
 log = logging.getLogger(__name__)
-
-
-# Resets the in-memory brain for each cortical area
-def reset_connectome_in_mem():
-    for item in runtime_data.cortical_list:
-        runtime_data.brain[item] = {}
-
-
-def reset_connectome_file(cortical_area):
-    file_name = runtime_data.connectome_path + cortical_area + '.json'
-    with open(file_name, "w") as connectome:
-        connectome.write(json.dumps({}))
-        connectome.truncate()
-    if runtime_data.parameters["Logs"]["print_brain_gen_activities"]:
-        print(settings.Bcolors.YELLOW + "Cortical area %s is has been cleared." % cortical_area
-              + settings.Bcolors.ENDC)
-    runtime_data.brain[cortical_area] = {}
-
-
-# Resets all connectome files
-def reset_connectome_files():
-    for cortical_area in runtime_data.genome['blueprint']:
-        reset_connectome_file(cortical_area=cortical_area)
-
-
-def reuse():
-    """
-    Placeholder for a function to reuse an existing connectome.
-
-    Returns:
-
-    """
-    log.info("Reusing an old connectome")
-    connectome_path = ''
-    return
-
-
-def connectome_backup(src, dst):
-    """
-    Backs up an existing connectome to preserve all the structures and associated memory data for future use.
-    Args:
-        src (String): Location of the source connectome folder
-        dst (String): Destination folder for storing connectome backup
-
-    Returns:
-
-    """
-    import shutil
-    import errno
-    try:
-        shutil.copytree(src, dst)
-    except OSError as exc:
-        if exc.errno == errno.ENOTDIR:
-            shutil.copy(src, dst)
-        else:
-            raise
 
 
 # Reads the list of all Cortical areas defined in Genome
@@ -334,21 +280,18 @@ def develop():
     print("-----------------------------------------------")
 
     parameters = runtime_data.parameters
-    runtime_data.brain = {}
 
     if parameters["Switches"]["folder_backup"]:
         # Backup the current folder
         connectome_backup('../Metis', '../Metis_archive/Metis_' + str(datetime.datetime.now()).replace(' ', '_'))
 
-    # Reset in-memory brain data
-    reset_connectome_in_mem()
-
     print("Defined cortical areas: %s " % runtime_data.cortical_list)
     print("::::: connectome path is:", runtime_data.connectome_path)
 
-    # --Reset Connectome--
-    reset_connectome_files()
-    
+    # --Corticogenesis-- Create definition of cortical areas in Connectome
+    for cortical_area in runtime_data.cortical_list:
+        runtime_data.brain[cortical_area] = {}
+
     # --Voxelogenesis-- Create an empty dictionary for each voxel
     for cortical_area in runtime_data.cortical_list:
         voxelogenesis(cortical_area=cortical_area)

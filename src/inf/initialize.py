@@ -31,6 +31,7 @@ from datetime import datetime
 from collections import deque
 from inf import runtime_data, disk_ops, settings
 from shutil import copyfile
+from evo.connectome import reset_connectome
 from evo.stats import voxel_dict_summary
 from evo.genome_editor import save_genome
 from inf.messenger import Pub
@@ -57,6 +58,8 @@ def stage_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, g
     runtime_data.genome = genome_ver_check(runtime_data.genome)
     runtime_data.genome_ver = "2.0"
     init_brain()
+    print("====== 0 =======" * 5)
+    print("cortical_list:", runtime_data.cortical_list)
     if 'genome_id' not in runtime_data.genome:
         runtime_data.genome['genome_id'] = id_gen(signature="_G")
     runtime_data.genome_id = runtime_data.genome['genome_id']
@@ -68,6 +71,11 @@ def stage_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, g
                                env_id=runtime_data.environment_id)
     # Process of artificial neuroembryogenesis that leads to connectome development
     if neuroembryogenesis_flag:
+        print("====== 1 =======" * 5)
+        print("cortical_list:", runtime_data.cortical_list)
+        reset_connectome()
+        print("====== 2 =======" * 5)
+        print("cortical_list:", runtime_data.cortical_list)
         develop_brain(reincarnation_mode=runtime_data.parameters[
             'Brain_Development']['reincarnation_mode'])
 

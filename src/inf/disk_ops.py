@@ -135,7 +135,7 @@ def save_brain_to_disk(cortical_area='all', brain=runtime_data.brain,
     brain = serialize_brain_data(brain)
 
     if cortical_area != 'all':
-        with open(connectome_path+cortical_area+'.json', "r+") as data_file:
+        with open(connectome_path+cortical_area+'.json', "w") as data_file:
             data = brain[cortical_area]
             # print("...All data related to Cortical area %s is saved in connectome\n" % cortical_area)
             # Saving changes to the connectome
