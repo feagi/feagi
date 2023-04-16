@@ -50,6 +50,7 @@ from evo.genome_properties import genome_properties
 from evo.genome_editor import save_genome
 from evo.x_genesis import neighboring_cortical_areas
 from evo.genome_processor import genome_2_1_convertor
+from evo.connectome import reset_connectome
 from .config import settings
 from inf.messenger import Pub, Sub
 from inf.initialize import init_infrastructure, stage_genome
@@ -416,7 +417,7 @@ async def genome_download(response: Response):
         print(file_name)
         if runtime_data.genome:
             response.status_code = status.HTTP_200_OK
-            return FileResponse(path="../runtime_genome.json", filename=file_name)
+            return FileResponse(path=runtime_data.connectome_path + "genome.json", filename=file_name)
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
     except Exception as e:
@@ -1408,11 +1409,11 @@ async def connectome_cortical_areas(response: Response):
 
 
 @app.api_route("/v1/feagi/connectome/cortical_info", methods=['POST'], tags=["Connectome"])
-async def connectome_cortical_info(connectome: str, response: Response):
+async def connectome_cortical_info(cortical_area: str, response: Response):
     try:
-        if connectome in runtime_data.brain:
+        if cortical_area in runtime_data.brain:
             response.status_code = status.HTTP_200_OK
-            return runtime_data.brain[connectome]
+            return runtime_data.brain[cortical_area]
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
             return {"Requested cortical area not found!"}
@@ -1524,7 +1525,6 @@ async def download_zipped_connectome(response: Response):
             print("___", file_name)
 
         # Preserve the Brain
-        save_genome(genome=runtime_data.genome, file_name=runtime_data.connectome_path + "genome.json")
         save_brain_to_disk()
 
         if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
@@ -1577,7 +1577,7 @@ async def upload_zipped_connectome(response: Response, zip_file: UploadFile = Fi
             os.makedirs(output_folder)
         else:
             # Clear connectome folder contents
-            shutil.rmtree(output_folder)
+            reset_connectome()
 
         # Create a temporary file to store the uploaded zip file
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
@@ -1604,6 +1604,8 @@ async def upload_zipped_connectome(response: Response, zip_file: UploadFile = Fi
 
         # Activate new genome without neuroembryogenesis
         stage_genome()
+        print("^__" * 10)
+        print("Genome staging has completed successfully!")
 
         os.unlink(temp_file.name)
         response.status_code = status.HTTP_200_OK

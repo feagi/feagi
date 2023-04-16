@@ -16,6 +16,8 @@
 import json
 import os
 import platform
+import traceback
+
 import psutil
 import string
 import random
@@ -45,6 +47,9 @@ logger = logging.getLogger(__name__)
 
 
 def stage_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, genome_data=None):
+    if neuroembryogenesis_flag:
+        print("cortical_list:", runtime_data.cortical_list)
+        reset_connectome()
     if reset_runtime_data_flag:
         reset_runtime_data()
     runtime_data.genome_counter += 1
@@ -52,32 +57,38 @@ def stage_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, g
     runtime_data.genome_ver = None
     runtime_data.last_genome_modification_time = datetime.now()
 
-    runtime_data.genome_orig = genome_data.copy()
-    runtime_data.genome = genome_data
+    if not genome_data:
+        try:
+            with open(runtime_data.connectome_path + "genome.json", "r") as genome_file:
+                genome_data = json.load(genome_file)
+                runtime_data.genome_file_name = "genome.json"
+                print("Genome loaded from connectome folder")
+        except Exception as e:
+            print("Exception while loading Genome from connectome folder", traceback.print_exc(), e)
 
-    runtime_data.genome = genome_ver_check(runtime_data.genome)
-    runtime_data.genome_ver = "2.0"
-    init_brain()
-    print("====== 0 =======" * 5)
-    print("cortical_list:", runtime_data.cortical_list)
-    if 'genome_id' not in runtime_data.genome:
-        runtime_data.genome['genome_id'] = id_gen(signature="_G")
-    runtime_data.genome_id = runtime_data.genome['genome_id']
-    print("#$% " * 30)
-    print("brain_run_id", runtime_data.brain_run_id)
-    if runtime_data.autopilot:
-        update_generation_dict(genome_id=runtime_data.genome_id,
-                               robot_id=runtime_data.robot_id,
-                               env_id=runtime_data.environment_id)
-    # Process of artificial neuroembryogenesis that leads to connectome development
-    if neuroembryogenesis_flag:
-        print("====== 1 =======" * 5)
+    if not genome_data:
+        print("Could not stage genome. No genome data available")
+    else:
+        runtime_data.genome_orig = genome_data.copy()
+        runtime_data.genome = genome_data
+        runtime_data.genome = genome_ver_check(runtime_data.genome)
+        runtime_data.genome_ver = "2.0"
+        init_brain()
         print("cortical_list:", runtime_data.cortical_list)
-        reset_connectome()
-        print("====== 2 =======" * 5)
-        print("cortical_list:", runtime_data.cortical_list)
-        develop_brain(reincarnation_mode=runtime_data.parameters[
-            'Brain_Development']['reincarnation_mode'])
+        if 'genome_id' not in runtime_data.genome:
+            runtime_data.genome['genome_id'] = id_gen(signature="_G")
+        runtime_data.genome_id = runtime_data.genome['genome_id']
+        print("#$% " * 30)
+        print("brain_run_id", runtime_data.brain_run_id)
+        if runtime_data.autopilot:
+            update_generation_dict(genome_id=runtime_data.genome_id,
+                                   robot_id=runtime_data.robot_id,
+                                   env_id=runtime_data.environment_id)
+        # Process of artificial neuroembryogenesis that leads to connectome development
+        if neuroembryogenesis_flag:
+            print("cortical_list:", runtime_data.cortical_list)
+            develop_brain(reincarnation_mode=runtime_data.parameters[
+                'Brain_Development']['reincarnation_mode'])
 
 
 def update_ini_variables_from_environment(var_dict):
