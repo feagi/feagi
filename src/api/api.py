@@ -1398,11 +1398,12 @@ async def gazebo_robot_default_files(response: Response):
 @app.api_route("/v1/feagi/connectome/cortical_areas", methods=['GET'], tags=["Connectome"])
 async def connectome_cortical_areas(response: Response):
     try:
-        if runtime_data.cortical_list:
-            response.status_code = status.HTTP_200_OK
-            return runtime_data.cortical_list
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
+        cortical_list = set()
+        for cortical_area in runtime_data.brain:
+            cortical_list.add(cortical_area)
+        response.status_code = status.HTTP_200_OK
+        return cortical_list
+
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
@@ -1599,13 +1600,14 @@ async def upload_zipped_connectome(response: Response, zip_file: UploadFile = Fi
         # Activate the new Connectome + Genome
         load_genome_in_memory()
         print("#__" * 10)
-        load_brain_in_memory()
-        print("@__" * 10)
 
         # Activate new genome without neuroembryogenesis
         stage_genome()
         print("^__" * 10)
         print("Genome staging has completed successfully!")
+
+        load_brain_in_memory()
+        print("@__" * 10)
 
         os.unlink(temp_file.name)
         response.status_code = status.HTTP_200_OK

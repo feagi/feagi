@@ -30,11 +30,17 @@ def load_brain_in_memory(connectome_path=None, cortical_list=None):
     if not cortical_list:
         cortical_list = runtime_data.cortical_list
     brain = {}
+    print("cortical_list:", cortical_list)
     for item in cortical_list:
         if os.path.isfile(connectome_path + item + '.json'):
             with open(connectome_path + item + '.json', "r") as data_file:
                 data = json.load(data_file)
                 brain[item] = data
+                print(f"++++++++++++Cortical area {item} is loaded")
+        else:
+            print(f"------------------Cortical area {item} data not found")
+    print("$-" * 40)
+    runtime_data.brain = brain
     print("Brain has been successfully loaded into memory...")
     return brain
 

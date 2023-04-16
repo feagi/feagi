@@ -101,7 +101,7 @@ def api_message_processor(api_message):
         stage_genome(neuroembryogenesis_flag=True, reset_runtime_data_flag=True, genome_data=genome_data)
 
     if 'beacon_sub' in api_message:
-        print("The following FEAGi beacon subscriber has been added:\n", api_message['beacon_sub'])
+        print("The following FEAGI beacon subscriber has been added:\n", api_message['beacon_sub'])
         runtime_data.beacon_sub.add(api_message['beacon_sub'])
 
     if 'beacon_unsub' in api_message:

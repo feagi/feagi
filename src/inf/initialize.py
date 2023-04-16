@@ -74,11 +74,9 @@ def stage_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, g
         runtime_data.genome = genome_ver_check(runtime_data.genome)
         runtime_data.genome_ver = "2.0"
         init_brain()
-        print("cortical_list:", runtime_data.cortical_list)
         if 'genome_id' not in runtime_data.genome:
             runtime_data.genome['genome_id'] = id_gen(signature="_G")
         runtime_data.genome_id = runtime_data.genome['genome_id']
-        print("#$% " * 30)
         print("brain_run_id", runtime_data.brain_run_id)
         if runtime_data.autopilot:
             update_generation_dict(genome_id=runtime_data.genome_id,
@@ -86,7 +84,6 @@ def stage_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, g
                                    env_id=runtime_data.environment_id)
         # Process of artificial neuroembryogenesis that leads to connectome development
         if neuroembryogenesis_flag:
-            print("cortical_list:", runtime_data.cortical_list)
             develop_brain(reincarnation_mode=runtime_data.parameters[
                 'Brain_Development']['reincarnation_mode'])
 
@@ -396,11 +393,16 @@ def reset_runtime_data():
     runtime_data.current_age = 0
 
 
-def init_fcl(cortical_area_):
-    runtime_data.fire_candidate_list[cortical_area_] = set()
-    runtime_data.future_fcl[cortical_area_] = set()
-    runtime_data.previous_fcl[cortical_area_] = set()
-    # runtime_data.upstream_neurons[cortical_area_] = {}
+def init_fcl(cortical_area_=None):
+    if not cortical_area_:
+        runtime_data.fire_candidate_list = {}
+        runtime_data.future_fcl = {}
+        runtime_data.previous_fcl = {}
+    else:
+        runtime_data.fire_candidate_list[cortical_area_] = set()
+        runtime_data.future_fcl[cortical_area_] = set()
+        runtime_data.previous_fcl[cortical_area_] = set()
+        # runtime_data.upstream_neurons[cortical_area_] = {}
 
 
 def init_brain():

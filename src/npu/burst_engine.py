@@ -28,6 +28,8 @@ todo: need a higher level mechanism to switch between life mode and autopilot mo
 """
 import os
 import glob
+import traceback
+
 import requests
 from datetime import datetime
 from time import sleep
@@ -371,23 +373,27 @@ def burst_manager():
         Convert FCL activities to a set of voxel locations and sends out through the ZMQ publisher
         """
         broadcast_message = set()
-
-        for _ in runtime_data.fire_candidate_list:
-            fire_list = set(runtime_data.fire_candidate_list[_])
-            if runtime_data.genome['blueprint'][_].get('visualization'):
-                while fire_list:
-                    firing_neuron = fire_list.pop()
-                    firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
-                    relative_coords = runtime_data.genome['blueprint'][_].get('relative_coordinate')
-                    broadcast_message.add(
-                        (
-                            runtime_data.burst_count,
-                            firing_neuron_loc[0] + relative_coords[0],
-                            firing_neuron_loc[1] + relative_coords[1],
-                            firing_neuron_loc[2] + relative_coords[2]
+        try:
+            for _ in runtime_data.fire_candidate_list:
+                fire_list = set(runtime_data.fire_candidate_list[_])
+                if runtime_data.genome['blueprint'][_].get('visualization'):
+                    while fire_list:
+                        firing_neuron = fire_list.pop()
+                        firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
+                        relative_coords = runtime_data.genome['blueprint'][_].get('relative_coordinate')
+                        broadcast_message.add(
+                            (
+                                runtime_data.burst_count,
+                                firing_neuron_loc[0] + relative_coords[0],
+                                firing_neuron_loc[1] + relative_coords[1],
+                                firing_neuron_loc[2] + relative_coords[2]
+                            )
                         )
-                    )
-        return broadcast_message
+            return broadcast_message
+
+        except Exception as e:
+            print("Exception during voxelization.", e, traceback.print_exc())
+
 
     def terminate_on_low_perf():
         # TBD
@@ -402,10 +408,7 @@ def burst_manager():
             print("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
             print("Burst engine has detected a new genome!")
             print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
-            print("Cortical list", runtime_data.cortical_list)
-
-            for area in runtime_data.cortical_list:
-                init_fcl(area)
+            init_fcl()
             runtime_data.new_genome = False
             runtime_data.feagi_state["state"] = "running"
 
@@ -453,6 +456,9 @@ def burst_manager():
 
         # Activating the always on neurons
         if "___pwr" in runtime_data.brain:
+            if "___pwr" not in runtime_data.fire_candidate_list:
+                runtime_data.fire_candidate_list["___pwr"] = set()
+
             for neuron in runtime_data.brain["___pwr"]:
                 runtime_data.fire_candidate_list["___pwr"].add(neuron)
 
