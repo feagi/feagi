@@ -398,6 +398,10 @@ def init_fcl(cortical_area_=None):
         runtime_data.fire_candidate_list = {}
         runtime_data.future_fcl = {}
         runtime_data.previous_fcl = {}
+        for area in runtime_data.cortical_list:
+            runtime_data.fire_candidate_list[area] = set()
+            runtime_data.future_fcl[area] = set()
+            runtime_data.previous_fcl[area] = set()
     else:
         runtime_data.fire_candidate_list[cortical_area_] = set()
         runtime_data.future_fcl[cortical_area_] = set()
@@ -406,6 +410,7 @@ def init_fcl(cortical_area_=None):
 
 
 def init_brain():
+    print("\n\n=========================  Initializing the Brain ===================================\n\n")
     runtime_data.last_alertness_trigger = datetime.now()
     runtime_data.brain_run_id = id_gen(signature='_R')
     init_cortical_info()

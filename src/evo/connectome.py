@@ -20,7 +20,7 @@ import json
 import shutil
 import errno
 
-from inf import runtime_data
+from inf import runtime_data, settings
 
 
 log = logging.getLogger(__name__)

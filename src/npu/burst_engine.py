@@ -199,7 +199,6 @@ def burst_manager():
 
     def fire_fcl_contents():
         # time_firing_activities = datetime.now()
-
         if candidate_list_counter(runtime_data.fire_candidate_list) == 0:
             runtime_data.empty_fcl_counter += 1
             print("FCL is empty!")
@@ -390,10 +389,8 @@ def burst_manager():
                             )
                         )
             return broadcast_message
-
         except Exception as e:
             print("Exception during voxelization.", e, traceback.print_exc())
-
 
     def terminate_on_low_perf():
         # TBD
@@ -492,7 +489,8 @@ def burst_manager():
         # print("^^^^^^^^^^ Previous FCL ^^^^^^^^^\n", runtime_data.previous_fcl)
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
-        fire_fcl_contents()
+        if not runtime_data.new_genome:
+            fire_fcl_contents()
 
         # Auto-inject/test if applicable
         # todo: move the following functionality to the life.controller to run as a thread
