@@ -57,6 +57,7 @@ var type = ""
 
 
 func _ready():
+	$GridMap3.set_cell_item(10, 0, -20, 0)
 	set_physics_process(false)
 	add_3D_indicator()
 	genome_data["genome"] = {}
@@ -108,8 +109,8 @@ func generate_one_model(node, x_input, y_input, z_input, width_input, depth_inpu
 	add_child(new)
 	new.visible = true
 	new.scale = Vector3(width_input, height_input, depth_input)
-	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), depth_input/2 + int(z_input))
-	generate_textbox(node, x_input,height_input,z_input, name_input, y_input, width_input)
+	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), depth_input/2 + -1 * int(z_input))
+	generate_textbox(node, x_input,height_input,z_input, name_input, y_input, width_input, depth_input)
 
 func convert_generate_one_model(_node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
 	var new = get_node("Cortical_area").duplicate()
@@ -130,14 +131,14 @@ func generate_model(node, x_input, y_input, z_input, width_input, depth_input, h
 					add_child(new)
 					new.visible = true
 					global_name_list.append({name_input.replace(" ", "") : [new, x_input, y_input, z_input, width_input, depth_input, height_input]})
-					new.transform.origin = Vector3(x_gain+int(x_input), y_gain+int(y_input), z_gain+int(z_input))
-					generate_textbox(node, x_input,height_input,z_input, name_input, y_input, width_input)
+					new.transform.origin = Vector3(x_gain+int(x_input), y_gain+int(y_input), -1 * (z_gain+int(z_input)))
+					generate_textbox(node, x_input,height_input,z_input, name_input, y_input, width_input, depth_input)
 
-func generate_textbox(node, x_input,height_input,z_input, name_input, input_y, width_input):
-	node.transform.origin = Vector3(int(x_input) + (width_input/1.5), int(int(input_y)+2 + (height_input)),z_input)
+func generate_textbox(node, x_input,height_input,z_input, name_input, input_y, width_input, depth_input):
+	node.transform.origin = Vector3(int(x_input) + (width_input/1.5), int(int(input_y)+2 + (height_input)), -1 * depth_input - z_input)
 	node.get_node("Viewport/Label").set_text(str(name_input))
 	node.get_node("Viewport").get_texture()
-	global_name_list.append({name_input.replace(" ", ""): [node, x_input, 0, z_input, 0, 0, height_input]})
+	global_name_list.append({name_input.replace(" ", ""): [node, x_input, 0, -1 * z_input, 0, 0, height_input]})
 
 func install_voxel_inside(x_input,y_input,z_input):
 	$GridMap.set_cell_item(x_input,y_input,z_input, 0)
@@ -213,7 +214,7 @@ func generate_voxels():
 		$red_voxel.multimesh.visible_instance_count = total
 		flag = 0
 		for i in stored_value:
-			var position = Transform().translated(Vector3(i[0], i[1], i[2]))
+			var position = Transform().translated(Vector3(i[0], i[1], -i[2]))
 			$red_voxel.multimesh.set_instance_transform(flag, position)
 			flag += 1
 
@@ -398,7 +399,7 @@ func add_3D_indicator():
 	create_textbox_axis.set_name("x_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
 	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, 5,0,0,"x", 1, 0)
+	generate_textbox(create_textbox_axis, 5,0,0,"x", 1, 0, 0)
 	for j in 6:
 		$GridMap3.set_cell_item(0,j,0,0)
 	create_textbox_axis = create_textbox_axis.duplicate() #generate a new node to re-use the model
@@ -407,7 +408,7 @@ func add_3D_indicator():
 	create_textbox_axis.set_name("y_textbox")
 	add_child(create_textbox_axis) # Copied the node to new node
 	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, 0,5,0,"y", 1,0)
+	generate_textbox(create_textbox_axis, 0,5,0,"y", 1,0, 0)
 	for k in 6: 
 		$GridMap3.set_cell_item(0,0,k,0)
 	create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
@@ -416,7 +417,7 @@ func add_3D_indicator():
 	create_textbox_axis.set_name("z_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
 	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, -2,0.5,6,"z", 1, 0)
+	generate_textbox(create_textbox_axis, -2,0.5,6,"z", 1, 0, 0)
 	$GridMap.clear()
 
 func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
