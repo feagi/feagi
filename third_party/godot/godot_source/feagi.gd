@@ -38,7 +38,7 @@ var z_increment = 0
 var one_time_flag = true
 var stored_csv = ""
 var genome_data = {}
-var previous_genome_data = ""
+var previous_genome_data = {}
 var global_name_list = []
 var last_cortical_selected
 var start = 0 #for timer
@@ -83,7 +83,6 @@ func _ready():
 		_process(self)
 #		print("FROM PYTHON: ", data)
 		if "update" in data:
-			$Spatial/Camera/Menu/box_loading.visible = true
 			if timer_api.bool_flag:
 				timer_api.trigger_api_timer()
 				$HTTP_node/genome_data.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/connectome/properties/dimensions')
@@ -144,6 +143,7 @@ func install_voxel_inside(x_input,y_input,z_input):
 	$GridMap.set_cell_item(x_input,y_input,z_input, 0)
 
 func _csv_generator(): # After you are done with testing, change the name to genome_generator.
+	$Spatial/Camera/Menu/box_loading.visible = true
 	for key in Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"]:
 		Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][key] = []
 	_clear_node_name_list(global_name_list)
@@ -558,8 +558,8 @@ func _on_get_burst_request_completed(_result, _response_code, _headers, body):
 
 func _on_download_pressed():
 	_clear_node_name_list(global_name_list)
-	genome_data = ""
-	previous_genome_data = ""
+	genome_data = {}
+	previous_genome_data = {}
 
 func _on_add_pressed():
 	var json_data = {}
@@ -653,7 +653,9 @@ func _on_genome_data_request_completed(_result, _response_code, _headers, body):
 		for i in api_data:
 			create_json[i] = api_data[i]
 		genome_data["genome"] = create_json
-		_csv_generator()
+		if previous_genome_data.hash() != genome_data["genome"].hash():
+			previous_genome_data = genome_data["genome"].duplicate()
+			_csv_generator()
 #	if one_time_flag:
 #		for i in api_data:
 #			create_json[i] = api_data[i]
