@@ -27,6 +27,16 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
+#
+#  pygame:
+#    build: ../third_party/pygame/aliens
+#    ports:
+#      - "6084:6084"
+##    env_file:
+##      - ./.env
+#    privileged: true
+#    networks:
+#      - net
 
   grafana:
     build: ../third_party/grafana/
@@ -46,37 +56,48 @@ services:
     depends_on:
       influxdb:
         condition: service_healthy
+#
+#  ros-gazebo:
+#    build: ../third_party/gazebo/simulation
+#    deploy:
+#      resources:
+#        limits:
+#          cpus: '4'
+#          memory: '3g'
+#    ports:
+#      - "6080:80"
+#    env_file:
+#      - ./.env
+#    privileged: true
+#    networks:
+#      - net
+#    volumes:
+#      #- <local path>:<docker path>                                 Only update the local path, keep docker path static
+#      # Robot mapping
+#      - ../third_party/gazebo/simulation/robots/smart_car/smart_car.sdf:/opt/source-code/simulation/robots/smart_car/smart_car.sdf
+#      # Environment mapping
+#      - ../third_party/gazebo/simulation/environments/material/map1.png:/opt/source-code/simulation/environments/material/map1.png
 
-  ros-gazebo:
-    build: ../third_party/gazebo/simulation
-    deploy:
-      resources:
-        limits:
-          cpus: '4'
-          memory: '3g'
+  brain_visualizer:
+    build: ../third_party/godot/html
     ports:
-      - "6080:80"
+      - "6081:6081"
     env_file:
       - ./.env
     privileged: true
     networks:
       - net
-    volumes:
-      #- <local path>:<docker path>                                 Only update the local path, keep docker path static
-      # Robot mapping
-      - ../third_party/gazebo/simulation/robots/smart_car/smart_car.sdf:/opt/source-code/simulation/robots/smart_car/smart_car.sdf
-      # Environment mapping
-      - ../third_party/gazebo/simulation/environments/material/map1.png:/opt/source-code/simulation/environments/material/map1.png
+    depends_on:
+      - godot_bridge
 
-  godot:
+  godot_bridge:
     build: ../third_party/godot/
     deploy:
       resources:
         limits:
-          cpus: '1'
+          cpus: '3'
           memory: '2g'
     ports:
-      - "6081:8080"
       - "9050:9050"
       - "30001:30001" # ZMQ port for feagi to connect for Gadot
     env_file:
@@ -86,6 +107,25 @@ services:
       - net
     depends_on:
       - feagi
+
+#  webcam_javascript_controller:
+#    build:
+#      context: ../third_party/physical_robots/webcam
+#      dockerfile: Dockerfile.python
+#    deploy:
+#      resources:
+#        limits:
+#          cpus: '1'
+#          memory: '2g'
+#    ports:
+#      - "9051:9051"
+#    env_file:
+#      - ./.env
+#    privileged: true
+#    networks:
+#      - net
+#    depends_on:
+#      - feagi
 
   feagi:
     build: ./
@@ -106,15 +146,22 @@ services:
     depends_on:
       influxdb:
         condition: service_healthy
+#
+#  javascript_webcam:
+#    build: ../third_party/physical_robots/webcam
+#    ports:
+#      - "6086:6086"
+#    env_file:
+#      - ./.env
+#    networks:
+#      - net
+#    depends_on:
+#      influxdb:
+#        condition: service_healthy
 
   gui:
     build:
       context: ../src/gui/
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: '2g'
     ports:
       - "3000:3000"
     env_file:
@@ -129,6 +176,3 @@ services:
 volumes:
   grafana_data:
   influxdb_data:
-
-
-# docker compose -f feagi.yml up --build

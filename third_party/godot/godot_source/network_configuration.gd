@@ -18,6 +18,19 @@ var one_frame = ""
 var _client = WebSocketClient.new()
 
 func _ready():
+	if OS.has_feature('JavaScript'):
+		var ip_result = JavaScript.eval(""" 
+			function getIPAddress() {
+				var url_string = window.location.href;
+				var url = new URL(url_string);
+				const searchParams = new URLSearchParams(url.search);
+				const ipAddress = searchParams.get("ip_address");
+				return ipAddress;
+			}
+			getIPAddress();
+		""")
+		websocket_ip_address = ip_result
+		api_ip_address = ip_result
 	websocket_url = "ws://" + str(websocket_ip_address) + ":" + websocket_port_address
 	print("result: ", websocket_url)
 	# Connect base signals to get notified of connection open, close, and errors.
@@ -50,14 +63,14 @@ func _connected(proto = ""):
 	# You MUST always use get_peer(1).put_packet to send data to server,
 	# and not put_packet directly when not using the Multiplayernetwork_setting.
 	green_light = true
-	_client.get_peer(1).put_packet("{}".to_utf8())
+	_client.get_peer(1).put_packet("{}".to_ascii())
 
 func _on_data():
 	# Print the received packet, you MUST always use get_peer(1).get_packet
 	# to receive data from server, and not get_packet directly when not
 	# using the Multiplayernetwork_setting.
-	one_frame = _client.get_peer(1).get_packet().get_string_from_utf8()
-	#print("Got data from server: ", one_frame)
+	one_frame = str2var(_client.get_peer(1).get_packet().get_string_from_ascii())
+
 
 
 func _process(_delta):
@@ -67,7 +80,7 @@ func _process(_delta):
 
 func send(data):
 	if green_light:
-		_client.get_peer(1).put_packet(data.to_utf8())
+		_client.get_peer(1).put_packet(data.to_ascii())
 
 func disconnect_from_host():
 	_client.disconnect_from_host(1000, "Close per request")

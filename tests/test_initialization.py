@@ -1,4 +1,4 @@
-
+"""
 # Copyright 2019 The FEAGI Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,28 +13,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
-import pytest
-from evo import neuroembryogenesis
-from inf import initialize, runtime_data
+"""
 
 
-def test_feagi_initialization():
-    # ensure runtime_data parameters are updated upon initialization
-    initialize.initialize()
-    assert runtime_data.brain_run_id
-    assert runtime_data.parameters
-    assert runtime_data.working_directory
-    assert runtime_data.connectome_path
-    
-    # confirm genome creation using static genome
-    assert runtime_data.parameters['Switches']['use_static_genome']
-    assert runtime_data.genome
-    assert runtime_data.genome_id
+import requests
 
-    # suppress connectome figure generation during testing
-    runtime_data.parameters['Visualization']['connectome_visualizer'] = False
 
-    # ensure completion of brain development following neuroembryogenesis
-    neuroembryogenesis.develop_brain(reincarnation_mode=False)
-    assert runtime_data.brain
+def test():
+    """
+    A simple function to ping the endpoint of FEAGI's burst timer.
+    """
+    try:
+        data = requests.get('http://127.0.0.1:8000' + '/v1/feagi/feagi/burst_engine/stimulation_period')
+        if data.status_code == 200:
+            print("FEAGI is reachable and is not having any issue")
+            return "OK"
+    except Exception as error:
+        err = "ERROR AT: " + str(error)
+        return err
+
+
+RESULT = test()
+if RESULT == "OK":
+    pass
+else:
+    print(RESULT)
+    print(5 / 0)

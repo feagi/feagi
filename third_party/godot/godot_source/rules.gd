@@ -11,3 +11,9 @@ func _process(_delta):
 		$delete.disabled = true
 	else:
 		$delete.disabled = false
+	if $rule_type_options.get_item_count() > 0:
+		if $rule_type_options.get_item_text($rule_type_options.get_selected_id()) == "composite":
+			if $morphology_definition/composite_label/morphology_name.get_selected_id() == 0:
+				$save.disabled = true
+			else:
+				$save.disabled = false

@@ -52,6 +52,10 @@ func _process(_delta):
 				$create.rect_position = Vector2(152, 387)
 				$inner_box/box_of_composite.visible = true
 				$inner_box/Button.visible = false
+				if $inner_box/box_of_composite/mapper_composite.get_selected_id() == 0:
+					$create.disabled = true
+				else:
+					$create.disabled = false
 			else:
 				if flag:
 					$inner_box/grey_bg.rect_size = Vector2(481, 283)

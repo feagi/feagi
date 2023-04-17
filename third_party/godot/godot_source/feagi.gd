@@ -207,33 +207,15 @@ func _clear_single_cortical(cortical_name, node_list):
 		$Floor_grid.clear()
 
 func generate_voxels():
-	if stored_value != "" and stored_value != null:
-		array_test = stored_value.replace("[", "")
-		array_test = array_test.replace("]", "")
-		test=array_test.split(",", true, '0')
-		total = (test.size())
+	if stored_value != null:
+		total = len(stored_value)
 		$red_voxel.multimesh.instance_count = total
 		$red_voxel.multimesh.visible_instance_count = total
-		var key = 0
-		var x
-		var y
-		var z
-		flag=0
-		while key < total:
-			if flag == 0:
-				flag = flag + 1
-				x = int(test[key])
-			elif flag == 1:
-				flag = flag + 1
-				y = int(test[key])
-			elif flag == 2:
-				flag = 0
-				z = int(test[key])
-				var position = Transform()
-				position = position.translated(Vector3(int(x), int(y), int(z)))
-				$red_voxel.multimesh.set_instance_transform(key, position)
-			key+= 1
-		flag = 0 # keep x,y,z in correct place
+		flag = 0
+		for i in stored_value:
+			var position = Transform().translated(Vector3(i[0], i[1], i[2]))
+			$red_voxel.multimesh.set_instance_transform(flag, position)
+			flag += 1
 
 func cortical_is_clicked():
 	if select_cortical.selected.empty() != true:
@@ -810,7 +792,7 @@ func _on_type_rules_request_completed(_result, _response_code, _headers, body):
 		for x in api_data:
 			if $Spatial/Camera/Menu/rule_properties/rules/rule_type_options.get_item_text(i) == x:
 				$Spatial/Camera/Menu/rule_properties/rules/rule_type_options.select(i)
-	$notification.generate_notification_message(api_data, _response_code, "_on_type_rules_request_completed")
+	$notification.generate_notification_message(api_data, _response_code, "_on_type_rules_request_completed", "/v1/feagi/genome/morphology")
 
 
 func _on_save_pressed():
@@ -857,15 +839,12 @@ func _on_save_pressed():
 		json_data["vectors"] = empty_array1
 		new_morphology_clear()
 	if new_type== "composite":
-		json_data["composite"] = {}
-		json_data["composite"]['parameters'] = {}
-		json_data["composite"]['parameters']['src_pattern'] = []
-		json_data["composite"]['parameters']['src_pattern'].append([$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/X_box/C.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/X_box/S.value])
-		json_data["composite"]['parameters']['src_pattern'].append([$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Y_box/C.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Y_box/S.value])
-		json_data["composite"]['parameters']['src_pattern'].append([$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Z_box/C.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Z_box/S.value])
-		json_data["composite"]['parameters']['src_pattern'].append($Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/x.value)
-		json_data["composite"]['parameters']['src_seed'] = [$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/x.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/y.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/z.value]
-		json_data["composite"]["mapper_morphology"] = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.get_item_text($Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.selected)
+		json_data['src_pattern'] = []
+		json_data['src_pattern'].append([$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/X_box/C.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/X_box/S.value])
+		json_data['src_pattern'].append([$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Y_box/C.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Y_box/S.value])
+		json_data['src_pattern'].append([$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Z_box/C.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/Z_box/S.value])
+		json_data['src_seed'] = [$Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/x.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/y.value, $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/z.value]
+		json_data["mapper_morphology"] = $Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.get_item_text($Spatial/Camera/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.selected)
 	var combine_url = '/v1/feagi/genome/morphology?morphology_name=' + symbols_checker_for_api(new_name) + '&morphology_type=' + new_type
 	_make_put_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + combine_url, json_data, false, "/v1/feagi/genome/morphology")
 	$Spatial/Camera/Menu/rule_properties.visible = false
@@ -1010,14 +989,12 @@ func _on_morphology_list_request_completed(_result, _response_code, _headers, bo
 		$Spatial/Camera/Menu/information_menu/Neuron_morphologies_item.add_item(i, null, true)
 	$notification.generate_notification_message(api_data, _response_code, "_on_morphology_list_request_completed", "/v1/feagi/genome/morphology_list")
 
-
 func _on_Neuron_morphologies_item_selected(index):
 	if index != 0:
 		$Spatial/Camera/Menu/rule_properties.visible = true
 		$Spatial/Camera/Menu/rule_properties/mapping_rule_options.selected = index
 		$Spatial/Camera/Menu/rule_properties/mapping_rule_options.emit_signal("item_selected", index)
 		$Spatial/Camera/Menu/rule_properties/mapping_rule_options.release_focus()
-
 
 func _on_Button_pressed():
 	$Spatial/Camera/Menu/Control/inner_box/morphology_type.clear()

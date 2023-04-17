@@ -6,12 +6,11 @@ import requests
 import sys
 from feagi_agent_freenove.Led import *
 from feagi_agent_freenove.PCA9685 import PCA9685
-from feagi_agent_freenove.configuration import  *
+from feagi_agent_freenove.configuration import *
 from picamera import PiCamera
 from datetime import datetime
 from collections import deque
 from picamera.array import PiRGBArray
-
 
 runtime_data = {
     "current_burst_id": 0,
@@ -84,8 +83,8 @@ class Servo:
         self.PwmServo = PCA9685(0x40, debug=True)
         self.PwmServo.setPWMFreq(50)
         self.device_position = float()
-        self.servo_ranges = {0: [0, 180],
-                             1: [0, 180]}
+        self.servo_ranges = {0: [10, 160],
+                             1: [78, 160]}
 
     def setServoPwm(self, channel, angle, error=10):
         angle = float(angle)
@@ -110,16 +109,13 @@ class Servo:
         try:
             # Setting the initial position for the servo
             servo_0_initial_position = 90
-            self.device_position = servo_0_initial_position
-            self.move(0, self.device_position)
-            runtime_data['servo_status'][0] = self.device_position
+            runtime_data['servo_status'][0] = servo_0_initial_position
+            self.setServoPwm(str(0), runtime_data['servo_status'][0])
             print("Servo 0 was moved to its initial position")
 
             servo_1_initial_position = 90
-            self.device_position = servo_1_initial_position
-            self.move(1, self.device_position)
-            runtime_data['servo_status'][1] = self.device_position
-            print("Servo 1 was moved to its initial position")
+            runtime_data['servo_status'][1] = servo_1_initial_position
+            self.setServoPwm(str(1), runtime_data['servo_status'][0])
         except Exception as e:
             print("Error while setting initial position for the servo:", e)
 
@@ -137,8 +133,8 @@ class Servo:
                 runtime_data['servo_status'][device_index] = device_index
 
             device_current_position = runtime_data['servo_status'][device_index]
-            self.device_position = float((power * network_settings['feagi_burst_speed'] / 0.5) +
-                                         device_current_position)
+            self.device_position = float((power * feagi_settings['feagi_burst_speed'] /
+                                          capabilities["servo"]["power_amount"]) + device_current_position)
 
             self.device_position = self.keep_boundaries(device_id=device_index,
                                                         current_position=self.device_position)
@@ -460,6 +456,7 @@ def main():
     camera.framerate = 32
     rawCapture = PiRGBArray(camera, size=(640, 480))
     motor.stop()
+    servo.set_default_position()
     while True:
         try:
             for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
@@ -593,5 +590,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
