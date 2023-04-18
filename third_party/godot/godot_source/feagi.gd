@@ -57,7 +57,6 @@ var type = ""
 
 
 func _ready():
-	$GridMap3.set_cell_item(10, 0, -20, 0)
 	set_physics_process(false)
 	add_3D_indicator()
 	genome_data["genome"] = {}
@@ -860,6 +859,7 @@ func _on_delete_pressed():
 	grab_name_rule = symbols_checker_for_api(grab_name_rule)
 	var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology?morphology_name=' + grab_name_rule
 	_make_delete_request(combine_url, false, "/v1/feagi/genome/morphology")
+	$Spatial/Camera/Menu/rule_properties.visible = false
 
 func _on_get_cortical_dst_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
