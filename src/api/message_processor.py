@@ -1,9 +1,8 @@
 import datetime
 import json
+from inf.initialize import stage_genome
 from inf import runtime_data, disk_ops
-from inf.initialize import init_brain, reset_runtime_data, id_gen
 from evo.genome_processor import genome_ver_check
-from evo.neuroembryogenesis import develop_brain
 from evo.autopilot import update_generation_dict
 from evo.x_genesis import update_cortical_properties, update_morphology_properties, update_cortical_mappings
 from evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal
@@ -32,14 +31,13 @@ def api_message_processor(api_message):
             runtime_data.parameters['Logs']['print_messenger_logs'] \
                 = api_message['log_management']['print_messenger_logs']
 
-    if 'connectome_snapshot' in api_message:
-        if 'connectome_path' in api_message['connectome_snapshot']:
-            if api_message['connectome_snapshot']['connectome_path']:
-                print("Taking a snapshot of the brain... ... ...")
-                disk_ops.save_brain_to_disk(connectome_path=api_message['connectome_snapshot']['connectome_path'],
-                                            type='snapshot')
-            else:
-                disk_ops.save_brain_to_disk()
+    if 'connectome_path' in api_message:
+        if api_message['connectome_path']:
+            print("Taking a snapshot of the brain... ... ...")
+            disk_ops.save_brain_to_disk(connectome_path=api_message['connectome_path'],
+                                        type='snapshot')
+        else:
+            disk_ops.save_brain_to_disk()
 
     if 'neuron_mp_collection_scope' in api_message:
         if api_message['neuron_mp_collection_scope'] is not None:
@@ -98,31 +96,12 @@ def api_message_processor(api_message):
         print("========================================================")
         print(" Genome loading has been initiated by an API call...")
         print("========================================================")
-        reset_runtime_data()
-        runtime_data.genome_counter += 1
-        runtime_data.genome_reset_flag = False
-        runtime_data.genome_ver = None
-        runtime_data.last_genome_modification_time = datetime.datetime.now()
-        runtime_data.genome_orig = dict(api_message['genome']).copy()
-        runtime_data.genome = api_message['genome']
-        runtime_data.genome = genome_ver_check(runtime_data.genome)
-        runtime_data.genome_ver = "2.0"
-        init_brain()
-        if 'genome_id' not in runtime_data.genome:
-            runtime_data.genome['genome_id'] = id_gen(signature="_G")
-        runtime_data.genome_id = runtime_data.genome['genome_id']
-        print("#$% " * 30)
-        print("brain_run_id", runtime_data.brain_run_id)
-        if runtime_data.autopilot:
-            update_generation_dict(genome_id=runtime_data.genome_id,
-                                   robot_id=runtime_data.robot_id,
-                                   env_id=runtime_data.environment_id)
-        # Process of artificial neuroembryogenesis that leads to connectome development
-        develop_brain(reincarnation_mode=runtime_data.parameters[
-            'Brain_Development']['reincarnation_mode'])
+
+        genome_data = dict(api_message['genome'])
+        stage_genome(neuroembryogenesis_flag=True, reset_runtime_data_flag=True, genome_data=genome_data)
 
     if 'beacon_sub' in api_message:
-        print("The following FEAGi beacon subscriber has been added:\n", api_message['beacon_sub'])
+        print("The following FEAGI beacon subscriber has been added:\n", api_message['beacon_sub'])
         runtime_data.beacon_sub.add(api_message['beacon_sub'])
 
     if 'beacon_unsub' in api_message:

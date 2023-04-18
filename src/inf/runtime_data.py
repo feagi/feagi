@@ -62,6 +62,7 @@ cortical_defaults = None
 
 
 # System
+feagi_thread = None
 beacon_sub = set()
 beacon_flag = False
 feagi_state = {

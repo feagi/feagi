@@ -87,6 +87,8 @@ def stimulation_injector(stimulation_data):
                 for neuron in in_the_block:
                     neuron_list.add(neuron)
             for _ in neuron_list:
+                if cortical_area not in runtime_data.fire_candidate_list:
+                    runtime_data.fire_candidate_list[cortical_area] = set()
                 runtime_data.fire_candidate_list[cortical_area].add(_)
 
 
