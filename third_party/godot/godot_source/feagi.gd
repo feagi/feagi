@@ -65,7 +65,7 @@ func _ready():
 	while true:
 		if $Spatial/Camera/Menu/box_loading.visible:
 			$Spatial/Camera/Menu/box_loading.visible = false
-		if $Spatial/Camera/Menu/insert_menu.visible == false:
+		if $Spatial/Camera/Menu/insert_menu.visible == false and $Spatial/Camera/Menu/addition_menu.visible == false:
 			_clear_single_cortical("example", global_name_list)
 #		if not($Spatial/Camera/Menu/cortical_menu.visible) and child_node_holder:
 #			child_holder_clear() # Is this needed now?
@@ -107,7 +107,7 @@ func generate_one_model(node, x_input, y_input, z_input, width_input, depth_inpu
 	add_child(new)
 	new.visible = true
 	new.scale = Vector3(width_input, height_input, depth_input)
-	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), depth_input/2 + -1 * int(z_input))
+	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), -1 * (depth_input/2 + int(z_input)))
 	generate_textbox(node, x_input,height_input,z_input, name_input, y_input, width_input, depth_input)
 
 func convert_generate_one_model(_node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
@@ -117,7 +117,7 @@ func convert_generate_one_model(_node, x_input, y_input, z_input, width_input, d
 	new.visible = true
 	global_name_list.append({name_input.replace(" ", "") : [new, x_input, y_input, z_input, width_input, depth_input, height_input]})
 	new.scale = Vector3(width_input, height_input, depth_input)
-	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), depth_input/2 + int(z_input))
+	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), -1 * (depth_input/2 + int(z_input)))
 
 func generate_model(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
 	for x_gain in width_input:
@@ -1560,3 +1560,36 @@ func _on_morphology_type_item_selected(_index):
 		_morphology_button_pressed()
 	else:
 		_morphology_button_pressed()
+
+func _on_X_SpinBox_value_changed(_value):
+	generate_single_cortical($Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value, $Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value, $Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/W_Spinbox.value,$Spatial/Camera/Menu/addition_menu/wdh/H_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+	demo_new_cortical()
+
+func _on_W_Spinbox_value_changed(_value):
+	generate_single_cortical($Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value, $Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value, $Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/W_Spinbox.value,$Spatial/Camera/Menu/addition_menu/wdh/H_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+	demo_new_cortical()
+
+func _on_H_Spinbox_value_changed(_value):
+	generate_single_cortical($Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value, $Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value, $Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/W_Spinbox.value,$Spatial/Camera/Menu/addition_menu/wdh/H_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+	demo_new_cortical()
+
+func _on_D_Spinbox_value_changed(_value):
+	generate_single_cortical($Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value, $Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value, $Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/W_Spinbox.value,$Spatial/Camera/Menu/addition_menu/wdh/H_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+	demo_new_cortical()
+
+func _on_Y_Spinbox_value_changed(_value):
+	generate_single_cortical($Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value, $Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value, $Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/W_Spinbox.value,$Spatial/Camera/Menu/addition_menu/wdh/H_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+	demo_new_cortical()
+
+func _on_Z_Spinbox_value_changed(_value):
+	generate_single_cortical($Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value, $Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value, $Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/W_Spinbox.value,$Spatial/Camera/Menu/addition_menu/wdh/H_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+	demo_new_cortical()
+
+func demo_new_cortical():
+	for i in len(global_name_list):
+		if "example" in global_name_list[i]:
+			if global_name_list[i]["example"][0].get_child(0).get_class() == "Viewport":
+				if $Spatial/Camera/Menu/addition_menu/cortical_name_textbox/type.text == "":
+					global_name_list[i]["example"][0].get_child(0).get_child(0).text = "example"
+				else:
+					global_name_list[i]["example"][0].get_child(0).get_child(0).text = $Spatial/Camera/Menu/addition_menu/cortical_name_textbox/type.text
