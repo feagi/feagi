@@ -1609,7 +1609,6 @@ async def upload_zipped_connectome(response: Response, zip_file: UploadFile = Fi
         load_brain_in_memory()
         print("@__" * 10)
 
-        os.unlink(temp_file.name)
         response.status_code = status.HTTP_200_OK
 
         return {"message": "Zip file successfully extracted", "output_folder": output_folder}
