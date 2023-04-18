@@ -83,7 +83,6 @@ def print_basic_info():
     return
 
 
-
 def cortical_area_neuron_count(cortical_area):
     """
     Returns number of Neurons in the connectome

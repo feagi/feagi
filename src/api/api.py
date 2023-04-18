@@ -20,21 +20,26 @@ import time
 import string
 import logging
 import random
+import zipfile
+import tempfile
 
 from time import sleep
-
-from fastapi import FastAPI, File, UploadFile, Response, status, Request
+from fastapi import FastAPI, File, UploadFile, Response, status, Request, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import FileResponse
+from starlette.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional, Literal
 from ast import literal_eval
 from threading import Thread
 from queue import Queue
+from io import StringIO, BytesIO
+
 from inf import feagi
 from inf import runtime_data
 from inf.baseline import gui_baseline
+from inf.disk_ops import load_brain_in_memory, save_brain_to_disk, load_genome_in_memory
 from evo import autopilot
 from evo.synapse import cortical_mapping, morphology_usage_list
 from evo.templates import cortical_types
@@ -42,10 +47,13 @@ from evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
 from evo import synaptogenesis_rules
 from evo.stats import circuit_size
 from evo.genome_properties import genome_properties
+from evo.genome_editor import save_genome
 from evo.x_genesis import neighboring_cortical_areas
 from evo.genome_processor import genome_2_1_convertor
+from evo.connectome import reset_connectome
 from .config import settings
 from inf.messenger import Pub, Sub
+from inf.initialize import init_infrastructure, stage_genome
 
 
 logger = logging.getLogger(__name__)
@@ -83,8 +91,10 @@ app.add_middleware(
 
 
 def kickstart_feagi_thread():
-    feagi_thread = Thread(target=feagi.start_feagi, args=(api_queue,))
-    feagi_thread.start()
+    print("<>--" * 20)
+    print("Starting FEAGI thread..")
+    runtime_data.feagi_thread = Thread(target=feagi.start_feagi, args=(api_queue,))
+    runtime_data.feagi_thread.start()
 
 
 kickstart_feagi_thread()
@@ -407,7 +417,7 @@ async def genome_download(response: Response):
         print(file_name)
         if runtime_data.genome:
             response.status_code = status.HTTP_200_OK
-            return FileResponse(path="../runtime_genome.json", filename=file_name)
+            return FileResponse(path=runtime_data.connectome_path + "genome.json", filename=file_name)
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
     except Exception as e:
@@ -1385,25 +1395,26 @@ async def gazebo_robot_default_files(response: Response):
 # ######  Connectome Endpoints #########
 # ######################################
 
-@app.api_route("/v1/feagi/connectome/cortical_areas", methods=['Get'], tags=["Connectome"])
+@app.api_route("/v1/feagi/connectome/cortical_areas", methods=['GET'], tags=["Connectome"])
 async def connectome_cortical_areas(response: Response):
     try:
-        if runtime_data.cortical_list:
-            response.status_code = status.HTTP_200_OK
-            return runtime_data.cortical_list
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
+        cortical_list = set()
+        for cortical_area in runtime_data.brain:
+            cortical_list.add(cortical_area)
+        response.status_code = status.HTTP_200_OK
+        return cortical_list
+
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
 
 
 @app.api_route("/v1/feagi/connectome/cortical_info", methods=['POST'], tags=["Connectome"])
-async def connectome_cortical_info(connectome: Connectome, response: Response):
+async def connectome_cortical_info(cortical_area: str, response: Response):
     try:
-        if connectome.cortical_area in runtime_data.brain:
+        if cortical_area in runtime_data.brain:
             response.status_code = status.HTTP_200_OK
-            return runtime_data.brain[connectome.cortical_area]
+            return runtime_data.brain[cortical_area]
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
             return {"Requested cortical area not found!"}
@@ -1412,17 +1423,17 @@ async def connectome_cortical_info(connectome: Connectome, response: Response):
         print("API Error:", e)
 
 
-@app.api_route("/v1/feagi/connectome/all", methods=['Get'], tags=["Connectome"])
-async def connectome_comprehensive_info(response: Response):
-    try:
-        if runtime_data.brain:
-            response.status_code = status.HTTP_200_OK
-            return runtime_data.brain
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
+# @app.api_route("/v1/feagi/connectome/all", methods=['Get'], tags=["Connectome"])
+# async def connectome_comprehensive_info(response: Response):
+#     try:
+#         if runtime_data.brain:
+#             response.status_code = status.HTTP_200_OK
+#             return runtime_data.brain
+#         else:
+#             response.status_code = status.HTTP_404_NOT_FOUND
+#     except Exception as e:
+#         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+#         print("API Error:", e)
 
 
 @app.api_route("/v1/feagi/connectome/plasticity", methods=['Get'], tags=["Connectome"])
@@ -1433,12 +1444,114 @@ async def connectome_plasticity_info(response: Response):
             return runtime_data.plasticity_dict
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
+            return {}
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
 
 
-@app.post("/v1/feagi/connectome/upload", tags=["Connectome"])
+@app.api_route("/v1/feagi/connectome/path", methods=['Get'], tags=["Connectome"])
+async def connectome_system_path(response: Response):
+    try:
+        if runtime_data.connectome_path:
+            response.status_code = status.HTTP_200_OK
+            return runtime_data.connectome_path
+        else:
+            response.status_code = status.HTTP_404_NOT_FOUND
+            return {}
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/connectome/source", methods=['POST'], tags=["Connectome"])
+async def connectome_source_path(connectome_path: str, response: Response):
+    try:
+        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'connectome', 'path', connectome_path,))
+        feagi_thread.start()
+        response.status_code = status.HTTP_200_OK
+
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/connectome/snapshot", methods=['POST'], tags=["Connectome"])
+async def connectome_snapshot(connectome_storage_path: str, response: Response):
+    try:
+        message = {'connectome_path': connectome_storage_path}
+        print("Snapshot path:", message)
+        api_queue.put(item=message)
+        response.status_code = status.HTTP_200_OK
+
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+        
+
+@app.get("/v1/feagi/connectome/download-cortical-area", tags=["Connectome"])
+async def connectome_download(cortical_area: str, response: Response):
+    print("Downloading Connectome...")
+    try:
+        file_name = "connectome_" + cortical_area + datetime.datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".json"
+        print(file_name)
+        if runtime_data.brain[cortical_area]:
+            response.status_code = status.HTTP_200_OK
+            return FileResponse(path=runtime_data.connectome_path+cortical_area + ".json", filename=file_name)
+        else:
+            response.status_code = status.HTTP_404_NOT_FOUND
+    except Exception as e:
+        print("API Error:", e)
+
+
+def iter_zip_file(zip_name):
+    with open(zip_name, "rb") as file:
+        while True:
+            chunk = file.read(8192)
+            if not chunk:
+                break
+            yield chunk
+    os.remove(zip_name)  # Remove the temporary file after it has been streamed
+
+
+@app.get("/v1/feagi/connectome/download", tags=["Connectome"])
+async def download_zipped_connectome(response: Response):
+    try:
+        folder_path = runtime_data.connectome_path
+        print("Connetome Path=", folder_path)
+        new_file_list = os.listdir(folder_path)
+        print("^__" * 10)
+        print("Zipped connectome has been successfully uploaded and extracted as:")
+        for file_name in new_file_list:
+            print("___", file_name)
+
+        # Preserve the Brain
+        save_brain_to_disk()
+
+        if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
+            raise HTTPException(status_code=400, detail="Invalid folder path")
+
+        temp_dir = tempfile.mkdtemp()
+        zip_name = os.path.join(temp_dir, "folder.zip")
+
+        # Create a ZipFile object
+        with zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            # Iterate through the folder and add files to the ZipFile object
+            for root, _, files in os.walk(folder_path):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    zip_file.write(file_path, os.path.relpath(file_path, folder_path))
+        filename = "connectome_" + datetime.datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p" + ".zip")
+        response.status_code = status.HTTP_200_OK
+        return StreamingResponse(iter_zip_file(zip_name), media_type="application/zip",
+                                 headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.post("/v1/feagi/connectome/upload-cortical-area", tags=["Connectome"])
 async def connectome_file_upload(response: Response, file: UploadFile = File(...)):
     try:
         data = await file.read()
@@ -1453,31 +1566,55 @@ async def connectome_file_upload(response: Response, file: UploadFile = File(...
         print("API Error:", e)
 
 
-@app.api_route("/v1/feagi/connectome/source", methods=['POST'], tags=["Connectome"])
-async def connectome_source_path(connectome_path: ConnectomePath, response: Response):
+@app.post("/v1/feagi/connectome/upload", tags=["Connectome"])
+async def upload_zipped_connectome(response: Response, zip_file: UploadFile = File(...)):
     try:
-        feagi_thread = Thread(target=start_feagi, args=(api_queue, 'connectome', 'path',  connectome_path,))
-        feagi_thread.start()
-        response.status_code = status.HTTP_200_OK
-        
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
+        if zip_file.content_type != "application/zip":
+            raise HTTPException(status_code=400, detail="Invalid file type. Only zip files are allowed.")
 
+        output_folder = runtime_data.connectome_path
 
-@app.api_route("/v1/feagi/connectome/snapshot", methods=['POST'], tags=["Connectome"])
-async def connectome_snapshot(message: ConnectomePath, response: Response):
-    try:
-        message = message.dict()
-        message = {'connectome_snapshot': message}
-        print("Snapshot path:", message)
-        api_queue.put(item=message)
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+        else:
+            # Clear connectome folder contents
+            reset_connectome()
+
+        # Create a temporary file to store the uploaded zip file
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            print(f"Zip file: {zip_file.filename}, {zip_file.content_type}, {zip_file.file}")  # Add this line
+            temp_file.write(await zip_file.read())
+
+        # Extract the zip file to the output folder
+        with zipfile.ZipFile(temp_file.name, "r") as zip_ref:
+            zip_ref.extractall(output_folder)
+
+        os.unlink(temp_file.name)
+
+        new_file_list = os.listdir(runtime_data.connectome_path)
+        print("^__" * 10)
+        print("Zipped connectome has been successfully uploaded and extracted as:")
+        for file_name in new_file_list:
+            print("___", file_name)
+        print("\n\n")
+        # Activate the new Connectome + Genome
+        load_genome_in_memory()
+        print("#__" * 10)
+
+        # Activate new genome without neuroembryogenesis
+        stage_genome()
+        print("^__" * 10)
+        print("Genome staging has completed successfully!")
+
+        load_brain_in_memory()
+        print("@__" * 10)
+
         response.status_code = status.HTTP_200_OK
-        
+
+        return {"message": "Zip file successfully extracted", "output_folder": output_folder}
     except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
-        
+        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"detail": str(e)})
+
 
 @app.api_route("/v1/feagi/connectome/properties/dimensions", methods=['GET'], tags=["Connectome"])
 async def connectome_dimensions_report(response: Response):
