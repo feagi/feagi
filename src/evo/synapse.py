@@ -232,11 +232,11 @@ def cortical_areas_sharing_same_morphology(neuron_morphology):
     return cortical_list
 
 
-def morphology_usage_list(morphology_name):
+def morphology_usage_list(morphology_name, genome):
     usage_list = set()
-    for cortical_area in runtime_data.genome['blueprint']:
-        for destination in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
-            for mapping in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][destination]:
+    for cortical_area in genome['blueprint']:
+        for destination in genome['blueprint'][cortical_area]['cortical_mapping_dst']:
+            for mapping in genome['blueprint'][cortical_area]['cortical_mapping_dst'][destination]:
                 if mapping["morphology_id"] \
                         == morphology_name:
                     usage_list.add((cortical_area, destination))

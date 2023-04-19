@@ -709,7 +709,7 @@ async def genome_neuron_morphology_usage_report(morphology_name, response: Respo
     Returns the properties of a neuron morphology.
     """
     try:
-        usage_list = morphology_usage_list(morphology_name=morphology_name)
+        usage_list = morphology_usage_list(morphology_name=morphology_name, genome=runtime_data.genome)
         if usage_list:
             response.status_code = status.HTTP_200_OK
             return usage_list
@@ -940,7 +940,7 @@ async def cortical_area_types(cortical_type, response: Response):
 
 
 @app.api_route("/v1/feagi/genome/circuits", methods=['GET'], tags=["Genome"])
-async def cortical_area_types(response: Response):
+async def circuit_library(response: Response):
     """
     Returns the list of neuronal circuits under /evo/circuits
     """
@@ -975,13 +975,26 @@ async def cortical_area_types(circuit_name, response: Response):
 
 
 @app.api_route("/v1/feagi/genome/append", methods=['POST'], tags=["Genome"])
-async def genome_append_circuit(circuit_name: str, location: list, response: Response):
+async def genome_append_circuit(circuit_name: str,
+                                circuit_origin_x: int,
+                                circuit_origin_y: int,
+                                circuit_origin_z: int,
+                                response: Response):
     """
     Appends a given circuit to the running genome at a specific location.
     """
     try:
-        print("Placeholder")
-        response.status_code = status.HTTP_200_OK
+        circuit_list = os.listdir("./evo/circuits")
+        if circuit_name not in circuit_list:
+            response.status_code = status.HTTP_404_NOT_FOUND
+        else:
+            payload = dict()
+            payload["circuit_name"] = circuit_name
+            payload["circuit_origin"] = [circuit_origin_x, circuit_origin_y, circuit_origin_z]
+            data = {'append_circuit': payload}
+            api_queue.put(item=data)
+
+            response.status_code = status.HTTP_200_OK
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)

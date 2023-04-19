@@ -5,7 +5,7 @@ from inf import runtime_data, disk_ops
 from evo.genome_processor import genome_ver_check
 from evo.autopilot import update_generation_dict
 from evo.x_genesis import update_cortical_properties, update_morphology_properties, update_cortical_mappings
-from evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal
+from evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal, append_circuit
 
 
 def api_message_processor(api_message):
@@ -173,4 +173,6 @@ def api_message_processor(api_message):
     if 'add_custom_cortical_area' in api_message:
         add_custom_cortical_area(cortical_properties=api_message['add_custom_cortical_area'])
 
-    api_message = {}
+    if 'append_circuit' in api_message:
+        append_circuit(circuit_name=api_message['append_circuit']['circuit_name'],
+                       circuit_origin=api_message['append_circuit']['circuit_origin'])

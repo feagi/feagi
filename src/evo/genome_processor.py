@@ -135,17 +135,12 @@ def json_comment_catcher(key):
 
 
 def genome_2_1_convertor(flat_genome):
-    print("==#### 0 =======" * 5)
     genome = dict()
     genome['blueprint'] = dict()
-    print("==#### 00 =======" * 5)
     cortical_list = genome_2_cortical_list(flat_genome)
-    print("==#### 000 =======" * 5)
     # Assign a blank template to each cortical area
-    print("==#### 1 =======" * 5)
     for cortical_area in cortical_list:
         genome['blueprint'][cortical_area] = copy.deepcopy(genome_1_template)
-    print("==#### 2 =======" * 5)
     # Populate each cortical area with
     for cortical_area in genome['blueprint']:
         try:

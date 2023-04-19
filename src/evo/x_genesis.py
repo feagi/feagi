@@ -32,7 +32,7 @@ from multiprocessing import Pool, Process
 from inf import disk_ops
 from inf import settings
 from inf import runtime_data
-from evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter
+from evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter, genome_2_1_convertor
 from evo.genome_editor import save_genome
 from evo.connectome import reset_connectome_file
 from inf.initialize import generate_cortical_dimensions, init_fcl
@@ -543,3 +543,67 @@ def add_custom_cortical_area(cortical_properties):
         save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                     file_name=runtime_data.connectome_path + "genome.json")
         runtime_data.last_genome_modification_time = datetime.datetime.now()
+
+
+def append_circuit(circuit_name, circuit_origin):
+    try:
+        with open("./evo/circuits/" + circuit_name, "r") as genome_file:
+            source_genome = json.load(genome_file)
+            converted_genome = genome_2_1_convertor(source_genome["blueprint"])
+            source_genome["blueprint"] = converted_genome['blueprint']
+
+            src_morphologies = source_genome['neuron_morphologies']
+            dst_morphologies = runtime_data.genome['neuron_morphologies']
+
+            # Append Morphologies
+
+            # Create a hash table for source and destination morphologies
+            dst_morphology_hash_table = dict()
+
+            for dst_morphology in dst_morphologies:
+                morphology_str = json.dumps(dst_morphologies[dst_morphology])
+                morphology_hash = hash(morphology_str)
+                if morphology_hash not in dst_morphology_hash_table:
+                    dst_morphology_hash_table[morphology_hash] = set()
+                dst_morphology_hash_table[morphology_hash].add(dst_morphology)
+
+            print("------>> dst_morphology_hash_table", dst_morphology_hash_table)
+
+            morphology_mapping_table = dict()
+
+            for src_morphology in src_morphologies:
+
+                # Check if morphology is used or not
+                morphology_usage = synapse.morphology_usage_list(morphology_name=src_morphology, genome=source_genome)
+                print("--------> morphology_usage", src_morphology, morphology_usage)
+                if morphology_usage:
+                    morphology_str = json.dumps(dst_morphologies[dst_morphology])
+                    morphology_hash = hash(morphology_str)
+                    if morphology_hash not in dst_morphology_hash_table:
+                        if src_morphology in dst_morphologies:
+                            src_morphology_ = src_morphology + "_" + \
+                                             "".join(random.choice(string.ascii_uppercase) for _ in range(2))
+                            runtime_data.genome["neuron_morphologies"][src_morphology_] = src_morphologies[
+                                src_morphology]
+                        else:
+                            runtime_data.genome["neuron_morphologies"][src_morphology] = \
+                                src_morphologies[src_morphology]
+                    else:
+                        # Build a mapping table to be used while appending the Blueprint
+                        morphology_association = list(dst_morphology_hash_table[morphology_hash])[0]
+                        print("morphology_association:", src_morphology, morphology_association)
+                        morphology_mapping_table[morphology_association] = src_morphology
+
+
+                # Todo: Handle condition where names are same but hash is different
+
+
+            print("@ # $ % " * 100)
+            print("morphology_mapping_table:", morphology_mapping_table)
+            print("Updated neuron_morphologies:", runtime_data.genome['neuron_morphologies'])
+
+            # Append Blueprint
+            # TBD
+
+    except Exception as e:
+        print("Exception during morphology join", e, traceback.print_exc())
