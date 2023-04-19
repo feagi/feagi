@@ -597,26 +597,31 @@ def append_circuit(circuit_name, circuit_origin):
             morphology_mapping_table = dict()
 
             for src_morphology in src_morphologies:
-
+                print("\n" * 5)
                 # Check if morphology is used or not
                 morphology_usage = synapse.morphology_usage_list(morphology_name=src_morphology, genome=source_genome)
 
                 if morphology_usage:
-                    morphology_str = json.dumps(dst_morphologies[dst_morphology])
+                    print(f">>>>>>>>>      morphology {src_morphology} is in use")
+                    morphology_str = json.dumps(src_morphologies[src_morphology])
                     morphology_hash = hash(morphology_str)
+                    print("morphology hash:", src_morphology, morphology_hash)
                     if morphology_hash not in dst_morphology_hash_table:
                         if src_morphology in dst_morphologies:
                             src_morphology_ = src_morphology + "_" + \
                                              "".join(random.choice(string.ascii_uppercase) for _ in range(2))
                             runtime_data.genome["neuron_morphologies"][src_morphology_] = src_morphologies[
-                                src_morphology]
+                                src_morphology].copy()
+                            print(f"............{src_morphology_} has been added to destination!")
                         else:
+                            print(f"............{src_morphology} has been added to destination!")
                             runtime_data.genome["neuron_morphologies"][src_morphology] = \
-                                src_morphologies[src_morphology]
+                                src_morphologies[src_morphology].copy()
                     else:
                         # Build a mapping table to be used while appending the Blueprint
                         morphology_association = list(dst_morphology_hash_table[morphology_hash])[0]
-                        print("morphology_association:", src_morphology, morphology_association)
+                        print("%%%%%%%%%%%%     morphology_association:", src_morphology, morphology_association)
+                        print(dst_morphology_hash_table)
                         morphology_mapping_table[morphology_association] = src_morphology
 
             print("@ # $ % " * 100)
