@@ -1586,6 +1586,11 @@ func _on_Z_Spinbox_value_changed(_value):
 	demo_new_cortical()
 
 func demo_new_cortical():
+	"""
+	This is for add new cortical area so the name will be updated when you move it around. This is designed to use
+	the duplicated node called "example", so if it has no name, it will display as "example" but if 
+	it has a letter or name, it will display as the user typed.
+	"""
 	for i in len(global_name_list):
 		if "example" in global_name_list[i]:
 			if global_name_list[i]["example"][0].get_child(0).get_class() == "Viewport":
