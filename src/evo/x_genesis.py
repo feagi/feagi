@@ -546,6 +546,12 @@ def add_custom_cortical_area(cortical_properties):
 
 
 def append_circuit(circuit_name, circuit_origin):
+    print("$$$$$ $$$$" * 100)
+    for morphology in runtime_data.genome["neuron_morphologies"]:
+        print(morphology, runtime_data.genome["neuron_morphologies"][morphology])
+
+    for blueprint in runtime_data.genome["blueprint"]:
+        print(blueprint, runtime_data.genome["blueprint"][blueprint])
     try:
         with open("./evo/circuits/" + circuit_name, "r") as genome_file:
             source_genome = json.load(genome_file)
@@ -555,8 +561,29 @@ def append_circuit(circuit_name, circuit_origin):
             src_morphologies = source_genome['neuron_morphologies']
             dst_morphologies = runtime_data.genome['neuron_morphologies']
 
-            # Append Morphologies
+            src_blueprint = source_genome['blueprint']
+            dst_blueprint = runtime_data.genome['blueprint']
 
+            # Append Blueprint
+            for cortical_area_id in src_blueprint:
+                src_cortical_area = src_blueprint[cortical_area_id]
+                new_cortical_area_id = cortical_area_id
+                if cortical_area_id in dst_blueprint:
+                    while new_cortical_area_id == cortical_area_id:
+                        new_cortical_area_id = cortical_area_id[:-3] + \
+                                               "".join(random.choice(string.ascii_uppercase) for _ in range(3))
+                dst_blueprint[new_cortical_area_id] = src_cortical_area.copy()
+
+                dst_blueprint[new_cortical_area_id]["relative_coordinate"][0] = \
+                    src_blueprint[cortical_area_id]["relative_coordinate"][0] + circuit_origin[0]
+
+                dst_blueprint[new_cortical_area_id]["relative_coordinate"][1] = \
+                    src_blueprint[cortical_area_id]["relative_coordinate"][1] + circuit_origin[1]
+
+                dst_blueprint[new_cortical_area_id]["relative_coordinate"][2] = \
+                    src_blueprint[cortical_area_id]["relative_coordinate"][2] + circuit_origin[2]
+
+            # Append Morphologies
             # Create a hash table for source and destination morphologies
             dst_morphology_hash_table = dict()
 
@@ -567,15 +594,13 @@ def append_circuit(circuit_name, circuit_origin):
                     dst_morphology_hash_table[morphology_hash] = set()
                 dst_morphology_hash_table[morphology_hash].add(dst_morphology)
 
-            print("------>> dst_morphology_hash_table", dst_morphology_hash_table)
-
             morphology_mapping_table = dict()
 
             for src_morphology in src_morphologies:
 
                 # Check if morphology is used or not
                 morphology_usage = synapse.morphology_usage_list(morphology_name=src_morphology, genome=source_genome)
-                print("--------> morphology_usage", src_morphology, morphology_usage)
+
                 if morphology_usage:
                     morphology_str = json.dumps(dst_morphologies[dst_morphology])
                     morphology_hash = hash(morphology_str)
@@ -594,16 +619,16 @@ def append_circuit(circuit_name, circuit_origin):
                         print("morphology_association:", src_morphology, morphology_association)
                         morphology_mapping_table[morphology_association] = src_morphology
 
-
-                # Todo: Handle condition where names are same but hash is different
-
-
             print("@ # $ % " * 100)
-            print("morphology_mapping_table:", morphology_mapping_table)
-            print("Updated neuron_morphologies:", runtime_data.genome['neuron_morphologies'])
+            for morphology in runtime_data.genome["neuron_morphologies"]:
+                print(morphology, runtime_data.genome["neuron_morphologies"][morphology])
 
-            # Append Blueprint
-            # TBD
+            for blueprint in runtime_data.genome["blueprint"]:
+                print(blueprint, runtime_data.genome["blueprint"][blueprint])
+
+            save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
+                        file_name=runtime_data.connectome_path + "genome.json")
+            runtime_data.last_genome_modification_time = datetime.datetime.now()
 
     except Exception as e:
         print("Exception during morphology join", e, traceback.print_exc())
