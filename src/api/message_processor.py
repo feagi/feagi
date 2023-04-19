@@ -174,5 +174,5 @@ def api_message_processor(api_message):
         add_custom_cortical_area(cortical_properties=api_message['add_custom_cortical_area'])
 
     if 'append_circuit' in api_message:
-        append_circuit(circuit_name=api_message['append_circuit']['circuit_name'],
+        append_circuit(source_genome=api_message['append_circuit']["genome_str"],
                        circuit_origin=api_message['append_circuit']['circuit_origin'])

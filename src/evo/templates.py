@@ -29,6 +29,13 @@ cortical_types = {
                 "resolution": [1, 1, 1],
                 "count": int
             },
+            "inverse_infrared_sensor": {
+                "enabled": True,
+                "cortical_id": "i__inf",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 1],
+                "count": int
+            },
             "proximity_sensor": {
                 "enabled": True,
                 "cortical_id": "i__pro",
@@ -85,21 +92,35 @@ cortical_types = {
             },
             "Servo": {
                 "enabled": True,
-                "cortical_id": "o__mot",
+                "cortical_id": "o__srv",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 10],
+                "count": int
+            },
+            "Navigation": {
+                "enabled": True,
+                "cortical_id": "o__nav",
+                "structure": "asymmetric",
+                "resolution": [3, 1, 20],
+                "count": int
+            },
+            "Speed": {
+                "enabled": True,
+                "cortical_id": "o__spd",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
                 "count": int
             },
             "Battery": {
                 "enabled": True,
-                "cortical_id": "o__mot",
+                "cortical_id": "o__bat",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
                 "count": int
             },
             "Position_Initializer": {
                 "enabled": True,
-                "cortical_id": "o__mot",
+                "cortical_id": "o_init",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
                 "count": int
@@ -126,13 +147,6 @@ cortical_types = {
             "Power": {
                 "enabled": False,
                 "cortical_id": "___pwr",
-                "structure": "asymmetric",
-                "resolution": [1, 1, 1],
-                "count": int
-            },
-            "Inverse_Infrared": {
-                "enabled": True,
-                "cortical_id": "ii_inf",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
                 "count": int

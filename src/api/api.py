@@ -974,6 +974,33 @@ async def cortical_area_types(circuit_name, response: Response):
         print("API Error:", e, traceback.print_exc())
 
 
+@app.api_route("/v1/feagi/genome/append-file", methods=['POST'], tags=["Genome"])
+async def genome_append_circuit(circuit_origin_x: int,
+                                circuit_origin_y: int,
+                                circuit_origin_z: int,
+                                response: Response, file: UploadFile = File(...)):
+    """
+    Appends a given circuit to the running genome at a specific location.
+    """
+    try:
+        data = await file.read()
+
+        runtime_data.genome_file_name = file.filename
+
+        genome_str = json.loads(data)
+
+        payload = dict()
+        payload["genome_str"] = genome_str
+        payload["circuit_origin"] = [circuit_origin_x, circuit_origin_y, circuit_origin_z]
+        data = {'append_circuit': payload}
+        api_queue.put(item=data)
+
+        response.status_code = status.HTTP_200_OK
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
 @app.api_route("/v1/feagi/genome/append", methods=['POST'], tags=["Genome"])
 async def genome_append_circuit(circuit_name: str,
                                 circuit_origin_x: int,
@@ -988,8 +1015,10 @@ async def genome_append_circuit(circuit_name: str,
         if circuit_name not in circuit_list:
             response.status_code = status.HTTP_404_NOT_FOUND
         else:
+            with open("./evo/circuits/" + circuit_name, "r") as genome_file:
+                source_genome = json.load(genome_file)
             payload = dict()
-            payload["circuit_name"] = circuit_name
+            payload["genome_str"] = source_genome
             payload["circuit_origin"] = [circuit_origin_x, circuit_origin_y, circuit_origin_z]
             data = {'append_circuit': payload}
             api_queue.put(item=data)
@@ -998,6 +1027,7 @@ async def genome_append_circuit(circuit_name: str,
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
+
 
 
 # ######  Evolution #########

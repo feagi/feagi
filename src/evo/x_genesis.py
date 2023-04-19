@@ -434,7 +434,7 @@ def add_core_cortical_area(cortical_properties):
         if cortical_area in runtime_data.genome['blueprint']:
             print("Warning! Cortical area already part of genome. Nothing got added.")
         else:
-            neuroembryogenesis.reset_connectome_file(cortical_area=cortical_area)
+            reset_connectome_file(cortical_area=cortical_area)
             runtime_data.voxel_dict[cortical_area] = dict()
             runtime_data.genome['blueprint'][cortical_area] = dict()
             runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
@@ -545,7 +545,7 @@ def add_custom_cortical_area(cortical_properties):
         runtime_data.last_genome_modification_time = datetime.datetime.now()
 
 
-def append_circuit(circuit_name, circuit_origin):
+def append_circuit(source_genome, circuit_origin):
     print("$$$$$ $$$$" * 100)
     for morphology in runtime_data.genome["neuron_morphologies"]:
         print(morphology, runtime_data.genome["neuron_morphologies"][morphology])
@@ -553,50 +553,69 @@ def append_circuit(circuit_name, circuit_origin):
     for blueprint in runtime_data.genome["blueprint"]:
         print(blueprint, runtime_data.genome["blueprint"][blueprint])
     try:
-        with open("./evo/circuits/" + circuit_name, "r") as genome_file:
-            source_genome = json.load(genome_file)
-            converted_genome = genome_2_1_convertor(source_genome["blueprint"])
-            source_genome["blueprint"] = converted_genome['blueprint']
+        converted_genome = genome_2_1_convertor(source_genome["blueprint"])
+        source_genome["blueprint"] = converted_genome['blueprint']
 
-            src_morphologies = source_genome['neuron_morphologies']
-            dst_morphologies = runtime_data.genome['neuron_morphologies']
+        src_morphologies = source_genome['neuron_morphologies']
+        dst_morphologies = runtime_data.genome['neuron_morphologies']
 
-            src_blueprint = source_genome['blueprint']
-            dst_blueprint = runtime_data.genome['blueprint']
+        src_blueprint = source_genome['blueprint']
+        dst_blueprint = runtime_data.genome['blueprint']
 
-            # Append Blueprint
-            for cortical_area_id in src_blueprint:
-                src_cortical_area = src_blueprint[cortical_area_id]
-                new_cortical_area_id = cortical_area_id
-                if cortical_area_id in dst_blueprint:
-                    while new_cortical_area_id == cortical_area_id:
-                        new_cortical_area_id = cortical_area_id[:-3] + \
-                                               "".join(random.choice(string.ascii_uppercase) for _ in range(3))
-                dst_blueprint[new_cortical_area_id] = src_cortical_area.copy()
+        # Append Blueprint
+        for cortical_area_id in src_blueprint:
+            try:
+                if src_blueprint[cortical_area_id]['group_id'] not in ["IPU", "OPU", "Core"]:
+                    src_cortical_area = src_blueprint[cortical_area_id]
+                    new_cortical_area_id = cortical_area_id
+                    if cortical_area_id in dst_blueprint:
+                        while new_cortical_area_id == cortical_area_id:
+                            new_cortical_area_id = cortical_area_id[:-3] + \
+                                                   "".join(random.choice(string.ascii_uppercase) for _ in range(3))
+                    dst_blueprint[new_cortical_area_id] = src_cortical_area.copy()
 
-                dst_blueprint[new_cortical_area_id]["relative_coordinate"][0] = \
-                    src_blueprint[cortical_area_id]["relative_coordinate"][0] + circuit_origin[0]
+                    dst_blueprint[new_cortical_area_id]["relative_coordinate"][0] = \
+                        src_blueprint[cortical_area_id]["relative_coordinate"][0] + circuit_origin[0]
 
-                dst_blueprint[new_cortical_area_id]["relative_coordinate"][1] = \
-                    src_blueprint[cortical_area_id]["relative_coordinate"][1] + circuit_origin[1]
+                    dst_blueprint[new_cortical_area_id]["relative_coordinate"][1] = \
+                        src_blueprint[cortical_area_id]["relative_coordinate"][1] + circuit_origin[1]
 
-                dst_blueprint[new_cortical_area_id]["relative_coordinate"][2] = \
-                    src_blueprint[cortical_area_id]["relative_coordinate"][2] + circuit_origin[2]
+                    dst_blueprint[new_cortical_area_id]["relative_coordinate"][2] = \
+                        src_blueprint[cortical_area_id]["relative_coordinate"][2] + circuit_origin[2]
 
-            # Append Morphologies
-            # Create a hash table for source and destination morphologies
-            dst_morphology_hash_table = dict()
+                    neuroembryogenesis.voxelogenesis(cortical_area=new_cortical_area_id)
+                    neuroembryogenesis.neurogenesis(cortical_area=new_cortical_area_id)
+                else:
+                    if cortical_area_id not in dst_blueprint:
+                        print("!!!!!! !!!!!!!! !!!!!!!!", src_blueprint[cortical_area_id])
+                        add_core_cortical_area(cortical_properties={
+                          "cortical_type": src_blueprint[cortical_area_id]['group_id'],
+                          "cortical_name": src_blueprint[cortical_area_id]['cortical_name'],
+                          "cortical_coordinates": {
+                            "x": src_blueprint[cortical_area_id]["relative_coordinate"][0] + circuit_origin[0],
+                            "y": src_blueprint[cortical_area_id]["relative_coordinate"][1] + circuit_origin[1],
+                            "z": src_blueprint[cortical_area_id]["relative_coordinate"][2] + circuit_origin[2]
+                          },
+                          "channel_count": 1
+                        })
+            except Exception as e:
+                print("Exception during cortical import", e, traceback.print_exc())
 
-            for dst_morphology in dst_morphologies:
-                morphology_str = json.dumps(dst_morphologies[dst_morphology])
-                morphology_hash = hash(morphology_str)
-                if morphology_hash not in dst_morphology_hash_table:
-                    dst_morphology_hash_table[morphology_hash] = set()
-                dst_morphology_hash_table[morphology_hash].add(dst_morphology)
+        # Append Morphologies
+        # Create a hash table for source and destination morphologies
+        dst_morphology_hash_table = dict()
 
-            morphology_mapping_table = dict()
+        for dst_morphology in dst_morphologies:
+            morphology_str = json.dumps(dst_morphologies[dst_morphology])
+            morphology_hash = hash(morphology_str)
+            if morphology_hash not in dst_morphology_hash_table:
+                dst_morphology_hash_table[morphology_hash] = set()
+            dst_morphology_hash_table[morphology_hash].add(dst_morphology)
 
-            for src_morphology in src_morphologies:
+        morphology_mapping_table = dict()
+
+        for src_morphology in src_morphologies:
+            try:
                 print("\n" * 5)
                 # Check if morphology is used or not
                 morphology_usage = synapse.morphology_usage_list(morphology_name=src_morphology, genome=source_genome)
@@ -623,17 +642,22 @@ def append_circuit(circuit_name, circuit_origin):
                         print("%%%%%%%%%%%%     morphology_association:", src_morphology, morphology_association)
                         print(dst_morphology_hash_table)
                         morphology_mapping_table[morphology_association] = src_morphology
+            except Exception as e:
+                print("Exception during morphology transfer", e, traceback.print_exc())
 
-            print("@ # $ % " * 100)
-            for morphology in runtime_data.genome["neuron_morphologies"]:
-                print(morphology, runtime_data.genome["neuron_morphologies"][morphology])
+        print("@ # $ % " * 100)
+        for morphology in runtime_data.genome["neuron_morphologies"]:
+            print(morphology, runtime_data.genome["neuron_morphologies"][morphology])
 
-            for blueprint in runtime_data.genome["blueprint"]:
-                print(blueprint, runtime_data.genome["blueprint"][blueprint])
+        for blueprint in runtime_data.genome["blueprint"]:
+            print(blueprint, runtime_data.genome["blueprint"][blueprint])
 
-            save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
-                        file_name=runtime_data.connectome_path + "genome.json")
-            runtime_data.last_genome_modification_time = datetime.datetime.now()
+        init_fcl()
+        runtime_data.cortical_dimensions = generate_cortical_dimensions()
+
+        save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
+                    file_name=runtime_data.connectome_path + "genome.json")
+        runtime_data.last_genome_modification_time = datetime.datetime.now()
 
     except Exception as e:
         print("Exception during morphology join", e, traceback.print_exc())
