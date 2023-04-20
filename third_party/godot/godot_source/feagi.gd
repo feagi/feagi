@@ -581,19 +581,19 @@ func _on_add_pressed():
 			json_data["cortical_name"] = $Spatial/Camera/Menu/addition_menu/cortical_name_textbox/type.text
 			json_data["cortical_coordinates"] = {}
 			json_data["cortical_dimensions"] = {}
-			json_data["cortical_coordinates"]["x"] = $Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value
-			json_data["cortical_coordinates"]["y"] = $Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value
-			json_data["cortical_coordinates"]["z"] = $Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value
-			json_data["cortical_dimensions"]["x"] = $Spatial/Camera/Menu/addition_menu/wdh/W_Spinbox.value
-			json_data["cortical_dimensions"]["y"] = $Spatial/Camera/Menu/addition_menu/wdh/H_Spinbox.value
-			json_data["cortical_dimensions"]["z"] = $Spatial/Camera/Menu/addition_menu/wdh/D_Spinbox.value
+			json_data["cortical_coordinates"][0] = $Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value
+			json_data["cortical_coordinates"][1] = $Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value
+			json_data["cortical_coordinates"][2] = $Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value
+			json_data["cortical_dimensions"][0] = $Spatial/Camera/Menu/addition_menu/wdh/W_Spinbox.value
+			json_data["cortical_dimensions"][1] = $Spatial/Camera/Menu/addition_menu/wdh/H_Spinbox.value
+			json_data["cortical_dimensions"][2] = $Spatial/Camera/Menu/addition_menu/wdh/D_Spinbox.value
 			json_data["channel_count"] = $Spatial/Camera/Menu/custom_cortical/count_spinbox.value
 			
-			generate_single_cortical(json_data["cortical_coordinates"]["x"], json_data["cortical_coordinates"]["y"], json_data["cortical_coordinates"]["z"], json_data["cortical_dimensions"]["x"], json_data["cortical_dimensions"]["y"], json_data["cortical_dimensions"]["z"], json_data["cortical_name"])
+			generate_single_cortical(json_data["cortical_coordinates"][0], json_data["cortical_coordinates"][1], json_data["cortical_coordinates"][2], json_data["cortical_dimensions"][0], json_data["cortical_dimensions"][1], json_data["cortical_dimensions"][2], json_data["cortical_name"])
 			
 			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/custom_cortical_area', false, json_data, "/v1/feagi/genome/custom_cortical_area")
 			$Spatial/Camera/Menu/addition_menu/add.release_focus()
-			$Spatial/Camera.transform.origin=Vector3(json_data["cortical_coordinates"]["x"]-20,json_data["cortical_coordinates"]["y"],json_data["cortical_coordinates"]["z"]+20)
+			$Spatial/Camera.transform.origin=Vector3(json_data["cortical_coordinates"][0]-20,json_data["cortical_coordinates"][1],json_data["cortical_coordinates"][2]+20)
 		else:
 			flag_boolean = true
 	if flag_boolean != true:

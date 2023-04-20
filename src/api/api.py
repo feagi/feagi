@@ -135,16 +135,8 @@ class NewCorticalProperties(BaseModel):
 
 class NewCustomCorticalProperties(BaseModel):
     cortical_name: str = Field(None, max_length=20, min_length=1)
-    cortical_coordinates: dict = {
-        'x': 0,
-        'y': 0,
-        'z': 0,
-    }
-    cortical_dimensions: dict = {
-        'x': 1,
-        'y': 1,
-        'z': 1,
-    }
+    cortical_coordinates: list
+    cortical_dimensions: list
 
 
 # class NewCorticalProperties_old(BaseModel):

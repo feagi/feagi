@@ -483,18 +483,18 @@ def add_core_cortical_area(cortical_properties):
         print("Error: New cortical area was not added.", traceback.print_exc())
 
 
-def add_custom_cortical_area(cortical_properties):
+def add_custom_cortical_area(cortical_name, cortical_coordinates, cortical_dimensions):
     # Generate Cortical ID
     # todo: instead of hard coding the length have the genome properties captured and reference instead
-    temp_name = cortical_properties['cortical_name']
-    if len(cortical_properties['cortical_name']) < 3:
-        temp_name = cortical_properties['cortical_name'] + "000"
+    temp_name = cortical_name
+    if len(cortical_name) < 3:
+        temp_name = cortical_name + "000"
     cortical_area = cortical_id_gen(temp_name[:3])
 
     cortical_names = neuroembryogenesis.cortical_name_list()
     template = templates.cortical_template.copy()
 
-    if cortical_properties['cortical_name'] in cortical_names:
+    if cortical_name in cortical_names:
         print("Warning! Cortical area with same name already exists in genome. Nothing got added.")
     else:
         reset_connectome_file(cortical_area=cortical_area)
@@ -505,17 +505,17 @@ def add_custom_cortical_area(cortical_properties):
         runtime_data.genome["blueprint"][cortical_area] = \
             template.copy()
 
-        runtime_data.genome['blueprint'][cortical_area]['cortical_name'] = cortical_properties['cortical_name']
+        runtime_data.genome['blueprint'][cortical_area]['cortical_name'] = cortical_name
 
         runtime_data.genome['blueprint'][cortical_area]["block_boundaries"] = \
-            [cortical_properties['cortical_dimensions']['x'],
-             cortical_properties['cortical_dimensions']['y'],
-             cortical_properties['cortical_dimensions']['z']]
+            [cortical_dimensions[0],
+             cortical_dimensions[1],
+             cortical_dimensions[2]]
 
         runtime_data.genome['blueprint'][cortical_area]["relative_coordinate"] = \
-            [cortical_properties['cortical_coordinates']['x'],
-             cortical_properties['cortical_coordinates']['y'],
-             cortical_properties['cortical_coordinates']['z']]
+            [cortical_coordinates[0],
+             cortical_coordinates[1],
+             cortical_coordinates[2]]
 
         runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'] = {}
         runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"] = \
@@ -572,20 +572,34 @@ def append_circuit(source_genome, circuit_origin):
                         while new_cortical_area_id == cortical_area_id:
                             new_cortical_area_id = cortical_area_id[:-3] + \
                                                    "".join(random.choice(string.ascii_uppercase) for _ in range(3))
-                    dst_blueprint[new_cortical_area_id] = src_cortical_area.copy()
 
-                    dst_blueprint[new_cortical_area_id]["relative_coordinate"][0] = \
-                        src_blueprint[cortical_area_id]["relative_coordinate"][0] + circuit_origin[0]
+                    new_coordinates = [src_cortical_area["relative_coordinate"][0] + circuit_origin[0],
+                                       src_cortical_area["relative_coordinate"][1] + circuit_origin[1],
+                                       src_cortical_area["relative_coordinate"][2] + circuit_origin[2],
+                                       ]
 
-                    dst_blueprint[new_cortical_area_id]["relative_coordinate"][1] = \
-                        src_blueprint[cortical_area_id]["relative_coordinate"][1] + circuit_origin[1]
+                    print("@@@@@ ## @@@@@  ---" * 10)
+                    print(runtime_data.genome)
 
-                    dst_blueprint[new_cortical_area_id]["relative_coordinate"][2] = \
-                        src_blueprint[cortical_area_id]["relative_coordinate"][2] + circuit_origin[2]
+                    add_custom_cortical_area(cortical_name=src_blueprint[cortical_area_id]["cortical_name"],
+                                             cortical_dimensions=src_blueprint[cortical_area_id]["block_boundaries"],
+                                             cortical_coordinates=new_coordinates)
 
-                    neuroembryogenesis.voxelogenesis(cortical_area=new_cortical_area_id)
-                    neuroembryogenesis.neurogenesis(cortical_area=new_cortical_area_id)
+                    # dst_blueprint[new_cortical_area_id] = src_cortical_area.copy()
+                    #
+                    # dst_blueprint[new_cortical_area_id]["relative_coordinate"][0] = \
+                    #     src_blueprint[cortical_area_id]["relative_coordinate"][0] + circuit_origin[0]
+                    #
+                    # dst_blueprint[new_cortical_area_id]["relative_coordinate"][1] = \
+                    #     src_blueprint[cortical_area_id]["relative_coordinate"][1] + circuit_origin[1]
+                    #
+                    # dst_blueprint[new_cortical_area_id]["relative_coordinate"][2] = \
+                    #     src_blueprint[cortical_area_id]["relative_coordinate"][2] + circuit_origin[2]
+                    #
+                    # neuroembryogenesis.voxelogenesis(cortical_area=new_cortical_area_id)
+                    # neuroembryogenesis.neurogenesis(cortical_area=new_cortical_area_id)
                 else:
+                    print("<<<<<<<<<>>>>>>>> ## @@@@@  ---" * 10)
                     if cortical_area_id not in dst_blueprint:
                         print("!!!!!! !!!!!!!! !!!!!!!!", src_blueprint[cortical_area_id])
                         add_core_cortical_area(cortical_properties={
