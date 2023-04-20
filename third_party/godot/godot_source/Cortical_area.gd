@@ -46,7 +46,7 @@ func _on_Area_input_event(_camera, event, _position, _normal, _shape_idx):
 			if get_surface_material(0) == global_material.white:
 				Gx = transform.origin.x
 				Gy = transform.origin.y
-				Gz = transform.origin.z
+				Gz = transform.origin.z * -1
 				location = Vector3(Gx, Gy, Gz)
 #				print(location)
 #				print("UPDATED CORTICAL_AREA_NAME: ", cortical_area_name)
