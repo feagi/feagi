@@ -195,15 +195,15 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
     return synapse_count, brain
 
 
-def cortical_mapping():
+def cortical_mapping(blueprint=None):
     """
     Generates a cortical mapping report of the connectome
     """
     mapping_dict = {}
-    for cortical_area in runtime_data.genome['blueprint']:
+    for cortical_area in blueprint:
         if cortical_area not in mapping_dict:
             mapping_dict[cortical_area] = []
-        for dst in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
+        for dst in blueprint[cortical_area]['cortical_mapping_dst']:
             mapping_dict[cortical_area].append(dst)
 
     mapping_str = ""

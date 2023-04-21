@@ -176,5 +176,9 @@ def api_message_processor(api_message):
                                  cortical_dimensions=api_message['add_custom_cortical_area']['cortical_dimensions'])
 
     if 'append_circuit' in api_message:
-        append_circuit(source_genome=api_message['append_circuit']["genome_str"],
-                       circuit_origin=api_message['append_circuit']['circuit_origin'])
+        if runtime_data.genome:
+            append_circuit(source_genome=api_message['append_circuit']["genome_str"],
+                           circuit_origin=api_message['append_circuit']['circuit_origin'])
+        else:
+            stage_genome(neuroembryogenesis_flag=True, reset_runtime_data_flag=True,
+                         genome_data=api_message['append_circuit']["genome_str"])
