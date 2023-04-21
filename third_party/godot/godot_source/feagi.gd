@@ -1208,7 +1208,7 @@ func _on_syn_pressed():
 
 func _on_insert_button_pressed():
 	$Spatial/Camera/Menu/insert_menu/inner_box.visible = true
-	var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/append?circuit_name=' + $Spatial/Camera/Menu/insert_menu/inner_box/name_text.text
+	var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/append?circuit_name=' + $Spatial/Camera/Menu/insert_menu/inner_box/name_text.text + "&circuit_origin_x=" + str($Spatial/Camera/Menu/insert_menu/x_spinbox.value) + "&circuit_origin_y=" + str($Spatial/Camera/Menu/insert_menu/y_spinbox.value) + "&circuit_origin_z=" + str($Spatial/Camera/Menu/insert_menu/z_spinbox.value)
 	var new_data = ["placeholder"]
 	_make_post_request(combine_url, false, new_data, "/v1/feagi/genome/append")
 
