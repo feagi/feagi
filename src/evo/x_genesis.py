@@ -310,6 +310,8 @@ def update_morphology_properties(morphology_properties):
 
 def neighboring_cortical_areas(cortical_area, blueprint=None):
     try:
+        if not blueprint:
+            blueprint = runtime_data.genome["blueprint"]
         cortical_mappings = synapse.cortical_mapping(blueprint=blueprint)
         upstream_cortical_areas = set()
         downstream_cortical_areas = set(cortical_mappings[cortical_area])

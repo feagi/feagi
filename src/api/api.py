@@ -815,14 +815,15 @@ async def fetch_cortical_mappings(cortical_area, response: Response):
     """
     try:
         if len(cortical_area) == genome_properties["structure"]["cortical_name_length"]:
-            upstream_cortical_areas, downstream_cortical_areas = neighboring_cortical_areas(cortical_area)
+            upstream_cortical_areas, downstream_cortical_areas = \
+                neighboring_cortical_areas(cortical_area, blueprint=runtime_data.blueprint)
             response.status_code = status.HTTP_200_OK
             return upstream_cortical_areas
         else:
             response.status_code = status.HTTP_400_BAD_REQUEST
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
+        print("API Error:", e, traceback.print_exc())
 
 
 @app.api_route("/v1/feagi/genome/cortical_mappings_by_name", methods=['GET'], tags=["Genome"])
