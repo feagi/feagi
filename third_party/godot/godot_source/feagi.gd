@@ -38,7 +38,7 @@ var z_increment = 0
 var one_time_flag = true
 var stored_csv = ""
 var genome_data = {}
-var previous_genome_data = ""
+var previous_genome_data = {}
 var global_name_list = []
 var last_cortical_selected
 var start = 0 #for timer
@@ -65,7 +65,7 @@ func _ready():
 	while true:
 		if $Spatial/Camera/Menu/box_loading.visible:
 			$Spatial/Camera/Menu/box_loading.visible = false
-		if $Spatial/Camera/Menu/insert_menu.visible == false:
+		if $Spatial/Camera/Menu/insert_menu.visible == false and $Spatial/Camera/Menu/addition_menu.visible == false:
 			_clear_single_cortical("example", global_name_list)
 #		if not($Spatial/Camera/Menu/cortical_menu.visible) and child_node_holder:
 #			child_holder_clear() # Is this needed now?
@@ -82,7 +82,6 @@ func _ready():
 		_process(self)
 #		print("FROM PYTHON: ", data)
 		if "update" in data:
-			$Spatial/Camera/Menu/box_loading.visible = true
 			if timer_api.bool_flag:
 				timer_api.trigger_api_timer()
 				$HTTP_node/genome_data.request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/connectome/properties/dimensions')
@@ -108,8 +107,8 @@ func generate_one_model(node, x_input, y_input, z_input, width_input, depth_inpu
 	add_child(new)
 	new.visible = true
 	new.scale = Vector3(width_input, height_input, depth_input)
-	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), depth_input/2 + int(z_input))
-	generate_textbox(node, x_input,height_input,z_input, name_input, y_input, width_input)
+	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), -1 * (depth_input/2 + int(z_input)))
+	generate_textbox(node, x_input,height_input,z_input, name_input, y_input, width_input, depth_input)
 
 func convert_generate_one_model(_node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
 	var new = get_node("Cortical_area").duplicate()
@@ -118,7 +117,7 @@ func convert_generate_one_model(_node, x_input, y_input, z_input, width_input, d
 	new.visible = true
 	global_name_list.append({name_input.replace(" ", "") : [new, x_input, y_input, z_input, width_input, depth_input, height_input]})
 	new.scale = Vector3(width_input, height_input, depth_input)
-	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), depth_input/2 + int(z_input))
+	new.transform.origin = Vector3(width_input/2 + int(x_input), height_input/2+ int(y_input), -1 * (depth_input/2 + int(z_input)))
 
 func generate_model(node, x_input, y_input, z_input, width_input, depth_input, height_input, name_input):
 	for x_gain in width_input:
@@ -130,19 +129,20 @@ func generate_model(node, x_input, y_input, z_input, width_input, depth_input, h
 					add_child(new)
 					new.visible = true
 					global_name_list.append({name_input.replace(" ", "") : [new, x_input, y_input, z_input, width_input, depth_input, height_input]})
-					new.transform.origin = Vector3(x_gain+int(x_input), y_gain+int(y_input), z_gain+int(z_input))
-					generate_textbox(node, x_input,height_input,z_input, name_input, y_input, width_input)
+					new.transform.origin = Vector3(x_gain+int(x_input), y_gain+int(y_input), -1 * (z_gain+int(z_input)))
+					generate_textbox(node, x_input,height_input,z_input, name_input, y_input, width_input, depth_input)
 
-func generate_textbox(node, x_input,height_input,z_input, name_input, input_y, width_input):
-	node.transform.origin = Vector3(int(x_input) + (width_input/1.5), int(int(input_y)+2 + (height_input)),z_input)
+func generate_textbox(node, x_input,height_input,z_input, name_input, input_y, width_input, depth_input):
+	node.transform.origin = Vector3(int(x_input) + (width_input/1.5), int(int(input_y)+2 + (height_input)), -1 * depth_input - z_input)
 	node.get_node("Viewport/Label").set_text(str(name_input))
 	node.get_node("Viewport").get_texture()
-	global_name_list.append({name_input.replace(" ", ""): [node, x_input, 0, z_input, 0, 0, height_input]})
+	global_name_list.append({name_input.replace(" ", ""): [node, x_input, 0, -1 * z_input, 0, 0, height_input]})
 
 func install_voxel_inside(x_input,y_input,z_input):
 	$GridMap.set_cell_item(x_input,y_input,z_input, 0)
 
 func _csv_generator(): # After you are done with testing, change the name to genome_generator.
+	$Spatial/Camera/Menu/box_loading.visible = true
 	for key in Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"]:
 		Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][key] = []
 	_clear_node_name_list(global_name_list)
@@ -213,7 +213,7 @@ func generate_voxels():
 		$red_voxel.multimesh.visible_instance_count = total
 		flag = 0
 		for i in stored_value:
-			var position = Transform().translated(Vector3(i[0], i[1], i[2]))
+			var position = Transform().translated(Vector3(i[0], i[1], -i[2]))
 			$red_voxel.multimesh.set_instance_transform(flag, position)
 			flag += 1
 
@@ -398,7 +398,7 @@ func add_3D_indicator():
 	create_textbox_axis.set_name("x_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
 	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, 5,0,0,"x", 1, 0)
+	generate_textbox(create_textbox_axis, 5,0,0,"x", 1, 0, 0)
 	for j in 6:
 		$GridMap3.set_cell_item(0,j,0,0)
 	create_textbox_axis = create_textbox_axis.duplicate() #generate a new node to re-use the model
@@ -407,7 +407,7 @@ func add_3D_indicator():
 	create_textbox_axis.set_name("y_textbox")
 	add_child(create_textbox_axis) # Copied the node to new node
 	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, 0,5,0,"y", 1,0)
+	generate_textbox(create_textbox_axis, 0,5,0,"y", 1,0, 0)
 	for k in 6: 
 		$GridMap3.set_cell_item(0,0,k,0)
 	create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
@@ -416,7 +416,7 @@ func add_3D_indicator():
 	create_textbox_axis.set_name("z_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
 	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
-	generate_textbox(create_textbox_axis, -2,0.5,6,"z", 1, 0)
+	generate_textbox(create_textbox_axis, -2,0.5,6,"z", 1, 0, 0)
 	$GridMap.clear()
 
 func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
@@ -557,8 +557,8 @@ func _on_get_burst_request_completed(_result, _response_code, _headers, body):
 
 func _on_download_pressed():
 	_clear_node_name_list(global_name_list)
-	genome_data = ""
-	previous_genome_data = ""
+	genome_data = {}
+	previous_genome_data = {}
 
 func _on_add_pressed():
 	var json_data = {}
@@ -652,7 +652,9 @@ func _on_genome_data_request_completed(_result, _response_code, _headers, body):
 		for i in api_data:
 			create_json[i] = api_data[i]
 		genome_data["genome"] = create_json
-		_csv_generator()
+		if previous_genome_data.hash() != genome_data["genome"].hash():
+			previous_genome_data = genome_data["genome"].duplicate()
+			_csv_generator()
 #	if one_time_flag:
 #		for i in api_data:
 #			create_json[i] = api_data[i]
@@ -857,6 +859,7 @@ func _on_delete_pressed():
 	grab_name_rule = symbols_checker_for_api(grab_name_rule)
 	var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology?morphology_name=' + grab_name_rule
 	_make_delete_request(combine_url, false, "/v1/feagi/genome/morphology")
+	$Spatial/Camera/Menu/rule_properties.visible = false
 
 func _on_get_cortical_dst_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
@@ -1557,3 +1560,41 @@ func _on_morphology_type_item_selected(_index):
 		_morphology_button_pressed()
 	else:
 		_morphology_button_pressed()
+
+func _on_X_SpinBox_value_changed(_value):
+	generate_single_cortical($Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value, $Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value, $Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/W_Spinbox.value,$Spatial/Camera/Menu/addition_menu/wdh/H_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+	demo_new_cortical()
+
+func _on_W_Spinbox_value_changed(_value):
+	generate_single_cortical($Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value, $Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value, $Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/W_Spinbox.value,$Spatial/Camera/Menu/addition_menu/wdh/H_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+	demo_new_cortical()
+
+func _on_H_Spinbox_value_changed(_value):
+	generate_single_cortical($Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value, $Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value, $Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/W_Spinbox.value,$Spatial/Camera/Menu/addition_menu/wdh/H_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+	demo_new_cortical()
+
+func _on_D_Spinbox_value_changed(_value):
+	generate_single_cortical($Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value, $Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value, $Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/W_Spinbox.value,$Spatial/Camera/Menu/addition_menu/wdh/H_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+	demo_new_cortical()
+
+func _on_Y_Spinbox_value_changed(_value):
+	generate_single_cortical($Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value, $Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value, $Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/W_Spinbox.value,$Spatial/Camera/Menu/addition_menu/wdh/H_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+	demo_new_cortical()
+
+func _on_Z_Spinbox_value_changed(_value):
+	generate_single_cortical($Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value, $Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value, $Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/W_Spinbox.value,$Spatial/Camera/Menu/addition_menu/wdh/H_Spinbox.value, $Spatial/Camera/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+	demo_new_cortical()
+
+func demo_new_cortical():
+	"""
+	This is for add new cortical area so the name will be updated when you move it around. This is designed to use
+	the duplicated node called "example", so if it has no name, it will display as "example" but if 
+	it has a letter or name, it will display as the user typed.
+	"""
+	for i in len(global_name_list):
+		if "example" in global_name_list[i]:
+			if global_name_list[i]["example"][0].get_child(0).get_class() == "Viewport":
+				if $Spatial/Camera/Menu/addition_menu/cortical_name_textbox/type.text == "":
+					global_name_list[i]["example"][0].get_child(0).get_child(0).text = "example"
+				else:
+					global_name_list[i]["example"][0].get_child(0).get_child(0).text = $Spatial/Camera/Menu/addition_menu/cortical_name_textbox/type.text
