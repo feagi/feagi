@@ -5,7 +5,7 @@ from inf import runtime_data, disk_ops
 from evo.genome_processor import genome_ver_check
 from evo.autopilot import update_generation_dict
 from evo.x_genesis import update_cortical_properties, update_morphology_properties, update_cortical_mappings
-from evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal
+from evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal, append_circuit
 
 
 def api_message_processor(api_message):
@@ -171,6 +171,14 @@ def api_message_processor(api_message):
         add_core_cortical_area(cortical_properties=api_message['add_core_cortical_area'])
 
     if 'add_custom_cortical_area' in api_message:
-        add_custom_cortical_area(cortical_properties=api_message['add_custom_cortical_area'])
+        add_custom_cortical_area(cortical_name=api_message['add_custom_cortical_area']['cortical_name'],
+                                 cortical_coordinates=api_message['add_custom_cortical_area']['cortical_coordinates'],
+                                 cortical_dimensions=api_message['add_custom_cortical_area']['cortical_dimensions'])
 
-    api_message = {}
+    if 'append_circuit' in api_message:
+        if runtime_data.genome:
+            append_circuit(source_genome=api_message['append_circuit']["genome_str"],
+                           circuit_origin=api_message['append_circuit']['circuit_origin'])
+        else:
+            stage_genome(neuroembryogenesis_flag=True, reset_runtime_data_flag=True,
+                         genome_data=api_message['append_circuit']["genome_str"])

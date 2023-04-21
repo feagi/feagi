@@ -32,9 +32,10 @@ from multiprocessing import Pool, Process
 from inf import disk_ops
 from inf import settings
 from inf import runtime_data
-from evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter
+from evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter, genome_2_1_convertor
 from evo.genome_editor import save_genome
 from evo.connectome import reset_connectome_file
+from evo.neuroembryogenesis import cortical_name_list, develop
 from inf.initialize import generate_cortical_dimensions, init_fcl
 
 logger = logging.getLogger(__name__)
@@ -48,8 +49,12 @@ def x_synaptogenesis():
     pass
 
 
-def x_corticogenesis():
-    pass
+def x_corticogenesis(cortical_area):
+    if cortical_area not in runtime_data.cortical_list:
+        runtime_data.cortical_list.append(cortical_area)
+    runtime_data.brain[cortical_area] = {}
+    init_fcl(cortical_area)
+    print(f"Corticogenesis of \"{cortical_area}\" completed.")
 
 
 def x_cortical_resize():
@@ -303,9 +308,11 @@ def update_morphology_properties(morphology_properties):
         print("Error during morphology update\n", e, traceback.print_exc())
 
 
-def neighboring_cortical_areas(cortical_area):
+def neighboring_cortical_areas(cortical_area, blueprint=None):
     try:
-        cortical_mappings = synapse.cortical_mapping()
+        if not blueprint:
+            blueprint = runtime_data.genome["blueprint"]
+        cortical_mappings = synapse.cortical_mapping(blueprint=blueprint)
         upstream_cortical_areas = set()
         downstream_cortical_areas = set(cortical_mappings[cortical_area])
         for area in cortical_mappings:
@@ -313,7 +320,7 @@ def neighboring_cortical_areas(cortical_area):
                 upstream_cortical_areas.add(area)
         return upstream_cortical_areas, downstream_cortical_areas
     except KeyError:
-        print("Error: Cortical area not found", traceback.print_exc())
+        print("Exception in neighboring_cortical_areas: Cortical area not found", traceback.print_exc())
 
 
 def cortical_removal(cortical_area, genome_scrub=False):
@@ -324,7 +331,8 @@ def cortical_removal(cortical_area, genome_scrub=False):
         msg = "Processing cortical removal request for" + cortical_area
         logger.info(msg=msg)
         # cortical_area = cortical_id(cortical_name=cortical_name)
-        upstream_cortical_areas, downstream_cortical_areas = neighboring_cortical_areas(cortical_area)
+        upstream_cortical_areas, downstream_cortical_areas = \
+            neighboring_cortical_areas(cortical_area, blueprint=runtime_data.genome["blueprint"])
 
         # Prune affected synapses
         prune_cortical_synapses(cortical_area=cortical_area)
@@ -358,7 +366,8 @@ def cortical_removal(cortical_area, genome_scrub=False):
 
 
 def prune_cortical_synapses(cortical_area):
-    upstream_cortical_areas, downstream_cortical_areas = neighboring_cortical_areas(cortical_area)
+    upstream_cortical_areas, downstream_cortical_areas = \
+        neighboring_cortical_areas(cortical_area, blueprint=runtime_data.genome["blueprint"])
 
     for src_cortical_area in upstream_cortical_areas:
         runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=src_cortical_area,
@@ -367,22 +376,27 @@ def prune_cortical_synapses(cortical_area):
 
 def cortical_regeneration(cortical_area):
     # Clearing the burst engine from neuronal activities
-    init_fcl(cortical_area)
-
-    upstream_cortical_areas, downstream_cortical_areas = neighboring_cortical_areas(cortical_area)
-    
+    print("##### 1 #####")
     # Reset effected areas
     cortical_removal(cortical_area=cortical_area)
-
+    print("##### 2 #####")
+    x_corticogenesis(cortical_area)
+    print("##### 3 #####")
+    upstream_cortical_areas, downstream_cortical_areas = \
+        neighboring_cortical_areas(cortical_area, runtime_data.genome["blueprint"])
+    print("##### 4 #####")
     # Recreate voxels
     neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
-
+    print("##### 5 #####")
     # Recreate neurons
     neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
+    print("##### 6 #####")
 
+    print(runtime_data.genome["blueprint"][cortical_area])
     # Recreate synapses
     for src_cortical_area in upstream_cortical_areas:
         neuroembryogenesis.synaptogenesis(cortical_area=src_cortical_area, dst_cortical_area=cortical_area)
+    print("##### 7 #####")
     for dst_cortical_area in downstream_cortical_areas:
         neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
 
@@ -434,7 +448,7 @@ def add_core_cortical_area(cortical_properties):
         if cortical_area in runtime_data.genome['blueprint']:
             print("Warning! Cortical area already part of genome. Nothing got added.")
         else:
-            neuroembryogenesis.reset_connectome_file(cortical_area=cortical_area)
+            reset_connectome_file(cortical_area=cortical_area)
             runtime_data.voxel_dict[cortical_area] = dict()
             runtime_data.genome['blueprint'][cortical_area] = dict()
             runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
@@ -483,18 +497,21 @@ def add_core_cortical_area(cortical_properties):
         print("Error: New cortical area was not added.", traceback.print_exc())
 
 
-def add_custom_cortical_area(cortical_properties):
+def add_custom_cortical_area(cortical_name, cortical_coordinates, cortical_dimensions, cortical_id_overwrite=None):
     # Generate Cortical ID
     # todo: instead of hard coding the length have the genome properties captured and reference instead
-    temp_name = cortical_properties['cortical_name']
-    if len(cortical_properties['cortical_name']) < 3:
-        temp_name = cortical_properties['cortical_name'] + "000"
-    cortical_area = cortical_id_gen(temp_name[:3])
+    temp_name = cortical_name
+    if len(cortical_name) < 3:
+        temp_name = cortical_name + "000"
+    if cortical_id_overwrite:
+        cortical_area = cortical_id_overwrite
+    else:
+        cortical_area = cortical_id_gen(temp_name[:3])
 
     cortical_names = neuroembryogenesis.cortical_name_list()
     template = templates.cortical_template.copy()
 
-    if cortical_properties['cortical_name'] in cortical_names:
+    if cortical_name in cortical_names:
         print("Warning! Cortical area with same name already exists in genome. Nothing got added.")
     else:
         reset_connectome_file(cortical_area=cortical_area)
@@ -505,17 +522,17 @@ def add_custom_cortical_area(cortical_properties):
         runtime_data.genome["blueprint"][cortical_area] = \
             template.copy()
 
-        runtime_data.genome['blueprint'][cortical_area]['cortical_name'] = cortical_properties['cortical_name']
+        runtime_data.genome['blueprint'][cortical_area]['cortical_name'] = cortical_name
 
         runtime_data.genome['blueprint'][cortical_area]["block_boundaries"] = \
-            [cortical_properties['cortical_dimensions']['x'],
-             cortical_properties['cortical_dimensions']['y'],
-             cortical_properties['cortical_dimensions']['z']]
+            [cortical_dimensions[0],
+             cortical_dimensions[1],
+             cortical_dimensions[2]]
 
         runtime_data.genome['blueprint'][cortical_area]["relative_coordinate"] = \
-            [cortical_properties['cortical_coordinates']['x'],
-             cortical_properties['cortical_coordinates']['y'],
-             cortical_properties['cortical_coordinates']['z']]
+            [cortical_coordinates[0],
+             cortical_coordinates[1],
+             cortical_coordinates[2]]
 
         runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'] = {}
         runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"] = \
@@ -543,3 +560,143 @@ def add_custom_cortical_area(cortical_properties):
         save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                     file_name=runtime_data.connectome_path + "genome.json")
         runtime_data.last_genome_modification_time = datetime.datetime.now()
+
+
+def append_circuit(source_genome, circuit_origin):
+    print("\n\n----------------------------------  Merging a new circuit  ----------------------------------------\n\n")
+    try:
+        converted_genome = genome_2_1_convertor(source_genome["blueprint"])
+        source_genome["blueprint"] = converted_genome['blueprint']
+
+        src_morphologies = source_genome['neuron_morphologies']
+        dst_morphologies = runtime_data.genome['neuron_morphologies']
+
+        src_blueprint = source_genome['blueprint']
+        dst_blueprint = runtime_data.genome['blueprint']
+
+        appended_cortical_areas = set()
+
+        # Append Blueprint
+        for cortical_area_id in src_blueprint:
+            print(f"-----Attempting to import cortical area {cortical_area_id}")
+            try:
+                if src_blueprint[cortical_area_id]['group_id'] not in ["IPU", "OPU", "Core"]:
+                    src_cortical_area = src_blueprint[cortical_area_id]
+                    new_cortical_name = src_blueprint[cortical_area_id]["cortical_name"]
+                    new_cortical_area_id = cortical_area_id
+
+                    if cortical_area_id in dst_blueprint:
+                        while new_cortical_area_id == cortical_area_id:
+                            new_cortical_area_id = cortical_area_id[:-3] + \
+                                                   "".join(random.choice(string.ascii_uppercase) for _ in range(3))
+
+                    if new_cortical_name in cortical_name_list():
+                        while new_cortical_name == src_blueprint[cortical_area_id]["cortical_name"]:
+                            new_cortical_name = \
+                                src_blueprint[cortical_area_id]["cortical_name"] + \
+                                "".join(random.choice(string.ascii_uppercase) for _ in range(3))
+
+                    new_coordinates = [src_cortical_area["relative_coordinate"][0] + circuit_origin[0],
+                                       src_cortical_area["relative_coordinate"][1] + circuit_origin[1],
+                                       src_cortical_area["relative_coordinate"][2] + circuit_origin[2],
+                                       ]
+
+                    upstream_cortical_areas, downstream_cortical_areas = \
+                        neighboring_cortical_areas(cortical_area=cortical_area_id, blueprint=src_blueprint)
+
+                    for upstream_area in upstream_cortical_areas:
+                        placeholder = {}
+                        for destination_mapping in src_blueprint[upstream_area]["cortical_mapping_dst"]:
+                            if destination_mapping == cortical_area_id:
+                                placeholder = src_blueprint[upstream_area]["cortical_mapping_dst"][destination_mapping]
+                        src_blueprint[upstream_area]["cortical_mapping_dst"].pop(cortical_area_id)
+                        src_blueprint[upstream_area]["cortical_mapping_dst"][new_cortical_area_id] = placeholder
+
+                    # add_custom_cortical_area(cortical_name=new_cortical_name,
+                    #                          cortical_dimensions=src_blueprint[cortical_area_id]["block_boundaries"],
+                    #                          cortical_coordinates=new_coordinates,
+                    #                          cortical_id_overwrite=new_cortical_area_id)
+
+                    appended_cortical_areas.add(new_cortical_area_id)
+
+                    dst_blueprint[new_cortical_area_id] = src_cortical_area.copy()
+                    dst_blueprint[new_cortical_area_id]["cortical_name"] = new_cortical_name
+                    dst_blueprint[new_cortical_area_id]["relative_coordinate"][0] = new_coordinates[0]
+                    dst_blueprint[new_cortical_area_id]["relative_coordinate"][1] = new_coordinates[1]
+                    dst_blueprint[new_cortical_area_id]["relative_coordinate"][2] = new_coordinates[2]
+                    print(f"---------------Successfully imported a new cortical area.  "
+                          f"id:{new_cortical_area_id} name:{new_cortical_name}")
+                else:
+                    if cortical_area_id not in dst_blueprint:
+                        add_core_cortical_area(cortical_properties={
+                          "cortical_type": src_blueprint[cortical_area_id]['group_id'],
+                          "cortical_name": src_blueprint[cortical_area_id]['cortical_name'],
+                          "cortical_coordinates": {
+                            "x": new_coordinates[0],
+                            "y": new_coordinates[1],
+                            "z": new_coordinates[2]
+                          },
+                          "channel_count": 1
+                        })
+                        appended_cortical_areas.add(cortical_area_id)
+                        print(f"---------------Successfully imported a built-in cortical area. id:{cortical_area_id}")
+            except Exception as e:
+                print("Exception during cortical import", e, traceback.print_exc())
+
+        # Append Morphologies
+        # Create a hash table for source and destination morphologies
+        dst_morphology_hash_table = dict()
+
+        for dst_morphology in dst_morphologies:
+            morphology_str = json.dumps(dst_morphologies[dst_morphology])
+            morphology_hash = hash(morphology_str)
+            if morphology_hash not in dst_morphology_hash_table:
+                dst_morphology_hash_table[morphology_hash] = set()
+            dst_morphology_hash_table[morphology_hash].add(dst_morphology)
+
+        morphology_mapping_table = dict()
+
+        for src_morphology in src_morphologies:
+            print(f"-----Attempting to import morphology {src_morphology}")
+            try:
+                # Check if morphology is used or not
+                morphology_usage = synapse.morphology_usage_list(morphology_name=src_morphology, genome=source_genome)
+
+                if morphology_usage:
+                    morphology_str = json.dumps(src_morphologies[src_morphology])
+                    morphology_hash = hash(morphology_str)
+                    if morphology_hash not in dst_morphology_hash_table:
+                        if src_morphology in dst_morphologies:
+                            src_morphology_ = src_morphology + "_" + \
+                                             "".join(random.choice(string.ascii_uppercase) for _ in range(2))
+                            runtime_data.genome["neuron_morphologies"][src_morphology_] = src_morphologies[
+                                src_morphology].copy()
+                        else:
+                            runtime_data.genome["neuron_morphologies"][src_morphology] = \
+                                src_morphologies[src_morphology].copy()
+                        print(f"---------------Successfully imported a morphology. id:{src_morphology}")
+                    else:
+                        # Build a mapping table to be used while appending the Blueprint
+                        morphology_association = list(dst_morphology_hash_table[morphology_hash])[0]
+                        morphology_mapping_table[morphology_association] = src_morphology
+            except Exception as e:
+                print("Exception during morphology transfer", e, traceback.print_exc())
+
+        print("++ ++ ++ " * 10)
+        print("Merge phase 1 completed.. pending initialization")
+
+        for cortical_area in appended_cortical_areas:
+            x_corticogenesis(cortical_area)
+
+        develop(appended_cortical_areas)
+
+        runtime_data.cortical_dimensions = generate_cortical_dimensions()
+        save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
+                    file_name=runtime_data.connectome_path + "genome.json")
+        runtime_data.last_genome_modification_time = datetime.datetime.now()
+
+        print("++ ++ ++ " * 10)
+        print("Merger of new genome completed successfully!")
+
+    except Exception as e:
+        print("Exception during morphology join", e, traceback.print_exc())

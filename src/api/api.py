@@ -135,16 +135,8 @@ class NewCorticalProperties(BaseModel):
 
 class NewCustomCorticalProperties(BaseModel):
     cortical_name: str = Field(None, max_length=20, min_length=1)
-    cortical_coordinates: dict = {
-        'x': 0,
-        'y': 0,
-        'z': 0,
-    }
-    cortical_dimensions: dict = {
-        'x': 1,
-        'y': 1,
-        'z': 1,
-    }
+    cortical_coordinates: list
+    cortical_dimensions: list
 
 
 # class NewCorticalProperties_old(BaseModel):
@@ -709,7 +701,7 @@ async def genome_neuron_morphology_usage_report(morphology_name, response: Respo
     Returns the properties of a neuron morphology.
     """
     try:
-        usage_list = morphology_usage_list(morphology_name=morphology_name)
+        usage_list = morphology_usage_list(morphology_name=morphology_name, genome=runtime_data.genome)
         if usage_list:
             response.status_code = status.HTTP_200_OK
             return usage_list
@@ -823,14 +815,15 @@ async def fetch_cortical_mappings(cortical_area, response: Response):
     """
     try:
         if len(cortical_area) == genome_properties["structure"]["cortical_name_length"]:
-            upstream_cortical_areas, downstream_cortical_areas = neighboring_cortical_areas(cortical_area)
+            upstream_cortical_areas, downstream_cortical_areas = \
+                neighboring_cortical_areas(cortical_area, blueprint=runtime_data.blueprint)
             response.status_code = status.HTTP_200_OK
             return upstream_cortical_areas
         else:
             response.status_code = status.HTTP_400_BAD_REQUEST
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
+        print("API Error:", e, traceback.print_exc())
 
 
 @app.api_route("/v1/feagi/genome/cortical_mappings_by_name", methods=['GET'], tags=["Genome"])
@@ -940,7 +933,7 @@ async def cortical_area_types(cortical_type, response: Response):
 
 
 @app.api_route("/v1/feagi/genome/circuits", methods=['GET'], tags=["Genome"])
-async def cortical_area_types(response: Response):
+async def circuit_library(response: Response):
     """
     Returns the list of neuronal circuits under /evo/circuits
     """
@@ -974,17 +967,60 @@ async def cortical_area_types(circuit_name, response: Response):
         print("API Error:", e, traceback.print_exc())
 
 
-@app.api_route("/v1/feagi/genome/append", methods=['POST'], tags=["Genome"])
-async def genome_append_circuit(circuit_name: str, location: list, response: Response):
+@app.api_route("/v1/feagi/genome/append-file", methods=['POST'], tags=["Genome"])
+async def genome_append_circuit(circuit_origin_x: int,
+                                circuit_origin_y: int,
+                                circuit_origin_z: int,
+                                response: Response, file: UploadFile = File(...)):
     """
     Appends a given circuit to the running genome at a specific location.
     """
     try:
-        print("Placeholder")
+        data = await file.read()
+
+        runtime_data.genome_file_name = file.filename
+
+        genome_str = json.loads(data)
+
+        payload = dict()
+        payload["genome_str"] = genome_str
+        payload["circuit_origin"] = [circuit_origin_x, circuit_origin_y, circuit_origin_z]
+        data = {'append_circuit': payload}
+        api_queue.put(item=data)
+
         response.status_code = status.HTTP_200_OK
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/genome/append", methods=['POST'], tags=["Genome"])
+async def genome_append_circuit(circuit_name: str,
+                                circuit_origin_x: int,
+                                circuit_origin_y: int,
+                                circuit_origin_z: int,
+                                response: Response):
+    """
+    Appends a given circuit to the running genome at a specific location.
+    """
+    try:
+        circuit_list = os.listdir("./evo/circuits")
+        if circuit_name not in circuit_list:
+            response.status_code = status.HTTP_404_NOT_FOUND
+        else:
+            with open("./evo/circuits/" + circuit_name, "r") as genome_file:
+                source_genome = json.load(genome_file)
+            payload = dict()
+            payload["genome_str"] = source_genome
+            payload["circuit_origin"] = [circuit_origin_x, circuit_origin_y, circuit_origin_z]
+            data = {'append_circuit': payload}
+            api_queue.put(item=data)
+
+            response.status_code = status.HTTP_200_OK
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
 
 
 # ######  Evolution #########
