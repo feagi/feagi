@@ -23,13 +23,7 @@ activity_stats = {}
 temp_neuron_list = []
 original_genome_id = []
 fire_list = []
-variation_counter_actual = 0
-exposure_counter_actual = 0
-mnist_training = {}
-mnist_testing = {}
-top_10_utf_memory_neurons = {}
-top_10_utf_neurons = {}
-v1_members = []
+
 prunning_candidates = set()
 event_id = '_'
 blueprint = ""

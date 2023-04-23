@@ -18,6 +18,7 @@ import logging
 import os.path
 import json
 import pickle
+import zlib
 from inf import runtime_data
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,10 @@ def load_brain_in_memory(connectome_path=None, cortical_list=None):
                 brain[item] = data
                 print(f"++++++++++++Cortical area {item} is loaded")
         else:
+            print(runtime_data.connectome_path)
+            print(os.listdir(runtime_data.connectome_path))
             print(f"------------------Cortical area {item} data not found")
+
     print("$-" * 40)
     runtime_data.brain = brain
     print("Brain has been successfully loaded into memory...")
@@ -186,43 +190,6 @@ def save_brain_to_disk(cortical_area='all', brain=runtime_data.brain,
     return
 
 
-def load_processed_mnist_from_disk(mnist_type, kernel_size):
-    with open("./PUs/mnist_processed_" +
-              mnist_type + "_k" + str(kernel_size) + ".pkl", 'rb') as pickled_data:
-        data = pickle.load(pickled_data)
-    return data
-
-
-def load_mnist_data_in_memory(mnist_type, kernel_size):
-    if mnist_type == 'training':
-        runtime_data.mnist_training[str(kernel_size)] = \
-            load_processed_mnist_from_disk(mnist_type=mnist_type, kernel_size=kernel_size)
-        print("MNIST %s data has been loaded into memory." % mnist_type)
-    if mnist_type == 'test':
-        runtime_data.mnist_testing[str(kernel_size)] = \
-            load_processed_mnist_from_disk(mnist_type=mnist_type, kernel_size=kernel_size)
-        print("MNIST %s data has been loaded into memory." % mnist_type)
-
-
-def save_processed_mnist_to_disk(data_type, data):
-    if data_type == 'training':
-        # with open('mnist_processed_training.json', "w") as data_file:
-        #     data_file.seek(0)  # rewind
-        #     data_file.write(json.dumps(data, indent=3))
-        #     data_file.truncate()
-        with open("mnist_processed_training.pkl", 'wb') as output:
-            pickle.dump(data, output)
-    elif data_type == 'test':
-        # with open('mnist_processed_test.json', "w") as data_file:
-        #     data_file.seek(0)  # rewind
-        #     data_file.write(json.dumps(data, indent=3))
-        #     data_file.truncate()
-        with open("mnist_processed_test.pkl", 'wb') as output:
-            pickle.dump(data, output)
-    else:
-        print("ERROR: Invalid type provided to save_processed_mnist_to_disk function")
-
-
 def load_rules_in_memory():
     with open(runtime_data.parameters["InitData"]["rules_path"], "r") as data_file:
         rules = json.load(data_file)
@@ -238,3 +205,37 @@ def save_fcl_in_db(burst_number, fire_candidate_list, number_under_training):
     fcl_data['number_under_training'] = number_under_training
     fcl_data['fcl_data'] = fire_candidate_list
     runtime_data.mongodb.insert_neuron_activity(fcl_data=fcl_data)
+
+
+def preserve_brain():
+    # Combine Brain Data
+    brain = dict()
+    brain["connectome"] = runtime_data.brain
+    brain["voxel_dict"] = runtime_data.voxel_dict
+    brain["genome"] = runtime_data.genome
+
+    # Pickle Brain
+    pickled_brain = pickle.dumps(brain)
+
+    # Compress Brain
+    compressed_brain = zlib.compress(pickled_brain)
+
+    return compressed_brain
+
+
+def revive_brain(brain_data):
+    # Decompress brain data
+    decompressed_brain = zlib.decompress(brain_data)
+
+    # Unpickle brain data
+    unpickle_data = pickle.loads(decompressed_brain)
+
+    for type_ in unpickle_data:
+        print(f"!!!!!!!  {type_}")
+    # Unpack the brain
+    connectome = unpickle_data["connectome"]
+    voxel_dict = unpickle_data["voxel_dict"]
+    genome = unpickle_data["genome"]
+
+    return connectome, voxel_dict, genome
+
