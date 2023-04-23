@@ -817,7 +817,7 @@ async def fetch_cortical_mappings(cortical_area, response: Response):
     try:
         if len(cortical_area) == genome_properties["structure"]["cortical_name_length"]:
             upstream_cortical_areas, downstream_cortical_areas = \
-                neighboring_cortical_areas(cortical_area, blueprint=runtime_data.blueprint)
+                neighboring_cortical_areas(cortical_area, blueprint=runtime_data.genome["blueprint"])
             response.status_code = status.HTTP_200_OK
             return upstream_cortical_areas
         else:

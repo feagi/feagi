@@ -14,26 +14,10 @@
 # limitations under the License.
 # ==============================================================================
 
-parameters = {}
-brain = {}
-cortical_list = []
-cortical_map = {}
-intercortical_mapping = []
-activity_stats = {}
-temp_neuron_list = []
-original_genome_id = []
-fire_list = []
 
-prunning_candidates = set()
+# System
+parameters = {}
 event_id = '_'
-blueprint = ""
-comprehension_queue = ''
-working_directory = ''
-connectome_path = ''
-paths = {}
-watchdog_queue = ''
-fcl_queue = ''
-proximity_queue = ''
 last_ipu_activity = ''
 last_alertness_trigger = ''
 influxdb = ''
@@ -46,22 +30,17 @@ hw_controller = None
 opu_pub = None
 brain_activity_pub = None
 brain_activity_pub_freq = 1
-fire_queue = {}
 controller_config = None
-opu_data = {}
-cortical_dimensions = {}
-voxel_dict = {}
-cortical_types = {}
-cortical_defaults = None
-
-
-# System
 feagi_thread = None
 beacon_sub = set()
 beacon_flag = False
 feagi_state = {
     "state": "idle"
 }
+working_directory = ''
+connectome_path = ''
+paths = {}
+
 
 # Evolutionary
 genome = {}
@@ -80,7 +59,7 @@ generation_id = None
 genome_reset_flag = False
 last_genome_modification_time = None
 genome_validity = False
-
+original_genome_id = []
 
 # Burst Engine
 burst_publisher = None
@@ -88,32 +67,7 @@ burst_activities = {}
 burst_timer = None
 exit_condition = False
 new_genome = False
-
-
-# Stats Collection
-neuron_mp_collection_scope = {}
-neuron_psp_collection_scope = {}
-
-# collect_neuron_stats = False
-# collect_synapse_stats = False
-
-
-# Cortical Lists
-ipu_list = set()
-opu_list = set()
-mem_list = set()
-core_list = set()
-
-
-# Queues
-api_queue = None
-
-
-# rules = ""
-brain_is_running = False
-
-# live_mode_status can have modes of idle, learning, testing, tbd
-live_mode_status = 'idle'
+live_mode_status = 'idle'  # live_mode_status can have modes of idle, learning, testing, tbd
 fcl_history = {}
 brain_run_id = ""
 burst_detection_list = {}
@@ -121,23 +75,33 @@ burst_count = 0
 fire_candidate_list = {}
 previous_fcl = {}
 future_fcl = {}
-labeled_image = []
-training_neuron_list_utf = {}
-training_neuron_list_img = {}
 empty_fcl_counter = 0
-neuron_mp_list = []
-pain_flag = False
-cumulative_neighbor_count = 0
+activity_stats = {}
+temp_neuron_list = []
+fire_list = []
+prunning_candidates = set()
+
+
+# Stats Collection
+neuron_mp_collection_scope = {}
+neuron_psp_collection_scope = {}
+
+
+# Queues
+api_queue = None
+watchdog_queue = ''
+fcl_queue = ''
+proximity_queue = ''
+fire_queue = {}
+comprehension_queue = ''
+
+
+# cumulative_neighbor_count = 0
 time_neuron_update = ''
 time_apply_plasticity_ext = ''
 plasticity_time_total = None
 plasticity_time_total_p1 = None
-plasticity_dict = {}
-
 tester_test_stats = {}
-
-# Flags
-flag_ready_to_inject_image = False
 
 
 # Stimulation
@@ -148,11 +112,26 @@ stimulation_index = {}
 current_age = 0
 death_flag = False
 stats = {}
+opu_data = {}
+cortical_dimensions = {}
+voxel_dict = {}
+cortical_types = {}
+cortical_defaults = None
+plasticity_dict = {}
+ipu_list = set()
+opu_list = set()
+mem_list = set()
+core_list = set()
+brain = {}
+cortical_list = []
+intercortical_mapping = []
+brain_is_running = False
 
 # Training
 shock_scenarios_options = tuple
 shock_admin = False
 shock_scenarios = set()
+pain_flag = False
 
 # Robot
 robot_id = None
