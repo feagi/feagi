@@ -308,9 +308,6 @@ def init_cortical_info():
     runtime_data.mem_list = set()
     runtime_data.core_list = set()
 
-    for area in genome["blueprint"]:
-        print(f"$$$$$$$$$$$$$$$$$     {area}")
-
     for cortical_area in genome['blueprint']:
         try:
             if genome['blueprint'][cortical_area]['group_id'] == 'IPU':
@@ -418,12 +415,7 @@ def init_fcl(cortical_area_=None):
         runtime_data.future_fcl[cortical_area_] = set()
         runtime_data.previous_fcl[cortical_area_] = set()
         # runtime_data.upstream_neurons[cortical_area_] = {}
-    print("#" * 20, "  FCL Initialization Completed  ", "#" * 20)
-    for area in runtime_data.fire_candidate_list:
-        print(f"@@@@@@@@@@ -----------{area}")
-    # if runtime_data.pending_brain:
-    #     runtime_data.brain = runtime_data.pending_brain.copy()
-    #     runtime_data.pending_brain = None
+    print("\n\n=========================  FCL Initializing Completed ===================================\n\n")
 
 
 def init_brain():
@@ -432,7 +424,6 @@ def init_brain():
     runtime_data.brain_run_id = id_gen(signature='_R')
     init_cortical_info()
     runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
-    print("%%$$%%$$%%$$%%$$ $%$%$%$% runtime_data.cortical_list", runtime_data.cortical_list)
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
     # genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
     # genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])
