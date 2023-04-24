@@ -29,8 +29,13 @@ func _ready():
 			}
 			getIPAddress();
 		""")
-		websocket_ip_address = ip_result
-		api_ip_address = ip_result
+		if ip_result == "" or ip_result == null:
+			websocket_ip_address = "127.0.0.1"
+			api_ip_address = "127.0.0.1"
+		else:
+			websocket_ip_address = ip_result
+			api_ip_address = ip_result
+		print("javascript ip: ", ip_result)
 	websocket_url = "ws://" + str(websocket_ip_address) + ":" + websocket_port_address
 	print("result: ", websocket_url)
 	# Connect base signals to get notified of connection open, close, and errors.
