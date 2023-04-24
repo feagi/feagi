@@ -61,7 +61,14 @@ last_genome_modification_time = None
 genome_validity = False
 original_genome_id = []
 
+# Staging Zone
+pending_genome = None
+pending_brain = None
+pending_plasticity_dict = None
+pending_voxel_dict = None
+
 # Burst Engine
+brain_readiness = False
 burst_publisher = None
 burst_activities = {}
 burst_timer = None

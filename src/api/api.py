@@ -20,11 +20,7 @@ import time
 import string
 import logging
 import random
-import zipfile
-import tempfile
-import zlib
 
-from time import sleep
 from fastapi import FastAPI, File, UploadFile, Response, status, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -40,7 +36,6 @@ from io import StringIO, BytesIO
 from inf import feagi
 from inf import runtime_data
 from inf.baseline import gui_baseline
-from inf.disk_ops import load_brain_in_memory, save_brain_to_disk, preserve_brain, revive_brain
 from evo import autopilot
 from evo.synapse import cortical_mapping, morphology_usage_list
 from evo.templates import cortical_types
@@ -48,13 +43,12 @@ from evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
 from evo import synaptogenesis_rules
 from evo.stats import circuit_size
 from evo.genome_properties import genome_properties
-from evo.genome_editor import save_genome
 from evo.x_genesis import neighboring_cortical_areas
 from evo.genome_processor import genome_2_1_convertor
-from evo.connectome import reset_connectome
+from inf.disk_ops import preserve_brain, revive_brain
 from .config import settings
-from inf.messenger import Pub, Sub
-from inf.initialize import init_infrastructure, stage_genome, init_fcl, init_brain
+from inf.messenger import Sub
+from inf.initialize import deploy_genome
 
 
 logger = logging.getLogger(__name__)
@@ -342,6 +336,7 @@ async def genome_default_upload(response: Response):
         with open("./evo/static_genome.json", "r") as genome_file:
             genome_data = json.load(genome_file)
             runtime_data.genome_file_name = "static_genome.json"
+        runtime_data.brain_readiness = False
         message = {'genome': genome_data}
 
         api_queue.put(item=message)
@@ -358,8 +353,9 @@ async def genome_file_upload(response: Response, file: UploadFile = File(...)):
     The genome must be in the form of a python file.
     """
     try:
-        data = await file.read()
 
+        data = await file.read()
+        runtime_data.brain_readiness = False
         runtime_data.genome_file_name = file.filename
 
         genome_str = json.loads(data)
@@ -1643,7 +1639,7 @@ async def connectome_file_upload(response: Response, file: UploadFile = File(...
 #         with open(runtime_data.connectome_path + "genome.json", "r") as genome_file:
 #             genome_data = json.load(genome_file)
 #             runtime_data.genome_file_name = "static_genome.json"
-#             stage_genome(genome_data=genome_data)
+#             deploy_genome(genome_data=genome_data)
 #
 #         for area in runtime_data.genome["blueprint"]:
 #             print(f"=========-------{area}")
@@ -1725,26 +1721,12 @@ async def download_connectome(response: Response):
 @app.post("/v1/feagi/connectome/upload", tags=["Connectome"])
 async def upload_connectome(response: Response, file: UploadFile = File(...)):
     try:
+        runtime_data.brain_readiness = False
+        runtime_data.genome = {}
         brain_data = await file.read()
-        connectome, voxel_dict, genome = revive_brain(brain_data=brain_data)
-
-        print("\n Initializing a new brain instance...")
-        for area in connectome:
-            print("connectome---------------------->\n", area)
-
-        print("+++++  1  +++++++++++++++++++++++++++++++++++++++++++++++")
-        runtime_data.genome = genome
-        print("+++++  2  +++++++++++++++++++++++++++++++++++++++++++++++")
-        runtime_data.brain = connectome
-        print("+++++  3  +++++++++++++++++++++++++++++++++++++++++++++++")
-        runtime_data.voxel_dict = voxel_dict
-        print("+++++  4  +++++++++++++++++++++++++++++++++++++++++++++++")
-        init_brain()
-        print("+++++  5  +++++++++++++++++++++++++++++++++++++++++++++++")
-        init_fcl()
-        print("+++++  6  +++++++++++++++++++++++++++++++++++++++++++++++")
-        save_brain_to_disk()
-
+        revive_brain(brain_data=brain_data)
+        deploy_genome(genome_data=runtime_data.pending_genome)
+        runtime_data.new_genome = True
         print("\n Brain successfully initialized.")
         response.status_code = status.HTTP_200_OK
 

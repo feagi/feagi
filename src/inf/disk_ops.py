@@ -18,8 +18,11 @@ import logging
 import os.path
 import json
 import pickle
+import traceback
 import zlib
+
 from inf import runtime_data
+from evo.genome_processor import genome_v1_v2_converter
 
 logger = logging.getLogger(__name__)
 
@@ -212,7 +215,8 @@ def preserve_brain():
     brain = dict()
     brain["connectome"] = runtime_data.brain
     brain["voxel_dict"] = runtime_data.voxel_dict
-    brain["genome"] = runtime_data.genome
+    brain["genome"] = genome_v1_v2_converter(runtime_data.genome)
+    brain["plasticity_dict"] = runtime_data.plasticity_dict
 
     # Pickle Brain
     pickled_brain = pickle.dumps(brain)
@@ -224,18 +228,27 @@ def preserve_brain():
 
 
 def revive_brain(brain_data):
-    # Decompress brain data
-    decompressed_brain = zlib.decompress(brain_data)
+    try:
+        print("\n\n$$$$$$$$$$$$$$$$$      Brain Revival Begun     $$$$$$$$$$$$$$$$$")
+        # Decompress brain data
+        decompressed_brain = zlib.decompress(brain_data)
 
-    # Unpickle brain data
-    unpickle_data = pickle.loads(decompressed_brain)
+        # Unpickle brain data
+        unpickle_data = pickle.loads(decompressed_brain)
 
-    for type_ in unpickle_data:
-        print(f"!!!!!!!  {type_}")
-    # Unpack the brain
-    connectome = unpickle_data["connectome"]
-    voxel_dict = unpickle_data["voxel_dict"]
-    genome = unpickle_data["genome"]
+        for type_ in unpickle_data:
+            print(f"!!!!!!!  {type_}")
 
-    return connectome, voxel_dict, genome
+        # Unpack the brain
+        if "connectome" in unpickle_data:
+            runtime_data.pending_brain = unpickle_data["connectome"]
+        if "voxel_dict" in unpickle_data:
+            runtime_data.pending_voxel_dict = unpickle_data["voxel_dict"]
+        if "genome" in unpickle_data:
+            runtime_data.pending_genome = unpickle_data["genome"]
+        if "plasticity_dict" in unpickle_data:
+            runtime_data.pending_plasticity_dict = unpickle_data["plasticity_dict"]
+        print("$$$$$$$$$$$$$$$$$      Brain Revival Completed       $$$$$$$$$$$$$$$$$\n\n")
 
+    except Exception as e:
+        print("Exception during brain revival!", e, traceback.print_exc())

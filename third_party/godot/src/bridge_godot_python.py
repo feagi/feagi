@@ -155,23 +155,26 @@ def feagi_breakdown(data):
     This function will detect if cortical area list is different than the first, it will generate genome list for godot
      automatically.
     """
-    new_list = []
-    new_genome_num = data['genome_num']
-    if new_genome_num > runtime_data["genome_number"]:
-        runtime_data["old_cortical_data"] = runtime_data["cortical_data"]
-        runtime_data["cortical_data"] = \
-            requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
-        if 'genome_reset' not in data and data == "{}":
+    try:
+        new_list = []
+        new_genome_num = data['genome_num']
+        if new_genome_num > runtime_data["genome_number"]:
+            runtime_data["old_cortical_data"] = runtime_data["cortical_data"]
             runtime_data["cortical_data"] = \
                 requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
-        if data != "{}":
-            if runtime_data["old_cortical_data"] != runtime_data["cortical_data"]:
-                pass  # TODO: add to detect if cortical is changed
-            #     csv_writer(runtime_data["cortical_data"])
-        runtime_data["genome_number"] = new_genome_num
-    for i in data['godot']:
-        new_list.append([i[1], i[2], i[3]])
-    return new_list
+            if 'genome_reset' not in data and data == "{}":
+                runtime_data["cortical_data"] = \
+                    requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint).json()
+            if data != "{}":
+                if runtime_data["old_cortical_data"] != runtime_data["cortical_data"]:
+                    pass  # TODO: add to detect if cortical is changed
+                #     csv_writer(runtime_data["cortical_data"])
+            runtime_data["genome_number"] = new_genome_num
+        for i in data['godot']:
+            new_list.append([i[1], i[2], i[3]])
+        return new_list
+    except Exception as e:
+        print("Exception during feagi_breakdown", e)
 
 
 def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_data):
