@@ -476,8 +476,8 @@ def burst_manager():
         if runtime_data.genome:
             runtime_data.current_age += 1
 
-        # Activating the always on neurons
-        if runtime_data.brain:
+        if runtime_data.brain and runtime_data.brain_readiness:
+            # Activating the always on neurons
             if "___pwr" in runtime_data.brain:
                 if "___pwr" not in runtime_data.fire_candidate_list:
                     runtime_data.fire_candidate_list["___pwr"] = set()
@@ -485,11 +485,11 @@ def burst_manager():
                 for neuron in runtime_data.brain["___pwr"]:
                     runtime_data.fire_candidate_list["___pwr"].add(neuron)
 
-        # Manage ZMQ communication from and to FEAGI
-        message_router()
+            # Manage ZMQ communication from and to FEAGI
+            message_router()
 
-        # Process efferent signals
-        opu_router()
+            # Process efferent signals
+            opu_router()
 
         # Feeding FCL queue content into the FCL
         while not runtime_data.fcl_queue.empty():
@@ -515,8 +515,10 @@ def burst_manager():
         # print("^^^^^^^^^^ Previous FCL ^^^^^^^^^\n", runtime_data.previous_fcl)
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
-        if not runtime_data.new_genome:
+        if not runtime_data.new_genome and runtime_data.brain_readiness:
             fire_fcl_contents()
+        else:
+            print("Brain is not ready to fire FCL contents....")
 
         # Auto-inject/test if applicable
         # todo: move the following functionality to the life.controller to run as a thread
