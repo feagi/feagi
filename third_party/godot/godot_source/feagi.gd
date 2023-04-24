@@ -410,7 +410,7 @@ func add_3D_indicator():
 	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
 	generate_textbox(create_textbox_axis, 0,5,0,"y", 1,0, 0)
 	for k in 6: 
-		$GridMap3.set_cell_item(0,0,k,0)
+		$GridMap3.set_cell_item(0,0,-1 * k,0)
 	create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
 	viewport = create_textbox_axis.get_node("Viewport")
 	create_textbox_axis.set_texture(viewport.get_texture())
