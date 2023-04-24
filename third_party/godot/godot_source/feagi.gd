@@ -136,7 +136,8 @@ func generate_textbox(node, x_input,height_input,z_input, name_input, input_y, w
 	node.transform.origin = Vector3(int(x_input) + (width_input/1.5), int(int(input_y)+2 + (height_input)), -1 * depth_input - z_input)
 	node.get_node("Viewport/Label").set_text(str(name_input))
 	node.get_node("Viewport").get_texture()
-	global_name_list.append({name_input.replace(" ", ""): [node, x_input, 0, -1 * z_input, 0, 0, height_input]})
+	if not name_input in ["x", "y", "z"]:
+		global_name_list.append({name_input.replace(" ", ""): [node, x_input, 0, -1 * z_input, 0, 0, height_input]})
 
 func install_voxel_inside(x_input,y_input,z_input):
 	$GridMap.set_cell_item(x_input,y_input,z_input, 0)
@@ -397,7 +398,7 @@ func add_3D_indicator():
 	create_textbox_axis.set_texture(viewport.get_texture())
 	create_textbox_axis.set_name("x_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
-	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
+	create_textbox_axis.scale = Vector3(1, 1, 1)
 	generate_textbox(create_textbox_axis, 5,0,0,"x", 1, 0, 0)
 	for j in 6:
 		$GridMap3.set_cell_item(0,j,0,0)
@@ -406,16 +407,16 @@ func add_3D_indicator():
 	create_textbox_axis.set_texture(viewport.get_texture())
 	create_textbox_axis.set_name("y_textbox")
 	add_child(create_textbox_axis) # Copied the node to new node
-	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
+	create_textbox_axis.scale = Vector3(1, 1, 1)
 	generate_textbox(create_textbox_axis, 0,5,0,"y", 1,0, 0)
 	for k in 6: 
-		$GridMap3.set_cell_item(0,0,k,0)
+		$GridMap3.set_cell_item(0,0,-1 * k,0)
 	create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
 	viewport = create_textbox_axis.get_node("Viewport")
 	create_textbox_axis.set_texture(viewport.get_texture())
 	create_textbox_axis.set_name("z_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
-	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
+	create_textbox_axis.scale = Vector3(1, 1, 1)
 	generate_textbox(create_textbox_axis, -2,0.5,6,"z", 1, 0, 0)
 	$GridMap.clear()
 
