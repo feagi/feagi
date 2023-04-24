@@ -305,7 +305,7 @@ def syn_reducer_x(src_cortical_area, dst_cortical_area, src_neuron_id, src_subre
     return candidate_list
 
 
-def syn_randomizer(dst_cortical_area, src_subregion):
+def syn_randomizer(dst_cortical_area):
     """
     Identifies a random voxel from the destination cortical area.
     """

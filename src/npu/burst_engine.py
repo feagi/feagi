@@ -135,13 +135,20 @@ def burst_manager():
                           + settings.Bcolors.ENDC)
 
     def burst_stats(burst_start_time):
+        if not runtime_data.brain:
+            print("\n !! Brain not found !!")
+        if not runtime_data.cortical_list:
+            print("\n !! Cortical list not found !!")
+        if not runtime_data.genome:
+            print("\n !! Genome not found !!")
+
         if runtime_data.parameters["Logs"]["print_burst_info"] and runtime_data.burst_timer > 0.1:
             burst_duration = datetime.now() - burst_start_time
-            if runtime_data.genome and runtime_data.genome_validity:
+            if runtime_data.brain_readiness and runtime_data.genome_validity:
                 print(settings.Bcolors.UPDATE +
                       ">>> Burst duration ###: %s %i %i --- ---- ---- ---- ---- ---- ----"
                       % (burst_duration, runtime_data.burst_count, runtime_data.current_age) + settings.Bcolors.ENDC)
-            elif runtime_data.genome and not runtime_data.genome_validity:
+            elif runtime_data.brain_readiness and not runtime_data.genome_validity:
                 print(settings.Bcolors.RED +
                       ">>> Burst duration ###: %s %i %i --- ---- ---- ---- ---- ---- ----"
                       % (burst_duration, runtime_data.burst_count, runtime_data.current_age) + settings.Bcolors.ENDC)
@@ -372,25 +379,31 @@ def burst_manager():
         Convert FCL activities to a set of voxel locations and sends out through the ZMQ publisher
         """
         broadcast_message = set()
-        try:
-            for _ in runtime_data.fire_candidate_list:
-                fire_list = set(runtime_data.fire_candidate_list[_])
-                if runtime_data.genome['blueprint'][_].get('visualization'):
-                    while fire_list:
-                        firing_neuron = fire_list.pop()
-                        firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
-                        relative_coords = runtime_data.genome['blueprint'][_].get('relative_coordinate')
-                        broadcast_message.add(
-                            (
-                                runtime_data.burst_count,
-                                firing_neuron_loc[0] + relative_coords[0],
-                                firing_neuron_loc[1] + relative_coords[1],
-                                firing_neuron_loc[2] + relative_coords[2]
-                            )
-                        )
-            return broadcast_message
-        except Exception as e:
-            print("Exception during voxelization.", e, traceback.print_exc())
+        if runtime_data.genome:
+            if "blueprint" in runtime_data.genome:
+                try:
+                    for _ in runtime_data.fire_candidate_list:
+                        fire_list = set(runtime_data.fire_candidate_list[_])
+                        if runtime_data.genome['blueprint'][_].get('visualization'):
+                            while fire_list:
+                                firing_neuron = fire_list.pop()
+                                firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
+                                relative_coords = runtime_data.genome['blueprint'][_].get('relative_coordinate')
+                                broadcast_message.add(
+                                    (
+                                        runtime_data.burst_count,
+                                        firing_neuron_loc[0] + relative_coords[0],
+                                        firing_neuron_loc[1] + relative_coords[1],
+                                        firing_neuron_loc[2] + relative_coords[2]
+                                    )
+                                )
+                    return broadcast_message
+                except Exception as e:
+                    print("Exception during voxelization.", e, traceback.print_exc())
+            else:
+                print("No blueprint found in genome during voxelization!")
+        else:
+            print("No genome found during voxelization!")
 
     def terminate_on_low_perf():
         # TBD
@@ -407,6 +420,18 @@ def burst_manager():
             print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
             init_fcl()
             runtime_data.new_genome = False
+            runtime_data.pending_genome = None
+            if runtime_data.pending_brain:
+                runtime_data.brain = runtime_data.pending_brain
+            else:
+                print("No brain in pending state found!")
+            runtime_data.pending_brain = None
+            if runtime_data.pending_voxel_dict:
+                runtime_data.voxel_dict = runtime_data.pending_voxel_dict
+            else:
+                print("No voxel dictionary in pending state found!")
+            runtime_data.pending_voxel_dict = None
+
             runtime_data.feagi_state["state"] = "running"
 
         if runtime_data.beacon_flag:
@@ -451,19 +476,20 @@ def burst_manager():
         if runtime_data.genome:
             runtime_data.current_age += 1
 
-        # Activating the always on neurons
-        if "___pwr" in runtime_data.brain:
-            if "___pwr" not in runtime_data.fire_candidate_list:
-                runtime_data.fire_candidate_list["___pwr"] = set()
+        if runtime_data.brain and runtime_data.brain_readiness:
+            # Activating the always on neurons
+            if "___pwr" in runtime_data.brain:
+                if "___pwr" not in runtime_data.fire_candidate_list:
+                    runtime_data.fire_candidate_list["___pwr"] = set()
 
-            for neuron in runtime_data.brain["___pwr"]:
-                runtime_data.fire_candidate_list["___pwr"].add(neuron)
+                for neuron in runtime_data.brain["___pwr"]:
+                    runtime_data.fire_candidate_list["___pwr"].add(neuron)
 
-        # Manage ZMQ communication from and to FEAGI
-        message_router()
+            # Manage ZMQ communication from and to FEAGI
+            message_router()
 
-        # Process efferent signals
-        opu_router()
+            # Process efferent signals
+            opu_router()
 
         # Feeding FCL queue content into the FCL
         while not runtime_data.fcl_queue.empty():
@@ -489,8 +515,10 @@ def burst_manager():
         # print("^^^^^^^^^^ Previous FCL ^^^^^^^^^\n", runtime_data.previous_fcl)
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
-        if not runtime_data.new_genome:
+        if not runtime_data.new_genome and runtime_data.brain_readiness:
             fire_fcl_contents()
+        else:
+            print("Brain is not ready to fire FCL contents....")
 
         # Auto-inject/test if applicable
         # todo: move the following functionality to the life.controller to run as a thread

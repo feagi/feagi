@@ -45,7 +45,6 @@ class MongoManagement:
             self.client.server_info()
             self.db = self.client[self.db_params['mongodb_db']]
             self.collection_genome = self.db[self.db_params['mongodb_genomes']]
-            self.collection_mnist = self.db[self.db_params['mongodb_mnist']]
             self.collection_test_stats = self.db[self.db_params['mongodb_stats']]
             self.collection_membrane_potentials = self.db[self.db_params['mongodb_potentials']]
             self.collection_neuron_activities = self.db[self.db_params['mongodb_neurons']]
@@ -67,9 +66,6 @@ class MongoManagement:
     def insert_genome(self, genome_data):
         self.collection_genome.insert_one(genome_data)
 
-    def insert_mnist_entry(self, mnist_data):
-        self.collection_mnist.insert_one(mnist_data)
-
     # def read_genome(self, genome_id):
     #
     #     return genome
@@ -77,20 +73,6 @@ class MongoManagement:
     def latest_genome(self):
         db_output = self.collection_genome.find({}).sort("generation_date", DESCENDING).limit(1)
         return db_output[0]
-
-    def mnist_(self, seq):
-        pipeline = [
-            {"$match": {"mnist_seq": seq}}
-        ]
-        mnist_seq_data = self.collection_mnist.aggregate(pipeline=pipeline)
-        return mnist_seq_data
-
-    def mnist_seq(self, mnist_type, seq):
-        if mnist_type not in ['training', 'test']:
-            print("ERROR: Invalid MNIST type!")
-        else:
-            mnist_seq_data = self.collection_mnist.find({"mnist_type": mnist_type, "mnist_seq": seq})
-            return mnist_seq_data[0]
 
     def highest_fitness_genome(self):
         db_output = self.collection_genome.find({}).sort("fitness", DESCENDING).limit(1)
@@ -177,28 +159,6 @@ class MongoManagement:
         for _ in id_list:
             genome_list.append(self.genome_id_2_properties(_["genome_id"]))
         return genome_list
-
-    def mnist_read_single_digit(self, mnist_type, seq, kernel):
-        return self.collection_mnist.find({"mnist_type": mnist_type, 'mnist_seq': seq, 'kernel_size': kernel})[0]
-
-    def mnist_read_nth_digit(self, mnist_type, n, kernel_size, digit):
-        """
-        // Requires official MongoShell 3.6+
-        use metis;
-        db.getCollection("mnist").find(
-            {
-                "digit" : "5",
-                "kernel_size" : NumberInt(7),
-                "mnist_type" : "training"
-            }
-        ).sort(
-            {
-                "mnist_seq" : 1.0
-            }
-        ).skip(1000).limit(1);
-        """
-        return self.collection_mnist.find({"mnist_type": mnist_type, 'digit': str(digit), 'kernel_size': kernel_size}).sort(
-            "mnist_seq", 1).skip(n).limit(1)[0]
 
     def test_mongodb(self):
         try:

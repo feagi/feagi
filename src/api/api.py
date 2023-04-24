@@ -20,10 +20,7 @@ import time
 import string
 import logging
 import random
-import zipfile
-import tempfile
 
-from time import sleep
 from fastapi import FastAPI, File, UploadFile, Response, status, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -39,7 +36,6 @@ from io import StringIO, BytesIO
 from inf import feagi
 from inf import runtime_data
 from inf.baseline import gui_baseline
-from inf.disk_ops import load_brain_in_memory, save_brain_to_disk, load_genome_in_memory
 from evo import autopilot
 from evo.synapse import cortical_mapping, morphology_usage_list
 from evo.templates import cortical_types
@@ -47,13 +43,12 @@ from evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
 from evo import synaptogenesis_rules
 from evo.stats import circuit_size
 from evo.genome_properties import genome_properties
-from evo.genome_editor import save_genome
 from evo.x_genesis import neighboring_cortical_areas
 from evo.genome_processor import genome_2_1_convertor
-from evo.connectome import reset_connectome
+from inf.disk_ops import preserve_brain, revive_brain
 from .config import settings
-from inf.messenger import Pub, Sub
-from inf.initialize import init_infrastructure, stage_genome
+from inf.messenger import Sub
+from inf.initialize import deploy_genome
 
 
 logger = logging.getLogger(__name__)
@@ -341,6 +336,7 @@ async def genome_default_upload(response: Response):
         with open("./evo/static_genome.json", "r") as genome_file:
             genome_data = json.load(genome_file)
             runtime_data.genome_file_name = "static_genome.json"
+        runtime_data.brain_readiness = False
         message = {'genome': genome_data}
 
         api_queue.put(item=message)
@@ -357,8 +353,9 @@ async def genome_file_upload(response: Response, file: UploadFile = File(...)):
     The genome must be in the form of a python file.
     """
     try:
-        data = await file.read()
 
+        data = await file.read()
+        runtime_data.brain_readiness = False
         runtime_data.genome_file_name = file.filename
 
         genome_str = json.loads(data)
@@ -563,7 +560,7 @@ async def add_cortical_area(message: NewCustomCorticalProperties, response: Resp
     Enables changes against various Burst Engine parameters.
     """
     try:
-        print("NewCustomCorticalProperties:\n", NewCustomCorticalProperties)
+        print("NewCustomCorticalProperties:\n", message)
         message = message.dict()
         message = {'add_custom_cortical_area': message}
         print("*" * 50 + "\n", message)
@@ -571,7 +568,7 @@ async def add_cortical_area(message: NewCustomCorticalProperties, response: Resp
         response.status_code = status.HTTP_200_OK
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
+        print("API Error:", e, traceback.print_exc())
 
 
 @app.api_route("/v1/feagi/genome/cortical_area", methods=['DELETE'], tags=["Genome"])
@@ -816,7 +813,7 @@ async def fetch_cortical_mappings(cortical_area, response: Response):
     try:
         if len(cortical_area) == genome_properties["structure"]["cortical_name_length"]:
             upstream_cortical_areas, downstream_cortical_areas = \
-                neighboring_cortical_areas(cortical_area, blueprint=runtime_data.blueprint)
+                neighboring_cortical_areas(cortical_area, blueprint=runtime_data.genome["blueprint"])
             response.status_code = status.HTTP_200_OK
             return upstream_cortical_areas
         else:
@@ -1233,7 +1230,7 @@ async def neuron_membrane_potential_collection_filters(response: Response):
 
 
 @app.get("/v1/feagi/neuron/physiology/postsynaptic_potential_monitoring/filter_setting", tags=["Insights"])
-async def neuron_postsynaptic_potential_collection_filters():
+async def neuron_postsynaptic_potential_collection_filters(response: Response):
     print("Membrane potential monitoring filter setting:", runtime_data.neuron_psp_collection_scope)
     try:
         if runtime_data.neuron_psp_collection_scope:
@@ -1550,41 +1547,41 @@ def iter_zip_file(zip_name):
     os.remove(zip_name)  # Remove the temporary file after it has been streamed
 
 
-@app.get("/v1/feagi/connectome/download", tags=["Connectome"])
-async def download_zipped_connectome(response: Response):
-    try:
-        folder_path = runtime_data.connectome_path
-        print("Connetome Path=", folder_path)
-        new_file_list = os.listdir(folder_path)
-        print("^__" * 10)
-        print("Zipped connectome has been successfully uploaded and extracted as:")
-        for file_name in new_file_list:
-            print("___", file_name)
-
-        # Preserve the Brain
-        save_brain_to_disk()
-
-        if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
-            raise HTTPException(status_code=400, detail="Invalid folder path")
-
-        temp_dir = tempfile.mkdtemp()
-        zip_name = os.path.join(temp_dir, "folder.zip")
-
-        # Create a ZipFile object
-        with zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED) as zip_file:
-            # Iterate through the folder and add files to the ZipFile object
-            for root, _, files in os.walk(folder_path):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    zip_file.write(file_path, os.path.relpath(file_path, folder_path))
-        filename = "connectome_" + datetime.datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p" + ".zip")
-        response.status_code = status.HTTP_200_OK
-        return StreamingResponse(iter_zip_file(zip_name), media_type="application/zip",
-                                 headers={"Content-Disposition": f"attachment; filename={filename}"})
-
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
+# @app.get("/v1/feagi/connectome/download", tags=["Connectome"])
+# async def download_zipped_connectome(response: Response):
+#     try:
+#         folder_path = runtime_data.connectome_path
+#         print("Connetome Path=", folder_path)
+#         new_file_list = os.listdir(folder_path)
+#         print("^__" * 10)
+#         print("Zipped connectome has been successfully uploaded and extracted as:")
+#         for file_name in new_file_list:
+#             print("___", file_name)
+#
+#         # Preserve the Brain
+#         save_brain_to_disk()
+#
+#         if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
+#             raise HTTPException(status_code=400, detail="Invalid folder path")
+#
+#         temp_dir = tempfile.mkdtemp()
+#         zip_name = os.path.join(temp_dir, "folder.zip")
+#
+#         # Create a ZipFile object
+#         with zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED) as zip_file:
+#             # Iterate through the folder and add files to the ZipFile object
+#             for root, _, files in os.walk(folder_path):
+#                 for file in files:
+#                     file_path = os.path.join(root, file)
+#                     zip_file.write(file_path, os.path.relpath(file_path, folder_path))
+#         filename = "connectome_" + datetime.datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p" + ".zip")
+#         response.status_code = status.HTTP_200_OK
+#         return StreamingResponse(iter_zip_file(zip_name), media_type="application/zip",
+#                                  headers={"Content-Disposition": f"attachment; filename={filename}"})
+#
+#     except Exception as e:
+#         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+#         print("API Error:", e)
 
 
 @app.post("/v1/feagi/connectome/upload-cortical-area", tags=["Connectome"])
@@ -1602,54 +1599,68 @@ async def connectome_file_upload(response: Response, file: UploadFile = File(...
         print("API Error:", e)
 
 
-@app.post("/v1/feagi/connectome/upload", tags=["Connectome"])
-async def upload_zipped_connectome(response: Response, zip_file: UploadFile = File(...)):
-    try:
-        if zip_file.content_type != "application/zip":
-            raise HTTPException(status_code=400, detail="Invalid file type. Only zip files are allowed.")
-
-        output_folder = runtime_data.connectome_path
-
-        if not os.path.exists(output_folder):
-            os.makedirs(output_folder)
-        else:
-            # Clear connectome folder contents
-            reset_connectome()
-
-        # Create a temporary file to store the uploaded zip file
-        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-            print(f"Zip file: {zip_file.filename}, {zip_file.content_type}, {zip_file.file}")  # Add this line
-            temp_file.write(await zip_file.read())
-
-        # Extract the zip file to the output folder
-        with zipfile.ZipFile(temp_file.name, "r") as zip_ref:
-            zip_ref.extractall(output_folder)
-
-        os.unlink(temp_file.name)
-
-        new_file_list = os.listdir(runtime_data.connectome_path)
-        print("^__" * 10)
-        print("Zipped connectome has been successfully uploaded and extracted as:")
-        for file_name in new_file_list:
-            print("___", file_name)
-        print("\n\n")
-        # Activate the new Connectome + Genome
-        load_genome_in_memory()
-        print("#__" * 10)
-
-        # Activate new genome without neuroembryogenesis
-        stage_genome()
-        print("^__" * 10)
-        print("Genome staging has completed successfully!")
-
-        load_brain_in_memory()
-        print("@__" * 10)
-
-        response.status_code = status.HTTP_200_OK
-
-        return {"message": "Zip file successfully extracted", "output_folder": output_folder}
-    except Exception as e:
-        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"detail": str(e)})
+# @app.post("/v1/feagi/connectome/upload", tags=["Connectome"])
+# async def upload_zipped_connectome(response: Response, zip_file: UploadFile = File(...)):
+#     try:
+#         print("----------------------- 1 +++++++++++++++++++++")
+#         if zip_file.content_type != "application/zip":
+#             raise HTTPException(status_code=400, detail="Invalid file type. Only zip files are allowed.")
+#         print("----------------------- 2 +++++++++++++++++++++")
+#         output_folder = runtime_data.connectome_path
+#
+#         if not os.path.exists(output_folder):
+#             os.makedirs(output_folder)
+#         else:
+#             # Clear connectome folder contents
+#             print("----------------------- * +++++++++++++++++++++")
+#             reset_connectome()
+#
+#         # Create a temporary file to store the uploaded zip file
+#         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+#             print(f"Zip file: {zip_file.filename}, {zip_file.content_type}, {zip_file.file}")  # Add this line
+#             temp_file.write(await zip_file.read())
+#
+#         # Extract the zip file to the output folder
+#         with zipfile.ZipFile(temp_file.name, "r") as zip_ref:
+#             zip_ref.extractall(output_folder)
+#
+#         os.unlink(temp_file.name)
+#
+#         new_file_list = os.listdir(output_folder)
+#         print("^__" * 10)
+#         print("\n\n\nZipped connectome has been successfully uploaded and extracted as:")
+#         for file_name in new_file_list:
+#             print("___", file_name)
+#         print("\n\n")
+#
+#         load_brain_in_memory()
+#
+#         # Activate new genome without neuroembryogenesis
+#         with open(runtime_data.connectome_path + "genome.json", "r") as genome_file:
+#             genome_data = json.load(genome_file)
+#             runtime_data.genome_file_name = "static_genome.json"
+#             deploy_genome(genome_data=genome_data)
+#
+#         for area in runtime_data.genome["blueprint"]:
+#             print(f"=========-------{area}")
+#
+#         # Activate the new Connectome
+#         print("#__" * 10)
+#         init_brain()
+#
+#         for area in runtime_data.brain:
+#             print(f"^^^^^^^^^^^^^^^^^^^ {area}")
+#
+#         init_fcl()
+#
+#         print("^__" * 10)
+#         print("Genome staging has completed successfully!")
+#
+#         response.status_code = status.HTTP_200_OK
+#
+#         return {"message": "Zip file successfully extracted", "output_folder": output_folder}
+#     except Exception as e:
+#         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"detail": str(e)})
 
 
 @app.api_route("/v1/feagi/connectome/properties/dimensions", methods=['GET'], tags=["Connectome"])
@@ -1685,6 +1696,44 @@ async def connectome_mapping_report(response: Response):
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
         
+
+@app.get("/v1/feagi/connectome/download", tags=["Connectome"])
+async def download_connectome(response: Response):
+    """
+    Creates a compressed file containing the entire brain data
+    """
+    print("Downloading Genome...")
+    try:
+        file_name = "brain_" + datetime.datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p")
+        print(file_name)
+        brain_data = preserve_brain()
+
+        headers = {
+            'Content-Disposition': f'attachment; filename="{file_name}"'
+        }
+        return Response(content=brain_data, headers=headers)
+
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.post("/v1/feagi/connectome/upload", tags=["Connectome"])
+async def upload_connectome(response: Response, file: UploadFile = File(...)):
+    try:
+        runtime_data.brain_readiness = False
+        runtime_data.genome = {}
+        brain_data = await file.read()
+        revive_brain(brain_data=brain_data)
+        deploy_genome(genome_data=runtime_data.pending_genome)
+        runtime_data.new_genome = True
+        print("\n Brain successfully initialized.")
+        response.status_code = status.HTTP_200_OK
+
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
 
 # ######  Burst-Engine Endpoints #########
 # ########################################

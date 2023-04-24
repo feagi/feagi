@@ -1,6 +1,6 @@
 import datetime
 import json
-from inf.initialize import stage_genome
+from inf.initialize import deploy_genome
 from inf import runtime_data, disk_ops
 from evo.genome_processor import genome_ver_check
 from evo.autopilot import update_generation_dict
@@ -16,6 +16,7 @@ def api_message_processor(api_message):
         if 'burst_duration' in api_message['burst_management']:
             if api_message['burst_management']['burst_duration'] is not None:
                 runtime_data.burst_timer = api_message['burst_management']['burst_duration']
+                runtime_data.genome['burst_delay'] = runtime_data.burst_timer
 
     if 'stimulation_script' in api_message:
         runtime_data.stimulation_script = api_message['stimulation_script']['stimulation_script']
@@ -98,7 +99,7 @@ def api_message_processor(api_message):
         print("========================================================")
 
         genome_data = dict(api_message['genome'])
-        stage_genome(neuroembryogenesis_flag=True, reset_runtime_data_flag=True, genome_data=genome_data)
+        deploy_genome(neuroembryogenesis_flag=True, reset_runtime_data_flag=True, genome_data=genome_data)
 
     if 'beacon_sub' in api_message:
         print("The following FEAGI beacon subscriber has been added:\n", api_message['beacon_sub'])
@@ -180,5 +181,5 @@ def api_message_processor(api_message):
             append_circuit(source_genome=api_message['append_circuit']["genome_str"],
                            circuit_origin=api_message['append_circuit']['circuit_origin'])
         else:
-            stage_genome(neuroembryogenesis_flag=True, reset_runtime_data_flag=True,
-                         genome_data=api_message['append_circuit']["genome_str"])
+            deploy_genome(neuroembryogenesis_flag=True, reset_runtime_data_flag=True,
+                          genome_data=api_message['append_circuit']["genome_str"])

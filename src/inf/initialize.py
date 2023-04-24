@@ -46,7 +46,8 @@ from evo.templates import cortical_types
 logger = logging.getLogger(__name__)
 
 
-def stage_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, genome_data=None):
+def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, genome_data=None):
+    print("=======================    Genome Staging Initiated        =======================")
     if neuroembryogenesis_flag:
         print("cortical_list:", runtime_data.cortical_list)
         reset_connectome()
@@ -65,27 +66,28 @@ def stage_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, g
                 print("Genome loaded from connectome folder")
         except Exception as e:
             print("Exception while loading Genome from connectome folder", traceback.print_exc(), e)
+            print("Could not stage genome. No genome data available")
 
-    if not genome_data:
-        print("Could not stage genome. No genome data available")
-    else:
-        runtime_data.genome_orig = genome_data.copy()
-        runtime_data.genome = genome_data
-        runtime_data.genome = genome_ver_check(runtime_data.genome)
-        runtime_data.genome_ver = "2.0"
-        init_brain()
-        if 'genome_id' not in runtime_data.genome:
-            runtime_data.genome['genome_id'] = id_gen(signature="_G")
-        runtime_data.genome_id = runtime_data.genome['genome_id']
-        print("brain_run_id", runtime_data.brain_run_id)
-        if runtime_data.autopilot:
-            update_generation_dict(genome_id=runtime_data.genome_id,
-                                   robot_id=runtime_data.robot_id,
-                                   env_id=runtime_data.environment_id)
-        # Process of artificial neuroembryogenesis that leads to connectome development
-        if neuroembryogenesis_flag:
-            develop_brain(reincarnation_mode=runtime_data.parameters[
-                'Brain_Development']['reincarnation_mode'])
+    runtime_data.genome_orig = genome_data.copy()
+    runtime_data.genome = genome_data
+    runtime_data.genome = genome_ver_check(runtime_data.genome)
+    runtime_data.genome_ver = "2.0"
+    init_fcl()
+    init_brain()
+    if 'genome_id' not in runtime_data.genome:
+        runtime_data.genome['genome_id'] = id_gen(signature="_G")
+    runtime_data.genome_id = runtime_data.genome['genome_id']
+    print("brain_run_id", runtime_data.brain_run_id)
+    if runtime_data.autopilot:
+        update_generation_dict(genome_id=runtime_data.genome_id,
+                               robot_id=runtime_data.robot_id,
+                               env_id=runtime_data.environment_id)
+    # Process of artificial neuroembryogenesis that leads to connectome development
+    if neuroembryogenesis_flag:
+        develop_brain(reincarnation_mode=runtime_data.parameters[
+            'Brain_Development']['reincarnation_mode'])
+    print("=======================    Genome Staging Completed        =======================")
+    runtime_data.brain_readiness = True
 
 
 def update_ini_variables_from_environment(var_dict):
@@ -301,6 +303,10 @@ def init_timeseries_db():
 
 def init_cortical_info():
     genome = runtime_data.genome
+    runtime_data.ipu_list = set()
+    runtime_data.opu_list = set()
+    runtime_data.mem_list = set()
+    runtime_data.core_list = set()
 
     for cortical_area in genome['blueprint']:
         try:
@@ -394,6 +400,8 @@ def reset_runtime_data():
 
 
 def init_fcl(cortical_area_=None):
+    print("\n\n=========================  Initializing the FCL ===================================\n\n")
+    runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
     if not cortical_area_:
         runtime_data.fire_candidate_list = {}
         runtime_data.future_fcl = {}
@@ -407,10 +415,11 @@ def init_fcl(cortical_area_=None):
         runtime_data.future_fcl[cortical_area_] = set()
         runtime_data.previous_fcl[cortical_area_] = set()
         # runtime_data.upstream_neurons[cortical_area_] = {}
+    print("\n\n=========================  FCL Initializing Completed ===================================\n\n")
 
 
 def init_brain():
-    print("\n\n=========================  Initializing the Brain ===================================\n\n")
+    print("\n\n=========================   Brain Initialization Started ===================================\n\n")
     runtime_data.last_alertness_trigger = datetime.now()
     runtime_data.brain_run_id = id_gen(signature='_R')
     init_cortical_info()
@@ -424,6 +433,7 @@ def init_brain():
     runtime_data.new_genome = True
     if 'burst_delay' in runtime_data.genome:
         runtime_data.burst_timer = float(runtime_data.genome['burst_delay'])
+    print("\n\n=========================   Brain Initialization Complete ===================================\n\n")
 
 
 def init_cortical_defaults():
