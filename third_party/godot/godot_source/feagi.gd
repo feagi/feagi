@@ -136,7 +136,8 @@ func generate_textbox(node, x_input,height_input,z_input, name_input, input_y, w
 	node.transform.origin = Vector3(int(x_input) + (width_input/1.5), int(int(input_y)+2 + (height_input)), -1 * depth_input - z_input)
 	node.get_node("Viewport/Label").set_text(str(name_input))
 	node.get_node("Viewport").get_texture()
-	global_name_list.append({name_input.replace(" ", ""): [node, x_input, 0, -1 * z_input, 0, 0, height_input]})
+	if not name_input in ["x", "y", "z"]:
+		global_name_list.append({name_input.replace(" ", ""): [node, x_input, 0, -1 * z_input, 0, 0, height_input]})
 
 func install_voxel_inside(x_input,y_input,z_input):
 	$GridMap.set_cell_item(x_input,y_input,z_input, 0)
