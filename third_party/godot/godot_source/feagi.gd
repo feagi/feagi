@@ -398,7 +398,7 @@ func add_3D_indicator():
 	create_textbox_axis.set_texture(viewport.get_texture())
 	create_textbox_axis.set_name("x_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
-	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
+	create_textbox_axis.scale = Vector3(1, 1, 1)
 	generate_textbox(create_textbox_axis, 5,0,0,"x", 1, 0, 0)
 	for j in 6:
 		$GridMap3.set_cell_item(0,j,0,0)
@@ -407,7 +407,7 @@ func add_3D_indicator():
 	create_textbox_axis.set_texture(viewport.get_texture())
 	create_textbox_axis.set_name("y_textbox")
 	add_child(create_textbox_axis) # Copied the node to new node
-	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
+	create_textbox_axis.scale = Vector3(1, 1, 1)
 	generate_textbox(create_textbox_axis, 0,5,0,"y", 1,0, 0)
 	for k in 6: 
 		$GridMap3.set_cell_item(0,0,-1 * k,0)
@@ -416,7 +416,7 @@ func add_3D_indicator():
 	create_textbox_axis.set_texture(viewport.get_texture())
 	create_textbox_axis.set_name("z_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
-	create_textbox_axis.scale = Vector3(0.5,0.5,0.5)
+	create_textbox_axis.scale = Vector3(1, 1, 1)
 	generate_textbox(create_textbox_axis, -2,0.5,6,"z", 1, 0, 0)
 	$GridMap.clear()
 
