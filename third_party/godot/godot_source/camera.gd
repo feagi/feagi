@@ -24,9 +24,10 @@ export var reset = "reset"
 
 var rotation_speed = PI
 var _direction = Vector3(0.0, 0.0, 0.0)
-var x = 47
-var y = 26.323
-var z = 25.711
+var x = transform.origin.x
+var y = transform.origin.y
+var z = transform.origin.z
+var reset_setting = transform.origin
 var x_rotation = Vector3(13.3, 0.0, 0.0)
 var direction = Vector3(0, 0, 0)
 var velocity = Vector3(0, 0, 0)
@@ -86,9 +87,9 @@ func get_input_keyboard(_delta):
 			Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][key] = []
 		print(Godot_list.godot_list)
 	if Input.is_action_just_pressed("reset"):
-		x = 18
-		y = 43.323002
-		z = 6.711
+		x = 0
+		y = 0
+		z = 0
 		transform.origin=Vector3(x,y,z)
 #		rotation_degrees = Vector3(-1.09, 0, 0)
 	if flagged != true:
