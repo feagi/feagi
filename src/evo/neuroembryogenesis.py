@@ -225,11 +225,11 @@ def neurogenesis(cortical_area):
         except ZeroDivisionError:
             pass
 
-    disk_ops.save_brain_to_disk(cortical_area=cortical_area,
-                                brain=runtime_data.brain,
-                                parameters=runtime_data.parameters)
-    disk_ops.save_voxel_dict_to_disk(cortical_area=cortical_area,
-                                     voxel_dict=runtime_data.voxel_dict)
+    # disk_ops.save_brain_to_disk(cortical_area=cortical_area,
+    #                             brain=runtime_data.brain,
+    #                             parameters=runtime_data.parameters)
+    # disk_ops.save_voxel_dict_to_disk(cortical_area=cortical_area,
+    #                                  voxel_dict=runtime_data.voxel_dict)
 
 
 def synaptogenesis(cortical_area, dst_cortical_area=None):
@@ -273,7 +273,7 @@ def build_synapses(genome, brain, parameters, voxel_dict, connectome_path, src_c
 
             intercortical_mapping.append((src_cortical_area, mapped_cortical_area, synapse_count_))
 
-    disk_ops.save_brain_to_disk(cortical_area=src_cortical_area, brain=runtime_data.brain, parameters=parameters)
+    # disk_ops.save_brain_to_disk(cortical_area=src_cortical_area, brain=runtime_data.brain, parameters=parameters)
     return intercortical_mapping
 
 
@@ -327,7 +327,7 @@ def develop(target_areas=None):
     print("Neuronal mapping across all Cortical areas has been completed!!\n")
     print("Total brain neuron count:\t\t", connectome_neuron_count)
     print("Total brain synapse count:\t\t", connectome_synapse_count)
-    print("Total brain est. size on disk:\t", connectome_size_on_disk, 'MB')
+    print("Total brain est. size:\t", connectome_size_on_disk, 'MB')
 
     brain_structural_fitness = connectome_structural_fitness()
     print("Brain structural fitness was evaluated as: ", brain_structural_fitness)

@@ -5,7 +5,20 @@ networks:
     driver: bridge
 
 services:
-  godot:
+
+  brain_visualizer:
+    build: ../third_party/godot/html
+    ports:
+      - "6081:6081"
+    env_file:
+      - ./.env
+    privileged: true
+    networks:
+      - net
+    depends_on:
+      - godot_bridge
+
+  godot_bridge:
     build: ../third_party/godot/
     deploy:
       resources:
@@ -13,7 +26,6 @@ services:
           cpus: '1'
           memory: '2g'
     ports:
-      - "6081:8080"
       - "9050:9050"
       - "30001:30001" # ZMQ port for feagi to connect for Gadot
     env_file:
@@ -34,7 +46,6 @@ services:
     ports:
       - "8000:8000"
       - "40000-40050:40000-40050" # ZMQ Port for Agent to Connect to Feagi
-
     env_file:
       - ./.env
     volumes:
@@ -42,5 +53,17 @@ services:
     networks:
       - net
 
+
+#  javascript_webcam:
+#    build: ../third_party/physical_robots/webcam
+#    ports:
+#      - "6086:6086"
+#    env_file:
+#      - ./.env
+#    networks:
+#      - net
+#    depends_on:
+#      influxdb:
+#        condition: service_healthy
 
 # docker compose -f feagi-OnlyGodot.yml up --build
