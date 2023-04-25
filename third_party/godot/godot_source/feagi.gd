@@ -309,8 +309,9 @@ func _on_Update_pressed():
 	create_textbox.scale = Vector3(1,1,1)
 	
 	
-
+	last_cortical_selected["cortical_coordinates"] = {}
 	last_cortical_selected["cortical_destinations"] = {}
+	last_cortical_selected["cortical_dimensions"] = {}
 	var cortical_name = $Spatial/Camera/Menu/Mapping_Properties/cortical_dropdown.get_item_text($Spatial/Camera/Menu/Mapping_Properties/cortical_dropdown.get_selected_id())
 	var get_id = name_to_id(cortical_name)
 	for i in child_node_holder:
@@ -433,8 +434,8 @@ func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 		$Spatial/Camera/Menu/cortical_menu/Control/Y.value = genome_properties["cortical_coordinates"][1]
 		$Spatial/Camera/Menu/cortical_menu/Control/Z.value = genome_properties["cortical_coordinates"][2]
 		$Spatial/Camera/Menu/cortical_menu/Control/W.value = genome_properties["cortical_dimensions"][0]
-		$Spatial/Camera/Menu/cortical_menu/Control/D.value = genome_properties["cortical_dimensions"][1]
-		$Spatial/Camera/Menu/cortical_menu/Control/H.value = genome_properties["cortical_dimensions"][2]
+		$Spatial/Camera/Menu/cortical_menu/Control/D.value = genome_properties["cortical_dimensions"][2]
+		$Spatial/Camera/Menu/cortical_menu/Control/H.value = genome_properties["cortical_dimensions"][1]
 		$Spatial/Camera/Menu/properties/Control/syn.value = genome_properties["cortical_synaptic_attractivity"]
 		$Spatial/Camera/Menu/properties/Control/pst_syn.value = genome_properties["neuron_post_synaptic_potential"]
 		$Spatial/Camera/Menu/properties/Control/pst_syn_max.value = float(genome_properties["neuron_post_synaptic_potential_max"])
