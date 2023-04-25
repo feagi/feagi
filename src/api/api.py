@@ -120,11 +120,7 @@ class MorphologyProperties(BaseModel):
 class NewCorticalProperties(BaseModel):
     cortical_type: str
     cortical_name: str
-    cortical_coordinates: dict = {
-        'x': 0,
-        'y': 0,
-        'z': 0,
-    }
+    cortical_coordinates: list
     channel_count: Optional[int]
 
 
@@ -489,16 +485,16 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
                 "cortical_visibility": cortical_data['visualization'],
                 "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
-                "cortical_coordinates": {
-                    'x': cortical_data["relative_coordinate"][0],
-                    'y': cortical_data["relative_coordinate"][1],
-                    'z': cortical_data["relative_coordinate"][2]
-                },
-                "cortical_dimensions": {
-                    'x': cortical_data["block_boundaries"][0],
-                    'y': cortical_data["block_boundaries"][1],
-                    'z': cortical_data["block_boundaries"][2]
-                },
+                "cortical_coordinates": [
+                    cortical_data["relative_coordinate"][0],
+                    cortical_data["relative_coordinate"][1],
+                    cortical_data["relative_coordinate"][2]
+                ],
+                "cortical_dimensions": [
+                    cortical_data["block_boundaries"][0],
+                    cortical_data["block_boundaries"][1],
+                    cortical_data["block_boundaries"][2]
+                ],
                 "cortical_destinations": cortical_data['cortical_mapping_dst'],
                 "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
                 "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
