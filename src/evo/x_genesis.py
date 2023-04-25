@@ -463,9 +463,9 @@ def add_core_cortical_area(cortical_properties):
                  ]
 
             runtime_data.genome['blueprint'][cortical_area]["relative_coordinate"] = \
-                [cortical_properties['cortical_coordinates']['x'],
-                 cortical_properties['cortical_coordinates']['y'],
-                 cortical_properties['cortical_coordinates']['z']]
+                [cortical_properties['cortical_coordinates'][0],
+                 cortical_properties['cortical_coordinates'][1],
+                 cortical_properties['cortical_coordinates'][2]]
             runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'] = dict()
             runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"] = \
                 template['per_voxel_neuron_cnt']

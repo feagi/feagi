@@ -48,8 +48,9 @@ func _process(_delta):
 		$cortical_name_label.visible = false
 	if visible == false:
 		$OptionButton.select(0)
-	
-	if $cortical_name_textbox/type.text != "":
+	if $cortical_name_textbox/type.text != "" and $OptionButton.selected == 3:
+		$add.disabled = false
+	elif $OptionButton.selected != 3 and $cortical_name_label/type.selected != 0:
 		$add.disabled = false
 	else:
 		$add.disabled = true

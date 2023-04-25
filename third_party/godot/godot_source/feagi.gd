@@ -309,8 +309,9 @@ func _on_Update_pressed():
 	create_textbox.scale = Vector3(1,1,1)
 	
 	
-
+	last_cortical_selected["cortical_coordinates"] = {}
 	last_cortical_selected["cortical_destinations"] = {}
+	last_cortical_selected["cortical_dimensions"] = {}
 	var cortical_name = $Spatial/Camera/Menu/Mapping_Properties/cortical_dropdown.get_item_text($Spatial/Camera/Menu/Mapping_Properties/cortical_dropdown.get_selected_id())
 	var get_id = name_to_id(cortical_name)
 	for i in child_node_holder:
@@ -429,12 +430,12 @@ func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 		$Spatial/Camera/Menu/cortical_menu/Control/name_string.text = $Spatial/Camera/Menu/cortical_menu/title.text
 	#	$Spatial/Camera/Menu/cortical_menu/Control/OptionButton.selected(1) = genome_properties["cortical_group"]
 		$Spatial/Camera/Menu/properties/Control/neuron_count.value = genome_properties["cortical_neuron_per_vox_count"]
-		$Spatial/Camera/Menu/cortical_menu/Control/X.value = genome_properties["cortical_coordinates"]["x"]
-		$Spatial/Camera/Menu/cortical_menu/Control/Y.value = genome_properties["cortical_coordinates"]["y"]
-		$Spatial/Camera/Menu/cortical_menu/Control/Z.value = genome_properties["cortical_coordinates"]["z"]
-		$Spatial/Camera/Menu/cortical_menu/Control/W.value = genome_properties["cortical_dimensions"]["x"]
-		$Spatial/Camera/Menu/cortical_menu/Control/D.value = genome_properties["cortical_dimensions"]["z"]
-		$Spatial/Camera/Menu/cortical_menu/Control/H.value = genome_properties["cortical_dimensions"]["y"]
+		$Spatial/Camera/Menu/cortical_menu/Control/X.value = genome_properties["cortical_coordinates"][0]
+		$Spatial/Camera/Menu/cortical_menu/Control/Y.value = genome_properties["cortical_coordinates"][1]
+		$Spatial/Camera/Menu/cortical_menu/Control/Z.value = genome_properties["cortical_coordinates"][2]
+		$Spatial/Camera/Menu/cortical_menu/Control/W.value = genome_properties["cortical_dimensions"][0]
+		$Spatial/Camera/Menu/cortical_menu/Control/D.value = genome_properties["cortical_dimensions"][2]
+		$Spatial/Camera/Menu/cortical_menu/Control/H.value = genome_properties["cortical_dimensions"][1]
 		$Spatial/Camera/Menu/properties/Control/syn.value = genome_properties["cortical_synaptic_attractivity"]
 		$Spatial/Camera/Menu/properties/Control/pst_syn.value = genome_properties["neuron_post_synaptic_potential"]
 		$Spatial/Camera/Menu/properties/Control/pst_syn_max.value = float(genome_properties["neuron_post_synaptic_potential_max"])
@@ -567,12 +568,12 @@ func _on_add_pressed():
 	if $"Spatial/Camera/Menu/addition_menu/OptionButton".selected == 1 or $"Spatial/Camera/Menu/addition_menu/OptionButton".selected == 2:
 		json_data["cortical_type"] = $"Spatial/Camera/Menu/addition_menu/OptionButton".get_item_text($"Spatial/Camera/Menu/addition_menu/OptionButton".selected)
 		json_data["cortical_name"] = $Spatial/Camera/Menu/addition_menu/cortical_name_label/type.get_item_text($Spatial/Camera/Menu/addition_menu/cortical_name_label/type.selected)
-		json_data["cortical_coordinates"] = {}
-		json_data["cortical_coordinates"]["x"] = $Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value
-		json_data["cortical_coordinates"]["y"] = $Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value
-		json_data["cortical_coordinates"]["z"] = $Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value
+		json_data["cortical_coordinates"] = []
+		json_data["cortical_coordinates"].append($Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value)
+		json_data["cortical_coordinates"].append($Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value)
+		json_data["cortical_coordinates"].append($Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value)
 		json_data["channel_count"] = $Spatial/Camera/Menu/addition_menu/count/count_spinbox.value
-
+		print(json_data)
 		_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_area', false, json_data, "/v1/feagi/genome/cortical_area")
 		
 
@@ -580,16 +581,16 @@ func _on_add_pressed():
 		if $Spatial/Camera/Menu/addition_menu/cortical_name_textbox/type.text != "" and $Spatial/Camera/Menu/addition_menu/cortical_name_textbox/type.text != " ":
 			json_data["cortical_type"] = "CUSTOM"
 			json_data["cortical_name"] = $Spatial/Camera/Menu/addition_menu/cortical_name_textbox/type.text
-			json_data["cortical_coordinates"] = {}
-			json_data["cortical_dimensions"] = {}
-			json_data["cortical_coordinates"][0] = $Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value
-			json_data["cortical_coordinates"][1] = $Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value
-			json_data["cortical_coordinates"][2] = $Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value
-			json_data["cortical_dimensions"][0] = $Spatial/Camera/Menu/addition_menu/wdh/W_Spinbox.value
-			json_data["cortical_dimensions"][1] = $Spatial/Camera/Menu/addition_menu/wdh/H_Spinbox.value
-			json_data["cortical_dimensions"][2] = $Spatial/Camera/Menu/addition_menu/wdh/D_Spinbox.value
+			json_data["cortical_coordinates"] = []
+			json_data["cortical_dimensions"] = []
+			json_data["cortical_coordinates"].append($Spatial/Camera/Menu/addition_menu/xyz/X_SpinBox.value)
+			json_data["cortical_coordinates"].append($Spatial/Camera/Menu/addition_menu/xyz/Y_Spinbox.value)
+			json_data["cortical_coordinates"].append($Spatial/Camera/Menu/addition_menu/xyz/Z_Spinbox.value)
+			json_data["cortical_dimensions"].append($Spatial/Camera/Menu/addition_menu/wdh/W_Spinbox.value)
+			json_data["cortical_dimensions"].append($Spatial/Camera/Menu/addition_menu/wdh/H_Spinbox.value)
+			json_data["cortical_dimensions"].append($Spatial/Camera/Menu/addition_menu/wdh/D_Spinbox.value)
 			json_data["channel_count"] = $Spatial/Camera/Menu/custom_cortical/count_spinbox.value
-			
+			print(json_data)
 			generate_single_cortical(json_data["cortical_coordinates"][0], json_data["cortical_coordinates"][1], json_data["cortical_coordinates"][2], json_data["cortical_dimensions"][0], json_data["cortical_dimensions"][1], json_data["cortical_dimensions"][2], json_data["cortical_name"])
 			
 			_make_post_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/custom_cortical_area', false, json_data, "/v1/feagi/genome/custom_cortical_area")
