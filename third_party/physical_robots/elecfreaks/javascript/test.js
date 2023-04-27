@@ -4,6 +4,8 @@ let MBIT_UART_TX_CHARACTERISTIC = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E'.toLower
 let connectButton = document.getElementById("connectButton");
 let helloButton = document.getElementById("helloButton");
 let backward_button = document.getElementById("backward");
+let left_button = document.getElementById("leftButton");
+let right_button = document.getElementById("rightButton");
 let logRegion = document.getElementById("log");
 let logCount = 0;
 function appendToLog(moreText) {
@@ -78,9 +80,17 @@ function helloClicked(e) {
 function backward(e) {
     ourMicrobitUART.send("b#");
 }
+function left_function(e) {
+    ourMicrobitUART.send("l#");
+}
+function right_function(e) {
+    ourMicrobitUART.send("r#");
+}
 function sayHelloBack(message) {
     ourMicrobitUART.send("hello", "response");
 }
 connectButton.onclick = connectClicked;
 helloButton.onclick = helloClicked;
 backward_button.onclick = backward;
+left_button.onclick = left_function;
+right_button.onclick = right_function;
