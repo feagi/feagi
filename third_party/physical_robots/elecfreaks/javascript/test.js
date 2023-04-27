@@ -40,6 +40,10 @@ class MicroBitUART {
         this.messageSubscribers.forEach(subscriber => {
             subscriber(message);
         });
+    const socket = new WebSocket('ws://localhost:9052');
+    socket.addEventListener('open', (event) => {
+        socket.send(message);
+    });
     }
 
     send(key, value) {
