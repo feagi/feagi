@@ -3,6 +3,7 @@ let MBIT_UART_RX_CHARACTERISTIC = '6E400003-B5A3-F393-E0A9-E50E24DCCA9E'.toLower
 let MBIT_UART_TX_CHARACTERISTIC = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E'.toLowerCase(); //to receive data FROM the microbit
 let connectButton = document.getElementById("connectButton");
 let helloButton = document.getElementById("helloButton");
+let backward_button = document.getElementById("backward");
 let logRegion = document.getElementById("log");
 let logCount = 0;
 function appendToLog(moreText) {
@@ -70,13 +71,16 @@ function connectClicked(e) {
 }
 function startReadingFromUART(mbit) {
     mbit.subscribeToMessages((s) => { appendToLog("Read <<<< " + s); });
-    mbit.subscribeToMessages(sayHelloBack);
 }
 function helloClicked(e) {
-    ourMicrobitUART.send("hello", "dude");
+    ourMicrobitUART.send("f#");
+}
+function backward(e) {
+    ourMicrobitUART.send("b#");
 }
 function sayHelloBack(message) {
     ourMicrobitUART.send("hello", "response");
 }
 connectButton.onclick = connectClicked;
 helloButton.onclick = helloClicked;
+backward_button.onclick = backward;
