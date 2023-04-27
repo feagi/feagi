@@ -72,7 +72,7 @@ function connectClicked(e) {
     });
 }
 function startReadingFromUART(mbit) {
-    mbit.subscribeToMessages((s) => { appendToLog("Read <<<< " + s); });
+    mbit.subscribeToMessages((data_from_microbit) => { appendToLog("Read <<<< " + data_from_microbit); });
 }
 function helloClicked(e) {
     ourMicrobitUART.send("f#");
