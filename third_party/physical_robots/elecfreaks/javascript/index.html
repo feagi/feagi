@@ -16,6 +16,8 @@
   </h1>
 
     <button id="searchButton" onClick="searchDevice()">search device</button>
+    <button type="button" id="connectButton">Connect!</button>
+    <button type="button" id="helloButton">Go forward</button>
 
     <div id="properties" class="properties inactive">
 
@@ -41,49 +43,6 @@
 
       <div class="property">
         Magnetometer bearing: <span id="bearing" class="value"></span>
-      </div>
-
-      <div class="property">
-
-        Led Matrix:
-        <br/>
-
-        <div class="matrixCell"><input type="checkbox" id="matrixCell1" onchange="updatePixel(0,0,this.checked)" /><label for="matrixCell1"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell2" onchange="updatePixel(0,1,this.checked)" /><label for="matrixCell2"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell3" onchange="updatePixel(0,2,this.checked)" /><label for="matrixCell3"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell4" onchange="updatePixel(0,3,this.checked)" /><label for="matrixCell4"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell5" onchange="updatePixel(0,4,this.checked)" /><label for="matrixCell5"></label></div>
-        <br/>
-
-        <div class="matrixCell"><input type="checkbox" id="matrixCell6" onchange="updatePixel(1,0,this.checked)" /><label for="matrixCell6"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell7" onchange="updatePixel(1,1,this.checked)" /><label for="matrixCell7"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell8" onchange="updatePixel(1,2,this.checked)" /><label for="matrixCell8"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell9" onchange="updatePixel(1,3,this.checked)" /><label for="matrixCell9"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell10" onchange="updatePixel(1,4,this.checked)" /><label for="matrixCell10"></label></div>
-        <br/>
-
-        <div class="matrixCell"><input type="checkbox" id="matrixCell11" onchange="updatePixel(2,0,this.checked)" /><label for="matrixCell11"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell12" onchange="updatePixel(2,1,this.checked)" /><label for="matrixCell12"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell13" onchange="updatePixel(2,2,this.checked)" /><label for="matrixCell13"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell14" onchange="updatePixel(2,3,this.checked)" /><label for="matrixCell14"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell15" onchange="updatePixel(2,4,this.checked)" /><label for="matrixCell15"></label></div>
-        <br/>
-
-        <div class="matrixCell"><input type="checkbox" id="matrixCell16" onchange="updatePixel(3,0,this.checked)" /><label for="matrixCell16"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell17" onchange="updatePixel(3,1,this.checked)" /><label for="matrixCell17"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell18" onchange="updatePixel(3,2,this.checked)" /><label for="matrixCell18"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell19" onchange="updatePixel(3,3,this.checked)" /><label for="matrixCell19"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell20" onchange="updatePixel(3,4,this.checked)" /><label for="matrixCell20"></label></div>
-        <br/>
-
-        <div class="matrixCell"><input type="checkbox" id="matrixCell21" onchange="updatePixel(4,0,this.checked)" /><label for="matrixCell21"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell22" onchange="updatePixel(4,1,this.checked)" /><label for="matrixCell22"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell23" onchange="updatePixel(4,2,this.checked)" /><label for="matrixCell23"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell24" onchange="updatePixel(4,3,this.checked)" /><label for="matrixCell24"></label></div>
-        <div class="matrixCell"><input type="checkbox" id="matrixCell25" onchange="updatePixel(4,4,this.checked)" /><label for="matrixCell25"></label></div>
-
-
-        <br/>
       </div>
 
       <div class="property">
