@@ -6,6 +6,7 @@
    "max_age": 10000000,
    "evolution_burst_count": 50,
    "ipu_idle_threshold": 1000,
+   "plasticity_queue_depth": 3,
    "neuron_morphologies": {
       "block_to_block": {
          "parameters": {

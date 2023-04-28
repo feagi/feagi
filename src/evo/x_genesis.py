@@ -35,7 +35,7 @@ from inf import runtime_data
 from evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter, genome_2_1_convertor
 from evo.genome_editor import save_genome
 from evo.connectome import reset_connectome_file
-from evo.neuroembryogenesis import cortical_name_list, develop
+from evo.neuroembryogenesis import cortical_name_list, develop, generate_plasticity_dict
 from inf.initialize import generate_cortical_dimensions, init_fcl
 
 logger = logging.getLogger(__name__)
@@ -244,6 +244,9 @@ def update_cortical_mappings(cortical_mappings):
         runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'].pop(dst_cortical_area)
     print("mappings:", mappings)
 
+    # Update Plasticity Dict
+    generate_plasticity_dict()
+
     neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                 file_name=runtime_data.connectome_path + "genome.json")
@@ -343,7 +346,8 @@ def cortical_removal(cortical_area, genome_scrub=False):
         # Clear voxel indexes
         voxels.voxel_reset(cortical_area=cortical_area)
 
-        # todo: plasticity dict
+        # Update Plasticity Dict
+        generate_plasticity_dict()
 
         # Optional genome scrub
         if genome_scrub:
