@@ -63,13 +63,12 @@ def synapse(cortical_area, src_id, dst_cortical_area, dst_id, postsynaptic_curre
         # Adding upstream neuron list to the brain
         if dst_id not in runtime_data.brain[dst_cortical_area]:
             print(cortical_area, src_id, dst_cortical_area, dst_id, "....not found")
-        if "upstream_neurons" not in runtime_data.brain[dst_cortical_area][dst_id]:
-            runtime_data.brain[dst_cortical_area][dst_id]["upstream_neurons"] = {}
 
-        if cortical_area not in runtime_data.brain[dst_cortical_area][dst_id]["upstream_neurons"]:
-            runtime_data.brain[dst_cortical_area][dst_id]["upstream_neurons"][cortical_area] = list()
-        if src_id not in runtime_data.brain[dst_cortical_area][dst_id]["upstream_neurons"][cortical_area]:
-            runtime_data.brain[dst_cortical_area][dst_id]["upstream_neurons"][cortical_area].append(src_id)
+        if "upstream_neurons" not in runtime_data.brain[dst_cortical_area][dst_id]:
+            runtime_data.brain[dst_cortical_area][dst_id]["upstream_neurons"] = set()
+
+        if src_id not in runtime_data.brain[dst_cortical_area][dst_id]["upstream_neurons"]:
+            runtime_data.brain[dst_cortical_area][dst_id]["upstream_neurons"].add(src_id)
 
     else:
         # In the case of an existing synapse present, post synaptic current of the previous synapse will be added to

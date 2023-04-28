@@ -66,7 +66,7 @@ def init_neuron(cortical_area, soma_location):
 
     runtime_data.brain[cortical_area][neuron_id] = {}
     runtime_data.brain[cortical_area][neuron_id]["neighbors"] = {}
-    runtime_data.brain[cortical_area][neuron_id]["upstream_neurons"] = {}
+    runtime_data.brain[cortical_area][neuron_id]["upstream_neurons"] = set()
     runtime_data.brain[cortical_area][neuron_id]["event_id"] = {}
     runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] = 0
     runtime_data.brain[cortical_area][neuron_id]["cumulative_fire_count"] = 0
