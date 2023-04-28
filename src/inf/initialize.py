@@ -72,6 +72,9 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
     runtime_data.genome = genome_data
     runtime_data.genome = genome_ver_check(runtime_data.genome)
     runtime_data.genome_ver = "2.0"
+    if "plasticity_queue_depth" not in runtime_data.genome:
+        runtime_data.genome["plasticity_queue_depth"] = 3
+    runtime_data.plasticity_queue_depth = runtime_data.genome["plasticity_queue_depth"]
     init_fcl()
     init_brain()
     if 'genome_id' not in runtime_data.genome:
@@ -433,7 +436,14 @@ def init_brain():
     runtime_data.new_genome = True
     if 'burst_delay' in runtime_data.genome:
         runtime_data.burst_timer = float(runtime_data.genome['burst_delay'])
+
     print("\n\n=========================   Brain Initialization Complete ===================================\n\n")
+    runtime_data.cumulative_stats = {}
+    for area in runtime_data.cortical_list:
+        runtime_data.cumulative_stats[area] = {}
+        runtime_data.cumulative_stats[area]["LTP"] = 0
+        runtime_data.cumulative_stats[area]["LTD"] = 0
+        runtime_data.cumulative_stats[area]["Bursts"] = 0
 
 
 def init_cortical_defaults():

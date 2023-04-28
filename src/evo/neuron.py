@@ -40,18 +40,18 @@ logger = logging.getLogger(__name__)
 #     return neuron_location
 
 
-def neuron_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
+def neuron_id_gen(cortical_id=None, size=6, chars=string.ascii_uppercase + string.digits):
     """
     This function generates a unique id which will be associated with each neuron
     :param size:
     :param chars:
+    :param cortical_id
     :return:
     """
+    now = datetime.datetime.now()
     # Rand gen source partially from:
     # http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
-    return (str(datetime.datetime.now()).replace(' ', '_')).replace('.', '_') + '_' + (''.join(random.choice(chars)
-                                                                                               for _ in
-                                                                                               range(size))) + '_N'
+    return str(cortical_id + '_' + now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_' + (''.join(random.choice(chars) for _ in range(size))) + '_N'
 
 
 def init_neuron(cortical_area, soma_location):
@@ -62,11 +62,11 @@ def init_neuron(cortical_area, soma_location):
 
     genome = runtime_data.genome
 
-    neuron_id = neuron_id_gen()
+    neuron_id = neuron_id_gen(cortical_id=cortical_area)
 
     runtime_data.brain[cortical_area][neuron_id] = {}
     runtime_data.brain[cortical_area][neuron_id]["neighbors"] = {}
-    runtime_data.brain[cortical_area][neuron_id]["upstream_neurons"] = {}
+    runtime_data.brain[cortical_area][neuron_id]["upstream_neurons"] = set()
     runtime_data.brain[cortical_area][neuron_id]["event_id"] = {}
     runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] = 0
     runtime_data.brain[cortical_area][neuron_id]["cumulative_fire_count"] = 0
