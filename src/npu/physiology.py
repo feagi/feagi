@@ -347,7 +347,7 @@ def pruner(pruning_data):
 
     try:
         runtime_data.brain[cortical_area_dst][dst_neuron_id][
-            "upstream_neurons"][cortical_area_src].remove(src_neuron_id)
+            "upstream_neurons"].remove(src_neuron_id)
         if dst_neuron_id in runtime_data.temp_neuron_list:
             runtime_data.temp_neuron_list.remove(dst_neuron_id)
     except KeyError as e:
@@ -376,4 +376,8 @@ def prune_all_candidates():
 
 
 def list_upstream_neurons(cortical_area, neuron_id):
-    return runtime_data.brain[cortical_area][neuron_id]["upstream_neurons"]
+    try:
+        if "upstream_neurons" in runtime_data.brain[cortical_area][neuron_id]:
+            return runtime_data.brain[cortical_area][neuron_id]["upstream_neurons"]
+    except KeyError:
+        print(f"Neuron {neuron_id} does not exist within {cortical_area}")
