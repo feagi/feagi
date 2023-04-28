@@ -8,6 +8,17 @@ let left_button = document.getElementById("leftButton");
 let right_button = document.getElementById("rightButton");
 let logRegion = document.getElementById("log");
 let logCount = 0;
+
+// Setup WebSocket connection
+const ws = new WebSocket('ws://127.0.0.1:9052');
+ws.onopen = function() {
+  console.log('WebSocket connection established');
+
+  ws.onmessage = function(event) {
+    console.log('Received message from server test:', event.data);
+    ourMicrobitUART.send(event.data);
+  }
+}
 function appendToLog(moreText) {
     logCount += 1;
     logRegion.innerHTML += `${logCount}:  ${moreText}  <br>`;
@@ -40,10 +51,6 @@ class MicroBitUART {
         this.messageSubscribers.forEach(subscriber => {
             subscriber(message);
         });
-    const socket = new WebSocket('ws://localhost:9052');
-    socket.addEventListener('open', (event) => {
-        socket.send(message);
-    });
     }
 
     send(key, value) {
@@ -76,7 +83,10 @@ function connectClicked(e) {
     });
 }
 function startReadingFromUART(mbit) {
-    mbit.subscribeToMessages((data_from_microbit) => { appendToLog("Read <<<< " + data_from_microbit); });
+    mbit.subscribeToMessages((data_from_microbit) => {
+//        appendToLog("Read <<<< " + data_from_microbit);
+        ws.send(data_from_microbit);
+    });
 }
 function helloClicked(e) {
     ourMicrobitUART.send("f#");
