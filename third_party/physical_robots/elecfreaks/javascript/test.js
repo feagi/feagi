@@ -84,7 +84,7 @@ function connectClicked(e) {
 }
 function startReadingFromUART(mbit) {
     mbit.subscribeToMessages((data_from_microbit) => {
-        appendToLog("Read <<<< " + data_from_microbit);
+//        appendToLog("Read <<<< " + data_from_microbit);
         ws.send(data_from_microbit);
     });
 }
