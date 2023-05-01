@@ -880,15 +880,15 @@
             ]
          }
       },
-      "one_to_all": {
+      "0-0-0_to_all": {
          "type": "patterns",
          "parameters": {
             "patterns": [
                [
                   [
-                     1,
-                     1,
-                     1
+                     0,
+                     0,
+                     0
                   ],
                   [
                      "*",
@@ -899,7 +899,7 @@
             ]
          }
       },
-      "all_to_one": {
+      "all_to_0-0-0": {
          "type": "patterns",
          "parameters": {
             "patterns": [
@@ -910,9 +910,9 @@
                      "*"
                   ],
                   [
-                     1,
-                     1,
-                     1
+                     0,
+                     0,
+                     0
                   ]
                ]
             ]
