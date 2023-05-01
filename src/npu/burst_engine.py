@@ -282,6 +282,10 @@ def burst_manager():
                                                   membrane_potential_change=0, overwrite=True,
                                                   overwrite_value=membrane_potential)
 
+                    # Update Plasticity Queue
+                    if fq_cortical_area in runtime_data.plasticity_dict:
+                        runtime_data.plasticity_queue_candidates.add(neuron_id)
+
             # Transferring future_fcl to current one and resetting the future one in process
             for _ in runtime_data.future_fcl:
                 runtime_data.fire_candidate_list[_] = \
@@ -434,6 +438,20 @@ def burst_manager():
 
             runtime_data.feagi_state["state"] = "running"
 
+        # Maintaining a constant queue depth for the plasticity queue
+        """
+        Sample of the plasticity queue with queue depth of 3
+        plasticity_queue = [
+            {neuron1, neuron2, neuron4},
+            {neuron2, neuron4},
+            {neuron1, neuron2}
+        ]
+        """
+
+        if len(runtime_data.plasticity_queue) > runtime_data.plasticity_queue_depth:
+            runtime_data.plasticity_queue.pop(0)
+        runtime_data.plasticity_queue_candidates = set()
+
         if runtime_data.beacon_flag:
             try:
                 for subscriber in runtime_data.beacon_sub:
@@ -519,6 +537,8 @@ def burst_manager():
             fire_fcl_contents()
         else:
             print("Brain is not ready to fire FCL contents....")
+
+        runtime_data.plasticity_queue.append(runtime_data.plasticity_queue_candidates)
 
         # Auto-inject/test if applicable
         # todo: move the following functionality to the life.controller to run as a thread

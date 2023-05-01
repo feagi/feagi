@@ -306,7 +306,6 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-
 # todo: To add the ability of updating allowable cors list on the fly
 # # Append to the CORS origin
 # @app.middleware("http")
@@ -320,7 +319,6 @@ async def log_requests(request: Request, call_next):
 
 # ######  Genome Endpoints #########
 # ##################################
-
 @app.api_route("/v1/feagi/genome/upload/default", methods=['POST'], tags=["Genome"])
 async def genome_default_upload(response: Response):
     try:
@@ -1044,6 +1042,20 @@ async def connectome_cortical_id_name_mapping_table(response: Response):
         print("API Error:", e)
 
 
+@app.api_route("/v1/feagi/genome/plasticity_queue_depth", methods=['PUT'], tags=["Genome"])
+async def update_cortical_mapping_properties(queue_depth: int, response: Response):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        runtime_data.genome["plasticity_queue_depth"] = queue_depth
+        response.status_code = status.HTTP_200_OK
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e, traceback.print_exc())
+        logger.error(traceback.print_exc())
+
+
 # ######  Evolution #########
 # #############################
 
@@ -1587,7 +1599,20 @@ async def connectome_dimensions_report(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        
+
+
+@app.api_route("/v1/feagi/connectome/stats/cortical/cumulative", methods=['GET'], tags=["Connectome"])
+async def connectome_dimensions_report(response: Response, cortical_area: str):
+    try:
+        if runtime_data.cumulative_stats[cortical_area]:
+            response.status_code = status.HTTP_200_OK
+            return runtime_data.cumulative_stats[cortical_area]
+        else:
+            response.status_code = status.HTTP_404_NOT_FOUND
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
 
 @app.api_route("/v1/feagi/connectome/properties/mappings", methods=['GET'], tags=["Connectome"])
 async def connectome_mapping_report(response: Response):
