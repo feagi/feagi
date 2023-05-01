@@ -201,6 +201,8 @@ def cortical_mapping(blueprint=None):
     Generates a cortical mapping report of the connectome
     """
     mapping_dict = {}
+    if not blueprint:
+        blueprint = runtime_data.genome["blueprint"]
     for cortical_area in blueprint:
         if cortical_area not in mapping_dict:
             mapping_dict[cortical_area] = []

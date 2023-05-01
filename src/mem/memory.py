@@ -111,10 +111,7 @@ def neuroplasticity():
     common_neurons = set()
     if runtime_data.plasticity_queue:
         common_neurons = set.intersection(*runtime_data.plasticity_queue)
-        print("%% -- " * 10)
-        print(f"\n\ncommon_neurons {common_neurons} \n\n")
-    print("plasticity_dict", runtime_data.plasticity_dict)
-    print("plasticity_queue", runtime_data.plasticity_queue)
+
     # todo: filter only plastic links
     for neuron in common_neurons:
         try:
