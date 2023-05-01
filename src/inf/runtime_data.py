@@ -39,6 +39,7 @@ feagi_state = {
 }
 working_directory = ''
 connectome_path = ''
+circuit_lib_path = "./evo/circuits"
 paths = {}
 
 
