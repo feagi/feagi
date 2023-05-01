@@ -39,6 +39,7 @@ feagi_state = {
 }
 working_directory = ''
 connectome_path = ''
+circuit_lib_path = "./evo/circuits"
 paths = {}
 
 
@@ -87,6 +88,7 @@ activity_stats = {}
 temp_neuron_list = []
 fire_list = []
 prunning_candidates = set()
+plasticity_queue_candidates = dict()
 
 
 # Stats Collection
@@ -101,6 +103,8 @@ fcl_queue = ''
 proximity_queue = ''
 fire_queue = {}
 comprehension_queue = ''
+plasticity_queue = list()
+plasticity_queue_depth = 3
 
 
 # cumulative_neighbor_count = 0
@@ -133,6 +137,7 @@ brain = {}
 cortical_list = []
 intercortical_mapping = []
 brain_is_running = False
+cumulative_stats = {}
 
 # Training
 shock_scenarios_options = tuple

@@ -120,11 +120,7 @@ class MorphologyProperties(BaseModel):
 class NewCorticalProperties(BaseModel):
     cortical_type: str
     cortical_name: str
-    cortical_coordinates: dict = {
-        'x': 0,
-        'y': 0,
-        'z': 0,
-    }
+    cortical_coordinates: list
     channel_count: Optional[int]
 
 
@@ -310,7 +306,6 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-
 # todo: To add the ability of updating allowable cors list on the fly
 # # Append to the CORS origin
 # @app.middleware("http")
@@ -324,7 +319,6 @@ async def log_requests(request: Request, call_next):
 
 # ######  Genome Endpoints #########
 # ##################################
-
 @app.api_route("/v1/feagi/genome/upload/default", methods=['POST'], tags=["Genome"])
 async def genome_default_upload(response: Response):
     try:
@@ -485,16 +479,16 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
                 "cortical_visibility": cortical_data['visualization'],
                 "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
-                "cortical_coordinates": {
-                    'x': cortical_data["relative_coordinate"][0],
-                    'y': cortical_data["relative_coordinate"][1],
-                    'z': cortical_data["relative_coordinate"][2]
-                },
-                "cortical_dimensions": {
-                    'x': cortical_data["block_boundaries"][0],
-                    'y': cortical_data["block_boundaries"][1],
-                    'z': cortical_data["block_boundaries"][2]
-                },
+                "cortical_coordinates": [
+                    cortical_data["relative_coordinate"][0],
+                    cortical_data["relative_coordinate"][1],
+                    cortical_data["relative_coordinate"][2]
+                ],
+                "cortical_dimensions": [
+                    cortical_data["block_boundaries"][0],
+                    cortical_data["block_boundaries"][1],
+                    cortical_data["block_boundaries"][2]
+                ],
                 "cortical_destinations": cortical_data['cortical_mapping_dst'],
                 "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
                 "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
@@ -931,7 +925,7 @@ async def circuit_library(response: Response):
     Returns the list of neuronal circuits under /evo/circuits
     """
     try:
-        circuit_list = os.listdir("./evo/circuits")
+        circuit_list = os.listdir(runtime_data.circuit_lib_path)
         response.status_code = status.HTTP_200_OK
         return circuit_list
 
@@ -1046,6 +1040,20 @@ async def connectome_cortical_id_name_mapping_table(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/genome/plasticity_queue_depth", methods=['PUT'], tags=["Genome"])
+async def update_cortical_mapping_properties(queue_depth: int, response: Response):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+        runtime_data.genome["plasticity_queue_depth"] = queue_depth
+        response.status_code = status.HTTP_200_OK
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e, traceback.print_exc())
+        logger.error(traceback.print_exc())
 
 
 # ######  Evolution #########
@@ -1591,7 +1599,20 @@ async def connectome_dimensions_report(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        
+
+
+@app.api_route("/v1/feagi/connectome/stats/cortical/cumulative", methods=['GET'], tags=["Connectome"])
+async def connectome_dimensions_report(response: Response, cortical_area: str):
+    try:
+        if runtime_data.cumulative_stats[cortical_area]:
+            response.status_code = status.HTTP_200_OK
+            return runtime_data.cumulative_stats[cortical_area]
+        else:
+            response.status_code = status.HTTP_404_NOT_FOUND
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
 
 @app.api_route("/v1/feagi/connectome/properties/mappings", methods=['GET'], tags=["Connectome"])
 async def connectome_mapping_report(response: Response):
@@ -1953,6 +1974,21 @@ async def test_influxdb(response: Response):
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
             return influx_status
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/circuit_library_path", methods=['POST'], tags=["System"])
+async def change_circuit_library_path(circuit_library_path: str, response: Response):
+    try:
+        if os.path.exists(circuit_library_path):
+            runtime_data.circuit_lib_path = circuit_library_path
+            print(f"{circuit_library_path} is the new circuit library path.")
+            response.status_code = status.HTTP_200_OK
+        else:
+            response.status_code = status.HTTP_404_NOT_FOUND
+            print(f"{circuit_library_path} is not a valid path.")
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)

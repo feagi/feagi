@@ -36,7 +36,7 @@ func _on_Area_input_event(_camera, event, _position, _normal, _shape_idx):
 			if get_surface_material(0) == global_material.selected:
 				Gx = transform.origin.x
 				Gy = transform.origin.y
-				Gz = transform.origin.z
+				Gz = transform.origin.z * -1
 				location = Vector3(Gx, Gy, Gz)
 				for item in Godot_list.godot_list["\'data\'"]["\'direct_stimulation\'"][cortical_area_name]:
 					if location == item:
@@ -59,7 +59,7 @@ func _on_Area_input_event(_camera, event, _position, _normal, _shape_idx):
 			if get_surface_material(0) == global_material.deselected:
 				Gx = transform.origin.x
 				Gy = transform.origin.y
-				Gz = transform.origin.z
+				Gz = transform.origin.z * -1
 				location = Vector3(Gx, Gy, Gz)
 				cortical_area_name = get_name().lstrip("@")
 				cortical_area_name = cortical_area_name.replace(" ", "")
