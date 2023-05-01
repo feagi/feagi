@@ -925,7 +925,7 @@ async def circuit_library(response: Response):
     Returns the list of neuronal circuits under /evo/circuits
     """
     try:
-        circuit_list = os.listdir("./evo/circuits")
+        circuit_list = os.listdir(runtime_data.circuit_lib_path)
         response.status_code = status.HTTP_200_OK
         return circuit_list
 
@@ -1974,6 +1974,21 @@ async def test_influxdb(response: Response):
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
             return influx_status
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/circuit_library_path", methods=['POST'], tags=["System"])
+async def change_circuit_library_path(circuit_library_path: str, response: Response):
+    try:
+        if os.path.exists(circuit_library_path):
+            runtime_data.circuit_lib_path = circuit_library_path
+            print(f"{circuit_library_path} is the new circuit library path.")
+            response.status_code = status.HTTP_200_OK
+        else:
+            response.status_code = status.HTTP_404_NOT_FOUND
+            print(f"{circuit_library_path} is not a valid path.")
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
