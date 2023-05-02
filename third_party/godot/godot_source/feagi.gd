@@ -629,7 +629,7 @@ func _on_update_destination_info_request_completed(_result, _response_code, _hea
 				plus_node.append(new_node)
 				$Spatial/Camera/Menu/"Mapping_Properties"/inside_mapping_menu.rect_size.y += (30 * plus_node.size())
 				new_node.get_child(0).connect("pressed", self, "_on_Mapping_def_pressed")
-				new_node.get_child(4).connect("text_changed", self, "_on_text_changed")
+				new_node.get_child(4).connect("text_changed", self, "_on_text_changed", [new_node.get_child(4)])
 				ghost_morphology.append(new_node.get_child(0))
 				
 				for x in new_node.get_child(0).get_item_count():
@@ -777,7 +777,7 @@ func _on_plus_add_pressed():
 	$Spatial/Camera/Menu/"Mapping_Properties"/inside_mapping_menu.add_child(new_node)
 	plus_node.append(new_node)
 	new_node.get_child(0).connect("pressed", self, "_on_Mapping_def_pressed")
-	new_node.get_child(4).connect("text_changed", self, "_on_text_changed")
+	new_node.get_child(4).connect("text_changed", self, "_on_text_changed", [new_node.get_child(4)])
 	ghost_morphology.append(new_node.get_child(0))
 	new_node.visible = true
 	new_node.get_child(1).value = 1
@@ -1302,11 +1302,14 @@ func _on_ghost_morphology_list_request_completed(_result, _response_code, _heade
 					node_ghost.add_item($Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.get_item_text(i), i)
 	$notification.generate_notification_message(api_data, _response_code, "_on_circuit_size_request_completed", "/v1/feagi/genome/circuit_size")
 
-func _on_text_changed(new_text):
+func _on_text_changed(new_text, node_input):
 	Godot_list.Node_2D_control = true
 	if new_text != "":
-		if new_text.is_valid_float():
-			self.value = float(new_text)
+		if new_text.is_valid_integer():
+			node_input.value = int(new_text)
+		else:
+			node_input.delete_char_at_cursor()
+			
 
 func _on_get_morphology_usuage_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
