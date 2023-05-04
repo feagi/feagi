@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-CONFIDENTIAL
+# Proprietary Code
 """
 Burst engine is responsible for the event driven behavior of the artificial brain. It facilitates the firing all the
 contents of the Fire Candidate List (FCL) at the same instant.
