@@ -12,7 +12,6 @@ jobs:
 
     - name: Check for keywords and GPL license
       run: |
-        # Replace KEYWORD1, KEYWORD2, etc. with the keywords you want to search for
         KEYWORDS=("CONFIDENTIAL" "PROPRIETARY")
 
         GPL_LICENSE_TEXTS=("GNU GENERAL PUBLIC LICENSE" "GPL")
