@@ -150,7 +150,6 @@ def genome_2_1_convertor(flat_genome):
                     exon = gene[19:]
                     gene_type = gene[16:18]
                     if cortical_id == cortical_area:
-
                         if genome_2_to_1[exon] == "cortical_name":
                             genome['blueprint'][cortical_area][genome_2_to_1[exon]] = flat_genome[gene]
                         elif genome_2_to_1[exon] == "location_generation_type":
@@ -329,6 +328,7 @@ gene_decoder = {
     "_______c-______-nx-pstcrm-f": "postsynaptic_current_max",
     "_______c-______-nx-plst_c-f": "plasticity_constant",
     "_______c-______-nx-fire_t-f": "firing_threshold",
+    "_______c-______-nx-fthinc-f": "firing_threshold_increment",
     "_______c-______-nx-refrac-i": "refractory_period",
     "_______c-______-nx-leak_c-f": "leak_coefficient",
     "_______c-______-nx-leak_v-i": "leak_variability",
@@ -361,7 +361,8 @@ genome_1_template = {
           "leak_coefficient": None,
           "leak_variability": None,
           "consecutive_fire_cnt_max": None,
-          "snooze_length": None
+          "snooze_length": None,
+          "firing_threshold_increment": None
       }
 
 genome_2_to_1 = {
@@ -380,6 +381,7 @@ genome_2_to_1 = {
     "pstcrm-f": "postsynaptic_current_max",
     "plst_c-f": "plasticity_constant",
     "fire_t-f": "firing_threshold",
+    "fthinc-f": "firing_threshold_increment",
     "refrac-i": "refractory_period",
     "leak_c-f": "leak_coefficient",
     "leak_v-f": "leak_variability",
@@ -402,6 +404,7 @@ genome_1_to_2 = {
     "postsynaptic_current_max": "nx-pstcrm-f",
     "plasticity_constant": "nx-plst_c-f",
     "firing_threshold": "nx-fire_t-f",
+    "firing_threshold_increment": "nx-fthinc-f",
     "refractory_period": "nx-refrac-i",
     "leak_coefficient": "nx-leak_c-f",
     "leak_variability": "nx-leak_v-f",

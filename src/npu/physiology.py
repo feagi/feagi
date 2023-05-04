@@ -48,7 +48,7 @@ def neuron_stimulation_mp_logger(cortical_area, neuron_id):
                           filter_criteria=runtime_data.neuron_mp_collection_scope[cortical_area]):
 
             vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
-            fire_threshold = runtime_data.genome["blueprint"][cortical_area]["firing_threshold"]
+            fire_threshold = runtime_data.brain[cortical_area][neuron_id]["firing_threshold"]
 
             mem_pot = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
 

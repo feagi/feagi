@@ -224,7 +224,8 @@ def update_cortical_properties(cortical_properties):
         cortical_regeneration(cortical_area=cortical_area)
 
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
-    save_genome(genome=genome_v1_v2_converter(runtime_data.genome), file_name=runtime_data.connectome_path + "genome.json")
+    save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
+                file_name=runtime_data.connectome_path + "genome.json")
     runtime_data.last_genome_modification_time = datetime.datetime.now()
 
 
