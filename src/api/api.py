@@ -494,6 +494,7 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
                 "neuron_plasticity_constant": cortical_data['plasticity_constant'],
                 "neuron_fire_threshold": cortical_data['firing_threshold'],
+                "neuron_fire_threshold_increment": cortical_data['firing_threshold_increment'],
                 "neuron_refractory_period": cortical_data['refractory_period'],
                 "neuron_leak_coefficient": cortical_data['leak_coefficient'],
                 "neuron_leak_variability": cortical_data['leak_variability'],
