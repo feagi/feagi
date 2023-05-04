@@ -172,6 +172,7 @@ cortical_template = {
     "postsynaptic_current_max": 10,
     "cortical_mapping_dst": {},
     "firing_threshold": 1,
+    "firing_threshold_increment": 0,
     "refractory_period": 0,
     "leak_coefficient": 0,
     "leak_variability": 0,
