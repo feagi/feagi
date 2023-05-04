@@ -153,6 +153,9 @@ cortical_types = {
             }
         }
     },
+    "MEMORY": {
+        "gui_name": "Memory"
+    },
     "CUSTOM": {
         "gui_name": "Custom"
     }
