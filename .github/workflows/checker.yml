@@ -1,0 +1,44 @@
+name: Check for keywords and GPL license
+
+on: push
+
+jobs:
+  combined_check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Check for keywords and GPL license
+      run: |
+        # Replace KEYWORD1, KEYWORD2, etc. with the keywords you want to search for
+        KEYWORDS=("CONFIDENTIAL" "PROPRIETARY")
+
+        GPL_LICENSE_TEXTS=("GNU GENERAL PUBLIC LICENSE" "GPL")
+
+        found=0
+        for keyword in "${KEYWORDS[@]}"; do
+          if git diff --name-only HEAD~..HEAD | xargs grep -l -i "$keyword"
+          then
+            echo "Error: The keyword \"$keyword\" was found in the code."
+            found=1
+          fi
+        done
+
+        for gpl_text in "${GPL_LICENSE_TEXTS[@]}"; do
+          if git diff --name-only HEAD~..HEAD | xargs grep -l -i "$gpl_text"
+          then
+            echo "Error: GPL license text \"$gpl_text\" was found in the code."
+            found=1
+          fi
+        done
+
+        if [ $found -eq 1 ]
+        then
+          echo "Push rejected due to presence of restricted keywords or GPL licensed code."
+          exit 1
+        else
+          echo "Combined check passed."
+          exit 0
+        fi
