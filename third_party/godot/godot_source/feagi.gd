@@ -291,6 +291,7 @@ func _on_Update_pressed():
 	var refractory_period = int($Spatial/Camera/Menu/properties/Control/refa.value);
 	var leak_coefficient = float($Spatial/Camera/Menu/properties/Control/leak.text);
 	var leak_variability = float($Spatial/Camera/Menu/properties/Control/leak_Vtext.text);
+	var fire_threshold_increment = $Spatial/Camera/Menu/properties/Control/fireshold_increment.text
 	var consecutive_fire_count = int($Spatial/Camera/Menu/properties/Control/cfr.value);
 	var snooze_period = int($Spatial/Camera/Menu/properties/Control/snze.value);
 	var degenerecy_coefficient = float($Spatial/Camera/Menu/properties/Control/dege.value);
@@ -354,6 +355,7 @@ func _on_Update_pressed():
 	last_cortical_selected["neuron_post_synaptic_potential_max"] = post_synaptic_potential_max
 	last_cortical_selected["neuron_plasticity_constant"] = plasticity_coef
 	last_cortical_selected["neuron_fire_threshold"] = fire_threshold
+	last_cortical_selected["neuron_fire_threshold_increment"] = fire_threshold_increment
 	last_cortical_selected["neuron_refractory_period"] = refractory_period
 	last_cortical_selected["neuron_leak_coefficient"] = float(leak_coefficient)
 	last_cortical_selected["neuron_leak_variability"] = float(leak_variability)
@@ -441,6 +443,7 @@ func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 		$Spatial/Camera/Menu/properties/Control/pst_syn_max.value = float(genome_properties["neuron_post_synaptic_potential_max"])
 		$Spatial/Camera/Menu/properties/Control/plst.value = genome_properties["neuron_plasticity_constant"]
 		$Spatial/Camera/Menu/properties/Control/fire.value = genome_properties["neuron_fire_threshold"]
+		$Spatial/Camera/Menu/properties/Control/fireshold_increment.text = str(genome_properties["neuron_fire_threshold_increment"])
 		$Spatial/Camera/Menu/properties/Control/refa.value = genome_properties["neuron_refractory_period"]
 		$Spatial/Camera/Menu/properties/Control/leak.text = str(float(genome_properties["neuron_leak_coefficient"]))
 		$Spatial/Camera/Menu/properties/Control/leak_Vtext.text = str((genome_properties["neuron_leak_variability"]))
