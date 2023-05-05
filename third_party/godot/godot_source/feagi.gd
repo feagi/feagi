@@ -291,10 +291,12 @@ func _on_Update_pressed():
 	var refractory_period = int($Spatial/Camera/Menu/properties/Control/refa.value);
 	var leak_coefficient = float($Spatial/Camera/Menu/properties/Control/leak.text);
 	var leak_variability = float($Spatial/Camera/Menu/properties/Control/leak_Vtext.text);
+	var fire_threshold_increment = $Spatial/Camera/Menu/properties/Control/fireshold_increment.text
 	var consecutive_fire_count = int($Spatial/Camera/Menu/properties/Control/cfr.value);
 	var snooze_period = int($Spatial/Camera/Menu/properties/Control/snze.value);
 	var degenerecy_coefficient = float($Spatial/Camera/Menu/properties/Control/dege.value);
 	var psp_uniform_distribution = $Spatial/Camera/Menu/properties/Control/psud.is_pressed()
+	var MP_accumulation = $Spatial/Camera/Menu/properties/Control/MP.is_pressed()
 	var name_input = $Spatial/Camera/Menu/cortical_menu/Control/name_string.text
 	var copy = duplicate_model.duplicate()
 	var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
@@ -309,9 +311,9 @@ func _on_Update_pressed():
 	create_textbox.scale = Vector3(1,1,1)
 	
 	
-	last_cortical_selected["cortical_coordinates"] = {}
+	last_cortical_selected["cortical_coordinates"] = []
 	last_cortical_selected["cortical_destinations"] = {}
-	last_cortical_selected["cortical_dimensions"] = {}
+	last_cortical_selected["cortical_dimensions"] = []
 	var cortical_name = $Spatial/Camera/Menu/Mapping_Properties/cortical_dropdown.get_item_text($Spatial/Camera/Menu/Mapping_Properties/cortical_dropdown.get_selected_id())
 	var get_id = name_to_id(cortical_name)
 	for i in child_node_holder:
@@ -343,17 +345,18 @@ func _on_Update_pressed():
 	last_cortical_selected["cortical_name"] = name_input
 	last_cortical_selected["cortical_group"] = last_cortical_selected["cortical_group"]
 	last_cortical_selected["cortical_neuron_per_vox_count"] = $Spatial/Camera/Menu/properties/Control/neuron_count.value
-	last_cortical_selected["cortical_coordinates"]["x"] = x
-	last_cortical_selected["cortical_coordinates"]["y"] = y
-	last_cortical_selected["cortical_coordinates"]["z"] = z
-	last_cortical_selected["cortical_dimensions"]["x"] = width
-	last_cortical_selected["cortical_dimensions"]["y"] = height
-	last_cortical_selected["cortical_dimensions"]["z"] = depth
+	last_cortical_selected["cortical_coordinates"].append(x)
+	last_cortical_selected["cortical_coordinates"].append(y)
+	last_cortical_selected["cortical_coordinates"].append(z)
+	last_cortical_selected["cortical_dimensions"].append(width)
+	last_cortical_selected["cortical_dimensions"].append(height)
+	last_cortical_selected["cortical_dimensions"].append(depth)
 	last_cortical_selected["cortical_synaptic_attractivity"] = synaptic_attractivity
 	last_cortical_selected["neuron_post_synaptic_potential"] = post_synaptic_potential
 	last_cortical_selected["neuron_post_synaptic_potential_max"] = post_synaptic_potential_max
 	last_cortical_selected["neuron_plasticity_constant"] = plasticity_coef
 	last_cortical_selected["neuron_fire_threshold"] = fire_threshold
+	last_cortical_selected["neuron_fire_threshold_increment"] = float(fire_threshold_increment)
 	last_cortical_selected["neuron_refractory_period"] = refractory_period
 	last_cortical_selected["neuron_leak_coefficient"] = float(leak_coefficient)
 	last_cortical_selected["neuron_leak_variability"] = float(leak_variability)
@@ -361,6 +364,8 @@ func _on_Update_pressed():
 	last_cortical_selected["neuron_snooze_period"] = snooze_period
 	last_cortical_selected["neuron_degeneracy_coefficient"] = degenerecy_coefficient
 	last_cortical_selected["neuron_psp_uniform_distribution"] = psp_uniform_distribution
+	last_cortical_selected["neuron_mp_charge_accumulation"] = bool(MP_accumulation)
+	print(last_cortical_selected)
 	_make_put_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_area',last_cortical_selected, false, "/v1/feagi/genome/cortical_area")
 	$Spatial/Camera/Menu/cortical_menu/Control/Update.release_focus()
 	$Spatial/Camera/Menu/properties/Control/Update.release_focus()
@@ -441,6 +446,7 @@ func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 		$Spatial/Camera/Menu/properties/Control/pst_syn_max.value = float(genome_properties["neuron_post_synaptic_potential_max"])
 		$Spatial/Camera/Menu/properties/Control/plst.value = genome_properties["neuron_plasticity_constant"]
 		$Spatial/Camera/Menu/properties/Control/fire.value = genome_properties["neuron_fire_threshold"]
+		$Spatial/Camera/Menu/properties/Control/fireshold_increment.text = str(genome_properties["neuron_fire_threshold_increment"])
 		$Spatial/Camera/Menu/properties/Control/refa.value = genome_properties["neuron_refractory_period"]
 		$Spatial/Camera/Menu/properties/Control/leak.text = str(float(genome_properties["neuron_leak_coefficient"]))
 		$Spatial/Camera/Menu/properties/Control/leak_Vtext.text = str((genome_properties["neuron_leak_variability"]))
@@ -448,6 +454,10 @@ func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 		$Spatial/Camera/Menu/properties/Control/snze.value = genome_properties["neuron_snooze_period"]
 		$Spatial/Camera/Menu/properties/Control/dege.value = genome_properties["neuron_degeneracy_coefficient"]
 		$Spatial/Camera/Menu/properties/Control/psud.set_pressed(genome_properties["neuron_psp_uniform_distribution"])
+		if genome_properties["neuron_mp_charge_accumulation"] != null:
+			$Spatial/Camera/Menu/properties/Control/MP.set_pressed(genome_properties["neuron_mp_charge_accumulation"])
+		else:
+			$Spatial/Camera/Menu/properties/Control/MP.set_pressed(false)
 		last_cortical_selected = genome_properties
 		var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_mappings/afferents?cortical_area=' + genome_properties["cortical_id"]
 		$HTTP_node/afferent.request(combine_url)
@@ -629,7 +639,7 @@ func _on_update_destination_info_request_completed(_result, _response_code, _hea
 				plus_node.append(new_node)
 				$Spatial/Camera/Menu/"Mapping_Properties"/inside_mapping_menu.rect_size.y += (30 * plus_node.size())
 				new_node.get_child(0).connect("pressed", self, "_on_Mapping_def_pressed")
-				new_node.get_child(4).connect("text_changed", self, "_on_text_changed")
+				new_node.get_child(4).connect("text_changed", self, "_on_text_changed", [new_node.get_child(4)])
 				ghost_morphology.append(new_node.get_child(0))
 				
 				for x in new_node.get_child(0).get_item_count():
@@ -777,7 +787,7 @@ func _on_plus_add_pressed():
 	$Spatial/Camera/Menu/"Mapping_Properties"/inside_mapping_menu.add_child(new_node)
 	plus_node.append(new_node)
 	new_node.get_child(0).connect("pressed", self, "_on_Mapping_def_pressed")
-	new_node.get_child(4).connect("text_changed", self, "_on_text_changed")
+	new_node.get_child(4).connect("text_changed", self, "_on_text_changed", [new_node.get_child(4)])
 	ghost_morphology.append(new_node.get_child(0))
 	new_node.visible = true
 	new_node.get_child(1).value = 1
@@ -1302,11 +1312,14 @@ func _on_ghost_morphology_list_request_completed(_result, _response_code, _heade
 					node_ghost.add_item($Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.get_item_text(i), i)
 	$notification.generate_notification_message(api_data, _response_code, "_on_circuit_size_request_completed", "/v1/feagi/genome/circuit_size")
 
-func _on_text_changed(new_text):
+func _on_text_changed(new_text, node_input):
 	Godot_list.Node_2D_control = true
 	if new_text != "":
-		if new_text.is_valid_float():
-			self.value = float(new_text)
+		if new_text.is_valid_integer():
+			node_input.value = int(new_text)
+		else:
+			node_input.delete_char_at_cursor()
+			
 
 func _on_get_morphology_usuage_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())

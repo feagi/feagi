@@ -168,21 +168,14 @@ class UpdateCorticalProperties(BaseModel):
     cortical_group: Optional[str]
     cortical_neuron_per_vox_count: Optional[int]
     cortical_visibility: Optional[bool]
-    cortical_coordinates: Optional[dict] = {
-        'x': 0,
-        'y': 0,
-        'z': 0,
-    }
-    cortical_dimensions: Optional[dict] = {
-        'x': 1,
-        'y': 1,
-        'z': 1,
-    }
+    cortical_coordinates: Optional[list]
+    cortical_dimensions: Optional[list]
     cortical_synaptic_attractivity: Optional[int]
     neuron_post_synaptic_potential: Optional[float]
     neuron_post_synaptic_potential_max: Optional[float]
     neuron_plasticity_constant: Optional[float]
     neuron_fire_threshold: Optional[float]
+    neuron_fire_threshold_increment: Optional[float]
     neuron_refractory_period: Optional[int]
     neuron_leak_coefficient: Optional[float]
     neuron_leak_variability: Optional[float]
@@ -190,6 +183,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_snooze_period: Optional[int]
     neuron_degeneracy_coefficient: Optional[float]
     neuron_psp_uniform_distribution: Optional[bool]
+    neuron_mp_charge_accumulation: Optional[bool]
 
 
 # class Network(BaseModel):
@@ -494,13 +488,15 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
                 "neuron_plasticity_constant": cortical_data['plasticity_constant'],
                 "neuron_fire_threshold": cortical_data['firing_threshold'],
+                "neuron_fire_threshold_increment": cortical_data['firing_threshold_increment'],
                 "neuron_refractory_period": cortical_data['refractory_period'],
                 "neuron_leak_coefficient": cortical_data['leak_coefficient'],
                 "neuron_leak_variability": cortical_data['leak_variability'],
                 "neuron_consecutive_fire_count": cortical_data['consecutive_fire_cnt_max'],
                 "neuron_snooze_period": cortical_data['snooze_length'],
                 "neuron_degeneracy_coefficient": cortical_data['degeneration'],
-                "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution']
+                "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution'],
+                "neuron_mp_charge_accumulation": cortical_data['mp_charge_accumulation'],
             }
             response.status_code = status.HTTP_200_OK
             return cortical_properties
@@ -519,13 +515,13 @@ async def update_cortical_properties(message: UpdateCorticalProperties, response
     try:
         message = message.dict()
         message = {'update_cortical_properties': message}
-        print("*" * 50 + "\n", message)
+        print("*-----* " * 200 + "\n", message)
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
 
     except Exception as e:
         response.status_code = status.HTTP_400_BAD_REQUEST
-        print("API Error:", e)
+        print("API Error:", message, e, traceback.print_exc())
 
 
 @app.api_route("/v1/feagi/genome/cortical_area", methods=['POST'], tags=["Genome"])
@@ -925,7 +921,7 @@ async def circuit_library(response: Response):
     Returns the list of neuronal circuits under /evo/circuits
     """
     try:
-        circuit_list = os.listdir("./evo/circuits")
+        circuit_list = os.listdir(runtime_data.circuit_lib_path)
         response.status_code = status.HTTP_200_OK
         return circuit_list
 
@@ -1974,6 +1970,21 @@ async def test_influxdb(response: Response):
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
             return influx_status
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/circuit_library_path", methods=['POST'], tags=["System"])
+async def change_circuit_library_path(circuit_library_path: str, response: Response):
+    try:
+        if os.path.exists(circuit_library_path):
+            runtime_data.circuit_lib_path = circuit_library_path
+            print(f"{circuit_library_path} is the new circuit library path.")
+            response.status_code = status.HTTP_200_OK
+        else:
+            response.status_code = status.HTTP_404_NOT_FOUND
+            print(f"{circuit_library_path} is not a valid path.")
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)

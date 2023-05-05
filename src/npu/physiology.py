@@ -48,7 +48,7 @@ def neuron_stimulation_mp_logger(cortical_area, neuron_id):
                           filter_criteria=runtime_data.neuron_mp_collection_scope[cortical_area]):
 
             vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
-            fire_threshold = runtime_data.genome["blueprint"][cortical_area]["firing_threshold"]
+            fire_threshold = runtime_data.brain[cortical_area][neuron_id]["firing_threshold"]
 
             mem_pot = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
 
@@ -92,7 +92,7 @@ def update_membrane_potential_fire_queue(cortical_area, neuron_id, mp_update_amo
         runtime_data.fire_queue[cortical_area][neuron_id][1] = dst_neuron_obj["firing_threshold"]
     if mp_overwrite:
         runtime_data.fire_queue[cortical_area][neuron_id][0] = mp_overwrite
-    else:
+    elif runtime_data.genome["blueprint"][cortical_area]["mp_charge_accumulation"]:
         runtime_data.fire_queue[cortical_area][neuron_id][0] += mp_update_amount
 
 

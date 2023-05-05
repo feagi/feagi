@@ -58,75 +58,23 @@ from npu.physiology import list_upstream_neurons, post_synaptic_current_update
 logger = logging.getLogger(__name__)
 
 
-def form_memories(cortical_area, src_neuron, dst_neuron):
-    """
-    This function simulates neuron plasticity in a sense that when neurons in a given cortical area fire in the
-     same burst_manager they wire together. This is done by increasing the postsynaptic_current associated with a link between
-     two neuron. Additionally an event id is associated to the neurons who have fired together.
-    """
-
-    if runtime_data.parameters["Auto_injector"]["injector_status"]:
-        genome = runtime_data.genome
-
-        # Since this function only targets Memory regions and neurons in mem regions do not have neighbor relationship
-        # by default hence here we first need to synapse the source and destination together
-        # Build neighbor relationship between the source and destination if its not already in place
-
-        neighbor_count = len(runtime_data.brain[cortical_area][src_neuron]["neighbors"])
-        if neighbor_count < runtime_data.parameters["InitData"]["max_neighbor_count"]:
-            # Check if source and destination have an existing synapse if not create one here
-            if dst_neuron not in runtime_data.brain[cortical_area][src_neuron]["neighbors"]:
-                synapse(cortical_area=cortical_area, src_id=src_neuron, dst_cortical_area=cortical_area, dst_id=dst_neuron)
-
-            # Every time source and destination neuron is fired at the same time which in case of the code architecture
-            # reside in the same burst_manager, the postsynaptic_current will be increased simulating the fire together,
-            # wire together. This phenomenon is also considered as long term potentiation or LTP
-
-            new_psc = runtime_data.brain[cortical_area][src_neuron]["neighbors"][dst_neuron]["postsynaptic_current"]
-
-            new_psc += genome["blueprint"][cortical_area]["plasticity_constant"]
-
-            # Condition to cap the postsynaptic_current and provide prohibitory reaction
-            if new_psc > genome["blueprint"][cortical_area]["postsynaptic_current_max"]:
-                new_psc = genome["blueprint"][cortical_area]["postsynaptic_current_max"]
-
-            post_synaptic_current_update(cortical_area_src=cortical_area, cortical_area_dst=cortical_area,
-                                         neuron_id_src=src_neuron, neuron_id_dst=dst_neuron,
-                                         post_synaptic_current=new_psc)
-
-            # print('<*> ', cortical_area, src_neuron[27:], dst_neuron[27:], 'PSC=',
-            #       runtime_data.brain[cortical_area][src_neuron]["neighbors"][dst_neuron]["postsynaptic_current"])
-
-            # Append a Group ID so Memory clusters can be uniquely identified
-            if runtime_data.event_id:
-                if runtime_data.event_id in runtime_data.brain[cortical_area][src_neuron]["event_id"]:
-                    runtime_data.brain[cortical_area][src_neuron]["event_id"][runtime_data.event_id] += 1
-                else:
-                    runtime_data.brain[cortical_area][src_neuron]["event_id"][runtime_data.event_id] = 1
-
-    return
-
-
 def neuroplasticity():
     common_neurons = set()
     if runtime_data.plasticity_queue:
         common_neurons = set.intersection(*runtime_data.plasticity_queue)
-        print("%% -- " * 10)
-        print(f"\n\ncommon_neurons {common_neurons} \n\n")
-    print("plasticity_dict", runtime_data.plasticity_dict)
-    print("plasticity_queue", runtime_data.plasticity_queue)
+
     # todo: filter only plastic links
     for neuron in common_neurons:
         try:
             cortical_area = neuron[:6]
             presynaptic_neurons = list_upstream_neurons(cortical_area=cortical_area, neuron_id=neuron)
-            print("--------------------> presynaptic_neurons", presynaptic_neurons)
+
             postsynaptic_neurons = runtime_data.brain[cortical_area][neuron]['neighbors']
-            print("--------------------> postsynaptic_neurons", postsynaptic_neurons)
+
             postsynaptic_neurons_set = set()
             for item in postsynaptic_neurons:
                 postsynaptic_neurons_set.add(item)
-            print("--------------------> postsynaptic_neurons_set", postsynaptic_neurons_set)
+
             connected_neurons = presynaptic_neurons | postsynaptic_neurons_set
 
             for postsynaptic_neuron in postsynaptic_neurons:
@@ -151,31 +99,6 @@ def neuroplasticity():
         except Exception as e:
             print(f"Exception during neuroplasticity processing of {neuron}", e, traceback.print_exc())
 
-    # except KeyError:
-    #     synapse(cortical_area=src_cortical_area,
-    #             src_id=src_neuron_id,
-    #             dst_cortical_area=dst_cortical_area,
-    #             dst_id=dst_neuron_id)
-    #
-    #     new_psc = \
-    #         runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
-    #     new_psc += plasticity_constant
-    #
-    #     # Condition to cap the postsynaptic_current and provide prohibitory reaction
-    #     if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] > \
-    #             runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]:
-    #         new_psc = runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]
-    #
-    #     post_synaptic_current_update(cortical_area_src=src_cortical_area, cortical_area_dst=dst_cortical_area,
-    #                                  neuron_id_src=src_neuron_id, neuron_id_dst=dst_neuron_id,
-    #                                  post_synaptic_current=new_psc)
-    #
-    #     # Condition to prevent postsynaptic current to become negative
-    #     # todo: consider setting a postsynaptic_min in genome to be used instead of 0
-    #     # Condition to prune a synapse if its postsynaptic_current is zero
-    #     if runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"] < 0:
-    #         runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id, dst_cortical_area, dst_neuron_id))
-
 
 def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_cortical_area,
                                      dst_neuron_id, long_term_depression=False, impact_multiplier=1.0):
@@ -186,19 +109,19 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
         # When long term depression flag is set, there will be negative synaptic influence caused
         plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"] * (-1) * \
                               impact_multiplier
-        print("<> <> <> <> <> <> <> <> <>     LTD     <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
+        # print("<> <> <> <> <> <> <> <> <>     LTD     <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
         try:
             runtime_data.cumulative_stats[src_cortical_area]["LTD"] += 1
         except:
             pass
 
     else:
-        print("<> <> <> <> <> <> <> <> <>      LTP      <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
+        # print("<> <> <> <> <> <> <> <> <>      LTP      <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
         try:
             runtime_data.cumulative_stats[src_cortical_area]["LTP"] += 1
         except:
             pass
-        pass
+
     try:
         new_psc = \
             runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
@@ -223,66 +146,3 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
     except KeyError as e:
         print("\n\n\nKey Error on longterm_potentiation_depression:", e, traceback.print_exc())
         pass
-
-
-
-def neuroplasticity_old():
-    """
-    Creates bidirectional synapses between simultaneously-active neurons in connected 
-    cortical areas (specified in genome and extracted into plasticity_dict). Also checks 
-    for a given currently-active neuron's upstream/downstream neurons firing in the 
-    previous FCL and applies LTP or LTD accordingly.
-    """
-
-    plasticity_dict = runtime_data.plasticity_dict
-
-    cfcl = runtime_data.fire_candidate_list
-    previous_fcl = runtime_data.previous_fcl
-
-    for cfcl_area in cfcl:
-        # Conditions to assess pre-synaptic and postsynaptic cortical area eligibility
-        if cfcl_area in plasticity_dict and len(cfcl[cfcl_area]) > 0:
-            for pfcl_area in plasticity_dict[cfcl_area]:
-                if pfcl_area in previous_fcl:
-                    if len(previous_fcl[pfcl_area]) > 0:
-                        for postsynaptic_neuron in cfcl[cfcl_area]:
-                            postsynaptic_neuron_upstream_neurons = list_upstream_neurons(cfcl_area, postsynaptic_neuron)
-                            postsynaptic_neuron_neighbors = runtime_data.brain[cfcl_area][postsynaptic_neuron][
-                                'neighbors']
-                            for presynaptic_neuron in previous_fcl[pfcl_area]:
-
-                                # ------LTP------
-                                """
-                                LTP occurs when a pre-synaptic neuron fires in burst (n-1) and its
-                                associated post-synaptic neuron is fired during burst (n)   
-                                """
-
-                                if pfcl_area in postsynaptic_neuron_upstream_neurons:
-                                    if presynaptic_neuron in postsynaptic_neuron_upstream_neurons[pfcl_area]:
-                                        longterm_potentiation_depression(
-                                            src_cortical_area=pfcl_area,
-                                            src_neuron_id=presynaptic_neuron,
-                                            dst_cortical_area=cfcl_area,
-                                            dst_neuron_id=postsynaptic_neuron
-                                        )
-
-                                # ------LTD------
-                                """
-                                LTD occurs when a pre-synaptic neuron fires in burst (n) and its associated 
-                                post-synaptic neuron is fired during burst (n+1) 
-                                """
-
-                                if presynaptic_neuron in postsynaptic_neuron_neighbors:
-                                    longterm_potentiation_depression(
-                                        src_cortical_area=cfcl_area,
-                                        src_neuron_id=postsynaptic_neuron,
-                                        dst_cortical_area=pfcl_area,
-                                        dst_neuron_id=presynaptic_neuron,
-                                        long_term_depression=True,
-                                        impact_multiplier=1
-                                    )
-
-
-
-
-

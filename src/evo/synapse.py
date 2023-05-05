@@ -28,18 +28,6 @@ from evo.voxels import subregion_neurons
 logger = logging.getLogger(__name__)
 
 
-def cortical_area_lengths(cortical_area):
-    length = []
-    coordinates = ['x', 'y', 'z']
-    for _ in coordinates:
-        length.append(
-            runtime_data.genome['blueprint'][cortical_area]['geometric_boundaries'][_][
-                1] -
-            runtime_data.genome['blueprint'][cortical_area]['geometric_boundaries'][_][0])
-
-    return length
-
-
 def synapse(cortical_area, src_id, dst_cortical_area, dst_id, postsynaptic_current=0):
     """
     Function responsible for creating a synapse between a neuron and another one. In reality a single neuron can
@@ -201,6 +189,8 @@ def cortical_mapping(blueprint=None):
     Generates a cortical mapping report of the connectome
     """
     mapping_dict = {}
+    if not blueprint:
+        blueprint = runtime_data.genome["blueprint"]
     for cortical_area in blueprint:
         if cortical_area not in mapping_dict:
             mapping_dict[cortical_area] = []
