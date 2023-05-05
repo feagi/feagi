@@ -296,6 +296,7 @@ func _on_Update_pressed():
 	var snooze_period = int($Spatial/Camera/Menu/properties/Control/snze.value);
 	var degenerecy_coefficient = float($Spatial/Camera/Menu/properties/Control/dege.value);
 	var psp_uniform_distribution = $Spatial/Camera/Menu/properties/Control/psud.is_pressed()
+	var MP_accumulation = $Spatial/Camera/Menu/properties/Control/MP.is_pressed()
 	var name_input = $Spatial/Camera/Menu/cortical_menu/Control/name_string.text
 	var copy = duplicate_model.duplicate()
 	var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
@@ -310,9 +311,9 @@ func _on_Update_pressed():
 	create_textbox.scale = Vector3(1,1,1)
 	
 	
-	last_cortical_selected["cortical_coordinates"] = {}
+	last_cortical_selected["cortical_coordinates"] = []
 	last_cortical_selected["cortical_destinations"] = {}
-	last_cortical_selected["cortical_dimensions"] = {}
+	last_cortical_selected["cortical_dimensions"] = []
 	var cortical_name = $Spatial/Camera/Menu/Mapping_Properties/cortical_dropdown.get_item_text($Spatial/Camera/Menu/Mapping_Properties/cortical_dropdown.get_selected_id())
 	var get_id = name_to_id(cortical_name)
 	for i in child_node_holder:
@@ -344,12 +345,12 @@ func _on_Update_pressed():
 	last_cortical_selected["cortical_name"] = name_input
 	last_cortical_selected["cortical_group"] = last_cortical_selected["cortical_group"]
 	last_cortical_selected["cortical_neuron_per_vox_count"] = $Spatial/Camera/Menu/properties/Control/neuron_count.value
-	last_cortical_selected["cortical_coordinates"]["x"] = x
-	last_cortical_selected["cortical_coordinates"]["y"] = y
-	last_cortical_selected["cortical_coordinates"]["z"] = z
-	last_cortical_selected["cortical_dimensions"]["x"] = width
-	last_cortical_selected["cortical_dimensions"]["y"] = height
-	last_cortical_selected["cortical_dimensions"]["z"] = depth
+	last_cortical_selected["cortical_coordinates"].append(x)
+	last_cortical_selected["cortical_coordinates"].append(y)
+	last_cortical_selected["cortical_coordinates"].append(z)
+	last_cortical_selected["cortical_dimensions"].append(width)
+	last_cortical_selected["cortical_dimensions"].append(height)
+	last_cortical_selected["cortical_dimensions"].append(depth)
 	last_cortical_selected["cortical_synaptic_attractivity"] = synaptic_attractivity
 	last_cortical_selected["neuron_post_synaptic_potential"] = post_synaptic_potential
 	last_cortical_selected["neuron_post_synaptic_potential_max"] = post_synaptic_potential_max
@@ -363,6 +364,7 @@ func _on_Update_pressed():
 	last_cortical_selected["neuron_snooze_period"] = snooze_period
 	last_cortical_selected["neuron_degeneracy_coefficient"] = degenerecy_coefficient
 	last_cortical_selected["neuron_psp_uniform_distribution"] = psp_uniform_distribution
+	last_cortical_selected["neuron_mp_charge_accumulation"] = bool(MP_accumulation)
 	_make_put_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_area',last_cortical_selected, false, "/v1/feagi/genome/cortical_area")
 	$Spatial/Camera/Menu/cortical_menu/Control/Update.release_focus()
 	$Spatial/Camera/Menu/properties/Control/Update.release_focus()
@@ -451,6 +453,10 @@ func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 		$Spatial/Camera/Menu/properties/Control/snze.value = genome_properties["neuron_snooze_period"]
 		$Spatial/Camera/Menu/properties/Control/dege.value = genome_properties["neuron_degeneracy_coefficient"]
 		$Spatial/Camera/Menu/properties/Control/psud.set_pressed(genome_properties["neuron_psp_uniform_distribution"])
+		if genome_properties["neuron_mp_charge_accumulation"] != null:
+			$Spatial/Camera/Menu/properties/Control/MP.set_pressed(genome_properties["neuron_mp_charge_accumulation"])
+		else:
+			$Spatial/Camera/Menu/properties/Control/MP.set_pressed(false)
 		last_cortical_selected = genome_properties
 		var combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_mappings/afferents?cortical_area=' + genome_properties["cortical_id"]
 		$HTTP_node/afferent.request(combine_url)

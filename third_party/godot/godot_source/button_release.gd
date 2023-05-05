@@ -16,3 +16,7 @@ func _on_mem_pressed():
 
 func _on_syn_pressed():
 	release_focus()
+
+
+func _on_MP_pressed():
+	release_focus()

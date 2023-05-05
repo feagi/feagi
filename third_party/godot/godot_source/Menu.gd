@@ -188,7 +188,9 @@ func resize_buttons():
 	$properties/Control/degeneracy.rect_position.y = $properties/Control/snooze.rect_position.y + $properties/Control/snooze.rect_size.y
 	$properties/Control/psud.rect_position.y = $properties/Control/degeneracy.rect_position.y + $properties/Control/degeneracy.rect_size.y
 	$properties/Control/psp.rect_position.y = $properties/Control/degeneracy.rect_position.y + $properties/Control/degeneracy.rect_size.y
-	$properties/Control/Update.rect_position.y = $properties/Control/psp.rect_position.y + $properties/Control/psp.rect_size.y + 10
+	$properties/Control/MP_Label.rect_position.y = $properties/Control/psp.rect_position.y + $properties/Control/psp.rect_size.y
+	$properties/Control/MP.rect_position.y = $properties/Control/MP_Label.rect_position.y
+	$properties/Control/Update.rect_position.y = $properties/Control/MP_Label.rect_position.y + $properties/Control/MP_Label.rect_size.y
 	if $properties/Control.visible:
 		$properties.rect_size.y =  $properties/Control/Update.rect_size.y + $properties/Control/Update.rect_position.y
 	# Delete and Update section
