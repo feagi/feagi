@@ -183,6 +183,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_post_synaptic_potential_max: Optional[float]
     neuron_plasticity_constant: Optional[float]
     neuron_fire_threshold: Optional[float]
+    neuron_fire_threshold_increment: Optional[float]
     neuron_refractory_period: Optional[int]
     neuron_leak_coefficient: Optional[float]
     neuron_leak_variability: Optional[float]

@@ -178,10 +178,12 @@ func resize_buttons():
 	$properties/Control/leakco.rect_position.y = $properties/Control/refractory.rect_position.y + $properties/Control/refractory.rect_size.y
 	$properties/Control/leak_va.rect_position.y = $properties/Control/leak.rect_position.y + $properties/Control/leak.rect_size.y + 10
 	$properties/Control/leak_Vtext.rect_position.y = $properties/Control/leak.rect_position.y + $properties/Control/leak.rect_size.y + 10
-	$properties/Control/cfr.rect_position.y = $properties/Control/leak_va.rect_position.y + $properties/Control/leak_va.rect_size.y
-	$properties/Control/consecutive.rect_position.y = $properties/Control/leak_va.rect_position.y + $properties/Control/leak_va.rect_size.y
+	$properties/Control/fireshold_increment_label.rect_position.y = $properties/Control/leak_va.rect_position.y + $properties/Control/leak_va.rect_size.y
+	$properties/Control/fireshold_increment.rect_position.y = $properties/Control/leak_va.rect_position.y + $properties/Control/leak_va.rect_size.y
+	$properties/Control/consecutive.rect_position.y = $properties/Control/fireshold_increment_label.rect_position.y + $properties/Control/fireshold_increment_label.rect_size.y
+	$properties/Control/cfr.rect_position.y = $properties/Control/fireshold_increment.rect_position.y + $properties/Control/fireshold_increment.rect_size.y + 5
 	$properties/Control/snze.rect_position.y = $properties/Control/consecutive.rect_position.y + $properties/Control/consecutive.rect_size.y
-	$properties/Control/snooze.rect_position.y = $properties/Control/consecutive.rect_position.y + $properties/Control/consecutive.rect_size.y
+	$properties/Control/snooze.rect_position.y = $properties/Control/consecutive.rect_position.y + $properties/Control/consecutive.rect_size.y # HERE
 	$properties/Control/dege.rect_position.y = $properties/Control/snooze.rect_position.y + $properties/Control/snooze.rect_size.y
 	$properties/Control/degeneracy.rect_position.y = $properties/Control/snooze.rect_position.y + $properties/Control/snooze.rect_size.y
 	$properties/Control/psud.rect_position.y = $properties/Control/degeneracy.rect_position.y + $properties/Control/degeneracy.rect_size.y
