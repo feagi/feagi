@@ -291,6 +291,7 @@ func _on_Update_pressed():
 	var refractory_period = int($Spatial/Camera/Menu/properties/Control/refa.value);
 	var leak_coefficient = float($Spatial/Camera/Menu/properties/Control/leak.text);
 	var leak_variability = float($Spatial/Camera/Menu/properties/Control/leak_Vtext.text);
+	var fire_threshold_increment = $Spatial/Camera/Menu/properties/Control/fireshold_increment.text
 	var consecutive_fire_count = int($Spatial/Camera/Menu/properties/Control/cfr.value);
 	var snooze_period = int($Spatial/Camera/Menu/properties/Control/snze.value);
 	var degenerecy_coefficient = float($Spatial/Camera/Menu/properties/Control/dege.value);
@@ -354,6 +355,7 @@ func _on_Update_pressed():
 	last_cortical_selected["neuron_post_synaptic_potential_max"] = post_synaptic_potential_max
 	last_cortical_selected["neuron_plasticity_constant"] = plasticity_coef
 	last_cortical_selected["neuron_fire_threshold"] = fire_threshold
+	last_cortical_selected["neuron_fire_threshold_increment"] = fire_threshold_increment
 	last_cortical_selected["neuron_refractory_period"] = refractory_period
 	last_cortical_selected["neuron_leak_coefficient"] = float(leak_coefficient)
 	last_cortical_selected["neuron_leak_variability"] = float(leak_variability)
@@ -441,6 +443,7 @@ func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 		$Spatial/Camera/Menu/properties/Control/pst_syn_max.value = float(genome_properties["neuron_post_synaptic_potential_max"])
 		$Spatial/Camera/Menu/properties/Control/plst.value = genome_properties["neuron_plasticity_constant"]
 		$Spatial/Camera/Menu/properties/Control/fire.value = genome_properties["neuron_fire_threshold"]
+		$Spatial/Camera/Menu/properties/Control/fireshold_increment.text = str(genome_properties["neuron_fire_threshold_increment"])
 		$Spatial/Camera/Menu/properties/Control/refa.value = genome_properties["neuron_refractory_period"]
 		$Spatial/Camera/Menu/properties/Control/leak.text = str(float(genome_properties["neuron_leak_coefficient"]))
 		$Spatial/Camera/Menu/properties/Control/leak_Vtext.text = str((genome_properties["neuron_leak_variability"]))
@@ -629,7 +632,7 @@ func _on_update_destination_info_request_completed(_result, _response_code, _hea
 				plus_node.append(new_node)
 				$Spatial/Camera/Menu/"Mapping_Properties"/inside_mapping_menu.rect_size.y += (30 * plus_node.size())
 				new_node.get_child(0).connect("pressed", self, "_on_Mapping_def_pressed")
-				new_node.get_child(4).connect("text_changed", self, "_on_text_changed")
+				new_node.get_child(4).connect("text_changed", self, "_on_text_changed", [new_node.get_child(4)])
 				ghost_morphology.append(new_node.get_child(0))
 				
 				for x in new_node.get_child(0).get_item_count():
@@ -777,7 +780,7 @@ func _on_plus_add_pressed():
 	$Spatial/Camera/Menu/"Mapping_Properties"/inside_mapping_menu.add_child(new_node)
 	plus_node.append(new_node)
 	new_node.get_child(0).connect("pressed", self, "_on_Mapping_def_pressed")
-	new_node.get_child(4).connect("text_changed", self, "_on_text_changed")
+	new_node.get_child(4).connect("text_changed", self, "_on_text_changed", [new_node.get_child(4)])
 	ghost_morphology.append(new_node.get_child(0))
 	new_node.visible = true
 	new_node.get_child(1).value = 1
@@ -1302,11 +1305,14 @@ func _on_ghost_morphology_list_request_completed(_result, _response_code, _heade
 					node_ghost.add_item($Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.get_item_text(i), i)
 	$notification.generate_notification_message(api_data, _response_code, "_on_circuit_size_request_completed", "/v1/feagi/genome/circuit_size")
 
-func _on_text_changed(new_text):
+func _on_text_changed(new_text, node_input):
 	Godot_list.Node_2D_control = true
 	if new_text != "":
-		if new_text.is_valid_float():
-			self.value = float(new_text)
+		if new_text.is_valid_integer():
+			node_input.value = int(new_text)
+		else:
+			node_input.delete_char_at_cursor()
+			
 
 func _on_get_morphology_usuage_request_completed(_result, _response_code, _headers, body):
 	var json = JSON.parse(body.get_string_from_utf8())
