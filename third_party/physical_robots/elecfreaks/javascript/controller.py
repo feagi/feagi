@@ -15,16 +15,15 @@ limitations under the License.
 
 import asyncio
 import threading
-from time import sleep
-from datetime import datetime
-
-import numpy as np
 import websockets
 import requests
-
+from time import sleep
 from configuration import *
-from feagi_agent import retina
+from datetime import datetime
+from collections import deque
 from feagi_agent import feagi_interface as feagi
+
+ws = deque()
 
 
 async def echo(websocket):
@@ -33,7 +32,45 @@ async def echo(websocket):
     and sends the data from FEAGI to the connected websockets.
     """
     async for message in websocket:
-        print(message)
+        ir0, ir1 = False, False
+        # TODO: Fix this issue
+        # if '-' in message:
+        #     message = message.replace('-', '')
+        #     print("message: ", message)
+        if message[0] == 'f':
+            ir0 = 0
+        else:
+            ir0 = 1
+        if message[1] == 'f':
+            ir1 = 0
+        else:
+            ir1 = 1
+        try:
+            x = int(message[2:6]) - 1000
+            y = int(message[6:10]) - 1000
+            z = int(message[10:14]) - 1000
+            ultrasonic = float(message[14:16])
+            sound_level = int(message[16:18])
+        except Exception as e:
+            print("error: ", e)
+            print("raw: ", message)
+
+        # Store values in dictionary
+        microbit_data['ir'] = [ir0, ir1]
+        microbit_data['ultrasonic'] = ultrasonic / 25
+        print("ultrasonic: ", microbit_data['ultrasonic'], "microbit: ", microbit_data['ir'])
+        microbit_data['accelerator'] = [x, y, z]
+        microbit_data['sound_level'] = {sound_level}
+        try:
+            if len(ws) > 2:  # This will eliminate any stack up queue
+                stored_value = ws[len(ws) - 1]
+                ws.clear()
+                ws[0] = stored_value
+            await websocket.send(str(ws[0]))
+            ws.pop()
+        except Exception as e:
+            pass
+            # print("error: ", e)
 
 
 async def main():
@@ -93,18 +130,45 @@ if __name__ == "__main__":
     msg_counter = runtime_data["feagi_state"]['burst_counter']
     CHECKPOINT_TOTAL = 5
     FLAG_COUNTER = 0
+    microbit_data = {'ir': [], 'ultrasonic': {}, 'acc': {}, 'sound_level': {}}
+    runtime_data['accelerator'] = dict()
     BGSK = threading.Thread(target=websocket_operation, daemon=True).start()
+    flag = True
     while True:
+        ws_string = ""
         message_from_feagi = feagi_opu_channel.receive()  # Get data from FEAGI
         # OPU section STARTS
+        if message_from_feagi is not None:
+            opu_data = feagi.opu_processor(message_from_feagi)
+            if 'motor' in opu_data:
+                for data_point in opu_data['motor']:
+                    if data_point == 0:
+                        ws_string = "f"
+                    elif data_point == 1:
+                        ws_string = "b"
+                    elif data_point == 2:
+                        ws_string = "r"
+                    elif data_point == 3:
+                        ws_string = "l"
+                    else:
+                        ws_string = "s"  # Skip
+                    ws_string = ws_string + str(opu_data['motor'][data_point] * 10)
+            if ws_string != "":
+                ws.append(ws_string + '#')
+            if flag:
+                flag = False
+                ws.append("f#")
         # OPU section ENDS
 
-        ir_data = "NEED UPDATED"
+        ir_data = microbit_data['ir']
         if ir_data:
-            formatted_ir_data = {'ir': {sensor: True for sensor in ir_data}}
+            ir_data = {'0': microbit_data[ir_data][0], '1': microbit_data[ir_data][1]}
+            formatted_ir_data = {'ir': dict.fromkeys(ir_data.keys(), 1)}
+            formatted_ir_data['ir'].update(ir_data)  # Should work
         else:
             formatted_ir_data = {}
-
+        # print("iR: ", microbit_data['ir'])
+        # print("processed IR: ", formatted_ir_data)
         if ir_data:
             for ir_sensor in range(int(capabilities['infrared']['count'])):
                 if ir_sensor not in formatted_ir_data['ir']:
@@ -117,7 +181,7 @@ if __name__ == "__main__":
         for ir_sensor in range(int(capabilities['infrared']['count'])):
             if ir_sensor not in formatted_ir_data['ir']:
                 formatted_ir_data['ir'][ir_sensor] = False
-        ultrasonic_data = "NEED UPDATED"
+        ultrasonic_data = microbit_data['ultrasonic']
         if ultrasonic_data:
             formatted_ultrasonic_data = {
                 'ultrasonic': {
@@ -128,6 +192,21 @@ if __name__ == "__main__":
             formatted_ultrasonic_data = {}
         message_to_feagi, battery = feagi.compose_message_to_feagi(
             original_message={**formatted_ir_data, **formatted_ultrasonic_data})
+
+        # Add accelerator section
+        try:
+            runtime_data['accelerator']['0'] = microbit_data['accelerator'][0]
+            runtime_data['accelerator']['1'] = microbit_data['accelerator'][1]
+            runtime_data['accelerator']['2'] = microbit_data['accelerator'][2]
+            if "data" not in message_to_feagi:
+                message_to_feagi["data"] = dict()
+            if "sensory_data" not in message_to_feagi["data"]:
+                message_to_feagi["data"]["sensory_data"] = dict()
+            message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data['accelerator']
+        except Exception as e:
+            message_to_feagi["data"]["sensory_data"]['accelerator'] = {}
+        # End accelerator section
+
         message_to_feagi['timestamp'] = datetime.now()
         message_to_feagi['counter'] = msg_counter
         msg_counter += 1
@@ -157,4 +236,3 @@ if __name__ == "__main__":
             pass
         feagi_ipu_channel.send(message_to_feagi)
         message_to_feagi.clear()
-
