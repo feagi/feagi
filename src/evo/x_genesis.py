@@ -494,6 +494,10 @@ def add_core_cortical_area(cortical_properties):
                 template['psp_uniform_distribution']
             runtime_data.genome["blueprint"][cortical_area]["postsynaptic_current_max"] = \
                 template['postsynaptic_current_max']
+            runtime_data.genome["blueprint"][cortical_area]["mp_charge_accumulation"] = \
+                template['mp_charge_accumulation']
+            runtime_data.genome["blueprint"][cortical_area]["firing_threshold_increment"] = \
+                template['firing_threshold_increment']
 
             runtime_data.genome["blueprint"][cortical_area]["group_id"] = cortical_properties['cortical_type']
 
@@ -562,6 +566,10 @@ def add_custom_cortical_area(cortical_name, cortical_coordinates, cortical_dimen
             template['psp_uniform_distribution']
         runtime_data.genome["blueprint"][cortical_area]["postsynaptic_current_max"] = \
             template['postsynaptic_current_max']
+        runtime_data.genome["blueprint"][cortical_area]["mp_charge_accumulation"] = \
+            template['mp_charge_accumulation']
+        runtime_data.genome["blueprint"][cortical_area]["firing_threshold_increment"] = \
+            template['firing_threshold_increment']
 
         runtime_data.genome["blueprint"][cortical_area]["group_id"] = "CUSTOM"
 

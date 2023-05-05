@@ -515,7 +515,7 @@ async def update_cortical_properties(message: UpdateCorticalProperties, response
     try:
         message = message.dict()
         message = {'update_cortical_properties': message}
-        print("*" * 50 + "\n", message)
+        print("*-----* " * 200 + "\n", message)
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
 

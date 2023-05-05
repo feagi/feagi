@@ -39,7 +39,7 @@ func _process(_delta):
 				i.color = default_color
 			elif i.get_child(1).text == "422":
 				i.get_child(1).add_color_override("font_color", "#ff0000")
-				i.get_child(0).text = "This cortical area is not exist in FEAGI yet! Try again in 10 seconds"
+				i.get_child(0).text = "Operation Failed!"
 				i.color = Color(0.545098, 0, 0, pulse_transparent)
 			else:
 				i.get_child(1).add_color_override("font_color", "#ff0000")
