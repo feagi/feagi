@@ -90,8 +90,14 @@ def init_neuron(cortical_area, soma_location):
     #  consider using the group name part of Genome instead
     # runtime_data.brain[cortical_area][neuron_id]["depolarization_threshold"] = \
     #     genome['blueprint'][cortical_area]['depolarization_threshold']
-    runtime_data.brain[cortical_area][neuron_id]["firing_threshold"] = \
-        genome['blueprint'][cortical_area]['firing_threshold']
+    if genome['blueprint'][cortical_area]['firing_threshold_increment']:
+        runtime_data.brain[cortical_area][neuron_id]["firing_threshold"] = \
+            genome['blueprint'][cortical_area]['firing_threshold'] + \
+            (genome['blueprint'][cortical_area]['firing_threshold_increment'] *
+             (soma_location[0] + soma_location[1] + soma_location[2]))
+    else:
+        runtime_data.brain[cortical_area][neuron_id]["firing_threshold"] = \
+            genome['blueprint'][cortical_area]['firing_threshold']
 
     leak = genome['blueprint'][cortical_area]['leak_coefficient']
     leak_variability = genome['blueprint'][cortical_area]['leak_variability']
