@@ -168,16 +168,8 @@ class UpdateCorticalProperties(BaseModel):
     cortical_group: Optional[str]
     cortical_neuron_per_vox_count: Optional[int]
     cortical_visibility: Optional[bool]
-    cortical_coordinates: Optional[dict] = {
-        'x': 0,
-        'y': 0,
-        'z': 0,
-    }
-    cortical_dimensions: Optional[dict] = {
-        'x': 1,
-        'y': 1,
-        'z': 1,
-    }
+    cortical_coordinates: Optional[list]
+    cortical_dimensions: Optional[list]
     cortical_synaptic_attractivity: Optional[int]
     neuron_post_synaptic_potential: Optional[float]
     neuron_post_synaptic_potential_max: Optional[float]
@@ -529,7 +521,7 @@ async def update_cortical_properties(message: UpdateCorticalProperties, response
 
     except Exception as e:
         response.status_code = status.HTTP_400_BAD_REQUEST
-        print("API Error:", e)
+        print("API Error:", message, e, traceback.print_exc())
 
 
 @app.api_route("/v1/feagi/genome/cortical_area", methods=['POST'], tags=["Genome"])
