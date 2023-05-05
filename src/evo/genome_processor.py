@@ -43,6 +43,8 @@ def genome_ver_check(genome):
             for _ in genome["blueprint"]:
                 if "mp_charge_accumulation" not in genome["blueprint"][_]:
                     genome["blueprint"][_]["mp_charge_accumulation"] = True
+                else:
+                    genome["blueprint"][_]["mp_charge_accumulation"] = True
             return genome
         else:
             print("ERROR! Genome is not compatible with 2.0 standard")
