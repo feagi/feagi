@@ -125,6 +125,10 @@ def update_cortical_properties(cortical_properties):
         x_cortical_reposition(cortical_area=cortical_area,
                               new_coordinates=cortical_properties['cortical_coordinates'])
 
+    if cortical_properties['neuron_fire_threshold_increment'] is not None:
+        runtime_data.genome['blueprint'][cortical_area]["firing_threshold_increment"] = \
+            cortical_properties['neuron_fire_threshold_increment']
+
     if cortical_properties['neuron_fire_threshold'] is not None:
         runtime_data.genome['blueprint'][cortical_area]["firing_threshold"] = \
             cortical_properties['neuron_fire_threshold']
