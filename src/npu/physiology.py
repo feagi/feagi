@@ -92,7 +92,7 @@ def update_membrane_potential_fire_queue(cortical_area, neuron_id, mp_update_amo
         runtime_data.fire_queue[cortical_area][neuron_id][1] = dst_neuron_obj["firing_threshold"]
     if mp_overwrite:
         runtime_data.fire_queue[cortical_area][neuron_id][0] = mp_overwrite
-    else:
+    elif runtime_data.genome["blueprint"][cortical_area]["mp_charge_accumulation"]:
         runtime_data.fire_queue[cortical_area][neuron_id][0] += mp_update_amount
 
 

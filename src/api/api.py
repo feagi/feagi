@@ -168,16 +168,8 @@ class UpdateCorticalProperties(BaseModel):
     cortical_group: Optional[str]
     cortical_neuron_per_vox_count: Optional[int]
     cortical_visibility: Optional[bool]
-    cortical_coordinates: Optional[dict] = {
-        'x': 0,
-        'y': 0,
-        'z': 0,
-    }
-    cortical_dimensions: Optional[dict] = {
-        'x': 1,
-        'y': 1,
-        'z': 1,
-    }
+    cortical_coordinates: Optional[list]
+    cortical_dimensions: Optional[list]
     cortical_synaptic_attractivity: Optional[int]
     neuron_post_synaptic_potential: Optional[float]
     neuron_post_synaptic_potential_max: Optional[float]
@@ -191,6 +183,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_snooze_period: Optional[int]
     neuron_degeneracy_coefficient: Optional[float]
     neuron_psp_uniform_distribution: Optional[bool]
+    neuron_mp_charge_accumulation: Optional[bool]
 
 
 # class Network(BaseModel):
@@ -502,7 +495,8 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "neuron_consecutive_fire_count": cortical_data['consecutive_fire_cnt_max'],
                 "neuron_snooze_period": cortical_data['snooze_length'],
                 "neuron_degeneracy_coefficient": cortical_data['degeneration'],
-                "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution']
+                "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution'],
+                "neuron_mp_charge_accumulation": cortical_data['mp_charge_accumulation'],
             }
             response.status_code = status.HTTP_200_OK
             return cortical_properties
@@ -521,13 +515,13 @@ async def update_cortical_properties(message: UpdateCorticalProperties, response
     try:
         message = message.dict()
         message = {'update_cortical_properties': message}
-        print("*" * 50 + "\n", message)
+        print("*-----* " * 200 + "\n", message)
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
 
     except Exception as e:
         response.status_code = status.HTTP_400_BAD_REQUEST
-        print("API Error:", e)
+        print("API Error:", message, e, traceback.print_exc())
 
 
 @app.api_route("/v1/feagi/genome/cortical_area", methods=['POST'], tags=["Genome"])
