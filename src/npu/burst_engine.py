@@ -276,7 +276,6 @@ def burst_manager():
                                                   overwrite_value=0)
 
                     elif runtime_data.genome["blueprint"][fq_cortical_area]["mp_charge_accumulation"]:
-                    # else:
                         membrane_potential = \
                             runtime_data.brain[fq_cortical_area][neuron_id]["membrane_potential"]
                         membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
