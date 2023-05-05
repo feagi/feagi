@@ -39,6 +39,12 @@ def genome_ver_check(genome):
             genome1 = genome_2_1_convertor(flat_genome=genome['blueprint'])
             genome_2_hierarchifier(flat_genome=genome['blueprint'])
             genome['blueprint'] = genome1['blueprint']
+            # todo temp check to find a better solution
+            for _ in genome["blueprint"]:
+                if "mp_charge_accumulation" not in genome["blueprint"][_]:
+                    genome["blueprint"][_]["mp_charge_accumulation"] = True
+                else:
+                    genome["blueprint"][_]["mp_charge_accumulation"] = True
             return genome
         else:
             print("ERROR! Genome is not compatible with 2.0 standard")
