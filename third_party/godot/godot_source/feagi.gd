@@ -356,7 +356,7 @@ func _on_Update_pressed():
 	last_cortical_selected["neuron_post_synaptic_potential_max"] = post_synaptic_potential_max
 	last_cortical_selected["neuron_plasticity_constant"] = plasticity_coef
 	last_cortical_selected["neuron_fire_threshold"] = fire_threshold
-	last_cortical_selected["neuron_fire_threshold_increment"] = fire_threshold_increment
+	last_cortical_selected["neuron_fire_threshold_increment"] = float(fire_threshold_increment)
 	last_cortical_selected["neuron_refractory_period"] = refractory_period
 	last_cortical_selected["neuron_leak_coefficient"] = float(leak_coefficient)
 	last_cortical_selected["neuron_leak_variability"] = float(leak_variability)
@@ -365,6 +365,7 @@ func _on_Update_pressed():
 	last_cortical_selected["neuron_degeneracy_coefficient"] = degenerecy_coefficient
 	last_cortical_selected["neuron_psp_uniform_distribution"] = psp_uniform_distribution
 	last_cortical_selected["neuron_mp_charge_accumulation"] = bool(MP_accumulation)
+	print(last_cortical_selected)
 	_make_put_request('http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/cortical_area',last_cortical_selected, false, "/v1/feagi/genome/cortical_area")
 	$Spatial/Camera/Menu/cortical_menu/Control/Update.release_focus()
 	$Spatial/Camera/Menu/properties/Control/Update.release_focus()
