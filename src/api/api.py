@@ -191,6 +191,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_snooze_period: Optional[int]
     neuron_degeneracy_coefficient: Optional[float]
     neuron_psp_uniform_distribution: Optional[bool]
+    neuron_mp_charge_accumulation: Optional[bool]
 
 
 # class Network(BaseModel):
@@ -502,7 +503,8 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "neuron_consecutive_fire_count": cortical_data['consecutive_fire_cnt_max'],
                 "neuron_snooze_period": cortical_data['snooze_length'],
                 "neuron_degeneracy_coefficient": cortical_data['degeneration'],
-                "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution']
+                "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution'],
+                "neuron_mp_charge_accumulation": cortical_data['mp_charge_accumulation'],
             }
             response.status_code = status.HTTP_200_OK
             return cortical_properties

@@ -168,6 +168,10 @@ def update_cortical_properties(cortical_properties):
         runtime_data.genome["blueprint"][cortical_area]["consecutive_fire_cnt_max"] = \
             cortical_properties['neuron_consecutive_fire_count']
 
+    if cortical_properties['neuron_mp_charge_accumulation'] is not None:
+        runtime_data.genome["blueprint"][cortical_area]["neuron_mp_charge_accumulation"] = \
+            cortical_properties['neuron_mp_charge_accumulation']
+
     if cortical_properties['cortical_visibility'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["visualization"] = \
             cortical_properties['cortical_visibility']
