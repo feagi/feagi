@@ -58,7 +58,6 @@ async def echo(websocket):
         # Store values in dictionary
         microbit_data['ir'] = [ir0, ir1]
         microbit_data['ultrasonic'] = ultrasonic / 25
-        print("ultrasonic: ", microbit_data['ultrasonic'], "microbit: ", microbit_data['ir'])
         microbit_data['accelerator'] = [x, y, z]
         microbit_data['sound_level'] = {sound_level}
         try:
@@ -160,27 +159,12 @@ if __name__ == "__main__":
                 ws.append("f#")
         # OPU section ENDS
 
-        ir_data = microbit_data['ir']
-        if ir_data:
-            ir_data = {'0': microbit_data[ir_data][0], '1': microbit_data[ir_data][1]}
+        if microbit_data['ir']:
+            ir_data = {0: bool(microbit_data['ir'][0]), 1: bool(microbit_data['ir'][1])}
             formatted_ir_data = {'ir': dict.fromkeys(ir_data.keys(), 1)}
             formatted_ir_data['ir'].update(ir_data)  # Should work
         else:
             formatted_ir_data = {}
-        # print("iR: ", microbit_data['ir'])
-        # print("processed IR: ", formatted_ir_data)
-        if ir_data:
-            for ir_sensor in range(int(capabilities['infrared']['count'])):
-                if ir_sensor not in formatted_ir_data['ir']:
-                    formatted_ir_data['ir'][ir_sensor] = False
-        else:
-            formatted_ir_data['ir'] = {}
-            for ir_sensor in range(int(capabilities['infrared']['count'])):
-                formatted_ir_data['ir'][ir_sensor] = False
-
-        for ir_sensor in range(int(capabilities['infrared']['count'])):
-            if ir_sensor not in formatted_ir_data['ir']:
-                formatted_ir_data['ir'][ir_sensor] = False
         ultrasonic_data = microbit_data['ultrasonic']
         if ultrasonic_data:
             formatted_ultrasonic_data = {
