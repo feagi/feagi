@@ -466,6 +466,9 @@ async def fetch_cortical_properties(cortical_area, response: Response):
         if len(cortical_area) == genome_properties["structure"]["cortical_name_length"]:
             cortical_data = runtime_data.genome['blueprint'][cortical_area]
 
+            if 'mp_charge_accumulation' not in cortical_data:
+                cortical_data['mp_charge_accumulation'] = True
+
             cortical_properties = {
                 "cortical_id": cortical_area,
                 "cortical_name": cortical_data['cortical_name'],
