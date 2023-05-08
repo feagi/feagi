@@ -749,7 +749,7 @@ async def genome_delete_neuron_morphology(morphology_name, response: Response):
     """
     try:
         if morphology_name in runtime_data.genome['neuron_morphologies']:
-            usage = morphology_usage_list(morphology_name=morphology_name)
+            usage = morphology_usage_list(morphology_name=morphology_name, genome=runtime_data.genome)
             if not usage:
                 runtime_data.genome['neuron_morphologies'].pop(morphology_name)
                 response.status_code = status.HTTP_200_OK
