@@ -260,7 +260,7 @@ class InfluxManagement:
 
                 },
                 "fields": {
-                    "membrane_potential": float(membrane_potential)
+                    'membrane_potential': float(membrane_potential)
                 }
             }
         ]

@@ -35,7 +35,7 @@ def activation_function(postsynaptic_current):
 def reset_cumulative_counters(cortical_area, neuron_id):
     runtime_data.brain[cortical_area][neuron_id]["last_burst_num"] = runtime_data.burst_count
     runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"] = runtime_data.burst_count
-    runtime_data.brain[cortical_area][neuron_id]["cumulative_fire_count"] += 1
+    runtime_data.brain[cortical_area][neuron_id]['cumulative_fire_count'] += 1
     runtime_data.brain[cortical_area][neuron_id]["cumulative_fire_count_inst"] += 1
     # Condition to increase the consecutive fire count
     runtime_data.brain[cortical_area][neuron_id]["consecutive_fire_cnt"] += 1
@@ -48,9 +48,9 @@ def neuron_stimulation_mp_logger(cortical_area, neuron_id):
                           filter_criteria=runtime_data.neuron_mp_collection_scope[cortical_area]):
 
             vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
-            fire_threshold = runtime_data.brain[cortical_area][neuron_id]["firing_threshold"]
+            fire_threshold = runtime_data.brain[cortical_area][neuron_id]['firing_threshold']
 
-            mem_pot = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
+            mem_pot = runtime_data.brain[cortical_area][neuron_id]['membrane_potential']
 
             # Note: dst_cortical_area is fed to the src_cortical_area field since the membrane potential of dst changes
 
@@ -87,12 +87,12 @@ def update_membrane_potential_fire_queue(cortical_area, neuron_id, mp_update_amo
     if neuron_id not in runtime_data.fire_queue[cortical_area]:
         runtime_data.fire_queue[cortical_area][neuron_id] = [None, None]
         # Storing the membrane potential of the updated neuron
-        runtime_data.fire_queue[cortical_area][neuron_id][0] = dst_neuron_obj["membrane_potential"]
+        runtime_data.fire_queue[cortical_area][neuron_id][0] = dst_neuron_obj['membrane_potential']
         # Storing the firing threshold of the updated neuron
-        runtime_data.fire_queue[cortical_area][neuron_id][1] = dst_neuron_obj["firing_threshold"]
+        runtime_data.fire_queue[cortical_area][neuron_id][1] = dst_neuron_obj['firing_threshold']
     if mp_overwrite:
         runtime_data.fire_queue[cortical_area][neuron_id][0] = mp_overwrite
-    elif runtime_data.genome["blueprint"][cortical_area]["mp_charge_accumulation"]:
+    else:
         runtime_data.fire_queue[cortical_area][neuron_id][0] += mp_update_amount
 
 
@@ -175,7 +175,7 @@ def neuron_leak(cortical_area, neuron_id):
             leak_window = runtime_data.burst_count - last_membrane_potential_update
             leak_value = leak_window * leak_coefficient
             # Capping the leak to the max allowable membrane potential
-            # leak_value = min(leak_value, runtime_data.brain[cortical_area][neuron_id]["membrane_potential"])
+            # leak_value = min(leak_value, runtime_data.brain[cortical_area][neuron_id]['membrane_potential'])
 
             if leak_value < 0:
                 print("Warning! Leak less than 0 detected! ", leak_value)
@@ -212,11 +212,12 @@ def membrane_potential_update(cortical_area, neuron_id, membrane_potential_chang
     """
     Responsible for updating the membrane potential of each neuron
     """
-
+    print("@#@# " * 3, cortical_area, neuron_id, membrane_potential_change)
     if overwrite:
-        runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] = overwrite_value
+        runtime_data.brain[cortical_area][neuron_id]['membrane_potential'] = overwrite_value
     else:
-        runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] += membrane_potential_change
+        runtime_data.brain[cortical_area][neuron_id]['membrane_potential'] += membrane_potential_change
+        print("$$$$ " * 5, cortical_area, neuron_id, membrane_potential_change)
 
     if not bypass_db_log:
         # Assess the filter conditions set through the REST API
@@ -224,7 +225,7 @@ def membrane_potential_update(cortical_area, neuron_id, membrane_potential_chang
             if monitor_filter(cortical_area=cortical_area, neuron_id=neuron_id,
                               filter_criteria=runtime_data.neuron_mp_collection_scope[cortical_area]):
                 vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
-                dst_mp = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
+                dst_mp = runtime_data.brain[cortical_area][neuron_id]['membrane_potential']
                 # dst_cortical_area is fed to the src_cortical_area field since the membrane potential of dst changes
                 runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
                                                              src_cortical_area=cortical_area,

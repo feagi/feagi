@@ -68,8 +68,8 @@ def init_neuron(cortical_area, soma_location):
     runtime_data.brain[cortical_area][neuron_id]["neighbors"] = {}
     runtime_data.brain[cortical_area][neuron_id]["upstream_neurons"] = set()
     runtime_data.brain[cortical_area][neuron_id]["event_id"] = {}
-    runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] = 0
-    runtime_data.brain[cortical_area][neuron_id]["cumulative_fire_count"] = 0
+    runtime_data.brain[cortical_area][neuron_id]['membrane_potential'] = 0
+    runtime_data.brain[cortical_area][neuron_id]['cumulative_fire_count'] = 0
     runtime_data.brain[cortical_area][neuron_id]["cumulative_fire_count_inst"] = 0
     runtime_data.brain[cortical_area][neuron_id]["cumulative_intake_total"] = 0
     runtime_data.brain[cortical_area][neuron_id]["cumulative_intake_count"] = 0
@@ -91,12 +91,12 @@ def init_neuron(cortical_area, soma_location):
     # runtime_data.brain[cortical_area][neuron_id]["depolarization_threshold"] = \
     #     genome['blueprint'][cortical_area]['depolarization_threshold']
     if genome['blueprint'][cortical_area]['firing_threshold_increment']:
-        runtime_data.brain[cortical_area][neuron_id]["firing_threshold"] = \
+        runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] = \
             genome['blueprint'][cortical_area]['firing_threshold'] + \
             (genome['blueprint'][cortical_area]['firing_threshold_increment'] *
              (soma_location[0] + soma_location[1] + soma_location[2]))
     else:
-        runtime_data.brain[cortical_area][neuron_id]["firing_threshold"] = \
+        runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] = \
             genome['blueprint'][cortical_area]['firing_threshold']
 
     leak = genome['blueprint'][cortical_area]['leak_coefficient']
