@@ -106,6 +106,7 @@ def update_cortical_properties(cortical_properties):
     - Cortical name
 
     """
+    print("\n$$$$ " * 10, cortical_properties)
 
     regeneration_flag = False
 
@@ -218,14 +219,18 @@ def update_cortical_properties(cortical_properties):
                 cortical_properties['neuron_leak_variability']
 
     if cortical_properties['neuron_leak_coefficient'] is not None:
-        runtime_data.genome['blueprint'][cortical_area]["leak_coefficient"] = \
-            cortical_properties['neuron_leak_coefficient']
-        regeneration_flag = True
+        if runtime_data.genome['blueprint'][cortical_area]["leak_coefficient"] != \
+                cortical_properties['neuron_leak_coefficient']:
+            runtime_data.genome['blueprint'][cortical_area]["leak_coefficient"] = \
+                cortical_properties['neuron_leak_coefficient']
+            regeneration_flag = True
 
     if cortical_properties['neuron_psp_uniform_distribution'] is not None:
-        runtime_data.genome['blueprint'][cortical_area]["psp_uniform_distribution"] = \
-            cortical_properties['neuron_psp_uniform_distribution']
-        regeneration_flag = True
+        if runtime_data.genome['blueprint'][cortical_area]["psp_uniform_distribution"] != \
+                cortical_properties['neuron_psp_uniform_distribution']:
+            runtime_data.genome['blueprint'][cortical_area]["psp_uniform_distribution"] = \
+                cortical_properties['neuron_psp_uniform_distribution']
+            regeneration_flag = True
 
     if regeneration_flag:
         logger.info(f"Cortical regeneration triggered for {cortical_area}")
