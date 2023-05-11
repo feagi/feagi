@@ -15,12 +15,12 @@ limitations under the License.
 
 import asyncio
 import threading
-import websockets
-import requests
-from time import sleep
-from configuration import *
-from datetime import datetime
 from collections import deque
+from datetime import datetime
+from time import sleep
+import requests
+import websockets
+from configuration import *
 from feagi_agent import feagi_interface as feagi
 
 ws = deque()
@@ -33,10 +33,6 @@ async def echo(websocket):
     """
     async for message in websocket:
         ir0, ir1 = False, False
-        # TODO: Fix this issue
-        # if '-' in message:
-        #     message = message.replace('-', '')
-        #     print("message: ", message)
         if message[0] == 'f':
             ir0 = 0
         else:
@@ -46,19 +42,19 @@ async def echo(websocket):
         else:
             ir1 = 1
         try:
-            x = int(message[2:6]) - 1000
-            y = int(message[6:10]) - 1000
-            z = int(message[10:14]) - 1000
+            x_acc = int(message[2:6]) - 1000
+            y_acc = int(message[6:10]) - 1000
+            z_acc = int(message[10:14]) - 1000
             ultrasonic = float(message[14:16])
             sound_level = int(message[16:18])
-        except Exception as e:
-            print("error: ", e)
+        except Exception as ERROR:
+            print("error: ", ERROR)
             print("raw: ", message)
 
         # Store values in dictionary
         microbit_data['ir'] = [ir0, ir1]
         microbit_data['ultrasonic'] = ultrasonic / 25
-        microbit_data['accelerator'] = [x, y, z]
+        microbit_data['accelerator'] = [x_acc, y_acc, z_acc]
         microbit_data['sound_level'] = {sound_level}
         try:
             if len(ws) > 2:  # This will eliminate any stack up queue
@@ -67,9 +63,9 @@ async def echo(websocket):
                 ws[0] = stored_value
             await websocket.send(str(ws[0]))
             ws.pop()
-        except Exception as e:
+        except Exception as ERROR:
             pass
-            # print("error: ", e)
+            # print("error: ", ERROR)
 
 
 async def main():
@@ -130,11 +126,11 @@ if __name__ == "__main__":
     CHECKPOINT_TOTAL = 5
     FLAG_COUNTER = 0
     microbit_data = {'ir': [], 'ultrasonic': {}, 'acc': {}, 'sound_level': {}}
-    runtime_data['accelerator'] = dict()
+    runtime_data['accelerator'] = {}
     BGSK = threading.Thread(target=websocket_operation, daemon=True).start()
     flag = True
     while True:
-        ws_string = ""
+        WS_STRING = ""
         message_from_feagi = feagi_opu_channel.receive()  # Get data from FEAGI
         # OPU section STARTS
         if message_from_feagi is not None:
@@ -142,18 +138,18 @@ if __name__ == "__main__":
             if 'motor' in opu_data:
                 for data_point in opu_data['motor']:
                     if data_point == 0:
-                        ws_string = "f"
+                        WS_STRING = "f"
                     elif data_point == 1:
-                        ws_string = "b"
+                        WS_STRING = "b"
                     elif data_point == 2:
-                        ws_string = "r"
+                        WS_STRING = "r"
                     elif data_point == 3:
-                        ws_string = "l"
+                        WS_STRING = "l"
                     else:
-                        ws_string = "s"  # Skip
-                    ws_string = ws_string + str(opu_data['motor'][data_point] * 10)
-            if ws_string != "":
-                ws.append(ws_string + '#')
+                        WS_STRING = "s"  # Skip
+                    WS_STRING = WS_STRING + str(opu_data['motor'][data_point] * 10)
+            if WS_STRING != "":
+                ws.append(WS_STRING + '#')
             if flag:
                 flag = False
                 ws.append("f#")
@@ -183,11 +179,11 @@ if __name__ == "__main__":
             runtime_data['accelerator']['1'] = microbit_data['accelerator'][1]
             runtime_data['accelerator']['2'] = microbit_data['accelerator'][2]
             if "data" not in message_to_feagi:
-                message_to_feagi["data"] = dict()
+                message_to_feagi["data"] = {}
             if "sensory_data" not in message_to_feagi["data"]:
-                message_to_feagi["data"]["sensory_data"] = dict()
+                message_to_feagi["data"]["sensory_data"] = {}
             message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data['accelerator']
-        except Exception as e:
+        except Exception as error:
             message_to_feagi["data"]["sensory_data"]['accelerator'] = {}
         # End accelerator section
 
