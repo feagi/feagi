@@ -1319,6 +1319,8 @@ func _on_text_changed(new_text, node_input):
 	if new_text != "":
 		if new_text.is_valid_integer():
 			node_input.value = int(new_text)
+		elif new_text == "-":
+			node_input.value = int(new_text)
 		else:
 			node_input.delete_char_at_cursor()
 			

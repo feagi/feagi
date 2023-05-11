@@ -156,6 +156,8 @@ def api_message_processor(api_message):
                 api_message['robot_model']['slip2']
 
     if 'update_cortical_properties' in api_message:
+        print("### ### " * 20)
+        print(api_message)
         update_cortical_properties(cortical_properties=api_message['update_cortical_properties'])
 
     if 'update_cortical_mappings' in api_message:

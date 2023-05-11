@@ -1947,6 +1947,7 @@ margin_bottom = 70.0
 text = "Update"
 
 [node name="rule_properties" type="ColorRect" parent="Spatial/Camera/Menu"]
+visible = false
 margin_left = 661.0
 margin_top = 40.0
 margin_right = 1088.0

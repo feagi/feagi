@@ -171,7 +171,7 @@ cortical_template = {
     "psp_uniform_distribution": True,
     "postsynaptic_current_max": 10,
     "cortical_mapping_dst": {},
-    "firing_threshold": 1,
+    'firing_threshold': 1,
     "firing_threshold_increment": 0,
     "mp_charge_accumulation": True,
     "refractory_period": 0,

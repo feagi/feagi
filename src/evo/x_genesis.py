@@ -106,6 +106,7 @@ def update_cortical_properties(cortical_properties):
     - Cortical name
 
     """
+    print("\n$$$$ " * 10, cortical_properties)
 
     regeneration_flag = False
 
@@ -125,12 +126,8 @@ def update_cortical_properties(cortical_properties):
         x_cortical_reposition(cortical_area=cortical_area,
                               new_coordinates=cortical_properties['cortical_coordinates'])
 
-    if cortical_properties['neuron_fire_threshold_increment'] is not None:
-        runtime_data.genome['blueprint'][cortical_area]["firing_threshold_increment"] = \
-            cortical_properties['neuron_fire_threshold_increment']
-
     if cortical_properties['neuron_fire_threshold'] is not None:
-        runtime_data.genome['blueprint'][cortical_area]["firing_threshold"] = \
+        runtime_data.genome['blueprint'][cortical_area]['firing_threshold'] = \
             cortical_properties['neuron_fire_threshold']
 
         for neuron_ in runtime_data.brain[cortical_area]:
@@ -218,14 +215,25 @@ def update_cortical_properties(cortical_properties):
                 cortical_properties['neuron_leak_variability']
 
     if cortical_properties['neuron_leak_coefficient'] is not None:
-        runtime_data.genome['blueprint'][cortical_area]["leak_coefficient"] = \
-            cortical_properties['neuron_leak_coefficient']
-        regeneration_flag = True
+        if runtime_data.genome['blueprint'][cortical_area]["leak_coefficient"] != \
+                cortical_properties['neuron_leak_coefficient']:
+            runtime_data.genome['blueprint'][cortical_area]["leak_coefficient"] = \
+                cortical_properties['neuron_leak_coefficient']
+            regeneration_flag = True
 
     if cortical_properties['neuron_psp_uniform_distribution'] is not None:
-        runtime_data.genome['blueprint'][cortical_area]["psp_uniform_distribution"] = \
-            cortical_properties['neuron_psp_uniform_distribution']
-        regeneration_flag = True
+        if runtime_data.genome['blueprint'][cortical_area]["psp_uniform_distribution"] != \
+                cortical_properties['neuron_psp_uniform_distribution']:
+            runtime_data.genome['blueprint'][cortical_area]["psp_uniform_distribution"] = \
+                cortical_properties['neuron_psp_uniform_distribution']
+            regeneration_flag = True
+
+    if cortical_properties['neuron_fire_threshold_increment'] is not None:
+        if runtime_data.genome['blueprint'][cortical_area]["firing_threshold_increment"] != \
+                cortical_properties['neuron_fire_threshold_increment']:
+            runtime_data.genome['blueprint'][cortical_area]["firing_threshold_increment"] = \
+                cortical_properties['neuron_fire_threshold_increment']
+            regeneration_flag = True
 
     if regeneration_flag:
         logger.info(f"Cortical regeneration triggered for {cortical_area}")
@@ -345,6 +353,13 @@ def cortical_removal(cortical_area, genome_scrub=False):
         # cortical_area = cortical_id(cortical_name=cortical_name)
         upstream_cortical_areas, downstream_cortical_areas = \
             neighboring_cortical_areas(cortical_area, blueprint=runtime_data.genome["blueprint"])
+
+        # Clean Upstream neuron associations
+        for downstream_cortical_area in downstream_cortical_areas:
+            for neuron in runtime_data.brain[downstream_cortical_area]:
+                for upstream_neuron in runtime_data.brain[downstream_cortical_area][neuron]["upstream_neurons"].copy():
+                    if upstream_neuron[:6] == cortical_area:
+                        runtime_data.brain[downstream_cortical_area][neuron]["upstream_neurons"].discard(upstream_neuron)
 
         # Prune affected synapses
         prune_cortical_synapses(cortical_area=cortical_area)
