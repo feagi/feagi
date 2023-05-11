@@ -256,7 +256,15 @@ def update_cortical_mappings(cortical_mappings):
     if dst_cortical_area in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
         runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'].pop(dst_cortical_area)
 
+        # todo externalize this as a function
+        # Clean Upstream neuron associations
+        for neuron in runtime_data.brain[dst_cortical_area]:
+            for upstream_neuron in runtime_data.brain[dst_cortical_area][neuron]["upstream_neurons"].copy():
+                if upstream_neuron[:6] == cortical_area:
+                    runtime_data.brain[dst_cortical_area][neuron]["upstream_neurons"].discard(upstream_neuron)
+
     runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][dst_cortical_area] = mappings
+
     if not mappings:
         runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'].pop(dst_cortical_area)
     print("mappings:", mappings)
