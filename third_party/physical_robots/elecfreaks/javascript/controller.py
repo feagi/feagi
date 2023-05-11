@@ -47,8 +47,8 @@ async def echo(websocket):
             z_acc = int(message[10:14]) - 1000
             ultrasonic = float(message[14:16])
             sound_level = int(message[16:18])
-        except Exception as ERROR:
-            print("error: ", ERROR)
+        except Exception as Error_case:
+            print("error: ", Error_case)
             print("raw: ", message)
 
         # Store values in dictionary
@@ -63,7 +63,7 @@ async def echo(websocket):
                 ws[0] = stored_value
             await websocket.send(str(ws[0]))
             ws.pop()
-        except Exception as ERROR:
+        except Exception as error:
             pass
             # print("error: ", ERROR)
 
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     microbit_data = {'ir': [], 'ultrasonic': {}, 'acc': {}, 'sound_level': {}}
     runtime_data['accelerator'] = {}
     BGSK = threading.Thread(target=websocket_operation, daemon=True).start()
-    flag = True
+    FLAG = True
     while True:
         WS_STRING = ""
         message_from_feagi = feagi_opu_channel.receive()  # Get data from FEAGI
@@ -150,8 +150,8 @@ if __name__ == "__main__":
                     WS_STRING = WS_STRING + str(opu_data['motor'][data_point] * 10)
             if WS_STRING != "":
                 ws.append(WS_STRING + '#')
-            if flag:
-                flag = False
+            if FLAG:
+                FLAG = False
                 ws.append("f#")
         # OPU section ENDS
 
@@ -183,7 +183,7 @@ if __name__ == "__main__":
             if "sensory_data" not in message_to_feagi["data"]:
                 message_to_feagi["data"]["sensory_data"] = {}
             message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data['accelerator']
-        except Exception as error:
+        except Exception as ERROR:
             message_to_feagi["data"]["sensory_data"]['accelerator'] = {}
         # End accelerator section
 
@@ -212,7 +212,7 @@ if __name__ == "__main__":
         try:
             pass
             # print(len(message_to_feagi['data']['sensory_data']['camera']['C']))
-        except Exception as error:
+        except Exception as ERROR:
             pass
         feagi_ipu_channel.send(message_to_feagi)
         message_to_feagi.clear()
