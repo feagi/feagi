@@ -243,7 +243,11 @@ def burst_manager():
                     runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = \
                         runtime_data.fire_queue[fq_cortical_area][neuron_id][0] - leak_amount
 
-                    fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1]
+                    if runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'] == 0:
+                        fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1]
+                    else:
+                        fire_threshold = runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit']
+
                     membrane_potential = runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential']
 
                     # When neuron is ready to fire
