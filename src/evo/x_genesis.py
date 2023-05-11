@@ -239,7 +239,7 @@ def update_cortical_properties(cortical_properties):
         if runtime_data.genome['blueprint'][cortical_area]["firing_threshold_limit"] != \
                 cortical_properties['neuron_firing_threshold_limit']:
             runtime_data.genome['blueprint'][cortical_area]["firing_threshold_limit"] = \
-                cortical_properties['firing_threshold_limit']
+                cortical_properties['neuron_firing_threshold_limit']
             regeneration_flag = True
 
     if regeneration_flag:
