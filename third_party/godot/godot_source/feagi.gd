@@ -783,8 +783,8 @@ func _on_morphology_types_request_completed(_result, _response_code, _headers, b
 	
 
 func _on_plus_add_pressed():
-	var new_node = $Spatial/Camera/Menu/"Mapping_Properties"/inside_mapping_menu/Control.duplicate()
-	$Spatial/Camera/Menu/"Mapping_Properties"/inside_mapping_menu.add_child(new_node)
+	var new_node = $Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu/Control.duplicate()
+	$Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu.add_child(new_node)
 	plus_node.append(new_node)
 	new_node.get_child(0).connect("pressed", self, "_on_Mapping_def_pressed")
 	new_node.get_child(4).connect("text_changed", self, "_on_text_changed", [new_node.get_child(4)])
@@ -794,8 +794,10 @@ func _on_plus_add_pressed():
 	new_node.get_child(2).value = 1
 	new_node.get_child(3).value = 1
 	new_node.get_child(4).text = str(1)
+	new_node.get_child(6).connect("pressed", self, "map_info_pressed", [new_node])
+	new_node.get_child(7).connect("pressed", self, "remove_button_inside_dst", [new_node])
 	new_node.rect_position.y = (50 * (plus_node.size()))
-	$Spatial/Camera/Menu/"Mapping_Properties"/inside_mapping_menu.rect_size.y += (30 * plus_node.size())
+	$Spatial/Camera/Menu/Mapping_Properties/inside_mapping_menu.rect_size.y += (30 * plus_node.size())
 
 
 
