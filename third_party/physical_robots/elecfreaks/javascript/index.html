@@ -1,0 +1,62 @@
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <script language="javascript" type="text/javascript" src="microBit.js"></script>
+  <script language="javascript" type="text/javascript" src="sketch.js"></script>
+
+  <!-- this line removes any default padding and style. you might only need one of these values set. -->
+  <link rel="stylesheet" type="text/css" href="style.css" />
+</head>
+
+<body>
+  <div class="container">
+    <h1>
+    micro:bit <br /> Web ble Demo
+  </h1>
+
+    <button id="searchButton" onClick="searchDevice()">search device</button>
+    <button type="button" id="connectButton">Connect!</button>
+    <button type="button" id="helloButton">Go forward</button>
+
+    <div id="properties" class="properties inactive">
+
+      <div class="property">
+        Connected: <span id="connected" class="value"></span>
+      </div>
+
+      <div class="property">
+        Button A: <span id="buttonA" class="value"></span>
+      </div>
+
+      <div class="property">
+        Button B: <span id="buttonB" class="value"></span>
+      </div>
+
+      <div class="property">
+        Accelerometer: X:<span id="acc_X" class="value"></span>, Y:<span id="acc_Y" class="value"></span>, Z:<span id="acc_Z" class="value"></span>
+      </div>
+
+      <div class="property">
+        Temperature: <span id="temp" class="value"></span>
+      </div>
+
+      <div class="property">
+        Magnetometer bearing: <span id="bearing" class="value"></span>
+      </div>
+
+      <div class="property">
+        Scrolling text:
+        <br />
+        <input type="text" id="newText" />
+        <button onClick="updateText()">update</button>
+      </div>
+
+
+    </div>
+
+  </div>
+
+</body>
+
+</html>
