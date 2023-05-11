@@ -1,6 +1,0 @@
-{
-  "Name": "Label",
-  "name_string": "LineEdit",
-  "Type": "OptionButton",
-  "option": [" ", "OPU", "IPU", "Custom"]
-}

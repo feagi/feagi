@@ -1,0 +1,13 @@
+{
+  "BAR" : {
+	"TITLE" : {
+	  "label" : "Bar Test"
+	},
+	"NEURONCOUNTER" : {
+	  "label" : "Number of Neurons"
+	},
+	"CORTICALAREAS" : {
+	  "label" : "Cortical Areas"
+	}
+  }
+}

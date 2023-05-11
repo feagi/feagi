@@ -1,0 +1,54 @@
+{
+	"NeuronParametersSection": {
+		"label": 
+		  {"eng": "Neuron Parameters"}
+		},
+	"VoxelNeuronDensity": {
+		"label":
+		  {"eng":  "Voxel Neuron Density"}
+	},
+	"SynapticAttractivity" : {
+	  "label":
+		{"eng": "Synaptic Attractivity"}
+	},
+	"PostSynapticPotential" : {
+		"label":
+		  {"eng": "Post-Synaptic Potential"} 
+	},
+	"PSPMax" : {
+		"label":
+		  {"eng": "PSP Max"} 
+	},
+	"PlasticityConstant" : {
+		"label":
+		  {"eng": "Plasticity Constant"} 
+	},
+	"FireThreshold" : {
+		"label":
+		  {"eng": "Fire Threshold"} 
+	},
+	"RefactoryPeriod" : {
+		"label":
+		  {"eng": "Refactory Period"} 
+	},
+	"LeakConstant" : {
+		"label":
+		  {"eng": "Leak Constant"} 
+	},
+	"LeakVaribility" : {
+		"label":
+		  {"eng": "Leak Varibility"} 
+	},
+	"ConsecutiveFireCount" : {
+		"label":
+		  {"eng": "Consecutive Fire Count"} 
+	},
+	"SnoozePeriod" : {
+		"label":
+		  {"eng": "Snooze Period"} 
+	},
+	"DegeneracyConstant" : {
+		"label":
+		  {"eng": "Degeneracy Constant"} 
+	},
+}

@@ -1,0 +1,33 @@
+[gd_scene load_steps=3 format=3 uid="uid://coafywp53oyxa"]
+
+[ext_resource type="Script" path="res://UI/Units/Common_SubComponents/Label_SubComponent.gd" id="1_cixrm"]
+[ext_resource type="Script" path="res://UI/Units/Components/DropDown/Button_SubComponent.gd" id="1_po2lj"]
+
+[node name="Popup" type="Panel"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -115.0
+offset_top = -127.0
+offset_right = 165.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Button_SubComponent" type="Button" parent="."]
+layout_mode = 0
+offset_left = 241.0
+offset_top = 7.0
+offset_right = 270.0
+offset_bottom = 38.0
+text = "X"
+script = ExtResource("1_po2lj")
+
+[node name="Label_SubComponent" type="Label" parent="."]
+layout_mode = 0
+offset_left = 113.0
+offset_top = 10.0
+offset_right = 153.0
+offset_bottom = 33.0
+script = ExtResource("1_cixrm")
