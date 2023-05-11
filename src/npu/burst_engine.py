@@ -248,7 +248,7 @@ def burst_manager():
                     else:
                         fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1] + \
                                          (runtime_data.fire_queue[fq_cortical_area][neuron_id][1] *
-                                          runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'])
+                                          runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit']/100)
 
                     membrane_potential = runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential']
 
