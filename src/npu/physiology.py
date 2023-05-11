@@ -212,12 +212,11 @@ def membrane_potential_update(cortical_area, neuron_id, membrane_potential_chang
     """
     Responsible for updating the membrane potential of each neuron
     """
-    print("@#@# " * 3, cortical_area, neuron_id, membrane_potential_change)
+
     if overwrite:
         runtime_data.brain[cortical_area][neuron_id]['membrane_potential'] = overwrite_value
     else:
         runtime_data.brain[cortical_area][neuron_id]['membrane_potential'] += membrane_potential_change
-        print("$$$$ " * 5, cortical_area, neuron_id, membrane_potential_change)
 
     if not bypass_db_log:
         # Assess the filter conditions set through the REST API
