@@ -176,6 +176,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_plasticity_constant: Optional[float]
     neuron_fire_threshold: Optional[float]
     neuron_fire_threshold_increment: Optional[float]
+    neuron_firing_threshold_limit: Optional[float]
     neuron_refractory_period: Optional[int]
     neuron_leak_coefficient: Optional[float]
     neuron_leak_variability: Optional[float]
@@ -492,6 +493,7 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "neuron_plasticity_constant": cortical_data['plasticity_constant'],
                 "neuron_fire_threshold": cortical_data['firing_threshold'],
                 "neuron_fire_threshold_increment": cortical_data['firing_threshold_increment'],
+                "neuron_firing_threshold_limit": cortical_data['firing_threshold_limit'],
                 "neuron_refractory_period": cortical_data['refractory_period'],
                 "neuron_leak_coefficient": cortical_data['leak_coefficient'],
                 "neuron_leak_variability": cortical_data['leak_variability'],
