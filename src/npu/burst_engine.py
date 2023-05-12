@@ -243,19 +243,29 @@ def burst_manager():
                     runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = \
                         runtime_data.fire_queue[fq_cortical_area][neuron_id][0] - leak_amount
 
+                    fire_threshold_cap = None
                     if runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'] == 0:
                         fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1]
                     else:
-                        fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1] + \
+                        fire_threshold_cap = runtime_data.fire_queue[fq_cortical_area][neuron_id][1] + \
                                          (runtime_data.fire_queue[fq_cortical_area][neuron_id][1] *
-                                          runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit']/100)
+                                          runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit']
+                                          / 100)
 
                     membrane_potential = runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential']
 
                     # When neuron is ready to fire
-                    if membrane_potential >= fire_threshold and \
+                    if fire_threshold_cap:
+                        fire_condition = membrane_potential >= fire_threshold and \
+                                         refractory_check(fq_cortical_area, neuron_id) and \
+                                         consecutive_fire_threshold_check(cortical_area_=fq_cortical_area, neuron_id=neuron_id) and \
+                                         membrane_potential <= fire_threshold_cap
+                    else:
+                        fire_condition = membrane_potential >= fire_threshold and \
                             refractory_check(fq_cortical_area, neuron_id) and \
-                            consecutive_fire_threshold_check(cortical_area_=fq_cortical_area, neuron_id=neuron_id):
+                            consecutive_fire_threshold_check(cortical_area_=fq_cortical_area, neuron_id=neuron_id)
+
+                    if fire_condition:
                         # The actual trigger to fire the neuron
                         runtime_data.brain[fq_cortical_area][neuron_id]["last_membrane_potential_reset_burst"] = \
                             runtime_data.burst_count
