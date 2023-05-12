@@ -11,7 +11,7 @@ jobs:
       uses: actions/checkout@v2
     
     - name: check var
-      run: ${{ github.run_attempt }}
+      run: echo ${{ github.run_attempt }}
       
     # This step seems rather inefficient. Too bad!
     - name: Build and tag FEAGI
