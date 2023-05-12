@@ -9,13 +9,6 @@ jobs:
     steps:
     - name: Download FEAGI
       uses: actions/checkout@v2
-    
-    - name: check var
-      run: echo ${{ github.run_attempt }}
-      
-    # This step seems rather inefficient. Too bad!
-    - name: Build
-      run: docker build docker/ --file docker/Dockerfile --tag gcr.io/feagi-poc/feagi/feagi:${{ github.run_attempt }}
 
     - name: Push to GCR GitHub Action
       uses: RafikFarhad/push-to-gcr-github-action@v4.1
