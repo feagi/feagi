@@ -14,7 +14,7 @@ jobs:
       uses: RafikFarhad/push-to-gcr-github-action@v4.1
       with:
         gcloud_service_key: ${{secrets.GCR_SERVICE}}
-        project_id: feagi
+        project_id: feagi-poc
         image_name: feagi
         image_tag: ${{ github.run_attempt }}
         dockerfile: docker/Dockerfile
