@@ -13,6 +13,9 @@ jobs:
     - name: store time
       run: TIME=(date +%s)
     
+    - name: check time
+      run: echo $TIME
+    
     # This step seems rather inefficient. Too bad!
     - name: Build and tag FEAGI
       run: docker build docker/ --file docker/Dockerfile --tag gcr.io/feagi-poc/feagi/feagi:${TIME}
