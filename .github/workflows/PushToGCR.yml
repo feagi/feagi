@@ -16,7 +16,7 @@ jobs:
 
     - name: Login into Google
       # we need to authenticate with google cloug first
-      uses: google-github-actions/setup-gcloud@master
+      uses: google-github-actions/setup-gcloud@v1.1.1
       with:
         service_account_key: ${{secrets.serviceAccountKey}}
         project_id: ${{secrets.projectName}}
