@@ -13,7 +13,7 @@ jobs:
         repository: feagi/feagi
     
     - name: Set Origin
-      run: git remote set-url --add --push origin https://${{secrets.LOCALUSERNAME}}:${{secrets.LOCALTOKEN}}@github.com/Neuraville/NRS-FEAGI.git/staging
+      run: git remote set-url --add --push origin https://${{secrets.LOCALUSERNAME}}:${{secrets.LOCALTOKEN}}@github.com/Neuraville/NRS-FEAGI.git
       
     - name: Push FEAGI
-      run: git push origin staging
+      run: git push -u origin staging
