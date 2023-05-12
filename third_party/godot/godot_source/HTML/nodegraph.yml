@@ -15,6 +15,6 @@ services:
 #    env_file:
 #      - ./.env
     ports:
-      - 9000:9000
+      - 6081:6081
     networks:
       - net 
