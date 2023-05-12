@@ -24,4 +24,4 @@ jobs:
         project_id: feagi
         image_name: feagi
         image_tag: ${{ github.run_attempt }}
-        dockerfile: docker/
+        dockerfile: docker/Dockerfile
