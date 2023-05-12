@@ -11,11 +11,11 @@ jobs:
       uses: actions/checkout@v2
     
     - name: store time
-      run: time=(date +%s)
+      run: TIME=(date +%s)
     
     # This step seems rather inefficient. Too bad!
     - name: Build and tag FEAGI
-      run: docker build docker/ --file docker/Dockerfile --tag gcr.io/feagi-poc/feagi/feagi:$time
+      run: docker build docker/ --file docker/Dockerfile --tag gcr.io/feagi-poc/feagi/feagi:${TIME}
 
     - name: Login into Google
       # we need to authenticate with google cloug first
@@ -26,4 +26,4 @@ jobs:
         export_default_credentials: true
 
     - name: Push Docker Image to Google
-      run: docker push gcr.io/feagi-poc/feagi/feagi:$time
+      run: docker push gcr.io/feagi-poc/feagi/feagi:${TIME}
