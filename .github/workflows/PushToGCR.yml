@@ -10,6 +10,9 @@ jobs:
     - name: Download FEAGI
       uses: actions/checkout@v2
     
+    - name: check var
+      run: echo ${{ vars.GITHUB_RUN_ATTEMPT }}
+      
     # This step seems rather inefficient. Too bad!
     - name: Build and tag FEAGI
       run: docker build docker/ --file docker/Dockerfile --tag gcr.io/feagi-poc/feagi/feagi:${{vars.GITHUB_RUN_ATTEMPT}}
