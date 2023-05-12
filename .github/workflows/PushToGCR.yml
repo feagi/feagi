@@ -14,7 +14,7 @@ jobs:
       run: echo ${{ github.run_attempt }}
       
     # This step seems rather inefficient. Too bad!
-    - name: Build and tag FEAGI
+    - name: Build
       run: docker build docker/ --file docker/Dockerfile --tag gcr.io/feagi-poc/feagi/feagi:${{ github.run_attempt }}
 
     - name: Push to GCR GitHub Action
@@ -24,4 +24,4 @@ jobs:
         project_id: feagi
         image_name: feagi
         image_tag: ${{ github.run_attempt }}
-        dockerfile: docker
+        dockerfile: docker/
