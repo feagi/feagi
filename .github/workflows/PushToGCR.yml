@@ -20,7 +20,7 @@ jobs:
     - name: Push to GCR GitHub Action
       uses: RafikFarhad/push-to-gcr-github-action@v4.1
       with:
-        gcloud_service_key: ${{secrets.KEVIN_KEY}}
+        gcloud_service_key: ${{secrets.GCR_SERVICE}}
         project_id: feagi
         image_name: feagi
         image_tag: ${{ github.run_attempt }}
