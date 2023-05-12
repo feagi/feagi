@@ -29,4 +29,4 @@ jobs:
         export_default_credentials: true
 
     - name: Push Docker Image to Google
-      run: docker push gcr.io/feagi-poc/feagi:$(date +%s)
+      run: docker push gcr.io/feagi-poc/feagi/feagi:$(date +%s)
