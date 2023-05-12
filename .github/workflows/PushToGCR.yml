@@ -15,6 +15,6 @@ jobs:
       with:
         gcloud_service_key: ${{secrets.GCR_SERVICE}}
         project_id: feagi-poc
-        image_name: feagi
-        image_tag: ${{ github.run_attempt }}
+        image_name: feagi/feagi
+        image_tag: $(date +%s)
         dockerfile: docker/Dockerfile
