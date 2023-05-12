@@ -12,14 +12,14 @@ jobs:
 
     # This step seems rather inefficient. Too bad!
     - name: Build and tag FEAGI
-      run: docker build /docker/ --file /docker/Dockerfile --tag ${{secrets.HOST}}/${{secrets.PROJECTNAME}}/feagi:$(date +%s)
+      run: docker build /docker/ --file /docker/Dockerfile --tag gcr.io/FEAGI-POC/feagi:$(date +%s)
 
     - name: Login into Google
       # we need to authenticate with google cloug first
       uses: google-github-actions/setup-gcloud@v1.1.1
       with:
         service_account_key: ${{secrets.SERVICEACCOUNTKEY}}
-        project_id: ${{secrets.PROJECTNAME}}
+        project_id: FEAGI-POC
         export_default_credentials: true
 
     - name: Push Docker Image to Google
