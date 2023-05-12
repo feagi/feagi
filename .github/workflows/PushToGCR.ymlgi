@@ -25,7 +25,7 @@ jobs:
       uses: google-github-actions/setup-gcloud@v1.1.1
       with:
         service_account_key: ${{secrets.GCR_SERVICE}}
-        project_id: FEAGI-POC
+        project_id: feagi-poc
         export_default_credentials: true
 
     - name: Push Docker Image to Google
