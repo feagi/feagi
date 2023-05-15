@@ -1,0 +1,20 @@
+version: "3"
+
+networks:
+  net:
+    driver: bridge
+
+services:
+  nodegraph:
+    build: .
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
+#    env_file:
+#      - ./.env
+    ports:
+      - 9000:9000
+    networks:
+      - net 

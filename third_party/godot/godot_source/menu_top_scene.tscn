@@ -1,0 +1,3341 @@
+[gd_scene load_steps=40 format=3 uid="uid://cxggfcr5abcw4"]
+
+[ext_resource type="Script" path="res://brain_visualizer_source/Menu.gd" id="1_8yklr"]
+[ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/burst_value.gd" id="2_ho72x"]
+[ext_resource type="Script" path="res://brain_visualizer_source/cortical_cam_label_menu.gd" id="3_8dhsl"]
+[ext_resource type="Texture2D" uid="uid://bd3hwkynrgrdo" path="res://brain_visualizer_source/menu_assets/image/add_cortical.png" id="4_536em"]
+[ext_resource type="FontFile" uid="uid://715n48cqtpb3" path="res://brain_visualizer_source/BakbakOne-Regular.ttf" id="5_ohmdu"]
+[ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/name.gd" id="6_rwokn"]
+[ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/name_string.gd" id="7_b6eki"]
+[ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/OptionButton.gd" id="8_1ty2j"]
+[ext_resource type="Script" path="res://brain_visualizer_source/spinbox_release.gd" id="9_p3crj"]
+[ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/Update.gd" id="10_va6fu"]
+[ext_resource type="Script" path="res://brain_visualizer_source/leak.gd" id="11_dr8xm"]
+[ext_resource type="Script" path="res://brain_visualizer_source/button_release.gd" id="12_goy1d"]
+[ext_resource type="Script" path="res://brain_visualizer_source/afferent.gd" id="13_me55f"]
+[ext_resource type="Texture2D" uid="uid://cv2766mof3xcq" path="res://brain_visualizer_source/menu_assets/image/information.png" id="14_mu3yd"]
+[ext_resource type="Texture2D" uid="uid://cudr8ifago1bd" path="res://brain_visualizer_source/menu_assets/image/remove_cortical.png" id="15_kroyq"]
+[ext_resource type="Texture2D" uid="uid://bdhgs6bernr2j" path="res://brain_visualizer_source/menu_assets/image/collapse_not_selected.png" id="16_36la2"]
+[ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/addition_menu.gd" id="17_djcos"]
+[ext_resource type="FontFile" uid="uid://bspk1m2cgfpm0" path="res://brain_visualizer_source/Glegoo-Bold.ttf" id="18_xgffo"]
+[ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/cortical_area_type.gd" id="19_xwsn1"]
+[ext_resource type="Script" path="res://brain_visualizer_source/Mapping_properties.gd" id="20_rdfsi"]
+[ext_resource type="Script" path="res://brain_visualizer_source/Mapping_control.gd" id="21_iopyv"]
+[ext_resource type="Script" path="res://brain_visualizer_source/add_options_cortical.gd" id="22_318by"]
+[ext_resource type="Texture2D" uid="uid://dbh23e0afal5q" path="res://brain_visualizer_source/menu_assets/image/close.png" id="23_6hwrd"]
+[ext_resource type="Script" path="res://brain_visualizer_source/rule_properties.gd" id="24_n2t25"]
+[ext_resource type="Script" path="res://brain_visualizer_source/rules.gd" id="25_jwleh"]
+[ext_resource type="Script" path="res://brain_visualizer_source/text_control.gd" id="26_wtxwy"]
+[ext_resource type="Script" path="res://brain_visualizer_source/Control.gd" id="27_eb7xb"]
+[ext_resource type="Script" path="res://brain_visualizer_source/3D_enable.gd" id="28_ks2tq"]
+
+[sub_resource type="FontFile" id="FontFile_sqg2h"]
+subpixel_positioning = 0
+msdf_pixel_range = 14
+msdf_size = 128
+fallbacks = Array[Font]([ExtResource("5_ohmdu")])
+face_index = null
+embolden = null
+transform = null
+cache/0/16/0/ascent = 0.0
+cache/0/16/0/descent = 0.0
+cache/0/16/0/underline_position = 0.0
+cache/0/16/0/underline_thickness = 0.0
+cache/0/16/0/scale = 1.0
+cache/0/16/0/kerning_overrides/16/0 = Vector2(0, 0)
+
+[sub_resource type="FontFile" id="FontFile_fc4a2"]
+subpixel_positioning = 0
+msdf_pixel_range = 14
+msdf_size = 128
+fallbacks = Array[Font]([ExtResource("5_ohmdu")])
+face_index = null
+embolden = null
+transform = null
+cache/0/16/0/ascent = 0.0
+cache/0/16/0/descent = 0.0
+cache/0/16/0/underline_position = 0.0
+cache/0/16/0/underline_thickness = 0.0
+cache/0/16/0/scale = 1.0
+cache/0/16/0/kerning_overrides/16/0 = Vector2(0, 0)
+
+[sub_resource type="FontFile" id="FontFile_6divx"]
+subpixel_positioning = 0
+msdf_pixel_range = 14
+msdf_size = 128
+fallbacks = Array[Font]([ExtResource("5_ohmdu")])
+face_index = null
+embolden = null
+transform = null
+cache/0/16/0/ascent = 0.0
+cache/0/16/0/descent = 0.0
+cache/0/16/0/underline_position = 0.0
+cache/0/16/0/underline_thickness = 0.0
+cache/0/16/0/scale = 1.0
+cache/0/16/0/kerning_overrides/16/0 = Vector2(0, 0)
+
+[sub_resource type="FontFile" id="FontFile_ql0q6"]
+subpixel_positioning = 0
+msdf_pixel_range = 14
+msdf_size = 128
+face_index = null
+embolden = null
+transform = null
+cache/0/16/0/ascent = 0.0
+cache/0/16/0/descent = 0.0
+cache/0/16/0/underline_position = 0.0
+cache/0/16/0/underline_thickness = 0.0
+cache/0/16/0/scale = 1.0
+cache/0/16/0/kerning_overrides/16/0 = Vector2(0, 0)
+
+[sub_resource type="FontFile" id="FontFile_ussi2"]
+subpixel_positioning = 0
+msdf_pixel_range = 14
+msdf_size = 128
+fallbacks = Array[Font]([ExtResource("5_ohmdu")])
+face_index = null
+embolden = null
+transform = null
+cache/0/16/0/ascent = 0.0
+cache/0/16/0/descent = 0.0
+cache/0/16/0/underline_position = 0.0
+cache/0/16/0/underline_thickness = 0.0
+cache/0/16/0/scale = 1.0
+cache/0/16/0/kerning_overrides/16/0 = Vector2(0, 0)
+
+[sub_resource type="FontFile" id="FontFile_o4pyn"]
+subpixel_positioning = 0
+msdf_pixel_range = 14
+msdf_size = 128
+fallbacks = Array[Font]([ExtResource("18_xgffo")])
+face_index = null
+embolden = null
+transform = null
+cache/0/16/0/ascent = 0.0
+cache/0/16/0/descent = 0.0
+cache/0/16/0/underline_position = 0.0
+cache/0/16/0/underline_thickness = 0.0
+cache/0/16/0/scale = 1.0
+cache/0/16/0/kerning_overrides/16/0 = Vector2(0, 0)
+
+[sub_resource type="FontFile" id="FontFile_cnchj"]
+subpixel_positioning = 0
+msdf_pixel_range = 14
+msdf_size = 128
+fallbacks = Array[Font]([ExtResource("5_ohmdu")])
+face_index = null
+embolden = null
+transform = null
+cache/0/16/0/ascent = 0.0
+cache/0/16/0/descent = 0.0
+cache/0/16/0/underline_position = 0.0
+cache/0/16/0/underline_thickness = 0.0
+cache/0/16/0/scale = 1.0
+cache/0/16/0/kerning_overrides/16/0 = Vector2(0, 0)
+
+[sub_resource type="FontFile" id="FontFile_kjhvs"]
+subpixel_positioning = 0
+msdf_pixel_range = 14
+msdf_size = 128
+fallbacks = Array[Font]([ExtResource("5_ohmdu")])
+face_index = null
+embolden = null
+transform = null
+cache/0/16/0/ascent = 0.0
+cache/0/16/0/descent = 0.0
+cache/0/16/0/underline_position = 0.0
+cache/0/16/0/underline_thickness = 0.0
+cache/0/16/0/scale = 1.0
+cache/0/16/0/kerning_overrides/16/0 = Vector2(0, 0)
+
+[sub_resource type="FontFile" id="FontFile_fkce6"]
+subpixel_positioning = 0
+msdf_pixel_range = 14
+msdf_size = 128
+fallbacks = Array[Font]([ExtResource("5_ohmdu")])
+face_index = null
+embolden = null
+transform = null
+cache/0/16/0/ascent = 0.0
+cache/0/16/0/descent = 0.0
+cache/0/16/0/underline_position = 0.0
+cache/0/16/0/underline_thickness = 0.0
+cache/0/16/0/scale = 1.0
+cache/0/16/0/kerning_overrides/16/0 = Vector2(0, 0)
+
+[sub_resource type="FontFile" id="FontFile_46nir"]
+subpixel_positioning = 0
+msdf_pixel_range = 14
+msdf_size = 128
+fallbacks = Array[Font]([ExtResource("5_ohmdu")])
+face_index = null
+embolden = null
+transform = null
+cache/0/16/0/ascent = 0.0
+cache/0/16/0/descent = 0.0
+cache/0/16/0/underline_position = 0.0
+cache/0/16/0/underline_thickness = 0.0
+cache/0/16/0/scale = 1.0
+cache/0/16/0/kerning_overrides/16/0 = Vector2(0, 0)
+
+[sub_resource type="FontFile" id="FontFile_jm7r5"]
+subpixel_positioning = 0
+msdf_pixel_range = 14
+msdf_size = 128
+fallbacks = Array[Font]([ExtResource("18_xgffo")])
+face_index = null
+embolden = null
+transform = null
+cache/0/16/0/ascent = 0.0
+cache/0/16/0/descent = 0.0
+cache/0/16/0/underline_position = 0.0
+cache/0/16/0/underline_thickness = 0.0
+cache/0/16/0/scale = 1.0
+cache/0/16/0/kerning_overrides/16/0 = Vector2(0, 0)
+
+[node name="Menu" type="Control"]
+layout_mode = 3
+anchor_right = 0.062
+anchor_bottom = 0.373
+offset_right = 66.512
+offset_bottom = 224.2
+mouse_filter = 1
+script = ExtResource("1_8yklr")
+
+[node name="information_menu" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.246154
+anchor_right = 7.03077
+anchor_bottom = 0.102679
+color = Color(0.592157, 0.584314, 0.584314, 1)
+
+[node name="genome_label" type="Label" parent="information_menu"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.00111824
+anchor_top = 0.0209036
+anchor_right = 0.0759171
+anchor_bottom = 1.0209
+text = "Genome:"
+metadata/_edit_use_anchors_ = true
+
+[node name="genome_string" type="LineEdit" parent="information_menu"]
+light_mask = 0
+custom_minimum_size = Vector2(-10, -10)
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.0876215
+anchor_top = 0.167229
+anchor_right = 0.306675
+anchor_bottom = 0.815242
+mouse_filter = 1
+editable = false
+virtual_keyboard_enabled = false
+shortcut_keys_enabled = false
+script = ExtResource("2_ho72x")
+metadata/_edit_use_anchors_ = true
+
+[node name="burst_duration_label" type="Label" parent="information_menu"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.326
+anchor_top = 0.003
+anchor_right = 0.33
+anchor_bottom = 1.0
+offset_left = 2.91522
+offset_top = -0.143516
+offset_right = 163.172
+offset_bottom = -0.838554
+tooltip_text = "burst rate"
+mouse_filter = 1
+text = "System Refresh Rate:"
+
+[node name="burst_value" type="LineEdit" parent="information_menu/burst_duration_label"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.999716
+anchor_top = 0.0851064
+anchor_right = 1.41502
+anchor_bottom = 0.415
+offset_left = 1.04651
+offset_bottom = 15.495
+text = "0.0"
+script = ExtResource("2_ho72x")
+metadata/_edit_use_anchors_ = true
+
+[node name="hz" type="Label" parent="information_menu/burst_duration_label/burst_value"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.062
+anchor_right = 1.0
+anchor_bottom = 0.9
+offset_left = 64.8421
+offset_right = 32.9375
+offset_bottom = 0.1
+text = "Hz"
+
+[node name="cortical_cam_label" type="Label" parent="information_menu"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.510204
+anchor_right = 0.606576
+anchor_bottom = 1.0
+offset_left = 100.576
+offset_top = 8.0
+offset_right = 135.387
+offset_bottom = 8.0
+text = "Cortical Area3D:"
+
+[node name="grab_location_of_cortical" type="HTTPRequest" parent="information_menu/cortical_cam_label"]
+
+[node name="@@47949" type="Timer" parent="information_menu/cortical_cam_label/grab_location_of_cortical"]
+one_shot = true
+
+[node name="menu" type="Button" parent="information_menu/cortical_cam_label"]
+layout_mode = 0
+anchor_left = 0.870588
+anchor_top = 0.181818
+anchor_right = 2.35294
+anchor_bottom = 0.727273
+focus_mode = 0
+script = ExtResource("3_8dhsl")
+
+[node name="menu_itemlist" type="ItemList" parent="information_menu/cortical_cam_label"]
+visible = false
+layout_mode = 0
+anchor_left = 0.870587
+anchor_top = 0.760866
+anchor_right = 2.35294
+anchor_bottom = 5.36954
+item_count = 1
+item_0/text = "Item 0"
+
+[node name="Label" type="Label" parent="information_menu"]
+layout_mode = 0
+anchor_left = 0.737
+anchor_top = 0.074
+anchor_right = 0.897959
+anchor_bottom = 1.0
+offset_left = -0.0340576
+offset_top = -3.40401
+text = "Neuron Morphologies:"
+
+[node name="Neuron_morphologies_button" type="Button" parent="information_menu"]
+layout_mode = 0
+anchor_left = 0.930839
+anchor_top = 0.173913
+anchor_right = 1.07596
+anchor_bottom = 0.717391
+focus_mode = 0
+
+[node name="Neuron_morphologies_item" type="ItemList" parent="information_menu"]
+visible = false
+layout_mode = 0
+anchor_left = 0.930839
+anchor_top = 0.717391
+anchor_right = 1.0771
+anchor_bottom = 4.84783
+
+[node name="add_inside_neuron_morph" type="Button" parent="information_menu"]
+layout_mode = 0
+anchor_left = 1.07547
+anchor_right = 1.0993
+anchor_bottom = 1.02174
+icon = ExtResource("4_536em")
+flat = true
+expand_icon = true
+
+[node name="cortical_menu" type="ColorRect" parent="."]
+visible = false
+layout_mode = 0
+anchor_top = -0.00892857
+anchor_bottom = -0.00892857
+offset_top = 50.0
+offset_right = 260.0
+offset_bottom = 234.0
+color = Color(0.371094, 0.34935, 0.34935, 1)
+
+[node name="title" type="Label" parent="cortical_menu"]
+layout_mode = 0
+anchor_right = 0.912
+anchor_bottom = 0.114
+offset_right = 4.87999
+offset_bottom = -0.531557
+theme_override_fonts/font = SubResource("FontFile_sqg2h")
+text = "Cortical Properties"
+
+[node name="Label" type="Label" parent="cortical_menu"]
+layout_mode = 0
+anchor_top = 0.114
+anchor_right = 0.912
+anchor_bottom = 0.223
+offset_left = 58.0
+offset_top = -5.64267
+offset_right = -34.12
+offset_bottom = -8.90502
+theme_override_fonts/font = SubResource("FontFile_fc4a2")
+text = "Cortical Properties"
+
+[node name="Control" type="Control" parent="cortical_menu"]
+anchors_preset = 0
+offset_left = 2.0
+offset_top = 1.0
+offset_right = 260.0
+offset_bottom = 177.0
+
+[node name="name2" type="Label" parent="cortical_menu/Control"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 58.0
+offset_right = 138.0
+offset_bottom = 72.0
+text = "Cortical ID:"
+script = ExtResource("6_rwokn")
+
+[node name="cortical_id" type="LineEdit" parent="cortical_menu/Control"]
+custom_minimum_size = Vector2(0.128, 0.113)
+layout_mode = 0
+anchor_left = 0.418605
+anchor_top = 0.229249
+anchor_right = 0.806202
+anchor_bottom = 0.324111
+editable = false
+virtual_keyboard_enabled = false
+script = ExtResource("7_b6eki")
+
+[node name="OptionButton" type="OptionButton" parent="cortical_menu/Control"]
+layout_mode = 0
+anchor_left = 0.503876
+anchor_top = 0.324111
+anchor_right = 0.887597
+anchor_bottom = 0.407115
+script = ExtResource("8_1ty2j")
+
+[node name="Properties" type="Label" parent="cortical_menu/Control"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 81.0
+offset_right = 126.0
+offset_bottom = 95.0
+text = "Cortical Area3D Type:"
+
+[node name="X" type="SpinBox" parent="cortical_menu/Control"]
+layout_mode = 0
+anchor_top = 0.573123
+anchor_right = 0.286822
+anchor_bottom = 0.667984
+min_value = -10000.0
+max_value = 10000.0
+value = 1.0
+allow_greater = true
+allow_lesser = true
+script = ExtResource("9_p3crj")
+
+[node name="Y" type="SpinBox" parent="cortical_menu/Control"]
+layout_mode = 0
+anchor_left = 0.321705
+anchor_top = 0.573123
+anchor_right = 0.608527
+anchor_bottom = 0.667984
+min_value = -10000.0
+max_value = 10000.0
+value = 1.0
+allow_greater = true
+allow_lesser = true
+script = ExtResource("9_p3crj")
+
+[node name="Z" type="SpinBox" parent="cortical_menu/Control"]
+layout_mode = 0
+anchor_left = 0.662791
+anchor_top = 0.573123
+anchor_right = 0.949612
+anchor_bottom = 0.667984
+min_value = -10000.0
+max_value = 10000.0
+value = 1.0
+allow_greater = true
+allow_lesser = true
+script = ExtResource("9_p3crj")
+
+[node name="x_string" type="Label" parent="cortical_menu/Control"]
+layout_mode = 0
+anchor_left = 0.0891473
+anchor_top = 0.494071
+anchor_right = 0.124031
+anchor_bottom = 0.549407
+pivot_offset = Vector2(-59, 25)
+text = "X"
+
+[node name="y_string" type="Label" parent="cortical_menu/Control"]
+layout_mode = 0
+anchor_left = 0.763566
+anchor_top = 0.494071
+anchor_right = 0.794574
+anchor_bottom = 0.549407
+pivot_offset = Vector2(-59, 25)
+text = "Z"
+
+[node name="z_string" type="Label" parent="cortical_menu/Control"]
+layout_mode = 0
+anchor_left = 0.414729
+anchor_top = 0.494071
+anchor_right = 0.453488
+anchor_bottom = 0.549407
+pivot_offset = Vector2(-59, 25)
+text = "Y"
+
+[node name="W" type="SpinBox" parent="cortical_menu/Control"]
+layout_mode = 0
+anchor_top = 0.795455
+anchor_right = 0.286822
+anchor_bottom = 0.931818
+min_value = 1.0
+max_value = 1000.0
+value = 10.0
+script = ExtResource("9_p3crj")
+
+[node name="H" type="SpinBox" parent="cortical_menu/Control"]
+layout_mode = 0
+anchor_left = 0.321705
+anchor_top = 0.795455
+anchor_right = 0.608527
+anchor_bottom = 0.931818
+min_value = 1.0
+max_value = 1000.0
+value = 1.0
+script = ExtResource("9_p3crj")
+
+[node name="D" type="SpinBox" parent="cortical_menu/Control"]
+layout_mode = 0
+anchor_left = 0.662791
+anchor_top = 0.794466
+anchor_right = 0.949612
+anchor_bottom = 0.889328
+min_value = 1.0
+max_value = 1000.0
+value = 1.0
+script = ExtResource("9_p3crj")
+
+[node name="W_string" type="Label" parent="cortical_menu/Control"]
+layout_mode = 0
+anchor_left = 0.0891473
+anchor_top = 0.719368
+anchor_right = 0.139535
+anchor_bottom = 0.774704
+pivot_offset = Vector2(-59, 25)
+text = "W"
+
+[node name="H_string" type="Label" parent="cortical_menu/Control"]
+layout_mode = 0
+anchor_left = 0.403101
+anchor_top = 0.715415
+anchor_right = 0.44186
+anchor_bottom = 0.770751
+pivot_offset = Vector2(-59, 25)
+text = "H"
+
+[node name="D_string" type="Label" parent="cortical_menu/Control"]
+layout_mode = 0
+anchor_left = 0.763566
+anchor_top = 0.719368
+anchor_right = 0.810078
+anchor_bottom = 0.774704
+pivot_offset = Vector2(-59, 25)
+text = "D"
+
+[node name="remove" type="Button" parent="cortical_menu/Control"]
+layout_mode = 0
+anchor_left = 0.542636
+anchor_top = 0.909091
+anchor_right = 0.837209
+anchor_bottom = 1.03557
+text = "Delete"
+expand_icon = true
+
+[node name="Update" type="Button" parent="cortical_menu/Control"]
+layout_mode = 0
+anchor_left = 0.0891473
+anchor_top = 0.909091
+anchor_right = 0.387597
+anchor_bottom = 1.03953
+text = "Update"
+script = ExtResource("10_va6fu")
+
+[node name="name" type="Label" parent="cortical_menu/Control"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 32.0
+offset_right = 138.0
+offset_bottom = 46.0
+text = "Cortical Name:"
+script = ExtResource("6_rwokn")
+
+[node name="name_string" type="LineEdit" parent="cortical_menu/Control"]
+custom_minimum_size = Vector2(0.128, 0.113)
+layout_mode = 0
+anchor_left = 0.418605
+anchor_top = 0.134387
+anchor_right = 0.806202
+anchor_bottom = 0.229249
+virtual_keyboard_enabled = false
+script = ExtResource("11_dr8xm")
+
+[node name="button_choice" type="ColorRect" parent="."]
+visible = false
+layout_mode = 0
+anchor_top = 1.80134
+anchor_right = 2.03077
+anchor_bottom = 2.04688
+color = Color(0.372549, 0.34902, 0.34902, 1)
+
+[node name="Label" type="Label" parent="button_choice"]
+layout_mode = 0
+offset_right = 261.0
+offset_bottom = 26.0
+theme_override_fonts/font = SubResource("FontFile_6divx")
+text = "Monitoring"
+
+[node name="Control" type="Control" parent="button_choice"]
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="mem" type="CheckButton" parent="button_choice/Control"]
+layout_mode = 0
+anchor_left = 0.775
+anchor_top = 1.64999
+anchor_right = 2.675
+anchor_bottom = 2.64999
+script = ExtResource("12_goy1d")
+
+[node name="syn" type="CheckButton" parent="button_choice/Control"]
+layout_mode = 0
+anchor_left = 4.2
+anchor_top = 1.64999
+anchor_right = 6.1
+anchor_bottom = 2.64999
+script = ExtResource("12_goy1d")
+
+[node name="Label" type="Label" parent="button_choice/Control"]
+layout_mode = 0
+anchor_top = 1.29999
+anchor_right = 3.25
+anchor_bottom = 1.64999
+text = "Membrane potential"
+
+[node name="Label2" type="Label" parent="button_choice/Control"]
+layout_mode = 0
+anchor_left = 3.7
+anchor_top = 1.29999
+anchor_right = 6.55
+anchor_bottom = 1.64999
+text = "Synaptic Potential"
+
+[node name="properties" type="ColorRect" parent="."]
+visible = false
+layout_mode = 0
+anchor_top = 0.765625
+anchor_right = 2.01538
+anchor_bottom = 1.80134
+color = Color(0.372549, 0.34902, 0.34902, 1)
+
+[node name="Label" type="Label" parent="properties"]
+layout_mode = 0
+offset_top = 3.0
+offset_right = 259.0
+offset_bottom = 29.0
+theme_override_fonts/font = SubResource("FontFile_6divx")
+text = "Neuron Parameters"
+
+[node name="Control" type="Control" parent="properties"]
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="syn" type="SpinBox" parent="properties/Control"]
+layout_mode = 0
+offset_left = 167.0
+offset_top = 74.0
+offset_right = 241.0
+offset_bottom = 98.0
+pivot_offset = Vector2(-35, 38)
+min_value = -10000.0
+max_value = 10000.0
+value = 1.0
+script = ExtResource("9_p3crj")
+
+[node name="synaptic" type="Label" parent="properties/Control"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 81.0
+offset_right = 140.0
+offset_bottom = 95.0
+pivot_offset = Vector2(33, 34)
+text = "Synaptic Attractivity:"
+
+[node name="pst_syn" type="SpinBox" parent="properties/Control"]
+layout_mode = 0
+offset_left = 167.0
+offset_top = 100.0
+offset_right = 241.0
+offset_bottom = 124.0
+pivot_offset = Vector2(24, 9)
+min_value = -10000.0
+max_value = 10000.0
+value = 1.0
+script = ExtResource("9_p3crj")
+
+[node name="post_syn" type="Label" parent="properties/Control"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 105.0
+offset_right = 159.0
+offset_bottom = 119.0
+pivot_offset = Vector2(124, 5)
+text = "Post Synaptic Potential:"
+
+[node name="pst_syn_max" type="SpinBox" parent="properties/Control"]
+layout_mode = 0
+offset_left = 167.0
+offset_top = 126.0
+offset_right = 241.0
+offset_bottom = 150.0
+min_value = -10000.0
+max_value = 10000.0
+value = 1.0
+script = ExtResource("9_p3crj")
+
+[node name="post_syn_max" type="Label" parent="properties/Control"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 132.0
+offset_right = 129.0
+offset_bottom = 146.0
+pivot_offset = Vector2(-59, 25)
+text = "PSP max:"
+
+[node name="plst" type="SpinBox" parent="properties/Control"]
+layout_mode = 0
+offset_left = 167.0
+offset_top = 152.0
+offset_right = 241.0
+offset_bottom = 176.0
+min_value = -10000.0
+max_value = 10000.0
+value = 1.0
+script = ExtResource("9_p3crj")
+
+[node name="plasticity" type="Label" parent="properties/Control"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 156.0
+offset_right = 143.0
+offset_bottom = 170.0
+pivot_offset = Vector2(-59, 25)
+text = "Plasticity Constant:"
+
+[node name="fire" type="SpinBox" parent="properties/Control"]
+layout_mode = 0
+offset_left = 167.0
+offset_top = 178.0
+offset_right = 241.0
+offset_bottom = 202.0
+min_value = -10000.0
+max_value = 10000.0
+value = 1.0
+script = ExtResource("9_p3crj")
+
+[node name="fire_count" type="Label" parent="properties/Control"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 177.0
+offset_right = 129.0
+offset_bottom = 208.0
+pivot_offset = Vector2(-59, 25)
+text = "Fire Threshold:"
+
+[node name="refa" type="SpinBox" parent="properties/Control"]
+layout_mode = 0
+offset_left = 167.0
+offset_top = 204.0
+offset_right = 241.0
+offset_bottom = 228.0
+min_value = -10000.0
+max_value = 10000.0
+value = 1.0
+script = ExtResource("9_p3crj")
+
+[node name="refractory" type="Label" parent="properties/Control"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 202.0
+offset_right = 129.0
+offset_bottom = 233.0
+pivot_offset = Vector2(-59, 25)
+text = "Refractory Period:"
+
+[node name="leak" type="LineEdit" parent="properties/Control"]
+layout_mode = 0
+offset_left = 167.0
+offset_top = 230.0
+offset_right = 225.0
+offset_bottom = 254.0
+text = "0.0"
+script = ExtResource("11_dr8xm")
+
+[node name="leakco" type="Label" parent="properties/Control"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 227.0
+offset_right = 129.0
+offset_bottom = 258.0
+pivot_offset = Vector2(-59, 25)
+text = "Leak Constant:"
+
+[node name="cfr" type="SpinBox" parent="properties/Control"]
+layout_mode = 0
+offset_left = 167.0
+offset_top = 282.0
+offset_right = 241.0
+offset_bottom = 306.0
+min_value = -10000.0
+max_value = 10000.0
+value = 1.0
+script = ExtResource("9_p3crj")
+
+[node name="consecutive" type="Label" parent="properties/Control"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 278.0
+offset_right = 159.0
+offset_bottom = 309.0
+pivot_offset = Vector2(-59, 25)
+text = "Consecutive Fire Count:"
+
+[node name="snze" type="SpinBox" parent="properties/Control"]
+layout_mode = 0
+offset_left = 166.0
+offset_top = 308.0
+offset_right = 240.0
+offset_bottom = 332.0
+min_value = -10000.0
+max_value = 10000.0
+value = 1.0
+script = ExtResource("9_p3crj")
+
+[node name="snooze" type="Label" parent="properties/Control"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 305.0
+offset_right = 128.0
+offset_bottom = 336.0
+pivot_offset = Vector2(-59, 25)
+text = "Snooze Period:"
+
+[node name="dege" type="SpinBox" parent="properties/Control"]
+layout_mode = 0
+offset_left = 166.0
+offset_top = 334.0
+offset_right = 240.0
+offset_bottom = 358.0
+min_value = -10000.0
+max_value = 10000.0
+value = 1.0
+script = ExtResource("9_p3crj")
+
+[node name="degeneracy" type="Label" parent="properties/Control"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 333.0
+offset_right = 158.0
+offset_bottom = 364.0
+pivot_offset = Vector2(-59, 25)
+text = "Degeneracy Constant:"
+
+[node name="psud" type="CheckButton" parent="properties/Control"]
+layout_mode = 0
+offset_left = 126.0
+offset_top = 357.0
+offset_right = 234.0
+offset_bottom = 397.0
+theme_override_fonts/font = SubResource("FontFile_ql0q6")
+button_mask = 7
+script = ExtResource("12_goy1d")
+
+[node name="psp" type="Label" parent="properties/Control"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 357.0
+offset_right = 158.0
+offset_bottom = 388.0
+pivot_offset = Vector2(-59, 25)
+text = "PSP Uniformity:"
+
+[node name="neuron_count" type="SpinBox" parent="properties/Control"]
+layout_mode = 0
+offset_left = 167.0
+offset_top = 49.0
+offset_right = 241.0
+offset_bottom = 73.0
+pivot_offset = Vector2(-35, 38)
+min_value = -10000.0
+max_value = 10000.0
+value = 1.0
+script = ExtResource("9_p3crj")
+
+[node name="neuron_count_" type="Label" parent="properties/Control"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 56.0
+offset_right = 152.0
+offset_bottom = 70.0
+pivot_offset = Vector2(33, 34)
+text = "Voxel Neuron Density:"
+
+[node name="leak_va" type="Label" parent="properties/Control"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 235.0
+offset_right = 129.0
+offset_bottom = 266.0
+pivot_offset = Vector2(-59, 25)
+text = "Leak Variability:"
+
+[node name="leak_Vtext" type="LineEdit" parent="properties/Control"]
+layout_mode = 0
+offset_left = 167.0
+offset_top = 239.0
+offset_right = 225.0
+offset_bottom = 263.0
+text = "0.0"
+script = ExtResource("11_dr8xm")
+
+[node name="Update" type="Button" parent="properties/Control"]
+layout_mode = 0
+anchor_left = 0.19084
+anchor_top = 0.87931
+anchor_right = 0.721374
+anchor_bottom = 0.984914
+offset_left = 75.3664
+offset_top = 361.828
+offset_right = 131.145
+offset_bottom = 390.603
+text = "Update"
+script = ExtResource("10_va6fu")
+
+[node name="cortical_mapping" type="ColorRect" parent="."]
+visible = false
+layout_mode = 0
+anchor_top = 2.04688
+anchor_right = 2.03077
+anchor_bottom = 2.56027
+color = Color(0.372549, 0.34902, 0.34902, 1)
+
+[node name="Label" type="Label" parent="cortical_mapping"]
+layout_mode = 0
+offset_right = 259.0
+offset_bottom = 28.0
+theme_override_fonts/font = SubResource("FontFile_ussi2")
+text = "Cortical Mapping"
+
+[node name="Control" type="Control" parent="cortical_mapping"]
+anchors_preset = 0
+offset_right = 264.0
+offset_bottom = 112.0
+
+[node name="cortical_mapping_add" type="Button" parent="cortical_mapping/Control"]
+layout_mode = 0
+anchor_left = 0.796154
+anchor_top = 0.152091
+anchor_right = 0.89654
+anchor_bottom = 0.253101
+offset_left = -2.18463
+offset_top = -4.55892
+offset_right = 5.79993
+offset_bottom = 11.4007
+icon = ExtResource("4_536em")
+expand_icon = true
+
+[node name="afferent_label" type="Label" parent="cortical_mapping/Control"]
+layout_mode = 0
+anchor_left = 0.0269231
+anchor_top = 0.152091
+anchor_right = 0.715385
+anchor_bottom = 0.222798
+offset_left = 5.8923
+offset_top = 4.96352
+offset_right = 157.354
+offset_bottom = 16.1352
+text = "Afferent (Incoming) Mappings:"
+
+[node name="afferent" type="ScrollContainer" parent="cortical_mapping/Control"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 76.0
+offset_right = 261.0
+offset_bottom = 149.0
+script = ExtResource("13_me55f")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="cortical_mapping/Control/afferent"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="LineEdit" type="LineEdit" parent="cortical_mapping/Control/afferent/VBoxContainer"]
+visible = false
+layout_mode = 2
+
+[node name="efferent_label" type="Label" parent="cortical_mapping/Control"]
+layout_mode = 0
+anchor_left = 0.0269231
+anchor_top = 0.596958
+anchor_right = 1.00393
+anchor_bottom = 0.694234
+offset_left = 6.03077
+offset_top = 72.8593
+offset_right = 154.95
+offset_bottom = 82.9682
+text = "Efferent (Outgoing) Mappings:"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="cortical_mapping/Control"]
+layout_mode = 0
+anchor_top = 0.676257
+anchor_right = 1.0
+anchor_bottom = 0.874701
+offset_top = 80.6044
+offset_right = -4.0
+offset_bottom = 131.523
+
+[node name="VBoxContainer" type="VBoxContainer" parent="cortical_mapping/Control/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="cortical_map_name" type="LineEdit" parent="cortical_mapping/Control/ScrollContainer/VBoxContainer"]
+visible = false
+layout_mode = 2
+editable = false
+
+[node name="info" type="Button" parent="cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name"]
+layout_mode = 0
+anchor_left = 0.757692
+anchor_top = -1.27157e-05
+anchor_right = 0.857692
+anchor_bottom = 0.999987
+icon = ExtResource("14_mu3yd")
+expand_icon = true
+
+[node name="remove" type="Button" parent="cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name"]
+layout_mode = 0
+anchor_left = 0.892308
+anchor_right = 1.0
+anchor_bottom = 1.0
+icon = ExtResource("15_kroyq")
+expand_icon = true
+
+[node name="collapse_1" type="Button" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 237.0
+offset_top = 282.0
+offset_right = 272.0
+offset_bottom = 313.0
+icon = ExtResource("16_36la2")
+flat = true
+expand_icon = true
+
+[node name="collapse_2" type="Button" parent="."]
+visible = false
+layout_mode = 0
+anchor_top = 1.016
+anchor_bottom = 1.016
+offset_left = 234.0
+offset_top = -147.168
+offset_right = 272.0
+offset_bottom = -118.168
+icon = ExtResource("16_36la2")
+flat = true
+expand_icon = true
+
+[node name="collapse_3" type="Button" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 229.0
+offset_top = 807.0
+offset_right = 265.0
+offset_bottom = 837.0
+icon = ExtResource("16_36la2")
+flat = true
+expand_icon = true
+
+[node name="collapse_4" type="Button" parent="."]
+visible = false
+layout_mode = 0
+anchor_left = 1.77692
+anchor_top = 0.133929
+anchor_right = 2.04616
+anchor_bottom = 0.209822
+icon = ExtResource("16_36la2")
+flat = true
+expand_icon = true
+
+[node name="add" type="Button" parent="."]
+layout_mode = 0
+anchor_left = 5.88462
+anchor_right = 6.04615
+anchor_bottom = 0.100446
+icon = ExtResource("4_536em")
+flat = true
+expand_icon = true
+
+[node name="addition_menu" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 328.0
+offset_top = 114.0
+offset_right = 648.0
+offset_bottom = 410.0
+color = Color(0.215686, 0.215686, 0.215686, 1)
+script = ExtResource("17_djcos")
+
+[node name="OPU_list" type="HTTPRequest" parent="addition_menu"]
+
+[node name="@@47990" type="Timer" parent="addition_menu/OPU_list"]
+one_shot = true
+
+[node name="IPU_list" type="HTTPRequest" parent="addition_menu"]
+
+[node name="@@47991" type="Timer" parent="addition_menu/IPU_list"]
+one_shot = true
+
+[node name="Name_label" type="Label" parent="addition_menu"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 0.209459
+theme_override_fonts/font = SubResource("FontFile_o4pyn")
+text = "Add New Cortical Area3D"
+
+[node name="mini-menu" type="ColorRect" parent="addition_menu"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 62.0
+offset_right = 304.0
+offset_bottom = 238.0
+color = Color(0.411765, 0.4, 0.4, 1)
+
+[node name="cortical_area_type_label" type="Label" parent="addition_menu"]
+layout_mode = 0
+anchor_left = 0.075
+anchor_top = 0.263514
+anchor_right = 0.459375
+anchor_bottom = 0.324324
+offset_right = -8.0
+text = "Cortical Area3D Type: "
+
+[node name="OptionButton" type="OptionButton" parent="addition_menu"]
+layout_mode = 0
+anchor_left = 0.475
+anchor_top = 0.263514
+anchor_right = 0.8
+anchor_bottom = 0.331081
+script = ExtResource("19_xwsn1")
+
+[node name="add" type="Button" parent="addition_menu"]
+layout_mode = 0
+offset_left = 120.0
+offset_top = 263.0
+offset_right = 192.0
+offset_bottom = 289.0
+text = "Add"
+
+[node name="wdh" type="Control" parent="addition_menu"]
+anchors_preset = 0
+offset_left = -328.0
+offset_top = -114.0
+offset_right = -288.0
+offset_bottom = -74.0
+
+[node name="W_label" type="Label" parent="addition_menu/wdh"]
+layout_mode = 0
+anchor_left = 0.1
+anchor_top = 0.476351
+anchor_right = 0.225
+anchor_bottom = 0.523649
+offset_left = 356.0
+offset_top = 235.946
+offset_right = 364.0
+offset_bottom = 248.054
+text = "W"
+
+[node name="W_Spinbox" type="SpinBox" parent="addition_menu/wdh"]
+layout_mode = 0
+anchor_left = 0.075
+anchor_top = 0.530405
+anchor_right = 0.30625
+anchor_bottom = 0.611486
+offset_left = 349.0
+offset_top = 249.784
+offset_right = 413.75
+offset_bottom = 270.541
+min_value = 1.0
+max_value = 10000.0
+value = 1.0
+allow_greater = true
+allow_lesser = true
+script = ExtResource("9_p3crj")
+
+[node name="H_label" type="Label" parent="addition_menu/wdh"]
+layout_mode = 0
+anchor_left = 0.375
+anchor_top = 0.476351
+anchor_right = 0.5
+anchor_bottom = 0.523649
+offset_left = 433.0
+offset_top = 235.946
+offset_right = 438.0
+offset_bottom = 248.054
+text = "H"
+
+[node name="H_Spinbox" type="SpinBox" parent="addition_menu/wdh"]
+layout_mode = 0
+anchor_left = 0.35
+anchor_top = 0.530405
+anchor_right = 0.58125
+anchor_bottom = 0.611486
+offset_left = 426.0
+offset_top = 249.784
+offset_right = 490.75
+offset_bottom = 270.541
+min_value = 1.0
+max_value = 10000.0
+value = 1.0
+allow_greater = true
+allow_lesser = true
+script = ExtResource("9_p3crj")
+
+[node name="D_label" type="Label" parent="addition_menu/wdh"]
+layout_mode = 0
+anchor_left = 0.65
+anchor_top = 0.476351
+anchor_right = 0.775
+anchor_bottom = 0.523649
+offset_left = 510.0
+offset_top = 235.946
+offset_right = 515.0
+offset_bottom = 248.054
+text = "D"
+
+[node name="D_Spinbox" type="SpinBox" parent="addition_menu/wdh"]
+layout_mode = 0
+anchor_left = 0.625
+anchor_top = 0.527027
+anchor_right = 0.85625
+anchor_bottom = 0.608108
+offset_left = 503.0
+offset_top = 248.919
+offset_right = 567.75
+offset_bottom = 269.676
+min_value = 1.0
+max_value = 10000.0
+value = 1.0
+allow_greater = true
+allow_lesser = true
+script = ExtResource("9_p3crj")
+
+[node name="count" type="Control" parent="addition_menu"]
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="channel count" type="Label" parent="addition_menu/count"]
+layout_mode = 0
+anchor_left = 0.075
+anchor_top = 0.527027
+anchor_right = 0.375
+anchor_bottom = 0.574324
+offset_left = 21.0
+offset_top = 134.919
+offset_right = 105.0
+offset_bottom = 147.027
+text = "Channel Count:"
+
+[node name="count_spinbox" type="SpinBox" parent="addition_menu/count"]
+layout_mode = 0
+anchor_left = 0.475
+anchor_top = 0.506757
+anchor_right = 1.6
+anchor_bottom = 0.587838
+offset_left = 133.0
+offset_top = 129.73
+offset_right = 194.0
+offset_bottom = 150.486
+
+[node name="cortical_name_label" type="Control" parent="addition_menu"]
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="cortical_area_type_label2" type="Label" parent="addition_menu/cortical_name_label"]
+layout_mode = 0
+anchor_left = 0.075
+anchor_top = 0.385135
+anchor_right = 0.459375
+anchor_bottom = 0.445946
+offset_left = 21.0
+offset_top = 98.5946
+offset_right = 99.625
+offset_bottom = 110.162
+text = "Cortical Name:"
+
+[node name="type" type="OptionButton" parent="addition_menu/cortical_name_label"]
+layout_mode = 0
+anchor_left = 3.8
+anchor_top = 2.825
+anchor_right = 6.4
+anchor_bottom = 3.325
+
+[node name="cortical_name_textbox" type="Control" parent="addition_menu"]
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="cortical_name_label" type="Label" parent="addition_menu/cortical_name_textbox"]
+layout_mode = 0
+anchor_left = 0.725
+anchor_top = 2.875
+anchor_right = 3.075
+anchor_bottom = 3.225
+offset_left = -5.0
+offset_top = -1.0
+offset_right = 24.0
+offset_bottom = 3.0
+text = "Cortical Name:"
+
+[node name="type" type="LineEdit" parent="addition_menu/cortical_name_textbox"]
+layout_mode = 0
+anchor_left = 0.475
+anchor_top = 0.381757
+anchor_right = 0.8
+anchor_bottom = 0.449324
+offset_left = 133.0
+offset_top = 97.7297
+offset_right = 224.0
+offset_bottom = 119.027
+
+[node name="xyz" type="Control" parent="addition_menu"]
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="X_label" type="Label" parent="addition_menu/xyz"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.538514
+anchor_right = 0.625
+anchor_bottom = 0.585811
+offset_left = 28.0
+offset_top = 163.459
+offset_right = 31.0
+offset_bottom = 175.568
+text = "X"
+
+[node name="Y_label" type="Label" parent="addition_menu/xyz"]
+layout_mode = 0
+anchor_left = 0.775
+anchor_top = 0.538514
+anchor_right = 0.9
+anchor_bottom = 0.585811
+offset_left = 105.0
+offset_top = 163.459
+offset_right = 107.0
+offset_bottom = 175.568
+text = "Y"
+
+[node name="Z_label" type="Label" parent="addition_menu/xyz"]
+layout_mode = 0
+anchor_left = 1.05
+anchor_top = 0.531757
+anchor_right = 1.175
+anchor_bottom = 0.579054
+offset_left = 182.0
+offset_top = 161.73
+offset_right = 185.0
+offset_bottom = 173.838
+text = "Z"
+
+[node name="X_SpinBox" type="SpinBox" parent="addition_menu/xyz"]
+layout_mode = 0
+anchor_left = 0.075
+anchor_top = 0.692568
+anchor_right = 0.30625
+anchor_bottom = 0.773649
+offset_left = 21.0
+offset_top = 177.297
+offset_right = 85.75
+offset_bottom = 198.054
+min_value = -10000.0
+max_value = 10000.0
+script = ExtResource("9_p3crj")
+
+[node name="Y_Spinbox" type="SpinBox" parent="addition_menu/xyz"]
+layout_mode = 0
+anchor_left = 0.35
+anchor_top = 0.692568
+anchor_right = 0.58125
+anchor_bottom = 0.773649
+offset_left = 98.0
+offset_top = 177.297
+offset_right = 162.75
+offset_bottom = 198.054
+min_value = -10000.0
+max_value = 10000.0
+script = ExtResource("9_p3crj")
+
+[node name="Z_Spinbox" type="SpinBox" parent="addition_menu/xyz"]
+layout_mode = 0
+anchor_left = 0.625
+anchor_top = 0.692568
+anchor_right = 0.85625
+anchor_bottom = 0.773649
+offset_left = 175.0
+offset_top = 177.297
+offset_right = 239.75
+offset_bottom = 198.054
+min_value = -10000.0
+max_value = 10000.0
+script = ExtResource("9_p3crj")
+
+[node name="custom_cortical" type="ColorRect" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 328.0
+offset_top = 115.0
+offset_right = 648.0
+offset_bottom = 411.0
+color = Color(0, 0, 0, 1)
+
+[node name="Name_label" type="Label" parent="custom_cortical"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 0.209459
+theme_override_fonts/font = SubResource("FontFile_o4pyn")
+text = "Add New Cortical Area3D"
+
+[node name="mini-menu" type="ColorRect" parent="custom_cortical"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 62.0
+offset_right = 304.0
+offset_bottom = 238.0
+color = Color(0.215686, 0.215686, 0.215686, 1)
+
+[node name="cortical_area_type_label" type="Label" parent="custom_cortical"]
+layout_mode = 0
+anchor_left = 0.075
+anchor_top = 0.263514
+anchor_right = 0.459375
+anchor_bottom = 0.324324
+offset_right = -8.0
+text = "Cortical Area3D Type: "
+
+[node name="cortical_name_label" type="Label" parent="custom_cortical"]
+layout_mode = 0
+anchor_left = 0.075
+anchor_top = 0.385135
+anchor_right = 0.459375
+anchor_bottom = 0.445946
+offset_left = -8.0
+offset_right = -8.0
+text = "Cortical Name:"
+
+[node name="channel count" type="Label" parent="custom_cortical"]
+layout_mode = 0
+anchor_left = 0.075
+anchor_top = 0.527027
+anchor_right = 0.375
+anchor_bottom = 0.574324
+offset_right = -56.0
+text = "Channel Count:"
+
+[node name="OptionButton" type="OptionButton" parent="custom_cortical"]
+layout_mode = 0
+anchor_left = 0.475
+anchor_top = 0.263514
+anchor_right = 0.8
+anchor_bottom = 0.331081
+
+[node name="name_cortical" type="LineEdit" parent="custom_cortical"]
+visible = false
+layout_mode = 0
+anchor_left = 0.475
+anchor_top = 0.381757
+anchor_right = 0.8
+anchor_bottom = 0.449324
+
+[node name="count_spinbox" type="SpinBox" parent="custom_cortical"]
+layout_mode = 0
+anchor_left = 0.475
+anchor_top = 0.506757
+anchor_right = 0.8
+anchor_bottom = 0.587838
+script = ExtResource("9_p3crj")
+
+[node name="X_label" type="Label" parent="custom_cortical"]
+layout_mode = 0
+anchor_left = 0.1
+anchor_top = 0.638514
+anchor_right = 0.225
+anchor_bottom = 0.685811
+text = "X"
+
+[node name="Y_label" type="Label" parent="custom_cortical"]
+layout_mode = 0
+anchor_left = 0.375
+anchor_top = 0.638514
+anchor_right = 0.5
+anchor_bottom = 0.685811
+text = "Y"
+
+[node name="Z_label" type="Label" parent="custom_cortical"]
+layout_mode = 0
+anchor_left = 0.65
+anchor_top = 0.631757
+anchor_right = 0.775
+anchor_bottom = 0.679054
+offset_bottom = -1.52588e-05
+text = "Z"
+
+[node name="X_SpinBox" type="SpinBox" parent="custom_cortical"]
+layout_mode = 0
+anchor_left = 0.075
+anchor_top = 0.692568
+anchor_right = 0.30625
+anchor_bottom = 0.773649
+offset_bottom = 1.52588e-05
+script = ExtResource("9_p3crj")
+
+[node name="Y_Spinbox" type="SpinBox" parent="custom_cortical"]
+layout_mode = 0
+anchor_left = 0.35
+anchor_top = 0.692568
+anchor_right = 0.58125
+anchor_bottom = 0.773649
+offset_bottom = 1.52588e-05
+script = ExtResource("9_p3crj")
+
+[node name="Z_Spinbox" type="SpinBox" parent="custom_cortical"]
+layout_mode = 0
+anchor_left = 0.625
+anchor_top = 0.692568
+anchor_right = 0.85625
+anchor_bottom = 0.773649
+offset_bottom = 1.52588e-05
+script = ExtResource("9_p3crj")
+
+[node name="add" type="Button" parent="custom_cortical"]
+layout_mode = 0
+offset_left = 120.0
+offset_top = 263.0
+offset_right = 192.0
+offset_bottom = 289.0
+text = "Add"
+
+[node name="Mapping_Properties" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 272.0
+offset_top = 376.0
+offset_right = 1008.0
+offset_bottom = 618.0
+color = Color(0.215686, 0.215686, 0.215686, 1)
+script = ExtResource("20_rdfsi")
+
+[node name="inside_mapping_menu" type="ColorRect" parent="Mapping_Properties"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 104.0
+offset_right = 713.0
+offset_bottom = 211.0
+color = Color(0.5, 0.474609, 0.474609, 1)
+
+[node name="Morphology_name" type="Label" parent="Mapping_Properties/inside_mapping_menu"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 40.0
+offset_right = 144.0
+offset_bottom = 62.0
+text = "Mapping Definitions"
+
+[node name="overwrite scalar" type="Label" parent="Mapping_Properties/inside_mapping_menu"]
+layout_mode = 0
+offset_left = 211.0
+offset_top = 40.0
+offset_right = 315.0
+offset_bottom = 54.0
+text = "Overwrite Scalar"
+
+[node name="psp_multipler" type="Label" parent="Mapping_Properties/inside_mapping_menu"]
+layout_mode = 0
+offset_left = 401.0
+offset_top = 40.0
+offset_right = 490.0
+offset_bottom = 54.0
+text = "PSP Multiplier"
+
+[node name="plasticity" type="Label" parent="Mapping_Properties/inside_mapping_menu"]
+layout_mode = 0
+offset_left = 513.0
+offset_top = 40.0
+offset_right = 571.0
+offset_bottom = 54.0
+text = "Plasticity"
+
+[node name="mapping_def" type="Label" parent="Mapping_Properties/inside_mapping_menu"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 140.0
+offset_bottom = 24.0
+text = "Mapping Definitions:"
+
+[node name="plus_add" type="Button" parent="Mapping_Properties/inside_mapping_menu"]
+layout_mode = 0
+offset_left = 642.0
+offset_top = 4.0
+offset_right = 674.0
+offset_bottom = 32.0
+icon = ExtResource("4_536em")
+expand_icon = true
+
+[node name="Control" type="Control" parent="Mapping_Properties/inside_mapping_menu"]
+anchors_preset = 0
+anchor_left = -0.944848
+anchor_right = -0.79971
+offset_left = 544.0
+offset_right = 545.0
+offset_bottom = 8.0
+mouse_filter = 1
+script = ExtResource("21_iopyv")
+
+[node name="Mapping_def" type="OptionButton" parent="Mapping_Properties/inside_mapping_menu/Control"]
+layout_mode = 0
+offset_left = 114.0
+offset_top = 64.0
+offset_right = 241.0
+offset_bottom = 88.0
+
+[node name="over1" type="SpinBox" parent="Mapping_Properties/inside_mapping_menu/Control"]
+layout_mode = 0
+anchor_left = 0.002
+anchor_right = 0.002
+offset_left = 264.998
+offset_top = 64.0
+offset_right = 338.998
+offset_bottom = 88.0
+min_value = -10000.0
+max_value = 10000.0
+value = 1.0
+script = ExtResource("9_p3crj")
+
+[node name="over2" type="SpinBox" parent="Mapping_Properties/inside_mapping_menu/Control"]
+layout_mode = 0
+offset_left = 340.0
+offset_top = 64.0
+offset_right = 414.0
+offset_bottom = 88.0
+min_value = -10000.0
+max_value = 10000.0
+value = 1.0
+script = ExtResource("9_p3crj")
+
+[node name="over3" type="SpinBox" parent="Mapping_Properties/inside_mapping_menu/Control"]
+layout_mode = 0
+offset_left = 418.0
+offset_top = 64.0
+offset_right = 492.0
+offset_bottom = 88.0
+min_value = -10000.0
+max_value = 10000.0
+value = 1.0
+script = ExtResource("9_p3crj")
+
+[node name="psp_multipler_text" type="LineEdit" parent="Mapping_Properties/inside_mapping_menu/Control"]
+layout_mode = 0
+offset_left = 514.0
+offset_top = 62.0
+offset_right = 594.0
+offset_bottom = 86.0
+text = "0"
+script = ExtResource("11_dr8xm")
+
+[node name="CheckButton" type="CheckButton" parent="Mapping_Properties/inside_mapping_menu/Control"]
+layout_mode = 0
+offset_left = 610.0
+offset_top = 56.0
+offset_right = 686.0
+offset_bottom = 96.0
+
+[node name="info_map_def" type="Button" parent="Mapping_Properties/inside_mapping_menu/Control"]
+layout_mode = 0
+anchor_left = 6.79208
+anchor_top = 5.0
+anchor_right = 7.23762
+anchor_bottom = 11.0
+icon = ExtResource("14_mu3yd")
+expand_icon = true
+
+[node name="remove_button_inside_dst" type="Button" parent="Mapping_Properties/inside_mapping_menu/Control"]
+layout_mode = 0
+offset_left = 738.0
+offset_top = 40.0
+offset_right = 786.0
+offset_bottom = 88.0
+icon = ExtResource("15_kroyq")
+expand_icon = true
+
+[node name="mapping_def" type="HTTPRequest" parent="Mapping_Properties/inside_mapping_menu/Control"]
+
+[node name="@@48044" type="Timer" parent="Mapping_Properties/inside_mapping_menu/Control/mapping_def"]
+one_shot = true
+
+[node name="destination_label" type="Label" parent="Mapping_Properties"]
+layout_mode = 0
+anchor_left = 0.0326087
+anchor_top = 0.264463
+anchor_right = 0.254076
+anchor_bottom = 0.322314
+text = "Destination Cortical Area3D:"
+
+[node name="cortical_dropdown" type="OptionButton" parent="Mapping_Properties"]
+layout_mode = 0
+anchor_left = 0.274457
+anchor_top = 0.231405
+anchor_right = 0.513587
+anchor_bottom = 0.330579
+script = ExtResource("22_318by")
+
+[node name="load_options_cortical_name" type="HTTPRequest" parent="Mapping_Properties/cortical_dropdown"]
+
+[node name="@@48051" type="Timer" parent="Mapping_Properties/cortical_dropdown/load_options_cortical_name"]
+one_shot = true
+
+[node name="close" type="Button" parent="Mapping_Properties"]
+layout_mode = 0
+offset_left = 679.0
+offset_top = 8.0
+offset_right = 725.0
+offset_bottom = 56.0
+icon = ExtResource("23_6hwrd")
+expand_icon = true
+
+[node name="source_dropdown" type="OptionButton" parent="Mapping_Properties"]
+layout_mode = 0
+anchor_left = 0.274457
+anchor_top = 0.107438
+anchor_right = 0.513587
+anchor_bottom = 0.190083
+
+[node name="source" type="Label" parent="Mapping_Properties"]
+layout_mode = 0
+anchor_left = 0.0326087
+anchor_top = 0.107438
+anchor_right = 0.257572
+anchor_bottom = 0.331737
+offset_right = -1.52588e-05
+text = "Source Cortical Area3D:"
+
+[node name="update_inside_map" type="Button" parent="Mapping_Properties"]
+layout_mode = 0
+offset_left = 431.0
+offset_top = 28.0
+offset_right = 560.0
+offset_bottom = 70.0
+text = "Update"
+
+[node name="rule_properties" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 661.0
+offset_top = 40.0
+offset_right = 1088.0
+offset_bottom = 648.0
+color = Color(0.215686, 0.215686, 0.215686, 1)
+script = ExtResource("24_n2t25")
+
+[node name="rule_properties" type="Label" parent="rule_properties"]
+layout_mode = 0
+offset_left = 97.0
+offset_right = 326.0
+offset_bottom = 32.0
+text = "Manage Neuron Morphology"
+
+[node name="rule_button_close" type="Button" parent="rule_properties"]
+layout_mode = 0
+offset_left = 385.0
+offset_top = 7.0
+offset_right = 412.0
+offset_bottom = 27.0
+icon = ExtResource("23_6hwrd")
+expand_icon = true
+
+[node name="mapping_rule" type="Label" parent="rule_properties"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 27.0
+offset_right = 100.0
+offset_bottom = 43.0
+text = "Morphology Name:"
+
+[node name="mapping_rule_options" type="OptionButton" parent="rule_properties"]
+layout_mode = 0
+offset_left = 144.0
+offset_top = 27.0
+offset_right = 283.0
+offset_bottom = 47.0
+
+[node name="rules" type="ColorRect" parent="rule_properties"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 59.0
+offset_right = 417.0
+offset_bottom = 495.0
+color = Color(0.411765, 0.4, 0.4, 1)
+script = ExtResource("25_jwleh")
+
+[node name="Label2" type="Label" parent="rule_properties/rules"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 13.0
+offset_right = 118.0
+offset_bottom = 27.0
+text = "Morphology Type:"
+
+[node name="rule_type_options" type="OptionButton" parent="rule_properties/rules"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 13.0
+offset_right = 276.0
+offset_bottom = 33.0
+disabled = true
+
+[node name="vectors" type="Control" parent="rule_properties/rules"]
+visible = false
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Label3" type="Label" parent="rule_properties/rules/vectors"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 67.0
+offset_right = 114.0
+offset_bottom = 81.0
+text = "Vector Elements:"
+
+[node name="vectors" type="LineEdit" parent="rule_properties/rules/vectors"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 90.0
+offset_right = 260.0
+offset_bottom = 114.0
+text = "[0,0,0]"
+
+[node name="Button" type="Button" parent="rule_properties/rules/vectors"]
+layout_mode = 0
+offset_left = 229.0
+offset_top = 90.0
+offset_right = 257.0
+offset_bottom = 110.0
+icon = ExtResource("15_kroyq")
+expand_icon = true
+
+[node name="patterns" type="Control" parent="rule_properties/rules"]
+visible = false
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Label3" type="Label" parent="rule_properties/rules/patterns"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 67.0
+offset_right = 114.0
+offset_bottom = 81.0
+text = "Parameter Elements:"
+
+[node name="patterns" type="LineEdit" parent="rule_properties/rules/patterns"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 90.0
+offset_right = 260.0
+offset_bottom = 114.0
+text = "[0,0,0], [\"*\", \"*\", \"*\"]"
+
+[node name="Button" type="Button" parent="rule_properties/rules/patterns"]
+layout_mode = 0
+offset_left = 229.0
+offset_top = 90.0
+offset_right = 257.0
+offset_bottom = 110.0
+icon = ExtResource("15_kroyq")
+expand_icon = true
+
+[node name="functions" type="Control" parent="rule_properties/rules"]
+visible = false
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Label3" type="Label" parent="rule_properties/rules/functions"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 67.0
+offset_right = 114.0
+offset_bottom = 81.0
+text = "Function:"
+
+[node name="functions" type="LineEdit" parent="rule_properties/rules/functions"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 90.0
+offset_right = 260.0
+offset_bottom = 114.0
+text = "Randomizer"
+
+[node name="Button" type="Button" parent="rule_properties/rules/functions"]
+layout_mode = 0
+offset_left = 234.0
+offset_top = 90.0
+offset_right = 257.0
+offset_bottom = 110.0
+icon = ExtResource("14_mu3yd")
+expand_icon = true
+
+[node name="save" type="Button" parent="rule_properties/rules"]
+layout_mode = 0
+anchor_left = 0.0975
+anchor_top = 1.09404
+anchor_right = 0.315
+anchor_bottom = 1.20183
+text = "Save"
+
+[node name="delete" type="Button" parent="rule_properties/rules"]
+layout_mode = 0
+anchor_left = 0.629902
+anchor_top = 1.08716
+anchor_right = 0.839902
+anchor_bottom = 1.19037
+text = "Delete"
+
+[node name="morphology_definition" type="Control" parent="rule_properties/rules"]
+anchors_preset = 0
+offset_left = 40.0
+offset_top = 94.0
+offset_right = 360.0
+offset_bottom = 412.0
+
+[node name="Label" type="Label" parent="rule_properties/rules/morphology_definition"]
+layout_mode = 0
+offset_left = 101.0
+offset_top = -32.0
+offset_right = 243.0
+offset_bottom = -18.0
+text = "Morphology Definition"
+
+[node name="Label2" type="Label" parent="rule_properties/rules/morphology_definition"]
+layout_mode = 0
+anchor_left = 0.315625
+anchor_top = 0.516
+anchor_right = 0.759
+anchor_bottom = 0.600629
+offset_top = 12.912
+offset_right = 0.11998
+text = "associations"
+
+[node name="associations_data" type="TextEdit" parent="rule_properties/rules/morphology_definition"]
+layout_mode = 0
+anchor_left = 0.00625
+anchor_top = 0.597
+anchor_right = 1.006
+anchor_bottom = 1.02201
+offset_top = 7.15399
+offset_right = 0.0799866
+
+[node name="morphology_def" type="TextEdit" parent="rule_properties/rules/morphology_definition"]
+visible = false
+layout_mode = 0
+offset_left = 2.0
+offset_top = -9.0
+offset_right = 322.0
+offset_bottom = 119.0
+script = ExtResource("26_wtxwy")
+
+[node name="pattern_label" type="Control" parent="rule_properties/rules/morphology_definition"]
+visible = false
+anchors_preset = 0
+offset_top = -5.0
+offset_right = 320.0
+offset_bottom = 35.0
+
+[node name="labels" type="Control" parent="rule_properties/rules/morphology_definition/pattern_label"]
+anchors_preset = 0
+offset_left = -39.0
+offset_top = -2.0
+offset_right = 1.0
+offset_bottom = 38.0
+
+[node name="Label" type="Label" parent="rule_properties/rules/morphology_definition/pattern_label/labels"]
+layout_mode = 0
+anchor_left = 0.575
+anchor_top = 0.025
+anchor_right = 0.775
+anchor_bottom = 0.375
+text = "X"
+
+[node name="Label2" type="Label" parent="rule_properties/rules/morphology_definition/pattern_label/labels"]
+layout_mode = 0
+offset_left = 87.0
+offset_top = 2.0
+offset_right = 94.0
+offset_bottom = 16.0
+text = "Y"
+
+[node name="Label3" type="Label" parent="rule_properties/rules/morphology_definition/pattern_label/labels"]
+layout_mode = 0
+offset_left = 149.0
+offset_top = 4.0
+offset_right = 161.0
+offset_bottom = 19.0
+text = "Z"
+
+[node name="Label4" type="Label" parent="rule_properties/rules/morphology_definition/pattern_label/labels"]
+layout_mode = 0
+offset_left = 224.0
+offset_top = 2.0
+offset_right = 233.0
+offset_bottom = 16.0
+text = "X"
+
+[node name="Label5" type="Label" parent="rule_properties/rules/morphology_definition/pattern_label/labels"]
+layout_mode = 0
+offset_left = 291.0
+offset_top = 2.0
+offset_right = 302.0
+offset_bottom = 17.0
+text = "Y"
+
+[node name="Label6" type="Label" parent="rule_properties/rules/morphology_definition/pattern_label/labels"]
+layout_mode = 0
+offset_left = 357.0
+offset_top = 1.0
+offset_right = 365.0
+offset_bottom = 15.0
+text = "Z"
+
+[node name="Control" type="Control" parent="rule_properties/rules/morphology_definition/pattern_label"]
+visible = false
+anchors_preset = 0
+offset_left = -40.0
+offset_top = -1.0
+offset_right = 320.0
+offset_bottom = 47.0
+
+[node name="x1" type="LineEdit" parent="rule_properties/rules/morphology_definition/pattern_label/Control"]
+layout_mode = 0
+offset_top = 20.0
+offset_right = 58.0
+offset_bottom = 44.0
+text = "2"
+
+[node name="y1" type="LineEdit" parent="rule_properties/rules/morphology_definition/pattern_label/Control"]
+layout_mode = 0
+offset_left = 63.0
+offset_top = 19.0
+offset_right = 121.0
+offset_bottom = 43.0
+text = "5"
+
+[node name="z1" type="LineEdit" parent="rule_properties/rules/morphology_definition/pattern_label/Control"]
+layout_mode = 0
+offset_left = 126.0
+offset_top = 19.0
+offset_right = 184.0
+offset_bottom = 43.0
+text = "1"
+
+[node name="x2" type="LineEdit" parent="rule_properties/rules/morphology_definition/pattern_label/Control"]
+layout_mode = 0
+offset_left = 201.0
+offset_top = 19.0
+offset_right = 259.0
+offset_bottom = 43.0
+text = "2"
+
+[node name="y2" type="LineEdit" parent="rule_properties/rules/morphology_definition/pattern_label/Control"]
+layout_mode = 0
+offset_left = 267.0
+offset_top = 19.0
+offset_right = 325.0
+offset_bottom = 43.0
+text = "1"
+
+[node name="z2" type="LineEdit" parent="rule_properties/rules/morphology_definition/pattern_label/Control"]
+layout_mode = 0
+offset_left = 333.0
+offset_top = 19.0
+offset_right = 391.0
+offset_bottom = 43.0
+text = "2"
+
+[node name="Button" type="Button" parent="rule_properties/rules/morphology_definition/pattern_label/Control"]
+layout_mode = 0
+offset_left = 387.0
+offset_top = 18.0
+offset_right = 413.0
+offset_bottom = 45.0
+icon = ExtResource("15_kroyq")
+expand_icon = true
+
+[node name="vectors_label" type="Control" parent="rule_properties/rules/morphology_definition"]
+anchors_preset = 0
+offset_left = -40.0
+offset_top = -7.0
+offset_right = 320.0
+offset_bottom = 33.0
+
+[node name="labels" type="Control" parent="rule_properties/rules/morphology_definition/vectors_label"]
+visible = false
+anchors_preset = 0
+offset_right = 362.0
+offset_bottom = 40.0
+
+[node name="Label" type="Label" parent="rule_properties/rules/morphology_definition/vectors_label/labels"]
+layout_mode = 0
+offset_left = 18.0
+offset_right = 76.0
+offset_bottom = 14.0
+text = "X"
+
+[node name="Label2" type="Label" parent="rule_properties/rules/morphology_definition/vectors_label/labels"]
+layout_mode = 0
+offset_left = 160.0
+offset_right = 218.0
+offset_bottom = 14.0
+text = "Y"
+
+[node name="Label3" type="Label" parent="rule_properties/rules/morphology_definition/vectors_label/labels"]
+layout_mode = 0
+offset_left = 294.0
+offset_top = 1.0
+offset_right = 352.0
+offset_bottom = 15.0
+text = "Z"
+
+[node name="Control" type="Control" parent="rule_properties/rules/morphology_definition/vectors_label"]
+visible = false
+anchors_preset = 0
+offset_right = 360.0
+offset_bottom = 40.0
+
+[node name="LineEdit" type="SpinBox" parent="rule_properties/rules/morphology_definition/vectors_label/Control"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 16.0
+offset_right = 76.0
+offset_bottom = 40.0
+min_value = -1e+07
+max_value = 1e+07
+
+[node name="LineEdit2" type="SpinBox" parent="rule_properties/rules/morphology_definition/vectors_label/Control"]
+layout_mode = 0
+offset_left = 160.0
+offset_top = 15.0
+offset_right = 218.0
+offset_bottom = 39.0
+min_value = -1e+07
+max_value = 1e+07
+
+[node name="LineEdit3" type="SpinBox" parent="rule_properties/rules/morphology_definition/vectors_label/Control"]
+layout_mode = 0
+offset_left = 294.0
+offset_top = 17.0
+offset_right = 352.0
+offset_bottom = 41.0
+min_value = -1e+07
+max_value = 1e+07
+
+[node name="Button" type="Button" parent="rule_properties/rules/morphology_definition/vectors_label/Control"]
+layout_mode = 0
+offset_left = 366.0
+offset_top = 17.0
+offset_right = 398.0
+offset_bottom = 40.0
+icon = ExtResource("15_kroyq")
+expand_icon = true
+
+[node name="composite_label" type="Control" parent="rule_properties/rules/morphology_definition"]
+anchors_preset = 0
+offset_left = -40.0
+offset_top = -7.0
+offset_right = 320.0
+offset_bottom = 33.0
+
+[node name="Label" type="Label" parent="rule_properties/rules/morphology_definition/composite_label"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = -2.0
+offset_right = 139.0
+offset_bottom = 12.0
+text = "Mapper Morphology:"
+
+[node name="morphology_name" type="OptionButton" parent="rule_properties/rules/morphology_definition/composite_label"]
+layout_mode = 0
+offset_left = 145.0
+offset_top = -2.0
+offset_right = 278.0
+offset_bottom = 21.0
+
+[node name="Label2" type="Label" parent="rule_properties/rules/morphology_definition/composite_label"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 23.0
+offset_right = 88.0
+offset_bottom = 41.0
+text = "Src Pattern:"
+
+[node name="X_box" type="ColorRect" parent="rule_properties/rules/morphology_definition/composite_label"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 44.0
+offset_right = 107.0
+offset_bottom = 119.0
+color = Color(0.262724, 0.250626, 0.292969, 1)
+
+[node name="Label6" type="Label" parent="rule_properties/rules/morphology_definition/composite_label/X_box"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 2.0
+offset_right = 50.0
+offset_bottom = 16.0
+text = "X"
+
+[node name="C" type="SpinBox" parent="rule_properties/rules/morphology_definition/composite_label/X_box"]
+layout_mode = 0
+offset_left = 25.0
+offset_top = 20.0
+offset_right = 99.0
+offset_bottom = 44.0
+min_value = 1.0
+max_value = 1e+12
+value = 1.0
+
+[node name="S" type="SpinBox" parent="rule_properties/rules/morphology_definition/composite_label/X_box"]
+layout_mode = 0
+offset_left = 25.0
+offset_top = 45.0
+offset_right = 99.0
+offset_bottom = 69.0
+max_value = 1e+12
+
+[node name="Label7" type="Label" parent="rule_properties/rules/morphology_definition/composite_label/X_box"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 20.0
+offset_right = 14.0
+offset_bottom = 34.0
+text = "C"
+
+[node name="Label8" type="Label" parent="rule_properties/rules/morphology_definition/composite_label/X_box"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 45.0
+offset_right = 14.0
+offset_bottom = 59.0
+text = "S"
+
+[node name="Y_box" type="ColorRect" parent="rule_properties/rules/morphology_definition/composite_label"]
+layout_mode = 0
+offset_left = 157.0
+offset_top = 43.0
+offset_right = 256.0
+offset_bottom = 117.0
+color = Color(0.262724, 0.250626, 0.292969, 1)
+
+[node name="Label6" type="Label" parent="rule_properties/rules/morphology_definition/composite_label/Y_box"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 2.0
+offset_right = 50.0
+offset_bottom = 16.0
+text = "Y"
+
+[node name="C" type="SpinBox" parent="rule_properties/rules/morphology_definition/composite_label/Y_box"]
+layout_mode = 0
+offset_left = 25.0
+offset_top = 20.0
+offset_right = 99.0
+offset_bottom = 44.0
+min_value = 1.0
+max_value = 1e+12
+value = 1.0
+
+[node name="S" type="SpinBox" parent="rule_properties/rules/morphology_definition/composite_label/Y_box"]
+layout_mode = 0
+offset_left = 25.0
+offset_top = 45.0
+offset_right = 99.0
+offset_bottom = 69.0
+max_value = 1e+12
+
+[node name="Label7" type="Label" parent="rule_properties/rules/morphology_definition/composite_label/Y_box"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 20.0
+offset_right = 14.0
+offset_bottom = 34.0
+text = "C"
+
+[node name="Label8" type="Label" parent="rule_properties/rules/morphology_definition/composite_label/Y_box"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 45.0
+offset_right = 14.0
+offset_bottom = 59.0
+text = "S"
+
+[node name="Z_box" type="ColorRect" parent="rule_properties/rules/morphology_definition/composite_label"]
+layout_mode = 0
+offset_left = 306.0
+offset_top = 43.0
+offset_right = 405.0
+offset_bottom = 117.0
+color = Color(0.262724, 0.250626, 0.292969, 1)
+
+[node name="Label6" type="Label" parent="rule_properties/rules/morphology_definition/composite_label/Z_box"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 2.0
+offset_right = 50.0
+offset_bottom = 16.0
+text = "Z"
+
+[node name="C" type="SpinBox" parent="rule_properties/rules/morphology_definition/composite_label/Z_box"]
+layout_mode = 0
+offset_left = 25.0
+offset_top = 20.0
+offset_right = 99.0
+offset_bottom = 44.0
+min_value = 1.0
+max_value = 1e+12
+value = 1.0
+
+[node name="S" type="SpinBox" parent="rule_properties/rules/morphology_definition/composite_label/Z_box"]
+layout_mode = 0
+offset_left = 25.0
+offset_top = 45.0
+offset_right = 99.0
+offset_bottom = 69.0
+max_value = 1e+12
+
+[node name="Label7" type="Label" parent="rule_properties/rules/morphology_definition/composite_label/Z_box"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 20.0
+offset_right = 14.0
+offset_bottom = 34.0
+text = "C"
+
+[node name="Label8" type="Label" parent="rule_properties/rules/morphology_definition/composite_label/Z_box"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 45.0
+offset_right = 14.0
+offset_bottom = 59.0
+text = "S"
+
+[node name="Label3" type="Label" parent="rule_properties/rules/morphology_definition/composite_label"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 151.0
+offset_right = 42.0
+offset_bottom = 165.0
+text = "Seed:"
+
+[node name="X" type="Label" parent="rule_properties/rules/morphology_definition/composite_label"]
+layout_mode = 0
+anchor_left = 0.0125
+anchor_top = 0.386792
+anchor_right = 0.190625
+anchor_bottom = 0.437107
+offset_left = 39.5
+offset_top = 114.528
+offset_right = 39.5
+offset_bottom = 126.516
+text = "X"
+
+[node name="Y" type="Label" parent="rule_properties/rules/morphology_definition/composite_label"]
+layout_mode = 0
+anchor_left = 0.446875
+anchor_top = 0.389937
+anchor_right = 0.625
+anchor_bottom = 0.440252
+offset_left = 22.125
+offset_top = 115.403
+offset_right = 22.125
+offset_bottom = 127.39
+text = "Y"
+
+[node name="Z" type="Label" parent="rule_properties/rules/morphology_definition/composite_label"]
+layout_mode = 0
+anchor_left = 0.909375
+anchor_top = 0.389937
+anchor_right = 1.0875
+anchor_bottom = 0.440252
+offset_left = 3.625
+offset_top = 115.403
+offset_right = 3.625
+offset_bottom = 127.39
+text = "Z"
+
+[node name="x" type="SpinBox" parent="rule_properties/rules/morphology_definition/composite_label"]
+layout_mode = 0
+offset_left = 43.0
+offset_top = 147.0
+offset_right = 117.0
+offset_bottom = 171.0
+min_value = 1.0
+value = 1.0
+
+[node name="y" type="SpinBox" parent="rule_properties/rules/morphology_definition/composite_label"]
+layout_mode = 0
+offset_left = 182.0
+offset_top = 147.0
+offset_right = 256.0
+offset_bottom = 171.0
+min_value = 1.0
+value = 1.0
+
+[node name="z" type="SpinBox" parent="rule_properties/rules/morphology_definition/composite_label"]
+layout_mode = 0
+offset_left = 331.0
+offset_top = 147.0
+offset_right = 405.0
+offset_bottom = 171.0
+min_value = 1.0
+value = 1.0
+
+[node name="Button" type="Button" parent="rule_properties/rules"]
+layout_mode = 0
+offset_left = 303.0
+offset_top = 55.0
+offset_right = 333.0
+offset_bottom = 75.0
+icon = ExtResource("4_536em")
+expand_icon = true
+
+[node name="get_morphology" type="HTTPRequest" parent="rule_properties"]
+
+[node name="@@48110" type="Timer" parent="rule_properties/get_morphology"]
+one_shot = true
+
+[node name="get_morphology_usuage" type="HTTPRequest" parent="rule_properties"]
+
+[node name="@@48111" type="Timer" parent="rule_properties/get_morphology_usuage"]
+one_shot = true
+
+[node name="Control" type="Control" parent="."]
+anchors_preset = 0
+offset_left = 1072.0
+offset_top = 30.0
+offset_right = 1320.0
+offset_bottom = 317.0
+focus_mode = 2
+mouse_filter = 1
+script = ExtResource("27_eb7xb")
+
+[node name="ColorRect" type="ColorRect" parent="Control"]
+layout_mode = 0
+offset_right = 519.0
+offset_bottom = 394.0
+color = Color(0.231373, 0.223529, 0.25098, 1)
+
+[node name="Label" type="Label" parent="Control"]
+layout_mode = 0
+offset_left = 86.0
+offset_top = 15.0
+offset_right = 430.0
+offset_bottom = 35.0
+text = "Create New Neuron Morphology"
+
+[node name="inner_box" type="ColorRect" parent="Control"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 37.0
+offset_right = 497.0
+offset_bottom = 322.0
+color = Color(0.231373, 0.223529, 0.25098, 1)
+
+[node name="grey_bg" type="ColorRect" parent="Control/inner_box"]
+layout_mode = 0
+offset_right = 481.0
+offset_bottom = 342.0
+color = Color(0.231373, 0.223529, 0.25098, 1)
+
+[node name="Label2" type="Label" parent="Control/inner_box"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 13.0
+offset_right = 129.0
+offset_bottom = 29.0
+text = "Morphology Name:"
+
+[node name="Label3" type="Label" parent="Control/inner_box"]
+visible = false
+layout_mode = 0
+offset_left = 8.0
+offset_top = 48.0
+offset_right = 129.0
+offset_bottom = 64.0
+text = "Morphology Type:"
+
+[node name="Label4" type="Label" parent="Control/inner_box"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 108.0
+offset_right = 154.0
+offset_bottom = 124.0
+text = "Morphology Definition:"
+
+[node name="morphology_name" type="LineEdit" parent="Control/inner_box"]
+layout_mode = 0
+offset_left = 136.0
+offset_top = 5.0
+offset_right = 304.0
+offset_bottom = 29.0
+
+[node name="morphology_type" type="OptionButton" parent="Control/inner_box"]
+layout_mode = 0
+offset_left = 136.0
+offset_top = 45.0
+offset_right = 304.0
+offset_bottom = 65.0
+
+[node name="TextEdit" type="TextEdit" parent="Control/inner_box"]
+visible = false
+layout_mode = 0
+offset_left = 8.0
+offset_top = 127.0
+offset_right = 304.0
+offset_bottom = 246.0
+script = ExtResource("26_wtxwy")
+
+[node name="box_of_pattern" type="Control" parent="Control/inner_box"]
+visible = false
+anchors_preset = 0
+anchor_left = 0.024948
+anchor_top = 0.508772
+anchor_right = 0.970894
+anchor_bottom = 0.964912
+
+[node name="labels" type="Control" parent="Control/inner_box/box_of_pattern"]
+anchors_preset = 0
+offset_top = -18.0
+offset_right = 414.0
+offset_bottom = -1.0
+
+[node name="Label" type="Label" parent="Control/inner_box/box_of_pattern/labels"]
+layout_mode = 0
+offset_top = 3.0
+offset_right = 58.0
+offset_bottom = 17.0
+text = "X"
+
+[node name="Label2" type="Label" parent="Control/inner_box/box_of_pattern/labels"]
+layout_mode = 0
+offset_left = 229.0
+offset_top = 4.0
+offset_right = 287.0
+offset_bottom = 18.0
+text = "X"
+
+[node name="Label3" type="Label" parent="Control/inner_box/box_of_pattern/labels"]
+layout_mode = 0
+offset_left = 64.0
+offset_top = 4.0
+offset_right = 122.0
+offset_bottom = 18.0
+text = "Y"
+
+[node name="Label4" type="Label" parent="Control/inner_box/box_of_pattern/labels"]
+layout_mode = 0
+offset_left = 293.0
+offset_top = 3.0
+offset_right = 351.0
+offset_bottom = 17.0
+text = "Y"
+
+[node name="Label5" type="Label" parent="Control/inner_box/box_of_pattern/labels"]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 3.0
+offset_right = 186.0
+offset_bottom = 17.0
+text = "Z"
+
+[node name="Label6" type="Label" parent="Control/inner_box/box_of_pattern/labels"]
+layout_mode = 0
+offset_left = 356.0
+offset_top = 4.0
+offset_right = 414.0
+offset_bottom = 18.0
+text = "Z"
+
+[node name="Control" type="Control" parent="Control/inner_box/box_of_pattern"]
+visible = false
+anchors_preset = 0
+
+[node name="TextEdit" type="LineEdit" parent="Control/inner_box/box_of_pattern/Control"]
+layout_mode = 0
+offset_right = 58.0
+offset_bottom = 24.0
+virtual_keyboard_enabled = false
+middle_mouse_paste_enabled = false
+script = ExtResource("11_dr8xm")
+
+[node name="TextEdit2" type="LineEdit" parent="Control/inner_box/box_of_pattern/Control"]
+layout_mode = 0
+offset_left = 64.0
+offset_right = 122.0
+offset_bottom = 24.0
+virtual_keyboard_enabled = false
+middle_mouse_paste_enabled = false
+script = ExtResource("11_dr8xm")
+
+[node name="TextEdit7" type="LineEdit" parent="Control/inner_box/box_of_pattern/Control"]
+layout_mode = 0
+offset_left = 128.0
+offset_right = 186.0
+offset_bottom = 24.0
+virtual_keyboard_enabled = false
+middle_mouse_paste_enabled = false
+script = ExtResource("11_dr8xm")
+
+[node name="TextEdit8" type="LineEdit" parent="Control/inner_box/box_of_pattern/Control"]
+layout_mode = 0
+offset_left = 229.0
+offset_right = 287.0
+offset_bottom = 24.0
+virtual_keyboard_enabled = false
+middle_mouse_paste_enabled = false
+script = ExtResource("11_dr8xm")
+
+[node name="TextEdit9" type="LineEdit" parent="Control/inner_box/box_of_pattern/Control"]
+layout_mode = 0
+offset_left = 293.0
+offset_right = 351.0
+offset_bottom = 24.0
+virtual_keyboard_enabled = false
+middle_mouse_paste_enabled = false
+script = ExtResource("11_dr8xm")
+
+[node name="TextEdit10" type="LineEdit" parent="Control/inner_box/box_of_pattern/Control"]
+layout_mode = 0
+offset_left = 356.0
+offset_right = 414.0
+offset_bottom = 24.0
+virtual_keyboard_enabled = false
+middle_mouse_paste_enabled = false
+script = ExtResource("11_dr8xm")
+
+[node name="Label" type="Label" parent="Control/inner_box/box_of_pattern/Control"]
+layout_mode = 0
+offset_left = 186.0
+offset_top = 2.0
+offset_right = 229.0
+offset_bottom = 24.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+text = ">"
+
+[node name="button" type="Button" parent="Control/inner_box/box_of_pattern/Control"]
+layout_mode = 0
+offset_left = 426.0
+offset_top = -1.0
+offset_right = 455.0
+offset_bottom = 25.0
+icon = ExtResource("15_kroyq")
+expand_icon = true
+
+[node name="Button" type="Button" parent="Control/inner_box"]
+layout_mode = 0
+offset_left = 438.0
+offset_top = 99.0
+offset_right = 467.0
+offset_bottom = 119.0
+icon = ExtResource("4_536em")
+expand_icon = true
+
+[node name="box_of_vectors" type="Control" parent="Control/inner_box"]
+visible = false
+anchors_preset = 0
+anchor_left = 0.024948
+anchor_top = 0.445614
+anchor_right = 0.970894
+anchor_bottom = 0.929825
+offset_top = 18.0
+offset_bottom = 18.0
+
+[node name="labels" type="Control" parent="Control/inner_box/box_of_vectors"]
+anchors_preset = 0
+offset_left = 42.0
+offset_top = -17.0
+offset_right = 308.0
+
+[node name="x" type="Label" parent="Control/inner_box/box_of_vectors/labels"]
+layout_mode = 0
+offset_top = 2.0
+offset_right = 58.0
+offset_bottom = 16.0
+text = "X"
+
+[node name="y" type="Label" parent="Control/inner_box/box_of_vectors/labels"]
+layout_mode = 0
+offset_left = 102.0
+offset_top = 2.0
+offset_right = 160.0
+offset_bottom = 16.0
+text = "Y"
+
+[node name="x2" type="Label" parent="Control/inner_box/box_of_vectors/labels"]
+layout_mode = 0
+offset_left = 208.0
+offset_top = 3.0
+offset_right = 266.0
+offset_bottom = 17.0
+text = "Z"
+
+[node name="Control" type="Control" parent="Control/inner_box/box_of_vectors"]
+visible = false
+anchors_preset = 0
+anchor_right = 1.0
+anchor_bottom = 0.181159
+
+[node name="SpinBox" type="SpinBox" parent="Control/inner_box/box_of_vectors/Control"]
+layout_mode = 0
+offset_left = 42.0
+offset_right = 116.0
+offset_bottom = 24.0
+min_value = -1e+07
+max_value = 1e+07
+
+[node name="SpinBox2" type="SpinBox" parent="Control/inner_box/box_of_vectors/Control"]
+layout_mode = 0
+offset_left = 144.0
+offset_right = 218.0
+offset_bottom = 24.0
+min_value = -1e+07
+max_value = 1e+07
+
+[node name="SpinBox3" type="SpinBox" parent="Control/inner_box/box_of_vectors/Control"]
+layout_mode = 0
+offset_left = 250.0
+offset_top = -1.0
+offset_right = 324.0
+offset_bottom = 23.0
+min_value = -1e+07
+max_value = 1e+07
+
+[node name="button" type="Button" parent="Control/inner_box/box_of_vectors/Control"]
+layout_mode = 0
+offset_left = 426.0
+offset_top = -1.0
+offset_right = 455.0
+offset_bottom = 25.0
+icon = ExtResource("15_kroyq")
+expand_icon = true
+
+[node name="box_of_composite" type="Control" parent="Control/inner_box"]
+visible = false
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Label" type="Label" parent="Control/inner_box/box_of_composite"]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 144.0
+offset_right = 47.0
+offset_bottom = 158.0
+text = "Seed:"
+
+[node name="X" type="SpinBox" parent="Control/inner_box/box_of_composite"]
+layout_mode = 0
+offset_left = 70.0
+offset_top = 145.0
+offset_right = 144.0
+offset_bottom = 169.0
+min_value = 1.0
+max_value = 9.22337e+18
+value = 1.0
+
+[node name="Y" type="SpinBox" parent="Control/inner_box/box_of_composite"]
+layout_mode = 0
+offset_left = 194.0
+offset_top = 145.0
+offset_right = 268.0
+offset_bottom = 169.0
+min_value = 1.0
+max_value = 9.22337e+18
+value = 1.0
+
+[node name="Z" type="SpinBox" parent="Control/inner_box/box_of_composite"]
+layout_mode = 0
+offset_left = 320.0
+offset_top = 144.0
+offset_right = 394.0
+offset_bottom = 168.0
+min_value = 1.0
+max_value = 9.22337e+18
+value = 1.0
+
+[node name="Label2" type="Label" parent="Control/inner_box/box_of_composite"]
+layout_mode = 0
+offset_left = 70.0
+offset_top = 124.0
+offset_right = 126.0
+offset_bottom = 144.0
+text = "X"
+
+[node name="Label3" type="Label" parent="Control/inner_box/box_of_composite"]
+layout_mode = 0
+offset_left = 198.0
+offset_top = 124.0
+offset_right = 254.0
+offset_bottom = 144.0
+text = "Y"
+
+[node name="Label4" type="Label" parent="Control/inner_box/box_of_composite"]
+layout_mode = 0
+offset_left = 322.0
+offset_top = 123.0
+offset_right = 378.0
+offset_bottom = 143.0
+text = "Z"
+
+[node name="Label5" type="Label" parent="Control/inner_box/box_of_composite"]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 191.0
+offset_right = 52.0
+offset_bottom = 205.0
+text = "Pattern:"
+
+[node name="X_box" type="ColorRect" parent="Control/inner_box/box_of_composite"]
+layout_mode = 0
+offset_left = 70.0
+offset_top = 188.0
+offset_right = 169.0
+offset_bottom = 263.0
+color = Color(0.262724, 0.250626, 0.292969, 1)
+
+[node name="Label6" type="Label" parent="Control/inner_box/box_of_composite/X_box"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 2.0
+offset_right = 50.0
+offset_bottom = 16.0
+text = "X"
+
+[node name="C" type="SpinBox" parent="Control/inner_box/box_of_composite/X_box"]
+layout_mode = 0
+offset_left = 25.0
+offset_top = 20.0
+offset_right = 99.0
+offset_bottom = 44.0
+min_value = 1.0
+max_value = 1e+12
+value = 1.0
+
+[node name="S" type="SpinBox" parent="Control/inner_box/box_of_composite/X_box"]
+layout_mode = 0
+offset_left = 25.0
+offset_top = 45.0
+offset_right = 99.0
+offset_bottom = 69.0
+max_value = 1e+12
+
+[node name="Label7" type="Label" parent="Control/inner_box/box_of_composite/X_box"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 20.0
+offset_right = 14.0
+offset_bottom = 34.0
+text = "C"
+
+[node name="Label8" type="Label" parent="Control/inner_box/box_of_composite/X_box"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 45.0
+offset_right = 14.0
+offset_bottom = 59.0
+text = "S"
+
+[node name="Y_box" type="ColorRect" parent="Control/inner_box/box_of_composite"]
+layout_mode = 0
+offset_left = 194.0
+offset_top = 189.0
+offset_right = 293.0
+offset_bottom = 263.0
+color = Color(0.262724, 0.250626, 0.292969, 1)
+
+[node name="Label6" type="Label" parent="Control/inner_box/box_of_composite/Y_box"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 2.0
+offset_right = 50.0
+offset_bottom = 16.0
+text = "Y"
+
+[node name="C" type="SpinBox" parent="Control/inner_box/box_of_composite/Y_box"]
+layout_mode = 0
+offset_left = 25.0
+offset_top = 20.0
+offset_right = 99.0
+offset_bottom = 44.0
+min_value = 1.0
+max_value = 1e+12
+value = 1.0
+
+[node name="S" type="SpinBox" parent="Control/inner_box/box_of_composite/Y_box"]
+layout_mode = 0
+offset_left = 25.0
+offset_top = 45.0
+offset_right = 99.0
+offset_bottom = 69.0
+max_value = 1e+12
+
+[node name="Label7" type="Label" parent="Control/inner_box/box_of_composite/Y_box"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 20.0
+offset_right = 14.0
+offset_bottom = 34.0
+text = "C"
+
+[node name="Label8" type="Label" parent="Control/inner_box/box_of_composite/Y_box"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 45.0
+offset_right = 14.0
+offset_bottom = 59.0
+text = "S"
+
+[node name="Z_box" type="ColorRect" parent="Control/inner_box/box_of_composite"]
+layout_mode = 0
+offset_left = 320.0
+offset_top = 189.0
+offset_right = 419.0
+offset_bottom = 263.0
+color = Color(0.262724, 0.250626, 0.292969, 1)
+
+[node name="Label6" type="Label" parent="Control/inner_box/box_of_composite/Z_box"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 2.0
+offset_right = 50.0
+offset_bottom = 16.0
+text = "Z"
+
+[node name="C" type="SpinBox" parent="Control/inner_box/box_of_composite/Z_box"]
+layout_mode = 0
+offset_left = 25.0
+offset_top = 20.0
+offset_right = 99.0
+offset_bottom = 44.0
+min_value = 1.0
+max_value = 1e+12
+value = 1.0
+
+[node name="S" type="SpinBox" parent="Control/inner_box/box_of_composite/Z_box"]
+layout_mode = 0
+offset_left = 25.0
+offset_top = 45.0
+offset_right = 99.0
+offset_bottom = 69.0
+min_value = -1e+12
+max_value = 1e+12
+
+[node name="Label7" type="Label" parent="Control/inner_box/box_of_composite/Z_box"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 20.0
+offset_right = 14.0
+offset_bottom = 34.0
+text = "C"
+
+[node name="Label8" type="Label" parent="Control/inner_box/box_of_composite/Z_box"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 45.0
+offset_right = 14.0
+offset_bottom = 59.0
+text = "S"
+
+[node name="Label6" type="Label" parent="Control/inner_box/box_of_composite"]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 275.0
+offset_right = 52.0
+offset_bottom = 289.0
+text = "Mapper: "
+
+[node name="mapper_composite" type="OptionButton" parent="Control/inner_box/box_of_composite"]
+layout_mode = 0
+offset_left = 70.0
+offset_top = 277.0
+offset_right = 209.0
+offset_bottom = 297.0
+
+[node name="create" type="Button" parent="Control"]
+layout_mode = 0
+offset_left = 152.0
+offset_top = 330.0
+offset_right = 344.0
+offset_bottom = 369.0
+text = "Create"
+
+[node name="X_inside_inner_box" type="Button" parent="Control"]
+layout_mode = 0
+offset_left = 483.0
+offset_top = 3.0
+offset_right = 511.0
+offset_bottom = 23.0
+icon = ExtResource("23_6hwrd")
+expand_icon = true
+
+[node name="update" type="Button" parent="Control"]
+visible = false
+layout_mode = 0
+offset_left = 152.0
+offset_top = 330.0
+offset_right = 344.0
+offset_bottom = 369.0
+text = "Update"
+
+[node name="import" type="Button" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 2.327
+anchor_right = 2.327
+anchor_bottom = 0.102679
+offset_left = 0.0228882
+offset_right = 24.4265
+icon = ExtResource("4_536em")
+flat = true
+expand_icon = true
+metadata/_edit_use_anchors_ = true
+
+[node name="insert_menu" type="ColorRect" parent="."]
+visible = false
+layout_mode = 0
+anchor_left = 0.0153846
+anchor_top = 0.104911
+anchor_right = 2.0
+anchor_bottom = 1.51339
+color = Color(0.32549, 0.27451, 0.341176, 1)
+
+[node name="x_label" type="Label" parent="insert_menu"]
+layout_mode = 0
+offset_top = 73.0
+offset_right = 69.0
+offset_bottom = 87.0
+text = "X"
+
+[node name="y_label" type="Label" parent="insert_menu"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -37.0
+offset_top = 73.0
+offset_right = 37.0
+offset_bottom = 87.0
+text = "Y"
+
+[node name="z_label" type="Label" parent="insert_menu"]
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -74.0
+offset_top = 73.0
+offset_bottom = 87.0
+text = "Z"
+
+[node name="x_spinbox" type="SpinBox" parent="insert_menu"]
+layout_mode = 0
+offset_top = 92.0
+offset_right = 74.0
+offset_bottom = 116.0
+min_value = -100000.0
+max_value = 100000.0
+script = ExtResource("9_p3crj")
+
+[node name="y_spinbox" type="SpinBox" parent="insert_menu"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -37.0
+offset_top = 92.0
+offset_right = 37.0
+offset_bottom = 116.0
+pivot_offset = Vector2(0, 8)
+min_value = -100000.0
+max_value = 100000.0
+script = ExtResource("9_p3crj")
+
+[node name="z_spinbox" type="SpinBox" parent="insert_menu"]
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -74.0
+offset_top = 92.0
+offset_bottom = 116.0
+pivot_offset = Vector2(0, 8)
+min_value = -100000.0
+max_value = 100000.0
+script = ExtResource("9_p3crj")
+
+[node name="insert_button" type="Button" parent="insert_menu"]
+layout_mode = 0
+anchor_top = 0.069
+anchor_right = 0.996
+anchor_bottom = 0.082
+offset_top = 80.875
+offset_right = 0.0319824
+offset_bottom = 92.75
+text = "Initiate Import"
+
+[node name="ItemList" type="ItemList" parent="insert_menu/insert_button"]
+layout_mode = 0
+anchor_top = 11.0861
+anchor_right = 1.00778
+anchor_bottom = 16.3861
+fixed_icon_size = Vector2i(100, 100)
+
+[node name="Label" type="Label" parent="insert_menu/insert_button"]
+layout_mode = 0
+anchor_left = 0.498
+anchor_top = 9.961
+anchor_right = 0.498
+anchor_bottom = 9.961
+offset_left = -127.986
+offset_top = 0.00300598
+offset_right = 129.014
+offset_bottom = 23.003
+theme_override_fonts/font = SubResource("FontFile_cnchj")
+text = "Circuit Library"
+
+[node name="inner_box" type="ColorRect" parent="insert_menu"]
+layout_mode = 0
+anchor_top = 0.228
+anchor_right = 0.996
+anchor_bottom = 0.296
+offset_top = 43.132
+offset_right = 0.0319824
+offset_bottom = 139.224
+color = Color(0.313726, 0.278431, 0.278431, 1)
+
+[node name="Label" type="Label" parent="insert_menu/inner_box"]
+layout_mode = 0
+offset_left = -2.0
+offset_top = 28.0
+offset_right = 29.0
+offset_bottom = 42.0
+text = "Size:"
+
+[node name="W_spinbox" type="SpinBox" parent="insert_menu/inner_box"]
+layout_mode = 0
+anchor_left = 0.288
+anchor_right = 0.292
+offset_left = -38.016
+offset_top = 24.0
+offset_right = 34.956
+offset_bottom = 48.0
+allow_greater = true
+allow_lesser = true
+editable = false
+prefix = "W:"
+
+[node name="H_spinbox" type="SpinBox" parent="insert_menu/inner_box"]
+layout_mode = 0
+anchor_left = 0.58
+anchor_right = 0.58
+offset_left = -38.06
+offset_top = 24.0
+offset_right = 35.94
+offset_bottom = 48.0
+pivot_offset = Vector2(-315, 64)
+allow_greater = true
+allow_lesser = true
+editable = false
+prefix = "H:"
+
+[node name="D_spinbox" type="SpinBox" parent="insert_menu/inner_box"]
+layout_mode = 0
+anchor_left = 0.875
+anchor_right = 0.875
+offset_left = -39.875
+offset_top = 24.0
+offset_right = 34.125
+offset_bottom = 48.0
+allow_greater = true
+allow_lesser = true
+editable = false
+prefix = "D:"
+
+[node name="Label2" type="Label" parent="insert_menu/inner_box"]
+layout_mode = 0
+offset_left = -2.0
+offset_top = 48.0
+offset_right = 76.0
+offset_bottom = 62.0
+text = "Description:"
+
+[node name="TextEdit" type="TextEdit" parent="insert_menu/inner_box"]
+layout_mode = 0
+anchor_left = -0.008
+anchor_top = 0.432
+anchor_right = 1.0
+anchor_bottom = 0.468
+offset_left = 2.056
+offset_top = 4.952
+offset_right = 1.0
+offset_bottom = 72.948
+virtual_keyboard_enabled = false
+
+[node name="Label3" type="Label" parent="insert_menu/inner_box"]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 19.0
+text = "Name:"
+
+[node name="name_text" type="LineEdit" parent="insert_menu/inner_box"]
+layout_mode = 0
+anchor_left = 0.148
+anchor_right = 1.0
+offset_left = 8.964
+offset_top = -2.0
+offset_bottom = 22.0
+editable = false
+
+[node name="Circuit_label" type="Label" parent="insert_menu"]
+layout_mode = 0
+anchor_right = 1.004
+offset_right = -2.03201
+offset_bottom = 25.0
+theme_override_fonts/font = SubResource("FontFile_kjhvs")
+text = "Import a Circuit"
+
+[node name="Label" type="Label" parent="insert_menu"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -129.0
+offset_top = 44.0
+offset_right = 129.0
+offset_bottom = 73.0
+theme_override_fonts/font = SubResource("FontFile_fkce6")
+text = "Circuit Insertion Location"
+
+[node name="circuit_information_label" type="Label" parent="insert_menu"]
+layout_mode = 0
+anchor_left = 0.492
+anchor_top = 0.225
+anchor_right = 0.492
+anchor_bottom = 0.225
+offset_left = -126.936
+offset_top = 3.02499
+offset_right = 130.064
+offset_bottom = 25.025
+theme_override_fonts/font = SubResource("FontFile_46nir")
+text = "Circuit Information"
+
+[node name="close_for_all" type="Button" parent="."]
+visible = false
+layout_mode = 0
+anchor_left = 1.82308
+anchor_top = 0.104911
+anchor_right = 2.00769
+anchor_bottom = 0.149554
+icon = ExtResource("23_6hwrd")
+expand_icon = true
+
+[node name="brown_bar" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 4.314
+anchor_right = 4.377
+anchor_bottom = 0.101
+offset_left = 8.94403
+offset_top = 8.0
+offset_right = 2.37598
+offset_bottom = -12.2122
+color = Color(0.294118, 0.262745, 0.262745, 1)
+
+[node name="brown_bar2" type="ColorRect" parent="."]
+layout_mode = 0
+anchor_left = 6.3
+anchor_right = 6.31531
+anchor_bottom = 0.102
+offset_top = 8.0
+offset_right = 0.00994873
+offset_bottom = -12.696
+color = Color(0.294118, 0.262745, 0.262745, 1)
+
+[node name="3D_enable" type="TextureButton" parent="."]
+visible = false
+layout_mode = 0
+offset_right = 1775.0
+offset_bottom = 746.0
+script = ExtResource("28_ks2tq")
+
+[node name="box_loading" type="ColorRect" parent="."]
+visible = false
+layout_mode = 0
+anchor_left = 7.885
+anchor_top = 0.008
+anchor_right = 7.885
+anchor_bottom = 0.516
+offset_left = -358.05
+offset_top = 228.416
+offset_right = 3.94971
+offset_bottom = 77.8319
+pivot_offset = Vector2(0, -1)
+color = Color(0.0196078, 0.0196078, 0.0196078, 1)
+
+[node name="Label" type="Label" parent="box_loading"]
+layout_mode = 0
+anchor_left = -0.0136986
+anchor_top = -0.0519481
+anchor_right = 1.03378
+anchor_bottom = 1.05411
+theme_override_fonts/font = SubResource("FontFile_jm7r5")
+text = "Loading genome.."
+
+[connection signal="resized" from="." to="." method="_on_Menu_resized"]
+[connection signal="focus_exited" from="information_menu/burst_duration_label/burst_value" to="information_menu/burst_duration_label/burst_value" method="_on_burst_value_focus_exited"]
+[connection signal="text_changed" from="information_menu/burst_duration_label/burst_value" to="information_menu/burst_duration_label/burst_value" method="_on_burst_value_text_changed"]
+[connection signal="pressed" from="button_choice/Control/mem" to="button_choice/Control/mem" method="_on_mem_pressed"]
+[connection signal="pressed" from="button_choice/Control/syn" to="button_choice/Control/syn" method="_on_syn_pressed"]
+[connection signal="pressed" from="properties/Control/psud" to="properties/Control/psud" method="_on_psud_pressed"]
+[connection signal="pressed" from="collapse_1" to="." method="_on_collapse_1_pressed"]
+[connection signal="pressed" from="collapse_2" to="." method="_on_collapse_2_pressed"]
+[connection signal="pressed" from="collapse_3" to="." method="_on_collapse_3_pressed"]
+[connection signal="pressed" from="collapse_4" to="." method="_on_collapse_4_pressed"]
+[connection signal="pressed" from="add" to="." method="_on_add_pressed"]
+[connection signal="request_completed" from="addition_menu/OPU_list" to="addition_menu" method="_on_cortical_type_options_request_request_completed"]
+[connection signal="request_completed" from="addition_menu/IPU_list" to="addition_menu" method="_on_IPU_list_request_completed"]
+[connection signal="pressed" from="Mapping_Properties/inside_mapping_menu/Control/info_map_def" to="." method="_on_info_map_def_pressed"]
+[connection signal="request_completed" from="Mapping_Properties/cortical_dropdown/load_options_cortical_name" to="Mapping_Properties/cortical_dropdown" method="_on_load_options_cortical_name_request_completed"]
+[connection signal="pressed" from="Mapping_Properties/close" to="." method="_on_close_pressed"]
+[connection signal="pressed" from="rule_properties/rule_button_close" to="." method="_on_rule_button_close_pressed"]
+[connection signal="item_selected" from="rule_properties/mapping_rule_options" to="rule_properties" method="_on_mapping_rule_options_item_selected"]
+[connection signal="pressed" from="import" to="." method="_on_import_pressed"]
+[connection signal="pressed" from="close_for_all" to="." method="_on_close_for_all_pressed"]
+[connection signal="pressed" from="3D_enable" to="3D_enable" method="_on_3D_enable_pressed"]

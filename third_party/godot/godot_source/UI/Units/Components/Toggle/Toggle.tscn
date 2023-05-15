@@ -1,0 +1,32 @@
+[gd_scene load_steps=5 format=3 uid="uid://bsyknr8jrwrnq"]
+
+[ext_resource type="Script" path="res://UI/Units/Components/Toggle/Toggle_Component.gd" id="1_xliq2"]
+[ext_resource type="Script" path="res://UI/Units/Common_SubComponents/Label_SubComponent.gd" id="2_k0bfo"]
+[ext_resource type="Script" path="res://UI/Units/Components/Toggle/CheckBox_SubComponent.gd" id="3_ny1v4"]
+[ext_resource type="Script" path="res://UI/Units/Components/Toggle/CheckButton_SubComponent.gd" id="4_xb0km"]
+
+[node name="Toggle" type="Panel"]
+custom_minimum_size = Vector2(10, 10)
+offset_right = 216.0
+offset_bottom = 45.0
+script = ExtResource("1_xliq2")
+
+[node name="Label" type="Label" parent="."]
+layout_mode = 1
+offset_right = 97.0
+offset_bottom = 26.0
+text = "Uninitialized"
+vertical_alignment = 1
+script = ExtResource("2_k0bfo")
+
+[node name="CheckBox" type="CheckBox" parent="."]
+layout_mode = 1
+offset_right = 24.0
+offset_bottom = 24.0
+script = ExtResource("3_ny1v4")
+
+[node name="CheckButton" type="CheckButton" parent="."]
+layout_mode = 1
+offset_right = 44.0
+offset_bottom = 24.0
+script = ExtResource("4_xb0km")
