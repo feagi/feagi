@@ -79,7 +79,7 @@ services:
 #      - ../third_party/gazebo/simulation/environments/material/map1.png:/opt/source-code/simulation/environments/material/map1.png
 
   brain_visualizer:
-    build: ../third_party/godot/godot_source/HTML 
+    build: ../third_party/godot/godot_source/HTML
     ports:
       - "6081:6081"
     env_file:
