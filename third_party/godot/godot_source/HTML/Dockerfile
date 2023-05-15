@@ -11,4 +11,4 @@ RUN make
 RUN cp godot_web /usr/bin/
 WORKDIR ../html
 # CMD ["sh", "-c", "while :; do sleep 1; done"]
-CMD ["sh", "-c", "godot_web --external --port 6081"]
+CMD ["sh", "-c", "godot_web --external --port 9000"]

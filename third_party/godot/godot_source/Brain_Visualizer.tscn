@@ -1,4 +1,4 @@
-[gd_scene load_steps=52 format=3 uid="uid://deenwnua3u7ay"]
+[gd_scene load_steps=56 format=3 uid="uid://deenwnua3u7ay"]
 
 [ext_resource type="PackedScene" uid="uid://c0650xa4eujml" path="res://circuit_build/Main.tscn" id="2_l206u"]
 [ext_resource type="Script" path="res://brain_visualizer_source/Button_to_Autoload.gd" id="2_t7fr6"]
@@ -37,6 +37,7 @@
 [ext_resource type="PackedScene" uid="uid://bxto6lw73h6ee" path="res://brain_visualizer_source/FEAGI_monitor.tscn" id="34_jfnov"]
 [ext_resource type="PackedScene" uid="uid://cved3x7wo1px4" path="res://Network/SimpleNetworkAPI.tscn" id="35_aljtt"]
 [ext_resource type="Script" path="res://NeuroRobotics-Studio/FeagiCache.gd" id="36_hp4op"]
+[ext_resource type="Script" path="res://animation_teaser.gd" id="38_kkmm1"]
 
 [sub_resource type="Animation" id="Animation_4kct8"]
 resource_name = "RESET"
@@ -239,6 +240,139 @@ cache/0/16/0/underline_position = 0.0
 cache/0/16/0/underline_thickness = 0.0
 cache/0/16/0/scale = 1.0
 cache/0/16/0/kerning_overrides/16/0 = Vector2(0, 0)
+
+[sub_resource type="Animation" id="Animation_2tyrg"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector3(60, 60, 100)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath(".:rotation")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector3(0, 0, 0)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath(".:rotation_edit_mode")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [0]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath(".:rotation_order")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [2]
+}
+tracks/4/type = "value"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath(".:scale")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector3(1, 1, 1)]
+}
+
+[sub_resource type="Animation" id="Animation_74dof"]
+resource_name = "animation"
+length = 10.0
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 2, 4, 7),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 0,
+"values": [Vector3(60, 60, 100), Vector3(36.7456, 60, 100), Vector3(-52.6999, 60, 50.5429), Vector3(-52.6999, 60, 50.5429)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath(".:rotation")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 2, 4, 7),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 0,
+"values": [Vector3(0, 0, 0), Vector3(0, -0.180275, 0), Vector3(0, -1.07542, 0), Vector3(0, -1.07542, 0)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath(".:rotation_edit_mode")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0, 2, 4, 7),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 1,
+"values": [0, 0, 0, 0]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath(".:rotation_order")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0, 2, 4, 7),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 1,
+"values": [2, 2, 2, 2]
+}
+tracks/4/type = "value"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath(".:scale")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(2, 4, 7),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 0,
+"values": [Vector3(1, 1, 1), Vector3(1, 1, 1), Vector3(1, 1, 1)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_ptci2"]
+_data = {
+"RESET": SubResource("Animation_2tyrg"),
+"animation": SubResource("Animation_74dof")
+}
 
 [node name="Official_World" type="Node3D"]
 script = ExtResource("31_pws3t")
@@ -859,12 +993,14 @@ metadata/_edit_use_anchors_ = true
 
 [node name="properties" type="ColorRect" parent="Menu"]
 visible = false
-layout_mode = 0
+layout_mode = 1
+anchors_preset = -1
 anchor_top = 0.765625
 anchor_right = 2.01538
 anchor_bottom = 1.80134
-offset_right = 74.0065
-offset_bottom = 0.000244141
+offset_top = 0.292267
+offset_right = 74.0066
+offset_bottom = 29.7485
 color = Color(0.372549, 0.34902, 0.34902, 1)
 
 [node name="Label" type="Label" parent="Menu/properties"]
@@ -980,7 +1116,7 @@ offset_top = 177.0
 offset_right = 129.0
 offset_bottom = 208.0
 pivot_offset = Vector2(-59, 25)
-text = "Fire Threshold:"
+text = "Firing Threshold:"
 
 [node name="refa" type="SpinBox" parent="Menu/properties/Control"]
 layout_mode = 0
@@ -1083,9 +1219,9 @@ text = "Degeneracy Constant:"
 [node name="psud" type="CheckButton" parent="Menu/properties/Control"]
 layout_mode = 0
 offset_left = 192.0
-offset_top = 363.292
+offset_top = 393.292
 offset_right = 300.0
-offset_bottom = 403.292
+offset_bottom = 433.292
 theme_override_fonts/font = SubResource("FontFile_ql0q6")
 button_mask = 7
 script = ExtResource("15_lq3c1")
@@ -1093,9 +1229,9 @@ script = ExtResource("15_lq3c1")
 [node name="psp" type="Label" parent="Menu/properties/Control"]
 layout_mode = 0
 offset_left = 7.0
-offset_top = 357.0
+offset_top = 387.0
 offset_right = 158.0
-offset_bottom = 388.0
+offset_bottom = 418.0
 pivot_offset = Vector2(-59, 25)
 text = "PSP Uniformity:"
 
@@ -1146,9 +1282,9 @@ anchor_top = 0.87931
 anchor_right = 0.721374
 anchor_bottom = 0.984914
 offset_left = 128.366
-offset_top = 408.12
+offset_top = 421.12
 offset_right = 184.145
-offset_bottom = 436.895
+offset_bottom = 449.895
 text = "Update"
 script = ExtResource("13_fqm17")
 
@@ -1173,9 +1309,9 @@ script = ExtResource("14_ddgqj")
 [node name="MP" type="CheckButton" parent="Menu/properties/Control"]
 layout_mode = 0
 offset_left = 192.0
-offset_top = 387.292
+offset_top = 417.292
 offset_right = 300.0
-offset_bottom = 427.292
+offset_bottom = 457.292
 theme_override_fonts/font = SubResource("FontFile_ql0q6")
 button_mask = 7
 script = ExtResource("15_lq3c1")
@@ -1183,11 +1319,29 @@ script = ExtResource("15_lq3c1")
 [node name="MP_Label" type="Label" parent="Menu/properties/Control"]
 layout_mode = 0
 offset_left = 8.0
-offset_top = 386.292
-offset_right = 159.0
-offset_bottom = 417.292
+offset_top = 416.292
+offset_right = 164.0
+offset_bottom = 447.292
 pivot_offset = Vector2(-59, 25)
 text = "Charge Accumation:"
+
+[node name="Threshold_Sensitivity_Label" type="Label" parent="Menu/properties/Control"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 359.0
+offset_right = 133.0
+offset_bottom = 390.0
+pivot_offset = Vector2(-59, 25)
+text = "Threshold Limit"
+
+[node name="Threshold_Sensitivity_text" type="LineEdit" parent="Menu/properties/Control"]
+layout_mode = 0
+offset_left = 232.0
+offset_top = 367.292
+offset_right = 299.062
+offset_bottom = 398.292
+text = "0.0"
+script = ExtResource("14_ddgqj")
 
 [node name="cortical_mapping" type="ColorRect" parent="Menu"]
 visible = false
@@ -3592,6 +3746,24 @@ offset_right = 1728.0
 offset_bottom = 617.0
 text = "Switch Example"
 
+[node name="animation_button" type="Button" parent="."]
+visible = false
+offset_left = 1672.0
+offset_top = 172.0
+offset_right = 1771.0
+offset_bottom = 222.0
+text = "animation_teaser"
+script = ExtResource("38_kkmm1")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+root_node = NodePath("Camera3D")
+libraries = {
+"": SubResource("AnimationLibrary_ptci2")
+}
+
+[node name="Camera3D" type="Camera3D" parent="AnimationPlayer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 60, 100)
+
 [connection signal="resized" from="Menu" to="Menu" method="_on_Menu_resized"]
 [connection signal="focus_exited" from="Menu/information_menu/burst_duration_label/burst_value" to="Core/GlobalUISystem/Brain_Visualizer" method="_on_burst_value_focus_exited"]
 [connection signal="focus_exited" from="Menu/information_menu/burst_duration_label/burst_value" to="Menu/information_menu/burst_duration_label/burst_value" method="_on_burst_value_focus_exited"]
@@ -3657,3 +3829,4 @@ text = "Switch Example"
 [connection signal="pressed" from="Menu/close_for_all" to="Menu" method="_on_close_for_all_pressed"]
 [connection signal="pressed" from="Menu/3D_enable" to="Menu/3D_enable" method="_on_3D_enable_pressed"]
 [connection signal="pressed" from="Button" to="." method="_on_button_pressed"]
+[connection signal="pressed" from="animation_button" to="animation_button" method="_on_pressed"]

@@ -136,7 +136,7 @@ func generate_model(node, x_input, y_input, z_input, width_input, depth_input, h
 					generate_textbox(node, x_input,height_input,z_input, name_input, y_input, width_input, depth_input)
 
 func generate_textbox(node, x_input,height_input,z_input, name_input, input_y, width_input, depth_input):
-	node.transform.origin = Vector3(int(x_input) + (width_input/1.5), int(int(input_y)+2 + (height_input)), -1 * depth_input - z_input)
+	node.transform.origin = Vector3(int(x_input) + (width_input/1.5), int(int(input_y)+1 + (height_input)), -1 * depth_input - z_input)
 	node.get_node("SubViewport/Label").set_text(str(name_input))
 	node.get_node("SubViewport").get_texture()
 	if not name_input in ["x", "y", "z"]:
@@ -287,6 +287,7 @@ func _on_Update_pressed():
 	var post_synaptic_potential_max = float($".."/".."/".."/Menu/properties/Control/pst_syn_max.value);
 	var plasticity_coef = float($".."/".."/".."/Menu/properties/Control/plst.value);
 	var fire_threshold = float($".."/".."/".."/Menu/properties/Control/fire.value);
+	var fire_threshold_limit = int($".."/".."/".."/Menu/properties/Control/Threshold_Sensitivity_text.value)
 	var refractory_period = int($".."/".."/".."/Menu/properties/Control/refa.value);
 	var leak_coefficient = float($".."/".."/".."/Menu/properties/Control/leak.text);
 	var leak_variability = float($".."/".."/".."/Menu/properties/Control/leak_Vtext.text);
@@ -357,6 +358,7 @@ func _on_Update_pressed():
 	last_cortical_selected["neuron_plasticity_constant"] = plasticity_coef
 	last_cortical_selected["neuron_fire_threshold"] = fire_threshold
 	last_cortical_selected["neuron_fire_threshold_increment"] = fire_threshold_increment
+	last_cortical_selected["neuron_firing_threshold_limit"] = fire_threshold_limit
 	last_cortical_selected["neuron_refractory_period"] = refractory_period
 	last_cortical_selected["neuron_leak_coefficient"] = float(leak_coefficient)
 	last_cortical_selected["neuron_leak_variability"] = float(leak_variability)
@@ -403,7 +405,7 @@ func add_3D_indicator():
 	create_textbox_axis.set_name("x_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
 	create_textbox_axis.scale = Vector3(1, 1, 1)
-	generate_textbox(create_textbox_axis, 5,0,0,"x", 1, 0, 0)
+	generate_textbox(create_textbox_axis, 10,0,0,"x", 1, 0, 0)
 	for j in 6:
 		$GridMap3.set_cell_item( Vector3(0,j,0) ,0)
 	create_textbox_axis = create_textbox_axis.duplicate() #generate a new node to re-use the model
@@ -412,7 +414,7 @@ func add_3D_indicator():
 	create_textbox_axis.set_name("y_textbox")
 	add_child(create_textbox_axis) # Copied the node to new node
 	create_textbox_axis.scale = Vector3(1, 1, 1)
-	generate_textbox(create_textbox_axis, 0,5,0,"y", 1,0, 0)
+	generate_textbox(create_textbox_axis, 5,5,0,"y", 1,0, 0)
 	for k in 6: 
 		$GridMap3.set_cell_item( Vector3(0,0,k) ,0)
 	create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
@@ -421,7 +423,7 @@ func add_3D_indicator():
 	create_textbox_axis.set_name("z_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
 	create_textbox_axis.scale = Vector3(1, 1, 1)
-	generate_textbox(create_textbox_axis, -2,0.5,6,"z", 1, 0, 0)
+	generate_textbox(create_textbox_axis, 4,0,-6,"z", 1, 0, 0)
 	$GridMap.clear()
 
 func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
@@ -433,9 +435,9 @@ func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 		$".."/".."/".."/Menu/cortical_menu/title.text = genome_properties["cortical_name"]
 		$".."/".."/".."/Menu/cortical_menu/Control/name_string.text = $".."/".."/".."/Menu/cortical_menu/title.text
 		$".."/".."/".."/Menu/properties/Control/neuron_count.value = genome_properties["cortical_neuron_per_vox_count"]
-		Autoload_variable.BV_UI.SpawnLeftBar()
+#		Autoload_variable.BV_UI.SpawnLeftBar()
 		# I just want to populate the data using the new menu without modify anything significantly
-		Autoload_variable.BV_UI.dataUp.emit(genome_properties["cortical_neuron_per_vox_count"])  
+#		Autoload_variable.BV_UI.dataUp.emit(genome_properties["cortical_neuron_per_vox_count"])
 		$".."/".."/".."/Menu/cortical_menu/Control/X.value = genome_properties["cortical_coordinates"][0]
 		$".."/".."/".."/Menu/cortical_menu/Control/Y.value = genome_properties["cortical_coordinates"][1]
 		$".."/".."/".."/Menu/cortical_menu/Control/Z.value = genome_properties["cortical_coordinates"][2]
@@ -447,6 +449,7 @@ func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 		$".."/".."/".."/Menu/properties/Control/pst_syn_max.value = float(genome_properties["neuron_post_synaptic_potential_max"])
 		$".."/".."/".."/Menu/properties/Control/plst.value = genome_properties["neuron_plasticity_constant"]
 		$".."/".."/".."/Menu/properties/Control/fire.value = genome_properties["neuron_fire_threshold"]
+		$".."/".."/".."/Menu/properties/Control/Threshold_Sensitivity_text.value = int(genome_properties["neuron_firing_threshold_limit"])
 		$".."/".."/".."/Menu/properties/Control/fireshold_increment.text = str(genome_properties["neuron_fire_threshold_increment"])
 		$".."/".."/".."/Menu/properties/Control/refa.value = genome_properties["neuron_refractory_period"]
 		$".."/".."/".."/Menu/properties/Control/leak.text = str(float(genome_properties["neuron_leak_coefficient"]))

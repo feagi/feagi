@@ -172,12 +172,14 @@ func resize_buttons():
 	$properties/Control/plst.position.y = $properties/Control/post_syn_max.position.y + $properties/Control/post_syn_max.size.y + 15
 	$properties/Control/fire_count.position.y = $properties/Control/plasticity.position.y + $properties/Control/plasticity.size.y + 15
 	$properties/Control/fire.position.y = $properties/Control/plasticity.position.y + $properties/Control/plasticity.size.y + 15
-	$properties/Control/refractory.position.y = $properties/Control/fire_count.position.y + $properties/Control/fire_count.size.y
-	$properties/Control/refa.position.y = $properties/Control/fire_count.position.y + $properties/Control/fire_count.size.y 
+	$properties/Control/Threshold_Sensitivity_Label.position.y = $properties/Control/fire_count.position.y + $properties/Control/fire_count.size.y
+	$properties/Control/Threshold_Sensitivity_text.position.y = $properties/Control/fire_count.position.y + $properties/Control/fire_count.size.y 
+	$properties/Control/refractory.position.y = $properties/Control/Threshold_Sensitivity_text.position.y + $properties/Control/Threshold_Sensitivity_text.size.y
+	$properties/Control/refa.position.y = $properties/Control/Threshold_Sensitivity_text.position.y + $properties/Control/Threshold_Sensitivity_text.size.y 
 	$properties/Control/leak.position.y = $properties/Control/refractory.position.y + $properties/Control/refractory.size.y
 	$properties/Control/leakco.position.y = $properties/Control/refractory.position.y + $properties/Control/refractory.size.y
-	$properties/Control/leak_va.position.y = $properties/Control/leak.position.y + $properties/Control/leak.size.y + 10
-	$properties/Control/leak_Vtext.position.y = $properties/Control/leak.position.y + $properties/Control/leak.size.y + 10
+	$properties/Control/leak_va.position.y = $properties/Control/leak.position.y + $properties/Control/leak.size.y
+	$properties/Control/leak_Vtext.position.y = $properties/Control/leak.position.y + $properties/Control/leak.size.y
 	$properties/Control/fireshold_increment_label.position.y = $properties/Control/leak_va.position.y + $properties/Control/leak_va.size.y
 	$properties/Control/fireshold_increment.position.y = $properties/Control/leak_va.position.y + $properties/Control/leak_va.size.y
 	$properties/Control/consecutive.position.y = $properties/Control/fireshold_increment_label.position.y + $properties/Control/fireshold_increment_label.size.y
@@ -186,7 +188,7 @@ func resize_buttons():
 	$properties/Control/snooze.position.y = $properties/Control/consecutive.position.y + $properties/Control/consecutive.size.y
 	$properties/Control/dege.position.y = $properties/Control/snooze.position.y + $properties/Control/snooze.size.y
 	$properties/Control/degeneracy.position.y = $properties/Control/snooze.position.y + $properties/Control/snooze.size.y
-	$properties/Control/psud.position.y = $properties/Control/degeneracy.position.y + $properties/Control/degeneracy.size.y
+	$properties/Control/psud.position.y = $properties/Control/degeneracy.position.y + $properties/Control/degeneracy.size.y 
 	$properties/Control/psp.position.y = $properties/Control/degeneracy.position.y + $properties/Control/degeneracy.size.y
 	$properties/Control/MP_Label.position.y = $properties/Control/psp.position.y + $properties/Control/psp.size.y
 	$properties/Control/MP.position.y = $properties/Control/MP_Label.position.y
