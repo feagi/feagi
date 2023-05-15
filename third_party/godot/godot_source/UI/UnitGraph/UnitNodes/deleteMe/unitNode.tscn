@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://UI/UnitGraph/UnitNodes/deleteMe/UnitNodeold.gd" id="1_56j0d"]
+
+[node name="unitNode" type="GraphNode"]
+offset_right = 236.0
+offset_bottom = 247.0
+script = ExtResource("1_56j0d")

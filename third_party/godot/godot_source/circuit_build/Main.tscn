@@ -1,0 +1,35 @@
+[gd_scene format=3 uid="uid://c0650xa4eujml"]
+
+[node name="Control" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="GraphEdit" type="GraphEdit" parent="."]
+clip_contents = false
+layout_mode = 1
+offset_right = 1152.0
+offset_bottom = 648.0
+scroll_offset = Vector2(-420, -144)
+arrange_nodes_button_hidden = true
+
+[node name="GraphNode" type="GraphNode" parent="GraphEdit"]
+layout_mode = 0
+offset_left = 495.0
+offset_top = 130.0
+offset_right = 756.0
+offset_bottom = 418.0
+mouse_filter = 1
+position_offset = Vector2(75, -14)
+
+[node name="GraphNode2" type="GraphNode" parent="GraphEdit"]
+layout_mode = 0
+offset_left = 143.0
+offset_top = 117.0
+offset_right = 372.0
+offset_bottom = 452.0
+mouse_filter = 1
+position_offset = Vector2(-277, -27)
