@@ -44,6 +44,9 @@ func Activate(langISO: String):
 	UI_GraphCore = $graphCore #TODO: this is very temporary
 	UI_GraphCore.dataUp.connect(GraphEditInput)
 	
+	# Connect window size change function
+	get_tree().get_root().size_changed.connect(WindowSizedChanged)
+	
 	
 	Activated = true
 
@@ -97,6 +100,12 @@ func GraphEditInput(data: Dictionary):
 		dataUp.emit(data)
 	pass
 
+# Is called whenever the game window size changes
+func WindowSizedChanged():
+	print("New Size")
+	var viewPortSize: Vector2 = get_viewport().get_rect().size
+	UI_GraphCore.size = viewPortSize
+	#print(newWindowSize)
 
 ####################################
 ###### Relay Feagi Dependents ######
