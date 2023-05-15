@@ -1,0 +1,18 @@
+{
+	"TITLE": {
+		"label": 
+		  {"eng": "NeuroRobotics Studio"}
+		},
+	"REFRESHRATE": {
+		"label":
+		  {"eng":  "System Refresh Rate"}
+	},
+	"CORTICALAREAS" : {
+	  "label":
+		{"eng": "Cortical Areas"}
+	},
+	"NEURONMORPHOLOGIES" : {
+		"label":
+		  {"eng": "Neuron Morphologies"} 
+	}
+}

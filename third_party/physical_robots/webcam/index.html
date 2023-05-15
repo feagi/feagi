@@ -7,14 +7,20 @@
 <body>
 	<canvas id="canvas"></canvas>
 <script src="https://cdn.jsdelivr.net/pako/1.0.3/pako.min.js"></script>
+<script src="env.js"></script>
 <script>
+	var url_string = window.location.href;
+	var url = new URL(url_string);
+	const searchParams = new URLSearchParams(url.search);
+	const ipAddress = searchParams.get("ip_address");
 	document.addEventListener("DOMContentLoaded", () => {
 	  const but = document.getElementById("but");
 	  const video = document.getElementById("vid");
 	  const mediaDevices = navigator.mediaDevices;
+	  const wsUrl = ipAddress;
 	  vid.muted = true;
 
-	  const ws = new WebSocket("ws://127.0.0.1:9051");
+	  const ws = new WebSocket('ws://' + wsUrl + ':9051');
 
 	  let intervalId; // to store the setInterval ID
 

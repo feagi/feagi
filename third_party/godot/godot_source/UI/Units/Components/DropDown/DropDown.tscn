@@ -1,0 +1,38 @@
+[gd_scene load_steps=5 format=3 uid="uid://cipvjvn5qdfdp"]
+
+[ext_resource type="Script" path="res://UI/Units/Components/DropDown/DropDown_Component.gd" id="1_3mi36"]
+[ext_resource type="Script" path="res://UI/Units/Components/DropDown/OptionButton_SubComponent.gd" id="2_krun1"]
+[ext_resource type="Script" path="res://UI/Units/Common_SubComponents/Label_SubComponent.gd" id="3_au37d"]
+[ext_resource type="Script" path="res://UI/Units/Common_SubComponents/Button_SubComponent.gd" id="4_fe1a7"]
+
+[node name="DropDown" type="Panel"]
+custom_minimum_size = Vector2(10, 10)
+offset_right = 274.0
+offset_bottom = 41.0
+script = ExtResource("1_3mi36")
+
+[node name="OptionButton" type="OptionButton" parent="."]
+layout_mode = 1
+offset_right = 104.0
+offset_bottom = 31.0
+item_count = 2
+popup/item_0/text = "dvdv"
+popup/item_0/id = 0
+popup/item_1/text = "sdsd"
+popup/item_1/id = 1
+script = ExtResource("2_krun1")
+
+[node name="Label" type="Label" parent="."]
+layout_mode = 1
+offset_right = 97.0
+offset_bottom = 26.0
+text = "Uninitialized"
+vertical_alignment = 1
+script = ExtResource("3_au37d")
+
+[node name="Button" type="Button" parent="."]
+layout_mode = 1
+offset_right = 31.0
+offset_bottom = 32.0
+text = "+"
+script = ExtResource("4_fe1a7")

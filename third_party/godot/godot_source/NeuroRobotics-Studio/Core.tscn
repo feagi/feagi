@@ -1,0 +1,29 @@
+[gd_scene load_steps=7 format=3 uid="uid://dxi6llxd13iql"]
+
+[ext_resource type="Script" path="res://NeuroRobotics-Studio/Core.gd" id="1_5bt5c"]
+[ext_resource type="PackedScene" uid="uid://c7v5wwar1gqjo" path="res://NeuroRobotics-Studio/UI_Manager.tscn" id="2_kmbnk"]
+[ext_resource type="PackedScene" uid="uid://cved3x7wo1px4" path="res://Network/SimpleNetworkAPI.tscn" id="3_cbods"]
+[ext_resource type="PackedScene" uid="uid://bxto6lw73h6ee" path="res://brain_visualizer_source/FEAGI_monitor.tscn" id="4_grvdf"]
+[ext_resource type="PackedScene" uid="uid://drgmyyduq6gd2" path="res://UI/UnitGraph/graphCore.tscn" id="4_ownf6"]
+[ext_resource type="Script" path="res://NeuroRobotics-Studio/FeagiCache.gd" id="5_b0cae"]
+
+[node name="Core" type="Node3D"]
+script = ExtResource("1_5bt5c")
+
+[node name="GlobalUISystem" parent="." instance=ExtResource("2_kmbnk")]
+mouse_filter = 1
+
+[node name="graphCore" parent="GlobalUISystem" instance=ExtResource("4_ownf6")]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1890.0
+offset_bottom = 1081.0
+scroll_offset = Vector2(-673, -361)
+
+[node name="Brain_Visualizer" parent="GlobalUISystem" instance=ExtResource("4_grvdf")]
+
+[node name="GlobalNetworkSystem" parent="." instance=ExtResource("3_cbods")]
+
+[node name="FeagiCache" type="Node" parent="."]
+script = ExtResource("5_b0cae")

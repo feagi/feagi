@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3 uid="uid://grwgbghf8t5e"]
+
+[ext_resource type="Script" path="res://UI/Units/Unit.gd" id="1_im3l0"]
+
+[node name="Unit" type="Panel"]
+texture_repeat = 1
+offset_left = 18.0
+offset_top = 13.0
+offset_right = 43.0
+offset_bottom = 36.0
+script = ExtResource("1_im3l0")

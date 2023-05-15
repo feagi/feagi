@@ -1,0 +1,18 @@
+{
+  "ID" : "BAR",
+  "components": [
+	{"type" : "header",
+	"ID" : "TITLE"},
+	{"type": "header",
+	"ID": "GENOMEFILENAME"},
+	{"type" : "field",
+	"ID" : "REFRESHRATE"},
+	{"type" : "dropdown",
+	"hasButton" : true,
+	"ID" : "CORTICALAREAS"},
+	{"type" : "dropdown",
+	"hasButton" : true,
+	"ID" : "NEURONMORPHOLOGIES"}
+  ],
+  "isVertical": false
+}
