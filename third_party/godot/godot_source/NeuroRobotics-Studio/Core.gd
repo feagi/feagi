@@ -4,10 +4,12 @@ class_name Core
 ####################################
 ####### Configuration & Setup ######
 ####################################
-var FEAGI_RootAddress = str(network_setting.api_ip_address) + ":"+ str(network_setting.api_port_address)
+var FEAGI_RootAddress = ""
 @export var languageISO := "eng" #TODO proxy changes to UI manager
 
 func _ready():
+	FEAGI_RootAddress = str(network_setting.api_ip_address) + ":"+ str(network_setting.api_port_address)
+	print("CORE FEAGI ROOTADDRESS: ", FEAGI_RootAddress)
 	# # # Build the bridge # # # 
 	Autoload_variable.Core_BV = $GlobalUISystem/Brain_Visualizer
 	Autoload_variable.Core_addOption = get_parent().get_node("Menu/Mapping_Properties/cortical_dropdown")
