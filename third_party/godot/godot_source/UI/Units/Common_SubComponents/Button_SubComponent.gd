@@ -1,6 +1,10 @@
 extends Button
 class_name Button_SubComponent
 
+# NOTE: This is DIFFERENT from the Button COmponent, this is for adding button to existing components
+# (IE, the dropdown), and not intended to be used as a component directly. Please see
+# Button_Component.gd for that instead!
+
 signal SizeChanged(selfReference)
 
 var Hsize: Vector2:
