@@ -44,6 +44,9 @@ func Activate(langISO: String):
 	UI_GraphCore = $graphCore #TODO: this is very temporary
 	UI_GraphCore.dataUp.connect(GraphEditInput)
 	
+	# Connect window size change function
+	get_tree().get_root().size_changed.connect(WindowSizedChanged)
+	
 	
 	Activated = true
 
@@ -97,6 +100,11 @@ func GraphEditInput(data: Dictionary):
 		dataUp.emit(data)
 	pass
 
+# Is called whenever the game window size changes
+func WindowSizedChanged():
+	var viewPortSize: Vector2 = get_viewport_rect().size
+	UI_GraphCore.size = viewPortSize
+	#print(newWindowSize)
 
 ####################################
 ###### Relay Feagi Dependents ######
@@ -120,8 +128,6 @@ func RelayDownwards(callType, data) -> void:
 		REF.FROM.godot_fullCorticalData:
 			UI_GraphCore.RelayDownwards(REF.FROM.godot_fullCorticalData, data)
 		REF.FROM.genome_corticalArea:
-			
-			print("Hellow 4")
 			
 			# Data for Specific Cortical Area
 			# Race conditions are technically possible. Verify input
