@@ -4,11 +4,11 @@ var socket = WebSocketPeer.new()
 var one_frame 
 # The URL we will connect to
 # For API IP
-var api_ip_address = "127.0.0.1"
+var api_ip_address = "192.168.50.246"
 # For API port
 var api_port_address = "8000"
 # For Websocket port
-var websocket_ip_address = "127.0.0.1"
+var websocket_ip_address = "192.168.50.246"
 # For Websocket Port
 var websocket_port_address = "9050"
 var state = ""
