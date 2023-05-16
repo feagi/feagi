@@ -58,7 +58,7 @@ func _ready():
 	# # # Initalize the bridge # # # 
 	Autoload_variable.BV_Core = get_parent().get_parent()
 	Autoload_variable.BV_UI = get_parent()
-	await get_tree().create_timer(2).timeout
+	await get_tree().create_timer(1.5).timeout
 	SEC = 'HTTP://' + network_setting.api_ip_address
 	set_physics_process(false)
 	add_3D_indicator()

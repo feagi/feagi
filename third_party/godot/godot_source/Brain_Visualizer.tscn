@@ -406,6 +406,7 @@ libraries = {
 }
 
 [node name="Core" type="Node3D" parent="."]
+process_priority = 1
 script = ExtResource("31_vv2v0")
 
 [node name="GlobalNetworkSystem" parent="Core" instance=ExtResource("35_aljtt")]
