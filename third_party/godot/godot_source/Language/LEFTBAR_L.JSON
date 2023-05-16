@@ -56,6 +56,10 @@
 			{"eng": "Update"}
 	},
 	"XYZ": {
-		""
+		"componentData": {
+			"Pos_X": {
+				"label": "X"
+			}
+		}
 	}
 }
