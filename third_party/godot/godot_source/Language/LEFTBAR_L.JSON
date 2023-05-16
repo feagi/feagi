@@ -49,6 +49,10 @@
 	},
 	"DegeneracyConstant" : {
 		"label":
-		  {"eng": "Degeneracy Constant"} 
+		  {"eng": "Degeneracy Constant"}
 	},
+	"UpdateButton" : {
+		"label":
+			{"eng": "Update"}
+	}
 }
