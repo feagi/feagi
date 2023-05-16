@@ -102,8 +102,7 @@ func GraphEditInput(data: Dictionary):
 
 # Is called whenever the game window size changes
 func WindowSizedChanged():
-	print("New Size")
-	var viewPortSize: Vector2 = get_viewport().get_rect().size
+	var viewPortSize: Vector2 = get_viewport_rect().size
 	UI_GraphCore.size = viewPortSize
 	#print(newWindowSize)
 
@@ -129,8 +128,6 @@ func RelayDownwards(callType, data) -> void:
 		REF.FROM.godot_fullCorticalData:
 			UI_GraphCore.RelayDownwards(REF.FROM.godot_fullCorticalData, data)
 		REF.FROM.genome_corticalArea:
-			
-			print("Hellow 4")
 			
 			# Data for Specific Cortical Area
 			# Race conditions are technically possible. Verify input
