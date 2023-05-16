@@ -3,8 +3,7 @@ extends Node
 var socket = WebSocketPeer.new()
 var one_frame 
 # The URL we will connect to
-# For API IP
-var api_ip_address = "" # Setting the global variable
+var api_ip_address = "" # Setting the global variabl3
 # For API port
 var api_port_address = "8000"
 # For Websocket port
