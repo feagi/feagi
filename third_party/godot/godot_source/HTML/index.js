@@ -10316,6 +10316,27 @@ function _godot_js_os_fs_sync(callback) {
  });
 }
 
+function _godot_js_os_has_feature(p_ftr) {
+ const ftr = GodotRuntime.parseString(p_ftr);
+ const ua = navigator.userAgent;
+ if (ftr === "web_macos") {
+  return ua.indexOf("Mac") !== -1 ? 1 : 0;
+ }
+ if (ftr === "web_windows") {
+  return ua.indexOf("Windows") !== -1 ? 1 : 0;
+ }
+ if (ftr === "web_android") {
+  return ua.indexOf("Android") !== -1 ? 1 : 0;
+ }
+ if (ftr === "web_ios") {
+  return ua.indexOf("iPhone") !== -1 || ua.indexOf("iPad") !== -1 || ua.indexOf("iPod") !== -1 ? 1 : 0;
+ }
+ if (ftr === "web_linuxbsd") {
+  return ua.indexOf("CrOS") !== -1 || ua.indexOf("BSD") !== -1 || ua.indexOf("Linux") !== -1 || ua.indexOf("X11") !== -1 ? 1 : 0;
+ }
+ return 0;
+}
+
 function _godot_js_os_hw_concurrency_get() {
  const concurrency = navigator.hardwareConcurrency || 1;
  return concurrency < 2 ? concurrency : 2;
@@ -11249,6 +11270,7 @@ var GodotWebXR = {
  view_count: 1,
  input_sources: [ , , , , , , , , , , , , , , ,  ],
  touches: [ , , , ,  ],
+ onsimpleevent: null,
  orig_requestAnimationFrame: null,
  requestAnimationFrame: callback => {
   if (GodotWebXR.session && GodotWebXR.space) {
@@ -11423,8 +11445,16 @@ function _godot_webxr_get_depth_texture() {
  return GodotWebXR.getTextureId(subimage.depthStencilTexture);
 }
 
+function _godot_webxr_get_frame_rate() {
+ if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(55, 1);
+ if (!GodotWebXR.session || GodotWebXR.session.frameRate === undefined) {
+  return 0;
+ }
+ return GodotWebXR.session.frameRate;
+}
+
 function _godot_webxr_get_projection_for_view(p_view, r_transform) {
- if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(55, 1, p_view, r_transform);
+ if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(56, 1, p_view, r_transform);
  if (!GodotWebXR.session || !GodotWebXR.pose) {
   return false;
  }
@@ -11436,7 +11466,7 @@ function _godot_webxr_get_projection_for_view(p_view, r_transform) {
 }
 
 function _godot_webxr_get_render_target_size(r_size) {
- if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(56, 1, r_size);
+ if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(57, 1, r_size);
  const subimage = GodotWebXR.getSubImage();
  if (subimage === null) {
   return false;
@@ -11446,8 +11476,25 @@ function _godot_webxr_get_render_target_size(r_size) {
  return true;
 }
 
+function _godot_webxr_get_supported_frame_rates(r_frame_rates) {
+ if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(58, 1, r_frame_rates);
+ if (!GodotWebXR.session || GodotWebXR.session.supportedFrameRates === undefined) {
+  return 0;
+ }
+ const frame_rate_count = GodotWebXR.session.supportedFrameRates.length;
+ if (frame_rate_count === 0) {
+  return 0;
+ }
+ const buf = GodotRuntime.malloc(frame_rate_count * 4);
+ for (let i = 0; i < frame_rate_count; i++) {
+  GodotRuntime.setHeapValue(buf + i * 4, GodotWebXR.session.supportedFrameRates[i], "float");
+ }
+ GodotRuntime.setHeapValue(r_frame_rates, buf, "i32");
+ return frame_rate_count;
+}
+
 function _godot_webxr_get_transform_for_view(p_view, r_transform) {
- if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(57, 1, p_view, r_transform);
+ if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(59, 1, p_view, r_transform);
  if (!GodotWebXR.session || !GodotWebXR.pose) {
   return false;
  }
@@ -11465,7 +11512,7 @@ function _godot_webxr_get_transform_for_view(p_view, r_transform) {
 }
 
 function _godot_webxr_get_velocity_texture() {
- if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(58, 1);
+ if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(60, 1);
  const subimage = GodotWebXR.getSubImage();
  if (subimage === null) {
   return 0;
@@ -11477,7 +11524,7 @@ function _godot_webxr_get_velocity_texture() {
 }
 
 function _godot_webxr_get_view_count() {
- if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(59, 1);
+ if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(61, 1);
  if (!GodotWebXR.session || !GodotWebXR.pose) {
   return 1;
  }
@@ -11486,7 +11533,7 @@ function _godot_webxr_get_view_count() {
 }
 
 function _godot_webxr_get_visibility_state() {
- if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(60, 1);
+ if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(62, 1);
  if (!GodotWebXR.session || !GodotWebXR.session.visibilityState) {
   return 0;
  }
@@ -11494,7 +11541,7 @@ function _godot_webxr_get_visibility_state() {
 }
 
 function _godot_webxr_initialize(p_session_mode, p_required_features, p_optional_features, p_requested_reference_spaces, p_on_session_started, p_on_session_ended, p_on_session_failed, p_on_input_event, p_on_simple_event) {
- if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(61, 1, p_session_mode, p_required_features, p_optional_features, p_requested_reference_spaces, p_on_session_started, p_on_session_ended, p_on_session_failed, p_on_input_event, p_on_simple_event);
+ if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(63, 1, p_session_mode, p_required_features, p_optional_features, p_requested_reference_spaces, p_on_session_started, p_on_session_ended, p_on_session_failed, p_on_input_event, p_on_simple_event);
  GodotWebXR.monkeyPatchRequestAnimationFrame(true);
  const session_mode = GodotRuntime.parseString(p_session_mode);
  const required_features = GodotRuntime.parseString(p_required_features).split(",").map(s => s.trim()).filter(s => s !== "");
@@ -11533,6 +11580,7 @@ function _godot_webxr_initialize(p_session_mode, p_required_features, p_optional
    onsimpleevent(c_str);
    GodotRuntime.free(c_str);
   });
+  GodotWebXR.onsimpleevent = onsimpleevent;
   const gl_context_handle = _emscripten_webgl_get_current_context();
   const gl = GL.getContext(gl_context_handle).GLctx;
   GodotWebXR.gl = gl;
@@ -11581,7 +11629,7 @@ function _godot_webxr_initialize(p_session_mode, p_required_features, p_optional
 }
 
 function _godot_webxr_is_session_supported(p_session_mode, p_callback) {
- if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(62, 1, p_session_mode, p_callback);
+ if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(64, 1, p_session_mode, p_callback);
  const session_mode = GodotRuntime.parseString(p_session_mode);
  const cb = GodotRuntime.get_func(p_callback);
  if (navigator.xr) {
@@ -11598,12 +11646,12 @@ function _godot_webxr_is_session_supported(p_session_mode, p_callback) {
 }
 
 function _godot_webxr_is_supported() {
- if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(63, 1);
+ if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(65, 1);
  return !!navigator.xr;
 }
 
 function _godot_webxr_uninitialize() {
- if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(64, 1);
+ if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(66, 1);
  if (GodotWebXR.session) {
   GodotWebXR.session.end().catch(e => {});
  }
@@ -11616,12 +11664,13 @@ function _godot_webxr_uninitialize() {
  GodotWebXR.view_count = 1;
  GodotWebXR.input_sources = new Array(16);
  GodotWebXR.touches = new Array(5);
+ GodotWebXR.onsimpleevent = null;
  GodotWebXR.monkeyPatchRequestAnimationFrame(false);
  GodotWebXR.pauseResumeMainLoop();
 }
 
 function _godot_webxr_update_input_source(p_input_source_id, r_target_pose, r_target_ray_mode, r_touch_index, r_has_grip_pose, r_grip_pose, r_has_standard_mapping, r_button_count, r_buttons, r_axes_count, r_axes) {
- if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(65, 1, p_input_source_id, r_target_pose, r_target_ray_mode, r_touch_index, r_has_grip_pose, r_grip_pose, r_has_standard_mapping, r_button_count, r_buttons, r_axes_count, r_axes);
+ if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(67, 1, p_input_source_id, r_target_pose, r_target_ray_mode, r_touch_index, r_has_grip_pose, r_grip_pose, r_has_standard_mapping, r_button_count, r_buttons, r_axes_count, r_axes);
  if (!GodotWebXR.session || !GodotWebXR.frame) {
   return 0;
  }
@@ -11689,6 +11738,18 @@ function _godot_webxr_update_input_source(p_input_source_id, r_target_pose, r_ta
  GodotRuntime.setHeapValue(r_button_count, button_count, "i32");
  GodotRuntime.setHeapValue(r_axes_count, axes_count, "i32");
  return true;
+}
+
+function _godot_webxr_update_target_frame_rate(p_frame_rate) {
+ if (ENVIRONMENT_IS_PTHREAD) return _emscripten_proxy_to_main_thread_js(68, 1, p_frame_rate);
+ if (!GodotWebXR.session || GodotWebXR.session.updateTargetFrameRate === undefined) {
+  return;
+ }
+ GodotWebXR.session.updateTargetFrameRate(p_frame_rate).then(() => {
+  const c_str = GodotRuntime.allocString("display_refresh_rate_changed");
+  GodotWebXR.onsimpleevent(c_str);
+  GodotRuntime.free(c_str);
+ });
 }
 
 function _setTempRet0(val) {
@@ -12585,7 +12646,7 @@ GodotOS.atexit(function(resolve, reject) {
 
 GodotJSWrapper.proxies = new Map();
 
-var proxiedFunctionTable = [ null, _proc_exit, exitOnMainThread, pthreadCreateProxied, ___syscall__newselect, ___syscall_accept4, ___syscall_bind, ___syscall_chdir, ___syscall_chmod, ___syscall_connect, ___syscall_faccessat, ___syscall_fcntl64, ___syscall_getcwd, ___syscall_getdents64, ___syscall_getsockname, ___syscall_getsockopt, ___syscall_ioctl, ___syscall_listen, ___syscall_lstat64, ___syscall_mkdirat, ___syscall_newfstatat, ___syscall_openat, ___syscall_poll, ___syscall_readlinkat, ___syscall_recvfrom, ___syscall_renameat, ___syscall_rmdir, ___syscall_sendto, ___syscall_socket, ___syscall_stat64, ___syscall_statfs64, ___syscall_symlink, ___syscall_unlinkat, __mmap_js, __munmap_js, _tzset_impl, _emscripten_force_exit, _emscripten_webgl_destroy_context, _emscripten_webgl_create_context_proxied, _emscripten_webgl_enable_extension, _environ_get, _environ_sizes_get, _fd_close, _fd_fdstat_get, _fd_read, _fd_seek, _fd_write, _getaddrinfo, _godot_audio_input_start, _godot_audio_input_stop, _godot_audio_is_available, _godot_webgl2_glFramebufferTextureMultiviewOVR, _godot_webxr_get_bounds_geometry, _godot_webxr_get_color_texture, _godot_webxr_get_depth_texture, _godot_webxr_get_projection_for_view, _godot_webxr_get_render_target_size, _godot_webxr_get_transform_for_view, _godot_webxr_get_velocity_texture, _godot_webxr_get_view_count, _godot_webxr_get_visibility_state, _godot_webxr_initialize, _godot_webxr_is_session_supported, _godot_webxr_is_supported, _godot_webxr_uninitialize, _godot_webxr_update_input_source ];
+var proxiedFunctionTable = [ null, _proc_exit, exitOnMainThread, pthreadCreateProxied, ___syscall__newselect, ___syscall_accept4, ___syscall_bind, ___syscall_chdir, ___syscall_chmod, ___syscall_connect, ___syscall_faccessat, ___syscall_fcntl64, ___syscall_getcwd, ___syscall_getdents64, ___syscall_getsockname, ___syscall_getsockopt, ___syscall_ioctl, ___syscall_listen, ___syscall_lstat64, ___syscall_mkdirat, ___syscall_newfstatat, ___syscall_openat, ___syscall_poll, ___syscall_readlinkat, ___syscall_recvfrom, ___syscall_renameat, ___syscall_rmdir, ___syscall_sendto, ___syscall_socket, ___syscall_stat64, ___syscall_statfs64, ___syscall_symlink, ___syscall_unlinkat, __mmap_js, __munmap_js, _tzset_impl, _emscripten_force_exit, _emscripten_webgl_destroy_context, _emscripten_webgl_create_context_proxied, _emscripten_webgl_enable_extension, _environ_get, _environ_sizes_get, _fd_close, _fd_fdstat_get, _fd_read, _fd_seek, _fd_write, _getaddrinfo, _godot_audio_input_start, _godot_audio_input_stop, _godot_audio_is_available, _godot_webgl2_glFramebufferTextureMultiviewOVR, _godot_webxr_get_bounds_geometry, _godot_webxr_get_color_texture, _godot_webxr_get_depth_texture, _godot_webxr_get_frame_rate, _godot_webxr_get_projection_for_view, _godot_webxr_get_render_target_size, _godot_webxr_get_supported_frame_rates, _godot_webxr_get_transform_for_view, _godot_webxr_get_velocity_texture, _godot_webxr_get_view_count, _godot_webxr_get_visibility_state, _godot_webxr_initialize, _godot_webxr_is_session_supported, _godot_webxr_is_supported, _godot_webxr_uninitialize, _godot_webxr_update_input_source, _godot_webxr_update_target_frame_rate ];
 
 var ASSERTIONS = true;
 
@@ -12851,6 +12912,7 @@ var asmLibraryArg = {
  "godot_js_os_finish_async": _godot_js_os_finish_async,
  "godot_js_os_fs_is_persistent": _godot_js_os_fs_is_persistent,
  "godot_js_os_fs_sync": _godot_js_os_fs_sync,
+ "godot_js_os_has_feature": _godot_js_os_has_feature,
  "godot_js_os_hw_concurrency_get": _godot_js_os_hw_concurrency_get,
  "godot_js_os_request_quit_cb": _godot_js_os_request_quit_cb,
  "godot_js_os_shell_open": _godot_js_os_shell_open,
@@ -12903,8 +12965,10 @@ var asmLibraryArg = {
  "godot_webxr_get_bounds_geometry": _godot_webxr_get_bounds_geometry,
  "godot_webxr_get_color_texture": _godot_webxr_get_color_texture,
  "godot_webxr_get_depth_texture": _godot_webxr_get_depth_texture,
+ "godot_webxr_get_frame_rate": _godot_webxr_get_frame_rate,
  "godot_webxr_get_projection_for_view": _godot_webxr_get_projection_for_view,
  "godot_webxr_get_render_target_size": _godot_webxr_get_render_target_size,
+ "godot_webxr_get_supported_frame_rates": _godot_webxr_get_supported_frame_rates,
  "godot_webxr_get_transform_for_view": _godot_webxr_get_transform_for_view,
  "godot_webxr_get_velocity_texture": _godot_webxr_get_velocity_texture,
  "godot_webxr_get_view_count": _godot_webxr_get_view_count,
@@ -12914,6 +12978,7 @@ var asmLibraryArg = {
  "godot_webxr_is_supported": _godot_webxr_is_supported,
  "godot_webxr_uninitialize": _godot_webxr_uninitialize,
  "godot_webxr_update_input_source": _godot_webxr_update_input_source,
+ "godot_webxr_update_target_frame_rate": _godot_webxr_update_target_frame_rate,
  "invoke_ii": invoke_ii,
  "invoke_iii": invoke_iii,
  "invoke_iiii": invoke_iiii,
@@ -12960,9 +13025,9 @@ var __emwebxr_on_input_event = Module["__emwebxr_on_input_event"] = createExport
 
 var __emwebxr_on_simple_event = Module["__emwebxr_on_simple_event"] = createExportWrapper("_emwebxr_on_simple_event");
 
-var _pthread_self = Module["_pthread_self"] = createExportWrapper("pthread_self");
-
 var __emscripten_tls_init = Module["__emscripten_tls_init"] = createExportWrapper("_emscripten_tls_init");
+
+var _pthread_self = Module["_pthread_self"] = createExportWrapper("pthread_self");
 
 var _emscripten_builtin_memalign = Module["_emscripten_builtin_memalign"] = createExportWrapper("emscripten_builtin_memalign");
 
@@ -13034,6 +13099,8 @@ var dynCall_jii = Module["dynCall_jii"] = createExportWrapper("dynCall_jii");
 
 var dynCall_viij = Module["dynCall_viij"] = createExportWrapper("dynCall_viij");
 
+var dynCall_jiji = Module["dynCall_jiji"] = createExportWrapper("dynCall_jiji");
+
 var dynCall_viiiiifiijii = Module["dynCall_viiiiifiijii"] = createExportWrapper("dynCall_viiiiifiijii");
 
 var dynCall_viiiiifiiijjii = Module["dynCall_viiiiifiiijjii"] = createExportWrapper("dynCall_viiiiifiiijjii");
@@ -13080,7 +13147,7 @@ var dynCall_iijiiij = Module["dynCall_iijiiij"] = createExportWrapper("dynCall_i
 
 var dynCall_jijjjiiiiijii = Module["dynCall_jijjjiiiiijii"] = createExportWrapper("dynCall_jijjjiiiiijii");
 
-var dynCall_jiji = Module["dynCall_jiji"] = createExportWrapper("dynCall_jiji");
+var dynCall_jijiiiiifiii = Module["dynCall_jijiiiiifiii"] = createExportWrapper("dynCall_jijiiiiifiii");
 
 var dynCall_viijiiiiiifiii = Module["dynCall_viijiiiiiifiii"] = createExportWrapper("dynCall_viijiiiiiifiii");
 
@@ -13188,6 +13255,8 @@ var dynCall_viijii = Module["dynCall_viijii"] = createExportWrapper("dynCall_vii
 
 var dynCall_jiijjj = Module["dynCall_jiijjj"] = createExportWrapper("dynCall_jiijjj");
 
+var dynCall_jiijj = Module["dynCall_jiijj"] = createExportWrapper("dynCall_jiijj");
+
 var dynCall_viiijiji = Module["dynCall_viiijiji"] = createExportWrapper("dynCall_viiijiji");
 
 var dynCall_viiijjiji = Module["dynCall_viiijjiji"] = createExportWrapper("dynCall_viiijjiji");
@@ -13197,8 +13266,6 @@ var dynCall_viijiji = Module["dynCall_viijiji"] = createExportWrapper("dynCall_v
 var dynCall_iiiiijiii = Module["dynCall_iiiiijiii"] = createExportWrapper("dynCall_iiiiijiii");
 
 var dynCall_iiiiiijd = Module["dynCall_iiiiiijd"] = createExportWrapper("dynCall_iiiiiijd");
-
-var dynCall_jiijj = Module["dynCall_jiijj"] = createExportWrapper("dynCall_jiijj");
 
 var dynCall_diidj = Module["dynCall_diidj"] = createExportWrapper("dynCall_diidj");
 
