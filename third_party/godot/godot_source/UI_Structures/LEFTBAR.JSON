@@ -27,6 +27,9 @@
 	"ID" : "SnoozePeriod"},
 	{"type" : "counter",
 	"ID" : "DegeneracyConstant"},
+	
+	{"type" : "button",
+	"ID" : "UpdateButton"}
   ],
 
 }
