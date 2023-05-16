@@ -28,6 +28,7 @@ var minimumSize: Vector2:
 	get: return _minDimensions
 var componentData: Dictionary:
 	get: return _GetComponentsData()
+	set(v): _SetComponentsData(v)
 var componentIDs: Array:
 	get: return _GetArrayOfCompIDs()
 var componentRefs: Dictionary:
