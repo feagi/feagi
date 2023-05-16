@@ -3,6 +3,11 @@
   "components": [
 	{"type" : "header",
 	"ID" : "NeuronParametersSection"},
+	
+	{"type" : "unit",
+	"ID": "XYZ",
+	"components" : []},
+	
 	{"type" : "counter",
 	"ID" : "VoxelNeuronDensity"},
 	{"type" : "counter",
