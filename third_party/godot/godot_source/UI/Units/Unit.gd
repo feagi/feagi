@@ -35,8 +35,10 @@ var componentRefs: Dictionary:
 var Hsize: Vector2:
 	get: return size
 	set(v): RequestSizeChange(v)
+var dataSignalAvailable: bool:
+	get: return _dataSignalAvailable
 
-signal dataUp(customData: Dictionary, compRef, unitRef)
+signal DataUp(customData: Dictionary, compRef, unitRef)
 signal SizeChanged(selfRef)
 
 var _componentsDicts: Array
@@ -46,6 +48,8 @@ var _padding: Vector2
 var _componentsSpawnPoint: Vector2
 var _minDimensions: Vector2
 var _ID: String
+var _dataSignalAvailable: bool = true
+
 # used to prevent multiple components from spamming requests all at once
 var _requestingSizeChange: bool = false
 var _widthAlignment := WidthAlignmentSide.CENTER
@@ -57,6 +61,7 @@ var _toggleScene: PackedScene = preload("res://UI/Units/Components/Toggle/Toggle
 var _dropdownScene: PackedScene = preload("res://UI/Units/Components/DropDown/DropDown.tscn")
 var _headerScene: PackedScene = preload("res://UI/Units/Components/Header/header.tscn")
 var _buttonScene: PackedScene = preload("res://UI/Units/Components/Button/button.tscn")
+var _unitScene: PackedScene = preload("res://UI/Units/unit.tscn")
 
 # Setup Unit for use
 func Activate(activationDict : Dictionary):
@@ -98,6 +103,8 @@ func AddComponent(component: Dictionary) -> void:
 			newComponent = _headerScene.instantiate()
 		"button":
 			newComponent = _buttonScene.instantiate()
+		"unit":
+			newComponent = _unitScene.instantiate()
 
 	# Add the new Component to the Unit, Activate it, Connect Signals, Store a Reference
 	add_child(newComponent)
@@ -114,18 +121,6 @@ func AddComponent(component: Dictionary) -> void:
 func AddMultipleComponents(components: Array) -> void:
 	for c in components:
 		AddComponent(c)
-
-# You should call this every time the Unit potentially changes size
-#func ApplyMinimumSize(force: bool = false) -> void:
-#	minimumSize = _CalculateMinimumUnitSize()
-#	if(force):
-#		size = minimumSize
-#		return
-#	if(size.x < minimumSize.x):
-#		size.x = minimumSize.x
-#	if(size.y < minimumSize.y):
-#		size.y = minimumSize.y
-	#TODO signal up!
 
 # Attepts to relay Dictionary of input
 func RelayInputDataToComps(input: Dictionary) -> void:
@@ -375,7 +370,7 @@ func _GetComponentReferencesByID() -> Dictionary:
 func _PassThroughSignalFromComponent(customData: Dictionary, changedCompReference):
 	customData["compID"] = changedCompReference.ID
 	customData["unitID"] = ID
-	dataUp.emit(customData, changedCompReference, self)
+	DataUp.emit(customData, changedCompReference, self)
 
 # This function relays signal input through a deffered call.
 # This allows default Godot UI resizing behvior to apply and for us to read it
