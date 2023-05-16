@@ -19,3 +19,8 @@ var Htext: String:
 	set(v):
 		text = v
 		SizeChanged.emit(self)
+
+# Use to toggle pressability
+var editable: bool:
+	get: return !disabled
+	set(v): disabled = !v
