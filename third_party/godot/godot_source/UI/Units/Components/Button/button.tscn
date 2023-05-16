@@ -6,7 +6,7 @@
 [node name="button" type="Panel"]
 script = ExtResource("1_2vw3k")
 
-[node name="Button_SubComponent" type="Button" parent="."]
+[node name="button" type="Button" parent="."]
 layout_mode = 0
 offset_right = 8.0
 offset_bottom = 8.0

@@ -28,7 +28,7 @@ func _Activation(settings: Dictionary):
 	_runtimeSettableProperties.merge(ADDITIONAL_SETTABLE_PROPERTIES)
 	
 	# Get References
-	_Button = $Button
+	_Button = $button
 	
 	# Signal connections
 	_Button.pressed.connect(ProxyValueChanges)
