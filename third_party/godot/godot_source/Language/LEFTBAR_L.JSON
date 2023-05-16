@@ -54,5 +54,8 @@
 	"UpdateButton" : {
 		"label":
 			{"eng": "Update"}
+	},
+	"XYZ": {
+		""
 	}
 }
