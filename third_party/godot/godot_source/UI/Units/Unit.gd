@@ -334,6 +334,10 @@ func _GetWidestComponentWidth() -> float:
 			widest = _components[i].Hsize.x
 	return widest + padding.x
 
+####################################
+##### Component Data Signaling #####
+####################################
+
 # Assembles an output dictionary with keys being component IDs and
 # values being that component's values. Skips over components like headers
 func _GetComponentsData() -> Dictionary:
@@ -343,6 +347,19 @@ func _GetComponentsData() -> Dictionary:
 			continue # Skip over anything with no data available
 		output[comp.ID] = comp.data
 	return output
+	
+# using a data dict of ID references, sets variables to defined variables.
+# dataIn is formatted as such:
+# { ComponentID:
+#   { variableName: Value }
+# }
+func _SetComponentsData(dataIn: Dictionary) -> void:
+	var compReferences: Dictionary = _GetComponentReferencesByID()
+	
+	for ComponentID in dataIn.keys():
+			for variableName in dataIn[ComponentID].keys():
+				# Programming warcrime
+				compReferences[ComponentID][variableName] = dataIn[ComponentID][variableName]
 
 # Returns array of all Component IDs
 func _GetArrayOfCompIDs() -> Array:
