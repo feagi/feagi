@@ -79,12 +79,12 @@ func _Activation(settings: Dictionary):
 # Used to button down
 func ButtonPressed():
 	if !_isActivated: return # avoid feedback when starting up
-	DataUp.emit({"button": true, "type": TYPE}, self)
+	DataUp.emit({"button": true, "type": TYPE, "ID": ID}, self)
 
 func OptionSelected(selectedIndex: int):
 	if !_isActivated: return # avoid feedback when starting up
 	var selection: String = _DropDown.GetStringFromIndex(selectedIndex)
-	DataUp.emit({"selected" : selection, "type": TYPE}, self)
+	DataUp.emit({"selected" : selection, "type": TYPE, "ID": ID}, self)
 
 func _GetData():
 	return value

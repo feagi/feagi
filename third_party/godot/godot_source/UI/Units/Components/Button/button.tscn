@@ -1,0 +1,13 @@
+[gd_scene load_steps=3 format=3 uid="uid://vvrevyy4o2er"]
+
+[ext_resource type="Script" path="res://UI/Units/Components/Button/Button_Component.gd" id="1_2vw3k"]
+[ext_resource type="Script" path="res://UI/Units/Common_SubComponents/Button_SubComponent.gd" id="2_mxpis"]
+
+[node name="button" type="Panel"]
+script = ExtResource("1_2vw3k")
+
+[node name="button" type="Button" parent="."]
+layout_mode = 0
+offset_right = 8.0
+offset_bottom = 8.0
+script = ExtResource("2_mxpis")
