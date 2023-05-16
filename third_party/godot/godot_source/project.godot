@@ -19,8 +19,8 @@ config/icon="res://brain_visualizer_source/icon.png"
 
 [autoload]
 
-Godot_list="*res://Shared_components/godot_list.gd"
 network_setting="*res://Shared_components/network_configuration.gd"
+Godot_list="*res://Shared_components/godot_list.gd"
 global_material="*res://Shared_components/global_material.gd"
 select_cortical="*res://Shared_components/selected_cortical.gd"
 timer_api="*res://Shared_components/timer_api.gd"
