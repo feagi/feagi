@@ -60,6 +60,16 @@
 			"label": {
 				"eng": "X"
 			}
+		},
+		"Pos_Y": {
+			"label": {
+				"eng": "Y"
+			}
+		},
+		"Pos_Z": {
+			"label": {
+				"eng": "Z"
+			}
 		}
 	},
 }
