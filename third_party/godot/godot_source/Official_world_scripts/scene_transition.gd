@@ -1,5 +1,10 @@
 extends Node3D
 
+func ready():
+	$Button.position.y = $Menu/information_menu.position.y
+	$Button.position.x = $Menu/information_menu.size.x
+	
+
 func change_scene():
 	var BV = $Core/GlobalUISystem/Brain_Visualizer
 	var CB = $Core/GlobalUISystem
