@@ -24,7 +24,7 @@ func _ready():
 	
 	# Activate Children
 	UIManager.Activate(languageISO)
-	UIManager.dataUp.connect(RetrieveEvents)
+	UIManager.DataUp.connect(RetrieveEvents)
 	
 	# Lets pull latest info from FEAGI and trigger respective updates
 	Update_CortinalAreasIDs()

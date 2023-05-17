@@ -6,7 +6,7 @@ var isActivated := false
 
 var _unitNodePrefab := preload("res://UI/UnitGraph/UnitNodes/cortexNode.tscn")
 
-signal dataUp(data: Dictionary)
+signal DataUp(data: Dictionary)
 
 func _ready():
 	Activate() # Temp
@@ -38,7 +38,7 @@ func _ProcessCortexConnectionRequest(fromNode: StringName, fromPort: int, toNode
 
 # Handles Node Selection Event
 func _NodeSelected(nodeReference):
-	dataUp.emit({"CortexSelected": nodeReference.name})
+	DataUp.emit({"CortexSelected": nodeReference.name})
 
 ####################################
 ######### Node Management ##########

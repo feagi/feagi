@@ -35,14 +35,14 @@ func Activate(langISO: String):
 	# Initialize TopBar
 	UI_Top_TopBar = SCENE_UNIT.instantiate()
 	add_child(UI_Top_TopBar)
-	var topBarDict = HelperFuncs.GenerateDefinedUnitDict("TOPBAR", currentLanguageISO, BLANK_TOPBAR_DROPDOWN)
+	var topBarDict = HelperFuncs.GenerateDefinedUnitDict("TOPBAR", currentLanguageISO)
 	UI_Top_TopBar.Activate(topBarDict)
-	UI_Top_TopBar.dataUp.connect(TopBarInput)
+	UI_Top_TopBar.DataUp.connect(TopBarInput)
 	
 	
 	# Initialize GraphCore
 	UI_GraphCore = $graphCore #TODO: this is very temporary
-	UI_GraphCore.dataUp.connect(GraphEditInput)
+	UI_GraphCore.DataUp.connect(GraphEditInput)
 	
 	# Connect window size change function
 	get_tree().get_root().size_changed.connect(WindowSizedChanged)
@@ -54,7 +54,7 @@ func Activate(langISO: String):
 ####### Input Event Handling #######
 ####################################
 
-signal dataUp(data: Dictionary)
+signal DataUp(data: Dictionary)
 
 ######### Top Bar Control ##########
 # These are all examples
@@ -97,7 +97,7 @@ func GraphEditInput(data: Dictionary):
 	if "CortexSelected" in data.keys():
 		# Cortex has been selected, pop up side bar
 		SpawnLeftBar()
-		dataUp.emit(data)
+		DataUp.emit(data)
 	pass
 
 # Is called whenever the game window size changes
@@ -166,13 +166,12 @@ func SpawnLeftBar():
 	add_child(UI_LeftBar)
 	var LeftBarDict = HelperFuncs.GenerateDefinedUnitDict("LEFTBAR", currentLanguageISO)
 	UI_LeftBar.Activate(LeftBarDict)
-	UI_LeftBar.dataUp.connect(LeftBarInput)
+	UI_LeftBar.DataUp.connect(LeftBarInput)
 
 
 
 # Static Config
 const SCENE_UNIT: PackedScene = preload("res://UI/Units/unit.tscn")
-const BLANK_TOPBAR_DROPDOWN := { "CORTICALAREAS": { "options" : []}, "NEURONMORPHOLOGIES": { "options" : []}}
 
 # proxys for properties
 var _currentLanguageISO: String 

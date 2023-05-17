@@ -28,46 +28,69 @@ static func MustGet(dict: Dictionary, key: String):
 # godot memory, formatted as { compID : { keys and values to add} ...}
 static func UnitFromJSONS(structure: String, langStruct: String, langISO: String, data: Dictionary = {}) -> Dictionary:
 	var structDict: Dictionary = JSON.parse_string(structure)
-	var unitID: String = structDict["ID"]
 	var langDict: Dictionary = JSON.parse_string(langStruct)
 	
-	var outputDict: Dictionary = {"ID": unitID}
-	var newComponents: Array = []
+	return _BuildUnitActivation(structDict, langDict, langISO, data)
+
+
+static func _BuildUnitActivation(struct: Dictionary, lang: Dictionary,
+	langISO: String, data: Dictionary) -> Dictionary:
 	
+	var unitAct := {}
 	
-	for compDict in structDict["components"]:
-		# Specific Component ID we are on in the Component Array
-		var compID: String = compDict["ID"]
-		var finalCompDict: Dictionary = compDict.duplicate(true)
+	# Build unit activation minus the components array
+	for key in struct.keys():
+		if key == "components": continue
+		unitAct[key] = struct[key]
+	
+	var outputComponents := []
+	
+	for givenComponent_struct in struct["components"]:
 		
-		# Check if language Dict has anything to add
-		if compID in langDict.keys():
-			# Merge in language dict
-			var dictToMerge: Dictionary = {}
-			for compInLangDict in langDict[compID].keys():
-				if langISO in langDict[compID][compInLangDict].keys():
-					dictToMerge.merge({compInLangDict: langDict[compID][compInLangDict][langISO]})
-				else:
-					# fall back to backup language
-					dictToMerge.merge({compInLangDict: langDict[compID][compInLangDict][FALLBACK_LANG]})
+		var toAppend := {}
+		
+		# Get prerequisite data
+		# Get Language dict if available
+		var givenComponent_lang := {}
+		if givenComponent_struct["ID"] in lang.keys():
+			givenComponent_lang = lang[givenComponent_struct["ID"]]
+		# get data dict if available
+		var givenComponent_data := {}
+		if givenComponent_struct["ID"] in data.keys():
+			givenComponent_data = data[givenComponent_struct["ID"]]
+		
+		if givenComponent_struct["type"] == "unit":
 			
-			finalCompDict.merge(dictToMerge)
+			# We are dealing with a subunit, time for recursion
+			# This is not particuarly efficient. Too Bad!
+			toAppend = _BuildUnitActivation(givenComponent_struct, givenComponent_lang, 
+				langISO, givenComponent_data)
 		
-		# Check if data array has anything to add
-		if compID in data.keys():
-			# Merge in data dict
-			finalCompDict.merge(data[compID])
+		else:
+			# add in component struct data
+			toAppend = givenComponent_struct.duplicate()
+			
+			# add in component lang data
+			for langKey in givenComponent_lang.keys():
+				
+				var possibleLangsForOutput: Dictionary = givenComponent_lang[langKey]
+				var langInput
+				if langISO not in possibleLangsForOutput.keys():
+					langInput = possibleLangsForOutput[FALLBACK_LANG]
+				else:
+					langInput = possibleLangsForOutput[langISO]
+				
+				toAppend[langKey] = langInput
+			
+			# add in component data data
+			toAppend.merge(givenComponent_data)
 		
-		# Component is now complete, append to array
-		newComponents.append(finalCompDict)
-	# end
-	outputDict["components"] = newComponents
-	
-	# append additional Unit Properties
-	if "isVertical" in structDict.keys():
-		outputDict["isVertical"] = structDict["isVertical"]
-	
-	return outputDict
+		# completed our dict to append. Append and move on
+		outputComponents.append(toAppend)
+
+	unitAct["components"] = outputComponents
+	return unitAct
+
 
 # Read txt / json file
 static func ReadTextFile(path: String) -> String:
