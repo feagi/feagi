@@ -45,11 +45,18 @@ static func UnitFromJSONS(structure: String, langStruct: String, langISO: String
 			# Merge in language dict
 			var dictToMerge: Dictionary = {}
 			for compInLangDict in langDict[compID].keys():
-				if langISO in langDict[compID][compInLangDict].keys():
-					dictToMerge.merge({compInLangDict: langDict[compID][compInLangDict][langISO]})
+				if(compInLangDict != "componentData"):
+					# normal component
+					if langISO in langDict[compID][compInLangDict].keys():
+						dictToMerge.merge({compInLangDict: langDict[compID][compInLangDict][langISO]})
+					else:
+						# fall back to backup language
+						dictToMerge.merge({compInLangDict: langDict[compID][compInLangDict][FALLBACK_LANG]})
 				else:
-					# fall back to backup language
-					dictToMerge.merge({compInLangDict: langDict[compID][compInLangDict][FALLBACK_LANG]})
+					# We are dealing with a subunit
+					var subUnitDict: Dictionary
+					var subUnitArr: Array
+			
 			
 			finalCompDict.merge(dictToMerge)
 		
@@ -68,6 +75,66 @@ static func UnitFromJSONS(structure: String, langStruct: String, langISO: String
 		outputDict["isVertical"] = structDict["isVertical"]
 	
 	return outputDict
+
+
+static func _BuildUnitActivation(struct: Dictionary, lang: Dictionary,
+	langISO: String, data: Dictionary) -> Dictionary:
+	
+	var unitAct := {}
+	
+	# Build unit activation minus the components array
+	for key in struct.keys():
+		if struct[key] == "components": continue
+		unitAct[key] = struct[key]
+	
+	var outputComponents := []
+	
+	for givenComponent_struct in struct["components"]:
+		
+		var toAppend := {}
+		
+		# Get prerequisite data
+		# Get Language dict if available
+		var givenComponent_lang := {}
+		if givenComponent_struct["ID"] in lang.keys():
+			givenComponent_lang = lang[givenComponent_struct["ID"]]
+		# get data dict if available
+		var givenComponent_data := {}
+		if givenComponent_struct["ID"] in data.keys():
+			givenComponent_data = data[givenComponent_struct["ID"]]
+		
+		if givenComponent_struct["type"] == "unit":
+			
+			# We are dealing with a subunit, time for recursion
+			# This is not particuarly efficient. Too Bad!
+			toAppend = _BuildUnitActivation(givenComponent_struct, givenComponent_lang, 
+				langISO, givenComponent_data)
+		
+		else:
+			# add in component struct data
+			toAppend = givenComponent_struct.duplicate()
+			
+			# add in component lang data
+			for langKey in givenComponent_lang.keys():
+				
+				var possibleLangsForOutput: Dictionary = givenComponent_lang[langKey]
+				var langInput
+				if langISO not in possibleLangsForOutput.keys():
+					langInput = possibleLangsForOutput[FALLBACK_LANG]
+				else:
+					langInput = possibleLangsForOutput[langISO]
+				
+				toAppend[langKey] = langInput
+			
+			# add in component data data
+			toAppend.merge(givenComponent_data)
+		
+		# completed our dict to append. Append and move on
+		outputComponents.append(toAppend)
+
+	unitAct["components"] = outputComponents
+	return unitAct
+
 
 # Read txt / json file
 static func ReadTextFile(path: String) -> String:
