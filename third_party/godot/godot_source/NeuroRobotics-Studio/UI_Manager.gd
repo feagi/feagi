@@ -35,7 +35,7 @@ func Activate(langISO: String):
 	# Initialize TopBar
 	UI_Top_TopBar = SCENE_UNIT.instantiate()
 	add_child(UI_Top_TopBar)
-	var topBarDict = HelperFuncs.GenerateDefinedUnitDict("TOPBAR", currentLanguageISO, BLANK_TOPBAR_DROPDOWN)
+	var topBarDict = HelperFuncs.GenerateDefinedUnitDict("TOPBAR", currentLanguageISO)
 	UI_Top_TopBar.Activate(topBarDict)
 	UI_Top_TopBar.DataUp.connect(TopBarInput)
 	
@@ -172,7 +172,6 @@ func SpawnLeftBar():
 
 # Static Config
 const SCENE_UNIT: PackedScene = preload("res://UI/Units/unit.tscn")
-const BLANK_TOPBAR_DROPDOWN := { "CORTICALAREAS": { "options" : []}, "NEURONMORPHOLOGIES": { "options" : []}}
 
 # proxys for properties
 var _currentLanguageISO: String 
