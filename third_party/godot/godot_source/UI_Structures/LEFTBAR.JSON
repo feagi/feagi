@@ -2,7 +2,7 @@
   "ID" : "LEFTBAR",
   "components": [
 	{"type" : "header",
-	"ID" : "NeuronParametersSection"},
+	"ID" : "NeuronParametersSection"},	
 	{"type" : "counter",
 	"ID" : "VoxelNeuronDensity"},
 	{"type" : "counter",
@@ -27,6 +27,19 @@
 	"ID" : "SnoozePeriod"},
 	{"type" : "counter",
 	"ID" : "DegeneracyConstant"},
+	
+	{"type" : "unit",
+	"ID": "XYZ",
+	"components" : [
+		{"type" : "counter",
+		"ID" : "Pos_X"},
+		{"type" : "counter",
+		"ID" : "Pos_Y"},
+		{"type" : "counter",
+		"ID" : "Pos_Z"}
+		],
+	"isVertical": false
+	},
 	
 	{"type" : "button",
 	"ID" : "UpdateButton"}

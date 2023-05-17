@@ -6,6 +6,7 @@ const DEF_LABEL = "MISSING LABEL!"
 const DEF_EDITABLE = true
 const DEF_HASBUTTON = false
 const DEF_COUNTERSIZE = 50
+const DEF_OPTIONS = []
 const DEF_BUTTONTEXT = "+"
 const DEF_INITINDEX = -1
 const ADDITIONAL_SETTABLE_PROPERTIES = {
@@ -71,7 +72,7 @@ func _Activation(settings: Dictionary):
 	
 	# Fill in Label and Dropdown Inits
 	label = HelperFuncs.GetIfCan(settings, "label", DEF_LABEL)
-	options = HelperFuncs.MustGet(settings, "options")
+	options = HelperFuncs.GetIfCan(settings, "options", DEF_OPTIONS)
 	
 	# Connect
 	_DropDown.item_selected.connect(OptionSelected)
