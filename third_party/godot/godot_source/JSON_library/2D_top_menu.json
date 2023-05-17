@@ -2,7 +2,7 @@
   "top_menu":
   {
 	"top_background_menu": {
-	  "size": [1600, 47.839],
+	  "size": [1200, 47.839],
 	  "position": [0, 0]
 	},
 	"genome_label": {
@@ -36,19 +36,19 @@
 	},
 	"add_cortical_button": {
 		"size": [24, 41],
-		"position": [920, 1]
+		"position": [720, 1]
 	},
 	"second_brown_bar": {
 		"size": [2, 27],
-		"position": [960, 11]
+		"position": [750, 11]
 	},
 	"neuron_morphology_label": {
 		"size": [199, 48],
-		"position": [970, 2]
+		"position": [760, 2]
 	},
 	"add_morphology_button": {
 		"size": [24, 41],
-		"position": [1335, 4]
+		"position": [1120, 4]
 	}
 	}
 }
