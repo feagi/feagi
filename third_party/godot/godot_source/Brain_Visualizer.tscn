@@ -376,6 +376,7 @@ _data = {
 
 [node name="Official_World" type="Node3D"]
 script = ExtResource("31_pws3t")
+metadata/_edit_horizontal_guides_ = [-254.0]
 
 [node name="Button_to_Autoload" type="Node2D" parent="."]
 script = ExtResource("2_t7fr6")
@@ -535,16 +536,13 @@ metadata/_edit_use_anchors_ = true
 [node name="menu" type="Button" parent="Menu/information_menu/cortical_cam_label"]
 layout_mode = 1
 anchors_preset = -1
-anchor_left = 0.870588
-anchor_top = 0.181818
-anchor_right = 2.35294
-anchor_bottom = 0.727273
-offset_left = -1.32938
-offset_top = 3.81819
-offset_right = -1.32939
-offset_bottom = 3.81819
+anchor_left = 0.860034
+anchor_top = 0.266667
+anchor_right = 1.06201
+anchor_bottom = 0.822222
 focus_mode = 0
 script = ExtResource("6_ya7sl")
+metadata/_edit_use_anchors_ = true
 
 [node name="menu_itemlist" type="ItemList" parent="Menu/information_menu/cortical_cam_label"]
 visible = false
@@ -1508,13 +1506,14 @@ metadata/_edit_use_anchors_ = true
 [node name="add" type="Button" parent="Menu"]
 layout_mode = 1
 anchors_preset = -1
-anchor_left = 5.88462
-anchor_right = 6.04615
-anchor_bottom = 0.100446
-offset_left = 308.299
-offset_top = 1.0
-offset_right = 308.299
-offset_bottom = 0.999998
+anchor_left = 6.53
+anchor_top = 0.004
+anchor_right = 6.684
+anchor_bottom = 0.105
+offset_left = 21.2778
+offset_top = 0.136384
+offset_right = 22.3165
+offset_bottom = -0.121735
 icon = ExtResource("7_ick0a")
 flat = true
 expand_icon = true
@@ -3741,11 +3740,14 @@ theme_override_fonts/font = SubResource("FontFile_jm7r5")
 text = "Loading genome.."
 
 [node name="Button" type="Button" parent="."]
-offset_left = 1553.0
-offset_top = 535.0
-offset_right = 1728.0
-offset_bottom = 617.0
-text = "Switch Example"
+anchors_preset = -1
+anchor_left = 0.58941
+anchor_right = 0.614583
+anchor_bottom = 0.0478395
+offset_left = 65.0
+offset_right = 65.0
+text = "CB"
+metadata/_edit_use_anchors_ = true
 
 [node name="animation_button" type="Button" parent="."]
 visible = false
@@ -3771,7 +3773,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 60, 100)
 [connection signal="text_changed" from="Menu/information_menu/burst_duration_label/burst_value" to="Menu/information_menu/burst_duration_label/burst_value" method="_on_burst_value_text_changed"]
 [connection signal="text_submitted" from="Menu/information_menu/burst_duration_label/burst_value" to="Core/GlobalUISystem/Brain_Visualizer" method="_on_burst_value_text_entered"]
 [connection signal="pressed" from="Menu/information_menu/cortical_cam_label/menu" to="Core/GlobalUISystem/Brain_Visualizer" method="_on_menu_pressed"]
-[connection signal="item_selected" from="Menu/information_menu/cortical_cam_label/menu_itemlist" to="Core/GlobalUISystem/Brain_Visualizer" method="_on_Neuron_morphologies_item_item_selected"]
+[connection signal="item_selected" from="Menu/information_menu/cortical_cam_label/menu_itemlist" to="Core/GlobalUISystem/Brain_Visualizer" method="_on_menu_itemlist_item_selected"]
 [connection signal="pressed" from="Menu/information_menu/Neuron_morphologies_button" to="Core/GlobalUISystem/Brain_Visualizer" method="_on_Neuron_morphologies_button_pressed"]
 [connection signal="item_selected" from="Menu/information_menu/Neuron_morphologies_item" to="Core/GlobalUISystem/Brain_Visualizer" method="_on_Neuron_morphologies_item_item_selected"]
 [connection signal="pressed" from="Menu/information_menu/add_inside_neuron_morph" to="Core/GlobalUISystem/Brain_Visualizer" method="_on_Button_pressed"]
