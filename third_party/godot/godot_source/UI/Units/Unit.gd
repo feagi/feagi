@@ -97,7 +97,8 @@ func Activate(activationDict : Dictionary):
 		var titleBarActivationDict = {
 			"ID": "TITLEBAR",
 			"isVertical": false,
-			"type": "unit"
+			"type": "unit",
+			"isSubUnit": true
 		}
 		
 		
