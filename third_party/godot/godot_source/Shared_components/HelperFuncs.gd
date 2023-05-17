@@ -28,53 +28,9 @@ static func MustGet(dict: Dictionary, key: String):
 # godot memory, formatted as { compID : { keys and values to add} ...}
 static func UnitFromJSONS(structure: String, langStruct: String, langISO: String, data: Dictionary = {}) -> Dictionary:
 	var structDict: Dictionary = JSON.parse_string(structure)
-	var unitID: String = structDict["ID"]
 	var langDict: Dictionary = JSON.parse_string(langStruct)
 	
-	var outputDict: Dictionary = {"ID": unitID}
-	var newComponents: Array = []
-	
-	
-	for compDict in structDict["components"]:
-		# Specific Component ID we are on in the Component Array
-		var compID: String = compDict["ID"]
-		var finalCompDict: Dictionary = compDict.duplicate(true)
-		
-		# Check if language Dict has anything to add
-		if compID in langDict.keys():
-			# Merge in language dict
-			var dictToMerge: Dictionary = {}
-			for compInLangDict in langDict[compID].keys():
-				if(compInLangDict != "componentData"):
-					# normal component
-					if langISO in langDict[compID][compInLangDict].keys():
-						dictToMerge.merge({compInLangDict: langDict[compID][compInLangDict][langISO]})
-					else:
-						# fall back to backup language
-						dictToMerge.merge({compInLangDict: langDict[compID][compInLangDict][FALLBACK_LANG]})
-				else:
-					# We are dealing with a subunit
-					var subUnitDict: Dictionary
-					var subUnitArr: Array
-			
-			
-			finalCompDict.merge(dictToMerge)
-		
-		# Check if data array has anything to add
-		if compID in data.keys():
-			# Merge in data dict
-			finalCompDict.merge(data[compID])
-		
-		# Component is now complete, append to array
-		newComponents.append(finalCompDict)
-	# end
-	outputDict["components"] = newComponents
-	
-	# append additional Unit Properties
-	if "isVertical" in structDict.keys():
-		outputDict["isVertical"] = structDict["isVertical"]
-	
-	return outputDict
+	return _BuildUnitActivation(structDict, langDict, langISO, data)
 
 
 static func _BuildUnitActivation(struct: Dictionary, lang: Dictionary,
@@ -84,7 +40,7 @@ static func _BuildUnitActivation(struct: Dictionary, lang: Dictionary,
 	
 	# Build unit activation minus the components array
 	for key in struct.keys():
-		if struct[key] == "components": continue
+		if key == "components": continue
 		unitAct[key] = struct[key]
 	
 	var outputComponents := []
