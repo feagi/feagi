@@ -1,5 +1,8 @@
 {
   "ID" : "LEFTBAR",
+  "enableTitleBar": true,
+  "titleBarTitle": "WORDS WORDS WORDS",
+  "enableCloseButton": true,
   "components": [
 	{"type" : "header",
 	"ID" : "NeuronParametersSection"},	
@@ -42,7 +45,8 @@
 	},
 	
 	{"type" : "button",
-	"ID" : "UpdateButton"}
+	"ID" : "UpdateButton"},
+	
   ],
-
+	
 }
