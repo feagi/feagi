@@ -1,5 +1,9 @@
 extends Node3D
 
+func ready():
+	$Button.position.y = $Menu/information_menu.position.y
+	
+
 func change_scene():
 	var BV = $Core/GlobalUISystem/Brain_Visualizer
 	var CB = $Core/GlobalUISystem
@@ -9,10 +13,12 @@ func change_scene():
 		BV.visible = false
 		$Menu.visible = false
 		CB.visible = true
+		$Button.text = "Brain Visualizer"
 	elif CB.visible:
 		BV.visible = true
 		$Menu.visible = true
 		CB.visible = false
+		$Button.text = "Circuit Builder"
 	$scene_transition/AnimationPlayer.play_backwards("dissolve", -1)
 
 func _on_button_pressed():
