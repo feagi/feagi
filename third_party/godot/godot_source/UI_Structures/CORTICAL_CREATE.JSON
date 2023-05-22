@@ -1,10 +1,18 @@
 {
-  "ID" : "CREATE_CORTICAL",
-  "components": [
-    {"type" : "header",
-        "ID" : "NewCorticalSection"},
-    {"type" : "dropdown",
-	"hasButton" : true,
-	"ID" : "CORTICALAREA"}
-  ],
+	"ID": "CREATE_CORTICAL",
+	"position": [
+		400,
+		400
+	],
+	"components": [
+		{
+			"type": "header",
+			"ID": "NewCorticalSection"
+		},
+		{
+			"type": "dropdown",
+			"hasButton": true,
+			"ID": "CORTICALAREA"
+		}
+	]
 }
