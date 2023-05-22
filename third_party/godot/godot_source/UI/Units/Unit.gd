@@ -81,7 +81,8 @@ func Activate(activationDict : Dictionary):
 	
 	var autoSize = HelperFuncs.GetIfCan(activationDict, "autosize", DEF_AUTOSIZE)
 	_componentsSpawnPoint = HelperFuncs.GetIfCan(activationDict, "componentSpawnPoint", DEF_SPAWNPOINT)
-	position = HelperFuncs.GetIfCan(activationDict, "position", DEF_POSITION) #TODO some units cannot set their own pos
+	var obtain_2d_position = HelperFuncs.GetIfCan(activationDict, "position", DEF_POSITION) # Is this expected? It can't read (x,y) from json.
+	position = Vector2(obtain_2d_position[0], obtain_2d_position[1]) #TODO some units cannot set their own pos
 	_padding = HelperFuncs.GetIfCan(activationDict, "padding", DEF_PADDING)
 	_isHorizontal = !HelperFuncs.GetIfCan(activationDict, "isVertical", DEF_ISVERTICAL)
 	_isSubUnit = HelperFuncs.GetIfCan(activationDict, "isSubUnit", DEF_ISSUBUNIT)
