@@ -19,6 +19,7 @@ var Activated: bool = false
 # References
 var UI_Top_TopBar: Unit
 var UI_LeftBar: Unit
+var UI_createcorticalBar : Unit
 var UI_GraphCore: GraphCore
 
 
@@ -38,6 +39,14 @@ func Activate(langISO: String):
 	var topBarDict = HelperFuncs.GenerateDefinedUnitDict("TOPBAR", currentLanguageISO)
 	UI_Top_TopBar.Activate(topBarDict)
 	UI_Top_TopBar.DataUp.connect(TopBarInput)
+	
+	# Initialize TopBar
+	UI_createcorticalBar = SCENE_UNIT.instantiate()
+	add_child(UI_createcorticalBar)
+	var createcorticalBar = HelperFuncs.GenerateDefinedUnitDict("CORTICAL_CREATE", currentLanguageISO)
+	UI_createcorticalBar.Activate(createcorticalBar)
+#	UI_createcorticalBar.DataUp.connect(LeftBarInput)
+	
 	
 	
 	# Initialize GraphCore
