@@ -6,7 +6,7 @@ class_name Label_SubComponent
 signal SizeChanged(selfReference)
 
 var Hsize: Vector2:
-	get: return size
+	get: return get_theme_font("font").get_string_size(Htext)
 	set(v):
 		size = v
 		SizeChanged.emit(self)
