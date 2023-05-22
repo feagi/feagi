@@ -1,0 +1,10 @@
+{
+  "ID" : "CREATE_CORTICAL",
+  "components": [
+    {"type" : "header",
+        "ID" : "NewCorticalSection"},
+    {"type" : "dropdown",
+	"hasButton" : true,
+	"ID" : "CORTICALAREA"}
+  ],
+}
