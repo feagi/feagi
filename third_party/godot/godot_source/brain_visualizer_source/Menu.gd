@@ -119,6 +119,7 @@ func resize_buttons():
 	$information_menu/add_inside_neuron_morph.position = Vector2(json_menu["top_menu"]["add_morphology_button"]["position"][0] + ($information_menu/Label.position.x - 34.862), json_menu["top_menu"]["add_morphology_button"]["position"][1])
 	$information_menu/add_inside_neuron_morph.size = Vector2(json_menu["top_menu"]["add_morphology_button"]["size"][0], json_menu["top_menu"]["add_morphology_button"]["size"][1])
 	$".."/Button.position.x = $information_menu.size.x 
+	$".."/Button.size.y = $information_menu.size.y
 #	$information_menu.size.x = $information_menu/add_inside_neuron_morph.position.x + $information_menu/add_inside_neuron_morph.size.x + 40
 
 	# Cortical menu section
