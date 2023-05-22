@@ -1,10 +1,10 @@
 {
 	"NewCorticalSection": {
 		"label":
-		  {"eng": "Add New Cortical Area"},
-			"CORTICALAREAS" : {
+			{"eng": "Add New Cortical Area"},
+	},
+	"CORTICALAREAS" : {
 		"label":
 			{"eng": "Cortical Area"}
-	}
 	}
 }
