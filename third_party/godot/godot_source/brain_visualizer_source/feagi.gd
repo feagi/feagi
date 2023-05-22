@@ -1188,7 +1188,6 @@ func _on_circuit_request_request_completed(_result, _response_code, _headers, bo
 	$notification.generate_notification_message(api_data, _response_code, "_on_circuit_request_request_completed", "/v1/feagi/genome/circuits")
 
 func _on_import_pressed():
-	var combine_url = 'HTTP://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/circuits'
 	Autoload_variable.BV_Core.Get_circuit_list()
 
 func _on_ItemList_item_selected(index):
@@ -1331,7 +1330,6 @@ func _on_morphology_name_focus_exited():
 				name_morphology = name_morphology.replace("]", "%5D")
 			if ", " in name_morphology:
 				name_morphology = name_morphology.replace(", ", "%2C%20")
-			var combine_url = 'HTTP://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology?morphology_name=' + name_morphology
 			Autoload_variable.BV_Core.Get_Morphology_information(name_morphology)
 
 func _on_get_morphology_request_completed(_result, _response_code, _headers, body):
