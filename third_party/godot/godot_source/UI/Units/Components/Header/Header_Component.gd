@@ -2,7 +2,7 @@ extends Component
 class_name Header_Component
 
 # Defaults, see readme
-const DEF_HEADER = "MISSING HEADER!"
+const DEF_HEADER = "MISSING"
 const DEF_SIDE = 1
 const ADDITIONAL_SETTABLE_PROPERTIES = {
 	"label": TYPE_STRING,

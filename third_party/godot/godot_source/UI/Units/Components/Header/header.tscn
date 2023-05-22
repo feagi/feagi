@@ -11,7 +11,7 @@ offset_bottom = 33.0
 script = ExtResource("1_thhx2")
 
 [node name="Label" type="Label" parent="."]
-layout_mode = 1
+layout_mode = 0
 offset_right = 40.0
 offset_bottom = 23.0
 theme = SubResource("Theme_65r00")

@@ -74,6 +74,7 @@ var _requestingSizeChange: bool = false
 # Call to ensure initialization with correct settings
 func Activate(settings: Dictionary) -> void:
 	if(_isActivated): return
+	_AddSizeChangeSignals()
 	_ID = HelperFuncs.MustGet(settings, "ID")
 	_padding = HelperFuncs.GetIfCan(settings, "padding", DEF_PADDING)
 	_isHorizontal = HelperFuncs.GetIfCan(settings, "isHorizontal", DEF_ISHORIZONTAL)
@@ -145,6 +146,7 @@ func UpdateSizeData(forceUpdate: bool = false) -> void:
 	_requestingSizeChange = false # allow reset next frame
 	if(_UpdateMinimumDimensions() || forceUpdate):
 		Hsize = HelperFuncs.GrowVector2ToSmallestAllowed(Hsize, _minDimensions)
+	_RepositionChildren(Hsize)
 	SizeChanged.emit(self)
 
 # This function relays signal input through a deffered call.
