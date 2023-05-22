@@ -11,6 +11,14 @@ offset_right = 274.0
 offset_bottom = 41.0
 script = ExtResource("1_3mi36")
 
+[node name="Label" type="Label" parent="."]
+layout_mode = 0
+offset_right = 97.0
+offset_bottom = 26.0
+text = "Uninitialized"
+vertical_alignment = 1
+script = ExtResource("3_au37d")
+
 [node name="OptionButton" type="OptionButton" parent="."]
 layout_mode = 0
 offset_right = 104.0
@@ -21,14 +29,6 @@ popup/item_0/id = 0
 popup/item_1/text = "sdsd"
 popup/item_1/id = 1
 script = ExtResource("2_krun1")
-
-[node name="Label" type="Label" parent="."]
-layout_mode = 0
-offset_right = 97.0
-offset_bottom = 26.0
-text = "Uninitialized"
-vertical_alignment = 1
-script = ExtResource("3_au37d")
 
 [node name="Button" type="Button" parent="."]
 layout_mode = 0

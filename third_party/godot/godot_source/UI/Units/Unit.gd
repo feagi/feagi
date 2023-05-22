@@ -123,7 +123,7 @@ func Activate(activationDict : Dictionary):
 	AddMultipleComponents(_componentsDicts)
 	
 	
-	#call_deferred("UpdateSizeData") # apply resizing requests
+	call_deferred("UpdateSizeData") # apply resizing requests
 	
 	
 
