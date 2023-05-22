@@ -71,10 +71,10 @@ func Update_Efferent_information(input): Call_GET(ADD_GET_Efferent+input, _Relay
 func Get_Morphology_information(input): Call_GET(ADD_GET_Morphology_information+input, _Relay_Morphology_information)
 func Update_destination(input): Call_GET(ADD_GET_update_destination+input, _Relay_Update_Destination)
 func Get_circuit_list(): Call_GET(ADD_GET_circuit_list, _Relay_circuit_list)
-func Get_mem_data(name: String): Call_GET(ADD_GET_mem+name, _Relay_Update_mem)
-func Get_syn_data(name: String): Call_GET(ADD_GET_syn+name, _Relay_Update_syn)
-func GET_OPU(name: String): Call_GET(ADD_OPU+name, _Relay_update_OPU)
-func GET_IPU(name: String): Call_GET(ADD_IPU+name, _Relay_update_IPU)
+func Get_mem_data(input_name: String): Call_GET(ADD_GET_mem+input_name, _Relay_Update_mem)
+func Get_syn_data(input_name: String): Call_GET(ADD_GET_syn+input_name, _Relay_Update_syn)
+func GET_OPU(input_name: String): Call_GET(ADD_OPU+input_name, _Relay_update_OPU)
+func GET_IPU(input_name: String): Call_GET(ADD_IPU+input_name, _Relay_update_IPU)
 func Update_BurstRate(newBurstRate: float):
 	Call_POST(ADD_POST_BurstEngine, _Relay_ChangedBurstRate, {"burst_duration": newBurstRate})
 
