@@ -109,15 +109,17 @@ func resize_buttons():
 	$brown_bar.position = Vector2(json_menu["top_menu"]["brown_bar"]["position"][0], json_menu["top_menu"]["brown_bar"]["position"][1])
 	$information_menu/cortical_cam_label.position = Vector2(json_menu["top_menu"]["cortical_cam_label"]["position"][0], json_menu["top_menu"]["cortical_cam_label"]["position"][1])
 	$add.size = Vector2(json_menu["top_menu"]["add_cortical_button"]["size"][0],json_menu["top_menu"]["add_cortical_button"]["size"][1]) 
-	$add.position = Vector2(json_menu["top_menu"]["add_cortical_button"]["position"][0],json_menu["top_menu"]["add_cortical_button"]["position"][1])
+	$add.position = Vector2(json_menu["top_menu"]["add_cortical_button"]["position"][0] + ($information_menu/cortical_cam_label/menu.size.x - 31),json_menu["top_menu"]["add_cortical_button"]["position"][1])
 	$brown_bar2.size = Vector2(json_menu["top_menu"]["second_brown_bar"]["size"][0],json_menu["top_menu"]["second_brown_bar"]["size"][1])
-	$brown_bar2.position = Vector2(json_menu["top_menu"]["second_brown_bar"]["position"][0],json_menu["top_menu"]["second_brown_bar"]["position"][1]) 
-	$information_menu/Label.position = Vector2(json_menu["top_menu"]["neuron_morphology_label"]["position"][0], json_menu["top_menu"]["neuron_morphology_label"]["position"][1])
+	$brown_bar2.position = Vector2(json_menu["top_menu"]["second_brown_bar"]["position"][0] + ($add.position.x - 22.281),json_menu["top_menu"]["second_brown_bar"]["position"][1]) 
+	$information_menu/Label.position = Vector2(json_menu["top_menu"]["neuron_morphology_label"]["position"][0] + ($brown_bar2.position.x - 694), json_menu["top_menu"]["neuron_morphology_label"]["position"][1])
 	$information_menu/Neuron_morphologies_button.position.x = $information_menu/Label.position.x + $information_menu/Label.size.x - 20
 	$information_menu/Neuron_morphologies_item.position.x = $information_menu/Label.position.x + $information_menu/Label.size.x - 20
 	$information_menu/Neuron_morphologies_item.position.y = $information_menu/Neuron_morphologies_button.position.y + $information_menu/Neuron_morphologies_button.size.y
-	$information_menu/add_inside_neuron_morph.position = Vector2(json_menu["top_menu"]["add_morphology_button"]["position"][0], json_menu["top_menu"]["add_morphology_button"]["position"][1])
+	$information_menu/add_inside_neuron_morph.position = Vector2(json_menu["top_menu"]["add_morphology_button"]["position"][0] + ($information_menu/Label.position.x - 34.862), json_menu["top_menu"]["add_morphology_button"]["position"][1])
 	$information_menu/add_inside_neuron_morph.size = Vector2(json_menu["top_menu"]["add_morphology_button"]["size"][0], json_menu["top_menu"]["add_morphology_button"]["size"][1])
+	$".."/Button.position.x = $information_menu.size.x 
+	$".."/Button.size.y = $information_menu.size.y
 #	$information_menu.size.x = $information_menu/add_inside_neuron_morph.position.x + $information_menu/add_inside_neuron_morph.size.x + 40
 
 	# Cortical menu section
