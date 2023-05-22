@@ -8,6 +8,10 @@ const DEF_ISVERTICAL: bool = true
 const DEF_SPAWNPOINT: Vector2 = Vector2(0.0, 0.0)
 const DEF_AUTOSIZE: bool = true
 const DEF_POSITION = Vector2(0.0,0.0)
+const DEF_ISSUBUNIT = false
+const DEF_TITLEBARTITLE = "UNNAMED TITLE"
+const DEF_ENABLETITLEBAR = false
+const DEF_ENABLECLOSEBUTTON = false
 
 # enums
 enum WidthAlignmentSide {LEFT, CENTER, RIGHT}
@@ -38,9 +42,12 @@ var Hsize: Vector2:
 	set(v): RequestSizeChange(v)
 var dataSignalAvailable: bool:
 	get: return _dataSignalAvailable
+var isSubUnit: bool:
+	get: return _isSubUnit
 
 signal DataUp(customData: Dictionary, compRef, unitRef)
 signal SizeChanged(selfRef)
+signal UserClosedUnit(ID: String, cause: Dictionary)
 
 var _componentsDicts: Array
 var _components: Array
@@ -50,6 +57,7 @@ var _componentsSpawnPoint: Vector2
 var _minDimensions: Vector2
 var _ID: String
 var _dataSignalAvailable: bool = true
+var _isSubUnit: bool
 
 # used to prevent multiple components from spamming requests all at once
 var _requestingSizeChange: bool = false
@@ -76,6 +84,41 @@ func Activate(activationDict : Dictionary):
 	position = HelperFuncs.GetIfCan(activationDict, "position", DEF_POSITION) #TODO some units cannot set their own pos
 	_padding = HelperFuncs.GetIfCan(activationDict, "padding", DEF_PADDING)
 	_isHorizontal = !HelperFuncs.GetIfCan(activationDict, "isVertical", DEF_ISVERTICAL)
+	_isSubUnit = HelperFuncs.GetIfCan(activationDict, "isSubUnit", DEF_ISSUBUNIT)
+	
+	# title bar stuff
+	if HelperFuncs.GetIfCan(activationDict, "enableTitleBar", DEF_ENABLETITLEBAR):
+		# title bar is enabled
+		# TODO: This is dumb.
+		
+		var titleBarTitle: String = HelperFuncs.GetIfCan(activationDict, "titleBarTitle", DEF_TITLEBARTITLE)
+		var enableCloseButton: bool = HelperFuncs.GetIfCan(activationDict, "enableCloseButton", DEF_ENABLECLOSEBUTTON)
+		var currentLang: String = get_node("/root/Official_World/Core/GlobalUISystem").currentLanguageISO
+		var titleBarActivationDict = {
+			"ID": "TITLEBAR",
+			"isVertical": false,
+			"type": "unit",
+			"isSubUnit": true
+		}
+		
+		
+		if enableCloseButton:
+			titleBarActivationDict.merge( 
+			{"components": 
+				[
+					{"type": "header", "ID": "TITLE", "label": titleBarTitle},
+					{"type": "button", "ID": "CLOSEBUTTON", "label": "x"}
+				]}
+			)
+		else:
+			titleBarActivationDict.merge( 
+			{"components": 
+				[
+					{"type": "header", "ID": "TITLE", "label": titleBarTitle}
+				]}
+			)
+		_componentsDicts.push_front(titleBarActivationDict)
+	
 	
 	_requestingSizeChange = true # avoid resize spam
 	

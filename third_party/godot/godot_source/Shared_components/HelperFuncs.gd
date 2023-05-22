@@ -83,7 +83,7 @@ static func _BuildUnitActivation(struct: Dictionary, lang: Dictionary,
 				toAppend[langKey] = langInput
 			
 			# add in component data data
-			toAppend.merge(givenComponent_data)
+			toAppend.merge(givenComponent_data, true)
 		
 		# completed our dict to append. Append and move on
 		outputComponents.append(toAppend)
@@ -95,6 +95,7 @@ static func _BuildUnitActivation(struct: Dictionary, lang: Dictionary,
 # Read txt / json file
 static func ReadTextFile(path: String) -> String:
 	var file = FileAccess.open(path, FileAccess.READ)
+	if file == null: return ""
 	var text = file.get_as_text()
 	file.close()
 	return text
@@ -106,8 +107,11 @@ static func GenerateDefinedUnitDict(unitID: String, langISO: String,
 	var structPath: String = PATH_UISTRUCTS + unitID + ".JSON"
 	var langPath: String = PATH_LANGUAGES + unitID + "_L.JSON"
 	
+	
 	var structStr = ReadTextFile(structPath)
 	var langStr = ReadTextFile(langPath)
+	
+	if langStr == "": langStr = "{}"
 	
 	return UnitFromJSONS(structStr, langStr, langISO, additionalData)
 
