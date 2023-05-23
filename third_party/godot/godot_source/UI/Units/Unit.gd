@@ -12,10 +12,6 @@ const DEF_TITLEBARTITLE = "UNNAMED TITLE"
 const DEF_ENABLETITLEBAR = false
 const DEF_ENABLECLOSEBUTTON = false
 
-# enums
-enum WidthAlignmentSide {LEFT, CENTER, RIGHT}
-enum HeightAlignmentSide {BOTTOM, CENTER, TOP}
-
 var ID: String:
 	get: return _ID
 var isHorizontal: bool:
@@ -60,8 +56,8 @@ var _isSubUnit: bool
 
 # used to prevent multiple components from spamming requests all at once
 var _requestingSizeChange: bool = false
-var _widthAlignment := WidthAlignmentSide.CENTER
-var _heightAlignment := HeightAlignmentSide.CENTER
+var _widthAlignment := 1
+var _heightAlignment := 1
 
 var _fieldScene: PackedScene = preload("res://UI/Units/Components/Field/field.tscn")
 var _counterScene: PackedScene = preload("res://UI/Units/Components/Counter/counter.tscn")
@@ -243,21 +239,21 @@ func _RepositionChildren(parentSize: Vector2) -> void:
 			otherDimension = (minimumSize.y - childSizes[i].y) / 2.0
 			
 			match(_widthAlignment):
-				WidthAlignmentSide.LEFT:
+				0:
 					if (i == 0): 
 						PreviousValue = padding.x / 2.0
 					else:
 						PreviousValue = PreviousValue + childSizes[i - 1].x
 					children[i].position = Vector2(PreviousValue, otherDimension)
 						
-				WidthAlignmentSide.RIGHT:
+				2:
 					if (i == 0): 
 						PreviousValue = totalGap - (padding.x / 2.0)
 					else:
 						PreviousValue = PreviousValue + childSizes[i - 1].x
 					children[i].position = Vector2(PreviousValue, otherDimension)
 						
-				WidthAlignmentSide.CENTER:
+				1:
 					if (i == 0): 
 						PreviousValue = betweenGap + (padding.x / 2.0)
 					else:
@@ -274,21 +270,21 @@ func _RepositionChildren(parentSize: Vector2) -> void:
 			otherDimension = (minimumSize.x - childSizes[i].x) / 2.0
 			
 			match(_heightAlignment):
-				HeightAlignmentSide.TOP:
+				2:
 					if (i == 0): 
 						PreviousValue = 0.0
 					else:
 						PreviousValue = PreviousValue + childSizes[i - 1].y
 					children[i].position = Vector2(otherDimension, PreviousValue)
 						
-				HeightAlignmentSide.BOTTOM:
+				0:
 					if (i == 0): 
 						PreviousValue = totalGap
 					else:
 						PreviousValue = PreviousValue + childSizes[i - 1].y
 					children[i].position = Vector2(otherDimension, PreviousValue)
 						
-				HeightAlignmentSide.CENTER:
+				1:
 					if (i == 0): 
 						PreviousValue = betweenGap
 					else:
