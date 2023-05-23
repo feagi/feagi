@@ -1,10 +1,56 @@
 {
 	"NewCorticalSection": {
-		"label":
-			{"eng": "Add New Cortical Area"},
+		"label": {
+			"eng": "Add New Cortical Area"
+		}
 	},
-	"CORTICALAREAS" : {
-		"label":
-			{"eng": "Cortical Area"}
+	"CORTICALAREA": {
+		"label": {
+			"eng": "Cortical Area"
+		}
+	},
+	"CORTICALNAME": {
+		"label": {
+			"eng": "Cortical Area"
+		}
+	},
+	"WHD": {
+		"W": {
+			"label": {
+				"eng": "W"
+			}
+		},
+		"H": {
+			"label": {
+				"eng": "H"
+			}
+		},
+		"D": {
+			"label": {
+				"eng": "D"
+			}
+		}
+	},
+	"XYZ": {
+		"Pos_X": {
+			"label": {
+				"eng": "X"
+			}
+		},
+		"Pos_Y": {
+			"label": {
+				"eng": "Y"
+			}
+		},
+		"Pos_Z": {
+			"label": {
+				"eng": "Z"
+			}
+		}
+	},
+	"UpdateButton": {
+		"label": {
+			"eng": "Update"
+		}
 	}
 }
