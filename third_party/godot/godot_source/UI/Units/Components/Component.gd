@@ -264,7 +264,7 @@ func _RepositionChildren(parentSize: Vector2) -> void:
 						PreviousValue = PreviousValue + childSizes[i - 1].y
 					children[i].position = Vector2(otherDimension, PreviousValue)
 						
-				REF.eightAlignmentSide.BOTTOM:
+				REF.HeightAlignmentSide.BOTTOM:
 					if (i == 0): 
 						PreviousValue = totalGap
 					else:

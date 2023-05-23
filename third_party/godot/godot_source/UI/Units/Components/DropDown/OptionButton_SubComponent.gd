@@ -16,6 +16,7 @@ var options: Array:
 	get: return _DropDownItems
 	set(v): 
 		_SetDropDownArray(v)
+		SizeChanged.emit(self)
 var index: int:
 	get: return selected
 	set(v): 
