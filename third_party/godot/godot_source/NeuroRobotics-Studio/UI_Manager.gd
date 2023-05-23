@@ -192,7 +192,15 @@ func SpawnCorticalCrete():
 		str_array.append($".."/".."/Menu/addition_menu/OptionButton.get_item_text(i))
 	UI_createcorticalBar.RelayInputDataToComps({"CORTICALAREA": {"options": (str_array)}})
 	var update = UI_createcorticalBar.get_child(5).get_child(0)
+	var whd = UI_createcorticalBar.get_child(3)
+	print("wdh: ", whd)
+	print("wdh: ", whd.get_children())
+	var w = whd.get_child(0)
+	var h = whd.get_child(1)
+	var d = whd.get_child(2)
+	w.connect("value_changed", $Brain_Visualizer._on_X_SpinBox_value_changed)
 	update.connect("pressed", $Brain_Visualizer._on_add_pressed)
+	
 
 # Static Config
 const SCENE_UNIT: PackedScene = preload("res://UI/Units/unit.tscn")
