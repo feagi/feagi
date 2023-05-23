@@ -205,10 +205,11 @@ func  RequestSizeChange(newSize: Vector2) -> bool:
 		newSize = HelperFuncs.ClampVector2ToLargestAllowed(newSize, _minDimensions)
 		output = false
 	
-	if(isHorizontal):
-		_GrowChildren_Vertically(newSize.y)
-	else:
-		_GrowChildren_Horizontally(newSize.x)
+	# DEBUG disabled currently
+	#if(isHorizontal):
+	#	_GrowChildren_Vertically(newSize.y)
+	#else:
+	#	_GrowChildren_Horizontally(newSize.x)
 	_RepositionChildren(newSize)
 	size = newSize
 	return output
@@ -261,6 +262,9 @@ func _RepositionChildren_H(parentSize: Vector2, childHs: Array, childVs: Array, 
 		0: gap = 0.0
 		1: gap = (parentSize.x - HelperFuncs.SumFloatArray(childHs)) / float(childHs.size() - 1)
 		2: gap = (parentSize.x - HelperFuncs.SumFloatArray(childHs))
+	
+	if gap == NAN:
+		gap = (parentSize.x - HelperFuncs.SumFloatArray(childHs)) / 2.0
 	
 	for i in childHs.size():
 		

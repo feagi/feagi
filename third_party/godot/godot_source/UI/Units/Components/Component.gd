@@ -229,6 +229,10 @@ func _RepositionChildren_H(parentSize: Vector2, childHs: Array, childVs: Array, 
 		1: gap = (parentSize.x - HelperFuncs.SumFloatArray(childHs)) / float(childHs.size() - 1)
 		2: gap = (parentSize.x - HelperFuncs.SumFloatArray(childHs))
 	
+	if gap == NAN:
+		gap = (parentSize.x - HelperFuncs.SumFloatArray(childHs)) / 2.0
+		
+	
 	for i in childHs.size():
 		
 		yPos = (parentSize.y - childVs[i]) / 2.0
