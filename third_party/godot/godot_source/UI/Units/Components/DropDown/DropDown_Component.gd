@@ -42,9 +42,8 @@ var label: String:
 	set(v): 
 		_Label.Htext = v
 var scaleWithLargestOption: bool:
-	get: return _scaleWithLargestOption
+	get: return _DropDown.shouldScaleWithLongestOption
 	set(v):
-		_scaleWithLargestOption = v
 		_DropDown.shouldScaleWithLongestOption = v
 
 
@@ -53,7 +52,6 @@ var _DropDown: OptionButton_SubComponent
 var _Button: Button
 
 var _hasButton: bool
-var _scaleWithLargestOption: bool
 
 # Sets-up the Counter
 func _Activation(settings: Dictionary):
