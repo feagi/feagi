@@ -5,10 +5,39 @@ class_name Core
 ####### Configuration & Setup ######
 ####################################
 var FEAGI_RootAddress = ""
+
+# Get Requests
+var SEC = "HTTP://"
+
 @export var languageISO := "eng" #TODO proxy changes to UI manager
 
 func _ready():
-	FEAGI_RootAddress = str(network_setting.api_ip_address) + ":"+ str(network_setting.api_port_address)
+	var http_type = JavaScriptBridge.eval(""" 
+		function get_port() {
+			var url_string = window.location.href;
+			var url = new URL(url_string);
+			const searchParams = new URLSearchParams(url.search);
+			const ipAddress = searchParams.get("http_type");
+			return ipAddress;
+		}
+		get_port();
+		""")
+	if http_type != null:
+		SEC = http_type
+	var port_disabled = JavaScriptBridge.eval(""" 
+		function get_port() {
+			var url_string = window.location.href;
+			var url = new URL(url_string);
+			const searchParams = new URLSearchParams(url.search);
+			const ipAddress = searchParams.get("port_disabled");
+			return ipAddress;
+		}
+		get_port();
+		""")
+	if port_disabled == true:
+		FEAGI_RootAddress = str(network_setting.api_ip_address)
+	else:
+		FEAGI_RootAddress = str(network_setting.api_ip_address) + ":"+ str(network_setting.api_port_address)
 	print("CORE FEAGI ROOTADDRESS: ", FEAGI_RootAddress)
 	# # # Build the bridge # # # 
 	Autoload_variable.Core_BV = $GlobalUISystem/Brain_Visualizer
@@ -295,8 +324,6 @@ var NetworkAPI : SimpleNetworkAPI
 var UIManager : UI_Manager
 var FeagiCache: FeagiCache
 
-# Get Requests
-const SEC = "HTTP://"
 
 var ADD_GET_IPUList:
 	get: return SEC + FEAGI_RootAddress + "/v1/feagi/feagi/pns/current/ipu"
