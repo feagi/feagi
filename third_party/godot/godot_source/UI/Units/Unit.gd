@@ -43,8 +43,14 @@ var isSubUnit: bool:
 	get: return _isSubUnit
 var widthAlignment: int:
 	get: return _widthAlignment
+	set(v):
+		_widthAlignment = v
+		_RepositionChildren(Hsize)
 var heightAlignment: int:
 	get: return _heightAlignment
+	set(v):
+		_heightAlignment = v
+		_RepositionChildren(Hsize)
 
 signal DataUp(customData: Dictionary, compRef, unitRef)
 signal SizeChanged(selfRef)
@@ -160,6 +166,8 @@ func AddComponent(component: Dictionary) -> void:
 		newComponent.DataUp.connect(_PassThroughSignalFromComponent)
 	if (!newComponent.SizeChanged.is_connected(_RecieveSizeChangeNotificationFromBelow)):
 		newComponent.SizeChanged.connect(_RecieveSizeChangeNotificationFromBelow)
+	newComponent._widthAlignment = _widthAlignment
+	newComponent._heightAlignment = _heightAlignment
 	_components.append(newComponent)
 
 # Takes an array of dictionaries describing new components, adds them in in order

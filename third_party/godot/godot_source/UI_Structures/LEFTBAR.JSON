@@ -3,7 +3,7 @@
   "enableTitleBar": true,
   "titleBarTitle": "WORDS WORDS WORDS",
   "enableCloseButton": true,
-  "widthAlignment": 2,
+  "widthAlignment": 1,
   "components": [
 	{"type" : "header",
 	"ID" : "NeuronParametersSection"},	
