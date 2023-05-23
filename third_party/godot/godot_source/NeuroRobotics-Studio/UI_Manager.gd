@@ -40,13 +40,6 @@ func Activate(langISO: String):
 	UI_Top_TopBar.Activate(topBarDict)
 	UI_Top_TopBar.DataUp.connect(TopBarInput)
 	
-	# Initialize TopBar
-	UI_createcorticalBar = SCENE_UNIT.instantiate()
-	add_child(UI_createcorticalBar)
-	var createcorticalBar = HelperFuncs.GenerateDefinedUnitDict("CORTICAL_CREATE", currentLanguageISO)
-	UI_createcorticalBar.Activate(createcorticalBar)
-#	UI_createcorticalBar.DataUp.connect(LeftBarInput)
-	
 	
 	
 	# Initialize GraphCore
@@ -58,6 +51,9 @@ func Activate(langISO: String):
 	
 	
 	Activated = true
+	
+#	print(UI_createcorticalBar.componentData) # Delete this when you are done.
+# 	This print shows all node's ID.
 
 ####################################
 ####### Input Event Handling #######
@@ -73,6 +69,12 @@ func TopBarInput(data: Dictionary, _compRef, _unitRef):
 		# Drop downs specifically can either be button inputs or dropdown changes,
 		# verify this
 		if "button" in data.keys():
+			# Initialize popUpBar
+			if not UI_createcorticalBar:
+				SpawnCorticalCrete()
+			else:
+				UI_createcorticalBar.queue_free()
+		#	UI_createcorticalBar.DataUp.connect(LeftBarInput)
 			# button press
 			$".."/".."/Menu._on_add_pressed() #TODO: Need to change this approach. This is for example only
 			print("Pressed Button!")
@@ -177,7 +179,20 @@ func SpawnLeftBar():
 	UI_LeftBar.Activate(LeftBarDict)
 	UI_LeftBar.DataUp.connect(LeftBarInput)
 
-
+func SpawnCorticalCrete():
+	UI_createcorticalBar = SCENE_UNIT.instantiate()
+	add_child(UI_createcorticalBar)
+	var createcorticalBar = HelperFuncs.GenerateDefinedUnitDict("CORTICAL_CREATE", currentLanguageISO)
+	UI_createcorticalBar.Activate(createcorticalBar)
+	UI_createcorticalBar.DataUp.connect(LeftBarInput)
+	print("HERE: ", UI_createcorticalBar.get_children()) # this is all I need
+	var optionbutton = UI_createcorticalBar.get_child(1).get_child(0)
+	var str_array = []
+	for i in $".."/".."/Menu/addition_menu/OptionButton.item_count:
+		str_array.append($".."/".."/Menu/addition_menu/OptionButton.get_item_text(i))
+	UI_createcorticalBar.RelayInputDataToComps({"CORTICALAREA": {"options": (str_array)}})
+	var update = UI_createcorticalBar.get_child(5).get_child(0)
+	update.connect("pressed", $Brain_Visualizer._on_add_pressed)
 
 # Static Config
 const SCENE_UNIT: PackedScene = preload("res://UI/Units/unit.tscn")
