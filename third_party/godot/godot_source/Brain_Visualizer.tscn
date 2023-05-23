@@ -416,7 +416,6 @@ script = ExtResource("31_vv2v0")
 script = ExtResource("36_hp4op")
 
 [node name="GlobalUISystem" parent="Core" instance=ExtResource("32_fbal3")]
-visible = false
 mouse_filter = 2
 
 [node name="graphCore" parent="Core/GlobalUISystem" instance=ExtResource("33_6l54b")]
