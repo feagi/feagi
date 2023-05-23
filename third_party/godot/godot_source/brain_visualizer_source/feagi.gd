@@ -553,10 +553,10 @@ func _on_download_pressed():
 	Godot_list.genome_data["genome"] = {}
 	previous_genome_data = {}
 
-func _on_add_pressed(_node=""):
+func _on_add_pressed(node=[]):
 	var json_data = {}
 	var flag_boolean = false
-	if _node == "":
+	if node == []:
 		if $".."/".."/".."/Menu/addition_menu/OptionButton.selected == 1 or $".."/".."/".."/Menu/addition_menu/OptionButton.selected == 2:
 			json_data["cortical_type"] = $".."/".."/".."/Menu/addition_menu/OptionButton.get_item_text($".."/".."/".."/Menu/addition_menu/OptionButton.selected)
 			json_data["cortical_name"] = $".."/".."/".."/Menu/addition_menu/cortical_name_label/type.get_item_text($".."/".."/".."/Menu/addition_menu/cortical_name_label/type.selected)
@@ -589,7 +589,26 @@ func _on_add_pressed(_node=""):
 			$".."/".."/".."/Menu/addition_menu.visible = false
 			$".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.load_options()
 	else:
-		pass
+		print("node: ", node[7])
+		if node[7].selected == 3:
+#			if $".."/".."/".."/Menu/addition_menu/cortical_name_textbox/type.text != "" and $".."/".."/".."/Menu/addition_menu/cortical_name_textbox/type.text != " ":
+			json_data["cortical_type"] = "CUSTOM"
+			json_data["cortical_name"] = node[6].text
+			json_data["cortical_coordinates"] = []
+			json_data["cortical_dimensions"] = []
+			json_data["cortical_coordinates"].append(node[3].value)
+			json_data["cortical_coordinates"].append(node[4].value)
+			json_data["cortical_coordinates"].append(node[5].value)
+			json_data["cortical_dimensions"].append(node[0].value)
+			json_data["cortical_dimensions"].append(node[1].value)
+			json_data["cortical_dimensions"].append(node[2].value)
+			generate_single_cortical(json_data["cortical_coordinates"][0], json_data["cortical_coordinates"][1], json_data["cortical_coordinates"][2], json_data["cortical_dimensions"][0], json_data["cortical_dimensions"][1], json_data["cortical_dimensions"][2], json_data["cortical_name"])
+			Autoload_variable.BV_Core.Update_custom_cortical_area(json_data)
+			node[8].release_focus()
+			$Node3D/Camera3D.transform.origin=Vector3(json_data["cortical_coordinates"][0]-20,json_data["cortical_coordinates"][1],json_data["cortical_coordinates"][2]+20)
+			print("SENT")
+		else:
+			flag_boolean = true
 	$".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.load_options()
 
 func _on_remove_pressed():
