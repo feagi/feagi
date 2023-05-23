@@ -4,7 +4,7 @@
 
 [node name="graphCore" type="GraphEdit"]
 offset_left = 38.0
-offset_top = 54.0
+offset_top = 27.0
 offset_right = 1075.0
 offset_bottom = 627.0
 scroll_offset = Vector2(-418, -226)

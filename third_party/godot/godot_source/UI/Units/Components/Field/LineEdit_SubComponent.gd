@@ -24,9 +24,14 @@ var Htext: String:
 	get: return text # lol
 	set(v):
 		text = v
-		if(shouldScaleWithInputText): return
-		ScaleWithInputText()
+		if(shouldScaleWithInputText): _ScaleWithInputText()
 
-func ScaleWithInputText():
+func _ready():
+	text_changed.connect(_TextChangeRelay)
+
+
+func _ScaleWithInputText() -> void:
 	Hsize = Vector2(textWidth + INTERNAL_WIDTH_PADDING, Hsize.y)
-	
+
+func _TextChangeRelay(_input: String) -> void:
+	_ScaleWithInputText()
