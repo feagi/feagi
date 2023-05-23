@@ -429,6 +429,7 @@ scroll_offset = Vector2(-673, -361)
 [node name="Brain_Visualizer" parent="Core/GlobalUISystem" instance=ExtResource("34_jfnov")]
 
 [node name="Menu" type="Control" parent="."]
+visible = false
 layout_mode = 3
 anchor_right = 0.062
 anchor_bottom = 0.373
