@@ -237,7 +237,6 @@ func _RepositionChildren(parentSize: Vector2) -> void:
 		_RepositionChildren_H(parentSize, childHSizes, childVSizes, children)
 	else:
 		_RepositionChildren_V(parentSize, childHSizes, childVSizes, children)
-	
 
 func _RepositionChildren_H(parentSize: Vector2, childHs: Array, childVs: Array, children: Array):
 	

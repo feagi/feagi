@@ -22,6 +22,3 @@ enum TO {
 	burstEngine
 }
 
-# Alignment Enums
-enum WidthAlignmentSide {LEFT, CENTER, RIGHT}
-enum HeightAlignmentSide {BOTTOM, CENTER, TOP}
