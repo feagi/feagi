@@ -1,7 +1,9 @@
-[gd_scene load_steps=3 format=3 uid="uid://b4gduiclho4sq"]
+[gd_scene load_steps=4 format=3 uid="uid://b4gduiclho4sq"]
 
 [ext_resource type="Script" path="res://UI/Units/Components/Header/Header_Component.gd" id="1_thhx2"]
 [ext_resource type="Script" path="res://UI/Units/Common_SubComponents/Label_SubComponent.gd" id="2_3nh5l"]
+
+[sub_resource type="Theme" id="Theme_65r00"]
 
 [node name="header" type="Panel"]
 offset_right = 69.0
@@ -9,7 +11,8 @@ offset_bottom = 33.0
 script = ExtResource("1_thhx2")
 
 [node name="Label" type="Label" parent="."]
-layout_mode = 1
+layout_mode = 0
 offset_right = 40.0
 offset_bottom = 23.0
+theme = SubResource("Theme_65r00")
 script = ExtResource("2_3nh5l")

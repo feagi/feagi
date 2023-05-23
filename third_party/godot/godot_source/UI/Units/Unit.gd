@@ -6,7 +6,6 @@ class_name Unit
 const DEF_PADDING: Vector2 = Vector2(5.0,5.0)
 const DEF_ISVERTICAL: bool = true
 const DEF_SPAWNPOINT: Vector2 = Vector2(0.0, 0.0)
-const DEF_AUTOSIZE: bool = true
 const DEF_POSITION = Vector2(0.0,0.0)
 const DEF_ISSUBUNIT = false
 const DEF_TITLEBARTITLE = "UNNAMED TITLE"
@@ -78,8 +77,7 @@ func Activate(activationDict : Dictionary):
 	# Init Vars
 	_ID = HelperFuncs.MustGet(activationDict, "ID")
 	_componentsDicts = HelperFuncs.MustGet(activationDict, "components")
-	
-	var autoSize = HelperFuncs.GetIfCan(activationDict, "autosize", DEF_AUTOSIZE)
+
 	_componentsSpawnPoint = HelperFuncs.GetIfCan(activationDict, "componentSpawnPoint", DEF_SPAWNPOINT)
 	var obtain_2d_position = HelperFuncs.GetIfCan(activationDict, "position", DEF_POSITION) # Is this expected? It can't read (x,y) from json.
 	position = Vector2(obtain_2d_position[0], obtain_2d_position[1]) #TODO some units cannot set their own pos
