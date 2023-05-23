@@ -27,6 +27,7 @@ offset_right = 104.0
 offset_bottom = 31.0
 theme = SubResource("Theme_0jbf4")
 item_count = 2
+fit_to_longest_item = false
 popup/item_0/text = "dvdv"
 popup/item_0/id = 0
 popup/item_1/text = "sdsd"

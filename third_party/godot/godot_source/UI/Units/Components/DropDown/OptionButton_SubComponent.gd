@@ -5,6 +5,10 @@ class_name OptionButton_SubComponent
 signal SizeChanged(selfReference)
 signal ValueManuallyChanged(newString: String, selfReference)
 
+const INTERNAL_WIDTH_PADDING := 45.0 # Large due to existance of drop down icon
+
+var shouldScaleWithLongestOption := true
+
 var Hsize: Vector2:
 	get: return size
 	set(v): 
@@ -16,7 +20,7 @@ var options: Array:
 	get: return _DropDownItems
 	set(v): 
 		_SetDropDownArray(v)
-		SizeChanged.emit(self)
+		_UpdateSizeAsPerOptions()
 var index: int:
 	get: return selected
 	set(v): 
@@ -55,4 +59,14 @@ func _SetToExistingString( option: String) -> void:
 	select(location)
 	ValueManuallyChanged.emit(option, self)
 
+# Gets the width of the widest option
+func _GetLongestOptionWidth() -> float:
+	var widest := 0.0
+	for element in _DropDownItems:
+		if get_theme_font("font").get_string_size(element).x > widest:
+			widest = get_theme_font("font").get_string_size(element).x
+	return widest
 
+# Updates the size of of the dropdown as per the listed options
+func _UpdateSizeAsPerOptions() -> void:
+	Hsize = Vector2(_GetLongestOptionWidth() + INTERNAL_WIDTH_PADDING, Hsize.y)
