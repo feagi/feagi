@@ -94,7 +94,3 @@ func OptionSelected(selectedIndex: int):
 
 func _GetData():
 	return value
-
-# UNFINISHED
-func _SetData(data: Dictionary):
-	pass
