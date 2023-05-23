@@ -151,4 +151,9 @@ static func SumFloatArray(input: Array) -> float:
 		output = output + e
 	return output
 
-
+# Returns the sum of an array from the start to a defined end
+static func SumFloatArrayAtIndex(arr: Array, stopIndex: int) -> float:
+	var total := 0.0
+	for i in range(stopIndex):
+		total += arr[i]
+	return total

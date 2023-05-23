@@ -11,6 +11,8 @@ const DEF_ISSUBUNIT = false
 const DEF_TITLEBARTITLE = "UNNAMED TITLE"
 const DEF_ENABLETITLEBAR = false
 const DEF_ENABLECLOSEBUTTON = false
+const DEF_WIDTHALIGNMENT = 1
+const DEF_HEIGHTALIGNMENT = 1
 
 var ID: String:
 	get: return _ID
@@ -39,6 +41,10 @@ var dataSignalAvailable: bool:
 	get: return _dataSignalAvailable
 var isSubUnit: bool:
 	get: return _isSubUnit
+var widthAlignment: int:
+	get: return _widthAlignment
+var heightAlignment: int:
+	get: return _heightAlignment
 
 signal DataUp(customData: Dictionary, compRef, unitRef)
 signal SizeChanged(selfRef)
@@ -56,8 +62,8 @@ var _isSubUnit: bool
 
 # used to prevent multiple components from spamming requests all at once
 var _requestingSizeChange: bool = false
-var _widthAlignment := 1
-var _heightAlignment := 1
+var _widthAlignment: int
+var _heightAlignment: int 
 
 var _fieldScene: PackedScene = preload("res://UI/Units/Components/Field/field.tscn")
 var _counterScene: PackedScene = preload("res://UI/Units/Components/Counter/counter.tscn")
@@ -79,6 +85,9 @@ func Activate(activationDict : Dictionary):
 	_padding = HelperFuncs.GetIfCan(activationDict, "padding", DEF_PADDING)
 	_isHorizontal = !HelperFuncs.GetIfCan(activationDict, "isVertical", DEF_ISVERTICAL)
 	_isSubUnit = HelperFuncs.GetIfCan(activationDict, "isSubUnit", DEF_ISSUBUNIT)
+	_widthAlignment = HelperFuncs.GetIfCan(activationDict, 'widthAlignment', DEF_WIDTHALIGNMENT)
+	_heightAlignment = HelperFuncs.GetIfCan(activationDict, 'heightAlignment', DEF_HEIGHTALIGNMENT)
+	
 	
 	# title bar stuff
 	if HelperFuncs.GetIfCan(activationDict, "enableTitleBar", DEF_ENABLETITLEBAR):
@@ -152,8 +161,6 @@ func AddComponent(component: Dictionary) -> void:
 	if (!newComponent.SizeChanged.is_connected(_RecieveSizeChangeNotificationFromBelow)):
 		newComponent.SizeChanged.connect(_RecieveSizeChangeNotificationFromBelow)
 	_components.append(newComponent)
-	
-	
 
 # Takes an array of dictionaries describing new components, adds them in in order
 func AddMultipleComponents(components: Array) -> void:
@@ -203,6 +210,7 @@ func UpdateSizeData(forceUpdate: bool = false) -> void:
 		_RepositionChildren(_minDimensions)
 		size = _minDimensions
 	SizeChanged.emit(self)
+
 # Forces a recalculation of minimum required dimensions. If minimum required
 # size is bigger than the current size, returns true and updates minimum dim.
 # STILL REQUIRED TO TAKE ACTION
@@ -214,83 +222,73 @@ func _UpdateMinimumDimensions() -> bool:
 	return false
 
 # General method for repositioning children
-# Writing this function was pain
+# (Re) Writing this function was pain
 func _RepositionChildren(parentSize: Vector2) -> void:
 	var children = get_children()
-	var childSizes: Array = []
+	var childHSizes: Array = []; var childVSizes: Array = []
 	
 	for child in children:
-		childSizes.append(child.Hsize)
+		childHSizes.append(child.Hsize.x)
+		childVSizes.append(child.Hsize.y)
 	
-	# total child sizes is the same as parent minSize
-	
-	var totalGap: float
-	var betweenGap: float
-	var PreviousValue: float
-	var otherDimension: float
+	# total child sizes + padding is the same as parent minSize
 	
 	if isHorizontal:
-		# Horizontal
-		totalGap = parentSize.x - minimumSize.x
-		betweenGap = totalGap / float(childSizes.size() + 1)
-		
-		for i in childSizes.size():
-			
-			otherDimension = (minimumSize.y - childSizes[i].y) / 2.0
-			
-			match(_widthAlignment):
-				0:
-					if (i == 0): 
-						PreviousValue = padding.x / 2.0
-					else:
-						PreviousValue = PreviousValue + childSizes[i - 1].x
-					children[i].position = Vector2(PreviousValue, otherDimension)
-						
-				2:
-					if (i == 0): 
-						PreviousValue = totalGap - (padding.x / 2.0)
-					else:
-						PreviousValue = PreviousValue + childSizes[i - 1].x
-					children[i].position = Vector2(PreviousValue, otherDimension)
-						
-				1:
-					if (i == 0): 
-						PreviousValue = betweenGap + (padding.x / 2.0)
-					else:
-						PreviousValue = PreviousValue + childSizes[i - 1].x + betweenGap
-					children[i].position = Vector2(PreviousValue, otherDimension)
-	
+		_RepositionChildren_H(parentSize, childHSizes, childVSizes, children)
 	else:
-		# Vertical
-		totalGap = parentSize.y - minimumSize.y
-		betweenGap = totalGap / float(childSizes.size() + 1)
-		
-		for i in childSizes.size():
-			
-			otherDimension = (minimumSize.x - childSizes[i].x) / 2.0
-			
-			match(_heightAlignment):
-				2:
-					if (i == 0): 
-						PreviousValue = 0.0
-					else:
-						PreviousValue = PreviousValue + childSizes[i - 1].y
-					children[i].position = Vector2(otherDimension, PreviousValue)
-						
-				0:
-					if (i == 0): 
-						PreviousValue = totalGap
-					else:
-						PreviousValue = PreviousValue + childSizes[i - 1].y
-					children[i].position = Vector2(otherDimension, PreviousValue)
-						
-				1:
-					if (i == 0): 
-						PreviousValue = betweenGap
-					else:
-						PreviousValue = PreviousValue + childSizes[i - 1].y + betweenGap
-					children[i].position = Vector2(otherDimension, PreviousValue)
+		_RepositionChildren_V(parentSize, childHSizes, childVSizes, children)
+	
 
+func _RepositionChildren_H(parentSize: Vector2, childHs: Array, childVs: Array, children: Array):
+	
+	# Preallocate to reduce GC
+	var gap: float
+	var xPos: float; var yPos: float
+	
+	match(widthAlignment):
+		0: gap = 0.0
+		1: gap = (parentSize.x - HelperFuncs.SumFloatArray(childHs)) / float(childHs.size() - 1)
+		2: gap = (parentSize.x - HelperFuncs.SumFloatArray(childHs))
+	
+	for i in childHs.size():
+		
+		yPos = (parentSize.y - childVs[i]) / 2.0
+		
+		match(widthAlignment):
+			0:
+				xPos = HelperFuncs.SumFloatArrayAtIndex(childHs, i)
+			1:
+				xPos = HelperFuncs.SumFloatArrayAtIndex(childHs, i) + float(i * gap)
+			2:
+				xPos = HelperFuncs.SumFloatArrayAtIndex(childHs, i) + gap
+		
+		children[i].position = Vector2(xPos, yPos)
+
+func _RepositionChildren_V(parentSize: Vector2, childHs: Array, childVs: Array, children: Array):
+	
+	# Preallocate to reduce GC
+	var gap: float
+	var xPos: float; var yPos: float
+	
+	match(widthAlignment):
+		0: gap = 0.0
+		1: gap = (parentSize.y - HelperFuncs.SumFloatArray(childVs)) / float(childVs.size() - 1)
+		2: gap = (parentSize.y - HelperFuncs.SumFloatArray(childVs))
+	
+	for i in childVs.size():
+		
+		xPos = (parentSize.x - childHs[i]) / 2.0
+		
+		match(widthAlignment):
+			0:
+				yPos = HelperFuncs.SumFloatArrayAtIndex(childVs, i)
+			1:
+				yPos = HelperFuncs.SumFloatArrayAtIndex(childVs, i) + float(i * gap)
+			2:
+				yPos = HelperFuncs.SumFloatArrayAtIndex(childVs, i) + gap
+		
+		children[i].position = Vector2(xPos, yPos)
+ 
 # Gets the minimum allowed width of the Unit
 func _GetMinWidth() -> float:
 	var children = get_children()
@@ -321,42 +319,6 @@ func _GetMinHeight() -> float:
 			if child.size.y > calHeight:
 				calHeight = child.Hsize.y
 		return calHeight + padding.y
-
-
-# Get top left location of where the new component should be
-func _GetNewCompSpawnPoint() -> Vector2:
-	var offset: Vector2
-	if isHorizontal:
-		offset = Vector2(_GetWidthForNewComp(), 0.0)
-	else:
-		offset = Vector2(0.0, _GetHeightForNewComp())
-	return offset + componentsSpawnPoint
-
-func _GetHeightForNewComp() -> float:
-	return _GetTotalHeightFollowingComponent(_components.size() - 1)
-
-func _GetWidthForNewComp() -> float:
-	return _GetTotalWidthFollowingComponent(_components.size() - 1)
-
-# How far down should the next component spawn?
-func _GetTotalHeightFollowingComponent(beforeComponentIndex: int) -> float:
-	if _components.size() == 0:
-		return 0.0
-	var totalHeight: float = 0.0
-	for i in range(beforeComponentIndex):
-		totalHeight += _components[i].compHeight + padding.y
-	# end
-	return totalHeight
-
-# How far right should the next component spawn?
-func _GetTotalWidthFollowingComponent(beforeComponentIndex: int) -> float:
-	if _components.size() == 0:
-		return 0.0
-	var totalWidth: float = 0.0
-	for i in range(beforeComponentIndex):
-		totalWidth += _components[i].Hsize.x + padding.x
-	# end
-	return totalWidth
 
 func _GetTallestComponentHeight() -> float:
 	var tallest: float = 0.0
