@@ -196,6 +196,11 @@ func  RequestSizeChange(newSize: Vector2) -> bool:
 	if (HelperFuncs.IsVector2SmallerInAnyDim(newSize, _minDimensions)):
 		newSize = HelperFuncs.ClampVector2ToLargestAllowed(newSize, _minDimensions)
 		output = false
+	
+	if(isHorizontal):
+		_GrowChildren_Vertically(newSize.y)
+	else:
+		_GrowChildren_Horizontally(newSize.x)
 	_RepositionChildren(newSize)
 	size = newSize
 	return output
@@ -224,7 +229,7 @@ func _UpdateMinimumDimensions() -> bool:
 # General method for repositioning children
 # (Re) Writing this function was pain
 func _RepositionChildren(parentSize: Vector2) -> void:
-	var children = get_children()
+	var children: Array = get_children()
 	var childHSizes: Array = []; var childVSizes: Array = []
 	
 	for child in children:
@@ -332,6 +337,20 @@ func _GetWidestComponentWidth() -> float:
 		if(_components[i].Hsize.x > widest):
 			widest = _components[i].Hsize.x
 	return widest + padding.x
+
+# Sets new width for children. Ensure this width is valid before running this method
+func _GrowChildren_Horizontally(newWidth: float) -> void:
+	
+	var children: Array = get_children()
+	for child in children:
+		child.Hsize = Vector2(newWidth, child.Hsize.y)
+
+# Sets new height for children. Ensure this height is valid before running this method
+func _GrowChildren_Vertically(newHeight: float) -> void:
+	
+	var children: Array = get_children()
+	for child in children:
+		child.Hsize = Vector2(child.Hsize.x, newHeight)
 
 ####################################
 ##### Component Data Signaling #####

@@ -160,7 +160,6 @@ func _RecieveSizeChangeNotificationFromBelow(_objectReference) -> void:
 	_requestingSizeChange = true
 	call_deferred("UpdateSizeData") # I am sure this won't cause problems /s
 
-
 # Forces a recalculation of minimum required dimensions. If minimum required
 # size is bigger than the current size, returns true and updates minimum dim.
 # STILL REQUIRED TO TAKE ACTION
@@ -269,8 +268,6 @@ func _RepositionChildren_V(parentSize: Vector2, childHs: Array, childVs: Array, 
 		
 		children[i].position = Vector2(xPos, yPos)
  
-
-
 ####################################
 ############ Overrides #############
 ####################################
