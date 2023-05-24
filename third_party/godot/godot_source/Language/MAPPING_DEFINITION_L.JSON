@@ -1,0 +1,74 @@
+{
+	"SOURCECORTICALAREA": {
+		"label": {
+			"eng": "Source Cortical Area"
+		}
+	},
+	"DESTINATIONCORTICALAREA": {
+		"label": {
+			"eng": "Destination Cortical Area"
+		}
+	},
+	"ADDMAPPING": {
+		"label": {
+			"eng": ""
+		}
+	},
+	"MAPPINGDEFINITION": {
+		"label": {
+			"eng": "Mapping Definition:"
+		}
+	},
+	"mappingdefinitions": {
+		"label": {
+			"eng": "Mapping Definitions"
+		}
+	},
+	"UpdateButton": {
+		"label": {
+			"eng": "Create"
+		}
+	},
+	"XYZ": {
+		"Pos_X": {
+			"label": {
+				"eng": ""
+			}
+		},
+		"Pos_Y": {
+			"label": {
+				"eng": ""
+			}
+		},
+		"Pos_Z": {
+			"label": {
+				"eng": ""
+			}
+		}
+	},
+	"OverwriteSCALAR": {
+		"label":
+		  {"eng": "Overwrite Scalar"}
+	},
+	"PSPMULTIPLER": {
+		"label":
+		  {"eng": "PSP Multiplier Plasticity"}
+		},
+	"testlabel": {
+		"SOURCECORTICALAREA": {
+			"label": {
+				"eng": "Source Cortical Area"
+			}
+		},
+		"DESTINATIONCORTICALAREA": {
+			"label": {
+				"eng": "Destination Cortical Area"
+			}
+		},
+		"ADDMAPPING": {
+			"label": {
+				"eng": ""
+			}
+		}
+	}
+}

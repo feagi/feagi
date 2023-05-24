@@ -1,0 +1,75 @@
+{
+	"ID": "MAPPING_DEFINITION",
+	"position": [
+		700,
+		300
+	],
+	"components": [
+		{
+			"type": "unit",
+			"ID": "testlabel",
+			"components": [
+				{
+					"ID": "SOURCECORTICALAREA",
+					"type": "dropdown"
+				},
+				{
+					"ID": "DESTINATIONCORTICALAREA",
+					"type": "dropdown"
+				},
+				{
+					"type": "button",
+					"ID": "ADDMAPPING"
+				}
+			],
+			"isVertical": true
+		},
+		{
+			"ID": "SOURCECORTICALAREA",
+			"type": "dropdown"
+		},
+		{
+			"ID": "DESTINATIONCORTICALAREA",
+			"type": "dropdown"
+		},
+		{
+			"type": "button",
+			"ID": "ADDMAPPING"
+		},
+		{
+			"type": "header",
+			"ID": "MAPPINGDEFINITION"
+		},
+		{
+			"type": "dropdown",
+			"ID": "mappingdefinitions"
+		},
+		{
+			"type": "header",
+			"ID": "OverwriteSCALAR"
+		},
+		{
+			"type": "unit",
+			"ID": "XYZ",
+			"components": [
+				{
+					"type": "counter",
+					"ID": "Pos_X"
+				},
+				{
+					"type": "counter",
+					"ID": "Pos_Y"
+				},
+				{
+					"type": "counter",
+					"ID": "Pos_Z"
+				}
+			],
+			"isVertical": false
+		},
+		{
+			"type": "toggle",
+			"ID": "PSPMULTIPLER"
+		}
+	]
+}
