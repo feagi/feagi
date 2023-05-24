@@ -31,6 +31,7 @@ func _on_Area_input_event(_camera, event, _position, _normal, _shape_idx):
 		cortical_area_name = cortical_area_name[0].replace(" ", "")
 		cortical_area_name = cortical_area_name.replace("@", "")
 		cortical_area_name = "{s}".format({"s": cortical_area_name})
+		cortical_area_name = $"..".name_to_id(cortical_area_name)
 		#select_cortical.selected.append(cortical_area_name)
 		if event.button_index == 1 and get_surface_override_material(0) == global_material.selected and event.pressed == true:
 			if get_surface_override_material(0) == global_material.selected:
