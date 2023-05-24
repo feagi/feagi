@@ -34,7 +34,7 @@ func _ready():
 		}
 		get_port();
 		""")
-	if port_disabled == true:
+	if port_disabled == "true":
 		FEAGI_RootAddress = str(network_setting.api_ip_address)
 	else:
 		FEAGI_RootAddress = str(network_setting.api_ip_address) + ":"+ str(network_setting.api_port_address)
