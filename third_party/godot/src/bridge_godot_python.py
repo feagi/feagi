@@ -92,7 +92,7 @@ def godot_data(input):
     dict_with_updated_name = {"data": {}}
     dict_with_updated_name["data"]["direct_stimulation"] = dict({})
     for key in data["data"]["direct_stimulation"]:
-        Updated_name = name_to_id(key)
+        Updated_name = key
         if dict_with_updated_name["data"]["direct_stimulation"].get(Updated_name) is not None:
             pass
         else:
@@ -189,8 +189,7 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
         for key in stimulation_from_godot["data"]["direct_stimulation"]:
             for name_match in cortical_data:
                 raw_id = name_match
-                name_match = name_to_id(
-                    name_match)  # convert the human readable name into feagi name
+                name_match = cortical_data[raw_id][7]
                 if name_match == key:
                     if relative_coordinate["data"]["direct_stimulation"].get(
                             name_match) is not None:
@@ -208,7 +207,6 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
                 pass
     else:
         pass
-
     return relative_coordinate
 
 
@@ -494,8 +492,8 @@ if __name__ == "__main__":
             requests.post(url, data=request_obj)
             data_from_godot = {}
 
-        if data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list and data_from_godot \
-                != "refresh" and data_from_godot != "[]":
+        if data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list \
+                and data_from_godot != "refresh" and data_from_godot != "[]":
             godot_list = godot_data(data_from_godot)
             converted_data = convert_absolute_to_relative_coordinate(
                 stimulation_from_godot=godot_list,
