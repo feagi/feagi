@@ -20,6 +20,7 @@ var Activated: bool = false
 var UI_Top_TopBar: Unit
 var UI_LeftBar: Unit
 var UI_createcorticalBar : Unit
+var UI_CreateNeuronMorphology : Unit
 var UI_GraphCore: GraphCore
 
 
@@ -87,6 +88,10 @@ func TopBarInput(data: Dictionary, _compRef, _unitRef):
 	# verify this
 		if "button" in data.keys():
 			# button press
+			if not UI_CreateNeuronMorphology:
+				SpawnNeuronMorphology()
+			else:
+				UI_CreateNeuronMorphology.queue_free()
 			$Brain_Visualizer._on_Button_pressed() #TODO: Need to change this approach. This is for example only
 			print("Pressed Button!")
 		else:
@@ -191,6 +196,9 @@ func SpawnCorticalCrete():
 	for i in $".."/".."/Menu/addition_menu/OptionButton.item_count:
 		str_array.append($".."/".."/Menu/addition_menu/OptionButton.get_item_text(i))
 	UI_createcorticalBar.RelayInputDataToComps({"CORTICALAREA": {"options": (str_array)}})
+#	if UI_createcorticalBar.DataUp.is_connected():
+#	UI_createcorticalBar.DataUp.disconnect()
+#	4.x - emitting_node.signal_name.disconnect(receiving_node.callback_function)
 	var update = UI_createcorticalBar.get_child(5).get_child(0)
 	var whd = UI_createcorticalBar.get_child(3)
 	var xyz = UI_createcorticalBar.get_child(4)
@@ -210,7 +218,13 @@ func SpawnCorticalCrete():
 	z.connect("value_changed",Callable($Brain_Visualizer,"_on_Z_Spinbox_value_changed").bind([w,h,d,x,y,z]))
 	name_input.connect("text_changed",Callable($".."/Button_to_Autoload,"_on_type_text_changed"))
 	update.connect("pressed",Callable($Brain_Visualizer,"_on_add_pressed").bind([w,h,d,x,y,z, name_input, optionlist, update]))
-	
+
+func SpawnNeuronMorphology():
+	UI_CreateNeuronMorphology = SCENE_UNIT.instantiate()
+	add_child(UI_CreateNeuronMorphology)
+	var createmurphology = HelperFuncs.GenerateDefinedUnitDict("CREATE_MORPHOLOGY", currentLanguageISO)
+	UI_CreateNeuronMorphology.Activate(createmurphology)
+#	UI_CreateNeuronMorphology.DataUp.connect(LeftBarInput)
 
 # Static Config
 const SCENE_UNIT: PackedScene = preload("res://UI/Units/unit.tscn")
