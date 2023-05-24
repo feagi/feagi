@@ -1,0 +1,45 @@
+{
+	"NewNeuronMorphology": {
+		"label": {
+			"eng": "Add New Neuron Morphology"
+		}
+	},
+	"MorphologyName": {
+		"label": {
+			"eng": "Neuron Morphology"
+		}
+	},
+	"MORPHOLOGYTYPE": {
+		"label": {
+			"eng": "Morphology Type"
+		}
+	},
+	"MorphologyDefinition": {
+		"label": {
+			"eng": "Morphology Definition"
+		}
+	},
+	"XYZ": {
+		"Pos_X": {
+			"label": {
+				"eng": "X"
+			}
+		},
+		"Pos_Y": {
+			"label": {
+				"eng": "Y"
+			}
+		},
+		"Pos_Z": {
+			"label": {
+				"eng": "Z"
+			}
+		}
+	},
+	"UpdateButton": {
+		"label": {
+			"eng": "Create"
+		}
+	}
+
+}

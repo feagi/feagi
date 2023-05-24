@@ -1,0 +1,48 @@
+{
+	"ID": "CREATE_MORPHOLOGY",
+	"position": [
+		400,
+		400
+	],
+	"components": [
+		{
+			"type": "header",
+			"ID": "NewNeuronMorphology"
+		},
+		{
+			"type": "field",
+			"ID": "MorphologyName"
+		},
+		{
+			"ID": "MORPHOLOGYTYPE",
+			"type": "dropdown"
+		},
+		{
+			"type": "header",
+			"ID": "MorphologyDefinition"
+		},
+		{
+			"type": "unit",
+			"ID": "XYZ",
+			"components": [
+				{
+					"type": "counter",
+					"ID": "Pos_X"
+				},
+				{
+					"type": "counter",
+					"ID": "Pos_Y"
+				},
+				{
+					"type": "counter",
+					"ID": "Pos_Z"
+				}
+			],
+			"isVertical": false
+		},
+		{
+			"type": "button",
+			"ID": "UpdateButton"
+		}
+	]
+}
