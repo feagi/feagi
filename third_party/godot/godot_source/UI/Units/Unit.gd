@@ -161,13 +161,16 @@ func AddComponent(component: Dictionary) -> void:
 
 	# Add the new Component to the Unit, Activate it, Connect Signals, Store a Reference
 	add_child(newComponent)
+	
+	# Apply inherited defaults (before activation to allow per comp overrides)
+	newComponent._widthAlignment = _widthAlignment
+	newComponent._heightAlignment = _heightAlignment
+	
 	newComponent.Activate(component)
 	if(newComponent.dataSignalAvailable and !newComponent.DataUp.is_connected(_PassThroughSignalFromComponent)):
 		newComponent.DataUp.connect(_PassThroughSignalFromComponent)
 	if (!newComponent.SizeChanged.is_connected(_RecieveSizeChangeNotificationFromBelow)):
 		newComponent.SizeChanged.connect(_RecieveSizeChangeNotificationFromBelow)
-	newComponent._widthAlignment = _widthAlignment
-	newComponent._heightAlignment = _heightAlignment
 	_components.append(newComponent)
 
 # Takes an array of dictionaries describing new components, adds them in in order
