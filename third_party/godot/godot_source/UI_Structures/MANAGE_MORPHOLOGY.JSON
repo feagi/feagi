@@ -2,12 +2,16 @@
 	"ID": "MANAGE_NEURON_MORPHOLOGY",
 	"position": [
 		400,
-		400
+		700
 	],
 	"components": [
 		{
 			"type": "header",
 			"ID": "MANAGENEURONMORPHOLOGY"
+		},
+		{
+			"ID": "MORPHOLOGYNAME",
+			"type": "dropdown"
 		},
 		{
 			"ID": "MORPHOLOGYTYPE",
@@ -37,8 +41,16 @@
 			"isVertical": false
 		},
 		{
+			"type": "field",
+			"ID": "blank"
+		},
+		{
 			"type": "button",
-			"ID": "UpdateButton"
+			"ID": "SAVE"
+		},
+		{
+			"type": "button",
+			"ID": "DELETE"
 		}
 	]
 }
