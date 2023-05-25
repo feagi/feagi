@@ -1,7 +1,7 @@
 {
   "ID" : "LEFTBAR",
   "enableTitleBar": true,
-  "titleBarTitle": "WORDS WORDS WORDS",
+  "titleBarTitle": "INSERT SIDEBAR TITLE HERE",
   "enableCloseButton": true,
   "widthAlignment": 1,
   "components": [
