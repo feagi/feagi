@@ -21,6 +21,8 @@ var UI_Top_TopBar: Unit
 var UI_LeftBar: Unit
 var UI_createcorticalBar : Unit
 var UI_CreateNeuronMorphology : Unit
+var UI_ManageNeuronMorphology : Unit
+var UI_MappingDefinition : Unit
 var UI_GraphCore: GraphCore
 
 
@@ -41,6 +43,7 @@ func Activate(langISO: String):
 	UI_Top_TopBar.Activate(topBarDict)
 	UI_Top_TopBar.DataUp.connect(TopBarInput)
 	
+	SpawnMappingDefinition()
 	
 	
 	# Initialize GraphCore
@@ -83,6 +86,7 @@ func TopBarInput(data: Dictionary, _compRef, _unitRef):
 			# the cortical area drop down was changed
 			var selectedCorticalArea: String = data["selected"]
 			print("new selected area is " + selectedCorticalArea)
+			
 	elif "NEURONMORPHOLOGIES" in data.values():
 	# Drop downs specifically can either be button inputs or dropdown changes,
 	# verify this
@@ -98,6 +102,10 @@ func TopBarInput(data: Dictionary, _compRef, _unitRef):
 			# the cortical area drop down was changed
 			var selectedCorticalArea: String = data["selected"]
 			print("new selected area is " + selectedCorticalArea)
+			if not UI_ManageNeuronMorphology:
+				SpawnNeuronManager()
+			else:
+				UI_ManageNeuronMorphology.queue_free()
 
 ######### Side Bar Control #########
 
@@ -225,6 +233,19 @@ func SpawnNeuronMorphology():
 	var createmurphology = HelperFuncs.GenerateDefinedUnitDict("CREATE_MORPHOLOGY", currentLanguageISO)
 	UI_CreateNeuronMorphology.Activate(createmurphology)
 #	UI_CreateNeuronMorphology.DataUp.connect(LeftBarInput)
+
+func SpawnNeuronManager():
+	UI_ManageNeuronMorphology=SCENE_UNIT.instantiate()
+	add_child(UI_ManageNeuronMorphology)
+	var cerateneuronmorphology = HelperFuncs.GenerateDefinedUnitDict("MANAGE_MORPHOLOGY", currentLanguageISO)
+	UI_ManageNeuronMorphology.Activate(cerateneuronmorphology)
+
+func SpawnMappingDefinition():
+	UI_MappingDefinition=SCENE_UNIT.instantiate()
+	add_child(UI_MappingDefinition)
+	var mappingdef = HelperFuncs.GenerateDefinedUnitDict("MAPPING_DEFINITION", currentLanguageISO)
+	UI_MappingDefinition.Activate(mappingdef)
+
 
 # Static Config
 const SCENE_UNIT: PackedScene = preload("res://UI/Units/unit.tscn")
