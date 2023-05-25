@@ -12,6 +12,8 @@ const DEF_PADDING: Vector2 = Vector2(10.0, 6.0)
 const DEF_ISHORIZONTAL: bool = true
 const DEF_WIDTHALIGNMENT = 1
 const DEF_HEIGHTALIGNMENT = 1
+const DEF_HSIZE = Vector2(0.0, 0.0) # Force scaling up
+
 
 # Signals
 signal DataUp(customData: Dictionary, changedObjectReference)
@@ -86,6 +88,8 @@ var _runtimeSettableProperties = {
 	"widthAlignment": TYPE_INT,
 	"heightAlignment": TYPE_INT
 }
+var _initialSize: Vector2
+
 # used to prevent multiple subcomponents from spamming requests all at once
 var _requestingSizeChange: bool = false
 
@@ -97,14 +101,17 @@ func Activate(settings: Dictionary) -> void:
 	_ID = HelperFuncs.MustGet(settings, "ID")
 	_padding = HelperFuncs.GetIfCan(settings, "padding", DEF_PADDING)
 	_isHorizontal = HelperFuncs.GetIfCan(settings, "isHorizontal", DEF_ISHORIZONTAL)
-	
-	_requestingSizeChange = true # prevent spam requests to resize
+	_widthAlignment = HelperFuncs.GetIfCan(settings, "widthAlignment", DEF_WIDTHALIGNMENT)
+	_heightAlignment = HelperFuncs.GetIfCan(settings, "heightAlignment", DEF_HEIGHTALIGNMENT)
 	
 	_Activation(settings) # activate specific component settings via virtual func
 
 	_isActivated = true # prevent multiple activations
 	
-	call_deferred("UpdateSizeData") # apply resizing requests
+	
+		# init size
+	_initialSize = HelperFuncs.LoadMostDefaultV2(settings, "Hsize", DEF_HSIZE)
+	call_deferred("_InitInitialSize")
 	
 	return
 	
@@ -152,7 +159,7 @@ func _AddSizeChangeSignals() -> void:
 func  RequestSizeChange(newSize: Vector2) -> bool:
 	var notResized := true
 	if (HelperFuncs.IsVector2SmallerInAnyDim(newSize, _minDimensions)):
-		newSize = HelperFuncs.ClampVector2ToLargestAllowed(newSize, _minDimensions)
+		newSize = HelperFuncs.GrowVector2ToSmallestAllowed(newSize, _minDimensions)
 		notResized = false
 	_RepositionChildren(newSize)
 	size = newSize
@@ -167,6 +174,12 @@ func UpdateSizeData(forceUpdate: bool = false) -> void:
 		Hsize = HelperFuncs.GrowVector2ToSmallestAllowed(Hsize, _minDimensions)
 	_RepositionChildren(Hsize)
 	SizeChanged.emit(self)
+
+# Call deffered on activation to init all sizes in the correct order
+# This is not particuarly efficient. Too Bad!
+func _InitInitialSize() -> void:
+	_UpdateMinimumDimensions()
+	RequestSizeChange(_initialSize)
 
 # This function relays signal input through a deffered call.
 # This allows default Godot UI resizing behvior to apply and for us to read it

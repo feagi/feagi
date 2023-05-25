@@ -198,8 +198,8 @@ func AddComponent(component: Dictionary) -> void:
 	# Remember, merge by default DOES NOT overwrite existing keys
 	
 	var ValuesToInheritByDefault: Dictionary = {
-		"heightAlignment": heightAlignment,
-		"widthAlignment": widthAlignment
+		"heightAlignment": self._heightAlignment,
+		"widthAlignment": self._widthAlignment
 	}
 	
 	component.merge(ValuesToInheritByDefault)
