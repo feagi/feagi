@@ -160,10 +160,13 @@ def feagi_breakdown(data):
             runtime_data["old_cortical_data"] = runtime_data["cortical_data"]
             runtime_data["cortical_data"] = \
                 requests.get('http://' + feagi_host + ':' + api_port + DIMENSIONS_ENDPOINT).json()
+            print("feagi breakdown runtime_data[\"cortical_data\"]: ", runtime_data["cortical_data"])
             if 'genome_reset' not in data and data == "{}":
                 runtime_data["cortical_data"] = \
                     requests.get(
                         'http://' + feagi_host + ':' + api_port + DIMENSIONS_ENDPOINT).json()
+                print("feagi SECOND breakdown runtime_data[\"cortical_data\"]: ",
+                      runtime_data["cortical_data"])
             if data != "{}":
                 if runtime_data["old_cortical_data"] != runtime_data["cortical_data"]:
                     pass  # TODO: add to detect if cortical is changed
@@ -279,8 +282,10 @@ def feagi_init(feagi_host, api_port):
                 try:
                     data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
                                                     '/v1/feagi/genome/download').json()
+                    print("AWAITING FEAGI REGISTRATION: ", data_from_genome)
                     cortical_area_name = requests.get(
                         'http://' + feagi_host + ':' + api_port + DIMENSIONS_ENDPOINT).json()
+                    print("cortical AWAITING FEAGI REGISTRATION: ", cortical_area_name)
                     runtime_data["cortical_data"] = data_from_genome
 
                     for x in cortical_area_name:
@@ -411,6 +416,7 @@ if __name__ == "__main__":
                 runtime_data["cortical_data"] = \
                     requests.get(
                         'http://' + feagi_host + ':' + api_port + DIMENSIONS_ENDPOINT).json()
+                print("runtime_data[cortical_data]: ", runtime_data["cortical_data"])
                 print("updated time")
                 zmq_queue.append("updated")
             BURST_SECOND = one_frame['burst_frequency']
@@ -451,6 +457,7 @@ if __name__ == "__main__":
             reload_genome()
             runtime_data["cortical_data"] = \
                 requests.get('http://' + feagi_host + ':' + api_port + DIMENSIONS_ENDPOINT).json()
+            print("reload runtime_data[\"cortical_data\"]: ", runtime_data["cortical_data"])
         # if "new" in data_from_godot:
         #     json_object = json.dumps(data_from_godot)
         #     print(json_object)
