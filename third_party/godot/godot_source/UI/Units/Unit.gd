@@ -6,13 +6,14 @@ class_name Unit
 const DEF_PADDING: Vector2 = Vector2(5.0,5.0)
 const DEF_ISVERTICAL: bool = true
 const DEF_SPAWNPOINT: Vector2 = Vector2(0.0, 0.0)
-const DEF_POSITION = Vector2(0.0,0.0)
+const DEF_HPOSITION = Vector2(0.0,0.0)
 const DEF_ISSUBUNIT = false
 const DEF_TITLEBARTITLE = "UNNAMED TITLE"
 const DEF_ENABLETITLEBAR = false
 const DEF_ENABLECLOSEBUTTON = false
 const DEF_WIDTHALIGNMENT = 1
 const DEF_HEIGHTALIGNMENT = 1
+const DEF_HSIZE = Vector2(0.0, 0.0) # Force scaling up
 
 var ID: String:
 	get: return _ID
@@ -23,6 +24,27 @@ var padding: Vector2:
 	set(v):
 		_padding = v
 		UpdateSizeData(true)
+var paddingX: float:
+	get: return padding.x
+	set(v):
+		padding = Vector2(v, padding.y)
+var paddingY: float:
+	get: return padding.y
+	set(v):
+		padding = Vector2(padding.x, v)
+var Hposition: Vector2:
+	get: return position
+	set(v):
+		if(_isSubUnit): print("Cannot set position of a subunit!")
+		position = v
+var HpositionX: float:
+	get: return position.x
+	set(v):
+		Hposition = Vector2(v, Hposition.y)
+var HpositionY: float:
+	get: return position.y
+	set(v):
+		Hposition = Vector2(Hposition.x, v)
 var componentsSpawnPoint: Vector2:
 	get: return _componentsSpawnPoint
 var minimumSize: Vector2:
@@ -37,14 +59,28 @@ var componentRefs: Dictionary:
 var Hsize: Vector2:
 	get: return size
 	set(v): RequestSizeChange(v)
+var HsizeX: float:
+	get: return Hsize.x
+	set(v):
+		Hsize = Vector2(v, Hsize.y)
+var HsizeY: float:
+	get: return Hsize.y
+	set(v):
+		Hsize = Vector2(Hsize.x, v)
 var dataSignalAvailable: bool:
 	get: return _dataSignalAvailable
 var isSubUnit: bool:
 	get: return _isSubUnit
 var widthAlignment: int:
 	get: return _widthAlignment
+	set(v):
+		_widthAlignment = v
+		_RepositionChildren(Hsize)
 var heightAlignment: int:
 	get: return _heightAlignment
+	set(v):
+		_heightAlignment = v
+		_RepositionChildren(Hsize)
 
 signal DataUp(customData: Dictionary, compRef, unitRef)
 signal SizeChanged(selfRef)
@@ -59,6 +95,7 @@ var _minDimensions: Vector2
 var _ID: String
 var _dataSignalAvailable: bool = true
 var _isSubUnit: bool
+var _initialSize: Vector2
 
 # used to prevent multiple components from spamming requests all at once
 var _requestingSizeChange: bool = false
@@ -81,14 +118,13 @@ func Activate(activationDict : Dictionary):
 	_componentsDicts = HelperFuncs.MustGet(activationDict, "components")
 
 	_componentsSpawnPoint = HelperFuncs.GetIfCan(activationDict, "componentSpawnPoint", DEF_SPAWNPOINT)
-	var obtain_2d_position = HelperFuncs.GetIfCan(activationDict, "position", DEF_POSITION) # Is this expected? It can't read (x,y) from json.
-	position = Vector2(obtain_2d_position[0], obtain_2d_position[1]) #TODO some units cannot set their own pos
-	_padding = HelperFuncs.GetIfCan(activationDict, "padding", DEF_PADDING)
+	Hposition = HelperFuncs.GetIfCan(activationDict, "Hposition", DEF_HPOSITION) #TODO some units cannot set their own pos
+	_padding = HelperFuncs.LoadMostDefaultV2(activationDict, "padding", DEF_PADDING)
 	_isHorizontal = !HelperFuncs.GetIfCan(activationDict, "isVertical", DEF_ISVERTICAL)
 	_isSubUnit = HelperFuncs.GetIfCan(activationDict, "isSubUnit", DEF_ISSUBUNIT)
 	_widthAlignment = HelperFuncs.GetIfCan(activationDict, 'widthAlignment', DEF_WIDTHALIGNMENT)
 	_heightAlignment = HelperFuncs.GetIfCan(activationDict, 'heightAlignment', DEF_HEIGHTALIGNMENT)
-	
+
 	
 	# title bar stuff
 	if HelperFuncs.GetIfCan(activationDict, "enableTitleBar", DEF_ENABLETITLEBAR):
@@ -102,7 +138,8 @@ func Activate(activationDict : Dictionary):
 			"ID": "TITLEBAR",
 			"isVertical": false,
 			"type": "unit",
-			"isSubUnit": true
+			"isSubUnit": true,
+			"widthAlignment": 1
 		}
 		
 		
@@ -124,13 +161,13 @@ func Activate(activationDict : Dictionary):
 		_componentsDicts.push_front(titleBarActivationDict)
 	
 	
-	_requestingSizeChange = true # avoid resize spam
+	
 	
 	AddMultipleComponents(_componentsDicts)
 	
-	
-	call_deferred("UpdateSizeData") # apply resizing requests
-	
+	# init size
+	_initialSize = HelperFuncs.LoadMostDefaultV2(activationDict, "Hsize", DEF_HSIZE)
+	call_deferred("_InitInitialSize")
 	
 
 
@@ -156,7 +193,21 @@ func AddComponent(component: Dictionary) -> void:
 
 	# Add the new Component to the Unit, Activate it, Connect Signals, Store a Reference
 	add_child(newComponent)
+	
+	# Apply inherited defaults (before activation to allow per comp overrides)
+	# Remember, merge by default DOES NOT overwrite existing keys
+	
+	var ValuesToInheritByDefault: Dictionary = {
+		"heightAlignment": self._heightAlignment,
+		"widthAlignment": self._widthAlignment
+	}
+	
+	component.merge(ValuesToInheritByDefault)
+	
+	# Activate
 	newComponent.Activate(component)
+	
+	# Connect Component To Unit
 	if(newComponent.dataSignalAvailable and !newComponent.DataUp.is_connected(_PassThroughSignalFromComponent)):
 		newComponent.DataUp.connect(_PassThroughSignalFromComponent)
 	if (!newComponent.SizeChanged.is_connected(_RecieveSizeChangeNotificationFromBelow)):
@@ -195,8 +246,13 @@ func RelayInputDataToComps(input: Dictionary) -> void:
 func  RequestSizeChange(newSize: Vector2) -> bool:
 	var output := true
 	if (HelperFuncs.IsVector2SmallerInAnyDim(newSize, _minDimensions)):
-		newSize = HelperFuncs.ClampVector2ToLargestAllowed(newSize, _minDimensions)
+		newSize = HelperFuncs.GrowVector2ToSmallestAllowed(newSize, _minDimensions)
 		output = false
+	
+	if(isHorizontal):
+		_GrowChildren_Vertically(newSize.y)
+	else:
+		_GrowChildren_Horizontally(newSize.x)
 	_RepositionChildren(newSize)
 	size = newSize
 	return output
@@ -212,6 +268,12 @@ func UpdateSizeData(forceUpdate: bool = false) -> void:
 		size = _minDimensions
 	SizeChanged.emit(self)
 
+# Call deffered on activation to init all sizes in the correct order
+# This is not particuarly efficient. Too Bad!
+func _InitInitialSize() -> void:
+	_UpdateMinimumDimensions()
+	RequestSizeChange(_initialSize)
+
 # Forces a recalculation of minimum required dimensions. If minimum required
 # size is bigger than the current size, returns true and updates minimum dim.
 # STILL REQUIRED TO TAKE ACTION
@@ -225,7 +287,7 @@ func _UpdateMinimumDimensions() -> bool:
 # General method for repositioning children
 # (Re) Writing this function was pain
 func _RepositionChildren(parentSize: Vector2) -> void:
-	var children = get_children()
+	var children: Array = get_children()
 	var childHSizes: Array = []; var childVSizes: Array = []
 	
 	for child in children:
@@ -238,7 +300,6 @@ func _RepositionChildren(parentSize: Vector2) -> void:
 		_RepositionChildren_H(parentSize, childHSizes, childVSizes, children)
 	else:
 		_RepositionChildren_V(parentSize, childHSizes, childVSizes, children)
-	
 
 func _RepositionChildren_H(parentSize: Vector2, childHs: Array, childVs: Array, children: Array):
 	
@@ -246,10 +307,18 @@ func _RepositionChildren_H(parentSize: Vector2, childHs: Array, childVs: Array, 
 	var gap: float
 	var xPos: float; var yPos: float
 	
+	# special case when 1 child
+	if children.size() == 1:
+		children[0].position = Vector2(parentSize.x - childHs[0], parentSize.y - childVs[0]) / 2.0
+		return
+	
 	match(widthAlignment):
 		0: gap = 0.0
 		1: gap = (parentSize.x - HelperFuncs.SumFloatArray(childHs)) / float(childHs.size() - 1)
 		2: gap = (parentSize.x - HelperFuncs.SumFloatArray(childHs))
+	
+	if (gap == NAN) or (gap == INF):
+		gap = (parentSize.x - HelperFuncs.SumFloatArray(childHs)) / 2.0
 	
 	for i in childHs.size():
 		
@@ -270,11 +339,17 @@ func _RepositionChildren_V(parentSize: Vector2, childHs: Array, childVs: Array, 
 	# Preallocate to reduce GC
 	var gap: float
 	var xPos: float; var yPos: float
-	
+
+	# special case when 1 child
+	if children.size() == 1:
+		children[0].position = Vector2(parentSize.x - childHs[0], parentSize.y - childVs[0]) / 2.0
+		return
+
 	match(widthAlignment):
 		0: gap = 0.0
 		1: gap = (parentSize.y - HelperFuncs.SumFloatArray(childVs)) / float(childVs.size() - 1)
 		2: gap = (parentSize.y - HelperFuncs.SumFloatArray(childVs))
+	
 	
 	for i in childVs.size():
 		
@@ -334,6 +409,20 @@ func _GetWidestComponentWidth() -> float:
 		if(_components[i].Hsize.x > widest):
 			widest = _components[i].Hsize.x
 	return widest + padding.x
+
+# Sets new width for children. Ensure this width is valid before running this method
+func _GrowChildren_Horizontally(newWidth: float) -> void:
+	
+	var children: Array = get_children()
+	for child in children:
+		child.Hsize = Vector2(newWidth, child.Hsize.y)
+
+# Sets new height for children. Ensure this height is valid before running this method
+func _GrowChildren_Vertically(newHeight: float) -> void:
+	
+	var children: Array = get_children()
+	for child in children:
+		child.Hsize = Vector2(child.Hsize.x, newHeight)
 
 ####################################
 ##### Component Data Signaling #####

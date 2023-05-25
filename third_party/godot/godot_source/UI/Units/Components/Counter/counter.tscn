@@ -21,4 +21,5 @@ script = ExtResource("2_nbbnr")
 layout_mode = 1
 offset_right = 83.0625
 offset_bottom = 31.0
+alignment = 1
 script = ExtResource("3_3ukpt")

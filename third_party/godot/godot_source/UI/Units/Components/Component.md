@@ -6,6 +6,8 @@ In this context, a component is a prefab/scene set of UI nodes orchestrated by a
 
 To initialize a component (must be done before use), pass through an activation dictionary into the Activation function
 
+This is the base class all components inherit from, they all run the below code and contain these properties
+
 **Universal properties/methods/activationDict of all Components**
  - Properties:
 	 - componentType: (str)
@@ -29,20 +31,22 @@ To initialize a component (must be done before use), pass through an activation 
 		 - padding on sides of the component
 		 - set at activation, and can be updated as a property
 			 - setting triggers a minimum size recalculation, and if necessary, Size change
+			 - to set in JSON, please use 'paddingX' and 'paddingY'
 		 - returns the padding on the sides of the component (half on either side). Default is <6.0, 3.0>
 	 - Hsize: (Vector2)
 		 - can be set at activation or as a property
 			 - Component will refuse to shrink down smaller than minimum allowed size
 			 - Will signal up a SizeChanged signal
+			 - to set in JSON, please use 'HsizeX' and 'HsizeY'
 		 - returns the size of the component back panel
-	 - alignmentHeight: (HeightAlignmentSide Enum)
-		 - If internals should be aligned to the bottom, center or top
+	 - alignmentHeight: (int)
+		 - If internals should be aligned to the bottom (0), center (1) or top (1). Defaults to center
 		 - can be set as activation or as a property
-		 - returns the current HeightAlignmentSide Enum setting
+		 - returns the current setting
 	 - alignmentWidth: (WidthAlignmentSide Enum)
-		 - If internals should be aligned to the right, center or left
+		 - If internals should be aligned to the left (0), center (1) or right (1). Defaults to center
 		 - can be set as activation or as a property
-		 - returns the current WidthAlignmentSide Enum setting
+		 - returns the current setting
 	
  - Methods:
 	 - Activate(settings: dictionary) -> bool: 
@@ -60,9 +64,9 @@ To initialize a component (must be done before use), pass through an activation 
 	 - componentType: The specific type of component this will be. **Required**
 	 - ID: The ID to reference the component by. **Required**
 	 - isHorizontal: (bool) If the internal components are laid horizontally. *Optional*
-	 - padding: (Vector2) The X and Y padding that is split along each side respectfully. *Optional*, 10x6 by default
-	 - size: The custom size you want this component to be. It will be ignored if the given size is smaller than the allowed size. *optional*
-
+	 - padding (X and Y): (Vector2) The X and Y padding that is split along each side respectfully. *Optional*, 10x6 by default
+	 - Hsize (X and Y): The custom size you want this component to be. It will be ignored if the given size is smaller than the allowed size. *optional*
+		 - Defaults to the minimum allowed size 
 
  - Signals
 	 - MinSizeRecalculated(newMinSize: Vector2, changedObjectReference: [specific component reference])
