@@ -32,7 +32,7 @@ static func UnitFromJSONS(structure: String, langStruct: String, langISO: String
 	
 	return _BuildUnitActivation(structDict, langDict, langISO, data)
 
-
+# Build Unit Activation Dict
 static func _BuildUnitActivation(struct: Dictionary, lang: Dictionary,
 	langISO: String, data: Dictionary) -> Dictionary:
 	
@@ -90,7 +90,6 @@ static func _BuildUnitActivation(struct: Dictionary, lang: Dictionary,
 
 	unitAct["components"] = outputComponents
 	return unitAct
-
 
 # Read txt / json file
 static func ReadTextFile(path: String) -> String:
@@ -157,3 +156,4 @@ static func SumFloatArrayAtIndex(arr: Array, stopIndex: int) -> float:
 	for i in range(stopIndex):
 		total += arr[i]
 	return total
+
