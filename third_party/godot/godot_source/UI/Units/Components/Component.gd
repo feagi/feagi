@@ -37,10 +37,26 @@ var padding: Vector2:
 	set(v): 
 		_padding = v
 		UpdateSizeData(true)
+var paddingX: float:
+	get: return padding.x
+	set(v):
+		padding = Vector2(v, padding.y)
+var paddingY: float:
+	get: return padding.y
+	set(v):
+		padding = Vector2(padding.x, v)
 var Hsize: Vector2:
 	get: return size
 	set(v): 
 		RequestSizeChange(v)
+var HsizeX: float:
+	get: return Hsize.x
+	set(v):
+		Hsize = Vector2(v, Hsize.y)
+var HsizeY: float:
+	get: return Hsize.y
+	set(v):
+		Hsize = Vector2(Hsize.x, v)
 var heightAlignment: int:
 	get: return _heightAlignment
 	set(v):

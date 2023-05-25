@@ -6,7 +6,7 @@ class_name Unit
 const DEF_PADDING: Vector2 = Vector2(5.0,5.0)
 const DEF_ISVERTICAL: bool = true
 const DEF_SPAWNPOINT: Vector2 = Vector2(0.0, 0.0)
-const DEF_POSITION = Vector2(0.0,0.0)
+const DEF_HPOSITION = Vector2(0.0,0.0)
 const DEF_ISSUBUNIT = false
 const DEF_TITLEBARTITLE = "UNNAMED TITLE"
 const DEF_ENABLETITLEBAR = false
@@ -23,6 +23,27 @@ var padding: Vector2:
 	set(v):
 		_padding = v
 		UpdateSizeData(true)
+var paddingX: float:
+	get: return padding.x
+	set(v):
+		padding = Vector2(v, padding.y)
+var paddingY: float:
+	get: return padding.y
+	set(v):
+		padding = Vector2(padding.x, v)
+var Hposition: Vector2:
+	get: return position
+	set(v):
+		if(_isSubUnit): print("Cannot set position of a subunit!")
+		position = v
+var HpositionX: float:
+	get: return position.x
+	set(v):
+		Hposition = Vector2(v, Hposition.y)
+var HpositionY: float:
+	get: return position.y
+	set(v):
+		Hposition = Vector2(Hposition.x, v)
 var componentsSpawnPoint: Vector2:
 	get: return _componentsSpawnPoint
 var minimumSize: Vector2:
@@ -37,6 +58,14 @@ var componentRefs: Dictionary:
 var Hsize: Vector2:
 	get: return size
 	set(v): RequestSizeChange(v)
+var HsizeX: float:
+	get: return Hsize.x
+	set(v):
+		Hsize = Vector2(v, Hsize.y)
+var HsizeY: float:
+	get: return Hsize.y
+	set(v):
+		Hsize = Vector2(Hsize.x, v)
 var dataSignalAvailable: bool:
 	get: return _dataSignalAvailable
 var isSubUnit: bool:
@@ -87,8 +116,8 @@ func Activate(activationDict : Dictionary):
 	_componentsDicts = HelperFuncs.MustGet(activationDict, "components")
 
 	_componentsSpawnPoint = HelperFuncs.GetIfCan(activationDict, "componentSpawnPoint", DEF_SPAWNPOINT)
-	position = HelperFuncs.GetIfCan(activationDict, "position", DEF_POSITION) #TODO some units cannot set their own pos
-	_padding = HelperFuncs.GetIfCan(activationDict, "padding", DEF_PADDING)
+	Hposition = HelperFuncs.GetIfCan(activationDict, "Hposition", DEF_HPOSITION) #TODO some units cannot set their own pos
+	_padding = HelperFuncs.LoadMostDefaultV2(activationDict, "padding", DEF_PADDING)
 	_isHorizontal = !HelperFuncs.GetIfCan(activationDict, "isVertical", DEF_ISVERTICAL)
 	_isSubUnit = HelperFuncs.GetIfCan(activationDict, "isSubUnit", DEF_ISSUBUNIT)
 	_widthAlignment = HelperFuncs.GetIfCan(activationDict, 'widthAlignment', DEF_WIDTHALIGNMENT)
