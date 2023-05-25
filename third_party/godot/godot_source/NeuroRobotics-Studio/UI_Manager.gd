@@ -43,7 +43,7 @@ func Activate(langISO: String):
 	UI_Top_TopBar.Activate(topBarDict)
 	UI_Top_TopBar.DataUp.connect(TopBarInput)
 	
-	SpawnMappingDefinition()
+#	SpawnMappingDefinition()
 	
 	
 	# Initialize GraphCore
