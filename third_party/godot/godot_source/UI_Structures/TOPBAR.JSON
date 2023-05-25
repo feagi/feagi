@@ -12,7 +12,9 @@
 	"ID" : "CORTICALAREAS"},
 	{"type" : "dropdown",
 	"hasButton" : true,
-	"ID" : "NEURONMORPHOLOGIES"}
+	"ID" : "NEURONMORPHOLOGIES"},
+	{"type" : "fill",
+	"ID": "test"}
   ],
   "isVertical": false
 }
