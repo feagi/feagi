@@ -13,6 +13,7 @@ const DEF_ENABLETITLEBAR = false
 const DEF_ENABLECLOSEBUTTON = false
 const DEF_WIDTHALIGNMENT = 1
 const DEF_HEIGHTALIGNMENT = 1
+const DEF_HSIZE = Vector2(0.0, 0.0) # Force scaling up
 
 var ID: String:
 	get: return _ID
@@ -94,6 +95,7 @@ var _minDimensions: Vector2
 var _ID: String
 var _dataSignalAvailable: bool = true
 var _isSubUnit: bool
+var _initialSize: Vector2
 
 # used to prevent multiple components from spamming requests all at once
 var _requestingSizeChange: bool = false
@@ -122,7 +124,7 @@ func Activate(activationDict : Dictionary):
 	_isSubUnit = HelperFuncs.GetIfCan(activationDict, "isSubUnit", DEF_ISSUBUNIT)
 	_widthAlignment = HelperFuncs.GetIfCan(activationDict, 'widthAlignment', DEF_WIDTHALIGNMENT)
 	_heightAlignment = HelperFuncs.GetIfCan(activationDict, 'heightAlignment', DEF_HEIGHTALIGNMENT)
-	
+
 	
 	# title bar stuff
 	if HelperFuncs.GetIfCan(activationDict, "enableTitleBar", DEF_ENABLETITLEBAR):
@@ -161,13 +163,11 @@ func Activate(activationDict : Dictionary):
 	
 	
 	
-	_requestingSizeChange = true # avoid resize spam
-	
 	AddMultipleComponents(_componentsDicts)
 	
-	
-	call_deferred("UpdateSizeData") # apply resizing requests
-	
+	# init size
+	_initialSize = HelperFuncs.LoadMostDefaultV2(activationDict, "Hsize", DEF_HSIZE)
+	call_deferred("_InitInitialSize")
 	
 
 
@@ -246,7 +246,7 @@ func RelayInputDataToComps(input: Dictionary) -> void:
 func  RequestSizeChange(newSize: Vector2) -> bool:
 	var output := true
 	if (HelperFuncs.IsVector2SmallerInAnyDim(newSize, _minDimensions)):
-		newSize = HelperFuncs.ClampVector2ToLargestAllowed(newSize, _minDimensions)
+		newSize = HelperFuncs.GrowVector2ToSmallestAllowed(newSize, _minDimensions)
 		output = false
 	
 	if(isHorizontal):
@@ -267,6 +267,12 @@ func UpdateSizeData(forceUpdate: bool = false) -> void:
 		_RepositionChildren(_minDimensions)
 		size = _minDimensions
 	SizeChanged.emit(self)
+
+# Call deffered on activation to init all sizes in the correct order
+# This is not particuarly efficient. Too Bad!
+func _InitInitialSize() -> void:
+	_UpdateMinimumDimensions()
+	RequestSizeChange(_initialSize)
 
 # Forces a recalculation of minimum required dimensions. If minimum required
 # size is bigger than the current size, returns true and updates minimum dim.
