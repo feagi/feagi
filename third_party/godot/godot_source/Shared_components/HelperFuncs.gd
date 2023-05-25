@@ -157,3 +157,11 @@ static func SumFloatArrayAtIndex(arr: Array, stopIndex: int) -> float:
 		total += arr[i]
 	return total
 
+# Returns Vector in order of available components, starting with default, then
+# full vector, then component variables
+static func LoadMostDefaultV2(dict: Dictionary, keyName: String, defaultValue: Vector2) -> Vector2:
+	var output: Vector2 = GetIfCan(dict, keyName, defaultValue)
+	output.x = GetIfCan(dict, keyName + "X", output.x)
+	output.y = GetIfCan(dict, keyName + "Y", output.y)
+	return output
+	
