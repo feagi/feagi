@@ -163,10 +163,19 @@ func AddComponent(component: Dictionary) -> void:
 	add_child(newComponent)
 	
 	# Apply inherited defaults (before activation to allow per comp overrides)
-	newComponent._widthAlignment = _widthAlignment
-	newComponent._heightAlignment = _heightAlignment
+	# Remember, merge by default DOES NOT overwrite existing keys
 	
+	var ValuesToInheritByDefault: Dictionary = {
+		"heightAlignment": heightAlignment,
+		"widthAlignment": widthAlignment
+	}
+	
+	component.merge(ValuesToInheritByDefault)
+	
+	# Activate
 	newComponent.Activate(component)
+	
+	# Connect Component To Unit
 	if(newComponent.dataSignalAvailable and !newComponent.DataUp.is_connected(_PassThroughSignalFromComponent)):
 		newComponent.DataUp.connect(_PassThroughSignalFromComponent)
 	if (!newComponent.SizeChanged.is_connected(_RecieveSizeChangeNotificationFromBelow)):
