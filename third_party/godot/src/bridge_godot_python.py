@@ -19,7 +19,6 @@ import os
 import traceback
 import sys
 import configuration
-import router
 import zmq
 import json
 import ast
@@ -30,11 +29,11 @@ import random
 import shutil
 import threading
 from time import sleep
-from router import Pub, Sub
 from configuration import *
 import concurrent.futures
 from threading import Thread
 from collections import deque
+from feagi_agent import feagi_interface as feagi
 
 ws_queue = deque()
 zmq_queue = deque()
@@ -210,36 +209,6 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
     return relative_coordinate
 
 
-def feagi_registration(feagi_host, api_port):
-    host_info = router.app_host_info()
-    runtime_data = {
-        "host_network": {},
-        "feagi_state": None
-    }
-    runtime_data["host_network"]["host_name"] = host_info["host_name"]
-    runtime_data["host_network"]["ip_address"] = host_info["ip_address"] if \
-        configuration.host_info["ip_address"] is None else configuration.host_info["ip_address"]
-
-    while runtime_data["feagi_state"] is None:
-        print("\nAwaiting registration with FEAGI...")
-        try:
-            print("MNM")
-            runtime_data["feagi_state"] = \
-                router.register_with_feagi(feagi_ip=feagi_host,
-                                           feagi_api_port=api_port,
-                                           agent_type=configuration.agent_settings['agent_type'],
-                                           agent_id=configuration.agent_settings['agent_id'],
-                                           agent_ip=runtime_data["host_network"]["ip_address"],
-                                           agent_data_port=configuration.agent_settings[
-                                               'agent_data_port'],
-                                           agent_capabilities=configuration.capabilities)
-        except Exception as e:
-            print("ERROR__: ", e, traceback.print_exc())
-            pass
-        sleep(1)
-    return runtime_data["feagi_state"]
-
-
 def reload_genome():
     bool_flag = True
     cortical_name = []
@@ -299,7 +268,7 @@ def feagi_init(feagi_host, api_port):
     while awaiting_feagi_registration:
         print("********* ************ ********** ************* ***************\n")
         print("Awaiting registration with FEAGI...2")
-        FEAGI_pub.send({"godot_init": True})
+        feagi_ipu_channel.send({"godot_init": True})
 
         # print("Cortical_data", runtime_data["cortical_data"])
 
@@ -395,32 +364,32 @@ if __name__ == "__main__":
         "================================ @@@@@@@@@@@@@@@ "
         "==========================================")
 
-    feagi_host = configuration.feagi_settings["feagi_host"]
-    api_port = configuration.feagi_settings["feagi_api_port"]
+    feagi_host, api_port, app_data_port = feagi.feagi_setting_for_registration(feagi_settings,
+                                                                               agent_settings)
+    runtime_data["feagi_state"] = feagi.feagi_registration(feagi_host=feagi_host,
+                                                           api_port=api_port, agent_settings=agent_settings,
+                                                           capabilities=capabilities)
+    api_address = 'http://' + feagi_host + ':' + api_port
 
-    runtime_data["feagi_state"] = feagi_registration(feagi_host=feagi_host, api_port=api_port)
-
-    api_address = 'http://' + feagi_settings['feagi_host'] + ':' + feagi_settings['feagi_api_port']
-
-    sockets = requests.get(api_address + '/v1/feagi/feagi/network').json()
-    stimulation_period = requests.get(
-        api_address + '/v1/feagi/feagi/burst_engine/stimulation_period').json()
-    runtime_data["feagi_state"]['feagi_burst_speed'] = float(stimulation_period)
+    stimulation_period_endpoint = feagi.feagi_api_burst_engine()
+    runtime_data["feagi_state"]['feagi_burst_speed'] = requests.get(
+        api_address + stimulation_period_endpoint).json()
 
     bgsk = threading.Thread(target=websocket_operation, daemon=True).start()
 
-    ipu_channel_address = f"tcp://*:{agent_settings['agent_data_port']}"
+    ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
+                                               agent_settings["agent_data_port"])
     # ipu_channel_address = f"tcp://{feagi_host}:{agent_settings["agent_data_port"]}"
-    FEAGI_pub = Pub(ipu_channel_address, bind=True)
-
-    opu_channel_address = f"tcp://{feagi_settings['feagi_host']}:{runtime_data['feagi_state']['feagi_opu_port']}"
-    FEAGI_sub = Sub(address=opu_channel_address, bind=False, flags=zmq.NOBLOCK)
+    opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
+                                               runtime_data["feagi_state"]['feagi_opu_port'])
+    feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=True)
+    feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
 
     current_cortical_area = feagi_init(feagi_host=feagi_host, api_port=api_port)
     print("FEAGI initialization completed successfully")
     godot_list = {}  # initialized the list from Godot
     detect_lag = False
-    new_FEAGI_sub = FEAGI_sub
+    new_FEAGI_sub = feagi.sub_initializer(opu_address=opu_channel_address)
     flag = 0
     data_from_genome = 0
     one_frame = new_FEAGI_sub.receive()
@@ -430,7 +399,7 @@ if __name__ == "__main__":
             opu_channel_address = 'tcp://' + feagi_settings['feagi_host'] + ':' + \
                                   runtime_data["feagi_state"][
                                       'feagi_opu_port']
-            new_FEAGI_sub = Sub(address=opu_channel_address, bind=False, flags=zmq.NOBLOCK)
+            new_FEAGI_sub = feagi.sub_initializer(opu_address=opu_channel_address)
             zmq_queue.clear()
             ws_queue.clear()
             detect_lag = False
@@ -501,13 +470,13 @@ if __name__ == "__main__":
                     "cortical_data"])
             print("raw data from godot:", godot_list)
             print(">>> > > > >> > converted data:", converted_data)
-            FEAGI_pub.send(converted_data)
+            feagi_ipu_channel.send(converted_data)
             godot_list = {}
             converted_data = {}
 
         if data_from_godot == "refresh":
             godot_list = {}
             converted_data = {}
-            FEAGI_pub.send(godot_list)
+            feagi_ipu_channel.send(godot_list)
         else:
             pass
