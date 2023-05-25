@@ -2,9 +2,11 @@
 
 
 # Units
-A unit in this context is the name for a "node" you canuse as a panel for UI in general. Called "Unit" to avoid confusion with Godot nodes.
+A unit in this context is the name for a "node" you can use as a panel for UI in general. Called "Unit" to avoid confusion with Godot nodes.
 
 Units have some properties that are set to the unit itself, such as its padding. But they also contain *components*, which is the main way to add parts to a Unit. *Note that Units will refuse to become narrower than the width/height of their largest component*. It is possible to use Units as components for other Units.
+
+Do not set size and position directly, instead use the properties "Hsize" and "Hposition"
 
 **properties**
 
@@ -28,12 +30,18 @@ Units have some properties that are set to the unit itself, such as its padding.
 	 - padding on sides of the Unit
 	 - set at activation, and can be updated as a property
 		 - setting triggers a minimum size recalculation, and if necessary, Size change
+		 - to set in JSON, please use 'paddingX' and 'paddingY'
 	 - returns the padding on the sides of the Unit (half on either side). Default is <6.0, 3.0>
  - Hsize: (Vector2)
 	 - can be set at activation or as a property
 		 - Unit will refuse to shrink down smaller than minimum allowed size
 		 - Will signal up a SizeChanged signal
+		 - to set in JSON, please use 'HsizeX' and 'HsizeY'
 	 - returns the size of the Unit back panel
+ - Hposition: (Vector2)
+	 - can be set at activation or as a property
+		 - to set in JSON, please use 'HpositionX' and 'HpositionY'
+	 - returns the position of the upper left corner of the Unit on the screen
  - componentsSpawnPoint: (Vector2)
 	 - Returns the relative spawn position of components
 	 - Can only be set at activation
