@@ -15,6 +15,10 @@ Used for user defined input of strings. The following are configs set via the se
 - *value*: (str) Actual value inside of field
 - *onlyTriggerWithEnter*: (bool) If text change events only trigger when user concludes change with Enter key. Default true
 	- Can only be set from activation dict, cannot be changed as a property after init. Can be get as a property
+- *scaleWithLargestOption*: (bool) Widen with input text. Default is False
+	- Can be read/set from activation dict or as property
+- *textWidth*: (float) Gets the width of the characters of the textbook
+	- Can only be read as a property, not set in any way
 
 Outputs into the Data signal the following dict on text change:
 "text" : [str text]

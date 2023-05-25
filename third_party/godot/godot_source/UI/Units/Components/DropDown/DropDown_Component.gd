@@ -9,6 +9,7 @@ const DEF_COUNTERSIZE = 50
 const DEF_OPTIONS = []
 const DEF_BUTTONTEXT = "+"
 const DEF_INITINDEX = -1
+const DEF_SCALEWITHLARGESTOPTION = true
 const ADDITIONAL_SETTABLE_PROPERTIES = {
 	"buttonText": TYPE_STRING,
 	"options": TYPE_ARRAY,
@@ -40,6 +41,10 @@ var label: String:
 	get: return _Label.text
 	set(v): 
 		_Label.Htext = v
+var scaleWithLargestOption: bool:
+	get: return _DropDown.shouldScaleWithLongestOption
+	set(v):
+		_DropDown.shouldScaleWithLongestOption = v
 
 
 var _Label: Label
@@ -47,7 +52,6 @@ var _DropDown: OptionButton_SubComponent
 var _Button: Button
 
 var _hasButton: bool
-
 
 # Sets-up the Counter
 func _Activation(settings: Dictionary):
@@ -73,6 +77,7 @@ func _Activation(settings: Dictionary):
 	# Fill in Label and Dropdown Inits
 	label = HelperFuncs.GetIfCan(settings, "label", DEF_LABEL)
 	options = HelperFuncs.GetIfCan(settings, "options", DEF_OPTIONS)
+	scaleWithLargestOption = HelperFuncs.GetIfCan(settings, "options", DEF_SCALEWITHLARGESTOPTION)
 	
 	# Connect
 	_DropDown.item_selected.connect(OptionSelected)
@@ -89,7 +94,3 @@ func OptionSelected(selectedIndex: int):
 
 func _GetData():
 	return value
-
-# UNFINISHED
-func _SetData(data: Dictionary):
-	pass

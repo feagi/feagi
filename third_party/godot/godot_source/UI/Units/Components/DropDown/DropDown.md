@@ -14,8 +14,8 @@ Used to show multiple options. Optional button to trigger action
 	- Depending on changes, may force changes for index / value if previously selected option becomes unavailable
 - *value*: (str) current dropdown setting. 
 	- Can be read/set from activation dict or as property
-- *initIndex*: (int) default index to initialize to. Defaults to -1 (none).
-	- Can't only be set from activation dict. Not readable nor settable as a property
+- *scaleWithLargestOption*: (bool) Whether to widen with the largest available option. Default True
+	- Can be read/set from activation or as a property
 
 Outputs into the Data signal the following dict on selection change:
 "selected" : [str selection]
