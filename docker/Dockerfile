@@ -1,7 +1,7 @@
 FROM neuraville/feagi-base-os2
 
 ARG REPO="https://github.com/feagi/feagi.git"
-ARG BRANCH="staging"
+ARG BRANCH="feature-updates-godot4-debug-branch"
 
 ENV Running_In_CONTAINER Yes
 
