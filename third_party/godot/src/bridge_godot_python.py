@@ -187,6 +187,7 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
     relative_coordinate = {}
     relative_coordinate["data"] = {}
     relative_coordinate["data"]["direct_stimulation"] = {}
+    print("CONVERT CORTICAL: ", cortical_data)
     if stimulation_from_godot:
         for key in stimulation_from_godot["data"]["direct_stimulation"]:
             for name_match in cortical_data:
@@ -262,6 +263,7 @@ def reload_genome():
     if len(ws_queue[0]) > 2:
         ws_queue.clear()
     # print("ws queue: ", len(ws_queue[0]))
+    runtime_data["cortical_data"] = cortical_area_name
     return cortical_genome_dictionary.copy()
 
 
@@ -308,6 +310,7 @@ def feagi_init(feagi_host, api_port):
             else:
                 awaiting_feagi_registration = False
             time.sleep(2)
+        runtime_data["cortical_data"] = cortical_area_name
         return cortical_genome_dictionary.copy()
 
 
