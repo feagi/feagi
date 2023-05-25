@@ -61,7 +61,7 @@ func _ready():
 	await get_tree().create_timer(1.5).timeout
 	SEC = 'HTTP://' + network_setting.api_ip_address
 	set_physics_process(false)
-	add_3D_indicator()
+#	add_3D_indicator()
 	Autoload_variable.BV_Core.Update_Dimensions() # Grab genome list
 	Autoload_variable.BV_Core.Update_Morphology_type()
 	while true:
@@ -404,8 +404,8 @@ func add_3D_indicator():
 	create_textbox_axis.set_texture(viewport.get_texture())
 	create_textbox_axis.set_name("x_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
-	create_textbox_axis.scale = Vector3(1, 1, 1)
-	generate_textbox(create_textbox_axis, 10,0,0,"x", 1, 0, 0)
+	create_textbox_axis.scale = Vector3(3, 3, 3)
+	generate_textbox(create_textbox_axis, 18,0,0,"x", 0, 0, 0)
 	for j in 6:
 		$GridMap3.set_cell_item( Vector3(0,j,0) ,0)
 	create_textbox_axis = create_textbox_axis.duplicate() #generate a new node to re-use the model
@@ -423,7 +423,7 @@ func add_3D_indicator():
 	create_textbox_axis.set_name("z_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
 	create_textbox_axis.scale = Vector3(1, 1, 1)
-	generate_textbox(create_textbox_axis, 4,0,-6,"z", 1, 0, 0)
+	generate_textbox(create_textbox_axis, 0,0,-6,"z", 1, 0, 0)
 	$GridMap.clear()
 
 func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
