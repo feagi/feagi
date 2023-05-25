@@ -136,7 +136,8 @@ func Activate(activationDict : Dictionary):
 			"ID": "TITLEBAR",
 			"isVertical": false,
 			"type": "unit",
-			"isSubUnit": true
+			"isSubUnit": true,
+			"widthAlignment": 1
 		}
 		
 		
@@ -156,6 +157,8 @@ func Activate(activationDict : Dictionary):
 				]}
 			)
 		_componentsDicts.push_front(titleBarActivationDict)
+	
+	
 	
 	
 	_requestingSizeChange = true # avoid resize spam
