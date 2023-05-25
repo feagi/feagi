@@ -367,7 +367,8 @@ if __name__ == "__main__":
     feagi_host, api_port, app_data_port = feagi.feagi_setting_for_registration(feagi_settings,
                                                                                agent_settings)
     runtime_data["feagi_state"] = feagi.feagi_registration(feagi_host=feagi_host,
-                                                           api_port=api_port, agent_settings=agent_settings,
+                                                           api_port=api_port,
+                                                           agent_settings=agent_settings,
                                                            capabilities=capabilities)
     api_address = 'http://' + feagi_host + ':' + api_port
 
@@ -377,8 +378,7 @@ if __name__ == "__main__":
 
     bgsk = threading.Thread(target=websocket_operation, daemon=True).start()
 
-    ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
-                                               agent_settings["agent_data_port"])
+    ipu_channel_address = f"tcp://*:{agent_settings['agent_data_port']}"
     # ipu_channel_address = f"tcp://{feagi_host}:{agent_settings["agent_data_port"]}"
     opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
