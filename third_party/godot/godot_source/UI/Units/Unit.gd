@@ -307,6 +307,11 @@ func _RepositionChildren_H(parentSize: Vector2, childHs: Array, childVs: Array, 
 	var gap: float
 	var xPos: float; var yPos: float
 	
+	# special case when 1 child
+	if children.size() == 1:
+		children[0].position = Vector2(parentSize.x - childHs[0], parentSize.y - childVs[0]) / 2.0
+		return
+	
 	match(widthAlignment):
 		0: gap = 0.0
 		1: gap = (parentSize.x - HelperFuncs.SumFloatArray(childHs)) / float(childHs.size() - 1)
@@ -334,14 +339,17 @@ func _RepositionChildren_V(parentSize: Vector2, childHs: Array, childVs: Array, 
 	# Preallocate to reduce GC
 	var gap: float
 	var xPos: float; var yPos: float
-	
+
+	# special case when 1 child
+	if children.size() == 1:
+		children[0].position = Vector2(parentSize.x - childHs[0], parentSize.y - childVs[0]) / 2.0
+		return
+
 	match(widthAlignment):
 		0: gap = 0.0
 		1: gap = (parentSize.y - HelperFuncs.SumFloatArray(childVs)) / float(childVs.size() - 1)
 		2: gap = (parentSize.y - HelperFuncs.SumFloatArray(childVs))
 	
-	if (gap == NAN) or (gap == INF):
-		gap = (parentSize.y - HelperFuncs.SumFloatArray(childVs)) / 2.0
 	
 	for i in childVs.size():
 		

@@ -46,7 +46,8 @@
 	},
 	
 	{"type" : "button",
-	"ID" : "UpdateButton"},
+	"ID" : "UpdateButton",
+	"widthAlignment": 1},
 	
   ],
 	
