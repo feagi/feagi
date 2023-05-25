@@ -13,23 +13,23 @@ var websocket_port_address = "9050"
 var state = ""
 
 func _ready():
-	var ip_result = JavaScriptBridge.eval(""" 
-		function getIPAddress() {
-			var url_string = window.location.href;
-			var url = new URL(url_string);
-			const searchParams = new URLSearchParams(url.search);
-			const ipAddress = searchParams.get("ip_address");
-			return ipAddress;
-		}
-		getIPAddress();
-		""")
-	if ip_result == "" or ip_result == null:
-		websocket_ip_address = "127.0.0.1"
-		api_ip_address = "127.0.0.1"
-	else:
-		websocket_ip_address = ip_result
-		api_ip_address = ip_result
-	print("javascript ip: ", ip_result)
+#	var ip_result = JavaScriptBridge.eval(""" 
+#		function getIPAddress() {
+#			var url_string = window.location.href;
+#			var url = new URL(url_string);
+#			const searchParams = new URLSearchParams(url.search);
+#			const ipAddress = searchParams.get("ip_address");
+#			return ipAddress;
+#		}
+#		getIPAddress();
+#		""")
+#	if ip_result == "" or ip_result == null:
+#		websocket_ip_address = "127.0.0.1"
+#		api_ip_address = "127.0.0.1"
+#	else:
+#		websocket_ip_address = ip_result
+#		api_ip_address = ip_result
+	#print("javascript ip: ", ip_result)
 	socket.set_max_queued_packets(10000000)
 	socket.inbound_buffer_size = 10000000
 	socket.connect_to_url("ws://" + str(websocket_ip_address) + ":" + str(websocket_port_address))

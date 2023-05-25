@@ -1,56 +1,100 @@
 
 
+
 # Units
-A unit in this context is the name for a "node" you can put down either in a node graph or use as a panel for UI in general. Called "Unit" to avoid confusion with Godot nodes.
+A unit in this context is the name for a "node" you can use as a panel for UI in general. Called "Unit" to avoid confusion with Godot nodes.
 
-Units have some properties that are set to the unit itself, such as if its draggable. But they also contain *components*, which is the main way to add parts to a Unit. *Note that Units will refuse to become narrower than the width/height of their largest component*
+Units have some properties that are set to the unit itself, such as its padding. But they also contain *components*, which is the main way to add parts to a Unit. *Note that Units will refuse to become narrower than the width/height of their largest component*. It is possible to use Units as components for other Units.
 
-**Properties**
- - unitID: (str) The ID of the Unit
-	 - MUST be set from the activation dict, and then can be read
- - isVertical: (bool) Should Components stack vertically? Default True
-	 - Can only be set from Activation dict, and then read as property
- - padding: (Vector2) Padding distances on edges of Unit
-	 - Can be read/set from activation dict or as property
-		 - setting causes a resize event
-- position: (Vector2) Position of Unit on screen, from the upper left corner. Defaults to (0,0)
-	- Can be read/set from activation dict or as property
-- size: TODO - don't use
-- componentsSpawnPoint: (Vector2) Where components spawn in
-	- Can only be read as a property
-- minimumSize: (Vector2) The minimum allowed size of the Unit
-	- Can only be read as a property
--  componentData: (Dictionary) Returns a dict consisting of keys of each component capable of having a value (IE not headers) ID, and for each stores the value of that component
-	- Can only be read, not set by any direct means
-- componentIDs: (str[]) Array of IDs of composing components
-	- Can only be read, not set by any direct means
-- componentRefs: (dict) Returns the components by references, each referenced by a key of their compID
-	- Can only be read, not set by any direct means
+Do not set size and position directly, instead use the properties "Hsize" and "Hposition"
+
+**properties**
+
+ - ID: (str)
+	 - set at activation only, **required**
+	 - returns the string ID name of the Unit, used with the JSON init and with passing data through
+ - isHorizontal: (bool)
+	 - set at activation only
+	 - returns whether the internal components are laid horizontally (true) or vertically (false). Default is True
+ - dataSignalAvailable: (bool)
+	 - returns whether this Unit has an accessible data signal
+ - componentIDs: (str Array)
+	 - returns the component IDs that are within this Unit
+ - componentRefs: (Dict)
+	 - returns a dictionary of Component References, key'd by their IDs
+ - isSubUnit: (bool)
+	 - returns true if the Unit is a subunit.
+	 -	minimumSize: (Vector2)
+	 -	returns: The cached minimum dimensions that the internal nodes allow. *To force update this, call "_UpdateMinimumDimensions"!*
+ - padding: (Vector2) 
+	 - padding on sides of the Unit
+	 - set at activation, and can be updated as a property
+		 - setting triggers a minimum size recalculation, and if necessary, Size change
+		 - to set in JSON, please use 'paddingX' and 'paddingY'
+	 - returns the padding on the sides of the Unit (half on either side). Default is <6.0, 3.0>
+ - Hsize: (Vector2)
+	 - can be set at activation or as a property
+		 - Unit will refuse to shrink down smaller than minimum allowed size
+		 - Will signal up a SizeChanged signal
+		 - to set in JSON, please use 'HsizeX' and 'HsizeY'
+	 - returns the size of the Unit back panel
+ - Hposition: (Vector2)
+	 - can be set at activation or as a property
+		 - to set in JSON, please use 'HpositionX' and 'HpositionY'
+	 - returns the position of the upper left corner of the Unit on the screen
+ - componentsSpawnPoint: (Vector2)
+	 - Returns the relative spawn position of components
+	 - Can only be set at activation
+- componentData: (Dict)
+	- Can only be set / get at runtime
+	- returns the data of all components in a dictionary, key'd by their ID
+	- can be set to overwrite values in internal components, in this fashion:
+		- {ComponentID : {Variable/property name: data}}
+- enableTitleBar: (bool)
+	- Can only be set at activation, defaults to false
+	- enables a title bar at the top of the Unit
+- enableCloseButton: (bool)
+	- Can only be set at activation and requires 'enableTitleBar' to work, defaults to false
+	- enables a close button on the top left of the Unit
+- titleBarTitle: (string)
+	- Can only be set at activation and requires 'enableTitleBar' to work, defaults to 'UNNAMED TITLE'
+	- defines the title on the top of the Unit
 
 
-**Methods**
+## Activation Dictionary Notes
+Units on initialization are blank, and are activated with their data and connections with "Activation" Dictionaries. They can be generated at runtime, but it may be easier to use statically created Units instead with JSONs (and add additional data during runtime, as explained later).
+To create Unit JSONs, place the files in the following locations:
+ - /UI_Structures/(UNIT_ID).JSON -> structure file
+ - /Language/(UNIT_ID)_L.JSON ->  language file
 
-- AddComponent ( component, checkResizing) -> void
-	- Adds components to the Unit at the end
-	- Inputs:
-		- component: Dictionary - component activation dictionary that defines the type of component and its settings
-		- checkResizing: bool - OPTIONAL, defaults true. Enables checking for minimum sizing changes of the Unit
+Structure files are formatted as such:
+{
+	"ID": (str ID of the unit),
+	(Other Properties): (Data that goes with them, see above),
+	"components": [
+		{"ID": (first component ID),
+		 "type": (the type of component to spawn, see available components)
+		 (other properties): (technically you can set whatever here, but keep language / text for the language file. Some components have required additional properties, so read their documentations)
+		 },
+		 {"ID": (second component ID)... } 
+	]
+}
 
-- AddMultipleComponents( components, AdjustSizeAfter) -> void
-	- Adds an array of components in order, using the 'AddComponent' function repeatedly
-	- Inputs:
-		- components: Array - Array of activation dictionaries
-		- AdjustSizeAfter: bool - OPTIONAL, defaults true, enables checking for minimum sizing changes after all components have been added
-- ApplyMinimumSize( force ) -> void
-	- Checks if the minimum size allowed changes, and rescales the Unit if so (and signals upwards if relevant #TODO)
-		- You generally do not need to call this since it should be called automatically during normal resize calling events
-	- Inputs:
-		- force: bool - OPTIONAL, defaults false, forces a resize event even if the minimum size is unchanged
-- RelayInputDataToComps( input ) -> void
-	- Instead of setting properties of components directly, this can be used to apply property changes to components of the Unit.
-		- Some fail safes do exist in this to prevent invalid inputs, be sure to check the log!
-	- Inputs:
-		- input: Dictionary - input dictionary with properties to change for desired components
-		- Format:
-			- { CompID: { propertyName: new value} }
-			- you can have multiple CompIDs and Propertynames
+Language files should mainly hold language text, and all component texts are matched by component ID
+{
+	(ID of component to match with): {
+		(property to write to): { (language ISO code) : ( data to put in )}
+	}
+	(second ID of component to match with...)
+}
+if a non English language is selected for neurorobotics studio, but a component is missing that language for a specific bit of text, then that specific text will fall back to English.
+
+Once all that is defined, you can generate the Unit (preferably from the UI_Manager) with the function:
+HelperFuncs.GenerateDefinedUnitDict( (str ID of the unit), (str current language ISO code), (OPTIONAL extra data)).
+
+The extra data is a dictionary of data you can add/overwrite the json activations with, that can be generated at runtime. The expected format is:
+{
+	(ComponentID): {
+		(property to overwrite / add): data
+	}
+}

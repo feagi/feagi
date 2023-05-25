@@ -32,7 +32,7 @@ static func UnitFromJSONS(structure: String, langStruct: String, langISO: String
 	
 	return _BuildUnitActivation(structDict, langDict, langISO, data)
 
-
+# Build Unit Activation Dict
 static func _BuildUnitActivation(struct: Dictionary, lang: Dictionary,
 	langISO: String, data: Dictionary) -> Dictionary:
 	
@@ -83,7 +83,7 @@ static func _BuildUnitActivation(struct: Dictionary, lang: Dictionary,
 				toAppend[langKey] = langInput
 			
 			# add in component data data
-			toAppend.merge(givenComponent_data)
+			toAppend.merge(givenComponent_data, true)
 		
 		# completed our dict to append. Append and move on
 		outputComponents.append(toAppend)
@@ -91,10 +91,10 @@ static func _BuildUnitActivation(struct: Dictionary, lang: Dictionary,
 	unitAct["components"] = outputComponents
 	return unitAct
 
-
 # Read txt / json file
 static func ReadTextFile(path: String) -> String:
 	var file = FileAccess.open(path, FileAccess.READ)
+	if file == null: return ""
 	var text = file.get_as_text()
 	file.close()
 	return text
@@ -106,8 +106,11 @@ static func GenerateDefinedUnitDict(unitID: String, langISO: String,
 	var structPath: String = PATH_UISTRUCTS + unitID + ".JSON"
 	var langPath: String = PATH_LANGUAGES + unitID + "_L.JSON"
 	
+	
 	var structStr = ReadTextFile(structPath)
 	var langStr = ReadTextFile(langPath)
+	
+	if langStr == "": langStr = "{}"
 	
 	return UnitFromJSONS(structStr, langStr, langISO, additionalData)
 
@@ -147,4 +150,18 @@ static func SumFloatArray(input: Array) -> float:
 		output = output + e
 	return output
 
+# Returns the sum of an array from the start to a defined end
+static func SumFloatArrayAtIndex(arr: Array, stopIndex: int) -> float:
+	var total := 0.0
+	for i in range(stopIndex):
+		total += arr[i]
+	return total
 
+# Returns Vector in order of available components, starting with default, then
+# full vector, then component variables
+static func LoadMostDefaultV2(dict: Dictionary, keyName: String, defaultValue: Vector2) -> Vector2:
+	var output: Vector2 = GetIfCan(dict, keyName, defaultValue)
+	output.x = GetIfCan(dict, keyName + "X", output.x)
+	output.y = GetIfCan(dict, keyName + "Y", output.y)
+	return output
+	

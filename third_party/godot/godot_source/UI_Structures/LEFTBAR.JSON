@@ -1,5 +1,9 @@
 {
   "ID" : "LEFTBAR",
+  "enableTitleBar": true,
+  "titleBarTitle": "INSERT SIDEBAR TITLE HERE",
+  "enableCloseButton": true,
+  "widthAlignment": 1,
   "components": [
 	{"type" : "header",
 	"ID" : "NeuronParametersSection"},	
@@ -42,7 +46,9 @@
 	},
 	
 	{"type" : "button",
-	"ID" : "UpdateButton"}
+	"ID" : "UpdateButton",
+	"widthAlignment": 1},
+	
   ],
-
+	
 }

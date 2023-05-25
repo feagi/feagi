@@ -4,13 +4,14 @@ class_name Field_Component
 #TODO Refactor this to make it more clean like Counter_Component
 
 # Defaults, see readme
-const DEF_LABEL = "MISSING LABEL!"
+const DEF_LABEL = "MISSING"
 const DEF_PLACEHOLDER = ""
 const DEF_EDITABLE = true
 const DEF_FIELDWIDTH = 100.0
 const DEF_MAXCHARACTERS = 50
 const DEF_ONLYTRIGGERWITHENTER = true
 const DEF_VALUE = ""
+const DEF_SCALEWITHINPUTTEXT = false
 const ADDITIONAL_SETTABLE_PROPERTIES = {
 	"editable": TYPE_BOOL,
 	"value": TYPE_STRING,
@@ -18,7 +19,8 @@ const ADDITIONAL_SETTABLE_PROPERTIES = {
 	"fieldWidth": TYPE_FLOAT,
 	"maxCharacters": TYPE_INT,
 	"placeHolder": TYPE_STRING,
-	"onlyTriggerWithEnter": TYPE_BOOL
+	"onlyTriggerWithEnter": TYPE_BOOL,
+	"scaleWithInputText": TYPE_BOOL
 }
 
 const TYPE: String = "field"
@@ -40,11 +42,16 @@ var placeHolder: String:
 	get: return _LineEdit.placeholder_text
 	set(v): _LineEdit.placeholder_text = v
 var value: String:
-	get: return _LineEdit.text
-	set(v): _LineEdit.text = v
+	get: return _LineEdit.Htext
+	set(v): _LineEdit.Htext = v
 var onlyTriggerWithEnter: bool:
 	get: return _triggerOnlyWithEnter
 	# No Set!
+var textWidth: float:
+	get: return _LineEdit.textWidth
+var scaleWithInputText: bool:
+	get: return _LineEdit.shouldScaleWithInputText
+	set(v): _LineEdit.shouldScaleWithInputText = v
 
 
 # Privates
@@ -52,7 +59,6 @@ var _Label: Label
 var _LineEdit: LineEdit_SubComponent
 
 var _triggerOnlyWithEnter: bool
-
 
 
 # Sets-up the Field
@@ -79,6 +85,7 @@ func _Activation(settings: Dictionary):
 	maxCharacters = HelperFuncs.GetIfCan(settings, "maxCharacters", DEF_MAXCHARACTERS)
 	fieldWidth = HelperFuncs.GetIfCan(settings, "fieldWidth", DEF_FIELDWIDTH)
 	value = HelperFuncs.GetIfCan(settings, "value", DEF_VALUE)
+	scaleWithInputText = HelperFuncs.GetIfCan(settings, "scaleWithInputText", DEF_SCALEWITHINPUTTEXT)
 
 
 # Used to proxy user value changes
@@ -89,7 +96,3 @@ func ProxyValueChanges(newValue: String):
 
 func _GetData():
 	return value
-
-# UNFINISHED
-func _SetData(data: Dictionary):
-	pass
