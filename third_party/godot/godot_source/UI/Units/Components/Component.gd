@@ -39,7 +39,8 @@ var padding: Vector2:
 		UpdateSizeData(true)
 var Hsize: Vector2:
 	get: return size
-	set(v): RequestSizeChange(v)
+	set(v): 
+		RequestSizeChange(v)
 var heightAlignment: int:
 	get: return _heightAlignment
 	set(v):
@@ -181,7 +182,7 @@ func _GetMinWidth() -> float:
 		return calWidth
 	else:
 		for child in children:
-			if child.size.x > calWidth:
+			if child.Hsize.x > calWidth:
 				calWidth = child.Hsize.x
 		return calWidth + padding.x
 
@@ -197,7 +198,7 @@ func _GetMinHeight() -> float:
 		return calHeight
 	else:
 		for child in children:
-			if child.size.y > calHeight:
+			if child.Hsize.y > calHeight:
 				calHeight = child.Hsize.y
 		return calHeight + padding.y
 
@@ -229,7 +230,7 @@ func _RepositionChildren_H(parentSize: Vector2, childHs: Array, childVs: Array, 
 		1: gap = (parentSize.x - HelperFuncs.SumFloatArray(childHs)) / float(childHs.size() - 1)
 		2: gap = (parentSize.x - HelperFuncs.SumFloatArray(childHs))
 	
-	if gap == NAN:
+	if (gap == NAN) or (gap == INF):
 		gap = (parentSize.x - HelperFuncs.SumFloatArray(childHs)) / 2.0
 		
 	
@@ -252,11 +253,15 @@ func _RepositionChildren_V(parentSize: Vector2, childHs: Array, childVs: Array, 
 	# Preallocate to reduce GC
 	var gap: float
 	var xPos: float; var yPos: float
-	
+
+
 	match(widthAlignment):
 		0: gap = 0.0
 		1: gap = (parentSize.y - HelperFuncs.SumFloatArray(childVs)) / float(childVs.size() - 1)
 		2: gap = (parentSize.y - HelperFuncs.SumFloatArray(childVs))
+	
+	if (gap == NAN) or (gap == INF):
+		gap = (parentSize.y - HelperFuncs.SumFloatArray(childVs)) / 2.0
 	
 	for i in childVs.size():
 		
