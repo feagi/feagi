@@ -419,7 +419,6 @@ script = ExtResource("36_hp4op")
 mouse_filter = 2
 
 [node name="graphCore" parent="Core/GlobalUISystem" instance=ExtResource("33_6l54b")]
-visible = false
 layout_mode = 0
 offset_left = 0.0
 offset_top = 0.0
