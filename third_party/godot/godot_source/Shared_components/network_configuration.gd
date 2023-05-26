@@ -3,11 +3,11 @@ extends Node
 var socket = WebSocketPeer.new()
 var one_frame 
 # The URL we will connect to
-var api_ip_address = "" # Setting the global variabl3
+var api_ip_address = "127.0.0.1" # Setting the global variabl3
 # For API port
 var api_port_address = "8000"
 # For Websocket port
-var websocket_ip_address = "" # Setting the global variable
+var websocket_ip_address = "127.0.0.1" # Setting the global variable
 # For Websocket Port
 var websocket_port_address = "9050"
 var state = ""
