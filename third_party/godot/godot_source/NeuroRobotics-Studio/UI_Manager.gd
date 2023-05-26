@@ -20,7 +20,7 @@ var Activated: bool = false
 var UI_Top_TopBar: Unit
 var UI_LeftBar: Unit
 var UI_GraphCore: GraphCore
-
+var UI_CreateMorphology: Unit
 
 
 #####################################
@@ -78,6 +78,7 @@ func TopBarInput(data: Dictionary, _compRef, _unitRef):
 			# button press
 			$Brain_Visualizer._on_Button_pressed() #TODO: Need to change this approach. This is for example only
 			print("Pressed Button!")
+			SpawnCreateMophology()
 		else:
 			# the cortical area drop down was changed
 			var selectedCorticalArea: String = data["selected"]
@@ -168,8 +169,16 @@ func SpawnLeftBar():
 	UI_LeftBar.Activate(LeftBarDict)
 	UI_LeftBar.DataUp.connect(LeftBarInput)
 
-
-
+func SpawnCreateMophology():
+	#TODO replace this piece
+	if UI_CreateMorphology != null:
+		UI_CreateMorphology.queue_free()
+	UI_CreateMorphology = SCENE_UNIT.instantiate()
+	add_child(UI_CreateMorphology)
+	var CMDict = HelperFuncs.GenerateDefinedUnitDict("CREATEMORPHOLOGY", currentLanguageISO)
+	UI_CreateMorphology.Activate(CMDict)
+	
+	
 # Static Config
 const SCENE_UNIT: PackedScene = preload("res://UI/Units/unit.tscn")
 
