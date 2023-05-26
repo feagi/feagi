@@ -108,6 +108,7 @@ var _toggleScene: PackedScene = preload("res://UI/Units/Components/Toggle/Toggle
 var _dropdownScene: PackedScene = preload("res://UI/Units/Components/DropDown/DropDown.tscn")
 var _headerScene: PackedScene = preload("res://UI/Units/Components/Header/header.tscn")
 var _buttonScene: PackedScene = preload("res://UI/Units/Components/Button/button.tscn")
+var _fillScene: PackedScene = preload("res://UI/Units/Components/Fill/fill.tscn")
 var _unitScene: PackedScene = preload("res://UI/Units/unit.tscn")
 
 # Setup Unit for use
@@ -190,6 +191,8 @@ func AddComponent(component: Dictionary) -> void:
 			newComponent = _buttonScene.instantiate()
 		"unit":
 			newComponent = _unitScene.instantiate()
+		"fill":
+			newComponent = _fillScene.instantiate()
 
 	# Add the new Component to the Unit, Activate it, Connect Signals, Store a Reference
 	add_child(newComponent)
