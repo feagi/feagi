@@ -14,6 +14,7 @@ const DEF_ENABLECLOSEBUTTON = false
 const DEF_WIDTHALIGNMENT = 1
 const DEF_HEIGHTALIGNMENT = 1
 const DEF_HSIZE = Vector2(0.0, 0.0) # Force scaling up
+const DEF_VISIBILITY = 0
 
 var ID: String:
 	get: return _ID
@@ -57,7 +58,9 @@ var componentIDs: Array:
 var componentRefs: Dictionary:
 	get: return _GetComponentReferencesByID()
 var Hsize: Vector2:
-	get: return size
+	get: 
+		if visibility != 2: return size
+		return Vector2(0.0, 0.0)
 	set(v): RequestSizeChange(v)
 var HsizeX: float:
 	get: return Hsize.x
@@ -81,6 +84,9 @@ var heightAlignment: int:
 	set(v):
 		_heightAlignment = v
 		_RepositionChildren(Hsize)
+var visibility: int:
+	get: return _visibility
+	set(v): _UpdateVisibility(v)
 
 signal DataUp(customData: Dictionary, compRef, unitRef)
 signal SizeChanged(selfRef)
@@ -96,6 +102,7 @@ var _ID: String
 var _dataSignalAvailable: bool = true
 var _isSubUnit: bool
 var _initialSize: Vector2
+var _visibility: int
 
 # used to prevent multiple components from spamming requests all at once
 var _requestingSizeChange: bool = false
@@ -124,7 +131,7 @@ func Activate(activationDict : Dictionary):
 	_isSubUnit = HelperFuncs.GetIfCan(activationDict, "isSubUnit", DEF_ISSUBUNIT)
 	_widthAlignment = HelperFuncs.GetIfCan(activationDict, 'widthAlignment', DEF_WIDTHALIGNMENT)
 	_heightAlignment = HelperFuncs.GetIfCan(activationDict, 'heightAlignment', DEF_HEIGHTALIGNMENT)
-
+	_visibility = HelperFuncs.GetIfCan(activationDict, "visibility", DEF_VISIBILITY)
 	
 	# title bar stuff
 	if HelperFuncs.GetIfCan(activationDict, "enableTitleBar", DEF_ENABLETITLEBAR):
@@ -197,7 +204,8 @@ func AddComponent(component: Dictionary) -> void:
 	
 	var ValuesToInheritByDefault: Dictionary = {
 		"heightAlignment": self._heightAlignment,
-		"widthAlignment": self._widthAlignment
+		"widthAlignment": self._widthAlignment,
+		"visibility": self._visibility
 	}
 	
 	component.merge(ValuesToInheritByDefault)
@@ -425,6 +433,21 @@ func _GrowChildren_Vertically(newHeight: float) -> void:
 	var children: Array = get_children()
 	for child in children:
 		child.Hsize = Vector2(child.Hsize.x, newHeight)
+
+# Update Visibility of a component. Relies on check in Hsize property
+func _UpdateVisibility(newVisibility: int) -> void:
+	
+	if newVisibility == 0:
+		visible = true
+		for child in get_children():
+			child.visible = true
+	else:
+		visible = false
+		for child in get_children():
+			child.visible = false
+
+	if _visibility == 2 or newVisibility == 2: SizeChanged.emit(self)
+	_visibility = newVisibility
 
 ####################################
 ##### Component Data Signaling #####
