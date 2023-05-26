@@ -44,5 +44,4 @@ func _Activation(settings: Dictionary):
 	
 
 func _GetData():
-	push_warning("Headers don't have values!")
-	return "Invalid Header Value! You should not be seeing this!"
+	return label

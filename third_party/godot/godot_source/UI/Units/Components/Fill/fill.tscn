@@ -1,0 +1,13 @@
+[gd_scene load_steps=3 format=3 uid="uid://1ituxup05ado"]
+
+[ext_resource type="Script" path="res://UI/Units/Components/Fill/Fill_Component.gd" id="1_6gfr5"]
+[ext_resource type="Script" path="res://UI/Units/Components/Fill/Fill_SubComponent.gd" id="2_2mxnr"]
+
+[node name="button" type="Panel"]
+script = ExtResource("1_6gfr5")
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("2_2mxnr")
