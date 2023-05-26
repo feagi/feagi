@@ -1,9 +1,7 @@
 {
 	"ID": "CREATE_MORPHOLOGY",
-	"position": [
-		400,
-		400
-	],
+	"HpositionX": 400,
+	"HpositionY": 400,
 	"components": [
 		{
 			"type": "header",
