@@ -160,13 +160,10 @@ def feagi_breakdown(data):
             runtime_data["old_cortical_data"] = runtime_data["cortical_data"]
             runtime_data["cortical_data"] = \
                 requests.get('http://' + feagi_host + ':' + api_port + DIMENSIONS_ENDPOINT).json()
-            print("feagi breakdown runtime_data[\"cortical_data\"]: ", runtime_data["cortical_data"])
             if 'genome_reset' not in data and data == "{}":
                 runtime_data["cortical_data"] = \
                     requests.get(
                         'http://' + feagi_host + ':' + api_port + DIMENSIONS_ENDPOINT).json()
-                print("feagi SECOND breakdown runtime_data[\"cortical_data\"]: ",
-                      runtime_data["cortical_data"])
             if data != "{}":
                 if runtime_data["old_cortical_data"] != runtime_data["cortical_data"]:
                     pass  # TODO: add to detect if cortical is changed
@@ -184,10 +181,8 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
     Convert absolute coordinate from godot to relative coordinate for FEAGI. Dna_information is
     from the genome["blueprint"].
     """
-    relative_coordinate = {}
-    relative_coordinate["data"] = {}
+    relative_coordinate = {"data": {}}
     relative_coordinate["data"]["direct_stimulation"] = {}
-    print("CONVERT CORTICAL: ", cortical_data)
     if stimulation_from_godot:
         for key in stimulation_from_godot["data"]["direct_stimulation"]:
             for name_match in cortical_data:
@@ -284,10 +279,8 @@ def feagi_init(feagi_host, api_port):
                 try:
                     data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
                                                     '/v1/feagi/genome/download').json()
-                    print("AWAITING FEAGI REGISTRATION: ", data_from_genome)
                     cortical_area_name = requests.get(
                         'http://' + feagi_host + ':' + api_port + DIMENSIONS_ENDPOINT).json()
-                    print("cortical AWAITING FEAGI REGISTRATION: ", cortical_area_name)
                     runtime_data["cortical_data"] = data_from_genome
 
                     for x in cortical_area_name:
@@ -400,6 +393,7 @@ if __name__ == "__main__":
     new_FEAGI_sub = feagi.sub_initializer(opu_address=opu_channel_address)
     flag = 0
     data_from_genome = 0
+    old_data = []
     one_frame = new_FEAGI_sub.receive()
     # PREVIOUS_GENOME_TIMESTAMP = one_frame["genome_changed"]
     while True:
@@ -419,7 +413,6 @@ if __name__ == "__main__":
                 runtime_data["cortical_data"] = \
                     requests.get(
                         'http://' + feagi_host + ':' + api_port + DIMENSIONS_ENDPOINT).json()
-                print("runtime_data[cortical_data]: ", runtime_data["cortical_data"])
                 print("updated time")
                 zmq_queue.append("updated")
             BURST_SECOND = one_frame['burst_frequency']
@@ -432,6 +425,13 @@ if __name__ == "__main__":
                 except Exception as e:
                     print("Error during genome reset:\n", e)
             one_frame = feagi_breakdown(one_frame)
+            # Debug section start
+            if one_frame != old_data:
+                print("FROM ZMQ: ", one_frame)
+                old_data = one_frame
+                print("ZMQ IP and PORT: ", feagi_host, ":", agent_settings[
+                    "agent_data_port"])
+            # Debug section end
             # one_frame = simulation_testing() # This is to test the stress
             if BURST_SECOND > agent_settings['burst_duration_threshold']:
                 zmq_queue.append(one_frame)
@@ -460,7 +460,6 @@ if __name__ == "__main__":
             reload_genome()
             runtime_data["cortical_data"] = \
                 requests.get('http://' + feagi_host + ':' + api_port + DIMENSIONS_ENDPOINT).json()
-            print("reload runtime_data[\"cortical_data\"]: ", runtime_data["cortical_data"])
         # if "new" in data_from_godot:
         #     json_object = json.dumps(data_from_godot)
         #     print(json_object)
