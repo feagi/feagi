@@ -164,4 +164,25 @@ static func LoadMostDefaultV2(dict: Dictionary, keyName: String, defaultValue: V
 	output.x = GetIfCan(dict, keyName + "X", output.x)
 	output.y = GetIfCan(dict, keyName + "Y", output.y)
 	return output
-	
+
+static func LoadMostDefaultv3_Color(dict: Dictionary, keyName: String, defaultValue: Vector3) -> Vector3:
+	var output: Vector3 = GetIfCan(dict, keyName, defaultValue)
+	output.x = GetIfCan(dict, keyName + "R", output.x)
+	output.y = GetIfCan(dict, keyName + "G", output.y)
+	output.z = GetIfCan(dict, keyName + "B", output.x)
+	return output
+
+static func V3IToColor(input: Vector3i) -> Color:
+	var output: Color
+	output.r8 = input.x
+	output.g8 = input.y
+	output.b8 = input.z
+	output.a8 = 255
+	return output
+
+static func ColorToV3I(input: Color) -> Vector3i:
+	var output: Vector3i
+	output.x = input.r8
+	output.y = input.g8
+	output.z = input.b8
+	return output

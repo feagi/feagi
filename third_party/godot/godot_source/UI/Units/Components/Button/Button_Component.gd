@@ -43,3 +43,8 @@ func _Activation(settings: Dictionary):
 func ProxyValueChanges():
 	if !_isActivated: return # avoid feedback when starting up
 	DataUp.emit({"type": TYPE, "ID": ID}, self)
+
+
+func _GetData():
+	push_warning("Buttons don't have values!")
+	return "Invalid Button Value! You should not be seeing this!"
