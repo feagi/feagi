@@ -168,8 +168,6 @@ func Activate(activationDict : Dictionary):
 	# init size
 	_initialSize = HelperFuncs.LoadMostDefaultV2(activationDict, "Hsize", DEF_HSIZE)
 	call_deferred("_InitInitialSize")
-	
-
 
 # Handles Spawning of components one at a time
 func AddComponent(component: Dictionary) -> void:
@@ -267,6 +265,10 @@ func UpdateSizeData(forceUpdate: bool = false) -> void:
 		_RepositionChildren(_minDimensions)
 		size = _minDimensions
 	SizeChanged.emit(self)
+
+# Control the visibility of a component, cascades size changes as needed
+func ControlComponentVisibility(ComponentID: String, visibility: int) -> void:
+	_GetComponentReferencesByID()[ComponentID].visibility = visibility
 
 # Call deffered on activation to init all sizes in the correct order
 # This is not particuarly efficient. Too Bad!
