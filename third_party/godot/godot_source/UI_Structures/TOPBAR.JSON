@@ -13,8 +13,6 @@
 	{"type" : "dropdown",
 	"hasButton" : true,
 	"ID" : "NEURONMORPHOLOGIES"},
-	{"type" : "fill",
-	"ID": "test"}
   ],
   "isVertical": false
 }
