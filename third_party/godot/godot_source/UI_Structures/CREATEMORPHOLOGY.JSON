@@ -30,6 +30,7 @@
 			{
 			   "type":"unit",
 			   "ID":"XYZ_Seed",
+			   "isVertical": false,
 			   "components":[
 				  {
 					 "type":"counter",
@@ -53,7 +54,9 @@
 			   "ID":"Pattern"
 			},
 			{
+			   "type": "unit",
 			   "ID":"XYZ_Labels",
+			   "isVertical": false,
 			   "components":[
 				  {
 					 "type":"header",
@@ -73,7 +76,9 @@
 			   ]
 			},
 			{
+			   "type": "unit",
 			   "ID":"XYZ_c",
+			   "isVertical": false,
 			   "components":[
 				  {
 					 "type":"counter",
@@ -93,7 +98,9 @@
 			   ]
 			},
 			{
+			   "type": "unit",
 			   "ID":"XYZ_s",
+			   "isVertical": false,
 			   "components":[
 				  {
 					 "type":"counter",
@@ -126,6 +133,7 @@
 			{
 			   "type":"unit",
 			   "ID":"PatternRow0",
+			   "isVertical": false,
 			   "components":[
 				  {
 					 "type":"counter",
@@ -174,11 +182,12 @@
 	  {
 		 "type":"unit",
 		 "ID":"Vectors",
-		 "isVertical":false,
+		 "isVertical":true,
 		 "components":[
 			{
 			   "type":"unit",
 			   "ID":"XYZ",
+			   "isVertical": false,
 			   "components":[
 				  {
 					 "type":"counter",
