@@ -30,7 +30,7 @@
 			{
 			   "type":"unit",
 			   "ID":"XYZ_Seed",
-			   "isVertical": false,
+			   "isVertical":false,
 			   "components":[
 				  {
 					 "type":"counter",
@@ -54,9 +54,9 @@
 			   "ID":"Pattern"
 			},
 			{
-			   "type": "unit",
+			   "type":"unit",
 			   "ID":"XYZ_Labels",
-			   "isVertical": false,
+			   "isVertical":false,
 			   "components":[
 				  {
 					 "type":"header",
@@ -76,9 +76,9 @@
 			   ]
 			},
 			{
-			   "type": "unit",
+			   "type":"unit",
 			   "ID":"XYZ_c",
-			   "isVertical": false,
+			   "isVertical":false,
 			   "components":[
 				  {
 					 "type":"counter",
@@ -98,9 +98,9 @@
 			   ]
 			},
 			{
-			   "type": "unit",
+			   "type":"unit",
 			   "ID":"XYZ_s",
-			   "isVertical": false,
+			   "isVertical":false,
 			   "components":[
 				  {
 					 "type":"counter",
@@ -133,7 +133,7 @@
 			{
 			   "type":"unit",
 			   "ID":"PatternRow0",
-			   "isVertical": false,
+			   "isVertical":false,
 			   "components":[
 				  {
 					 "type":"counter",
@@ -169,13 +169,17 @@
 					 "type":"counter",
 					 "ID":"Zo",
 					 "label":"Z"
+				  },
+				  {
+					 "type":"button",
+					 "ID":"RemoveSelfRowButton",
+					 "label":"-"
 				  }
 			   ]
 			},
 			{
 			   "type":"button",
-			   "ID":"AddButton",
-			   "label":"Add"
+			   "ID":"AddRowButton"
 			}
 		 ]
 	  },
@@ -187,7 +191,7 @@
 			{
 			   "type":"unit",
 			   "ID":"XYZ",
-			   "isVertical": false,
+			   "isVertical":false,
 			   "components":[
 				  {
 					 "type":"counter",
@@ -206,13 +210,14 @@
 				  },
 				  {
 					 "type":"button",
-					 "ID":"Remove"
+					 "ID":"RemoveRowButton",
+					 "label":"-"
 				  }
 			   ]
 			},
 			{
 			   "type":"button",
-			   "ID":"RemoveRow"
+			   "ID":"AddRowButton"
 			}
 		 ]
 	  },
