@@ -19,16 +19,6 @@
 			"eng": "Create"
 		}
 	},
-	"OverwriteSCALAR": {
-		"label": {
-			"eng": "Overwrite Scalar"
-		}
-	},
-	"PSPMULTIPLER": {
-		"label": {
-			"eng": "PSP Multiplier Plasticity"
-		}
-	},
 	"testlabel": {
 		"SOURCECORTICALAREA": {
 			"label": {
@@ -57,27 +47,34 @@
 				"eng": "Mapping Definitions"
 			}
 		},
-		"OverwriteSCALAR": {
-			"label": {
-				"eng": "Overwrite Scalar"
-			},
+		"overwritescalar": {
+		"bwuk": {
+							"label": {
+								"eng": "Overwrite Scalar"
+								}
+							},
 			"XYZ": {
 				"Pos_X": {
 					"label": {
-						"eng": ""
+						"eng": "X"
 					}
 				},
 				"Pos_Y": {
 					"label": {
-						"eng": ""
+						"eng": "Y"
 					}
 				},
 				"Pos_Z": {
 					"label": {
-						"eng": ""
+						"eng": "Z"
 					}
 				}
 			}
+		},
+		"PSPMULTIPLER": {
+		"label": {
+			"eng": "PSP Multiplier Plasticity"
 		}
+	}
 	}
 }

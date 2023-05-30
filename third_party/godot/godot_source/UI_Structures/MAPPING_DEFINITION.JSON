@@ -52,7 +52,7 @@
 					"components": [
 						{
 							"type": "header",
-							"ID": "BWUK"
+							"ID": "bwuk"
 						},
 						{
 							"type": "unit",
