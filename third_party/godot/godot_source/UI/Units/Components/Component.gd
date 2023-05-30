@@ -128,7 +128,7 @@ func ApplyPropertiesFromDict(dict: Dictionary) -> void:
 		
 		
 #		print(dict)
-		var a = dict[inputKey]
+#		var a = dict[inputKey]
 #		print(typeof(a))
 		self[inputKey] = dict[inputKey] # This is completely and utterly cursed
 		# Why do you refer the object to inputkey? When dict[inputkey] is changed, self[input]

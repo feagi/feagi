@@ -1,8 +1,69 @@
 {
-	"NeuronParametersSection": {
+	"CorticalPropertiesSection": {
+		"label":
+		  {"eng": "Cortical Properties"}
+		},
+	"CorticalName": {
 		"label": 
+		  {"eng": "Cortical Name"}
+		},
+	"CorticalID": {
+		"label":
+		  {"eng": "Cortical ID"}
+		},
+	"NeuronParametersSection": {
+		"label":
 		  {"eng": "Neuron Parameters"}
 		},
+	"CorticalArea": {
+		"label":
+		  {"eng":  "Cortical Area Type"}
+	},
+	"MonitoringSection": {
+		"label":
+		  {"eng":  "Monitoring"}
+	},
+	"WHD": {
+		"W": {
+			"label": {
+				"eng": "W"
+			}
+		},
+		"H": {
+			"label": {
+				"eng": "H"
+			}
+		},
+		"D": {
+			"label": {
+				"eng": "D"
+			}
+		}
+	},
+	"buttons": {
+		"UpdateButton": {
+			"label": {
+				"eng": "Update"
+			}
+		},
+		"DeleteButton": {
+			"label": {
+				"eng": "Delete"
+			}
+		}
+	},
+		"toggles": {
+		"Mem_potent": {
+			"label": {
+				"eng": "Membrane Potential"
+			}
+		},
+		"syn_potent": {
+			"label": {
+				"eng": "Synaptic Potential"
+			}
+		}
+	},
 	"VoxelNeuronDensity": {
 		"label":
 		  {"eng":  "Voxel Neuron Density"}
@@ -27,6 +88,10 @@
 		"label":
 		  {"eng": "Fire Threshold"} 
 	},
+	"Thresholdlimit" : {
+		"label":
+		  {"eng": "Threshold Limit"}
+	},
 	"RefactoryPeriod" : {
 		"label":
 		  {"eng": "Refactory Period"} 
@@ -39,6 +104,10 @@
 		"label":
 		  {"eng": "Leak Varibility"} 
 	},
+	"ThresholdINC" : {
+		"label":
+		  {"eng": "Threshold inc"}
+	},
 	"ConsecutiveFireCount" : {
 		"label":
 		  {"eng": "Consecutive Fire Count"} 
@@ -50,6 +119,18 @@
 	"DegeneracyConstant" : {
 		"label":
 		  {"eng": "Degeneracy Constant"}
+	},
+	"PSPUNI" : {
+		"label":
+		  {"eng": "PSP Uniformity"}
+	},
+	"ChargeACC" : {
+		"label":
+		  {"eng": "Charge Accumation"}
+	},
+	"CorticalMapping" : {
+		"label":
+		  {"eng": "Cortical Mapping"}
 	},
 	"UpdateButton" : {
 		"label":
@@ -69,6 +150,11 @@
 		"Pos_Z": {
 			"label": {
 				"eng": "Z"
+			}
+		},
+		"CorticalMapping": {
+			"label": {
+				"eng": "Cortical Mapping"
 			}
 		}
 	},

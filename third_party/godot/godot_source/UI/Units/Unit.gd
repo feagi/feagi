@@ -134,7 +134,6 @@ func Activate(activationDict : Dictionary):
 		
 		var titleBarTitle: String = HelperFuncs.GetIfCan(activationDict, "titleBarTitle", DEF_TITLEBARTITLE)
 		var enableCloseButton: bool = HelperFuncs.GetIfCan(activationDict, "enableCloseButton", DEF_ENABLECLOSEBUTTON)
-		var currentLang: String = get_node("/root/Official_World/Core/GlobalUISystem").currentLanguageISO
 		var titleBarActivationDict = {
 			"ID": "TITLEBAR",
 			"isVertical": false,

@@ -8,6 +8,7 @@
 [node name="header" type="Panel"]
 offset_right = 69.0
 offset_bottom = 33.0
+mouse_filter = 1
 script = ExtResource("1_thhx2")
 
 [node name="Label" type="Label" parent="."]
