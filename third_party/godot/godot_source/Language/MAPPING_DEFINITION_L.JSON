@@ -44,12 +44,12 @@
 		}
 	},
 	"third_box": {
-		"overwritescalar": {
 			"mappingdefinitions": {
-				"label": {
+		"label": {
 					"eng": "Mapping Definitions"
 				}
 			},
+		"overwritescalar": {
 			"overwritescalartitle": {
 				"label": {
 					"eng": "Overwrite Scalar"

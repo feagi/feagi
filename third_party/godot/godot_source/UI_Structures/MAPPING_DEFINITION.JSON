@@ -43,13 +43,13 @@
 			"ID": "third_box",
 			"components": [
 				{
+					"type": "dropdown",
+					"ID": "mappingdefinitions"
+				},
+				{
 					"type": "unit",
 					"ID": "overwritescalar",
 					"components": [
-						{
-							"type": "dropdown",
-							"ID": "mappingdefinitions"
-						},
 						{
 							"type": "header",
 							"ID": "overwritescalartitle"
@@ -74,7 +74,7 @@
 							"isVertical": false
 						}
 					],
-					"isVertical": false
+					"isVertical": true
 				},
 				{
 					"type": "toggle",
