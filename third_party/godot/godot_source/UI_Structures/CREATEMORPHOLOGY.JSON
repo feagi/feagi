@@ -22,7 +22,7 @@
 		 "type":"unit",
 		 "ID":"Composite",
 		 "isVertical":true,
-		 "visibility": 2,
+		 "visibility": 0,
 		 "components":[
 			{
 			   "type":"header",
@@ -130,7 +130,7 @@
 		 "type":"unit",
 		 "ID":"Patterns",
 		 "isVertical":true,
-		 "visibility": 2,
+		 "visibility": 0,
 		 "components":[
 			{
 			   "type":"unit",
@@ -189,7 +189,7 @@
 		 "type":"unit",
 		 "ID":"Vectors",
 		 "isVertical":true,
-		 "visibility": 2,
+		 "visibility": 0,
 		 "components":[
 			{
 			   "type":"unit",

@@ -448,10 +448,10 @@ func _UpdateVisibility(newVisibility: int) -> void:
 	
 	visible = (newVisibility == 0)
 	
-	var children = get_children()
-	for child in children:
-		if child.componentType != "unit": return
-		child.visibility = newVisibility
+	#var children = get_children()
+	#for child in children:
+	#	if child.componentType != "unit": return
+	#	child.visibility = newVisibility
 
 	if _visibility == 2 or newVisibility == 2: SizeChanged.emit(self)
 	_visibility = newVisibility
