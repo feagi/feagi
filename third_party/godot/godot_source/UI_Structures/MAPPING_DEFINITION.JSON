@@ -23,36 +23,36 @@
 			"isVertical": true
 		},
 		{
-			"ID": "SOURCECORTICALAREA",
-			"type": "dropdown"
-		},
-		{
-			"ID": "DESTINATIONCORTICALAREA",
-			"type": "dropdown"
-		},
-		{
-			"type": "button",
-			"ID": "ADDMAPPING"
+			"type": "unit",
+			"ID": "vector_title",
+			"components": [
+				{
+					"type": "header",
+					"ID": "MAPPINGDEFINITION",
+					"side": 1
+				},
+				{
+					"type": "button",
+					"ID": "ADDMAPPING"
+				}
+			],
+			"isVertical": false
 		},
 		{
 			"type": "unit",
 			"ID": "third_box",
 			"components": [
 				{
-					"type": "header",
-					"ID": "MAPPINGDEFINITION"
-				},
-				{
-					"type": "dropdown",
-					"ID": "mappingdefinitions"
-				},
-				{
 					"type": "unit",
 					"ID": "overwritescalar",
 					"components": [
 						{
+							"type": "dropdown",
+							"ID": "mappingdefinitions"
+						},
+						{
 							"type": "header",
-							"ID": "bwuk"
+							"ID": "overwritescalartitle"
 						},
 						{
 							"type": "unit",
@@ -74,7 +74,7 @@
 							"isVertical": false
 						}
 					],
-					"isVertical": true
+					"isVertical": false
 				},
 				{
 					"type": "toggle",

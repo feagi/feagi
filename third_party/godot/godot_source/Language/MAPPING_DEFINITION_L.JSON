@@ -9,11 +9,6 @@
 			"eng": "Destination Cortical Area"
 		}
 	},
-	"ADDMAPPING": {
-		"label": {
-			"eng": ""
-		}
-	},
 	"UpdateButton": {
 		"label": {
 			"eng": "Create"
@@ -36,23 +31,30 @@
 			}
 		}
 	},
-	"third_box": {
+	"vector_title": {
 		"MAPPINGDEFINITION": {
-							"label": {
-								"eng": "Mapping Definition:"
-								}
-							},
-		"mappingdefinitions": {
 			"label": {
-				"eng": "Mapping Definitions"
+				"eng": "Mapping Definition:"
 			}
 		},
+		"ADDMAPPING": {
+			"label": {
+				"eng": "+"
+			}
+		}
+	},
+	"third_box": {
 		"overwritescalar": {
-		"bwuk": {
-							"label": {
-								"eng": "Overwrite Scalar"
-								}
-							},
+			"mappingdefinitions": {
+				"label": {
+					"eng": "Mapping Definitions"
+				}
+			},
+			"overwritescalartitle": {
+				"label": {
+					"eng": "Overwrite Scalar"
+					}
+				},
 			"XYZ": {
 				"Pos_X": {
 					"label": {
@@ -74,7 +76,7 @@
 		"PSPMULTIPLER": {
 		"label": {
 			"eng": "PSP Multiplier Plasticity"
+				}
 		}
-	}
 	}
 }
