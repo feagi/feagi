@@ -442,14 +442,7 @@ func _GrowChildren_Vertically(newHeight: float) -> void:
 # Update Visibility of a component. Relies on check in Hsize property
 func _UpdateVisibility(newVisibility: int) -> void:
 	
-	if newVisibility == 0:
-		self.visible = true
-		for child in get_children():
-			child.visible = true
-	else:
-		self.visible = false
-		for child in get_children():
-			child.visible = false
+	visible = (newVisibility == 0)
 
 	if _visibility == 2 or newVisibility == 2: SizeChanged.emit(self)
 	_visibility = newVisibility
