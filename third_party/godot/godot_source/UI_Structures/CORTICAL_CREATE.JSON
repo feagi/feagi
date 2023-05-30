@@ -1,9 +1,7 @@
 {
 	"ID": "CREATE_CORTICAL",
-	"position": [
-		100,
-		400
-	],
+	"HpositionX": 100,
+	"HpositionY": 400,
 	"components": [
 		{
 			"type": "header",

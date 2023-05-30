@@ -1,9 +1,7 @@
 {
 	"ID": "MAPPING_DEFINITION",
-	"position": [
-		700,
-		300
-	],
+	"HpositionX": 400,
+	"HpositionY": 400,
 	"components": [
 		{
 			"type": "unit",
@@ -37,39 +35,53 @@
 			"ID": "ADDMAPPING"
 		},
 		{
-			"type": "header",
-			"ID": "MAPPINGDEFINITION"
-		},
-		{
-			"type": "dropdown",
-			"ID": "mappingdefinitions"
-		},
-		{
-			"type": "header",
-			"ID": "OverwriteSCALAR"
-		},
-		{
 			"type": "unit",
-			"ID": "XYZ",
+			"ID": "third_box",
 			"components": [
 				{
-					"type": "counter",
-					"ID": "Pos_X"
+					"type": "header",
+					"ID": "MAPPINGDEFINITION"
 				},
 				{
-					"type": "counter",
-					"ID": "Pos_Y"
+					"type": "dropdown",
+					"ID": "mappingdefinitions"
 				},
 				{
-					"type": "counter",
-					"ID": "Pos_Z"
+					"type": "unit",
+					"ID": "overwritescalar",
+					"components": [
+						{
+							"type": "header",
+							"ID": "BWUK"
+						},
+						{
+							"type": "unit",
+							"ID": "XYZ",
+							"components": [
+								{
+									"type": "counter",
+									"ID": "Pos_X"
+								},
+								{
+									"type": "counter",
+									"ID": "Pos_Y"
+								},
+								{
+									"type": "counter",
+									"ID": "Pos_Z"
+								}
+							],
+							"isVertical": false
+						}
+					],
+					"isVertical": true
+				},
+				{
+					"type": "toggle",
+					"ID": "PSPMULTIPLER"
 				}
 			],
 			"isVertical": false
-		},
-		{
-			"type": "toggle",
-			"ID": "PSPMULTIPLER"
 		}
 	]
 }
