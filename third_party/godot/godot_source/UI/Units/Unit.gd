@@ -87,6 +87,10 @@ var heightAlignment: int:
 var visibility: int:
 	get: return _visibility
 	set(v): _UpdateVisibility(v)
+var dataAvailable: bool:
+	get: return true #TODO This assumption is usally true, but we need a better system
+var data: Dictionary:
+	get: return {ID: _GetComponentsData()}
 
 signal DataUp(customData: Dictionary, compRef, unitRef)
 signal SizeChanged(selfRef)
@@ -167,10 +171,7 @@ func Activate(activationDict : Dictionary):
 				]}
 			)
 		_componentsDicts.push_front(titleBarActivationDict)
-	
-	
-	
-	
+
 	AddMultipleComponents(_componentsDicts)
 	
 	# init size
@@ -286,6 +287,7 @@ func ControlComponentVisibility(ComponentID: String, visibility: int) -> void:
 func _InitInitialSize() -> void:
 	_UpdateMinimumDimensions()
 	RequestSizeChange(_initialSize)
+	_UpdateVisibility(_visibility)
 
 # Forces a recalculation of minimum required dimensions. If minimum required
 # size is bigger than the current size, returns true and updates minimum dim.
@@ -441,11 +443,11 @@ func _GrowChildren_Vertically(newHeight: float) -> void:
 func _UpdateVisibility(newVisibility: int) -> void:
 	
 	if newVisibility == 0:
-		visible = true
+		self.visible = true
 		for child in get_children():
 			child.visible = true
 	else:
-		visible = false
+		self.visible = false
 		for child in get_children():
 			child.visible = false
 
