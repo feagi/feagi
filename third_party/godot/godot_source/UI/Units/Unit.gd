@@ -86,7 +86,9 @@ var heightAlignment: int:
 		_RepositionChildren(Hsize)
 var visibility: int:
 	get: return _visibility
-	set(v): _UpdateVisibility(v)
+	set(v): 
+		_UpdateVisibility(v)
+		#UpdateSizeData()
 var dataAvailable: bool:
 	get: return true #TODO This assumption is usally true, but we need a better system
 var data: Dictionary:
