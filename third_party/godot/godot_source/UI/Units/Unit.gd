@@ -128,7 +128,8 @@ func Activate(activationDict : Dictionary):
 	# Init Vars
 	_ID = HelperFuncs.MustGet(activationDict, "ID")
 	_componentsDicts = HelperFuncs.MustGet(activationDict, "components")
-
+	name = "Unit_" + _ID
+	
 	_componentsSpawnPoint = HelperFuncs.GetIfCan(activationDict, "componentSpawnPoint", DEF_SPAWNPOINT)
 	Hposition = HelperFuncs.GetIfCan(activationDict, "Hposition", DEF_HPOSITION) #TODO some units cannot set their own pos
 	_padding = HelperFuncs.LoadMostDefaultV2(activationDict, "padding", DEF_PADDING)

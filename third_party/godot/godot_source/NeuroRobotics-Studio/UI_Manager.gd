@@ -84,6 +84,15 @@ func TopBarInput(data: Dictionary, _compRef, _unitRef):
 			var selectedCorticalArea: String = data["selected"]
 			print("new selected area is " + selectedCorticalArea)
 
+func CreateMorphologyInput(data: Dictionary, _compRef: Node, _unitRef: Node):
+	if "MorphologyType" == data["compID"]:
+		#Drop down is changed, toggle between available morphology wizards
+		var composite: Node = _unitRef.get_node("Unit_Composite")
+		var patterns: Node = _unitRef.get_node("Unit_Patterns")
+		var vectors: Node = _unitRef.get_node("Unit_Vectors")
+		if data["selected"] == "Composite":
+			composite.visible = 0; patterns.visible = 2; vectors.visible = 2
+
 ######### Side Bar Control #########
 
 func LeftBarInput(data: Dictionary, _compRef, _unitRef):
@@ -177,6 +186,7 @@ func SpawnCreateMophology():
 	add_child(UI_CreateMorphology)
 	var CMDict = HelperFuncs.GenerateDefinedUnitDict("CREATEMORPHOLOGY", currentLanguageISO)
 	UI_CreateMorphology.Activate(CMDict)
+	UI_CreateMorphology.DataUp.connect(CreateMorphologyInput)
 	
 	
 # Static Config
