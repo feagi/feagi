@@ -14,6 +14,7 @@ const DEF_ENABLECLOSEBUTTON = false
 const DEF_WIDTHALIGNMENT = 1
 const DEF_HEIGHTALIGNMENT = 1
 const DEF_HSIZE = Vector2(0.0, 0.0) # Force scaling up
+const DEF_VISIBILITY = 0
 
 var ID: String:
 	get: return _ID
@@ -57,7 +58,9 @@ var componentIDs: Array:
 var componentRefs: Dictionary:
 	get: return _GetComponentReferencesByID()
 var Hsize: Vector2:
-	get: return size
+	get: 
+		if visibility != 2: return size
+		return Vector2(0.0, 0.0)
 	set(v): RequestSizeChange(v)
 var HsizeX: float:
 	get: return Hsize.x
@@ -81,6 +84,17 @@ var heightAlignment: int:
 	set(v):
 		_heightAlignment = v
 		_RepositionChildren(Hsize)
+var visibility: int:
+	get: return _visibility
+	set(v): 
+		_UpdateVisibility(v)
+		UpdateSizeData()
+var dataAvailable: bool:
+	get: return true #TODO This assumption is usally true, but we need a better system
+var data: Dictionary:
+	get: return {ID: _GetComponentsData()}
+var componentType: String: # for compatibility
+	get: return "unit"
 
 signal DataUp(customData: Dictionary, compRef, unitRef)
 signal SizeChanged(selfRef)
@@ -96,6 +110,7 @@ var _ID: String
 var _dataSignalAvailable: bool = true
 var _isSubUnit: bool
 var _initialSize: Vector2
+var _visibility: int
 
 # used to prevent multiple components from spamming requests all at once
 var _requestingSizeChange: bool = false
@@ -117,7 +132,8 @@ func Activate(activationDict : Dictionary):
 	# Init Vars
 	_ID = HelperFuncs.MustGet(activationDict, "ID")
 	_componentsDicts = HelperFuncs.MustGet(activationDict, "components")
-
+	name = "Unit_" + _ID
+	
 	_componentsSpawnPoint = HelperFuncs.GetIfCan(activationDict, "componentSpawnPoint", DEF_SPAWNPOINT)
 	Hposition = HelperFuncs.LoadMostDefaultV2(activationDict, "Hposition", DEF_HPOSITION) #TODO some units cannot set their own pos
 	_padding = HelperFuncs.LoadMostDefaultV2(activationDict, "padding", DEF_PADDING)
@@ -125,7 +141,7 @@ func Activate(activationDict : Dictionary):
 	_isSubUnit = HelperFuncs.GetIfCan(activationDict, "isSubUnit", DEF_ISSUBUNIT)
 	_widthAlignment = HelperFuncs.GetIfCan(activationDict, 'widthAlignment', DEF_WIDTHALIGNMENT)
 	_heightAlignment = HelperFuncs.GetIfCan(activationDict, 'heightAlignment', DEF_HEIGHTALIGNMENT)
-
+	_visibility = HelperFuncs.GetIfCan(activationDict, "visibility", DEF_VISIBILITY)
 	
 	# title bar stuff
 	if HelperFuncs.GetIfCan(activationDict, "enableTitleBar", DEF_ENABLETITLEBAR):
@@ -159,17 +175,12 @@ func Activate(activationDict : Dictionary):
 				]}
 			)
 		_componentsDicts.push_front(titleBarActivationDict)
-	
-	
-	
-	
+
 	AddMultipleComponents(_componentsDicts)
 	
 	# init size
 	_initialSize = HelperFuncs.LoadMostDefaultV2(activationDict, "Hsize", DEF_HSIZE)
 	call_deferred("_InitInitialSize")
-	
-
 
 # Handles Spawning of components one at a time
 func AddComponent(component: Dictionary) -> void:
@@ -201,7 +212,8 @@ func AddComponent(component: Dictionary) -> void:
 	
 	var ValuesToInheritByDefault: Dictionary = {
 		"heightAlignment": self._heightAlignment,
-		"widthAlignment": self._widthAlignment
+		"widthAlignment": self._widthAlignment,
+		"visibility": self._visibility
 	}
 	
 	component.merge(ValuesToInheritByDefault)
@@ -270,11 +282,16 @@ func UpdateSizeData(forceUpdate: bool = false) -> void:
 		size = _minDimensions
 	SizeChanged.emit(self)
 
+# Control the visibility of a component, cascades size changes as needed
+func ControlComponentVisibility(ComponentID: String, visibility: int) -> void:
+	_GetComponentReferencesByID()[ComponentID].visibility = visibility
+
 # Call deffered on activation to init all sizes in the correct order
 # This is not particuarly efficient. Too Bad!
 func _InitInitialSize() -> void:
 	_UpdateMinimumDimensions()
 	RequestSizeChange(_initialSize)
+	_UpdateVisibility(_visibility)
 
 # Forces a recalculation of minimum required dimensions. If minimum required
 # size is bigger than the current size, returns true and updates minimum dim.
@@ -425,6 +442,19 @@ func _GrowChildren_Vertically(newHeight: float) -> void:
 	var children: Array = get_children()
 	for child in children:
 		child.Hsize = Vector2(child.Hsize.x, newHeight)
+
+# Update Visibility of a component. Relies on check in Hsize property
+func _UpdateVisibility(newVisibility: int) -> void:
+	
+	visible = (newVisibility == 0)
+	
+	var children = get_children()
+	for child in children:
+		if child.componentType != "unit": return
+		child.visibility = newVisibility
+
+	if _visibility == 2 or newVisibility == 2: SizeChanged.emit(self)
+	_visibility = newVisibility
 
 ####################################
 ##### Component Data Signaling #####

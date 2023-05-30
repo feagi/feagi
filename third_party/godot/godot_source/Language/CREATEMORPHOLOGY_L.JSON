@@ -1,0 +1,60 @@
+{
+   "MorphologyName":{
+	  "label":{
+		 "eng":"Morphology Name"
+	  }
+   },
+   "MorphologyType":{
+	  "label":{
+		 "eng":"Morphology Type"
+	  },
+	  "options":{
+		 "eng":[
+			"Composite",
+			"Patterns",
+			"Vectors"
+		 ]
+	  }
+   },
+   "MorphologyDefinition":{
+	  "label":{
+		 "eng":"Morphology Definition"
+	  }
+   },
+   "Composite":{
+	  "Seed":{
+		 "label":{
+			"eng":"Seed"
+		 }
+	  },
+	  "Pattern":{
+		 "label":{
+			"eng":"Pattern"
+		 }
+	  },
+	  "Mapper":{
+		 "label":{
+			"eng":"Mapper"
+		 }
+	  }
+   },
+   "Patterns":{
+	  "AddRowButton":{
+		 "label":{
+			"eng":"Add Row"
+		 }
+	  }
+   },
+   "Vectors":{
+	  "AddRowButton":{
+		 "label":{
+			"eng":"Add Row"
+		 }
+	  }
+   },
+   "CreateButton":{
+	  "label":{
+		 "eng":"Create"
+	  }
+   }
+}

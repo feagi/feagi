@@ -24,7 +24,7 @@ var UI_CreateNeuronMorphology : Unit
 var UI_ManageNeuronMorphology : Unit
 var UI_MappingDefinition : Unit
 var UI_GraphCore: GraphCore
-
+var UI_CreateMorphology: Unit
 
 
 #####################################
@@ -99,6 +99,7 @@ func TopBarInput(data: Dictionary, _compRef, _unitRef):
 				UI_CreateNeuronMorphology.queue_free()
 			$Brain_Visualizer._on_Button_pressed() #TODO: Need to change this approach. This is for example only
 			print("Pressed Button!")
+			SpawnCreateMophology()
 		else:
 			# the cortical area drop down was changed
 			var selectedCorticalArea: String = data["selected"]
@@ -108,6 +109,18 @@ func TopBarInput(data: Dictionary, _compRef, _unitRef):
 			else:
 				UI_ManageNeuronMorphology.queue_free()
 
+func CreateMorphologyInput(data: Dictionary, _compRef: Node, _unitRef: Node):
+	if "MorphologyType" == data["compID"]:
+		#Drop down is changed, toggle between available morphology wizards
+		var composite: Node = _unitRef.get_node("Unit_Composite")
+		var patterns: Node = _unitRef.get_node("Unit_Patterns")
+		var vectors: Node = _unitRef.get_node("Unit_Vectors")
+		if data["selected"] == "Composite":
+			composite.visibility = 0; patterns.visibility = 2; vectors.visibility = 2
+		if data["selected"] == "Patterns":
+			composite.visibility = 2; patterns.visibility = 0; vectors.visibility = 2
+		if data["selected"] == "Vectors":
+			composite.visibility = 0; patterns.visibility = 2; vectors.visibility = 2
 ######### Side Bar Control #########
 
 func LeftBarInput(_data: Dictionary, _compRef, _unitRef):
@@ -193,6 +206,18 @@ func SpawnLeftBar():
 	UI_LeftBar.Activate(LeftBarDict)
 	UI_LeftBar.DataUp.connect(LeftBarInput)
 
+
+func SpawnCreateMophology():
+	#TODO replace this piece
+	if UI_CreateMorphology != null:
+		UI_CreateMorphology.queue_free()
+	UI_CreateMorphology = SCENE_UNIT.instantiate()
+	add_child(UI_CreateMorphology)
+	var CMDict = HelperFuncs.GenerateDefinedUnitDict("CREATEMORPHOLOGY", currentLanguageISO)
+	UI_CreateMorphology.Activate(CMDict)
+	UI_CreateMorphology.DataUp.connect(CreateMorphologyInput)
+	
+	
 func SpawnCorticalCrete():
 	UI_createcorticalBar = SCENE_UNIT.instantiate()
 	add_child(UI_createcorticalBar)
@@ -246,7 +271,6 @@ func SpawnMappingDefinition():
 	add_child(UI_MappingDefinition)
 	var mappingdef = HelperFuncs.GenerateDefinedUnitDict("MAPPING_DEFINITION", currentLanguageISO)
 	UI_MappingDefinition.Activate(mappingdef)
-
 
 # Static Config
 const SCENE_UNIT: PackedScene = preload("res://UI/Units/unit.tscn")

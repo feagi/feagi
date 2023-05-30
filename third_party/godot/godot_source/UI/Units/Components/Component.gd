@@ -13,7 +13,7 @@ const DEF_ISHORIZONTAL: bool = true
 const DEF_WIDTHALIGNMENT = 1
 const DEF_HEIGHTALIGNMENT = 1
 const DEF_HSIZE = Vector2(0.0, 0.0) # Force scaling up
-
+const DEF_VISIBILITY = 0
 
 # Signals
 signal DataUp(customData: Dictionary, changedObjectReference)
@@ -48,7 +48,9 @@ var paddingY: float:
 	set(v):
 		padding = Vector2(padding.x, v)
 var Hsize: Vector2:
-	get: return size
+	get: 
+		if visibility != 2: return size
+		return Vector2(0.0, 0.0)
 	set(v): 
 		RequestSizeChange(v)
 var HsizeX: float:
@@ -69,7 +71,9 @@ var widthAlignment: int:
 	set(v):
 		_widthAlignment = v
 		_RepositionChildren(Hsize)
-
+var visibility: int:
+	get: return _visibility
+	set(v): _UpdateVisibility(v)
 
 #Private Vars
 var _isActivated: bool = false
@@ -89,6 +93,7 @@ var _runtimeSettableProperties = {
 	"heightAlignment": TYPE_INT
 }
 var _initialSize: Vector2
+var _visibility: int # 0 is normal visibile, 1 is invisible, 2 is hidden
 
 # used to prevent multiple subcomponents from spamming requests all at once
 var _requestingSizeChange: bool = false
@@ -309,6 +314,21 @@ func _RepositionChildren_V(parentSize: Vector2, childHs: Array, childVs: Array, 
 		
 		children[i].position = Vector2(xPos, yPos)
  
+# Update Visibility of a component. Relies on check in Hsize property
+func _UpdateVisibility(newVisibility: int) -> void:
+	
+	if newVisibility == 0:
+		visible = true
+		for child in get_children():
+			child.visible = true
+	else:
+		visible = false
+		for child in get_children():
+			child.visible = false
+
+	if _visibility == 2 or newVisibility == 2: SizeChanged.emit(self)
+	_visibility = newVisibility
+
 ####################################
 ############ Overrides #############
 ####################################
