@@ -135,7 +135,7 @@ func Activate(activationDict : Dictionary):
 	name = "Unit_" + _ID
 	
 	_componentsSpawnPoint = HelperFuncs.GetIfCan(activationDict, "componentSpawnPoint", DEF_SPAWNPOINT)
-	Hposition = HelperFuncs.GetIfCan(activationDict, "Hposition", DEF_HPOSITION) #TODO some units cannot set their own pos
+	Hposition = HelperFuncs.LoadMostDefaultV2(activationDict, "Hposition", DEF_HPOSITION) #TODO some units cannot set their own pos
 	_padding = HelperFuncs.LoadMostDefaultV2(activationDict, "padding", DEF_PADDING)
 	_isHorizontal = !HelperFuncs.GetIfCan(activationDict, "isVertical", DEF_ISVERTICAL)
 	_isSubUnit = HelperFuncs.GetIfCan(activationDict, "isSubUnit", DEF_ISSUBUNIT)
@@ -150,7 +150,6 @@ func Activate(activationDict : Dictionary):
 		
 		var titleBarTitle: String = HelperFuncs.GetIfCan(activationDict, "titleBarTitle", DEF_TITLEBARTITLE)
 		var enableCloseButton: bool = HelperFuncs.GetIfCan(activationDict, "enableCloseButton", DEF_ENABLECLOSEBUTTON)
-		var currentLang: String = get_node("/root/Official_World/Core/GlobalUISystem").currentLanguageISO
 		var titleBarActivationDict = {
 			"ID": "TITLEBAR",
 			"isVertical": false,

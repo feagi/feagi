@@ -1,0 +1,82 @@
+{
+	"SOURCECORTICALAREA": {
+		"label": {
+			"eng": "Source Cortical Area"
+		}
+	},
+	"DESTINATIONCORTICALAREA": {
+		"label": {
+			"eng": "Destination Cortical Area"
+		}
+	},
+	"UpdateButton": {
+		"label": {
+			"eng": "Create"
+		}
+	},
+	"testlabel": {
+		"SOURCECORTICALAREA": {
+			"label": {
+				"eng": "Source Cortical Area"
+			}
+		},
+		"DESTINATIONCORTICALAREA": {
+			"label": {
+				"eng": "Destination Cortical Area"
+			}
+		},
+		"ADDMAPPING": {
+			"label": {
+				"eng": ""
+			}
+		}
+	},
+	"vector_title": {
+		"MAPPINGDEFINITION": {
+			"label": {
+				"eng": "Mapping Definition:"
+			}
+		},
+		"ADDMAPPING": {
+			"label": {
+				"eng": "+"
+			}
+		}
+	},
+	"third_box": {
+			"mappingdefinitions": {
+		"label": {
+					"eng": "Mapping Definitions"
+				}
+			},
+		"overwritescalar": {
+			"overwritescalartitle": {
+				"label": {
+					"eng": "Overwrite Scalar"
+					}
+				},
+			"XYZ": {
+				"Pos_X": {
+					"label": {
+						"eng": "X"
+					}
+				},
+				"Pos_Y": {
+					"label": {
+						"eng": "Y"
+					}
+				},
+				"Pos_Z": {
+					"label": {
+						"eng": "Z"
+					}
+				}
+			}
+		},
+		"PSPMULTIPLER": {
+		"label": {
+			"eng": "PSP Multiplier Plasticity"
+				}
+		}
+	}
+}

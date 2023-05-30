@@ -1,0 +1,61 @@
+{
+	"ID": "CREATE_CORTICAL",
+	"HpositionX": 100,
+	"HpositionY": 400,
+	"components": [
+		{
+			"type": "header",
+			"ID": "NewCorticalSection"
+		},
+		{
+			"ID": "CORTICALAREA",
+			"type": "dropdown"
+		},
+		{
+			"type": "field",
+			"ID": "CORTICALNAME"
+		},
+		{
+			"type": "unit",
+			"ID": "WHD",
+			"components": [
+				{
+					"type": "counter",
+					"ID": "W"
+				},
+				{
+					"type": "counter",
+					"ID": "H"
+				},
+				{
+					"type": "counter",
+					"ID": "D"
+				}
+			],
+			"isVertical": false
+		},
+		{
+			"type": "unit",
+			"ID": "XYZ",
+			"components": [
+				{
+					"type": "counter",
+					"ID": "Pos_X"
+				},
+				{
+					"type": "counter",
+					"ID": "Pos_Y"
+				},
+				{
+					"type": "counter",
+					"ID": "Pos_Z"
+				}
+			],
+			"isVertical": false
+		},
+		{
+			"type": "button",
+			"ID": "UpdateButton"
+		}
+	]
+}

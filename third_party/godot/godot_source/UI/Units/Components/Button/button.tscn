@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://UI/Units/Common_SubComponents/Button_SubComponent.gd" id="2_mxpis"]
 
 [node name="button" type="Panel"]
+mouse_filter = 1
 script = ExtResource("1_2vw3k")
 
 [node name="button" type="Button" parent="."]

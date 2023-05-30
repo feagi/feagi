@@ -5,10 +5,39 @@ class_name Core
 ####### Configuration & Setup ######
 ####################################
 var FEAGI_RootAddress = ""
+
+# Get Requests
+var SEC = "HTTP://"
+
 @export var languageISO := "eng" #TODO proxy changes to UI manager
 
 func _ready():
-	FEAGI_RootAddress = str(network_setting.api_ip_address) + ":"+ str(network_setting.api_port_address)
+	var http_type = JavaScriptBridge.eval(""" 
+		function get_port() {
+			var url_string = window.location.href;
+			var url = new URL(url_string);
+			const searchParams = new URLSearchParams(url.search);
+			const ipAddress = searchParams.get("http_type");
+			return ipAddress;
+		}
+		get_port();
+		""")
+	if http_type != null:
+		SEC = http_type
+	var port_disabled = JavaScriptBridge.eval(""" 
+		function get_port() {
+			var url_string = window.location.href;
+			var url = new URL(url_string);
+			const searchParams = new URLSearchParams(url.search);
+			const ipAddress = searchParams.get("port_disabled");
+			return ipAddress;
+		}
+		get_port();
+		""")
+	if port_disabled == "true":
+		FEAGI_RootAddress = str(network_setting.api_ip_address)
+	else:
+		FEAGI_RootAddress = str(network_setting.api_ip_address) + ":"+ str(network_setting.api_port_address)
 	print("CORE FEAGI ROOTADDRESS: ", FEAGI_RootAddress)
 	# # # Build the bridge # # # 
 	Autoload_variable.Core_BV = $GlobalUISystem/Brain_Visualizer
@@ -71,10 +100,10 @@ func Update_Efferent_information(input): Call_GET(ADD_GET_Efferent+input, _Relay
 func Get_Morphology_information(input): Call_GET(ADD_GET_Morphology_information+input, _Relay_Morphology_information)
 func Update_destination(input): Call_GET(ADD_GET_update_destination+input, _Relay_Update_Destination)
 func Get_circuit_list(): Call_GET(ADD_GET_circuit_list, _Relay_circuit_list)
-func Get_mem_data(name: String): Call_GET(ADD_GET_mem+name, _Relay_Update_mem)
-func Get_syn_data(name: String): Call_GET(ADD_GET_syn+name, _Relay_Update_syn)
-func GET_OPU(name: String): Call_GET(ADD_OPU+name, _Relay_update_OPU)
-func GET_IPU(name: String): Call_GET(ADD_IPU+name, _Relay_update_IPU)
+func Get_mem_data(input_name: String): Call_GET(ADD_GET_mem+input_name, _Relay_Update_mem)
+func Get_syn_data(input_name: String): Call_GET(ADD_GET_syn+input_name, _Relay_Update_syn)
+func GET_OPU(input_name: String): Call_GET(ADD_OPU+input_name, _Relay_update_OPU)
+func GET_IPU(input_name: String): Call_GET(ADD_IPU+input_name, _Relay_update_IPU)
 func Update_BurstRate(newBurstRate: float):
 	Call_POST(ADD_POST_BurstEngine, _Relay_ChangedBurstRate, {"burst_duration": newBurstRate})
 
@@ -295,8 +324,6 @@ var NetworkAPI : SimpleNetworkAPI
 var UIManager : UI_Manager
 var FeagiCache: FeagiCache
 
-# Get Requests
-const SEC = "HTTP://"
 
 var ADD_GET_IPUList:
 	get: return SEC + FEAGI_RootAddress + "/v1/feagi/feagi/pns/current/ipu"
