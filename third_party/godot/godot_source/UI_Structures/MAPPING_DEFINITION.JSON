@@ -1,0 +1,87 @@
+{
+	"ID": "MAPPING_DEFINITION",
+	"HpositionX": 400,
+	"HpositionY": 400,
+	"components": [
+		{
+			"type": "unit",
+			"ID": "testlabel",
+			"components": [
+				{
+					"ID": "SOURCECORTICALAREA",
+					"type": "dropdown"
+				},
+				{
+					"ID": "DESTINATIONCORTICALAREA",
+					"type": "dropdown"
+				},
+				{
+					"type": "button",
+					"ID": "ADDMAPPING"
+				}
+			],
+			"isVertical": true
+		},
+		{
+			"ID": "SOURCECORTICALAREA",
+			"type": "dropdown"
+		},
+		{
+			"ID": "DESTINATIONCORTICALAREA",
+			"type": "dropdown"
+		},
+		{
+			"type": "button",
+			"ID": "ADDMAPPING"
+		},
+		{
+			"type": "unit",
+			"ID": "third_box",
+			"components": [
+				{
+					"type": "header",
+					"ID": "MAPPINGDEFINITION"
+				},
+				{
+					"type": "dropdown",
+					"ID": "mappingdefinitions"
+				},
+				{
+					"type": "unit",
+					"ID": "overwritescalar",
+					"components": [
+						{
+							"type": "header",
+							"ID": "bwuk"
+						},
+						{
+							"type": "unit",
+							"ID": "XYZ",
+							"components": [
+								{
+									"type": "counter",
+									"ID": "Pos_X"
+								},
+								{
+									"type": "counter",
+									"ID": "Pos_Y"
+								},
+								{
+									"type": "counter",
+									"ID": "Pos_Z"
+								}
+							],
+							"isVertical": false
+						}
+					],
+					"isVertical": true
+				},
+				{
+					"type": "toggle",
+					"ID": "PSPMULTIPLER"
+				}
+			],
+			"isVertical": false
+		}
+	]
+}

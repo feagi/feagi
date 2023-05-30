@@ -61,7 +61,7 @@ func _ready():
 	await get_tree().create_timer(1.5).timeout
 	SEC = 'HTTP://' + network_setting.api_ip_address
 	set_physics_process(false)
-	add_3D_indicator()
+#	add_3D_indicator()
 	Autoload_variable.BV_Core.Update_Dimensions() # Grab genome list
 	Autoload_variable.BV_Core.Update_Morphology_type()
 	while true:
@@ -404,8 +404,8 @@ func add_3D_indicator():
 	create_textbox_axis.set_texture(viewport.get_texture())
 	create_textbox_axis.set_name("x_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
-	create_textbox_axis.scale = Vector3(1, 1, 1)
-	generate_textbox(create_textbox_axis, 10,0,0,"x", 1, 0, 0)
+	create_textbox_axis.scale = Vector3(3, 3, 3)
+	generate_textbox(create_textbox_axis, 18,0,0,"x", 0, 0, 0)
 	for j in 6:
 		$GridMap3.set_cell_item( Vector3(0,j,0) ,0)
 	create_textbox_axis = create_textbox_axis.duplicate() #generate a new node to re-use the model
@@ -423,7 +423,7 @@ func add_3D_indicator():
 	create_textbox_axis.set_name("z_textbox")
 	add_child(create_textbox_axis)#Copied the node to new node
 	create_textbox_axis.scale = Vector3(1, 1, 1)
-	generate_textbox(create_textbox_axis, 4,0,-6,"z", 1, 0, 0)
+	generate_textbox(create_textbox_axis, 0,0,-6,"z", 1, 0, 0)
 	$GridMap.clear()
 
 func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
@@ -553,40 +553,62 @@ func _on_download_pressed():
 	Godot_list.genome_data["genome"] = {}
 	previous_genome_data = {}
 
-func _on_add_pressed():
+func _on_add_pressed(node=[]):
 	var json_data = {}
 	var flag_boolean = false
-	if $".."/".."/".."/Menu/addition_menu/OptionButton.selected == 1 or $".."/".."/".."/Menu/addition_menu/OptionButton.selected == 2:
-		json_data["cortical_type"] = $".."/".."/".."/Menu/addition_menu/OptionButton.get_item_text($".."/".."/".."/Menu/addition_menu/OptionButton.selected)
-		json_data["cortical_name"] = $".."/".."/".."/Menu/addition_menu/cortical_name_label/type.get_item_text($".."/".."/".."/Menu/addition_menu/cortical_name_label/type.selected)
-		json_data["cortical_coordinates"] = []
-		json_data["cortical_coordinates"].append($".."/".."/".."/Menu/addition_menu/xyz/X_SpinBox.value)
-		json_data["cortical_coordinates"].append($".."/".."/".."/Menu/addition_menu/xyz/Y_Spinbox.value)
-		json_data["cortical_coordinates"].append($".."/".."/".."/Menu/addition_menu/xyz/Z_Spinbox.value)
-		json_data["channel_count"] = $".."/".."/".."/Menu/addition_menu/count/count_spinbox.value
-		Autoload_variable.BV_Core.Update_cortical_area(json_data)
-	if $".."/".."/".."/Menu/addition_menu/OptionButton.selected == 3:
-		if $".."/".."/".."/Menu/addition_menu/cortical_name_textbox/type.text != "" and $".."/".."/".."/Menu/addition_menu/cortical_name_textbox/type.text != " ":
-			json_data["cortical_type"] = "CUSTOM"
-			json_data["cortical_name"] = $".."/".."/".."/Menu/addition_menu/cortical_name_textbox/type.text
+	if node == []:
+		if $".."/".."/".."/Menu/addition_menu/OptionButton.selected == 1 or $".."/".."/".."/Menu/addition_menu/OptionButton.selected == 2:
+			json_data["cortical_type"] = $".."/".."/".."/Menu/addition_menu/OptionButton.get_item_text($".."/".."/".."/Menu/addition_menu/OptionButton.selected)
+			json_data["cortical_name"] = $".."/".."/".."/Menu/addition_menu/cortical_name_label/type.get_item_text($".."/".."/".."/Menu/addition_menu/cortical_name_label/type.selected)
 			json_data["cortical_coordinates"] = []
-			json_data["cortical_dimensions"] = []
 			json_data["cortical_coordinates"].append($".."/".."/".."/Menu/addition_menu/xyz/X_SpinBox.value)
 			json_data["cortical_coordinates"].append($".."/".."/".."/Menu/addition_menu/xyz/Y_Spinbox.value)
 			json_data["cortical_coordinates"].append($".."/".."/".."/Menu/addition_menu/xyz/Z_Spinbox.value)
-			json_data["cortical_dimensions"].append($".."/".."/".."/Menu/addition_menu/wdh/W_Spinbox.value)
-			json_data["cortical_dimensions"].append($".."/".."/".."/Menu/addition_menu/wdh/H_Spinbox.value)
-			json_data["cortical_dimensions"].append($".."/".."/".."/Menu/addition_menu/wdh/D_Spinbox.value)
-			json_data["channel_count"] = $".."/".."/".."/Menu/custom_cortical/count_spinbox.value
+			json_data["channel_count"] = $".."/".."/".."/Menu/addition_menu/count/count_spinbox.value
+			Autoload_variable.BV_Core.Update_cortical_area(json_data)
+		if $".."/".."/".."/Menu/addition_menu/OptionButton.selected == 3:
+			if $".."/".."/".."/Menu/addition_menu/cortical_name_textbox/type.text != "" and $".."/".."/".."/Menu/addition_menu/cortical_name_textbox/type.text != " ":
+				json_data["cortical_type"] = "CUSTOM"
+				json_data["cortical_name"] = $".."/".."/".."/Menu/addition_menu/cortical_name_textbox/type.text
+				json_data["cortical_coordinates"] = []
+				json_data["cortical_dimensions"] = []
+				json_data["cortical_coordinates"].append($".."/".."/".."/Menu/addition_menu/xyz/X_SpinBox.value)
+				json_data["cortical_coordinates"].append($".."/".."/".."/Menu/addition_menu/xyz/Y_Spinbox.value)
+				json_data["cortical_coordinates"].append($".."/".."/".."/Menu/addition_menu/xyz/Z_Spinbox.value)
+				json_data["cortical_dimensions"].append($".."/".."/".."/Menu/addition_menu/wdh/W_Spinbox.value)
+				json_data["cortical_dimensions"].append($".."/".."/".."/Menu/addition_menu/wdh/H_Spinbox.value)
+				json_data["cortical_dimensions"].append($".."/".."/".."/Menu/addition_menu/wdh/D_Spinbox.value)
+				json_data["channel_count"] = $".."/".."/".."/Menu/custom_cortical/count_spinbox.value
+				generate_single_cortical(json_data["cortical_coordinates"][0], json_data["cortical_coordinates"][1], json_data["cortical_coordinates"][2], json_data["cortical_dimensions"][0], json_data["cortical_dimensions"][1], json_data["cortical_dimensions"][2], json_data["cortical_name"])
+				Autoload_variable.BV_Core.Update_custom_cortical_area(json_data)
+				$".."/".."/".."/Menu/addition_menu/add.release_focus()
+				$Node3D/Camera3D.transform.origin=Vector3(json_data["cortical_coordinates"][0]-20,json_data["cortical_coordinates"][1],json_data["cortical_coordinates"][2]+20)
+			else:
+				flag_boolean = true
+		if flag_boolean != true:
+			$".."/".."/".."/Menu/addition_menu.visible = false
+			$".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.load_options()
+	else:
+		print("node: ", node[7])
+		if node[7].selected == 3:
+#			if $".."/".."/".."/Menu/addition_menu/cortical_name_textbox/type.text != "" and $".."/".."/".."/Menu/addition_menu/cortical_name_textbox/type.text != " ":
+			json_data["cortical_type"] = "CUSTOM"
+			json_data["cortical_name"] = node[6].text
+			json_data["cortical_coordinates"] = []
+			json_data["cortical_dimensions"] = []
+			json_data["cortical_coordinates"].append(node[3].value)
+			json_data["cortical_coordinates"].append(node[4].value)
+			json_data["cortical_coordinates"].append(node[5].value)
+			json_data["cortical_dimensions"].append(node[0].value)
+			json_data["cortical_dimensions"].append(node[1].value)
+			json_data["cortical_dimensions"].append(node[2].value)
 			generate_single_cortical(json_data["cortical_coordinates"][0], json_data["cortical_coordinates"][1], json_data["cortical_coordinates"][2], json_data["cortical_dimensions"][0], json_data["cortical_dimensions"][1], json_data["cortical_dimensions"][2], json_data["cortical_name"])
 			Autoload_variable.BV_Core.Update_custom_cortical_area(json_data)
-			$".."/".."/".."/Menu/addition_menu/add.release_focus()
+			node[8].release_focus()
 			$Node3D/Camera3D.transform.origin=Vector3(json_data["cortical_coordinates"][0]-20,json_data["cortical_coordinates"][1],json_data["cortical_coordinates"][2]+20)
+			print("SENT")
 		else:
 			flag_boolean = true
-	if flag_boolean != true:
-		$".."/".."/".."/Menu/addition_menu.visible = false
-		$".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.load_options()
 	$".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.load_options()
 
 func _on_remove_pressed():
@@ -1188,7 +1210,6 @@ func _on_circuit_request_request_completed(_result, _response_code, _headers, bo
 	$notification.generate_notification_message(api_data, _response_code, "_on_circuit_request_request_completed", "/v1/feagi/genome/circuits")
 
 func _on_import_pressed():
-	var combine_url = 'HTTP://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/circuits'
 	Autoload_variable.BV_Core.Get_circuit_list()
 
 func _on_ItemList_item_selected(index):
@@ -1331,7 +1352,6 @@ func _on_morphology_name_focus_exited():
 				name_morphology = name_morphology.replace("]", "%5D")
 			if ", " in name_morphology:
 				name_morphology = name_morphology.replace(", ", "%2C%20")
-			var combine_url = 'HTTP://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology?morphology_name=' + name_morphology
 			Autoload_variable.BV_Core.Get_Morphology_information(name_morphology)
 
 func _on_get_morphology_request_completed(_result, _response_code, _headers, body):
@@ -1542,28 +1562,46 @@ func _on_menu_itemlist_item_selected(index):
 func _on_grab_location_of_cortical_request_completed(result, response_code, headers, body):
 	$Node3D/Camera3D._on_grab_location_of_cortical_request_completed(result, response_code, headers, body)
 
-func _on_X_SpinBox_value_changed(_value):
-	generate_single_cortical($".."/".."/".."/Menu/addition_menu/xyz/X_SpinBox.value, $".."/".."/".."/Menu/addition_menu/xyz/Y_Spinbox.value, $".."/".."/".."/Menu/addition_menu/xyz/Z_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/W_Spinbox.value,$".."/".."/".."/Menu/addition_menu/wdh/H_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+func _on_X_SpinBox_value_changed(_value, node=[]):
+	if node:
+		generate_single_cortical(node[3].value, node[4].value, node[5].value, node[0].value, node[1].value, node[2].value, "example")
+	else:
+		generate_single_cortical($".."/".."/".."/Menu/addition_menu/xyz/X_SpinBox.value, $".."/".."/".."/Menu/addition_menu/xyz/Y_Spinbox.value, $".."/".."/".."/Menu/addition_menu/xyz/Z_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/W_Spinbox.value,$".."/".."/".."/Menu/addition_menu/wdh/H_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/D_Spinbox.value, "example")
 	demo_new_cortical()
 
-func _on_W_Spinbox_value_changed(_value):
-	generate_single_cortical($".."/".."/".."/Menu/addition_menu/xyz/X_SpinBox.value, $".."/".."/".."/Menu/addition_menu/xyz/Y_Spinbox.value, $".."/".."/".."/Menu/addition_menu/xyz/Z_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/W_Spinbox.value,$".."/".."/".."/Menu/addition_menu/wdh/H_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+func _on_W_Spinbox_value_changed(_value, node=[]):
+	if node:
+		generate_single_cortical(node[3].value, node[4].value, node[5].value, node[0].value, node[1].value, node[2].value, "example")
+	else:
+		generate_single_cortical($".."/".."/".."/Menu/addition_menu/xyz/X_SpinBox.value, $".."/".."/".."/Menu/addition_menu/xyz/Y_Spinbox.value, $".."/".."/".."/Menu/addition_menu/xyz/Z_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/W_Spinbox.value,$".."/".."/".."/Menu/addition_menu/wdh/H_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/D_Spinbox.value, "example")
 	demo_new_cortical()
 
-func _on_H_Spinbox_value_changed(_value):
-	generate_single_cortical($".."/".."/".."/Menu/addition_menu/xyz/X_SpinBox.value, $".."/".."/".."/Menu/addition_menu/xyz/Y_Spinbox.value, $".."/".."/".."/Menu/addition_menu/xyz/Z_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/W_Spinbox.value,$".."/".."/".."/Menu/addition_menu/wdh/H_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+func _on_H_Spinbox_value_changed(_value, node=[]):
+	if node:
+		generate_single_cortical(node[3].value, node[4].value, node[5].value, node[0].value, node[1].value, node[2].value, "example")
+	else:
+		generate_single_cortical($".."/".."/".."/Menu/addition_menu/xyz/X_SpinBox.value, $".."/".."/".."/Menu/addition_menu/xyz/Y_Spinbox.value, $".."/".."/".."/Menu/addition_menu/xyz/Z_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/W_Spinbox.value,$".."/".."/".."/Menu/addition_menu/wdh/H_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/D_Spinbox.value, "example")
 	demo_new_cortical()
 
-func _on_D_Spinbox_value_changed(_value):
-	generate_single_cortical($".."/".."/".."/Menu/addition_menu/xyz/X_SpinBox.value, $".."/".."/".."/Menu/addition_menu/xyz/Y_Spinbox.value, $".."/".."/".."/Menu/addition_menu/xyz/Z_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/W_Spinbox.value,$".."/".."/".."/Menu/addition_menu/wdh/H_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+func _on_D_Spinbox_value_changed(_value, node=[]):
+	if node:
+		generate_single_cortical(node[3].value, node[4].value, node[5].value, node[0].value, node[1].value, node[2].value, "example")
+	else:
+		generate_single_cortical($".."/".."/".."/Menu/addition_menu/xyz/X_SpinBox.value, $".."/".."/".."/Menu/addition_menu/xyz/Y_Spinbox.value, $".."/".."/".."/Menu/addition_menu/xyz/Z_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/W_Spinbox.value,$".."/".."/".."/Menu/addition_menu/wdh/H_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/D_Spinbox.value, "example")
 	demo_new_cortical()
 
-func _on_Y_Spinbox_value_changed(_value):
-	generate_single_cortical($".."/".."/".."/Menu/addition_menu/xyz/X_SpinBox.value, $".."/".."/".."/Menu/addition_menu/xyz/Y_Spinbox.value, $".."/".."/".."/Menu/addition_menu/xyz/Z_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/W_Spinbox.value,$".."/".."/".."/Menu/addition_menu/wdh/H_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+func _on_Y_Spinbox_value_changed(_value, node=[]):
+	if node:
+		generate_single_cortical(node[3].value, node[4].value, node[5].value, node[0].value, node[1].value, node[2].value, "example")
+	else:
+		generate_single_cortical($".."/".."/".."/Menu/addition_menu/xyz/X_SpinBox.value, $".."/".."/".."/Menu/addition_menu/xyz/Y_Spinbox.value, $".."/".."/".."/Menu/addition_menu/xyz/Z_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/W_Spinbox.value,$".."/".."/".."/Menu/addition_menu/wdh/H_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/D_Spinbox.value, "example")
 	demo_new_cortical()
 
-func _on_Z_Spinbox_value_changed(_value):
-	generate_single_cortical($".."/".."/".."/Menu/addition_menu/xyz/X_SpinBox.value, $".."/".."/".."/Menu/addition_menu/xyz/Y_Spinbox.value, $".."/".."/".."/Menu/addition_menu/xyz/Z_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/W_Spinbox.value,$".."/".."/".."/Menu/addition_menu/wdh/H_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/D_Spinbox.value, "example")
+func _on_Z_Spinbox_value_changed(_value, node=[]):
+	if node:
+		generate_single_cortical(node[3].value, node[4].value, node[5].value, node[0].value, node[1].value, node[2].value, "example")
+	else:
+		generate_single_cortical($".."/".."/".."/Menu/addition_menu/xyz/X_SpinBox.value, $".."/".."/".."/Menu/addition_menu/xyz/Y_Spinbox.value, $".."/".."/".."/Menu/addition_menu/xyz/Z_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/W_Spinbox.value,$".."/".."/".."/Menu/addition_menu/wdh/H_Spinbox.value, $".."/".."/".."/Menu/addition_menu/wdh/D_Spinbox.value, "example")
 	demo_new_cortical()
 
 func demo_new_cortical():

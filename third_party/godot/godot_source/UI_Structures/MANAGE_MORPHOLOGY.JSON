@@ -1,0 +1,56 @@
+{
+	"ID": "MANAGE_NEURON_MORPHOLOGY",
+	"position": [
+		400,
+		700
+	],
+	"components": [
+		{
+			"type": "header",
+			"ID": "MANAGENEURONMORPHOLOGY"
+		},
+		{
+			"ID": "MORPHOLOGYNAME",
+			"type": "dropdown"
+		},
+		{
+			"ID": "MORPHOLOGYTYPE",
+			"type": "dropdown"
+		},
+		{
+			"type": "header",
+			"ID": "MorphologyDefinition"
+		},
+		{
+			"type": "unit",
+			"ID": "XYZ",
+			"components": [
+				{
+					"type": "counter",
+					"ID": "Pos_X"
+				},
+				{
+					"type": "counter",
+					"ID": "Pos_Y"
+				},
+				{
+					"type": "counter",
+					"ID": "Pos_Z"
+				}
+			],
+			"isVertical": false
+		},
+		{
+			"type": "field",
+			"ID": "blank"
+		},
+		{
+			"type": "button",
+			"ID": "SAVE"
+		},
+		{
+			"type": "button",
+			"ID": "DELETE"
+		}
+	]
+}
