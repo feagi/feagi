@@ -77,7 +77,7 @@ func _Activation(settings: Dictionary):
 	# Fill in Label and Dropdown Inits
 	label = HelperFuncs.GetIfCan(settings, "label", DEF_LABEL)
 	options = HelperFuncs.GetIfCan(settings, "options", DEF_OPTIONS)
-	scaleWithLargestOption = HelperFuncs.GetIfCan(settings, "options", DEF_SCALEWITHLARGESTOPTION)
+	scaleWithLargestOption = HelperFuncs.GetIfCan(settings, "scaleWithLargestOption", DEF_SCALEWITHLARGESTOPTION)
 	
 	# Connect
 	_DropDown.item_selected.connect(OptionSelected)
