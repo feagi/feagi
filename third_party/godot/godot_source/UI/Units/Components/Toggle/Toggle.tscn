@@ -9,6 +9,7 @@
 custom_minimum_size = Vector2(10, 10)
 offset_right = 216.0
 offset_bottom = 45.0
+mouse_filter = 1
 script = ExtResource("1_xliq2")
 
 [node name="Label" type="Label" parent="."]
