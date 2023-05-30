@@ -95,7 +95,7 @@ func CreateMorphologyInput(data: Dictionary, _compRef: Node, _unitRef: Node):
 		if data["selected"] == "Patterns":
 			composite.visibility = 2; patterns.visibility = 0; vectors.visibility = 2
 		if data["selected"] == "Vectors":
-			composite.visibility = 2; patterns.visibility = 2; vectors.visibility = 0
+			composite.visibility = 0; patterns.visibility = 2; vectors.visibility = 2
 ######### Side Bar Control #########
 
 func LeftBarInput(data: Dictionary, _compRef, _unitRef):

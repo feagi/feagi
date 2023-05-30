@@ -88,11 +88,13 @@ var visibility: int:
 	get: return _visibility
 	set(v): 
 		_UpdateVisibility(v)
-		#UpdateSizeData()
+		UpdateSizeData()
 var dataAvailable: bool:
 	get: return true #TODO This assumption is usally true, but we need a better system
 var data: Dictionary:
 	get: return {ID: _GetComponentsData()}
+var componentType: String: # for compatibility
+	get: return "unit"
 
 signal DataUp(customData: Dictionary, compRef, unitRef)
 signal SizeChanged(selfRef)
@@ -446,6 +448,11 @@ func _GrowChildren_Vertically(newHeight: float) -> void:
 func _UpdateVisibility(newVisibility: int) -> void:
 	
 	visible = (newVisibility == 0)
+	
+	var children = get_children()
+	for child in children:
+		if child.componentType != "unit": return
+		child.visibility = newVisibility
 
 	if _visibility == 2 or newVisibility == 2: SizeChanged.emit(self)
 	_visibility = newVisibility
