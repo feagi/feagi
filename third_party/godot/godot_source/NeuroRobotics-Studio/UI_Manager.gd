@@ -76,6 +76,7 @@ func TopBarInput(data: Dictionary, _compRef, _unitRef):
 			# Initialize popUpBar
 			if not UI_createcorticalBar:
 				SpawnCorticalCrete()
+#				print(UI_createcorticalBar.componentData)
 			else:
 				UI_createcorticalBar.queue_free()
 		#	UI_createcorticalBar.DataUp.connect(LeftBarInput)
@@ -109,7 +110,7 @@ func TopBarInput(data: Dictionary, _compRef, _unitRef):
 
 ######### Side Bar Control #########
 
-func LeftBarInput(data: Dictionary, _compRef, _unitRef):
+func LeftBarInput(_data: Dictionary, _compRef, _unitRef):
 #	print(JSON.stringify(data)) # useful for debugging
 	pass
 
@@ -199,7 +200,7 @@ func SpawnCorticalCrete():
 	UI_createcorticalBar.Activate(createcorticalBar)
 	UI_createcorticalBar.DataUp.connect(LeftBarInput)
 	print("HERE: ", UI_createcorticalBar.get_children()) # this is all I need
-	var optionbutton = UI_createcorticalBar.get_child(1).get_child(0)
+#	var optionbutton = UI_createcorticalBar.get_child(1).get_child(0)
 	var str_array = []
 	for i in $".."/".."/Menu/addition_menu/OptionButton.item_count:
 		str_array.append($".."/".."/Menu/addition_menu/OptionButton.get_item_text(i))

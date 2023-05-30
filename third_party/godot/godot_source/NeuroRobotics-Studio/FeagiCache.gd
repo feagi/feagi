@@ -52,7 +52,6 @@ var _genome_corticalAreaNameList: Array
 
 var _connectome_properties_mappings: Dictionary
 
-var _burst_engine: float
 
 
 ###### Other Internal Values #######

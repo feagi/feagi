@@ -173,7 +173,7 @@ static func LoadMostDefaultv3_Color(dict: Dictionary, keyName: String, defaultVa
 	return output
 
 static func V3IToColor(input: Vector3i) -> Color:
-	var output: Color
+	var output = Color(0,0,0)
 	output.r8 = input.x
 	output.g8 = input.y
 	output.b8 = input.z
@@ -181,7 +181,7 @@ static func V3IToColor(input: Vector3i) -> Color:
 	return output
 
 static func ColorToV3I(input: Color) -> Vector3i:
-	var output: Vector3i
+	var output = Vector3i(0,0,0)
 	output.x = input.r8
 	output.y = input.g8
 	output.z = input.b8

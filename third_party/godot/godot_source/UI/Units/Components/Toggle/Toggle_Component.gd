@@ -75,5 +75,5 @@ func _GetData():
 	return value
 
 # UNFINISHED
-func _SetData(data: Dictionary):
+func _SetData(_data: Dictionary):
 	pass
