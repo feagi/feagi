@@ -1826,14 +1826,14 @@ async def agent_registration(request: Request, agent_type: str, agent_id: str, a
         runtime_data.agent_registry[agent_id]["agent_type"] = agent_type
         runtime_data.agent_registry[agent_id]["agent_ip"] = agent_ip
         runtime_data.agent_registry[agent_id]["agent_data_port"] = agent_data_port
-        print(f"AGENT Details -- {agent_id} -- {agent_ip} -- {agent_type} -- {agent_data_port}")
-        print(f"Client IP ------------------------- {agent_ip}")
-        runtime_data.agent_registry[agent_id]["agent_ip"] = agent_ip
+        print(f"AGENT Details -- {agent_id} -- {request.client.host} -- {agent_type} -- {agent_data_port}")
+        print(f"Client IP ------------------------- {request.client.host}")
+        runtime_data.agent_registry[agent_id]["agent_ip"] = request.client.host
 
         # Create the needed ZMQ listener for new agent
         if agent_type == 'monitor':
             # FEAGI will connect to remote ZMQ for messages
-            agent_router_address = "tcp://" + agent_ip + ':' + str(agent_data_port)
+            agent_router_address = "tcp://" + request.client.host + ':' + str(agent_data_port)
             runtime_data.agent_registry[agent_id]["agent_router_address"] = agent_router_address
             runtime_data.agent_registry[agent_id]["listener"] = Sub(address=agent_router_address)
         else:
