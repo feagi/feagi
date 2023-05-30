@@ -119,7 +119,7 @@ func Activate(activationDict : Dictionary):
 	_componentsDicts = HelperFuncs.MustGet(activationDict, "components")
 
 	_componentsSpawnPoint = HelperFuncs.GetIfCan(activationDict, "componentSpawnPoint", DEF_SPAWNPOINT)
-	Hposition = HelperFuncs.GetIfCan(activationDict, "Hposition", DEF_HPOSITION) #TODO some units cannot set their own pos
+	Hposition = HelperFuncs.LoadMostDefaultV2(activationDict, "Hposition", DEF_HPOSITION) #TODO some units cannot set their own pos
 	_padding = HelperFuncs.LoadMostDefaultV2(activationDict, "padding", DEF_PADDING)
 	_isHorizontal = !HelperFuncs.GetIfCan(activationDict, "isVertical", DEF_ISVERTICAL)
 	_isSubUnit = HelperFuncs.GetIfCan(activationDict, "isSubUnit", DEF_ISSUBUNIT)
