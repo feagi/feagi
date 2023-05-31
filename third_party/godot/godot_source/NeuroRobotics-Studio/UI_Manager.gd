@@ -247,7 +247,7 @@ func SpawnLeftBar():
 	UI_LeftBar.Activate(LeftBarDict)
 	UI_LeftBar.DataUp.connect(LeftBarInput)
 	var close = UI_LeftBar.get_child(0).get_child(1).get_child(0)
-	close.connect("pressed", Callable(self,"close").bind(UI_LeftBar))
+	close.connect("pressed", Callable(self,"close_button").bind(UI_LeftBar))
 
 
 func SpawnCreateMophology():
@@ -260,7 +260,7 @@ func SpawnCreateMophology():
 	UI_CreateMorphology.Activate(CMDict)
 	UI_CreateMorphology.DataUp.connect(CreateMorphologyInput)
 	var close = UI_CreateMorphology.get_child(0).get_child(1).get_child(0)
-	close.connect("pressed", Callable(self,"close").bind(UI_CreateMorphology))
+	close.connect("pressed", Callable(self,"close_button").bind(UI_CreateMorphology))
 	
 	
 func SpawnCorticalCrete():
@@ -289,7 +289,7 @@ func SpawnCorticalCrete():
 	var x = xyz.get_child(0).get_child(1)
 	var y = xyz.get_child(1).get_child(1)
 	var z = xyz.get_child(2).get_child(1)
-	close.connect("pressed", Callable(self,"close").bind(UI_createcorticalBar))
+	close.connect("pressed", Callable(self,"close_button").bind(UI_createcorticalBar))
 	w.connect("value_changed",Callable($Brain_Visualizer,"_on_W_Spinbox_value_changed").bind([w,h,d,x,y,z]))
 	h.connect("value_changed",Callable($Brain_Visualizer,"_on_H_Spinbox_value_changed").bind([w,h,d,x,y,z]))
 	d.connect("value_changed",Callable($Brain_Visualizer,"_on_D_Spinbox_value_changed").bind([w,h,d,x,y,z]))
@@ -306,7 +306,7 @@ func SpawnCorticalCrete():
 #	UI_CreateNeuronMorphology.Activate(createmurphology)
 #	UI_CreateNeuronMorphology.DataUp.connect(LeftBarInput)
 
-func close(node):
+func close_button(node):
 	node.queue_free()
 
 func SpawnNeuronManager():
