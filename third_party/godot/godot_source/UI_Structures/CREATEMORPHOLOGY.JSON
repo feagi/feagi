@@ -5,6 +5,8 @@
    "enableCloseButton":true,
    "isVertical":true,
    "widthAlignment":1,
+	"HpositionX": 400,
+	"HpositionY": 200,
    "components":[
 	  {
 		 "type":"field",

@@ -6,7 +6,7 @@ func ready():
 
 func change_scene():
 	var BV = $Core/GlobalUISystem/Brain_Visualizer
-	var CB = $Core/GlobalUISystem
+	var CB = $Core/GlobalUISystem/graphCore
 	$scene_transition/AnimationPlayer.play("dissolve")
 	await $scene_transition/AnimationPlayer.animation_finished
 	if BV.visible:

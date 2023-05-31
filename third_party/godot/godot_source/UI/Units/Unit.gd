@@ -283,8 +283,8 @@ func UpdateSizeData(forceUpdate: bool = false) -> void:
 	SizeChanged.emit(self)
 
 # Control the visibility of a component, cascades size changes as needed
-func ControlComponentVisibility(ComponentID: String, visibility: int) -> void:
-	_GetComponentReferencesByID()[ComponentID].visibility = visibility
+func ControlComponentVisibility(ComponentID: String, visibility_input: int) -> void:
+	_GetComponentReferencesByID()[ComponentID].visibility = visibility_input
 
 # Call deffered on activation to init all sizes in the correct order
 # This is not particuarly efficient. Too Bad!
