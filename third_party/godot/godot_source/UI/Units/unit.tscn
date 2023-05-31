@@ -8,5 +8,4 @@ offset_left = 18.0
 offset_top = 13.0
 offset_right = 43.0
 offset_bottom = 36.0
-mouse_filter = 1
 script = ExtResource("1_x3cxr")

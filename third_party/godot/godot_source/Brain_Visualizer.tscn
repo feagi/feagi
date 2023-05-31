@@ -429,7 +429,6 @@ scroll_offset = Vector2(-673, -361)
 [node name="Brain_Visualizer" parent="Core/GlobalUISystem" instance=ExtResource("34_jfnov")]
 
 [node name="Menu" type="Control" parent="."]
-visible = false
 layout_mode = 3
 anchor_right = 0.062
 anchor_bottom = 0.373
@@ -439,6 +438,7 @@ mouse_filter = 1
 script = ExtResource("4_ci773")
 
 [node name="information_menu" type="ColorRect" parent="Menu"]
+visible = false
 layout_mode = 1
 anchors_preset = -1
 anchor_left = 0.246154
@@ -1508,6 +1508,7 @@ expand_icon = true
 metadata/_edit_use_anchors_ = true
 
 [node name="add" type="Button" parent="Menu"]
+visible = false
 layout_mode = 1
 anchors_preset = -1
 anchor_left = 6.68426
@@ -3438,6 +3439,7 @@ offset_bottom = 369.0
 text = "Update"
 
 [node name="import" type="Button" parent="Menu"]
+visible = false
 layout_mode = 1
 anchors_preset = -1
 anchor_left = 3.11
@@ -3688,6 +3690,7 @@ icon = ExtResource("26_85oh3")
 expand_icon = true
 
 [node name="brown_bar" type="ColorRect" parent="Menu"]
+visible = false
 layout_mode = 1
 anchors_preset = -1
 anchor_left = 3.34213
@@ -3699,6 +3702,7 @@ color = Color(0.294118, 0.262745, 0.262745, 1)
 metadata/_edit_use_anchors_ = true
 
 [node name="brown_bar2" type="ColorRect" parent="Menu"]
+visible = false
 layout_mode = 1
 anchors_preset = -1
 anchor_left = 6.3
