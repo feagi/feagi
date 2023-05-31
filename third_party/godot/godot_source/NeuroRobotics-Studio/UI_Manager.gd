@@ -47,8 +47,8 @@ func Activate(langISO: String):
 	
 	
 	# Initialize GraphCore
-	UI_GraphCore = $graphCore #TODO: this is very temporary
-	UI_GraphCore.DataUp.connect(GraphEditInput)
+#	UI_GraphCore = $graphCore #TODO: this is very temporary
+#	UI_GraphCore.DataUp.connect(GraphEditInput)
 	
 	# Connect window size change function
 	get_tree().get_root().size_changed.connect(WindowSizedChanged)
@@ -182,7 +182,7 @@ func GraphEditInput(data: Dictionary):
 # Is called whenever the game window size changes
 func WindowSizedChanged():
 	var viewPortSize: Vector2 = get_viewport_rect().size
-	UI_GraphCore.size = viewPortSize
+#	UI_GraphCore.size = viewPortSize
 	#print(newWindowSize)
 
 ####################################
@@ -204,8 +204,8 @@ func RelayDownwards(callType, data) -> void:
 			UI_Top_TopBar.RelayInputDataToComps({"GENOMEFILENAME": {"label":data}})
 		REF.FROM.connectome_properties_mappings:
 			pass
-		REF.FROM.godot_fullCorticalData:
-			UI_GraphCore.RelayDownwards(REF.FROM.godot_fullCorticalData, data)
+#		REF.FROM.godot_fullCorticalData:
+#			UI_GraphCore.RelayDownwards(REF.FROM.godot_fullCorticalData, data)
 		REF.FROM.genome_corticalArea:
 			
 			# Data for Specific Cortical Area
