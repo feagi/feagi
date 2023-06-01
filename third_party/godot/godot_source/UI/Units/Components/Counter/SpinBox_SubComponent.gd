@@ -10,3 +10,13 @@ var Hsize: Vector2:
 	set(v):
 		size = v
 		SizeChanged.emit(self)
+
+func _ready():
+	mouse_entered.connect(_toggleCamUsageOn)
+	mouse_exited.connect(_toggleCamUsageOff)
+
+func _toggleCamUsageOn():
+	Godot_list.Node_2D_control = true
+
+func _toggleCamUsageOff():
+	Godot_list.Node_2D_control = false
