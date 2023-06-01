@@ -164,7 +164,7 @@ func Activate(activationDict : Dictionary):
 			{"components": 
 				[
 					{"type": "header", "ID": "TITLE", "label": titleBarTitle},
-					{"type": "button", "ID": "CLOSEBUTTON", "label": "x"}
+					{"type": "button", "ID": "CLOSEBUTTON", "label": "x", 'isCloseButton': true}
 				]}
 			)
 		else:
@@ -249,6 +249,10 @@ func RelayInputDataToComps(input: Dictionary) -> void:
 		componentRefs[key].ApplyPropertiesFromDict(input[key])
 
 # Private functions
+
+# use this instead of queue free directly to add additional features
+func _DestroySelf() -> void:
+	queue_free()
 
 ####################################
 ########## Sizing Systems ##########
