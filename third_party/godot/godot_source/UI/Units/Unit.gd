@@ -515,6 +515,8 @@ func _PassThroughSignalFromComponent(customData: Dictionary, changedCompReferenc
 	customData["compID"] = changedCompReference.ID
 	customData["unitID"] = ID
 	DataUp.emit(customData, changedCompReference, self)
+	if "commitSodoku" in customData.keys():
+		_DestroySelf()
 	
 
 # This function relays signal input through a deffered call.
