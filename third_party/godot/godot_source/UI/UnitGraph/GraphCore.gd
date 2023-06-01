@@ -61,7 +61,7 @@ func _SpawnNodesFromFullCorticalData(fullCorticalData: Dictionary) -> void:
 				_ProcessCortexConnectionRequest(cortexID, 0, connection, 0)
 	
 	# make everything pretty
-	arrange_nodes()
+			# arrange_nodes()
 	
 	pass
 

@@ -178,6 +178,7 @@ func GraphEditInput(data: Dictionary):
 	if "CortexSelected" in data.keys():
 		# Cortex has been selected, pop up side bar
 		SpawnLeftBar(data["CortexSelected"])
+		print("HERE: ", data["CortexSelected"])
 		DataUp.emit(data)
 		print("data: ", data)
 	pass
@@ -231,7 +232,7 @@ func RelayDownwards(callType, data) -> void:
 				"SnoozePeriod": {"value": data["neuron_snooze_period"]},
 				"DegeneracyConstant": {"value": data["neuron_degeneracy_coefficient"]},
 			}
-			print(inputVars)
+			#print(inputVars)
 			UI_LeftBar.ApplyPropertiesFromDict(inputVars)
 			
 
@@ -244,6 +245,7 @@ func RelayDownwards(callType, data) -> void:
 func SpawnLeftBar(cortexName: String):
 	if UI_LeftBar != null:
 		UI_LeftBar.queue_free()
+	$"..".Update_GenomeCorticalArea_SPECIFC(cortexName) # Tell core to update cortex Info
 	UI_LeftBar = SCENE_UNIT.instantiate()
 	add_child(UI_LeftBar)
 	var LeftBarDict = HelperFuncs.GenerateDefinedUnitDict("LEFTBAR", currentLanguageISO)
@@ -293,6 +295,7 @@ func SpawnCreateMophology():
 	var button = UI_CreateMorphology.get_node("Unit_Vectors").get_node("Button_AddRowButton").get_child(0)
 	var create_button = UI_CreateMorphology.get_node("Button_CreateButton").get_child(0)
 	button.connect("pressed", Callable($Brain_Visualizer,"_morphology_add_row").bind("Vectors", UI_CreateMorphology.get_node("Unit_Vectors").get_node("Unit_XYZ"), UI_CreateMorphology.get_node("Unit_Vectors"), button, create_button))
+	
 #	_morphology_add_row
 	
 func SpawnCorticalCrete():
@@ -327,7 +330,7 @@ func SpawnCorticalCrete():
 	x.connect("value_changed",Callable($Brain_Visualizer,"_on_X_SpinBox_value_changed").bind([w,h,d,x,y,z]))
 	y.connect("value_changed",Callable($Brain_Visualizer,"_on_Y_Spinbox_value_changed").bind([w,h,d,x,y,z]))
 	z.connect("value_changed",Callable($Brain_Visualizer,"_on_Z_Spinbox_value_changed").bind([w,h,d,x,y,z]))
-	name_input.connect("text_changed",Callable($".."/Button_to_Autoload,"_on_type_text_changed"))
+	name_input.connect("text_changed",Callable($"../../Button_to_Autoload","_on_type_text_changed"))
 	update.connect("pressed",Callable($Brain_Visualizer,"_on_add_pressed").bind([w,h,d,x,y,z, name_input, optionlist, update]))
 
 #func SpawnNeuronMorphology():
