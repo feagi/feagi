@@ -177,7 +177,7 @@ func GraphEditInput(data: Dictionary):
 #	print(JSON.stringify(data)) # useful for debugging
 	if "CortexSelected" in data.keys():
 		# Cortex has been selected, pop up side bar
-		SpawnLeftBar()
+		SpawnLeftBar(data["CortexSelected"])
 		DataUp.emit(data)
 		print("data: ", data)
 	pass
@@ -241,7 +241,7 @@ func RelayDownwards(callType, data) -> void:
 ############# Internals ############
 ####################################
 
-func SpawnLeftBar():
+func SpawnLeftBar(cortexName: String):
 	if UI_LeftBar != null:
 		UI_LeftBar.queue_free()
 	UI_LeftBar = SCENE_UNIT.instantiate()
@@ -251,8 +251,8 @@ func SpawnLeftBar():
 	UI_LeftBar.DataUp.connect(LeftBarInput)
 	
 	# Get available data with UI_LeftBar.data
-	UI_LeftBar.ApplyPropertiesFromDict({"TITLEBAR": {"TITLE": {"label": "Example of Text"}}})
-	
+	UI_LeftBar.ApplyPropertiesFromDict({"TITLEBAR": {"TITLE": {"label": cortexName}}})
+	UI_LeftBar.ApplyPropertiesFromDict({"XYZ": {"Pos_X": {"value": 653}}})
 	
 	# We need to talk about this
 #	var close = UI_LeftBar.get_child(0).get_child(1).get_child(0)
