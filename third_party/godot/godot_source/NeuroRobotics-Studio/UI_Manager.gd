@@ -249,6 +249,7 @@ func SpawnLeftBar():
 	var LeftBarDict = HelperFuncs.GenerateDefinedUnitDict("LEFTBAR", currentLanguageISO)
 	UI_LeftBar.Activate(LeftBarDict)
 	UI_LeftBar.DataUp.connect(LeftBarInput)
+	# We need to talk about this
 	var close = UI_LeftBar.get_child(0).get_child(1).get_child(0)
 	var title = UI_LeftBar.get_child(0).get_child(0).get_child(0)
 	var cortical_name = UI_LeftBar.get_child(2).get_child(1)
@@ -262,7 +263,6 @@ func SpawnLeftBar():
 	var D = UI_LeftBar.get_child(6).get_child(2).get_child(1)
 	var mem = UI_LeftBar.get_child(9).get_child(0).get_child(1)
 	var syn = UI_LeftBar.get_child(9).get_child(1).get_child(1)
-	close.connect("pressed", Callable(self,"close_button").bind(UI_LeftBar))
 	title.text = $"../../Menu/cortical_menu/Control/name_string".text
 	cortical_name.text = $"../../Menu/cortical_menu/Control/name_string".text
 	cortical_id.text = $"../../Menu/cortical_menu/Control/cortical_id".text
@@ -287,7 +287,6 @@ func SpawnCreateMophology():
 	var close = UI_CreateMorphology.get_child(0).get_child(1).get_child(0)
 	var button = UI_CreateMorphology.get_node("Unit_Vectors").get_node("Button_AddRowButton").get_child(0)
 	var create_button = UI_CreateMorphology.get_node("Button_CreateButton").get_child(0)
-	close.connect("pressed", Callable(self,"close_button").bind(UI_CreateMorphology))
 	button.connect("pressed", Callable($Brain_Visualizer,"_morphology_add_row").bind("Vectors", UI_CreateMorphology.get_node("Unit_Vectors").get_node("Unit_XYZ"), UI_CreateMorphology.get_node("Unit_Vectors"), button, create_button))
 #	_morphology_add_row
 	
@@ -317,7 +316,6 @@ func SpawnCorticalCrete():
 	var x = xyz.get_child(0).get_child(1)
 	var y = xyz.get_child(1).get_child(1)
 	var z = xyz.get_child(2).get_child(1)
-	close.connect("pressed", Callable(self,"close_button").bind(UI_createcorticalBar))
 	w.connect("value_changed",Callable($Brain_Visualizer,"_on_W_Spinbox_value_changed").bind([w,h,d,x,y,z]))
 	h.connect("value_changed",Callable($Brain_Visualizer,"_on_H_Spinbox_value_changed").bind([w,h,d,x,y,z]))
 	d.connect("value_changed",Callable($Brain_Visualizer,"_on_D_Spinbox_value_changed").bind([w,h,d,x,y,z]))
@@ -333,9 +331,6 @@ func SpawnCorticalCrete():
 #	var createmurphology = HelperFuncs.GenerateDefinedUnitDict("CREATE_MORPHOLOGY", currentLanguageISO)
 #	UI_CreateNeuronMorphology.Activate(createmurphology)
 #	UI_CreateNeuronMorphology.DataUp.connect(LeftBarInput)
-
-func close_button(node):
-	node.queue_free()
 	
 func add_row(node, holder):
 	var new_node = node.get_node("Unit_Vectors").duplicate()
