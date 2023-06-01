@@ -29,8 +29,6 @@ var _side: int
 # Sets up Activation
 func _Activation(settings: Dictionary):
 	self.name = "Header_" + ID
-	_dataAvailable = false
-	_dataSignalAvailable = false
 	_componentType = TYPE
 	_runtimeSettableProperties.merge(ADDITIONAL_SETTABLE_PROPERTIES)
 	

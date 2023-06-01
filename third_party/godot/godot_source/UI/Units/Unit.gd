@@ -92,7 +92,7 @@ var visibility: int:
 var dataAvailable: bool:
 	get: return true #TODO This assumption is usally true, but we need a better system
 var data: Dictionary:
-	get: return {ID: _GetComponentsData()}
+	get: return _GetComponentsData()
 var componentType: String: # for compatibility
 	get: return "unit"
 

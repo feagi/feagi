@@ -249,32 +249,37 @@ func SpawnLeftBar():
 	var LeftBarDict = HelperFuncs.GenerateDefinedUnitDict("LEFTBAR", currentLanguageISO)
 	UI_LeftBar.Activate(LeftBarDict)
 	UI_LeftBar.DataUp.connect(LeftBarInput)
+	
+	# Get / set available data with UI_LeftBar.data
+	# UI_LeftBar.data["TITLEBAR"]["TITLE"] = "Custom Text"
+	
+	
 	# We need to talk about this
-	var close = UI_LeftBar.get_child(0).get_child(1).get_child(0)
-	var title = UI_LeftBar.get_child(0).get_child(0).get_child(0)
-	var cortical_name = UI_LeftBar.get_child(2).get_child(1)
-	var cortical_id = UI_LeftBar.get_child(3).get_child(1)
-	var cortical_type = UI_LeftBar.get_child(4).get_child(1)
-	var X = UI_LeftBar.get_child(5).get_child(0).get_child(1)
-	var Y = UI_LeftBar.get_child(5).get_child(1).get_child(1)
-	var Z = UI_LeftBar.get_child(5).get_child(2).get_child(1)
-	var W = UI_LeftBar.get_child(6).get_child(0).get_child(1)
-	var H = UI_LeftBar.get_child(6).get_child(1).get_child(1)
-	var D = UI_LeftBar.get_child(6).get_child(2).get_child(1)
-	var mem = UI_LeftBar.get_child(9).get_child(0).get_child(1)
-	var syn = UI_LeftBar.get_child(9).get_child(1).get_child(1)
-	title.text = $"../../Menu/cortical_menu/Control/name_string".text
-	cortical_name.text = $"../../Menu/cortical_menu/Control/name_string".text
-	cortical_id.text = $"../../Menu/cortical_menu/Control/cortical_id".text
-#	cortical_type.set # This isnt even working, gotta see why
-	X.value = $"../../Menu/cortical_menu/Control/X".value
-	Y.value = $"../../Menu/cortical_menu/Control/Y".value
-	Z.value = $"../../Menu/cortical_menu/Control/Z".value
-	W.value = $"../../Menu/cortical_menu/Control/W".value
-	H.value = $"../../Menu/cortical_menu/Control/H".value
-	D.value = $"../../Menu/cortical_menu/Control/D".value
-	mem.set_pressed($"../../Menu/button_choice/Control/mem".is_pressed())
-	syn.set_pressed($"../../Menu/button_choice/Control/syn".is_pressed())
+#	var close = UI_LeftBar.get_child(0).get_child(1).get_child(0)
+#	var title = UI_LeftBar.get_child(0).get_child(0).get_child(0)
+#	var cortical_name = UI_LeftBar.get_child(2).get_child(1)
+#	var cortical_id = UI_LeftBar.get_child(3).get_child(1)
+#	var cortical_type = UI_LeftBar.get_child(4).get_child(1)
+#	var X = UI_LeftBar.get_child(5).get_child(0).get_child(1)
+#	var Y = UI_LeftBar.get_child(5).get_child(1).get_child(1)
+#	var Z = UI_LeftBar.get_child(5).get_child(2).get_child(1)
+#	var W = UI_LeftBar.get_child(6).get_child(0).get_child(1)
+#	var H = UI_LeftBar.get_child(6).get_child(1).get_child(1)
+#	var D = UI_LeftBar.get_child(6).get_child(2).get_child(1)
+#	var mem = UI_LeftBar.get_child(9).get_child(0).get_child(1)
+#	var syn = UI_LeftBar.get_child(9).get_child(1).get_child(1)
+#	title.text = $"../../Menu/cortical_menu/Control/name_string".text
+#	cortical_name.text = $"../../Menu/cortical_menu/Control/name_string".text
+#	cortical_id.text = $"../../Menu/cortical_menu/Control/cortical_id".text
+##	cortical_type.set # This isnt even working, gotta see why
+#	X.value = $"../../Menu/cortical_menu/Control/X".value
+#	Y.value = $"../../Menu/cortical_menu/Control/Y".value
+#	Z.value = $"../../Menu/cortical_menu/Control/Z".value
+#	W.value = $"../../Menu/cortical_menu/Control/W".value
+#	H.value = $"../../Menu/cortical_menu/Control/H".value
+#	D.value = $"../../Menu/cortical_menu/Control/D".value
+#	mem.set_pressed($"../../Menu/button_choice/Control/mem".is_pressed())
+#	syn.set_pressed($"../../Menu/button_choice/Control/syn".is_pressed())
 #	$"..".Update_GenomeCorticalArea_SPECIFC(cortical_id.text) ## Pass the raw id?
 	
 	

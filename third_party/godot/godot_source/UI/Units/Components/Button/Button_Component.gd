@@ -29,7 +29,7 @@ func _Activation(settings: Dictionary):
 	self.name = "Button_" + ID
 	_componentType = TYPE
 	_runtimeSettableProperties.merge(ADDITIONAL_SETTABLE_PROPERTIES)
-	
+	_dataAvailable = false
 	# Get References
 	_Button = $button
 	
