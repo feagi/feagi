@@ -440,7 +440,6 @@ mouse_filter = 1
 script = ExtResource("4_ci773")
 
 [node name="information_menu" type="ColorRect" parent="Menu"]
-visible = false
 layout_mode = 1
 anchors_preset = -1
 anchor_left = 0.246154
