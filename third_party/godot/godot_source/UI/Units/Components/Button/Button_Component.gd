@@ -4,6 +4,7 @@ class_name Button_Component
 # Defaults, see readme
 const DEF_LABEL = "MISSING LABEL!"
 const DEF_EDITABLE = true
+const DEF_ISCLOSEBUTTON = false
 const ADDITIONAL_SETTABLE_PROPERTIES = {
 	"label": TYPE_STRING,
 	"editable": TYPE_BOOL}
@@ -17,9 +18,11 @@ var label: String:
 	get: return _Button.Htext
 	set(v): 
 		_Button.Htext = v
+var isCloseButton: bool:
+	get: return _isCloseButton
 
 var _Button: Button_SubComponent
-
+var _isCloseButton: bool
 
 # Activates the Counter
 func _Activation(settings: Dictionary):
@@ -35,6 +38,7 @@ func _Activation(settings: Dictionary):
 	
 	# Fill in Button Inits
 	editable = HelperFuncs.GetIfCan(settings, 'editable', DEF_EDITABLE)
+	_isCloseButton = HelperFuncs.GetIfCan(settings, 'isCloseButton', DEF_ISCLOSEBUTTON)
 	
 	# Init Label
 	label = HelperFuncs.GetIfCan(settings, "label", DEF_LABEL)
@@ -42,8 +46,10 @@ func _Activation(settings: Dictionary):
 # Used to proxy user value changes
 func ProxyValueChanges():
 	if !_isActivated: return # avoid feedback when starting up
+	if _isCloseButton: 
+		DataUp.emit({"type": TYPE, "ID": ID, 'commitSodoku': true}, self)
+		return
 	DataUp.emit({"type": TYPE, "ID": ID}, self)
-
 
 func _GetData():
 	push_warning("Buttons don't have values!")
