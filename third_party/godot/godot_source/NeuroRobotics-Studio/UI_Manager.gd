@@ -200,11 +200,11 @@ func RelayDownwards(callType, data) -> void:
 		REF.FROM.pns_current_opu:
 			pass
 		REF.FROM.genome_corticalAreaIdList:
-			UI_Top_TopBar.RelayInputDataToComps({"CORTICALAREAS": {"options":data}})
+			UI_Top_TopBar.ApplyPropertiesFromDict({"CORTICALAREAS": {"options":data}})
 		REF.FROM.genome_morphologyList:
-			UI_Top_TopBar.RelayInputDataToComps({"NEURONMORPHOLOGIES": {"options":data}})
+			UI_Top_TopBar.ApplyPropertiesFromDict({"NEURONMORPHOLOGIES": {"options":data}})
 		REF.FROM.genome_fileName:
-			UI_Top_TopBar.RelayInputDataToComps({"GENOMEFILENAME": {"label":data}})
+			UI_Top_TopBar.ApplyPropertiesFromDict({"GENOMEFILENAME": {"label":data}})
 		REF.FROM.connectome_properties_mappings:
 			pass
 		REF.FROM.godot_fullCorticalData:
@@ -232,7 +232,7 @@ func RelayDownwards(callType, data) -> void:
 				"DegeneracyConstant": {"value": data["neuron_degeneracy_coefficient"]},
 			}
 			print(inputVars)
-			UI_LeftBar.RelayInputDataToComps(inputVars)
+			UI_LeftBar.ApplyPropertiesFromDict(inputVars)
 			
 
 
@@ -250,8 +250,8 @@ func SpawnLeftBar():
 	UI_LeftBar.Activate(LeftBarDict)
 	UI_LeftBar.DataUp.connect(LeftBarInput)
 	
-	# Get / set available data with UI_LeftBar.data
-	# UI_LeftBar.data["TITLEBAR"]["TITLE"] = "Custom Text"
+	# Get available data with UI_LeftBar.data
+	UI_LeftBar.ApplyPropertiesFromDict({"TITLEBAR": {"TITLE": {"label": "Example of Text"}}})
 	
 	
 	# We need to talk about this
@@ -305,7 +305,7 @@ func SpawnCorticalCrete():
 	var str_array = []
 	for i in $".."/".."/Menu/addition_menu/OptionButton.item_count:
 		str_array.append($".."/".."/Menu/addition_menu/OptionButton.get_item_text(i))
-	UI_createcorticalBar.RelayInputDataToComps({"CORTICALAREA": {"options": (str_array)}})
+	UI_createcorticalBar.ApplyPropertiesFromDict({"CORTICALAREA": {"options": (str_array)}})
 #	if UI_createcorticalBar.DataUp.is_connected():
 #	UI_createcorticalBar.DataUp.disconnect()
 #	4.x - emitting_node.signal_name.disconnect(receiving_node.callback_function)

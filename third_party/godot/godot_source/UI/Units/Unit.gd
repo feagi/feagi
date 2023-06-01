@@ -235,7 +235,7 @@ func AddMultipleComponents(components: Array) -> void:
 		AddComponent(c)
 
 # Attepts to relay Dictionary of input
-func RelayInputDataToComps(input: Dictionary) -> void:
+func ApplyPropertiesFromDict(input: Dictionary) -> void:
 	for key in input.keys():
 		if !(key in componentIDs):
 			# the ID trying to be pushed does not exist
@@ -246,6 +246,7 @@ func RelayInputDataToComps(input: Dictionary) -> void:
 			# Inputted data is not a dictionary
 			print("The input for component ", key, " for Unit ", ID, " is not a dictionary!")
 			continue
+		
 		
 		componentRefs[key].ApplyPropertiesFromDict(input[key])
 
