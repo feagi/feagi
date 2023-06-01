@@ -514,8 +514,11 @@ func _GetComponentReferencesByID() -> Dictionary:
 func _PassThroughSignalFromComponent(customData: Dictionary, changedCompReference):
 	customData["compID"] = changedCompReference.ID
 	customData["unitID"] = ID
-	DataUp.emit(customData, changedCompReference, self)
-	if "commitSodoku" in customData.keys():
+	if isSubUnit:
+		DataUp.emit(customData, changedCompReference)
+	else:
+		DataUp.emit(customData, changedCompReference, self)
+	if "commitSodoku" in customData.keys() and !isSubUnit:
 		_DestroySelf()
 	
 
