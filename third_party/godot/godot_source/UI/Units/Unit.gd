@@ -154,7 +154,6 @@ func Activate(activationDict : Dictionary):
 			"ID": "TITLEBAR",
 			"isVertical": false,
 			"type": "unit",
-			"isSubUnit": true,
 			"widthAlignment": 1
 		}
 		
@@ -186,6 +185,16 @@ func Activate(activationDict : Dictionary):
 func AddComponent(component: Dictionary) -> void:
 	
 	var newComponent
+	
+	# Apply inherited defaults (before activation to allow per comp overrides)
+	# Remember, merge by default DOES NOT overwrite existing keys
+	
+	var ValuesToInheritByDefault: Dictionary = {
+		"heightAlignment": self._heightAlignment,
+		"widthAlignment": self._widthAlignment,
+		"visibility": self._visibility
+	}
+	
 	match component["type"]:
 		"field":
 			newComponent = _fieldScene.instantiate()
@@ -201,20 +210,12 @@ func AddComponent(component: Dictionary) -> void:
 			newComponent = _buttonScene.instantiate()
 		"unit":
 			newComponent = _unitScene.instantiate()
+			ValuesToInheritByDefault.merge({"isSubUnit": true})
 		"fill":
 			newComponent = _fillScene.instantiate()
 
 	# Add the new Component to the Unit, Activate it, Connect Signals, Store a Reference
 	add_child(newComponent)
-	
-	# Apply inherited defaults (before activation to allow per comp overrides)
-	# Remember, merge by default DOES NOT overwrite existing keys
-	
-	var ValuesToInheritByDefault: Dictionary = {
-		"heightAlignment": self._heightAlignment,
-		"widthAlignment": self._widthAlignment,
-		"visibility": self._visibility
-	}
 	
 	component.merge(ValuesToInheritByDefault)
 	
@@ -514,6 +515,7 @@ func _PassThroughSignalFromComponent(customData: Dictionary, changedCompReferenc
 	customData["compID"] = changedCompReference.ID
 	customData["unitID"] = ID
 	DataUp.emit(customData, changedCompReference, self)
+	
 
 # This function relays signal input through a deffered call.
 # This allows default Godot UI resizing behvior to apply and for us to read it
