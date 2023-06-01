@@ -64,7 +64,16 @@ func _ready():
 #	add_3D_indicator()
 	Autoload_variable.BV_Core.Update_Dimensions() # Grab genome list
 	Autoload_variable.BV_Core.Update_Morphology_type()
+	
+	#Delete this:
+	var tree = get_tree()
 	while true:
+#		var node_count = tree.get_node_count()
+#		var root_node = tree.get_root()
+#		print("Total node count: ", node_count)
+#		print("godot list: ", len(Godot_list.genome_data["genome"]))
+#		var total_size = calculateSceneSize(root_node)
+#		print("Total scene size: ", total_size, " bytes")
 		if Godot_list.genome_data["genome"] != previous_genome_data:
 			previous_genome_data = Godot_list.genome_data["genome"].duplicate()
 			_csv_generator()
@@ -1643,3 +1652,11 @@ func demo_new_cortical():
 					global_name_list[i]["example"][0].get_child(0).get_child(0).text = "example"
 				else:
 					global_name_list[i]["example"][0].get_child(0).get_child(0).text = $".."/".."/".."/Menu/addition_menu/addition_menu/cortical_name_textbox/type.text
+
+# DE BUG ONLY:
+func calculateSceneSize(node: Node) -> int:
+	var size = node.get_memory_usage()
+	for child in node.get_children():
+		size += calculateSceneSize(child)
+
+	return size
