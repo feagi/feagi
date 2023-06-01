@@ -232,13 +232,14 @@ func generate_voxels():
 
 func cortical_is_clicked():
 	if select_cortical.selected.is_empty() != true:
-		$"..".SpawnLeftBar()
 		dst_data_holder = {}
 		var iteration_name = select_cortical.selected[0].replace("'","")
 		var grab_id_cortical = ""
 		grab_id_cortical = name_to_id(iteration_name)
 		update_cortical_map_name(grab_id_cortical)
-		Autoload_variable.BV_Core.Update_Cortical_grab_id(grab_id_cortical)
+		$"..".SpawnLeftBar(grab_id_cortical)
+		print("SELECTED: ", grab_id_cortical)
+#		Autoload_variable.BV_Core.Update_Cortical_grab_id(grab_id_cortical)
 		select_cortical.selected.pop_front()
 		return true
 	return false
@@ -470,7 +471,7 @@ func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 		last_cortical_selected = genome_properties
 		Autoload_variable.BV_Core.Update_Afferent_list(genome_properties["cortical_id"])
 	$notification.generate_notification_message(genome_properties, _response_code, "_on_HTTPRequest_request_completed", "/v1/feagi/genome/cortical_area")
-	$"..".SpawnLeftBar()
+#	$"..".SpawnLeftBar()
 
 
 func _on_send_feagi_request_completed(_result, _response_code, _headers, body):
