@@ -422,9 +422,8 @@ mouse_filter = 2
 layout_mode = 0
 offset_left = 0.0
 offset_top = 0.0
-offset_right = 1890.0
-offset_bottom = 1081.0
-scroll_offset = Vector2(-673, -361)
+offset_right = 1037.0
+offset_bottom = 600.0
 
 [node name="Brain_Visualizer" parent="Core/GlobalUISystem" instance=ExtResource("34_jfnov")]
 
