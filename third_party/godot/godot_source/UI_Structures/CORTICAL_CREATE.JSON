@@ -1,22 +1,54 @@
 {
 	"ID": "CREATE_CORTICAL",
+  	"enableTitleBar": true,
+  	"titleBarTitle": "Add New Cortical Area",
 	"HpositionX": 100,
 	"HpositionY": 400,
+	"enableCloseButton": true,
 	"components": [
-		{
-			"type": "header",
-			"ID": "NewCorticalSection"
-		},
 		{
 			"ID": "CORTICALAREA",
 			"type": "dropdown"
 		},
 		{
-			"type": "field",
-			"ID": "CORTICALNAME"
+			"type": "unit",
+			"visibility": 2,
+			"ID": "corticalnametext",
+			"components": [
+				{
+					"type": "field",
+					"ID": "CORTICALAREA"
+				}
+			],
+			"isVertical": true
 		},
 		{
 			"type": "unit",
+			"visibility": 2,
+			"ID": "corticalnamedrop",
+			"components": [
+				{
+					"type": "dropdown",
+					"ID": "CORTICALAREA"
+				}
+			],
+			"isVertical": true
+		},
+		{
+			"type": "unit",
+			"visibility": 0,
+			"ID": "OPUIPU",
+			"components": [
+				{
+					"type": "counter",
+					"ID": "CHANNELCOUNT"
+				}
+			],
+			"isVertical": true
+		},
+		{
+			"type": "unit",
+			"visibility": 2,
 			"ID": "WHD",
 			"components": [
 				{
@@ -37,6 +69,7 @@
 		{
 			"type": "unit",
 			"ID": "XYZ",
+		 	"visibility": 2,
 			"components": [
 				{
 					"type": "counter",

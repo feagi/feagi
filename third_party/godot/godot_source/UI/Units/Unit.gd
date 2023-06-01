@@ -92,7 +92,7 @@ var visibility: int:
 var dataAvailable: bool:
 	get: return true #TODO This assumption is usally true, but we need a better system
 var data: Dictionary:
-	get: return {ID: _GetComponentsData()}
+	get: return _GetComponentsData()
 var componentType: String: # for compatibility
 	get: return "unit"
 
@@ -154,7 +154,6 @@ func Activate(activationDict : Dictionary):
 			"ID": "TITLEBAR",
 			"isVertical": false,
 			"type": "unit",
-			"isSubUnit": true,
 			"widthAlignment": 1
 		}
 		
@@ -164,7 +163,7 @@ func Activate(activationDict : Dictionary):
 			{"components": 
 				[
 					{"type": "header", "ID": "TITLE", "label": titleBarTitle},
-					{"type": "button", "ID": "CLOSEBUTTON", "label": "x"}
+					{"type": "button", "ID": "CLOSEBUTTON", "label": "x", 'isCloseButton': true}
 				]}
 			)
 		else:
@@ -186,6 +185,16 @@ func Activate(activationDict : Dictionary):
 func AddComponent(component: Dictionary) -> void:
 	
 	var newComponent
+	
+	# Apply inherited defaults (before activation to allow per comp overrides)
+	# Remember, merge by default DOES NOT overwrite existing keys
+	
+	var ValuesToInheritByDefault: Dictionary = {
+		"heightAlignment": self._heightAlignment,
+		"widthAlignment": self._widthAlignment,
+		"visibility": self._visibility
+	}
+	
 	match component["type"]:
 		"field":
 			newComponent = _fieldScene.instantiate()
@@ -201,20 +210,12 @@ func AddComponent(component: Dictionary) -> void:
 			newComponent = _buttonScene.instantiate()
 		"unit":
 			newComponent = _unitScene.instantiate()
+			ValuesToInheritByDefault.merge({"isSubUnit": true})
 		"fill":
 			newComponent = _fillScene.instantiate()
 
 	# Add the new Component to the Unit, Activate it, Connect Signals, Store a Reference
 	add_child(newComponent)
-	
-	# Apply inherited defaults (before activation to allow per comp overrides)
-	# Remember, merge by default DOES NOT overwrite existing keys
-	
-	var ValuesToInheritByDefault: Dictionary = {
-		"heightAlignment": self._heightAlignment,
-		"widthAlignment": self._widthAlignment,
-		"visibility": self._visibility
-	}
 	
 	component.merge(ValuesToInheritByDefault)
 	
@@ -234,7 +235,7 @@ func AddMultipleComponents(components: Array) -> void:
 		AddComponent(c)
 
 # Attepts to relay Dictionary of input
-func RelayInputDataToComps(input: Dictionary) -> void:
+func ApplyPropertiesFromDict(input: Dictionary) -> void:
 	for key in input.keys():
 		if !(key in componentIDs):
 			# the ID trying to be pushed does not exist
@@ -246,9 +247,14 @@ func RelayInputDataToComps(input: Dictionary) -> void:
 			print("The input for component ", key, " for Unit ", ID, " is not a dictionary!")
 			continue
 		
+		
 		componentRefs[key].ApplyPropertiesFromDict(input[key])
 
 # Private functions
+
+# use this instead of queue free directly to add additional features
+func _DestroySelf() -> void:
+	queue_free()
 
 ####################################
 ########## Sizing Systems ##########
@@ -283,8 +289,8 @@ func UpdateSizeData(forceUpdate: bool = false) -> void:
 	SizeChanged.emit(self)
 
 # Control the visibility of a component, cascades size changes as needed
-func ControlComponentVisibility(ComponentID: String, visibility: int) -> void:
-	_GetComponentReferencesByID()[ComponentID].visibility = visibility
+func ControlComponentVisibility(ComponentID: String, visibility_input: int) -> void:
+	_GetComponentReferencesByID()[ComponentID].visibility = visibility_input
 
 # Call deffered on activation to init all sizes in the correct order
 # This is not particuarly efficient. Too Bad!
@@ -509,7 +515,13 @@ func _GetComponentReferencesByID() -> Dictionary:
 func _PassThroughSignalFromComponent(customData: Dictionary, changedCompReference):
 	customData["compID"] = changedCompReference.ID
 	customData["unitID"] = ID
-	DataUp.emit(customData, changedCompReference, self)
+	if isSubUnit:
+		DataUp.emit(customData, changedCompReference)
+	else:
+		DataUp.emit(customData, changedCompReference, self)
+	if "commitSodoku" in customData.keys() and !isSubUnit:
+		_DestroySelf()
+	
 
 # This function relays signal input through a deffered call.
 # This allows default Godot UI resizing behvior to apply and for us to read it

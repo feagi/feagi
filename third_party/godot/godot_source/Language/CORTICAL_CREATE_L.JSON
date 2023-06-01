@@ -6,12 +6,19 @@
 	},
 	"CORTICALAREA": {
 		"label": {
-			"eng": "Cortical Area"
+			"eng": "Cortical Area Type"
+		}
+	},
+	"corticalnametext": {
+		"CORTICALAREA": {
+			"label": {
+				"eng": "Cortical Name"
+			}
 		}
 	},
 	"CORTICALNAME": {
 		"label": {
-			"eng": "Cortical Area"
+			"eng": "Cortical Name"
 		}
 	},
 	"WHD": {
@@ -45,6 +52,20 @@
 		"Pos_Z": {
 			"label": {
 				"eng": "Z"
+			}
+		}
+	},
+	"corticalnamedrop": {
+		"CORTICALAREA": {
+			"label": {
+				"eng": "Cortical Name"
+			}
+		}
+	},
+	"OPUIPU": {
+		"CHANNELCOUNT": {
+			"label": {
+				"eng": "Channel Count"
 			}
 		}
 	},

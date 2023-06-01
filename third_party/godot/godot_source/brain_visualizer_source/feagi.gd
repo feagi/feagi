@@ -71,13 +71,14 @@ func _ready():
 		if $".."/".."/".."/Menu/box_loading.visible:
 			$".."/".."/".."/Menu/box_loading.visible = false
 		if cortical_is_clicked():
-			$".."/".."/".."/Menu/cortical_menu.visible = true
-			$".."/".."/".."/Menu/cortical_mapping.visible = true
-			$".."/".."/".."/Menu/button_choice.visible = true
-			$".."/".."/".."/Menu/properties.visible = true
-			$".."/".."/".."/Menu/Mapping_Properties.visible = false
-			$".."/".."/".."/Menu/collapse_4.visible = true
-			$".."/".."/".."/Menu/cortical_menu/title.visible = true
+			pass
+#			$".."/".."/".."/Menu/cortical_menu.visible = true
+#			$".."/".."/".."/Menu/cortical_mapping.visible = true
+#			$".."/".."/".."/Menu/button_choice.visible = true
+#			$".."/".."/".."/Menu/properties.visible = true
+#			$".."/".."/".."/Menu/Mapping_Properties.visible = false
+#			$".."/".."/".."/Menu/collapse_4.visible = true
+#			$".."/".."/".."/Menu/cortical_menu/title.visible = true
 		elif select_cortical.selected.is_empty() != true:
 			select_cortical.selected.pop_front()
 		_process(self)
@@ -222,13 +223,11 @@ func generate_voxels():
 
 func cortical_is_clicked():
 	if select_cortical.selected.is_empty() != true:
+		$"..".SpawnLeftBar()
 		dst_data_holder = {}
 		var iteration_name = select_cortical.selected[0].replace("'","")
 		var grab_id_cortical = ""
-		for i in Godot_list.genome_data["genome"]:
-			if i == iteration_name:
-				grab_id_cortical = Godot_list.genome_data["genome"][i][7]
-				break
+		grab_id_cortical = name_to_id(iteration_name)
 		update_cortical_map_name(grab_id_cortical)
 		Autoload_variable.BV_Core.Update_Cortical_grab_id(grab_id_cortical)
 		select_cortical.selected.pop_front()
@@ -435,9 +434,6 @@ func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 		$".."/".."/".."/Menu/cortical_menu/title.text = genome_properties["cortical_name"]
 		$".."/".."/".."/Menu/cortical_menu/Control/name_string.text = $".."/".."/".."/Menu/cortical_menu/title.text
 		$".."/".."/".."/Menu/properties/Control/neuron_count.value = genome_properties["cortical_neuron_per_vox_count"]
-#		Autoload_variable.BV_UI.SpawnLeftBar()
-		# I just want to populate the data using the new menu without modify anything significantly
-#		Autoload_variable.BV_UI.dataUp.emit(genome_properties["cortical_neuron_per_vox_count"])
 		$".."/".."/".."/Menu/cortical_menu/Control/X.value = genome_properties["cortical_coordinates"][0]
 		$".."/".."/".."/Menu/cortical_menu/Control/Y.value = genome_properties["cortical_coordinates"][1]
 		$".."/".."/".."/Menu/cortical_menu/Control/Z.value = genome_properties["cortical_coordinates"][2]
@@ -465,6 +461,8 @@ func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 		last_cortical_selected = genome_properties
 		Autoload_variable.BV_Core.Update_Afferent_list(genome_properties["cortical_id"])
 	$notification.generate_notification_message(genome_properties, _response_code, "_on_HTTPRequest_request_completed", "/v1/feagi/genome/cortical_area")
+	$"..".SpawnLeftBar()
+
 
 func _on_send_feagi_request_completed(_result, _response_code, _headers, body):
 	var test_json_conv = JSON.new()
@@ -733,6 +731,7 @@ func dst_remove_pressed(duplicated_node_lineedit):
 		$".."/".."/".."/Menu/cortical_mapping.position.y = $".."/".."/".."/Menu/cortical_mapping.position.y - (number_holder.size() * 5)
 
 func delete_morphology(input_node):
+	print("erasing: ", input_node)
 	input_node.queue_free()
 	new_morphology_node.erase(input_node)
 
@@ -1338,6 +1337,33 @@ func _morphology_button_pressed():
 		$".."/".."/".."/Menu/Control/create.position = Vector2(152, 330)
 		$".."/".."/".."/Menu/Control/ColorRect.size = Vector2(519, 394)
 
+func _morphology_add_row(dropdown, row_node, parent_node, button, create_button):
+	var counter = 0
+	print("debug: ", dropdown, " and ", row_node, " and ", parent_node)
+	counter = len(new_morphology_node)
+	if $".."/".."/".."/Menu/Control/inner_box/morphology_type.get_item_text($".."/".."/".."/Menu/Control/inner_box/morphology_type.selected) == "patterns":
+		var new_node = $".."/".."/".."/Menu/Control/inner_box/box_of_pattern/Control.duplicate()
+		$".."/".."/".."/Menu/Control/inner_box/box_of_pattern.add_child(new_node)
+		new_morphology_node.append(new_node)
+		new_node.visible = true
+		new_node.get_child(7).connect("pressed",Callable(self,"delete_morphology").bind(new_node))
+		new_node.position.x = $".."/".."/".."/Menu/Control/inner_box/box_of_pattern/Control.position.x + $".."/".."/".."/Menu/Control/inner_box/box_of_pattern/Control.size.x
+		new_node.position.y = $".."/".."/".."/Menu/Control/inner_box/box_of_pattern/Control.position.y + (30 * counter)
+	elif dropdown == "Vectors":
+		var new_node = row_node.duplicate()
+		new_morphology_node.append(new_node)
+		parent_node.add_child(new_node)
+		new_node.visible = true
+		print("delete button: ", row_node.get_node("Button_RemoveRowButton").get_child(0))
+		new_node.get_node("Button_RemoveRowButton").get_child(0).connect("pressed",Callable(self,"delete_morphology").bind(new_node))
+		new_node.size = row_node.size
+		new_node.position.x = row_node.position.x
+		new_node.position.y = row_node.position.y + (40 * counter)
+	# This section needs to rework. This is not even good at all.
+	# Start of Section
+	button.position.y = 3 + (35 * counter)
+	create_button.position.y = 3 + (35 * counter)
+	# End of Section
 
 func _on_morphology_name_focus_exited():
 	new_morphology_clear()
