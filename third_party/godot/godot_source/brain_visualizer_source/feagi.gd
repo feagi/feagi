@@ -484,7 +484,7 @@ func update_cortical_map_name(name_input):
 	Autoload_variable.BV_Core.Update_Efferent_information(name_input)
 
 func _on_information_button_request_completed(_result, _response_code, _headers, body):
-	# Do not touch here. THis is for information biteration_nameutton only and will dedicate
+	# Do not touch here. THis is for information iteration_namebutton only and will dedicate
 	# to the information button
 	# Clear duplicate cortical maps name up
 	child_holder_clear() 
@@ -496,26 +496,17 @@ func _on_information_button_request_completed(_result, _response_code, _headers,
 	if _response_code == 200 and not api_data.has("Request failed..."):
 		var new_name = ""
 		var counter = 0 # To increase the height between two different duplicated nodes
-	#	$".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.visible = false
-		var cap = 120 # Keep nodes inside the white rectangle
+		var UI_LeftBar = $"..".UI_LeftBar
 		for i in api_data:
-			var new_node = $".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.duplicate()
-			$".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer.add_child(new_node)
+			var new_node = $"..".UI_LeftBar.get_node("Field_blank_efferent").get_node("LineEdit").duplicate()
+			$"..".UI_LeftBar.get_node("Field_blank_efferent").add_child(new_node)
 			child_node_holder.append(new_node)
 			new_name = id_to_name(i)
 			new_node.visible = true
 			new_node.text = new_name
-			new_node.position.x = $".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.position.x
-			new_node.position.y = $".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.position.y + (counter * 30)
-			if new_node.position.y > cap:
-	#			$".."/".."/".."/Menu/button_choice/white_background.size.y += 30
-				cap += 30 
-	#		$".."/".."/".."/Menu/button_choice.position.y = $".."/".."/".."/Menu/button_choice.position.y + (counter * 5)
-			new_node.size.x = $".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.size.x 
-			new_node.size.y = $".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.size.y
-			new_node.visible = true
-			new_node.get_child(1).connect("pressed",Callable(self,"dst_remove_pressed").bind(new_node))
-			new_node.get_child(0).connect("pressed",Callable(self,"info_pressed").bind(new_node))
+			new_node.position.y = (counter * 30)
+#			new_node.get_child(1).connect("pressed",Callable(self,"dst_remove_pressed").bind(new_node))
+#			new_node.get_child(0).connect("pressed",Callable(self,"info_pressed").bind(new_node))
 			counter += 1
 #		map_colorful()
 	#	$".."/".."/".."/Menu/cortical_menu/Control/Update.position.y = 10 + $".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer.size.y + $".."/".."/".."/Menu/cortical_mapping.position.y
@@ -1084,7 +1075,7 @@ func _on_afferent_request_completed(_result, _response_code, _headers, body):
 			new_node.visible = true
 			new_node.text = id_to_name(i)
 #			new_node.position.x = UI_LeftBar.get_node("Field_blank_afferent").position.x + 5
-			new_node.position.y = (counter * 25)
+			new_node.position.y = (counter * 30)
 			counter += 1
 	if afferent_child_holder:
 		UI_LeftBar.get_node("Header_EFFERENTLABEL").get_node("Label").position.y = afferent_child_holder[len(afferent_child_holder)-1].position.y + 10
