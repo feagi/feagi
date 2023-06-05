@@ -167,7 +167,7 @@ func _Relay_CorticalAreasIDs(_result, _response_code, _headers, body: PackedByte
 func _Relay_ChangedBurstRate(_result, _response_code, _headers, _body: PackedByteArray):
 	# FEAGI updated Burst Rate
 	if LogNetworkError(_result): print("Unable to change Burst Rate"); return
-	GET_BurstRate() #Confirm new burst rate
+	#GET_BurstRate() #Confirm new burst rate
 
 func _Relay_updated_cortical(_result, _response_code, _headers, _body: PackedByteArray):
 	if LogNetworkError(_result): print("Unable to get Cortical"); return

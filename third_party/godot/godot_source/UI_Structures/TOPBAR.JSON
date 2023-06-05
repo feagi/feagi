@@ -11,7 +11,8 @@
 	  },
 	  {
 		 "type":"counter",
-		 "ID":"REFRESHRATE"
+		 "ID":"REFRESHRATE",
+		 "minValue": 0.1
 	  },
 	  {
 		 "type":"dropdown",

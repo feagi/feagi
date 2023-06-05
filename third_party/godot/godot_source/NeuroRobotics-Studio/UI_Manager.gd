@@ -109,9 +109,10 @@ func TopBarInput(data: Dictionary, _compRef, _unitRef):
 					print("composite data: ", UI_ManageNeuronMorphology.componentData)
 				else:
 					UI_ManageNeuronMorphology.queue_free()
-		
 		"REFRESHRATE":
 			DataUp.emit({"updatedBurstRate": data["number"]})
+			
+
 func CreateMorphologyInput(data: Dictionary, _compRef: Node, _unitRef: Node):
 	if "MorphologyType" == data["compID"]:
 		#Drop down is changed, toggle between available morphology wizards
