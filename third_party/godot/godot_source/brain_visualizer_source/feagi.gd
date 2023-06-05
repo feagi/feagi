@@ -230,8 +230,8 @@ func cortical_is_clicked():
 		grab_id_cortical = name_to_id(iteration_name)
 		update_cortical_map_name(grab_id_cortical)
 		$"..".SpawnLeftBar(grab_id_cortical)
-		print("SELECTED: ", grab_id_cortical)
-#		Autoload_variable.BV_Core.Update_Cortical_grab_id(grab_id_cortical)
+#		print("SELECTED: ", grab_id_cortical)
+		Autoload_variable.BV_Core.Update_Cortical_grab_id(grab_id_cortical)
 		select_cortical.selected.pop_front()
 		return true
 	return false
@@ -275,17 +275,17 @@ func generate_single_cortical(x,y,z,width, depth, height, name_input):
 	else:
 		generate_one_model(create_textbox, x,y,z,width, height, depth, name_input)
 
-func _on_Update_pressed():
-	var x = int($".."/".."/".."/Menu/cortical_menu/Control/X.value);
-	var y = int($".."/".."/".."/Menu/cortical_menu/Control/Y.value);
-	var z = int($".."/".."/".."/Menu/cortical_menu/Control/Z.value);
-	var id_input = str($".."/".."/".."/Menu/cortical_menu/Control/cortical_id.text)
-	var width= int($".."/".."/".."/Menu/cortical_menu/Control/W.value)
-	var height = int($".."/".."/".."/Menu/cortical_menu/Control/H.value);
-	var depth = int($".."/".."/".."/Menu/cortical_menu/Control/D.value);
-	var synaptic_attractivity = int($".."/".."/".."/Menu/properties/Control/syn.value);
-	var post_synaptic_potential = $".."/".."/".."/Menu/properties/Control/pst_syn.value;
-	var post_synaptic_potential_max = float($".."/".."/".."/Menu/properties/Control/pst_syn_max.value);
+func _on_Update_pressed(data):
+	var x = data["cortical_coordinates"][0];
+	var y = data["cortical_coordinates"][1];
+	var z = data["cortical_coordinates"][2];
+	var id_input = str(data["cortical_id"]);
+	var width= data["cortical_dimensions"][0];
+	var height = data["cortical_dimensions"][1];
+	var depth = data["cortical_dimensions"][2];
+	var synaptic_attractivity = int(data["cortical_synaptic_attractivity"]);
+	var post_synaptic_potential = data["neuron_post_synaptic_potential"];
+	var post_synaptic_potential_max = float(data["neuron_post_synaptic_potential_max"]);
 	var plasticity_coef = float($".."/".."/".."/Menu/properties/Control/plst.value);
 	var fire_threshold = float($".."/".."/".."/Menu/properties/Control/fire.value);
 	var fire_threshold_limit = int($".."/".."/".."/Menu/properties/Control/Threshold_Sensitivity_text.value)
@@ -1073,19 +1073,23 @@ func _on_afferent_request_completed(_result, _response_code, _headers, body):
 	var test_json_conv = JSON.new()
 	test_json_conv.parse(body.get_string_from_utf8())
 	var api_data = test_json_conv.get_data()
-	
-	var counter = 0
-	afferent_holder_clear()
-	for i in api_data:
-		var new_node = $".."/".."/".."/Menu/cortical_mapping/Control/afferent/VBoxContainer/LineEdit.duplicate()
-		$".."/".."/".."/Menu/cortical_mapping/Control/afferent/VBoxContainer.add_child(new_node)
-		afferent_child_holder.append(new_node)
-		new_node.visible = true
-		new_node.text = id_to_name(i)
-		new_node.visible = true
-		new_node.position.x = $".."/".."/".."/Menu/cortical_mapping/Control/afferent/VBoxContainer.position.x + 5
-		new_node.position.y = $".."/".."/".."/Menu/cortical_mapping/Control/afferent/VBoxContainer.position.y + (counter * 20)
-		counter += 1
+	var UI_LeftBar = $"..".UI_LeftBar
+	if UI_LeftBar:
+		var counter = 0
+		afferent_holder_clear()
+		for i in api_data:
+			var new_node = UI_LeftBar.get_node("Field_blank_afferent").get_node("LineEdit").duplicate()
+			UI_LeftBar.get_node("Field_blank_afferent").add_child(new_node)
+			afferent_child_holder.append(new_node)
+			new_node.visible = true
+			new_node.text = id_to_name(i)
+#			new_node.position.x = UI_LeftBar.get_node("Field_blank_afferent").position.x + 5
+			new_node.position.y = (counter * 25)
+			counter += 1
+	if afferent_child_holder:
+		UI_LeftBar.get_node("Header_EFFERENTLABEL").get_node("Label").position.y = afferent_child_holder[len(afferent_child_holder)-1].position.y + 10
+	else:
+		UI_LeftBar.get_node("Header_EFFERENTLABEL").get_node("Label").position.y = 0
 	$notification.generate_notification_message(api_data, _response_code, "_on_afferent_request_completed", "/v1/feagi/genome/cortical_mappings/afferents")
 
 func afferent_holder_clear():
