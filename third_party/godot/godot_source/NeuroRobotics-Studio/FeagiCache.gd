@@ -31,12 +31,17 @@ var genome_corticalAreaIDList: Array:
 	set(v): _genome_corticalAreaIDList = v; FCD_CorticalIDListRdy = true; Update_FullCorticalData()
 	get: return _genome_corticalAreaIDList
 var genome_corticalAreaNameList: Array:
-	set(v): _genome_corticalAreaNameList = v; FCD_CorticalNameListRdy = true; Update_FullCorticalData()
+	set(v): _genome_corticalAreaNameList = v
 	get: return _genome_corticalAreaNameList
+var genome_cortical_id_name_mapping: Dictionary:
+	set(v): _genome_cortical_id_name_mapping = v; FCD_CorticalNameDictRdy = true; Update_FullCorticalData()
+	get: return _genome_cortical_id_name_mapping
 
 var connectome_properties_mappings: Dictionary:
 	set(v): _connectome_properties_mappings = v; FCD_ConnectomePropertiesMappings = true; Update_FullCorticalData()
 	get: return _connectome_properties_mappings
+
+
 
 var burst_engine: float
 
@@ -49,6 +54,7 @@ var _genome_morphologyList: Array
 var _genome_fileName: String
 var _genome_corticalAreaIDList: Array
 var _genome_corticalAreaNameList: Array
+var _genome_cortical_id_name_mapping: Dictionary
 
 var _connectome_properties_mappings: Dictionary
 
@@ -64,16 +70,16 @@ var _allConnectionReferencess: Array # IDs used to connect cortexes to each othe
 
 
 
-var FCD_CorticalIDListRdy = false; var FCD_CorticalNameListRdy = false; var FCD_ConnectomePropertiesMappings = false
+var FCD_CorticalIDListRdy = false; var FCD_CorticalNameDictRdy = false; var FCD_ConnectomePropertiesMappings = false
 var fullCorticalData := {}
 func Update_FullCorticalData(): # Update an easy to use dictionary with mappings easily set up
 	# check if prerequisites are ready to go
 	if(!FCD_CorticalIDListRdy): return
-	if(!FCD_CorticalNameListRdy): return
+	if(!FCD_CorticalNameDictRdy): return
 	if(!FCD_ConnectomePropertiesMappings): return
 	# prereqs passed, reset them and continue
-	FCD_CorticalIDListRdy = false; FCD_CorticalNameListRdy = false; FCD_ConnectomePropertiesMappings = false
-	fullCorticalData = InitMappingData(connectome_properties_mappings, genome_corticalAreaIDList, genome_corticalAreaNameList)
+	FCD_CorticalIDListRdy = false; FCD_CorticalNameDictRdy = false; FCD_ConnectomePropertiesMappings = false
+	fullCorticalData = InitMappingData(connectome_properties_mappings, genome_corticalAreaIDList, genome_cortical_id_name_mapping)
 	FullCorticalData_Updated.emit(fullCorticalData)
 
 
@@ -89,7 +95,7 @@ func Update_FullCorticalData(): # Update an easy to use dictionary with mappings
 #		  "friendlyName: String,
 #		  "connectionsIntIDs": [int array of connected cortexes, using their cortexReference],
 #		  "connectionsStrIDs": [Str Array of connected cortexes, using the cortex IDs from FEAGI directly}
-func InitMappingData(rawConnectomeMappings: Dictionary, orderedIDList: Array, FriendlyNameList: Array) -> Dictionary:
+func InitMappingData(rawConnectomeMappings: Dictionary, orderedIDList: Array, FriendlyName_IDMapping: Dictionary) -> Dictionary:
 	# lets abuse the fact that connectomeMappings includes a connectome list too!
 	
 	# clear old values
@@ -111,7 +117,7 @@ func InitMappingData(rawConnectomeMappings: Dictionary, orderedIDList: Array, Fr
 			"cortexReference": newCortexRef,
 			"connectionsIntIDs": [],
 			"connectionsStrIDs": [],
-			"friendlyName": FriendlyNameList[i]}
+			"friendlyName": FriendlyName_IDMapping[orderedIDList[i]]}
 	
 	# add in the connections
 	for key in cortexData.keys():

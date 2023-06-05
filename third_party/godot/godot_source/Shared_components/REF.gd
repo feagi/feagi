@@ -12,6 +12,7 @@ enum FROM {
 	
 	genome_corticalAreaIdList, genome_corticalAreaNameList,
 	genome_morphologyList, genome_fileName, genome_corticalArea,
+	genome_cortical_id_name_mapping,
 	
 	connectome_properties_mappings,
 	
