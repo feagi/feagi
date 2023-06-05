@@ -61,6 +61,7 @@ func _ready():
 	Update_GenomeFileName()
 	Update_ConnectomeMappingReport()
 	Update_CorticalAreaNameList()
+	Update_CorticalMap()
 
 ####################################
 ####### Process From Below ########
@@ -90,6 +91,7 @@ func Update_MorphologyList(): Call_GET(ADD_GET_MorphologyList, _Relay_Morphology
 func Update_GenomeFileName(): Call_GET(ADD_GET_GenomeFileName, _Relay_GenomeFileName)
 func Update_ConnectomeMappingReport(): Call_GET(ADD_GET_ConnectomeMappingReport, _Relay_ConnectomeMappingReport)
 func Update_CorticalAreaNameList(): Call_GET(ADD_GET_CorticalAreaNameList, _Relay_CorticalAreaNameList)
+func Update_CorticalMap(): Call_GET(ADD_Cortical_Name_Map, _Relay_CorticalMap)
 func Update_GenomeCorticalArea_SPECIFC(corticalArea: String): Call_GET(ADD_GET_Genome_CorticalArea, _Relay_GET_Genome_CorticalArea, corticalArea ) 
 func Update_Dimensions(): Call_GET(ADD_GET_Dimensions, _Relay_Dimensions)
 func Update_Refresh_Rate(): Call_GET(ADD_GET_Refresh_Rate, _Relay_Get_BurstRate)
@@ -233,6 +235,12 @@ func _Relay_GET_Genome_CorticalArea(_result, _response_code, _headers, body: Pac
 			specificCortex[key] = float(specificCortex[key])
 	UIManager.RelayDownwards(REF.FROM.genome_corticalArea, specificCortex)
 
+func _Relay_CorticalMap(_result, _response_code, _headers, body: PackedByteArray):
+	# FEAGI updating cortical ID - Name mappings
+	if LogNetworkError(_result): print("Unable to get Cortical mapping"); return
+	FeagiCache.genome_cortical_id_name_mapping = JSON.parse_string(body.get_string_from_utf8())
+	UIManager.RelayDownwards(REF.FROM.genome_cortical_id_name_mapping, FeagiCache.genome_cortical_id_name_mapping)
+
 func _Relay_Morphology_information(_result, _response_code, _headers, _body: PackedByteArray):
 	if LogNetworkError(_result): print("Unable to get Morphology Information"); return
 	Autoload_variable.Core_BV._on_type_rules_request_completed(_result, _response_code, _headers, _body)
@@ -367,6 +375,8 @@ var ADD_OPU:
 	get: return SEC + FEAGI_RootAddress + '/v1/feagi/genome/cortical_type_options?cortical_type='
 var ADD_IPU:
 	get: return SEC + FEAGI_RootAddress + '/v1/feagi/genome/cortical_type_options?cortical_type='
+var ADD_Cortical_Name_Map:
+	get: return SEC + FEAGI_RootAddress + '/v1/feagi/genome/cortical_id_name_mapping'
 
 # Post Requests
 var ADD_POST_BurstEngine:

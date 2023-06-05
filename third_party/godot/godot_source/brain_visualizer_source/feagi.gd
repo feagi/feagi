@@ -64,6 +64,7 @@ func _ready():
 #	add_3D_indicator()
 	Autoload_variable.BV_Core.Update_Dimensions() # Grab genome list
 	Autoload_variable.BV_Core.Update_Morphology_type()
+
 	while true:
 		if Godot_list.genome_data["genome"] != previous_genome_data:
 			previous_genome_data = Godot_list.genome_data["genome"].duplicate()
@@ -223,13 +224,14 @@ func generate_voxels():
 
 func cortical_is_clicked():
 	if select_cortical.selected.is_empty() != true:
-		$"..".SpawnLeftBar()
 		dst_data_holder = {}
 		var iteration_name = select_cortical.selected[0].replace("'","")
 		var grab_id_cortical = ""
 		grab_id_cortical = name_to_id(iteration_name)
 		update_cortical_map_name(grab_id_cortical)
-		Autoload_variable.BV_Core.Update_Cortical_grab_id(grab_id_cortical)
+		$"..".SpawnLeftBar(grab_id_cortical)
+		print("SELECTED: ", grab_id_cortical)
+#		Autoload_variable.BV_Core.Update_Cortical_grab_id(grab_id_cortical)
 		select_cortical.selected.pop_front()
 		return true
 	return false
@@ -461,7 +463,7 @@ func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 		last_cortical_selected = genome_properties
 		Autoload_variable.BV_Core.Update_Afferent_list(genome_properties["cortical_id"])
 	$notification.generate_notification_message(genome_properties, _response_code, "_on_HTTPRequest_request_completed", "/v1/feagi/genome/cortical_area")
-	$"..".SpawnLeftBar()
+#	$"..".SpawnLeftBar()
 
 
 func _on_send_feagi_request_completed(_result, _response_code, _headers, body):
@@ -1341,7 +1343,7 @@ func _morphology_add_row(dropdown, row_node, parent_node, button, create_button)
 	var counter = 0
 	print("debug: ", dropdown, " and ", row_node, " and ", parent_node)
 	counter = len(new_morphology_node)
-	if $".."/".."/".."/Menu/Control/inner_box/morphology_type.get_item_text($".."/".."/".."/Menu/Control/inner_box/morphology_type.selected) == "patterns":
+	if dropdown == "patterns":
 		var new_node = $".."/".."/".."/Menu/Control/inner_box/box_of_pattern/Control.duplicate()
 		$".."/".."/".."/Menu/Control/inner_box/box_of_pattern.add_child(new_node)
 		new_morphology_node.append(new_node)
@@ -1359,7 +1361,7 @@ func _morphology_add_row(dropdown, row_node, parent_node, button, create_button)
 		new_node.size = row_node.size
 		new_node.position.x = row_node.position.x
 		new_node.position.y = row_node.position.y + (40 * counter)
-	# This section needs to rework. This is not even good at all.
+	# This below section needs to rework. This is not even good at all.
 	# Start of Section
 	button.position.y = 3 + (35 * counter)
 	create_button.position.y = 3 + (35 * counter)
@@ -1643,3 +1645,11 @@ func demo_new_cortical():
 					global_name_list[i]["example"][0].get_child(0).get_child(0).text = "example"
 				else:
 					global_name_list[i]["example"][0].get_child(0).get_child(0).text = $".."/".."/".."/Menu/addition_menu/addition_menu/cortical_name_textbox/type.text
+
+# DE BUG ONLY:
+func calculateSceneSize(node: Node) -> int:
+	var size = node.get_memory_usage()
+	for child in node.get_children():
+		size += calculateSceneSize(child)
+
+	return size

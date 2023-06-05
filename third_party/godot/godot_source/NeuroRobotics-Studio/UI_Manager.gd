@@ -174,19 +174,16 @@ func CorticalCreateInput(data, _compRef, _unitRef):
 
 # Takes input from GraphEdit
 func GraphEditInput(data: Dictionary):
-#	print(JSON.stringify(data)) # useful for debugging
 	if "CortexSelected" in data.keys():
 		# Cortex has been selected, pop up side bar
 		SpawnLeftBar(data["CortexSelected"])
 		DataUp.emit(data)
-		print("data: ", data)
 	pass
 
 # Is called whenever the game window size changes
 func WindowSizedChanged():
 	var viewPortSize: Vector2 = get_viewport_rect().size
 	UI_GraphCore.size = viewPortSize
-	#print(newWindowSize)
 
 ####################################
 ###### Relay Feagi Dependents ######
@@ -216,8 +213,14 @@ func RelayDownwards(callType, data) -> void:
 			if UI_LeftBar == null: return # ignore if Leftbar isnt open
 			#if data["cortical_id"] != UI_LeftBar.name: return # ignore if the correct sidebar isn't open
 			
+			#print("HERE: ", data)
 			# Assemble Dict to input values
 			var inputVars = {
+				"CorticalName": {"value": data["cortical_id"]},
+				"CorticalID": {"value": data["cortical_name"]},
+				"CorticalArea": {"value": data["cortical_group"]},
+				"XYZ": {"Pos_X": {"value": data["cortical_coordinates"][0]}, "Pos_Y": {"value": data["cortical_coordinates"][1]}, "Pos_Z": {"value": data["cortical_coordinates"][2]}},
+				"WHD": {"W": {"value": data["cortical_dimensions"][0]}, "H": {"value": data["cortical_dimensions"][1]}, "D": {"value": data["cortical_dimensions"][2]}},
 				"VoxelNeuronDensity": {"value": data["cortical_neuron_per_vox_count"]},
 				"SynapticAttractivity": {"value": data["cortical_synaptic_attractivity"]},
 				"PostSynapticPotential": {"value": data["neuron_post_synaptic_potential"]},
@@ -230,8 +233,10 @@ func RelayDownwards(callType, data) -> void:
 				"ConsecutiveFireCount": {"value": data["neuron_consecutive_fire_count"]},
 				"SnoozePeriod": {"value": data["neuron_snooze_period"]},
 				"DegeneracyConstant": {"value": data["neuron_degeneracy_coefficient"]},
+				"ChargeACC": {"value": data["neuron_mp_charge_accumulation"]},
+				"PSPUNI": {"value": data["neuron_psp_uniform_distribution"]}
 			}
-			print(inputVars)
+			#print(inputVars)
 			UI_LeftBar.ApplyPropertiesFromDict(inputVars)
 			
 
@@ -242,46 +247,19 @@ func RelayDownwards(callType, data) -> void:
 ####################################
 
 func SpawnLeftBar(cortexName: String):
-	if UI_LeftBar != null:
-		UI_LeftBar.queue_free()
-	UI_LeftBar = SCENE_UNIT.instantiate()
-	add_child(UI_LeftBar)
-	var LeftBarDict = HelperFuncs.GenerateDefinedUnitDict("LEFTBAR", currentLanguageISO)
-	UI_LeftBar.Activate(LeftBarDict)
-	UI_LeftBar.DataUp.connect(LeftBarInput)
+#	if UI_LeftBar != null:
+#		UI_LeftBar.queue_free() # We don't need this. We need to make it look prettier
+	$"..".Update_GenomeCorticalArea_SPECIFC(cortexName) # Tell core to update cortex Info
+	if UI_LeftBar == null:
+		UI_LeftBar = SCENE_UNIT.instantiate()
+		add_child(UI_LeftBar)
+		var LeftBarDict = HelperFuncs.GenerateDefinedUnitDict("LEFTBAR", currentLanguageISO)
+		UI_LeftBar.Activate(LeftBarDict)
+		UI_LeftBar.DataUp.connect(LeftBarInput)
 	
-	# Get available data with UI_LeftBar.data
-	UI_LeftBar.ApplyPropertiesFromDict({"TITLEBAR": {"TITLE": {"label": cortexName}}})
-	UI_LeftBar.ApplyPropertiesFromDict({"XYZ": {"Pos_X": {"value": 653}}})
-	
-	# We need to talk about this
-#	var close = UI_LeftBar.get_child(0).get_child(1).get_child(0)
-#	var title = UI_LeftBar.get_child(0).get_child(0).get_child(0)
-#	var cortical_name = UI_LeftBar.get_child(2).get_child(1)
-#	var cortical_id = UI_LeftBar.get_child(3).get_child(1)
-#	var cortical_type = UI_LeftBar.get_child(4).get_child(1)
-#	var X = UI_LeftBar.get_child(5).get_child(0).get_child(1)
-#	var Y = UI_LeftBar.get_child(5).get_child(1).get_child(1)
-#	var Z = UI_LeftBar.get_child(5).get_child(2).get_child(1)
-#	var W = UI_LeftBar.get_child(6).get_child(0).get_child(1)
-#	var H = UI_LeftBar.get_child(6).get_child(1).get_child(1)
-#	var D = UI_LeftBar.get_child(6).get_child(2).get_child(1)
-#	var mem = UI_LeftBar.get_child(9).get_child(0).get_child(1)
-#	var syn = UI_LeftBar.get_child(9).get_child(1).get_child(1)
-#	title.text = $"../../Menu/cortical_menu/Control/name_string".text
-#	cortical_name.text = $"../../Menu/cortical_menu/Control/name_string".text
-#	cortical_id.text = $"../../Menu/cortical_menu/Control/cortical_id".text
-##	cortical_type.set # This isnt even working, gotta see why
-#	X.value = $"../../Menu/cortical_menu/Control/X".value
-#	Y.value = $"../../Menu/cortical_menu/Control/Y".value
-#	Z.value = $"../../Menu/cortical_menu/Control/Z".value
-#	W.value = $"../../Menu/cortical_menu/Control/W".value
-#	H.value = $"../../Menu/cortical_menu/Control/H".value
-#	D.value = $"../../Menu/cortical_menu/Control/D".value
-#	mem.set_pressed($"../../Menu/button_choice/Control/mem".is_pressed())
-#	syn.set_pressed($"../../Menu/button_choice/Control/syn".is_pressed())
-#	$"..".Update_GenomeCorticalArea_SPECIFC(cortical_id.text) ## Pass the raw id?
-	
+		# Get available data with UI_LeftBar.data
+		UI_LeftBar.ApplyPropertiesFromDict({"TITLEBAR": {"TITLE": {"label": cortexName}}})
+		UI_LeftBar.ApplyPropertiesFromDict({"XYZ": {"Pos_X": {"value": 653}}})
 	
 func SpawnCreateMophology():
 	UI_CreateMorphology = SCENE_UNIT.instantiate()
@@ -289,10 +267,11 @@ func SpawnCreateMophology():
 	var CMDict = HelperFuncs.GenerateDefinedUnitDict("CREATEMORPHOLOGY", currentLanguageISO)
 	UI_CreateMorphology.Activate(CMDict)
 	UI_CreateMorphology.DataUp.connect(CreateMorphologyInput)
-	var close = UI_CreateMorphology.get_child(0).get_child(1).get_child(0)
+#	var close = UI_CreateMorphology.get_child(0).get_child(1).get_child(0)
 	var button = UI_CreateMorphology.get_node("Unit_Vectors").get_node("Button_AddRowButton").get_child(0)
 	var create_button = UI_CreateMorphology.get_node("Button_CreateButton").get_child(0)
 	button.connect("pressed", Callable($Brain_Visualizer,"_morphology_add_row").bind("Vectors", UI_CreateMorphology.get_node("Unit_Vectors").get_node("Unit_XYZ"), UI_CreateMorphology.get_node("Unit_Vectors"), button, create_button))
+	
 #	_morphology_add_row
 	
 func SpawnCorticalCrete():
@@ -312,7 +291,7 @@ func SpawnCorticalCrete():
 	var update = UI_createcorticalBar.get_child(7).get_child(0)
 	var whd = UI_createcorticalBar.get_child(5)
 	var xyz = UI_createcorticalBar.get_child(6)
-	var close = UI_createcorticalBar.get_child(0).get_child(1).get_child(0)
+#	var close = UI_createcorticalBar.get_child(0).get_child(1).get_child(0)
 	var name_input = UI_createcorticalBar.get_child(2).get_child(0).get_child(1)
 	var optionlist = UI_createcorticalBar.get_child(1).get_child(1)
 	var w = whd.get_child(0).get_child(1)
@@ -327,7 +306,7 @@ func SpawnCorticalCrete():
 	x.connect("value_changed",Callable($Brain_Visualizer,"_on_X_SpinBox_value_changed").bind([w,h,d,x,y,z]))
 	y.connect("value_changed",Callable($Brain_Visualizer,"_on_Y_Spinbox_value_changed").bind([w,h,d,x,y,z]))
 	z.connect("value_changed",Callable($Brain_Visualizer,"_on_Z_Spinbox_value_changed").bind([w,h,d,x,y,z]))
-	name_input.connect("text_changed",Callable($".."/Button_to_Autoload,"_on_type_text_changed"))
+	name_input.connect("text_changed",Callable($"../../Button_to_Autoload","_on_type_text_changed"))
 	update.connect("pressed",Callable($Brain_Visualizer,"_on_add_pressed").bind([w,h,d,x,y,z, name_input, optionlist, update]))
 
 #func SpawnNeuronMorphology():
