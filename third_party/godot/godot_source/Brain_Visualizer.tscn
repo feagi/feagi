@@ -410,6 +410,7 @@ libraries = {
 [node name="Core" type="Node3D" parent="."]
 process_priority = 1
 script = ExtResource("31_vv2v0")
+languageISO = null
 
 [node name="GlobalNetworkSystem" parent="Core" instance=ExtResource("35_aljtt")]
 
@@ -1348,11 +1349,15 @@ text = "0.0"
 script = ExtResource("14_ddgqj")
 
 [node name="cortical_mapping" type="ColorRect" parent="Menu"]
-visible = false
-layout_mode = 0
+layout_mode = 1
+anchors_preset = -1
 anchor_top = 2.04688
 anchor_right = 2.03077
 anchor_bottom = 2.56027
+offset_left = 737.0
+offset_top = -18.6495
+offset_right = 737.0
+offset_bottom = -18.6495
 color = Color(0.372549, 0.34902, 0.34902, 1)
 
 [node name="Label" type="Label" parent="Menu/cortical_mapping"]
