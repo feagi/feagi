@@ -122,8 +122,9 @@
 	"ID":  "blank_afferent"},
   	{"type": "header",
   	"ID": "EFFERENTLABEL"},
-	  {"type": "field",
-	  "ID": "blank_efferent"}
+	{"type": "field",
+	  "ID": "blank_efferent"},
+
   ],
 	
 }
