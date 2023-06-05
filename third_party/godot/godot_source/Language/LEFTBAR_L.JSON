@@ -158,4 +158,24 @@
 			}
 		}
 	},
+	"AFFERENTLABEL": {
+		"label": {
+			"eng": "Afferent Mappings:"
+		}
+	},
+	"blank_afferent": {
+		"label": {
+			"eng": ""
+		}
+	},
+	"EFFERENTLABEL": {
+		"label": {
+			"eng": "Efferent Mappings: "
+		}
+	},
+	"blank_efferent": {
+		"label": {
+			"eng": ""
+		}
+	}
 }
