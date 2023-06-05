@@ -174,20 +174,16 @@ func CorticalCreateInput(data, _compRef, _unitRef):
 
 # Takes input from GraphEdit
 func GraphEditInput(data: Dictionary):
-#	print(JSON.stringify(data)) # useful for debugging
 	if "CortexSelected" in data.keys():
 		# Cortex has been selected, pop up side bar
 		SpawnLeftBar(data["CortexSelected"])
-		print("HERE: ", data["CortexSelected"])
 		DataUp.emit(data)
-		print("data: ", data)
 	pass
 
 # Is called whenever the game window size changes
 func WindowSizedChanged():
 	var viewPortSize: Vector2 = get_viewport_rect().size
 	UI_GraphCore.size = viewPortSize
-	#print(newWindowSize)
 
 ####################################
 ###### Relay Feagi Dependents ######
@@ -217,7 +213,7 @@ func RelayDownwards(callType, data) -> void:
 			if UI_LeftBar == null: return # ignore if Leftbar isnt open
 			#if data["cortical_id"] != UI_LeftBar.name: return # ignore if the correct sidebar isn't open
 			
-			print("HERE: ", data)
+			#print("HERE: ", data)
 			# Assemble Dict to input values
 			var inputVars = {
 				"CorticalName": {"value": data["cortical_id"]},
