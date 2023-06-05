@@ -41,9 +41,9 @@ var connectome_properties_mappings: Dictionary:
 	set(v): _connectome_properties_mappings = v; FCD_ConnectomePropertiesMappings = true; Update_FullCorticalData()
 	get: return _connectome_properties_mappings
 
-
-
-var burst_engine: float
+var burst_rate: float:
+	set(v): _burst_rate = v
+	get: return _burst_rate
 
 ######### Internal Caching #########
 var _pns_current_IPU: Dictionary
@@ -58,7 +58,7 @@ var _genome_cortical_id_name_mapping: Dictionary
 
 var _connectome_properties_mappings: Dictionary
 
-
+var _burst_rate: float
 
 ###### Other Internal Values #######
 var _allConnectionReferencess: Array # IDs used to connect cortexes to each other

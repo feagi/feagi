@@ -70,45 +70,48 @@ signal DataUp(data: Dictionary)
 # These are all examples
 func TopBarInput(data: Dictionary, _compRef, _unitRef):
 #	print(JSON.stringify(data)) # useful for debugging
-	if "CORTICALAREAS" in data.values():
+	match(data["ID"]):
+		"CORTICALAREAS":
+			# Drop downs specifically can either be button inputs or dropdown changes,
+			# verify this
+			if "button" in data.keys():
+				# Initialize popUpBar
+				if not UI_createcorticalBar:
+					SpawnCorticalCrete()
+	#				print(UI_createcorticalBar.componentData)
+				else:
+					UI_createcorticalBar.queue_free()
+			#	UI_createcorticalBar.DataUp.connect(LeftBarInput)
+				# button press
+	#			$".."/".."/Menu._on_add_pressed() #TODO: Need to change this approach. This is for example only
+				print("Pressed Button!")
+			else:
+				# the cortical area drop down was changed
+				var selectedCorticalArea: String = data["selected"]
+				print("new selected area is " + selectedCorticalArea)
+			
+		"NEURONMORPHOLOGIES":
 		# Drop downs specifically can either be button inputs or dropdown changes,
 		# verify this
-		if "button" in data.keys():
-			# Initialize popUpBar
-			if not UI_createcorticalBar:
-				SpawnCorticalCrete()
-#				print(UI_createcorticalBar.componentData)
+			if "button" in data.keys():
+				# button press
+				if not UI_CreateMorphology:
+					SpawnCreateMophology()
+				else:
+					UI_CreateMorphology.queue_free()
+				print("Pressed Button!")
 			else:
-				UI_createcorticalBar.queue_free()
-		#	UI_createcorticalBar.DataUp.connect(LeftBarInput)
-			# button press
-#			$".."/".."/Menu._on_add_pressed() #TODO: Need to change this approach. This is for example only
-			print("Pressed Button!")
-		else:
-			# the cortical area drop down was changed
-			var selectedCorticalArea: String = data["selected"]
-			print("new selected area is " + selectedCorticalArea)
-			
-	elif "NEURONMORPHOLOGIES" in data.values():
-	# Drop downs specifically can either be button inputs or dropdown changes,
-	# verify this
-		if "button" in data.keys():
-			# button press
-			if not UI_CreateMorphology:
-				SpawnCreateMophology()
-			else:
-				UI_CreateMorphology.queue_free()
-			print("Pressed Button!")
-		else:
-			# the cortical area drop down was changed
-			var selectedCorticalArea: String = data["selected"]
-			print("new selected area is " + selectedCorticalArea)
-			if not UI_ManageNeuronMorphology:
-				SpawnNeuronManager()
-				print("composite data: ", UI_ManageNeuronMorphology.componentData)
-			else:
-				UI_ManageNeuronMorphology.queue_free()
-
+				# the cortical area drop down was changed
+				var selectedCorticalArea: String = data["selected"]
+				print("new selected area is " + selectedCorticalArea)
+				if not UI_ManageNeuronMorphology:
+					SpawnNeuronManager()
+					print("composite data: ", UI_ManageNeuronMorphology.componentData)
+				else:
+					UI_ManageNeuronMorphology.queue_free()
+		
+		"REFRESHRATE":
+			DataUp.emit({"updatedBurstRate": data["number"]})
 func CreateMorphologyInput(data: Dictionary, _compRef: Node, _unitRef: Node):
 	if "MorphologyType" == data["compID"]:
 		#Drop down is changed, toggle between available morphology wizards
@@ -238,7 +241,8 @@ func RelayDownwards(callType, data) -> void:
 			}
 			#print(inputVars)
 			UI_LeftBar.ApplyPropertiesFromDict(inputVars)
-			
+		REF.FROM.burstEngine:
+			UI_Top_TopBar.ApplyPropertiesFromDict({"REFRESHRATE": {"value": data}})
 
 
 

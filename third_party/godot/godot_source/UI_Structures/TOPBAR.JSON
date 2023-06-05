@@ -10,7 +10,7 @@
 		 "ID":"GENOMEFILENAME"
 	  },
 	  {
-		 "type":"field",
+		 "type":"counter",
 		 "ID":"REFRESHRATE"
 	  },
 	  {

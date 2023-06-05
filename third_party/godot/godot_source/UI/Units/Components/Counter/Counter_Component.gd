@@ -52,6 +52,7 @@ var interval: float:
 var value: float:
 	get: return _Counter.value
 	set(v): 
+		if(_Counter.value == v): return # prevent looping
 		_Counter.value = v
 		# In the specific case of spinbox, changing value by code also
 		# emits the internal signal
