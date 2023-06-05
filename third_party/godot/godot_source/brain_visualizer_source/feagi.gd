@@ -64,16 +64,8 @@ func _ready():
 #	add_3D_indicator()
 	Autoload_variable.BV_Core.Update_Dimensions() # Grab genome list
 	Autoload_variable.BV_Core.Update_Morphology_type()
-	
-	#Delete this:
-	var tree = get_tree()
+
 	while true:
-#		var node_count = tree.get_node_count()
-#		var root_node = tree.get_root()
-#		print("Total node count: ", node_count)
-#		print("godot list: ", len(Godot_list.genome_data["genome"]))
-#		var total_size = calculateSceneSize(root_node)
-#		print("Total scene size: ", total_size, " bytes")
 		if Godot_list.genome_data["genome"] != previous_genome_data:
 			previous_genome_data = Godot_list.genome_data["genome"].duplicate()
 			_csv_generator()
@@ -1351,7 +1343,7 @@ func _morphology_add_row(dropdown, row_node, parent_node, button, create_button)
 	var counter = 0
 	print("debug: ", dropdown, " and ", row_node, " and ", parent_node)
 	counter = len(new_morphology_node)
-	if $".."/".."/".."/Menu/Control/inner_box/morphology_type.get_item_text($".."/".."/".."/Menu/Control/inner_box/morphology_type.selected) == "patterns":
+	if dropdown == "patterns":
 		var new_node = $".."/".."/".."/Menu/Control/inner_box/box_of_pattern/Control.duplicate()
 		$".."/".."/".."/Menu/Control/inner_box/box_of_pattern.add_child(new_node)
 		new_morphology_node.append(new_node)
@@ -1369,7 +1361,7 @@ func _morphology_add_row(dropdown, row_node, parent_node, button, create_button)
 		new_node.size = row_node.size
 		new_node.position.x = row_node.position.x
 		new_node.position.y = row_node.position.y + (40 * counter)
-	# This section needs to rework. This is not even good at all.
+	# This below section needs to rework. This is not even good at all.
 	# Start of Section
 	button.position.y = 3 + (35 * counter)
 	create_button.position.y = 3 + (35 * counter)

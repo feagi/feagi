@@ -142,8 +142,18 @@ if __name__ == "__main__":
         # OPU section STARTS
         # OPU section ENDS
         if np.any(rgb_array['current']):
-            new_rgb = np.array(rgb_array['current'])
-            new_rgb = new_rgb.reshape(480, 640, 4)
+            if len(rgb_array['current']) == 1228800:
+                new_rgb = np.array(rgb_array['current'])
+                new_rgb = new_rgb.reshape(480, 640, 4)
+            elif len(rgb_array['current']) == 266256:
+                new_rgb = np.array(rgb_array['current'])
+                new_rgb = new_rgb.reshape(258, 258, 4)
+            elif len(rgb_array['current']) == 65536:
+                new_rgb = np.array(rgb_array['current'])
+                new_rgb = new_rgb.reshape(128, 128, 4)
+            elif len(rgb_array['current']) == 16384:
+                new_rgb = np.array(rgb_array['current'])
+                new_rgb = new_rgb.reshape(64, 64, 4)
             # new_rgb = new_rgb.astype(np.uint8)
             new_rgb = rgba2rgb(new_rgb)
             retina_data = retina.frame_split(new_rgb,
