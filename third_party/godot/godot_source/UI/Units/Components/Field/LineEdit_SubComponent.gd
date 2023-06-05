@@ -28,7 +28,8 @@ var Htext: String:
 
 func _ready():
 	text_changed.connect(_TextChangeRelay)
-
+	focus_entered.connect(_toggleCamUsageOn)
+	focus_exited.connect(_toggleCamUsageOff)
 
 func _ScaleWithInputText() -> void:
 	if(!shouldScaleWithInputText): return
@@ -36,3 +37,9 @@ func _ScaleWithInputText() -> void:
 
 func _TextChangeRelay(_input: String) -> void:
 	_ScaleWithInputText()
+
+func _toggleCamUsageOn():
+	Godot_list.Node_2D_control = true
+
+func _toggleCamUsageOff():
+	Godot_list.Node_2D_control = false
