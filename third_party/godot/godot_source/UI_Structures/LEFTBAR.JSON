@@ -1,5 +1,7 @@
 {
   "ID" : "LEFTBAR",
+  "HpositionX": 0,
+  "HpositionY": 70,
   "enableTitleBar": true,
   "titleBarTitle": "INSERT SIDEBAR TITLE HERE",
   "enableCloseButton": true,
@@ -12,7 +14,7 @@
 	{"type": "field",
 	"ID": "CorticalID"},
 	{"ID": "CorticalArea",
-	"type": "dropdown"},
+	"type": "field"},
 	{
 		"type": "unit",
 		"ID": "XYZ",
