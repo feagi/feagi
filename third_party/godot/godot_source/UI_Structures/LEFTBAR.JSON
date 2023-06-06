@@ -20,15 +20,15 @@
 		"ID": "XYZ",
 		"components": [
 			{
-				"type": "counter",
+				"type": "floatField",
 				"ID": "Pos_X"
 			},
 			{
-				"type": "counter",
+				"type": "floatField",
 				"ID": "Pos_Y"
 			},
 			{
-				"type": "counter",
+				"type": "floatField",
 				"ID": "Pos_Z"
 			}
 		],
@@ -39,15 +39,15 @@
 		"ID": "WHD",
 		"components": [
 			{
-				"type": "counter",
+				"type": "floatField",
 				"ID": "W"
 			},
 			{
-				"type": "counter",
+				"type": "floatField",
 				"ID": "H"
 			},
 			{
-				"type": "counter",
+				"type": "floatField",
 				"ID": "D"
 			}
 		],
@@ -73,33 +73,33 @@
 		{"type": "toggle", "ID": "syn_potent"}], "isVertical": false},
 	{"type" : "header",
 	"ID" : "NeuronParametersSection"},	
-	{"type" : "counter",
+	{"type" : "floatField",
 	"ID" : "VoxelNeuronDensity"},
-	{"type" : "counter",
+	{"type" : "floatField",
 	"ID" : "SynapticAttractivity"},
-	{"type" : "counter",
+	{"type" : "floatField",
 	"ID" : "PostSynapticPotential"},
-	{"type" : "counter",
+	{"type" : "floatField",
 	"ID" : "PSPMax"},
-	{"type" : "counter",
+	{"type" : "floatField",
 	"ID" : "PlasticityConstant"},
-	{"type" : "counter",
+	{"type" : "floatField",
 	"ID" : "FireThreshold"},
-	{"type" : "counter",
+	{"type" : "floatField",
 	"ID" : "Thresholdlimit"},
-	{"type" : "counter",
+	{"type" : "floatField",
 	"ID" : "RefactoryPeriod"},
-	{"type" : "counter",
+	{"type" : "floatField",
 	"ID" : "LeakConstant"},
-	{"type" : "counter",
+	{"type" : "floatField",
 	"ID" : "LeakVaribility"},
-	{"type" : "counter",
+	{"type" : "floatField",
 	"ID" : "ThresholdINC"},
-	{"type" : "counter",
+	{"type" : "floatField",
 	"ID" : "ConsecutiveFireCount"},
-	{"type" : "counter",
+	{"type" : "floatField",
 	"ID" : "SnoozePeriod"},
-	{"type" : "counter",
+	{"type" : "floatField",
 	"ID" : "DegeneracyConstant"},
   	{"type": "toggle",
 	"ID": "PSPUNI"},
