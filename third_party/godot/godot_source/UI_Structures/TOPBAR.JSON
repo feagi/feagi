@@ -12,7 +12,8 @@
 	  {
 		 "type":"floatField",
 		 "ID":"REFRESHRATE",
-		 "minValue": 0.1
+		 "minValue": 0.1,
+		 "onlyTriggerWithEnter": true
 	  },
 	  {
 		 "type":"dropdown",
