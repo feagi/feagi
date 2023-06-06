@@ -8,6 +8,7 @@ const DEF_EDITABLE = true
 const DEF_FIELDWIDTH = 100.0
 const DEF_MAXCHARACTERS = 8
 const DEF_ONLYTRIGGERWITHENTER = true
+const DEF_SCALEWITHTEXT = false
 const DEF_VALUE = 0.0
 const DEF_MAX = 1000.0
 const DEF_MIN = -1000.0
@@ -21,6 +22,7 @@ const ADDITIONAL_SETTABLE_PROPERTIES = {
 	"minValue": TYPE_FLOAT,
 	"placeHolder": TYPE_STRING,
 	"onlyTriggerWithEnter": TYPE_BOOL,
+	"shouldScaleWithInputText": TYPE_BOOL
 }
 
 const TYPE: String = "floatField"
@@ -73,8 +75,8 @@ func _Activation(settings: Dictionary):
 	_Label = $Label
 	_LineEdit = $LineEdit
 	
-	# Signaling
-	_LineEdit.shouldScaleWithInputText = HelperFuncs.GetIfCan(settings, "onlyTriggerWithEnter", DEF_ONLYTRIGGERWITHENTER)
+	_LineEdit.OnlyAcceptWithEnter = HelperFuncs.GetIfCan(settings, "onlyTriggerWithEnter", DEF_ONLYTRIGGERWITHENTER)
+	_LineEdit.shouldScaleWithInputText = HelperFuncs.GetIfCan(settings, "shouldScaleWithInputText", DEF_SCALEWITHTEXT)
 	_LineEdit.FloatChanged.connect(ProxyValueChanges)
 	
 	label = HelperFuncs.GetIfCan(settings, "label", DEF_LABEL)
