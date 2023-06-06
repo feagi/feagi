@@ -58,6 +58,15 @@ func _toggleCamUsageOn():
 func _toggleCamUsageOff():
 	Godot_list.Node_2D_control = false
 
+func _ValidateText(requested: String) -> bool:
+	if requested.is_valid_float():
+		_cachedText = text
+		return true
+	else:
+		text = _cachedText
+		return false
+
+
 # How you update the HFloat value, returns true if input is valid, else false
 func UpdateHFloat(requested) -> bool:
 	if typeof(requested) == TYPE_FLOAT:
