@@ -35,7 +35,7 @@ func _ready():
 	focus_exited.connect(_toggleCamUsageOff)
 
 func _ScaleWithInputText() -> void:
-	if(!shouldScaleWithInputText): return
+	if(shouldScaleWithInputText): return
 	Hsize = Vector2(textWidth + INTERNAL_WIDTH_PADDING, Hsize.y)
 
 func _TextChangeRelay(_input: String) -> void:
