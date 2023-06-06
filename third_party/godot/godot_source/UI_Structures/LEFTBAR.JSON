@@ -120,11 +120,15 @@
 	"editable": false,
 	"alignmentWidth": 1,
 	"ID":  "blank_afferent"},
-  	{"type": "header",
-  	"ID": "EFFERENTLABEL"},
-	{"type": "field",
-	  "ID": "blank_efferent"},
-
+	{
+	"type": "unit",
+	"ID": "efferent_unit",
+	"components": [
+		{"type": "header",
+		"ID": "EFFERENTLABEL"},
+		{"type": "button",
+		  "ID": "blank_efferent"}
+	], "isVertical": false}
   ],
 	
 }

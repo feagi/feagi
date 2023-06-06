@@ -161,21 +161,33 @@
 	"AFFERENTLABEL": {
 		"label": {
 			"eng": "Afferent Mappings:"
-		}
-	},
-	"blank_afferent": {
-		"label": {
-			"eng": ""
-		}
-	},
-	"EFFERENTLABEL": {
-		"label": {
-			"eng": "Efferent Mappings: "
-		}
-	},
-	"blank_efferent": {
-		"label": {
-			"eng": ""
-		}
+			}
+		},
+		"blank_afferent": {
+			"label": {
+				"eng": ""
+			}
+		},
+		"efferent_unit": {
+			"EFFERENTLABEL": {
+			"label": {
+				"eng": "Efferent Mappings: "
+			}
+		},
+		"blank_efferent": {
+			"label": {
+				"eng": ""
+			}
+		},
+			"delete": {
+				"label": {
+					"eng": "-"
+				}
+			},
+			"info": {
+				"label": {
+					"eng": "i"
+				}
+			}
 	}
 }
