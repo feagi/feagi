@@ -72,11 +72,9 @@ func _Activation(settings: Dictionary):
 	_LineEdit = $LineEdit
 	
 	# Signaling
-	_triggerOnlyWithEnter = HelperFuncs.GetIfCan(settings, "onlyTriggerWithEnter", DEF_ONLYTRIGGERWITHENTER)
-	if(_triggerOnlyWithEnter):
-		_LineEdit.text_submitted.connect(ProxyValueChanges)
-	else:
-		_LineEdit.text_changed.connect(ProxyValueChanges)
+	_LineEdit.onlyAcceptWithEnter = HelperFuncs.GetIfCan(settings, "onlyTriggerWithEnter", DEF_ONLYTRIGGERWITHENTER)
+	
+	_LineEdit.textChanged.connect(ProxyValueChanges)
 	
 	# Fill in Label and Field Inits
 	label = HelperFuncs.GetIfCan(settings, "label", DEF_LABEL)
