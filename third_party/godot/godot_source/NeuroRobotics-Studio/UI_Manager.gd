@@ -136,7 +136,8 @@ func CreateMorphologyInput(data: Dictionary, _compRef: Node, _unitRef: Node):
 ######### Side Bar Control #########
 
 func LeftBarInput(data: Dictionary, _compRef, _unitRef):
-	print(JSON.stringify(data)) # useful for debugging
+	pass
+#	print(JSON.stringify(data)) # useful for debugging
 
 
 func CorticalCreateInput(data, _compRef, _unitRef):
@@ -202,7 +203,11 @@ func RelayDownwards(callType, data) -> void:
 		REF.FROM.pns_current_opu:
 			pass
 		REF.FROM.genome_corticalAreaIdList:
-			UI_Top_TopBar.ApplyPropertiesFromDict({"CORTICALAREAS": {"options":data}})
+			if UI_Top_TopBar:
+				UI_Top_TopBar.ApplyPropertiesFromDict({"CORTICALAREAS": {"options":data}})
+			if UI_MappingDefinition:
+				UI_MappingDefinition.ApplyPropertiesFromDict({"testlabel": {"SOURCECORTICALAREA":{"options": data}}})
+				UI_MappingDefinition.ApplyPropertiesFromDict({"testlabel": {"DESTINATIONCORTICALAREA":{"options": data}}})
 		REF.FROM.genome_morphologyList:
 			UI_Top_TopBar.ApplyPropertiesFromDict({"NEURONMORPHOLOGIES": {"options":data}})
 		REF.FROM.genome_fileName:
@@ -243,6 +248,7 @@ func RelayDownwards(callType, data) -> void:
 			}
 			#print(inputVars)
 			UI_LeftBar.ApplyPropertiesFromDict(inputVars)
+			UI_LeftBar.ApplyPropertiesFromDict({"TITLEBAR": {"TITLE": {"label": data["cortical_id"]}}})
 		REF.FROM.burstEngine:
 			UI_Top_TopBar.ApplyPropertiesFromDict({"REFRESHRATE": {"value": data}})
 
@@ -272,6 +278,11 @@ func SpawnLeftBar(cortexName: String):
 	
 func test(data):
 	print("test: ", data)
+	
+func mapping_definition_button(node):
+	var src_id = UI_LeftBar.get_node("Unit_TITLEBAR").get_node("Header_TITLE").get_node("Label").text
+	SpawnMappingDefinition(src_id, node.text)
+#	Autoload_variable.BV_Core.Get_Morphology_information($Brain_Visualizer.name_to_id(node.text))
 	
 func SpawnCreateMophology():
 	UI_CreateMorphology = SCENE_UNIT.instantiate()
@@ -340,11 +351,16 @@ func SpawnNeuronManager():
 	var cerateneuronmorphology = HelperFuncs.GenerateDefinedUnitDict("MANAGE_MORPHOLOGY", currentLanguageISO)
 	UI_ManageNeuronMorphology.Activate(cerateneuronmorphology)
 
-func SpawnMappingDefinition():
+func SpawnMappingDefinition(src, dst):
 	UI_MappingDefinition=SCENE_UNIT.instantiate()
 	add_child(UI_MappingDefinition)
 	var mappingdef = HelperFuncs.GenerateDefinedUnitDict("MAPPING_DEFINITION", currentLanguageISO)
 	UI_MappingDefinition.Activate(mappingdef)
+	$"..".Update_CortinalAreasIDs()
+	var get_id_from_dst = $Brain_Visualizer.name_to_id(dst)
+	var combine_url = '#&dst_cortical_area=$'.replace("#", src)
+	combine_url= combine_url.replace("$", get_id_from_dst)
+	Autoload_variable.BV_Core.Update_destination(combine_url)
 
 # Static Config
 const SCENE_UNIT: PackedScene = preload("res://UI/Units/unit.tscn")

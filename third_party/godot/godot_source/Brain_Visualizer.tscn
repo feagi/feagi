@@ -1,4 +1,4 @@
-[gd_scene load_steps=57 format=3 uid="uid://deenwnua3u7ay"]
+[gd_scene load_steps=56 format=3 uid="uid://deenwnua3u7ay"]
 
 [ext_resource type="PackedScene" uid="uid://c0650xa4eujml" path="res://circuit_build/Main.tscn" id="2_l206u"]
 [ext_resource type="Script" path="res://brain_visualizer_source/Button_to_Autoload.gd" id="2_t7fr6"]
@@ -22,7 +22,6 @@
 [ext_resource type="FontFile" uid="uid://rmx6gs0n5ehd" path="res://brain_visualizer_source/Glegoo-Bold.ttf" id="21_ptep2"]
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/cortical_area_type.gd" id="22_ln6xc"]
 [ext_resource type="Script" path="res://brain_visualizer_source/Mapping_properties.gd" id="23_gwhk5"]
-[ext_resource type="Script" path="res://VBoxContainer.gd" id="23_ww8x0"]
 [ext_resource type="Script" path="res://brain_visualizer_source/Mapping_control.gd" id="24_3jpdg"]
 [ext_resource type="Script" path="res://brain_visualizer_source/add_options_cortical.gd" id="25_wtbn1"]
 [ext_resource type="Texture2D" uid="uid://dbh23e0afal5q" path="res://brain_visualizer_source/menu_assets/image/close.png" id="26_85oh3"]
@@ -1349,6 +1348,7 @@ text = "0.0"
 script = ExtResource("14_ddgqj")
 
 [node name="cortical_mapping" type="ColorRect" parent="Menu"]
+visible = false
 layout_mode = 1
 anchors_preset = -1
 anchor_top = 2.04688
@@ -1411,7 +1411,6 @@ script = ExtResource("16_7bknk")
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-script = ExtResource("23_ww8x0")
 
 [node name="LineEdit" type="LineEdit" parent="Menu/cortical_mapping/Control/afferent/VBoxContainer"]
 visible = false

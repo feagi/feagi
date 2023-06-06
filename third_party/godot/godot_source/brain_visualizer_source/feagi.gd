@@ -497,16 +497,15 @@ func _on_information_button_request_completed(_result, _response_code, _headers,
 		var new_name = ""
 		var counter = 0 # To increase the height between two different duplicated nodes
 		var UI_LeftBar = $"..".UI_LeftBar
+		var id = $"..".UI_LeftBar.get_node("Unit_TITLEBAR").get_node("Header_TITLE").get_node("Label").text
 		for i in api_data:
-			var new_node = $"..".UI_LeftBar.get_node("Field_blank_efferent").get_node("LineEdit").duplicate()
-			$"..".UI_LeftBar.get_node("Field_blank_efferent").add_child(new_node)
+			var new_node = $"..".UI_LeftBar.get_node("Unit_efferent_unit").get_node("Button_blank_efferent").get_node("button").duplicate()
+			$"..".UI_LeftBar.get_node("Unit_efferent_unit").get_node("Button_blank_efferent").add_child(new_node)
 			child_node_holder.append(new_node)
 			new_name = id_to_name(i)
-			new_node.visible = true
 			new_node.text = new_name
-			new_node.position.y = (counter * 30)
-#			new_node.get_child(1).connect("pressed",Callable(self,"dst_remove_pressed").bind(new_node))
-#			new_node.get_child(0).connect("pressed",Callable(self,"info_pressed").bind(new_node))
+			new_node.position.y = (counter * 60)
+			new_node.connect("pressed",Callable($"..","mapping_definition_button").bind(new_node))
 			counter += 1
 #		map_colorful()
 	#	$".."/".."/".."/Menu/cortical_menu/Control/Update.position.y = 10 + $".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer.size.y + $".."/".."/".."/Menu/cortical_mapping.position.y
@@ -614,6 +613,7 @@ func _on_update_destination_info_request_completed(_result, _response_code, _hea
 	var api_data = test_json_conv.get_data()
 	plus_node_clear()
 	ghost_morphology_clear()
+	print("api: ", api_data)
 	if api_data != null:
 		if api_data.has("Request failed..."):
 			pass
@@ -1078,9 +1078,9 @@ func _on_afferent_request_completed(_result, _response_code, _headers, body):
 			new_node.position.y = (counter * 30)
 			counter += 1
 	if afferent_child_holder:
-		UI_LeftBar.get_node("Header_EFFERENTLABEL").get_node("Label").position.y = afferent_child_holder[len(afferent_child_holder)-1].position.y + 10
+		UI_LeftBar.get_node("Unit_efferent_unit").position.y = afferent_child_holder[len(afferent_child_holder)-1].position.y + 1141
 	else:
-		UI_LeftBar.get_node("Header_EFFERENTLABEL").get_node("Label").position.y = 0
+		UI_LeftBar.get_node("Unit_efferent_unit").position.y = 1141
 	$notification.generate_notification_message(api_data, _response_code, "_on_afferent_request_completed", "/v1/feagi/genome/cortical_mappings/afferents")
 
 func afferent_holder_clear():
