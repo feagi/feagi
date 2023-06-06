@@ -26,6 +26,7 @@ var UI_MappingDefinition : Unit
 var UI_GraphCore: GraphCore
 var UI_CreateMorphology: Unit
 var vectors_holder = []
+var data_holder = {} # to save data from API every call
 
 
 #####################################
@@ -217,7 +218,7 @@ func RelayDownwards(callType, data) -> void:
 			if UI_LeftBar == null: return # ignore if Leftbar isnt open
 			#if data["cortical_id"] != UI_LeftBar.name: return # ignore if the correct sidebar isn't open
 			
-			#print("HERE: ", data)
+			data_holder = data.duplicate()
 			# Assemble Dict to input values
 			var inputVars = {
 				"CorticalName": {"value": data["cortical_id"]},
@@ -265,6 +266,12 @@ func SpawnLeftBar(cortexName: String):
 		# Get available data with UI_LeftBar.data
 		UI_LeftBar.ApplyPropertiesFromDict({"TITLEBAR": {"TITLE": {"label": cortexName}}})
 		UI_LeftBar.ApplyPropertiesFromDict({"XYZ": {"Pos_X": {"value": 653}}})
+		var update = UI_LeftBar.get_node("Button_UpdateButton").get_child(0)
+		update.connect("pressed",Callable(self,"test").bind(UI_LeftBar.data))
+#		update.connect("pressed",Callable($Brain_Visualizer,"_on_Update_pressed").bind(data_holder))
+	
+func test(data):
+	print("test: ", data)
 	
 func SpawnCreateMophology():
 	UI_CreateMorphology = SCENE_UNIT.instantiate()

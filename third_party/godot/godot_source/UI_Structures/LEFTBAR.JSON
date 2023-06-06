@@ -10,10 +10,13 @@
 	{"type" : "header",
 	"ID" : "CorticalPropertiesSection"},
 	{"type": "field",
+	"editable": false,
 	"ID": "CorticalName"},
 	{"type": "field",
+	"editable": false,
 	"ID": "CorticalID"},
 	{"ID": "CorticalArea",
+	"editable": false,
 	"type": "field"},
 	{
 		"type": "unit",
@@ -110,7 +113,18 @@
 	"ID" : "UpdateButton",
 	"widthAlignment": 1},
 	{"type" : "header",
-	"ID" : "CorticalMapping"}
+	"ID" : "CorticalMapping"},
+  	{"type":  "header",
+  	"ID": "AFFERENTLABEL"},
+  	{"type": "field",
+	"editable": false,
+	"alignmentWidth": 1,
+	"ID":  "blank_afferent"},
+  	{"type": "header",
+  	"ID": "EFFERENTLABEL"},
+	{"type": "field",
+	  "ID": "blank_efferent"},
+
   ],
 	
 }

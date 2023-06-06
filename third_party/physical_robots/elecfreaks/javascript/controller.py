@@ -73,7 +73,8 @@ async def main():
     The main function handles the websocket and spins the asyncio to run the echo function
     infinitely until it exits. Once it exits, the function will resume to the next new websocket.
     """
-    async with websockets.serve(echo, "0.0.0.0", 9052):
+    async with websockets.serve(echo, agent_settings["godot_websocket_ip"],
+                                agent_settings['godot_websocket_port']):
         await asyncio.Future()  # run forever
 
 
