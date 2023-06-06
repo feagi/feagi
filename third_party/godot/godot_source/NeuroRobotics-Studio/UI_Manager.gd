@@ -138,8 +138,8 @@ func CreateMorphologyInput(data: Dictionary, _compRef: Node, _unitRef: Node):
 ######### Side Bar Control #########
 
 func LeftBarInput(data: Dictionary, _compRef, _unitRef):
-#	print(JSON.stringify(data)) # useful for debugging
-	pass
+	print(JSON.stringify(data)) # useful for debugging
+#	pass
 
 
 func CorticalCreateInput(data, _compRef, _unitRef):
