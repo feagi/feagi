@@ -75,7 +75,7 @@
 		{"type": "toggle", "ID": "Mem_potent"},
 		{"type": "toggle", "ID": "syn_potent"}], "isVertical": false},
 	{"type" : "header",
-	"ID" : "NeuronParametersSection"},	
+	"ID" : "NeuronParametersSection"},
 	{"type" : "floatField",
 	"ID" : "VoxelNeuronDensity"},
 	{"type" : "floatField",
@@ -108,7 +108,7 @@
 	"ID": "PSPUNI"},
   	{"type": "toggle",
 	"ID": "ChargeACC"},
-	
+
 	{"type" : "button",
 	"ID" : "UpdateButton",
 	"widthAlignment": 1},
@@ -130,6 +130,6 @@
 		  "ID": "blank_efferent"}
 	], "isVertical": false}
   ],
-	
+
 }
 
