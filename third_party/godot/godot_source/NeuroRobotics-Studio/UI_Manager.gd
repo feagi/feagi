@@ -27,6 +27,8 @@ var UI_GraphCore: GraphCore
 var UI_CreateMorphology: Unit
 var vectors_holder = []
 var data_holder = {} # to save data from API every call
+var src_global 
+var dst_global
 
 
 #####################################
@@ -136,8 +138,8 @@ func CreateMorphologyInput(data: Dictionary, _compRef: Node, _unitRef: Node):
 ######### Side Bar Control #########
 
 func LeftBarInput(data: Dictionary, _compRef, _unitRef):
-	pass
 #	print(JSON.stringify(data)) # useful for debugging
+	pass
 
 
 func CorticalCreateInput(data, _compRef, _unitRef):
@@ -206,10 +208,13 @@ func RelayDownwards(callType, data) -> void:
 			if UI_Top_TopBar:
 				UI_Top_TopBar.ApplyPropertiesFromDict({"CORTICALAREAS": {"options":data}})
 			if UI_MappingDefinition:
-				UI_MappingDefinition.ApplyPropertiesFromDict({"testlabel": {"SOURCECORTICALAREA":{"options": data}}})
-				UI_MappingDefinition.ApplyPropertiesFromDict({"testlabel": {"DESTINATIONCORTICALAREA":{"options": data}}})
+				UI_MappingDefinition.ApplyPropertiesFromDict({"testlabel": {"SOURCECORTICALAREA":{"options": data, "value": src_global}}})
+				UI_MappingDefinition.ApplyPropertiesFromDict({"testlabel": {"DESTINATIONCORTICALAREA":{"options": data, "value": dst_global}}})
 		REF.FROM.genome_morphologyList:
-			UI_Top_TopBar.ApplyPropertiesFromDict({"NEURONMORPHOLOGIES": {"options":data}})
+			if UI_Top_TopBar:
+				UI_Top_TopBar.ApplyPropertiesFromDict({"NEURONMORPHOLOGIES": {"options":data}})
+			if UI_MappingDefinition:
+				UI_MappingDefinition.ApplyPropertiesFromDict({"third_box": {"mappingdefinitions": {"options": data}}})
 		REF.FROM.genome_fileName:
 			UI_Top_TopBar.ApplyPropertiesFromDict({"GENOMEFILENAME": {"label":data}})
 		REF.FROM.connectome_properties_mappings:
@@ -352,15 +357,20 @@ func SpawnNeuronManager():
 	UI_ManageNeuronMorphology.Activate(cerateneuronmorphology)
 
 func SpawnMappingDefinition(src, dst):
+	if UI_MappingDefinition:
+		UI_MappingDefinition.queue_free()
 	UI_MappingDefinition=SCENE_UNIT.instantiate()
 	add_child(UI_MappingDefinition)
 	var mappingdef = HelperFuncs.GenerateDefinedUnitDict("MAPPING_DEFINITION", currentLanguageISO)
 	UI_MappingDefinition.Activate(mappingdef)
 	$"..".Update_CortinalAreasIDs()
 	var get_id_from_dst = $Brain_Visualizer.name_to_id(dst)
+	src_global = src
+	dst_global = get_id_from_dst
 	var combine_url = '#&dst_cortical_area=$'.replace("#", src)
 	combine_url= combine_url.replace("$", get_id_from_dst)
 	Autoload_variable.BV_Core.Update_destination(combine_url)
+	$"..".Update_MorphologyList()
 
 # Static Config
 const SCENE_UNIT: PackedScene = preload("res://UI/Units/unit.tscn")
