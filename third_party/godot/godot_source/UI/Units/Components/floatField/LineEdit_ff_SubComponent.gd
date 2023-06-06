@@ -27,7 +27,7 @@ var HFloat: float:
 var _HFloat: float = 0.0
 
 func _ready():
-	text_changed.connect(_UpdateHFloat)
+	text_changed.connect(UpdateHFloat)
 	focus_entered.connect(_toggleCamUsageOn)
 	focus_exited.connect(_toggleCamUsageOff)
 
@@ -45,7 +45,11 @@ func _toggleCamUsageOff():
 	Godot_list.Node_2D_control = false
 
 # How you update the HFloat value, returns true if input is valid, else false
-func _UpdateHFloat(requested: String) -> bool:
+func UpdateHFloat(requested) -> bool:
+	if typeof(requested) == TYPE_FLOAT:
+		_HFloat = requested
+		return true
+	if typeof(requested) != TYPE_STRING: return false
 	if requested.is_valid_float():
 		# input seems valid, pass through
 		_HFloat = float(requested)
