@@ -8,7 +8,7 @@ const DEF_EDITABLE = true
 const DEF_FIELDWIDTH = 100.0
 const DEF_MAXCHARACTERS = 8
 const DEF_ONLYTRIGGERWITHENTER = true
-const DEF_VALUE = "0.0"
+const DEF_VALUE = 0.0
 const DEF_SCALEWITHINPUTTEXT = false
 const ADDITIONAL_SETTABLE_PROPERTIES = {
 	"editable": TYPE_BOOL,
@@ -68,12 +68,7 @@ func _Activation(settings: Dictionary):
 	
 	# Signaling
 	_triggerOnlyWithEnter = HelperFuncs.GetIfCan(settings, "onlyTriggerWithEnter", DEF_ONLYTRIGGERWITHENTER)
-	if(_triggerOnlyWithEnter):
-		_LineEdit.text_submitted.connect(ProxyValueChanges)
-	else:
-		_LineEdit.text_changed.connect(ProxyValueChanges)
-	
-	# Fill in Label and Field Inits
+	_LineEdit.FloatChanged.connect(ProxyValueChanges)
 	label = HelperFuncs.GetIfCan(settings, "label", DEF_LABEL)
 	placeHolder = HelperFuncs.GetIfCan(settings, "placeHolder", DEF_PLACEHOLDER)
 	fieldWidth = HelperFuncs.GetIfCan(settings, "fieldWidth", DEF_FIELDWIDTH)

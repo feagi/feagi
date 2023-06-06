@@ -110,7 +110,7 @@ func TopBarInput(data: Dictionary, _compRef, _unitRef):
 				else:
 					UI_ManageNeuronMorphology.queue_free()
 		"REFRESHRATE":
-			DataUp.emit({"updatedBurstRate": data["number"]})
+			DataUp.emit({"updatedBurstRate": data["value"]})
 			
 
 func CreateMorphologyInput(data: Dictionary, _compRef: Node, _unitRef: Node):

@@ -54,5 +54,6 @@ func UpdateHFloat(requested) -> bool:
 		# input seems valid, pass through
 		_HFloat = float(requested)
 		_TextChangeRelay(requested)
+		FloatChanged.emit((float(requested)))
 		return true
 	return false

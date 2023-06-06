@@ -10,7 +10,7 @@
 		 "ID":"GENOMEFILENAME"
 	  },
 	  {
-		 "type":"counter",
+		 "type":"floatField",
 		 "ID":"REFRESHRATE",
 		 "minValue": 0.1
 	  },
