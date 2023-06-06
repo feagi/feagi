@@ -25,6 +25,9 @@ var textWidth: float:
 var HFloat: float:
 	get: return _HFloat
 
+var minValue := -9999999999.9
+var maxValue := 9999999999.9
+
 var _HFloat: float = 0.0
 
 func _ready():

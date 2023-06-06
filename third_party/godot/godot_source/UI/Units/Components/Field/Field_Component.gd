@@ -72,7 +72,7 @@ func _Activation(settings: Dictionary):
 	_LineEdit = $LineEdit
 	
 	# Signaling
-	_LineEdit.onlyAcceptWithEnter = HelperFuncs.GetIfCan(settings, "onlyTriggerWithEnter", DEF_ONLYTRIGGERWITHENTER)
+	_LineEdit.OnlyAcceptWithEnter = HelperFuncs.GetIfCan(settings, "onlyTriggerWithEnter", DEF_ONLYTRIGGERWITHENTER)
 	
 	_LineEdit.textChanged.connect(ProxyValueChanges)
 	
