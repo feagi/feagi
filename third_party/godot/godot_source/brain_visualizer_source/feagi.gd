@@ -613,13 +613,14 @@ func _on_update_destination_info_request_completed(_result, _response_code, _hea
 	var api_data = test_json_conv.get_data()
 	plus_node_clear()
 	ghost_morphology_clear()
-	print("api: ", api_data)
 	if api_data != null:
 		if api_data.has("Request failed..."):
 			pass
 		else:
 			for i in range(len(api_data)):
-				var new_node = $".."/".."/".."/Menu/Mapping_Properties/inside_mapping_menu/Control.duplicate()
+				var base = $"..".UI_MappingDefinition
+				print("status: ", base.get_node("Unit_third_box").get_children())
+				var new_node = base.get_node("Unit_third_box").get_node("Unit_MAPPING_DEFINITION").duplicate()
 				$".."/".."/".."/Menu/"Mapping_Properties"/inside_mapping_menu.add_child(new_node)
 				new_node.position.y = (50 * (plus_node.size()))
 				plus_node.append(new_node)
