@@ -67,7 +67,7 @@ func _Activation(settings: Dictionary):
 	_LineEdit = $LineEdit
 	
 	# Signaling
-	_triggerOnlyWithEnter = HelperFuncs.GetIfCan(settings, "onlyTriggerWithEnter", DEF_ONLYTRIGGERWITHENTER)
+	_LineEdit.shouldScaleWithInputText = HelperFuncs.GetIfCan(settings, "onlyTriggerWithEnter", DEF_ONLYTRIGGERWITHENTER)
 	_LineEdit.FloatChanged.connect(ProxyValueChanges)
 	label = HelperFuncs.GetIfCan(settings, "label", DEF_LABEL)
 	placeHolder = HelperFuncs.GetIfCan(settings, "placeHolder", DEF_PLACEHOLDER)

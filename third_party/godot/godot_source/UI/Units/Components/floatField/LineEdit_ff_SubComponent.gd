@@ -6,6 +6,7 @@ signal FloatChanged(float, selfReference)
 const INTERNAL_WIDTH_PADDING := 4.0
 
 var shouldScaleWithInputText := false
+var OnlyAcceptWithEnter := false
 
 var Hsize: Vector2:
 	get: return size
@@ -27,7 +28,8 @@ var HFloat: float:
 var _HFloat: float = 0.0
 
 func _ready():
-	text_changed.connect(UpdateHFloat)
+	text_changed.connect(_TextChangeRelay)
+	text_submitted.connect(_TextEnterRelay)
 	focus_entered.connect(_toggleCamUsageOn)
 	focus_exited.connect(_toggleCamUsageOff)
 
@@ -36,8 +38,14 @@ func _ScaleWithInputText() -> void:
 	Hsize = Vector2(textWidth + INTERNAL_WIDTH_PADDING, Hsize.y)
 
 func _TextChangeRelay(_input: String) -> void:
+	if OnlyAcceptWithEnter: return
 	_ScaleWithInputText()
+	UpdateHFloat(_input)
 
+func _TextEnterRelay(_input: String) -> void:
+	_ScaleWithInputText()
+	UpdateHFloat(_input)
+	
 func _toggleCamUsageOn():
 	Godot_list.Node_2D_control = true
 
@@ -53,7 +61,7 @@ func UpdateHFloat(requested) -> bool:
 	if requested.is_valid_float():
 		# input seems valid, pass through
 		_HFloat = float(requested)
-		_TextChangeRelay(requested)
+		_ScaleWithInputText()
 		FloatChanged.emit((float(requested)))
 		return true
 	return false
