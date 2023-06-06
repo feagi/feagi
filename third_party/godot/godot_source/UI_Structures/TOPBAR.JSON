@@ -10,8 +10,11 @@
 		 "ID":"GENOMEFILENAME"
 	  },
 	  {
-		 "type":"field",
-		 "ID":"REFRESHRATE"
+		 "type":"floatField",
+		 "ID":"REFRESHRATE",
+		 "minValue": 0.1,
+		 "maxValue": 10.0,
+		 "scaleWithInputText": false
 	  },
 	  {
 		 "type":"dropdown",

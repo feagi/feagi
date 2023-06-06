@@ -70,8 +70,11 @@ func _ready():
 # Respond to any events at the core level
 func RetrieveEvents(data: Dictionary) -> void:
 	if "CortexSelected" in data.keys():
-		Update_GenomeCorticalArea_SPECIFC(data["CortexSelected"])
-
+			Update_GenomeCorticalArea_SPECIFC(data["CortexSelected"])
+	if "updatedBurstRate" in data.keys():
+			Update_BurstRate(data["updatedBurstRate"])
+	pass
+	
 ####################################
 ##### Update Feagi Dependents ######
 ####################################
@@ -94,7 +97,7 @@ func Update_CorticalAreaNameList(): Call_GET(ADD_GET_CorticalAreaNameList, _Rela
 func Update_CorticalMap(): Call_GET(ADD_Cortical_Name_Map, _Relay_CorticalMap)
 func Update_GenomeCorticalArea_SPECIFC(corticalArea: String): Call_GET(ADD_GET_Genome_CorticalArea, _Relay_GET_Genome_CorticalArea, corticalArea ) 
 func Update_Dimensions(): Call_GET(ADD_GET_Dimensions, _Relay_Dimensions)
-func Update_Refresh_Rate(): Call_GET(ADD_GET_Refresh_Rate, _Relay_Get_BurstRate)
+func Update_Refresh_Rate(): Call_GET(ADD_GET_stimulation_period, _Relay_Get_BurstRate)
 func Update_Morphology_type(): Call_GET(ADD_GET_Morphology_types, _Relay_Morphology_type)
 func Update_Cortical_grab_id(input): Call_GET(ADD_GET_cortical_id+input, _Relay_Cortical_grab_id)
 func Update_Afferent_list(input): Call_GET(ADD_GET_Afferent+input, _Relay_Afferent)
@@ -106,8 +109,11 @@ func Get_mem_data(input_name: String): Call_GET(ADD_GET_mem+input_name, _Relay_U
 func Get_syn_data(input_name: String): Call_GET(ADD_GET_syn+input_name, _Relay_Update_syn)
 func GET_OPU(input_name: String): Call_GET(ADD_OPU+input_name, _Relay_update_OPU)
 func GET_IPU(input_name: String): Call_GET(ADD_IPU+input_name, _Relay_update_IPU)
+func GET_BurstRate(): Call_GET(ADD_GET_stimulation_period, _Relay_Get_BurstRate)
+
 func Update_BurstRate(newBurstRate: float):
 	Call_POST(ADD_POST_BurstEngine, _Relay_ChangedBurstRate, {"burst_duration": newBurstRate})
+	
 
 func Update_cortical_area(input):
 	Call_POST(ADD_POST_Add_Cortical, _Relay_updated_cortical, input)
@@ -160,8 +166,8 @@ func _Relay_CorticalAreasIDs(_result, _response_code, _headers, body: PackedByte
 
 func _Relay_ChangedBurstRate(_result, _response_code, _headers, _body: PackedByteArray):
 	# FEAGI updated Burst Rate
-	if LogNetworkError(_result): print("Unable to get Changed Burst Rate"); return
-	pass
+	if LogNetworkError(_result): print("Unable to change Burst Rate"); return
+	#GET_BurstRate() #Confirm new burst rate
 
 func _Relay_updated_cortical(_result, _response_code, _headers, _body: PackedByteArray):
 	if LogNetworkError(_result): print("Unable to get Cortical"); return
@@ -169,7 +175,9 @@ func _Relay_updated_cortical(_result, _response_code, _headers, _body: PackedByt
 	
 func _Relay_Get_BurstRate(_result, _response_code, _headers, body: PackedByteArray):
 	if LogNetworkError(_result): print("Unable to get Burst Rate"); return
+	FeagiCache.burst_rate = float(JSON.parse_string(body.get_string_from_utf8()))
 	Autoload_variable.Core_BV._on_get_burst_request_completed(_result, _response_code, _headers, body)
+	UIManager.RelayDownwards(REF.FROM.burstEngine, FeagiCache.burst_rate)
 
 func _Relay_Dimensions(_result, _response_code, _headers, body: PackedByteArray):
 	#Feagi Updated Dimensions
@@ -361,7 +369,7 @@ var ADD_GET_Dimensions:
 	get: return SEC + FEAGI_RootAddress + "/v1/feagi/connectome/properties/dimensions"
 var ADD_GET_Morphology_types:
 	get: return SEC + FEAGI_RootAddress + "/v1/feagi/genome/morphology_types"
-var ADD_GET_Refresh_Rate:
+var ADD_GET_stimulation_period:
 	get: return SEC + FEAGI_RootAddress + "/v1/feagi/feagi/burst_engine/stimulation_period"
 var ADD_GET_cortical_id:
 	get: return SEC + FEAGI_RootAddress + "/v1/feagi/genome/cortical_area?cortical_area="

@@ -186,3 +186,8 @@ static func ColorToV3I(input: Color) -> Vector3i:
 	output.y = input.g8
 	output.z = input.b8
 	return output
+
+static func clampToRange(input: float, min: float, max: float) -> float:
+	if input < min: return min
+	if input > max: return max
+	return input
