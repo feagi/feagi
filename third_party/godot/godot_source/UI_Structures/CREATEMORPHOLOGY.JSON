@@ -36,17 +36,17 @@
 			   "isVertical":false,
 			   "components":[
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"X",
 					 "label":"X"
 				  },
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"Y",
 					 "label":"Y"
 				  },
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"Z",
 					 "label":"Z"
 				  }
@@ -84,17 +84,17 @@
 			   "isVertical":false,
 			   "components":[
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"X",
 					 "label":"c"
 				  },
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"Y",
 					 "label":"c"
 				  },
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"Z",
 					 "label":"c"
 				  }
@@ -106,17 +106,17 @@
 			   "isVertical":false,
 			   "components":[
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"X",
 					 "label":"s"
 				  },
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"Y",
 					 "label":"s"
 				  },
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"Z",
 					 "label":"s"
 				  }
@@ -140,17 +140,17 @@
 			   "isVertical":false,
 			   "components":[
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"Xi",
 					 "label":"X"
 				  },
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"Yi",
 					 "label":"Y"
 				  },
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"Zi",
 					 "label":"Z"
 				  },
@@ -160,17 +160,17 @@
 					 "label":"->"
 				  },
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"Xo",
 					 "label":"X"
 				  },
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"Yo",
 					 "label":"Y"
 				  },
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"Zo",
 					 "label":"Z"
 				  },
@@ -199,17 +199,17 @@
 			   "isVertical":false,
 			   "components":[
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"X",
 					 "label":"X"
 				  },
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"Y",
 					 "label":"Y"
 				  },
 				  {
-					 "type":"counter",
+					 "type":"floatField",
 					 "ID":"Z",
 					 "label":"Z"
 				  },

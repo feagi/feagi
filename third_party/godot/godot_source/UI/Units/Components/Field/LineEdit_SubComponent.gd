@@ -2,9 +2,11 @@ extends LineEdit
 class_name LineEdit_SubComponent
 
 signal SizeChanged(selfReference)
+signal textChanged(string)
 const INTERNAL_WIDTH_PADDING := 4.0
 
 var shouldScaleWithInputText := false
+var OnlyAcceptWithEnter := false
 
 var Hsize: Vector2:
 	get: return size
@@ -28,15 +30,22 @@ var Htext: String:
 
 func _ready():
 	text_changed.connect(_TextChangeRelay)
+	text_submitted.connect(_TextEnterRelay)
 	focus_entered.connect(_toggleCamUsageOn)
 	focus_exited.connect(_toggleCamUsageOff)
 
 func _ScaleWithInputText() -> void:
-	if(!shouldScaleWithInputText): return
+	if(shouldScaleWithInputText): return
 	Hsize = Vector2(textWidth + INTERNAL_WIDTH_PADDING, Hsize.y)
 
 func _TextChangeRelay(_input: String) -> void:
+	if OnlyAcceptWithEnter: return
 	_ScaleWithInputText()
+	textChanged.emit(_input)
+
+func _TextEnterRelay(_input: String) -> void:
+	_ScaleWithInputText()
+	textChanged.emit(_input)
 
 func _toggleCamUsageOn():
 	Godot_list.Node_2D_control = true

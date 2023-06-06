@@ -125,6 +125,7 @@ var _headerScene: PackedScene = preload("res://UI/Units/Components/Header/header
 var _buttonScene: PackedScene = preload("res://UI/Units/Components/Button/button.tscn")
 var _fillScene: PackedScene = preload("res://UI/Units/Components/Fill/fill.tscn")
 var _unitScene: PackedScene = preload("res://UI/Units/unit.tscn")
+var _floatfieldScene: PackedScene = preload("res://UI/Units/Components/floatField/floatField.tscn")
 
 # Setup Unit for use
 func Activate(activationDict : Dictionary):
@@ -213,7 +214,9 @@ func AddComponent(component: Dictionary) -> void:
 			ValuesToInheritByDefault.merge({"isSubUnit": true})
 		"fill":
 			newComponent = _fillScene.instantiate()
-
+		"floatField":
+			newComponent = _floatfieldScene.instantiate()
+		
 	# Add the new Component to the Unit, Activate it, Connect Signals, Store a Reference
 	add_child(newComponent)
 	
