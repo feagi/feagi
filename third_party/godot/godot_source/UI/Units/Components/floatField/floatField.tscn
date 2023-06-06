@@ -1,14 +1,14 @@
-[gd_scene load_steps=5 format=3 uid="uid://ckth3auykdbdt"]
+[gd_scene load_steps=5 format=3 uid="uid://dobu3cdk4wjg"]
 
-[ext_resource type="Script" path="res://UI/Units/Components/Field/Field_Component.gd" id="1_2b8nj"]
+[ext_resource type="Script" path="res://UI/Units/Components/floatField/FloatField_Component.gd" id="1_tvjft"]
 [ext_resource type="Script" path="res://UI/Units/Common_SubComponents/Label_SubComponent.gd" id="2_hurqs"]
-[ext_resource type="Script" path="res://UI/Units/Components/Field/LineEdit_SubComponent.gd" id="3_2cq3m"]
+[ext_resource type="Script" path="res://UI/Units/Components/floatField/LineEdit_ff_SubComponent.gd" id="3_sjycm"]
 
 [sub_resource type="Theme" id="Theme_b5stb"]
 
 [node name="Field" type="Panel"]
 mouse_filter = 1
-script = ExtResource("1_2b8nj")
+script = ExtResource("1_tvjft")
 
 [node name="Label" type="Label" parent="."]
 layout_mode = 0
@@ -24,4 +24,4 @@ offset_right = 104.0
 offset_bottom = 31.0
 theme = SubResource("Theme_b5stb")
 placeholder_text = "UnInitialized"
-script = ExtResource("3_2cq3m")
+script = ExtResource("3_sjycm")

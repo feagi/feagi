@@ -1,29 +1,27 @@
 extends Component
 class_name FloatField_Component
 
-#TODO Refactor this to make it more clean like Counter_Component
-
 # Defaults, see readme
 const DEF_LABEL = "MISSING"
-const DEF_PLACEHOLDER = ""
+const DEF_PLACEHOLDER = "1.0"
 const DEF_EDITABLE = true
 const DEF_FIELDWIDTH = 100.0
-const DEF_MAXCHARACTERS = 50
+const DEF_MAXCHARACTERS = 8
 const DEF_ONLYTRIGGERWITHENTER = true
-const DEF_VALUE = ""
+const DEF_VALUE = "0.0"
 const DEF_SCALEWITHINPUTTEXT = false
 const ADDITIONAL_SETTABLE_PROPERTIES = {
 	"editable": TYPE_BOOL,
 	"value": TYPE_STRING,
 	"label": TYPE_STRING,
-	"fieldWidth": TYPE_FLOAT,
+	"fieldWidth": TYPE_FLOAT, 
 	"maxCharacters": TYPE_INT,
 	"placeHolder": TYPE_STRING,
 	"onlyTriggerWithEnter": TYPE_BOOL,
 	"scaleWithInputText": TYPE_BOOL
 }
 
-const TYPE: String = "field"
+const TYPE: String = "floatField"
 
 var editable: bool:
 	get: return _LineEdit.editable
@@ -32,18 +30,15 @@ var label: String:
 	get: return _Label.Htext
 	set(v): 
 		_Label.Htext = v
-var maxCharacters: int:
-	get: return _LineEdit.max_length
-	set(v): _LineEdit.max_length = v
 var fieldWidth: float:
 	get: return _LineEdit.fieldWidth
 	set(v): _LineEdit.fieldWidth = v
 var placeHolder: String:
 	get: return _LineEdit.placeholder_text
 	set(v): _LineEdit.placeholder_text = v
-var value: String:
-	get: return _LineEdit.Htext
-	set(v): _LineEdit.Htext = v
+var value: float:
+	get: return _LineEdit.HFloat
+	set(v): _LineEdit.UpdateHFloat(v) # note, if value isnt a float, it will be ignored!
 var onlyTriggerWithEnter: bool:
 	get: return _triggerOnlyWithEnter
 	# No Set!
@@ -56,14 +51,14 @@ var scaleWithInputText: bool:
 
 # Privates
 var _Label: Label
-var _LineEdit: LineEdit_SubComponent
+var _LineEdit: LineEdit_ff_SubComponent
 
 var _triggerOnlyWithEnter: bool
 
 
-# Sets-up the Field
+# Sets-up the FLoatField
 func _Activation(settings: Dictionary):
-	self.name = "Field_" + ID
+	self.name = "FloatField_" + ID
 	_componentType = TYPE
 	_runtimeSettableProperties.merge(ADDITIONAL_SETTABLE_PROPERTIES)
 	
@@ -81,8 +76,6 @@ func _Activation(settings: Dictionary):
 	# Fill in Label and Field Inits
 	label = HelperFuncs.GetIfCan(settings, "label", DEF_LABEL)
 	placeHolder = HelperFuncs.GetIfCan(settings, "placeHolder", DEF_PLACEHOLDER)
-	editable = HelperFuncs.GetIfCan(settings, "editable", DEF_EDITABLE)
-	maxCharacters = HelperFuncs.GetIfCan(settings, "maxCharacters", DEF_MAXCHARACTERS)
 	fieldWidth = HelperFuncs.GetIfCan(settings, "fieldWidth", DEF_FIELDWIDTH)
 	value = HelperFuncs.GetIfCan(settings, "value", DEF_VALUE)
 	scaleWithInputText = HelperFuncs.GetIfCan(settings, "scaleWithInputText", DEF_SCALEWITHINPUTTEXT)
