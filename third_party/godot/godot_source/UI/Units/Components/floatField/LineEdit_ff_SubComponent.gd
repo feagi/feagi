@@ -63,8 +63,9 @@ func UpdateHFloat(requested) -> bool:
 	if typeof(requested) != TYPE_STRING: return false
 	if requested.is_valid_float():
 		# input seems valid, pass through
-		_HFloat = float(requested)
+		var num = HelperFuncs.clampToRange(float(requested), minValue, maxValue)
+		_HFloat = num
 		_ScaleWithInputText()
-		FloatChanged.emit((float(requested)))
+		FloatChanged.emit(num)
 		return true
 	return false

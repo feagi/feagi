@@ -9,16 +9,18 @@ const DEF_FIELDWIDTH = 100.0
 const DEF_MAXCHARACTERS = 8
 const DEF_ONLYTRIGGERWITHENTER = true
 const DEF_VALUE = 0.0
-const DEF_SCALEWITHINPUTTEXT = false
+const DEF_MAX = 1000.0
+const DEF_MIN = -1000.0
 const ADDITIONAL_SETTABLE_PROPERTIES = {
 	"editable": TYPE_BOOL,
-	"value": TYPE_STRING,
+	"value": TYPE_FLOAT,
 	"label": TYPE_STRING,
 	"fieldWidth": TYPE_FLOAT, 
 	"maxCharacters": TYPE_INT,
+	"maxValue": TYPE_FLOAT,
+	"minValue": TYPE_FLOAT,
 	"placeHolder": TYPE_STRING,
 	"onlyTriggerWithEnter": TYPE_BOOL,
-	"scaleWithInputText": TYPE_BOOL
 }
 
 const TYPE: String = "floatField"
@@ -47,7 +49,12 @@ var textWidth: float:
 var scaleWithInputText: bool:
 	get: return _LineEdit.shouldScaleWithInputText
 	set(v): _LineEdit.shouldScaleWithInputText = v
-
+var maxValue: float:
+	get: return _LineEdit.maxValue
+	set(v): _LineEdit.maxValue = v
+var minValue: float:
+	get: return _LineEdit.minValue
+	set(v): _LineEdit.minValue = v
 
 # Privates
 var _Label: Label
@@ -69,12 +76,13 @@ func _Activation(settings: Dictionary):
 	# Signaling
 	_LineEdit.shouldScaleWithInputText = HelperFuncs.GetIfCan(settings, "onlyTriggerWithEnter", DEF_ONLYTRIGGERWITHENTER)
 	_LineEdit.FloatChanged.connect(ProxyValueChanges)
+	
 	label = HelperFuncs.GetIfCan(settings, "label", DEF_LABEL)
 	placeHolder = HelperFuncs.GetIfCan(settings, "placeHolder", DEF_PLACEHOLDER)
 	fieldWidth = HelperFuncs.GetIfCan(settings, "fieldWidth", DEF_FIELDWIDTH)
 	value = HelperFuncs.GetIfCan(settings, "value", DEF_VALUE)
-	scaleWithInputText = HelperFuncs.GetIfCan(settings, "scaleWithInputText", DEF_SCALEWITHINPUTTEXT)
-
+	maxValue = HelperFuncs.GetIfCan(settings, 'maxValue', DEF_MAX)
+	minValue = HelperFuncs.GetIfCan(settings, 'minValue', DEF_MIN)
 
 # Used to proxy user value changes
 func ProxyValueChanges(newValue: float):
