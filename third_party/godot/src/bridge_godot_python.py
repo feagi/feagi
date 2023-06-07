@@ -427,10 +427,7 @@ if __name__ == "__main__":
             one_frame = feagi_breakdown(one_frame)
             # Debug section start
             if one_frame != old_data:
-                print("FROM ZMQ: ", one_frame)
                 old_data = one_frame
-                print("ZMQ IP and PORT: ", feagi_host, ":", agent_settings[
-                    "agent_data_port"])
             # Debug section end
             # one_frame = simulation_testing() # This is to test the stress
             if BURST_SECOND > agent_settings['burst_duration_threshold']:
