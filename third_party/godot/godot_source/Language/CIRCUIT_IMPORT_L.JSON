@@ -1,0 +1,76 @@
+{
+	"CIRCUIT_IMPORT": {
+		"label": {
+				"eng": "Circuit Import"
+		}
+	},
+	"INPUT_TITLE": {
+		"label": {
+			"eng": "Choose a circuit"
+		}
+	},
+	"dropdowncircuit": {
+		"label": {
+			"eng": ""
+		}
+	},
+	"CIRCUITLOCAL": {
+		"label": {
+			"eng": "Circuit local"
+		}
+	},
+	"XYZ": {
+		"Pos_X": {
+			"label": {
+				"eng": "X"
+			}
+		},
+		"Pos_Y": {
+			"label": {
+				"eng": "Y"
+			}
+		},
+		"Pos_Z": {
+			"label": {
+				"eng": "Z"
+			}
+		}
+	},
+	"CIRCUITINIT": {
+		"label": {
+			"eng": "Circuit Init"
+		}
+	},
+	"CIRCUITSIZE": {
+		"label": {
+			"eng": "Circuit size"
+		}
+	},
+	"WHD": {
+		"W": {
+			"label": {
+				"eng": "W"
+			}
+		},
+		"H": {
+			"label": {
+				"eng": "H"
+			}
+		},
+		"D": {
+			"label": {
+				"eng": "D"
+			}
+		}
+	},
+	"CIRCUITDESCRIPTION": {
+		"label": {
+			"eng": "Description"
+		}
+	},
+	"descrption_textbox": {
+		"label": {
+			"eng": ""
+		}
+	}
+}

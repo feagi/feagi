@@ -1,0 +1,78 @@
+{
+	"ID": "CIRCUIT_IMPORT",
+  	"enableTitleBar": true,
+  	"titleBarTitle": "Import",
+	"HpositionX": 500,
+	"HpositionY": 400,
+	"enableCloseButton": true,
+	"components": [
+        {
+			"ID": "INPUT_TITLE",
+			"type": "header"
+		},
+		{
+			"ID": "dropdowncircuit",
+			"type": "dropdown"
+		},
+		{
+			"ID": "CIRCUITLOCAL",
+			"type": "header"
+		},
+		{
+			"type": "unit",
+			"ID": "XYZ",
+		 	"visibility": 0,
+			"components": [
+				{
+					"type": "counter",
+					"ID": "Pos_X"
+				},
+				{
+					"type": "counter",
+					"ID": "Pos_Y"
+				},
+				{
+					"type": "counter",
+					"ID": "Pos_Z"
+				}
+			],
+			"isVertical": false
+		},
+		{
+			"ID": "CIRCUITINIT",
+			"type": "header"
+		},
+		{
+			"ID": "CIRCUITSIZE",
+			"type": "header"
+		},
+		{
+			"type": "unit",
+			"visibility": 0,
+			"ID": "WHD",
+			"components": [
+				{
+					"type": "counter",
+					"ID": "W"
+				},
+				{
+					"type": "counter",
+					"ID": "H"
+				},
+				{
+					"type": "counter",
+					"ID": "D"
+				}
+			],
+			"isVertical": false
+		},
+		{
+			"ID": "CIRCUITDESCRIPTION",
+			"type": "header"
+		},
+		{
+			"ID": "descrption_textbox",
+			"type": "field"
+		}
+	]
+}
