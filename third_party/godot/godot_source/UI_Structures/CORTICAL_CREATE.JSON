@@ -40,7 +40,7 @@
 			"ID": "OPUIPU",
 			"components": [
 				{
-					"type": "floatField",
+					"type": "counter",
 					"ID": "CHANNELCOUNT"
 				}
 			],
@@ -52,15 +52,15 @@
 			"ID": "WHD",
 			"components": [
 				{
-					"type": "floatField",
+					"type": "counter",
 					"ID": "W"
 				},
 				{
-					"type": "floatField",
+					"type": "counter",
 					"ID": "H"
 				},
 				{
-					"type": "floatField",
+					"type": "counter",
 					"ID": "D"
 				}
 			],
@@ -72,15 +72,15 @@
 		 	"visibility": 2,
 			"components": [
 				{
-					"type": "floatField",
+					"type": "counter",
 					"ID": "Pos_X"
 				},
 				{
-					"type": "floatField",
+					"type": "counter",
 					"ID": "Pos_Y"
 				},
 				{
-					"type": "floatField",
+					"type": "counter",
 					"ID": "Pos_Z"
 				}
 			],
