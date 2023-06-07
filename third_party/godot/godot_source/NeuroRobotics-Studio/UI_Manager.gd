@@ -215,6 +215,11 @@ func RelayDownwards(callType, data) -> void:
 				UI_Top_TopBar.ApplyPropertiesFromDict({"NEURONMORPHOLOGIES": {"options":data}})
 			if UI_MappingDefinition:
 				UI_MappingDefinition.ApplyPropertiesFromDict({"third_box": {"mappingdefinitions": {"options": data}}})
+				var original_dropdown = UI_MappingDefinition.get_node("Unit_third_box").get_node("DropDown_mappingdefinitions").get_node("OptionButton")
+				for i in UI_MappingDefinition.get_children():
+					if "Unit_third_box" in i.get_name():
+						for x in original_dropdown.get_item_count():
+							i.get_node("DropDown_mappingdefinitions").get_node("OptionButton").add_item(original_dropdown.get_item_text(x))
 		REF.FROM.genome_fileName:
 			UI_Top_TopBar.ApplyPropertiesFromDict({"GENOMEFILENAME": {"label":data}})
 		REF.FROM.connectome_properties_mappings:
@@ -359,6 +364,7 @@ func SpawnNeuronManager():
 func SpawnMappingDefinition(src, dst):
 	if UI_MappingDefinition:
 		UI_MappingDefinition.queue_free()
+		$Brain_Visualizer.plus_node.clear()
 	UI_MappingDefinition=SCENE_UNIT.instantiate()
 	add_child(UI_MappingDefinition)
 	var mappingdef = HelperFuncs.GenerateDefinedUnitDict("MAPPING_DEFINITION", currentLanguageISO)
