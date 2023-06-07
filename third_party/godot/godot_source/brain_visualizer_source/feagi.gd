@@ -617,30 +617,32 @@ func _on_update_destination_info_request_completed(_result, _response_code, _hea
 		if api_data.has("Request failed..."):
 			pass
 		else:
+			
 			for i in range(len(api_data)):
+				#INCOMPLETE
 				var base = $"..".UI_MappingDefinition
-				print("status: ", base.get_node("Unit_third_box").get_children())
-				var new_node = base.get_node("Unit_third_box").get_node("Unit_MAPPING_DEFINITION").duplicate()
-				$".."/".."/".."/Menu/"Mapping_Properties"/inside_mapping_menu.add_child(new_node)
+				var new_node = base.get_node("Unit_third_box").duplicate()
+				new_node.set_name("Unit_third_box" + str(i))
+				base.add_child(new_node)
 				new_node.position.y = (50 * (plus_node.size()))
 				plus_node.append(new_node)
-				$".."/".."/".."/Menu/"Mapping_Properties"/inside_mapping_menu.size.y += (30 * plus_node.size())
-				new_node.get_child(0).connect("pressed",Callable(self,"_on_Mapping_def_pressed"))
-				new_node.get_child(4).text_changed.connect(_on_text_changed.bind(new_node.get_child(4)))
+#				base.size.y += (30 * plus_node.size())
+#				new_node.get_child(0).connect("pressed",Callable(self,"_on_Mapping_def_pressed"))
+#				new_node.get_child(4).text_changed.connect(_on_text_changed.bind(new_node.get_child(4)))
 				ghost_morphology.append(new_node.get_child(0))
 
-				for x in new_node.get_child(0).get_item_count():
-					if new_node.get_child(0).get_item_text(x) == api_data[i]["morphology_id"]:
-						new_node.get_child(0).selected = x
-						$".."/".."/".."/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.selected = x
-				new_node.visible = true
-				new_node.get_child(1).value = api_data[i]["morphology_scalar"][0]
-				new_node.get_child(2).value = api_data[i]["morphology_scalar"][1]
-				new_node.get_child(3).value = api_data[i]["morphology_scalar"][2]
-				new_node.get_child(4).text = str(api_data[i]["postSynapticCurrent_multiplier"])
-				new_node.get_child(5).set_pressed(api_data[i]["plasticity_flag"])
-				new_node.get_child(6).connect("pressed",Callable(self,"map_info_pressed").bind(new_node))
-				new_node.get_child(7).connect("pressed",Callable(self,"remove_button_inside_dst").bind(new_node))
+#				for x in new_node.get_child(0).get_item_count():
+#					if new_node.get_child(0).get_item_text(x) == api_data[i]["morphology_id"]:
+#						new_node.get_child(0).selected = x
+#						$".."/".."/".."/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.selected = x
+#				new_node.visible = true
+#				new_node.get_child(1).value = api_data[i]["morphology_scalar"][0]
+#				new_node.get_child(2).value = api_data[i]["morphology_scalar"][1]
+#				new_node.get_child(3).value = api_data[i]["morphology_scalar"][2]
+#				new_node.get_child(4).text = str(api_data[i]["postSynapticCurrent_multiplier"])
+#				new_node.get_child(5).set_pressed(api_data[i]["plasticity_flag"])
+#				new_node.get_child(6).connect("pressed",Callable(self,"map_info_pressed").bind(new_node))
+#				new_node.get_child(7).connect("pressed",Callable(self,"remove_button_inside_dst").bind(new_node))
 	$notification.generate_notification_message(api_data, _response_code, "_on_update_destination_info_request_completed", "/v1/feagi/genome/mapping_properties")
 
 func _on_genome_data_request_completed(_result, _response_code, _headers, body):
