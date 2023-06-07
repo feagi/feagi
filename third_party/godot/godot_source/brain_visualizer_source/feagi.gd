@@ -516,7 +516,10 @@ func child_holder_clear():
 	# Clear duplicate cortical maps name up
 	if child_node_holder:
 		for i in child_node_holder:
-			i.queue_free()
+			if i == null:
+				pass
+			else:
+				i.queue_free()
 		child_node_holder = []
 	if ghost_morphology:
 		ghost_morphology = []
@@ -1090,7 +1093,10 @@ func afferent_holder_clear():
 	# Clear duplicate cortical maps name up
 	if afferent_child_holder:
 		for i in afferent_child_holder:
-			i.queue_free()
+			if i == null:
+				pass
+			else:
+				i.queue_free()
 		afferent_child_holder = []
 
 func new_morphology_clear():
@@ -1358,11 +1364,11 @@ func _morphology_add_row(dropdown, row_node, parent_node, button, create_button)
 		new_node.get_node("Button_RemoveRowButton").get_child(0).connect("pressed",Callable(self,"delete_morphology").bind(new_node))
 		new_node.size = row_node.size
 		new_node.position.x = row_node.position.x
-		new_node.position.y = row_node.position.y + (40 * counter)
+		new_node.position.y = row_node.position.y + (30 * counter)
 	# This below section needs to rework. This is not even good at all.
 	# Start of Section
-	button.position.y = 3 + (35 * counter)
-	create_button.position.y = 3 + (35 * counter)
+	button.position.y = new_morphology_node[len(new_morphology_node)-1].position.y + 20
+	create_button.position.y = button.position.y + 10
 	# End of Section
 
 func _on_morphology_name_focus_exited():
