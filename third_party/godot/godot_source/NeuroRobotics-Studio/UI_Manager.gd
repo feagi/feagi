@@ -23,6 +23,7 @@ var UI_createcorticalBar : Unit
 var UI_CreateNeuronMorphology : Unit
 var UI_ManageNeuronMorphology : Unit
 var UI_MappingDefinition : Unit
+var UI_CircuitImport : Unit
 var UI_GraphCore: GraphCore
 var UI_CreateMorphology: Unit
 var vectors_holder = []
@@ -48,6 +49,7 @@ func Activate(langISO: String):
 	UI_Top_TopBar.DataUp.connect(TopBarInput)
 	
 #	SpawnMappingDefinition()
+	SpawnCircuitImport()
 	
 	
 	# Initialize GraphCore
@@ -354,6 +356,12 @@ func add_row(node, holder):
 	var length_holder = len(holder)
 	node.add_child(new_node)
 	new_node.position.y = node.position.y + (20 * length_holder)
+	
+func SpawnCircuitImport():
+	UI_CircuitImport=SCENE_UNIT.instantiate()
+	add_child(UI_CircuitImport)
+	var create_circuitimport = HelperFuncs.GenerateDefinedUnitDict("CIRCUIT_IMPORT", currentLanguageISO)
+	UI_CircuitImport.Activate(create_circuitimport)
 
 func SpawnNeuronManager():
 	UI_ManageNeuronMorphology=SCENE_UNIT.instantiate()
