@@ -12,8 +12,9 @@
 	  {
 		 "type":"floatField",
 		 "ID":"REFRESHRATE",
-		 "minValue": 0.1,
+		 "minValue": 0.01,
 		 "maxValue": 10.0,
+		  "hasButton":true,
 		 "scaleWithInputText": false
 	  },
 	  {
