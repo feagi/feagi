@@ -39,6 +39,10 @@
 			"isVertical": false
 		},
 		{
+			"ID": "IMPORTBUTTON",
+			"type": "button"
+		},
+		{
 			"ID": "CIRCUITINIT",
 			"type": "header"
 		},

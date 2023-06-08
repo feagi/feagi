@@ -72,5 +72,10 @@
 		"label": {
 			"eng": ""
 		}
+	},
+	"IMPORTBUTTON": {
+		"label": {
+			"eng": "Import"
+		}
 	}
 }
