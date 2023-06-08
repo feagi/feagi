@@ -311,18 +311,18 @@ func RelayDownwards(callType, data) -> void:
 ####################################
 
 func SpawnLeftBar(cortexName: String):
-#	if UI_LeftBar != null:
-#		UI_LeftBar.queue_free() # We don't need this. We need to make it look prettier
+	if UI_LeftBar != null:
+		UI_LeftBar.queue_free() # We don't need this. We need to make it look prettier
 	$"..".Update_GenomeCorticalArea_SPECIFC(cortexName) # Tell core to update cortex Info
-	if UI_LeftBar == null:
-		UI_LeftBar = SCENE_UNIT.instantiate()
-		add_child(UI_LeftBar)
-		var LeftBarDict = HelperFuncs.GenerateDefinedUnitDict("LEFTBAR", currentLanguageISO)
-		UI_LeftBar.Activate(LeftBarDict)
-		UI_LeftBar.DataUp.connect(LeftBarInput)
-	
-		# Get available data with UI_LeftBar.data
-		UI_LeftBar.ApplyPropertiesFromDict({"TITLEBAR": {"TITLE": {"label": cortexName}}})
+
+	UI_LeftBar = SCENE_UNIT.instantiate()
+	add_child(UI_LeftBar)
+	var LeftBarDict = HelperFuncs.GenerateDefinedUnitDict("LEFTBAR", currentLanguageISO)
+	UI_LeftBar.Activate(LeftBarDict)
+	UI_LeftBar.DataUp.connect(LeftBarInput)
+
+	# Get available data with UI_LeftBar.data
+	UI_LeftBar.ApplyPropertiesFromDict({"TITLEBAR": {"TITLE": {"label": cortexName}}})
 
 	
 func mapping_definition_button(node):
