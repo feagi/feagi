@@ -269,6 +269,7 @@ func generate_single_cortical(x,y,z,width, depth, height, name_input):
 		generate_one_model(create_textbox, x,y,z,width, height, depth, name_input)
 
 func _on_Update_pressed(data):
+	print(data)
 	var x = data["cortical_coordinates"][0];
 	var y = data["cortical_coordinates"][1];
 	var z = data["cortical_coordinates"][2];

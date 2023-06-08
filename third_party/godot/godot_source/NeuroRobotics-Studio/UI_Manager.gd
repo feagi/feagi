@@ -26,12 +26,15 @@ var UI_MappingDefinition : Unit
 var UI_CircuitImport : Unit
 var UI_GraphCore: GraphCore
 var UI_CreateMorphology: Unit
+var cache: FeagiCache
 var vectors_holder = []
 var data_holder = {} # to save data from API every call
 var src_global 
 var dst_global
 var import_close_button
 
+# Internal cached vars
+var _sideBarChangedValues := {}
 
 #####################################
 # Initialization
@@ -50,7 +53,7 @@ func Activate(langISO: String):
 	UI_Top_TopBar.DataUp.connect(TopBarInput)
 	var import_button = UI_Top_TopBar.get_node("DropDown_blank").get_node("Button")
 	import_button.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
-	
+	# FeagiCache is set from above
 #	SpawnMappingDefinition()
 #	SpawnCircuitImport()
 	
@@ -144,7 +147,36 @@ func CreateMorphologyInput(data: Dictionary, _compRef: Node, _unitRef: Node):
 
 func LeftBarInput(data: Dictionary, _compRef, _unitRef):
 	print(JSON.stringify(data)) # useful for debugging
-#	pass
+	match(data["ID"]):
+		"UpdateButton":
+			print("Update pressed!")
+			# Push update to cortex
+			# only push stuff that do not match what is cached
+			_sideBarChangedValues["cortical_id"] = UI_LeftBar.data["CorticalName"]
+			$"..".Update_Genome_CorticalArea(_sideBarChangedValues)
+			_sideBarChangedValues = {} # reset
+		_:
+			# Check if this is a neuron property, if so cache change for Update
+			if _isNeuronProperty(data["ID"]):
+				_sideBarChangedValues[data["ID"]] = data["value"]
+
+func _isNeuronProperty(ID: String) -> bool:
+	if ID == "VoxelNeuronDensity": return true
+	if ID == "SynapticAttractivity": return true
+	if ID == "PostSynapticPotential": return true
+	if ID == "PSPMax": return true
+	if ID == "PlasticityConstant": return true
+	if ID == "FireThreshold": return true
+	if ID == "Thresholdlimit": return true
+	if ID == "RefactoryPeriod": return true
+	if ID == "LeakConstant": return true
+	if ID == "LeakVaribility": return true
+	if ID == "ThresholdINC": return true
+	if ID == "ConsecutiveFireCount": return true
+	if ID == "SnoozePeriod": return true
+	if ID == "DegeneracyConstant": return true
+	return false
+
 
 
 func CorticalCreateInput(data, _compRef, _unitRef):
@@ -291,13 +323,7 @@ func SpawnLeftBar(cortexName: String):
 	
 		# Get available data with UI_LeftBar.data
 		UI_LeftBar.ApplyPropertiesFromDict({"TITLEBAR": {"TITLE": {"label": cortexName}}})
-		UI_LeftBar.ApplyPropertiesFromDict({"XYZ": {"Pos_X": {"value": 653}}})
-		var update = UI_LeftBar.get_node("Button_UpdateButton").get_child(0)
-		update.connect("pressed",Callable(self,"test").bind(UI_LeftBar.data))
-#		update.connect("pressed",Callable($Brain_Visualizer,"_on_Update_pressed").bind(data_holder))
-	
-func test(data):
-	print("test: ", data)
+
 	
 func mapping_definition_button(node):
 	var src_id = UI_LeftBar.get_node("Unit_TITLEBAR").get_node("Header_TITLE").get_node("Label").text
