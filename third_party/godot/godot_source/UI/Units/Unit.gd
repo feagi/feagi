@@ -396,9 +396,8 @@ func _RepositionChildren_V(parentSize: Vector2, childHs: Array, childVs: Array, 
 # Gets the minimum allowed width of the Unit
 func _GetMinWidth() -> float:
 	var children = get_children()
-	var calWidth: float = 0.0
+	var calWidth: float =  padding.x
 	if _isHorizontal:
-		calWidth = padding.x # assume small buffer on either side
 		for child in children:
 			calWidth += child.Hsize.x
 		return calWidth
@@ -406,15 +405,14 @@ func _GetMinWidth() -> float:
 		for child in children:
 			if child.size.x > calWidth:
 				calWidth = child.Hsize.x
-		return calWidth + padding.x
+		return calWidth
 
 # Get Minimum allowed height of the Unit
 func _GetMinHeight() -> float:
 	var children = get_children()
-	var calHeight: float = 0.0
+	var calHeight: float = padding.y
 	
 	if !_isHorizontal:
-		calHeight = padding.y # assume small buffer on either size
 		for child in children:
 			calHeight += child.Hsize.y
 		return calHeight
@@ -422,7 +420,7 @@ func _GetMinHeight() -> float:
 		for child in children:
 			if child.size.y > calHeight:
 				calHeight = child.Hsize.y
-		return calHeight + padding.y
+		return calHeight
 
 func _GetTallestComponentHeight() -> float:
 	var tallest: float = 0.0
