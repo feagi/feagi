@@ -31,6 +31,7 @@ var vectors_holder = []
 var data_holder = {} # to save data from API every call
 var src_global 
 var dst_global
+var import_close_button
 
 # Internal cached vars
 var _sideBarChangedValues := {}
@@ -50,9 +51,11 @@ func Activate(langISO: String):
 	var topBarDict = HelperFuncs.GenerateDefinedUnitDict("TOPBAR", currentLanguageISO)
 	UI_Top_TopBar.Activate(topBarDict)
 	UI_Top_TopBar.DataUp.connect(TopBarInput)
+	var import_button = UI_Top_TopBar.get_node("DropDown_blank").get_node("Button")
+	import_button.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
 	# FeagiCache is set from above
 #	SpawnMappingDefinition()
-	SpawnCircuitImport()
+#	SpawnCircuitImport()
 	
 	
 	# Initialize GraphCore
@@ -402,6 +405,11 @@ func SpawnCircuitImport():
 	var w = UI_CircuitImport.get_node("Unit_WHD").get_node("Counter_W").get_node("SpinBox")
 	var h = UI_CircuitImport.get_node("Unit_WHD").get_node("Counter_H").get_node("SpinBox")
 	var d = UI_CircuitImport.get_node("Unit_WHD").get_node("Counter_D").get_node("SpinBox")
+	var close_button = UI_CircuitImport.get_node("Unit_TITLEBAR").get_node("Button_CLOSEBUTTON").get_node("button")
+	var import_button = UI_CircuitImport.get_node("Button_IMPORTBUTTON").get_node("button")
+	import_button.connect("pressed", Callable($Brain_Visualizer,"_on_insert_button_pressed").bind([dropdown, x,y,z]))
+	close_button.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
+	import_close_button = close_button
 	dropdown.connect("item_selected",Callable($Brain_Visualizer,"_on_ItemList_item_selected").bind(dropdown))
 	x.connect("value_changed",Callable($Brain_Visualizer,"_on_x_spinbox_value_changed").bind([x, y, z, w, h, d]))
 	y.connect("value_changed",Callable($Brain_Visualizer,"_on_y_spinbox_value_changed").bind([x, y, z, w, h, d]))

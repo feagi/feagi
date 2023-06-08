@@ -14,5 +14,11 @@
 	"NEURONMORPHOLOGIES" : {
 		"label":
 		  {"eng": "Neuron Morphologies"} 
+	},
+	"blank": {
+		"label":
+		{
+			"eng": ""
+		}
 	}
 }

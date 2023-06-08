@@ -146,7 +146,7 @@ func _csv_generator(): # After you are done with testing, change the name to gen
 	_clear_node_name_list(global_name_list)
 	for k in Godot_list.genome_data["genome"]:
 		var CSV_data = Godot_list.genome_data["genome"][k]
-		var x = CSV_data[0]; var y = CSV_data[1]; var z = CSV_data[2]; var width= int(CSV_data[4]) 
+		var x = CSV_data[0]; var y = CSV_data[1]; var z = CSV_data[2]; var width= int(CSV_data[4])
 		var height = int(CSV_data[5]); var depth = int(CSV_data[6]); var name_input = k
 		$Floor_grid.set_cell_item( Vector3(int(x),0,int(z)) ,0)
 		if sign(int(width)) > 0:
@@ -166,7 +166,7 @@ func _csv_generator(): # After you are done with testing, change the name to gen
 			z_increment = (depth / floor_size) - 1
 			for i in range(0, z_increment):
 				$Floor_grid.set_cell_item( Vector3(int(x),0,int(z) + (-1*i*floor_size)) ,0)
-		var copy = duplicate_model.duplicate() 
+		var copy = duplicate_model.duplicate()
 		var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
 		var viewport = create_textbox.get_node("SubViewport")
 		create_textbox.set_texture(viewport.get_texture())
@@ -176,7 +176,7 @@ func _csv_generator(): # After you are done with testing, change the name to gen
 		add_child(create_textbox)#Copied the node to new node
 		#global_name_list.append(create_textbox)
 		create_textbox.scale = Vector3(1,1,1)
-		if int(width) * int(depth) * int(height) < 999: # Prevent massive cortical area 
+		if int(width) * int(depth) * int(height) < 999: # Prevent massive cortical area
 			generate_model(create_textbox, x,y,z,width, depth, height, name_input)
 		else:
 			generate_one_model(create_textbox, x,y,z,width, depth, height, name_input)
@@ -263,12 +263,13 @@ func generate_single_cortical(x,y,z,width, depth, height, name_input):
 	
 	erase_single_cortical_library(name_input)
 	
-	if int(width) * int(depth) * int(height) < 999: # Prevent massive cortical area 
+	if int(width) * int(depth) * int(height) < 999: # Prevent massive cortical area
 		generate_model(create_textbox, x,y,z,width, height, depth, name_input)
 	else:
 		generate_one_model(create_textbox, x,y,z,width, height, depth, name_input)
 
 func _on_Update_pressed(data):
+	print(data)
 	var x = data["cortical_coordinates"][0];
 	var y = data["cortical_coordinates"][1];
 	var z = data["cortical_coordinates"][2];
@@ -325,7 +326,7 @@ func _on_Update_pressed(data):
 		dst["morphology_scalar"] = []
 		dst["morphology_scalar"].append(p.get_child(1).value)
 		dst["morphology_scalar"].append(p.get_child(2).value)
-		dst["morphology_scalar"].append(p.get_child(3).value) 
+		dst["morphology_scalar"].append(p.get_child(3).value)
 		dst["postSynapticCurrent_multiplier"] = int(p.get_child(4).text)
 		dst["plasticity_flag"] = p.get_child(5).is_pressed()
 		if last_cortical_selected["cortical_destinations"].has(get_id):
@@ -382,7 +383,7 @@ func _on_Update_pressed(data):
 	global_name_list.clear()
 	global_name_list = store_global_data
 
-	if int(width) * int(depth) * int(height) < 999: # Prevent massive cortical area 
+	if int(width) * int(depth) * int(height) < 999: # Prevent massive cortical area
 		generate_model(create_textbox, x,y,z,width, depth, height, name_input)
 	else:
 		generate_one_model(create_textbox, x,y,z,width, depth, height, name_input)
@@ -409,7 +410,7 @@ func add_3D_indicator():
 	add_child(create_textbox_axis) # Copied the node to new node
 	create_textbox_axis.scale = Vector3(1, 1, 1)
 	generate_textbox(create_textbox_axis, 5,5,0,"y", 1,0, 0)
-	for k in 6: 
+	for k in 6:
 		$GridMap3.set_cell_item( Vector3(0,0,k) ,0)
 	create_textbox_axis = textbox_display.duplicate() #generate a new node to re-use the model
 	viewport = create_textbox_axis.get_node("SubViewport")
@@ -480,7 +481,7 @@ func _on_information_button_request_completed(_result, _response_code, _headers,
 	# Do not touch here. THis is for information iteration_namebutton only and will dedicate
 	# to the information button
 	# Clear duplicate cortical maps name up
-	child_holder_clear() 
+	child_holder_clear()
 	# Obtain the data from API and convert it into json/string
 	var test_json_conv = JSON.new()
 	test_json_conv.parse(body.get_string_from_utf8())
@@ -719,7 +720,7 @@ func dst_remove_pressed(duplicated_node_lineedit):
 			child_node_holder.pop_at(x - counter)
 			counter += 1
 		Autoload_variable.BV_Core.Update_Mapping_Properties([],combine_url)
-		$".."/".."/".."/Menu/cortical_menu/Control/Update.position.y = 10 + $".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer.size.y + $".."/".."/".."/Menu/cortical_mapping.position.y 
+		$".."/".."/".."/Menu/cortical_menu/Control/Update.position.y = 10 + $".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer.size.y + $".."/".."/".."/Menu/cortical_mapping.position.y
 		$".."/".."/".."/Menu/cortical_mapping.position.y = $".."/".."/".."/Menu/cortical_mapping.position.y - (number_holder.size() * 5)
 
 func delete_morphology(input_node):
@@ -860,7 +861,7 @@ func _on_get_cortical_dst_request_completed(_result, _response_code, _headers, b
 						if i in Godot_list.genome_data["genome"][x][7]:
 							dst_data[i] = api_data["cortical_destinations"][i]
 		dst_data_holder = dst_data.duplicate()
-		$".."/".."/".."/Menu/cortical_menu/Control/Update.position.y = 749 
+		$".."/".."/".."/Menu/cortical_menu/Control/Update.position.y = 749
 		if $".."/".."/".."/Menu/cortical_menu/Control/cortical_id.text != "":
 			var get_id = $".."/".."/".."/Menu/cortical_menu/Control/cortical_id.text
 			Autoload_variable.BV_Core.Get_mem_data(get_id)
@@ -889,7 +890,7 @@ func generate_cortical_mapping():
 #	new_node.text = new_name
 	new_node.position.x = $".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.position.x
 	new_node.position.y = $".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.position.y + (counter * 30)
-	new_node.size.x = $".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.size.x 
+	new_node.size.x = $".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.size.x
 	new_node.size.y = $".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer/cortical_map_name.size.y
 	new_node.visible = true
 	new_node.editable = true
@@ -1048,7 +1049,7 @@ func _on_create_pressed():
 			var new_type = $".."/".."/".."/Menu/Control/inner_box/morphology_type.get_item_text($".."/".."/".."/Menu/Control/inner_box/morphology_type.get_selected_id())
 			json["src_seed"] = [$".."/".."/".."/Menu/Control/inner_box/box_of_composite/X.value, $".."/".."/".."/Menu/Control/inner_box/box_of_composite/Y.value, $".."/".."/".."/Menu/Control/inner_box/box_of_composite/Z.value]
 			json["src_pattern"] = [[$".."/".."/".."/Menu/Control/inner_box/box_of_composite/X_box/C.value, $".."/".."/".."/Menu/Control/inner_box/box_of_composite/X_box/S.value], [$".."/".."/".."/Menu/Control/inner_box/box_of_composite/Y_box/C.value, $".."/".."/".."/Menu/Control/inner_box/box_of_composite/Y_box/S.value], [$".."/".."/".."/Menu/Control/inner_box/box_of_composite/Z_box/C.value, $".."/".."/".."/Menu/Control/inner_box/box_of_composite/Z_box/S.value]]
-			json["mapper_morphology"] = $".."/".."/".."/Menu/Control/inner_box/box_of_composite/mapper_composite.get_item_text($".."/".."/".."/Menu/Control/inner_box/box_of_composite/mapper_composite.selected)	
+			json["mapper_morphology"] = $".."/".."/".."/Menu/Control/inner_box/box_of_composite/mapper_composite.get_item_text($".."/".."/".."/Menu/Control/inner_box/box_of_composite/mapper_composite.selected)
 			var combine_url = '/v1/feagi/genome/morphology' + '?morphology_name=' + new_name + '&morphology_type=' + new_type
 			Autoload_variable.BV_Core.POST_Request_Brain_visualizer(SEC+combine_url, json)
 			$".."/".."/".."/Menu/Control.visible = false
@@ -1191,12 +1192,12 @@ func _on_syn_pressed():
 	var combine_url = 'HTTP://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/monitoring/neuron/synaptic_potential?cortical_area=' + $".."/".."/".."/Menu/cortical_menu/Control/cortical_id.text + '&state=' + str($".."/".."/".."/Menu/button_choice/Control/syn.is_pressed())
 	Autoload_variable.BV_Core.POST_Request_Brain_visualizer(combine_url,$".."/".."/".."/Menu/button_choice/Control/syn.is_pressed())
 	
-func _on_insert_button_pressed():
-	$".."/".."/".."/Menu/insert_menu/inner_box.visible = true
-	var combine_url = 'HTTP://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/append?circuit_name=' + $".."/".."/".."/Menu/insert_menu/inner_box/name_text.text + "&circuit_origin_x=" + str($".."/".."/".."/Menu/insert_menu/x_spinbox.value) + "&circuit_origin_y=" + str($".."/".."/".."/Menu/insert_menu/y_spinbox.value) + "&circuit_origin_z=" + str($".."/".."/".."/Menu/insert_menu/z_spinbox.value)
+func _on_insert_button_pressed(full_data):
+	var combine_url = $"../..".SEC + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/append?circuit_name=' + full_data[0].get_item_text(full_data[0].selected) + "&circuit_origin_x=" + str(full_data[1].value) + "&circuit_origin_y=" + str(full_data[2].value) + "&circuit_origin_z=" + str(full_data[3].value)
+	print("combine_url: ", combine_url)
 	var new_data = ["placeholder"]
 	Autoload_variable.BV_Core.POST_Request_Brain_visualizer(combine_url, new_data)
-
+	$"..".import_close_button.emit_signal("pressed")
 func _on_circuit_request_request_completed(_result, _response_code, _headers, body):
 	$".."/".."/".."/Menu/insert_menu/insert_button/ItemList.clear()
 	var test_json_conv = JSON.new()
@@ -1208,7 +1209,14 @@ func _on_circuit_request_request_completed(_result, _response_code, _headers, bo
 	$notification.generate_notification_message(api_data, _response_code, "_on_circuit_request_request_completed", "/v1/feagi/genome/circuits")
 
 func _on_import_pressed():
-	Autoload_variable.BV_Core.Get_circuit_list()
+	if not $"..".UI_CircuitImport:
+		Autoload_variable.BV_Core.Get_circuit_list()
+		$"..".SpawnCircuitImport()
+	else:
+		$"..".UI_CircuitImport.queue_free()
+		print("Godot list: ", Godot_list.godot_list)
+		_clear_single_cortical("example", Godot_list.godot_list)
+		
 
 func _on_ItemList_item_selected(index, node):
 	var name_text = node.get_item_text(index)
@@ -1364,7 +1372,7 @@ func _morphology_add_row(dropdown, row_node, parent_node, button, create_button)
 func _on_morphology_name_focus_exited():
 	new_morphology_clear()
 	for i in $".."/".."/".."/Menu/information_menu/Neuron_morphologies_item.get_item_count():
-		var name_morphology = $".."/".."/".."/Menu/information_menu/Neuron_morphologies_item.get_item_text(i) 
+		var name_morphology = $".."/".."/".."/Menu/information_menu/Neuron_morphologies_item.get_item_text(i)
 		if $".."/".."/".."/Menu/information_menu/Neuron_morphologies_item.get_item_text(i) == $".."/".."/".."/Menu/Control/inner_box/morphology_name.text:
 			if "+" in name_morphology:
 				name_morphology = name_morphology.replace("+", "%2B")
@@ -1629,7 +1637,7 @@ func _on_Z_Spinbox_value_changed(_value, node=[]):
 func demo_new_cortical():
 	"""
 	This is for add new cortical area so the name will be updated when you move it around. This is designed to use
-	the duplicated node called "example", so if it has no name, it will display as "example" but if 
+	the duplicated node called "example", so if it has no name, it will display as "example" but if
 	it has a letter or name, it will display as the user typed.
 	"""
 	for i in len(global_name_list):

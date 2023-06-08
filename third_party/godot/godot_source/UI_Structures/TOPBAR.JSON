@@ -14,8 +14,12 @@
 		 "ID":"REFRESHRATE",
 		 "minValue": 0.01,
 		 "maxValue": 10.0,
-		  "hasButton":true,
 		 "scaleWithInputText": false
+	  },
+	  {
+		 "type":"dropdown",
+		 "hasButton":true,
+		 "ID":"blank"
 	  },
 	  {
 		 "type":"dropdown",
