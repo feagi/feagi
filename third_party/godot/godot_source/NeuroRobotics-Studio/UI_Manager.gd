@@ -150,7 +150,6 @@ func LeftBarInput(data: Dictionary, _compRef, _unitRef):
 			# Push update to cortex
 			# only push stuff that do not match what is cached
 			_sideBarChangedValues["cortical_id"] = UI_LeftBar.data["CorticalName"]
-			print(_sideBarChangedValues)
 			$"..".Update_Genome_CorticalArea(_sideBarChangedValues)
 			_sideBarChangedValues = {} # reset
 		_:
