@@ -23,10 +23,13 @@ var UI_createcorticalBar : Unit
 var UI_CreateNeuronMorphology : Unit
 var UI_ManageNeuronMorphology : Unit
 var UI_MappingDefinition : Unit
+var UI_CircuitImport : Unit
 var UI_GraphCore: GraphCore
 var UI_CreateMorphology: Unit
 var vectors_holder = []
 var data_holder = {} # to save data from API every call
+var src_global 
+var dst_global
 
 
 #####################################
@@ -46,6 +49,7 @@ func Activate(langISO: String):
 	UI_Top_TopBar.DataUp.connect(TopBarInput)
 	
 #	SpawnMappingDefinition()
+	SpawnCircuitImport()
 	
 	
 	# Initialize GraphCore
@@ -137,6 +141,7 @@ func CreateMorphologyInput(data: Dictionary, _compRef: Node, _unitRef: Node):
 
 func LeftBarInput(data: Dictionary, _compRef, _unitRef):
 	print(JSON.stringify(data)) # useful for debugging
+#	pass
 
 
 func CorticalCreateInput(data, _compRef, _unitRef):
@@ -197,14 +202,32 @@ func WindowSizedChanged():
 # Handles Recieving data from Core, and distributing it to the correct element
 func RelayDownwards(callType, data) -> void:
 	match(callType):
+		REF.FROM.circuit_size:
+			if UI_CircuitImport:
+				UI_CircuitImport.ApplyPropertiesFromDict({"WHD": {"W":{"value": data[0]}, "H":{"value": data[1]}, "D	":{"value": data[2]}}})
+		REF.FROM.circuit_list:
+			if UI_CircuitImport:
+				UI_CircuitImport.ApplyPropertiesFromDict({"dropdowncircuit": {"options":data}})
 		REF.FROM.pns_current_ipu:
 			pass
 		REF.FROM.pns_current_opu:
 			pass
 		REF.FROM.genome_corticalAreaIdList:
-			UI_Top_TopBar.ApplyPropertiesFromDict({"CORTICALAREAS": {"options":data}})
+			if UI_Top_TopBar:
+				UI_Top_TopBar.ApplyPropertiesFromDict({"CORTICALAREAS": {"options":data}})
+			if UI_MappingDefinition:
+				UI_MappingDefinition.ApplyPropertiesFromDict({"testlabel": {"SOURCECORTICALAREA":{"options": data, "value": src_global}}})
+				UI_MappingDefinition.ApplyPropertiesFromDict({"testlabel": {"DESTINATIONCORTICALAREA":{"options": data, "value": dst_global}}})
 		REF.FROM.genome_morphologyList:
-			UI_Top_TopBar.ApplyPropertiesFromDict({"NEURONMORPHOLOGIES": {"options":data}})
+			if UI_Top_TopBar:
+				UI_Top_TopBar.ApplyPropertiesFromDict({"NEURONMORPHOLOGIES": {"options":data}})
+			if UI_MappingDefinition:
+				UI_MappingDefinition.ApplyPropertiesFromDict({"third_box": {"mappingdefinitions": {"options": data}}})
+				var original_dropdown = UI_MappingDefinition.get_node("Unit_third_box").get_node("DropDown_mappingdefinitions").get_node("OptionButton")
+				for i in UI_MappingDefinition.get_children():
+					if "Unit_third_box" in i.get_name():
+						for x in original_dropdown.get_item_count():
+							i.get_node("DropDown_mappingdefinitions").get_node("OptionButton").add_item(original_dropdown.get_item_text(x))
 		REF.FROM.genome_fileName:
 			UI_Top_TopBar.ApplyPropertiesFromDict({"GENOMEFILENAME": {"label":data}})
 		REF.FROM.connectome_properties_mappings:
@@ -212,7 +235,6 @@ func RelayDownwards(callType, data) -> void:
 		REF.FROM.godot_fullCorticalData:
 			UI_GraphCore.RelayDownwards(REF.FROM.godot_fullCorticalData, data)
 		REF.FROM.genome_corticalArea:
-			
 			# Data for Specific Cortical Area
 			# Race conditions are technically possible. Verify input
 			if UI_LeftBar == null: return # ignore if Leftbar isnt open
@@ -243,6 +265,7 @@ func RelayDownwards(callType, data) -> void:
 			}
 			#print(inputVars)
 			UI_LeftBar.ApplyPropertiesFromDict(inputVars)
+			UI_LeftBar.ApplyPropertiesFromDict({"TITLEBAR": {"TITLE": {"label": data["cortical_id"]}}})
 		REF.FROM.burstEngine:
 			UI_Top_TopBar.ApplyPropertiesFromDict({"REFRESHRATE": {"value": data}})
 
@@ -272,6 +295,11 @@ func SpawnLeftBar(cortexName: String):
 	
 func test(data):
 	print("test: ", data)
+	
+func mapping_definition_button(node):
+	var src_id = UI_LeftBar.get_node("Unit_TITLEBAR").get_node("Header_TITLE").get_node("Label").text
+	SpawnMappingDefinition(src_id, node.text)
+#	Autoload_variable.BV_Core.Get_Morphology_information($Brain_Visualizer.name_to_id(node.text))
 	
 func SpawnCreateMophology():
 	UI_CreateMorphology = SCENE_UNIT.instantiate()
@@ -333,18 +361,47 @@ func add_row(node, holder):
 	var length_holder = len(holder)
 	node.add_child(new_node)
 	new_node.position.y = node.position.y + (20 * length_holder)
-
+	
+func SpawnCircuitImport():
+	UI_CircuitImport=SCENE_UNIT.instantiate()
+	add_child(UI_CircuitImport)
+	var create_circuitimport = HelperFuncs.GenerateDefinedUnitDict("CIRCUIT_IMPORT", currentLanguageISO)
+	UI_CircuitImport.Activate(create_circuitimport)
+	UI_CircuitImport.DataUp.connect(LeftBarInput)
+	# Link to BV
+	var dropdown = UI_CircuitImport.get_node("DropDown_dropdowncircuit").get_node("OptionButton")
+	var x = UI_CircuitImport.get_node("Unit_XYZ").get_node("Counter_Pos_X").get_node("SpinBox")
+	var y = UI_CircuitImport.get_node("Unit_XYZ").get_node("Counter_Pos_Y").get_node("SpinBox")
+	var z = UI_CircuitImport.get_node("Unit_XYZ").get_node("Counter_Pos_Z").get_node("SpinBox")
+	var w = UI_CircuitImport.get_node("Unit_WHD").get_node("Counter_W").get_node("SpinBox")
+	var h = UI_CircuitImport.get_node("Unit_WHD").get_node("Counter_H").get_node("SpinBox")
+	var d = UI_CircuitImport.get_node("Unit_WHD").get_node("Counter_D").get_node("SpinBox")
+	dropdown.connect("item_selected",Callable($Brain_Visualizer,"_on_ItemList_item_selected").bind(dropdown))
+	x.connect("value_changed",Callable($Brain_Visualizer,"_on_x_spinbox_value_changed").bind([x, y, z, w, h, d]))
+	y.connect("value_changed",Callable($Brain_Visualizer,"_on_y_spinbox_value_changed").bind([x, y, z, w, h, d]))
+	z.connect("value_changed",Callable($Brain_Visualizer,"_on_z_spinbox_value_changed").bind([x, y, z, w, h, d]))
 func SpawnNeuronManager():
 	UI_ManageNeuronMorphology=SCENE_UNIT.instantiate()
 	add_child(UI_ManageNeuronMorphology)
 	var cerateneuronmorphology = HelperFuncs.GenerateDefinedUnitDict("MANAGE_MORPHOLOGY", currentLanguageISO)
 	UI_ManageNeuronMorphology.Activate(cerateneuronmorphology)
 
-func SpawnMappingDefinition():
+func SpawnMappingDefinition(src, dst):
+	if UI_MappingDefinition:
+		UI_MappingDefinition.queue_free()
+		$Brain_Visualizer.plus_node.clear()
 	UI_MappingDefinition=SCENE_UNIT.instantiate()
 	add_child(UI_MappingDefinition)
 	var mappingdef = HelperFuncs.GenerateDefinedUnitDict("MAPPING_DEFINITION", currentLanguageISO)
 	UI_MappingDefinition.Activate(mappingdef)
+	$"..".Update_CortinalAreasIDs()
+	var get_id_from_dst = $Brain_Visualizer.name_to_id(dst)
+	src_global = src
+	dst_global = get_id_from_dst
+	var combine_url = '#&dst_cortical_area=$'.replace("#", src)
+	combine_url= combine_url.replace("$", get_id_from_dst)
+	Autoload_variable.BV_Core.Update_destination(combine_url)
+	$"..".Update_MorphologyList()
 
 # Static Config
 const SCENE_UNIT: PackedScene = preload("res://UI/Units/unit.tscn")

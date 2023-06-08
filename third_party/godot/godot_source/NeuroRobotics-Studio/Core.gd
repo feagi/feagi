@@ -105,6 +105,7 @@ func Update_Efferent_information(input): Call_GET(ADD_GET_Efferent+input, _Relay
 func Get_Morphology_information(input): Call_GET(ADD_GET_Morphology_information+input, _Relay_Morphology_information)
 func Update_destination(input): Call_GET(ADD_GET_update_destination+input, _Relay_Update_Destination)
 func Get_circuit_list(): Call_GET(ADD_GET_circuit_list, _Relay_circuit_list)
+func Get_circuit_size(name_input): Call_GET(ADD_GET_circuit_size+name_input, _Relay_circuit_size)
 func Get_mem_data(input_name: String): Call_GET(ADD_GET_mem+input_name, _Relay_Update_mem)
 func Get_syn_data(input_name: String): Call_GET(ADD_GET_syn+input_name, _Relay_Update_syn)
 func GET_OPU(input_name: String): Call_GET(ADD_OPU+input_name, _Relay_update_OPU)
@@ -270,6 +271,17 @@ func _Relay_Update_syn(_result, _response_code, _headers, _body: PackedByteArray
 func _Relay_circuit_list(_result, _response_code, _headers, _body: PackedByteArray):
 	if LogNetworkError(_result): print("Unable to get Circuit list"); return
 	Autoload_variable.Core_BV._on_circuit_request_request_completed(_result, _response_code, _headers, _body)
+	var test_json_conv = JSON.new()
+	test_json_conv.parse(_body.get_string_from_utf8())
+	var api_data = test_json_conv.get_data()
+	UIManager.RelayDownwards(REF.FROM.circuit_list, api_data)
+	
+func _Relay_circuit_size(_result, _response_code, _headers, _body: PackedByteArray):
+	if LogNetworkError(_result): print("Unable to get Circuit list"); return
+	var test_json_conv = JSON.new()
+	test_json_conv.parse(_body.get_string_from_utf8())
+	var api_data = test_json_conv.get_data()
+	UIManager.RelayDownwards(REF.FROM.circuit_size, api_data)
 
 func _Relay_update_OPU(_result, _response_code, _headers, _body):
 	if LogNetworkError(_result): print("Unable to get Specific OPU"); return
@@ -365,6 +377,8 @@ var ADD_GET_update_destination:
 	get: return SEC + FEAGI_RootAddress + "/v1/feagi/genome/mapping_properties?src_cortical_area="
 var ADD_GET_circuit_list:
 	get: return SEC + FEAGI_RootAddress + "/v1/feagi/genome/circuits"
+var ADD_GET_circuit_size:
+	get: return SEC + FEAGI_RootAddress + "/v1/feagi/genome/circuit_size?circuit_name="
 var ADD_GET_Dimensions:
 	get: return SEC + FEAGI_RootAddress + "/v1/feagi/connectome/properties/dimensions"
 var ADD_GET_Morphology_types:

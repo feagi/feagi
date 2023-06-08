@@ -73,13 +73,6 @@ func _ready():
 			$".."/".."/".."/Menu/box_loading.visible = false
 		if cortical_is_clicked():
 			pass
-#			$".."/".."/".."/Menu/cortical_menu.visible = true
-#			$".."/".."/".."/Menu/cortical_mapping.visible = true
-#			$".."/".."/".."/Menu/button_choice.visible = true
-#			$".."/".."/".."/Menu/properties.visible = true
-#			$".."/".."/".."/Menu/Mapping_Properties.visible = false
-#			$".."/".."/".."/Menu/collapse_4.visible = true
-#			$".."/".."/".."/Menu/cortical_menu/title.visible = true
 		elif select_cortical.selected.is_empty() != true:
 			select_cortical.selected.pop_front()
 		_process(self)
@@ -497,16 +490,15 @@ func _on_information_button_request_completed(_result, _response_code, _headers,
 		var new_name = ""
 		var counter = 0 # To increase the height between two different duplicated nodes
 		var UI_LeftBar = $"..".UI_LeftBar
+		var id = $"..".UI_LeftBar.get_node("Unit_TITLEBAR").get_node("Header_TITLE").get_node("Label").text
 		for i in api_data:
-			var new_node = $"..".UI_LeftBar.get_node("Field_blank_efferent").get_node("LineEdit").duplicate()
-			$"..".UI_LeftBar.get_node("Field_blank_efferent").add_child(new_node)
+			var new_node = $"..".UI_LeftBar.get_node("Unit_efferent_unit").get_node("Button_blank_efferent").get_node("button").duplicate()
+			$"..".UI_LeftBar.get_node("Unit_efferent_unit").get_node("Button_blank_efferent").add_child(new_node)
 			child_node_holder.append(new_node)
 			new_name = id_to_name(i)
-			new_node.visible = true
 			new_node.text = new_name
-			new_node.position.y = (counter * 30)
-#			new_node.get_child(1).connect("pressed",Callable(self,"dst_remove_pressed").bind(new_node))
-#			new_node.get_child(0).connect("pressed",Callable(self,"info_pressed").bind(new_node))
+			new_node.position.y = (counter * 60)
+			new_node.connect("pressed",Callable($"..","mapping_definition_button").bind(new_node))
 			counter += 1
 #		map_colorful()
 	#	$".."/".."/".."/Menu/cortical_menu/Control/Update.position.y = 10 + $".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer.size.y + $".."/".."/".."/Menu/cortical_mapping.position.y
@@ -517,7 +509,10 @@ func child_holder_clear():
 	# Clear duplicate cortical maps name up
 	if child_node_holder:
 		for i in child_node_holder:
-			i.queue_free()
+			if i == null:
+				pass
+			else:
+				i.queue_free()
 		child_node_holder = []
 	if ghost_morphology:
 		ghost_morphology = []
@@ -618,28 +613,32 @@ func _on_update_destination_info_request_completed(_result, _response_code, _hea
 		if api_data.has("Request failed..."):
 			pass
 		else:
+			
 			for i in range(len(api_data)):
-				var new_node = $".."/".."/".."/Menu/Mapping_Properties/inside_mapping_menu/Control.duplicate()
-				$".."/".."/".."/Menu/"Mapping_Properties"/inside_mapping_menu.add_child(new_node)
+				#INCOMPLETE
+				var base = $"..".UI_MappingDefinition
+				var new_node = base.get_node("Unit_third_box").duplicate()
+				new_node.set_name("Unit_third_box" + str(i))
+				base.add_child(new_node)
 				new_node.position.y = (50 * (plus_node.size()))
 				plus_node.append(new_node)
-				$".."/".."/".."/Menu/"Mapping_Properties"/inside_mapping_menu.size.y += (30 * plus_node.size())
-				new_node.get_child(0).connect("pressed",Callable(self,"_on_Mapping_def_pressed"))
-				new_node.get_child(4).text_changed.connect(_on_text_changed.bind(new_node.get_child(4)))
+#				base.size.y += (30 * plus_node.size())
+#				new_node.get_child(0).connect("pressed",Callable(self,"_on_Mapping_def_pressed"))
+#				new_node.get_child(4).text_changed.connect(_on_text_changed.bind(new_node.get_child(4)))
 				ghost_morphology.append(new_node.get_child(0))
 
-				for x in new_node.get_child(0).get_item_count():
-					if new_node.get_child(0).get_item_text(x) == api_data[i]["morphology_id"]:
-						new_node.get_child(0).selected = x
-						$".."/".."/".."/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.selected = x
-				new_node.visible = true
-				new_node.get_child(1).value = api_data[i]["morphology_scalar"][0]
-				new_node.get_child(2).value = api_data[i]["morphology_scalar"][1]
-				new_node.get_child(3).value = api_data[i]["morphology_scalar"][2]
-				new_node.get_child(4).text = str(api_data[i]["postSynapticCurrent_multiplier"])
-				new_node.get_child(5).set_pressed(api_data[i]["plasticity_flag"])
-				new_node.get_child(6).connect("pressed",Callable(self,"map_info_pressed").bind(new_node))
-				new_node.get_child(7).connect("pressed",Callable(self,"remove_button_inside_dst").bind(new_node))
+#				for x in new_node.get_child(0).get_item_count():
+#					if new_node.get_child(0).get_item_text(x) == api_data[i]["morphology_id"]:
+#						new_node.get_child(0).selected = x
+#						$".."/".."/".."/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.selected = x
+#				new_node.visible = true
+#				new_node.get_child(1).value = api_data[i]["morphology_scalar"][0]
+#				new_node.get_child(2).value = api_data[i]["morphology_scalar"][1]
+#				new_node.get_child(3).value = api_data[i]["morphology_scalar"][2]
+#				new_node.get_child(4).text = str(api_data[i]["postSynapticCurrent_multiplier"])
+#				new_node.get_child(5).set_pressed(api_data[i]["plasticity_flag"])
+#				new_node.get_child(6).connect("pressed",Callable(self,"map_info_pressed").bind(new_node))
+#				new_node.get_child(7).connect("pressed",Callable(self,"remove_button_inside_dst").bind(new_node))
 	$notification.generate_notification_message(api_data, _response_code, "_on_update_destination_info_request_completed", "/v1/feagi/genome/mapping_properties")
 
 func _on_genome_data_request_completed(_result, _response_code, _headers, body):
@@ -1078,16 +1077,19 @@ func _on_afferent_request_completed(_result, _response_code, _headers, body):
 			new_node.position.y = (counter * 30)
 			counter += 1
 	if afferent_child_holder:
-		UI_LeftBar.get_node("Header_EFFERENTLABEL").get_node("Label").position.y = afferent_child_holder[len(afferent_child_holder)-1].position.y + 10
+		UI_LeftBar.get_node("Unit_efferent_unit").position.y = afferent_child_holder[len(afferent_child_holder)-1].position.y + 1141
 	else:
-		UI_LeftBar.get_node("Header_EFFERENTLABEL").get_node("Label").position.y = 0
+		UI_LeftBar.get_node("Unit_efferent_unit").position.y = 1141
 	$notification.generate_notification_message(api_data, _response_code, "_on_afferent_request_completed", "/v1/feagi/genome/cortical_mappings/afferents")
 
 func afferent_holder_clear():
 	# Clear duplicate cortical maps name up
 	if afferent_child_holder:
 		for i in afferent_child_holder:
-			i.queue_free()
+			if i == null:
+				pass
+			else:
+				i.queue_free()
 		afferent_child_holder = []
 
 func new_morphology_clear():
@@ -1208,13 +1210,10 @@ func _on_circuit_request_request_completed(_result, _response_code, _headers, bo
 func _on_import_pressed():
 	Autoload_variable.BV_Core.Get_circuit_list()
 
-func _on_ItemList_item_selected(index):
-	var name_text = $".."/".."/".."/Menu/insert_menu/insert_button/ItemList.get_item_text(index)
+func _on_ItemList_item_selected(index, node):
+	var name_text = node.get_item_text(index)
 	name_text = symbols_checker_for_api(name_text)
-	$".."/".."/".."/Menu/insert_menu/inner_box.visible = true
-	$".."/".."/".."/Menu/insert_menu/inner_box/name_text.text = name_text
-	var combine_url = 'HTTP://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/circuit_size?circuit_name=' + name_text
-	$HTTP_node/circuit_size.request(combine_url)
+	Autoload_variable.BV_Core.Get_circuit_size(name_text)
 
 func _on_circuit_size_request_completed(_result, _response_code, _headers, body):
 	var test_json_conv = JSON.new()
@@ -1238,15 +1237,15 @@ func symbols_checker_for_api(string_data):
 		string_data = string_data.replace("+", "%2B")
 	return string_data
 
-func _on_x_spinbox_value_changed(_value):
-	generate_single_cortical($".."/".."/".."/Menu/insert_menu/x_spinbox.value, $".."/".."/".."/Menu/insert_menu/y_spinbox.value, $".."/".."/".."/Menu/insert_menu/z_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/W_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/D_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/H_spinbox.value, "example")
-
-func _on_y_spinbox_value_changed(_value):
-	generate_single_cortical($".."/".."/".."/Menu/insert_menu/x_spinbox.value, $".."/".."/".."/Menu/insert_menu/y_spinbox.value, $".."/".."/".."/Menu/insert_menu/z_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/W_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/D_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/H_spinbox.value, "example")
-
-func _on_z_spinbox_value_changed(_value):
-	generate_single_cortical($".."/".."/".."/Menu/insert_menu/x_spinbox.value, $".."/".."/".."/Menu/insert_menu/y_spinbox.value, $".."/".."/".."/Menu/insert_menu/z_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/W_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/D_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/H_spinbox.value, "example")
-
+func _on_x_spinbox_value_changed(_value, array_data):
+	generate_single_cortical(_value, array_data[1].value, array_data[2].value, array_data[3].value, array_data[4].value, array_data[5].value, "example")
+	demo_new_cortical()
+func _on_y_spinbox_value_changed(_value, array_data):
+	generate_single_cortical(array_data[0].value, _value, array_data[2].value, array_data[3].value, array_data[4].value, array_data[5].value, "example")
+	demo_new_cortical()
+func _on_z_spinbox_value_changed(_value, array_data):
+	generate_single_cortical(array_data[0].value, array_data[1].value, _value, array_data[3].value, array_data[4].value, array_data[5].value, "example")
+	demo_new_cortical()
 
 func _on_Neuron_morphologies_item_item_selected(index):
 	$".."/".."/".."/Menu/rule_properties.visible = true
@@ -1355,11 +1354,11 @@ func _morphology_add_row(dropdown, row_node, parent_node, button, create_button)
 		new_node.get_node("Button_RemoveRowButton").get_child(0).connect("pressed",Callable(self,"delete_morphology").bind(new_node))
 		new_node.size = row_node.size
 		new_node.position.x = row_node.position.x
-		new_node.position.y = row_node.position.y + (40 * counter)
+		new_node.position.y = row_node.position.y + (30 * counter)
 	# This below section needs to rework. This is not even good at all.
 	# Start of Section
-	button.position.y = 3 + (35 * counter)
-	create_button.position.y = 3 + (35 * counter)
+	button.position.y = new_morphology_node[len(new_morphology_node)-1].position.y + 20
+	create_button.position.y = button.position.y + 10
 	# End of Section
 
 func _on_morphology_name_focus_exited():
