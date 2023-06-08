@@ -132,7 +132,7 @@ func InitMappingData(rawConnectomeMappings: Dictionary, orderedIDList: Array, Fr
 		cortexReferenceArrCache = []
 		for connection in rawConnectomeMappings[key]:
 			# we need to match the string ID with the int ID
-			cortexReferenceArrCache.append(cortexData[connection]["cortexReference"]) 
+				cortexReferenceArrCache.append(cortexData[connection]["cortexReference"]) 
 		cortexData[key]["connectionsIntIDs"] = cortexReferenceArrCache
 		cortexData[key]["connectionsStrIDs"] = rawConnectomeMappings[key]
 	
