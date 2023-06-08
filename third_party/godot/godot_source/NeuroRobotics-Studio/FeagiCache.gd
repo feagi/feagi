@@ -36,6 +36,12 @@ var genome_corticalAreaNameList: Array:
 var genome_cortical_id_name_mapping: Dictionary:
 	set(v): _genome_cortical_id_name_mapping = v; FCD_CorticalNameDictRdy = true; Update_FullCorticalData()
 	get: return _genome_cortical_id_name_mapping
+var circuit_list: Array:
+	set(v): _circuit_list = v;
+	get: return _circuit_list
+var circuit_size: Array:
+	set(v): _circuit_size = v;
+	get: return _circuit_size
 
 var connectome_properties_mappings: Dictionary:
 	set(v): _connectome_properties_mappings = v; FCD_ConnectomePropertiesMappings = true; Update_FullCorticalData()
@@ -55,6 +61,8 @@ var _genome_fileName: String
 var _genome_corticalAreaIDList: Array
 var _genome_corticalAreaNameList: Array
 var _genome_cortical_id_name_mapping: Dictionary
+var _circuit_list : Array
+var _circuit_size : Array
 
 var _connectome_properties_mappings: Dictionary
 
