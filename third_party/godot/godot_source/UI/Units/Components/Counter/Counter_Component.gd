@@ -98,7 +98,7 @@ func _Activation(settings: Dictionary):
 # Used to proxy user value changes
 func ProxyValueChanges(newValue: float):
 	if !_isActivated: return # avoid feedback when starting up
-	DataUp.emit({"number": newValue, "type": TYPE, "ID": ID}, self)
+	DataUp.emit({"value": newValue, "type": TYPE, "ID": ID}, self)
 
 func _GetData():
 	return value
