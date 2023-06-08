@@ -53,14 +53,17 @@
 			"components": [
 				{
 					"type": "counter",
+					"editable": false,
 					"ID": "W"
 				},
 				{
 					"type": "counter",
+					"editable": false,
 					"ID": "H"
 				},
 				{
 					"type": "counter",
+					"editable": false,
 					"ID": "D"
 				}
 			],
