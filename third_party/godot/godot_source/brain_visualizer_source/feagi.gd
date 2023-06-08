@@ -1191,12 +1191,12 @@ func _on_syn_pressed():
 	var combine_url = 'HTTP://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/monitoring/neuron/synaptic_potential?cortical_area=' + $".."/".."/".."/Menu/cortical_menu/Control/cortical_id.text + '&state=' + str($".."/".."/".."/Menu/button_choice/Control/syn.is_pressed())
 	Autoload_variable.BV_Core.POST_Request_Brain_visualizer(combine_url,$".."/".."/".."/Menu/button_choice/Control/syn.is_pressed())
 	
-func _on_insert_button_pressed():
-	$".."/".."/".."/Menu/insert_menu/inner_box.visible = true
-	var combine_url = 'HTTP://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/append?circuit_name=' + $".."/".."/".."/Menu/insert_menu/inner_box/name_text.text + "&circuit_origin_x=" + str($".."/".."/".."/Menu/insert_menu/x_spinbox.value) + "&circuit_origin_y=" + str($".."/".."/".."/Menu/insert_menu/y_spinbox.value) + "&circuit_origin_z=" + str($".."/".."/".."/Menu/insert_menu/z_spinbox.value)
+func _on_insert_button_pressed(full_data):
+	var combine_url = $"../..".SEC + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/append?circuit_name=' + full_data[0].get_item_text(full_data[0].selected) + "&circuit_origin_x=" + str(full_data[1].value) + "&circuit_origin_y=" + str(full_data[2].value) + "&circuit_origin_z=" + str(full_data[3].value)
+	print("combine_url: ", combine_url)
 	var new_data = ["placeholder"]
 	Autoload_variable.BV_Core.POST_Request_Brain_visualizer(combine_url, new_data)
-
+	$"..".import_close_button.emit_signal("pressed")
 func _on_circuit_request_request_completed(_result, _response_code, _headers, body):
 	$".."/".."/".."/Menu/insert_menu/insert_button/ItemList.clear()
 	var test_json_conv = JSON.new()
