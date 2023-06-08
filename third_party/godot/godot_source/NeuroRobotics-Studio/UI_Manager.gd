@@ -202,6 +202,12 @@ func WindowSizedChanged():
 # Handles Recieving data from Core, and distributing it to the correct element
 func RelayDownwards(callType, data) -> void:
 	match(callType):
+		REF.FROM.circuit_size:
+			if UI_CircuitImport:
+				UI_CircuitImport.ApplyPropertiesFromDict({"WHD": {"W":{"value": data[0]}, "H":{"value": data[1]}, "D	":{"value": data[2]}}})
+		REF.FROM.circuit_list:
+			if UI_CircuitImport:
+				UI_CircuitImport.ApplyPropertiesFromDict({"dropdowncircuit": {"options":data}})
 		REF.FROM.pns_current_ipu:
 			pass
 		REF.FROM.pns_current_opu:
@@ -229,7 +235,6 @@ func RelayDownwards(callType, data) -> void:
 		REF.FROM.godot_fullCorticalData:
 			UI_GraphCore.RelayDownwards(REF.FROM.godot_fullCorticalData, data)
 		REF.FROM.genome_corticalArea:
-			
 			# Data for Specific Cortical Area
 			# Race conditions are technically possible. Verify input
 			if UI_LeftBar == null: return # ignore if Leftbar isnt open
@@ -362,7 +367,19 @@ func SpawnCircuitImport():
 	add_child(UI_CircuitImport)
 	var create_circuitimport = HelperFuncs.GenerateDefinedUnitDict("CIRCUIT_IMPORT", currentLanguageISO)
 	UI_CircuitImport.Activate(create_circuitimport)
-
+	UI_CircuitImport.DataUp.connect(LeftBarInput)
+	# Link to BV
+	var dropdown = UI_CircuitImport.get_node("DropDown_dropdowncircuit").get_node("OptionButton")
+	var x = UI_CircuitImport.get_node("Unit_XYZ").get_node("Counter_Pos_X").get_node("SpinBox")
+	var y = UI_CircuitImport.get_node("Unit_XYZ").get_node("Counter_Pos_Y").get_node("SpinBox")
+	var z = UI_CircuitImport.get_node("Unit_XYZ").get_node("Counter_Pos_Z").get_node("SpinBox")
+	var w = UI_CircuitImport.get_node("Unit_WHD").get_node("Counter_W").get_node("SpinBox")
+	var h = UI_CircuitImport.get_node("Unit_WHD").get_node("Counter_H").get_node("SpinBox")
+	var d = UI_CircuitImport.get_node("Unit_WHD").get_node("Counter_D").get_node("SpinBox")
+	dropdown.connect("item_selected",Callable($Brain_Visualizer,"_on_ItemList_item_selected").bind(dropdown))
+	x.connect("value_changed",Callable($Brain_Visualizer,"_on_x_spinbox_value_changed").bind([x, y, z, w, h, d]))
+	y.connect("value_changed",Callable($Brain_Visualizer,"_on_y_spinbox_value_changed").bind([x, y, z, w, h, d]))
+	z.connect("value_changed",Callable($Brain_Visualizer,"_on_z_spinbox_value_changed").bind([x, y, z, w, h, d]))
 func SpawnNeuronManager():
 	UI_ManageNeuronMorphology=SCENE_UNIT.instantiate()
 	add_child(UI_ManageNeuronMorphology)
