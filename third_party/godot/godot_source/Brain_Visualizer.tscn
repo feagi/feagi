@@ -410,7 +410,6 @@ libraries = {
 [node name="Core" type="Node3D" parent="."]
 process_priority = 1
 script = ExtResource("31_vv2v0")
-languageISO = null
 
 [node name="GlobalNetworkSystem" parent="Core" instance=ExtResource("35_aljtt")]
 
@@ -3858,6 +3857,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 60, 100)
 [connection signal="pressed" from="Menu/import" to="Core/GlobalUISystem/Brain_Visualizer" method="_on_import_pressed"]
 [connection signal="pressed" from="Menu/import" to="Menu" method="_on_import_pressed"]
 [connection signal="pressed" from="Menu/insert_menu/insert_button" to="Core/GlobalUISystem/Brain_Visualizer" method="_on_insert_button_pressed"]
+[connection signal="item_selected" from="Menu/insert_menu/insert_button/ItemList" to="Core/GlobalUISystem/Brain_Visualizer" method="_on_ItemList_item_selected"]
 [connection signal="pressed" from="Menu/close_for_all" to="Menu" method="_on_close_for_all_pressed"]
 [connection signal="pressed" from="Menu/3D_enable" to="Menu/3D_enable" method="_on_3D_enable_pressed"]
 [connection signal="pressed" from="Button" to="." method="_on_button_pressed"]
