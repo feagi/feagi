@@ -73,13 +73,6 @@ func _ready():
 			$".."/".."/".."/Menu/box_loading.visible = false
 		if cortical_is_clicked():
 			pass
-#			$".."/".."/".."/Menu/cortical_menu.visible = true
-#			$".."/".."/".."/Menu/cortical_mapping.visible = true
-#			$".."/".."/".."/Menu/button_choice.visible = true
-#			$".."/".."/".."/Menu/properties.visible = true
-#			$".."/".."/".."/Menu/Mapping_Properties.visible = false
-#			$".."/".."/".."/Menu/collapse_4.visible = true
-#			$".."/".."/".."/Menu/cortical_menu/title.visible = true
 		elif select_cortical.selected.is_empty() != true:
 			select_cortical.selected.pop_front()
 		_process(self)
@@ -1217,13 +1210,10 @@ func _on_circuit_request_request_completed(_result, _response_code, _headers, bo
 func _on_import_pressed():
 	Autoload_variable.BV_Core.Get_circuit_list()
 
-func _on_ItemList_item_selected(index):
-	var name_text = $".."/".."/".."/Menu/insert_menu/insert_button/ItemList.get_item_text(index)
+func _on_ItemList_item_selected(index, node):
+	var name_text = node.get_item_text(index)
 	name_text = symbols_checker_for_api(name_text)
-	$".."/".."/".."/Menu/insert_menu/inner_box.visible = true
-	$".."/".."/".."/Menu/insert_menu/inner_box/name_text.text = name_text
-	var combine_url = 'HTTP://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/circuit_size?circuit_name=' + name_text
-	$HTTP_node/circuit_size.request(combine_url)
+	Autoload_variable.BV_Core.Get_circuit_size(name_text)
 
 func _on_circuit_size_request_completed(_result, _response_code, _headers, body):
 	var test_json_conv = JSON.new()
@@ -1247,15 +1237,15 @@ func symbols_checker_for_api(string_data):
 		string_data = string_data.replace("+", "%2B")
 	return string_data
 
-func _on_x_spinbox_value_changed(_value):
-	generate_single_cortical($".."/".."/".."/Menu/insert_menu/x_spinbox.value, $".."/".."/".."/Menu/insert_menu/y_spinbox.value, $".."/".."/".."/Menu/insert_menu/z_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/W_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/D_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/H_spinbox.value, "example")
-
-func _on_y_spinbox_value_changed(_value):
-	generate_single_cortical($".."/".."/".."/Menu/insert_menu/x_spinbox.value, $".."/".."/".."/Menu/insert_menu/y_spinbox.value, $".."/".."/".."/Menu/insert_menu/z_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/W_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/D_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/H_spinbox.value, "example")
-
-func _on_z_spinbox_value_changed(_value):
-	generate_single_cortical($".."/".."/".."/Menu/insert_menu/x_spinbox.value, $".."/".."/".."/Menu/insert_menu/y_spinbox.value, $".."/".."/".."/Menu/insert_menu/z_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/W_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/D_spinbox.value, $".."/".."/".."/Menu/insert_menu/inner_box/H_spinbox.value, "example")
-
+func _on_x_spinbox_value_changed(_value, array_data):
+	generate_single_cortical(_value, array_data[1].value, array_data[2].value, array_data[3].value, array_data[4].value, array_data[5].value, "example")
+	demo_new_cortical()
+func _on_y_spinbox_value_changed(_value, array_data):
+	generate_single_cortical(array_data[0].value, _value, array_data[2].value, array_data[3].value, array_data[4].value, array_data[5].value, "example")
+	demo_new_cortical()
+func _on_z_spinbox_value_changed(_value, array_data):
+	generate_single_cortical(array_data[0].value, array_data[1].value, _value, array_data[3].value, array_data[4].value, array_data[5].value, "example")
+	demo_new_cortical()
 
 func _on_Neuron_morphologies_item_item_selected(index):
 	$".."/".."/".."/Menu/rule_properties.visible = true
