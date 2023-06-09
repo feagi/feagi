@@ -112,6 +112,7 @@ func Get_syn_data(input_name: String): Call_GET(ADD_GET_syn+input_name, _Relay_U
 func GET_OPU(input_name: String): Call_GET(ADD_OPU+input_name, _Relay_update_OPU)
 func GET_IPU(input_name: String): Call_GET(ADD_IPU+input_name, _Relay_update_IPU)
 func GET_BurstRate(): Call_GET(ADD_GET_stimulation_period, _Relay_Get_BurstRate)
+func GET_health_status(): Call_GET(GET_HEALTH_STATUS, _Relay_Get_Health)
 
 func Update_BurstRate(newBurstRate: float):
 	Call_POST(ADD_POST_BurstEngine, _Relay_ChangedBurstRate, {"burst_duration": newBurstRate})
@@ -163,8 +164,12 @@ func _Relay_OPUs(_result, _response_code, _headers, body: PackedByteArray):
 func _Relay_CorticalAreasIDs(_result, _response_code, _headers, body: PackedByteArray):
 	# FEAGI updated Cortical Areas
 	if LogNetworkError(_result): print("Unable to get Cortical Area IDs"); return
-	FeagiCache.genome_corticalAreaIDList = JSON.parse_string(body.get_string_from_utf8())
-	UIManager.RelayDownwards(REF.FROM.genome_corticalAreaIdList, FeagiCache.genome_corticalAreaIDList)
+	var test_json_conv = JSON.new()
+	test_json_conv.parse(body.get_string_from_utf8())
+	var api_data = test_json_conv.get_data()
+	if api_data != null:
+		FeagiCache.genome_corticalAreaIDList = JSON.parse_string(body.get_string_from_utf8())
+		UIManager.RelayDownwards(REF.FROM.genome_corticalAreaIdList, FeagiCache.genome_corticalAreaIDList)
 
 func _Relay_ChangedBurstRate(_result, _response_code, _headers, _body: PackedByteArray):
 	# FEAGI updated Burst Rate
@@ -180,6 +185,13 @@ func _Relay_Get_BurstRate(_result, _response_code, _headers, body: PackedByteArr
 	FeagiCache.burst_rate = float(JSON.parse_string(body.get_string_from_utf8()))
 	Autoload_variable.Core_BV._on_get_burst_request_completed(_result, _response_code, _headers, body)
 	UIManager.RelayDownwards(REF.FROM.burstEngine, FeagiCache.burst_rate)
+
+func _Relay_Get_Health(_result, _response_code, _headers, body: PackedByteArray):
+	if LogNetworkError(_result): print("Unable to get Burst Rate"); return
+	var test_json_conv = JSON.new()
+	test_json_conv.parse(body.get_string_from_utf8())
+	var api_data = test_json_conv.get_data()
+	UIManager.RelayDownwards(REF.FROM.healthstatus, api_data)
 
 func _Relay_Dimensions(_result, _response_code, _headers, body: PackedByteArray):
 	#Feagi Updated Dimensions
@@ -212,10 +224,14 @@ func _Relay_Afferent(_result, _response_code, _headers, body: PackedByteArray):
 func _Relay_MorphologyList(_result, _response_code, _headers, body: PackedByteArray):
 	# FEAGI updated Morphology list
 	if LogNetworkError(_result): print("Unable to get Morphology List"); return
-	FeagiCache.genome_morphologyList = JSON.parse_string(body.get_string_from_utf8())
-	UIManager.RelayDownwards(REF.FROM.genome_morphologyList, FeagiCache.genome_morphologyList)
-	if Autoload_variable.Core_BV.visible:
-		Autoload_variable.Core_BV._on_morphology_list_request_completed(_result, _response_code, _headers, body)
+	var test_json_conv = JSON.new()
+	test_json_conv.parse(body.get_string_from_utf8())
+	var api_data = test_json_conv.get_data()
+	if api_data != null:
+		FeagiCache.genome_morphologyList = JSON.parse_string(body.get_string_from_utf8())
+		UIManager.RelayDownwards(REF.FROM.genome_morphologyList, FeagiCache.genome_morphologyList)
+		if Autoload_variable.Core_BV.visible:
+			Autoload_variable.Core_BV._on_morphology_list_request_completed(_result, _response_code, _headers, body)
 
 func _Relay_GenomeFileName(_result, _response_code, _headers, body: PackedByteArray):
 	if LogNetworkError(_result): print("Unable to get Genome File Name"); return
@@ -230,10 +246,14 @@ func _Relay_GenomeFileName(_result, _response_code, _headers, body: PackedByteAr
 func _Relay_CorticalAreaNameList(_result, _response_code, _headers, body: PackedByteArray):
 	# FEAGI updated Cortical Area Name list
 	if LogNetworkError(_result): print("Unable to get Cortical Areas"); return
-	FeagiCache.genome_corticalAreaNameList = JSON.parse_string(body.get_string_from_utf8())
-	UIManager.RelayDownwards(REF.FROM.genome_corticalAreaNameList, FeagiCache.genome_corticalAreaNameList)
-	if get_parent().get_node("Menu").ready:
-		Autoload_variable.Core_addOption._on_load_options_cortical_name_request_completed(_result, _response_code, _headers, body)
+	var test_json_conv = JSON.new()
+	test_json_conv.parse(body.get_string_from_utf8())
+	var api_data = test_json_conv.get_data()
+	if api_data != null:
+		FeagiCache.genome_corticalAreaNameList = JSON.parse_string(body.get_string_from_utf8())
+		UIManager.RelayDownwards(REF.FROM.genome_corticalAreaNameList, FeagiCache.genome_corticalAreaNameList)
+		if get_parent().get_node("Menu").ready:
+			Autoload_variable.Core_addOption._on_load_options_cortical_name_request_completed(_result, _response_code, _headers, body)
 	
 func _Relay_GET_Genome_CorticalArea(_result, _response_code, _headers, body: PackedByteArray):
 	# Note, this is for a specific cortical Area
@@ -248,8 +268,12 @@ func _Relay_GET_Genome_CorticalArea(_result, _response_code, _headers, body: Pac
 func _Relay_CorticalMap(_result, _response_code, _headers, body: PackedByteArray):
 	# FEAGI updating cortical ID - Name mappings
 	if LogNetworkError(_result): print("Unable to get Cortical mapping"); return
-	FeagiCache.genome_cortical_id_name_mapping = JSON.parse_string(body.get_string_from_utf8())
-	UIManager.RelayDownwards(REF.FROM.genome_cortical_id_name_mapping, FeagiCache.genome_cortical_id_name_mapping)
+	var test_json_conv = JSON.new()
+	test_json_conv.parse(body.get_string_from_utf8())
+	var api_data = test_json_conv.get_data()
+	if api_data != null:
+		FeagiCache.genome_cortical_id_name_mapping = JSON.parse_string(body.get_string_from_utf8())
+		UIManager.RelayDownwards(REF.FROM.genome_cortical_id_name_mapping, FeagiCache.genome_cortical_id_name_mapping)
 
 func _Relay_Morphology_information(_result, _response_code, _headers, _body: PackedByteArray):
 	if LogNetworkError(_result): print("Unable to get Morphology Information"); return
@@ -299,7 +323,11 @@ func _Relay_Efferent(_result, _response_code, _headers, _body: PackedByteArray):
 
 func _Relay_ConnectomeMappingReport(_result, _response_code, _headers, body: PackedByteArray):
 	if LogNetworkError(_result): print("Unable to get Connectome Mapping Report"); return
-	FeagiCache.connectome_properties_mappings = JSON.parse_string(body.get_string_from_utf8())
+	var test_json_conv = JSON.new()
+	test_json_conv.parse(body.get_string_from_utf8())
+	var api_data = test_json_conv.get_data()
+	if api_data != null:
+		FeagiCache.connectome_properties_mappings = JSON.parse_string(body.get_string_from_utf8())
 
 func _Relay_PUT_Genome_CorticalArea(_result, _response_code, _headers, _body: PackedByteArray):
 	pass 
@@ -386,6 +414,8 @@ var ADD_GET_Morphology_types:
 	get: return SEC + FEAGI_RootAddress + "/v1/feagi/genome/morphology_types"
 var ADD_GET_stimulation_period:
 	get: return SEC + FEAGI_RootAddress + "/v1/feagi/feagi/burst_engine/stimulation_period"
+var GET_HEALTH_STATUS:
+	get: return SEC + FEAGI_RootAddress + "/v1/feagi/health_check"
 var ADD_GET_cortical_id:
 	get: return SEC + FEAGI_RootAddress + "/v1/feagi/genome/cortical_area?cortical_area="
 var ADD_GET_Morphology_information:
