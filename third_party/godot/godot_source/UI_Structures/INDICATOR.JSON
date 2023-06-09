@@ -1,0 +1,50 @@
+{
+   "ID":"INDICATORBARS",
+    "HpositionX": 1600,
+    "HpositionY": 0,
+   "components":[
+     {
+		"type": "unit",
+		"ID": "indicator_status",
+       "paddingX": -15,
+       "paddingY": 0,
+       "HsizeX": -10,
+       "HsizeY": 0,
+		"components": [
+              {
+        "type": "fill",
+        "ID": "Indicator1",
+        "usingCustomColor": true,
+        "colorR": 0,
+        "colorG": 0,
+        "colorB": 0
+     },
+      {
+        "type": "fill",
+        "ID": "Indicator2",
+        "usingCustomColor": true,
+        "colorR": 0,
+        "colorG": 0,
+        "colorB": 0
+     },
+     {
+        "type": "fill",
+        "ID": "Indicator3",
+        "usingCustomColor": true,
+        "colorR": 0,
+        "colorG": 0,
+        "colorB": 0
+     },
+     {
+        "type": "fill",
+        "ID": "Indicator4",
+        "usingCustomColor": true,
+        "colorR": 0,
+        "colorG": 0,
+        "colorB": 0
+     }
+		],
+		"isVertical": false
+	}
+   ]
+}
