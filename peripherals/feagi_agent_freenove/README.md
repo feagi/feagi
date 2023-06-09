@@ -19,7 +19,7 @@ The command should be executed within the terminal.
 
 
 
-#Full detailed steps:
+# Full detailed steps:
 
 1) Keep in mind that this is the robot body without the Raspberry Pi board. You can find it 
    here: [Freenove_Body](https://www.amazon.com/Freenove-Raspberry-Tracking-Avoidance-Ultrasonic/dp/B07YD2LT9D/ref=sr_1_3?keywords=freenove+4wd+car+kit&qid=1686246937&sprefix=freenove%2Caps%2C154&sr=8-3&ufe=app_do%3Aamzn1.fos.006c50ae-5d4c-4777-9bc0-4513d670b6bc)
