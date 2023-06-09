@@ -257,7 +257,7 @@ func RelayDownwards(callType, data) -> void:
 				if data["brain_readiness"]:
 					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator4": {"colorR": 0, "colorG": 255, "colorB": 0}}})
 				else:
-					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator4": {"colorR": 255, "colorG": 0, "colorB": 0}}})
 
 #				if data["burst_engine"]:
 #					print("children: ", UI_INDICATOR.get_node("Unit_indicator_status").get_node("Button_Indicator4").get_node("Panel").get_children())
