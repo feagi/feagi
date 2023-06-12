@@ -17,16 +17,16 @@ var currentLanguageISO: String:
 var Activated: bool = false
 
 # References
-var UI_Top_TopBar: Unit
-var UI_LeftBar: Unit
-var UI_createcorticalBar : Unit
-var UI_CreateNeuronMorphology : Unit
-var UI_ManageNeuronMorphology : Unit
-var UI_MappingDefinition : Unit
-var UI_CircuitImport : Unit
+#var UI_Top_TopBar: Unit
+#var UI_LeftBar: Unit
+#var UI_createcorticalBar : Unit
+#var UI_CreateNeuronMorphology : Unit
+#var UI_ManageNeuronMorphology : Unit
+#var UI_MappingDefinition : Unit
+#var UI_CircuitImport : Unit
 var UI_GraphCore: GraphCore
-var UI_CreateMorphology: Unit
-var UI_INDICATOR: Unit
+#var UI_CreateMorphology: Unit
+#var UI_INDICATOR: Unit
 var cache: FeagiCache
 var vectors_holder = []
 var data_holder = {} # to save data from API every call
@@ -47,13 +47,13 @@ func Activate(langISO: String):
 	# Initialize UI
 	
 	# Initialize TopBar
-	UI_Top_TopBar = SCENE_UNIT.instantiate()
-	add_child(UI_Top_TopBar)
+#	UI_Top_TopBar = SCENE_UNIT.instantiate()
+#	add_child(UI_Top_TopBar)
 	var topBarDict = HelperFuncs.GenerateDefinedUnitDict("TOPBAR", currentLanguageISO)
-	UI_Top_TopBar.Activate(topBarDict)
-	UI_Top_TopBar.DataUp.connect(TopBarInput)
-	var import_button = UI_Top_TopBar.get_node("DropDown_blank").get_node("Button")
-	import_button.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
+#	UI_Top_TopBar.Activate(topBarDict)
+#	UI_Top_TopBar.DataUp.connect(TopBarInput)
+#	var import_button = UI_Top_TopBar.get_node("DropDown_blank").get_node("Button")
+#	import_button.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
 	# FeagiCache is set from above
 #	SpawnMappingDefinition()
 #	SpawnCircuitImport()
@@ -89,11 +89,11 @@ func TopBarInput(data: Dictionary, _compRef, _unitRef):
 			# verify this
 			if "button" in data.keys():
 				# Initialize popUpBar
-				if not UI_createcorticalBar:
-					SpawnCorticalCrete()
-	#				print(UI_createcorticalBar.componentData)
-				else:
-					UI_createcorticalBar.queue_free()
+#				if not UI_createcorticalBar:
+#					SpawnCorticalCrete()
+#	#				print(UI_createcorticalBar.componentData)
+#				else:
+#					UI_createcorticalBar.queue_free()
 			#	UI_createcorticalBar.DataUp.connect(LeftBarInput)
 				# button press
 	#			$".."/".."/Menu._on_add_pressed() #TODO: Need to change this approach. This is for example only
@@ -108,20 +108,20 @@ func TopBarInput(data: Dictionary, _compRef, _unitRef):
 		# verify this
 			if "button" in data.keys():
 				# button press
-				if not UI_CreateMorphology:
-					SpawnCreateMophology()
-				else:
-					UI_CreateMorphology.queue_free()
+#				if not UI_CreateMorphology:
+#					SpawnCreateMophology()
+#				else:
+#					UI_CreateMorphology.queue_free()
 				print("Pressed Button!")
 			else:
 				# the cortical area drop down was changed
 				var selectedCorticalArea: String = data["selected"]
 				print("new selected area is " + selectedCorticalArea)
-				if not UI_ManageNeuronMorphology:
-					SpawnNeuronManager()
-					print("composite data: ", UI_ManageNeuronMorphology.componentData)
-				else:
-					UI_ManageNeuronMorphology.queue_free()
+#				if not UI_ManageNeuronMorphology:
+#					SpawnNeuronManager()
+#					print("composite data: ", UI_ManageNeuronMorphology.componentData)
+#				else:
+#					UI_ManageNeuronMorphology.queue_free()
 		"REFRESHRATE":
 			DataUp.emit({"updatedBurstRate": data["value"]})
 			
@@ -154,7 +154,7 @@ func LeftBarInput(data: Dictionary, _compRef, _unitRef):
 			print("Update pressed!")
 			# Push update to cortex
 			# only push stuff that do not match what is cached
-			_sideBarChangedValues["cortical_id"] = UI_LeftBar.data["CorticalName"]
+#			_sideBarChangedValues["cortical_id"] = UI_LeftBar.data["CorticalName"]
 			$"..".Update_Genome_CorticalArea(_sideBarChangedValues)
 			_sideBarChangedValues = {} # reset
 		_:
@@ -238,99 +238,99 @@ func WindowSizedChanged():
 
 # Handles Recieving data from Core, and distributing it to the correct element
 func RelayDownwards(callType, data) -> void:
-	match(callType):
-		REF.FROM.healthstatus:
-			if UI_INDICATOR:
-				print("data: ", data)
-				if data["burst_engine"]:
-					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator1": {"colorR": 0, "colorG": 255, "colorB": 0}}})
-				else:
-					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator1": {"colorR": 255, "colorG": 0, "colorB": 0}}})
-				if data["genome_availability"]:
-					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator2": {"colorR": 0, "colorG": 255, "colorB": 0}}})
-				else:
-					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator2": {"colorR": 255, "colorG": 0, "colorB": 0}}})
-				if data["genome_validity"]:
-					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator3": {"colorR": 0, "colorG": 255, "colorB": 0}}})
-				else:
-					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator3": {"colorR": 255, "colorG": 0, "colorB": 0}}})
-				if data["brain_readiness"]:
-					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator4": {"colorR": 0, "colorG": 255, "colorB": 0}}})
-				else:
-					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator4": {"colorR": 255, "colorG": 0, "colorB": 0}}})
-
-#				if data["burst_engine"]:
-#					print("children: ", UI_INDICATOR.get_node("Unit_indicator_status").get_node("Button_Indicator4").get_node("Panel").get_children())
-#					UI_INDICATOR.get_node("Unit_indicator_status").get_node("Button_Indicator4").get_node("Panel").color = Color(0, 255, 0)
-#				else:
-#					UI_INDICATOR.get_node("Unit_indicator_status").get_node("Button_Indicator4").get_node("Panel").color = Vector3(255, 0, 0)
-		REF.FROM.circuit_size:
-			if UI_CircuitImport:
-				UI_CircuitImport.ApplyPropertiesFromDict({"WHD": {"W":{"value": data[0]}, "H":{"value": data[1]}, "D	":{"value": data[2]}}})
-		REF.FROM.circuit_list:
-			if UI_CircuitImport:
-				UI_CircuitImport.ApplyPropertiesFromDict({"dropdowncircuit": {"options":data}})
-		REF.FROM.pns_current_ipu:
-			pass
-		REF.FROM.pns_current_opu:
-			pass
-		REF.FROM.genome_corticalAreaIdList:
-			if UI_Top_TopBar:
-				UI_Top_TopBar.ApplyPropertiesFromDict({"CORTICALAREAS": {"options":data}})
-			if UI_MappingDefinition:
-				UI_MappingDefinition.ApplyPropertiesFromDict({"testlabel": {"SOURCECORTICALAREA":{"options": data, "value": src_global}}})
-				UI_MappingDefinition.ApplyPropertiesFromDict({"testlabel": {"DESTINATIONCORTICALAREA":{"options": data, "value": dst_global}}})
-		REF.FROM.genome_morphologyList:
-			if UI_Top_TopBar:
-				UI_Top_TopBar.ApplyPropertiesFromDict({"NEURONMORPHOLOGIES": {"options":data}})
-			if UI_MappingDefinition:
-				UI_MappingDefinition.ApplyPropertiesFromDict({"third_box": {"mappingdefinitions": {"options": data}}})
-				var original_dropdown = UI_MappingDefinition.get_node("Unit_third_box").get_node("DropDown_mappingdefinitions").get_node("OptionButton")
-				for i in UI_MappingDefinition.get_children():
-					if "Unit_third_box" in i.get_name():
-						for x in original_dropdown.get_item_count():
-							i.get_node("DropDown_mappingdefinitions").get_node("OptionButton").add_item(original_dropdown.get_item_text(x))
-		REF.FROM.genome_fileName:
-			UI_Top_TopBar.ApplyPropertiesFromDict({"GENOMEFILENAME": {"label":data}})
-		REF.FROM.connectome_properties_mappings:
-			pass
-		REF.FROM.godot_fullCorticalData:
-			UI_GraphCore.RelayDownwards(REF.FROM.godot_fullCorticalData, data)
-		REF.FROM.genome_corticalArea:
-			# Data for Specific Cortical Area
-			# Race conditions are technically possible. Verify input
-			if UI_LeftBar == null: return # ignore if Leftbar isnt open
-			#if data["cortical_id"] != UI_LeftBar.name: return # ignore if the correct sidebar isn't open
-			
-			data_holder = data.duplicate()
-			# Assemble Dict to input values
-			var inputVars = {
-				"CorticalName": {"value": data["cortical_id"]},
-				"CorticalID": {"value": data["cortical_name"]},
-				"CorticalArea": {"value": data["cortical_group"]},
-				"XYZ": {"Pos_X": {"value": data["cortical_coordinates"][0]}, "Pos_Y": {"value": data["cortical_coordinates"][1]}, "Pos_Z": {"value": data["cortical_coordinates"][2]}},
-				"WHD": {"W": {"value": data["cortical_dimensions"][0]}, "H": {"value": data["cortical_dimensions"][1]}, "D": {"value": data["cortical_dimensions"][2]}},
-				"VoxelNeuronDensity": {"value": data["cortical_neuron_per_vox_count"]},
-				"SynapticAttractivity": {"value": data["cortical_synaptic_attractivity"]},
-				"PostSynapticPotential": {"value": data["neuron_post_synaptic_potential"]},
-				"PSPMax": {"value": data["neuron_post_synaptic_potential_max"]},
-				"PlasticityConstant": {"value": data["neuron_plasticity_constant"]},
-				"FireThreshold": {"value": data["neuron_fire_threshold"]},
-				"RefactoryPeriod": {"value": data["neuron_refractory_period"]},
-				"LeakConstant": {"value": data["neuron_leak_coefficient"]},
-				"LeakVaribility": {"value": data["neuron_leak_variability"]},
-				"ConsecutiveFireCount": {"value": data["neuron_consecutive_fire_count"]},
-				"SnoozePeriod": {"value": data["neuron_snooze_period"]},
-				"DegeneracyConstant": {"value": data["neuron_degeneracy_coefficient"]},
-				"ChargeACC": {"value": data["neuron_mp_charge_accumulation"]},
-				"PSPUNI": {"value": data["neuron_psp_uniform_distribution"]}
-			}
-			#print(inputVars)
-			UI_LeftBar.ApplyPropertiesFromDict(inputVars)
-			UI_LeftBar.ApplyPropertiesFromDict({"TITLEBAR": {"TITLE": {"label": data["cortical_id"]}}})
-		REF.FROM.burstEngine:
-			UI_Top_TopBar.ApplyPropertiesFromDict({"REFRESHRATE": {"value": data}})
-
+#	match(callType):
+#		REF.FROM.healthstatus:
+##			if UI_INDICATOR:
+##				print("data: ", data)
+##				if data["burst_engine"]:
+##					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator1": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+##				else:
+##					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator1": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+##				if data["genome_availability"]:
+##					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator2": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+##				else:
+##					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator2": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+##				if data["genome_validity"]:
+##					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator3": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+##				else:
+##					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator3": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+##				if data["brain_readiness"]:
+##					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator4": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+##				else:
+#					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator4": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+#
+##				if data["burst_engine"]:
+##					print("children: ", UI_INDICATOR.get_node("Unit_indicator_status").get_node("Button_Indicator4").get_node("Panel").get_children())
+##					UI_INDICATOR.get_node("Unit_indicator_status").get_node("Button_Indicator4").get_node("Panel").color = Color(0, 255, 0)
+##				else:
+##					UI_INDICATOR.get_node("Unit_indicator_status").get_node("Button_Indicator4").get_node("Panel").color = Vector3(255, 0, 0)
+#		REF.FROM.circuit_size:
+#			if UI_CircuitImport:
+#				UI_CircuitImport.ApplyPropertiesFromDict({"WHD": {"W":{"value": data[0]}, "H":{"value": data[1]}, "D	":{"value": data[2]}}})
+#		REF.FROM.circuit_list:
+#			if UI_CircuitImport:
+#				UI_CircuitImport.ApplyPropertiesFromDict({"dropdowncircuit": {"options":data}})
+#		REF.FROM.pns_current_ipu:
+#			pass
+#		REF.FROM.pns_current_opu:
+#			pass
+#		REF.FROM.genome_corticalAreaIdList:
+#			if UI_Top_TopBar:
+#				UI_Top_TopBar.ApplyPropertiesFromDict({"CORTICALAREAS": {"options":data}})
+#			if UI_MappingDefinition:
+#				UI_MappingDefinition.ApplyPropertiesFromDict({"testlabel": {"SOURCECORTICALAREA":{"options": data, "value": src_global}}})
+#				UI_MappingDefinition.ApplyPropertiesFromDict({"testlabel": {"DESTINATIONCORTICALAREA":{"options": data, "value": dst_global}}})
+#		REF.FROM.genome_morphologyList:
+#			if UI_Top_TopBar:
+#				UI_Top_TopBar.ApplyPropertiesFromDict({"NEURONMORPHOLOGIES": {"options":data}})
+#			if UI_MappingDefinition:
+#				UI_MappingDefinition.ApplyPropertiesFromDict({"third_box": {"mappingdefinitions": {"options": data}}})
+#				var original_dropdown = UI_MappingDefinition.get_node("Unit_third_box").get_node("DropDown_mappingdefinitions").get_node("OptionButton")
+#				for i in UI_MappingDefinition.get_children():
+#					if "Unit_third_box" in i.get_name():
+#						for x in original_dropdown.get_item_count():
+#							i.get_node("DropDown_mappingdefinitions").get_node("OptionButton").add_item(original_dropdown.get_item_text(x))
+#		REF.FROM.genome_fileName:
+#			UI_Top_TopBar.ApplyPropertiesFromDict({"GENOMEFILENAME": {"label":data}})
+#		REF.FROM.connectome_properties_mappings:
+#			pass
+#		REF.FROM.godot_fullCorticalData:
+#			UI_GraphCore.RelayDownwards(REF.FROM.godot_fullCorticalData, data)
+#		REF.FROM.genome_corticalArea:
+#			# Data for Specific Cortical Area
+#			# Race conditions are technically possible. Verify input
+#			if UI_LeftBar == null: return # ignore if Leftbar isnt open
+#			#if data["cortical_id"] != UI_LeftBar.name: return # ignore if the correct sidebar isn't open
+#
+#			data_holder = data.duplicate()
+#			# Assemble Dict to input values
+#			var inputVars = {
+#				"CorticalName": {"value": data["cortical_id"]},
+#				"CorticalID": {"value": data["cortical_name"]},
+#				"CorticalArea": {"value": data["cortical_group"]},
+#				"XYZ": {"Pos_X": {"value": data["cortical_coordinates"][0]}, "Pos_Y": {"value": data["cortical_coordinates"][1]}, "Pos_Z": {"value": data["cortical_coordinates"][2]}},
+#				"WHD": {"W": {"value": data["cortical_dimensions"][0]}, "H": {"value": data["cortical_dimensions"][1]}, "D": {"value": data["cortical_dimensions"][2]}},
+#				"VoxelNeuronDensity": {"value": data["cortical_neuron_per_vox_count"]},
+#				"SynapticAttractivity": {"value": data["cortical_synaptic_attractivity"]},
+#				"PostSynapticPotential": {"value": data["neuron_post_synaptic_potential"]},
+#				"PSPMax": {"value": data["neuron_post_synaptic_potential_max"]},
+#				"PlasticityConstant": {"value": data["neuron_plasticity_constant"]},
+#				"FireThreshold": {"value": data["neuron_fire_threshold"]},
+#				"RefactoryPeriod": {"value": data["neuron_refractory_period"]},
+#				"LeakConstant": {"value": data["neuron_leak_coefficient"]},
+#				"LeakVaribility": {"value": data["neuron_leak_variability"]},
+#				"ConsecutiveFireCount": {"value": data["neuron_consecutive_fire_count"]},
+#				"SnoozePeriod": {"value": data["neuron_snooze_period"]},
+#				"DegeneracyConstant": {"value": data["neuron_degeneracy_coefficient"]},
+#				"ChargeACC": {"value": data["neuron_mp_charge_accumulation"]},
+#				"PSPUNI": {"value": data["neuron_psp_uniform_distribution"]}
+#			}
+#			#print(inputVars)
+#			UI_LeftBar.ApplyPropertiesFromDict(inputVars)
+#			UI_LeftBar.ApplyPropertiesFromDict({"TITLEBAR": {"TITLE": {"label": data["cortical_id"]}}})
+#		REF.FROM.burstEngine:
+#			UI_Top_TopBar.ApplyPropertiesFromDict({"REFRESHRATE": {"value": data}})
+	pass
 
 
 ####################################
@@ -338,72 +338,73 @@ func RelayDownwards(callType, data) -> void:
 ####################################
 
 func SpawnLeftBar(cortexName: String):
-	if UI_LeftBar != null:
-		UI_LeftBar.queue_free() # We don't need this. We need to make it look prettier
+#	if UI_LeftBar != null:
+#		UI_LeftBar.queue_free() # We don't need this. We need to make it look prettier
 	$"..".Update_GenomeCorticalArea_SPECIFC(cortexName) # Tell core to update cortex Info
 
-	UI_LeftBar = SCENE_UNIT.instantiate()
-	add_child(UI_LeftBar)
+#	UI_LeftBar = SCENE_UNIT.instantiate()
+#	add_child(UI_LeftBar)
 	var LeftBarDict = HelperFuncs.GenerateDefinedUnitDict("LEFTBAR", currentLanguageISO)
-	UI_LeftBar.Activate(LeftBarDict)
-	UI_LeftBar.DataUp.connect(LeftBarInput)
+#	UI_LeftBar.Activate(LeftBarDict)
+#	UI_LeftBar.DataUp.connect(LeftBarInput)
 
 	# Get available data with UI_LeftBar.data
-	UI_LeftBar.ApplyPropertiesFromDict({"TITLEBAR": {"TITLE": {"label": cortexName}}})
+#	UI_LeftBar.ApplyPropertiesFromDict({"TITLEBAR": {"TITLE": {"label": cortexName}}})
 
 	
 func mapping_definition_button(node):
-	var src_id = UI_LeftBar.get_node("Unit_TITLEBAR").get_node("Header_TITLE").get_node("Label").text
-	SpawnMappingDefinition(src_id, node.text)
+#	var src_id = UI_LeftBar.get_node("Unit_TITLEBAR").get_node("Header_TITLE").get_node("Label").text
+#	SpawnMappingDefinition(src_id, node.text)
 #	Autoload_variable.BV_Core.Get_Morphology_information($Brain_Visualizer.name_to_id(node.text))
+	pass
 	
 func SpawnCreateMophology():
-	UI_CreateMorphology = SCENE_UNIT.instantiate()
-	add_child(UI_CreateMorphology)
+#	UI_CreateMorphology = SCENE_UNIT.instantiate()
+#	add_child(UI_CreateMorphology)
 	var CMDict = HelperFuncs.GenerateDefinedUnitDict("CREATEMORPHOLOGY", currentLanguageISO)
-	UI_CreateMorphology.Activate(CMDict)
-	UI_CreateMorphology.DataUp.connect(CreateMorphologyInput)
+#	UI_CreateMorphology.Activate(CMDict)
+#	UI_CreateMorphology.DataUp.connect(CreateMorphologyInput)
 #	var close = UI_CreateMorphology.get_child(0).get_child(1).get_child(0)
-	var button = UI_CreateMorphology.get_node("Unit_Vectors").get_node("Button_AddRowButton").get_child(0)
-	var create_button = UI_CreateMorphology.get_node("Button_CreateButton").get_child(0)
-	button.connect("pressed", Callable($Brain_Visualizer,"_morphology_add_row").bind("Vectors", UI_CreateMorphology.get_node("Unit_Vectors").get_node("Unit_XYZ"), UI_CreateMorphology.get_node("Unit_Vectors"), button, create_button))
+#	var button = UI_CreateMorphology.get_node("Unit_Vectors").get_node("Button_AddRowButton").get_child(0)
+#	var create_button = UI_CreateMorphology.get_node("Button_CreateButton").get_child(0)
+#	button.connect("pressed", Callable($Brain_Visualizer,"_morphology_add_row").bind("Vectors", UI_CreateMorphology.get_node("Unit_Vectors").get_node("Unit_XYZ"), UI_CreateMorphology.get_node("Unit_Vectors"), button, create_button))
 	
 #	_morphology_add_row
 	
 func SpawnCorticalCrete():
-	UI_createcorticalBar = SCENE_UNIT.instantiate()
-	add_child(UI_createcorticalBar)
+#	UI_createcorticalBar = SCENE_UNIT.instantiate()
+#	add_child(UI_createcorticalBar)
 	var createcorticalBar = HelperFuncs.GenerateDefinedUnitDict("CORTICAL_CREATE", currentLanguageISO)
-	UI_createcorticalBar.Activate(createcorticalBar)
-	UI_createcorticalBar.DataUp.connect(CorticalCreateInput)
+#	UI_createcorticalBar.Activate(createcorticalBar)
+#	UI_createcorticalBar.DataUp.connect(CorticalCreateInput)
 #	var optionbutton = UI_createcorticalBar.get_child(1).get_child(0)
 	var str_array = []
 	for i in $".."/".."/Menu/addition_menu/OptionButton.item_count:
 		str_array.append($".."/".."/Menu/addition_menu/OptionButton.get_item_text(i))
-	UI_createcorticalBar.ApplyPropertiesFromDict({"CORTICALAREA": {"options": (str_array)}})
+#	UI_createcorticalBar.ApplyPropertiesFromDict({"CORTICALAREA": {"options": (str_array)}})
 #	if UI_createcorticalBar.DataUp.is_connected():
 #	UI_createcorticalBar.DataUp.disconnect()
 #	4.x - emitting_node.signal_name.disconnect(receiving_node.callback_function)
-	var update = UI_createcorticalBar.get_child(7).get_child(0)
-	var whd = UI_createcorticalBar.get_child(5)
-	var xyz = UI_createcorticalBar.get_child(6)
+#	var update = UI_createcorticalBar.get_child(7).get_child(0)
+#	var whd = UI_createcorticalBar.get_child(5)
+#	var xyz = UI_createcorticalBar.get_child(6)
 #	var close = UI_createcorticalBar.get_child(0).get_child(1).get_child(0)
-	var name_input = UI_createcorticalBar.get_child(2).get_child(0).get_child(1)
-	var optionlist = UI_createcorticalBar.get_child(1).get_child(1)
-	var w = whd.get_child(0).get_child(1)
-	var h = whd.get_child(1).get_child(1)
-	var d = whd.get_child(2).get_child(1)
-	var x = xyz.get_child(0).get_child(1)
-	var y = xyz.get_child(1).get_child(1)
-	var z = xyz.get_child(2).get_child(1)
-	w.connect("value_changed",Callable($Brain_Visualizer,"_on_W_Spinbox_value_changed").bind([w,h,d,x,y,z]))
-	h.connect("value_changed",Callable($Brain_Visualizer,"_on_H_Spinbox_value_changed").bind([w,h,d,x,y,z]))
-	d.connect("value_changed",Callable($Brain_Visualizer,"_on_D_Spinbox_value_changed").bind([w,h,d,x,y,z]))
-	x.connect("value_changed",Callable($Brain_Visualizer,"_on_X_SpinBox_value_changed").bind([w,h,d,x,y,z]))
-	y.connect("value_changed",Callable($Brain_Visualizer,"_on_Y_Spinbox_value_changed").bind([w,h,d,x,y,z]))
-	z.connect("value_changed",Callable($Brain_Visualizer,"_on_Z_Spinbox_value_changed").bind([w,h,d,x,y,z]))
-	name_input.connect("text_changed",Callable($"../../Button_to_Autoload","_on_type_text_changed"))
-	update.connect("pressed",Callable($Brain_Visualizer,"_on_add_pressed").bind([w,h,d,x,y,z, name_input, optionlist, update]))
+#	var name_input = UI_createcorticalBar.get_child(2).get_child(0).get_child(1)
+#	var optionlist = UI_createcorticalBar.get_child(1).get_child(1)
+#	var w = whd.get_child(0).get_child(1)
+#	var h = whd.get_child(1).get_child(1)
+#	var d = whd.get_child(2).get_child(1)
+#	var x = xyz.get_child(0).get_child(1)
+#	var y = xyz.get_child(1).get_child(1)
+#	var z = xyz.get_child(2).get_child(1)
+#	w.connect("value_changed",Callable($Brain_Visualizer,"_on_W_Spinbox_value_changed").bind([w,h,d,x,y,z]))
+#	h.connect("value_changed",Callable($Brain_Visualizer,"_on_H_Spinbox_value_changed").bind([w,h,d,x,y,z]))
+#	d.connect("value_changed",Callable($Brain_Visualizer,"_on_D_Spinbox_value_changed").bind([w,h,d,x,y,z]))
+#	x.connect("value_changed",Callable($Brain_Visualizer,"_on_X_SpinBox_value_changed").bind([w,h,d,x,y,z]))
+#	y.connect("value_changed",Callable($Brain_Visualizer,"_on_Y_Spinbox_value_changed").bind([w,h,d,x,y,z]))
+#	z.connect("value_changed",Callable($Brain_Visualizer,"_on_Z_Spinbox_value_changed").bind([w,h,d,x,y,z]))
+#	name_input.connect("text_changed",Callable($"../../Button_to_Autoload","_on_type_text_changed"))
+#	update.connect("pressed",Callable($Brain_Visualizer,"_on_add_pressed").bind([w,h,d,x,y,z, name_input, optionlist, update]))
 
 #func SpawnNeuronMorphology():
 #	UI_CreateNeuronMorphology = SCENE_UNIT.instantiate()
@@ -413,11 +414,11 @@ func SpawnCorticalCrete():
 #	UI_CreateNeuronMorphology.DataUp.connect(LeftBarInput)
 
 func SpawnIndicator():
-	UI_INDICATOR = SCENE_UNIT.instantiate()
-	add_child(UI_INDICATOR)
+#	UI_INDICATOR = SCENE_UNIT.instantiate()
+#	add_child(UI_INDICATOR)
 	var createindicator = HelperFuncs.GenerateDefinedUnitDict("INDICATOR", currentLanguageISO)
-	UI_INDICATOR.Activate(createindicator)
-	UI_INDICATOR.DataUp.connect(LeftBarInput)
+#	UI_INDICATOR.Activate(createindicator)
+#	UI_INDICATOR.DataUp.connect(LeftBarInput)
 	$"..".GET_health_status()
 	
 func add_row(node, holder):
@@ -427,43 +428,43 @@ func add_row(node, holder):
 	new_node.position.y = node.position.y + (20 * length_holder)
 	
 func SpawnCircuitImport():
-	UI_CircuitImport=SCENE_UNIT.instantiate()
-	add_child(UI_CircuitImport)
+#	UI_CircuitImport=SCENE_UNIT.instantiate()
+#	add_child(UI_CircuitImport)
 	var create_circuitimport = HelperFuncs.GenerateDefinedUnitDict("CIRCUIT_IMPORT", currentLanguageISO)
-	UI_CircuitImport.Activate(create_circuitimport)
-	UI_CircuitImport.DataUp.connect(LeftBarInput)
+#	UI_CircuitImport.Activate(create_circuitimport)
+#	UI_CircuitImport.DataUp.connect(LeftBarInput)
 	# Link to BV
-	var dropdown = UI_CircuitImport.get_node("DropDown_dropdowncircuit").get_node("OptionButton")
-	var x = UI_CircuitImport.get_node("Unit_XYZ").get_node("Counter_Pos_X").get_node("SpinBox")
-	var y = UI_CircuitImport.get_node("Unit_XYZ").get_node("Counter_Pos_Y").get_node("SpinBox")
-	var z = UI_CircuitImport.get_node("Unit_XYZ").get_node("Counter_Pos_Z").get_node("SpinBox")
-	var w = UI_CircuitImport.get_node("Unit_WHD").get_node("Counter_W").get_node("SpinBox")
-	var h = UI_CircuitImport.get_node("Unit_WHD").get_node("Counter_H").get_node("SpinBox")
-	var d = UI_CircuitImport.get_node("Unit_WHD").get_node("Counter_D").get_node("SpinBox")
-	var close_button = UI_CircuitImport.get_node("Unit_TITLEBAR").get_node("Button_CLOSEBUTTON").get_node("button")
-	var import_button = UI_CircuitImport.get_node("Button_IMPORTBUTTON").get_node("button")
-	import_button.connect("pressed", Callable($Brain_Visualizer,"_on_insert_button_pressed").bind([dropdown, x,y,z]))
-	close_button.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
-	import_close_button = close_button
-	dropdown.connect("item_selected",Callable($Brain_Visualizer,"_on_ItemList_item_selected").bind(dropdown))
-	x.connect("value_changed",Callable($Brain_Visualizer,"_on_x_spinbox_value_changed").bind([x, y, z, w, h, d]))
-	y.connect("value_changed",Callable($Brain_Visualizer,"_on_y_spinbox_value_changed").bind([x, y, z, w, h, d]))
-	z.connect("value_changed",Callable($Brain_Visualizer,"_on_z_spinbox_value_changed").bind([x, y, z, w, h, d]))
+#	var dropdown = UI_CircuitImport.get_node("DropDown_dropdowncircuit").get_node("OptionButton")
+#	var x = UI_CircuitImport.get_node("Unit_XYZ").get_node("Counter_Pos_X").get_node("SpinBox")
+#	var y = UI_CircuitImport.get_node("Unit_XYZ").get_node("Counter_Pos_Y").get_node("SpinBox")
+#	var z = UI_CircuitImport.get_node("Unit_XYZ").get_node("Counter_Pos_Z").get_node("SpinBox")
+#	var w = UI_CircuitImport.get_node("Unit_WHD").get_node("Counter_W").get_node("SpinBox")
+#	var h = UI_CircuitImport.get_node("Unit_WHD").get_node("Counter_H").get_node("SpinBox")
+#	var d = UI_CircuitImport.get_node("Unit_WHD").get_node("Counter_D").get_node("SpinBox")
+#	var close_button = UI_CircuitImport.get_node("Unit_TITLEBAR").get_node("Button_CLOSEBUTTON").get_node("button")
+#	var import_button = UI_CircuitImport.get_node("Button_IMPORTBUTTON").get_node("button")
+#	import_button.connect("pressed", Callable($Brain_Visualizer,"_on_insert_button_pressed").bind([dropdown, x,y,z]))
+#	close_button.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
+#	import_close_button = close_button
+#	dropdown.connect("item_selected",Callable($Brain_Visualizer,"_on_ItemList_item_selected").bind(dropdown))
+#	x.connect("value_changed",Callable($Brain_Visualizer,"_on_x_spinbox_value_changed").bind([x, y, z, w, h, d]))
+#	y.connect("value_changed",Callable($Brain_Visualizer,"_on_y_spinbox_value_changed").bind([x, y, z, w, h, d]))
+#	z.connect("value_changed",Callable($Brain_Visualizer,"_on_z_spinbox_value_changed").bind([x, y, z, w, h, d]))
 
 func SpawnNeuronManager():
-	UI_ManageNeuronMorphology=SCENE_UNIT.instantiate()
-	add_child(UI_ManageNeuronMorphology)
+#	UI_ManageNeuronMorphology=SCENE_UNIT.instantiate()
+#	add_child(UI_ManageNeuronMorphology)
 	var cerateneuronmorphology = HelperFuncs.GenerateDefinedUnitDict("MANAGE_MORPHOLOGY", currentLanguageISO)
-	UI_ManageNeuronMorphology.Activate(cerateneuronmorphology)
+#	UI_ManageNeuronMorphology.Activate(cerateneuronmorphology)
 
 func SpawnMappingDefinition(src, dst):
-	if UI_MappingDefinition:
-		UI_MappingDefinition.queue_free()
-		$Brain_Visualizer.plus_node.clear()
-	UI_MappingDefinition=SCENE_UNIT.instantiate()
-	add_child(UI_MappingDefinition)
+#	if UI_MappingDefinition:
+#		UI_MappingDefinition.queue_free()
+#		$Brain_Visualizer.plus_node.clear()
+#	UI_MappingDefinition=SCENE_UNIT.instantiate()
+#	add_child(UI_MappingDefinition)
 	var mappingdef = HelperFuncs.GenerateDefinedUnitDict("MAPPING_DEFINITION", currentLanguageISO)
-	UI_MappingDefinition.Activate(mappingdef)
+#	UI_MappingDefinition.Activate(mappingdef)
 	$"..".Update_CortinalAreasIDs()
 	var get_id_from_dst = $Brain_Visualizer.name_to_id(dst)
 	src_global = src
@@ -474,7 +475,7 @@ func SpawnMappingDefinition(src, dst):
 	$"..".Update_MorphologyList()
 
 # Static Config
-const SCENE_UNIT: PackedScene = preload("res://UI/Units/unit.tscn")
+#const SCENE_UNIT: PackedScene = preload("res://UI/Units/unit.tscn")
 
 # proxys for properties
 var _currentLanguageISO: String 
