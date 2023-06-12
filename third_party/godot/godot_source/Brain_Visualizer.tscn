@@ -6,7 +6,7 @@
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/burst_value.gd" id="5_t81be"]
 [ext_resource type="Script" path="res://brain_visualizer_source/cortical_cam_label_menu.gd" id="6_ya7sl"]
 [ext_resource type="Texture2D" uid="uid://bd3hwkynrgrdo" path="res://brain_visualizer_source/menu_assets/image/add_cortical.png" id="7_ick0a"]
-[ext_resource type="FontFile" uid="uid://du6dcsxdyloar" path="res://brain_visualizer_source/BakbakOne-Regular.ttf" id="8_ew7u1"]
+[ext_resource type="FontFile" uid="uid://cpxfqnx26wnfd" path="res://brain_visualizer_source/BakbakOne-Regular.ttf" id="8_ew7u1"]
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/name.gd" id="9_6q4er"]
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/name_string.gd" id="10_cwgtv"]
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/OptionButton.gd" id="11_142s5"]
@@ -19,7 +19,7 @@
 [ext_resource type="Texture2D" uid="uid://cudr8ifago1bd" path="res://brain_visualizer_source/menu_assets/image/remove_cortical.png" id="18_a875r"]
 [ext_resource type="Texture2D" uid="uid://bdhgs6bernr2j" path="res://brain_visualizer_source/menu_assets/image/collapse_not_selected.png" id="19_molgv"]
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/addition_menu.gd" id="20_tbxv4"]
-[ext_resource type="FontFile" uid="uid://rmx6gs0n5ehd" path="res://brain_visualizer_source/Glegoo-Bold.ttf" id="21_ptep2"]
+[ext_resource type="FontFile" uid="uid://bpetjwmgh6hro" path="res://brain_visualizer_source/Glegoo-Bold.ttf" id="21_ptep2"]
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/cortical_area_type.gd" id="22_ln6xc"]
 [ext_resource type="Script" path="res://brain_visualizer_source/Mapping_properties.gd" id="23_gwhk5"]
 [ext_resource type="Script" path="res://brain_visualizer_source/Mapping_control.gd" id="24_3jpdg"]
@@ -410,7 +410,6 @@ libraries = {
 [node name="Core" type="Node3D" parent="."]
 process_priority = 1
 script = ExtResource("31_vv2v0")
-languageISO = null
 
 [node name="GlobalNetworkSystem" parent="Core" instance=ExtResource("35_aljtt")]
 

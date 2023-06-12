@@ -169,7 +169,7 @@ static func LoadMostDefaultv3_Color(dict: Dictionary, keyName: String, defaultVa
 	var output: Vector3 = GetIfCan(dict, keyName, defaultValue)
 	output.x = GetIfCan(dict, keyName + "R", output.x)
 	output.y = GetIfCan(dict, keyName + "G", output.y)
-	output.z = GetIfCan(dict, keyName + "B", output.x)
+	output.z = GetIfCan(dict, keyName + "B", output.z)
 	return output
 
 static func V3IToColor(input: Vector3i) -> Color:

@@ -26,6 +26,7 @@ var UI_MappingDefinition : Unit
 var UI_CircuitImport : Unit
 var UI_GraphCore: GraphCore
 var UI_CreateMorphology: Unit
+var UI_INDICATOR: Unit
 var cache: FeagiCache
 var vectors_holder = []
 var data_holder = {} # to save data from API every call
@@ -56,6 +57,7 @@ func Activate(langISO: String):
 	# FeagiCache is set from above
 #	SpawnMappingDefinition()
 #	SpawnCircuitImport()
+	SpawnIndicator()
 	
 	
 	# Initialize GraphCore
@@ -237,6 +239,31 @@ func WindowSizedChanged():
 # Handles Recieving data from Core, and distributing it to the correct element
 func RelayDownwards(callType, data) -> void:
 	match(callType):
+		REF.FROM.healthstatus:
+			if UI_INDICATOR:
+				print("data: ", data)
+				if data["burst_engine"]:
+					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator1": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+				else:
+					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator1": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+				if data["genome_availability"]:
+					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator2": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+				else:
+					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator2": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+				if data["genome_validity"]:
+					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator3": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+				else:
+					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator3": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+				if data["brain_readiness"]:
+					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator4": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+				else:
+					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator4": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+
+#				if data["burst_engine"]:
+#					print("children: ", UI_INDICATOR.get_node("Unit_indicator_status").get_node("Button_Indicator4").get_node("Panel").get_children())
+#					UI_INDICATOR.get_node("Unit_indicator_status").get_node("Button_Indicator4").get_node("Panel").color = Color(0, 255, 0)
+#				else:
+#					UI_INDICATOR.get_node("Unit_indicator_status").get_node("Button_Indicator4").get_node("Panel").color = Vector3(255, 0, 0)
 		REF.FROM.circuit_size:
 			if UI_CircuitImport:
 				UI_CircuitImport.ApplyPropertiesFromDict({"WHD": {"W":{"value": data[0]}, "H":{"value": data[1]}, "D	":{"value": data[2]}}})
@@ -384,6 +411,14 @@ func SpawnCorticalCrete():
 #	var createmurphology = HelperFuncs.GenerateDefinedUnitDict("CREATE_MORPHOLOGY", currentLanguageISO)
 #	UI_CreateNeuronMorphology.Activate(createmurphology)
 #	UI_CreateNeuronMorphology.DataUp.connect(LeftBarInput)
+
+func SpawnIndicator():
+	UI_INDICATOR = SCENE_UNIT.instantiate()
+	add_child(UI_INDICATOR)
+	var createindicator = HelperFuncs.GenerateDefinedUnitDict("INDICATOR", currentLanguageISO)
+	UI_INDICATOR.Activate(createindicator)
+	UI_INDICATOR.DataUp.connect(LeftBarInput)
+	$"..".GET_health_status()
 	
 func add_row(node, holder):
 	var new_node = node.get_node("Unit_Vectors").duplicate()
@@ -414,6 +449,7 @@ func SpawnCircuitImport():
 	x.connect("value_changed",Callable($Brain_Visualizer,"_on_x_spinbox_value_changed").bind([x, y, z, w, h, d]))
 	y.connect("value_changed",Callable($Brain_Visualizer,"_on_y_spinbox_value_changed").bind([x, y, z, w, h, d]))
 	z.connect("value_changed",Callable($Brain_Visualizer,"_on_z_spinbox_value_changed").bind([x, y, z, w, h, d]))
+
 func SpawnNeuronManager():
 	UI_ManageNeuronMorphology=SCENE_UNIT.instantiate()
 	add_child(UI_ManageNeuronMorphology)

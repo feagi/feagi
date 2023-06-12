@@ -12,7 +12,7 @@ const ADDITIONAL_SETTABLE_PROPERTIES = {
 	"color": TYPE_VECTOR3I,
 	"colorR": TYPE_INT,
 	"colorG": TYPE_INT,
-	"colorb": TYPE_INT}
+	"colorB": TYPE_INT}
 
 const TYPE: String = "Fill"
 

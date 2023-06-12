@@ -16,7 +16,7 @@ enum FROM {
 	circuit_list,
 	circuit_size,
 	connectome_properties_mappings,
-	
+	healthstatus,
 	godot_fullCorticalData
 }
 
