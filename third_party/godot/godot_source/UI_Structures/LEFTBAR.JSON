@@ -20,7 +20,7 @@
 	"editable": false,
 	"type": "field"},
 	{
-		"type": "box",
+		"type": "unit",
 		"ID": "XYZ",
 		"components": [
 			{
@@ -61,10 +61,10 @@
 		"type": "unit",
 		"ID": "buttons",
 		"components": [
-		{"type": "button",
-			"ID": "UpdateButton"},
-		{"type": "button",
-			"ID": "DeleteButton"}
+			{"type": "button",
+				"ID": "UpdateButton"},
+			{"type": "button",
+				"ID": "DeleteButton"}
 		],
 		"isVertical": false},
 	{"type" : "header",
@@ -112,7 +112,7 @@
 
 	{"type" : "button",
 	"ID" : "UpdateButton",
-	"widthAlignment": 1},
+	"text":  "whatever"},
 	{"type" : "header",
 	"ID" : "CorticalMapping"},
   	{"type":  "header",
