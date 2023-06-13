@@ -238,7 +238,7 @@ func WindowSizedChanged():
 
 # Handles Recieving data from Core, and distributing it to the correct element
 func RelayDownwards(callType, data) -> void:
-#	match(callType):
+	match(callType):
 #		REF.FROM.healthstatus:
 ##			if UI_INDICATOR:
 ##				print("data: ", data)
@@ -274,9 +274,9 @@ func RelayDownwards(callType, data) -> void:
 #			pass
 #		REF.FROM.pns_current_opu:
 #			pass
-#		REF.FROM.genome_corticalAreaIdList:
-#			if UI_Top_TopBar:
-#				UI_Top_TopBar.ApplyPropertiesFromDict({"CORTICALAREAS": {"options":data}})
+		REF.FROM.genome_corticalAreaIdList:
+			if UI_Top_TopBar:
+				UI_Top_TopBar.SetData({"CORTICALAREAS": {"options":data}})
 #			if UI_MappingDefinition:
 #				UI_MappingDefinition.ApplyPropertiesFromDict({"testlabel": {"SOURCECORTICALAREA":{"options": data, "value": src_global}}})
 #				UI_MappingDefinition.ApplyPropertiesFromDict({"testlabel": {"DESTINATIONCORTICALAREA":{"options": data, "value": dst_global}}})
