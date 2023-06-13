@@ -47,8 +47,6 @@ func Activate(langISO: String):
 	# Initialize UI
 	
 	# Initialize TopBar
-#	UI_Top_TopBar = SCENE_UNIT.instantiate()
-#	add_child(UI_Top_TopBar)
 	var topBarDict = HelperFuncs.GenerateDefinedUnitDict("TOPBAR", currentLanguageISO)
 	_SpawnTopBar(topBarDict)
 	
@@ -68,10 +66,12 @@ func _SpawnTopBar(activation: Dictionary):
 	UI_Top_TopBar = Newnit_Box.new()
 	add_child(UI_Top_TopBar)
 	UI_Top_TopBar.Activate(activation)
+	UI_Top_TopBar.DataUp.connect(TopBarInput) # Amir, https://i.imgflip.com/10hpms.jpg
 	var test = UI_Top_TopBar.GetReferenceByID("REFRESHRATE")
 	var import_circuit = UI_Top_TopBar.GetReferenceByID("GENOMEFILENAME").get_node("sideButton_GENOMEFILENAME")
+	var cortical_create = UI_Top_TopBar.GetReferenceByID("CORTICALAREAS").get_node("sideButton_CORTICALAREAS")
 	import_circuit.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
-	print("import: ", import_circuit.get_children())
+	
 
 ####################################
 ####### Input Event Handling #######
@@ -82,12 +82,13 @@ signal DataUp(data: Dictionary)
 ######### Top Bar Control ##########
 # These are all examples
 func TopBarInput(data: Dictionary, _compRef, _unitRef):
-#	print(JSON.stringify(data)) # useful for debugging
+	print(JSON.stringify(data)) # useful for debugging
 	match(data["ID"]):
 		"CORTICALAREAS":
 			# Drop downs specifically can either be button inputs or dropdown changes,
 			# verify this
 			if "button" in data.keys():
+				print("bwuk")
 				# Initialize popUpBar
 #				if not UI_createcorticalBar:
 #					SpawnCorticalCrete()
