@@ -41,7 +41,6 @@
 		{
 			"ID": "IMPORTBUTTON",
 			"type": "button",
-			"text" : "TEXT TEST"
 		},
 		{
 			"ID": "CIRCUITINIT",
