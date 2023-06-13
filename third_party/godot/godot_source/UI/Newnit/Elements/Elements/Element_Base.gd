@@ -77,20 +77,28 @@ var sideButtonText: String:
 		if(!_has_button): return
 		_sideButtonText = v
 		_sideButton.text = v
+var sideButtonEditable: bool:
+	get: return _sideButtonEditable
+	set(v):
+		if(!_has_button): return
+		_sideButtonEditable = v
+		_sideButton.editable = v
 
 
 var _has_label: bool
 var _has_button: bool
 var _sideLabelText: String
 var _sideButtonText: String
-var _sideLabel #:Header_Sub
-var _sideButton #:Button_Sub
+var _sideLabel: Label_Sub
+var _sideButton :Button_Sub
 var _sideButtonEditable: bool
 
 const settableProperties := {
 	"alignment": TYPE_INT,
-	"vertical": TYPE_INT
-}
+	"vertical": TYPE_INT,
+	"sideLabelText": TYPE_STRING,
+	"sideButtonText": TYPE_STRING,
+	"sideButtonEditable": TYPE_BOOL}
 
 # Base Element Activation
 func _ActivationPrimary(settings: Dictionary) -> void:

@@ -3,6 +3,11 @@ class_name Element_FloatField
 
 const D_editable = true
 
+var specificSettableProps = {
+	"value": TYPE_INT,
+	"editable": TYPE_BOOL,
+}
+
 var value: float:
 	get: return _LineEditFF.value
 	set(v): _LineEditFF.value = v

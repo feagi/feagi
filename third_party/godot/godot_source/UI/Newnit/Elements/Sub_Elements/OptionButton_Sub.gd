@@ -10,7 +10,7 @@ var shouldScaleWithLongestOption := true
 var options: Array:
 	get: return _DropDownItems
 	set(v): 
-		_SetDropDownArray(v)
+		SetDropDownArray(v)
 		_UpdateSizeAsPerOptions()
 var index: int:
 	get: return selected
@@ -20,15 +20,18 @@ var value: String:
 	get: 
 		if index == -1: return ""
 		return get_item_text(index)
-	set(v): _SetToExistingString(v)
+	set(v): SetToExistingString(v)
 
+var editable: bool:
+	get: return !disabled
+	set(v): disabled = !v
 
 var _DropDownItems: Array
 
 func GetStringFromIndex(ind: int) -> String:
 	return _DropDownItems[ind]
 
-func _SetDropDownArray( strArr: Array) -> void:
+func SetDropDownArray( strArr: Array, emitIfCurrentOptionNonExistant: bool = false) -> void:
 	_DropDownItems = strArr
 	var currentSelection = value
 	clear()
@@ -38,17 +41,17 @@ func _SetDropDownArray( strArr: Array) -> void:
 		# Seems that the previously selected item is unavailable
 		# set to unknown
 		select(-1)
-		value_edited.emit("", -1)
+		if(emitIfCurrentOptionNonExistant): value_edited.emit("", -1)
 
 # use to set the value of the drop down directly via string
-func _SetToExistingString( option: String) -> void:
+func SetToExistingString( option: String, emitWhenCalled: bool = false) -> void:
 	var location: int = _DropDownItems.find(option)
 	if location == -1:
 		print("No Option found with name" + option)
-		value_edited.emit("", -1)
+		if(emitWhenCalled): value_edited.emit("", -1)
 		return
 	select(location)
-	value_edited.emit(option, location)
+	if(emitWhenCalled): value_edited.emit(option, location)
 
 # Gets the width of the widest option
 func _GetLongestOptionWidth() -> float:

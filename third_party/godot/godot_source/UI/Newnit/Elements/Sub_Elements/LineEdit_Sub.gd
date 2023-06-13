@@ -6,6 +6,16 @@ signal value_edited(newString: String)
 var minWidth: float:
 	get: return get_theme_font("font").get_string_size(text).x
 
+var _cacheText: String
+
+func _ready():
+	text_changed.connect(_TextChangeProxy)
+
+func _TextChangeProxy(newText: String) -> void:
+	if newText == _cacheText: return
+	_cacheText = newText
+	value_edited.emit(newText)
+
 ## TODO this camera focusing system is flawed, and should be replaced
 #func _ready():
 #	mouse_entered.connect(_toggleCamUsageOn)
