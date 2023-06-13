@@ -222,7 +222,8 @@ func cortical_is_clicked():
 		var grab_id_cortical = ""
 		grab_id_cortical = name_to_id(iteration_name)
 		update_cortical_map_name(grab_id_cortical)
-		$"..".SpawnLeftBar(grab_id_cortical)
+		var LeftBarDict = HelperFuncs.GenerateDefinedUnitDict("LEFTBAR", $"..".currentLanguageISO)
+		$"..".SpawnLeftBar(grab_id_cortical, LeftBarDict)
 #		print("SELECTED: ", grab_id_cortical)
 		Autoload_variable.BV_Core.Update_Cortical_grab_id(grab_id_cortical)
 		select_cortical.selected.pop_front()
@@ -490,8 +491,9 @@ func _on_information_button_request_completed(_result, _response_code, _headers,
 	if _response_code == 200 and not api_data.has("Request failed..."):
 		var new_name = ""
 		var counter = 0 # To increase the height between two different duplicated nodes
-		var UI_LeftBar = $"..".UI_LeftBar
-		var id = $"..".UI_LeftBar.get_node("Unit_TITLEBAR").get_node("Header_TITLE").get_node("Label").text
+#		var UI_LeftBar = $"..".UI_LeftBar
+		var id = $"..".UI_LeftBar.GetReferenceByID("CorticalID").get_node("field_CorticalID")
+		print("api: ", api_data)
 		for i in api_data:
 			var new_node = $"..".UI_LeftBar.get_node("Unit_efferent_unit").get_node("Button_blank_efferent").get_node("button").duplicate()
 			$"..".UI_LeftBar.get_node("Unit_efferent_unit").get_node("Button_blank_efferent").add_child(new_node)
@@ -1077,10 +1079,10 @@ func _on_afferent_request_completed(_result, _response_code, _headers, body):
 #			new_node.position.x = UI_LeftBar.get_node("Field_blank_afferent").position.x + 5
 			new_node.position.y = (counter * 30)
 			counter += 1
-	if afferent_child_holder:
-		UI_LeftBar.get_node("Unit_efferent_unit").position.y = afferent_child_holder[len(afferent_child_holder)-1].position.y + 1141
-	else:
-		UI_LeftBar.get_node("Unit_efferent_unit").position.y = 1141
+#	if afferent_child_holder:
+#		UI_LeftBar.get_node("Unit_efferent_unit").position.y = afferent_child_holder[len(afferent_child_holder)-1].position.y + 1141
+#	else:
+#		UI_LeftBar.get_node("Unit_efferent_unit").position.y = 1141
 	$notification.generate_notification_message(api_data, _response_code, "_on_afferent_request_completed", "/v1/feagi/genome/cortical_mappings/afferents")
 
 func afferent_holder_clear():
@@ -1211,7 +1213,8 @@ func _on_circuit_request_request_completed(_result, _response_code, _headers, bo
 func _on_import_pressed():
 	if not $"..".UI_CircuitImport:
 		Autoload_variable.BV_Core.Get_circuit_list()
-		$"..".SpawnCircuitImport()
+		var create_circuitimport = HelperFuncs.GenerateDefinedUnitDict("CIRCUIT_IMPORT", $"..".currentLanguageISO)
+		$"..".SpawnCircuitImport(create_circuitimport)
 	else:
 		$"..".UI_CircuitImport.queue_free()
 		print("Godot list: ", Godot_list.godot_list)
