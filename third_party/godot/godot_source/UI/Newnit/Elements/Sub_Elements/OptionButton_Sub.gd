@@ -22,6 +22,9 @@ var value: String:
 		return get_item_text(index)
 	set(v): SetToExistingString(v)
 
+var editable: bool:
+	get: return !disabled
+	set(v): disabled = !v
 
 var _DropDownItems: Array
 

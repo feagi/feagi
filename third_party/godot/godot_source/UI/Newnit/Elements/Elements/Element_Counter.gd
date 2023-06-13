@@ -9,7 +9,7 @@ const D_step = 1.0
 const D_prefix = ""
 const D_suffix = ""
 
-const specificSettableProps = {
+var specificSettableProps = {
 	"value": TYPE_INT,
 	"editable": TYPE_BOOL,
 	"max_value": TYPE_INT,
