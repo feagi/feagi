@@ -3,7 +3,7 @@ class_name Element_Button
 # Yes, you can technically enable the sideButton for this Button element if you wanted to
 
 const D_editable = true
-const specificSettableProps = {
+var specificSettableProps := {
 	"editable": TYPE_BOOL
 }
 
