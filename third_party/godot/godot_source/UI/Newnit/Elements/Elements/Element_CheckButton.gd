@@ -2,6 +2,11 @@ extends Element_Base
 class_name Element_CheckButton
 
 const D_editable = true
+const D_value = false
+var specificSettableProps := {
+	"value": TYPE_BOOL,
+	"editable": TYPE_BOOL
+}
 
 var value: bool:
 	get: return _CheckButton.button_pressed
@@ -16,6 +21,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	if(_has_label): _CheckButton = get_children()[1]
 	else: _CheckButton = get_children()[0]
 	editable = HelperFuncs.GetIfCan(settings, "editable", D_editable)
+	_CheckButton.value = HelperFuncs.GetIfCan(settings, "value", D_value)
 
 
 func _PopulateSubElements() -> Array:
