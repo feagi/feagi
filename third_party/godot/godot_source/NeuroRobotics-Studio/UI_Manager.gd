@@ -243,21 +243,21 @@ func RelayDownwards(callType, data) -> void:
 ##			if UI_INDICATOR:
 ##				print("data: ", data)
 ##				if data["burst_engine"]:
-##					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator1": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+##					UI_INDICATOR.SetData({"indicator_status": {"Indicator1": {"colorR": 0, "colorG": 255, "colorB": 0}}})
 ##				else:
-##					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator1": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+##					UI_INDICATOR.SetData({"indicator_status": {"Indicator1": {"colorR": 255, "colorG": 0, "colorB": 0}}})
 ##				if data["genome_availability"]:
-##					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator2": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+##					UI_INDICATOR.SetData({"indicator_status": {"Indicator2": {"colorR": 0, "colorG": 255, "colorB": 0}}})
 ##				else:
-##					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator2": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+##					UI_INDICATOR.SetData({"indicator_status": {"Indicator2": {"colorR": 255, "colorG": 0, "colorB": 0}}})
 ##				if data["genome_validity"]:
-##					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator3": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+##					UI_INDICATOR.SetData({"indicator_status": {"Indicator3": {"colorR": 0, "colorG": 255, "colorB": 0}}})
 ##				else:
-##					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator3": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+##					UI_INDICATOR.SetData({"indicator_status": {"Indicator3": {"colorR": 255, "colorG": 0, "colorB": 0}}})
 ##				if data["brain_readiness"]:
-##					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator4": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+##					UI_INDICATOR.SetData({"indicator_status": {"Indicator4": {"colorR": 0, "colorG": 255, "colorB": 0}}})
 ##				else:
-#					UI_INDICATOR.ApplyPropertiesFromDict({"indicator_status": {"Indicator4": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+#					UI_INDICATOR.SetData({"indicator_status": {"Indicator4": {"colorR": 255, "colorG": 0, "colorB": 0}}})
 #
 ##				if data["burst_engine"]:
 ##					print("children: ", UI_INDICATOR.get_node("Unit_indicator_status").get_node("Button_Indicator4").get_node("Panel").get_children())
@@ -266,10 +266,10 @@ func RelayDownwards(callType, data) -> void:
 ##					UI_INDICATOR.get_node("Unit_indicator_status").get_node("Button_Indicator4").get_node("Panel").color = Vector3(255, 0, 0)
 #		REF.FROM.circuit_size:
 #			if UI_CircuitImport:
-#				UI_CircuitImport.ApplyPropertiesFromDict({"WHD": {"W":{"value": data[0]}, "H":{"value": data[1]}, "D	":{"value": data[2]}}})
+#				UI_CircuitImport.SetData({"WHD": {"W":{"value": data[0]}, "H":{"value": data[1]}, "D	":{"value": data[2]}}})
 #		REF.FROM.circuit_list:
 #			if UI_CircuitImport:
-#				UI_CircuitImport.ApplyPropertiesFromDict({"dropdowncircuit": {"options":data}})
+#				UI_CircuitImport.SetData({"dropdowncircuit": {"options":data}})
 #		REF.FROM.pns_current_ipu:
 #			pass
 #		REF.FROM.pns_current_opu:
@@ -278,13 +278,13 @@ func RelayDownwards(callType, data) -> void:
 			if UI_Top_TopBar:
 				UI_Top_TopBar.SetData({"CORTICALAREAS": {"options":data}})
 #			if UI_MappingDefinition:
-#				UI_MappingDefinition.ApplyPropertiesFromDict({"testlabel": {"SOURCECORTICALAREA":{"options": data, "value": src_global}}})
-#				UI_MappingDefinition.ApplyPropertiesFromDict({"testlabel": {"DESTINATIONCORTICALAREA":{"options": data, "value": dst_global}}})
-#		REF.FROM.genome_morphologyList:
-#			if UI_Top_TopBar:
-#				UI_Top_TopBar.ApplyPropertiesFromDict({"NEURONMORPHOLOGIES": {"options":data}})
+#				UI_MappingDefinition.SetData({"testlabel": {"SOURCECORTICALAREA":{"options": data, "value": src_global}}})
+#				UI_MappingDefinition.SetData({"testlabel": {"DESTINATIONCORTICALAREA":{"options": data, "value": dst_global}}})
+		REF.FROM.genome_morphologyList:
+			if UI_Top_TopBar:
+				UI_Top_TopBar.SetData({"NEURONMORPHOLOGIES": {"options":data}})
 #			if UI_MappingDefinition:
-#				UI_MappingDefinition.ApplyPropertiesFromDict({"third_box": {"mappingdefinitions": {"options": data}}})
+#				UI_MappingDefinition.SetData({"third_box": {"mappingdefinitions": {"options": data}}})
 #				var original_dropdown = UI_MappingDefinition.get_node("Unit_third_box").get_node("DropDown_mappingdefinitions").get_node("OptionButton")
 #				for i in UI_MappingDefinition.get_children():
 #					if "Unit_third_box" in i.get_name():
@@ -299,37 +299,37 @@ func RelayDownwards(callType, data) -> void:
 #		REF.FROM.genome_corticalArea:
 #			# Data for Specific Cortical Area
 #			# Race conditions are technically possible. Verify input
-#			if UI_LeftBar == null: return # ignore if Leftbar isnt open
-#			#if data["cortical_id"] != UI_LeftBar.name: return # ignore if the correct sidebar isn't open
+			if UI_LeftBar == null: return # ignore if Leftbar isnt open
+			if data["cortical_id"] != UI_LeftBar.name: return # ignore if the correct sidebar isn't open
 #
 #			data_holder = data.duplicate()
 #			# Assemble Dict to input values
-#			var inputVars = {
-#				"CorticalName": {"value": data["cortical_id"]},
-#				"CorticalID": {"value": data["cortical_name"]},
-#				"CorticalArea": {"value": data["cortical_group"]},
-#				"XYZ": {"Pos_X": {"value": data["cortical_coordinates"][0]}, "Pos_Y": {"value": data["cortical_coordinates"][1]}, "Pos_Z": {"value": data["cortical_coordinates"][2]}},
-#				"WHD": {"W": {"value": data["cortical_dimensions"][0]}, "H": {"value": data["cortical_dimensions"][1]}, "D": {"value": data["cortical_dimensions"][2]}},
-#				"VoxelNeuronDensity": {"value": data["cortical_neuron_per_vox_count"]},
-#				"SynapticAttractivity": {"value": data["cortical_synaptic_attractivity"]},
-#				"PostSynapticPotential": {"value": data["neuron_post_synaptic_potential"]},
-#				"PSPMax": {"value": data["neuron_post_synaptic_potential_max"]},
-#				"PlasticityConstant": {"value": data["neuron_plasticity_constant"]},
-#				"FireThreshold": {"value": data["neuron_fire_threshold"]},
-#				"RefactoryPeriod": {"value": data["neuron_refractory_period"]},
-#				"LeakConstant": {"value": data["neuron_leak_coefficient"]},
-#				"LeakVaribility": {"value": data["neuron_leak_variability"]},
-#				"ConsecutiveFireCount": {"value": data["neuron_consecutive_fire_count"]},
-#				"SnoozePeriod": {"value": data["neuron_snooze_period"]},
-#				"DegeneracyConstant": {"value": data["neuron_degeneracy_coefficient"]},
-#				"ChargeACC": {"value": data["neuron_mp_charge_accumulation"]},
-#				"PSPUNI": {"value": data["neuron_psp_uniform_distribution"]}
-#			}
+			var inputVars = {
+				"CorticalName": {"value": data["cortical_id"]},
+				"CorticalID": {"value": data["cortical_name"]},
+				"CorticalArea": {"value": data["cortical_group"]},
+				"XYZ": {"Pos_X": {"value": data["cortical_coordinates"][0]}, "Pos_Y": {"value": data["cortical_coordinates"][1]}, "Pos_Z": {"value": data["cortical_coordinates"][2]}},
+				"WHD": {"W": {"value": data["cortical_dimensions"][0]}, "H": {"value": data["cortical_dimensions"][1]}, "D": {"value": data["cortical_dimensions"][2]}},
+				"VoxelNeuronDensity": {"value": data["cortical_neuron_per_vox_count"]},
+				"SynapticAttractivity": {"value": data["cortical_synaptic_attractivity"]},
+				"PostSynapticPotential": {"value": data["neuron_post_synaptic_potential"]},
+				"PSPMax": {"value": data["neuron_post_synaptic_potential_max"]},
+				"PlasticityConstant": {"value": data["neuron_plasticity_constant"]},
+				"FireThreshold": {"value": data["neuron_fire_threshold"]},
+				"RefactoryPeriod": {"value": data["neuron_refractory_period"]},
+				"LeakConstant": {"value": data["neuron_leak_coefficient"]},
+				"LeakVaribility": {"value": data["neuron_leak_variability"]},
+				"ConsecutiveFireCount": {"value": data["neuron_consecutive_fire_count"]},
+				"SnoozePeriod": {"value": data["neuron_snooze_period"]},
+				"DegeneracyConstant": {"value": data["neuron_degeneracy_coefficient"]},
+				"ChargeACC": {"value": data["neuron_mp_charge_accumulation"]},
+				"PSPUNI": {"value": data["neuron_psp_uniform_distribution"]}
+			}
 #			#print(inputVars)
-#			UI_LeftBar.ApplyPropertiesFromDict(inputVars)
-#			UI_LeftBar.ApplyPropertiesFromDict({"TITLEBAR": {"TITLE": {"label": data["cortical_id"]}}})
-#		REF.FROM.burstEngine:
-#			UI_Top_TopBar.ApplyPropertiesFromDict({"REFRESHRATE": {"value": data}})
+			UI_LeftBar.SetData(inputVars)
+#			UI_LeftBar.SetData({"TITLEBAR": {"TITLE": {"label": data["cortical_id"]}}})
+		REF.FROM.burstEngine:
+			UI_Top_TopBar.SetData({"REFRESHRATE": {"value": data}})
 	pass
 
 
@@ -352,7 +352,7 @@ func SpawnLeftBar(cortexName: String, activation: Dictionary):
 #	UI_LeftBar.DataUp.connect(LeftBarInput)
 
 	# Get available data with UI_LeftBar.data
-#	UI_LeftBar.ApplyPropertiesFromDict({"TITLEBAR": {"TITLE": {"label": cortexName}}})
+#	UI_LeftBar.SetData({"TITLEBAR": {"TITLE": {"label": cortexName}}})
 
 	
 func mapping_definition_button(node):
@@ -384,7 +384,7 @@ func SpawnCorticalCrete():
 	var str_array = []
 	for i in $".."/".."/Menu/addition_menu/OptionButton.item_count:
 		str_array.append($".."/".."/Menu/addition_menu/OptionButton.get_item_text(i))
-#	UI_createcorticalBar.ApplyPropertiesFromDict({"CORTICALAREA": {"options": (str_array)}})
+#	UI_createcorticalBar.SetData({"CORTICALAREA": {"options": (str_array)}})
 #	if UI_createcorticalBar.DataUp.is_connected():
 #	UI_createcorticalBar.DataUp.disconnect()
 #	4.x - emitting_node.signal_name.disconnect(receiving_node.callback_function)
