@@ -83,6 +83,7 @@ signal DataUp(data: Dictionary)
 ######### Top Bar Control ##########
 # These are all examples
 func TopBarInput(data: Dictionary, _compRef, _unitRef):
+	print("FUnction called!")
 	print(JSON.stringify(data)) # useful for debugging
 	match(data["ID"]):
 		"CORTICALAREAS":
