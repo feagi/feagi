@@ -66,18 +66,7 @@ func get_input_keyboard(_delta):
 		print(Godot_list.godot_list)
 	if Input.is_action_just_pressed("ui_del"):
 		print(Input.is_action_just_pressed("ui_del"))
-		$".."/".."/".."/".."/".."/Menu/Mapping_Properties.visible = false
-		$".."/".."/".."/".."/".."/Menu/cortical_menu.visible = false
-		$".."/".."/".."/".."/".."/Menu/insert_menu.visible = false
-		$".."/".."/".."/".."/".."/Menu/cortical_mapping.visible = false
-		$".."/".."/".."/".."/".."/Menu/cortical_menu.visible = false
-		$".."/".."/".."/".."/".."/Menu/properties.visible = false
-		$".."/".."/".."/".."/".."/Menu/button_choice.visible = false
-		$".."/".."/".."/".."/".."/Menu/collapse_1.visible = false
-		$".."/".."/".."/".."/".."/Menu/collapse_2.visible = false
-		$".."/".."/".."/".."/".."/Menu/collapse_3.visible = false
-		$".."/".."/".."/".."/".."/Menu/collapse_4.visible = false
-		$".."/".."/".."/".."/".."/Menu/close_for_all.visible = false
+		$".."/".."/"..".UI_LeftBar.queue_free()
 		
 		flagged = true
 		network_setting.send("refresh")
