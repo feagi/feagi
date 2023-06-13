@@ -45,7 +45,7 @@ static func Func_Activate(settings: Dictionary, NewnitObject) -> void:
 
 # Set Properties from dictionary
 static func Func_SetData(input: Dictionary, NewnitObject) -> void:
-	for key in input.keys:
+	for key in input.keys():
 		
 		# On the case where the key is an ID of a child
 		var search: int = NewnitObject.childrenIDs.find(key)
