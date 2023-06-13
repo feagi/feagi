@@ -39,8 +39,9 @@
 			"isVertical": false
 		},
 		{
-			"ID": "IMPORTBUTTON",
 			"type": "button",
+			"text": "Import",
+			"ID": "UpdateButtonTop"
 		},
 		{
 			"ID": "CIRCUITINIT",

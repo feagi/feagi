@@ -347,10 +347,6 @@ func SpawnLeftBar(cortexName: String, activation: Dictionary):
 	UI_LeftBar = Newnit_Box.new()
 	add_child(UI_LeftBar)
 	UI_LeftBar.Activate(activation)
-#	UI_LeftBar = SCENE_UNIT.instantiate()
-#	add_child(UI_LeftBar)
-#	UI_LeftBar.Activate(LeftBarDict)
-#	UI_LeftBar.DataUp.connect(LeftBarInput)
 
 	# Get available data with UI_LeftBar.data
 #	UI_LeftBar.SetData({"TITLEBAR": {"TITLE": {"label": cortexName}}})
