@@ -51,7 +51,7 @@
 			"type": "header"
 		},
 		{
-			"type": "unit",
+			"type": "box",
 			"visibility": 0,
 			"ID": "WHD",
 			"components": [
