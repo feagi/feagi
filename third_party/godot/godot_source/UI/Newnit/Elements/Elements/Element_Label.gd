@@ -1,8 +1,13 @@
 extends Element_Base
 class_name Element_Label
-# Yes, you can add a label to a label
+# Yes, you can add a label to a label, but why?
 
 const D_text := ""
+const specificSettableProps = {
+	"value": TYPE_STRING,
+	"text": TYPE_STRING
+}
+
 
 var value: String:
 	get: return _label.text
