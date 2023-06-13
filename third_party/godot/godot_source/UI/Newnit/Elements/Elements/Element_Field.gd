@@ -7,6 +7,14 @@ const D_expand_to_text_length = false
 const D_max_length = 50
 const D_placeholder_text = ""
 
+var specificSettableProps = {
+	"value": TYPE_STRING,
+	"editable": TYPE_BOOL,
+	"expand_to_text_length": TYPE_BOOL,
+	"max_length": TYPE_INT,
+	"placeholder_text": TYPE_STRING,
+}
+
 var value: String:
 	get: return _LineEdit.value
 	set(v): _LineEdit.value = v
