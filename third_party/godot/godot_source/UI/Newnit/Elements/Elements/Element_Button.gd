@@ -20,6 +20,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	if(_has_label): _Button = get_children()[1]
 	else: _Button = get_children()[0]
 	editable = HelperFuncs.GetIfCan(settings, "editable", D_editable)
+	specificSettableProps.merge(settableProperties)
 
 func _PopulateSubElements() -> Array:
 	# used during Activation Primary to add Counter

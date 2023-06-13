@@ -55,7 +55,12 @@ static func Func_SetData(input: Dictionary, NewnitObject) -> void:
 
 		# Key is likely referring to a property on this object then.
 		# confirm to avoid a crash
-		if key in NewnitObject._runtimeSettableProperties.keys():
+		if key in NewnitObject.settableProperties.keys():
+			
+			if typeof(input[key]) != typeof(NewnitObject[key]):
+				print("Input is of type ", typeof(input[key]), "when expected ", typeof(NewnitObject[key]), "! Skipping!")
+				continue
+			
 			NewnitObject[key] = input[key] # This is blasphemy
 		
 		# On the odd case where the key is the ID of this object
@@ -64,7 +69,9 @@ static func Func_SetData(input: Dictionary, NewnitObject) -> void:
 			print("Recursive ID path detected, readjusting...\nYou may want to fix this...")
 			NewnitObject.SetData(input[key])
 		
+		# Key not found!
 		print("Property ", key, " does not exist!")
+		continue
 
 
 

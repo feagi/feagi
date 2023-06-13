@@ -123,10 +123,7 @@ func _ActivationPrimary(settings: Dictionary) -> void:
 	if _has_button: #TODO
 		subComponents.push_back("sideButton")
 		pass
-	
-	
 	_SpawnSubElements(subComponents)
-	_ActivationSecondary(settings)
 
 
 func _SpawnSubElements(componentTypes: Array) -> void:

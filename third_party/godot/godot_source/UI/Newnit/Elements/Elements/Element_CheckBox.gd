@@ -22,6 +22,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	else: _CheckBox = get_children()[0]
 	editable = HelperFuncs.GetIfCan(settings, "editable", D_editable)
 	_CheckBox.button_pressed = HelperFuncs.GetIfCan(settings, "value", D_value)
+	specificSettableProps.merge(settableProperties)
 
 func _PopulateSubElements() -> Array:
 	# used during Activation Primary to add Counter

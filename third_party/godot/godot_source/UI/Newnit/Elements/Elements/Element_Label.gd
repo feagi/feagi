@@ -23,6 +23,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	if(_has_label): _label = get_children()[1]
 	else: _label = get_children()[0]
 	text = HelperFuncs.GetIfCan(settings, "text", D_text)
+	specificSettableProps.merge(settableProperties)
 
 
 func _PopulateSubElements() -> Array:

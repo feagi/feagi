@@ -46,6 +46,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	max_length = HelperFuncs.GetIfCan(settings, "max_length", D_max_length)
 	placeholder_text = HelperFuncs.GetIfCan(settings, "placeholder_text", D_placeholder_text)
 	_LineEdit.text = HelperFuncs.GetIfCan(settings, "value", D_value)
+	specificSettableProps.merge(settableProperties)
 
 func _PopulateSubElements() -> Array:
 	# used during Activation Primary to add Counter

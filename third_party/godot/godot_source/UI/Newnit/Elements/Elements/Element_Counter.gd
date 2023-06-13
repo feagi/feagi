@@ -59,6 +59,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	step = HelperFuncs.GetIfCan(settings, "step", D_step)
 	prefix = HelperFuncs.GetIfCan(settings, "prefix", D_prefix)
 	suffix = HelperFuncs.GetIfCan(settings, "suffix", D_suffix)
+	specificSettableProps.merge(settableProperties)
 
 func _PopulateSubElements() -> Array:
 	# used during Activation Primary to add Counter

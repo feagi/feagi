@@ -38,6 +38,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	options = HelperFuncs.GetIfCan(settings, "options", D_options)
 	value = HelperFuncs.GetIfCan(settings, "value", D_value)
 	editable = HelperFuncs.GetIfCan(settings, "editable", TYPE_BOOL)
+	specificSettableProps.merge(settableProperties)
 	
 
 func _PopulateSubElements() -> Array:
