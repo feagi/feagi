@@ -40,16 +40,9 @@
 			}
 		}
 	},
-	"buttons": {
-		"UpdateButton": {
-			"sideLabelText": {
-				"eng": "Update"
-			}
-		},
-		"DeleteButton": {
-			"sideLabelText": {
-				"eng": "Delete"
-			}
+	"UpdateButtonTop": {
+		"sideLabelText": {
+			"eng": "Update"
 		}
 	},
 		"toggles": {

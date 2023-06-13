@@ -57,16 +57,9 @@
 		],
 		"isVertical": false
 	},
-	{
-		"type": "unit",
-		"ID": "buttons",
-		"components": [
-			{"type": "button",
-				"ID": "UpdateButton"},
-			{"type": "button",
-				"ID": "DeleteButton"}
-		],
-		"isVertical": false},
+	{"type": "button",
+	"sideButtonText": "Delete",
+	"ID": "UpdateButtonTop"},
 	{"type" : "header",
 	"ID" : "MonitoringSection"},
 	{
