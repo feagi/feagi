@@ -16,6 +16,7 @@ static func Func_SpawnChild(childActivationSettings: Dictionary, ContainerObject
 		"field": newChild = Element_Field.new()
 		"floatfield": newChild = Element_FloatField.new()
 		"header": newChild = Element_Label.new()
+		"vector3": newChild = Element_Vector3.new()
 		"box": newChild = Newnit_Box.new()
 		# TODO: More types!
 		_:

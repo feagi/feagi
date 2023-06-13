@@ -2,60 +2,67 @@ extends Element_Base
 class_name Element_Vector3
 
 const D_editable = true
-const D_value = ""
-const D_expand_to_text_length = false
-const D_max_length = 50
-const D_placeholder_text = ""
+const D_vectorValue = Vector3(0,0,0)
+const D_subLabels = ["X", "Y", "Z"]
 
 const _specificSettableProps = {
-	"value": TYPE_STRING,
+	"vectorValue": TYPE_VECTOR3,
 	"editable": TYPE_BOOL,
-	"expand_to_text_length": TYPE_BOOL,
-	"max_length": TYPE_INT,
-	"placeholder_text": TYPE_STRING,
+	"subLabels": TYPE_ARRAY
 }
 
-var value: String:
-	get: return _LineEdit.value
-	set(v): _LineEdit.value = v
+var vectorValue: Vector3:
+	get: return Vector3(_LineEdits[0].value, _LineEdits[1].value, _LineEdits[2].value)
+	set(v):
+		_LineEdits[0].value = v.x
+		_LineEdits[1].value = v.y
+		_LineEdits[2].value = v.z
 
 var editable: bool:
-	get: return _LineEdit.editable
-	set(v): _LineEdit.editable = v
+	get: return _LineEdits[0].editable
+	set(v): 
+		_LineEdits[0].editable = v
+		_LineEdits[1].editable = v
+		_LineEdits[2].editable = v
 
-var expand_to_text_length: bool:
-	get: return _LineEdit.expand_to_text_length
-	set(v): _LineEdit.expand_to_text_length = v
+var subLabels: Array:
+	get:
+		return [_LineEdits[0].text, _LineEdits[1].text, _LineEdits[2].text]
+	set(v):
+		_LineEdits[0].text = v[0]
+		_LineEdits[1].text = v[1]
+		_LineEdits[2].text = v[2]
 
-var max_length: int:
-	get: return _LineEdit.max_length
-	set(v): _LineEdit.max_length = v
+# Not using array here on purpose
+var _LineEdits: Array
+var _Labels: Array
+var _Conts: Array
 
-var placeholder_text: String:
-	get: return _LineEdit.placeholder_text
-	set(v): _LineEdit.placeholder_text
-
-var _LineEdit: LineEdit_Sub
 
 func _ActivationSecondary(settings: Dictionary) -> void:
-	if(_has_label): _LineEdit = get_children()[1]
-	else: _LineEdit = get_children()[0]
+	_Conts = get_children()
+	if(_has_label): _Conts.remove_at(0)
+	
+	for i in range(3):
+		_Labels.append(_Conts[i].get_children()[0])
+		_LineEdits.append(_Conts[i].get_children()[1])
+		_LineEdits[i].value_edited.connect(_DataUpProxy)
 	
 	editable = HelperFuncs.GetIfCan(settings, "editable", D_editable)
-	expand_to_text_length = HelperFuncs.GetIfCan(settings, "expand_to_text_length", D_expand_to_text_length)
-	max_length = HelperFuncs.GetIfCan(settings, "max_length", D_max_length)
-	placeholder_text = HelperFuncs.GetIfCan(settings, "placeholder_text", D_placeholder_text)
-	_LineEdit.text = HelperFuncs.GetIfCan(settings, "value", D_value)
+	vectorValue = HelperFuncs.GetIfCan(settings, "vectorValue", D_vectorValue)
+	subLabels = HelperFuncs.GetIfCan(settings, "subLabels", D_subLabels)
+	
+	
 	_runtimeSettableProperties.merge(_specificSettableProps)
 
 func _PopulateSubElements() -> Array:
 	# used during Activation Primary to add Counter
-	return ["field"]
+	return ["vector3"]
 
 func _getChildData() -> Dictionary:
 	return {
-		"value": value,
+		"vectorValue": vectorValue,
 	}
 
 func _DataUpProxy(_data) -> void:
-	DataUp.emit(_data, ID, self)
+	DataUp.emit(vectorValue, ID, self)

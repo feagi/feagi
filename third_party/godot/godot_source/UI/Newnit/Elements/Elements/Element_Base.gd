@@ -145,6 +145,12 @@ func _SpawnSubElements(componentTypes: Array) -> void:
 				subComp.text = sideButtonText
 				subComp.pressed.connect(_SideButtonPressed)
 				continue
+			"vector3":
+				for i in range(3):
+					subComp = BoxContainer.new(); add_child(subComp)
+					subComp.add_child(Label_Sub.new())
+					subComp.add_child(LineEdit_ff_Sub.new())
+				continue
 			"button": subComp = Button_Sub.new()
 			"counter": subComp = Spinbox_Sub.new()
 			"checkBox": subComp = CheckBox_Sub.new()

@@ -29,6 +29,10 @@
 		 "hasButton":true,
 		 "ID":"NEURONMORPHOLOGIES",
 		  "sideButtonText": "+"
+	  },
+	  {
+		 "type":"vector3",
+		 "ID":"tempTest"
 	  }
    ]
 }
