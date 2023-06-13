@@ -1,6 +1,8 @@
 extends LineEdit
 class_name LineEdit_ff_Sub
 
+#TODO - minimum, maximum
+
 signal value_edited(val)
 
 var minWidth: float:
@@ -21,6 +23,7 @@ func _ready():
 func _TextChangedRelay(input: String) -> void:
 	if !input.is_valid_float(): return
 	_cachedText = input
+	
 	value_edited.emit(float(input))
 
 # built in vars
