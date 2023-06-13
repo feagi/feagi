@@ -291,7 +291,7 @@ func RelayDownwards(callType, data) -> void:
 #						for x in original_dropdown.get_item_count():
 #							i.get_node("DropDown_mappingdefinitions").get_node("OptionButton").add_item(original_dropdown.get_item_text(x))
 		REF.FROM.genome_fileName:
-			UI_Top_TopBar.SetData({"GENOMEFILENAME": {"label":data}})
+			UI_Top_TopBar.SetData({"GENOMEFILENAME": {"sideLabelText":data}})
 #		REF.FROM.connectome_properties_mappings:
 #			pass
 #		REF.FROM.godot_fullCorticalData:
