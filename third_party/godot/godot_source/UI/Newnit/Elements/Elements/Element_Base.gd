@@ -110,7 +110,7 @@ func _ActivationPrimary(settings: Dictionary) -> void:
 	vertical = HelperFuncs.GetIfCan(settings, "vertical", D_vertical)
 	
 	if _has_label:
-		subComponents.push_front("label")
+		subComponents.push_front("sideLabel")
 	
 	if _has_button: #TODO
 		subComponents.push_back("sideButton")
@@ -126,7 +126,7 @@ func _SpawnSubElements(componentTypes: Array) -> void:
 	for compType in componentTypes:
 		var subComp
 		match compType:
-			"label":
+			"sideLabel":
 				subComp = Label_Sub.new()
 				_sideLabel = subComp
 				subComp.name = NEWNIT_CORE.Func__GetUIChildName(compType, self)
@@ -148,7 +148,7 @@ func _SpawnSubElements(componentTypes: Array) -> void:
 			"dropDown": subComp = OptionButton_Sub.new()
 			"field": subComp = LineEdit_Sub.new()
 			"floatField": subComp = LineEdit_ff_Sub.new()
-			"header": subComp = Label_Sub.new()
+			"label": subComp = Label_Sub.new()
 			# More Types!
 			_:
 				@warning_ignore("assert_always_false")
