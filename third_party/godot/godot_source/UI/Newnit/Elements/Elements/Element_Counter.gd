@@ -2,6 +2,11 @@ extends Element_Base
 class_name Element_Counter
 
 const D_editable = true
+const D_value = 0
+const specificSettableProps = {
+	"value": TYPE_INT,
+	"editable": TYPE_BOOL
+}
 
 var value: int:
 	get: return int(_SpinBox.value)
@@ -17,6 +22,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	if(_has_label): _SpinBox = get_children()[1]
 	else: _SpinBox = get_children()[0]
 	editable = HelperFuncs.GetIfCan(settings, "editable", D_editable)
+	_SpinBox.value = HelperFuncs.GetIfCan(settings, "value", D_value)
 
 func _PopulateSubElements() -> Array:
 	# used during Activation Primary to add Counter
