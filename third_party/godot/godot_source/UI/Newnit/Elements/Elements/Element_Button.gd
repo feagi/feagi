@@ -19,7 +19,7 @@ var editable: bool:
 
 var text: String:
 	get: return _Button.text
-	set(v): _Button.text
+	set(v): _Button.text= v
 
 var _Button: Button_Sub
 
