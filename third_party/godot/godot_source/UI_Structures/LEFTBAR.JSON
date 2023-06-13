@@ -1,7 +1,7 @@
 {
   "ID" : "LEFTBAR",
-  "HpositionX": 0,
-  "HpositionY": 70,
+  "positionX": 0,
+  "positionY": 70,
   "type": "box",
   "enableTitleBar": true,
   "titleBarTitle": "INSERT SIDEBAR TITLE HERE",
@@ -20,7 +20,7 @@
 	"editable": false,
 	"type": "field"},
 	{
-		"type": "unit",
+		"type": "box",
 		"ID": "XYZ",
 		"components": [
 			{
