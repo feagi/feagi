@@ -6,7 +6,7 @@
 	"positionY": 400,
 	"enableCloseButton": true,
 	"components": [
-        {
+		{
 			"ID": "INPUT_TITLE",
 			"type": "header"
 		},
@@ -40,7 +40,8 @@
 		},
 		{
 			"ID": "IMPORTBUTTON",
-			"type": "button"
+			"type": "button",
+			"text" : "TEXT TEST"
 		},
 		{
 			"ID": "CIRCUITINIT",
