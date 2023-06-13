@@ -9,7 +9,8 @@
 	  },
 	  {
 		 "type":"header",
-		 "ID":"GENOMEFILENAME"
+		 "ID":"GENOMEFILENAME",
+		  "sideButtonText": "+"
 	  },
 	  {
 		 "type":"floatfield",
@@ -20,18 +21,14 @@
 	  },
 	  {
 		 "type":"dropdown",
-		 "hasButton":true,
-		 "ID":"blank"
-	  },
-	  {
-		 "type":"dropdown",
-		 "hasButton":true,
+		 "sideButtonText": "+",
 		 "ID":"CORTICALAREAS"
 	  },
 	  {
 		 "type":"dropdown",
 		 "hasButton":true,
-		 "ID":"NEURONMORPHOLOGIES"
+		 "ID":"NEURONMORPHOLOGIES",
+		  "sideButtonText": "+"
 	  }
    ]
 }

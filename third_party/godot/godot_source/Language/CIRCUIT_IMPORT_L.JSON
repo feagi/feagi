@@ -1,80 +1,80 @@
 {
 	"CIRCUIT_IMPORT": {
-		"label": {
+		"text": {
 				"eng": "Circuit Import"
 		}
 	},
 	"INPUT_TITLE": {
-		"label": {
+		"sideLabelText": {
 			"eng": "Choose a circuit"
 		}
 	},
 	"dropdowncircuit": {
-		"label": {
+		"sideLabelText": {
 			"eng": ""
 		}
 	},
 	"CIRCUITLOCAL": {
-		"label": {
+		"sideLabelText": {
 			"eng": "Circuit local"
 		}
 	},
 	"XYZ": {
 		"Pos_X": {
-			"label": {
+			"sideLabelText": {
 				"eng": "X"
 			}
 		},
 		"Pos_Y": {
-			"label": {
+			"sideLabelText": {
 				"eng": "Y"
 			}
 		},
 		"Pos_Z": {
-			"label": {
+			"sideLabelText": {
 				"eng": "Z"
 			}
 		}
 	},
 	"CIRCUITINIT": {
-		"label": {
+		"sideLabelText": {
 			"eng": "Circuit Init"
 		}
 	},
 	"CIRCUITSIZE": {
-		"label": {
+		"sideLabelText": {
 			"eng": "Circuit size"
 		}
 	},
 	"WHD": {
 		"W": {
-			"label": {
+			"sideLabelText": {
 				"eng": "W"
 			}
 		},
 		"H": {
-			"label": {
+			"sideLabelText": {
 				"eng": "H"
 			}
 		},
 		"D": {
-			"label": {
+			"sideLabelText": {
 				"eng": "D"
 			}
 		}
 	},
 	"CIRCUITDESCRIPTION": {
-		"label": {
+		"sideLabelText": {
 			"eng": "Description"
 		}
 	},
 	"descrption_textbox": {
-		"label": {
+		"sideLabelText": {
 			"eng": ""
 		}
 	},
 	"IMPORTBUTTON": {
-		"label": {
+		"sideLabelText": {
 			"eng": "Import"
 		}
 	}

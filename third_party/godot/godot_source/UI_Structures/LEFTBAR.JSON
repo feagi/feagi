@@ -2,6 +2,7 @@
   "ID" : "LEFTBAR",
   "HpositionX": 0,
   "HpositionY": 70,
+  "type": "box",
   "enableTitleBar": true,
   "titleBarTitle": "INSERT SIDEBAR TITLE HERE",
   "enableCloseButton": true,

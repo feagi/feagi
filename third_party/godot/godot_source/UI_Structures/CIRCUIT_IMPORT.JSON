@@ -2,8 +2,8 @@
 	"ID": "CIRCUIT_IMPORT",
   	"enableTitleBar": true,
   	"titleBarTitle": "Import",
-	"HpositionX": 500,
-	"HpositionY": 400,
+	"positionX": 500,
+	"positionY": 400,
 	"enableCloseButton": true,
 	"components": [
         {
