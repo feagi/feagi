@@ -29,9 +29,9 @@ var subLabels: Array:
 	get:
 		return [_LineEdits[0].text, _LineEdits[1].text, _LineEdits[2].text]
 	set(v):
-		_LineEdits[0].text = v[0]
-		_LineEdits[1].text = v[1]
-		_LineEdits[2].text = v[2]
+		_Labels[0].text = v[0]
+		_Labels[1].text = v[1]
+		_Labels[2].text = v[2]
 
 # Not using array here on purpose
 var _LineEdits: Array
