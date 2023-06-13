@@ -59,6 +59,7 @@
 	},
 	{"type": "button",
 	"sideButtonText": "Delete",
+	"text": "Update",
 	"ID": "UpdateButtonTop"},
 	{"type" : "header",
 	"ID" : "MonitoringSection"},
@@ -105,7 +106,7 @@
 
 	{"type" : "button",
 	"ID" : "UpdateButton",
-	"text":  "whatever"},
+	"text":  "Update"},
 	{"type" : "header",
 	"ID" : "CorticalMapping"},
   	{"type":  "header",
