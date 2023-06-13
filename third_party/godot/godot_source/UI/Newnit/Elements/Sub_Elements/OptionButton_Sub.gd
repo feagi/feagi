@@ -1,7 +1,7 @@
 extends OptionButton
 class_name OptionButton_Sub
 
-signal ValueManuallyChanged(newString: String, selfReference)
+signal value_edited(newString: String, newIndex: int)
 
 const INTERNAL_WIDTH_PADDING := 45.0 # Large due to existance of drop down icon
 
@@ -38,17 +38,17 @@ func _SetDropDownArray( strArr: Array) -> void:
 		# Seems that the previously selected item is unavailable
 		# set to unknown
 		select(-1)
-		ValueManuallyChanged.emit("", self)
+		value_edited.emit("", -1)
 
 # use to set the value of the drop down directly via string
 func _SetToExistingString( option: String) -> void:
 	var location: int = _DropDownItems.find(option)
 	if location == -1:
 		print("No Option found with name" + option)
-		ValueManuallyChanged.emit("", self)
+		value_edited.emit("", -1)
 		return
 	select(location)
-	ValueManuallyChanged.emit(option, self)
+	value_edited.emit(option, location)
 
 # Gets the width of the widest option
 func _GetLongestOptionWidth() -> float:

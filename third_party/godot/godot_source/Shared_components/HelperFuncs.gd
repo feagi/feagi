@@ -191,3 +191,39 @@ static func clampToRange(input: float, min: float, max: float) -> float:
 	if input < min: return min
 	if input > max: return max
 	return input
+
+# Remaps X Y floats from activation JSON into a vector
+static func RemapVector2FloatsToVector2(prefix: String, searching: Dictionary) -> Dictionary:
+	if (prefix in searching.keys()): return searching # vector present
+	var X: float = GetIfCan(searching, prefix + "X", 0.0)
+	var Y: float = GetIfCan(searching, prefix + "Y", 0.0)
+	
+	var vec = Vector2(X, Y)
+	if vec == Vector2(0.0, 0.0): return searching # value wasnt present
+	
+	searching[prefix] = vec
+	return searching
+
+# Remaps X Y Z floats from activation JSON into a vector
+static func RemapVector3FloatsToVector3(prefix: String, searching: Dictionary) -> Dictionary:
+	if (prefix in searching.keys()): return searching # Vector present
+	var X: float = GetIfCan(searching, prefix + "X", 0.0)
+	var Y: float = GetIfCan(searching, prefix + "Y", 0.0)
+	var Z: float = GetIfCan(searching, prefix + "Z", 0.0)
+	
+	var vec = Vector3(X, Y, Z)
+	if vec == Vector3(0.0, 0.0, 0.0): return searching # value wasnt present
+	
+	searching[prefix] = vec
+	return searching
+
+# Remaps R G B floats from activation JSON into a vectori
+static func RemapRGBToVector3i(prefix: String, searching: Dictionary) -> Dictionary:
+	if (prefix in searching.keys()): return searching
+	var X: int = GetIfCan(searching, prefix + "R", 0)
+	var Y: int = GetIfCan(searching, prefix + "G", 0)
+	var Z: int = GetIfCan(searching, prefix + "B", 0)
+	
+	var vec = Vector3i(X, Y, Z)
+	if vec == Vector3i(0, 0, 0): return searching # value wasnt present
+	return searching

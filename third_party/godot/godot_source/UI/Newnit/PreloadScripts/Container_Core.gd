@@ -8,8 +8,14 @@ static func Func_SpawnChild(childActivationSettings: Dictionary, ContainerObject
 	var newChild
 	
 	match childActivationSettings["type"]:
-		"counter":
-			newChild = Element_Counter.new()
+		"counter": newChild = Element_Counter.new()
+		"button": newChild = Element_Button.new()
+		"checkbox": newChild = Element_CheckBox.new()
+		"checkbutton": newChild = Element_CheckButton.new()
+		"dropdown": newChild = Element_DropDown.new()
+		"field": newChild = Element_Field.new()
+		"floatfield": newChild = Element_FloatField.new()
+		"header": newChild = Element_Label.new()
 		# TODO: More types!
 		_:
 			print("Invalid child of type ", childActivationSettings["type"], " attempted to spawn. Skipping...")

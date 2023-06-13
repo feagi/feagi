@@ -17,7 +17,7 @@ var currentLanguageISO: String:
 var Activated: bool = false
 
 # References
-#var UI_Top_TopBar: Unit
+var UI_Top_TopBar: Newnit_Box
 #var UI_LeftBar: Unit
 #var UI_createcorticalBar : Unit
 #var UI_CreateNeuronMorphology : Unit
@@ -50,6 +50,7 @@ func Activate(langISO: String):
 #	UI_Top_TopBar = SCENE_UNIT.instantiate()
 #	add_child(UI_Top_TopBar)
 	var topBarDict = HelperFuncs.GenerateDefinedUnitDict("TOPBAR", currentLanguageISO)
+	_SpawnTopBar(topBarDict)
 #	UI_Top_TopBar.Activate(topBarDict)
 #	UI_Top_TopBar.DataUp.connect(TopBarInput)
 #	var import_button = UI_Top_TopBar.get_node("DropDown_blank").get_node("Button")
@@ -57,7 +58,7 @@ func Activate(langISO: String):
 	# FeagiCache is set from above
 #	SpawnMappingDefinition()
 #	SpawnCircuitImport()
-	SpawnIndicator()
+#	SpawnIndicator()
 	
 	
 	# Initialize GraphCore
@@ -70,8 +71,14 @@ func Activate(langISO: String):
 	
 	Activated = true
 	
-#	print(UI_createcorticalBar.componentData) # Delete this when you are done.
-# 	This print shows all node's ID.
+
+func _SpawnTopBar(activation: Dictionary):
+	UI_Top_TopBar = Newnit_Box.new()
+	add_child(UI_Top_TopBar)
+	UI_Top_TopBar.Activate(activation)
+	var test = UI_Top_TopBar.GetReferenceByID("GENOMEFILENAME")
+	print(test.name)
+	
 
 ####################################
 ####### Input Event Handling #######
@@ -474,8 +481,6 @@ func SpawnMappingDefinition(src, dst):
 	Autoload_variable.BV_Core.Update_destination(combine_url)
 	$"..".Update_MorphologyList()
 
-# Static Config
-#const SCENE_UNIT: PackedScene = preload("res://UI/Units/unit.tscn")
 
 # proxys for properties
 var _currentLanguageISO: String 

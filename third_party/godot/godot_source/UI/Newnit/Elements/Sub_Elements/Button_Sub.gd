@@ -1,6 +1,8 @@
 extends Button
 class_name Button_Sub
 
+signal value_edited()
+
 var editable: bool:
 	get: return !disabled
 	set(v): disabled = !v

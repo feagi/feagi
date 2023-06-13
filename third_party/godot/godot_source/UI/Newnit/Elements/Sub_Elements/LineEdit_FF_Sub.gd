@@ -1,7 +1,7 @@
 extends LineEdit
 class_name LineEdit_ff_Sub
 
-signal value_changed(val)
+signal value_edited(val)
 
 var minWidth: float:
 	get: return get_theme_font("font").get_string_size(text).x
@@ -21,7 +21,7 @@ func _ready():
 func _TextChangedRelay(input: String) -> void:
 	if !input.is_valid_float(): return
 	_cachedText = input
-	value_changed.emit(float(input))
+	value_edited.emit(float(input))
 
 # built in vars
 # text: String

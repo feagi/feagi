@@ -1,6 +1,8 @@
 extends LineEdit
 class_name LineEdit_Sub
 
+signal value_edited(newString: String)
+
 var minWidth: float:
 	get: return get_theme_font("font").get_string_size(text).x
 

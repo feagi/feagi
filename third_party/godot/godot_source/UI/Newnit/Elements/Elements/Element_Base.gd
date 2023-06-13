@@ -94,7 +94,7 @@ func _ActivationPrimary(settings: Dictionary) -> void:
 	
 	_runtimeSettableProperties.merge(settableProperties)
 	
-	_sideLabelText = HelperFuncs.GetIfCan(settings, "labelText", D_labelText)
+	_sideLabelText = HelperFuncs.GetIfCan(settings, "sideLabelText", D_labelText)
 	_sideButtonText = HelperFuncs.GetIfCan(settings, "sideButtonText", D_sideButtonText)
 	
 	_has_label = _sideLabelText != ""
@@ -120,8 +120,6 @@ func _SpawnSubElements(componentTypes: Array) -> void:
 	for compType in componentTypes:
 		var subComp
 		match compType:
-			"counter":
-				subComp = Spinbox_Sub.new()
 			"label":
 				subComp = Label_Sub.new()
 				_sideLabel = subComp
@@ -137,7 +135,15 @@ func _SpawnSubElements(componentTypes: Array) -> void:
 				subComp.text = sideButtonText
 				subComp.pressed.connect(_SideButtonPressed)
 				continue
-			#TODO more types
+			"button": subComp = Button_Sub.new()
+			"counter": subComp = Spinbox_Sub.new()
+			"checkBox": subComp = CheckBox_Sub.new()
+			"checkButton": subComp = CheckButton_Sub.new()
+			"dropDown": subComp = OptionButton_Sub.new()
+			"field": subComp = LineEdit_Sub.new()
+			"floatField": subComp = LineEdit_ff_Sub.new()
+			"header": subComp = Label_Sub.new()
+			# More Types!
 			_:
 				@warning_ignore("assert_always_false")
 				assert(false, "Invalid Element Type " + str(compType))

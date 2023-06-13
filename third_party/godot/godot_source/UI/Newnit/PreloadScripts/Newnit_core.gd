@@ -69,11 +69,12 @@ static func Func_SetData(input: Dictionary, NewnitObject) -> void:
 # Does an indepth search of all children by ID, and returns a node reference to
 # a matching ID. If none are found, returns false
 static func Func_GetReferenceByID(searchID: StringName, NewnitObject): # returns either a bool or a Node
-	if searchID == searchID: return NewnitObject
+	if searchID == NewnitObject.ID: return NewnitObject
 	for child in NewnitObject.children:
-		if child.GetReferenceByID(searchID) != false:
+		var result = Func_GetReferenceByID(searchID, child)
+		if typeof(result) != TYPE_INT:
 			return child
-	return false
+	return -1
 
 static func Func__GetUIChildName(compType: StringName, NewnitObject) -> StringName:
 	return compType + "_" + NewnitObject.ID

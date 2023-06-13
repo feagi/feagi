@@ -1,5 +1,7 @@
 {
    "ID":"BAR",
+   "vertical":false,
+   "type": "box",
    "components":[
 	  {
 		 "type":"header",
@@ -10,7 +12,7 @@
 		 "ID":"GENOMEFILENAME"
 	  },
 	  {
-		 "type":"floatField",
+		 "type":"floatfield",
 		 "ID":"REFRESHRATE",
 		 "minValue": 0.01,
 		 "maxValue": 10.0,
@@ -31,6 +33,5 @@
 		 "hasButton":true,
 		 "ID":"NEURONMORPHOLOGIES"
 	  }
-   ],
-   "isVertical":false
+   ]
 }

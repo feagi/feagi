@@ -1,7 +1,7 @@
 extends SpinBox
 class_name Spinbox_Sub
 
-signal value_edited(newValue: int, ) # Bit more failsafe than stock signal
+signal value_edited(newValue: int) # Bit more failsafe than stock signal
 
 var _prevValue: float
 
