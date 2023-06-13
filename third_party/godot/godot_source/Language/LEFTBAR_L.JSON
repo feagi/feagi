@@ -1,191 +1,191 @@
 {
 	"CorticalPropertiesSection": {
-		"label":
+		"sideLabelText":
 		  {"eng": "Cortical Properties"}
 		},
 	"CorticalName": {
-		"label": 
+		"sideLabelText": 
 		  {"eng": "Cortical Name"}
 		},
 	"CorticalID": {
-		"label":
+		"sideLabelText":
 		  {"eng": "Cortical ID"}
 		},
 	"NeuronParametersSection": {
-		"label":
+		"sideLabelText":
 		  {"eng": "Neuron Parameters"}
 		},
 	"CorticalArea": {
-		"label":
+		"sideLabelText":
 		  {"eng":  "Cortical Area Type"}
 	},
 	"MonitoringSection": {
-		"label":
+		"sideLabelText":
 		  {"eng":  "Monitoring"}
 	},
 	"WHD": {
 		"W": {
-			"label": {
+			"sideLabelText": {
 				"eng": "W"
 			}
 		},
 		"H": {
-			"label": {
+			"sideLabelText": {
 				"eng": "H"
 			}
 		},
 		"D": {
-			"label": {
+			"sideLabelText": {
 				"eng": "D"
 			}
 		}
 	},
 	"buttons": {
 		"UpdateButton": {
-			"label": {
+			"sideLabelText": {
 				"eng": "Update"
 			}
 		},
 		"DeleteButton": {
-			"label": {
+			"sideLabelText": {
 				"eng": "Delete"
 			}
 		}
 	},
 		"toggles": {
 		"Mem_potent": {
-			"label": {
+			"sideLabelText": {
 				"eng": "Membrane Potential"
 			}
 		},
 		"syn_potent": {
-			"label": {
+			"sideLabelText": {
 				"eng": "Synaptic Potential"
 			}
 		}
 	},
 	"VoxelNeuronDensity": {
-		"label":
+		"sideLabelText":
 		  {"eng":  "Voxel Neuron Density"}
 	},
 	"SynapticAttractivity" : {
-	  "label":
+	  "sideLabelText":
 		{"eng": "Synaptic Attractivity"}
 	},
 	"PostSynapticPotential" : {
-		"label":
+		"sideLabelText":
 		  {"eng": "Post-Synaptic Potential"} 
 	},
 	"PSPMax" : {
-		"label":
+		"sideLabelText":
 		  {"eng": "PSP Max"} 
 	},
 	"PlasticityConstant" : {
-		"label":
+		"sideLabelText":
 		  {"eng": "Plasticity Constant"} 
 	},
 	"FireThreshold" : {
-		"label":
+		"sideLabelText":
 		  {"eng": "Fire Threshold"} 
 	},
 	"Thresholdlimit" : {
-		"label":
+		"sideLabelText":
 		  {"eng": "Threshold Limit"}
 	},
 	"RefactoryPeriod" : {
-		"label":
+		"sideLabelText":
 		  {"eng": "Refactory Period"} 
 	},
 	"LeakConstant" : {
-		"label":
+		"sideLabelText":
 		  {"eng": "Leak Constant"} 
 	},
 	"LeakVaribility" : {
-		"label":
+		"sideLabelText":
 		  {"eng": "Leak Varibility"} 
 	},
 	"ThresholdINC" : {
-		"label":
+		"sideLabelText":
 		  {"eng": "Threshold inc"}
 	},
 	"ConsecutiveFireCount" : {
-		"label":
+		"sideLabelText":
 		  {"eng": "Consecutive Fire Count"} 
 	},
 	"SnoozePeriod" : {
-		"label":
+		"sideLabelText":
 		  {"eng": "Snooze Period"} 
 	},
 	"DegeneracyConstant" : {
-		"label":
+		"sideLabelText":
 		  {"eng": "Degeneracy Constant"}
 	},
 	"PSPUNI" : {
-		"label":
+		"sideLabelText":
 		  {"eng": "PSP Uniformity"}
 	},
 	"ChargeACC" : {
-		"label":
+		"sideLabelText":
 		  {"eng": "Charge Accumation"}
 	},
 	"CorticalMapping" : {
-		"label":
+		"sideLabelText":
 		  {"eng": "Cortical Mapping"}
 	},
 	"UpdateButton" : {
-		"label":
+		"sideLabelText":
 			{"eng": "Update"}
 	},
 	"XYZ": {
 		"Pos_X": {
-			"label": {
+			"sideLabelText": {
 				"eng": "X"
 			}
 		},
 		"Pos_Y": {
-			"label": {
+			"sideLabelText": {
 				"eng": "Y"
 			}
 		},
 		"Pos_Z": {
-			"label": {
+			"sideLabelText": {
 				"eng": "Z"
 			}
 		},
 		"CorticalMapping": {
-			"label": {
+			"sideLabelText": {
 				"eng": "Cortical Mapping"
 			}
 		}
 	},
-	"AFFERENTLABEL": {
-		"label": {
+	"AFFERENTsideLabelText": {
+		"sideLabelText": {
 			"eng": "Afferent Mappings:"
 			}
 		},
 		"blank_afferent": {
-			"label": {
+			"sideLabelText": {
 				"eng": ""
 			}
 		},
 		"efferent_unit": {
-			"EFFERENTLABEL": {
-			"label": {
+			"EFFERENTsideLabelText": {
+			"sideLabelText": {
 				"eng": "Efferent Mappings: "
 			}
 		},
 		"blank_efferent": {
-			"label": {
+			"sideLabelText": {
 				"eng": ""
 			}
 		},
 			"delete": {
-				"label": {
+				"sideLabelText": {
 					"eng": "-"
 				}
 			},
 			"info": {
-				"label": {
+				"sideLabelText": {
 					"eng": "i"
 				}
 			}
