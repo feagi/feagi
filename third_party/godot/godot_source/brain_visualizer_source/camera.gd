@@ -66,7 +66,10 @@ func get_input_keyboard(_delta):
 		print(Godot_list.godot_list)
 	if Input.is_action_just_pressed("ui_del"):
 		print(Input.is_action_just_pressed("ui_del"))
-		$".."/".."/"..".UI_LeftBar.queue_free()
+		var UI_LeftBar = $".."/".."/"..".UI_LeftBar
+		if UI_LeftBar:
+			if UI_LeftBar != null:
+				UI_LeftBar.queue_free()
 		
 		flagged = true
 		network_setting.send("refresh")
