@@ -1,7 +1,7 @@
 extends LineEdit
 class_name LineEdit_ff_Sub
 
-#TODO - minimum, maximum
+#TODO - minimum, maximum, prefix, suffix
 
 signal value_edited(val)
 
