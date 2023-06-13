@@ -26,7 +26,7 @@ var UI_LeftBar: Newnit_Box
 var UI_CircuitImport : Newnit_Box
 var UI_GraphCore: GraphCore
 #var UI_CreateMorphology: Unit
-#var UI_INDICATOR: Unit
+var UI_INDICATOR: Newnit_Box
 var cache: FeagiCache
 var vectors_holder = []
 var data_holder = {} # to save data from API every call
@@ -48,8 +48,9 @@ func Activate(langISO: String):
 	
 	# Initialize TopBar
 	var topBarDict = HelperFuncs.GenerateDefinedUnitDict("TOPBAR", currentLanguageISO)
+	var createindicator = HelperFuncs.GenerateDefinedUnitDict("INDICATOR", currentLanguageISO)
 	_SpawnTopBar(topBarDict)
-	
+	SpawnIndicator(createindicator)
 	
 	# Initialize GraphCore
 	UI_GraphCore = $graphCore #TODO: this is very temporary
@@ -240,31 +241,26 @@ func WindowSizedChanged():
 # Handles Recieving data from Core, and distributing it to the correct element
 func RelayDownwards(callType, data) -> void:
 	match(callType):
-#		REF.FROM.healthstatus:
-##			if UI_INDICATOR:
-##				print("data: ", data)
-##				if data["burst_engine"]:
-##					UI_INDICATOR.SetData({"indicator_status": {"Indicator1": {"colorR": 0, "colorG": 255, "colorB": 0}}})
-##				else:
-##					UI_INDICATOR.SetData({"indicator_status": {"Indicator1": {"colorR": 255, "colorG": 0, "colorB": 0}}})
-##				if data["genome_availability"]:
-##					UI_INDICATOR.SetData({"indicator_status": {"Indicator2": {"colorR": 0, "colorG": 255, "colorB": 0}}})
-##				else:
-##					UI_INDICATOR.SetData({"indicator_status": {"Indicator2": {"colorR": 255, "colorG": 0, "colorB": 0}}})
-##				if data["genome_validity"]:
-##					UI_INDICATOR.SetData({"indicator_status": {"Indicator3": {"colorR": 0, "colorG": 255, "colorB": 0}}})
-##				else:
-##					UI_INDICATOR.SetData({"indicator_status": {"Indicator3": {"colorR": 255, "colorG": 0, "colorB": 0}}})
-##				if data["brain_readiness"]:
-##					UI_INDICATOR.SetData({"indicator_status": {"Indicator4": {"colorR": 0, "colorG": 255, "colorB": 0}}})
-##				else:
-#					UI_INDICATOR.SetData({"indicator_status": {"Indicator4": {"colorR": 255, "colorG": 0, "colorB": 0}}})
-#
-##				if data["burst_engine"]:
-##					print("children: ", UI_INDICATOR.get_node("Unit_indicator_status").get_node("Button_Indicator4").get_node("Panel").get_children())
-##					UI_INDICATOR.get_node("Unit_indicator_status").get_node("Button_Indicator4").get_node("Panel").color = Color(0, 255, 0)
-##				else:
-##					UI_INDICATOR.get_node("Unit_indicator_status").get_node("Button_Indicator4").get_node("Panel").color = Vector3(255, 0, 0)
+		REF.FROM.healthstatus:
+			if UI_INDICATOR:
+				print("data: ", data)
+				if data["burst_engine"]:
+					UI_INDICATOR.SetData({"indicator_status": {"Indicator1": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+				else:
+					UI_INDICATOR.SetData({"indicator_status": {"Indicator1": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+				if data["genome_availability"]:
+					UI_INDICATOR.SetData({"indicator_status": {"Indicator2": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+				else:
+					UI_INDICATOR.SetData({"indicator_status": {"Indicator2": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+				if data["genome_validity"]:
+					UI_INDICATOR.SetData({"indicator_status": {"Indicator3": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+				else:
+					UI_INDICATOR.SetData({"indicator_status": {"Indicator3": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+				if data["brain_readiness"]:
+					UI_INDICATOR.SetData({"indicator_status": {"Indicator4": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+				else:
+					UI_INDICATOR.SetData({"indicator_status": {"Indicator4": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+
 #		REF.FROM.circuit_size:
 #			if UI_CircuitImport:
 #				UI_CircuitImport.SetData({"WHD": {"W":{"value": data[0]}, "H":{"value": data[1]}, "D	":{"value": data[2]}}})
@@ -342,12 +338,9 @@ func SpawnLeftBar(cortexName: String, activation: Dictionary):
 	if UI_LeftBar != null:
 		UI_LeftBar.queue_free() # We don't need this. We need to make it look prettier
 	$"..".Update_GenomeCorticalArea_SPECIFC(cortexName) # Tell core to update cortex Info
-
-
 	UI_LeftBar = Newnit_Box.new()
 	add_child(UI_LeftBar)
 	UI_LeftBar.Activate(activation)
-
 	# Get available data with UI_LeftBar.data
 #	UI_LeftBar.SetData({"TITLEBAR": {"TITLE": {"label": cortexName}}})
 
@@ -413,12 +406,10 @@ func SpawnCorticalCrete():
 #	UI_CreateNeuronMorphology.Activate(createmurphology)
 #	UI_CreateNeuronMorphology.DataUp.connect(LeftBarInput)
 
-func SpawnIndicator():
-#	UI_INDICATOR = SCENE_UNIT.instantiate()
-#	add_child(UI_INDICATOR)
-	var createindicator = HelperFuncs.GenerateDefinedUnitDict("INDICATOR", currentLanguageISO)
-#	UI_INDICATOR.Activate(createindicator)
-#	UI_INDICATOR.DataUp.connect(LeftBarInput)
+func SpawnIndicator(activation: Dictionary):
+	UI_INDICATOR = Newnit_Box.new()
+	add_child(UI_INDICATOR)
+	UI_INDICATOR.Activate(activation)
 	$"..".GET_health_status()
 	
 func add_row(node, holder):

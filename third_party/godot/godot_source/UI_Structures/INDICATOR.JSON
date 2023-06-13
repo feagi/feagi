@@ -1,7 +1,7 @@
 {
    "ID":"INDICATORBARS",
-    "HpositionX": 1600,
-    "HpositionY": 0,
+    "positionX": 1600,
+    "positionY": 0,
    "components":[
      {
 		"type": "unit",
