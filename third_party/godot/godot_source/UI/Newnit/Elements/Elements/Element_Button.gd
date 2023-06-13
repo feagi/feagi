@@ -3,8 +3,11 @@ class_name Element_Button
 # Yes, you can technically enable the sideButton for this Button element if you wanted to
 
 const D_editable = true
+const D_text = " "
+
 var specificSettableProps := {
-	"editable": TYPE_BOOL
+	"editable": TYPE_BOOL,
+	"text": TYPE_STRING
 }
 
 var value: bool:
@@ -14,12 +17,17 @@ var editable: bool:
 	get: return _Button.editable
 	set(v): _Button.editable = v
 
+var text: String:
+	get: return _Button.text
+	set(v): _Button.text
+
 var _Button: Button_Sub
 
 func _ActivationSecondary(settings: Dictionary) -> void:
 	if(_has_label): _Button = get_children()[1]
 	else: _Button = get_children()[0]
 	editable = HelperFuncs.GetIfCan(settings, "editable", D_editable)
+	text = HelperFuncs.GetIfCan(settings, "text", D_text)
 	specificSettableProps.merge(settableProperties)
 
 func _PopulateSubElements() -> Array:
