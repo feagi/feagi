@@ -59,7 +59,8 @@ static func _BuildUnitActivation(struct: Dictionary, lang: Dictionary,
 		if givenComponent_struct["ID"] in data.keys():
 			givenComponent_data = data[givenComponent_struct["ID"]]
 		
-		if givenComponent_struct["type"] == "unit":
+		#TODO remove depricated Unit!
+		if (givenComponent_struct["type"] == "unit") or (givenComponent_struct["type"] == "box"):
 			
 			# We are dealing with a subunit, time for recursion
 			# This is not particuarly efficient. Too Bad!
