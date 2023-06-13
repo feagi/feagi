@@ -18,12 +18,12 @@ var Activated: bool = false
 
 # References
 var UI_Top_TopBar: Newnit_Box
-#var UI_LeftBar: Unit
+var UI_LeftBar: Newnit_Box
 #var UI_createcorticalBar : Unit
 #var UI_CreateNeuronMorphology : Unit
 #var UI_ManageNeuronMorphology : Unit
 #var UI_MappingDefinition : Unit
-#var UI_CircuitImport : Unit
+var UI_CircuitImport : Newnit_Box
 var UI_GraphCore: GraphCore
 #var UI_CreateMorphology: Unit
 #var UI_INDICATOR: Unit
@@ -51,14 +51,6 @@ func Activate(langISO: String):
 #	add_child(UI_Top_TopBar)
 	var topBarDict = HelperFuncs.GenerateDefinedUnitDict("TOPBAR", currentLanguageISO)
 	_SpawnTopBar(topBarDict)
-#	UI_Top_TopBar.Activate(topBarDict)
-#	UI_Top_TopBar.DataUp.connect(TopBarInput)
-#	var import_button = UI_Top_TopBar.get_node("DropDown_blank").get_node("Button")
-#	import_button.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
-	# FeagiCache is set from above
-#	SpawnMappingDefinition()
-#	SpawnCircuitImport()
-#	SpawnIndicator()
 	
 	
 	# Initialize GraphCore
@@ -76,9 +68,10 @@ func _SpawnTopBar(activation: Dictionary):
 	UI_Top_TopBar = Newnit_Box.new()
 	add_child(UI_Top_TopBar)
 	UI_Top_TopBar.Activate(activation)
-	var test = UI_Top_TopBar.GetReferenceByID("GENOMEFILENAME")
-	print(test.name)
-	
+	var test = UI_Top_TopBar.GetReferenceByID("REFRESHRATE")
+	var import_circuit = UI_Top_TopBar.GetReferenceByID("GENOMEFILENAME").get_node("sideButton_GENOMEFILENAME")
+	import_circuit.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
+	print("import: ", import_circuit.get_children())
 
 ####################################
 ####### Input Event Handling #######
@@ -230,7 +223,7 @@ func CorticalCreateInput(data, _compRef, _unitRef):
 func GraphEditInput(data: Dictionary):
 	if "CortexSelected" in data.keys():
 		# Cortex has been selected, pop up side bar
-		SpawnLeftBar(data["CortexSelected"])
+#		SpawnLeftBar(data["CortexSelected"])
 		DataUp.emit(data)
 	pass
 
@@ -344,14 +337,17 @@ func RelayDownwards(callType, data) -> void:
 ############# Internals ############
 ####################################
 
-func SpawnLeftBar(cortexName: String):
-#	if UI_LeftBar != null:
-#		UI_LeftBar.queue_free() # We don't need this. We need to make it look prettier
+func SpawnLeftBar(cortexName: String, activation: Dictionary):
+	if UI_LeftBar != null:
+		UI_LeftBar.queue_free() # We don't need this. We need to make it look prettier
 	$"..".Update_GenomeCorticalArea_SPECIFC(cortexName) # Tell core to update cortex Info
 
+
+	UI_LeftBar = Newnit_Box.new()
+	add_child(UI_LeftBar)
+	UI_LeftBar.Activate(activation)
 #	UI_LeftBar = SCENE_UNIT.instantiate()
 #	add_child(UI_LeftBar)
-	var LeftBarDict = HelperFuncs.GenerateDefinedUnitDict("LEFTBAR", currentLanguageISO)
 #	UI_LeftBar.Activate(LeftBarDict)
 #	UI_LeftBar.DataUp.connect(LeftBarInput)
 
@@ -434,10 +430,12 @@ func add_row(node, holder):
 	node.add_child(new_node)
 	new_node.position.y = node.position.y + (20 * length_holder)
 	
-func SpawnCircuitImport():
+func SpawnCircuitImport(activation: Dictionary):
+	UI_CircuitImport = Newnit_Box.new()
+	add_child(UI_CircuitImport)
+	UI_CircuitImport.Activate(activation)
 #	UI_CircuitImport=SCENE_UNIT.instantiate()
 #	add_child(UI_CircuitImport)
-	var create_circuitimport = HelperFuncs.GenerateDefinedUnitDict("CIRCUIT_IMPORT", currentLanguageISO)
 #	UI_CircuitImport.Activate(create_circuitimport)
 #	UI_CircuitImport.DataUp.connect(LeftBarInput)
 	# Link to BV
