@@ -5,7 +5,7 @@ class_name Element_Button
 const D_editable = true
 const D_text = " "
 
-var specificSettableProps := {
+const _specificSettableProps := {
 	"editable": TYPE_BOOL,
 	"text": TYPE_STRING
 }
@@ -28,7 +28,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	else: _Button = get_children()[0]
 	editable = HelperFuncs.GetIfCan(settings, "editable", D_editable)
 	text = HelperFuncs.GetIfCan(settings, "text", D_text)
-	specificSettableProps.merge(settableProperties)
+	_runtimeSettableProperties.merge(_specificSettableProps)
 
 func _PopulateSubElements() -> Array:
 	# used during Activation Primary to add Counter

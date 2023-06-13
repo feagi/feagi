@@ -55,7 +55,7 @@ static func Func_SetData(input: Dictionary, NewnitObject) -> void:
 
 		# Key is likely referring to a property on this object then.
 		# confirm to avoid a crash
-		if key in NewnitObject.settableProperties.keys():
+		if key in NewnitObject._runtimeSettableProperties.keys():
 			
 			if typeof(input[key]) != typeof(NewnitObject[key]):
 				print("Input is of type ", typeof(input[key]), "when expected ", typeof(NewnitObject[key]), "! Skipping!")

@@ -7,7 +7,7 @@ const D_expand_to_text_length = false
 const D_max_length = 50
 const D_placeholder_text = ""
 
-var specificSettableProps = {
+const _specificSettableProps = {
 	"value": TYPE_STRING,
 	"editable": TYPE_BOOL,
 	"expand_to_text_length": TYPE_BOOL,
@@ -46,7 +46,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	max_length = HelperFuncs.GetIfCan(settings, "max_length", D_max_length)
 	placeholder_text = HelperFuncs.GetIfCan(settings, "placeholder_text", D_placeholder_text)
 	_LineEdit.text = HelperFuncs.GetIfCan(settings, "value", D_value)
-	specificSettableProps.merge(settableProperties)
+	_runtimeSettableProperties.merge(_specificSettableProps)
 
 func _PopulateSubElements() -> Array:
 	# used during Activation Primary to add Counter

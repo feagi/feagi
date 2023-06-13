@@ -3,7 +3,7 @@ class_name Element_Label
 # Yes, you can add a label to a label, but why?
 
 const D_text := ""
-var specificSettableProps := {
+const _specificSettableProps := {
 	"value": TYPE_STRING,
 	"text": TYPE_STRING
 }
@@ -23,7 +23,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	if(_has_label): _label = get_children()[1]
 	else: _label = get_children()[0]
 	text = HelperFuncs.GetIfCan(settings, "text", D_text)
-	specificSettableProps.merge(settableProperties)
+	_runtimeSettableProperties.merge(_specificSettableProps)
 
 
 func _PopulateSubElements() -> Array:

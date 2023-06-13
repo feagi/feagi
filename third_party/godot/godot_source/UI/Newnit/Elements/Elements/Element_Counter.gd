@@ -9,7 +9,7 @@ const D_step = 1.0
 const D_prefix = ""
 const D_suffix = ""
 
-var specificSettableProps = {
+const _specificSettableProps = {
 	"value": TYPE_INT,
 	"editable": TYPE_BOOL,
 	"max_value": TYPE_INT,
@@ -59,7 +59,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	step = HelperFuncs.GetIfCan(settings, "step", D_step)
 	prefix = HelperFuncs.GetIfCan(settings, "prefix", D_prefix)
 	suffix = HelperFuncs.GetIfCan(settings, "suffix", D_suffix)
-	specificSettableProps.merge(settableProperties)
+	_runtimeSettableProperties.merge(_specificSettableProps)
 
 func _PopulateSubElements() -> Array:
 	# used during Activation Primary to add Counter

@@ -3,7 +3,7 @@ class_name Element_CheckBox
 
 const D_editable = true
 const D_value = false
-var specificSettableProps := {
+const _specificSettableProps := {
 	"value": TYPE_BOOL,
 	"editable": TYPE_BOOL
 }
@@ -22,7 +22,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	else: _CheckBox = get_children()[0]
 	editable = HelperFuncs.GetIfCan(settings, "editable", D_editable)
 	_CheckBox.button_pressed = HelperFuncs.GetIfCan(settings, "value", D_value)
-	specificSettableProps.merge(settableProperties)
+	_runtimeSettableProperties.merge(_specificSettableProps)
 
 func _PopulateSubElements() -> Array:
 	# used during Activation Primary to add Counter

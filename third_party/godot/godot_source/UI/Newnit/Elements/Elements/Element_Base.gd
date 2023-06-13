@@ -105,7 +105,6 @@ func _ActivationPrimary(settings: Dictionary) -> void:
 	
 	
 	var subComponents := _PopulateSubElements() 
-	
 	_runtimeSettableProperties.merge(settableProperties)
 	
 	_sideLabelText = HelperFuncs.GetIfCan(settings, "sideLabelText", D_labelText)

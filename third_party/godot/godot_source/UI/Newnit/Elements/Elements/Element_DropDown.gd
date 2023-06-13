@@ -6,7 +6,7 @@ const D_index = -1
 const D_options = []
 const D_value = ""
 
-var specificSettableProps = {
+const _specificSettableProps = {
 	"value": TYPE_STRING,
 	"editable": TYPE_BOOL,
 	"options": TYPE_ARRAY
@@ -38,7 +38,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	options = HelperFuncs.GetIfCan(settings, "options", D_options)
 	value = HelperFuncs.GetIfCan(settings, "value", D_value)
 	editable = HelperFuncs.GetIfCan(settings, "editable", TYPE_BOOL)
-	specificSettableProps.merge(settableProperties)
+	_runtimeSettableProperties.merge(_specificSettableProps)
 	
 
 func _PopulateSubElements() -> Array:

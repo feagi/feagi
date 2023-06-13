@@ -74,7 +74,13 @@ func _getChildData() -> Dictionary:
 
 ### Start Box Container Unique
 
+var specificSettableProps := {
+	"alignment": TYPE_INT,
+	"vertical": TYPE_INT
+}
+	
+
 func _ActivationSecondary(settings: Dictionary) -> void:
 	alignment = HelperFuncs.GetIfCan(settings, "alignment", NEWNIT_CONTAINER_CORE.D_alignment)
 	vertical = HelperFuncs.GetIfCan(settings, "vertical", NEWNIT_CONTAINER_CORE.D_vertical)
-	
+	_runtimeSettableProperties.merge(specificSettableProps)
