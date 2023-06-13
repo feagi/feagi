@@ -41,10 +41,13 @@ func Activate(settings: Dictionary) -> void:
 func SetData(input: Dictionary) -> void:
 	NEWNIT_CORE.Func_SetData(input, self)
 
-# Does an indepth search of all children by ID, and returns a node reference to
-# a matching ID. If none are found, returns false
 func GetReferenceByID(searchID: StringName): # returns either a bool or a Node
-	NEWNIT_CORE.Func_GetReferenceByID(searchID, self)
+	if searchID == ID: return self
+	for child in children:
+		var result = child.GetReferenceByID(searchID)
+		if typeof(result) != TYPE_BOOL:
+			return child
+	return false
 
 ################################################ END Newnit Parallel ################################################
 

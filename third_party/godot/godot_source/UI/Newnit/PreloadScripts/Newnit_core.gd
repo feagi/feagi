@@ -66,15 +66,7 @@ static func Func_SetData(input: Dictionary, NewnitObject) -> void:
 		
 		print("Property ", key, " does not exist!")
 
-# Does an indepth search of all children by ID, and returns a node reference to
-# a matching ID. If none are found, returns false
-static func Func_GetReferenceByID(searchID: StringName, NewnitObject): # returns either a bool or a Node
-	if searchID == NewnitObject.ID: return NewnitObject
-	for child in NewnitObject.children:
-		var result = Func_GetReferenceByID(searchID, child)
-		if typeof(result) != TYPE_INT:
-			return child
-	return -1
+
 
 static func Func__GetUIChildName(compType: StringName, NewnitObject) -> StringName:
 	return compType + "_" + NewnitObject.ID
