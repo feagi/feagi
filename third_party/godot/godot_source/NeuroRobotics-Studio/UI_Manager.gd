@@ -290,8 +290,8 @@ func RelayDownwards(callType, data) -> void:
 #					if "Unit_third_box" in i.get_name():
 #						for x in original_dropdown.get_item_count():
 #							i.get_node("DropDown_mappingdefinitions").get_node("OptionButton").add_item(original_dropdown.get_item_text(x))
-#		REF.FROM.genome_fileName:
-#			UI_Top_TopBar.ApplyPropertiesFromDict({"GENOMEFILENAME": {"label":data}})
+		REF.FROM.genome_fileName:
+			UI_Top_TopBar.SetData({"GENOMEFILENAME": {"label":data}})
 #		REF.FROM.connectome_properties_mappings:
 #			pass
 #		REF.FROM.godot_fullCorticalData:
@@ -434,10 +434,6 @@ func SpawnCircuitImport(activation: Dictionary):
 	UI_CircuitImport = Newnit_Box.new()
 	add_child(UI_CircuitImport)
 	UI_CircuitImport.Activate(activation)
-#	UI_CircuitImport=SCENE_UNIT.instantiate()
-#	add_child(UI_CircuitImport)
-#	UI_CircuitImport.Activate(create_circuitimport)
-#	UI_CircuitImport.DataUp.connect(LeftBarInput)
 	# Link to BV
 #	var dropdown = UI_CircuitImport.get_node("DropDown_dropdowncircuit").get_node("OptionButton")
 #	var x = UI_CircuitImport.get_node("Unit_XYZ").get_node("Counter_Pos_X").get_node("SpinBox")
