@@ -491,16 +491,15 @@ func _on_information_button_request_completed(_result, _response_code, _headers,
 	if _response_code == 200 and not api_data.has("Request failed..."):
 		var new_name = ""
 		var counter = 0 # To increase the height between two different duplicated nodes
-#		var UI_LeftBar = $"..".UI_LeftBar
+		var UI_LeftBar = $"..".UI_LeftBar
 		var id = $"..".UI_LeftBar.GetReferenceByID("CorticalID").get_node("field_CorticalID")
-		print("api: ", api_data)
 		for i in api_data:
-			var new_node = $"..".UI_LeftBar.get_node("Unit_efferent_unit").get_node("Button_blank_efferent").get_node("button").duplicate()
-			$"..".UI_LeftBar.get_node("Unit_efferent_unit").get_node("Button_blank_efferent").add_child(new_node)
+			var new_node = UI_LeftBar.GetReferenceByID("blank_efferent").get_node("button_blank_efferent").get_node("button_blank_efferent").duplicate()
+			UI_LeftBar.GetReferenceByID("blank_efferent").get_node("button_blank_efferent").add_child(new_node)
 			child_node_holder.append(new_node)
 			new_name = id_to_name(i)
 			new_node.text = new_name
-			new_node.position.y = (counter * 60)
+#			new_node.position.y = (counter * 60)
 			new_node.connect("pressed",Callable($"..","mapping_definition_button").bind(new_node))
 			counter += 1
 #		map_colorful()
@@ -600,11 +599,11 @@ func _on_add_pressed(node=[]):
 			flag_boolean = true
 	$".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.load_options()
 
-func _on_remove_pressed():
-	var get_name_data = $".."/".."/".."/Menu/cortical_menu/Control/cortical_id.text
-	_clear_single_cortical($".."/".."/".."/Menu/cortical_menu/title.text, global_name_list)
+func _on_remove_pressed(node):
+	var get_name_data = node.get_node("sideLabel_CorticalID").text
+	_clear_single_cortical(id_to_name(get_name_data), global_name_list)
 	Autoload_variable.BV_Core.Delete_cortical_area(get_name_data)
-	$".."/".."/".."/Menu/cortical_menu/Control/remove.release_focus()
+#	$".."/".."/".."/Menu/cortical_menu/Control/remove.release_focus()
 
 func _on_update_destination_info_request_completed(_result, _response_code, _headers, body):
 	var test_json_conv = JSON.new()
@@ -616,29 +615,26 @@ func _on_update_destination_info_request_completed(_result, _response_code, _hea
 		if api_data.has("Request failed..."):
 			pass
 		else:
-			
 			for i in range(len(api_data)):
 				#INCOMPLETE
-				var base = $"..".UI_MappingDefinition
-				var new_node = base.get_node("Unit_third_box").duplicate()
+				var UI_MappingDefinition = $"..".UI_MappingDefinition
+				var new_node = UI_MappingDefinition.GetReferenceByID("third_box").duplicate()
 				new_node.set_name("Unit_third_box" + str(i))
-				base.add_child(new_node)
-				new_node.position.y = (50 * (plus_node.size()))
+				UI_MappingDefinition.add_child(new_node)
 				plus_node.append(new_node)
-#				base.size.y += (30 * plus_node.size())
+				# Waiting on toggle
 #				new_node.get_child(0).connect("pressed",Callable(self,"_on_Mapping_def_pressed"))
 #				new_node.get_child(4).text_changed.connect(_on_text_changed.bind(new_node.get_child(4)))
-				ghost_morphology.append(new_node.get_child(0))
-
-#				for x in new_node.get_child(0).get_item_count():
-#					if new_node.get_child(0).get_item_text(x) == api_data[i]["morphology_id"]:
-#						new_node.get_child(0).selected = x
-#						$".."/".."/".."/Menu/Mapping_Properties/inside_mapping_menu/Control/Mapping_def.selected = x
-#				new_node.visible = true
-#				new_node.get_child(1).value = api_data[i]["morphology_scalar"][0]
-#				new_node.get_child(2).value = api_data[i]["morphology_scalar"][1]
-#				new_node.get_child(3).value = api_data[i]["morphology_scalar"][2]
-#				new_node.get_child(4).text = str(api_data[i]["postSynapticCurrent_multiplier"])
+				ghost_morphology.append(new_node)
+				var dropdown = new_node.get_node("dropdown_mappingdefinitions").get_node("dropDown_mappingdefinitions")
+				for x in dropdown.get_item_count():
+					if dropdown.get_item_text(x) == api_data[i]["morphology_id"]:
+						dropdown.selected = x
+				new_node.visible = true
+				new_node.get_node("box_overwritescalar").get_node("box_XYZ").get_child(0).get_child(1).value = api_data[i]["morphology_scalar"][0]
+				new_node.get_node("box_overwritescalar").get_node("box_XYZ").get_child(1).get_child(1).value = api_data[i]["morphology_scalar"][1]
+				new_node.get_node("box_overwritescalar").get_node("box_XYZ").get_child(2).get_child(1).value = api_data[i]["morphology_scalar"][2]
+				new_node.get_node("floatfield_PSPMULTIPLER").get_node("floatField_PSPMULTIPLER").text = str(api_data[i]["postSynapticCurrent_multiplier"])
 #				new_node.get_child(5).set_pressed(api_data[i]["plasticity_flag"])
 #				new_node.get_child(6).connect("pressed",Callable(self,"map_info_pressed").bind(new_node))
 #				new_node.get_child(7).connect("pressed",Callable(self,"remove_button_inside_dst").bind(new_node))
@@ -757,21 +753,27 @@ func _on_morphology_types_request_completed(_result, _response_code, _headers, b
 
 
 func _on_plus_add_pressed():
-	var new_node = $".."/".."/".."/Menu/"Mapping_Properties"/inside_mapping_menu/Control.duplicate()
-	$".."/".."/".."/Menu/"Mapping_Properties"/inside_mapping_menu.add_child(new_node)
+	var UI_MappingDefinition = $"..".UI_MappingDefinition
+	var new_node = UI_MappingDefinition.GetReferenceByID("third_box").duplicate()
+	var counter = 0
+	for i in UI_MappingDefinition.get_children():
+		if "Unit_third_box" in i.get_name():
+			counter += 1
+	new_node.set_name("Unit_third_box" + str(counter))
+	UI_MappingDefinition.add_child(new_node)
 	plus_node.append(new_node)
-	new_node.get_child(0).connect("pressed",Callable(self,"_on_Mapping_def_pressed"))
-	new_node.get_child(4).text_changed.connect(_on_text_changed.bind(new_node.get_child(4)))
-	ghost_morphology.append(new_node.get_child(0))
+	# Waiting on toggle
+#				new_node.get_child(0).connect("pressed",Callable(self,"_on_Mapping_def_pressed"))
+#				new_node.get_child(4).text_changed.connect(_on_text_changed.bind(new_node.get_child(4)))
+	ghost_morphology.append(new_node)
+	var dropdown = new_node.get_node("dropdown_mappingdefinitions").get_node("dropDown_mappingdefinitions")
 	new_node.visible = true
-	new_node.get_child(1).value = 1
-	new_node.get_child(2).value = 1
-	new_node.get_child(3).value = 1
-	new_node.get_child(4).text = str(1)
-	new_node.get_child(6).connect("pressed",Callable(self,"map_info_pressed").bind(new_node))
-	new_node.get_child(7).connect("pressed",Callable(self,"remove_button_inside_dst").bind(new_node))
-	new_node.position.y = (50 * (plus_node.size()))
-	$".."/".."/".."/Menu/"Mapping_Properties"/inside_mapping_menu.size.y += (30 * plus_node.size())
+	new_node.get_node("box_overwritescalar").get_node("box_XYZ").get_child(0).get_child(1).value = 1
+	new_node.get_node("box_overwritescalar").get_node("box_XYZ").get_child(1).get_child(1).value = 1
+	new_node.get_node("box_overwritescalar").get_node("box_XYZ").get_child(2).get_child(1).value = 1
+	new_node.get_node("floatfield_PSPMULTIPLER").get_node("floatField_PSPMULTIPLER").text = str(1)
+#	new_node.get_child(0).connect("pressed",Callable(self,"_on_Mapping_def_pressed"))
+#	new_node.get_child(4).text_changed.connect(_on_text_changed.bind(new_node.get_child(4)))
 
 
 
@@ -779,11 +781,13 @@ func _on_type_rules_request_completed(_result, _response_code, _headers, body):
 	var test_json_conv = JSON.new()
 	test_json_conv.parse(body.get_string_from_utf8())
 	var api_data = test_json_conv.get_data()
-	
-	for i in $".."/".."/".."/Menu/rule_properties/rules/rule_type_options.get_item_count():
-		for x in api_data:
-			if $".."/".."/".."/Menu/rule_properties/rules/rule_type_options.get_item_text(i) == x:
-				$".."/".."/".."/Menu/rule_properties/rules/rule_type_options.select(i)
+	print("test: ", api_data)
+	if api_data != null:
+		print("api data inside type rule: ", api_data)
+		for i in $".."/".."/".."/Menu/rule_properties/rules/rule_type_options.get_item_count():
+			for x in api_data:
+				if $".."/".."/".."/Menu/rule_properties/rules/rule_type_options.get_item_text(i) == x:
+					$".."/".."/".."/Menu/rule_properties/rules/rule_type_options.select(i)
 	$notification.generate_notification_message(api_data, _response_code, "_on_type_rules_request_completed", "/v1/feagi/genome/morphology")
 
 func _on_save_pressed():
@@ -1071,8 +1075,8 @@ func _on_afferent_request_completed(_result, _response_code, _headers, body):
 		var counter = 0
 		afferent_holder_clear()
 		for i in api_data:
-			var new_node = UI_LeftBar.get_node("Field_blank_afferent").get_node("LineEdit").duplicate()
-			UI_LeftBar.get_node("Field_blank_afferent").add_child(new_node)
+			var new_node = UI_LeftBar.GetReferenceByID("blank_afferent").get_node("field_blank_afferent").duplicate()
+			UI_LeftBar.GetReferenceByID("blank_afferent").add_child(new_node)
 			afferent_child_holder.append(new_node)
 			new_node.visible = true
 			new_node.text = id_to_name(i)
@@ -1113,7 +1117,8 @@ func new_morphology_clear():
 
 func plus_node_clear():
 	for i in plus_node:
-		i.queue_free()
+		if i != null:
+			i.queue_free()
 	plus_node.clear()
 
 func ghost_morphology_clear():
@@ -1199,7 +1204,7 @@ func _on_insert_button_pressed(full_data):
 	print("combine_url: ", combine_url)
 	var new_data = ["placeholder"]
 	Autoload_variable.BV_Core.POST_Request_Brain_visualizer(combine_url, new_data)
-	$"..".import_close_button.emit_signal("pressed")
+#	$"..".import_close_button.emit_signal("pressed")
 func _on_circuit_request_request_completed(_result, _response_code, _headers, body):
 	$".."/".."/".."/Menu/insert_menu/insert_button/ItemList.clear()
 	var test_json_conv = JSON.new()
