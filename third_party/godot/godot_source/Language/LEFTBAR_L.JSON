@@ -151,7 +151,7 @@
 			}
 		}
 	},
-	"AFFERENTsideLabelText": {
+	"AFFERENTLABEL": {
 		"sideLabelText": {
 			"eng": "Afferent Mappings:"
 			}
@@ -162,7 +162,7 @@
 			}
 		},
 		"efferent_unit": {
-			"EFFERENTsideLabelText": {
+			"EFFERENTLABEL": {
 			"sideLabelText": {
 				"eng": "Efferent Mappings: "
 			}

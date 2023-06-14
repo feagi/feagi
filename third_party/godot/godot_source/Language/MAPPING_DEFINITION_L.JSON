@@ -1,80 +1,85 @@
 {
 	"SOURCECORTICALAREA": {
-		"label": {
+		"sideLabelText": {
 			"eng": "Source Cortical Area"
 		}
 	},
 	"DESTINATIONCORTICALAREA": {
-		"label": {
+		"sideLabelText": {
 			"eng": "Destination Cortical Area"
 		}
 	},
 	"UpdateButton": {
-		"label": {
+		"sideLabelText": {
 			"eng": "Create"
 		}
 	},
 	"testlabel": {
 		"SOURCECORTICALAREA": {
-			"label": {
+			"sideLabelText": {
 				"eng": "Source Cortical Area"
 			}
 		},
 		"DESTINATIONCORTICALAREA": {
-			"label": {
+			"sideLabelText": {
 				"eng": "Destination Cortical Area"
 			}
 		},
 		"ADDMAPPING": {
-			"label": {
+			"sideLabelText": {
 				"eng": ""
 			}
 		}
 	},
 	"vector_title": {
 		"MAPPINGDEFINITION": {
-			"label": {
+			"sideLabelText": {
 				"eng": "Mapping Definition:"
 			}
 		},
 		"ADDMAPPING": {
-			"label": {
-				"eng": "+"
+			"sideLabelText": {
+				"eng": ""
 			}
+		},
+	"overwritescalartitle": {
+		"sideLabelText": {
+			"eng": "Overwrite Scalar"
 		}
+	}
 	},
 	"third_box": {
 			"mappingdefinitions": {
-		"label": {
-					"eng": "Mapping Definitions"
+		"sideLabelText": {
+					"eng": ""
 				}
 			},
 		"overwritescalar": {
 			"overwritescalartitle": {
-				"label": {
-					"eng": "Overwrite Scalar"
+				"sideLabelText": {
+					"eng": ""
 					}
 				},
 			"XYZ": {
 				"Pos_X": {
-					"label": {
+					"sideLabelText": {
 						"eng": "X"
 					}
 				},
 				"Pos_Y": {
-					"label": {
+					"sideLabelText": {
 						"eng": "Y"
 					}
 				},
 				"Pos_Z": {
-					"label": {
+					"sideLabelText": {
 						"eng": "Z"
 					}
 				}
 			}
 		},
 		"PSPMULTIPLER": {
-		"label": {
+		"sideLabelText": {
 			"eng": "PSP Multiplier Plasticity"
 				}
 		}

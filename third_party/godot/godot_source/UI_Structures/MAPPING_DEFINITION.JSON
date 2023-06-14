@@ -1,29 +1,27 @@
 {
 	"ID": "MAPPING_DEFINITION",
-	"HpositionX": 400,
-	"HpositionY": 400,
+	"positionX": 600,
+	"positionY": 400,
+	"type": "box",
+  	"enableCloseButton": true,
 	"components": [
 		{
-			"type": "unit",
+			"type": "box",
 			"ID": "testlabel",
 			"components": [
 				{
-						"ID": "SOURCECORTICALAREA",
+					"ID": "SOURCECORTICALAREA",
 					"type": "dropdown"
 				},
 				{
 					"ID": "DESTINATIONCORTICALAREA",
 					"type": "dropdown"
-				},
-				{
-					"type": "button",
-					"ID": "ADDMAPPING"
 				}
 			],
-			"isVertical": true
+			"vertical": true
 		},
 		{
-			"type": "unit",
+			"type": "box",
 			"ID": "vector_title",
 			"components": [
 				{
@@ -33,13 +31,19 @@
 				},
 				{
 					"type": "button",
-					"ID": "ADDMAPPING"
+					"ID": "ADDMAPPING",
+					"text": "+"
+				},
+				{
+					"type": "header",
+					"ID": "overwritescalartitle",
+					"paddingX": 100
 				}
 			],
-			"isVertical": false
+			"vertical": false
 		},
 		{
-			"type": "unit",
+			"type": "box",
 			"ID": "third_box",
 			"components": [
 				{
@@ -47,7 +51,7 @@
 					"ID": "mappingdefinitions"
 				},
 				{
-					"type": "unit",
+					"type": "box",
 					"ID": "overwritescalar",
 					"components": [
 						{
@@ -55,33 +59,37 @@
 							"ID": "overwritescalartitle"
 						},
 						{
-							"type": "unit",
+							"type": "box",
 							"ID": "XYZ",
 							"components": [
 								{
-									"type": "floatField",
+									"type": "floatfield",
 									"ID": "Pos_X"
 								},
 								{
-									"type": "floatField",
+									"type": "floatfield",
 									"ID": "Pos_Y"
 								},
 								{
-									"type": "floatField",
+									"type": "floatfield",
 									"ID": "Pos_Z"
 								}
 							],
-							"isVertical": false
+							"vertical": false
 						}
 					],
-					"isVertical": true
+					"vertical": true
+				},
+				{
+					"type": "floatfield",
+					"ID": "PSPMULTIPLER"
 				},
 				{
 					"type": "toggle",
-					"ID": "PSPMULTIPLER"
+					"ID": "PSPTOGGLE"
 				}
 			],
-			"isVertical": false
+			"vertical": false
 		}
 	]
 }

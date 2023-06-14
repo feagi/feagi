@@ -20,7 +20,7 @@
 	"editable": false,
 	"type": "field"},
 	{
-		"type": "unit",
+		"type": "box",
 		"ID": "XYZ",
 		"components": [
 			{
@@ -36,10 +36,10 @@
 				"ID": "Pos_Z"
 			}
 		],
-		"isVertical": false
+		"vertical": false
 	},
 	{
-		"type": "unit",
+		"type": "box",
 		"ID": "WHD",
 		"components": [
 			{
@@ -55,7 +55,7 @@
 				"ID": "D"
 			}
 		],
-		"isVertical": false
+		"vertical": false
 	},
 	{"type": "button",
 	"sideButtonText": "Delete",
@@ -64,11 +64,11 @@
 	{"type" : "header",
 	"ID" : "MonitoringSection"},
 	{
-	"type": "unit",
+	"type": "box",
 	"ID": "toggles",
 	"components": [
 		{"type": "toggle", "ID": "Mem_potent"},
-		{"type": "toggle", "ID": "syn_potent"}], "isVertical": false},
+		{"type": "toggle", "ID": "syn_potent"}], "vertical": false},
 	{"type" : "header",
 	"ID" : "NeuronParametersSection"},
 	{"type" : "counter",
@@ -116,14 +116,14 @@
 	"alignmentWidth": 1,
 	"ID":  "blank_afferent"},
 	{
-	"type": "unit",
+	"type": "box",
 	"ID": "efferent_unit",
 	"components": [
-		{"type": "header",
-		"ID": "EFFERENTLABEL"},
-		{"type": "button",
-		  "ID": "blank_efferent"}
-	], "isVertical": false}
+			{"type": "header",
+			"ID": "EFFERENTLABEL"},
+			{"type": "button",
+			  "ID": "blank_efferent"}
+	], "vertical": true}
   ],
 
 }

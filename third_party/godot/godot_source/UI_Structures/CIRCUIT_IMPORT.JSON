@@ -19,29 +19,35 @@
 			"type": "header"
 		},
 		{
-			"type": "unit",
+			"type": "box",
 			"ID": "XYZ",
 		 	"visibility": 0,
 			"components": [
 				{
 					"type": "counter",
-					"ID": "Pos_X"
+					"ID": "Pos_X",
+					"max_value": 99999999,
+					"min_value": 1
 				},
 				{
 					"type": "counter",
-					"ID": "Pos_Y"
+					"ID": "Pos_Y",
+					"max_value": 99999999,
+					"min_value": 1
 				},
 				{
 					"type": "counter",
-					"ID": "Pos_Z"
+					"ID": "Pos_Z",
+					"max_value": 99999999,
+					"min_value": 1
 				}
 			],
-			"isVertical": false
+			"vertical": false
 		},
 		{
 			"type": "button",
 			"text": "Import",
-			"ID": "UpdateButtonTop"
+				"ID": "UpdateButtonTop"
 		},
 		{
 			"ID": "CIRCUITINIT",
@@ -59,20 +65,26 @@
 				{
 					"type": "counter",
 					"editable": false,
-					"ID": "W"
+					"ID": "W",
+					"max_value": 99999999,
+					"min_value": 1
 				},
 				{
 					"type": "counter",
 					"editable": false,
-					"ID": "H"
+					"ID": "H",
+					"max_value": 99999999,
+					"min_value": 1
 				},
 				{
 					"type": "counter",
 					"editable": false,
-					"ID": "D"
+					"ID": "D",
+					"max_value": 99999999,
+					"min_value": 1
 				}
 			],
-			"isVertical": false
+			"vertical": false
 		},
 		{
 			"ID": "CIRCUITDESCRIPTION",
