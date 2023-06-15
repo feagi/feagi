@@ -70,8 +70,8 @@ func _ActivationPrimary(settings: Dictionary) -> void:
 func _getChildData() -> Dictionary:
 	return NEWNIT_CONTAINER_CORE.Func__getChildData(self)
 
-func _DataUpProxy(_data, recievedID: String, reference: Node) -> void:
-	DataUp.emit(_data, recievedID, reference)
+#func _DataUpProxy(_data, recievedID: String, reference: Node) -> void:
+#	DataUp.emit(_data, recievedID, reference)
 
 ################################################# END Newnit Containers Parallel #######################
 

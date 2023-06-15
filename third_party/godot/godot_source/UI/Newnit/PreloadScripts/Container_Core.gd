@@ -25,7 +25,7 @@ static func Func_SpawnChild(childActivationSettings: Dictionary, ContainerObject
 	
 	ContainerObject.add_child(newChild)
 	newChild.Activate(childActivationSettings)
-	newChild.DataUp.connect(ContainerObject._DataUpProxy)
+#	newChild.DataUp.connect(ContainerObject._DataUpProxy)
 
 static func Func_SpawnMultipleChildren(childrenActivationSettings: Array, ContainerObject) -> void:
 	for c in childrenActivationSettings:
