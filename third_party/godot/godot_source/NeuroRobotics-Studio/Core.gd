@@ -213,7 +213,6 @@ func _Relay_Morphology_type(_result, _response_code, _headers, body: PackedByteA
 func _Relay_Cortical_grab_id(_result, _response_code, _headers, body: PackedByteArray):
 	#Feagi Updated Dimensions
 	if LogNetworkError(_result): print("Unable to get Cortical IDs"); return
-	Autoload_variable.Core_BV._on_HTTPRequest_request_completed(_result, _response_code, _headers, body)
 	Autoload_variable.Core_BV._on_get_cortical_dst_request_completed(_result, _response_code, _headers, body)
 
 func _Relay_Afferent(_result, _response_code, _headers, body: PackedByteArray):
