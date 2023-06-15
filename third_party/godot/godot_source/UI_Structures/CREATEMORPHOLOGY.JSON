@@ -1,10 +1,10 @@
 {
    "ID":"CREATEMORPHOLOGY",
-   "enableTitleBar":true,
+   "enableTitleBar": true,
    "titleBarTitle":"Create new Neuron Morphology",
-   "enableCloseButton":true,
-   "vertical":true,
-   "widthAlignment":1,
+   "enableCloseButton": true,
+   "vertical": true,
+   "widthAlignment": 1,
 	"positionX": 400,
 	"positionY": 200,
    "components":[
@@ -22,41 +22,108 @@
 	  },
 	  {
 		 "type":"box",
-		 "ID":"Composite",
+		 "ID":"Patterns",
 		 "vertical":true,
 		 "visibility": 0,
 		 "components":[
 			{
-			   "type":"header",
-			   "ID":"Seed"
-			},
-		  	{
-			 "type":"vector3",
-			 "ID":"tempTest"
-	  		},
-			{
-			   "type":"header",
-			   "ID":"Pattern"
-			},
-			{
 			   "type":"box",
-			   "ID":"XYZ_s1",
+			   "ID":"PatternRow0",
 			   "vertical":false,
 			   "components":[
-				{
-				   "type":"box",
-				   "ID":"XYZ_s",
-				   "vertical":false,
-				   "components": [
-					   {
-						   "type":"header",
-						   "ID":"X_title"
-						}
-
-				   ]}
+				  {
+					 "type":"floatfield",
+					 "ID":"Xi",
+					 "label":"X"
+				  },
+				  {
+					 "type":"floatfield",
+					 "ID":"Yi",
+					 "label":"Y"
+				  },
+				  {
+					 "type":"floatfield",
+					 "ID":"Zi",
+					 "label":"Z"
+				  },
+				  {
+					 "type":"header",
+					 "ID":"arrow",
+					 "label":"->"
+				  },
+				  {
+					 "type":"floatfield",
+					 "ID":"Xo",
+					 "label":"X"
+				  },
+				  {
+					 "type":"floatfield",
+					 "ID":"Yo",
+					 "label":"Y"
+				  },
+				  {
+					 "type":"floatfield",
+					 "ID":"Zo",
+					 "label":"Z"
+				  },
+				  {
+					 "type":"button",
+					 "ID":"RemoveSelfRowButton",
+					 "text":"-"
+				  }
 			   ]
+			},
+			{
+			   "type":"button",
+			   "ID":"AddRowButton",
+				"text": "Add Row"
 			}
 		 ]
+	  },
+	  {
+		 "type":"box",
+		 "ID":"Vectors",
+		 "vertical":true,
+		 "visibility": 0,
+		 "components":[
+			{
+			   "type":"box",
+			   "ID":"XYZ",
+			   "vertical":false,
+			   "components":[
+				  {
+					 "type":"floatfield",
+					 "ID":"X",
+					 "label":"X"
+				  },
+				  {
+					 "type":"floatfield",
+					 "ID":"Y",
+					 "label":"Y"
+				  },
+				  {
+					 "type":"floatfield",
+					 "ID":"Z",
+					 "label":"Z"
+				  },
+				  {
+					 "type":"button",
+					 "ID":"RemoveRowButton",
+					 "text":"-"
+				  }
+			   ]
+			},
+			{
+			   "type":"button",
+			   "ID":"AddRowButton",
+				"text": "Add Row"
+			}
+		 ]
+	  },
+	  {
+		 "type":"button",
+		 "ID":"CreateButton",
+		  "text": "Create"
 	  }
    ]
 }
