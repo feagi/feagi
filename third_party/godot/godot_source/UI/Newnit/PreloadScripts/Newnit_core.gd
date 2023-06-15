@@ -63,12 +63,19 @@ static func Func_SetData(input: Dictionary, NewnitObject) -> void:
 		# check if key is referring to property of this object
 		if key in NewnitObject._runtimeSettableProperties.keys():
 			
-			# confirm type matches!
-			if typeof(input[key]) != typeof(NewnitObject[key]):
-				print("Input is of type ", typeof(input[key]), " when expected ", typeof(NewnitObject[key]), "! Skipping!")
-				continue
+			var inputVar = input[key]
 			
-			NewnitObject[key] = input[key] # This is blasphemy
+			# confirm type matches!
+			if typeof(inputVar) != typeof(NewnitObject[key]):
+				# see if we can convert before giving up
+				if (typeof(inputVar) == 3) && (typeof(NewnitObject[key]) == 2):
+					# auto convert from float to int
+					inputVar = int(inputVar)
+				else:
+					print("Input is of type ", typeof(input[key]), " when expected ", typeof(NewnitObject[key]), "! Skipping!")
+					continue
+			
+			NewnitObject[key] = inputVar # This is blasphemy
 			continue
 	
 		# On the odd case where the key is the ID of this object
