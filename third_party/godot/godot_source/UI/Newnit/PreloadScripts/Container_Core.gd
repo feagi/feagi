@@ -18,6 +18,8 @@ static func Func_SpawnChild(childActivationSettings: Dictionary, ContainerObject
 		"header": newChild = Element_Label.new()
 		"vector3": newChild = Element_Vector3.new()
 		"box": newChild = Newnit_Box.new()
+		"tab": newChild = Newnit_Tabs.new()
+		
 		# TODO: More types!
 		_:
 			print("Invalid child of type ", childActivationSettings["type"], " attempted to spawn. Skipping...")
@@ -47,3 +49,8 @@ static func Get_children(ContainerObject) -> Array:
 # Defaults and other constants
 const D_vertical = true
 const D_alignment = 0
+
+const D_current_tab = 0
+const D_tab_alignment = 1
+const D_use_hidden_tabs_for_min_size = true
+const D_tab_titles = []
