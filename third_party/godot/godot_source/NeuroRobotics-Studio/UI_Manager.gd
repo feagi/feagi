@@ -166,12 +166,27 @@ func _isNeuronProperty(ID: String) -> bool:
 
 
 func CorticalCreateInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
-	
 	match(ElementID):
-		"UpdateButton":
-			var newCorticalName: String = UI_createcorticalBar.GetReferenceByID("CORTICALAREATEXT").value
-			var AreaType: String = UI_createcorticalBar.GetReferenceByID("CORTICALAREATEXTDD").value
-			print("pause")
+		"CORTICALAREA":
+			if data["value"] == "OPU":
+				UI_createcorticalBar.GetReferenceByID("corticalnamedrop").visible = true
+				UI_createcorticalBar.GetReferenceByID("OPUIPU").visible = true
+				UI_createcorticalBar.GetReferenceByID("corticalnametext").visible = false
+				$"..".GET_OPU('OPU')
+			elif data["value"] == "IPU":
+				UI_createcorticalBar.GetReferenceByID("corticalnamedrop").visible = true
+				UI_createcorticalBar.GetReferenceByID("OPUIPU").visible = true
+				UI_createcorticalBar.GetReferenceByID("corticalnametext").visible = true
+				$"..".GET_IPU('IPU')
+			elif data["value"] == "Custom":
+				print("custom!")
+				UI_createcorticalBar.GetReferenceByID("corticalnamedrop").visible = false
+				UI_createcorticalBar.GetReferenceByID("corticalnametext").visible = true
+				UI_createcorticalBar.GetReferenceByID("OPUIPU").visible = false
+#		"UpdateButton":
+#			var newCorticalName: String = UI_createcorticalBar.GetReferenceByID("CORTICALAREATEXT").value
+#			var AreaType: String = UI_createcorticalBar.GetReferenceByID("CORTICALAREATEXTDD").value
+#			print("pause")
 		
 	
 #	if "CORTICALAREA" == data["compID"]:
@@ -283,6 +298,12 @@ func RelayDownwards(callType, data) -> void:
 #			pass
 #		REF.FROM.godot_fullCorticalData:
 #			UI_GraphCore.RelayDownwards(REF.FROM.godot_fullCorticalData, data)
+		REF.FROM.OPULIST:
+			if UI_createcorticalBar:
+				UI_createcorticalBar.SetData({"corticalnamedrop": {"CORTICALAREADROPDOWNINBOX": {"options": data}}})
+		REF.FROM.IPULIST:
+			if UI_createcorticalBar:
+				UI_createcorticalBar.SetData({"corticalnamedrop": {"CORTICALAREADROPDOWNINBOX": {"options": data}}})
 		REF.FROM.genome_corticalArea:
 #			# Data for Specific Cortical Area
 #			# Race conditions are technically possible. Verify input
@@ -365,7 +386,7 @@ func SpawnCorticalCrete():
 	var createcorticalBar = HelperFuncs.GenerateDefinedUnitDict("CORTICAL_CREATE", currentLanguageISO)
 	add_child(UI_createcorticalBar)
 	UI_createcorticalBar.Activate(createcorticalBar)
-#	UI_createcorticalBar.DataUp.connect(CorticalCreateInput)
+	UI_createcorticalBar.DataUp.connect(CorticalCreateInput)
 	UI_holders.append(UI_createcorticalBar)
 	UI_createcorticalBar.SetData({"CORTICALAREA": {"options": (global_json_data["option"])}})
 #	if UI_createcorticalBar.DataUp.is_connected():
@@ -419,7 +440,6 @@ func SpawnCircuitImport(activation: Dictionary):
 	UI_CircuitImport.Activate(activation)
 	UI_holders.append(UI_CircuitImport)
 	# Link to BV
-	print("UI: ", UI_CircuitImport.GetReferenceByID("UpdateButtonTop").get_node("button_UpdateButtonTop").get_children())
 	var dropdown = UI_CircuitImport.GetReferenceByID("dropdowncircuit").get_node("dropDown_dropdowncircuit")
 	var x = UI_CircuitImport.GetReferenceByID("XYZ").get_node("counter_Pos_X").get_node("counter_Pos_X")
 	var y = UI_CircuitImport.GetReferenceByID("XYZ").get_node("counter_Pos_Y").get_node("counter_Pos_Y")
