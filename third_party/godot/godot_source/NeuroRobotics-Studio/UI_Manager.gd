@@ -50,9 +50,9 @@ func Activate(langISO: String):
 	var topBarDict = HelperFuncs.GenerateDefinedUnitDict("TOPBAR", currentLanguageISO)
 	var createindicator = HelperFuncs.GenerateDefinedUnitDict("INDICATOR", currentLanguageISO)
 	_SpawnTopBar(topBarDict)
-	SpawnIndicator(createindicator)
+#	SpawnIndicator(createindicator)
 #	SpawnCorticalCrete()
-	SpawnCreateMophology()
+#	SpawnCreateMophology()
 	
 	# Initialize GraphCore
 	UI_GraphCore = $graphCore #TODO: this is very temporary
@@ -69,8 +69,10 @@ func _SpawnTopBar(activation: Dictionary):
 	UI_Top_TopBar = Newnit_Box.new()
 	add_child(UI_Top_TopBar)
 	UI_Top_TopBar.Activate(activation)
-	UI_Top_TopBar.DataUp.connect(TopBarInput) # Amir, https://i.imgflip.com/10hpms.jpg
+	UI_Top_TopBar.DataUp.connect(TopBarInput)
 	var test = UI_Top_TopBar.GetReferenceByID("REFRESHRATE")
+	# TODO best not to connect to Element children, better to connect to element signals itself
+	# This may work for now but can cause weird issues later
 	var import_circuit = UI_Top_TopBar.GetReferenceByID("GENOMEFILENAME").get_node("sideButton_GENOMEFILENAME")
 	var cortical_create = UI_Top_TopBar.GetReferenceByID("CORTICALAREAS").get_node("sideButton_CORTICALAREAS")
 	import_circuit.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
@@ -83,52 +85,73 @@ func _SpawnTopBar(activation: Dictionary):
 signal DataUp(data: Dictionary)
 
 ######### Top Bar Control ##########
-# These are all examples
-func TopBarInput(data: Dictionary, _compRef, _unitRef):
-	print("FUnction called!")
-	print(JSON.stringify(data)) # useful for debugging
-	match(data["ID"]):
+# We should be using this to make things more streamline
+func TopBarInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
+	match(ElementID):
 		"CORTICALAREAS":
-			# Drop downs specifically can either be button inputs or dropdown changes,
-			# verify this
-			if "button" in data.keys():
-				print("bwuk")
-				# Initialize popUpBar
-#				if not UI_createcorticalBar:
-#					SpawnCorticalCrete()
-#	#				print(UI_createcorticalBar.componentData)
-#				else:
-#					UI_createcorticalBar.queue_free()
-			#	UI_createcorticalBar.DataUp.connect(LeftBarInput)
-				# button press
-	#			$".."/".."/Menu._on_add_pressed() #TODO: Need to change this approach. This is for example only
-				print("Pressed Button!")
-			else:
-				# the cortical area drop down was changed
-				var selectedCorticalArea: String = data["selected"]
-				print("new selected area is " + selectedCorticalArea)
-			
+			if "sideButton" in data.keys():
+				# + button pressed
+				# TODO spawn cortical menu
+				# return
+				pass # temp - pls remove
+			# selected cortical area
+			# TODO respond
+			pass # temp - pls remove
 		"NEURONMORPHOLOGIES":
-		# Drop downs specifically can either be button inputs or dropdown changes,
-		# verify this
-			if "button" in data.keys():
-				# button press
-#				if not UI_CreateMorphology:
-#					SpawnCreateMophology()
-#				else:
-#					UI_CreateMorphology.queue_free()
-				print("Pressed Button!")
-			else:
-				# the cortical area drop down was changed
-				var selectedCorticalArea: String = data["selected"]
-				print("new selected area is " + selectedCorticalArea)
-#				if not UI_ManageNeuronMorphology:
-#					SpawnNeuronManager()
-#					print("composite data: ", UI_ManageNeuronMorphology.componentData)
-#				else:
-#					UI_ManageNeuronMorphology.queue_free()
+			if "sideButton" in data.keys():
+				# + button pressed
+				# TODO spawn NeuronMorphologies menu
+				# return
+				pass # temp - pls remove
+			# selected Morphology 
+			# TODO respond
+			pass # temp - pls remove
 		"REFRESHRATE":
 			DataUp.emit({"updatedBurstRate": data["value"]})
+		
+#	print("Hello")
+#	match(data["ID"]):
+#		"CORTICALAREAS":
+#			# Drop downs specifically can either be button inputs or dropdown changes,
+#			# verify this
+#			if "button" in data.keys():
+#				print("bwuk")
+#				# Initialize popUpBar
+##				if not UI_createcorticalBar:
+##					SpawnCorticalCrete()
+##	#				print(UI_createcorticalBar.componentData)
+##				else:
+##					UI_createcorticalBar.queue_free()
+#			#	UI_createcorticalBar.DataUp.connect(LeftBarInput)
+#				# button press
+#	#			$".."/".."/Menu._on_add_pressed() #TODO: Need to change this approach. This is for example only
+#				print("Pressed Button!")
+#			else:
+#				# the cortical area drop down was changed
+#				var selectedCorticalArea: String = data["selected"]
+#				print("new selected area is " + selectedCorticalArea)
+#
+#		"NEURONMORPHOLOGIES":
+#		# Drop downs specifically can either be button inputs or dropdown changes,
+#		# verify this
+#			if "button" in data.keys():
+#				# button press
+##				if not UI_CreateMorphology:
+##					SpawnCreateMophology()
+##				else:
+##					UI_CreateMorphology.queue_free()
+#				print("Pressed Button!")
+#			else:
+#				# the cortical area drop down was changed
+#				var selectedCorticalArea: String = data["selected"]
+#				print("new selected area is " + selectedCorticalArea)
+##				if not UI_ManageNeuronMorphology:
+##					SpawnNeuronManager()
+##					print("composite data: ", UI_ManageNeuronMorphology.componentData)
+##				else:
+##					UI_ManageNeuronMorphology.queue_free()
+#		"REFRESHRATE":
+#			DataUp.emit({"updatedBurstRate": data["value"]})
 			
 
 func CreateMorphologyInput(data: Dictionary, _compRef: Node, _unitRef: Node):
