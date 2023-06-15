@@ -64,3 +64,9 @@ func _GetLongestOptionWidth() -> float:
 # Updates the size of of the dropdown as per the listed options
 func _UpdateSizeAsPerOptions() -> void:
 	size = Vector2(_GetLongestOptionWidth() + INTERNAL_WIDTH_PADDING, size.y)
+
+func _ready():
+	item_selected.connect(_ProxySelected)
+
+func _ProxySelected(pIndex: int):
+	value_edited.emit({"value": GetStringFromIndex(pIndex), "selectedIndex": pIndex})

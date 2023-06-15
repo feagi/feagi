@@ -165,41 +165,48 @@ func _isNeuronProperty(ID: String) -> bool:
 
 
 
-func CorticalCreateInput(data, _compRef, _unitRef):
-	print("data inside corticalinput: ", data)
-	if "CORTICALAREA" == data["compID"]:
-		var textbox: Node = _unitRef.get_node("Unit_corticalnametext")
-		var whd = _unitRef.get_node("Unit_WHD")
-		var xyz = _unitRef.get_node("Unit_XYZ")
-		var OPUIPU = _unitRef.get_node("Unit_OPUIPU")
-		var downdrop = _unitRef.get_node("Unit_corticalnamedrop")
-		if data["selected"] == "Custom":
-			whd.visibility = 0
-			textbox.visibility=0
-			xyz.visibility = 0
-			downdrop.visibility = 2
-			OPUIPU.visibility = 2
-		elif data["selected"] == "OPU" or data["selected"] == "IPU":
-			whd.visibility = 2
-			textbox.visibility = 2
-			downdrop.visibility = 0
-			downdrop.get_child(0).get_child(1).clear()
-			if data["selected"] == "OPU":
-				for i in $"../../Menu/addition_menu".opu_list:
-					downdrop.get_child(0).get_child(1).add_item(i)
-			if data["selected"] == "IPU":
-				for i in $"../../Menu/addition_menu".ipu_list:
-					downdrop.get_child(0).get_child(1).add_item(i)
-			whd.visibility = 2
-			xyz.visibility = 0
-			OPUIPU.visibility = 0
-		else:
-			whd.visibility = 2
-			xyz.visibility = 2
-			whd.visibility = 2
-			downdrop.visibility = 2
-			textbox.visibility = 2
-			OPUIPU.visibility = 2
+func CorticalCreateInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
+	
+	match(ElementID):
+		"UpdateButton":
+			var newCorticalName: String = UI_createcorticalBar.GetReferenceByID("CORTICALAREATEXT").value
+			var AreaType: String = UI_createcorticalBar.GetReferenceByID("CORTICALAREATEXTDD").value
+			print("pause")
+		
+	
+#	if "CORTICALAREA" == data["compID"]:
+#		var textbox: Node = _unitRef.get_node("Unit_corticalnametext")
+#		var whd = _unitRef.get_node("Unit_WHD")
+#		var xyz = _unitRef.get_node("Unit_XYZ")
+#		var OPUIPU = _unitRef.get_node("Unit_OPUIPU")
+#		var downdrop = _unitRef.get_node("Unit_corticalnamedrop")
+#		if data["selected"] == "Custom":
+#			whd.visibility = 0
+#			textbox.visibility=0
+#			xyz.visibility = 0
+#			downdrop.visibility = 2
+#			OPUIPU.visibility = 2
+#		elif data["selected"] == "OPU" or data["selected"] == "IPU":
+#			whd.visibility = 2
+#			textbox.visibility = 2
+#			downdrop.visibility = 0
+#			downdrop.get_child(0).get_child(1).clear()
+#			if data["selected"] == "OPU":
+#				for i in $"../../Menu/addition_menu".opu_list:
+#					downdrop.get_child(0).get_child(1).add_item(i)
+#			if data["selected"] == "IPU":
+#				for i in $"../../Menu/addition_menu".ipu_list:
+#					downdrop.get_child(0).get_child(1).add_item(i)
+#			whd.visibility = 2
+#			xyz.visibility = 0
+#			OPUIPU.visibility = 0
+#		else:
+#			whd.visibility = 2
+#			xyz.visibility = 2
+#			whd.visibility = 2
+#			downdrop.visibility = 2
+#			textbox.visibility = 2
+#			OPUIPU.visibility = 2
 
 ############ Graph Edit ############
 
