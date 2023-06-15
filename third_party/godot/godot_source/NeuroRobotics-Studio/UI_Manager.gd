@@ -290,19 +290,21 @@ func RelayDownwards(callType, data) -> void:
 				"CorticalName": {"sideLabelText": data["cortical_name"]},
 				"CorticalID": {"sideLabelText": data["cortical_id"]},
 				"CorticalArea": {"sideLabelText": data["cortical_group"]},
-				"XYZ": {"Pos_X": {"value": data["cortical_coordinates"][0]}, "Pos_Y": {"value": data["cortical_coordinates"][1]}, "Pos_Z": {"value": data["cortical_coordinates"][2]}},
-				"WHD": {"W": {"value": data["cortical_dimensions"][0]}, "H": {"value": data["cortical_dimensions"][1]}, "D": {"value": data["cortical_dimensions"][2]}},
-				"VoxelNeuronDensity": {"value": data["cortical_neuron_per_vox_count"]},
-				"SynapticAttractivity": {"value": data["cortical_synaptic_attractivity"]},
+				"XYZ": {"Pos_X": {"value": int(data["cortical_coordinates"][0])}, "Pos_Y": {"value": int(data["cortical_coordinates"][1])}, "Pos_Z": {"value": int(data["cortical_coordinates"][2])}},
+				"WHD": {"W": {"value": int(data["cortical_dimensions"][0])}, "H": {"value": int(data["cortical_dimensions"][1])}, "D": {"value": int(data["cortical_dimensions"][2])}},
+				"VoxelNeuronDensity": {"value": int(data["cortical_neuron_per_vox_count"])},
+				"SynapticAttractivity": {"value": int(data["cortical_synaptic_attractivity"])},
 				"PostSynapticPotential": {"value": data["neuron_post_synaptic_potential"]},
 				"PSPMax": {"value": data["neuron_post_synaptic_potential_max"]},
 				"PlasticityConstant": {"value": data["neuron_plasticity_constant"]},
 				"FireThreshold": {"value": data["neuron_fire_threshold"]},
-				"RefactoryPeriod": {"value": data["neuron_refractory_period"]},
+				"Thresholdlimit": {"value": int(data["neuron_firing_threshold_limit"])},
+				"RefactoryPeriod": {"value": int(data["neuron_refractory_period"])},
 				"LeakConstant": {"value": data["neuron_leak_coefficient"]},
 				"LeakVaribility": {"value": data["neuron_leak_variability"]},
-				"ConsecutiveFireCount": {"sideLabelText": data["neuron_consecutive_fire_count"]},
+				"ConsecutiveFireCount": {"value": int(data["neuron_consecutive_fire_count"])},
 				"SnoozePeriod": {"value": data["neuron_snooze_period"]},
+				"ThresholdINC": {"value": data["neuron_fire_threshold_increment"]},
 				"DegeneracyConstant": {"value": data["neuron_degeneracy_coefficient"]},
 				"ChargeACC": {"value": data["neuron_mp_charge_accumulation"]},
 				"PSPUNI": {"value": data["neuron_psp_uniform_distribution"]}
@@ -328,9 +330,10 @@ func SpawnLeftBar(cortexName: String, activation: Dictionary):
 	UI_LeftBar.Activate(activation)
 	UI_holders.append(UI_LeftBar)
 	var delete_button = UI_LeftBar.GetReferenceByID("UpdateButtonTop").get_node("sideButton_UpdateButtonTop")
+	var update1 = UI_LeftBar.GetReferenceByID("UpdateButtonTop").get_node("button_UpdateButtonTop")
+	var update=UI_LeftBar.GetReferenceByID("UpdateButton").get_node("button_UpdateButton")
 	delete_button.connect("pressed", Callable($Brain_Visualizer,"_on_remove_pressed").bind(UI_LeftBar.GetReferenceByID("CorticalID")))
-	# Get available data with UI_LeftBar.data
-#	UI_LeftBar.SetData({"TITLEBAR": {"TITLE": {"label": cortexName}}})
+	update.connect("pressed", Callable($Brain_Visualizer,"_on_Update_pressed").bind(UI_LeftBar))
 
 	
 func mapping_definition_button(node):
