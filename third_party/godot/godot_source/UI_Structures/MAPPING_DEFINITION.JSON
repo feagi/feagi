@@ -85,9 +85,19 @@
 					"ID": "PSPMULTIPLER"
 				},
 				{
-					"type": "toggle",
-					"ID": "PSPTOGGLE"
-				}
+					"type": "box",
+					"ID": "third_box1",
+					"vertical": false,
+					"components": [
+						{
+							"type": "header",
+							"ID": "Plasticitytitle"
+						},
+						{
+							"type": "checkbutton",
+							"ID": "PSPTOGGLE"
+						}
+						]}
 			],
 			"vertical": false
 		}

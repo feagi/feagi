@@ -100,9 +100,9 @@
 	"ID" : "SnoozePeriod"},
 	{"type" : "floatfield",
 	"ID" : "DegeneracyConstant"},
-  	{"type": "toggle",
+  	{"type": "checkbutton",
 	"ID": "PSPUNI"},
-  	{"type": "toggle",
+  	{"type": "checkbutton",
 	"ID": "ChargeACC"},
 
 	{"type" : "button",

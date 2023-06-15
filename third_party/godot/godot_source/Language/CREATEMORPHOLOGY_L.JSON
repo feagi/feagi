@@ -33,8 +33,8 @@
 		 	"sideLabelText":{
 				"eng":"X"
 		 }
-		   },
-		   	"XYZ_s": {
+	   },
+		   	"XYZ_s1": {
 				"XYZ_s": {
 					"X_title": {
 					"sideLabelText": {
@@ -43,7 +43,7 @@
 			}
 		}
 	},
-		   "Y": {
+	   "Y": {
 		 	"sideLabelText":{
 				"eng":"Y"
 		 }
