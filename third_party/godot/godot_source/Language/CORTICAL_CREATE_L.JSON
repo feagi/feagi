@@ -10,7 +10,7 @@
 		}
 	},
 	"corticalnametext": {
-		"CORTICALAREA": {
+		"CORTICALAREATEXT": {
 			"sideLabelText": {
 				"eng": "Cortical Name"
 			}
@@ -56,7 +56,7 @@
 		}
 	},
 	"corticalnamedrop": {
-		"CORTICALAREA": {
+		"corticalnamedrop": {
 			"sideLabelText": {
 				"eng": "Cortical Name"
 			}
