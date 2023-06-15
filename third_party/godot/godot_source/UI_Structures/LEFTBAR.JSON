@@ -25,15 +25,23 @@
 		"components": [
 			{
 				"type": "counter",
-				"ID": "Pos_X"
+				"ID": "Pos_X",
+				"max_value": 99999999,
+				"min_value": -99999999
 			},
 			{
 				"type": "counter",
-				"ID": "Pos_Y"
+				"ID": "Pos_Y",
+				"max_value": 99999999,
+				"min_value": -99999999
+
 			},
 			{
 				"type": "counter",
-				"ID": "Pos_Z"
+				"ID": "Pos_Z",
+				"max_value": 99999999,
+				"min_value": -99999999
+
 			}
 		],
 		"vertical": false
@@ -44,15 +52,24 @@
 		"components": [
 			{
 				"type": "counter",
-				"ID": "W"
+				"ID": "W",
+				"max_value": 99999999,
+				"min_value": -99999999
+
 			},
 			{
 				"type": "counter",
-				"ID": "H"
+				"ID": "H",
+				"max_value": 99999999,
+				"min_value": -99999999
+
 			},
 			{
 				"type": "counter",
-				"ID": "D"
+				"ID": "D",
+				"max_value": 99999999,
+				"min_value": -99999999
+
 			}
 		],
 		"vertical": false
@@ -75,7 +92,7 @@
 	{"type" : "counter",
 	"max_value": 99999999,
 	"min_value": -99999999,
-	"ID" : "VoxelNeuronDensity"},
+		"ID" : "VoxelNeuronDensity"},
 	{"type" : "counter",
 	"max_value": 99999999,
 	"min_value": -99999999,
@@ -114,7 +131,6 @@
 	"ID": "PSPUNI"},
   	{"type": "checkbutton",
 	"ID": "ChargeACC"},
-
 	{"type" : "button",
 	"ID" : "UpdateButton",
 	"text":  "Update"},
