@@ -58,7 +58,7 @@ func Activate(langISO: String):
 	filess.close()
 #	SpawnIndicator(createindicator)
 #	SpawnCorticalCrete()
-#	SpawnCreateMophology()
+	SpawnCreateMophology()
 	
 	# Initialize GraphCore
 	UI_GraphCore = $graphCore #TODO: this is very temporary
