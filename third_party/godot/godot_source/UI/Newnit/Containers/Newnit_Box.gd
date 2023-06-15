@@ -8,7 +8,7 @@ class_name Newnit_Box
 
 const NEWNIT_CORE = preload("res://UI/Newnit/PreloadScripts/Newnit_core.gd")
 
-signal DataUp(data, originatingID, originatingRef)
+signal DataUp(data: Dictionary, originatingID: StringName, originatingRef: Node)
 
 var ID: StringName:
 	get: return _ID
@@ -70,8 +70,8 @@ func _ActivationPrimary(settings: Dictionary) -> void:
 func _getChildData() -> Dictionary:
 	return NEWNIT_CONTAINER_CORE.Func__getChildData(self)
 
-#func _DataUpProxy(_data, recievedID: String, reference: Node) -> void:
-#	DataUp.emit(_data, recievedID, reference)
+func _DataUpProxy(data: Dictionary, recievedID: String, reference: Node) -> void:
+	DataUp.emit(data, recievedID, reference)
 
 ################################################# END Newnit Containers Parallel #######################
 

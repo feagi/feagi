@@ -8,7 +8,7 @@ class_name Element_Base
 
 const NEWNIT_CORE = preload("res://UI/Newnit/PreloadScripts/Newnit_core.gd")
 
-signal DataUp(data, originatingID, originatingRef)
+signal DataUp(data: Dictionary, originatingID: StringName, originatingRef: Node)
 
 var ID: StringName:
 	get: return _ID
