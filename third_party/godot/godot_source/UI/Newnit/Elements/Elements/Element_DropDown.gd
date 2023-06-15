@@ -51,5 +51,5 @@ func _getChildData() -> Dictionary:
 		"selectedIndex": index
 	}
 
-func _DataUpProxy(_data) -> void:
-	DataUp.emit(_data, ID, self)
+func _DataUpProxy(data) -> void: #Data already is a proper Formatted Dictionary
+	DataUp.emit(data, ID, self)
