@@ -67,8 +67,9 @@
 	"type": "box",
 	"ID": "toggles",
 	"components": [
-		{"type": "toggle", "ID": "Mem_potent"},
-		{"type": "toggle", "ID": "syn_potent"}], "vertical": false},
+		{"type": "checkbutton", "ID": "Mem_potent"},
+		{"type": "checkbutton", "ID": "syn_potent"}]
+		, "vertical": false},
 	{"type" : "header",
 	"ID" : "NeuronParametersSection"},
 	{"type" : "counter",
