@@ -1,5 +1,5 @@
-extends BoxContainer
-class_name Newnit_Box
+extends TabContainer
+class_name Newnit_Tabs
 
 # This base class is used to construct all Elements, which are parallel in 
 # implmentation to Newnits but insteadof holding containers, are UI elements
@@ -75,16 +75,53 @@ func _DataUpProxy(data: Dictionary, recievedID: String, reference: Node) -> void
 
 ################################################# END Newnit Containers Parallel #######################
 
-### Start Box Container Unique
+### Start Tab Container Unique
 
 var specificSettableProps := {
-	"alignment": TYPE_INT,
-	"vertical": TYPE_INT
+	"current_tab": TYPE_INT,
+	"tab_alignment": TYPE_INT,
+	"use_hidden_tabs_for_min_size": TYPE_BOOL,
+	"tab_titles": TYPE_ARRAY,
+	"tabs_enabled": TYPE_ARRAY
 }
 	
+var ALL_ENABLED: Array:
+	get:
+		var o := []
+		for i in children:
+			o.append(true)
+		return o
+
+var ALL_DISABLED: Array:
+	get:
+		var o := []
+		for i in children:
+			o.append(false)
+		return o
+
+# Allows for mass setting of tab titles
+var tab_titles: Array:
+	set(v): _SetAllTabTitles(v)
+
+# Allows for mass setting of tab enablement states
+var tabs_enabled: Array:
+	set(v): _SetAllTabEnableState(v)
 
 func _ActivationSecondary(settings: Dictionary) -> void:
-	alignment = HelperFuncs.GetIfCan(settings, "alignment", NEWNIT_CONTAINER_CORE.D_alignment)
-	vertical = HelperFuncs.GetIfCan(settings, "vertical", NEWNIT_CONTAINER_CORE.D_vertical)
 	_runtimeSettableProperties.merge(specificSettableProps)
-	type = "box"
+	
+	current_tab = HelperFuncs.GetIfCan(settings, "current_tab", NEWNIT_CONTAINER_CORE.D_current_tab)
+	tab_alignment = HelperFuncs.GetIfCan(settings, "tab_alignment", NEWNIT_CONTAINER_CORE.D_tab_alignment)
+	use_hidden_tabs_for_min_size = HelperFuncs.GetIfCan(settings, "use_hidden_tabs_for_min_size", NEWNIT_CONTAINER_CORE.D_use_hidden_tabs_for_min_size)
+	tab_titles = HelperFuncs.GetIfCan(settings, "tab_titles", [])
+	tabs_enabled = HelperFuncs.GetIfCan(settings, "tabs_enabled", ALL_ENABLED)
+	type = "tab"
+	
+	
+func _SetAllTabTitles(titles: Array) -> void:
+	for i in range(len(titles)):
+		set_tab_title(i, titles[i])
+
+func _SetAllTabEnableState(whichEnabled: Array) -> void:
+	for i in range(len(whichEnabled)):
+		set_tab_hidden(i, whichEnabled[i])
