@@ -33,6 +33,7 @@ var src_global
 var dst_global
 var import_close_button
 var UI_holders = []
+var global_json_data
 
 # Internal cached vars
 var _sideBarChangedValues := {}
@@ -50,6 +51,11 @@ func Activate(langISO: String):
 	var topBarDict = HelperFuncs.GenerateDefinedUnitDict("TOPBAR", currentLanguageISO)
 	var createindicator = HelperFuncs.GenerateDefinedUnitDict("INDICATOR", currentLanguageISO)
 	_SpawnTopBar(topBarDict)
+	var filess = FileAccess.open("res://brain_visualizer_source/type_option.json", FileAccess.READ)
+	var test_json_conv = JSON.new()
+	test_json_conv.parse(filess.get_as_text())
+	global_json_data = test_json_conv.get_data()
+	filess.close()
 #	SpawnIndicator(createindicator)
 #	SpawnCorticalCrete()
 #	SpawnCreateMophology()
@@ -90,71 +96,22 @@ func TopBarInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
 	match(ElementID):
 		"CORTICALAREAS":
 			if "sideButton" in data.keys():
-				# + button pressed
-				# TODO spawn cortical menu
-				# return
-				pass # temp - pls remove
-			# selected cortical area
-			# TODO respond
-			pass # temp - pls remove
+				if not UI_createcorticalBar:
+					SpawnCorticalCrete()
+				else:
+					UI_createcorticalBar.queue_free()
 		"NEURONMORPHOLOGIES":
 			if "sideButton" in data.keys():
-				# + button pressed
-				# TODO spawn NeuronMorphologies menu
-				# return
-				pass # temp - pls remove
-			# selected Morphology 
-			# TODO respond
-			pass # temp - pls remove
+				pass	
+#				if not UI_ManageNeuronMorphology:
+#					SpawnNeuronManager()
+#				else:
+#					UI_ManageNeuronMorphology.queue_free()
 		"REFRESHRATE":
 			DataUp.emit({"updatedBurstRate": data["value"]})
-		
-#	print("Hello")
-#	match(data["ID"]):
-#		"CORTICALAREAS":
-#			# Drop downs specifically can either be button inputs or dropdown changes,
-#			# verify this
-#			if "button" in data.keys():
-#				print("bwuk")
-#				# Initialize popUpBar
-##				if not UI_createcorticalBar:
-##					SpawnCorticalCrete()
-##	#				print(UI_createcorticalBar.componentData)
-##				else:
-##					UI_createcorticalBar.queue_free()
-#			#	UI_createcorticalBar.DataUp.connect(LeftBarInput)
-#				# button press
-#	#			$".."/".."/Menu._on_add_pressed() #TODO: Need to change this approach. This is for example only
-#				print("Pressed Button!")
-#			else:
-#				# the cortical area drop down was changed
-#				var selectedCorticalArea: String = data["selected"]
-#				print("new selected area is " + selectedCorticalArea)
-#
-#		"NEURONMORPHOLOGIES":
-#		# Drop downs specifically can either be button inputs or dropdown changes,
-#		# verify this
-#			if "button" in data.keys():
-#				# button press
-##				if not UI_CreateMorphology:
-##					SpawnCreateMophology()
-##				else:
-##					UI_CreateMorphology.queue_free()
-#				print("Pressed Button!")
-#			else:
-#				# the cortical area drop down was changed
-#				var selectedCorticalArea: String = data["selected"]
-#				print("new selected area is " + selectedCorticalArea)
-##				if not UI_ManageNeuronMorphology:
-##					SpawnNeuronManager()
-##					print("composite data: ", UI_ManageNeuronMorphology.componentData)
-##				else:
-##					UI_ManageNeuronMorphology.queue_free()
-#		"REFRESHRATE":
-#			DataUp.emit({"updatedBurstRate": data["value"]})
-			
 
 func CreateMorphologyInput(data: Dictionary, _compRef: Node, _unitRef: Node):
+	print("data: ", data)
 	if "MorphologyType" == data["compID"]:
 		#Drop down is changed, toggle between available morphology wizards
 		var composite: Node = _unitRef.get_node("Unit_Composite")
@@ -400,11 +357,9 @@ func SpawnCorticalCrete():
 	var createcorticalBar = HelperFuncs.GenerateDefinedUnitDict("CORTICAL_CREATE", currentLanguageISO)
 	add_child(UI_createcorticalBar)
 	UI_createcorticalBar.Activate(createcorticalBar)
+	UI_createcorticalBar.DataUp.connect(CorticalCreateInput)
 	UI_holders.append(UI_createcorticalBar)
-	var str_array = []
-	for i in $".."/".."/Menu/addition_menu/OptionButton.item_count:
-		str_array.append($".."/".."/Menu/addition_menu/OptionButton.get_item_text(i))
-#	UI_createcorticalBar.SetData({"CORTICALAREA": {"options": (str_array)}})
+	UI_createcorticalBar.SetData({"CORTICALAREA": {"options": (global_json_data["option"])}})
 #	if UI_createcorticalBar.DataUp.is_connected():
 #	UI_createcorticalBar.DataUp.disconnect()
 #	4.x - emitting_node.signal_name.disconnect(receiving_node.callback_function)
