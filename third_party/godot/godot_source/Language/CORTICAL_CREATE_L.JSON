@@ -56,7 +56,7 @@
 		}
 	},
 	"corticalnamedrop": {
-		"CORTICALAREA": {
+		"CORTICALAREADROPDOWNINBOX": {
 			"sideLabelText": {
 				"eng": "Cortical Name"
 			}
