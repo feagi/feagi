@@ -10,6 +10,7 @@ const _specificSettableProps := {
 
 var value: bool:
 	get: return _CheckBox.button_pressed
+	set(v): _CheckBox.value = v
 
 var editable: bool:
 	get: return _CheckBox.editable
@@ -21,7 +22,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	if(_has_label): _CheckBox = get_children()[1]
 	else: _CheckBox = get_children()[0]
 	editable = HelperFuncs.GetIfCan(settings, "editable", D_editable)
-	_CheckBox.button_pressed = HelperFuncs.GetIfCan(settings, "value", D_value)
+	_CheckBox.value = HelperFuncs.GetIfCan(settings, "value", D_value)
 	_runtimeSettableProperties.merge(_specificSettableProps)
 
 func _PopulateSubElements() -> Array:
@@ -34,4 +35,4 @@ func _getChildData() -> Dictionary:
 	}
 
 func _DataUpProxy(_data) -> void:
-	DataUp.emit(_data, ID, self)
+	DataUp.emit({"value": true}, ID, self)

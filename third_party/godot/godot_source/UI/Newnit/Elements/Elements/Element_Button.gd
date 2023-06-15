@@ -40,4 +40,4 @@ func _getChildData() -> Dictionary:
 	}
 
 func _DataUpProxy(_data) -> void:
-	DataUp.emit(_data, ID, self)
+	DataUp.emit({"value": true}, ID, self)

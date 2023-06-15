@@ -10,6 +10,7 @@ const _specificSettableProps := {
 
 var value: bool:
 	get: return _CheckButton.button_pressed
+	set(v): _CheckButton.value = v
 
 var editable: bool:
 	get: return _CheckButton.editable
@@ -24,7 +25,6 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	_CheckButton.value = HelperFuncs.GetIfCan(settings, "value", D_value)
 	_runtimeSettableProperties.merge(_specificSettableProps)
 
-
 func _PopulateSubElements() -> Array:
 	# used during Activation Primary to add Counter
 	return ["checkButton"]
@@ -35,4 +35,4 @@ func _getChildData() -> Dictionary:
 	}
 
 func _DataUpProxy(_data) -> void:
-	DataUp.emit(_data, ID, self)
+	DataUp.emit({"value": true}, ID, self)
