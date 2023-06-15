@@ -57,5 +57,5 @@ func _getChildData() -> Dictionary:
 		"value": value,
 	}
 
-func _DataUpProxy(_data) -> void:
-	DataUp.emit(_data, ID, self)
+func _DataUpProxy(newString) -> void:
+	DataUp.emit({"value": newString}, ID, self)
