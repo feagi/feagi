@@ -46,29 +46,37 @@ static func Func_Activate(settings: Dictionary, NewnitObject) -> void:
 
 # Set Properties from dictionary
 static func Func_SetData(input: Dictionary, NewnitObject) -> void:
+	
+	#childrenIDs
+	#ID
+	#_runtimeProperties
+	
 	for key in input.keys():
 		
-		# On the case where the key is an ID of a child
-		var search: int = NewnitObject.childrenIDs.find(key)
-		if search != -1:
-			#dig deeper
+		if key in NewnitObject.childrenIDs:
+			# dig deeper
+			# TODO: This is not particuarly efficient. Too Bad!
+			var search: int = NewnitObject.childrenIDs.find(key)
 			NewnitObject.children[search].SetData(input[key])
-
-		# Key is likely referring to a property on this object then.
-		# confirm to avoid a crash
+			continue
+		
+		# check if key is referring to property of this object
 		if key in NewnitObject._runtimeSettableProperties.keys():
 			
+			# confirm type matches!
 			if typeof(input[key]) != typeof(NewnitObject[key]):
-				print("Input is of type ", typeof(input[key]), "when expected ", typeof(NewnitObject[key]), "! Skipping!")
+				print("Input is of type ", typeof(input[key]), " when expected ", typeof(NewnitObject[key]), "! Skipping!")
 				continue
 			
 			NewnitObject[key] = input[key] # This is blasphemy
-		
+			continue
+	
 		# On the odd case where the key is the ID of this object
 		if key == NewnitObject.ID:
 			# This may be a mistake, but we can use recursion to deal with this
 			print("Recursive ID path detected, readjusting...\nYou may want to fix this...")
 			NewnitObject.SetData(input[key])
+			continue
 		
 		# Key not found!
 		print("Property ", key, " does not exist!")
