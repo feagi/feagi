@@ -25,7 +25,7 @@ var UI_createcorticalBar : Newnit_Box
 var UI_MappingDefinition : Newnit_Box
 var UI_CircuitImport : Newnit_Box
 var UI_GraphCore: GraphCore
-#var UI_CreateMorphology: Unit
+var UI_CreateMorphology: Newnit_Box
 var UI_INDICATOR: Newnit_Box
 var cache: FeagiCache
 var vectors_holder = []
@@ -51,7 +51,8 @@ func Activate(langISO: String):
 	var createindicator = HelperFuncs.GenerateDefinedUnitDict("INDICATOR", currentLanguageISO)
 	_SpawnTopBar(topBarDict)
 	SpawnIndicator(createindicator)
-	SpawnCorticalCrete()
+#	SpawnCorticalCrete()
+	SpawnCreateMophology()
 	
 	# Initialize GraphCore
 	UI_GraphCore = $graphCore #TODO: this is very temporary
@@ -359,11 +360,11 @@ func mapping_definition_button(node):
 #	Autoload_variable.BV_Core.Get_Morphology_information($Brain_Visualizer.name_to_id(node.text))
 	
 func SpawnCreateMophology():
-#	UI_CreateMorphology = SCENE_UNIT.instantiate()
-#	add_child(UI_CreateMorphology)
 	var CMDict = HelperFuncs.GenerateDefinedUnitDict("CREATEMORPHOLOGY", currentLanguageISO)
-#	UI_CreateMorphology.Activate(CMDict)
-#	UI_CreateMorphology.DataUp.connect(CreateMorphologyInput)
+	UI_CreateMorphology = Newnit_Box.new()
+	add_child(UI_CreateMorphology)
+	UI_CreateMorphology.Activate(CMDict)
+	UI_holders.append(UI_CreateMorphology)
 #	var close = UI_CreateMorphology.get_child(0).get_child(1).get_child(0)
 #	var button = UI_CreateMorphology.get_node("Unit_Vectors").get_node("Button_AddRowButton").get_child(0)
 #	var create_button = UI_CreateMorphology.get_node("Button_CreateButton").get_child(0)
@@ -377,9 +378,6 @@ func SpawnCorticalCrete():
 	add_child(UI_createcorticalBar)
 	UI_createcorticalBar.Activate(createcorticalBar)
 	UI_holders.append(UI_createcorticalBar)
-#	UI_createcorticalBar.Activate(createcorticalBar)
-#	UI_createcorticalBar.DataUp.connect(CorticalCreateInput)
-#	var optionbutton = UI_createcorticalBar.get_child(1).get_child(0)
 	var str_array = []
 	for i in $".."/".."/Menu/addition_menu/OptionButton.item_count:
 		str_array.append($".."/".."/Menu/addition_menu/OptionButton.get_item_text(i))
