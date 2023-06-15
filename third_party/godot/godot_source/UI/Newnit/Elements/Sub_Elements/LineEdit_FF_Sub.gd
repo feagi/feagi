@@ -3,7 +3,7 @@ class_name LineEdit_ff_Sub
 
 #TODO - minimum, maximum, prefix, suffix
 
-signal value_edited(val)
+signal value_edited(val: float)
 
 var minWidth: float:
 	get: return get_theme_font("font").get_string_size(text).x
