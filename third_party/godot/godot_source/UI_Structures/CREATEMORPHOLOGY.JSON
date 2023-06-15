@@ -30,18 +30,17 @@
 			   "type":"header",
 			   "ID":"Seed"
 			},
-		  {
+		  	{
 			 "type":"vector3",
 			 "ID":"tempTest"
 	  		},
-
 			{
 			   "type":"header",
 			   "ID":"Pattern"
 			},
 			{
 			   "type":"box",
-			   "ID":"XYZ_s",
+			   "ID":"XYZ_s1",
 			   "vertical":false,
 			   "components":[
 				{

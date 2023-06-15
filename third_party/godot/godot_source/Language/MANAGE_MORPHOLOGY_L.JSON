@@ -50,5 +50,14 @@
     "label": {
       "eng": "Delete"
     }
+  },
+  "third_box": {
+    "third_box1": {
+      "Plasticitytitle": {
+          "sideLabelText": {
+            "eng": "Plasticity"
+          }
+      }
+    }
   }
 }
