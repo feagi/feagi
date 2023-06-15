@@ -48,47 +48,60 @@
 		},
 		{
 			"type": "box",
-			"visibility": 2,
-			"ID": "WHD",
+			"ID": "XYZ",
+		 	"visibility": 2,
 			"components": [
 				{
 					"type": "counter",
-					"ID": "W"
+					"ID": "Pos_X",
+					"max_value": 99999999,
+					"min_value": -99999999
 				},
 				{
 					"type": "counter",
-					"ID": "H"
+					"ID": "Pos_Y",
+					"max_value": 99999999,
+					"min_value": -99999999
 				},
 				{
 					"type": "counter",
-					"ID": "D"
+					"ID": "Pos_Z",
+					"max_value": 99999999,
+					"min_value": -99999999
 				}
 			],
 			"vertical": false
 		},
 		{
 			"type": "box",
-			"ID": "XYZ",
-		 	"visibility": 2,
+			"visibility": 2,
+			"ID": "WHD",
 			"components": [
 				{
 					"type": "counter",
-					"ID": "Pos_X"
+					"ID": "W",
+					"max_value": 99999999,
+					"min_value": 1
 				},
 				{
 					"type": "counter",
-					"ID": "Pos_Y"
+					"ID": "H",
+					"max_value": 99999999,
+					"min_value": 1
 				},
 				{
 					"type": "counter",
-					"ID": "Pos_Z"
+					"ID": "D",
+					"max_value": 99999999,
+					"min_value": 1
 				}
 			],
 			"vertical": false
 		},
 		{
 			"type": "button",
-			"ID": "UpdateButton"
+			"ID": "UpdateButton",
+			"text": "Update"
 		}
 	]
 }
