@@ -309,11 +309,19 @@ func _Relay_circuit_size(_result, _response_code, _headers, _body: PackedByteArr
 
 func _Relay_update_OPU(_result, _response_code, _headers, _body):
 	if LogNetworkError(_result): print("Unable to get Specific OPU"); return
-	Autoload_variable.Core_addition._on_cortical_type_options_request_request_completed(_result, _response_code, _headers, _body)
+	var test_json_conv = JSON.new()
+	test_json_conv.parse(_body.get_string_from_utf8())
+	var api_data = test_json_conv.get_data()
+	UIManager.RelayDownwards(REF.FROM.OPULIST, api_data)
+#	Autoload_variable.Core_addition._on_cortical_type_options_request_request_completed(_result, _response_code, _headers, _body)
 
 func _Relay_update_IPU(_result, _response_code, _headers, _body):
 	if LogNetworkError(_result): print("Unable to get Specific IPU"); return
-	Autoload_variable.Core_addition._on_IPU_list_request_completed(_result, _response_code, _headers, _body)
+	var test_json_conv = JSON.new()
+	test_json_conv.parse(_body.get_string_from_utf8())
+	var api_data = test_json_conv.get_data()
+	UIManager.RelayDownwards(REF.FROM.IPULIST, api_data)
+#	Autoload_variable.Core_addition._on_IPU_list_request_completed(_result, _response_code, _headers, _body)
 	
 
 func _Relay_Efferent(_result, _response_code, _headers, _body: PackedByteArray):
