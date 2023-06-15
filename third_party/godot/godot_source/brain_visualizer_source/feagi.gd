@@ -298,15 +298,12 @@ func _on_Update_pressed(data):
 	var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
 	var viewport = create_textbox.get_node("SubViewport")
 	var store_global_data = []
-
 	create_textbox.set_texture(viewport.get_texture())
 	add_child(copy)
 	global_name_list.append({name_input.replace(" ", "").replace(" ", "") : [copy, x, y, z, width, depth, height]})
 	create_textbox.set_name(name_input + "_textbox")
 	add_child(create_textbox) # Copied the node to new node
 	create_textbox.scale = Vector3(1,1,1)
-
-
 
 	last_cortical_selected["cortical_coordinates"] = []
 	last_cortical_selected["cortical_destinations"] = {}
@@ -551,28 +548,6 @@ func _on_add_pressed(node=[]):
 			json_data["cortical_coordinates"].append($".."/".."/".."/Menu/addition_menu/xyz/Z_Spinbox.value)
 			json_data["channel_count"] = $".."/".."/".."/Menu/addition_menu/count/count_spinbox.value
 			Autoload_variable.BV_Core.Update_cortical_area(json_data)
-		if $".."/".."/".."/Menu/addition_menu/OptionButton.selected == 3:
-			if $".."/".."/".."/Menu/addition_menu/cortical_name_textbox/type.text != "" and $".."/".."/".."/Menu/addition_menu/cortical_name_textbox/type.text != " ":
-				json_data["cortical_type"] = "CUSTOM"
-				json_data["cortical_name"] = $".."/".."/".."/Menu/addition_menu/cortical_name_textbox/type.text
-				json_data["cortical_coordinates"] = []
-				json_data["cortical_dimensions"] = []
-				json_data["cortical_coordinates"].append($".."/".."/".."/Menu/addition_menu/xyz/X_SpinBox.value)
-				json_data["cortical_coordinates"].append($".."/".."/".."/Menu/addition_menu/xyz/Y_Spinbox.value)
-				json_data["cortical_coordinates"].append($".."/".."/".."/Menu/addition_menu/xyz/Z_Spinbox.value)
-				json_data["cortical_dimensions"].append($".."/".."/".."/Menu/addition_menu/wdh/W_Spinbox.value)
-				json_data["cortical_dimensions"].append($".."/".."/".."/Menu/addition_menu/wdh/H_Spinbox.value)
-				json_data["cortical_dimensions"].append($".."/".."/".."/Menu/addition_menu/wdh/D_Spinbox.value)
-				json_data["channel_count"] = $".."/".."/".."/Menu/custom_cortical/count_spinbox.value
-				generate_single_cortical(json_data["cortical_coordinates"][0], json_data["cortical_coordinates"][1], json_data["cortical_coordinates"][2], json_data["cortical_dimensions"][0], json_data["cortical_dimensions"][1], json_data["cortical_dimensions"][2], json_data["cortical_name"])
-				Autoload_variable.BV_Core.Update_custom_cortical_area(json_data)
-				$".."/".."/".."/Menu/addition_menu/add.release_focus()
-				$Node3D/Camera3D.transform.origin=Vector3(json_data["cortical_coordinates"][0]-20,json_data["cortical_coordinates"][1],json_data["cortical_coordinates"][2]+20)
-			else:
-				flag_boolean = true
-		if flag_boolean != true:
-			$".."/".."/".."/Menu/addition_menu.visible = false
-			$".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.load_options()
 	else:
 		print("node: ", node[7])
 		if node[7].selected == 3:

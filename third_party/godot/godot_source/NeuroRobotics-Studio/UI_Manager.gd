@@ -57,7 +57,6 @@ func Activate(langISO: String):
 	global_json_data = test_json_conv.get_data()
 	filess.close()
 #	SpawnIndicator(createindicator)
-#	SpawnCorticalCrete()
 	SpawnCreateMophology()
 	
 	# Initialize GraphCore
@@ -289,10 +288,9 @@ func RelayDownwards(callType, data) -> void:
 #			# Race conditions are technically possible. Verify input
 			if UI_LeftBar == null: 
 				return # ignore if Leftbar isnt open
-#			if data["cortical_id"] != UI_LeftBar.name: return # ignore if the correct sidebar isn't open
-#
-#			data_holder = data.duplicate() ## ??? What is this even for?
+
 #			# Assemble Dict to input values
+			print("data: ", data)
 			var inputVars = {
 				"CorticalName": {"sideLabelText": data["cortical_name"]},
 				"CorticalID": {"sideLabelText": data["cortical_id"]},
@@ -367,32 +365,32 @@ func SpawnCorticalCrete():
 	var createcorticalBar = HelperFuncs.GenerateDefinedUnitDict("CORTICAL_CREATE", currentLanguageISO)
 	add_child(UI_createcorticalBar)
 	UI_createcorticalBar.Activate(createcorticalBar)
-	UI_createcorticalBar.DataUp.connect(CorticalCreateInput)
+#	UI_createcorticalBar.DataUp.connect(CorticalCreateInput)
 	UI_holders.append(UI_createcorticalBar)
 	UI_createcorticalBar.SetData({"CORTICALAREA": {"options": (global_json_data["option"])}})
 #	if UI_createcorticalBar.DataUp.is_connected():
 #	UI_createcorticalBar.DataUp.disconnect()
 #	4.x - emitting_node.signal_name.disconnect(receiving_node.callback_function)
-#	var update = UI_createcorticalBar.get_child(7).get_child(0)
-#	var whd = UI_createcorticalBar.get_child(5)
-#	var xyz = UI_createcorticalBar.get_child(6)
+	var update = UI_createcorticalBar.GetReferenceByID("UpdateButton").get_node("button_UpdateButton")
+	var whd = UI_createcorticalBar.GetReferenceByID("WHD")
+	var xyz = UI_createcorticalBar.GetReferenceByID("XYZ")
 #	var close = UI_createcorticalBar.get_child(0).get_child(1).get_child(0)
-#	var name_input = UI_createcorticalBar.get_child(2).get_child(0).get_child(1)
-#	var optionlist = UI_createcorticalBar.get_child(1).get_child(1)
-#	var w = whd.get_child(0).get_child(1)
-#	var h = whd.get_child(1).get_child(1)
-#	var d = whd.get_child(2).get_child(1)
-#	var x = xyz.get_child(0).get_child(1)
-#	var y = xyz.get_child(1).get_child(1)
-#	var z = xyz.get_child(2).get_child(1)
-#	w.connect("value_changed",Callable($Brain_Visualizer,"_on_W_Spinbox_value_changed").bind([w,h,d,x,y,z]))
-#	h.connect("value_changed",Callable($Brain_Visualizer,"_on_H_Spinbox_value_changed").bind([w,h,d,x,y,z]))
-#	d.connect("value_changed",Callable($Brain_Visualizer,"_on_D_Spinbox_value_changed").bind([w,h,d,x,y,z]))
-#	x.connect("value_changed",Callable($Brain_Visualizer,"_on_X_SpinBox_value_changed").bind([w,h,d,x,y,z]))
-#	y.connect("value_changed",Callable($Brain_Visualizer,"_on_Y_Spinbox_value_changed").bind([w,h,d,x,y,z]))
-#	z.connect("value_changed",Callable($Brain_Visualizer,"_on_Z_Spinbox_value_changed").bind([w,h,d,x,y,z]))
-#	name_input.connect("text_changed",Callable($"../../Button_to_Autoload","_on_type_text_changed"))
-#	update.connect("pressed",Callable($Brain_Visualizer,"_on_add_pressed").bind([w,h,d,x,y,z, name_input, optionlist, update]))
+	var name_input = UI_createcorticalBar.GetReferenceByID("corticalnametext").get_node("field_CORTICALAREA").get_node("field_CORTICALAREA")
+	var optionlist = UI_createcorticalBar.GetReferenceByID("CORTICALAREA").get_node("dropDown_CORTICALAREA")
+	var w = whd.get_node("counter_W").get_node("counter_W")
+	var h = whd.get_node("counter_H").get_node("counter_H")
+	var d = whd.get_node("counter_D").get_node("counter_D")
+	var x = xyz.get_node("counter_Pos_X").get_node("counter_Pos_X")
+	var y = xyz.get_node("counter_Pos_Y").get_node("counter_Pos_Y")
+	var z = xyz.get_node("counter_Pos_Z").get_node("counter_Pos_Z")
+	w.connect("value_changed",Callable($Brain_Visualizer,"_on_W_Spinbox_value_changed").bind([w,h,d,x,y,z]))
+	h.connect("value_changed",Callable($Brain_Visualizer,"_on_H_Spinbox_value_changed").bind([w,h,d,x,y,z]))
+	d.connect("value_changed",Callable($Brain_Visualizer,"_on_D_Spinbox_value_changed").bind([w,h,d,x,y,z]))
+	x.connect("value_changed",Callable($Brain_Visualizer,"_on_X_SpinBox_value_changed").bind([w,h,d,x,y,z]))
+	y.connect("value_changed",Callable($Brain_Visualizer,"_on_Y_Spinbox_value_changed").bind([w,h,d,x,y,z]))
+	z.connect("value_changed",Callable($Brain_Visualizer,"_on_Z_Spinbox_value_changed").bind([w,h,d,x,y,z]))
+	name_input.connect("text_changed",Callable($"../../Button_to_Autoload","_on_type_text_changed"))
+	update.connect("pressed",Callable($Brain_Visualizer,"_on_add_pressed").bind([w,h,d,x,y,z, name_input, optionlist, update]))
 
 #func SpawnNeuronMorphology():
 #	UI_CreateNeuronMorphology = SCENE_UNIT.instantiate()
