@@ -61,8 +61,8 @@ func _PopulateSubElements() -> Array:
 
 func _getChildData() -> Dictionary:
 	return {
-		"vectorValue": vectorValue,
+		"value": vectorValue,
 	}
 
-func _DataUpProxy(_data) -> void:
-	DataUp.emit(vectorValue, ID, self)
+func _DataUpProxy(_data) -> void: # The data from a single FF is irrelevant, send the whole vector
+	DataUp.emit({"value": vectorValue}, ID, self)
