@@ -24,7 +24,7 @@
 		},
 		{
 			"type": "box",
-			"visibility": 2,
+			"visibility": 0,
 			"ID": "corticalnamedrop",
 			"components": [
 				{
