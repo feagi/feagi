@@ -270,30 +270,29 @@ func generate_single_cortical(x,y,z,width, depth, height, name_input):
 		generate_one_model(create_textbox, x,y,z,width, height, depth, name_input)
 
 func _on_Update_pressed(data):
-	print(data)
-	var x = data["cortical_coordinates"][0];
-	var y = data["cortical_coordinates"][1];
-	var z = data["cortical_coordinates"][2];
-	var id_input = str(data["cortical_id"]);
-	var width= data["cortical_dimensions"][0];
-	var height = data["cortical_dimensions"][1];
-	var depth = data["cortical_dimensions"][2];
-	var synaptic_attractivity = int(data["cortical_synaptic_attractivity"]);
-	var post_synaptic_potential = data["neuron_post_synaptic_potential"];
-	var post_synaptic_potential_max = float(data["neuron_post_synaptic_potential_max"]);
-	var plasticity_coef = float($".."/".."/".."/Menu/properties/Control/plst.value);
-	var fire_threshold = float($".."/".."/".."/Menu/properties/Control/fire.value);
-	var fire_threshold_limit = int($".."/".."/".."/Menu/properties/Control/Threshold_Sensitivity_text.value)
-	var refractory_period = int($".."/".."/".."/Menu/properties/Control/refa.value);
-	var leak_coefficient = float($".."/".."/".."/Menu/properties/Control/leak.text);
-	var leak_variability = float($".."/".."/".."/Menu/properties/Control/leak_Vtext.text);
-	var fire_threshold_increment = $".."/".."/".."/Menu/properties/Control/fireshold_increment.text
-	var consecutive_fire_count = int($".."/".."/".."/Menu/properties/Control/cfr.value);
-	var snooze_period = int($".."/".."/".."/Menu/properties/Control/snze.value);
-	var degenerecy_coefficient = float($".."/".."/".."/Menu/properties/Control/dege.value);
-	var psp_uniform_distribution = $".."/".."/".."/Menu/properties/Control/psud.is_pressed()
-	var MP_accumulation = $".."/".."/".."/Menu/properties/Control/MP.is_pressed()
-	var name_input = $".."/".."/".."/Menu/cortical_menu/Control/name_string.text
+	var x = data.GetReferenceByID("XYZ").get_node("counter_Pos_X").get_node("counter_Pos_X").value;
+	var y = data.GetReferenceByID("XYZ").get_node("counter_Pos_Y").get_node("counter_Pos_Y").value;
+	var z = data.GetReferenceByID("XYZ").get_node("counter_Pos_Z").get_node("counter_Pos_Z").value;
+	var id_input = str(data.GetReferenceByID("CorticalID").get_node("sideLabel_CorticalID").text);
+	var width= data.GetReferenceByID("WHD").get_node("counter_W").get_node("counter_W").value;
+	var height = data.GetReferenceByID("WHD").get_node("counter_H").get_node("counter_H").value;
+	var depth = data.GetReferenceByID("WHD").get_node("counter_D").get_node("counter_D").value;
+	var synaptic_attractivity = data.GetReferenceByID("SynapticAttractivity").get_node("counter_SynapticAttractivity").value;
+	var post_synaptic_potential = data.GetReferenceByID("PostSynapticPotential").get_node("floatField_PostSynapticPotential").value;
+	var post_synaptic_potential_max = float(data.GetReferenceByID("PSPMax").get_node("floatField_PSPMax").value);
+	var plasticity_coef = float(data.GetReferenceByID("PlasticityConstant").get_node("floatField_PlasticityConstant").value);
+	var fire_threshold = float(data.GetReferenceByID("FireThreshold").get_node("floatField_FireThreshold").value);
+	var fire_threshold_limit = data.GetReferenceByID("Thresholdlimit").get_node("counter_Thresholdlimit").value;
+	var refractory_period = data.GetReferenceByID("RefactoryPeriod").get_node("counter_RefactoryPeriod").value;
+	var leak_coefficient = float(data.GetReferenceByID("LeakConstant").get_node("floatField_LeakConstant").value);
+	var leak_variability = float(data.GetReferenceByID("LeakVaribility").get_node("floatField_LeakVaribility").value);
+	var fire_threshold_increment = float(data.GetReferenceByID("ThresholdINC").get_node("floatField_ThresholdINC").value);
+	var consecutive_fire_count = data.GetReferenceByID("ConsecutiveFireCount").get_node("counter_ConsecutiveFireCount").value;
+	var snooze_period = float(data.GetReferenceByID("SnoozePeriod").get_node("floatField_SnoozePeriod").value);
+	var degenerecy_coefficient = float(data.GetReferenceByID("DegeneracyConstant").get_node("floatField_DegeneracyConstant").value);
+	var psp_uniform_distribution = data.GetReferenceByID("PSPUNI").get_node("checkButton_PSPUNI").is_pressed()
+	var MP_accumulation = data.GetReferenceByID("ChargeACC").get_node("checkButton_ChargeACC").is_pressed()
+	var name_input = data.GetReferenceByID("CorticalName").get_node("sideLabel_CorticalName").text
 	var copy = duplicate_model.duplicate()
 	var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
 	var viewport = create_textbox.get_node("SubViewport")
@@ -341,7 +340,7 @@ func _on_Update_pressed(data):
 		last_cortical_selected["cortical_id"]= id_input
 	last_cortical_selected["cortical_name"] = name_input
 	last_cortical_selected["cortical_group"] = last_cortical_selected["cortical_group"]
-	last_cortical_selected["cortical_neuron_per_vox_count"] = $".."/".."/".."/Menu/properties/Control/neuron_count.value
+	last_cortical_selected["cortical_neuron_per_vox_count"] = data.GetReferenceByID("VoxelNeuronDensity").get_node("counter_VoxelNeuronDensity").value;
 	last_cortical_selected["cortical_coordinates"].append(x)
 	last_cortical_selected["cortical_coordinates"].append(y)
 	last_cortical_selected["cortical_coordinates"].append(z)
@@ -363,6 +362,7 @@ func _on_Update_pressed(data):
 	last_cortical_selected["neuron_degeneracy_coefficient"] = degenerecy_coefficient
 	last_cortical_selected["neuron_psp_uniform_distribution"] = psp_uniform_distribution
 	last_cortical_selected["neuron_mp_charge_accumulation"] = bool(MP_accumulation)
+	print(last_cortical_selected)
 	Autoload_variable.BV_Core.Update_Genome_CorticalArea(last_cortical_selected)
 	$".."/".."/".."/Menu/cortical_menu/Control/Update.release_focus()
 	$".."/".."/".."/Menu/properties/Control/Update.release_focus()
@@ -490,18 +490,14 @@ func _on_information_button_request_completed(_result, _response_code, _headers,
 	
 	if _response_code == 200 and not api_data.has("Request failed..."):
 		var new_name = ""
-		var counter = 0 # To increase the height between two different duplicated nodes
 		var UI_LeftBar = $"..".UI_LeftBar
-		var id = $"..".UI_LeftBar.GetReferenceByID("CorticalID").get_node("field_CorticalID")
 		for i in api_data:
 			var new_node = UI_LeftBar.GetReferenceByID("blank_efferent").get_node("button_blank_efferent").get_node("button_blank_efferent").duplicate()
 			UI_LeftBar.GetReferenceByID("blank_efferent").get_node("button_blank_efferent").add_child(new_node)
 			child_node_holder.append(new_node)
 			new_name = id_to_name(i)
 			new_node.text = new_name
-#			new_node.position.y = (counter * 60)
 			new_node.connect("pressed",Callable($"..","mapping_definition_button").bind(new_node))
-			counter += 1
 #		map_colorful()
 	#	$".."/".."/".."/Menu/cortical_menu/Control/Update.position.y = 10 + $".."/".."/".."/Menu/cortical_mapping/Control/ScrollContainer/VBoxContainer.size.y + $".."/".."/".."/Menu/cortical_mapping.position.y
 	else:
@@ -766,7 +762,6 @@ func _on_plus_add_pressed():
 #				new_node.get_child(0).connect("pressed",Callable(self,"_on_Mapping_def_pressed"))
 #				new_node.get_child(4).text_changed.connect(_on_text_changed.bind(new_node.get_child(4)))
 	ghost_morphology.append(new_node)
-	var dropdown = new_node.get_node("dropdown_mappingdefinitions").get_node("dropDown_mappingdefinitions")
 	new_node.visible = true
 	new_node.get_node("box_overwritescalar").get_node("box_XYZ").get_child(0).get_child(1).value = 1
 	new_node.get_node("box_overwritescalar").get_node("box_XYZ").get_child(1).get_child(1).value = 1
