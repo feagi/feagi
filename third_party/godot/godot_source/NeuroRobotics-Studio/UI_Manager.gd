@@ -289,7 +289,7 @@ func RelayDownwards(callType, data) -> void:
 
 		REF.FROM.circuit_size:
 			if UI_CircuitImport:
-				UI_CircuitImport.SetData({"WHD": {"W":{"value": data[0]}, "H":{"value": data[1]}, "D":{"value": data[2]}}})
+				UI_CircuitImport.SetData({"WHD": {"W":{"value": int(data[0])}, "H":{"value": int(data[1])}, "D":{"value": int(data[2])}}})
 		REF.FROM.circuit_list:
 			if UI_CircuitImport:
 				UI_CircuitImport.SetData({"dropdowncircuit": {"options":data}})
