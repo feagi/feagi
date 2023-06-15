@@ -277,6 +277,7 @@ func _on_Update_pressed(data):
 	var width= data.GetReferenceByID("WHD").get_node("counter_W").get_node("counter_W").value;
 	var height = data.GetReferenceByID("WHD").get_node("counter_H").get_node("counter_H").value;
 	var depth = data.GetReferenceByID("WHD").get_node("counter_D").get_node("counter_D").value;
+	var cortical_neuron_per_vox_count = data.GetReferenceByID("VoxelNeuronDensity").get_node("counter_VoxelNeuronDensity").value;
 	var synaptic_attractivity = data.GetReferenceByID("SynapticAttractivity").get_node("counter_SynapticAttractivity").value;
 	var post_synaptic_potential = data.GetReferenceByID("PostSynapticPotential").get_node("floatField_PostSynapticPotential").value;
 	var post_synaptic_potential_max = float(data.GetReferenceByID("PSPMax").get_node("floatField_PSPMax").value);
@@ -340,7 +341,7 @@ func _on_Update_pressed(data):
 		last_cortical_selected["cortical_id"]= id_input
 	last_cortical_selected["cortical_name"] = name_input
 	last_cortical_selected["cortical_group"] = last_cortical_selected["cortical_group"]
-	last_cortical_selected["cortical_neuron_per_vox_count"] = data.GetReferenceByID("VoxelNeuronDensity").get_node("counter_VoxelNeuronDensity").value;
+	last_cortical_selected["cortical_neuron_per_vox_count"] = cortical_neuron_per_vox_count
 	last_cortical_selected["cortical_coordinates"].append(x)
 	last_cortical_selected["cortical_coordinates"].append(y)
 	last_cortical_selected["cortical_coordinates"].append(z)
