@@ -6,6 +6,10 @@ signal value_edited(newString: String)
 var minWidth: float:
 	get: return get_theme_font("font").get_string_size(text).x
 
+var value:
+	get: return text
+	set(v): text = v
+
 var _cacheText: String
 
 func _ready():
