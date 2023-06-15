@@ -1,76 +1,76 @@
 {
 	"NewCorticalSection": {
-		"label": {
+		"sideLabelText": {
 			"eng": "Add New Cortical Area"
 		}
 	},
 	"CORTICALAREA": {
-		"label": {
+		"sideLabelText": {
 			"eng": "Cortical Area Type"
 		}
 	},
 	"corticalnametext": {
 		"CORTICALAREA": {
-			"label": {
+			"sideLabelText": {
 				"eng": "Cortical Name"
 			}
 		}
 	},
 	"CORTICALNAME": {
-		"label": {
+		"sideLabelText": {
 			"eng": "Cortical Name"
 		}
 	},
 	"WHD": {
 		"W": {
-			"label": {
+			"sideLabelText": {
 				"eng": "W"
 			}
 		},
 		"H": {
-			"label": {
+			"sideLabelText": {
 				"eng": "H"
 			}
 		},
 		"D": {
-			"label": {
+			"sideLabelText": {
 				"eng": "D"
 			}
 		}
 	},
 	"XYZ": {
 		"Pos_X": {
-			"label": {
+			"sideLabelText": {
 				"eng": "X"
 			}
 		},
 		"Pos_Y": {
-			"label": {
+			"sideLabelText": {
 				"eng": "Y"
 			}
 		},
 		"Pos_Z": {
-			"label": {
+			"sideLabelText": {
 				"eng": "Z"
 			}
 		}
 	},
 	"corticalnamedrop": {
 		"CORTICALAREA": {
-			"label": {
+			"sideLabelText": {
 				"eng": "Cortical Name"
 			}
 		}
 	},
 	"OPUIPU": {
 		"CHANNELCOUNT": {
-			"label": {
+			"sideLabelText": {
 				"eng": "Channel Count"
 			}
 		}
 	},
 	"UpdateButton": {
-		"label": {
+		"sideLabelText": {
 			"eng": "Update"
 		}
 	}

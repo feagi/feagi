@@ -2,8 +2,8 @@
 	"ID": "CREATE_CORTICAL",
   	"enableTitleBar": true,
   	"titleBarTitle": "Add New Cortical Area",
-	"HpositionX": 100,
-	"HpositionY": 400,
+	"positionX": 100,
+	"positionY": 400,
 	"enableCloseButton": true,
 	"components": [
 		{
@@ -11,7 +11,7 @@
 			"type": "dropdown"
 		},
 		{
-			"type": "unit",
+			"type": "box",
 			"visibility": 2,
 			"ID": "corticalnametext",
 			"components": [
@@ -20,10 +20,10 @@
 					"ID": "CORTICALAREA"
 				}
 			],
-			"isVertical": true
+			"vertical": true
 		},
 		{
-			"type": "unit",
+			"type": "box",
 			"visibility": 2,
 			"ID": "corticalnamedrop",
 			"components": [
@@ -32,10 +32,10 @@
 					"ID": "CORTICALAREA"
 				}
 			],
-			"isVertical": true
+			"vertical": true
 		},
 		{
-			"type": "unit",
+			"type": "box",
 			"visibility": 0,
 			"ID": "OPUIPU",
 			"components": [
@@ -44,10 +44,10 @@
 					"ID": "CHANNELCOUNT"
 				}
 			],
-			"isVertical": true
+			"vertical": true
 		},
 		{
-			"type": "unit",
+			"type": "box",
 			"visibility": 2,
 			"ID": "WHD",
 			"components": [
@@ -64,10 +64,10 @@
 					"ID": "D"
 				}
 			],
-			"isVertical": false
+			"vertical": false
 		},
 		{
-			"type": "unit",
+			"type": "box",
 			"ID": "XYZ",
 		 	"visibility": 2,
 			"components": [
@@ -84,7 +84,7 @@
 					"ID": "Pos_Z"
 				}
 			],
-			"isVertical": false
+			"vertical": false
 		},
 		{
 			"type": "button",

@@ -1,11 +1,11 @@
 {
    "MorphologyName":{
-	  "label":{
+	  "sideLabelText":{
 		 "eng":"Morphology Name"
 	  }
    },
    "MorphologyType":{
-	  "label":{
+	  "sideLabelText":{
 		 "eng":"Morphology Type"
 	  },
 	  "options":{
@@ -17,44 +17,78 @@
 	  }
    },
    "MorphologyDefinition":{
-	  "label":{
+	  "sideLabelText":{
 		 "eng":"Morphology Definition"
 	  }
    },
    "Composite":{
 	  "Seed":{
-		 "label":{
+		 "sideLabelText":{
 			"eng":"Seed"
 		 }
 	  },
+	   "XYZ_Seed":
+	   {
+		   "X": {
+		 	"sideLabelText":{
+				"eng":"X"
+		 }
+		   },
+		   	"XYZ_s": {
+				"XYZ_s": {
+					"X_title": {
+					"sideLabelText": {
+						"eng": "test"
+					}
+			}
+		}
+	},
+		   "Y": {
+		 	"sideLabelText":{
+				"eng":"Y"
+		 }
+		   },
+		   "Z": {
+		 	"sideLabelText":{
+				"eng":"Z"
+		 }
+		   }
+	   },
 	  "Pattern":{
-		 "label":{
+		 "sideLabelText":{
 			"eng":"Pattern"
 		 }
 	  },
 	  "Mapper":{
-		 "label":{
-			"eng":"Mapper"
+		 "sideLabelText":{
+			"eng":"Morphology Type: "
 		 }
 	  }
    },
    "Patterns":{
 	  "AddRowButton":{
-		 "label":{
-			"eng":"Add Row"
+		 "sideLabelText":{
+			"eng":""
 		 }
-	  }
+	  },
+	   "PatternRow0": {
+		   "arrow": {
+			   "sideLabelText": {
+				   "eng": "->"
+			   }
+		   }
+	   }
    },
    "Vectors":{
 	  "AddRowButton":{
-		 "label":{
-			"eng":"Add Row"
+		 "sideLabelText":{
+			"eng":""
 		 }
 	  }
    },
    "CreateButton":{
-	  "label":{
-		 "eng":"Create"
+	  "sideLabelText":{
+		 "eng":""
 	  }
    }
 }

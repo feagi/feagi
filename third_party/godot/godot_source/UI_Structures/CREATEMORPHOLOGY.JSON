@@ -3,10 +3,10 @@
    "enableTitleBar":true,
    "titleBarTitle":"Create new Neuron Morphology",
    "enableCloseButton":true,
-   "isVertical":true,
+   "vertical":true,
    "widthAlignment":1,
-	"HpositionX": 400,
-	"HpositionY": 200,
+	"positionX": 400,
+	"positionY": 200,
    "components":[
 	  {
 		 "type":"field",
@@ -21,214 +21,43 @@
 		 "ID":"MorphologyDefinition"
 	  },
 	  {
-		 "type":"unit",
+		 "type":"box",
 		 "ID":"Composite",
-		 "isVertical":true,
+		 "vertical":true,
 		 "visibility": 0,
 		 "components":[
 			{
 			   "type":"header",
 			   "ID":"Seed"
 			},
-			{
-			   "type":"unit",
-			   "ID":"XYZ_Seed",
-			   "isVertical":false,
-			   "components":[
-				  {
-					 "type":"floatField",
-					 "ID":"X",
-					 "label":"X"
-				  },
-				  {
-					 "type":"floatField",
-					 "ID":"Y",
-					 "label":"Y"
-				  },
-				  {
-					 "type":"floatField",
-					 "ID":"Z",
-					 "label":"Z"
-				  }
-			   ]
-			},
+		  {
+			 "type":"vector3",
+			 "ID":"tempTest"
+	  		},
+
 			{
 			   "type":"header",
 			   "ID":"Pattern"
 			},
 			{
-			   "type":"unit",
-			   "ID":"XYZ_Labels",
-			   "isVertical":false,
-			   "components":[
-				  {
-					 "type":"header",
-					 "ID":"X",
-					 "label":"X"
-				  },
-				  {
-					 "type":"header",
-					 "ID":"Y",
-					 "label":"Y"
-				  },
-				  {
-					 "type":"header",
-					 "ID":"Z",
-					 "label":"Z"
-				  }
-			   ]
-			},
-			{
-			   "type":"unit",
-			   "ID":"XYZ_c",
-			   "isVertical":false,
-			   "components":[
-				  {
-					 "type":"floatField",
-					 "ID":"X",
-					 "label":"c"
-				  },
-				  {
-					 "type":"floatField",
-					 "ID":"Y",
-					 "label":"c"
-				  },
-				  {
-					 "type":"floatField",
-					 "ID":"Z",
-					 "label":"c"
-				  }
-			   ]
-			},
-			{
-			   "type":"unit",
+			   "type":"box",
 			   "ID":"XYZ_s",
-			   "isVertical":false,
+			   "vertical":false,
 			   "components":[
-				  {
-					 "type":"floatField",
-					 "ID":"X",
-					 "label":"s"
-				  },
-				  {
-					 "type":"floatField",
-					 "ID":"Y",
-					 "label":"s"
-				  },
-				  {
-					 "type":"floatField",
-					 "ID":"Z",
-					 "label":"s"
-				  }
+				{
+				   "type":"box",
+				   "ID":"XYZ_s",
+				   "vertical":false,
+				   "components": [
+					   {
+						   "type":"header",
+						   "ID":"X_title"
+						}
+
+				   ]}
 			   ]
-			},
-			{
-			   "type":"dropdown",
-			   "ID":"Mapper"
 			}
 		 ]
-	  },
-	  {
-		 "type":"unit",
-		 "ID":"Patterns",
-		 "isVertical":true,
-		 "visibility": 0,
-		 "components":[
-			{
-			   "type":"unit",
-			   "ID":"PatternRow0",
-			   "isVertical":false,
-			   "components":[
-				  {
-					 "type":"floatField",
-					 "ID":"Xi",
-					 "label":"X"
-				  },
-				  {
-					 "type":"floatField",
-					 "ID":"Yi",
-					 "label":"Y"
-				  },
-				  {
-					 "type":"floatField",
-					 "ID":"Zi",
-					 "label":"Z"
-				  },
-				  {
-					 "type":"header",
-					 "ID":"arrow",
-					 "label":"->"
-				  },
-				  {
-					 "type":"floatField",
-					 "ID":"Xo",
-					 "label":"X"
-				  },
-				  {
-					 "type":"floatField",
-					 "ID":"Yo",
-					 "label":"Y"
-				  },
-				  {
-					 "type":"floatField",
-					 "ID":"Zo",
-					 "label":"Z"
-				  },
-				  {
-					 "type":"button",
-					 "ID":"RemoveSelfRowButton",
-					 "label":"-"
-				  }
-			   ]
-			},
-			{
-			   "type":"button",
-			   "ID":"AddRowButton"
-			}
-		 ]
-	  },
-	  {
-		 "type":"unit",
-		 "ID":"Vectors",
-		 "isVertical":true,
-		 "visibility": 0,
-		 "components":[
-			{
-			   "type":"unit",
-			   "ID":"XYZ",
-			   "isVertical":false,
-			   "components":[
-				  {
-					 "type":"floatField",
-					 "ID":"X",
-					 "label":"X"
-				  },
-				  {
-					 "type":"floatField",
-					 "ID":"Y",
-					 "label":"Y"
-				  },
-				  {
-					 "type":"floatField",
-					 "ID":"Z",
-					 "label":"Z"
-				  },
-				  {
-					 "type":"button",
-					 "ID":"RemoveRowButton",
-					 "label":"-"
-				  }
-			   ]
-			},
-			{
-			   "type":"button",
-			   "ID":"AddRowButton"
-			}
-		 ]
-	  },
-	  {
-		 "type":"button",
-		 "ID":"CreateButton"
 	  }
    ]
 }
