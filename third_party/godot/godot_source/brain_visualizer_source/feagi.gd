@@ -269,31 +269,31 @@ func generate_single_cortical(x,y,z,width, depth, height, name_input):
 	else:
 		generate_one_model(create_textbox, x,y,z,width, height, depth, name_input)
 
-func _on_Update_pressed(data):
-	var x = data.GetReferenceByID("XYZ").get_node("counter_Pos_X").get_node("counter_Pos_X").value;
-	var y = data.GetReferenceByID("XYZ").get_node("counter_Pos_Y").get_node("counter_Pos_Y").value;
-	var z = data.GetReferenceByID("XYZ").get_node("counter_Pos_Z").get_node("counter_Pos_Z").value;
-	var id_input = str(data.GetReferenceByID("CorticalID").get_node("sideLabel_CorticalID").text);
-	var width= data.GetReferenceByID("WHD").get_node("counter_W").get_node("counter_W").value;
-	var height = data.GetReferenceByID("WHD").get_node("counter_H").get_node("counter_H").value;
-	var depth = data.GetReferenceByID("WHD").get_node("counter_D").get_node("counter_D").value;
-	var cortical_neuron_per_vox_count = data.GetReferenceByID("VoxelNeuronDensity").get_node("counter_VoxelNeuronDensity").value;
-	var synaptic_attractivity = data.GetReferenceByID("SynapticAttractivity").get_node("counter_SynapticAttractivity").value;
-	var post_synaptic_potential = data.GetReferenceByID("PostSynapticPotential").get_node("floatField_PostSynapticPotential").value;
-	var post_synaptic_potential_max = float(data.GetReferenceByID("PSPMax").get_node("floatField_PSPMax").value);
-	var plasticity_coef = float(data.GetReferenceByID("PlasticityConstant").get_node("floatField_PlasticityConstant").value);
-	var fire_threshold = float(data.GetReferenceByID("FireThreshold").get_node("floatField_FireThreshold").value);
-	var fire_threshold_limit = data.GetReferenceByID("Thresholdlimit").get_node("counter_Thresholdlimit").value;
-	var refractory_period = data.GetReferenceByID("RefactoryPeriod").get_node("counter_RefactoryPeriod").value;
-	var leak_coefficient = float(data.GetReferenceByID("LeakConstant").get_node("floatField_LeakConstant").value);
-	var leak_variability = float(data.GetReferenceByID("LeakVaribility").get_node("floatField_LeakVaribility").value);
-	var fire_threshold_increment = float(data.GetReferenceByID("ThresholdINC").get_node("floatField_ThresholdINC").value);
-	var consecutive_fire_count = data.GetReferenceByID("ConsecutiveFireCount").get_node("counter_ConsecutiveFireCount").value;
-	var snooze_period = float(data.GetReferenceByID("SnoozePeriod").get_node("floatField_SnoozePeriod").value);
-	var degenerecy_coefficient = float(data.GetReferenceByID("DegeneracyConstant").get_node("floatField_DegeneracyConstant").value);
-	var psp_uniform_distribution = data.GetReferenceByID("PSPUNI").get_node("checkButton_PSPUNI").is_pressed()
-	var MP_accumulation = data.GetReferenceByID("ChargeACC").get_node("checkButton_ChargeACC").is_pressed()
-	var name_input = data.GetReferenceByID("CorticalName").get_node("sideLabel_CorticalName").text
+func _on_Update_pressed(data_input):
+	var x = data_input.GetReferenceByID("XYZ").get_node("counter_Pos_X").get_node("counter_Pos_X").value;
+	var y = data_input.GetReferenceByID("XYZ").get_node("counter_Pos_Y").get_node("counter_Pos_Y").value;
+	var z = data_input.GetReferenceByID("XYZ").get_node("counter_Pos_Z").get_node("counter_Pos_Z").value;
+	var id_input = str(data_input.GetReferenceByID("CorticalID").get_node("sideLabel_CorticalID").text);
+	var width= data_input.GetReferenceByID("WHD").get_node("counter_W").get_node("counter_W").value;
+	var height = data_input.GetReferenceByID("WHD").get_node("counter_H").get_node("counter_H").value;
+	var depth = data_input.GetReferenceByID("WHD").get_node("counter_D").get_node("counter_D").value;
+	var cortical_neuron_per_vox_count = data_input.GetReferenceByID("VoxelNeuronDensity").get_node("counter_VoxelNeuronDensity").value;
+	var synaptic_attractivity = data_input.GetReferenceByID("SynapticAttractivity").get_node("counter_SynapticAttractivity").value;
+	var post_synaptic_potential = data_input.GetReferenceByID("PostSynapticPotential").get_node("floatField_PostSynapticPotential").value;
+	var post_synaptic_potential_max = float(data_input.GetReferenceByID("PSPMax").get_node("floatField_PSPMax").value);
+	var plasticity_coef = float(data_input.GetReferenceByID("PlasticityConstant").get_node("floatField_PlasticityConstant").value);
+	var fire_threshold = float(data_input.GetReferenceByID("FireThreshold").get_node("floatField_FireThreshold").value);
+	var fire_threshold_limit = data_input.GetReferenceByID("Thresholdlimit").get_node("counter_Thresholdlimit").value;
+	var refractory_period = data_input.GetReferenceByID("RefactoryPeriod").get_node("counter_RefactoryPeriod").value;
+	var leak_coefficient = float(data_input.GetReferenceByID("LeakConstant").get_node("floatField_LeakConstant").value);
+	var leak_variability = float(data_input.GetReferenceByID("LeakVaribility").get_node("floatField_LeakVaribility").value);
+	var fire_threshold_increment = float(data_input.GetReferenceByID("ThresholdINC").get_node("floatField_ThresholdINC").value);
+	var consecutive_fire_count = data_input.GetReferenceByID("ConsecutiveFireCount").get_node("counter_ConsecutiveFireCount").value;
+	var snooze_period = float(data_input.GetReferenceByID("SnoozePeriod").get_node("floatField_SnoozePeriod").value);
+	var degenerecy_coefficient = float(data_input.GetReferenceByID("DegeneracyConstant").get_node("floatField_DegeneracyConstant").value);
+	var psp_uniform_distribution = data_input.GetReferenceByID("PSPUNI").get_node("checkButton_PSPUNI").is_pressed()
+	var MP_accumulation = data_input.GetReferenceByID("ChargeACC").get_node("checkButton_ChargeACC").is_pressed()
+	var name_input = data_input.GetReferenceByID("CorticalName").get_node("sideLabel_CorticalName").text
 	var copy = duplicate_model.duplicate()
 	var create_textbox = textbox_display.duplicate() #generate a new node to re-use the model
 	var viewport = create_textbox.get_node("SubViewport")
