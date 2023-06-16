@@ -360,10 +360,7 @@ func _on_Update_pressed(data):
 	last_cortical_selected["neuron_degeneracy_coefficient"] = degenerecy_coefficient
 	last_cortical_selected["neuron_psp_uniform_distribution"] = psp_uniform_distribution
 	last_cortical_selected["neuron_mp_charge_accumulation"] = bool(MP_accumulation)
-	print(last_cortical_selected)
 	Autoload_variable.BV_Core.Update_Genome_CorticalArea(last_cortical_selected)
-	$".."/".."/".."/Menu/cortical_menu/Control/Update.release_focus()
-	$".."/".."/".."/Menu/properties/Control/Update.release_focus()
 
 	var list_size = global_name_list.size()
 	for i in list_size:
