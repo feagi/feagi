@@ -37,7 +37,13 @@
 				{
 					"type": "header",
 					"ID": "overwritescalartitle",
-					"paddingX": 100
+					"paddingX": 200,
+					"paddingY": 0
+				},
+				{
+					"type": "header",
+					"ID": "PSPMULTIPLER",
+					"text": "PSP Multiplier Plasticity"
 				}
 			],
 			"vertical": false
@@ -97,7 +103,13 @@
 							"type": "checkbutton",
 							"ID": "PSPTOGGLE"
 						}
-						]}
+						]},
+				{
+					"type": "button",
+					"ID": "mappingdefbuttonminus",
+					"text": "i",
+					"sideButtonText": "-"
+				}
 			],
 			"vertical": false
 		}
