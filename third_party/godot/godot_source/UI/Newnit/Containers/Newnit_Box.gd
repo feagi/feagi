@@ -55,9 +55,6 @@ func GetReferenceByID(searchID: StringName): # returns either a bool or a Node
 
 const NEWNIT_CONTAINER_CORE = preload("res://UI/Newnit/PreloadScripts/Container_Core.gd")
 
-var children: Array:
-	get: return NEWNIT_CONTAINER_CORE.Get_children(self)
-
 func SpawnChild(childActivationSettings: Dictionary) -> void:
 	NEWNIT_CONTAINER_CORE.Func_SpawnChild(childActivationSettings, self)
 
@@ -76,6 +73,9 @@ func _DataUpProxy(data: Dictionary, recievedID: String, reference: Node) -> void
 ################################################# END Newnit Containers Parallel #######################
 
 ### Start Box Container Unique
+
+var children: Array:
+	get: return NEWNIT_CONTAINER_CORE.Get_children(self)
 
 var specificSettableProps := {
 	"alignment": TYPE_INT,
