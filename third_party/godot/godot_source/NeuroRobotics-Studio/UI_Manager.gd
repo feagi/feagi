@@ -110,7 +110,6 @@ func TopBarInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
 			DataUp.emit({"updatedBurstRate": data["value"]})
 
 func CreateMorphologyInput(data: Dictionary, _compRef: Node, _unitRef: Node):
-	print("data: ", data)
 	if "MorphologyType" == data["compID"]:
 		#Drop down is changed, toggle between available morphology wizards
 		var composite: Node = _unitRef.get_node("Unit_Composite")
@@ -132,7 +131,7 @@ func CreateMorphologyInput(data: Dictionary, _compRef: Node, _unitRef: Node):
 ######### Side Bar Control #########
 
 func LeftBarInput(data: Dictionary, _compRef, _unitRef):
-	print(JSON.stringify(data)) # useful for debugging
+#	print(JSON.stringify(data)) # useful for debugging
 	match(data["ID"]):
 		"UpdateButton":
 			print("Update pressed!")
@@ -247,7 +246,6 @@ func RelayDownwards(callType, data) -> void:
 	match(callType):
 		REF.FROM.healthstatus:
 			if UI_INDICATOR:
-				print("data: ", data)
 				if data["burst_engine"]:
 					UI_INDICATOR.SetData({"indicator_status": {"Indicator1": {"colorR": 0, "colorG": 255, "colorB": 0}}})
 				else:
@@ -311,7 +309,6 @@ func RelayDownwards(callType, data) -> void:
 				return # ignore if Leftbar isnt open
 
 #			# Assemble Dict to input values
-			print("data: ", data)
 			var inputVars = {
 				"CorticalName": {"sideLabelText": data["cortical_name"]},
 				"CorticalID": {"sideLabelText": data["cortical_id"]},
@@ -337,6 +334,7 @@ func RelayDownwards(callType, data) -> void:
 			}
 #			#print(inputVars)
 			UI_LeftBar.SetData(inputVars)
+			$"..".Update_Afferent_list(data["cortical_id"])
 #			UI_LeftBar.SetData({"TITLEBAR": {"TITLE": {"label": data["cortical_id"]}}})
 		REF.FROM.burstEngine:
 			UI_Top_TopBar.SetData({"REFRESHRATE": {"value": data}})
@@ -358,9 +356,11 @@ func SpawnLeftBar(cortexName: String, activation: Dictionary):
 	var delete_button = UI_LeftBar.GetReferenceByID("UpdateButtonTop").get_node("sideButton_UpdateButtonTop")
 	var update1 = UI_LeftBar.GetReferenceByID("UpdateButtonTop").get_node("button_UpdateButtonTop")
 	var update=UI_LeftBar.GetReferenceByID("UpdateButton").get_node("button_UpdateButton")
+	var add_row_button = UI_LeftBar.GetReferenceByID("EFFERENTLABEL").get_node("header_EFFERENTLABEL").get_node("sideButton_EFFERENTLABEL")
 	delete_button.connect("pressed", Callable($Brain_Visualizer,"_on_remove_pressed").bind(UI_LeftBar.GetReferenceByID("CorticalID")))
 	update.connect("pressed", Callable($Brain_Visualizer,"_on_Update_pressed").bind(UI_LeftBar))
-
+	update1.connect("pressed", Callable($Brain_Visualizer,"_on_Update_pressed").bind(UI_LeftBar))
+	add_row_button.connect("pressed", Callable($Brain_Visualizer,"_on_cortical_mapping_add_pressed").bind(cortexName))
 	
 func mapping_definition_button(node):
 	var src_id = UI_LeftBar.GetReferenceByID("CorticalName").get_node("sideLabel_CorticalName").text
