@@ -27,8 +27,13 @@ func AppendItem(includingSideButton: bool = true) -> void:
 	var actDict := prefabActivation
 	if !includingSideButton:
 		actDict["includeSideButton"] = false
-		
-	subList.Activate(actDict)
+	
+	var fullActivation = {
+		"ID": "TEST0",
+		"components": actDict
+		}
+	
+	subList.Activate(fullActivation)
 	pass
 
 func RemoveItem(index: int) -> void:
