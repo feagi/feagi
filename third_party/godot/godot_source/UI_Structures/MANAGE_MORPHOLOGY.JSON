@@ -1,9 +1,8 @@
 {
 	"ID": "MANAGE_NEURON_MORPHOLOGY",
-	"position": [
-		400,
-		700
-	],
+	"positionX": 400,
+	"positionY": 700,
+	"type": "box",
 	"components": [
 		{
 			"type": "header",
@@ -22,7 +21,7 @@
 			"ID": "MorphologyDefinition"
 		},
 		{
-			"type": "unit",
+			"type": "box",
 			"ID": "XYZ",
 			"components": [
 				{
@@ -38,7 +37,7 @@
 					"ID": "Pos_Z"
 				}
 			],
-			"isVertical": false
+			"vertical": false
 		},
 		{
 			"type": "field",
