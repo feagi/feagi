@@ -1,10 +1,10 @@
 {
-   "ID":"INDICATORBARS",
+    "ID":"INDICATORBARS",
     "positionX": 1600,
     "positionY": 0,
-   "components":[
+    "components":[
      {
-		"type": "unit",
+		"type": "box",
 		"ID": "indicator_status",
        "paddingX": -15,
        "paddingY": 0,
@@ -44,7 +44,7 @@
         "colorB": 0
      }
 		],
-		"isVertical": false
+		"vertical": false
 	}
    ]
 }
