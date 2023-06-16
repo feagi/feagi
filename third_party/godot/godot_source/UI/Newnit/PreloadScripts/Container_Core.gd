@@ -19,6 +19,7 @@ static func Func_SpawnChild(childActivationSettings: Dictionary, ContainerObject
 		"vector3": newChild = Element_Vector3.new()
 		"box": newChild = Newnit_Box.new()
 		"tab": newChild = Newnit_Tabs.new()
+		"scrollbar": newChild = Newnit_Scroll.new()
 		
 		# TODO: More types!
 		_:
