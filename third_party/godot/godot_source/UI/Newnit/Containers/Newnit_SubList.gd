@@ -74,9 +74,10 @@ func _DataUpProxy(data: Dictionary, recievedID: String, reference: Node) -> void
 
 ### SubList Unique
 
-const REMOVE_BUTTON := {
+var RemoveButtonDict := {
 	"type": "button",
 	"text": "-",
+	"ID": ""
 }
 
 var count: int
@@ -99,8 +100,9 @@ func _AlternateActivationPath(settings: Dictionary) -> bool:
 	count = HelperFuncs.MustGet(settings, "count")
 	
 	# Create remove button activation
-	var removeButtonAct = REMOVE_BUTTON
-	removeButtonAct["ID"] = "RemoveButton" + str(count)
+	var removeButtonAct: Dictionary = RemoveButtonDict
+	var buttonID: String = "RemoveButton" + str(count)
+	removeButtonAct["ID"] = buttonID
 	
 	# Add Remove Button To Activation
 	var comps: Array = settings["components"]

@@ -20,7 +20,7 @@ static func Func_SpawnChild(childActivationSettings: Dictionary, ContainerObject
 		"box": newChild = Newnit_Box.new()
 		"tab": newChild = Newnit_Tabs.new()
 		"scrollbar": newChild = Newnit_Scroll.new()
-		
+		"list": newChild = Element_List.new()
 		# TODO: More types!
 		_:
 			print("Invalid child of type ", childActivationSettings["type"], " attempted to spawn. Skipping...")
