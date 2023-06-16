@@ -306,38 +306,38 @@ func _on_Update_pressed(data):
 	create_textbox.scale = Vector3(1,1,1)
 
 	last_cortical_selected["cortical_coordinates"] = []
-	last_cortical_selected["cortical_destinations"] = {}
+#	last_cortical_selected["cortical_destinations"] = {}
 	last_cortical_selected["cortical_dimensions"] = []
-	var cortical_name = $".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_item_text($".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_selected_id())
-	var get_id = name_to_id(cortical_name)
-	for i in child_node_holder:
-		if i.text == "":
-			if $".."/".."/".."/Menu/Mapping_Properties.visible:
-				if $".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_selected_id() != 0:
-					i.text = $".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_item_text($".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_selected_id())
-		else:
-			if i.text != cortical_name:
-				last_cortical_selected["cortical_destinations"][name_to_id(i.text)] = dst_data_holder[name_to_id(i.text)] # This fixed
-	for p in plus_node:
-		var dst = {}
-		dst["morphology_id"] = p.get_child(0).get_item_text(p.get_child(0).get_selected_id())
-		dst["morphology_scalar"] = []
-		dst["morphology_scalar"].append(p.get_child(1).value)
-		dst["morphology_scalar"].append(p.get_child(2).value)
-		dst["morphology_scalar"].append(p.get_child(3).value)
-		dst["postSynapticCurrent_multiplier"] = int(p.get_child(4).text)
-		dst["plasticity_flag"] = p.get_child(5).is_pressed()
-		if last_cortical_selected["cortical_destinations"].has(get_id):
-			last_cortical_selected["cortical_destinations"][get_id].append(dst)
-		else:
-			last_cortical_selected["cortical_destinations"][get_id] = []
-			last_cortical_selected["cortical_destinations"][get_id].append(dst)
-	if id_input == "":
-		last_cortical_selected["cortical_id"]= 'new_id'
-	else:
-		last_cortical_selected["cortical_id"]= id_input
+#	var cortical_name = $".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_item_text($".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_selected_id())
+#	var get_id = name_to_id(cortical_name)
+#	for i in child_node_holder:
+#		if i.text == "":
+#			if $".."/".."/".."/Menu/Mapping_Properties.visible:
+#				if $".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_selected_id() != 0:
+#					i.text = $".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_item_text($".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_selected_id())
+#		else:
+#			if i.text != cortical_name:
+#				last_cortical_selected["cortical_destinations"][name_to_id(i.text)] = dst_data_holder[name_to_id(i.text)] # This fixed
+#	for p in plus_node:
+#		var dst = {}
+#		dst["morphology_id"] = p.get_child(0).get_item_text(p.get_child(0).get_selected_id())
+#		dst["morphology_scalar"] = []
+#		dst["morphology_scalar"].append(p.get_child(1).value)
+#		dst["morphology_scalar"].append(p.get_child(2).value)
+#		dst["morphology_scalar"].append(p.get_child(3).value)
+#		dst["postSynapticCurrent_multiplier"] = int(p.get_child(4).text)
+#		dst["plasticity_flag"] = p.get_child(5).is_pressed()
+#		if last_cortical_selected["cortical_destinations"].has(get_id):
+#			last_cortical_selected["cortical_destinations"][get_id].append(dst)
+#		else:
+#			last_cortical_selected["cortical_destinations"][get_id] = []
+#			last_cortical_selected["cortical_destinations"][get_id].append(dst)
+#	if id_input == "":
+#		last_cortical_selected["cortical_id"]= 'new_id'
+#	else:
+#		last_cortical_selected["cortical_id"]= id_input
 	last_cortical_selected["cortical_name"] = name_input
-	last_cortical_selected["cortical_group"] = last_cortical_selected["cortical_group"]
+#	last_cortical_selected["cortical_group"] = last_cortical_selected["cortical_group"]
 	last_cortical_selected["cortical_neuron_per_vox_count"] = cortical_neuron_per_vox_count
 	last_cortical_selected["cortical_coordinates"].append(x)
 	last_cortical_selected["cortical_coordinates"].append(y)
@@ -537,7 +537,6 @@ func _on_download_pressed():
 
 func _on_add_pressed(node=[]):
 	var json_data = {}
-	var flag_boolean = false
 	if node == []:
 		if $".."/".."/".."/Menu/addition_menu/OptionButton.selected == 1 or $".."/".."/".."/Menu/addition_menu/OptionButton.selected == 2:
 			json_data["cortical_type"] = $".."/".."/".."/Menu/addition_menu/OptionButton.get_item_text($".."/".."/".."/Menu/addition_menu/OptionButton.selected)
@@ -567,8 +566,6 @@ func _on_add_pressed(node=[]):
 			node[8].release_focus()
 			$Node3D/Camera3D.transform.origin=Vector3(json_data["cortical_coordinates"][0]-20,json_data["cortical_coordinates"][1],json_data["cortical_coordinates"][2]+20)
 			print("SENT")
-		else:
-			flag_boolean = true
 	$".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.load_options()
 
 func _on_remove_pressed(node):
@@ -607,9 +604,9 @@ func _on_update_destination_info_request_completed(_result, _response_code, _hea
 				new_node.get_node("box_overwritescalar").get_node("box_XYZ").get_child(1).get_child(1).value = api_data[i]["morphology_scalar"][1]
 				new_node.get_node("box_overwritescalar").get_node("box_XYZ").get_child(2).get_child(1).value = api_data[i]["morphology_scalar"][2]
 				new_node.get_node("floatfield_PSPMULTIPLER").get_node("floatField_PSPMULTIPLER").text = str(api_data[i]["postSynapticCurrent_multiplier"])
-#				new_node.get_child(5).set_pressed(api_data[i]["plasticity_flag"])
-#				new_node.get_child(6).connect("pressed",Callable(self,"map_info_pressed").bind(new_node))
-#				new_node.get_child(7).connect("pressed",Callable(self,"remove_button_inside_dst").bind(new_node))
+				new_node.get_node("box_third_box1").get_node("checkbutton_PSPTOGGLE").get_node("checkButton_PSPTOGGLE").set_pressed(api_data[i]["plasticity_flag"])
+				new_node.get_node("button_mappingdefbuttonminus").get_node("button_mappingdefbuttonminus").connect("pressed",Callable(self,"map_info_pressed").bind(new_node))
+				new_node.get_node("button_mappingdefbuttonminus").get_node("sideButton_mappingdefbuttonminus").connect("pressed",Callable(self,"remove_button_inside_dst").bind(new_node))
 	$notification.generate_notification_message(api_data, _response_code, "_on_update_destination_info_request_completed", "/v1/feagi/genome/mapping_properties")
 
 func _on_genome_data_request_completed(_result, _response_code, _headers, body):
@@ -635,28 +632,30 @@ func map_info_pressed(node_duplicated):
 	Autoload_variable.BV_Core.Get_Morphology_information($".."/".."/".."/Menu/rule_properties/mapping_rule_options.get_item_text(node_duplicated.get_child(0).get_selected_id()))
 
 func remove_button_inside_dst(node_duplicated):
-	var number_holder = []
-	var rule_to_delete = node_duplicated.get_child(0).text
-	var morphology_scalar_x = node_duplicated.get_child(1).value
-	var morphology_scalar_y = node_duplicated.get_child(2).value
-	var morphology_scalar_z = node_duplicated.get_child(3).value
-	var plasticity_flag = node_duplicated.get_child(5).is_pressed()
-	var postSynapticCurrent_multiplier = float(node_duplicated.get_child(4).text)
-
-	var get_id = name_to_id($".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_item_text($".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_selected_id()))
-	var inner_counter = 0
-	for i in range(dst_data_holder[get_id].size()):
-		if rule_to_delete in dst_data_holder[get_id][i-inner_counter]["morphology_id"] and morphology_scalar_x == dst_data_holder[get_id][i-inner_counter]["morphology_scalar"][0] and morphology_scalar_y == dst_data_holder[get_id][i-inner_counter]["morphology_scalar"][1] and morphology_scalar_z == dst_data_holder[get_id][i-inner_counter]["morphology_scalar"][2] and plasticity_flag == dst_data_holder[get_id][i-inner_counter]["plasticity_flag"] and postSynapticCurrent_multiplier == dst_data_holder[get_id][i-inner_counter]["postSynapticCurrent_multiplier"]:
-			dst_data_holder[get_id].pop_at(i - inner_counter)
-			inner_counter += 1
-	for i in range(plus_node.size()):
-		if node_duplicated == plus_node[i]:
-			plus_node[i].queue_free()
-			number_holder.append(i)
-	var counter = 0
-	for i in number_holder:
-		plus_node.pop_at(i - counter)
-		counter += 1
+	plus_node.erase(node_duplicated)
+	node_duplicated.queue_free()
+#	var number_holder = []
+#	var rule_to_delete = node_duplicated.get_child(0).text
+#	var morphology_scalar_x = node_duplicated.get_child(1).value
+#	var morphology_scalar_y = node_duplicated.get_child(2).value
+#	var morphology_scalar_z = node_duplicated.get_child(3).value
+#	var plasticity_flag = node_duplicated.get_child(5).is_pressed()
+#	var postSynapticCurrent_multiplier = float(node_duplicated.get_child(4).text)
+#
+#	var get_id = name_to_id($".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_item_text($".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_selected_id()))
+#	var inner_counter = 0
+#	for i in range(dst_data_holder[get_id].size()):
+#		if rule_to_delete in dst_data_holder[get_id][i-inner_counter]["morphology_id"] and morphology_scalar_x == dst_data_holder[get_id][i-inner_counter]["morphology_scalar"][0] and morphology_scalar_y == dst_data_holder[get_id][i-inner_counter]["morphology_scalar"][1] and morphology_scalar_z == dst_data_holder[get_id][i-inner_counter]["morphology_scalar"][2] and plasticity_flag == dst_data_holder[get_id][i-inner_counter]["plasticity_flag"] and postSynapticCurrent_multiplier == dst_data_holder[get_id][i-inner_counter]["postSynapticCurrent_multiplier"]:
+#			dst_data_holder[get_id].pop_at(i - inner_counter)
+#			inner_counter += 1
+#	for i in range(plus_node.size()):
+#		if node_duplicated == plus_node[i]:
+#			plus_node[i].queue_free()
+#			number_holder.append(i)
+#	var counter = 0
+#	for i in number_holder:
+#		plus_node.pop_at(i - counter)
+#		counter += 1
 func info_pressed(duplicated_node_lineedit):
 	var get_id = $".."/".."/".."/Menu/cortical_menu/Control/cortical_id.text
 	if duplicated_node_lineedit.text != " " and duplicated_node_lineedit.text != "":
@@ -743,8 +742,9 @@ func _on_plus_add_pressed():
 	new_node.get_node("box_overwritescalar").get_node("box_XYZ").get_child(1).get_child(1).value = 1
 	new_node.get_node("box_overwritescalar").get_node("box_XYZ").get_child(2).get_child(1).value = 1
 	new_node.get_node("floatfield_PSPMULTIPLER").get_node("floatField_PSPMULTIPLER").text = str(1)
-#	new_node.get_child(0).connect("pressed",Callable(self,"_on_Mapping_def_pressed"))
-#	new_node.get_child(4).text_changed.connect(_on_text_changed.bind(new_node.get_child(4)))
+	new_node.get_node("box_third_box1").get_node("checkbutton_PSPTOGGLE").get_node("checkButton_PSPTOGGLE").set_pressed(false)
+	new_node.get_node("button_mappingdefbuttonminus").get_node("button_mappingdefbuttonminus").connect("pressed",Callable(self,"map_info_pressed").bind(new_node))
+	new_node.get_node("button_mappingdefbuttonminus").get_node("sideButton_mappingdefbuttonminus").connect("pressed",Callable(self,"remove_button_inside_dst").bind(new_node))
 
 
 
@@ -844,15 +844,17 @@ func _on_get_cortical_dst_request_completed(_result, _response_code, _headers, b
 			Autoload_variable.BV_Core.Get_mem_data(get_id)
 	$notification.generate_notification_message(api_data, _response_code, "_on_get_cortical_dst_request_completed", "/v1/feagi/genome/cortical_area")
 
-func _on_cortical_mapping_add_pressed():
-	_on_info_pressed() # leveraging the same function to clear all infos on the box
-	$".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.select(0)
-	var add_flag = true
-	for i in child_node_holder:
-		if i.text == "":
-			add_flag = false
-	if add_flag:
-		generate_cortical_mapping()
+func _on_cortical_mapping_add_pressed(name_input):
+	var mappingdefinitiongenerated = HelperFuncs.GenerateDefinedUnitDict("MAPPING_DEFINITION", $"..".currentLanguageISO)
+	$"..".SpawnMappingDefinition(id_to_name(name_input), "", mappingdefinitiongenerated)
+#	() # leveraging the same function to clear all infos on the box
+#	$".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.select(0)
+#	var add_flag = true
+#	for i in child_node_holder:
+#		if i.text == "":
+#			add_flag = false
+#	if add_flag:
+#		generate_cortical_mapping()
 
 
 func generate_cortical_mapping():
@@ -879,10 +881,13 @@ func generate_cortical_mapping():
 func name_to_id(name_input):
 	var iteration_name = name_input
 	var grab_id_cortical = ""
-	for i in Godot_list.genome_data["genome"]:
-		if i == iteration_name:
-			grab_id_cortical = Godot_list.genome_data["genome"][i][7]
-			return grab_id_cortical
+	if name_input != "":
+		for i in Godot_list.genome_data["genome"]:
+			if i == iteration_name:
+				grab_id_cortical = Godot_list.genome_data["genome"][i][7]
+				return grab_id_cortical
+	else:
+		return ""
 			
 func id_to_name(name_input):
 	for x in Godot_list.genome_data["genome"]:
@@ -1043,7 +1048,6 @@ func _on_afferent_request_completed(_result, _response_code, _headers, body):
 	var api_data = test_json_conv.get_data()
 	var UI_LeftBar = $"..".UI_LeftBar
 	if UI_LeftBar:
-		var counter = 0
 		afferent_holder_clear()
 		for i in api_data:
 			var new_node = UI_LeftBar.GetReferenceByID("blank_afferent").get_node("field_blank_afferent").duplicate()
@@ -1051,13 +1055,6 @@ func _on_afferent_request_completed(_result, _response_code, _headers, body):
 			afferent_child_holder.append(new_node)
 			new_node.visible = true
 			new_node.text = id_to_name(i)
-#			new_node.position.x = UI_LeftBar.get_node("Field_blank_afferent").position.x + 5
-			new_node.position.y = (counter * 30)
-			counter += 1
-#	if afferent_child_holder:
-#		UI_LeftBar.get_node("Unit_efferent_unit").position.y = afferent_child_holder[len(afferent_child_holder)-1].position.y + 1141
-#	else:
-#		UI_LeftBar.get_node("Unit_efferent_unit").position.y = 1141
 	$notification.generate_notification_message(api_data, _response_code, "_on_afferent_request_completed", "/v1/feagi/genome/cortical_mappings/afferents")
 
 func afferent_holder_clear():
@@ -1075,16 +1072,6 @@ func new_morphology_clear():
 		for i in new_morphology_node:
 			i.queue_free()
 		new_morphology_node = []
-		$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/Label2.position.y = 160
-		$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/associations_data.position.y = 180
-		$".."/".."/".."/Menu/rule_properties/rules.size.y = 436
-		$".."/".."/".."/Menu/rule_properties.size.y = 608
-		$".."/".."/".."/Menu/rule_properties/rules/save.position.y = 477.001
-		$".."/".."/".."/Menu/rule_properties/rules/delete.position.y = 477.001
-		$".."/".."/".."/Menu/Control/inner_box/grey_bg.size.y = 283
-		$".."/".."/".."/Menu/Control/ColorRect.size.y = 394
-		$".."/".."/".."/Menu/Control/update.position.y = 330
-		$".."/".."/".."/Menu/Control/inner_box/Button.disabled = false
 
 func plus_node_clear():
 	for i in plus_node:
