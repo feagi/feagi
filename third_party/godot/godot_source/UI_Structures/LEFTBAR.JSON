@@ -147,11 +147,11 @@
 	"ID": "efferent_unit",
 	"components": [
 			{"type": "header",
-			"ID": "EFFERENTLABEL"},
+			"ID": "EFFERENTLABEL",
+			"sideButtonText":  "+"},
 			{"type": "button",
 			  "ID": "blank_efferent"}
 	], "vertical": true}
   ],
-
 }
 
