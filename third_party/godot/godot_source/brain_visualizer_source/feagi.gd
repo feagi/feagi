@@ -628,8 +628,8 @@ func _on_remove_cortical_request_completed(_result, _response_code, _headers, _b
 	$notification.generate_notification_message(api_data, _response_code, "_on_remove_cortical_request_completed")
 
 func map_info_pressed(node_duplicated):
-	$".."/".."/".."/Menu/rule_properties/mapping_rule_options.selected = node_duplicated.get_child(0).get_selected_id()
-	Autoload_variable.BV_Core.Get_Morphology_information($".."/".."/".."/Menu/rule_properties/mapping_rule_options.get_item_text(node_duplicated.get_child(0).get_selected_id()))
+	var name_selected = node_duplicated.get_node("dropdown_mappingdefinitions").get_node("dropDown_mappingdefinitions").get_item_text(node_duplicated.get_node("dropdown_mappingdefinitions").get_node("dropDown_mappingdefinitions").selected)
+	Autoload_variable.BV_Core.Get_Morphology_information(name_selected)
 
 func remove_button_inside_dst(node_duplicated):
 	plus_node.erase(node_duplicated)
