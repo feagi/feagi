@@ -20,8 +20,7 @@ var Activated: bool = false
 var UI_Top_TopBar: Newnit_Box
 var UI_LeftBar: Newnit_Box
 var UI_createcorticalBar : Newnit_Box
-#var UI_CreateNeuronMorphology : Unit
-#var UI_ManageNeuronMorphology : Unit
+var UI_ManageNeuronMorphology : Newnit_Box
 var UI_MappingDefinition : Newnit_Box
 var UI_CircuitImport : Newnit_Box
 var UI_GraphCore: GraphCore
@@ -57,7 +56,8 @@ func Activate(langISO: String):
 	global_json_data = test_json_conv.get_data()
 	filess.close()
 #	SpawnIndicator(createindicator)
-	SpawnCreateMophology()
+#	SpawnCreateMophology()
+	
 	
 	# Initialize GraphCore
 	UI_GraphCore = $graphCore #TODO: this is very temporary
@@ -92,7 +92,7 @@ signal DataUp(data: Dictionary)
 ######### Top Bar Control ##########
 # We should be using this to make things more streamline
 func TopBarInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
-#	print("data: ", data, " and Element: ", ElementID)
+	print("data: ", data, " and Element: ", ElementID)
 	match(ElementID):
 		"CORTICALAREAS":
 			if "sideButton" in data.keys():
@@ -123,9 +123,6 @@ func CreateMorphologyInput(data: Dictionary, _compRef: Node, _unitRef: Node):
 			composite.visibility = 2; patterns.visibility = 0; vectors.visibility = 2
 		if data["selected"] == "Vectors":
 			composite.visibility = 2; patterns.visibility = 2; vectors.visibility = 0
-
-#			vectors.get_node("Button_AddRowButton").get_child(0).connect("pressed", Callable(self,"add_row").bind(vectors_holder))
-#			vectors.get_node("Unit_XYZ").get_child(0).get_child(1)
 		else:
 			composite.visibility = 2; patterns.visibility = 2; vectors.visibility = 2
 ######### Side Bar Control #########
@@ -176,15 +173,9 @@ func CorticalCreateInput(data: Dictionary, ElementID: StringName, ElementRef: No
 				UI_createcorticalBar.GetReferenceByID("corticalnametext").visible = true
 				$"..".GET_IPU('IPU')
 			elif data["value"] == "Custom":
-				print("custom!")
 				UI_createcorticalBar.GetReferenceByID("corticalnamedrop").visible = false
 				UI_createcorticalBar.GetReferenceByID("corticalnametext").visible = true
-				UI_createcorticalBar.GetReferenceByID("OPUIPU").visible = false
-#		"UpdateButton":
-#			var newCorticalName: String = UI_createcorticalBar.GetReferenceByID("CORTICALAREATEXT").value
-#			var AreaType: String = UI_createcorticalBar.GetReferenceByID("CORTICALAREATEXTDD").value
-#			print("pause")
-		
+				UI_createcorticalBar.GetReferenceByID("OPUIPU").visible = false		
 	
 #	if "CORTICALAREA" == data["compID"]:
 #		var textbox: Node = _unitRef.get_node("Unit_corticalnametext")
@@ -412,7 +403,13 @@ func SpawnCorticalCrete():
 	name_input.connect("text_changed",Callable($"../../Button_to_Autoload","_on_type_text_changed"))
 	update.connect("pressed",Callable($Brain_Visualizer,"_on_add_pressed").bind([w,h,d,x,y,z, name_input, optionlist, update]))
 
-#func SpawnNeuronMorphology():
+func SpawnNeuronMorphology():
+	UI_createcorticalBar = Newnit_Box.new()
+	var createcorticalBar = HelperFuncs.GenerateDefinedUnitDict("CORTICAL_CREATE", currentLanguageISO)
+	add_child(UI_createcorticalBar)
+	UI_createcorticalBar.Activate(createcorticalBar)
+	UI_createcorticalBar.DataUp.connect(CorticalCreateInput)
+	UI_holders.append(UI_createcorticalBar)
 #	UI_CreateNeuronMorphology = SCENE_UNIT.instantiate()
 #	add_child(UI_CreateNeuronMorphology)
 #	var createmurphology = HelperFuncs.GenerateDefinedUnitDict("CREATE_MORPHOLOGY", currentLanguageISO)
@@ -456,6 +453,12 @@ func SpawnCircuitImport(activation: Dictionary):
 	z.connect("value_changed",Callable($Brain_Visualizer,"_on_z_spinbox_value_changed").bind([x, y, z, w, h, d]))
 
 func SpawnNeuronManager():
+	UI_ManageNeuronMorphology = Newnit_Box.new()
+	var createcorticalBar = HelperFuncs.GenerateDefinedUnitDict("CORTICAL_CREATE", currentLanguageISO)
+	add_child(UI_ManageNeuronMorphology)
+	UI_createcorticalBar.Activate(createcorticalBar)
+	UI_createcorticalBar.DataUp.connect(CorticalCreateInput)
+	UI_holders.append(UI_createcorticalBar)
 #	UI_ManageNeuronMorphology=SCENE_UNIT.instantiate()
 #	add_child(UI_ManageNeuronMorphology)
 	var cerateneuronmorphology = HelperFuncs.GenerateDefinedUnitDict("MANAGE_MORPHOLOGY", currentLanguageISO)
