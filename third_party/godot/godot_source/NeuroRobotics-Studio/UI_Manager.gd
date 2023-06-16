@@ -92,6 +92,7 @@ signal DataUp(data: Dictionary)
 ######### Top Bar Control ##########
 # We should be using this to make things more streamline
 func TopBarInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
+#	print("data: ", data, " and Element: ", ElementID)
 	match(ElementID):
 		"CORTICALAREAS":
 			if "sideButton" in data.keys():
@@ -101,11 +102,10 @@ func TopBarInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
 					UI_createcorticalBar.queue_free()
 		"NEURONMORPHOLOGIES":
 			if "sideButton" in data.keys():
-				pass	
-#				if not UI_ManageNeuronMorphology:
-#					SpawnNeuronManager()
-#				else:
-#					UI_ManageNeuronMorphology.queue_free()
+				if not UI_CreateMorphology:
+					SpawnCreateMophology()
+				else:
+					UI_CreateMorphology.queue_free()
 		"REFRESHRATE":
 			DataUp.emit({"updatedBurstRate": data["value"]})
 
@@ -161,8 +161,6 @@ func _isNeuronProperty(ID: String) -> bool:
 	if ID == "SnoozePeriod": return true
 	if ID == "DegeneracyConstant": return true
 	return false
-
-
 
 func CorticalCreateInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
 	match(ElementID):
