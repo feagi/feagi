@@ -62,6 +62,7 @@ func SpawnMultipleChildren(childrenActivationSettings: Array) -> void:
 	NEWNIT_CONTAINER_CORE.Func_SpawnMultipleChildren(childrenActivationSettings, self)
 
 func _ActivationPrimary(settings: Dictionary) -> void:
+	if(_AlternateActivationPath(settings)): return
 	NEWNIT_CONTAINER_CORE.Func__ActivationPrimary(settings, self)
 
 func _getChildData() -> Dictionary:
@@ -81,7 +82,10 @@ var specificSettableProps := {
 	"alignment": TYPE_INT,
 	"vertical": TYPE_INT
 }
-	
+
+func _AlternateActivationPath(settings: Dictionary) -> bool:
+	# No alternate activation path for Box, skipping...
+	return false
 
 func _ActivationSecondary(settings: Dictionary) -> void:
 	alignment = HelperFuncs.GetIfCan(settings, "alignment", NEWNIT_CONTAINER_CORE.D_alignment)

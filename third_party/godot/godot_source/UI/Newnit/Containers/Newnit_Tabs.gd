@@ -62,6 +62,7 @@ func SpawnMultipleChildren(childrenActivationSettings: Array) -> void:
 	NEWNIT_CONTAINER_CORE.Func_SpawnMultipleChildren(childrenActivationSettings, self)
 
 func _ActivationPrimary(settings: Dictionary) -> void:
+	if(_AlternateActivationPath(settings)): return
 	NEWNIT_CONTAINER_CORE.Func__ActivationPrimary(settings, self)
 
 func _getChildData() -> Dictionary:
@@ -106,6 +107,10 @@ var tab_titles: Array:
 # Allows for mass setting of tab enablement states
 var tabs_enabled: Array:
 	set(v): _SetAllTabEnableState(v)
+
+func _AlternateActivationPath(settings: Dictionary) -> bool:
+	# No alternate activation path for Tabs, skipping...
+	return false
 
 func _ActivationSecondary(settings: Dictionary) -> void:
 	_runtimeSettableProperties.merge(specificSettableProps)
