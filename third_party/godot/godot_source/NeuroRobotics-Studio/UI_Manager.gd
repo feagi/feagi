@@ -76,7 +76,6 @@ func _SpawnTopBar(activation: Dictionary):
 	add_child(UI_Top_TopBar)
 	UI_Top_TopBar.Activate(activation)
 	UI_Top_TopBar.DataUp.connect(TopBarInput)
-	var test = UI_Top_TopBar.GetReferenceByID("REFRESHRATE")
 	# TODO best not to connect to Element children, better to connect to element signals itself
 	# This may work for now but can cause weird issues later
 	var import_circuit = UI_Top_TopBar.GetReferenceByID("GENOMEFILENAME").get_node("sideButton_GENOMEFILENAME")
@@ -110,7 +109,6 @@ func TopBarInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
 			DataUp.emit({"updatedBurstRate": data["value"]})
 
 func CreateMorphologyInput(data: Dictionary, ElementID: String, ElementRef: Node):
-	print("data: ", data, " Elementid: ", ElementID, " Elementref: ", ElementRef)
 	match(ElementID):
 		"MorphologyType":
 		#Drop down is changed, toggle between available morphology wizards
