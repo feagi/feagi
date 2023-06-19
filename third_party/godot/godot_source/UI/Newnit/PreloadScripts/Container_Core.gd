@@ -22,6 +22,7 @@ static func Func_SpawnChild(childActivationSettings: Dictionary, ContainerObject
 		"scrollbar": newChild = Newnit_Scroll.new()
 		"list": newChild = Element_List.new()
 		"popup": newChild = Newnit_Popup.new()
+		"collapsible": newChild = Newnit_Collapsible.new()
 		# TODO: More types!
 		_:
 			print("Invalid child of type ", childActivationSettings["type"], " attempted to spawn. Skipping...")
@@ -57,3 +58,4 @@ const D_tab_alignment = 1
 const D_use_hidden_tabs_for_min_size = true
 const D_tab_titles = []
 const D_Title := "NO TITLE GIVEN"
+const D_COLLAPSIBLELABER := "NO COLLAPSE LABEL GIVEN"

@@ -153,9 +153,9 @@
 			"sideButtonText":  "+"},
 			{"type": "button",
 			  "ID": "blank_efferent"}
-	], "vertical": true},
-	
-	
-  ],
+	], "vertical": true}
+
+
+  ]
 }
 
