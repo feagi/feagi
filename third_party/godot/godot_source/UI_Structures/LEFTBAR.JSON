@@ -12,10 +12,6 @@
 		 "type":"collapsible",
 		 "components":[
 			{
-			   "type":"header",
-			   "ID":"CorticalPropertiesSection"
-			},
-			{
 			   "type":"field",
 			   "editable":false,
 			   "ID":"CorticalName"
