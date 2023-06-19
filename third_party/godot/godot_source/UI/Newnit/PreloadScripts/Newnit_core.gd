@@ -40,6 +40,8 @@ static func Func_Activate(settings: Dictionary, NewnitObject) -> void:
 	NewnitObject._type = HelperFuncs.GetIfCan(settings, "type", D_type)
 	NewnitObject.name = Func__GetUIChildName(NewnitObject.type, NewnitObject)
 	
+	if(HelperFuncs.GetIfCan(settings, "enablePanel", D_EnablePanel)):
+		Func_AddPanel(NewnitObject)
 	
 	NewnitObject._ActivationPrimary(settings)
 	NewnitObject._isActivated = true
@@ -89,23 +91,27 @@ static func Func_SetData(input: Dictionary, NewnitObject) -> void:
 		print("Property ", key, " does not exist!")
 		continue
 
-
+static func Func_AddPanel(NewnitObject: Node) -> void:
+	NewnitObject._isUsingPanel = true
+	var panel = Panel.new()
+	NewnitObject._childRoot.add_child(panel)
+	NewnitObject._panelRef = panel
 
 static func Func__GetUIChildName(compType: StringName, NewnitObject) -> StringName:
 	return compType + "_" + NewnitObject.ID
 
 
-static func Get_data(NewnitObject) -> Dictionary:
+static func Get_data(NewnitObject: Node) -> Dictionary:
 	var o: Dictionary = {"ID": NewnitObject.ID}
 	o.merge(NewnitObject._getChildData())
 	return o
 
-static func Get_ParentID(NewnitObject) -> StringName:
+static func Get_ParentID(NewnitObject: Node) -> StringName:
 	if "ID" in NewnitObject.parent:
 		return NewnitObject.parent.ID
 	return StringName("No ID Found!")
 
-
+	
 
 
 # Defaults and other constants
@@ -123,6 +129,7 @@ const D_size = Vector2(50.0,50.0)
 const D_size_flags_stretch_ratio = 1.0
 const D_tooltip_text = ""
 const D_type = "ERROR_UNKNOWN_TYPE"
+const D_EnablePanel = false
 const settableProperties := {
 	"custom_minimum_size": TYPE_VECTOR2,
 	"grow_horizontal": TYPE_INT,

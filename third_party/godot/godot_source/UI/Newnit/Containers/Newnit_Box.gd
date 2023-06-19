@@ -28,12 +28,20 @@ var data: Dictionary:
 var type: StringName:
 	get: return _type
 
+var isUsingPanel: bool:
+	get: return _isUsingPanel
+
+var panelRef: Node:
+	get: return panelRef
+
 var _ID: StringName
 var _isActivated := false
 var _isTopLevel := true
 var _runtimeSettableProperties := NEWNIT_CORE.settableProperties
 var _type: StringName
-var _childRoot: Node
+var _childRoot: Node = self
+var _isUsingPanel: bool
+var _panelRef: Node = null
 
 func Activate(settings: Dictionary) -> void:
 	NEWNIT_CORE.Func_Activate(settings, self)
@@ -62,10 +70,6 @@ func SpawnChild(childActivationSettings: Dictionary) -> void:
 func SpawnMultipleChildren(childrenActivationSettings: Array) -> void:
 	NEWNIT_CONTAINER_CORE.Func_SpawnMultipleChildren(childrenActivationSettings, self)
 
-func _ActivationPrimary(settings: Dictionary) -> void:
-	if(_AlternateActivationPath(settings)): return
-	NEWNIT_CONTAINER_CORE.Func__ActivationPrimary(settings, self)
-
 func _getChildData() -> Dictionary:
 	return NEWNIT_CONTAINER_CORE.Func__getChildData(self)
 
@@ -84,13 +88,17 @@ var specificSettableProps := {
 	"vertical": TYPE_INT
 }
 
-func _AlternateActivationPath(settings: Dictionary) -> bool:
-	# No alternate activation path for Box, skipping...
-	return false
-
-func _ActivationSecondary(settings: Dictionary) -> void:
+func _ActivationPrimary(settings: Dictionary) -> void:
+	
+	
+	
 	_childRoot = self
+	
+	
+	SpawnMultipleChildren(settings["components"])
 	alignment = HelperFuncs.GetIfCan(settings, "alignment", NEWNIT_CONTAINER_CORE.D_alignment)
 	vertical = HelperFuncs.GetIfCan(settings, "vertical", NEWNIT_CONTAINER_CORE.D_vertical)
 	_runtimeSettableProperties.merge(specificSettableProps)
 	type = "box"
+
+
