@@ -273,11 +273,6 @@ func RelayDownwards(callType, data) -> void:
 
 #			# Assemble Dict to input values
 			var inputVars = {
-				"CorticalName": {"sideLabelText": data["cortical_name"]},
-				"CorticalID": {"sideLabelText": data["cortical_id"]},
-				"CorticalArea": {"sideLabelText": data["cortical_group"]},
-				"XYZ": {"Pos_X": {"value": int(data["cortical_coordinates"][0])}, "Pos_Y": {"value": int(data["cortical_coordinates"][1])}, "Pos_Z": {"value": int(data["cortical_coordinates"][2])}},
-				"WHD": {"W": {"value": int(data["cortical_dimensions"][0])}, "H": {"value": int(data["cortical_dimensions"][1])}, "D": {"value": int(data["cortical_dimensions"][2])}},
 				"VoxelNeuronDensity": {"value": int(data["cortical_neuron_per_vox_count"])},
 				"SynapticAttractivity": {"value": int(data["cortical_synaptic_attractivity"])},
 				"PostSynapticPotential": {"value": data["neuron_post_synaptic_potential"]},
@@ -295,8 +290,16 @@ func RelayDownwards(callType, data) -> void:
 				"ChargeACC": {"value": data["neuron_mp_charge_accumulation"]},
 				"PSPUNI": {"value": data["neuron_psp_uniform_distribution"]}
 			}
+			var cortical_properties = {
+				"CorticalName": {"sideLabelText": data["cortical_name"]},
+				"CorticalID": {"sideLabelText": data["cortical_id"]},
+				"CorticalArea": {"sideLabelText": data["cortical_group"]},
+				"XYZ": {"Pos_X": {"value": int(data["cortical_coordinates"][0])}, "Pos_Y": {"value": int(data["cortical_coordinates"][1])}, "Pos_Z": {"value": int(data["cortical_coordinates"][2])}},
+				"WHD": {"W": {"value": int(data["cortical_dimensions"][0])}, "H": {"value": int(data["cortical_dimensions"][1])}, "D": {"value": int(data["cortical_dimensions"][2])}}
+			}
 #			#print(inputVars)
-			UI_LeftBar.SetData(inputVars)
+			UI_LeftBar.SetData({"NeuronParametersSection": inputVars} )
+			UI_LeftBar.SetData(cortical_properties)
 			$"..".Update_Afferent_list(data["cortical_id"])
 #			UI_LeftBar.SetData({"TITLEBAR": {"TITLE": {"label": data["cortical_id"]}}})
 		REF.FROM.burstEngine:
@@ -318,13 +321,13 @@ func SpawnLeftBar(cortexName: String, activation: Dictionary):
 	UI_holders.append(UI_LeftBar)
 	var delete_button = UI_LeftBar.GetReferenceByID("UpdateButtonTop").get_node("sideButton_UpdateButtonTop")
 	var update1 = UI_LeftBar.GetReferenceByID("UpdateButtonTop").get_node("button_UpdateButtonTop")
-	var update=UI_LeftBar.GetReferenceByID("UpdateButton").get_node("button_UpdateButton")
+	var update=UI_LeftBar.GetReferenceByID("NeuronParametersSection").GetReferenceByID("UpdateButton").get_node("button_UpdateButton")
 	var add_row_button = UI_LeftBar.GetReferenceByID("EFFERENTLABEL").get_node("header_EFFERENTLABEL").get_node("sideButton_EFFERENTLABEL")
 	delete_button.connect("pressed", Callable($Brain_Visualizer,"_on_remove_pressed").bind(UI_LeftBar.GetReferenceByID("CorticalID")))
 	update.connect("pressed", Callable($Brain_Visualizer,"_on_Update_pressed").bind(UI_LeftBar))
 	update1.connect("pressed", Callable($Brain_Visualizer,"_on_Update_pressed").bind(UI_LeftBar))
 	add_row_button.connect("pressed", Callable($Brain_Visualizer,"_on_cortical_mapping_add_pressed").bind(cortexName))
-	
+
 func mapping_definition_button(node):
 	var src_id = UI_LeftBar.GetReferenceByID("CorticalName").get_node("sideLabel_CorticalName").text
 	var mappingdefinitiongenerated = HelperFuncs.GenerateDefinedUnitDict("MAPPING_DEFINITION", currentLanguageISO)
