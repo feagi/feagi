@@ -83,7 +83,7 @@ const _COLLAPSE_BUTTON := {
 }
 
 
-var CollapsableSectionText: String:
+var text: String:
 	get: return _collapseHeader.text
 	set(v): _collapseHeader.text = v
 
@@ -130,7 +130,9 @@ func _AlternateActivationPath(settings: Dictionary) -> bool:
 func _ActivationSecondary(settings: Dictionary) -> void:
 	alignment = HelperFuncs.GetIfCan(settings, "alignment", NEWNIT_CONTAINER_CORE.D_alignment)
 	vertical = HelperFuncs.GetIfCan(settings, "vertical", NEWNIT_CONTAINER_CORE.D_vertical)
-	CollapsableSectionText = HelperFuncs.GetIfCan(settings, "CollapsableSectionText", NEWNIT_CONTAINER_CORE.D_Title)
+	text = HelperFuncs.GetIfCan(settings, "text", NEWNIT_CONTAINER_CORE.D_Title)
+	isCollapsed = HelperFuncs.GetIfCan(settings, "isCollapsed", false)
+	
 	_runtimeSettableProperties.merge(specificSettableProps)
 	
 	_collapseHeader.DataUp.connect(_UICollapseButton)

@@ -320,6 +320,7 @@ func SpawnLeftBar(cortexName: String, activation: Dictionary):
 	var update1 = UI_LeftBar.GetReferenceByID("UpdateButtonTop").get_node("button_UpdateButtonTop")
 	var update=UI_LeftBar.GetReferenceByID("UpdateButton").get_node("button_UpdateButton")
 	var add_row_button = UI_LeftBar.GetReferenceByID("EFFERENTLABEL").get_node("header_EFFERENTLABEL").get_node("sideButton_EFFERENTLABEL")
+	var temp = UI_LeftBar.GetReferenceByID("CorticalID")
 	delete_button.connect("pressed", Callable($Brain_Visualizer,"_on_remove_pressed").bind(UI_LeftBar.GetReferenceByID("CorticalID")))
 	update.connect("pressed", Callable($Brain_Visualizer,"_on_Update_pressed").bind(UI_LeftBar))
 	update1.connect("pressed", Callable($Brain_Visualizer,"_on_Update_pressed").bind(UI_LeftBar))
