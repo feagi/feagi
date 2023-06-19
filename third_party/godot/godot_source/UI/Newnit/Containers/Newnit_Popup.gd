@@ -114,4 +114,10 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	vertical = HelperFuncs.GetIfCan(settings, "vertical", NEWNIT_CONTAINER_CORE.D_vertical)
 	titleBarText = HelperFuncs.GetIfCan(settings, "titleBarText", NEWNIT_CONTAINER_CORE.D_Title)
 	_runtimeSettableProperties.merge(specificSettableProps)
+	
+	_titleBar.DataUp.connect(_closeButton)
 	type = "popup"
+
+func _closeButton(data: Dictionary, originatingID: String, reference: Node) -> void:
+	if originatingID != "POPUP_TOPBAR": return
+	queue_free()
