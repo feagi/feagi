@@ -3,8 +3,8 @@ class_name Element_Counter
 
 const D_editable = true
 const D_value = 0
-const D_max_value: int = INF
-const D_min_value: int = -INF
+const D_max_value: int = int(INF)
+const D_min_value: int = int(-INF)
 const D_step = 1.0
 const D_prefix = ""
 const D_suffix = ""
