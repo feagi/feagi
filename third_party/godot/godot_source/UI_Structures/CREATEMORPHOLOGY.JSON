@@ -288,18 +288,24 @@
 					"vertical": false,
 					"components": [
 						{
-							"type": "floatfield",
+							"type": "counter",
 							"ID": "X",
+							"max_value": 99999999,
+							"min_value": -99999999,
 							"label": "X"
 						},
 						{
-							"type": "floatfield",
+							"type": "counter",
 							"ID": "Y",
+							"max_value": 99999999,
+							"min_value": -99999999,
 							"label": "Y"
 						},
 						{
-							"type": "floatfield",
+							"type": "counter",
 							"ID": "Z",
+							"max_value": 99999999,
+							"min_value": -99999999,
 							"label": "Z"
 						},
 						{
