@@ -1089,23 +1089,25 @@ func _on_cortical_dropdown_item_selected(index):
 			combine_url= combine_url.replace("$", name_to_id($".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_item_text(index)))
 			Autoload_variable.BV_Core.Update_destination(combine_url)
 
-func _on_update_inside_map_pressed():
+func _on_update_inside_map_pressed(node):
+	print("status: ", node.GetReferenceByID("testlabel").get_children())
 	var combine_url = '?src_cortical_area=#&dst_cortical_area=$'
-	var get_id = name_to_id($".."/".."/".."/Menu/Mapping_Properties/source_dropdown.text)
-	var get_dst_data = name_to_id($".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.text)
+	var get_id = node.GetReferenceByID("testlabel").get_node("dropdown_SOURCECORTICALAREA").get_node("dropDown_SOURCECORTICALAREA").text
+	var get_dst_data = node.GetReferenceByID("testlabel").get_node("dropdown_DESTINATIONCORTICALAREA").get_node("dropDown_DESTINATIONCORTICALAREA").text
 	var dst_data = {}
 	dst_data["cortical_destinations"] = {}
 	combine_url = combine_url.replace("#", get_id)
 	combine_url = combine_url.replace("$", get_dst_data)
 	for p in plus_node:
 		var dst = {}
-		dst["morphology_id"] = p.get_child(0).get_item_text(p.get_child(0).get_selected_id())
+		print("p: ", p.get_children())
+		dst["morphology_id"] = p.get_node("dropdown_mappingdefinitions").get_node("dropDown_mappingdefinitions").text
 		dst["morphology_scalar"] = []
-		dst["morphology_scalar"].append(p.get_child(1).value)
-		dst["morphology_scalar"].append(p.get_child(2).value)
-		dst["morphology_scalar"].append(p.get_child(3).value)
-		dst["postSynapticCurrent_multiplier"] = float(p.get_child(4).text)
-		dst["plasticity_flag"] = p.get_child(5).is_pressed()
+		dst["morphology_scalar"].append(int(p.get_node("box_overwritescalar").get_node("box_XYZ").get_node("floatfield_Pos_X").get_node("floatField_Pos_X").text))
+		dst["morphology_scalar"].append(int(p.get_node("box_overwritescalar").get_node("box_XYZ").get_node("floatfield_Pos_Y").get_node("floatField_Pos_Y").text))
+		dst["morphology_scalar"].append(int(p.get_node("box_overwritescalar").get_node("box_XYZ").get_node("floatfield_Pos_Z").get_node("floatField_Pos_Z").text))
+		dst["postSynapticCurrent_multiplier"] = float(p.get_node("floatfield_PSPMULTIPLER").get_node("floatField_PSPMULTIPLER").text)
+		dst["plasticity_flag"] = p.get_node("box_third_box1").get_node("checkbutton_PSPTOGGLE").get_node("checkButton_PSPTOGGLE").is_pressed()
 		if dst_data["cortical_destinations"].has(get_id):
 			dst_data["cortical_destinations"][get_id].append(dst)
 		else:
