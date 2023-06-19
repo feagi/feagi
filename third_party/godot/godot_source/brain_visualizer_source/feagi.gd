@@ -59,7 +59,7 @@ func _ready():
 	Autoload_variable.BV_Core = get_parent().get_parent()
 	Autoload_variable.BV_UI = get_parent()
 	await get_tree().create_timer(1.5).timeout
-	SEC = 'HTTP://' + network_setting.api_ip_address
+	SEC = 'HTTP://' + network_setting.api_ip_address + ':' + network_setting.api_port_address
 	set_physics_process(false)
 #	add_3D_indicator()
 	Autoload_variable.BV_Core.Update_Dimensions() # Grab genome list
@@ -309,34 +309,7 @@ func _on_Update_pressed(data_input):
 	last_cortical_selected["cortical_coordinates"] = []
 #	last_cortical_selected["cortical_destinations"] = {}
 	last_cortical_selected["cortical_dimensions"] = []
-#	var cortical_name = $".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_item_text($".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_selected_id())
-#	var get_id = name_to_id(cortical_name)
-#	for i in child_node_holder:
-#		if i.text == "":
-#			if $".."/".."/".."/Menu/Mapping_Properties.visible:
-#				if $".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_selected_id() != 0:
-#					i.text = $".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_item_text($".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_selected_id())
-#		else:
-#			if i.text != cortical_name:
-#				last_cortical_selected["cortical_destinations"][name_to_id(i.text)] = dst_data_holder[name_to_id(i.text)] # This fixed
-#	for p in plus_node:
-#		var dst = {}
-#		dst["morphology_id"] = p.get_child(0).get_item_text(p.get_child(0).get_selected_id())
-#		dst["morphology_scalar"] = []
-#		dst["morphology_scalar"].append(p.get_child(1).value)
-#		dst["morphology_scalar"].append(p.get_child(2).value)
-#		dst["morphology_scalar"].append(p.get_child(3).value)
-#		dst["postSynapticCurrent_multiplier"] = int(p.get_child(4).text)
-#		dst["plasticity_flag"] = p.get_child(5).is_pressed()
-#		if last_cortical_selected["cortical_destinations"].has(get_id):
-#			last_cortical_selected["cortical_destinations"][get_id].append(dst)
-#		else:
-#			last_cortical_selected["cortical_destinations"][get_id] = []
-#			last_cortical_selected["cortical_destinations"][get_id].append(dst)
-#	if id_input == "":
-#		last_cortical_selected["cortical_id"]= 'new_id'
-#	else:
-#		last_cortical_selected["cortical_id"]= id_input
+
 	last_cortical_selected["cortical_name"] = name_input
 #	last_cortical_selected["cortical_group"] = last_cortical_selected["cortical_group"]
 	last_cortical_selected["cortical_neuron_per_vox_count"] = cortical_neuron_per_vox_count
@@ -452,6 +425,7 @@ func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 		else:
 			$".."/".."/".."/Menu/properties/Control/MP.set_pressed(false)
 		last_cortical_selected = genome_properties
+		print("STILL USING")
 		Autoload_variable.BV_Core.Update_Afferent_list(genome_properties["cortical_id"])
 #	$"..".SpawnLeftBar()
 
@@ -466,9 +440,6 @@ func _on_info_pressed():
 	for i in plus_node:
 		i.queue_free()
 	plus_node.clear()
-	$".."/".."/".."/Menu/Mapping_Properties.visible = false
-	$".."/".."/".."/Menu/Mapping_Properties/inside_mapping_menu.size.y = 107
-	$".."/".."/".."/Menu/Mapping_Properties.visible = true
 
 func update_cortical_map_name(name_input):
 	Autoload_variable.BV_Core.Update_Efferent_information(name_input)
@@ -631,28 +602,7 @@ func map_info_pressed(node_duplicated):
 func remove_button_inside_dst(node_duplicated):
 	plus_node.erase(node_duplicated)
 	node_duplicated.queue_free()
-#	var number_holder = []
-#	var rule_to_delete = node_duplicated.get_child(0).text
-#	var morphology_scalar_x = node_duplicated.get_child(1).value
-#	var morphology_scalar_y = node_duplicated.get_child(2).value
-#	var morphology_scalar_z = node_duplicated.get_child(3).value
-#	var plasticity_flag = node_duplicated.get_child(5).is_pressed()
-#	var postSynapticCurrent_multiplier = float(node_duplicated.get_child(4).text)
-#
-#	var get_id = name_to_id($".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_item_text($".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.get_selected_id()))
-#	var inner_counter = 0
-#	for i in range(dst_data_holder[get_id].size()):
-#		if rule_to_delete in dst_data_holder[get_id][i-inner_counter]["morphology_id"] and morphology_scalar_x == dst_data_holder[get_id][i-inner_counter]["morphology_scalar"][0] and morphology_scalar_y == dst_data_holder[get_id][i-inner_counter]["morphology_scalar"][1] and morphology_scalar_z == dst_data_holder[get_id][i-inner_counter]["morphology_scalar"][2] and plasticity_flag == dst_data_holder[get_id][i-inner_counter]["plasticity_flag"] and postSynapticCurrent_multiplier == dst_data_holder[get_id][i-inner_counter]["postSynapticCurrent_multiplier"]:
-#			dst_data_holder[get_id].pop_at(i - inner_counter)
-#			inner_counter += 1
-#	for i in range(plus_node.size()):
-#		if node_duplicated == plus_node[i]:
-#			plus_node[i].queue_free()
-#			number_holder.append(i)
-#	var counter = 0
-#	for i in number_holder:
-#		plus_node.pop_at(i - counter)
-#		counter += 1
+
 func info_pressed(duplicated_node_lineedit):
 	var get_id = $".."/".."/".."/Menu/cortical_menu/Control/cortical_id.text
 	if duplicated_node_lineedit.text != " " and duplicated_node_lineedit.text != "":
@@ -845,15 +795,6 @@ func _on_get_cortical_dst_request_completed(_result, _response_code, _headers, b
 func _on_cortical_mapping_add_pressed(name_input):
 	var mappingdefinitiongenerated = HelperFuncs.GenerateDefinedUnitDict("MAPPING_DEFINITION", $"..".currentLanguageISO)
 	$"..".SpawnMappingDefinition(id_to_name(name_input), "", mappingdefinitiongenerated)
-#	() # leveraging the same function to clear all infos on the box
-#	$".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.select(0)
-#	var add_flag = true
-#	for i in child_node_holder:
-#		if i.text == "":
-#			add_flag = false
-#	if add_flag:
-#		generate_cortical_mapping()
-
 
 func generate_cortical_mapping():
 	for i in $".."/".."/".."/Menu/Mapping_Properties/source_dropdown.get_item_count():
@@ -970,7 +911,6 @@ func _on_Button_pressed():
 		Autoload_variable.BV_Core.Update_MorphologyList()
 
 func _on_create_pressed(node):
-	print("node: ", node.GetReferenceByID("MorphologyName").get_children())
 	var name_input = node.GetReferenceByID("MorphologyName").get_node("field_MorphologyName").text
 	var dropdown_selected = node.GetReferenceByID("MorphologyType").get_node("dropDown_MorphologyType").text
 	if name_input != "":
@@ -979,67 +919,61 @@ func _on_create_pressed(node):
 			var new_name = symbols_checker_for_api(name_input)
 			var new_type = dropdown_selected
 			var string_input = []
-			var empty_array1 = []
-			var empty_array2 = []
 			var full_array = []
 			var empty_flag = 0
 			for i in new_morphology_node:
+				print("new morp node: ", new_morphology_node)
 				empty_flag = 0
 				full_array = []
-				empty_array1 = []
-				empty_array2 = []
-				print("i: ", i.get_children())
-				# INCOMPLETE
-				for _x in range(6):
-					if not "?" in i.get_child(empty_flag).text and not "*" in i.get_child(empty_flag).text:
-						if empty_flag < 3:
-							empty_array1.append(int(i.get_child(empty_flag).text))
-						elif empty_flag >= 3:
-							empty_array2.append(int(i.get_child(empty_flag).text))
+				var empty_array1 = [i.get_node("floatfield_Xi").get_node("floatField_Xi").text, i.get_node("floatfield_Yi").get_node("floatField_Yi").text, i.get_node("floatfield_Zi").get_node("floatField_Zi").text]
+				var empty_array2 = [i.get_node("floatfield_Xo").get_node("floatField_Xo").text, i.get_node("floatfield_Yo").get_node("floatField_Yo").text, i.get_node("floatfield_Zo").get_node("floatField_Zo").text]
+				var symbols_to_check = ["?", "*"]
+				for x in empty_array1:
+					if x in symbols_to_check:
+						empty_array1[empty_flag] = str(x)
 					else:
-						if empty_flag < 3:
-							empty_array1.append(str(i.get_child(empty_flag).text))
-						elif empty_flag >= 3:
-							empty_array2.append(str(i.get_child(empty_flag).text))
+						empty_array1[empty_flag] = int(x)
+					empty_flag += 1
+				empty_flag = 0
+				for b in empty_array2:
+					if b in symbols_to_check:
+						empty_array2[empty_flag] = str(b)
+					else:
+						empty_array2[empty_flag] = int(b)
 					empty_flag += 1
 				full_array.append(empty_array1)
 				full_array.append(empty_array2)
 				string_input.append(full_array)
 			json["patterns"] = string_input
-			var combine_url = '/v1/feagi/genome/morphology?morphology_name=' + new_name + '&morphology_type=' + new_type
+			var combine_url = '/v1/feagi/genome/morphology?morphology_name=' + str(new_name) + '&morphology_type=' + str(new_type.to_lower())
 			Autoload_variable.BV_Core.POST_Request_Brain_visualizer(SEC+combine_url, json)
-			$".."/".."/".."/Menu/Control.visible = false
 			new_morphology_clear()
-			$".."/".."/".."/Menu/Control/inner_box/morphology_name.text = ""
-		if $".."/".."/".."/Menu/Control/inner_box/morphology_type.get_item_text($".."/".."/".."/Menu/Control/inner_box/morphology_type.selected) == "vectors":
+		if dropdown_selected == "Vectors":
 			var json = {}
-			var new_name = symbols_checker_for_api($".."/".."/".."/Menu/Control/inner_box/morphology_name.text)
-			var new_type = $".."/".."/".."/Menu/Control/inner_box/morphology_type.get_item_text($".."/".."/".."/Menu/Control/inner_box/morphology_type.get_selected_id())
+			var new_name = symbols_checker_for_api(name_input)
+			var new_type = dropdown_selected
 			var empty_array1 = []
 			for i in new_morphology_node:
-				var temp_array = []
-				temp_array.append(i.get_child(0).value)
-				temp_array.append(i.get_child(1).value)
-				temp_array.append(i.get_child(2).value)
+				var temp_array = [int(i.get_node("counter_X").get_node("counter_X").value), int(i.get_node("counter_Y").get_node("counter_Y").value), int(i.get_node("counter_Z").get_node("counter_Z").value)]
 				empty_array1.append(temp_array)
 			json["vectors"] = empty_array1
-			var combine_url = '/v1/feagi/genome/morphology?morphology_name=' + new_name + '&morphology_type=' + new_type
+			var combine_url = '/v1/feagi/genome/morphology?morphology_name=' + new_name + '&morphology_type=' + new_type.to_lower()
 			Autoload_variable.BV_Core.POST_Request_Brain_visualizer(SEC+combine_url, json)
-			$".."/".."/".."/Menu/Control.visible = false
 			new_morphology_clear()
-			$".."/".."/".."/Menu/Control/inner_box/morphology_name.text = ""
-		if $".."/".."/".."/Menu/Control/inner_box/morphology_type.get_item_text($".."/".."/".."/Menu/Control/inner_box/morphology_type.selected) == "composite":
+		if dropdown_selected == "Composite":
+			print("node: ", node.GetReferenceByID("Composite").get_children())
+			print("seed: ", node.GetReferenceByID("Composite").get_node("box_XYZ_s1").get_node("box_XYZ_1").get_node("box_XYZ_X").get_node("counter_C1").get_node("counter_C1").get_children())
 			var json = {}
-			var new_name = symbols_checker_for_api($".."/".."/".."/Menu/Control/inner_box/morphology_name.text)
-			var new_type = $".."/".."/".."/Menu/Control/inner_box/morphology_type.get_item_text($".."/".."/".."/Menu/Control/inner_box/morphology_type.get_selected_id())
-			json["src_seed"] = [$".."/".."/".."/Menu/Control/inner_box/box_of_composite/X.value, $".."/".."/".."/Menu/Control/inner_box/box_of_composite/Y.value, $".."/".."/".."/Menu/Control/inner_box/box_of_composite/Z.value]
-			json["src_pattern"] = [[$".."/".."/".."/Menu/Control/inner_box/box_of_composite/X_box/C.value, $".."/".."/".."/Menu/Control/inner_box/box_of_composite/X_box/S.value], [$".."/".."/".."/Menu/Control/inner_box/box_of_composite/Y_box/C.value, $".."/".."/".."/Menu/Control/inner_box/box_of_composite/Y_box/S.value], [$".."/".."/".."/Menu/Control/inner_box/box_of_composite/Z_box/C.value, $".."/".."/".."/Menu/Control/inner_box/box_of_composite/Z_box/S.value]]
-			json["mapper_morphology"] = $".."/".."/".."/Menu/Control/inner_box/box_of_composite/mapper_composite.get_item_text($".."/".."/".."/Menu/Control/inner_box/box_of_composite/mapper_composite.selected)
-			var combine_url = '/v1/feagi/genome/morphology' + '?morphology_name=' + new_name + '&morphology_type=' + new_type
+			var new_name = symbols_checker_for_api(name_input)
+			var new_type = dropdown_selected
+			json["src_seed"] = []
+			for i in node.GetReferenceByID("Composite").get_node("vector3_tempTest").get_children():
+				json["src_seed"].append(int(i.get_child(1).text)) 
+			print(node.GetReferenceByID("Composite").get_node("box_XYZ_s1").get_children())
+			json["src_pattern"] = [[node.GetReferenceByID("Composite").get_node("box_XYZ_s1").get_node("box_XYZ_1").get_node("box_XYZ_X").get_node("counter_C1").get_node("counter_C1").value, node.GetReferenceByID("Composite").get_node("box_XYZ_s1").get_node("box_XYZ_1").get_node("box_XYZ_X").get_node("counter_S1").get_node("counter_S1").value], [node.GetReferenceByID("Composite").get_node("box_XYZ_s1").get_node("box_XYZ_Y").get_node("box_XYZ_2").get_node("counter_C2").get_node("counter_C2").value, node.GetReferenceByID("Composite").get_node("box_XYZ_s1").get_node("box_XYZ_Y").get_node("box_XYZ_2").get_node("counter_S2").get_node("counter_S2").value], [node.GetReferenceByID("Composite").get_node("box_XYZ_s1").get_node("box_XYZ_Z").get_node("box_XYZ_3").get_node("counter_C3").get_node("counter_C3").value, node.GetReferenceByID("Composite").get_node("box_XYZ_s1").get_node("box_XYZ_Z").get_node("box_XYZ_3").get_node("counter_S3").get_node("counter_S3").value]]
+			json["mapper_morphology"] = node.GetReferenceByID("Composite").get_node("box_MAPPING_DROPDOWN").get_node("dropdown_MAPPINGDROPDOWN").get_node("dropDown_MAPPINGDROPDOWN").text
+			var combine_url = '/v1/feagi/genome/morphology' + '?morphology_name=' + new_name + '&morphology_type=' + new_type.to_lower()
 			Autoload_variable.BV_Core.POST_Request_Brain_visualizer(SEC+combine_url, json)
-			$".."/".."/".."/Menu/Control.visible = false
-			new_morphology_clear()
-			$".."/".."/".."/Menu/Control/inner_box/morphology_name.text = ""
 func _on_X_inside_inner_box_pressed():
 	$".."/".."/".."/Menu/Control.visible = false
 	new_morphology_clear()
