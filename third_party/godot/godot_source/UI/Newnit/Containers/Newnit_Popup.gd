@@ -104,17 +104,12 @@ var specificSettableProps := {
 var _titleBar: Element_Label:
 	get: return children[0]
 
-func _AlternateActivationPath(settings: Dictionary) -> bool:
+func _ActivationPrimary(settings: Dictionary) -> void:
 	# Add a title bar and continue
 	
-	var childrenActivations: Array = settings["components"]
-	var TitleBar := _TITLEBAR_BUTTON.duplicate()  # avoid ref issues
-	childrenActivations.push_front(_TITLEBAR_BUTTON)
-	settings["components"] = childrenActivations
-	NEWNIT_CONTAINER_CORE.Func__ActivationPrimary(settings, self)
-	return true
-
-func _ActivationSecondary(settings: Dictionary) -> void:
+	settings = NEWNIT_CONTAINER_CORE.PreAppendElementToComponents(settings, _TITLEBAR_BUTTON)
+	SpawnMultipleChildren(settings["components"])
+	
 	alignment = HelperFuncs.GetIfCan(settings, "alignment", NEWNIT_CONTAINER_CORE.D_alignment)
 	vertical = HelperFuncs.GetIfCan(settings, "vertical", NEWNIT_CONTAINER_CORE.D_vertical)
 	titleBarText = HelperFuncs.GetIfCan(settings, "titleBarText", NEWNIT_CONTAINER_CORE.D_Title)
@@ -122,6 +117,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	
 	_titleBar.DataUp.connect(_closeButton)
 	type = "popup"
+
 
 func _closeButton(data: Dictionary, originatingID: String, reference: Node) -> void:
 	if originatingID != "POPUP_TOPBAR": return
