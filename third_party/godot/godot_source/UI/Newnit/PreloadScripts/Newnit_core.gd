@@ -96,6 +96,7 @@ static func Func_AddPanel(NewnitObject: Node) -> void:
 	var panel = Panel.new()
 	NewnitObject._childRoot.add_child(panel)
 	NewnitObject._panelRef = panel
+	NewnitObject._childRoot = panel
 
 static func Func__GetUIChildName(compType: StringName, NewnitObject) -> StringName:
 	return compType + "_" + NewnitObject.ID
