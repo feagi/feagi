@@ -44,6 +44,7 @@ func _ready():
 	Autoload_variable.Core_addOption = get_parent().get_node("Menu/Mapping_Properties/cortical_dropdown")
 	Autoload_variable.Core_Menu = get_parent().get_node("Menu")
 	Autoload_variable.Core_addition = get_parent().get_node("Menu/addition_menu")
+	Autoload_variable.Core_notification = $GlobalUISystem/Brain_Visualizer/notification
 	# Retrieve relvant Child Nodes
 	NetworkAPI = $GlobalNetworkSystem
 	UIManager = $GlobalUISystem
@@ -152,6 +153,10 @@ func Update_Genome_CorticalArea(dataIn: Dictionary): Call_PUT(ADD_PUT_Genome_Cor
 #TODO error handling
 
 func _Relay_IPUs(_result, _response_code, _headers, body: PackedByteArray):
+	var test_json_conv = JSON.new()
+	test_json_conv.parse(body.get_string_from_utf8())
+	var api_data = test_json_conv.get_data()
+	Autoload_variable.Core_notification.generate_notification_message(api_data, _response_code, "Update_IPUs", "/v1/feagi/feagi/pns/current/ipu")
 	# FEAGI updated IPUs
 	if LogNetworkError(_result): print("Unable to get IPUs"); return
 	FeagiCache.pns_current_IPU = JSON.parse_string(body.get_string_from_utf8())
@@ -167,6 +172,7 @@ func _Relay_CorticalAreasIDs(_result, _response_code, _headers, body: PackedByte
 	var test_json_conv = JSON.new()
 	test_json_conv.parse(body.get_string_from_utf8())
 	var api_data = test_json_conv.get_data()
+	Autoload_variable.Core_notification.generate_notification_message(api_data, _response_code, "_Relay_CorticalAreasIDs", "")
 	if api_data != null:
 		FeagiCache.genome_corticalAreaIDList = JSON.parse_string(body.get_string_from_utf8())
 		UIManager.RelayDownwards(REF.FROM.genome_corticalAreaIdList, FeagiCache.genome_corticalAreaIDList)
@@ -177,6 +183,10 @@ func _Relay_ChangedBurstRate(_result, _response_code, _headers, _body: PackedByt
 	#GET_BurstRate() #Confirm new burst rate
 
 func _Relay_updated_cortical(_result, _response_code, _headers, _body: PackedByteArray):
+	var test_json_conv = JSON.new()
+	test_json_conv.parse(_body.get_string_from_utf8())
+	var api_data = test_json_conv.get_data()
+	Autoload_variable.Core_notification.generate_notification_message(api_data, _response_code, "_Relay_updated_cortical", "/v1/feagi/genome/cortical_area", "POST")
 	if LogNetworkError(_result): print("Unable to get Cortical"); return
 	pass
 	
@@ -263,6 +273,7 @@ func _Relay_GET_Genome_CorticalArea(_result, _response_code, _headers, body: Pac
 		if specificCortex[key] is int:
 			specificCortex[key] = float(specificCortex[key])
 	UIManager.RelayDownwards(REF.FROM.genome_corticalArea, specificCortex)
+	Autoload_variable.Core_notification.generate_notification_message(specificCortex, _response_code, "_Relay_GET_Genome_CorticalArea", "/v1/feagi/genome/cortical_area")
 
 func _Relay_CorticalMap(_result, _response_code, _headers, body: PackedByteArray):
 	# FEAGI updating cortical ID - Name mappings
