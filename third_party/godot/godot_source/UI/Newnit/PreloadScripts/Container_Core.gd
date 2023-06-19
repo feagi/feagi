@@ -55,3 +55,4 @@ const D_current_tab = 0
 const D_tab_alignment = 1
 const D_use_hidden_tabs_for_min_size = true
 const D_tab_titles = []
+const D_Title := "NO TITLE GIVEN"
