@@ -103,8 +103,8 @@ const settableProperties := {
 # Base Element Activation
 func _ActivationPrimary(settings: Dictionary) -> void:
 	
-	
 	var subComponents := _PopulateSubElements() 
+
 	_runtimeSettableProperties.merge(settableProperties)
 	
 	_sideLabelText = HelperFuncs.GetIfCan(settings, "sideLabelText", D_labelText)
@@ -115,6 +115,8 @@ func _ActivationPrimary(settings: Dictionary) -> void:
 	
 	alignment = HelperFuncs.GetIfCan(settings, "alignment", D_alignment)
 	vertical = HelperFuncs.GetIfCan(settings, "vertical", D_vertical)
+	
+	
 	
 	if _has_label:
 		subComponents.push_front("sideLabel")
@@ -150,6 +152,11 @@ func _SpawnSubElements(componentTypes: Array) -> void:
 					subComp = BoxContainer.new(); add_child(subComp)
 					subComp.add_child(Label_Sub.new())
 					subComp.add_child(LineEdit_ff_Sub.new())
+				continue
+			"list":
+				subComp = BoxContainer.new(); add_child(subComp)
+				subComp.add_child(Element_Button.new())
+				subComp.add_child(List_Sub.new())
 				continue
 			"button": subComp = Button_Sub.new()
 			"counter": subComp = Spinbox_Sub.new()

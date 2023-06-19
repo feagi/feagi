@@ -151,7 +151,17 @@
 			"sideButtonText":  "+"},
 			{"type": "button",
 			  "ID": "blank_efferent"}
-	], "vertical": true}
+	], "vertical": true},
+	{
+		"type": "list",
+		"ID": "TEST_LIST",
+		"prefabActivation": {
+			"type": "button",
+			"ID": "EXAMPLE_THING_YOU_WISH_TO_SPAWN_ON_LISTS",
+			"text": "The entire script of the bee movie"
+		}
+	}
+	
   ],
 }
 
