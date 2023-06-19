@@ -3768,13 +3768,13 @@ text = "Loading genome.."
 
 [node name="Button" type="Button" parent="."]
 anchors_preset = -1
-anchor_left = 0.58941
-anchor_right = 0.614583
-anchor_bottom = 0.0478395
-offset_left = 65.0
-offset_right = 65.0
+anchor_left = 0.785
+anchor_right = 0.788
+offset_left = -56.32
+offset_right = 59.2239
+offset_bottom = 31.0
+grow_horizontal = 0
 text = "Circuit Builder"
-metadata/_edit_use_anchors_ = true
 
 [node name="animation_button" type="Button" parent="."]
 visible = false
@@ -3796,13 +3796,13 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 60, 100)
 
 [node name="color_indicator" type="Control" parent="."]
 layout_mode = 3
-anchor_top = -0.012
-anchor_bottom = -0.012
-offset_left = 2128.0
-offset_top = 7.776
-offset_right = 2286.0
-offset_bottom = 51.776
-metadata/_edit_use_anchors_ = true
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -192.0
+offset_right = -34.0
+offset_bottom = 12.248
+grow_horizontal = 0
 
 [node name="ColorRect" type="ColorRect" parent="color_indicator"]
 layout_mode = 0
