@@ -487,8 +487,8 @@ func _on_information_button_request_completed(_result, _response_code, _headers,
 		var new_name = ""
 		var UI_LeftBar = $"..".UI_LeftBar
 		for i in api_data:
-			var new_node = UI_LeftBar.GetReferenceByID("blank_efferent").get_node("button_blank_efferent").get_node("button_blank_efferent").duplicate()
-			UI_LeftBar.GetReferenceByID("blank_efferent").get_node("button_blank_efferent").add_child(new_node)
+			var new_node = UI_LeftBar.GetReferenceByID("blank_efferent").get_node("button_blank_efferent").duplicate()
+			UI_LeftBar.GetReferenceByID("blank_efferent").add_child(new_node)
 			child_node_holder.append(new_node)
 			new_name = id_to_name(i)
 			new_node.text = new_name
