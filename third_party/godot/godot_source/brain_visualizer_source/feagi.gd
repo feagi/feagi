@@ -81,6 +81,7 @@ func _ready():
 			if "update" in data:
 				$".."/".."/".."/Menu/box_loading.visible = true
 				Autoload_variable.BV_Core.Update_Dimensions()
+				Autoload_variable.BV_Core.GET_health_status()
 				stored_value= ""
 			else:
 				stored_value = data
