@@ -96,9 +96,9 @@ var isCollapsed: bool:
 		_isCollapsed = v
 		ToggleCollapseSection(v)
 		if(v):
-			_collapseHeader.sideButtonText = "Hide"
-		else:
 			_collapseHeader.sideButtonText = "Show"
+		else:
+			_collapseHeader.sideButtonText = "Hide"
 
 var specificSettableProps := {
 	"alignment": TYPE_INT,

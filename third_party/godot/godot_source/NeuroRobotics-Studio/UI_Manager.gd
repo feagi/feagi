@@ -316,7 +316,7 @@ func SpawnLeftBar(cortexName: String, activation: Dictionary):
 	add_child(UI_LeftBar)
 	UI_LeftBar.Activate(activation)
 	UI_holders.append(UI_LeftBar)
-#	var delete_button = UI_LeftBar.GetReferenceByID("UpdateButtonTop").get_node("sideButton_UpdateButtonTop")
+#	var delete_button = UI_LeftBar.GetReferenceByID("UpdateButtonTop") DO THIS
 #	var update1 = UI_LeftBar.GetReferenceByID("UpdateButtonTop").get_node("button_UpdateButtonTop")
 #	var update=UI_LeftBar.GetReferenceByID("UpdateButton").get_node("button_UpdateButton")
 #	var add_row_button = UI_LeftBar.GetReferenceByID("EFFERENTLABEL").get_node("header_EFFERENTLABEL").get_node("sideButton_EFFERENTLABEL")
