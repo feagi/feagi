@@ -1,58 +1,65 @@
 {
-	"CorticalPropertiesSection": {
-		"sideLabelText":
-		  {"eng": "Cortical Properties"}
-		},
-	"CorticalName": {
-		"sideLabelText":
-		  {"eng": "Cortical Name"}
-		},
-	"CorticalID": {
-		"sideLabelText":
-		  {"eng": "Cortical ID"}
-		},
-	"CorticalArea": {
-		"sideLabelText":
-		  {"eng":  "Cortical Area Type"}
-	},
-	"MonitoringSection": {
-		"sideLabelText":
-		  {"eng":  "Monitoring"}
-	},
-	"WHD": {
-		"W": {
-			"sideLabelText": {
-				"eng": "W"
+   "CorticalPropertiesSection":{
+	  "CorticalName":{
+		 "sideLabelText":{
+			"eng":"Cortical Name"
+		 }
+	  },
+	  "CorticalID":{
+		 "sideLabelText":{
+			"eng":"Cortical ID"
+		 }
+	  },
+	  "NeuronParametersSection":{
+		 "sideLabelText":{
+			"eng":"Neuron Parameters"
+		 }
+	  },
+	  "CorticalArea":{
+		 "sideLabelText":{
+			"eng":"Cortical Area Type"
+		 }
+	  },
+	  "MonitoringSection":{
+		 "sideLabelText":{
+			"eng":"Monitoring"
+		 }
+	  },
+	  "WHD":{
+		 "W":{
+			"sideLabelText":{
+			   "eng":"W"
 			}
-		},
-		"H": {
-			"sideLabelText": {
-				"eng": "H"
+		 },
+		 "H":{
+			"sideLabelText":{
+			   "eng":"H"
 			}
-		},
-		"D": {
-			"sideLabelText": {
-				"eng": "D"
+		 },
+		 "D":{
+			"sideLabelText":{
+			   "eng":"D"
 			}
-		}
-	},
-	"UpdateButtonTop": {
-		"sideLabelText": {
-			"eng": ""
-		}
-	},
-		"toggles": {
-		"Mem_potent": {
-			"sideLabelText": {
-				"eng": "Membrane Potential"
-			}
-		},
-		"syn_potent": {
-			"sideLabelText": {
-				"eng": "Synaptic Potential"
-			}
-		}
-	},
+		 }
+	  },
+	  "UpdateButtonTop":{
+		 "sideLabelText":{
+			"eng":""
+		 }
+	  }
+   },
+   "toggles":{
+	  "Mem_potent":{
+		 "sideLabelText":{
+			"eng":"Membrane Potential"
+		 }
+	  },
+	  "syn_potent":{
+		 "sideLabelText":{
+			"eng":"Synaptic Potential"
+		 }
+	  }
+   },
 "NeuronParametersSection": {
 	"VoxelNeuronDensity": {
 		"sideLabelText": {
@@ -140,63 +147,58 @@
 		}
 	}
 },
-	"CorticalMapping": {
-		"sideLabelText": {
-			"eng": "Cortical Mapping"
-		}
-	},
-	"XYZ": {
-		"Pos_X": {
-			"sideLabelText": {
-				"eng": "X"
-			}
-		},
-		"Pos_Y": {
-			"sideLabelText": {
-				"eng": "Y"
-			}
-		},
-		"Pos_Z": {
-			"sideLabelText": {
-				"eng": "Z"
-			}
-		},
-		"CorticalMapping": {
-			"sideLabelText": {
-				"eng": "Cortical Mapping"
-			}
-		}
-	},
-	"AFFERENTLABEL": {
-		"sideLabelText": {
-			"eng": "Afferent Mappings:"
-			}
-		},
-		"blank_afferent": {
-			"sideLabelText": {
-				"eng": ""
-			}
-		},
-		"efferent_unit": {
-			"EFFERENTLABEL": {
-			"sideLabelText": {
-				"eng": "Efferent Mappings: "
-			}
-		},
-		"blank_efferent": {
-			"sideLabelText": {
-				"eng": ""
-			}
-		},
-			"delete": {
-				"sideLabelText": {
-					"eng": "-"
-				}
-			},
-			"info": {
-				"sideLabelText": {
-					"eng": "i"
-				}
-			}
-	}
+   "XYZ":{
+	  "Pos_X":{
+		 "sideLabelText":{
+			"eng":"X"
+		 }
+	  },
+	  "Pos_Y":{
+		 "sideLabelText":{
+			"eng":"Y"
+		 }
+	  },
+	  "Pos_Z":{
+		 "sideLabelText":{
+			"eng":"Z"
+		 }
+	  },
+	  "CorticalMapping":{
+		 "sideLabelText":{
+			"eng":"Cortical Mapping"
+		 }
+	  }
+   },
+   "AFFERENTLABEL":{
+	  "sideLabelText":{
+		 "eng":"Afferent Mappings:"
+	  }
+   },
+   "blank_afferent":{
+	  "sideLabelText":{
+		 "eng":""
+	  }
+   },
+   "efferent_unit":{
+	  "EFFERENTLABEL":{
+		 "sideLabelText":{
+			"eng":"Efferent Mappings: "
+		 }
+	  },
+	  "blank_efferent":{
+		 "sideLabelText":{
+			"eng":""
+		 }
+	  },
+	  "delete":{
+		 "sideLabelText":{
+			"eng":"-"
+		 }
+	  },
+	  "info":{
+		 "sideLabelText":{
+			"eng":"i"
+		 }
+	  }
+   }
 }
