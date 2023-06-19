@@ -70,10 +70,6 @@ func SpawnChild(childActivationSettings: Dictionary) -> void:
 func SpawnMultipleChildren(childrenActivationSettings: Array) -> void:
 	NEWNIT_CONTAINER_CORE.Func_SpawnMultipleChildren(childrenActivationSettings, self)
 
-func _ActivationPrimary(settings: Dictionary) -> void:
-	if(_AlternateActivationPath(settings)): return
-	NEWNIT_CONTAINER_CORE.Func__ActivationPrimary(settings, self)
-
 func _getChildData() -> Dictionary:
 	return NEWNIT_CONTAINER_CORE.Func__getChildData(self)
 

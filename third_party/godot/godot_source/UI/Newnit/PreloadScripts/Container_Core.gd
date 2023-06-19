@@ -49,6 +49,15 @@ static func Func__getChildData(ContainerObject) -> Dictionary:
 static func Get_children(ContainerObject) -> Array:
 	return ContainerObject._childRoot.get_children()
 
+static func PreAppendElementToComponents(settings: Dictionary, 
+newElement: Dictionary) -> Dictionary:
+	
+	var components: Array = settings["components"]
+	components.push_front(newElement)
+	settings["components"] = components
+	return settings
+	
+
 # Defaults and other constants
 const D_vertical = true
 const D_alignment = 0

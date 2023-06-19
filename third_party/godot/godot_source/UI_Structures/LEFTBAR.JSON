@@ -5,6 +5,7 @@
    "type":"popup",
    "titleBarText":"INSERT SIDEBAR TITLE HERE",
    "widthAlignment":1,
+   "enablePanel": true,
    "components":[
 	  {
 		 "ID":"CorticalPropertiesSection",

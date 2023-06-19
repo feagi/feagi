@@ -122,8 +122,6 @@ func _ActivationPrimary(settings: Dictionary) -> void:
 	alignment = HelperFuncs.GetIfCan(settings, "alignment", D_alignment)
 	vertical = HelperFuncs.GetIfCan(settings, "vertical", D_vertical)
 	
-	
-	
 	if _has_label:
 		subComponents.push_front("sideLabel")
 	
