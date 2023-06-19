@@ -3,9 +3,7 @@
   "positionX": 0,
   "positionY": 70,
   "type": "popup",
-  "enableTitleBar": true,
-  "titleBarTitle": "INSERT SIDEBAR TITLE HERE",
-  "enableCloseButton": true,
+  "titleBarText": "INSERT SIDEBAR TITLE HERE",
   "widthAlignment": 1,
   "components": [
 	{"type" : "header",

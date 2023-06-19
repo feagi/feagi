@@ -18,7 +18,7 @@ var Activated: bool = false
 
 # References
 var UI_Top_TopBar: Newnit_Box
-var UI_LeftBar: Newnit_Box
+var UI_LeftBar: Newnit_Popup
 var UI_createcorticalBar : Newnit_Box
 var UI_ManageNeuronMorphology : Newnit_Box
 var UI_MappingDefinition : Newnit_Box
@@ -306,7 +306,7 @@ func SpawnLeftBar(cortexName: String, activation: Dictionary):
 	if UI_LeftBar != null:
 		UI_LeftBar.queue_free() # We don't need this. We need to make it look prettier
 	$"..".Update_GenomeCorticalArea_SPECIFC(cortexName) # Tell core to update cortex Info
-	UI_LeftBar = Newnit_Box.new()
+	UI_LeftBar = Newnit_Popup.new()
 	add_child(UI_LeftBar)
 	UI_LeftBar.Activate(activation)
 	UI_holders.append(UI_LeftBar)
