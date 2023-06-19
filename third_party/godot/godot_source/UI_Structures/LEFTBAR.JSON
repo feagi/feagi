@@ -1,90 +1,108 @@
 {
-  "ID" : "LEFTBAR",
-  "positionX": 0,
-  "positionY": 70,
-  "type": "popup",
-  "titleBarText": "INSERT SIDEBAR TITLE HERE",
-  "widthAlignment": 1,
-  "components": [
-	{"type" : "header",
-	"ID" : "CorticalPropertiesSection"},
-	{"type": "field",
-	"editable": false,
-	"ID": "CorticalName"},
-	{"type": "field",
-	"editable": false,
-	"ID": "CorticalID"},
-	{"ID": "CorticalArea",
-	"editable": false,
-	"type": "field"},
-	{
-		"type": "box",
-		"ID": "XYZ",
-		"components": [
+   "ID":"LEFTBAR",
+   "positionX":0,
+   "positionY":70,
+   "type":"popup",
+   "titleBarText":"INSERT SIDEBAR TITLE HERE",
+   "widthAlignment":1,
+   "components":[
+	  {
+		 "ID":"CorticalPropertiesSection",
+		 "text":"Cortical Properties",
+		 "type":"collapsible",
+		 "components":[
 			{
-				"type": "counter",
-				"ID": "Pos_X",
-				"max_value": 99999999,
-				"min_value": -99999999
+			   "type":"field",
+			   "editable":false,
+			   "ID":"CorticalName"
 			},
 			{
-				"type": "counter",
-				"ID": "Pos_Y",
-				"max_value": 99999999,
-				"min_value": -99999999
-
+			   "type":"field",
+			   "editable":false,
+			   "ID":"CorticalID"
 			},
 			{
-				"type": "counter",
-				"ID": "Pos_Z",
-				"max_value": 99999999,
-				"min_value": -99999999
-
+			   "ID":"CorticalArea",
+			   "editable":false,
+			   "type":"field"
+			},
+			{
+			   "type":"box",
+			   "ID":"XYZ",
+			   "components":[
+				  {
+					 "type":"counter",
+					 "ID":"Pos_X",
+					 "max_value":99999999,
+					 "min_value":-99999999
+				  },
+				  {
+					 "type":"counter",
+					 "ID":"Pos_Y",
+					 "max_value":99999999,
+					 "min_value":-99999999
+				  },
+				  {
+					 "type":"counter",
+					 "ID":"Pos_Z",
+					 "max_value":99999999,
+					 "min_value":-99999999
+				  }
+			   ],
+			   "vertical":false
+			},
+			{
+			   "type":"box",
+			   "ID":"WHD",
+			   "components":[
+				  {
+					 "type":"counter",
+					 "ID":"W",
+					 "max_value":99999999,
+					 "min_value":-99999999
+				  },
+				  {
+					 "type":"counter",
+					 "ID":"H",
+					 "max_value":99999999,
+					 "min_value":-99999999
+				  },
+				  {
+					 "type":"counter",
+					 "ID":"D",
+					 "max_value":99999999,
+					 "min_value":-99999999
+				  }
+			   ],
+			   "vertical":false
+			},
+			{
+			   "type":"button",
+			   "sideButtonText":"Delete",
+			   "text":"Update",
+			   "ID":"UpdateButtonTop"
 			}
-		],
-		"vertical": false
-	},
-	{
-		"type": "box",
-		"ID": "WHD",
-		"components": [
+		 ]
+	  },
+	  {
+		 "type":"header",
+		 "ID":"MonitoringSection"
+	  },
+	  {
+		 "type":"box",
+		 "ID":"toggles",
+		 "components":[
 			{
-				"type": "counter",
-				"ID": "W",
-				"max_value": 99999999,
-				"min_value": -99999999
-
+			   "type":"checkbutton",
+			   "ID":"Mem_potent"
 			},
 			{
-				"type": "counter",
-				"ID": "H",
-				"max_value": 99999999,
-				"min_value": -99999999
-
-			},
-			{
-				"type": "counter",
-				"ID": "D",
-				"max_value": 99999999,
-				"min_value": -99999999
-
+			   "type":"checkbutton",
+			   "ID":"syn_potent"
 			}
-		],
-		"vertical": false
-	},
-	{"type": "button",
-	"sideButtonText": "Delete",
-	"text": "Update",
-	"ID": "UpdateButtonTop"},
-	{"type" : "header",
-	"ID" : "MonitoringSection"},
-	{
-	"type": "box",
-	"ID": "toggles",
-	"components": [
-		{"type": "checkbutton", "ID": "Mem_potent"},
-		{"type": "checkbutton", "ID": "syn_potent"}]
-		, "vertical": false},
+		 ],
+		 "vertical":false
+	  },
 	{
 		"ID": "NeuronParametersSection",
 	  	"type": "popup",
@@ -136,26 +154,35 @@
 					"ID" : "UpdateButton",
 					"text":  "Update"}
 						]},
-	{"type" : "header",
-	"ID" : "CorticalMapping"},
-  	{"type":  "header",
-  	"ID": "AFFERENTLABEL"},
-  	{"type": "field",
-	"editable": false,
-	"alignmentWidth": 1,
-	"ID":  "blank_afferent"},
-	{
-	"type": "box",
-	"ID": "efferent_unit",
-	"components": [
-			{"type": "header",
-			"ID": "EFFERENTLABEL",
-			"sideButtonText":  "+"},
-			{"type": "button",
-			  "ID": "blank_efferent"}
-	], "vertical": true},
-	
-	
-  ],
+	  {
+		 "type":"header",
+		 "ID":"CorticalMapping"
+	  },
+	  {
+		 "type":"header",
+		 "ID":"AFFERENTLABEL"
+	  },
+	  {
+		 "type":"field",
+		 "editable":false,
+		 "alignmentWidth":1,
+		 "ID":"blank_afferent"
+	  },
+	  {
+		 "type":"box",
+		 "ID":"efferent_unit",
+		 "components":[
+			{
+			   "type":"header",
+			   "ID":"EFFERENTLABEL",
+			   "sideButtonText":"+"
+			},
+			{
+			   "type":"button",
+			   "ID":"blank_efferent"
+			}
+		 ],
+		 "vertical":true
+	  }
+   ]
 }
-

@@ -1,5 +1,5 @@
 extends BoxContainer
-class_name Newnit_Popup
+class_name Newnit_Collapsible
 
 # This base class is used to construct all Elements, which are parallel in 
 # implmentation to Newnits but insteadof holding containers, are UI elements
@@ -46,7 +46,7 @@ func GetReferenceByID(searchID: StringName): # returns either a bool or a Node
 	for child in children:
 		var result = child.GetReferenceByID(searchID)
 		if typeof(result) != TYPE_BOOL:
-			return result
+			return child
 	return false
 
 ################################################ END Newnit Parallel ################################################
@@ -75,36 +75,54 @@ func _DataUpProxy(data: Dictionary, recievedID: String, reference: Node) -> void
 
 ### Start Box Container Unique
 
-const _TITLEBAR_BUTTON := {
+const _COLLAPSE_BUTTON := {
 	"type": "header",
-	"sideButtonText": "X",
-	"text": "CUSTOM_TITLE_HERE",
-	"ID": "POPUP_TOPBAR"
+	"sideButtonText": "Toggle",
+	"text": "COLLAPSABLE HEADER TITLE",
+	"ID": "COLLAPSE_BUTTON"
 }
 
 
-var titleBarText: String:
-	get: return _titleBar.text
-	set(v): _titleBar.text = v
+var text: String:
+	get: return _collapseHeader.text
+	set(v): _collapseHeader.text = v
 
 var children: Array:
 	get: return NEWNIT_CONTAINER_CORE.Get_children(self)
 
+var isCollapsed: bool:
+	get: return _isCollapsed
+	set(v):
+		_isCollapsed = v
+		ToggleCollapseSection(v)
+		if(v):
+			_collapseHeader.sideButtonText = "Show"
+		else:
+			_collapseHeader.sideButtonText = "Hide"
+
 var specificSettableProps := {
 	"alignment": TYPE_INT,
 	"vertical": TYPE_INT,
-	"titleBarText": TYPE_STRING
+	"CollapsableSectionText": TYPE_STRING
 }
 
-var _titleBar: Element_Label:
+var _collapseHeader: Element_Label:
 	get: return children[0]
+
+var _isCollapsed: bool = false
+
+func ToggleCollapseSection(collapsed: bool) -> void:
+	# toggle whether a section is collapsed
+	
+	var childrenCache: Array = children
+	for i in range(1,len(children)):
+		childrenCache[i].visible = !collapsed
 
 func _AlternateActivationPath(settings: Dictionary) -> bool:
 	# Add a title bar and continue
 	
 	var childrenActivations: Array = settings["components"]
-	var TitleBar := _TITLEBAR_BUTTON.duplicate()  # avoid ref issues
-	childrenActivations.push_front(_TITLEBAR_BUTTON)
+	childrenActivations.push_front(_COLLAPSE_BUTTON)
 	settings["components"] = childrenActivations
 	NEWNIT_CONTAINER_CORE.Func__ActivationPrimary(settings, self)
 	return true
@@ -112,12 +130,14 @@ func _AlternateActivationPath(settings: Dictionary) -> bool:
 func _ActivationSecondary(settings: Dictionary) -> void:
 	alignment = HelperFuncs.GetIfCan(settings, "alignment", NEWNIT_CONTAINER_CORE.D_alignment)
 	vertical = HelperFuncs.GetIfCan(settings, "vertical", NEWNIT_CONTAINER_CORE.D_vertical)
-	titleBarText = HelperFuncs.GetIfCan(settings, "titleBarText", NEWNIT_CONTAINER_CORE.D_Title)
+	text = HelperFuncs.GetIfCan(settings, "text", NEWNIT_CONTAINER_CORE.D_Title)
+	isCollapsed = HelperFuncs.GetIfCan(settings, "isCollapsed", false)
+	
 	_runtimeSettableProperties.merge(specificSettableProps)
 	
-	_titleBar.DataUp.connect(_closeButton)
-	type = "popup"
+	_collapseHeader.DataUp.connect(_UICollapseButton)
+	type = "collapsible"
 
-func _closeButton(data: Dictionary, originatingID: String, reference: Node) -> void:
-	if originatingID != "POPUP_TOPBAR": return
-	queue_free()
+func _UICollapseButton(data: Dictionary, originatingID: String, reference: Node) -> void:
+	if originatingID != "COLLAPSE_BUTTON": return
+	isCollapsed = !isCollapsed
