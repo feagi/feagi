@@ -112,6 +112,11 @@
 				}
 			],
 			"vertical": false
-		}
+		},
+		{
+				"type": "button",
+				"ID": "updatebutton",
+				"text": "Update"
+			}
 	]
 }
