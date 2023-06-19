@@ -28,8 +28,8 @@ var editable: bool:
 
 var _DropDownItems: Array
 
-func GetStringFromIndex(ind: int) -> String:
-	return _DropDownItems[ind]
+#func GetStringFromIndex(ind: int) -> String:
+#	return _DropDownItems[ind]
 
 func SetDropDownArray( strArr: Array, emitIfCurrentOptionNonExistant: bool = false) -> void:
 	_DropDownItems = strArr
@@ -69,4 +69,4 @@ func _ready():
 	item_selected.connect(_ProxySelected)
 
 func _ProxySelected(pIndex: int):
-	value_edited.emit({"value": GetStringFromIndex(pIndex), "selectedIndex": pIndex})
+	value_edited.emit({"selectedIndex": pIndex})
