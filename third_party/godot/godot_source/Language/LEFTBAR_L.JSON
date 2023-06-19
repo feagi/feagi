@@ -11,10 +11,6 @@
 		"sideLabelText":
 		  {"eng": "Cortical ID"}
 		},
-	"NeuronParametersSection": {
-		"sideLabelText":
-		  {"eng": "Neuron Parameters"}
-		},
 	"CorticalArea": {
 		"sideLabelText":
 		  {"eng":  "Cortical Area Type"}
@@ -57,77 +53,97 @@
 			}
 		}
 	},
+"NeuronParametersSection": {
 	"VoxelNeuronDensity": {
-		"sideLabelText":
-		  {"eng":  "Voxel Neuron Density"}
+		"sideLabelText": {
+			"eng": "Voxel Neuron Density"
+		}
 	},
-	"SynapticAttractivity" : {
-	  "sideLabelText":
-		{"eng": "Synaptic Attractivity"}
+	"SynapticAttractivity": {
+		"sideLabelText": {
+			"eng": "Synaptic Attractivity"
+		}
 	},
-	"PostSynapticPotential" : {
-		"sideLabelText":
-		  {"eng": "Post-Synaptic Potential"} 
+	"PostSynapticPotential": {
+		"sideLabelText": {
+			"eng": "Post-Synaptic Potential"
+		}
 	},
-	"PSPMax" : {
-		"sideLabelText":
-		  {"eng": "PSP Max"} 
+	"PSPMax": {
+		"sideLabelText": {
+			"eng": "PSP Max"
+		}
 	},
-	"PlasticityConstant" : {
-		"sideLabelText":
-		  {"eng": "Plasticity Constant"} 
+	"PlasticityConstant": {
+		"sideLabelText": {
+			"eng": "Plasticity Constant"
+		}
 	},
-	"FireThreshold" : {
-		"sideLabelText":
-		  {"eng": "Fire Threshold"} 
+	"FireThreshold": {
+		"sideLabelText": {
+			"eng": "Fire Threshold"
+		}
 	},
-	"Thresholdlimit" : {
-		"sideLabelText":
-		  {"eng": "Threshold Limit"}
+	"Thresholdlimit": {
+		"sideLabelText": {
+			"eng": "Threshold Limit"
+		}
 	},
-	"RefactoryPeriod" : {
-		"sideLabelText":
-		  {"eng": "Refactory Period"} 
+	"RefactoryPeriod": {
+		"sideLabelText": {
+			"eng": "Refactory Period"
+		}
 	},
-	"LeakConstant" : {
-		"sideLabelText":
-		  {"eng": "Leak Constant"} 
+	"LeakConstant": {
+		"sideLabelText": {
+			"eng": "Leak Constant"
+		}
 	},
-	"LeakVaribility" : {
-		"sideLabelText":
-		  {"eng": "Leak Varibility"} 
+	"LeakVaribility": {
+		"sideLabelText": {
+			"eng": "Leak Varibility"
+		}
 	},
-	"ThresholdINC" : {
-		"sideLabelText":
-		  {"eng": "Threshold inc"}
+	"ThresholdINC": {
+		"sideLabelText": {
+			"eng": "Threshold inc"
+		}
 	},
-	"ConsecutiveFireCount" : {
-		"sideLabelText":
-		  {"eng": "Consecutive Fire Count"} 
+	"ConsecutiveFireCount": {
+		"sideLabelText": {
+			"eng": "Consecutive Fire Count"
+		}
 	},
-	"SnoozePeriod" : {
-		"sideLabelText":
-		  {"eng": "Snooze Period"} 
+	"SnoozePeriod": {
+		"sideLabelText": {
+			"eng": "Snooze Period"
+		}
 	},
-	"DegeneracyConstant" : {
-		"sideLabelText":
-		  {"eng": "Degeneracy Constant"}
+	"DegeneracyConstant": {
+		"sideLabelText": {
+			"eng": "Degeneracy Constant"
+		}
 	},
-	"PSPUNI" : {
-		"sideLabelText":
-		  {"eng": "PSP Uniformity"}
+	"PSPUNI": {
+		"sideLabelText": {
+			"eng": "PSP Uniformity"
+		}
 	},
-	"ChargeACC" : {
-		"sideLabelText":
-		  {"eng": "Charge Accumation"}
+	"ChargeACC": {
+		"sideLabelText": {
+			"eng": "Charge Accumation"
+		}
 	},
-	"CorticalMapping" : {
-		"sideLabelText":
-		  {"eng": "Cortical Mapping"}
-	},
-	"UpdateButton" : {
-		"sideLabelText":
-			{"eng": ""}
+	"UpdateButton": {
+		"sideLabelText": {
+			"eng": ""
+		}
+	}
+},
+	"CorticalMapping": {
+		"sideLabelText": {
+			"eng": "Cortical Mapping"
+		}
 	},
 	"XYZ": {
 		"Pos_X": {
