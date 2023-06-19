@@ -6,7 +6,7 @@
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/burst_value.gd" id="5_t81be"]
 [ext_resource type="Script" path="res://brain_visualizer_source/cortical_cam_label_menu.gd" id="6_ya7sl"]
 [ext_resource type="Texture2D" uid="uid://bd3hwkynrgrdo" path="res://brain_visualizer_source/menu_assets/image/add_cortical.png" id="7_ick0a"]
-[ext_resource type="FontFile" uid="uid://cqkpwj4yrdt5b" path="res://brain_visualizer_source/BakbakOne-Regular.ttf" id="8_ew7u1"]
+[ext_resource type="FontFile" uid="uid://b37jcujx8hveu" path="res://brain_visualizer_source/BakbakOne-Regular.ttf" id="8_ew7u1"]
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/name.gd" id="9_6q4er"]
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/name_string.gd" id="10_cwgtv"]
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/OptionButton.gd" id="11_142s5"]
@@ -19,7 +19,7 @@
 [ext_resource type="Texture2D" uid="uid://cudr8ifago1bd" path="res://brain_visualizer_source/menu_assets/image/remove_cortical.png" id="18_a875r"]
 [ext_resource type="Texture2D" uid="uid://bdhgs6bernr2j" path="res://brain_visualizer_source/menu_assets/image/collapse_not_selected.png" id="19_molgv"]
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/addition_menu.gd" id="20_tbxv4"]
-[ext_resource type="FontFile" uid="uid://bkmjg87r8q0md" path="res://brain_visualizer_source/Glegoo-Bold.ttf" id="21_ptep2"]
+[ext_resource type="FontFile" uid="uid://djqsdokmlyea7" path="res://brain_visualizer_source/Glegoo-Bold.ttf" id="21_ptep2"]
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/cortical_area_type.gd" id="22_ln6xc"]
 [ext_resource type="Script" path="res://brain_visualizer_source/Mapping_properties.gd" id="23_gwhk5"]
 [ext_resource type="Script" path="res://brain_visualizer_source/Mapping_control.gd" id="24_3jpdg"]
@@ -3793,6 +3793,49 @@ libraries = {
 
 [node name="Camera3D" type="Camera3D" parent="AnimationPlayer"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 60, 100)
+
+[node name="color_indicator" type="Control" parent="."]
+layout_mode = 3
+anchor_top = -0.012
+anchor_bottom = -0.012
+offset_left = 2128.0
+offset_top = 7.776
+offset_right = 2286.0
+offset_bottom = 51.776
+metadata/_edit_use_anchors_ = true
+
+[node name="ColorRect" type="ColorRect" parent="color_indicator"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 5.0
+offset_right = 49.0
+offset_bottom = 45.0
+tooltip_text = "burst_engine"
+color = Color(0, 0, 0, 1)
+
+[node name="ColorRect2" type="ColorRect" parent="color_indicator"]
+layout_mode = 0
+offset_left = 52.0
+offset_top = 5.0
+offset_right = 92.0
+offset_bottom = 45.0
+tooltip_text = "genome_availability"
+
+[node name="ColorRect3" type="ColorRect" parent="color_indicator"]
+layout_mode = 0
+offset_left = 95.0
+offset_top = 5.0
+offset_right = 135.0
+offset_bottom = 45.0
+tooltip_text = "genome_validity"
+
+[node name="ColorRect4" type="ColorRect" parent="color_indicator"]
+layout_mode = 0
+offset_left = 138.0
+offset_top = 5.0
+offset_right = 178.0
+offset_bottom = 45.0
+color = Color(0, 0.713726, 0, 1)
 
 [connection signal="resized" from="Menu" to="Menu" method="_on_Menu_resized"]
 [connection signal="focus_exited" from="Menu/information_menu/burst_duration_label/burst_value" to="Core/GlobalUISystem/Brain_Visualizer" method="_on_burst_value_focus_exited"]
