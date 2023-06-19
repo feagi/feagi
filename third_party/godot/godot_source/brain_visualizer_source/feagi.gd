@@ -452,7 +452,6 @@ func _on_HTTPRequest_request_completed(_result, _response_code, _headers, body):
 			$".."/".."/".."/Menu/properties/Control/MP.set_pressed(false)
 		last_cortical_selected = genome_properties
 		Autoload_variable.BV_Core.Update_Afferent_list(genome_properties["cortical_id"])
-	$notification.generate_notification_message(genome_properties, _response_code, "_on_HTTPRequest_request_completed", "/v1/feagi/genome/cortical_area")
 #	$"..".SpawnLeftBar()
 
 
