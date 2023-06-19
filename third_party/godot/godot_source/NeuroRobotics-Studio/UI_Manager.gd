@@ -240,7 +240,7 @@ func RelayDownwards(callType, data) -> void:
 		REF.FROM.genome_morphologyList:
 			if UI_Top_TopBar:
 				UI_Top_TopBar.SetData({"NEURONMORPHOLOGIES": {"options":data}})
-			if UI_MappingDefinition:
+			if UI_MappingDefinition != null:
 				UI_MappingDefinition.SetData({"third_box": {"mappingdefinitions": {"options": data}}})
 				var original_dropdown = UI_MappingDefinition.get_node("box_third_box").get_node("dropdown_mappingdefinitions").get_node("dropDown_mappingdefinitions")
 				for i in UI_MappingDefinition.get_children():
