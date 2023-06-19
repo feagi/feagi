@@ -57,3 +57,4 @@ const D_tab_alignment = 1
 const D_use_hidden_tabs_for_min_size = true
 const D_tab_titles = []
 const D_Title := "NO TITLE GIVEN"
+const D_COLLAPSIBLELABER := "NO COLLAPSE LABEL GIVEN"
