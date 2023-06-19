@@ -89,6 +89,7 @@ func _AlternateActivationPath(settings: Dictionary) -> bool:
 	return false
 
 func _ActivationSecondary(settings: Dictionary) -> void:
+	_childRoot = self
 	alignment = HelperFuncs.GetIfCan(settings, "alignment", NEWNIT_CONTAINER_CORE.D_alignment)
 	vertical = HelperFuncs.GetIfCan(settings, "vertical", NEWNIT_CONTAINER_CORE.D_vertical)
 	_runtimeSettableProperties.merge(specificSettableProps)

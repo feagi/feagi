@@ -47,7 +47,7 @@ static func Func__getChildData(ContainerObject) -> Dictionary:
 	return output
 
 static func Get_children(ContainerObject) -> Array:
-	return ContainerObject.get_children()
+	return ContainerObject._childRoot.get_children()
 
 # Defaults and other constants
 const D_vertical = true
