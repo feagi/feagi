@@ -251,11 +251,6 @@
 							"text": "-"
 						}
 					]
-				},
-				{
-					"type": "button",
-					"ID": "ADDROWBUTTON",
-					"text": "Add Row"
 				}
 			]
 		},
@@ -313,13 +308,18 @@
 							"text": "-"
 						}
 					]
-				},
-				{
+				}
+			]
+		},
+						{
 					"type": "button",
 					"ID": "AddRowButton",
 					"text": "Add Row"
+				},
+				{
+					"type": "button",
+					"ID": "UPDATEBUTTON",
+					"text": "Create"
 				}
-			]
-		}
 	]
 }
