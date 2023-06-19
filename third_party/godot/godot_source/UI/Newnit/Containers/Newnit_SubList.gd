@@ -80,8 +80,6 @@ var RemoveButtonDict := {
 	"ID": ""
 }
 
-var count: int
-
 var children: Array:
 	get: return NEWNIT_CONTAINER_CORE.Get_children(self)
 
@@ -97,11 +95,10 @@ func _AlternateActivationPath(settings: Dictionary) -> bool:
 	vertical = HelperFuncs.GetIfCan(settings, "vertical", NEWNIT_CONTAINER_CORE.D_vertical)
 	alignment = HelperFuncs.GetIfCan(settings, "alignment", NEWNIT_CONTAINER_CORE.D_alignment)
 	var includeSideButton = HelperFuncs.GetIfCan(settings, "includeSideButton", true)
-	count = HelperFuncs.MustGet(settings, "count")
 	
 	# Create remove button activation
 	var removeButtonAct: Dictionary = RemoveButtonDict
-	var buttonID: String = "RemoveButton" + str(count)
+	var buttonID: String = "RemoveButton"
 	removeButtonAct["ID"] = buttonID
 	
 	# Add Remove Button To Activation
