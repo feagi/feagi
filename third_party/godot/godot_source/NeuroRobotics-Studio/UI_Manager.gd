@@ -33,6 +33,7 @@ var dst_global
 var import_close_button
 var UI_holders = []
 var global_json_data
+var optionbutton_holder
 
 # Internal cached vars
 var _sideBarChangedValues := {}
@@ -55,7 +56,7 @@ func Activate(langISO: String):
 	test_json_conv.parse(filess.get_as_text())
 	global_json_data = test_json_conv.get_data()
 	filess.close()
-#	SpawnIndicator(createindicator)
+	SpawnIndicator(createindicator)
 #	SpawnCreateMophology()
 	
 	
@@ -119,6 +120,7 @@ func CreateMorphologyInput(data: Dictionary, ElementID: String, ElementRef: Node
 			if data["selectedIndex"] == 0:
 				$Brain_Visualizer.new_morphology_clear()
 				composite.visible = true; patterns.visible = false; vectors.visible = false
+				UI_CreateMorphology.SetData({"Composite": {"MAPPING_DROPDOWN": {"MAPPINGDROPDOWN":{"options": optionbutton_holder}}}})
 			if data["selectedIndex"] == 1:
 				$Brain_Visualizer.new_morphology_clear()
 				composite.visible = false; patterns.visible = true; vectors.visible = false
@@ -162,17 +164,17 @@ func _isNeuronProperty(ID: String) -> bool:
 func CorticalCreateInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
 	match(ElementID):
 		"CORTICALAREA":
-			if data["value"] == "OPU":
+			if data["selectedIndex"] == 1:
 				UI_createcorticalBar.GetReferenceByID("corticalnamedrop").visible = true
 				UI_createcorticalBar.GetReferenceByID("OPUIPU").visible = true
 				UI_createcorticalBar.GetReferenceByID("corticalnametext").visible = false
 				$"..".GET_OPU('OPU')
-			elif data["value"] == "IPU":
+			elif data["selectedIndex"] == 2:
 				UI_createcorticalBar.GetReferenceByID("corticalnamedrop").visible = true
 				UI_createcorticalBar.GetReferenceByID("OPUIPU").visible = true
 				UI_createcorticalBar.GetReferenceByID("corticalnametext").visible = true
 				$"..".GET_IPU('IPU')
-			elif data["value"] == "Custom":
+			elif data["selectedIndex"] == 3:
 				UI_createcorticalBar.GetReferenceByID("corticalnamedrop").visible = false
 				UI_createcorticalBar.GetReferenceByID("corticalnametext").visible = true
 				UI_createcorticalBar.GetReferenceByID("OPUIPU").visible = false
@@ -200,23 +202,24 @@ func WindowSizedChanged():
 func RelayDownwards(callType, data) -> void:
 	match(callType):
 		REF.FROM.healthstatus:
+			print("called")
 			if UI_INDICATOR:
 				if data["burst_engine"]:
-					UI_INDICATOR.SetData({"indicator_status": {"Indicator1": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+					$"../../color_indicator/ColorRect".set_color(Color("#008F00"))
 				else:
-					UI_INDICATOR.SetData({"indicator_status": {"Indicator1": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+					$"../../color_indicator/ColorRect".set_color(Color("#131313"))
 				if data["genome_availability"]:
-					UI_INDICATOR.SetData({"indicator_status": {"Indicator2": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+					$"../../color_indicator/ColorRect2".set_color(Color("#008F00"))
 				else:
-					UI_INDICATOR.SetData({"indicator_status": {"Indicator2": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+					$"../../color_indicator/ColorRect2".set_color(Color("#131313"))
 				if data["genome_validity"]:
-					UI_INDICATOR.SetData({"indicator_status": {"Indicator3": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+					$"../../color_indicator/ColorRect3".set_color(Color("#008F00"))
 				else:
-					UI_INDICATOR.SetData({"indicator_status": {"Indicator3": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+					$"../../color_indicator/ColorRect3".set_color(Color("#131313"))
 				if data["brain_readiness"]:
-					UI_INDICATOR.SetData({"indicator_status": {"Indicator4": {"colorR": 0, "colorG": 255, "colorB": 0}}})
+					$"../../color_indicator/ColorRect4".set_color(Color("#008F00"))
 				else:
-					UI_INDICATOR.SetData({"indicator_status": {"Indicator4": {"colorR": 255, "colorG": 0, "colorB": 0}}})
+					$"../../color_indicator/ColorRect4".set_color(Color("#131313"))
 
 		REF.FROM.circuit_size:
 			if UI_CircuitImport:
@@ -246,7 +249,10 @@ func RelayDownwards(callType, data) -> void:
 							i.get_node("dropdown_mappingdefinitions").get_node("dropDown_mappingdefinitions").add_item(original_dropdown.get_item_text(x))
 				UI_MappingDefinition.get_node("box_third_box").visible = false
 			if UI_CreateMorphology:
-				UI_CreateMorphology.SetData({"Composite": {"MAPPING_DROPDOWN": {"MAPPINGDROPDOWN":{"options": data}}}})
+				if UI_CreateMorphology.GetReferenceByID("Composite").visible:
+					UI_CreateMorphology.SetData({"Composite": {"MAPPING_DROPDOWN": {"MAPPINGDROPDOWN":{"options": data}}}})
+				else:
+					optionbutton_holder = data
 		REF.FROM.genome_fileName:
 			UI_Top_TopBar.SetData({"GENOMEFILENAME": {"sideLabelText":data}})
 #		REF.FROM.connectome_properties_mappings:
