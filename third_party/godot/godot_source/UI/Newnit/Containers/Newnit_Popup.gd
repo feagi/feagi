@@ -104,7 +104,7 @@ func _AlternateActivationPath(settings: Dictionary) -> bool:
 	
 	var childrenActivations: Array = settings["components"]
 	var TitleBar := _TITLEBAR_BUTTON.duplicate()  # avoid ref issues
-	childrenActivations.push_front(TitleBar)
+	childrenActivations.push_front(_TITLEBAR_BUTTON)
 	settings["components"] = childrenActivations
 	NEWNIT_CONTAINER_CORE.Func__ActivationPrimary(settings, self)
 	return true
