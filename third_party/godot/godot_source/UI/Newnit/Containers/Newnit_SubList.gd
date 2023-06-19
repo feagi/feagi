@@ -32,6 +32,7 @@ var _isActivated := false
 var _isTopLevel := true
 var _runtimeSettableProperties := NEWNIT_CORE.settableProperties
 var _type: StringName
+var _childRoot: Node
 
 func Activate(settings: Dictionary) -> void:
 	NEWNIT_CORE.Func_Activate(settings, self)
