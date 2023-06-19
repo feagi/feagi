@@ -694,6 +694,7 @@ func delete_morphology(input_node):
 	input_node.queue_free()
 	new_morphology_node.erase(input_node)
 
+
 func _on_mapping_def_request_completed(_result, _response_code, _headers, body):
 	var test_json_conv = JSON.new()
 	test_json_conv.parse(body.get_string_from_utf8())
@@ -968,12 +969,15 @@ func _on_Button_pressed():
 	if $".."/".."/".."/Menu/information_menu/Neuron_morphologies_item.get_item_count() == 0:
 		Autoload_variable.BV_Core.Update_MorphologyList()
 
-func _on_create_pressed():
-	if $".."/".."/".."/Menu/Control/inner_box/morphology_name.text != "":
-		if $".."/".."/".."/Menu/Control/inner_box/morphology_type.get_item_text($".."/".."/".."/Menu/Control/inner_box/morphology_type.selected) == "patterns":
+func _on_create_pressed(node):
+	print("node: ", node.GetReferenceByID("MorphologyName").get_children())
+	var name_input = node.GetReferenceByID("MorphologyName").get_node("field_MorphologyName").text
+	var dropdown_selected = node.GetReferenceByID("MorphologyType").get_node("dropDown_MorphologyType").text
+	if name_input != "":
+		if dropdown_selected == "Patterns":
 			var json = {}
-			var new_name = symbols_checker_for_api($".."/".."/".."/Menu/Control/inner_box/morphology_name.text)
-			var new_type = $".."/".."/".."/Menu/Control/inner_box/morphology_type.get_item_text($".."/".."/".."/Menu/Control/inner_box/morphology_type.get_selected_id())
+			var new_name = symbols_checker_for_api(name_input)
+			var new_type = dropdown_selected
 			var string_input = []
 			var empty_array1 = []
 			var empty_array2 = []
@@ -984,6 +988,8 @@ func _on_create_pressed():
 				full_array = []
 				empty_array1 = []
 				empty_array2 = []
+				print("i: ", i.get_children())
+				# INCOMPLETE
 				for _x in range(6):
 					if not "?" in i.get_child(empty_flag).text and not "*" in i.get_child(empty_flag).text:
 						if empty_flag < 3:
@@ -1278,33 +1284,26 @@ func _on_get_morphology_usuage_request_completed(_result, _response_code, _heade
 		$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/associations_data.text += str(string_list)
 	$notification.generate_notification_message(api_data, _response_code, "_on_get_morphology_usuage_request_completed", "/v1/feagi/genome/morphology")
 
-func _morphology_button_pressed():
+func _morphology_button_pressed(node):
+	print("here: ", node.get_node("dropdown_MorphologyType").get_node("dropDown_MorphologyType").get_children())
+	var dropdown_selected = node.get_node("dropdown_MorphologyType").get_node("dropDown_MorphologyType").text
+	print("dropdown: ", dropdown_selected)
 	var counter = 0
 	counter = len(new_morphology_node)
-	if $".."/".."/".."/Menu/Control/inner_box/morphology_type.get_item_text($".."/".."/".."/Menu/Control/inner_box/morphology_type.selected) == "patterns":
-		var new_node = $".."/".."/".."/Menu/Control/inner_box/box_of_pattern/Control.duplicate()
-		$".."/".."/".."/Menu/Control/inner_box/box_of_pattern.add_child(new_node)
+	if dropdown_selected == "Patterns":
+		var new_node = node.GetReferenceByID("Patterns").get_node("box_PatternRow0").duplicate()
+		node.GetReferenceByID("Patterns").add_child(new_node)
 		new_morphology_node.append(new_node)
 		new_node.visible = true
-		new_node.get_child(7).connect("pressed",Callable(self,"delete_morphology").bind(new_node))
-		new_node.position.x = $".."/".."/".."/Menu/Control/inner_box/box_of_pattern/Control.position.x + $".."/".."/".."/Menu/Control/inner_box/box_of_pattern/Control.size.x
-		new_node.position.y = $".."/".."/".."/Menu/Control/inner_box/box_of_pattern/Control.position.y + (30 * counter)
-	elif $".."/".."/".."/Menu/Control/inner_box/morphology_type.get_item_text($".."/".."/".."/Menu/Control/inner_box/morphology_type.selected) == "vectors":
-		var new_node = $".."/".."/".."/Menu/Control/inner_box/box_of_vectors/Control.duplicate()
+		new_node.get_node("button_RemoveSelfRowButton").get_node("button_RemoveSelfRowButton").connect("pressed",Callable(self,"delete_morphology").bind(new_node))
+	elif dropdown_selected == "Vectors":
+		print("node: ", node.GetReferenceByID("Vectors").get_node("box_XYZ").get_children())
+		var new_node = node.GetReferenceByID("Vectors").get_node("box_XYZ").duplicate()
 		new_morphology_node.append(new_node)
-		$".."/".."/".."/Menu/Control/inner_box/box_of_vectors.add_child(new_node)
+		node.GetReferenceByID("Vectors").add_child(new_node)
 		new_node.visible = true
-		new_node.get_child(3).connect("pressed",Callable(self,"delete_morphology").bind(new_node))
-		new_node.size = $".."/".."/".."/Menu/Control/inner_box/box_of_vectors/Control.size
-		new_node.position.x = $".."/".."/".."/Menu/Control/inner_box/box_of_vectors/Control.position.x
-		new_node.position.y = $".."/".."/".."/Menu/Control/inner_box/box_of_vectors/Control.position.y + (30 * counter)
-	if counter > 4:
-		$".."/".."/".."/Menu/Control/inner_box/grey_bg.size.y += 35
-		$".."/".."/".."/Menu/Control/create.position.y += 35
-		$".."/".."/".."/Menu/Control/ColorRect.size.y += 35
-	else:
-		$".."/".."/".."/Menu/Control/create.position = Vector2(152, 330)
-		$".."/".."/".."/Menu/Control/ColorRect.size = Vector2(519, 394)
+		new_node.get_node("button_RemoveRowButton").get_node("button_RemoveRowButton").connect("pressed",Callable(self,"delete_morphology").bind(new_node))
+	print("new: ", new_morphology_node)
 
 func _morphology_add_row(dropdown, row_node, parent_node, button, create_button):
 	var counter = 0
@@ -1542,12 +1541,12 @@ func _on_close_pressed_def():
 	ghost_morphology_clear()
 
 
-func _on_morphology_type_item_selected(_index):
-	if len(new_morphology_node) > 0:
-		new_morphology_clear()
-		_morphology_button_pressed()
-	else:
-		_morphology_button_pressed()
+#func _on_morphology_type_item_selected(_index):
+#	if len(new_morphology_node) > 0:
+#		new_morphology_clear()
+#		_morphology_button_pressed("dummy")
+#	else:
+#		_morphology_button_pressed("dummy")
 
 
 func _on_menu_itemlist_item_selected(index):
