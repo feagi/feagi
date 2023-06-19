@@ -46,7 +46,7 @@ func GetReferenceByID(searchID: StringName): # returns either a bool or a Node
 	for child in children:
 		var result = child.GetReferenceByID(searchID)
 		if typeof(result) != TYPE_BOOL:
-			return child
+			return result
 	return false
 
 ################################################ END Newnit Parallel ################################################
