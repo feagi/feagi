@@ -14,7 +14,7 @@ var ID: StringName:
 	get: return _ID
 
 var parent: Node:
-	get: return get_node("../")
+	get: return _childRoot.get_node("../")
 
 var parentID: StringName:
 	get: return NEWNIT_CORE.Get_ParentID(self)
@@ -89,12 +89,6 @@ var specificSettableProps := {
 }
 
 func _ActivationPrimary(settings: Dictionary) -> void:
-	
-	
-	
-	_childRoot = self
-	
-	
 	SpawnMultipleChildren(settings["components"])
 	alignment = HelperFuncs.GetIfCan(settings, "alignment", NEWNIT_CONTAINER_CORE.D_alignment)
 	vertical = HelperFuncs.GetIfCan(settings, "vertical", NEWNIT_CONTAINER_CORE.D_vertical)

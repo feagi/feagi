@@ -28,7 +28,7 @@ static func Func_SpawnChild(childActivationSettings: Dictionary, ContainerObject
 			print("Invalid child of type ", childActivationSettings["type"], " attempted to spawn. Skipping...")
 			return
 	
-	ContainerObject.add_child(newChild)
+	ContainerObject._childRoot.add_child(newChild)
 	newChild.Activate(childActivationSettings)
 	newChild.DataUp.connect(ContainerObject._DataUpProxy)
 

@@ -14,7 +14,7 @@ var ID: StringName:
 	get: return _ID
 
 var parent: Node:
-	get: return get_node("../")
+	get: return _childRoot.get_node("../")
 
 var parentID: StringName:
 	get: return NEWNIT_CORE.Get_ParentID(self)
@@ -28,12 +28,20 @@ var data: Dictionary:
 var type: StringName:
 	get: return _type
 
+var isUsingPanel: bool:
+	get: return _isUsingPanel
+
+var panelRef: Node:
+	get: return panelRef
+
 var _ID: StringName
 var _isActivated := false
 var _isTopLevel := true
 var _runtimeSettableProperties := NEWNIT_CORE.settableProperties
 var _type: StringName
-var _childRoot: Node
+var _childRoot: Node = self
+var _isUsingPanel: bool
+var _panelRef: Node = null
 
 func Activate(settings: Dictionary) -> void:
 	NEWNIT_CORE.Func_Activate(settings, self)
@@ -42,14 +50,11 @@ func Activate(settings: Dictionary) -> void:
 func SetData(input: Dictionary) -> void:
 	NEWNIT_CORE.Func_SetData(input, self)
 
-# Does an indepth search of all children by ID, and returns a node reference to
-# a matching ID. If none are found, returns false.
-# Due to inheritance shenanigans, this CANNOT be moved to Newnit_Core
 func GetReferenceByID(searchID: StringName): # returns either a bool or a Node
 	if searchID == ID: return self
 	for child in children:
 		var result = child.GetReferenceByID(searchID)
-		if result != false:
+		if typeof(result) != TYPE_BOOL:
 			return child
 	return false
 
@@ -137,25 +142,25 @@ func _SpawnSubElements(componentTypes: Array) -> void:
 				subComp = Label_Sub.new()
 				_sideLabel = subComp
 				subComp.name = NEWNIT_CORE.Func__GetUIChildName(compType, self)
-				add_child(subComp)
+				_childRoot.add_child(subComp)
 				subComp.text = sideLabelText
 				continue
 			"sideButton":
 				subComp = Button_Sub.new()
 				_sideButton = subComp
 				subComp.name = NEWNIT_CORE.Func__GetUIChildName(compType, self)
-				add_child(subComp)
+				_childRoot.add_child(subComp)
 				subComp.text = sideButtonText
 				subComp.pressed.connect(_SideButtonPressed)
 				continue
 			"vector3":
 				for i in range(3):
-					subComp = BoxContainer.new(); add_child(subComp)
+					subComp = BoxContainer.new(); _childRoot.add_child(subComp)
 					subComp.add_child(Label_Sub.new())
 					subComp.add_child(LineEdit_ff_Sub.new())
 				continue
 			"list":
-				subComp = BoxContainer.new(); add_child(subComp)
+				subComp = BoxContainer.new(); _childRoot.add_child(subComp)
 				subComp.add_child(Element_Button.new())
 				subComp.add_child(List_Sub.new())
 				continue
@@ -173,7 +178,7 @@ func _SpawnSubElements(componentTypes: Array) -> void:
 				assert(false, "Invalid Element Type " + str(compType))
 		subComp.value_edited.connect(_DataUpProxy)
 		subComp.name = NEWNIT_CORE.Func__GetUIChildName(compType, self)
-		add_child(subComp)
+		_childRoot.add_child(subComp)
 
 func _SideButtonPressed() -> void:
 	DataUp.emit({"sideButton": true}, ID, self)
