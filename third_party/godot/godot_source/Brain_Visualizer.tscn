@@ -3113,7 +3113,6 @@ icon = ExtResource("7_ick0a")
 expand_icon = true
 
 [node name="box_of_vectors" type="Control" parent="Menu/Control/inner_box"]
-visible = false
 anchors_preset = 0
 anchor_left = 0.024948
 anchor_top = 0.445614
