@@ -60,96 +60,93 @@
 		 }
 	  }
    },
-   "VoxelNeuronDensity":{
-	  "sideLabelText":{
-		 "eng":"Voxel Neuron Density"
-	  }
-   },
-   "SynapticAttractivity":{
-	  "sideLabelText":{
-		 "eng":"Synaptic Attractivity"
-	  }
-   },
-   "PostSynapticPotential":{
-	  "sideLabelText":{
-		 "eng":"Post-Synaptic Potential"
-	  }
-   },
-   "PSPMax":{
-	  "sideLabelText":{
-		 "eng":"PSP Max"
-	  }
-   },
-   "PlasticityConstant":{
-	  "sideLabelText":{
-		 "eng":"Plasticity Constant"
-	  }
-   },
-   "FireThreshold":{
-	  "sideLabelText":{
-		 "eng":"Fire Threshold"
-	  }
-   },
-   "Thresholdlimit":{
-	  "sideLabelText":{
-		 "eng":"Threshold Limit"
-	  }
-   },
-   "RefactoryPeriod":{
-	  "sideLabelText":{
-		 "eng":"Refactory Period"
-	  }
-   },
-   "LeakConstant":{
-	  "sideLabelText":{
-		 "eng":"Leak Constant"
-	  }
-   },
-   "LeakVaribility":{
-	  "sideLabelText":{
-		 "eng":"Leak Varibility"
-	  }
-   },
-   "ThresholdINC":{
-	  "sideLabelText":{
-		 "eng":"Threshold inc"
-	  }
-   },
-   "ConsecutiveFireCount":{
-	  "sideLabelText":{
-		 "eng":"Consecutive Fire Count"
-	  }
-   },
-   "SnoozePeriod":{
-	  "sideLabelText":{
-		 "eng":"Snooze Period"
-	  }
-   },
-   "DegeneracyConstant":{
-	  "sideLabelText":{
-		 "eng":"Degeneracy Constant"
-	  }
-   },
-   "PSPUNI":{
-	  "sideLabelText":{
-		 "eng":"PSP Uniformity"
-	  }
-   },
-   "ChargeACC":{
-	  "sideLabelText":{
-		 "eng":"Charge Accumation"
-	  }
-   },
-   "CorticalMapping":{
-	  "sideLabelText":{
-		 "eng":"Cortical Mapping"
-	  }
-   },
-   "UpdateButton":{
-	  "sideLabelText":{
-		 "eng":""
-	  }
-   },
+"NeuronParametersSection": {
+	"VoxelNeuronDensity": {
+		"sideLabelText": {
+			"eng": "Voxel Neuron Density"
+		}
+	},
+	"SynapticAttractivity": {
+		"sideLabelText": {
+			"eng": "Synaptic Attractivity"
+		}
+	},
+	"PostSynapticPotential": {
+		"sideLabelText": {
+			"eng": "Post-Synaptic Potential"
+		}
+	},
+	"PSPMax": {
+		"sideLabelText": {
+			"eng": "PSP Max"
+		}
+	},
+	"PlasticityConstant": {
+		"sideLabelText": {
+			"eng": "Plasticity Constant"
+		}
+	},
+	"FireThreshold": {
+		"sideLabelText": {
+			"eng": "Fire Threshold"
+		}
+	},
+	"Thresholdlimit": {
+		"sideLabelText": {
+			"eng": "Threshold Limit"
+		}
+	},
+	"RefactoryPeriod": {
+		"sideLabelText": {
+			"eng": "Refactory Period"
+		}
+	},
+	"LeakConstant": {
+		"sideLabelText": {
+			"eng": "Leak Constant"
+		}
+	},
+	"LeakVaribility": {
+		"sideLabelText": {
+			"eng": "Leak Varibility"
+		}
+	},
+	"ThresholdINC": {
+		"sideLabelText": {
+			"eng": "Threshold inc"
+		}
+	},
+	"ConsecutiveFireCount": {
+		"sideLabelText": {
+			"eng": "Consecutive Fire Count"
+		}
+	},
+	"SnoozePeriod": {
+		"sideLabelText": {
+			"eng": "Snooze Period"
+		}
+	},
+	"DegeneracyConstant": {
+		"sideLabelText": {
+			"eng": "Degeneracy Constant"
+		}
+	},
+	"PSPUNI": {
+		"sideLabelText": {
+			"eng": "PSP Uniformity"
+		}
+	},
+	"ChargeACC": {
+		"sideLabelText": {
+			"eng": "Charge Accumation"
+		}
+	},
+	"UpdateButton": {
+		"sideLabelText": {
+			"eng": ""
+		}
+	}
+},
    "XYZ":{
 	  "Pos_X":{
 		 "sideLabelText":{
