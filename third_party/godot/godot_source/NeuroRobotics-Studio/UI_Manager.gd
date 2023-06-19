@@ -482,7 +482,10 @@ func SpawnMappingDefinition(src, dst, activation):
 	Autoload_variable.BV_Core.Update_destination(combine_url)
 	# Link with BV buttons
 	var add_morphology = UI_MappingDefinition.GetReferenceByID("ADDMAPPING").get_node("button_ADDMAPPING").get_node("button_ADDMAPPING")
+	var update_button = UI_MappingDefinition.GetReferenceByID("updatebutton").get_node("button_updatebutton")
 	add_morphology.connect("pressed", Callable($Brain_Visualizer,"_on_plus_add_pressed"))
+	update_button.connect("pressed", Callable($Brain_Visualizer,"_on_update_inside_map_pressed").bind(UI_MappingDefinition))
+	
 
 # proxys for properties
 var _currentLanguageISO: String 
