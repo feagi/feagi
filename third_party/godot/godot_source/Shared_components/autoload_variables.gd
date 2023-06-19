@@ -12,6 +12,7 @@ var BV_UI = ""
 var UI_BV = ""
 var addition_Core = ""
 var Core_addition = ""
+var Core_notification = ""
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
