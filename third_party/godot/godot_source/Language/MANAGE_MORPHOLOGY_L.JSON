@@ -1,53 +1,53 @@
 {
   "MANAGENEURONMORPHOLOGY": {
-    "label": {
+    "sideLabelText": {
       "eng": "Manage Neuron Morphology"
     }
   },
   "MORPHOLOGYNAME": {
-    "label": {
+    "sideLabelText": {
       "eng": "Morphology Name:"
     }
   },
   "MORPHOLOGYTYPE": {
-    "label": {
+    "sideLabelText": {
       "eng": "Morphology Type:"
     }
   },
   "MorphologyDefinition": {
-    "label": {
+    "sideLabelText": {
       "eng": "Morphology Definition"
     }
   },
   "blank": {
-    "label": {
+    "sideLabelText": {
       "eng": ""
     }
   },
   "XYZ": {
     "Pos_X": {
-      "label": {
+      "sideLabelText": {
         "eng": "X"
       }
     },
     "Pos_Y": {
-      "label": {
+      "sideLabelText": {
         "eng": "Y"
       }
     },
     "Pos_Z": {
-      "label": {
+      "sideLabelText": {
         "eng": "Z"
       }
     }
   },
   "SAVE": {
-    "label": {
+    "sideLabelText": {
       "eng": "Save"
     }
   },
   "DELETE": {
-    "label": {
+    "sideLabelText": {
       "eng": "Delete"
     }
   },
