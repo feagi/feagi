@@ -134,13 +134,3 @@ func _on_grab_location_of_cortical_request_completed(_result, _response_code, _h
 			z = z + 20
 		transform.origin=Vector3(x, y, z)
 		get_parent().get_parent().get_node("notification").generate_notification_message(api_data, _response_code, "_on_grab_location_of_cortical_request_completed", "/v1/feagi/genome/cortical_name_location")
-
-
-func _on_menu_itemlist_item_selected(index):
-	var names = $".."/".."/".."/".."/".."/Menu/information_menu/cortical_cam_label/menu_itemlist.get_item_text(index)
-	if names != " " and cortical_pointer != names:
-		var combine_url = "http://" + network_setting.api_ip_address + ":" + network_setting.api_port_address + "/v1/feagi/genome/cortical_name_location?cortical_name=" + names
-		$".."/".."/".."/".."/".."/Menu/information_menu/cortical_cam_label/grab_location_of_cortical.request(combine_url)
-		cortical_pointer = names
-		$".."/".."/".."/".."/".."/Menu/information_menu/cortical_cam_label/menu.text = cortical_pointer
-	$".."/".."/".."/".."/".."/Menu/information_menu/cortical_cam_label/menu_itemlist.visible = false
