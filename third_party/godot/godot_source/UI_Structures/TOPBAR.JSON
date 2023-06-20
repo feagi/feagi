@@ -2,7 +2,7 @@
    "ID":"BAR",
    "vertical":false,
    "type": "box",
-   "enablePanel": false,
+   "enablePanel": true,
    "components":[
 	  {
 		 "type":"header",
