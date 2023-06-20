@@ -1547,6 +1547,9 @@ func demo_new_cortical():
 				else:
 					global_name_list[i]["example"][0].get_child(0).get_child(0).text = $".."/".."/".."/Menu/addition_menu/addition_menu/cortical_name_textbox/type.text
 
+func camera_list_selected(name_input):
+		Autoload_variable.BV_Core.GOTO_CORTICALLOCATION(id_to_name(name_input))
+
 # DE BUG ONLY:
 func calculateSceneSize(node: Node) -> int:
 	var size = node.get_memory_usage()
