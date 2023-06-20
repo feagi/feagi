@@ -79,9 +79,9 @@ func _SpawnTopBar(activation: Dictionary):
 	var test = UI_Top_TopBar.GetReferenceByID("REFRESHRATE")
 	# TODO best not to connect to Element children, better to connect to element signals itself
 	# This may work for now but can cause weird issues later
-	var import_circuit = UI_Top_TopBar.GetReferenceByID("GENOMEFILENAME").get_node("sideButton_GENOMEFILENAME")
-	var cortical_create = UI_Top_TopBar.GetReferenceByID("CORTICALAREAS").get_node("sideButton_CORTICALAREAS")
-	import_circuit.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
+	#var import_circuit = UI_Top_TopBar.GetReferenceByID("GENOMEFILENAME").get_node("sideButton_GENOMEFILENAME")
+	#var cortical_create = UI_Top_TopBar.GetReferenceByID("CORTICALAREAS").get_node("sideButton_CORTICALAREAS")
+	#import_circuit.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
 
 
 ####################################

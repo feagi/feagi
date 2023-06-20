@@ -33,7 +33,6 @@ var subLabels: Array:
 		_Labels[1].text = v[1]
 		_Labels[2].text = v[2]
 
-# Not using array here on purpose
 var _LineEdits: Array
 var _Labels: Array
 var _Conts: Array
@@ -44,8 +43,8 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	if(_has_label): _Conts.remove_at(0)
 	
 	for i in range(3):
-		_Labels.append(_Conts[i].get_children()[0])
-		_LineEdits.append(_Conts[i].get_children()[1])
+		_Labels.append(_Conts[i].get_child(0))
+		_LineEdits.append(_Conts[i].get_child(1))
 		_LineEdits[i].value_edited.connect(_DataUpProxy)
 	
 	editable = HelperFuncs.GetIfCan(settings, "editable", D_editable)

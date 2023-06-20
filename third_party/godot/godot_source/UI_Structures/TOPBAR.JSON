@@ -2,7 +2,7 @@
    "ID":"BAR",
    "vertical":false,
    "type": "box",
-   "enablePanel": true,
+   "enablePanel": false,
    "components":[
 	  {
 		 "type":"header",
@@ -31,9 +31,5 @@
 		 "ID":"NEURONMORPHOLOGIES",
 		  "sideButtonText": "+"
 	  },
-	  {
-		 "type":"vector3",
-		 "ID":"tempTest"
-	  }
    ]
 }

@@ -31,6 +31,7 @@ static func Func_SpawnChild(childActivationSettings: Dictionary, ContainerObject
 	newChild._parent = ContainerObject
 	newChild.Activate(childActivationSettings)
 	newChild.DataUp.connect(ContainerObject._DataUpProxy)
+	ContainerObject.add_child(newChild)
 
 static func Func_SpawnMultipleChildren(childrenActivationSettings: Array, ContainerObject) -> void:
 	for c in childrenActivationSettings:
@@ -53,7 +54,7 @@ static func Get_children(ContainerObject: Node) -> Array:
 	return childrens
 
 static func _GetNewnitChild(checkingChild: Node) -> Node:
-	if checkingChild.get_type() == "Panel":
+	if checkingChild.get_class() == "Panel":
 		_GetNewnitChild(checkingChild.get_child(0))
 	return checkingChild
 
