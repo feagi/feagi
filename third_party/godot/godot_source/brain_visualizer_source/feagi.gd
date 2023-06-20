@@ -534,7 +534,7 @@ func _on_add_pressed(node=[]):
 			Autoload_variable.BV_Core.Update_custom_cortical_area(json_data)
 			node[8].release_focus()
 			$Node3D/Camera3D.transform.origin=Vector3(json_data["cortical_coordinates"][0]-20,json_data["cortical_coordinates"][1],json_data["cortical_coordinates"][2]+20)
-			$"..".UI_createcorticalBar.queue_free()
+			$"..".UI_craeatecorticalBar.queue_free()
 	Autoload_variable.BV_Core.Update_CorticalAreaNameList()
 
 func _on_remove_pressed(node):
