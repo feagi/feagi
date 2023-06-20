@@ -62,7 +62,11 @@ func GetReferenceByID(searchID: StringName): # returns either a bool or a Node
 			return child
 	return false
 
-func _ResizePanel():
+func UpdatePosition(newPosition: Vector2) -> void:
+	position = newPosition
+	if isUsingPanel: _panelRef.position = newPosition
+
+func _ResizePanel() -> void:
 	_panelRef.size = size
 	
 ################################################ END Newnit Parallel ################################################

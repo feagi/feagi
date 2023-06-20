@@ -30,7 +30,6 @@ static func Func_Activate(settings: Dictionary, NewnitObject: Node) -> void:
 	NewnitObject.offset_left = HelperFuncs.GetIfCan(settings, "offset_left", D_offset_left)
 	NewnitObject.offset_right = HelperFuncs.GetIfCan(settings, "offset_right", D_offset_right)
 	NewnitObject.offset_top = HelperFuncs.GetIfCan(settings, "offset_top", D_offset_top)
-	NewnitObject.position = HelperFuncs.GetIfCan(settings, "position", D_position)
 	NewnitObject.size = HelperFuncs.GetIfCan(settings, "size", D_size)
 	NewnitObject.size_flags_stretch_ratio = HelperFuncs.GetIfCan(settings, "size_flags_stretch_ratio", D_size_flags_stretch_ratio)
 	NewnitObject.tooltip_text = HelperFuncs.GetIfCan(settings, "tooltip_text", D_tooltip_text)
@@ -43,12 +42,12 @@ static func Func_Activate(settings: Dictionary, NewnitObject: Node) -> void:
 	# Add basics of Newnit TODO still
 	if !NewnitObject.hasNewnitParent: NewnitObject._parent = NewnitObject.get_parent()
 	
+	# Panel stuff
 	var enablePanel: bool = HelperFuncs.GetIfCan(settings, "enablePanel", D_EnablePanel)
 	if(enablePanel):
 		Func_AddPanel(NewnitObject)
 		NewnitObject.resized.connect(NewnitObject._ResizePanel)
-	
-	
+	NewnitObject.UpdatePosition(HelperFuncs.GetIfCan(settings, "position", D_position))
 	
 	NewnitObject._ActivationPrimary(settings)
 	NewnitObject._isActivated = true
