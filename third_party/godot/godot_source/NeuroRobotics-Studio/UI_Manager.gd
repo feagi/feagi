@@ -58,7 +58,8 @@ func Activate(langISO: String):
 	global_json_data = test_json_conv.get_data()
 	filess.close()
 	SpawnIndicator(createindicator)
-#	SpawnCreateMophology()
+#	SpawnNeuronManager()
+
 	
 	
 	# Initialize GraphCore
@@ -82,7 +83,12 @@ func _SpawnTopBar(activation: Dictionary):
 	var import_circuit = UI_Top_TopBar.GetReferenceByID("GENOMEFILENAME").get_node("sideButton_GENOMEFILENAME")
 	var cortical_create = UI_Top_TopBar.GetReferenceByID("CORTICALAREAS").get_node("sideButton_CORTICALAREAS")
 	import_circuit.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
-
+#	var color_rect = ColorRect.new()
+#	color_rect.size = UI_Top_TopBar.size
+#	color_rect.set_name("background")
+#	UI_Top_TopBar.add_child(color_rect)
+#	print("UI NODE: ", UI_Top_TopBar)
+#	print("SIZE: ", UI_Top_TopBar.size, " and position: ", UI_Top_TopBar.position)
 
 ####################################
 ####### Input Event Handling #######
@@ -95,6 +101,8 @@ signal DataUp(data: Dictionary)
 func TopBarInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
 	match(ElementID):
 		"CORTICALAREAS":
+			var name_from_dropdown = UI_Top_TopBar.GetReferenceByID("CORTICALAREAS").get_node("dropDown_CORTICALAREAS").text
+			$Brain_Visualizer.camera_list_selected(name_from_dropdown)
 			if "sideButton" in data.keys():
 				if not UI_createcorticalBar:
 					SpawnCorticalCrete()
@@ -134,7 +142,6 @@ func LeftBarInput(data: Dictionary, _compRef, _unitRef):
 #	print(JSON.stringify(data)) # useful for debugging
 	match(data["ID"]):
 		"UpdateButton":
-			print("Update pressed!")
 			# Push update to cortex
 			# only push stuff that do not match what is cached
 #			_sideBarChangedValues["cortical_id"] = UI_LeftBar.data["CorticalName"]
@@ -322,13 +329,11 @@ func SpawnLeftBar(cortexName: String, activation: Dictionary):
 	var delete_button = UI_LeftBar.GetReferenceByID("UpdateButtonTop").get_node("sideButton_UpdateButtonTop")
 	var update1 = UI_LeftBar.GetReferenceByID("UpdateButtonTop").get_node("button_UpdateButtonTop")
 	var update=UI_LeftBar.GetReferenceByID("NeuronParametersSection").GetReferenceByID("UpdateButton").get_node("button_UpdateButton")
-	print("node: ", UI_LeftBar.GetReferenceByID("EFFERENTLABEL").get_children())
 	var add_row_button = UI_LeftBar.GetReferenceByID("EFFERENTLABEL").get_node("sideButton_EFFERENTLABEL")
 	delete_button.connect("pressed", Callable($Brain_Visualizer,"_on_remove_pressed").bind(UI_LeftBar.GetReferenceByID("CorticalID")))
 	update.connect("pressed", Callable($Brain_Visualizer,"_on_Update_pressed").bind(UI_LeftBar))
 	update1.connect("pressed", Callable($Brain_Visualizer,"_on_Update_pressed").bind(UI_LeftBar))
 	add_row_button.connect("pressed", Callable($Brain_Visualizer,"_on_cortical_mapping_add_pressed").bind(cortexName))
-	print("TEST")
 #	var delete_button = UI_LeftBar.GetReferenceByID("UpdateButtonTop") DO THIS
 #	var update1 = UI_LeftBar.GetReferenceByID("UpdateButtonTop").get_node("button_UpdateButtonTop")
 #	var update=UI_LeftBar.GetReferenceByID("UpdateButton").get_node("button_UpdateButton")
@@ -394,14 +399,6 @@ func SpawnCorticalCrete():
 	name_input.connect("text_changed",Callable($"../../Button_to_Autoload","_on_type_text_changed"))
 	update.connect("pressed",Callable($Brain_Visualizer,"_on_add_pressed").bind([w,h,d,x,y,z, name_input, optionlist, update]))
 
-func SpawnNeuronMorphology():
-	UI_createcorticalBar = Newnit_Box.new()
-	var createcorticalBar = HelperFuncs.GenerateDefinedUnitDict("CORTICAL_CREATE", currentLanguageISO)
-	add_child(UI_createcorticalBar)
-	UI_createcorticalBar.Activate(createcorticalBar)
-	UI_createcorticalBar.DataUp.connect(CorticalCreateInput)
-	UI_holders.append(UI_createcorticalBar)
-
 func SpawnIndicator(activation: Dictionary):
 	UI_INDICATOR = Newnit_Box.new()
 	add_child(UI_INDICATOR)
@@ -440,15 +437,12 @@ func SpawnCircuitImport(activation: Dictionary):
 
 func SpawnNeuronManager():
 	UI_ManageNeuronMorphology = Newnit_Box.new()
-	var createcorticalBar = HelperFuncs.GenerateDefinedUnitDict("CORTICAL_CREATE", currentLanguageISO)
-	add_child(UI_ManageNeuronMorphology)
-	UI_createcorticalBar.Activate(createcorticalBar)
-	UI_createcorticalBar.DataUp.connect(CorticalCreateInput)
-	UI_holders.append(UI_createcorticalBar)
-#	UI_ManageNeuronMorphology=SCENE_UNIT.instantiate()
-#	add_child(UI_ManageNeuronMorphology)
 	var cerateneuronmorphology = HelperFuncs.GenerateDefinedUnitDict("MANAGE_MORPHOLOGY", currentLanguageISO)
-#	UI_ManageNeuronMorphology.Activate(cerateneuronmorphology)
+	add_child(UI_ManageNeuronMorphology)
+	UI_ManageNeuronMorphology.Activate(cerateneuronmorphology)
+#	UI_ManageNeuronMorphology.DataUp.connect(CorticalCreateInput)
+	UI_holders.append(UI_ManageNeuronMorphology)
+
 
 func SpawnMappingDefinition(src, dst, activation):
 	if is_instance_valid(UI_MappingDefinition):
@@ -471,7 +465,6 @@ func SpawnMappingDefinition(src, dst, activation):
 	var update_button = UI_MappingDefinition.GetReferenceByID("updatebutton").get_node("button_updatebutton")
 	add_morphology.connect("pressed", Callable($Brain_Visualizer,"_on_plus_add_pressed"))
 	update_button.connect("pressed", Callable($Brain_Visualizer,"_on_update_inside_map_pressed").bind(UI_MappingDefinition))
-	
 
 # proxys for properties
 var _currentLanguageISO: String 
