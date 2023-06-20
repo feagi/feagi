@@ -168,10 +168,10 @@ func _SpawnSubElements(componentTypes: Array) -> void:
 				continue
 			"vector3":
 				subComp = BoxContainer.new()
+				add_child(subComp)
 				for i in range(3):
 					subComp.add_child(Label_Sub.new())
 					subComp.add_child(LineEdit_ff_Sub.new())
-				add_child(subComp)
 				continue
 			"list":
 				subComp = BoxContainer.new()
