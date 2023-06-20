@@ -48,8 +48,16 @@ static func Func__getChildData(ContainerObject) -> Dictionary:
 		output.merge(child.data)
 	return output
 
-static func Get_children(ContainerObject) -> Array:
-	return ContainerObject._childRoot.get_children()
+static func Get_children(ContainerObject: Node) -> Array:
+	var childrens := []
+	for child in ContainerObject.get_children():
+		childrens.append(_GetNewnitChild(child))
+	return childrens
+
+static func _GetNewnitChild(checkingChild: Node) -> Node:
+	if checkingChild.get_type() == "Panel":
+		_GetNewnitChild(checkingChild.get_child(0))
+	return checkingChild
 
 static func PreAppendElementToComponents(settings: Dictionary, 
 newElement: Dictionary) -> Dictionary:
