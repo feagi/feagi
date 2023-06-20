@@ -144,25 +144,23 @@ func _SpawnSubElements(componentTypes: Array) -> void:
 				subComp = Label_Sub.new()
 				_sideLabel = subComp
 				subComp.name = NEWNIT_CORE.Func__GetUIChildName(compType, self)
-				_childRoot.add_child(subComp)
 				subComp.text = sideLabelText
 				continue
 			"sideButton":
 				subComp = Button_Sub.new()
 				_sideButton = subComp
 				subComp.name = NEWNIT_CORE.Func__GetUIChildName(compType, self)
-				_childRoot.add_child(subComp)
 				subComp.text = sideButtonText
 				subComp.pressed.connect(_SideButtonPressed)
 				continue
 			"vector3":
 				for i in range(3):
-					subComp = BoxContainer.new(); _childRoot.add_child(subComp)
+					subComp = BoxContainer.new()
 					subComp.add_child(Label_Sub.new())
 					subComp.add_child(LineEdit_ff_Sub.new())
 				continue
 			"list":
-				subComp = BoxContainer.new(); _childRoot.add_child(subComp)
+				subComp = BoxContainer.new()
 				subComp.add_child(Element_Button.new())
 				subComp.add_child(List_Sub.new())
 				continue
@@ -180,7 +178,6 @@ func _SpawnSubElements(componentTypes: Array) -> void:
 				assert(false, "Invalid Element Type " + str(compType))
 		subComp.value_edited.connect(_DataUpProxy)
 		subComp.name = NEWNIT_CORE.Func__GetUIChildName(compType, self)
-		_childRoot.add_child(subComp)
 
 func _SideButtonPressed() -> void:
 	DataUp.emit({"sideButton": true}, ID, self)
