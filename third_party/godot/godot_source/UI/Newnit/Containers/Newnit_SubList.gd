@@ -36,6 +36,8 @@ var panelRef: Node:
 var hasNewnitParent: bool:
 	get: return _hasNewnitParent
 
+var draggable: bool
+
 var _ID: StringName
 var _isActivated := false
 var _isTopLevel := true
@@ -67,6 +69,9 @@ func UpdatePosition(newPosition: Vector2) -> void:
 
 func _ResizePanel() -> void:
 	_panelRef.size = size
+
+func _get_drag_data(at_position: Vector2):
+	if draggable: UpdatePosition(at_position)
 
 func _notification(what):
 	if (what == NOTIFICATION_PREDELETE):

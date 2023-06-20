@@ -49,6 +49,9 @@ static func Func_Activate(settings: Dictionary, NewnitObject: Node) -> void:
 		NewnitObject.resized.connect(NewnitObject._ResizePanel)
 	NewnitObject.UpdatePosition(HelperFuncs.GetIfCan(settings, "position", D_position))
 	
+	# Dragging Stuff
+	NewnitObject.draggable = HelperFuncs.GetIfCan(settings, "draggable", D_draggable)
+	
 	NewnitObject._ActivationPrimary(settings)
 	NewnitObject._isActivated = true
 
@@ -141,6 +144,7 @@ const D_size_flags_stretch_ratio = 1.0
 const D_tooltip_text = ""
 const D_type = "ERROR_UNKNOWN_TYPE"
 const D_EnablePanel = false
+const D_draggable = false
 const settableProperties := {
 	"custom_minimum_size": TYPE_VECTOR2,
 	"grow_horizontal": TYPE_INT,
