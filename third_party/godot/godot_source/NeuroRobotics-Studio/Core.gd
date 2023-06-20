@@ -45,6 +45,7 @@ func _ready():
 	Autoload_variable.Core_Menu = get_parent().get_node("Menu")
 	Autoload_variable.Core_addition = get_parent().get_node("Menu/addition_menu")
 	Autoload_variable.Core_notification = $GlobalUISystem/Brain_Visualizer/notification
+	Autoload_variable.Core_Camera = $GlobalUISystem/Brain_Visualizer/Node3D/Camera3D
 	# Retrieve relvant Child Nodes
 	NetworkAPI = $GlobalNetworkSystem
 	UIManager = $GlobalUISystem
@@ -96,6 +97,7 @@ func Update_MorphologyList(): Call_GET(ADD_GET_MorphologyList, _Relay_Morphology
 func Update_GenomeFileName(): Call_GET(ADD_GET_GenomeFileName, _Relay_GenomeFileName)
 func Update_ConnectomeMappingReport(): Call_GET(ADD_GET_ConnectomeMappingReport, _Relay_ConnectomeMappingReport)
 func Update_CorticalAreaNameList(): Call_GET(ADD_GET_CorticalAreaNameList, _Relay_CorticalAreaNameList)
+func GOTO_CORTICALLOCATION(input_name): Call_GET(ADD_GET_CorticalAreaNameLOCATION+input_name, _Relay_CorticalAreaLOCATION)
 func Update_CorticalMap(): Call_GET(ADD_Cortical_Name_Map, _Relay_CorticalMap)
 func Update_GenomeCorticalArea_SPECIFC(corticalArea: String): Call_GET(ADD_GET_Genome_CorticalArea, _Relay_GET_Genome_CorticalArea, corticalArea ) 
 func Update_Dimensions(): Call_GET(ADD_GET_Dimensions, _Relay_Dimensions)
@@ -188,7 +190,7 @@ func _Relay_updated_cortical(_result, _response_code, _headers, _body: PackedByt
 	var api_data = test_json_conv.get_data()
 	Autoload_variable.Core_notification.generate_notification_message(api_data, _response_code, "_Relay_updated_cortical", "/v1/feagi/genome/cortical_area", "POST")
 	if LogNetworkError(_result): print("Unable to get Cortical"); return
-	pass
+#	Autoload_variable.Core_BV._on_send_feagi_request_completed(api_data, _response_code, "_Relay_updated_cortical", "/v1/feagi/genome/cortical_area")
 	
 func _Relay_Get_BurstRate(_result, _response_code, _headers, body: PackedByteArray):
 	if LogNetworkError(_result): print("Unable to get Burst Rate"); return
@@ -252,6 +254,12 @@ func _Relay_GenomeFileName(_result, _response_code, _headers, body: PackedByteAr
 	if Autoload_variable.Core_BV.visible:
 		Autoload_variable.Core_BV._on_get_genome_name_request_completed(_result, _response_code, _headers, body)
 
+func _Relay_CorticalAreaLOCATION(_result, _response_code, _headers, body: PackedByteArray):
+	if LogNetworkError(_result): 
+		print("Unable to get Cortical Areas location"); 
+		return
+	Autoload_variable.Core_Camera._on_grab_location_of_cortical_request_completed(_result, _response_code, _headers, body)
+	
 func _Relay_CorticalAreaNameList(_result, _response_code, _headers, body: PackedByteArray):
 	# FEAGI updated Cortical Area Name list
 	if LogNetworkError(_result): print("Unable to get Cortical Areas"); return
@@ -414,6 +422,8 @@ var ADD_GET_ConnectomeMappingReport:
 	get: return SEC + FEAGI_RootAddress + "/v1/feagi/connectome/properties/mappings"
 var ADD_GET_CorticalAreaNameList:
 	get: return SEC + FEAGI_RootAddress + "/v1/feagi/genome/cortical_area_name_list"
+var ADD_GET_CorticalAreaNameLOCATION:
+	get: return SEC + FEAGI_RootAddress + "/v1/feagi/genome/cortical_name_location?cortical_name="
 var ADD_GET_Genome_CorticalArea:
 	get: return SEC + FEAGI_RootAddress + "/v1/feagi/genome/cortical_area?cortical_area="
 var ADD_GET_Afferent:
