@@ -11,7 +11,7 @@ static func Func_GetChildIDs(children: Array) -> Array:
 
 
 
-static func Func_Activate(settings: Dictionary, NewnitObject) -> void:
+static func Func_Activate(settings: Dictionary, NewnitObject: Node) -> void:
 	if NewnitObject._isActivated: return
 	
 	# Convert JSON Vector Parts into Vectors
@@ -39,6 +39,9 @@ static func Func_Activate(settings: Dictionary, NewnitObject) -> void:
 	NewnitObject._ID = HelperFuncs.GetIfCan(settings, "ID", D_ID)
 	NewnitObject._type = HelperFuncs.GetIfCan(settings, "type", D_type)
 	NewnitObject.name = Func__GetUIChildName(NewnitObject.type, NewnitObject)
+	
+	# Add basics of Newnit TODO still
+	if !NewnitObject.hasNewnitParent: NewnitObject._parent = NewnitObject.get_parent()
 	
 	if(HelperFuncs.GetIfCan(settings, "enablePanel", D_EnablePanel)):
 		Func_AddPanel(NewnitObject)
@@ -95,9 +98,12 @@ static func Func_AddPanel(NewnitObject: Node) -> void:
 	NewnitObject._isUsingPanel = true
 	var panel: Panel = Panel.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL 
-	NewnitObject._childRoot.add_child(panel)
 	NewnitObject._panelRef = panel
-	NewnitObject._childRoot = panel
+	NewnitObject.parent.add_child(panel)
+	NewnitObject.parent.remove_child(NewnitObject)
+	panel.add_child(NewnitObject)
+	
+	
 
 static func Func__GetUIChildName(compType: StringName, NewnitObject) -> StringName:
 	return compType + "_" + NewnitObject.ID

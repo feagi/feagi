@@ -27,11 +27,9 @@ static func Func_SpawnChild(childActivationSettings: Dictionary, ContainerObject
 		_:
 			print("Invalid child of type ", childActivationSettings["type"], " attempted to spawn. Skipping...")
 			return
-	
-	ContainerObject._childRoot.add_child(newChild)
-	newChild.Activate(childActivationSettings)
 	newChild._hasNewnitParent = true
 	newChild._parent = ContainerObject
+	newChild.Activate(childActivationSettings)
 	newChild.DataUp.connect(ContainerObject._DataUpProxy)
 
 static func Func_SpawnMultipleChildren(childrenActivationSettings: Array, ContainerObject) -> void:
