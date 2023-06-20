@@ -6,7 +6,7 @@
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/burst_value.gd" id="5_t81be"]
 [ext_resource type="Script" path="res://brain_visualizer_source/cortical_cam_label_menu.gd" id="6_ya7sl"]
 [ext_resource type="Texture2D" uid="uid://bd3hwkynrgrdo" path="res://brain_visualizer_source/menu_assets/image/add_cortical.png" id="7_ick0a"]
-[ext_resource type="FontFile" uid="uid://bd8bi5m03uqcq" path="res://brain_visualizer_source/BakbakOne-Regular.ttf" id="8_ew7u1"]
+[ext_resource type="FontFile" uid="uid://d0ok1asfod1sd" path="res://brain_visualizer_source/BakbakOne-Regular.ttf" id="8_ew7u1"]
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/name.gd" id="9_6q4er"]
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/name_string.gd" id="10_cwgtv"]
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/OptionButton.gd" id="11_142s5"]
@@ -19,7 +19,7 @@
 [ext_resource type="Texture2D" uid="uid://cudr8ifago1bd" path="res://brain_visualizer_source/menu_assets/image/remove_cortical.png" id="18_a875r"]
 [ext_resource type="Texture2D" uid="uid://bdhgs6bernr2j" path="res://brain_visualizer_source/menu_assets/image/collapse_not_selected.png" id="19_molgv"]
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/addition_menu.gd" id="20_tbxv4"]
-[ext_resource type="FontFile" uid="uid://c4tsaugh7yauv" path="res://brain_visualizer_source/Glegoo-Bold.ttf" id="21_ptep2"]
+[ext_resource type="FontFile" uid="uid://dr0n853y03d8r" path="res://brain_visualizer_source/Glegoo-Bold.ttf" id="21_ptep2"]
 [ext_resource type="Script" path="res://brain_visualizer_source/menu_assets/cortical_area_type.gd" id="22_ln6xc"]
 [ext_resource type="Script" path="res://brain_visualizer_source/Mapping_properties.gd" id="23_gwhk5"]
 [ext_resource type="Script" path="res://brain_visualizer_source/Mapping_control.gd" id="24_3jpdg"]
@@ -430,6 +430,7 @@ offset_bottom = 600.0
 [node name="Brain_Visualizer" parent="Core/GlobalUISystem" instance=ExtResource("34_jfnov")]
 
 [node name="Menu" type="Control" parent="."]
+visible = false
 layout_mode = 3
 anchor_right = 0.062
 anchor_bottom = 0.373
