@@ -14,7 +14,7 @@ var ID: StringName:
 	get: return _ID
 
 var parent: Node:
-	get: return _childRoot.get_node("../")
+	get: return _parent
 
 var parentID: StringName:
 	get: return NEWNIT_CORE.Get_ParentID(self)

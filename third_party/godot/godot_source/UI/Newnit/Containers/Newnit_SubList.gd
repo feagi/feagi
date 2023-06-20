@@ -13,7 +13,7 @@ var ID: StringName:
 	get: return _ID
 
 var parent: Node:
-	get: return _childRoot.get_node("../")
+	get: return _parent
 
 var parentID: StringName:
 	get: return NEWNIT_CORE.Get_ParentID(self)
@@ -33,6 +33,9 @@ var isUsingPanel: bool:
 var panelRef: Node:
 	get: return panelRef
 
+var hasNewnitParent: bool:
+	get: return _hasNewnitParent
+
 var _ID: StringName
 var _isActivated := false
 var _isTopLevel := true
@@ -41,6 +44,8 @@ var _type: StringName
 var _childRoot: Node = self
 var _isUsingPanel: bool
 var _panelRef: Node = null
+var _parent: Node = null
+var _hasNewnitParent: bool = false
 
 func Activate(settings: Dictionary) -> void:
 	NEWNIT_CORE.Func_Activate(settings, self)
