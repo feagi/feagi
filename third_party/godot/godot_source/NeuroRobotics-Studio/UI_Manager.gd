@@ -332,14 +332,18 @@ func SpawnLeftBar(cortexName: String, activation: Dictionary):
 	add_child(UI_LeftBar)
 	UI_LeftBar.Activate(activation)
 	UI_holders.append(UI_LeftBar)
+
+	# Please do not get_children on nodes due to panel abstraction
 	var delete_button = UI_LeftBar.GetReferenceByID("UpdateButtonTop").get_node("sideButton_UpdateButtonTop")
 	var update1 = UI_LeftBar.GetReferenceByID("UpdateButtonTop").get_node("button_UpdateButtonTop")
 	var update=UI_LeftBar.GetReferenceByID("NeuronParametersSection").GetReferenceByID("UpdateButton").get_node("button_UpdateButton")
+
 	var add_row_button = UI_LeftBar.GetReferenceByID("EFFERENTLABEL").get_node("sideButton_EFFERENTLABEL")
 	delete_button.connect("pressed", Callable($Brain_Visualizer,"_on_remove_pressed").bind(UI_LeftBar.GetReferenceByID("CorticalID")))
 	update.connect("pressed", Callable($Brain_Visualizer,"_on_Update_pressed").bind(UI_LeftBar))
 	update1.connect("pressed", Callable($Brain_Visualizer,"_on_Update_pressed").bind(UI_LeftBar))
 	add_row_button.connect("pressed", Callable($Brain_Visualizer,"_on_cortical_mapping_add_pressed").bind(cortexName))
+
 
 func mapping_definition_button(node):
 	var src_id = UI_LeftBar.GetReferenceByID("CorticalName").get_node("sideLabel_CorticalName").text
