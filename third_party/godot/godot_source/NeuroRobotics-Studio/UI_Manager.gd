@@ -34,6 +34,7 @@ var import_close_button
 var UI_holders = []
 var global_json_data
 var optionbutton_holder
+var morphology_creation_add_button
 
 # Internal cached vars
 var _sideBarChangedValues := {}
@@ -117,14 +118,16 @@ func CreateMorphologyInput(data: Dictionary, ElementID: String, ElementRef: Node
 			var vectors = UI_CreateMorphology.GetReferenceByID("Vectors")
 			if data["selectedIndex"] == 0:
 				$Brain_Visualizer.new_morphology_clear()
-				composite.visible = true; patterns.visible = false; vectors.visible = false
+				composite.visible = true; patterns.visible = false; vectors.visible = false; morphology_creation_add_button.visible = false
 				UI_CreateMorphology.SetData({"Composite": {"MAPPING_DROPDOWN": {"MAPPINGDROPDOWN":{"options": optionbutton_holder}}}})
 			if data["selectedIndex"] == 1:
 				$Brain_Visualizer.new_morphology_clear()
-				composite.visible = false; patterns.visible = true; vectors.visible = false
+				morphology_creation_add_button.emit_signal("pressed")
+				composite.visible = false; patterns.visible = true; vectors.visible = false; morphology_creation_add_button.visible = true
 			if data["selectedIndex"] == 2:
 				$Brain_Visualizer.new_morphology_clear()
-				composite.visible = false; patterns.visible = false; vectors.visible = true
+				composite.visible = false; patterns.visible = false; vectors.visible = true; morphology_creation_add_button.visible = true
+				morphology_creation_add_button.emit_signal("pressed")
 ######### Side Bar Control #########
 
 func LeftBarInput(data: Dictionary, _compRef, _unitRef):
@@ -200,7 +203,6 @@ func WindowSizedChanged():
 func RelayDownwards(callType, data) -> void:
 	match(callType):
 		REF.FROM.healthstatus:
-			print("called")
 			if UI_INDICATOR:
 				if data["burst_engine"]:
 					$"../../color_indicator/ColorRect".set_color(Color("#008F00"))
@@ -354,10 +356,14 @@ func SpawnCreateMophology():
 	composite.visible = false
 	patterns.visible = false
 	vectors.visible = false
+	add_row.visible = false
+	vectors.get_node("box_XYZ").visible = false
+	patterns.get_node("box_PatternRow0").visible = false
 	$"..".Update_MorphologyList()
 	UI_CreateMorphology.DataUp.connect(CreateMorphologyInput)
 	UI_holders.append(UI_CreateMorphology)
-	add_row.connect("pressed", Callable($Brain_Visualizer,"_morphology_button_pressed").bind(UI_CreateMorphology))
+	morphology_creation_add_button = add_row
+	morphology_creation_add_button.connect("pressed", Callable($Brain_Visualizer,"_morphology_button_pressed").bind(UI_CreateMorphology))
 	create_button.connect("pressed", Callable($Brain_Visualizer,"_on_create_pressed").bind(UI_CreateMorphology))
 
 func SpawnCorticalCrete():
@@ -368,14 +374,9 @@ func SpawnCorticalCrete():
 	UI_createcorticalBar.DataUp.connect(CorticalCreateInput)
 	UI_holders.append(UI_createcorticalBar)
 	UI_createcorticalBar.SetData({"CORTICALAREA": {"options": (global_json_data["option"])}})
-#	if UI_createcorticalBar.DataUp.is_connected():
-#	UI_createcorticalBar.DataUp.disconnect()
-#	4.x - emitting_node.signal_name.disconnect(receiving_node.callback_function)
 	var update = UI_createcorticalBar.GetReferenceByID("UpdateButton").get_node("button_UpdateButton")
 	var whd = UI_createcorticalBar.GetReferenceByID("WHD")
 	var xyz = UI_createcorticalBar.GetReferenceByID("XYZ")
-#	var close = UI_createcorticalBar.get_child(0).get_child(1).get_child(0)
-	print(UI_createcorticalBar.GetReferenceByID("corticalnametext").get_node("field_CORTICALAREAFIELD").get_children())
 	var name_input = UI_createcorticalBar.GetReferenceByID("corticalnametext").get_node("field_CORTICALAREAFIELD").get_node("field_CORTICALAREAFIELD")
 	var optionlist = UI_createcorticalBar.GetReferenceByID("CORTICALAREA").get_node("dropDown_CORTICALAREA")
 	var w = whd.get_node("counter_W").get_node("counter_W")
