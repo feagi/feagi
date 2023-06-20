@@ -41,7 +41,6 @@ var _isActivated := false
 var _isTopLevel := true
 var _runtimeSettableProperties := NEWNIT_CORE.settableProperties
 var _type: StringName
-var _childRoot: Node = self
 var _isUsingPanel: bool
 var _panelRef: Node = null
 var _parent: Node = null
