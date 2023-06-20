@@ -504,6 +504,7 @@ func _on_download_pressed():
 	previous_genome_data = {}
 
 func _on_add_pressed(node=[]):
+	print("HERE!")
 	var json_data = {}
 	if node == []:
 		if $".."/".."/".."/Menu/addition_menu/OptionButton.selected == 1 or $".."/".."/".."/Menu/addition_menu/OptionButton.selected == 2:
@@ -533,8 +534,8 @@ func _on_add_pressed(node=[]):
 			Autoload_variable.BV_Core.Update_custom_cortical_area(json_data)
 			node[8].release_focus()
 			$Node3D/Camera3D.transform.origin=Vector3(json_data["cortical_coordinates"][0]-20,json_data["cortical_coordinates"][1],json_data["cortical_coordinates"][2]+20)
-			print("SENT")
-	$".."/".."/".."/Menu/Mapping_Properties/cortical_dropdown.load_options()
+			$"..".UI_createcorticalBar.queue_free()
+	Autoload_variable.BV_Core.Update_CorticalAreaNameList()
 
 func _on_remove_pressed(node):
 	var get_name_data = node.get_node("sideLabel_CorticalID").text
@@ -974,6 +975,7 @@ func _on_create_pressed(node):
 			json["mapper_morphology"] = node.GetReferenceByID("Composite").get_node("box_MAPPING_DROPDOWN").get_node("dropdown_MAPPINGDROPDOWN").get_node("dropDown_MAPPINGDROPDOWN").text
 			var combine_url = '/v1/feagi/genome/morphology' + '?morphology_name=' + new_name + '&morphology_type=' + new_type.to_lower()
 			Autoload_variable.BV_Core.POST_Request_Brain_visualizer(SEC+combine_url, json)
+		node.queue_free()
 func _on_X_inside_inner_box_pressed():
 	$".."/".."/".."/Menu/Control.visible = false
 	new_morphology_clear()
@@ -1007,7 +1009,8 @@ func afferent_holder_clear():
 func new_morphology_clear():
 	if new_morphology_node:
 		for i in new_morphology_node:
-			i.queue_free()
+			if i != null:
+				i.queue_free()
 		new_morphology_node = []
 
 func plus_node_clear():
@@ -1219,9 +1222,7 @@ func _on_get_morphology_usuage_request_completed(_result, _response_code, _heade
 	$notification.generate_notification_message(api_data, _response_code, "_on_get_morphology_usuage_request_completed", "/v1/feagi/genome/morphology")
 
 func _morphology_button_pressed(node):
-	print("here: ", node.get_node("dropdown_MorphologyType").get_node("dropDown_MorphologyType").get_children())
 	var dropdown_selected = node.get_node("dropdown_MorphologyType").get_node("dropDown_MorphologyType").text
-	print("dropdown: ", dropdown_selected)
 	var counter = 0
 	counter = len(new_morphology_node)
 	if dropdown_selected == "Patterns":
@@ -1231,13 +1232,13 @@ func _morphology_button_pressed(node):
 		new_node.visible = true
 		new_node.get_node("button_RemoveSelfRowButton").get_node("button_RemoveSelfRowButton").connect("pressed",Callable(self,"delete_morphology").bind(new_node))
 	elif dropdown_selected == "Vectors":
-		print("node: ", node.GetReferenceByID("Vectors").get_node("box_XYZ").get_children())
 		var new_node = node.GetReferenceByID("Vectors").get_node("box_XYZ").duplicate()
 		new_morphology_node.append(new_node)
+		new_node.visible = true
 		node.GetReferenceByID("Vectors").add_child(new_node)
 		new_node.visible = true
 		new_node.get_node("button_RemoveRowButton").get_node("button_RemoveRowButton").connect("pressed",Callable(self,"delete_morphology").bind(new_node))
-	print("new: ", new_morphology_node)
+
 
 func _morphology_add_row(dropdown, row_node, parent_node, button, create_button):
 	var counter = 0
