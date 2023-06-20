@@ -31,7 +31,7 @@ var isUsingPanel: bool:
 	get: return _isUsingPanel
 
 var panelRef: Node:
-	get: return panelRef
+	get: return _panelRef
 
 var hasNewnitParent: bool:
 	get: return _hasNewnitParent
@@ -67,7 +67,11 @@ func UpdatePosition(newPosition: Vector2) -> void:
 
 func _ResizePanel() -> void:
 	_panelRef.size = size
-	
+
+func _notification(what):
+	if (what == NOTIFICATION_PREDELETE):
+		if(isUsingPanel): panelRef.queue_free()
+
 ################################################ END Newnit Parallel ################################################
 
 ################### START Containers Parallel - this section must match that of other Newnit Containers ##############

@@ -101,10 +101,10 @@ static func Func_AddPanel(NewnitObject: Node) -> void:
 	NewnitObject._isUsingPanel = true
 	var panel: Panel = Panel.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL 
-	NewnitObject._panelRef = panel
 	NewnitObject.parent.add_child(panel)
 	NewnitObject.parent.remove_child(NewnitObject)
 	panel.add_child(NewnitObject)
+	NewnitObject._panelRef = panel
 	
 	
 
