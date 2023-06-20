@@ -90,6 +90,7 @@ const D_vertical = false
 const D_labelText = ""
 const D_sideButtonText = ""
 const D_sideButtonEditable = true
+const D_expandSideLabel = true
 
 var sideLabelText: String:
 	get: return _sideLabelText
@@ -109,7 +110,15 @@ var sideButtonEditable: bool:
 		if(!_has_button): return
 		_sideButtonEditable = v
 		_sideButton.editable = v
-
+var expand: bool:
+	set(v): 
+		if !_has_label: return
+		if v:
+			if vertical: _sideLabel.size_flags_vertical = 2
+			else: _sideLabel.size_flags_horizontal = 2
+		else:
+			if vertical: _sideLabel.size_flags_vertical = 1
+			else: _sideLabel.size_flags_horizontal = 1
 
 var _has_label: bool
 var _has_button: bool
@@ -148,6 +157,9 @@ func _ActivationPrimary(settings: Dictionary) -> void:
 	if _has_button:
 		subComponents.push_back("sideButton")
 	_SpawnSubElements(subComponents)
+	
+	expand = HelperFuncs.GetIfCan(settings, "expand", D_expandSideLabel)
+	
 	_ActivationSecondary(settings)
 
 
