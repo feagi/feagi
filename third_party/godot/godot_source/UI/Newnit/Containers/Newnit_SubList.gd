@@ -61,6 +61,9 @@ func GetReferenceByID(searchID: StringName): # returns either a bool or a Node
 			return child
 	return false
 
+func _ResizePanel():
+	_panelRef.size = size
+	
 ################################################ END Newnit Parallel ################################################
 
 ################### START Containers Parallel - this section must match that of other Newnit Containers ##############

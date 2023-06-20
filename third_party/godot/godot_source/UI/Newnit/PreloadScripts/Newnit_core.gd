@@ -43,8 +43,12 @@ static func Func_Activate(settings: Dictionary, NewnitObject: Node) -> void:
 	# Add basics of Newnit TODO still
 	if !NewnitObject.hasNewnitParent: NewnitObject._parent = NewnitObject.get_parent()
 	
-	if(HelperFuncs.GetIfCan(settings, "enablePanel", D_EnablePanel)):
+	var enablePanel: bool = HelperFuncs.GetIfCan(settings, "enablePanel", D_EnablePanel)
+	if(enablePanel):
 		Func_AddPanel(NewnitObject)
+		NewnitObject.resized.connect(NewnitObject._ResizePanel)
+	
+	
 	
 	NewnitObject._ActivationPrimary(settings)
 	NewnitObject._isActivated = true
