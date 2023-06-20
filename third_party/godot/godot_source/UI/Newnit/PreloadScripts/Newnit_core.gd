@@ -93,7 +93,8 @@ static func Func_SetData(input: Dictionary, NewnitObject) -> void:
 
 static func Func_AddPanel(NewnitObject: Node) -> void:
 	NewnitObject._isUsingPanel = true
-	var panel = Panel.new()
+	var panel: Panel = Panel.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL 
 	NewnitObject._childRoot.add_child(panel)
 	NewnitObject._panelRef = panel
 	NewnitObject._childRoot = panel
