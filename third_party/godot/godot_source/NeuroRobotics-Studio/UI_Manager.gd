@@ -99,10 +99,12 @@ signal DataUp(data: Dictionary)
 ######### Top Bar Control ##########
 # We should be using this to make things more streamline
 func TopBarInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
+	print("data: ", data.keys(), " elementid: ", ElementID, " ref: ", ElementRef)
 	match(ElementID):
 		"CORTICALAREAS":
-			var name_from_dropdown = UI_Top_TopBar.GetReferenceByID("CORTICALAREAS").get_node("dropDown_CORTICALAREAS").text
-			$Brain_Visualizer.camera_list_selected(name_from_dropdown)
+			if "selectedIndex" in data.keys():
+				var name_from_dropdown = UI_Top_TopBar.GetReferenceByID("CORTICALAREAS").get_node("dropDown_CORTICALAREAS").text
+				$Brain_Visualizer.camera_list_selected(name_from_dropdown)
 			if "sideButton" in data.keys():
 				if not UI_createcorticalBar:
 					SpawnCorticalCrete()
