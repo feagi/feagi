@@ -30,6 +30,6 @@
 		 "hasButton":true,
 		 "ID":"NEURONMORPHOLOGIES",
 		  "sideButtonText": "+"
-	  },
+	  }
    ]
 }
