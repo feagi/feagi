@@ -9,8 +9,6 @@ static func Func_GetChildIDs(children: Array) -> Array:
 		output.append(child.ID)
 	return output
 
-
-
 static func Func_Activate(settings: Dictionary, NewnitObject: Node) -> void:
 	if NewnitObject._isActivated: return
 	
@@ -108,12 +106,9 @@ static func Func_AddPanel(NewnitObject: Node) -> void:
 	NewnitObject.parent.remove_child(NewnitObject)
 	panel.add_child(NewnitObject)
 	NewnitObject._panelRef = panel
-	
-	
 
 static func Func__GetUIChildName(compType: StringName, NewnitObject) -> StringName:
 	return compType + "_" + NewnitObject.ID
-
 
 static func Get_data(NewnitObject: Node) -> Dictionary:
 	var o: Dictionary = {"ID": NewnitObject.ID}
@@ -124,9 +119,6 @@ static func Get_ParentID(NewnitObject: Node) -> StringName:
 	if "ID" in NewnitObject.parent:
 		return NewnitObject.parent.ID
 	return StringName("No ID Found!")
-
-	
-
 
 # Defaults and other constants
 const D_ID = "ERROR_NO_ID"
