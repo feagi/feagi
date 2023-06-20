@@ -14,7 +14,7 @@ var ID: StringName:
 	get: return _ID
 
 var parent: Node:
-	get: return get_node("../")
+	get: return _parent
 
 var parentID: StringName:
 	get: return NEWNIT_CORE.Get_ParentID(self)
@@ -28,11 +28,24 @@ var data: Dictionary:
 var type: StringName:
 	get: return _type
 
+var isUsingPanel: bool:
+	get: return _isUsingPanel
+
+var panelRef: Node:
+	get: return panelRef
+
+var hasNewnitParent: bool:
+	get: return _hasNewnitParent
+
 var _ID: StringName
 var _isActivated := false
 var _isTopLevel := true
 var _runtimeSettableProperties := NEWNIT_CORE.settableProperties
 var _type: StringName
+var _isUsingPanel: bool
+var _panelRef: Node = null
+var _parent: Node = null
+var _hasNewnitParent: bool = false
 
 func Activate(settings: Dictionary) -> void:
 	NEWNIT_CORE.Func_Activate(settings, self)
@@ -46,9 +59,16 @@ func GetReferenceByID(searchID: StringName): # returns either a bool or a Node
 	for child in children:
 		var result = child.GetReferenceByID(searchID)
 		if typeof(result) != TYPE_BOOL:
-			return child
+			return result
 	return false
 
+func UpdatePosition(newPosition: Vector2) -> void:
+	position = newPosition
+	if isUsingPanel: _panelRef.position = newPosition
+
+func _ResizePanel() -> void:
+	_panelRef.size = size
+	
 ################################################ END Newnit Parallel ################################################
 
 ################### START Containers Parallel - this section must match that of other Newnit Containers ##############

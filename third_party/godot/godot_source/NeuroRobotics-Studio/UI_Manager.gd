@@ -89,6 +89,10 @@ func _SpawnTopBar(activation: Dictionary):
 #	UI_Top_TopBar.add_child(color_rect)
 #	print("UI NODE: ", UI_Top_TopBar)
 #	print("SIZE: ", UI_Top_TopBar.size, " and position: ", UI_Top_TopBar.position)
+	#var import_circuit = UI_Top_TopBar.GetReferenceByID("GENOMEFILENAME").get_node("sideButton_GENOMEFILENAME")
+	#var cortical_create = UI_Top_TopBar.GetReferenceByID("CORTICALAREAS").get_node("sideButton_CORTICALAREAS")
+	#import_circuit.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
+
 
 ####################################
 ####### Input Event Handling #######
@@ -336,6 +340,17 @@ func SpawnLeftBar(cortexName: String, activation: Dictionary):
 	update.connect("pressed", Callable($Brain_Visualizer,"_on_Update_pressed").bind(UI_LeftBar))
 	update1.connect("pressed", Callable($Brain_Visualizer,"_on_Update_pressed").bind(UI_LeftBar))
 	add_row_button.connect("pressed", Callable($Brain_Visualizer,"_on_cortical_mapping_add_pressed").bind(cortexName))
+	# Please do not get_children on nodes due to panel abstraction
+#	var delete_button = UI_LeftBar.GetReferenceByID("UpdateButtonTop").get_node("sideButton_UpdateButtonTop")
+#	var update1 = UI_LeftBar.GetReferenceByID("UpdateButtonTop").get_node("button_UpdateButtonTop")
+#	var update=UI_LeftBar.GetReferenceByID("NeuronParametersSection").GetReferenceByID("UpdateButton").get_node("button_UpdateButton")
+#	print("node: ", UI_LeftBar.GetReferenceByID("EFFERENTLABEL").get_children())
+#	var add_row_button = UI_LeftBar.GetReferenceByID("EFFERENTLABEL").get_node("sideButton_EFFERENTLABEL")
+#	delete_button.connect("pressed", Callable($Brain_Visualizer,"_on_remove_pressed").bind(UI_LeftBar.GetReferenceByID("CorticalID")))
+#	update.connect("pressed", Callable($Brain_Visualizer,"_on_Update_pressed").bind(UI_LeftBar))
+#	update1.connect("pressed", Callable($Brain_Visualizer,"_on_Update_pressed").bind(UI_LeftBar))
+#	add_row_button.connect("pressed", Callable($Brain_Visualizer,"_on_cortical_mapping_add_pressed").bind(cortexName))
+#	print("TEST")
 #	var delete_button = UI_LeftBar.GetReferenceByID("UpdateButtonTop") DO THIS
 #	var update1 = UI_LeftBar.GetReferenceByID("UpdateButtonTop").get_node("button_UpdateButtonTop")
 #	var update=UI_LeftBar.GetReferenceByID("UpdateButton").get_node("button_UpdateButton")
@@ -463,7 +478,7 @@ func SpawnMappingDefinition(src, dst, activation):
 	combine_url= combine_url.replace("$", get_id_from_dst)
 	Autoload_variable.BV_Core.Update_destination(combine_url)
 	# Link with BV buttons
-	var add_morphology = UI_MappingDefinition.GetReferenceByID("ADDMAPPING").get_node("button_ADDMAPPING").get_node("button_ADDMAPPING")
+	var add_morphology = UI_MappingDefinition.GetReferenceByID("ADDMAPPING").get_node("button_ADDMAPPING")
 	var update_button = UI_MappingDefinition.GetReferenceByID("updatebutton").get_node("button_updatebutton")
 	add_morphology.connect("pressed", Callable($Brain_Visualizer,"_on_plus_add_pressed"))
 	update_button.connect("pressed", Callable($Brain_Visualizer,"_on_update_inside_map_pressed").bind(UI_MappingDefinition))

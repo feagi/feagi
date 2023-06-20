@@ -14,7 +14,7 @@ var ID: StringName:
 	get: return _ID
 
 var parent: Node:
-	get: return get_node("../")
+	get: return _parent
 
 var parentID: StringName:
 	get: return NEWNIT_CORE.Get_ParentID(self)
@@ -28,11 +28,24 @@ var data: Dictionary:
 var type: StringName:
 	get: return _type
 
+var isUsingPanel: bool:
+	get: return _isUsingPanel
+
+var panelRef: Node:
+	get: return panelRef
+
+var hasNewnitParent: bool:
+	get: return _hasNewnitParent
+
 var _ID: StringName
 var _isActivated := false
 var _isTopLevel := true
 var _runtimeSettableProperties := NEWNIT_CORE.settableProperties
 var _type: StringName
+var _isUsingPanel: bool
+var _panelRef: Node = null
+var _parent: Node = null
+var _hasNewnitParent: bool = false
 
 func Activate(settings: Dictionary) -> void:
 	NEWNIT_CORE.Func_Activate(settings, self)
@@ -41,17 +54,21 @@ func Activate(settings: Dictionary) -> void:
 func SetData(input: Dictionary) -> void:
 	NEWNIT_CORE.Func_SetData(input, self)
 
-# Does an indepth search of all children by ID, and returns a node reference to
-# a matching ID. If none are found, returns false.
-# Due to inheritance shenanigans, this CANNOT be moved to Newnit_Core
 func GetReferenceByID(searchID: StringName): # returns either a bool or a Node
 	if searchID == ID: return self
 	for child in children:
 		var result = child.GetReferenceByID(searchID)
-		if result != false:
-			return child
+		if typeof(result) != TYPE_BOOL:
+			return result
 	return false
 
+func UpdatePosition(newPosition: Vector2) -> void:
+	position = newPosition
+	if isUsingPanel: _panelRef.position = newPosition
+
+func _ResizePanel() -> void:
+	_panelRef.size = size
+	
 ################################################ END Newnit Parallel ################################################
 
 ### START Element Unique ###
@@ -116,8 +133,6 @@ func _ActivationPrimary(settings: Dictionary) -> void:
 	alignment = HelperFuncs.GetIfCan(settings, "alignment", D_alignment)
 	vertical = HelperFuncs.GetIfCan(settings, "vertical", D_vertical)
 	
-	
-	
 	if _has_label:
 		subComponents.push_front("sideLabel")
 	
@@ -136,27 +151,29 @@ func _SpawnSubElements(componentTypes: Array) -> void:
 				subComp = Label_Sub.new()
 				_sideLabel = subComp
 				subComp.name = NEWNIT_CORE.Func__GetUIChildName(compType, self)
-				add_child(subComp)
 				subComp.text = sideLabelText
+				add_child(subComp)
 				continue
 			"sideButton":
 				subComp = Button_Sub.new()
 				_sideButton = subComp
 				subComp.name = NEWNIT_CORE.Func__GetUIChildName(compType, self)
-				add_child(subComp)
 				subComp.text = sideButtonText
 				subComp.pressed.connect(_SideButtonPressed)
+				add_child(subComp)
 				continue
 			"vector3":
+				subComp = BoxContainer.new()
 				for i in range(3):
-					subComp = BoxContainer.new(); add_child(subComp)
 					subComp.add_child(Label_Sub.new())
 					subComp.add_child(LineEdit_ff_Sub.new())
+				add_child(subComp)
 				continue
 			"list":
-				subComp = BoxContainer.new(); add_child(subComp)
+				subComp = BoxContainer.new()
 				subComp.add_child(Element_Button.new())
 				subComp.add_child(List_Sub.new())
+				add_child(subComp)
 				continue
 			"button": subComp = Button_Sub.new()
 			"counter": subComp = Spinbox_Sub.new()

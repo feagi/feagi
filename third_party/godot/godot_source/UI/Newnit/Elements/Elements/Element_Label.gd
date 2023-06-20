@@ -20,8 +20,8 @@ var text: String: # Same as 'value', here just for ease of use
 var _label: Label_Sub
 
 func _ActivationSecondary(settings: Dictionary) -> void:
-	if(_has_label): _label = get_children()[1]
-	else: _label = get_children()[0]
+	if(_has_label): _label = get_child(1)
+	else: _label = get_child(0)
 	text = HelperFuncs.GetIfCan(settings, "text", D_text)
 	_runtimeSettableProperties.merge(_specificSettableProps)
 

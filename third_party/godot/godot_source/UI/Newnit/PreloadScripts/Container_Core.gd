@@ -27,10 +27,11 @@ static func Func_SpawnChild(childActivationSettings: Dictionary, ContainerObject
 		_:
 			print("Invalid child of type ", childActivationSettings["type"], " attempted to spawn. Skipping...")
 			return
-	
-	ContainerObject.add_child(newChild)
+	newChild._hasNewnitParent = true
+	newChild._parent = ContainerObject
 	newChild.Activate(childActivationSettings)
 	newChild.DataUp.connect(ContainerObject._DataUpProxy)
+	ContainerObject.add_child(newChild)
 
 static func Func_SpawnMultipleChildren(childrenActivationSettings: Array, ContainerObject) -> void:
 	for c in childrenActivationSettings:
@@ -46,8 +47,25 @@ static func Func__getChildData(ContainerObject) -> Dictionary:
 		output.merge(child.data)
 	return output
 
-static func Get_children(ContainerObject) -> Array:
-	return ContainerObject.get_children()
+static func Get_children(ContainerObject: Node) -> Array:
+	var childrens := []
+	for child in ContainerObject.get_children():
+		childrens.append(_GetNewnitChild(child))
+	return childrens
+
+static func _GetNewnitChild(checkingChild: Node) -> Node:
+	if checkingChild.get_class() == "Panel":
+		_GetNewnitChild(checkingChild.get_child(0))
+	return checkingChild
+
+static func PreAppendElementToComponents(settings: Dictionary, 
+newElement: Dictionary) -> Dictionary:
+	
+	var components: Array = settings["components"]
+	components.push_front(newElement)
+	settings["components"] = components
+	return settings
+	
 
 # Defaults and other constants
 const D_vertical = true

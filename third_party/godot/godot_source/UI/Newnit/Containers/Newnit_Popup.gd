@@ -14,7 +14,7 @@ var ID: StringName:
 	get: return _ID
 
 var parent: Node:
-	get: return get_node("../")
+	get: return _parent
 
 var parentID: StringName:
 	get: return NEWNIT_CORE.Get_ParentID(self)
@@ -28,11 +28,24 @@ var data: Dictionary:
 var type: StringName:
 	get: return _type
 
+var isUsingPanel: bool:
+	get: return _isUsingPanel
+
+var panelRef: Node:
+	get: return panelRef
+
+var hasNewnitParent: bool:
+	get: return _hasNewnitParent
+
 var _ID: StringName
 var _isActivated := false
 var _isTopLevel := true
 var _runtimeSettableProperties := NEWNIT_CORE.settableProperties
 var _type: StringName
+var _isUsingPanel: bool
+var _panelRef: Node = null
+var _parent: Node = null
+var _hasNewnitParent: bool = false
 
 func Activate(settings: Dictionary) -> void:
 	NEWNIT_CORE.Func_Activate(settings, self)
@@ -49,6 +62,13 @@ func GetReferenceByID(searchID: StringName): # returns either a bool or a Node
 			return result
 	return false
 
+func UpdatePosition(newPosition: Vector2) -> void:
+	position = newPosition
+	if isUsingPanel: _panelRef.position = newPosition
+
+func _ResizePanel() -> void:
+	_panelRef.size = size
+	
 ################################################ END Newnit Parallel ################################################
 
 ################### START Containers Parallel - this section must match that of other Newnit Containers ##############
@@ -60,10 +80,6 @@ func SpawnChild(childActivationSettings: Dictionary) -> void:
 
 func SpawnMultipleChildren(childrenActivationSettings: Array) -> void:
 	NEWNIT_CONTAINER_CORE.Func_SpawnMultipleChildren(childrenActivationSettings, self)
-
-func _ActivationPrimary(settings: Dictionary) -> void:
-	if(_AlternateActivationPath(settings)): return
-	NEWNIT_CONTAINER_CORE.Func__ActivationPrimary(settings, self)
 
 func _getChildData() -> Dictionary:
 	return NEWNIT_CONTAINER_CORE.Func__getChildData(self)
@@ -99,17 +115,12 @@ var specificSettableProps := {
 var _titleBar: Element_Label:
 	get: return children[0]
 
-func _AlternateActivationPath(settings: Dictionary) -> bool:
+func _ActivationPrimary(settings: Dictionary) -> void:
 	# Add a title bar and continue
 	
-	var childrenActivations: Array = settings["components"]
-	var TitleBar := _TITLEBAR_BUTTON.duplicate()  # avoid ref issues
-	childrenActivations.push_front(_TITLEBAR_BUTTON)
-	settings["components"] = childrenActivations
-	NEWNIT_CONTAINER_CORE.Func__ActivationPrimary(settings, self)
-	return true
-
-func _ActivationSecondary(settings: Dictionary) -> void:
+	settings = NEWNIT_CONTAINER_CORE.PreAppendElementToComponents(settings, _TITLEBAR_BUTTON)
+	SpawnMultipleChildren(settings["components"])
+	
 	alignment = HelperFuncs.GetIfCan(settings, "alignment", NEWNIT_CONTAINER_CORE.D_alignment)
 	vertical = HelperFuncs.GetIfCan(settings, "vertical", NEWNIT_CONTAINER_CORE.D_vertical)
 	titleBarText = HelperFuncs.GetIfCan(settings, "titleBarText", NEWNIT_CONTAINER_CORE.D_Title)
@@ -117,6 +128,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	
 	_titleBar.DataUp.connect(_closeButton)
 	type = "popup"
+
 
 func _closeButton(data: Dictionary, originatingID: String, reference: Node) -> void:
 	if originatingID != "POPUP_TOPBAR": return
