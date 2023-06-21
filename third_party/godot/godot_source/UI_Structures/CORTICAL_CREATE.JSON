@@ -1,10 +1,11 @@
 {
 	"ID": "CREATE_CORTICAL",
-  	"enableTitleBar": true,
-  	"titleBarTitle": "Add New Cortical Area",
 	"positionX": 100,
 	"positionY": 400,
-	"enableCloseButton": true,
+	"type":"popup",
+	"titleBarTitle": "Add New Cortical Area",
+	"widthAlignment":1,
+   	"enablePanel": true,
 	"components": [
 		{
 			"ID": "CORTICALAREA",

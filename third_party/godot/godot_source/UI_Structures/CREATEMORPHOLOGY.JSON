@@ -32,8 +32,26 @@
 					"ID": "Seed"
 				},
 				{
-					"type": "vector3",
-					"ID": "SEED_VECTOR"
+					"type": "box",
+					"ID": "inner_composite",
+					"vertical": false,
+					"visibility": 0,
+					"components": [
+						{
+							"type": "floatfield",
+							"ID": "X_SEED",
+							"label": "X"
+						},
+						{
+							"type": "floatfield",
+							"ID": "Y_SEED",
+							"label": "Y"
+						},
+						{
+							"type": "floatfield",
+							"ID": "Z_SEED",
+							"label": "Z"
+						}]
 				},
 				{
 					"type": "header",
@@ -317,7 +335,7 @@
 				}
 			]
 		},
-						{
+				{
 					"type": "button",
 					"ID": "AddRowButton",
 					"text": "Add Row"

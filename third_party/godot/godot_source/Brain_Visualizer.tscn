@@ -430,7 +430,6 @@ offset_bottom = 600.0
 [node name="Brain_Visualizer" parent="Core/GlobalUISystem" instance=ExtResource("34_jfnov")]
 
 [node name="Menu" type="Control" parent="."]
-visible = false
 layout_mode = 3
 anchor_right = 0.062
 anchor_bottom = 0.373
@@ -2187,7 +2186,6 @@ offset_bottom = 70.0
 text = "Update"
 
 [node name="rule_properties" type="ColorRect" parent="Menu"]
-visible = false
 layout_mode = 0
 offset_left = 661.0
 offset_top = 40.0
