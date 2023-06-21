@@ -103,7 +103,6 @@ signal DataUp(data: Dictionary)
 ######### Top Bar Control ##########
 # We should be using this to make things more streamline
 func TopBarInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
-	print("data: ", data.keys(), " elementid: ", ElementID, " ref: ", ElementRef)
 	match(ElementID):
 		"CORTICALAREAS":
 			if "selectedIndex" in data.keys():
@@ -466,25 +465,31 @@ func SpawnNeuronManager():
 	var vectors = UI_ManageNeuronMorphology.GetReferenceByID("Vectors")
 	var composite = UI_ManageNeuronMorphology.GetReferenceByID("Composite")
 	var patterns = UI_ManageNeuronMorphology.GetReferenceByID("Patterns")
-	var XYZ = UI_ManageNeuronMorphology.GetReferenceByID("XYZ")
 	var patterns_bar = UI_ManageNeuronMorphology.GetReferenceByID("PatternRow0")
-	XYZ.visible = false
 	patterns_bar.visible = false
 	vectors.visible = false
 	composite.visible = false
 	patterns.visible = false
 	UI_ManageNeuronMorphology.GetReferenceByID("button1").get_node("button_button1").visible = false
-	save_button.connect("pressed", Callable($Brain_Visualizer,"_morphology_button_inside_red").bind(UI_ManageNeuronMorphology)) 
-#	print("BWUK: ", UI_ManageNeuronMorphology.GetReferenceByID("button1").get_node("button_button1").get_children())
-#	var duplicated_button = UI_ManageNeuronMorphology.GetReferenceByID("button1").get_node("button_button1").duplicate()
-#	duplicated_button.visible = true
-##	duplicated_button.connect("pressed", Callable($Brain_Visualizer,"_morphology_button_inside_red").bind(UI_ManageNeuronMorphology))
-#	for i in 4:
-#		var new_node = duplicated_button.duplicate()
-#		new_node.set_name("ghost" + str(i))
-#		UI_ManageNeuronMorphology.GetReferenceByID("morphology_list").add_child(new_node)
-
-
+	save_button.connect("pressed", Callable($Brain_Visualizer,"_morphology_button_inside_red").bind(UI_ManageNeuronMorphology))
+	
+	var node_button_box = UI_ManageNeuronMorphology.GetReferenceByID("button1")
+	var parent_of_button = UI_ManageNeuronMorphology.GetReferenceByID("morphology_list")
+	var duplicated_button_box = node_button_box.duplicate()
+	var duplicated_button = node_button_box.duplicate()
+	node_button_box.visible = false 
+	duplicated_button.visible = true
+	duplicated_button.connect("pressed", Callable($Brain_Visualizer,"_morphology_button_inside_red").bind(UI_ManageNeuronMorphology))
+	duplicated_button_box.add_child(duplicated_button)
+	parent_of_button.add_child(duplicated_button_box)
+	if optionbutton_holder:
+		for i in optionbutton_holder:
+			var new_node = duplicated_button.duplicate()
+			new_node.get_node("button_button1").visible = true
+			new_node.get_node("button_button1").text = i
+			new_node.set_name("button1" + str(i))
+			UI_ManageNeuronMorphology.GetReferenceByID("morphology_list").add_child(new_node)
+	
 func SpawnMappingDefinition(src, dst, activation):
 	if is_instance_valid(UI_MappingDefinition):
 		UI_MappingDefinition.queue_free()
