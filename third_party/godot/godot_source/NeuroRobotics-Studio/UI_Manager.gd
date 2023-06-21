@@ -57,7 +57,7 @@ func Activate(langISO: String):
 	test_json_conv.parse(filess.get_as_text())
 	global_json_data = test_json_conv.get_data()
 	filess.close()
-	SpawnIndicator(createindicator)
+#	SpawnIndicator(createindicator)
 #	SpawnNeuronManager()
 
 	
@@ -120,6 +120,24 @@ func TopBarInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
 					SpawnCreateMophology()
 				else:
 					UI_CreateMorphology.queue_free()
+			if "selectedIndex" in data.keys():
+				if UI_ManageNeuronMorphology != null:
+					UI_ManageNeuronMorphology.queue_free()
+				print("dropdown: ", UI_Top_TopBar.GetReferenceByID("NEURONMORPHOLOGIES").get_children())
+				var rule_name = UI_Top_TopBar.GetReferenceByID("NEURONMORPHOLOGIES").get_node("dropDown_NEURONMORPHOLOGIES").text
+				if rule_name != " ":
+					if "+" in rule_name:
+						rule_name = rule_name.replace("+", "%2B")
+					if "[" in rule_name:
+						rule_name = rule_name.replace("[", "%5B")
+					if "]" in rule_name:
+						rule_name = rule_name.replace("]", "%5D")
+					if ", " in rule_name:
+						rule_name = rule_name.replace(", ", "%2C%20")
+					$"..".Get_Morphology_information(rule_name)
+#					combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology_usage?morphology_name=' + rule_name
+#					$get_morphology_usuage.request(combine_url)
+				SpawnNeuronManager()
 		"REFRESHRATE":
 			DataUp.emit({"updatedBurstRate": data["value"]})
 
@@ -444,6 +462,27 @@ func SpawnNeuronManager():
 	UI_ManageNeuronMorphology.Activate(cerateneuronmorphology)
 #	UI_ManageNeuronMorphology.DataUp.connect(CorticalCreateInput)
 	UI_holders.append(UI_ManageNeuronMorphology)
+	var save_button = UI_ManageNeuronMorphology.GetReferenceByID("SAVEDELETE").get_node("button_SAVEDELETE")
+	var vectors = UI_ManageNeuronMorphology.GetReferenceByID("Vectors")
+	var composite = UI_ManageNeuronMorphology.GetReferenceByID("Composite")
+	var patterns = UI_ManageNeuronMorphology.GetReferenceByID("Patterns")
+	var XYZ = UI_ManageNeuronMorphology.GetReferenceByID("XYZ")
+	var patterns_bar = UI_ManageNeuronMorphology.GetReferenceByID("PatternRow0")
+	XYZ.visible = false
+	patterns_bar.visible = false
+	vectors.visible = false
+	composite.visible = false
+	patterns.visible = false
+	UI_ManageNeuronMorphology.GetReferenceByID("button1").get_node("button_button1").visible = false
+	save_button.connect("pressed", Callable($Brain_Visualizer,"_morphology_button_inside_red").bind(UI_ManageNeuronMorphology)) 
+#	print("BWUK: ", UI_ManageNeuronMorphology.GetReferenceByID("button1").get_node("button_button1").get_children())
+#	var duplicated_button = UI_ManageNeuronMorphology.GetReferenceByID("button1").get_node("button_button1").duplicate()
+#	duplicated_button.visible = true
+##	duplicated_button.connect("pressed", Callable($Brain_Visualizer,"_morphology_button_inside_red").bind(UI_ManageNeuronMorphology))
+#	for i in 4:
+#		var new_node = duplicated_button.duplicate()
+#		new_node.set_name("ghost" + str(i))
+#		UI_ManageNeuronMorphology.GetReferenceByID("morphology_list").add_child(new_node)
 
 
 func SpawnMappingDefinition(src, dst, activation):
