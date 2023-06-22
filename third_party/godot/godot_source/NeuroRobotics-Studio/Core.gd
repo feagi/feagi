@@ -108,6 +108,7 @@ func Update_Cortical_grab_id(input): Call_GET(ADD_GET_cortical_id+input, _Relay_
 func Update_Afferent_list(input): Call_GET(ADD_GET_Afferent+input, _Relay_Afferent)
 func Update_Efferent_information(input): Call_GET(ADD_GET_Efferent+input, _Relay_Efferent)
 func Get_Morphology_information(input): Call_GET(ADD_GET_Morphology_information+input, _Relay_Morphology_information)
+func GET_USUAGE_MORPHOLOGY(input): Call_GET(ADD_GET_Morphology_USUAGE_information+input, _Relay_Morphology_usuage)
 func Update_destination(input): Call_GET(ADD_GET_update_destination+input, _Relay_Update_Destination)
 func Get_circuit_list(): Call_GET(ADD_GET_circuit_list, _Relay_circuit_list)
 func Get_circuit_size(name_input): Call_GET(ADD_GET_circuit_size+name_input, _Relay_circuit_size)
@@ -298,6 +299,10 @@ func _Relay_Morphology_information(_result, _response_code, _headers, _body: Pac
 	if LogNetworkError(_result): print("Unable to get Morphology Information"); return
 	Autoload_variable.Core_BV._on_get_morphology_request_completed(_result, _response_code, _headers, _body)
 
+func _Relay_Morphology_usuage(_result, _response_code, _headers, _body: PackedByteArray):
+	if LogNetworkError(_result): print("Unable to get Morphology Information"); return
+	Autoload_variable.Core_BV._on_get_morphology_usuage_request_completed(_result, _response_code, _headers, _body)
+	
 func _Relay_Update_Destination(_result, _response_code, _headers, _body: PackedByteArray):
 	if LogNetworkError(_result): print("Unable to get Destination"); return
 	Autoload_variable.Core_BV._on_update_destination_info_request_completed(_result, _response_code, _headers, _body)
@@ -447,6 +452,9 @@ var ADD_GET_cortical_id:
 	get: return SEC + FEAGI_RootAddress + "/v1/feagi/genome/cortical_area?cortical_area="
 var ADD_GET_Morphology_information:
 	get: return SEC + FEAGI_RootAddress + "/v1/feagi/genome/morphology?morphology_name="
+var ADD_GET_Morphology_USUAGE_information:
+	get: return SEC + FEAGI_RootAddress + "/v1/feagi/genome/morphology_usage?morphology_name="
+
 var ADD_GET_mem:
 	get: return SEC + FEAGI_RootAddress + '/v1/feagi/monitoring/neuron/membrane_potential?cortical_area='
 var ADD_GET_syn:
