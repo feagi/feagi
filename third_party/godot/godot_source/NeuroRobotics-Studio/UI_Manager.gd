@@ -26,7 +26,6 @@ var UI_CircuitImport : Newnit_Box
 var UI_GraphCore: GraphCore
 var UI_CreateMorphology: Newnit_Box
 var UI_INDICATOR: Newnit_Box
-var UI_TEST: Newnit_Scroll
 var cache: FeagiCache
 var vectors_holder = []
 var src_global 
@@ -56,14 +55,6 @@ func Activate(langISO: String):
 	test_json_conv.parse(filess.get_as_text())
 	global_json_data = test_json_conv.get_data()
 	filess.close()
-
-	var TESTTEST = HelperFuncs.GenerateDefinedUnitDict("TEST", currentLanguageISO)
-	UI_TEST = Newnit_Scroll.new()
-	add_child(UI_TEST)
-	UI_TEST.Activate(TESTTEST)
-	for i in 5:
-		var new_node = UI_TEST.GetReferenceByID("EXAMPLE_BUTTON").get_node("button_EXAMPLE_BUTTON").duplicate()
-		UI_TEST.GetReferenceByID("EXAMPLE_BUTTON").add_child(new_node)
 	
 	# Initialize GraphCore
 	UI_GraphCore = $graphCore #TODO: this is very temporary
