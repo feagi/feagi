@@ -295,8 +295,6 @@ func _Relay_CorticalMap(_result, _response_code, _headers, body: PackedByteArray
 
 func _Relay_Morphology_information(_result, _response_code, _headers, _body: PackedByteArray):
 	if LogNetworkError(_result): print("Unable to get Morphology Information"); return
-	# Probably need to delete this below, verify the functionality first
-	Autoload_variable.Core_BV._on_type_rules_request_completed(_result, _response_code, _headers, _body)
 	Autoload_variable.Core_BV._on_get_morphology_request_completed(_result, _response_code, _headers, _body)
 
 func _Relay_Update_Destination(_result, _response_code, _headers, _body: PackedByteArray):
