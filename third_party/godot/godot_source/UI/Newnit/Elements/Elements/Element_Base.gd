@@ -65,8 +65,8 @@ func GetReferenceByID(searchID: StringName): # returns either a bool or a Node
 	return false
 
 func UpdatePosition(newPosition: Vector2) -> void:
-	position = newPosition
 	if isUsingPanel: _panelRef.position = newPosition
+	else: position = newPosition
 
 func _ResizePanel() -> void:
 	_panelRef.size = size
@@ -204,6 +204,7 @@ func _SpawnSubElements(componentTypes: Array) -> void:
 			"field": subComp = LineEdit_Sub.new()
 			"floatField": subComp = LineEdit_ff_Sub.new()
 			"label": subComp = Label_Sub.new()
+			"textbox": subComp = TextEdit_Sub.new()
 			# More Types!
 			_:
 				@warning_ignore("assert_always_false")
