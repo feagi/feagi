@@ -109,6 +109,31 @@ static func Func_AddPanel(NewnitObject: Node) -> void:
 	panel.add_child(NewnitObject)
 	NewnitObject._panelRef = panel
 
+static func Func_AddExtraneousParents(NewnitObject: Node, addingPanel: bool, addingMargins: bool) -> void:
+	var parentChain := []
+	parentChain.append(NewnitObject.get_parent())
+	
+	if addingPanel:
+		var panel: Panel = Panel.new()
+		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL 
+		parentChain.append(panel)
+		NewnitObject._panelRef = panel
+		panel.name = "Panel_" + NewnitObject.ID
+	
+	if addingMargins:
+		var margin: MarginContainer = MarginContainer.new()
+		margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL 
+		parentChain.append(margin)
+		NewnitObject._marginRef = margin
+		margin.name = "Margin_" + NewnitObject.ID
+	
+	if len(parentChain) == 1: return # early exit
+	
+	parentChain[0].remove_child(NewnitObject)
+	parentChain.append(NewnitObject)
+	for i in range(1, len(parentChain)):
+		parentChain[i-1].add_child(parentChain[i])
+
 static func Func__GetUIChildName(compType: StringName, NewnitObject) -> StringName:
 	return compType + "_" + NewnitObject.ID
 
