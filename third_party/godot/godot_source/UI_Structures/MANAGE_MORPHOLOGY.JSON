@@ -406,8 +406,10 @@
 									"sideLabelText": "Current Usuage: "
 								},
 								{
-									"type": "field",
-									"ID": "FIELDFORCURRENTINFO"
+									"type": "textbox",
+									"ID": "FIELDFORCURRENTINFO",
+									"custom_minimum_sizeX": 300,
+									"custom_minimum_sizeY": 500,
 								},
 								{
 									"type": "header",
