@@ -2,6 +2,8 @@
 	"ID": "MANAGE_NEURON_MORPHOLOGY",
 	"positionX": 400,
 	"positionY": 400,
+	"widthAlignment": 1,
+	"enablePanel": true,
 	"type": "box",
 	"components": [
 		{
@@ -408,8 +410,9 @@
 								{
 									"type": "textbox",
 									"ID": "FIELDFORCURRENTINFO",
-									"custom_minimum_sizeX": 300,
-									"custom_minimum_sizeY": 500,
+									"editable": false,
+									"custom_minimum_sizeX": 350,
+									"custom_minimum_sizeY": 100
 								},
 								{
 									"type": "header",
