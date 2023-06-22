@@ -128,14 +128,14 @@
 															"ID": "C1",
 															"sideLabelText": "C",
 															"max_value": 99999999,
-															"min_value": 1
+															"min_value": 0
 														},
 														{
 															"type": "counter",
 															"ID": "S1",
 															"sideLabelText": "S",
 															"max_value": 99999999,
-															"min_value": 1
+															"min_value": 0
 														}
 													]
 												}
@@ -161,14 +161,14 @@
 															"ID": "C2",
 															"sideLabelText": "C",
 															"max_value": 99999999,
-															"min_value": 1
+															"min_value": 0
 														},
 														{
 															"type": "counter",
 															"ID": "S2",
 															"sideLabelText": "S",
 															"max_value": 99999999,
-															"min_value": 1
+															"min_value": 0
 														}
 													]
 												}
@@ -184,7 +184,7 @@
 													"ID": "Z_title",
 													"sideLabelText": "Z:",
 													"max_value": 99999999,
-													"min_value": 1
+													"min_value": -99999999
 												},
 												{
 													"type": "box",
@@ -196,14 +196,14 @@
 															"ID": "C3",
 															"sideLabelText": "C",
 															"max_value": 99999999,
-															"min_value": 1
+															"min_value": 0
 														},
 														{
 															"type": "counter",
 															"ID": "S3",
 															"sideLabelText": "S",
 															"max_value": 99999999,
-															"min_value": 1
+															"min_value": 0
 														}
 													]
 												}
@@ -419,10 +419,6 @@
 									"ID": "FIELDFORDESCRIPTION"
 								}
 							]
-						},
-						{
-							"type": "button",
-							"ID": "PLACEHOLDER"
 						}
 					]
 				}
