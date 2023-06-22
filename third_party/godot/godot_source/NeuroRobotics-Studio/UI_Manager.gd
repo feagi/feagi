@@ -126,9 +126,8 @@ func TopBarInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
 						rule_name = rule_name.replace(", ", "%2C%20")
 					$"..".Get_Morphology_information(rule_name)
 					$"..".GET_USUAGE_MORPHOLOGY(rule_name)
-#					combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology_usage?morphology_name=' + rule_name
-#					$get_morphology_usuage.request(combine_url)
 				SpawnNeuronManager()
+				UI_ManageNeuronMorphology.GetReferenceByID("header_title").get_node("field_header_title").text = rule_name
 		"REFRESHRATE":
 			DataUp.emit({"updatedBurstRate": data["value"]})
 
@@ -488,6 +487,7 @@ func button_rule(rule_name):
 			rule_name = rule_name.replace(", ", "%2C%20")
 		$"..".Get_Morphology_information(rule_name)
 		$"..".GET_USUAGE_MORPHOLOGY(rule_name)
+		UI_ManageNeuronMorphology.GetReferenceByID("header_title").get_node("field_header_title").text = rule_name
 
 
 func SpawnMappingDefinition(src, dst, activation):
