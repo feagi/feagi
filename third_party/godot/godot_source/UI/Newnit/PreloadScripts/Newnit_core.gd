@@ -18,9 +18,11 @@ static func Func_Activate(settings: Dictionary, NewnitObject: Node) -> void:
 	settings = HelperFuncs.RemapVector2FloatsToVector2("mSize", settings)
 	settings = HelperFuncs.RemapRGBToVector3i("color", settings)
 	settings = HelperFuncs.RemapVector3FloatsToVector3("vectorValue", settings)
+	settings = HelperFuncs.RemapVector2FloatsToVector2("custom_minimum_size", settings)
 	
 	# Apply Control Properties
 	NewnitObject.custom_minimum_size = HelperFuncs.GetIfCan(settings, "mSize", D_custom_minimum_size)
+	NewnitObject.custom_minimum_size = HelperFuncs.GetIfCan(settings, "custom_minimum_size", D_custom_minimum_size)
 	NewnitObject.grow_horizontal = HelperFuncs.GetIfCan(settings, "grow_horizontal", D_grow_horizontal)
 	NewnitObject.grow_vertical = HelperFuncs.GetIfCan(settings, "grow_vertical", D_grow_vertical)
 	NewnitObject.mouse_filter = HelperFuncs.GetIfCan(settings, "mouse_filter", D_mouse_filter)
