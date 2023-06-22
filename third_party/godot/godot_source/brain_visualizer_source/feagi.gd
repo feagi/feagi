@@ -1019,7 +1019,6 @@ func _on_cortical_dropdown_item_selected(index):
 			Autoload_variable.BV_Core.Update_destination(combine_url)
 
 func _on_update_inside_map_pressed(node):
-	print("status: ", node.GetReferenceByID("testlabel").get_children())
 	var combine_url = '?src_cortical_area=#&dst_cortical_area=$'
 	var get_id = node.GetReferenceByID("testlabel").get_node("dropdown_SOURCECORTICALAREA").get_node("dropDown_SOURCECORTICALAREA").text
 	var get_dst_data = node.GetReferenceByID("testlabel").get_node("dropdown_DESTINATIONCORTICALAREA").get_node("dropDown_DESTINATIONCORTICALAREA").text
@@ -1029,7 +1028,6 @@ func _on_update_inside_map_pressed(node):
 	combine_url = combine_url.replace("$", get_dst_data)
 	for p in plus_node:
 		var dst = {}
-		print("p: ", p.get_children())
 		dst["morphology_id"] = p.get_node("dropdown_mappingdefinitions").get_node("dropDown_mappingdefinitions").text
 		dst["morphology_scalar"] = []
 		dst["morphology_scalar"].append(int(p.get_node("box_overwritescalar").get_node("box_XYZ").get_node("floatfield_Pos_X").get_node("floatField_Pos_X").text))
@@ -1046,6 +1044,7 @@ func _on_update_inside_map_pressed(node):
 		Autoload_variable.BV_Core.Update_Mapping_Properties(dst_data["cortical_destinations"][get_id],combine_url)
 	else:
 		Autoload_variable.BV_Core.Update_Mapping_Properties([],combine_url)
+	node.queue_free()
 
 #func map_colorful():
 #	pass
@@ -1087,19 +1086,21 @@ func _on_syn_pressed():
 	
 func _on_insert_button_pressed(full_data):
 	var combine_url = $"../..".SEC + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/append?circuit_name=' + full_data[0].get_item_text(full_data[0].selected) + "&circuit_origin_x=" + str(full_data[1].value) + "&circuit_origin_y=" + str(full_data[2].value) + "&circuit_origin_z=" + str(full_data[3].value)
-	print("combine_url: ", combine_url)
 	var new_data = ["placeholder"]
 	Autoload_variable.BV_Core.POST_Request_Brain_visualizer(combine_url, new_data)
-#	$"..".import_close_button.emit_signal("pressed")
+#	$"..".import_close_button.emit_signal("pressed") # what happen to this?
+	$"..".UI_CircuitImport.queue_free()
+	
+
 func _on_circuit_request_request_completed(_result, _response_code, _headers, body):
 	$".."/".."/".."/Menu/insert_menu/insert_button/ItemList.clear()
 	var test_json_conv = JSON.new()
 	test_json_conv.parse(body.get_string_from_utf8())
 	var api_data = test_json_conv.get_data()
-	
 	for i in api_data:
 		$".."/".."/".."/Menu/insert_menu/insert_button/ItemList.add_item(i, null, true)
 	$notification.generate_notification_message(api_data, _response_code, "_on_circuit_request_request_completed", "/v1/feagi/genome/circuits")
+	
 
 func _on_import_pressed():
 	if not $"..".UI_CircuitImport:
@@ -1278,13 +1279,11 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 	var vectors = $"..".UI_ManageNeuronMorphology.GetReferenceByID("Vectors")
 	var composite = $"..".UI_ManageNeuronMorphology.GetReferenceByID("Composite")
 	var patterns = $"..".UI_ManageNeuronMorphology.GetReferenceByID("Patterns")
-	var new_name = ""
 	var type_name = " "
 	var counter = 0
 	for i in api_data:
 		if i == "type":
 			for x in api_data["parameters"]:
-				new_name = str(api_data[i])
 				if x == "patterns":
 					type_name = x
 					for a in api_data["parameters"]["patterns"]:
