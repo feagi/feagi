@@ -26,6 +26,7 @@ var UI_CircuitImport : Newnit_Box
 var UI_GraphCore: GraphCore
 var UI_CreateMorphology: Newnit_Box
 var UI_INDICATOR: Newnit_Box
+var UI_TEST: Newnit_Scroll
 var cache: FeagiCache
 var vectors_holder = []
 var src_global 
@@ -60,7 +61,13 @@ func Activate(langISO: String):
 #	SpawnIndicator(createindicator)
 #	SpawnNeuronManager()
 
-	
+	var TESTTEST = HelperFuncs.GenerateDefinedUnitDict("TEST", currentLanguageISO)
+	UI_TEST = Newnit_Scroll.new()
+	add_child(UI_TEST)
+	UI_TEST.Activate(TESTTEST)
+	for i in 5:
+		var new_node = UI_TEST.GetReferenceByID("EXAMPLE_BUTTON").get_node("button_EXAMPLE_BUTTON").duplicate()
+		UI_TEST.GetReferenceByID("EXAMPLE_BUTTON").add_child(new_node)
 	
 	# Initialize GraphCore
 	UI_GraphCore = $graphCore #TODO: this is very temporary
@@ -223,23 +230,22 @@ func WindowSizedChanged():
 func RelayDownwards(callType, data) -> void:
 	match(callType):
 		REF.FROM.healthstatus:
-			if UI_INDICATOR:
-				if data["burst_engine"]:
-					$"../../color_indicator/ColorRect".set_color(Color("#008F00"))
-				else:
-					$"../../color_indicator/ColorRect".set_color(Color("#131313"))
-				if data["genome_availability"]:
-					$"../../color_indicator/ColorRect2".set_color(Color("#008F00"))
-				else:
-					$"../../color_indicator/ColorRect2".set_color(Color("#131313"))
-				if data["genome_validity"]:
-					$"../../color_indicator/ColorRect3".set_color(Color("#008F00"))
-				else:
-					$"../../color_indicator/ColorRect3".set_color(Color("#131313"))
-				if data["brain_readiness"]:
-					$"../../color_indicator/ColorRect4".set_color(Color("#008F00"))
-				else:
-					$"../../color_indicator/ColorRect4".set_color(Color("#131313"))
+			if data["burst_engine"]:
+				$"../../color_indicator/ColorRect".set_color(Color("#008F00"))
+			else:
+				$"../../color_indicator/ColorRect".set_color(Color("#131313"))
+			if data["genome_availability"]:
+				$"../../color_indicator/ColorRect2".set_color(Color("#008F00"))
+			else:
+				$"../../color_indicator/ColorRect2".set_color(Color("#131313"))
+			if data["genome_validity"]:
+				$"../../color_indicator/ColorRect3".set_color(Color("#008F00"))
+			else:
+				$"../../color_indicator/ColorRect3".set_color(Color("#131313"))
+			if data["brain_readiness"]:
+				$"../../color_indicator/ColorRect4".set_color(Color("#008F00"))
+			else:
+				$"../../color_indicator/ColorRect4".set_color(Color("#131313"))
 
 		REF.FROM.circuit_size:
 			if UI_CircuitImport:
@@ -410,15 +416,9 @@ func SpawnIndicator(activation: Dictionary):
 	UI_INDICATOR = Newnit_Box.new()
 	add_child(UI_INDICATOR)
 	UI_INDICATOR.Activate(activation)
-	$"..".GET_health_status()
 	UI_holders.append(UI_INDICATOR)
-	
-func add_row(node, holder):
-	var new_node = node.get_node("Unit_Vectors").duplicate()
-	var length_holder = len(holder)
-	node.add_child(new_node)
-	new_node.position.y = node.position.y + (20 * length_holder)
-	
+
+
 func SpawnCircuitImport(activation: Dictionary):
 	UI_CircuitImport = Newnit_Box.new()
 	add_child(UI_CircuitImport)
