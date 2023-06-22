@@ -33,6 +33,9 @@ var isUsingPanel: bool:
 var panelRef: Node:
 	get: return _panelRef
 
+var marginRef: Node:
+	get: return _marginRef
+
 var hasNewnitParent: bool:
 	get: return _hasNewnitParent
 
@@ -47,6 +50,7 @@ var _isUsingPanel: bool
 var _panelRef: Node = null
 var _parent: Node = null
 var _hasNewnitParent: bool = false
+var _marginRef: Node = null
 
 func Activate(settings: Dictionary) -> void:
 	NEWNIT_CORE.Func_Activate(settings, self)
