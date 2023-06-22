@@ -1199,15 +1199,14 @@ func _on_get_morphology_usuage_request_completed(_result, _response_code, _heade
 	var test_json_conv = JSON.new()
 	test_json_conv.parse(body.get_string_from_utf8())
 	var api_data = test_json_conv.get_data()
-	print("_on_get_morphology_usuage_request_completed")
-	print("api: ", api_data)
 	
 	var string_list = ""
-	$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/associations_data.text = ""
 	if api_data != null:
 		for i in api_data:
 			string_list = string_list + str(id_to_name(i[0]), " > ", id_to_name(i[1])) + "\n"
-		$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/associations_data.text += str(string_list)
+		$"..".UI_ManageNeuronMorphology.GetReferenceByID("FIELDFORCURRENTINFO").get_node("textbox_FIELDFORCURRENTINFO").text += str(string_list)
+	else:
+		$"..".UI_ManageNeuronMorphology.GetReferenceByID("FIELDFORCURRENTINFO").get_node("textbox_FIELDFORCURRENTINFO").text = ""
 	$notification.generate_notification_message(api_data, _response_code, "_on_get_morphology_usuage_request_completed", "/v1/feagi/genome/morphology")
 
 func _morphology_button_pressed(node):
@@ -1280,7 +1279,6 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 	var composite = $"..".UI_ManageNeuronMorphology.GetReferenceByID("Composite")
 	var patterns = $"..".UI_ManageNeuronMorphology.GetReferenceByID("Patterns")
 	var type_name = " "
-	var counter = 0
 	for i in api_data:
 		if i == "type":
 			for x in api_data["parameters"]:
@@ -1288,7 +1286,6 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 					type_name = x
 					for a in api_data["parameters"]["patterns"]:
 						composite.visible = false; vectors.visible = false;patterns.visible = true
-						counter = len(new_morphology_node)
 						var new_node = $"..".UI_ManageNeuronMorphology.GetReferenceByID("PatternRow0").duplicate()
 						patterns.add_child(new_node)
 						new_morphology_node.append(new_node)
@@ -1310,7 +1307,6 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 					composite.visible = false; vectors.visible = true;patterns.visible = false
 					type_name = x
 					for a in api_data["parameters"][x]:
-						counter = len(new_morphology_node)
 						var new_node = $"..".UI_ManageNeuronMorphology.GetReferenceByID("XYZ").duplicate()
 						new_morphology_node.append(new_node)
 						new_node.visible = true
@@ -1356,27 +1352,24 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 
 func _morphology_button_inside_red(node):
 	print("node: ", node)
-	var i = $".."/".."/".."/Menu/rule_properties/rules/rule_type_options.get_item_text($".."/".."/".."/Menu/rule_properties/rules/rule_type_options.get_selected_id())
-	var counter = 0
+	var vectors = $"..".UI_ManageNeuronMorphology.GetReferenceByID("Vectors")
+	var patterns = $"..".UI_ManageNeuronMorphology.GetReferenceByID("Patterns")
+	var i = node.get_node("dropdown_MorphologyType").get_node("dropDown_MorphologyType").text
 	if i == "patterns":
-		counter = len(new_morphology_node)
-		$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/pattern_label.visible = true
-		$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/vectors_label/labels.visible = false
-		var new_node = $".."/".."/".."/Menu/rule_properties/rules/morphology_definition/pattern_label/Control.duplicate()
-		$".."/".."/".."/Menu/rule_properties/rules/morphology_definition.add_child(new_node)
+		print("entered")
+		var new_node = $"..".UI_ManageNeuronMorphology.GetReferenceByID("PatternRow0").duplicate()
+		patterns.add_child(new_node)
 		new_morphology_node.append(new_node)
+		var remove = new_node.get_node("button_RemoveSelfRowButton").get_node("button_RemoveSelfRowButton")
 		new_node.visible = true
-		new_node.get_child(6).connect("pressed",Callable(self,"delete_morphology").bind(new_node))
-		new_node.position.x = $".."/".."/".."/Menu/rule_properties/rules/morphology_definition/pattern_label/Control.position.x
-		new_node.position.y = $".."/".."/".."/Menu/rule_properties/rules/morphology_definition/pattern_label/Control.position.y + (25 * counter)
-		new_node.get_child(0).text = ""
-		new_node.get_child(1).text = ""
-		new_node.get_child(2).text = ""
-		new_node.get_child(3).text = ""
-		new_node.get_child(4).text = ""
-		new_node.get_child(5).text = ""
+		remove.connect("pressed",Callable(self,"delete_morphology").bind(new_node))
+		new_node.get_node("floatfield_Xi").get_node("floatField_Xi").text = str(1)
+		new_node.get_node("floatfield_Yi").get_node("floatField_Yi").text = str(1)
+		new_node.get_node("floatfield_Zi").get_node("floatField_Zi").text = str(1)
+		new_node.get_node("floatfield_Xo").get_node("floatField_Xo").text = str(1)
+		new_node.get_node("floatfield_Yo").get_node("floatField_Yo").text = str(1)
+		new_node.get_node("floatfield_Zo").get_node("floatField_Zo").text = str(1)
 	elif i == "vectors":
-		counter = len(new_morphology_node)
 		$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/pattern_label.visible = false
 		$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/vectors_label/labels.visible = true
 		var new_node = $".."/".."/".."/Menu/rule_properties/rules/morphology_definition/vectors_label/Control.duplicate()
@@ -1385,8 +1378,6 @@ func _morphology_button_inside_red(node):
 		new_node.visible = true
 		new_node.get_child(3).connect("pressed",Callable(self,"delete_morphology").bind(new_node))
 		new_node.size = $".."/".."/".."/Menu/rule_properties/rules/morphology_definition/vectors_label/Control.size
-		new_node.position.x = $".."/".."/".."/Menu/rule_properties/rules/morphology_definition/vectors_label/Control.position.x
-		new_node.position.y = $".."/".."/".."/Menu/rule_properties/rules/morphology_definition/vectors_label/Control.position.y + (30 * counter)
 		new_node.get_child(0).value = 0
 		new_node.get_child(1).value = 0
 		new_node.get_child(2).value = 0
