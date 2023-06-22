@@ -44,22 +44,18 @@ var _sideBarChangedValues := {}
 # Initialization
 
 func Activate(langISO: String):
-	
 	# Initialize Vars
 	currentLanguageISO = langISO #TODO Better language handling
 	# Initialize UI
 	
 	# Initialize TopBar
 	var topBarDict = HelperFuncs.GenerateDefinedUnitDict("TOPBAR", currentLanguageISO)
-	var createindicator = HelperFuncs.GenerateDefinedUnitDict("INDICATOR", currentLanguageISO)
 	_SpawnTopBar(topBarDict)
 	var filess = FileAccess.open("res://brain_visualizer_source/type_option.json", FileAccess.READ)
 	var test_json_conv = JSON.new()
 	test_json_conv.parse(filess.get_as_text())
 	global_json_data = test_json_conv.get_data()
 	filess.close()
-#	SpawnIndicator(createindicator)
-#	SpawnNeuronManager()
 
 	var TESTTEST = HelperFuncs.GenerateDefinedUnitDict("TEST", currentLanguageISO)
 	UI_TEST = Newnit_Scroll.new()
@@ -75,8 +71,7 @@ func Activate(langISO: String):
 	
 	# Connect window size change function
 	get_tree().get_root().size_changed.connect(WindowSizedChanged)
-	
-	
+
 	Activated = true
 	
 
@@ -88,7 +83,6 @@ func _SpawnTopBar(activation: Dictionary):
 	# TODO best not to connect to Element children, better to connect to element signals itself
 	# This may work for now but can cause weird issues later
 	var import_circuit = UI_Top_TopBar.GetReferenceByID("GENOMEFILENAME").get_node("sideButton_GENOMEFILENAME")
-	var cortical_create = UI_Top_TopBar.GetReferenceByID("CORTICALAREAS").get_node("sideButton_CORTICALAREAS")
 	import_circuit.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
 
 
@@ -131,6 +125,7 @@ func TopBarInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
 					if ", " in rule_name:
 						rule_name = rule_name.replace(", ", "%2C%20")
 					$"..".Get_Morphology_information(rule_name)
+					$"..".GET_USUAGE_MORPHOLOGY(rule_name)
 #					combine_url = 'http://' + network_setting.api_ip_address + ':' + network_setting.api_port_address + '/v1/feagi/genome/morphology_usage?morphology_name=' + rule_name
 #					$get_morphology_usuage.request(combine_url)
 				SpawnNeuronManager()
@@ -447,7 +442,6 @@ func SpawnNeuronManager():
 	var cerateneuronmorphology = HelperFuncs.GenerateDefinedUnitDict("MANAGE_MORPHOLOGY", currentLanguageISO)
 	add_child(UI_ManageNeuronMorphology)
 	UI_ManageNeuronMorphology.Activate(cerateneuronmorphology)
-#	UI_ManageNeuronMorphology.DataUp.connect(CorticalCreateInput)
 	UI_holders.append(UI_ManageNeuronMorphology)
 	var save_button = UI_ManageNeuronMorphology.GetReferenceByID("SAVEDELETE").get_node("button_SAVEDELETE")
 	var vectors = UI_ManageNeuronMorphology.GetReferenceByID("Vectors")
@@ -455,12 +449,14 @@ func SpawnNeuronManager():
 	var patterns = UI_ManageNeuronMorphology.GetReferenceByID("Patterns")
 	var patterns_bar = UI_ManageNeuronMorphology.GetReferenceByID("PatternRow0")
 	var vectors_bar = UI_ManageNeuronMorphology.GetReferenceByID("XYZ")
+	var add_button = UI_ManageNeuronMorphology.GetReferenceByID("header_definition").get_node("sideButton_header_definition")
 	patterns_bar.visible = false
 	vectors.visible = false
 	composite.visible = false
 	patterns.visible = false
 	vectors_bar.visible = false
 	UI_ManageNeuronMorphology.GetReferenceByID("button1").get_node("button_button1").visible = false
+	add_button.connect("pressed", Callable($Brain_Visualizer,"_morphology_button_inside_red").bind(UI_ManageNeuronMorphology))
 	save_button.connect("pressed", Callable($Brain_Visualizer,"_morphology_button_inside_red").bind(UI_ManageNeuronMorphology))
 	UI_ManageNeuronMorphology.SetData({"box_one": {"box_three": {"Composite": {"MAPPING_DROPDOWN": {"MAPPINGDROPDOWN": {"options": optionbutton_holder}}}}}})
 	var node_button_box = UI_ManageNeuronMorphology.GetReferenceByID("button1")
@@ -469,7 +465,6 @@ func SpawnNeuronManager():
 	var duplicated_button = node_button_box.duplicate()
 	node_button_box.visible = false 
 	duplicated_button.visible = true
-	duplicated_button.connect("pressed", Callable($Brain_Visualizer,"_morphology_button_inside_red").bind(UI_ManageNeuronMorphology))
 	duplicated_button_box.add_child(duplicated_button)
 	parent_of_button.add_child(duplicated_button_box)
 	if optionbutton_holder:
@@ -492,6 +487,8 @@ func button_rule(rule_name):
 		if ", " in rule_name:
 			rule_name = rule_name.replace(", ", "%2C%20")
 		$"..".Get_Morphology_information(rule_name)
+		$"..".GET_USUAGE_MORPHOLOGY(rule_name)
+
 
 func SpawnMappingDefinition(src, dst, activation):
 	if is_instance_valid(UI_MappingDefinition):
