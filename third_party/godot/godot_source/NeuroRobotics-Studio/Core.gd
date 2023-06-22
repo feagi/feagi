@@ -65,6 +65,7 @@ func _ready():
 	Update_ConnectomeMappingReport()
 	Update_CorticalAreaNameList()
 	Update_CorticalMap()
+	GET_health_status()
 
 ####################################
 ####### Process From Below ########
