@@ -227,3 +227,8 @@ static func RemapRGBToVector3i(prefix: String, searching: Dictionary) -> Diction
 	var vec = Vector3i(X, Y, Z)
 	if vec == Vector3i(0, 0, 0): return searching # value wasnt present
 	return searching
+
+static func CheckIfSubkeyExists(dictIn: Dictionary, searchText: String) -> bool:
+	for key in dictIn.keys():
+		if key.contains(searchText): return true
+	return false
