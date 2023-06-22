@@ -15,10 +15,10 @@ var _cacheText: String
 func _ready():
 	text_changed.connect(_TextChangeProxy)
 
-func _TextChangeProxy(newText: String) -> void:
-	if newText == _cacheText: return
-	_cacheText = newText
-	value_edited.emit(newText)
+func _TextChangeProxy() -> void:
+	if text == _cacheText: return
+	_cacheText = text
+	value_edited.emit(text)
 
 ## TODO this camera focusing system is flawed, and should be replaced
 #func _ready():

@@ -7,6 +7,7 @@ const D_expand_to_text_length = false
 const D_max_length = 50
 const D_placeholder_text = ""
 const D_fill_textBox = true
+const D_wrap_mode = 0
 
 const _specificSettableProps = {
 	"value": TYPE_STRING,
@@ -51,6 +52,7 @@ func _ActivationSecondary(settings: Dictionary) -> void:
 	placeholder_text = HelperFuncs.GetIfCan(settings, "placeholder_text", D_placeholder_text)
 	_TextEdit.text = HelperFuncs.GetIfCan(settings, "value", D_value)
 	fill_textBox = HelperFuncs.GetIfCan(settings, "fill_textBox", D_fill_textBox)
+	wrap_mode = HelperFuncs.GetIfCan(settings, "wrap_mode", D_wrap_mode)
 	_runtimeSettableProperties.merge(_specificSettableProps)
 
 func _PopulateSubElements() -> Array:
