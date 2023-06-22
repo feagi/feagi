@@ -697,21 +697,6 @@ func _on_plus_add_pressed():
 	new_node.get_node("button_mappingdefbuttonminus").get_node("button_mappingdefbuttonminus").connect("pressed",Callable(self,"map_info_pressed").bind(new_node))
 	new_node.get_node("button_mappingdefbuttonminus").get_node("sideButton_mappingdefbuttonminus").connect("pressed",Callable(self,"remove_button_inside_dst").bind(new_node))
 
-
-
-func _on_type_rules_request_completed(_result, _response_code, _headers, body):
-	var test_json_conv = JSON.new()
-	test_json_conv.parse(body.get_string_from_utf8())
-	var api_data = test_json_conv.get_data()
-	print("test: ", api_data)
-	if api_data != null:
-		print("api data inside type rule: ", api_data)
-		for i in $".."/".."/".."/Menu/rule_properties/rules/rule_type_options.get_item_count():
-			for x in api_data:
-				if $".."/".."/".."/Menu/rule_properties/rules/rule_type_options.get_item_text(i) == x:
-					$".."/".."/".."/Menu/rule_properties/rules/rule_type_options.select(i)
-	$notification.generate_notification_message(api_data, _response_code, "_on_type_rules_request_completed", "/v1/feagi/genome/morphology")
-
 func _on_save_pressed():
 	var json_data = {}
 	var new_name = $".."/".."/".."/Menu/rule_properties/mapping_rule_options.get_item_text($".."/".."/".."/Menu/rule_properties/mapping_rule_options.get_selected_id())
@@ -1290,8 +1275,6 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 	var test_json_conv = JSON.new()
 	test_json_conv.parse(body.get_string_from_utf8()) # Every http data, it's done in poolbytearray
 	var api_data = test_json_conv.get_data()
-	print("get_morphology")
-	print("api: ", api_data)
 	var vectors = $"..".UI_ManageNeuronMorphology.GetReferenceByID("Vectors")
 	var composite = $"..".UI_ManageNeuronMorphology.GetReferenceByID("Composite")
 	var patterns = $"..".UI_ManageNeuronMorphology.GetReferenceByID("Patterns")
@@ -1305,12 +1288,12 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 				if x == "patterns":
 					type_name = x
 					for a in api_data["parameters"]["patterns"]:
-						patterns.visible = true
+						composite.visible = false; vectors.visible = false;patterns.visible = true
 						counter = len(new_morphology_node)
 						var new_node = $"..".UI_ManageNeuronMorphology.GetReferenceByID("PatternRow0").duplicate()
 						patterns.add_child(new_node)
 						new_morphology_node.append(new_node)
-						var remove = $"..".UI_ManageNeuronMorphology.GetReferenceByID("RemoveSelfRowButton").get_child(0)
+						var remove = new_node.get_node("button_RemoveSelfRowButton").get_node("button_RemoveSelfRowButton")
 						new_node.visible = true
 						remove.connect("pressed",Callable(self,"delete_morphology").bind(new_node))
 						if len(a) == 2:
@@ -1325,7 +1308,7 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 							print("The last array: ", x, " and the name of morphology: ", $".."/".."/".."/Menu/rule_properties/mapping_rule_options.get_item_text($".."/".."/".."/Menu/rule_properties/mapping_rule_options.get_selected_id()))
 							break
 				elif x == "vectors":
-					vectors.visible = true
+					composite.visible = false; vectors.visible = true;patterns.visible = false
 					type_name = x
 					for a in api_data["parameters"][x]:
 						counter = len(new_morphology_node)
@@ -1354,75 +1337,19 @@ func _on_get_morphology_request_completed(_result, _response_code, _headers, bod
 							break
 				elif x == "src_seed": # composite
 					type_name = api_data[i]
-					$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/pattern_label.visible = false
-					$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/vectors_label/labels.visible = false
-					$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/composite_label.visible = true
-					for a in $".."/".."/".."/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.get_item_count():
-						if api_data["parameters"]["mapper_morphology"] == $".."/".."/".."/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.get_item_text(a):
-							$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/composite_label/morphology_name.select(a)
-					$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/composite_label/X_box/C.value = api_data['parameters']['src_pattern'][0][0]
-					$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/composite_label/X_box/S.value = api_data['parameters']['src_pattern'][0][1]
-					$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/composite_label/Y_box/C.value = api_data['parameters']['src_pattern'][1][0]
-					$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/composite_label/Y_box/S.value = api_data['parameters']['src_pattern'][1][1]
-					$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/composite_label/Z_box/C.value = api_data['parameters']['src_pattern'][2][0]
-					$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/composite_label/Z_box/S.value = api_data['parameters']['src_pattern'][2][1]
-					$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/composite_label/x.value = api_data['parameters']['src_seed'][0]
-					$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/composite_label/y.value = api_data['parameters']['src_seed'][1]
-					$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/composite_label/z.value = api_data['parameters']['src_seed'][2]
-			if $".."/".."/".."/Menu/Control.visible:
-				for x in api_data[i]:
-					if i == "patterns":
-						counter += 1
-						var new_node = $".."/".."/".."/Menu/Control/inner_box/box_of_pattern/Control.duplicate()
-						$".."/".."/".."/Menu/Control/inner_box/box_of_pattern.add_child(new_node)
-						new_morphology_node.append(new_node)
-						new_node.visible = true
-						new_node.get_child(7).connect("pressed",Callable(self,"delete_morphology").bind(new_node))
-						new_node.position.x = $".."/".."/".."/Menu/Control/inner_box/box_of_pattern/Control.position.x + $".."/".."/".."/Menu/Control/inner_box/box_of_pattern/Control.size.x
-						new_node.position.y = $".."/".."/".."/Menu/Control/inner_box/box_of_pattern/Control.position.y + (30 * counter)
-						if len(x) == 2:
-							new_node.get_child(0).text = str(x[0][0])
-							new_node.get_child(1).text = str(x[0][1])
-							new_node.get_child(2).text = str(x[0][2])
-							new_node.get_child(3).text = str(x[1][0])
-							new_node.get_child(4).text = str(x[1][1])
-							new_node.get_child(5).text = str(x[1][2])
-						else:
-							print("This morphology is outdated! Please use the manage neuron morphology to update the morphology.")
-							print("The last array: ", x, " and the name of morphology: ", $".."/".."/".."/Menu/Control/inner_box/morphology_name.text)
-							break
-					elif i == "vectors":
-						vectors.visible = true
-						counter += 1
-						var new_node = $".."/".."/".."/Menu/Control/inner_box/box_of_vectors/Control.duplicate()
-						$".."/".."/".."/Menu/Control/inner_box/box_of_vectors.add_child(new_node)
-						new_morphology_node.append(new_node)
-						new_node.visible = true
-						new_node.get_child(3).connect("pressed",Callable(self,"delete_morphology").bind(new_node))
-						new_node.position.x = $".."/".."/".."/Menu/Control/inner_box/box_of_vectors/Control.position.x
-						new_node.position.y = $".."/".."/".."/Menu/Control/inner_box/box_of_vectors/Control.position.y + (30 * counter)
-						new_node.get_child(0).value = int(x[0])
-						new_node.get_child(1).value = int(x[1])
-						new_node.get_child(2).value = int(x[2])
-						if len(new_morphology_node) > 4:
-							$".."/".."/".."/Menu/Control/inner_box/grey_bg.size.y += (4 * counter)
-							$".."/".."/".."/Menu/Control/ColorRect.size.y += (4 * counter)
-							$".."/".."/".."/Menu/Control/update.position.y += (4 * counter)
-						$".."/".."/".."/Menu/Control/inner_box/Button.disabled = true
-
-			for x in $".."/".."/".."/Menu/rule_properties/rules/rule_type_options.get_item_count():
-				if $".."/".."/".."/Menu/rule_properties/rules/rule_type_options.get_item_text(x) == type_name:
-					$".."/".."/".."/Menu/rule_properties/rules/rule_type_options.selected = x
-					if "*" in new_name:
-						new_name = new_name.replace("*", "\""+"*"+"\"")
-						$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/morphology_def.text = new_name
-						flag = true
-					if "?" in new_name:
-						flag = true
-						new_name = new_name.replace("?", "\""+"?"+"\"")
-						$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/morphology_def.text = new_name
-					if flag == false:
-						$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/morphology_def.text = new_name
+					composite.visible = true; vectors.visible = false;patterns.visible = false
+					$"..".UI_ManageNeuronMorphology.GetReferenceByID("C1").get_node("counter_C1").value = api_data['parameters']['src_pattern'][0][0]
+					$"..".UI_ManageNeuronMorphology.GetReferenceByID("S1").get_node("counter_S1").value = api_data['parameters']['src_pattern'][0][1]
+					$"..".UI_ManageNeuronMorphology.GetReferenceByID("C2").get_node("counter_C2").value = api_data['parameters']['src_pattern'][1][0]
+					$"..".UI_ManageNeuronMorphology.GetReferenceByID("S2").get_node("counter_S2").value = api_data['parameters']['src_pattern'][1][1]
+					$"..".UI_ManageNeuronMorphology.GetReferenceByID("C3").get_node("counter_C3").value = api_data['parameters']['src_pattern'][2][0]
+					$"..".UI_ManageNeuronMorphology.GetReferenceByID("S3").get_node("counter_S3").value = api_data['parameters']['src_pattern'][2][1]
+					$"..".UI_ManageNeuronMorphology.GetReferenceByID("X_SEED").get_node("floatField_X_SEED").value = api_data['parameters']['src_seed'][0]
+					$"..".UI_ManageNeuronMorphology.GetReferenceByID("Y_SEED").get_node("floatField_Y_SEED").value = api_data['parameters']['src_seed'][1]
+					$"..".UI_ManageNeuronMorphology.GetReferenceByID("Z_SEED").get_node("floatField_Z_SEED").value = api_data['parameters']['src_seed'][2]
+					$"..".UI_ManageNeuronMorphology.SetData({"box_one": {"box_three": {"Composite": {"MAPPING_DROPDOWN": {"MAPPINGDROPDOWN": {"value": api_data['parameters']["mapper_morphology"]}}}}}})
+				elif x == "functions":
+					composite.visible = false; vectors.visible = false;patterns.visible = false
 	$"..".UI_ManageNeuronMorphology.GetReferenceByID("header_title").get_node("field_header_title").text = $"..".UI_Top_TopBar.GetReferenceByID("NEURONMORPHOLOGIES").get_node("dropDown_NEURONMORPHOLOGIES").text
 	$"..".UI_ManageNeuronMorphology.GetReferenceByID("header_type").get_node("field_header_type").text = type_name
 	$notification.generate_notification_message(api_data, _response_code, "_on_get_morphology_request_completed", "/v1/feagi/monitoring/neuron/synaptic_potential")
@@ -1464,13 +1391,7 @@ func _morphology_button_inside_red(node):
 		new_node.get_child(0).value = 0
 		new_node.get_child(1).value = 0
 		new_node.get_child(2).value = 0
-	if counter > 4:
-		$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/Label2.position.y = $".."/".."/".."/Menu/rule_properties/rules/morphology_definition/Label2.position.y + (3 * counter)
-		$".."/".."/".."/Menu/rule_properties/rules/morphology_definition/associations_data.position.y = $".."/".."/".."/Menu/rule_properties/rules/morphology_definition/associations_data.position.y + (3 * counter)
-		$".."/".."/".."/Menu/rule_properties/rules.size.y += (counter * 3)
-		$".."/".."/".."/Menu/rule_properties.size.y += (counter * 3)
-		$".."/".."/".."/Menu/rule_properties/rules/save.position.y -= 2
-		$".."/".."/".."/Menu/rule_properties/rules/delete.position.y -=2
+
 
 func _on_close_pressed_def():
 	plus_node_clear()
