@@ -83,15 +83,6 @@ func _SpawnTopBar(activation: Dictionary):
 	var import_circuit = UI_Top_TopBar.GetReferenceByID("GENOMEFILENAME").get_node("sideButton_GENOMEFILENAME")
 	var cortical_create = UI_Top_TopBar.GetReferenceByID("CORTICALAREAS").get_node("sideButton_CORTICALAREAS")
 	import_circuit.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
-#	var color_rect = ColorRect.new()
-#	color_rect.size = UI_Top_TopBar.size
-#	color_rect.set_name("background")
-#	UI_Top_TopBar.add_child(color_rect)
-#	print("UI NODE: ", UI_Top_TopBar)
-#	print("SIZE: ", UI_Top_TopBar.size, " and position: ", UI_Top_TopBar.position)
-	#var import_circuit = UI_Top_TopBar.GetReferenceByID("GENOMEFILENAME").get_node("sideButton_GENOMEFILENAME")
-	#var cortical_create = UI_Top_TopBar.GetReferenceByID("CORTICALAREAS").get_node("sideButton_CORTICALAREAS")
-	#import_circuit.connect("pressed", Callable($Brain_Visualizer,"_on_import_pressed"))
 
 
 ####################################
@@ -122,7 +113,6 @@ func TopBarInput(data: Dictionary, ElementID: StringName, ElementRef: Node):
 			if "selectedIndex" in data.keys():
 				if UI_ManageNeuronMorphology != null:
 					UI_ManageNeuronMorphology.queue_free()
-				print("dropdown: ", UI_Top_TopBar.GetReferenceByID("NEURONMORPHOLOGIES").get_children())
 				var rule_name = UI_Top_TopBar.GetReferenceByID("NEURONMORPHOLOGIES").get_node("dropDown_NEURONMORPHOLOGIES").text
 				if rule_name != " ":
 					if "+" in rule_name:
@@ -281,8 +271,7 @@ func RelayDownwards(callType, data) -> void:
 			if UI_CreateMorphology:
 				if UI_CreateMorphology.GetReferenceByID("Composite").visible:
 					UI_CreateMorphology.SetData({"Composite": {"MAPPING_DROPDOWN": {"MAPPINGDROPDOWN":{"options": data}}}})
-				else:
-					optionbutton_holder = data
+			optionbutton_holder = data
 		REF.FROM.genome_fileName:
 			UI_Top_TopBar.SetData({"GENOMEFILENAME": {"sideLabelText":data}})
 #		REF.FROM.connectome_properties_mappings:
@@ -331,7 +320,6 @@ func RelayDownwards(callType, data) -> void:
 			UI_LeftBar.SetData({"NeuronParametersSection": inputVars} )
 			UI_LeftBar.SetData(cortical_properties)
 			$"..".Update_Afferent_list(data["cortical_id"])
-#			UI_LeftBar.SetData({"TITLEBAR": {"TITLE": {"label": data["cortical_id"]}}})
 		REF.FROM.burstEngine:
 			UI_Top_TopBar.SetData({"REFRESHRATE": {"value": data}})
 	pass
@@ -466,13 +454,15 @@ func SpawnNeuronManager():
 	var composite = UI_ManageNeuronMorphology.GetReferenceByID("Composite")
 	var patterns = UI_ManageNeuronMorphology.GetReferenceByID("Patterns")
 	var patterns_bar = UI_ManageNeuronMorphology.GetReferenceByID("PatternRow0")
+	var vectors_bar = UI_ManageNeuronMorphology.GetReferenceByID("XYZ")
 	patterns_bar.visible = false
 	vectors.visible = false
 	composite.visible = false
 	patterns.visible = false
+	vectors_bar.visible = false
 	UI_ManageNeuronMorphology.GetReferenceByID("button1").get_node("button_button1").visible = false
 	save_button.connect("pressed", Callable($Brain_Visualizer,"_morphology_button_inside_red").bind(UI_ManageNeuronMorphology))
-	
+	UI_ManageNeuronMorphology.SetData({"box_one": {"box_three": {"Composite": {"MAPPING_DROPDOWN": {"MAPPINGDROPDOWN": {"options": optionbutton_holder}}}}}})
 	var node_button_box = UI_ManageNeuronMorphology.GetReferenceByID("button1")
 	var parent_of_button = UI_ManageNeuronMorphology.GetReferenceByID("morphology_list")
 	var duplicated_button_box = node_button_box.duplicate()
@@ -488,8 +478,21 @@ func SpawnNeuronManager():
 			new_node.get_node("button_button1").visible = true
 			new_node.get_node("button_button1").text = i
 			new_node.set_name("button1" + str(i))
+			new_node.get_node("button_button1").connect("pressed", Callable(self,"button_rule").bind(new_node.get_node("button_button1").text))
 			UI_ManageNeuronMorphology.GetReferenceByID("morphology_list").add_child(new_node)
-	
+
+func button_rule(rule_name):
+	if rule_name != " ":
+		if "+" in rule_name:
+			rule_name = rule_name.replace("+", "%2B")
+		if "[" in rule_name:
+			rule_name = rule_name.replace("[", "%5B")
+		if "]" in rule_name:
+			rule_name = rule_name.replace("]", "%5D")
+		if ", " in rule_name:
+			rule_name = rule_name.replace(", ", "%2C%20")
+		$"..".Get_Morphology_information(rule_name)
+
 func SpawnMappingDefinition(src, dst, activation):
 	if is_instance_valid(UI_MappingDefinition):
 		UI_MappingDefinition.queue_free()
@@ -514,4 +517,3 @@ func SpawnMappingDefinition(src, dst, activation):
 
 # proxys for properties
 var _currentLanguageISO: String 
-
