@@ -28,9 +28,6 @@ var data: Dictionary:
 var type: StringName:
 	get: return _type
 
-var isUsingPanel: bool:
-	get: return _isUsingPanel
-
 var panelRef: Node:
 	get: return _panelRef
 
@@ -47,7 +44,6 @@ var _isActivated := false
 var _isTopLevel := true
 var _runtimeSettableProperties := NEWNIT_CORE.settableProperties
 var _type: StringName
-var _isUsingPanel: bool
 var _panelRef: Node = null
 var _parent: Node = null
 var _hasNewnitParent: bool = false
@@ -69,7 +65,8 @@ func GetReferenceByID(searchID: StringName): # returns either a bool or a Node
 	return false
 
 func UpdatePosition(newPosition: Vector2) -> void:
-	if isUsingPanel: _panelRef.position = newPosition
+	if panelRef != null: _panelRef.position = newPosition; return
+	if marginRef != null: _marginRef.position = newPosition; return
 	else: position = newPosition
 
 func UpdateMargins(TopRightBottomLeftMargins: Array) -> void:
@@ -77,7 +74,8 @@ func UpdateMargins(TopRightBottomLeftMargins: Array) -> void:
 
 func _ResizePanel() -> void:
 	if marginRef != null:
-		panelRef.size = marginRef.size
+		#panelRef.size = marginRef.size
+		panelRef.size = size + Vector2(20,20)
 		return
 	_panelRef.size = size
 
@@ -86,7 +84,7 @@ func _get_drag_data(at_position: Vector2):
 
 func _notification(what):
 	if (what == NOTIFICATION_PREDELETE):
-		if(isUsingPanel): panelRef.queue_free()
+		if panelRef != null: panelRef.queue_free()
 
 ################################################ END Newnit Parallel ################################################
 
