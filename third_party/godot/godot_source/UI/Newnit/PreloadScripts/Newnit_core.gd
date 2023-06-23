@@ -111,7 +111,6 @@ static func Func_AddExtraneousParents(NewnitObject: Node, addingPanel: bool, add
 		NewnitObject._panelRef.size_flags_horizontal = Control.SIZE_EXPAND_FILL 
 		parentChain.append(NewnitObject._panelRef)
 		NewnitObject._panelRef.name = "Panel_" + NewnitObject.ID
-		NewnitObject._isUsingPanel = true
 		NewnitObject.resized.connect(NewnitObject._ResizePanel)
 	
 	if addingMargins:
@@ -128,12 +127,15 @@ static func Func_AddExtraneousParents(NewnitObject: Node, addingPanel: bool, add
 		parentChain[i-1].add_child(parentChain[i])
 
 static func Func_UpdateMargin(NewnitObject: Node, TopRightBottomLeft: Array) -> void:
+	if NewnitObject.marginRef == null: print("Cannot set margin size - No margin object defined!")
 	assert(len(TopRightBottomLeft) == 4, "Padding Array Incorrect Dimensions!")
 	NewnitObject.marginRef.add_theme_constant_override("margin_top", TopRightBottomLeft[0])
 	NewnitObject.marginRef.add_theme_constant_override("margin_left", TopRightBottomLeft[3])
 	NewnitObject.marginRef.add_theme_constant_override("margin_bottom", TopRightBottomLeft[2])
 	NewnitObject.marginRef.add_theme_constant_override("margin_right", TopRightBottomLeft[1])
-
+	if NewnitObject.panelRef != null:
+		NewnitObject._ResizePanel()
+	
 static func Func__GetUIChildName(compType: StringName, NewnitObject) -> StringName:
 	return compType + "_" + NewnitObject.ID
 

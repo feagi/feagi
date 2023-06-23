@@ -71,7 +71,13 @@ func UpdatePosition(newPosition: Vector2) -> void:
 	if isUsingPanel: _panelRef.position = newPosition
 	else: position = newPosition
 
+func UpdateMargins(TopRightBottomLeftMargins: Array) -> void:
+	NEWNIT_CORE.Func_UpdateMargin(self, TopRightBottomLeftMargins)
+
 func _ResizePanel() -> void:
+	if marginRef != null:
+		panelRef.size = marginRef.size
+		return
 	_panelRef.size = size
 
 func _get_drag_data(at_position: Vector2):

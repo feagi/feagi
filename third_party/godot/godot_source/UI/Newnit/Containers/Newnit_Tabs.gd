@@ -34,6 +34,9 @@ var isUsingPanel: bool:
 var panelRef: Node:
 	get: return _panelRef
 
+var marginRef: Node:
+	get: return _marginRef
+
 var hasNewnitParent: bool:
 	get: return _hasNewnitParent
 
@@ -48,6 +51,7 @@ var _isUsingPanel: bool
 var _panelRef: Node = null
 var _parent: Node = null
 var _hasNewnitParent: bool = false
+var _marginRef: Node = null
 
 func Activate(settings: Dictionary) -> void:
 	NEWNIT_CORE.Func_Activate(settings, self)
@@ -68,7 +72,13 @@ func UpdatePosition(newPosition: Vector2) -> void:
 	if isUsingPanel: _panelRef.position = newPosition
 	else: position = newPosition
 
+func UpdateMargins(TopRightBottomLeftMargins: Array) -> void:
+	NEWNIT_CORE.Func_UpdateMargin(self, TopRightBottomLeftMargins)
+
 func _ResizePanel() -> void:
+	if marginRef != null:
+		panelRef.size = marginRef.size
+		return
 	_panelRef.size = size
 
 func _get_drag_data(at_position: Vector2):
