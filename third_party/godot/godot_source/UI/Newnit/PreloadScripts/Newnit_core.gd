@@ -45,7 +45,8 @@ static func Func_Activate(settings: Dictionary, NewnitObject: Node) -> void:
 	# Panel / Margin stuff
 	var enablePanel: bool = HelperFuncs.GetIfCan(settings, "enablePanel", D_EnablePanel)
 	var enableMargin: bool = HelperFuncs.CheckIfSubkeyExists(settings, "PaddingTopRightBottomLeft")
-	AddExtraneousParents(NewnitObject, enablePanel, enableMargin)
+	#NewnitObject._AddExtraneousParents(enablePanel, enableMargin)
+	Func_AddExtraneousParents(NewnitObject, enablePanel, enableMargin)
 	if enableMargin:
 		Func_UpdateMargin(NewnitObject, HelperFuncs.MustGet(settings, "PaddingTopRightBottomLeft"))
 	
@@ -102,26 +103,23 @@ static func Func_SetData(input: Dictionary, NewnitObject) -> void:
 		print("Property ", key, " does not exist!")
 		continue
 
-static func AddExtraneousParents(NewnitObject: Node, addingPanel: bool, addingMargins: bool) -> void:
+static func Func_AddExtraneousParents(NewnitObject: Node, addingPanel: bool, addingMargins: bool) -> void:
 	var parentChain := []
-	var panel: Panel
 	parentChain.append(NewnitObject.get_parent())
 	
 	if addingPanel:
-		panel = Panel.new()
-		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL 
-		parentChain.append(panel)
-		panel.name = "Panel_" + NewnitObject.ID
-		NewnitObject._panelRef = panel
-		NewnitObject.isUsingPanel = true
+		NewnitObject._panelRef = Panel.new()
+		NewnitObject._panelRef.size_flags_horizontal = Control.SIZE_EXPAND_FILL 
+		parentChain.append(NewnitObject._panelRef)
+		NewnitObject._panelRef.name = "Panel_" + NewnitObject.ID
+		NewnitObject._isUsingPanel = true
 		NewnitObject.resized.connect(NewnitObject._ResizePanel)
 	
 	if addingMargins:
-		var margin: MarginContainer = MarginContainer.new()
-		margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL 
-		parentChain.append(margin)
-		NewnitObject._marginRef = margin
-		margin.name = "Margin_" + NewnitObject.ID
+		NewnitObject._marginRef = MarginContainer.new()
+		NewnitObject._marginRef.size_flags_horizontal = Control.SIZE_EXPAND_FILL 
+		parentChain.append(NewnitObject._marginRef)
+		NewnitObject._marginRef.name = "Margin_" + NewnitObject.ID
 	
 	if len(parentChain) == 1: return # early exit
 	
@@ -129,7 +127,6 @@ static func AddExtraneousParents(NewnitObject: Node, addingPanel: bool, addingMa
 	parentChain.append(NewnitObject)
 	for i in range(1, len(parentChain)):
 		parentChain[i-1].add_child(parentChain[i])
-
 
 static func Func_UpdateMargin(NewnitObject: Node, TopRightBottomLeft: Array) -> void:
 	assert(len(TopRightBottomLeft) == 4, "Padding Array Incorrect Dimensions!")
