@@ -45,7 +45,6 @@ static func Func_Activate(settings: Dictionary, NewnitObject: Node) -> void:
 	# Panel / Margin stuff
 	var enablePanel: bool = HelperFuncs.GetIfCan(settings, "enablePanel", D_EnablePanel)
 	var enableMargin: bool = HelperFuncs.CheckIfSubkeyExists(settings, "PaddingTopRightBottomLeft")
-	#NewnitObject._AddExtraneousParents(enablePanel, enableMargin)
 	Func_AddExtraneousParents(NewnitObject, enablePanel, enableMargin)
 	if enableMargin:
 		Func_UpdateMargin(NewnitObject, HelperFuncs.MustGet(settings, "PaddingTopRightBottomLeft"))
@@ -130,10 +129,10 @@ static func Func_AddExtraneousParents(NewnitObject: Node, addingPanel: bool, add
 
 static func Func_UpdateMargin(NewnitObject: Node, TopRightBottomLeft: Array) -> void:
 	assert(len(TopRightBottomLeft) == 4, "Padding Array Incorrect Dimensions!")
-	NewnitObject.add_theme_constant_override("margin_top", TopRightBottomLeft[0])
-	NewnitObject.add_theme_constant_override("margin_left", TopRightBottomLeft[3])
-	NewnitObject.add_theme_constant_override("margin_bottom", TopRightBottomLeft[2])
-	NewnitObject.add_theme_constant_override("margin_right", TopRightBottomLeft[1])
+	NewnitObject.marginRef.add_theme_constant_override("margin_top", TopRightBottomLeft[0])
+	NewnitObject.marginRef.add_theme_constant_override("margin_left", TopRightBottomLeft[3])
+	NewnitObject.marginRef.add_theme_constant_override("margin_bottom", TopRightBottomLeft[2])
+	NewnitObject.marginRef.add_theme_constant_override("margin_right", TopRightBottomLeft[1])
 
 static func Func__GetUIChildName(compType: StringName, NewnitObject) -> StringName:
 	return compType + "_" + NewnitObject.ID

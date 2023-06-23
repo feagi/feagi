@@ -6,6 +6,7 @@
    "titleBarText":"INSERT SIDEBAR TITLE HERE",
    "widthAlignment":1,
    "enablePanel": true,
+   "PaddingTopRightBottomLeft": [10,10,10,10],
    "components":[
 	  {
 		 "ID":"CorticalPropertiesSection",
