@@ -111,14 +111,17 @@ static func AddExtraneousParents(NewnitObject: Node, addingPanel: bool, addingMa
 		panel = Panel.new()
 		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL 
 		parentChain.append(panel)
-		#panel.name = "Panel_" + NewnitObject.ID
+		panel.name = "Panel_" + NewnitObject.ID
+		NewnitObject._panelRef = panel
+		NewnitObject.isUsingPanel = true
+		NewnitObject.resized.connect(NewnitObject._ResizePanel)
 	
 	if addingMargins:
 		var margin: MarginContainer = MarginContainer.new()
 		margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL 
 		parentChain.append(margin)
 		NewnitObject._marginRef = margin
-		#margin.name = "Margin_" + NewnitObject.ID
+		margin.name = "Margin_" + NewnitObject.ID
 	
 	if len(parentChain) == 1: return # early exit
 	
@@ -126,11 +129,7 @@ static func AddExtraneousParents(NewnitObject: Node, addingPanel: bool, addingMa
 	parentChain.append(NewnitObject)
 	for i in range(1, len(parentChain)):
 		parentChain[i-1].add_child(parentChain[i])
-	
-	if addingPanel:
-		NewnitObject._panelRef = panel
-		NewnitObject.isUsingPanel = true
-		NewnitObject.resized.connect(NewnitObject._ResizePanel)
+
 
 static func Func_UpdateMargin(NewnitObject: Node, TopRightBottomLeft: Array) -> void:
 	assert(len(TopRightBottomLeft) == 4, "Padding Array Incorrect Dimensions!")
