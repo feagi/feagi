@@ -84,14 +84,15 @@ def main(feagi_settings, agent_settings, capabilities, message_to_feagi):
     runtime_data["feagi_state"] = feagi.feagi_registration(feagi_host=feagi_host,
                                                            api_port=api_port, agent_settings=agent_settings,
                                                            capabilities=capabilities)
-
+    
+    # agent_data_port = agent_settings["agent_data_port"]
+    agent_data_port = runtime_data["feagi_state"]['agent_info']['agent_data_port']
     print("** **", runtime_data["feagi_state"])
     feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
 
     # todo: to obtain this info directly from FEAGI as part of registration
     # ipu_channel_address = feagi.feagi_inbound(agent_settings["agent_data_port"])
-    ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
-                                               agent_settings["agent_data_port"])
+    ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
     print("IPU_channel_address=", ipu_channel_address)
     opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])

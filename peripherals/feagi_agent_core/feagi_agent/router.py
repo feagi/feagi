@@ -105,12 +105,14 @@ def register_with_feagi(feagi_ip, feagi_api_port, agent_type: str, agent_id: str
             agent_registration_data["agent_ip"] = str(agent_ip)
             agent_registration_data["agent_data_port"] = int(agent_data_port)
 
-            registration_status = requests.post(api_address + registration_endpoint, params=agent_registration_data)
-            if registration_status:
+            response = requests.post(api_address + registration_endpoint, params=agent_registration_data)
+            if response.status_code == 200:
+                feagi_settings['agent_info'] =  response.json()
                 print("Agent successfully registered with FEAGI!")
                 # Receive FEAGI settings
                 feagi_settings['burst_duration'] = requests.get(api_address + stimulation_period_endpoint).json()
                 feagi_settings['burst_counter'] = requests.get(api_address + burst_counter_endpoint).json()
+                
 
                 if feagi_settings and feagi_settings['burst_duration'] and feagi_settings['burst_counter']:
                     print("\n\n\n\nRegistration is complete....")
