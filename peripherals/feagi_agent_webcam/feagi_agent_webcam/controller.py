@@ -99,7 +99,7 @@ def main(feagi_settings, agent_settings, capabilities, message_to_feagi):
                                                runtime_data["feagi_state"]['feagi_opu_port'])
 
     feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=False)
-    feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address, bind=False)
+    feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
     # FEAGI section ends
     previous_frame_data = dict()
     msg_counter = runtime_data["feagi_state"]['burst_counter']
