@@ -6,6 +6,7 @@ Demo of dot kinematogram
 """
 
 import sys
+sys.path.append('../../feagi_agent_core/')
 import cv2
 import requests
 from time import sleep
@@ -86,7 +87,7 @@ def main(feagi_settings, agent_settings, capabilities, message_to_feagi):
                                                            capabilities=capabilities)
     
     # agent_data_port = agent_settings["agent_data_port"]
-    agent_data_port = runtime_data["feagi_state"]['agent_info']['agent_data_port']
+    agent_data_port = str(runtime_data["feagi_state"]['agent_info']['agent_data_port'])
     print("** **", runtime_data["feagi_state"])
     feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
 
@@ -98,7 +99,7 @@ def main(feagi_settings, agent_settings, capabilities, message_to_feagi):
                                                runtime_data["feagi_state"]['feagi_opu_port'])
 
     feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=False)
-    feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
+    feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address, bind=False)
     # FEAGI section ends
     previous_frame_data = dict()
     msg_counter = runtime_data["feagi_state"]['burst_counter']
@@ -188,7 +189,7 @@ def main(feagi_settings, agent_settings, capabilities, message_to_feagi):
                 msg_counter = feagi_burst_counter
         sleep(feagi_settings['feagi_burst_speed'])
         try:
-            print(len(message_to_feagi['data']['sensory_data']['camera']['C']))
+            print("Len --", len(message_to_feagi['data']['sensory_data']['camera']['C']))
         except:
             pass
         feagi_ipu_channel.send(message_to_feagi)
@@ -197,3 +198,9 @@ def main(feagi_settings, agent_settings, capabilities, message_to_feagi):
             rgb['camera'][i].clear()
     win.close()
     core.quit()
+
+
+
+if __name__=='__main__':
+    from configuration import feagi_settings, agent_settings, capabilities, message_to_feagi
+    main(feagi_settings, agent_settings, capabilities, message_to_feagi)
