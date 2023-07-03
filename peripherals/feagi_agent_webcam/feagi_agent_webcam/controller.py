@@ -13,6 +13,7 @@ from time import sleep
 from datetime import datetime
 from feagi_agent import retina as retina
 from feagi_agent import feagi_interface as feagi
+import traceback
 
 
 def chroma_keyer(frame, size, name_id):
@@ -58,7 +59,7 @@ def chroma_keyer(frame, size, name_id):
         return {'camera': {name_id: vision_dict}}
 
 
-def main(feagi_settings, agent_settings, capabilities, message_to_feagi):
+def main(composer_url, feagi_settings, agent_settings, capabilities, message_to_feagi):
     print("feagi setting: ", feagi_settings)
     print("agent setting: ", agent_settings)
     print("capa: ", capabilities)
@@ -70,24 +71,15 @@ def main(feagi_settings, agent_settings, capabilities, message_to_feagi):
 
     # FEAGI section start
     print("Connecting to FEAGI resources...")
-
-    feagi_host, api_port, app_data_port = feagi.feagi_setting_for_registration(feagi_settings, agent_settings)
-
-    print(feagi_host, api_port, app_data_port)
-
-    # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_opu_port']
-
-    api_address = 'http://' + feagi_host + ':' + api_port
+    runtime_data["feagi_state"] = feagi.feagi_registration(composer_url=composer_url, 
+            feagi_settings=feagi_settings, agent_settings=agent_settings, capabilities=capabilities)
+    api_address = runtime_data['feagi_state']["feagi_url"]
 
     stimulation_period_endpoint = feagi.feagi_api_burst_engine()
     burst_counter_endpoint = feagi.feagi_api_burst_counter()
-    print("^ ^ ^")
-    runtime_data["feagi_state"] = feagi.feagi_registration(feagi_host=feagi_host,
-                                                           api_port=api_port, agent_settings=agent_settings,
-                                                           capabilities=capabilities)
     
     # agent_data_port = agent_settings["agent_data_port"]
-    agent_data_port = str(runtime_data["feagi_state"]['agent_info']['agent_data_port'])
+    agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
     print("** **", runtime_data["feagi_state"])
     feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
 
@@ -202,5 +194,13 @@ def main(feagi_settings, agent_settings, capabilities, message_to_feagi):
 
 
 if __name__=='__main__':
-    from configuration import feagi_settings, agent_settings, capabilities, message_to_feagi
-    main(feagi_settings, agent_settings, capabilities, message_to_feagi)
+    from configuration import composer_url, feagi_settings, agent_settings, capabilities, message_to_feagi
+    while True:
+        try:
+            main(composer_url, feagi_settings, agent_settings, capabilities, message_to_feagi)
+        except Exception as e:
+            print(f"Controller run failed", e)
+            traceback.print_exc()
+            sleep(2)
+            
+            
