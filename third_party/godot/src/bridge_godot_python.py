@@ -92,7 +92,7 @@ def godot_data(input):
     dict_with_updated_name = {"data": {}}
     dict_with_updated_name["data"]["direct_stimulation"] = dict({})
     for key in data["data"]["direct_stimulation"]:
-        Updated_name = name_to_id(key)
+        Updated_name = key
         if dict_with_updated_name["data"]["direct_stimulation"].get(Updated_name) is not None:
             pass
         else:
@@ -182,15 +182,13 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
     Convert absolute coordinate from godot to relative coordinate for FEAGI. Dna_information is
     from the genome["blueprint"].
     """
-    relative_coordinate = {}
-    relative_coordinate["data"] = {}
+    relative_coordinate = {"data": {}}
     relative_coordinate["data"]["direct_stimulation"] = {}
     if stimulation_from_godot:
         for key in stimulation_from_godot["data"]["direct_stimulation"]:
             for name_match in cortical_data:
                 raw_id = name_match
-                name_match = name_to_id(
-                    name_match)  # convert the human readable name into feagi name
+                name_match = cortical_data[raw_id][7]
                 if name_match == key:
                     if relative_coordinate["data"]["direct_stimulation"].get(
                             name_match) is not None:
@@ -208,7 +206,6 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
                 pass
     else:
         pass
-
     return relative_coordinate
 
 
