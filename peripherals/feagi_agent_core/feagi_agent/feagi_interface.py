@@ -42,7 +42,7 @@ def sub_initializer(opu_address, flags=router.zmq.NOBLOCK):
 #     return runtime_data["feagi_state"]
 
 
-def feagi_registration(composer_url, feagi_settings, agent_settings, capabilities):
+def feagi_registration(feagi_auth_url, feagi_settings, agent_settings, capabilities):
     host_info = router.app_host_info()
     runtime_data = {
         "host_network": {},
@@ -56,7 +56,7 @@ def feagi_registration(composer_url, feagi_settings, agent_settings, capabilitie
         print("\nAwaiting registration with FEAGI...")
         try:
             runtime_data["feagi_state"] = \
-                router.register_with_feagi(composer_url, feagi_settings, agent_settings, capabilities)
+                router.register_with_feagi(feagi_auth_url, feagi_settings, agent_settings, capabilities)
         except Exception as e:
             print("ERROR__: ", e, traceback.print_exc())
             pass
