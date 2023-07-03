@@ -133,24 +133,31 @@ class Sub(PubSub):
 #     return feagi_settings
 
 
-def feagi_settings_from_composer(composer_url, feagi_settings):
+def feagi_settings_from_composer(feagi_auth_url, feagi_settings):
     """
     Generate all needed information and return the full data to make it easier to connect with
     FEAGI
     """
-    if composer_url is not None:
-        new_settings = requests.get(composer_url).json()     
+    if feagi_auth_url is not None:
+        print(f"Updating feagi settings using feagi_auth_url: {feagi_auth_url}")
+        new_settings = requests.get(feagi_auth_url).json()     
         # update feagi settings here
         feagi_settings['feagi_dns'] = new_settings['feagi_dns']
         feagi_settings['feagi_host'] = new_settings['feagi_host']
-        feagi_settings['feagi_api_port'] = new_settings['feagi_api_port']   
+        feagi_settings['feagi_api_port'] = new_settings['feagi_api_port']  
+        print(f"New Settings ---- {new_settings}")  
+    else:
+        print(f"Missing feagi_auth_url, using default feagi settings")
 
-    feagi_settings['feagi_url'] = feagi_settings['feagi_dns'] if feagi_settings['feagi_dns'] is not None else \
-            f"http://{feagi_settings['feagi_host']}:{feagi_settings['feagi_api_port']}"
+
+    if feagi_settings.get('feagi_dns') is not None:
+        feagi_settings['feagi_url'] = feagi_settings['feagi_dns'] 
+    else: 
+        feagi_settings['feagi_url'] = f"http://{feagi_settings['feagi_host']}:{feagi_settings['feagi_api_port']}"
     return feagi_settings
 
 
-def register_with_feagi(composer_url, feagi_settings, agent_settings, agent_capabilities):
+def register_with_feagi(feagi_auth_url, feagi_settings, agent_settings, agent_capabilities):
     """
     To trade information between FEAGI and Controller
 
@@ -165,14 +172,14 @@ def register_with_feagi(composer_url, feagi_settings, agent_settings, agent_capa
     registration_complete = False
     while not registration_complete:
         try:
-            print(f"Before Feagi Settings ---- {feagi_settings}")  
-            if composer_url is not None:
-                print(f"Updating feagi settings from composer: {composer_url}")
-                feagi_settings = feagi_settings_from_composer(composer_url, feagi_settings)
+            print(f"Original Feagi Settings ---- {feagi_settings}")  
+            feagi_settings = feagi_settings_from_composer(feagi_auth_url, feagi_settings)
             feagi_url = feagi_settings['feagi_url']           
-            print(f"After Feagi Settings ---- {feagi_settings}")     
+               
 
-            feagi_settings.update(requests.get(feagi_url + network_endpoint).json())
+            network_output = requests.get(feagi_url + network_endpoint).json()
+            # print(f"network_output ---- {network_output}")     
+            feagi_settings['feagi_opu_port'] = network_output['feagi_opu_port']
             if feagi_settings:
                 print("Data from FEAGI::", feagi_settings)
             else:

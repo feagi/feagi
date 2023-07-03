@@ -15,16 +15,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================
 """
-composer_url = f'http://127.0.0.1:9000/v1/k8/feagi_settings/auth_token'
 
 feagi_settings = {
+    # "feagi_auth_url": "http://127.0.0.1:9000/v1/k8/feagi_settings/auth_token",
     "feagi_url": None,
+    "feagi_dns": None,
     "feagi_host": "127.0.0.1",
     "feagi_api_port": "8000",
 }
 
 agent_settings = {
-    "agent_data_port": "40010",
+    "agent_data_port": "10005",
     "agent_id": "camera_1",
     "agent_type": "embodiment",
     'TTL': 2,
