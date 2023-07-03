@@ -1823,7 +1823,6 @@ def assign_available_port():
         print(agent_id, agent_info, agent_info['agent_type'], type(agent_info['agent_type']))
         if agent_info['agent_type'] != 'monitor':
             ports_used.append(agent_info['agent_data_port'])
-            print("dEWFDWEFWEF")
     print("ports_used", ports_used)
     for port in range(PORT_RANGES[0], PORT_RANGES[1]):
         if port not in ports_used:
