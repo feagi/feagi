@@ -6,7 +6,6 @@ import requests
 import sys
 from feagi_agent_freenove.Led import *
 from feagi_agent_freenove.PCA9685 import PCA9685
-from feagi_agent_freenove.configuration import *
 from picamera import PiCamera
 from datetime import datetime
 from collections import deque
@@ -186,20 +185,17 @@ class Servo:
     @staticmethod
     def motor_converter(motor_id):
         """
-        This will convert from godot to motor's id. Let's say, you have 8x10 (width x depth from static_genome).
-        So, you click 4 to go forward. It will be like this:
-        o__mot': {'1-0-9': 1, '5-0-9': 1, '3-0-9': 1, '7-0-9': 1}
-        which is 1,3,5,7. So this code will convert from 1,3,5,7 to 0,1,2,3 on motor id.
+        This will convert from godot to motor's id. Let's say, you have 8x10 (width x depth from
+        static_genome). So, you click 4 to go forward. It will be like this: o__mot': {'1-0-9':
+        1, '5-0-9': 1, '3-0-9': 1, '7-0-9': 1} which is 1,3,5,7. So this code will convert from
+        1,3,5,7 to 0,1,2,3 on motor id.
 
-        Since 0-1 is motor 1, 2-3 is motor 2 and so on. In this case, 0 is for forward and 1 is for backward.
+        Since 0-1 is motor 1, 2-3 is motor 2 and so on. In this case, 0 is for forward and 1 is
+        for backward.
         """
-        # motor_total = capabilities['motor']['count'] #be sure to update your motor total in configuration.py
-        # increment = 0
-        # for motor in range(motor_total):
-        #     if motor_id <= motor + 1:
-        #         print("motor_id: ", motor_id)
-        #         increment += 1
-        #         return increment
+        # motor_total = capabilities['motor']['count'] #be sure to update your motor total in
+        # configuration.py increment = 0 for motor in range(motor_total): if motor_id <= motor +
+        # 1: print("motor_id: ", motor_id) increment += 1 return increment
         if motor_id <= 1:
             return 0
         elif motor_id <= 3:
@@ -405,11 +401,10 @@ class Ultrasonic:
 #         return Power
 
 
-def main():
+def main(feagi_settings, agent_settings, capabilities, message_to_feagi, args):
     GPIO.cleanup()
-
-    # # # FEAGI registration # # #
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+    # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # - - - - - - - - - - - - - - - - - - #
     feagi_host, api_port, app_data_port = FEAGI.feagi_setting_for_registration(feagi_settings, agent_settings)
     runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host,
                                                            api_port=api_port, agent_settings=agent_settings,
@@ -420,7 +415,14 @@ def main():
                                                runtime_data["feagi_state"]['feagi_opu_port'])
     feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
     feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-    api_address = 'http://' + feagi_host + ':' + api_port
+    if args['http_type']:
+        http = args['http_type']
+    else:
+        http = 'http://'
+    if args['port_disabled'] == 'true':
+        api_address = http + feagi_host
+    else:
+        api_address = http + feagi_host + ':' + api_port
     stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
     burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
     feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
