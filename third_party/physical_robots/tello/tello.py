@@ -50,11 +50,14 @@ def get_gyro(full_data):
     new_data = dict()
     new_data['gyro'] = dict()
     try:
-        new_data['gyro']['0'] = convert_gyro_into_feagi(full_data['pitch'], capabilities['gyro']['resolution'],
+        new_data['gyro']['0'] = convert_gyro_into_feagi(full_data['pitch'],
+                                                        capabilities['gyro']['resolution'],
                                                         capabilities['acc']['range'])
-        new_data['gyro']['1'] = convert_gyro_into_feagi(full_data['roll'], capabilities['gyro']['resolution'],
+        new_data['gyro']['1'] = convert_gyro_into_feagi(full_data['roll'],
+                                                        capabilities['gyro']['resolution'],
                                                         capabilities['acc']['range'])
-        new_data['gyro']['2'] = convert_gyro_into_feagi(full_data['yaw'], capabilities['gyro']['resolution'],
+        new_data['gyro']['2'] = convert_gyro_into_feagi(full_data['yaw'],
+                                                        capabilities['gyro']['resolution'],
                                                         capabilities['acc']['range'])
         return new_data
     except Exception as e:
@@ -69,9 +72,11 @@ def get_accelerator(full_data):
     new_data = dict()
     new_data['accelerator'] = dict()
     try:
-        new_data['accelerator']['0'] = convert_gyro_into_feagi(full_data['agx'], capabilities['acc']['resolution'],
+        new_data['accelerator']['0'] = convert_gyro_into_feagi(full_data['agx'],
+                                                               capabilities['acc']['resolution'],
                                                                capabilities['acc']['range'])
-        new_data['accelerator']['1'] = convert_gyro_into_feagi(full_data['agy'], capabilities['acc']['resolution'],
+        new_data['accelerator']['1'] = convert_gyro_into_feagi(full_data['agy'],
+                                                               capabilities['acc']['resolution'],
                                                                capabilities['acc']['range'])
         new_data['accelerator']['2'] = offset_z(full_data['agz'], capabilities['acc']['resolution'],
                                                 capabilities['acc']['range'])
@@ -100,7 +105,8 @@ def control_drone(self, direction, cm_distance):
     cm_distance = cm_distance * configuration.capabilities['motor']['power_coefficient']
     try:
         if direction == "l":
-            self.send_command_without_return("{} {}".format("left", cm_distance))  ## left cm * 11 (max 100)
+            self.send_command_without_return(
+                "{} {}".format("left", cm_distance))  ## left cm * 11 (max 100)
         elif direction == "r":
             self.send_command_without_return("{} {}".format("right", cm_distance))
         elif direction == "f":
@@ -137,7 +143,9 @@ def misc_control(self, data, battery_level):
             if battery_level >= 50:
                 self.send_command_without_return("flip {}".format("f"))
             else:
-                print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
+                print(
+                    "ERROR! The battery is low. It must be at least above than 51% to be able to "
+                    "flip")
         except Exception as e:
             print("Error at: ", e)
     if data == 3:
@@ -145,7 +153,9 @@ def misc_control(self, data, battery_level):
             if battery_level >= 50:
                 self.send_command_without_return("flip {}".format("b"))
             else:
-                print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
+                print(
+                    "ERROR! The battery is low. It must be at least above than 51% to be able to "
+                    "flip")
         except Exception as e:
             print("Error at: ", e)
     if data == 4:
@@ -153,7 +163,9 @@ def misc_control(self, data, battery_level):
             if battery_level >= 50:
                 self.send_command_without_return("flip {}".format("r"))
             else:
-                print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
+                print(
+                    "ERROR! The battery is low. It must be at least above than 51% to be able to "
+                    "flip")
         except Exception as e:
             print("Error at: ", e)
     if data == 5:
@@ -161,7 +173,9 @@ def misc_control(self, data, battery_level):
             if battery_level >= 50:
                 self.send_command_without_return("flip {}".format("l"))
             else:
-                print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
+                print(
+                    "ERROR! The battery is low. It must be at least above than 51% to be able to "
+                    "flip")
         except Exception as e:
             print("Error at: ", e)
 
@@ -228,8 +242,8 @@ def convert_gyro_into_feagi(value, resolution, range_number):
 
 def offset_z(value, resolution, range_number):
     """"
-    Gravity is 9.8 m/s^2 however when the drone is on the table, it should be at zero. This offset will keep it to zero
-    if the value is between than 2 and -2, it will be zero.
+    Gravity is 9.8 m/s^2 however when the drone is on the table, it should be at zero. This
+    offset will keep it to zero if the value is between than 2 and -2, it will be zero.
     """
     new_value = value - (range_number[0])
     new_value = (new_value * resolution) / (range_number[1] - range_number[0])
@@ -241,39 +255,45 @@ def offset_z(value, resolution, range_number):
         return 0
 
 
-def main():
-    # # # # # # # # # # # # Variables/Dictionaries section # # # # # # # # # # # # # # #
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+def main(feagi_auth_url):
+    # # # # # # # # # # # # Variables/Dictionaries section # # # # # # # # # # # # # # # - - - -
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
     runtime_data = dict()
     msg_counter = 0
     flag_counter = 0
     checkpoint_total = 5
     flying_flag = False
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # - - - #
 
-    # # # # # # # # # # # # # # # FEAGI registration # # # # # # # # # # # # # # # # # #
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-    feagi_host, api_port, app_data_port = FEAGI.feagi_setting_for_registration(feagi_settings, agent_settings)
-    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host,
-                                                           api_port=api_port,
+    # # # # # # # # # # # # # # # FEAGI registration # # # # # # # # # # # # # # # # # # - - - -
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+    print("Connecting to FEAGI resources...")
+    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_auth_url=feagi_auth_url,
+                                                           feagi_settings=feagi_settings,
                                                            agent_settings=agent_settings,
                                                            capabilities=capabilities)
-    ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
-                                               agent_settings["agent_data_port"])
+    api_address = runtime_data['feagi_state']["feagi_url"]
+    stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
+    burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
+
+    agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
+    print("** **", runtime_data["feagi_state"])
+    feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
+    ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
+    print("IPU_channel_address=", ipu_channel_address)
     opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
     feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
     feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-    api_address = 'http://' + feagi_host + ':' + api_port
-    stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
-    burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
-    feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # - - - #
 
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-    #                            Initializer section
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # - - - # Initializer section
     tello = Tello()
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # - - - #
     print("Connecting with Tello drone...")
     tello.connect()
     print("Connected with Tello drone.")
@@ -289,17 +309,21 @@ def main():
             bat = get_battery(data)
             battery = bat['battery_charge_level']
             data = full_frame(tello)
-            retina_data = retina.frame_split(data, configuration.capabilities['camera']['retina_width_percent'],
-                                             configuration.capabilities['camera']['retina_height_percent'])
+            retina_data = retina.frame_split(
+                data,
+                configuration.capabilities['camera']['retina_width_percent'],
+                configuration.capabilities['camera']['retina_height_percent'])
             for i in retina_data:
                 if 'C' in i:
-                    retina_data[i] = retina.center_data_compression(retina_data[i],
-                                                                    capabilities['camera']["central_vision_compression"]
-                                                                    )
+                    retina_data[i] = retina.center_data_compression(
+                        retina_data[i],
+                        capabilities['camera'][
+                            "central_vision_compression"])
                 else:
-                    retina_data[i] = retina.center_data_compression(retina_data[i],
-                                                                    capabilities['camera']
-                                                                    ['peripheral_vision_compression'])
+                    retina_data[i] = retina.center_data_compression(
+                        retina_data[i],
+                        capabilities['camera']
+                        ['peripheral_vision_compression'])
             rgb = dict()
             rgb['camera'] = dict()
             if previous_data_frame == {}:
@@ -312,39 +336,49 @@ def main():
                     data = retina.ndarray_to_list(retina_data[i])
                     if 'C' in i:
                         previous_name = str(i) + "_prev"
-                        rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
-                                                                                      capabilities['camera'][
-                                                                                          'central_vision_compression'],
-                                                                                      previous_data_frame[
-                                                                                          previous_name], name,
-                                                                                      configuration.capabilities[
-                                                                                          'camera'][
-                                                                                          'deviation_threshold'])
+                        rgb_data, previous_data_frame[previous_name] = retina.get_rgb(
+                            data,
+                            capabilities[
+                                'camera'][
+                                'central_vision_compression'],
+                            previous_data_frame[
+                                previous_name],
+                            name,
+                            configuration.capabilities[
+                                'camera'][
+                                'deviation_threshold'])
                     else:
                         previous_name = str(i) + "_prev"
-                        rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
-                                                                                      capabilities['camera'][
-                                                                                          'peripheral_vision_compression']
-                                                                                      ,
-                                                                                      previous_data_frame[
-                                                                                          previous_name], name,
-                                                                                      configuration.capabilities[
-                                                                                          'camera'][
-                                                                                          'deviation_threshold'])
+                        rgb_data, previous_data_frame[previous_name] = retina.get_rgb(
+                            data,
+                            capabilities[
+                                'camera'][
+                                'peripheral_vision_compression']
+                            ,
+                            previous_data_frame[
+                                previous_name],
+                            name,
+                            configuration.capabilities[
+                                'camera'][
+                                'deviation_threshold'])
                     for a in rgb_data['camera']:
                         rgb['camera'][a] = rgb_data['camera'][a]
-            configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=gyro,
-                                                                                 data=configuration.message_to_feagi,
-                                                                                 battery=battery)
-            configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=acc,
-                                                                                 data=configuration.message_to_feagi,
-                                                                                 battery=battery)
-            configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=sonar,
-                                                                                 data=configuration.message_to_feagi,
-                                                                                 battery=battery)
-            configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(original_message=rgb,
-                                                                                 data=configuration.message_to_feagi,
-                                                                                 battery=battery)
+            configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(
+                original_message=gyro,
+                data=configuration.message_to_feagi,
+                battery=battery)
+            configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(
+                original_message=acc,
+                data=configuration.message_to_feagi,
+                battery=battery)
+            configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(
+                original_message=sonar,
+                data=configuration.message_to_feagi,
+                battery=battery)
+            configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(
+                original_message=rgb,
+                data=configuration.message_to_feagi,
+                battery=battery)
 
             message_from_feagi = feagi_opu_channel.receive()
             if message_from_feagi is not None:
@@ -387,7 +421,7 @@ def main():
                 if feagi_burst_speed > 1:
                     checkpoint_total = 5
                 if feagi_burst_speed < 1:
-                    checkpoint_total = 5/feagi_burst_speed
+                    checkpoint_total = 5 / feagi_burst_speed
                 if msg_counter < feagi_burst_counter:
                     feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
                     if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
@@ -402,4 +436,12 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
+    print("FEAGI AUTH URL ------- ", feagi_auth_url)
+    while True:
+        try:
+            main(feagi_auth_url)
+        except Exception as e:
+            print(f"Controller run failed", e)
+            traceback.print_exc()
+            sleep(2)
