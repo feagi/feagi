@@ -5,8 +5,9 @@ import sys
 import os
 import sysconfig
 import feagi_agent_freenove
+import traceback
+from time import sleep
 from feagi_agent_freenove.configuration import *
-
 
 if __name__ == '__main__':
     # Check if feagi_agent has arg
@@ -32,5 +33,16 @@ if __name__ == '__main__':
     if args['api_port']:
         feagi_settings["feagi_api_port"] = args['api_port']
     from feagi_agent_freenove import controller as freenove_smartcar_controller
-    freenove_smartcar_controller.main(feagi_settings, agent_settings, capabilities,
-                                      message_to_feagi, args)
+
+    feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
+    print("FEAGI AUTH URL ------- ", feagi_auth_url)
+    while True:
+        try:
+            freenove_smartcar_controller.main(feagi_auth_url, feagi_settings,
+                                              agent_settings,
+                                              capabilities,
+                                              message_to_feagi, args)
+        except Exception as e:
+            print(f"Controller run failed", e)
+            traceback.print_exc()
+            sleep(2)
