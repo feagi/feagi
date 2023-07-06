@@ -17,6 +17,7 @@ import asyncio
 import threading
 from time import sleep
 from datetime import datetime
+import os
 
 import numpy as np
 import websockets
@@ -77,7 +78,8 @@ async def main():
     The main function handles the websocket and spins the asyncio to run the echo function
     infinitely until it exits. Once it exits, the function will resume to the next new websocket.
     """
-    async with websockets.serve(echo, "0.0.0.0", 9051, max_size=None,
+    async with websockets.serve(echo, agent_settings["godot_websocket_ip"],
+                                agent_settings['godot_websocket_port'], max_size=None,
                                 max_queue=None, write_limit=None, compression=None):
         await asyncio.Future()  # run forever
 
@@ -140,8 +142,18 @@ if __name__ == "__main__":
         # OPU section STARTS
         # OPU section ENDS
         if np.any(rgb_array['current']):
-            new_rgb = np.array(rgb_array['current'])
-            new_rgb = new_rgb.reshape(480, 640, 4)
+            if len(rgb_array['current']) == 1228800:
+                new_rgb = np.array(rgb_array['current'])
+                new_rgb = new_rgb.reshape(480, 640, 4)
+            elif len(rgb_array['current']) == 266256:
+                new_rgb = np.array(rgb_array['current'])
+                new_rgb = new_rgb.reshape(258, 258, 4)
+            elif len(rgb_array['current']) == 65536:
+                new_rgb = np.array(rgb_array['current'])
+                new_rgb = new_rgb.reshape(128, 128, 4)
+            elif len(rgb_array['current']) == 16384:
+                new_rgb = np.array(rgb_array['current'])
+                new_rgb = new_rgb.reshape(64, 64, 4)
             # new_rgb = new_rgb.astype(np.uint8)
             new_rgb = rgba2rgb(new_rgb)
             retina_data = retina.frame_split(new_rgb,

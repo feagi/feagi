@@ -273,21 +273,30 @@ global_arm['0'].set_speed(100)
 
 # # # FEAGI registration # # #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-feagi_host, api_port, app_data_port = FEAGI.feagi_setting_for_registration(feagi_settings, agent_settings)
-runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host,
-                                                       api_port=api_port,
+feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
+print("FEAGI AUTH URL ------- ", feagi_auth_url)
+print("Connecting to FEAGI resources...")
+runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_auth_url=feagi_auth_url,
+                                                       feagi_settings=feagi_settings,
                                                        agent_settings=agent_settings,
                                                        capabilities=capabilities)
-ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
-                                           agent_settings["agent_data_port"])
+api_address = runtime_data['feagi_state']["feagi_url"]
+
+stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
+burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
+
+# agent_data_port = agent_settings["agent_data_port"]
+agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
+print("** **", runtime_data["feagi_state"])
+feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
+
+ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
+print("IPU_channel_address=", ipu_channel_address)
 opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
                                            runtime_data["feagi_state"]['feagi_opu_port'])
 feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
 feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-api_address = 'http://' + feagi_host + ':' + api_port
-stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
-burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
-feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
