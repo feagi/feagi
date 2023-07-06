@@ -365,28 +365,39 @@ if __name__ == "__main__":
         "================================ @@@@@@@@@@@@@@@ "
         "==========================================")
 
+    # FEAGI section start
+    print("Connecting to FEAGI resources...")
+    feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
+    print("FEAGI AUTH URL ------- ", feagi_auth_url)
     feagi_host, api_port, app_data_port = feagi.feagi_setting_for_registration(feagi_settings,
                                                                                agent_settings)
-    runtime_data["feagi_state"] = feagi.feagi_registration(feagi_host=feagi_host,
-                                                           api_port=api_port,
+    runtime_data["feagi_state"] = feagi.feagi_registration(feagi_auth_url=feagi_auth_url,
+                                                           feagi_settings=feagi_settings,
                                                            agent_settings=agent_settings,
                                                            capabilities=capabilities)
-    api_address = 'http://' + feagi_host + ':' + api_port
+    api_address = runtime_data['feagi_state']["feagi_url"]
 
     stimulation_period_endpoint = feagi.feagi_api_burst_engine()
-    runtime_data["feagi_state"]['feagi_burst_speed'] = requests.get(
-        api_address + stimulation_period_endpoint).json()
+    burst_counter_endpoint = feagi.feagi_api_burst_counter()
 
-    bgsk = threading.Thread(target=websocket_operation, daemon=True).start()
+    # agent_data_port = agent_settings["agent_data_port"]
+    agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
+    print("** **", runtime_data["feagi_state"])
+    feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
 
-    ipu_channel_address = f"tcp://*:{agent_settings['agent_data_port']}"
-    # ipu_channel_address = f"tcp://{feagi_host}:{agent_settings["agent_data_port"]}"
+    # todo: to obtain this info directly from FEAGI as part of registration
+    # ipu_channel_address = feagi.feagi_inbound(agent_settings["agent_data_port"])
+    ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
+    print("IPU_channel_address=", ipu_channel_address)
     opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
+
     feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=True)
     feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
+    # FEAGI section ends
 
-    current_cortical_area = feagi_init(feagi_host=feagi_host, api_port=api_port)
+    # current_cortical_area = feagi_init(feagi_host=feagi_host, api_port=api_port)
+    bgsk = threading.Thread(target=websocket_operation, daemon=True).start()
     print("FEAGI initialization completed successfully")
     godot_list = {}  # initialized the list from Godot
     detect_lag = False
