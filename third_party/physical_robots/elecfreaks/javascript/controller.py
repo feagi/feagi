@@ -24,6 +24,7 @@ from configuration import *
 from feagi_agent import feagi_interface as feagi
 
 ws = deque()
+previous_data = ""
 
 
 async def echo(websocket):
@@ -32,6 +33,7 @@ async def echo(websocket):
     and sends the data from FEAGI to the connected websockets.
     """
     async for message in websocket:
+        # print("message: ", message)
         ir0, ir1 = False, False
         if message[0] == 'f':
             ir0 = 0
@@ -61,6 +63,7 @@ async def echo(websocket):
                 stored_value = ws[len(ws) - 1]
                 ws.clear()
                 ws[0] = stored_value
+            print("SENDING: ", str(ws[0]))
             await websocket.send(str(ws[0]))
             ws.pop()
         except Exception as error:
@@ -91,37 +94,34 @@ if __name__ == "__main__":
                     "stimulation_period": None, "feagi_state": None,
                     "feagi_network": None}
 
-    # FEAGI section start
+    feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
+    print("FEAGI AUTH URL ------- ", feagi_auth_url)
+
+    # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # - - - - - - - - - - - - - - - - - - #
     print("Connecting to FEAGI resources...")
-
-    feagi_host, api_port, app_data_port = \
-        feagi.feagi_setting_for_registration(feagi_settings, agent_settings)
-
-    print(feagi_host, api_port, app_data_port)
-
-    # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_opu_port']
-
-    api_address = 'http://' + feagi_host + ':' + api_port
-
-    stimulation_period_endpoint = feagi.feagi_api_burst_engine()
-    burst_counter_endpoint = feagi.feagi_api_burst_counter()
-    print("^ ^ ^")
-    runtime_data["feagi_state"] = feagi.feagi_registration(feagi_host=feagi_host,
-                                                           api_port=api_port,
+    runtime_data["feagi_state"] = feagi.feagi_registration(feagi_auth_url=feagi_auth_url,
+                                                           feagi_settings=feagi_settings,
                                                            agent_settings=agent_settings,
                                                            capabilities=capabilities)
+    api_address = runtime_data['feagi_state']["feagi_url"]
+    stimulation_period_endpoint = feagi.feagi_api_burst_engine()
+    burst_counter_endpoint = feagi.feagi_api_burst_counter()
 
+    agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
     print("** **", runtime_data["feagi_state"])
     feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
 
-    # ipu_channel_address = feagi.feagi_inbound(agent_settings["agent_data_port"])
-    ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
-                                               agent_settings["agent_data_port"])
+    # todo: to obtain this info directly from FEAGI as part of registration
+    ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
     print("IPU_channel_address=", ipu_channel_address)
     opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
+
     feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=False)
     feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # - - - #
 
     msg_counter = runtime_data["feagi_state"]['burst_counter']
     CHECKPOINT_TOTAL = 5
@@ -133,24 +133,37 @@ if __name__ == "__main__":
     while True:
         WS_STRING = ""
         message_from_feagi = feagi_opu_channel.receive()  # Get data from FEAGI
+
         # OPU section STARTS
         if message_from_feagi is not None:
             opu_data = feagi.opu_processor(message_from_feagi)
-            if 'motor' in opu_data:
-                for data_point in opu_data['motor']:
-                    if data_point == 0:
-                        WS_STRING = "f"
-                    elif data_point == 1:
-                        WS_STRING = "b"
-                    elif data_point == 2:
-                        WS_STRING = "r"
-                    elif data_point == 3:
-                        WS_STRING = "l"
-                    else:
-                        WS_STRING = "s"  # Skip
-                    WS_STRING = WS_STRING + str(opu_data['motor'][data_point] * 10)
-            if WS_STRING != "":
+            WS_STRING = ""
+            for data_point in opu_data['motor']:
+                # print("mot: ", opu_data['motor'], " len: ", len(opu_data['motor']))
+                if data_point == 0:
+                    WS_STRING += "0"
+                elif data_point == 1:
+                    WS_STRING += "1"
+                elif data_point == 2:
+                    WS_STRING += "2"
+                elif data_point == 3:
+                    WS_STRING += "3"
+                WS_STRING += str(opu_data['motor'][data_point] * 10).zfill(2)
+            # Add additional zeros if '2' is not present in opu_data['motor']
+            if len(opu_data['motor']) < 2:
+                WS_STRING += "000"
+            if WS_STRING != "" and WS_STRING != "000":
                 ws.append(WS_STRING + '#')
+            # stringarray = ""
+            # if 'misc' in opu_data:
+            #     for i in range(8): # Hardcoded. Needs to update in config to make it scalable.
+            #         if i in opu_data['misc']:
+            #             stringarray += '1'
+            #         else:
+            #             stringarray += '0'
+            #     ws.append(stringarray + "#")
+            #     print("stringarray: ", stringarray)
+
             if FLAG:
                 FLAG = False
                 ws.append("f#")
