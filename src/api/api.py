@@ -1464,12 +1464,30 @@ async def gazebo_robot_default_files(response: Response):
 # ######  Connectome Endpoints #########
 # ######################################
 
-@app.api_route("/v1/feagi/connectome/cortical_areas", methods=['GET'], tags=["Connectome"])
-async def connectome_cortical_areas(response: Response):
+@app.api_route("/v1/feagi/connectome/cortical_areas/list/summary", methods=['GET'], tags=["Connectome"])
+async def connectome_cortical_areas_summary(response: Response):
     try:
         cortical_list = set()
         for cortical_area in runtime_data.brain:
             cortical_list.add(cortical_area)
+        response.status_code = status.HTTP_200_OK
+        return cortical_list
+
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/connectome/cortical_areas/list/detailed", methods=['GET'], tags=["Connectome"])
+async def connectome_cortical_areas(response: Response):
+    try:
+        cortical_list = dict()
+        for cortical_area in runtime_data.brain:
+            cortical_list[cortical_area] = {}
+            cortical_list[cortical_area]["name"] = runtime_data.genome["blueprint"][cortical_area]["cortical_name"]
+            cortical_list[cortical_area]["type"] = runtime_data.genome["blueprint"][cortical_area]["group_id"]
+            cortical_list[cortical_area]["position"] = []
+
         response.status_code = status.HTTP_200_OK
         return cortical_list
 
