@@ -397,7 +397,6 @@ class Ultrasonic:
 #         # print(Power)
 #         return Power
 
-
 def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_to_feagi, args):
     GPIO.cleanup()
     # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

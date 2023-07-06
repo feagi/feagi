@@ -33,7 +33,6 @@ if __name__ == '__main__':
     if args['api_port']:
         feagi_settings["feagi_api_port"] = args['api_port']
     from feagi_agent_freenove import controller as freenove_smartcar_controller
-
     feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
     print("FEAGI AUTH URL ------- ", feagi_auth_url)
     while True:
