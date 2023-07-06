@@ -168,6 +168,7 @@ class UpdateCorticalProperties(BaseModel):
     cortical_neuron_per_vox_count: Optional[int]
     cortical_visibility: Optional[bool]
     cortical_coordinates: Optional[list]
+    cortical_coordinates_2d: Optional[list]
     cortical_dimensions: Optional[list]
     cortical_synaptic_attractivity: Optional[int]
     neuron_post_synaptic_potential: Optional[float]
@@ -480,6 +481,10 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                     cortical_data["relative_coordinate"][0],
                     cortical_data["relative_coordinate"][1],
                     cortical_data["relative_coordinate"][2]
+                ],
+                "cortical_coordinates_2d": [
+                    cortical_data["2d_coordinate"][0],
+                    cortical_data["2d_coordinate"][1]
                 ],
                 "cortical_dimensions": [
                     cortical_data["block_boundaries"][0],
