@@ -1853,8 +1853,9 @@ def assign_available_port():
 
 
 @app.api_route("/v1/agent/register", methods=['POST'], tags=["Peripheral Nervous System"])
-async def agent_registration(request: Request, agent_type: str, agent_id: str, agent_ip: str,
-                             agent_data_port: int, response: Response):
+async def agent_registration(request: Request, agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int,
+                             response: Response):
+
     try:
         if agent_id in runtime_data.agent_registry:
             agent_info = runtime_data.agent_registry[agent_id]
