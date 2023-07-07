@@ -191,17 +191,3 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
             rgb['camera'][i].clear()
     win.close()
     core.quit()
-
-
-
-if __name__=='__main__':
-    from configuration import feagi_settings, agent_settings, capabilities, message_to_feagi
-    feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
-    print("FEAGI AUTH URL ------- ", feagi_auth_url)
-    while True:
-        try:
-            main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_to_feagi)
-        except Exception as e:
-            print(f"Controller run failed", e)
-            traceback.print_exc()
-            sleep(2)
