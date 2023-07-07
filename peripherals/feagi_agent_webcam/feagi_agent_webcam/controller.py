@@ -66,7 +66,8 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     print("message: ", message_to_feagi)
     # Generate runtime dictionary
     previous_data_frame = dict()
-    runtime_data = {"cortical_data": {}, "current_burst_id": None, "stimulation_period": None, "feagi_state": None,
+    runtime_data = {"cortical_data": {}, "current_burst_id": None, "stimulation_period": None,
+                    "feagi_state": None,
                     "feagi_network": None}
 
     # FEAGI section start

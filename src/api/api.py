@@ -54,9 +54,8 @@ from inf.initialize import deploy_genome
 logger = logging.getLogger(__name__)
 
 
-description = """
-FEAGI REST API will help you integrate FEAGI into other applications and provides a programmatic method to interact with 
-FEAGI.
+description = """FEAGI REST API will help you integrate FEAGI into other applications and 
+provides a programmatic method to interact with FEAGI. 
 
 """
 
@@ -169,6 +168,7 @@ class UpdateCorticalProperties(BaseModel):
     cortical_neuron_per_vox_count: Optional[int]
     cortical_visibility: Optional[bool]
     cortical_coordinates: Optional[list]
+    cortical_coordinates_2d: Optional[list]
     cortical_dimensions: Optional[list]
     cortical_synaptic_attractivity: Optional[int]
     neuron_post_synaptic_potential: Optional[float]
@@ -481,6 +481,10 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                     cortical_data["relative_coordinate"][0],
                     cortical_data["relative_coordinate"][1],
                     cortical_data["relative_coordinate"][2]
+                ],
+                "cortical_coordinates_2d": [
+                    cortical_data["2d_coordinate"][0],
+                    cortical_data["2d_coordinate"][1]
                 ],
                 "cortical_dimensions": [
                     cortical_data["block_boundaries"][0],
@@ -1465,12 +1469,30 @@ async def gazebo_robot_default_files(response: Response):
 # ######  Connectome Endpoints #########
 # ######################################
 
-@app.api_route("/v1/feagi/connectome/cortical_areas", methods=['GET'], tags=["Connectome"])
-async def connectome_cortical_areas(response: Response):
+@app.api_route("/v1/feagi/connectome/cortical_areas/list/summary", methods=['GET'], tags=["Connectome"])
+async def connectome_cortical_areas_summary(response: Response):
     try:
         cortical_list = set()
         for cortical_area in runtime_data.brain:
             cortical_list.add(cortical_area)
+        response.status_code = status.HTTP_200_OK
+        return cortical_list
+
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/connectome/cortical_areas/list/detailed", methods=['GET'], tags=["Connectome"])
+async def connectome_cortical_areas(response: Response):
+    try:
+        cortical_list = dict()
+        for cortical_area in runtime_data.brain:
+            cortical_list[cortical_area] = {}
+            cortical_list[cortical_area]["name"] = runtime_data.genome["blueprint"][cortical_area]["cortical_name"]
+            cortical_list[cortical_area]["type"] = runtime_data.genome["blueprint"][cortical_area]["group_id"]
+            cortical_list[cortical_area]["position"] = []
+
         response.status_code = status.HTTP_200_OK
         return cortical_list
 
@@ -1833,6 +1855,7 @@ def assign_available_port():
 @app.api_route("/v1/agent/register", methods=['POST'], tags=["Peripheral Nervous System"])
 async def agent_registration(request: Request, agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int,
                              response: Response):
+
     try:
         if agent_id in runtime_data.agent_registry:
             agent_info = runtime_data.agent_registry[agent_id]
