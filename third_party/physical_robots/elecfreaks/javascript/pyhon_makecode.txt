@@ -33,9 +33,10 @@ L_flag = ""
 timer = 0
 power = 0
 direction = ""
-sound = ""
-negative_data = ""
+keyboard.start_keyboard_service()
 feagi_string = ""
+negative_data = ""
+sound = ""
 bluetooth.start_uart_service()
 basic.show_string("1")
 
@@ -75,3 +76,4 @@ def on_forever():
         ultrasonic_data = 0
     bluetooth.uart_write_string("" + L_flag + R_flag + acc_x + acc_y + acc_z + ("" + str(ultrasonic_data)) + sound_level)
 basic.forever(on_forever)
+    
