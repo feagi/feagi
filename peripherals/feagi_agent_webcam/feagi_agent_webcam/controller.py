@@ -6,12 +6,14 @@ Demo of dot kinematogram
 """
 
 import sys
+sys.path.append('../../feagi_agent_core/')
 import cv2
 import requests
 from time import sleep
 from datetime import datetime
 from feagi_agent import retina as retina
 from feagi_agent import feagi_interface as feagi
+import traceback
 
 
 def chroma_keyer(frame, size, name_id):
@@ -57,41 +59,34 @@ def chroma_keyer(frame, size, name_id):
         return {'camera': {name_id: vision_dict}}
 
 
-def main(feagi_settings, agent_settings, capabilities, message_to_feagi):
+def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_to_feagi):
     print("feagi setting: ", feagi_settings)
     print("agent setting: ", agent_settings)
     print("capa: ", capabilities)
     print("message: ", message_to_feagi)
     # Generate runtime dictionary
     previous_data_frame = dict()
-    runtime_data = {"cortical_data": {}, "current_burst_id": None, "stimulation_period": None, "feagi_state": None,
+    runtime_data = {"cortical_data": {}, "current_burst_id": None, "stimulation_period": None,
+                    "feagi_state": None,
                     "feagi_network": None}
 
     # FEAGI section start
     print("Connecting to FEAGI resources...")
-
-    feagi_host, api_port, app_data_port = feagi.feagi_setting_for_registration(feagi_settings, agent_settings)
-
-    print(feagi_host, api_port, app_data_port)
-
-    # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_opu_port']
-
-    api_address = 'http://' + feagi_host + ':' + api_port
+    runtime_data["feagi_state"] = feagi.feagi_registration(feagi_auth_url=feagi_auth_url, 
+            feagi_settings=feagi_settings, agent_settings=agent_settings, capabilities=capabilities)
+    api_address = runtime_data['feagi_state']["feagi_url"]
 
     stimulation_period_endpoint = feagi.feagi_api_burst_engine()
     burst_counter_endpoint = feagi.feagi_api_burst_counter()
-    print("^ ^ ^")
-    runtime_data["feagi_state"] = feagi.feagi_registration(feagi_host=feagi_host,
-                                                           api_port=api_port, agent_settings=agent_settings,
-                                                           capabilities=capabilities)
-
+    
+    # agent_data_port = agent_settings["agent_data_port"]
+    agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
     print("** **", runtime_data["feagi_state"])
     feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
 
     # todo: to obtain this info directly from FEAGI as part of registration
     # ipu_channel_address = feagi.feagi_inbound(agent_settings["agent_data_port"])
-    ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
-                                               agent_settings["agent_data_port"])
+    ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
     print("IPU_channel_address=", ipu_channel_address)
     opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
@@ -187,7 +182,7 @@ def main(feagi_settings, agent_settings, capabilities, message_to_feagi):
                 msg_counter = feagi_burst_counter
         sleep(feagi_settings['feagi_burst_speed'])
         try:
-            print(len(message_to_feagi['data']['sensory_data']['camera']['C']))
+            print("Len --", len(message_to_feagi['data']['sensory_data']['camera']['C']))
         except:
             pass
         feagi_ipu_channel.send(message_to_feagi)

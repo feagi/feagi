@@ -28,5 +28,17 @@ if __name__ == '__main__':
         capabilities["camera"]["video_device_index"] = args['video']
     if args['port']:
         feagi_settings["feagi_api_port"] = args['port']
-    from feagi_agent_webcam import controller as webcam_controller
-    webcam_controller.main(feagi_settings, agent_settings, capabilities, message_to_feagi)
+    if __name__ == '__main__':
+        from feagi_agent_webcam import controller as webcam_controller
+
+        feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
+        print("FEAGI AUTH URL ------- ", feagi_auth_url)
+        while True:
+            try:
+                webcam_controller.main(feagi_auth_url, feagi_settings, agent_settings,
+                                       capabilities,
+                      message_to_feagi)
+            except Exception as e:
+                print(f"Controller run failed", e)
+                traceback.print_exc()
+                sleep(2)
