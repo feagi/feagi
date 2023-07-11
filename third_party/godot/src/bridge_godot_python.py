@@ -387,11 +387,12 @@ if __name__ == "__main__":
 
     # todo: to obtain this info directly from FEAGI as part of registration
     # ipu_channel_address = feagi.feagi_inbound(agent_settings["agent_data_port"])
-    ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
+    # ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
+    ipu_channel_address = "tcp://*:" + agent_data_port
     print("IPU_channel_address=", ipu_channel_address)
+    print("ipu: ", ipu_channel_address)
     opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
-
     feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=True)
     feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
     # FEAGI section ends
