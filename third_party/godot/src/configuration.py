@@ -8,12 +8,12 @@ feagi_settings = {
     # "feagi_auth_url": "http://127.0.0.1:9000/v1/k8/feagi_settings/auth_token",
     "feagi_url": None,
     "feagi_dns": None,
-    "feagi_host": "127.0.0.1",
-    "feagi_api_port": "8000",
+    "feagi_host": os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"),
+    "feagi_api_port": os.environ.get('FEAGI_API_PORT', "8000"),
 }
 
 agent_settings = {
-    "agent_data_port": "10000",
+    "agent_data_port": "30000",
     "agent_id": "godot",
     "agent_type": "monitor",
     'TTL': 2,
