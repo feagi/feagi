@@ -99,35 +99,32 @@ if __name__ == "__main__":
 
     # FEAGI section start
     print("Connecting to FEAGI resources...")
-
-    feagi_host, api_port, app_data_port = \
-        feagi.feagi_setting_for_registration(feagi_settings, agent_settings)
-
-    print(feagi_host, api_port, app_data_port)
-
-    # address = 'tcp://' + network_settings['feagi_host'] + ':' + network_settings['feagi_opu_port']
-
-    api_address = 'http://' + feagi_host + ':' + api_port
+    feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
+    print("FEAGI AUTH URL ------- ", feagi_auth_url)
+    runtime_data["feagi_state"] = feagi.feagi_registration(feagi_auth_url=feagi_auth_url,
+                                                           feagi_settings=feagi_settings,
+                                                           agent_settings=agent_settings,
+                                                           capabilities=capabilities)
+    api_address = runtime_data['feagi_state']["feagi_url"]
 
     stimulation_period_endpoint = feagi.feagi_api_burst_engine()
     burst_counter_endpoint = feagi.feagi_api_burst_counter()
-    print("^ ^ ^")
-    runtime_data["feagi_state"] = feagi.feagi_registration(feagi_host=feagi_host,
-                                                           api_port=api_port,
-                                                           agent_settings=agent_settings,
-                                                           capabilities=capabilities)
 
+    # agent_data_port = agent_settings["agent_data_port"]
+    agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
     print("** **", runtime_data["feagi_state"])
     feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
 
+    # todo: to obtain this info directly from FEAGI as part of registration
     # ipu_channel_address = feagi.feagi_inbound(agent_settings["agent_data_port"])
-    ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
-                                               agent_settings["agent_data_port"])
+    ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
     print("IPU_channel_address=", ipu_channel_address)
     opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
+
     feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=False)
     feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
+
 
     previous_frame_data = {}
     msg_counter = runtime_data["feagi_state"]['burst_counter']
