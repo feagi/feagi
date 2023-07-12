@@ -140,12 +140,12 @@ def feagi_settings_from_composer(feagi_auth_url, feagi_settings):
     """
     if feagi_auth_url is not None:
         print(f"Updating feagi settings using feagi_auth_url: {feagi_auth_url}")
-        new_settings = requests.get(feagi_auth_url).json()     
+        new_settings = requests.get(feagi_auth_url).json()
         # update feagi settings here
         feagi_settings['feagi_dns'] = new_settings['feagi_dns']
         feagi_settings['feagi_host'] = new_settings['feagi_host']
-        feagi_settings['feagi_api_port'] = new_settings['feagi_api_port']  
-        print(f"New Settings ---- {new_settings}")  
+        feagi_settings['feagi_api_port'] = new_settings['feagi_api_port']
+        print(f"New Settings ---- {new_settings}")
     else:
         print(f"Missing feagi_auth_url, using default feagi settings")
 
