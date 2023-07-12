@@ -6,6 +6,7 @@ Demo of dot kinematogram
 """
 
 import sys
+
 sys.path.append('../../feagi_agent_core/')
 import cv2
 import requests
@@ -39,9 +40,11 @@ def chroma_keyer(frame, size, name_id):
             # resolution setting
             for index in range(frame_len):
                 if frame[index] != 128:
-                    dict_key = str(y_vision) + '-' + str(abs((frame_row_count - 1) - x_vision)) + '-' + str(
+                    dict_key = str(y_vision) + '-' + str(
+                        abs((frame_row_count - 1) - x_vision)) + '-' + str(
                         0)
-                    vision_dict[dict_key] = frame[index]  # save the value for the changed index to the dict
+                    vision_dict[dict_key] = frame[
+                        index]  # save the value for the changed index to the dict
                 z_vision += 1
                 if z_vision == 3:
                     z_vision = 0
@@ -60,25 +63,37 @@ def chroma_keyer(frame, size, name_id):
 
 
 def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_to_feagi):
-    print("feagi setting: ", feagi_settings)
-    print("agent setting: ", agent_settings)
-    print("capa: ", capabilities)
-    print("message: ", message_to_feagi)
     # Generate runtime dictionary
     previous_data_frame = dict()
     runtime_data = {"cortical_data": {}, "current_burst_id": None, "stimulation_period": None,
                     "feagi_state": None,
                     "feagi_network": None}
+    print("feagi url: ", feagi_auth_url)
+    print("feagi setting: ", feagi_settings)
+    print("agent setting: ", agent_settings)
+    print("capa: ", capabilities)
+    print("message: ", message_to_feagi)
+    print("state: ", runtime_data["feagi_state"])
+    print("run: ", runtime_data)
+    feagi_flag = False
+    while not feagi_flag:
+        feagi_flag = feagi.is_FEAGI_reachable(feagi_settings["feagi_host"], 3000)
+        sleep(2)
+        print("retrying...")
+    stimulation_period_endpoint = feagi.feagi_api_burst_engine()
+    burst_counter_endpoint = feagi.feagi_api_burst_counter()
+    print("ENDPOINT: ", requests.get("http://127.0.0.1:8000" + stimulation_period_endpoint).json())
+
 
     # FEAGI section start
     print("Connecting to FEAGI resources...")
-    runtime_data["feagi_state"] = feagi.feagi_registration(feagi_auth_url=feagi_auth_url, 
-            feagi_settings=feagi_settings, agent_settings=agent_settings, capabilities=capabilities)
+    runtime_data["feagi_state"] = feagi.feagi_registration(feagi_auth_url=feagi_auth_url,
+                                                           feagi_settings=feagi_settings,
+                                                           agent_settings=agent_settings,
+                                                           capabilities=capabilities)
+    print("FEAGI REGISTERED!")
     api_address = runtime_data['feagi_state']["feagi_url"]
 
-    stimulation_period_endpoint = feagi.feagi_api_burst_engine()
-    burst_counter_endpoint = feagi.feagi_api_burst_counter()
-    
     # agent_data_port = agent_settings["agent_data_port"]
     agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
     print("** **", runtime_data["feagi_state"])
@@ -104,6 +119,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     cam = cv2.VideoCapture(capabilities['camera']['video_device_index'])
 
     while True:
+        print("true")
         message_from_feagi = feagi_opu_channel.receive()
         check, pixels = cam.read()
         if bool(capabilities["camera"]["video_loop"]):
@@ -117,7 +133,8 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
         for i in retina_data:
             if 'C' in i:
                 retina_data[i] = retina.center_data_compression(retina_data[i],
-                                                                capabilities['camera']["central_vision_compression"]
+                                                                capabilities['camera'][
+                                                                    "central_vision_compression"]
                                                                 )
             else:
                 retina_data[i] = retina.center_data_compression(retina_data[i],
@@ -135,21 +152,27 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 if 'C' in i:
                     previous_name = str(i) + "_prev"
                     rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
-                                                                                  capabilities['camera'][
+                                                                                  capabilities[
+                                                                                      'camera'][
                                                                                       'central_vision_compression'],
-                                                                                  previous_data_frame[previous_name],
+                                                                                  previous_data_frame[
+                                                                                      previous_name],
                                                                                   name,
                                                                                   capabilities[
-                                                                                      'camera']['deviation_threshold'])
+                                                                                      'camera'][
+                                                                                      'deviation_threshold'])
                 else:
                     previous_name = str(i) + "_prev"
                     rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
-                                                                                  capabilities['camera'][
+                                                                                  capabilities[
+                                                                                      'camera'][
                                                                                       'peripheral_vision_compression'],
-                                                                                  previous_data_frame[previous_name],
+                                                                                  previous_data_frame[
+                                                                                      previous_name],
                                                                                   name,
                                                                                   capabilities[
-                                                                                      'camera']['deviation_threshold'])
+                                                                                      'camera'][
+                                                                                      'deviation_threshold'])
                 for a in rgb_data['camera']:
                     rgb['camera'][a] = rgb_data['camera'][a]
         try:
