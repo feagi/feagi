@@ -13,36 +13,6 @@ def sub_initializer(opu_address, flags=router.zmq.NOBLOCK):
     return router.Sub(address=opu_address, flags=flags)
 
 
-# def feagi_registration(feagi_host, api_port, agent_settings, capabilities):
-#     host_info = router.app_host_info()
-#     runtime_data = {
-#         "host_network": {},
-#         "feagi_state": None
-#     }
-#     runtime_data["host_network"]["host_name"] = host_info["host_name"]
-#     runtime_data["host_network"]["ip_address"] = host_info["ip_address"]
-
-#     while runtime_data["feagi_state"] is None:
-#         print("\nAwaiting registration with FEAGI...")
-#         print("feagi_host:", feagi_host,
-#               "\tapi_port:", api_port,
-#               "\nagent_settings:", agent_settings)
-#         try:
-#             runtime_data["feagi_state"] = \
-#                 router.register_with_feagi(feagi_ip=feagi_host,
-#                                            feagi_api_port=api_port,
-#                                            agent_type=agent_settings['agent_type'],
-#                                            agent_id=agent_settings['agent_id'],
-#                                            agent_ip=runtime_data["host_network"]["ip_address"],
-#                                            agent_data_port=agent_settings['agent_data_port'],
-#                                            agent_capabilities=capabilities)
-#         except Exception as e:
-#             print("ERROR__: ", e, traceback.print_exc())
-#             pass
-#         sleep(1)
-#     return runtime_data["feagi_state"]
-
-
 def feagi_registration(feagi_auth_url, feagi_settings, agent_settings, capabilities):
     host_info = router.app_host_info()
     runtime_data = {
@@ -74,11 +44,8 @@ def block_to_array(block_ref):
 
 def is_FEAGI_reachable(server_host, server_port):
     try:
-        # Create a socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # Set a timeout for the connection attempt
         sock.settimeout(3)
-        # Attempt to connect to the server
         sock.connect((server_host, server_port))
         return True
     except Exception as e:
