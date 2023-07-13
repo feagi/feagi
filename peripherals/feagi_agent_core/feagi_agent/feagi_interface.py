@@ -80,10 +80,8 @@ def is_FEAGI_reachable(server_host, server_port):
         sock.settimeout(3)
         # Attempt to connect to the server
         sock.connect((server_host, server_port))
-        print("TRUE!!!")
         return True
     except Exception as e:
-        print("FALSE!!! ERROR: ", e)
         return False
 
 
