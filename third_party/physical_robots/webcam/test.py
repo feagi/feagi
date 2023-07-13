@@ -101,7 +101,9 @@ if __name__ == "__main__":
         feagi_flag = False
         print("Waiting on FEAGI...")
         while not feagi_flag:
-            feagi_flag = feagi.is_FEAGI_reachable(feagi_settings["feagi_host"], 3000)
+            feagi_flag = feagi.is_FEAGI_reachable(os.environ.get('FEAGI_HOST_INTERNAL',
+                                                                 "127.0.0.1"), int(os.environ.get(
+                'FEAGI_OPU_PORT', "3000")))
             sleep(2)
         print("DONE")
         previous_data_frame = {}
@@ -162,18 +164,21 @@ if __name__ == "__main__":
                     new_rgb = rgba2rgb(new_rgb)
                     retina_data = retina.frame_split(new_rgb,
                                                      capabilities['camera']['retina_width_percent'],
-                                                     capabilities['camera']['retina_height_percent'])
+                                                     capabilities['camera'][
+                                                         'retina_height_percent'])
                     for i in retina_data:
                         if 'C' in i:
                             retina_data[i] = retina.center_data_compression(retina_data[i],
                                                                             capabilities['camera']
-                                                                            ["central_vision_compression"]
+                                                                            [
+                                                                                "central_vision_compression"]
                                                                             )
                         else:
                             retina_data[i] = retina.center_data_compression(retina_data[i],
                                                                             capabilities['camera']
-                                                                            ['peripheral_vision_compression'
-                                                                             ''])
+                                                                            [
+                                                                                'peripheral_vision_compression'
+                                                                                ''])
                     if not previous_data_frame:
                         for i in retina_data:
                             PREVIOUS_NAME = str(i) + "_prev"
