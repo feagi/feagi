@@ -399,6 +399,16 @@ class Ultrasonic:
 
 def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_to_feagi, args):
     GPIO.cleanup()
+    # # FEAGI REACHABLE CHECKER # #
+    feagi_flag = False
+    print("retrying...")
+    print("Waiting on FEAGI...")
+    while not feagi_flag:
+        feagi_flag = FEAGI.is_FEAGI_reachable(feagi_settings["feagi_host"], 3000)
+        sleep(2)
+
+    # # FEAGI REACHABLE CHECKER COMPLETED # #
+
     # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # - - - - - - - - - - - - - - - - - - #
     print("Connecting to FEAGI resources...")
@@ -419,14 +429,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     # todo: to obtain this info directly from FEAGI as part of registration
     # ipu_channel_address = FEAGI.feagi_inbound(agent_settings["agent_data_port"])
     ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
-    # if args['http_type']:
-    #     http = args['http_type']
-    # else:
-    #     http = 'http://'
-    # if args['port_disabled'] == 'true':
-    #     api_address = http + feagi_host
-    # else:
-    #     api_address = http + feagi_host + ':' + api_port
+
     print("IPU_channel_address=", ipu_channel_address)
     opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
@@ -599,5 +602,14 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                     motor.move(id, motor_power)
         except KeyboardInterrupt as ke:  # Keyboard error
             motor.stop()
+            camera.stop_preview()
+            camera.close()
             keyboard_flag = False
-            print(ke)
+            print("ke: ", ke)
+            break
+        except Exception as e:
+            print("ERROR: ", e)
+            motor.stop()
+            camera.stop_preview()
+            camera.close()
+            break
