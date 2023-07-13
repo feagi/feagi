@@ -89,144 +89,148 @@ def websocket_operation():
 
 
 if __name__ == "__main__":
-    previous_data_frame = {}
-    runtime_data = {"cortical_data": {}, "current_burst_id": None,
-                    "stimulation_period": None, "feagi_state": None,
-                    "feagi_network": None}
-
-    feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
-    print("FEAGI AUTH URL ------- ", feagi_auth_url)
-
-    # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # - - - - - - - - - - - - - - - - - - #
-    print("Connecting to FEAGI resources...")
-    runtime_data["feagi_state"] = feagi.feagi_registration(feagi_auth_url=feagi_auth_url,
-                                                           feagi_settings=feagi_settings,
-                                                           agent_settings=agent_settings,
-                                                           capabilities=capabilities)
-    api_address = runtime_data['feagi_state']["feagi_url"]
-    stimulation_period_endpoint = feagi.feagi_api_burst_engine()
-    burst_counter_endpoint = feagi.feagi_api_burst_counter()
-
-    agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
-    print("** **", runtime_data["feagi_state"])
-    feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
-
-    # todo: to obtain this info directly from FEAGI as part of registration
-    ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
-    print("IPU_channel_address=", ipu_channel_address)
-    opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
-                                               runtime_data["feagi_state"]['feagi_opu_port'])
-
-    feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=False)
-    feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # - - - #
-
-    msg_counter = runtime_data["feagi_state"]['burst_counter']
     CHECKPOINT_TOTAL = 5
     FLAG_COUNTER = 0
     microbit_data = {'ir': [], 'ultrasonic': {}, 'acc': {}, 'sound_level': {}}
-    runtime_data['accelerator'] = {}
     BGSK = threading.Thread(target=websocket_operation, daemon=True).start()
     FLAG = True
     while True:
-        WS_STRING = ""
-        message_from_feagi = feagi_opu_channel.receive()  # Get data from FEAGI
+        feagi_flag = False
+        print("Waiting on FEAGI...")
+        while not feagi_flag:
+            feagi_flag = feagi.is_FEAGI_reachable(
+                os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"),
+                int(os.environ.get('FEAGI_OPU_PORT', "3000"))
+            )
+            sleep(2)
+        previous_data_frame = {}
+        runtime_data = {"cortical_data": {}, "current_burst_id": None,
+                        "stimulation_period": None, "feagi_state": None,
+                        "feagi_network": None}
 
-        # OPU section STARTS
-        if message_from_feagi is not None:
-            opu_data = feagi.opu_processor(message_from_feagi)
-            WS_STRING = ""
-            for data_point in opu_data['motor']:
-                # print("mot: ", opu_data['motor'], " len: ", len(opu_data['motor']))
-                if data_point == 0:
-                    WS_STRING += "0"
-                elif data_point == 1:
-                    WS_STRING += "1"
-                elif data_point == 2:
-                    WS_STRING += "2"
-                elif data_point == 3:
-                    WS_STRING += "3"
-                WS_STRING += str(opu_data['motor'][data_point] * 10).zfill(2)
-            # Add additional zeros if '2' is not present in opu_data['motor']
-            if len(opu_data['motor']) < 2:
-                WS_STRING += "000"
-            if WS_STRING != "" and WS_STRING != "000":
-                ws.append(WS_STRING + '#')
-            # stringarray = ""
-            # if 'misc' in opu_data:
-            #     for i in range(8): # Hardcoded. Needs to update in config to make it scalable.
-            #         if i in opu_data['misc']:
-            #             stringarray += '1'
-            #         else:
-            #             stringarray += '0'
-            #     ws.append(stringarray + "#")
-            #     print("stringarray: ", stringarray)
+        feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
+        print("FEAGI AUTH URL ------- ", feagi_auth_url)
 
-            if FLAG:
-                FLAG = False
-                ws.append("f#")
-        # OPU section ENDS
+        # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        # - - - - - - - - - - - - - - - - - - #
+        print("Connecting to FEAGI resources...")
+        runtime_data["feagi_state"] = feagi.feagi_registration(feagi_auth_url=feagi_auth_url,
+                                                               feagi_settings=feagi_settings,
+                                                               agent_settings=agent_settings,
+                                                               capabilities=capabilities)
+        api_address = runtime_data['feagi_state']["feagi_url"]
+        stimulation_period_endpoint = feagi.feagi_api_burst_engine()
+        burst_counter_endpoint = feagi.feagi_api_burst_counter()
 
-        if microbit_data['ir']:
-            ir_data = {0: bool(microbit_data['ir'][0]), 1: bool(microbit_data['ir'][1])}
-            formatted_ir_data = {'ir': dict.fromkeys(ir_data.keys(), 1)}
-            formatted_ir_data['ir'].update(ir_data)  # Should work
-        else:
-            formatted_ir_data = {}
-        ultrasonic_data = microbit_data['ultrasonic']
-        if ultrasonic_data:
-            formatted_ultrasonic_data = {
-                'ultrasonic': {
-                    sensor: data for sensor, data in enumerate([ultrasonic_data])
-                }
-            }
-        else:
-            formatted_ultrasonic_data = {}
-        message_to_feagi, battery = feagi.compose_message_to_feagi(
-            original_message={**formatted_ir_data, **formatted_ultrasonic_data})
+        agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
+        print("** **", runtime_data["feagi_state"])
+        feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
 
-        # Add accelerator section
-        try:
-            runtime_data['accelerator']['0'] = microbit_data['accelerator'][0]
-            runtime_data['accelerator']['1'] = microbit_data['accelerator'][1]
-            runtime_data['accelerator']['2'] = microbit_data['accelerator'][2]
-            if "data" not in message_to_feagi:
-                message_to_feagi["data"] = {}
-            if "sensory_data" not in message_to_feagi["data"]:
-                message_to_feagi["data"]["sensory_data"] = {}
-            message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data['accelerator']
-        except Exception as ERROR:
-            message_to_feagi["data"]["sensory_data"]['accelerator'] = {}
-        # End accelerator section
+        # todo: to obtain this info directly from FEAGI as part of registration
+        ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
+        print("IPU_channel_address=", ipu_channel_address)
+        opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
+                                                   runtime_data["feagi_state"]['feagi_opu_port'])
 
-        message_to_feagi['timestamp'] = datetime.now()
-        message_to_feagi['counter'] = msg_counter
-        msg_counter += 1
-        FLAG_COUNTER += 1
-        if FLAG_COUNTER == int(CHECKPOINT_TOTAL):
-            feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint,
-                                             timeout=5).json()
-            feagi_burst_counter = requests.get(api_address + burst_counter_endpoint,
-                                               timeout=5).json()
-            FLAG_COUNTER = 0
-            if feagi_burst_speed > 1:
-                CHECKPOINT_TOTAL = 5
-            if feagi_burst_speed < 1:
-                CHECKPOINT_TOTAL = 5 / feagi_burst_speed
-            if msg_counter < feagi_burst_counter:
-                feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
-                if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
-                    feagi_settings['feagi_burst_speed'] = feagi_burst_speed
-            if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
-                feagi_settings['feagi_burst_speed'] = feagi_burst_speed
-                msg_counter = feagi_burst_counter
-        sleep(feagi_settings['feagi_burst_speed'])
-        try:
-            pass
-            # print(len(message_to_feagi['data']['sensory_data']['camera']['C']))
-        except Exception as ERROR:
-            pass
-        feagi_ipu_channel.send(message_to_feagi)
-        message_to_feagi.clear()
+        feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=False)
+        feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        # - - - - - #
+        msg_counter = runtime_data["feagi_state"]['burst_counter']
+        runtime_data['accelerator'] = {}
+        while True:
+            try:
+                WS_STRING = ""
+                message_from_feagi = feagi_opu_channel.receive()  # Get data from FEAGI
+
+                # OPU section STARTS
+                if message_from_feagi is not None:
+                    opu_data = feagi.opu_processor(message_from_feagi)
+                    WS_STRING = ""
+                    for data_point in opu_data['motor']:
+                        # print("mot: ", opu_data['motor'], " len: ", len(opu_data['motor']))
+                        if data_point == 0:
+                            WS_STRING += "0"
+                        elif data_point == 1:
+                            WS_STRING += "1"
+                        elif data_point == 2:
+                            WS_STRING += "2"
+                        elif data_point == 3:
+                            WS_STRING += "3"
+                        WS_STRING += str(opu_data['motor'][data_point] * 10).zfill(2)
+                    # Add additional zeros if '2' is not present in opu_data['motor']
+                    if len(opu_data['motor']) < 2:
+                        WS_STRING += "000"
+                    if WS_STRING != "" and WS_STRING != "000":
+                        ws.append(WS_STRING + '#')
+
+                    if FLAG:
+                        FLAG = False
+                        ws.append("f#")
+                # OPU section ENDS
+
+                if microbit_data['ir']:
+                    ir_data = {0: bool(microbit_data['ir'][0]), 1: bool(microbit_data['ir'][1])}
+                    formatted_ir_data = {'ir': dict.fromkeys(ir_data.keys(), 1)}
+                    formatted_ir_data['ir'].update(ir_data)  # Should work
+                else:
+                    formatted_ir_data = {}
+                ultrasonic_data = microbit_data['ultrasonic']
+                if ultrasonic_data:
+                    formatted_ultrasonic_data = {
+                        'ultrasonic': {
+                            sensor: data for sensor, data in enumerate([ultrasonic_data])
+                        }
+                    }
+                else:
+                    formatted_ultrasonic_data = {}
+                message_to_feagi, battery = feagi.compose_message_to_feagi(
+                    original_message={**formatted_ir_data, **formatted_ultrasonic_data})
+
+                # Add accelerator section
+                try:
+                    runtime_data['accelerator']['0'] = microbit_data['accelerator'][0]
+                    runtime_data['accelerator']['1'] = microbit_data['accelerator'][1]
+                    runtime_data['accelerator']['2'] = microbit_data['accelerator'][2]
+                    if "data" not in message_to_feagi:
+                        message_to_feagi["data"] = {}
+                    if "sensory_data" not in message_to_feagi["data"]:
+                        message_to_feagi["data"]["sensory_data"] = {}
+                    message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data[
+                        'accelerator']
+                except Exception as ERROR:
+                    message_to_feagi["data"]["sensory_data"]['accelerator'] = {}
+                # End accelerator section
+
+                message_to_feagi['timestamp'] = datetime.now()
+                message_to_feagi['counter'] = msg_counter
+                msg_counter += 1
+                FLAG_COUNTER += 1
+                if FLAG_COUNTER == int(CHECKPOINT_TOTAL):
+                    feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint,
+                                                     timeout=5).json()
+                    feagi_burst_counter = requests.get(api_address + burst_counter_endpoint,
+                                                       timeout=5).json()
+                    FLAG_COUNTER = 0
+                    if feagi_burst_speed > 1:
+                        CHECKPOINT_TOTAL = 5
+                    if feagi_burst_speed < 1:
+                        CHECKPOINT_TOTAL = 5 / feagi_burst_speed
+                    if msg_counter < feagi_burst_counter:
+                        feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
+                        if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
+                            feagi_settings['feagi_burst_speed'] = feagi_burst_speed
+                    if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
+                        feagi_settings['feagi_burst_speed'] = feagi_burst_speed
+                        msg_counter = feagi_burst_counter
+                sleep(feagi_settings['feagi_burst_speed'])
+                try:
+                    pass
+                    # print(len(message_to_feagi['data']['sensory_data']['camera']['C']))
+                except Exception as ERROR:
+                    pass
+                feagi_ipu_channel.send(message_to_feagi)
+                message_to_feagi.clear()
+            except Exception as e:
+                print("ERROR: ", e)
+                break
