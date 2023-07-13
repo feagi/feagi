@@ -406,8 +406,6 @@ if __name__ == "__main__":
     # ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
     ipu_channel_address = "tcp://*:" + agent_data_port
     print("ipu: ", ipu_channel_address)
-    print("IPU_channel_address=", ipu_channel_address)
-    print("ipu: ", ipu_channel_address)
     opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
     feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=True)
@@ -438,24 +436,21 @@ if __name__ == "__main__":
             detect_lag = False
         one_frame = new_FEAGI_sub.receive()
         if not flag_ZMQ:
-            # print("flag zmw is fake")
             if one_frame is not None:
                 connect_status_counter = 0
             else:
-                print(connect_status_counter)
                 connect_status_counter += 1
-                if connect_status_counter >= 100000:
+                if connect_status_counter >= 600000:
                     if is_tcp_server_reachable(os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"),
                                                int(3000)):
                         connect_status_counter = 0
                     else:
+                        print("reconnecting with FEAGI....")
                         flag_ZMQ = True
                         ipu_channel_address = "tcp://*:" + agent_data_port
-                        # feagi_ipu_channel.__dict__['socket'].unbind(ipu_channel_address)
                         feagi_ipu_channel.__dict__['socket'].close()
                         feagi_ipu_channel.__dict__['context'].term()
                         feagi_ipu_channel = None
-        print(feagi_ipu_channel, " and type: ", type(feagi_ipu_channel))
         if one_frame is not None:
             if flag_ZMQ:
                 # FEAGI section start
@@ -485,9 +480,6 @@ if __name__ == "__main__":
                 # ipu_channel_address = feagi.feagi_inbound(agent_settings["agent_data_port"])
                 # ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
                 ipu_channel_address = "tcp://*:" + agent_data_port
-                print("ipu: ", ipu_channel_address)
-                print("IPU_channel_address=", ipu_channel_address)
-                print("ipu: ", ipu_channel_address)
                 opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
                                                            runtime_data["feagi_state"][
                                                                'feagi_opu_port'])
