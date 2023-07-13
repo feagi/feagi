@@ -34,7 +34,7 @@ import requests
 from datetime import datetime
 from time import sleep
 from npu.physiology import *
-from npu import stimulator, aux
+from npu import stimulator, auxiliary
 from mem.memory import neuroplasticity
 from evo.stats import *
 from evo.death import death_manager
@@ -548,7 +548,7 @@ def burst_manager():
         # print("^^^^^^^^^^ Previous FCL ^^^^^^^^^\n", runtime_data.previous_fcl)
 
         # Placeholder for auxiliary functions
-        aux.aux()
+        auxiliary.aux()
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         if not runtime_data.new_genome and runtime_data.brain_readiness:
