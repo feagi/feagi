@@ -98,7 +98,10 @@ if __name__ == "__main__":
         feagi_flag = False
         print("Waiting on FEAGI...")
         while not feagi_flag:
-            feagi_flag = feagi.is_FEAGI_reachable(feagi_settings["feagi_host"], 3000)
+            feagi_flag = feagi.is_FEAGI_reachable(
+                os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"),
+                int(os.environ.get('FEAGI_OPU_PORT', "3000"))
+            )
             sleep(2)
         previous_data_frame = {}
         runtime_data = {"cortical_data": {}, "current_burst_id": None,
@@ -131,8 +134,8 @@ if __name__ == "__main__":
 
         feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=False)
         feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        # - - - #
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        # - - - - - #
         msg_counter = runtime_data["feagi_state"]['burst_counter']
         runtime_data['accelerator'] = {}
         while True:
@@ -193,7 +196,8 @@ if __name__ == "__main__":
                         message_to_feagi["data"] = {}
                     if "sensory_data" not in message_to_feagi["data"]:
                         message_to_feagi["data"]["sensory_data"] = {}
-                    message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data['accelerator']
+                    message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data[
+                        'accelerator']
                 except Exception as ERROR:
                     message_to_feagi["data"]["sensory_data"]['accelerator'] = {}
                 # End accelerator section
