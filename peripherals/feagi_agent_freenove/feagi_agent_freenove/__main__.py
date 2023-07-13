@@ -6,6 +6,7 @@ import os
 import sysconfig
 import feagi_agent_freenove
 import traceback
+import requests
 from time import sleep
 from feagi_agent_freenove.configuration import *
 

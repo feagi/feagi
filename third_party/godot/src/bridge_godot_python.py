@@ -27,6 +27,7 @@ import websockets
 import requests
 import random
 import shutil
+import socket
 import threading
 from time import sleep
 from configuration import *
@@ -206,6 +207,21 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
     else:
         pass
     return relative_coordinate
+
+
+def is_tcp_server_reachable(server_host, server_port):
+    try:
+        # Create a socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Set a timeout for the connection attempt
+        sock.settimeout(3)
+        # Attempt to connect to the server
+        sock.connect((server_host, server_port))
+        print("TRUE!!!")
+        return True
+    except Exception as e:
+        print("FALSE!!! ERROR: ", e)
+        return False
 
 
 def reload_genome():
@@ -389,7 +405,6 @@ if __name__ == "__main__":
     # ipu_channel_address = feagi.feagi_inbound(agent_settings["agent_data_port"])
     # ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
     ipu_channel_address = "tcp://*:" + agent_data_port
-    print("IPU_channel_address=", ipu_channel_address)
     print("ipu: ", ipu_channel_address)
     opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
@@ -404,6 +419,8 @@ if __name__ == "__main__":
     detect_lag = False
     new_FEAGI_sub = feagi.sub_initializer(opu_address=opu_channel_address)
     flag = 0
+    flag_ZMQ = False
+    connect_status_counter = 0
     data_from_genome = 0
     old_data = []
     one_frame = new_FEAGI_sub.receive()
@@ -418,8 +435,58 @@ if __name__ == "__main__":
             ws_queue.clear()
             detect_lag = False
         one_frame = new_FEAGI_sub.receive()
-
+        if not flag_ZMQ:
+            if one_frame is not None:
+                connect_status_counter = 0
+            else:
+                connect_status_counter += 1
+                if connect_status_counter >= 600000:
+                    if is_tcp_server_reachable(os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"),
+                                               int(3000)):
+                        connect_status_counter = 0
+                    else:
+                        print("reconnecting with FEAGI....")
+                        flag_ZMQ = True
+                        ipu_channel_address = "tcp://*:" + agent_data_port
+                        feagi_ipu_channel.__dict__['socket'].close()
+                        feagi_ipu_channel.__dict__['context'].term()
+                        feagi_ipu_channel = None
         if one_frame is not None:
+            if flag_ZMQ:
+                # FEAGI section start
+                print("Connecting to FEAGI resources...")
+                feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
+                print("FEAGI AUTH URL ------- ", feagi_auth_url)
+                feagi_host, api_port, app_data_port = feagi.feagi_setting_for_registration(
+                    feagi_settings,
+                    agent_settings)
+                runtime_data["feagi_state"] = feagi.feagi_registration(
+                    feagi_auth_url=feagi_auth_url,
+                    feagi_settings=feagi_settings,
+                    agent_settings=agent_settings,
+                    capabilities=capabilities)
+                api_address = runtime_data['feagi_state']["feagi_url"]
+
+                stimulation_period_endpoint = feagi.feagi_api_burst_engine()
+                burst_counter_endpoint = feagi.feagi_api_burst_counter()
+
+                # agent_data_port = agent_settings["agent_data_port"]
+                agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
+                print("** **", runtime_data["feagi_state"])
+                feagi_settings['feagi_burst_speed'] = float(
+                    runtime_data["feagi_state"]['burst_duration'])
+
+                # todo: to obtain this info directly from FEAGI as part of registration
+                # ipu_channel_address = feagi.feagi_inbound(agent_settings["agent_data_port"])
+                # ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
+                ipu_channel_address = "tcp://*:" + agent_data_port
+                opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
+                                                           runtime_data["feagi_state"][
+                                                               'feagi_opu_port'])
+                feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=True)
+                feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
+                # FEAGI section ends
+                flag_ZMQ = False
             if one_frame["genome_changed"] != PREVIOUS_GENOME_TIMESTAMP:
                 PREVIOUS_GENOME_TIMESTAMP = one_frame["genome_changed"]
                 runtime_data["cortical_data"] = \

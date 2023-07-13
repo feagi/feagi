@@ -2,6 +2,7 @@ import traceback
 from feagi_agent import router
 from time import sleep
 import requests
+import socket
 
 
 def pub_initializer(ipu_address, bind=True):
@@ -10,36 +11,6 @@ def pub_initializer(ipu_address, bind=True):
 
 def sub_initializer(opu_address, flags=router.zmq.NOBLOCK):
     return router.Sub(address=opu_address, flags=flags)
-
-
-# def feagi_registration(feagi_host, api_port, agent_settings, capabilities):
-#     host_info = router.app_host_info()
-#     runtime_data = {
-#         "host_network": {},
-#         "feagi_state": None
-#     }
-#     runtime_data["host_network"]["host_name"] = host_info["host_name"]
-#     runtime_data["host_network"]["ip_address"] = host_info["ip_address"]
-
-#     while runtime_data["feagi_state"] is None:
-#         print("\nAwaiting registration with FEAGI...")
-#         print("feagi_host:", feagi_host,
-#               "\tapi_port:", api_port,
-#               "\nagent_settings:", agent_settings)
-#         try:
-#             runtime_data["feagi_state"] = \
-#                 router.register_with_feagi(feagi_ip=feagi_host,
-#                                            feagi_api_port=api_port,
-#                                            agent_type=agent_settings['agent_type'],
-#                                            agent_id=agent_settings['agent_id'],
-#                                            agent_ip=runtime_data["host_network"]["ip_address"],
-#                                            agent_data_port=agent_settings['agent_data_port'],
-#                                            agent_capabilities=capabilities)
-#         except Exception as e:
-#             print("ERROR__: ", e, traceback.print_exc())
-#             pass
-#         sleep(1)
-#     return runtime_data["feagi_state"]
 
 
 def feagi_registration(feagi_auth_url, feagi_settings, agent_settings, capabilities):
@@ -56,7 +27,8 @@ def feagi_registration(feagi_auth_url, feagi_settings, agent_settings, capabilit
         print("\nAwaiting registration with FEAGI...")
         try:
             runtime_data["feagi_state"] = \
-                router.register_with_feagi(feagi_auth_url, feagi_settings, agent_settings, capabilities)
+                router.register_with_feagi(feagi_auth_url, feagi_settings, agent_settings,
+                                           capabilities)
         except Exception as e:
             print("ERROR__: ", e, traceback.print_exc())
             pass
@@ -68,6 +40,16 @@ def block_to_array(block_ref):
     block_id_str = block_ref.split('-')
     array = [int(x) for x in block_id_str]
     return array
+
+
+def is_FEAGI_reachable(server_host, server_port):
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(3)
+        sock.connect((server_host, server_port))
+        return True
+    except Exception as e:
+        return False
 
 
 def feagi_setting_for_registration(feagi_settings, agent_settings):
@@ -154,16 +136,20 @@ def compose_message_to_feagi(original_message, data=None, battery=0):
                 message_to_feagi["data"]["sensory_data"][sensor] = dict()
             for sensor_data in original_message[sensor]:
                 if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
-                    message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = original_message[sensor][
+                    message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = \
+                    original_message[sensor][
                         sensor_data]
-        message_to_feagi["data"]["sensory_data"]["battery"] = {1: runtime_data["battery_charge_level"] / 100}
+        message_to_feagi["data"]["sensory_data"]["battery"] = {
+            1: runtime_data["battery_charge_level"] / 100}
     return message_to_feagi, runtime_data["battery_charge_level"]
 
 
 def opu_processor(data):
     try:
-        processed_opu_data = {'motor': {}, 'servo': {}, 'battery': {}, 'discharged_battery': {}, 'reset': {},
-                              'camera': {}, 'misc': {}, 'navigation': {}, 'speed': {}, 'servo_position': {}}
+        processed_opu_data = {'motor': {}, 'servo': {}, 'battery': {}, 'discharged_battery': {},
+                              'reset': {},
+                              'camera': {}, 'misc': {}, 'navigation': {}, 'speed': {},
+                              'servo_position': {}}
         opu_data = data["opu_data"]
         if opu_data is not None:
             if 'o__mot' in opu_data:
@@ -235,7 +221,8 @@ def control_data_processor(data):
     control_data = data['control_data']
     if control_data is not None:
         if 'motor_power_coefficient' in control_data:
-            configuration.capabilities["motor"]["power_coefficient"] = float(control_data['motor_power_coefficient'])
+            configuration.capabilities["motor"]["power_coefficient"] = float(
+                control_data['motor_power_coefficient'])
         if 'robot_starting_position' in control_data:
             for position_index in control_data['robot_starting_position']:
                 configuration.capabilities["position"][position_index]["x"] = \
