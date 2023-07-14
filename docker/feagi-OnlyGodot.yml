@@ -52,18 +52,3 @@ services:
       - ../src/:/opt/source-code/feagi/src
     networks:
       - net
-
-
-#  javascript_webcam:
-#    build: ../third_party/physical_robots/webcam
-#    ports:
-#      - "6086:6086"
-#    env_file:
-#      - ./.env
-#    networks:
-#      - net
-#    depends_on:
-#      influxdb:
-#        condition: service_healthy
-
-# docker compose -f feagi-OnlyGodot.yml up --build

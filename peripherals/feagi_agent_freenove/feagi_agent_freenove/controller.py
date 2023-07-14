@@ -1,16 +1,15 @@
 from feagi_agent import feagi_interface as FEAGI
 import RPi.GPIO as GPIO
 from feagi_agent import retina as retina
-import traceback
 import requests
 import sys
 from feagi_agent_freenove.Led import *
 from feagi_agent_freenove.PCA9685 import PCA9685
-from feagi_agent_freenove.configuration import *
 from picamera import PiCamera
 from datetime import datetime
 from collections import deque
 from picamera.array import PiRGBArray
+from time import sleep
 
 runtime_data = {
     "current_burst_id": 0,
@@ -134,7 +133,8 @@ class Servo:
 
             device_current_position = runtime_data['servo_status'][device_index]
             self.device_position = float((power * feagi_settings['feagi_burst_speed'] /
-                                          capabilities["servo"]["power_amount"]) + device_current_position)
+                                          capabilities["servo"][
+                                              "power_amount"]) + device_current_position)
 
             self.device_position = self.keep_boundaries(device_id=device_index,
                                                         current_position=self.device_position)
@@ -186,20 +186,17 @@ class Servo:
     @staticmethod
     def motor_converter(motor_id):
         """
-        This will convert from godot to motor's id. Let's say, you have 8x10 (width x depth from static_genome).
-        So, you click 4 to go forward. It will be like this:
-        o__mot': {'1-0-9': 1, '5-0-9': 1, '3-0-9': 1, '7-0-9': 1}
-        which is 1,3,5,7. So this code will convert from 1,3,5,7 to 0,1,2,3 on motor id.
+        This will convert from godot to motor's id. Let's say, you have 8x10 (width x depth from
+        static_genome). So, you click 4 to go forward. It will be like this: o__mot': {'1-0-9':
+        1, '5-0-9': 1, '3-0-9': 1, '7-0-9': 1} which is 1,3,5,7. So this code will convert from
+        1,3,5,7 to 0,1,2,3 on motor id.
 
-        Since 0-1 is motor 1, 2-3 is motor 2 and so on. In this case, 0 is for forward and 1 is for backward.
+        Since 0-1 is motor 1, 2-3 is motor 2 and so on. In this case, 0 is for forward and 1 is
+        for backward.
         """
-        # motor_total = capabilities['motor']['count'] #be sure to update your motor total in configuration.py
-        # increment = 0
-        # for motor in range(motor_total):
-        #     if motor_id <= motor + 1:
-        #         print("motor_id: ", motor_id)
-        #         increment += 1
-        #         return increment
+        # motor_total = capabilities['motor']['count'] #be sure to update your motor total in
+        # configuration.py increment = 0 for motor in range(motor_total): if motor_id <= motor +
+        # 1: print("motor_id: ", motor_id) increment += 1 return increment
         if motor_id <= 1:
             return 0
         elif motor_id <= 3:
@@ -317,13 +314,9 @@ class Motor:
 
         Since 0-1 is motor 1, 2-3 is motor 2 and so on. In this case, 0 is for forward and 1 is for backward.
         """
-        # motor_total = capabilities['motor']['count'] #be sure to update your motor total in configuration.py
-        # increment = 0
-        # for motor in range(motor_total):
-        #     if motor_id <= motor + 1:
-        #         print("motor_id: ", motor_id)
-        #         increment += 1
-        #         return increment
+        # motor_total = capabilities['motor']['count'] #be sure to update your motor total in
+        # configuration.py increment = 0 for motor in range(motor_total): if motor_id <= motor +
+        # 1: print("motor_id: ", motor_id) increment += 1 return increment
         if motor_id <= 1:
             return 0
         elif motor_id <= 3:
@@ -404,48 +397,66 @@ class Ultrasonic:
 #         # print(Power)
 #         return Power
 
-
-def main():
+def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_to_feagi, args):
     GPIO.cleanup()
+    # # FEAGI REACHABLE CHECKER # #
+    feagi_flag = False
+    print("retrying...")
+    print("Waiting on FEAGI...")
+    while not feagi_flag:
+        feagi_flag = FEAGI.is_FEAGI_reachable(feagi_settings["feagi_host"], 3000)
+        sleep(2)
 
-    # # # FEAGI registration # # #
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-    feagi_host, api_port, app_data_port = FEAGI.feagi_setting_for_registration(feagi_settings, agent_settings)
-    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host,
-                                                           api_port=api_port, agent_settings=agent_settings,
+    # # FEAGI REACHABLE CHECKER COMPLETED # #
+
+    # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # - - - - - - - - - - - - - - - - - - #
+    print("Connecting to FEAGI resources...")
+    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_auth_url=feagi_auth_url,
+                                                           feagi_settings=feagi_settings,
+                                                           agent_settings=agent_settings,
                                                            capabilities=capabilities)
-    ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
-                                               agent_settings["agent_data_port"])
-    opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
-                                               runtime_data["feagi_state"]['feagi_opu_port'])
-    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
-    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-    api_address = 'http://' + feagi_host + ':' + api_port
+    api_address = runtime_data['feagi_state']["feagi_url"]
+
     stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
     burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
-    feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-    #                            Initializer section
+    # agent_data_port = agent_settings["agent_data_port"]
+    agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
+    print("** **", runtime_data["feagi_state"])
+    feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
+
+    # todo: to obtain this info directly from FEAGI as part of registration
+    # ipu_channel_address = FEAGI.feagi_inbound(agent_settings["agent_data_port"])
+    ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
+
+    print("IPU_channel_address=", ipu_channel_address)
+    opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
+                                               runtime_data["feagi_state"]['feagi_opu_port'])
+
+    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
+    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # - - - #
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # - - - # Initializer section
     motor = Motor()
     servo = Servo()
     ir = IR()
     ultrasonic = Ultrasonic()
-    # battery = Battery()
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+    # battery = Battery() - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # - - - - - - - - - - - - - #
 
     flag = False
     keyboard_flag = True
     rolling_window_len = capabilities['motor']['rolling_window_len']
     motor_count = capabilities['motor']['count']
     msg_counter = 0
-    # rpm = (50 * 60) / 2
-    # DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60 is the
-    # seconds of a minute
-    # w = (rpm / 60) * (2 * math.pi)  # 60 is second/minute
-    # velocity = w * (configuration.capabilities['motor']['diameter_of_wheel'] / 2)
-    # ^ diameter is from config and it just needs radius so I turned the diameter into a radius by divide it with 2
+    # rpm = (50 * 60) / 2 DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60
+    # is the seconds of a minute w = (rpm / 60) * (2 * math.pi)  # 60 is second/minute velocity =
+    # w * (configuration.capabilities['motor']['diameter_of_wheel'] / 2) ^ diameter is from
+    # config and it just needs radius so I turned the diameter into a radius by divide it with 2
 
     motor_data = dict()
     rolling_window = {}
@@ -465,18 +476,21 @@ def main():
                     rawCapture.truncate(0)
                     if capabilities['camera']['disabled'] is not True:
                         retina_data = retina.frame_split(image,
-                                                         capabilities['camera']['retina_width_percent'],
-                                                         capabilities['camera']['retina_height_percent'])
+                                                         capabilities['camera'][
+                                                             'retina_width_percent'],
+                                                         capabilities['camera'][
+                                                             'retina_height_percent'])
                         for i in retina_data:
                             if 'C' in i:
-                                retina_data[i] = retina.center_data_compression(retina_data[i],
-                                                                                capabilities['camera'][
-                                                                                    "central_vision_compression"]
-                                                                                )
+                                retina_data[i] = retina.center_data_compression(
+                                    retina_data[i],
+                                    capabilities['camera']["central_vision_compression"]
+                                )
                             else:
-                                retina_data[i] = retina.center_data_compression(retina_data[i],
-                                                                                capabilities['camera']
-                                                                                ['peripheral_vision_compression'])
+                                retina_data[i] = retina. \
+                                    center_data_compression(retina_data[i],
+                                                            capabilities['camera']
+                                                            ['peripheral_vision_compression'])
                         rgb = dict()
                         rgb['camera'] = dict()
                         if previous_data_frame == {}:
@@ -497,13 +511,16 @@ def main():
                                                        previous_data_frame[
                                                            previous_name],
                                                        name,
-                                                       capabilities['camera']['deviation_threshold'])
+                                                       capabilities['camera'][
+                                                           'deviation_threshold'])
                                 else:
                                     previous_name = str(i) + "_prev"
                                     rgb_data, previous_data_frame[previous_name] = \
-                                        retina.get_rgb(data, capabilities['camera']['peripheral_vision_compression'],
+                                        retina.get_rgb(data, capabilities['camera'][
+                                            'peripheral_vision_compression'],
                                                        previous_data_frame[previous_name], name,
-                                                       capabilities['camera']['deviation_threshold'])
+                                                       capabilities['camera'][
+                                                           'deviation_threshold'])
                                 for a in rgb_data['camera']:
                                     rgb['camera'][a] = rgb_data['camera'][a]
                     else:
@@ -571,7 +588,8 @@ def main():
                 msg_counter += 1
                 flag += 1
                 if flag == 10:
-                    feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
+                    feagi_burst_speed = requests.get(
+                        api_address + stimulation_period_endpoint).json()
                     feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
                     flag = 0
                     if msg_counter < feagi_burst_counter:
@@ -584,9 +602,14 @@ def main():
                     motor.move(id, motor_power)
         except KeyboardInterrupt as ke:  # Keyboard error
             motor.stop()
+            camera.stop_preview()
+            camera.close()
             keyboard_flag = False
-            print(ke)
-
-
-if __name__ == '__main__':
-    main()
+            print("ke: ", ke)
+            break
+        except Exception as e:
+            print("ERROR: ", e)
+            motor.stop()
+            camera.stop_preview()
+            camera.close()
+            break

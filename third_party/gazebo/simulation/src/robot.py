@@ -43,9 +43,10 @@ from configuration import *
 from threading import Thread
 from datetime import datetime
 
-runtime_data = {"cortical_data": {}, "current_burst_id": None, "stimulation_period": None, "feagi_state": None,
-                "feagi_network": None, "cortical_list": set(), "host_network": {}, "battery_charge_level": 1,
-                'motor_status': {}, 'servo_status': {}, 'GPS': {}, 'Quaternion': {}, 'Accelerator': {}}
+runtime_data = {"cortical_data": {}, "current_burst_id": None, "stimulation_period": None,
+                "feagi_state": None, "feagi_network": None, "cortical_list": set(),
+                "host_network": {}, "battery_charge_level": 1, 'motor_status': {},
+                'servo_status': {}, 'GPS': {}, 'Quaternion': {}, 'Accelerator': {}}
 
 runtime_data["GPS"]["x"] = dict()
 runtime_data["GPS"]["y"] = dict()
@@ -73,7 +74,8 @@ layer_dimension = [Gazebo_world["size_of_plane"]["x"], Gazebo_world["size_of_pla
 # Don't change above line, change it in configuration.py inside "size_of_plane"
 
 model_name = Model_data["robot_model_path"] + Model_data["robot_model"]
-robot_name = Model_data["robot_model"]  # This is the model name in gazebo without sdf path involves.
+robot_name = Model_data[
+    "robot_model"]  # This is the model name in gazebo without sdf path involves.
 x = str(capabilities["position"]["0"]["x"])
 y = str(capabilities["position"]["0"]["y"])
 z = str(capabilities["position"]["0"]["z"])
@@ -124,8 +126,11 @@ class ScalableSubscriber(Node):
             # This generated none
             formatted_msg = FEAGI.msg_processor(self, msg=msg, msg_type=self.topic,
                                                 capabilities=capabilities)  # Needs to check on this
-            configuration.message_to_feagi, runtime_data["battery_charge_level"] = FEAGI.compose_message_to_feagi(
-                original_message=formatted_msg, data=message_to_feagi, battery=runtime_data["battery_charge_level"])
+            configuration.message_to_feagi, runtime_data["battery_charge_level"] = FEAGI. \
+                compose_message_to_feagi(
+                original_message=formatted_msg,
+                data=message_to_feagi,
+                battery=runtime_data["battery_charge_level"])
             self.counter += 1
         except Exception as e:
             print("Error in listener callback...", e)
@@ -162,14 +167,16 @@ class Battery:
     @staticmethod
     def charge_battery(intensity=1):
         print("Charging battery    + + + + + +   *************    ^^^^^^^^^^^^^^^^^^^")
-        runtime_data["battery_charge_level"] += capabilities["battery"]["charge_increment"] * intensity
+        runtime_data["battery_charge_level"] += capabilities["battery"][
+                                                    "charge_increment"] * intensity
         if runtime_data["battery_charge_level"] > capabilities["battery"]["capacity"]:
             runtime_data["battery_charge_level"] = capabilities["battery"]["capacity"]
 
     @staticmethod
     def discharge_battery(intensity=1):
         print("dis-Charging battery    - - - - - -   *************    ^^^^^^^^^^^^^^^^^^^")
-        runtime_data["battery_charge_level"] -= capabilities["battery"]["charge_increment"] * intensity
+        runtime_data["battery_charge_level"] -= capabilities["battery"][
+                                                    "charge_increment"] * intensity
         if runtime_data["battery_charge_level"] < 0:
             runtime_data["battery_charge_level"] = 0
 
@@ -181,7 +188,8 @@ class Battery:
 
 class Rotor:
     def __init__(self, count, identifier, model):
-        self.rotor_node = publisher_initializer(SDF_name=model, topic_count=count, topic_identifier=identifier)
+        self.rotor_node = publisher_initializer(SDF_name=model, topic_count=count,
+                                                topic_identifier=identifier)
 
     def move(self, lx, ly, lz):
         """
@@ -248,7 +256,8 @@ class Rotor:
                 if battery_level >= 50:
                     pass  # Upcoming soon. Flip will added here
                 else:
-                    print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
+                    print("ERROR! The battery is low. It must be at least above than 51% to be "
+                          "able to flip")
             except Exception as e:
                 print("Error at: ", e)
         if data == 3:
@@ -256,7 +265,8 @@ class Rotor:
                 if battery_level >= 50:
                     pass  # Upcoming soon. Flip will added here
                 else:
-                    print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
+                    print("ERROR! The battery is low. It must be at least above than 51% to be "
+                          "able to flip")
             except Exception as e:
                 print("Error at: ", e)
         if data == 4:
@@ -264,7 +274,8 @@ class Rotor:
                 if battery_level >= 50:
                     pass  # Upcoming soon. Flip will added here
                 else:
-                    print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
+                    print("ERROR! The battery is low. It must be at least above than 51% to be "
+                          "able to flip")
             except Exception as e:
                 print("Error at: ", e)
         if data == 5:
@@ -272,7 +283,8 @@ class Rotor:
                 if battery_level >= 50:
                     pass  # Upcoming soon. Flip will added here
                 else:
-                    print("ERROR! The battery is low. It must be at least above than 51% to be able to flip")
+                    print("ERROR! The battery is low. It must be at least above than 51% to be "
+                          "able to flip")
             except Exception as e:
                 print("Error at: ", e)
         return boolean_data
@@ -304,7 +316,8 @@ class BackgroundCode(Node):
 
 class Motor:
     def __init__(self, count, identifier, model):
-        self.motor_node = publisher_initializer(SDF_name=model, topic_count=count, topic_identifier=identifier)
+        self.motor_node = publisher_initializer(SDF_name=model, topic_count=count,
+                                                topic_identifier=identifier)
 
         # todo: figure a way to extract wheel parameters from the model
         self.wheel_diameter = capabilities["motor"]["wheel_diameter"]
@@ -327,7 +340,8 @@ class Motor:
             # device_position.data = float( (power * network_settings['feagi_burst_speed'] *
             # configuration.capabilities["motor"]["motor_power"]) + device_current_position)
             device_position.data = float(
-                (power * capabilities["motor"]["power_coefficient"] * 6.28319) + device_current_position)
+                (power * capabilities["motor"][
+                    "power_coefficient"] * 6.28319) + device_current_position)
             runtime_data['motor_status'][device_index] = device_position.data
             # print("device index, position, power = ", device_index, device_position.data, power)
             self.motor_node[device_index].publish(device_position)
@@ -396,7 +410,6 @@ class Servo:
                                                              current_position=self.device_position.data)
 
             runtime_data['servo_status'][device_index] = self.device_position.data
-            # print("device index, position, power = ", device_index, self.device_position.data, power)
             self.servo_node[device_index].publish(self.device_position)
         except Exception:
             exc_info = sys.exc_info()
@@ -435,13 +448,15 @@ class Camera_Subscriber(Node):
         image = msg.data
         image = np.array(image)
         image = image.reshape(capabilities['camera']['width'], capabilities['camera']['height'], 3)
-        retina_data = retina.frame_split(image, configuration.capabilities['camera']['retina_width_percent'],
-                                         configuration.capabilities['camera']['retina_height_percent'])
+        retina_data = retina.frame_split(
+            image,
+            configuration.capabilities['camera']['retina_width_percent'],
+            configuration.capabilities['camera']['retina_height_percent'])
         for i in retina_data:
             if 'C' in i:
-                retina_data[i] = retina.center_data_compression(retina_data[i],
-                                                                capabilities['camera']["central_vision_compression"]
-                                                                )
+                retina_data[i] = retina.center_data_compression(
+                    retina_data[i],
+                    capabilities['camera']["central_vision_compression"])
             else:
                 retina_data[i] = retina.center_data_compression(retina_data[i],
                                                                 capabilities['camera']
@@ -459,25 +474,17 @@ class Camera_Subscriber(Node):
                 data = retina.ndarray_to_list(retina_data[i])
                 if 'C' in i:
                     previous_name = str(i) + "_prev"
-                    rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
-                                                                                  capabilities['camera'][
-                                                                                      'central_vision_compression'],
-                                                                                  previous_data_frame[
-                                                                                      previous_name], name,
-                                                                                  configuration.capabilities[
-                                                                                      'camera'][
-                                                                                      'deviation_threshold'])
+                    rgb_data, previous_data_frame[previous_name] = \
+                        retina.get_rgb(data,
+                                       capabilities['camera']['central_vision_compression'],
+                                       previous_data_frame[previous_name], name,
+                                       configuration.capabilities['camera']['deviation_threshold'])
                 else:
                     previous_name = str(i) + "_prev"
-                    rgb_data, previous_data_frame[previous_name] = retina.get_rgb(data,
-                                                                                  capabilities['camera'][
-                                                                                      'peripheral_vision_compression']
-                                                                                  ,
-                                                                                  previous_data_frame[
-                                                                                      previous_name], name,
-                                                                                  configuration.capabilities[
-                                                                                      'camera'][
-                                                                                      'deviation_threshold'])
+                    rgb_data, previous_data_frame[previous_name] = \
+                        retina.get_rgb(data,capabilities['camera']['peripheral_vision_compression'],
+                                       previous_data_frame[previous_name],name,
+                                       configuration.capabilities['camera']['deviation_threshold'])
                 for a in rgb_data['camera']:
                     rgb['camera'][a] = rgb_data['camera'][a]
         runtime_data['pixel'] = rgb
@@ -604,8 +611,9 @@ class TileManager(Node):
         # Pose data
         name = Model_data["robot_model"]
         name = name.replace(".sdf", "")
-        pose = subprocess.Popen(["ign topic -e  -t world/free_world/pose/info -n1 | grep \"" + name + "\" -A6"],
-                                shell=True, stdout=PIPE)
+        pose = subprocess.Popen(
+            ["ign topic -e  -t world/free_world/pose/info -n1 | grep \"" + name + "\" -A6"],
+            shell=True, stdout=PIPE)
         pose_xyz = pose.communicate()[0].decode("utf-8")
         for item in pose_xyz.split("\n"):
             if "x: " in item:
@@ -623,8 +631,9 @@ class TileManager(Node):
         """
         Return the coordinate of the center of the tile
         """
-        center_of_tile_location = [self.tile_dimensions[0] * tile_index[0] - self.tile_dimensions[0] / 2,
-                                   self.tile_dimensions[1] * tile_index[1] - self.tile_dimensions[1] / 2, 0]
+        center_of_tile_location = [
+            self.tile_dimensions[0] * tile_index[0] - self.tile_dimensions[0] / 2,
+            self.tile_dimensions[1] * tile_index[1] - self.tile_dimensions[1] / 2, 0]
         return center_of_tile_location
 
     def gps_to_tile_index(self, gps):
@@ -643,7 +652,8 @@ class TileManager(Node):
             if self.tile_tracker[tile_name]["index"] == tile_index:
                 return tile_name
             else:
-                print("Warning! Tile tracker does not container a tile matching index ", tile_index, self.tile_tracker)
+                print("Warning! Tile tracker does not container a tile matching index ", tile_index,
+                      self.tile_tracker)
                 return None
 
     def add_tile(self, tile_index):
@@ -667,8 +677,9 @@ class TileManager(Node):
         second_phrase = " pose: {position: {x:" + tile_location_x + ", y:" + tile_location_y + ", z:" \
                         + tile_location_z + "}} '\'name: \"" + tile_name + "\" '\' allow_renaming: false' &"
 
-        print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n",
-              first_phrase + second_phrase)
+        print(
+            "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n",
+            first_phrase + second_phrase)
         os.system(first_phrase + second_phrase)
         print("++++++++++++++++++++++++++++++++++++\n", first_phrase + second_phrase)
         print(">>> New tile added:", tile_name, tile_location, tile_index)
@@ -688,7 +699,8 @@ class TileManager(Node):
             os.system(command)
             self.tile_tracker[tile_name]["visibility"] = False
         else:
-            print("Error! Tile removal failed. Tile name not found within tile_tracker", tile_index, tile_name)
+            print("Error! Tile removal failed. Tile name not found within tile_tracker", tile_index,
+                  tile_name)
 
     def add_visible_tile(self, tile_index):
         if tile_index not in self.visible_tiles:
@@ -771,7 +783,8 @@ class Gazebo_Camera:
         affect your GUI only.
         """
         command = "ign service -s /gui/follow/offset --reqtype ignition.msgs.Vector3d --reptype ignition.msgs.Boolean " \
-                  "--timeout 2000 --req \"x: " + str(x_arg) + ", y: " + str(y_arg) + " , z: " + str(z_arg) + "\""
+                  "--timeout 2000 --req \"x: " + str(x_arg) + ", y: " + str(y_arg) + " , z: " + str(
+            z_arg) + "\""
         os.system(command)
 
 
@@ -877,35 +890,56 @@ def convert_feagi_to_english(feagi):
 
 
 def main(args=None):
+    feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
+    print("FEAGI AUTH URL ------- ", feagi_auth_url)
     print("Connecting to FEAGI resources...")
-    # # # # # # # # # # # # # # # FEAGI registration # # # # # # # # # # # # # # # # # #
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-    feagi_host, api_port, app_data_port = FEAGI.feagi_setting_for_registration(feagi_settings, agent_settings)
-    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_host=feagi_host,
-                                                           api_port=api_port,
+    # # # # # # # # # # # # # # # FEAGI registration # # # # # # # # # # # # # # # # # # - - - -
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+    print("Connecting to FEAGI resources...")
+    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_auth_url=feagi_auth_url,
+                                                           feagi_settings=feagi_settings,
                                                            agent_settings=agent_settings,
                                                            capabilities=capabilities)
-    ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
-                                               agent_settings["agent_data_port"])
-    opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
-                                               runtime_data["feagi_state"]['feagi_opu_port'])
-    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
-    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-    api_address = 'http://' + feagi_host + ':' + api_port
+    api_address = runtime_data['feagi_state']["feagi_url"]
+
     stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
     burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
-    feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
+    # agent_data_port = agent_settings["agent_data_port"]
+    agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
+    print("** **", runtime_data["feagi_state"])
+    feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
+
+    # todo: to obtain this info directly from FEAGI as part of registration
+    # ipu_channel_address = FEAGI.feagi_inbound(agent_settings["agent_data_port"])
+    ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
+    # if args['http_type']:
+    #     http = args['http_type']
+    # else:
+    #     http = 'http://'
+    # if args['port_disabled'] == 'true':
+    #     api_address = http + feagi_host
+    # else:
+    #     api_address = http + feagi_host + ':' + api_port
+    print("IPU_channel_address=", ipu_channel_address)
+    opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
+                                               runtime_data["feagi_state"]['feagi_opu_port'])
+
+    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
+    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # - - - #
 
     rclpy.init(args=args)
     executor = rclpy.executors.MultiThreadedExecutor()
 
     # todo: identify a method to instantiate all classes without doing it one by one
     # Instantiate controller classes with Publisher nature
-    motor = Motor(count=capabilities['motor']['count'], identifier=capabilities['motor']['topic_identifier'],
+    motor = Motor(count=capabilities['motor']['count'],
+                  identifier=capabilities['motor']['topic_identifier'],
                   model='freenove_motor')
-    servo = Servo(count=capabilities['servo']['count'], identifier=capabilities['servo']['topic_identifier'],
+    servo = Servo(count=capabilities['servo']['count'],
+                  identifier=capabilities['servo']['topic_identifier'],
                   model='freenove_servo')
     rotor = Rotor(count=0, identifier='0', model='/x3_uav/gazebo/command/twist')
 
@@ -945,7 +979,8 @@ def main(args=None):
     ir_feeds = {}
     ir_topic_id = capabilities['infrared']['topic_identifier']
     for ir_node in range(capabilities['infrared']['count']):
-        ir_feeds[ir_node] = IRSubscriber(f'infrared_{ir_node}', Image, f'{ir_topic_id}{ir_node}/image')
+        ir_feeds[ir_node] = IRSubscriber(f'infrared_{ir_node}', Image,
+                                         f'{ir_topic_id}{ir_node}/image')
         executor.add_node(ir_feeds[ir_node])
 
     executor_thread = Thread(target=executor.spin, daemon=True)
@@ -964,7 +999,8 @@ def main(args=None):
     runtime_data['accelerator'] = dict()
     try:
         while True:
-            robot_pose = [runtime_data["GPS"]["x"], runtime_data["GPS"]["y"], runtime_data["GPS"]["z"]]
+            robot_pose = [runtime_data["GPS"]["x"], runtime_data["GPS"]["y"],
+                          runtime_data["GPS"]["z"]]
             pose.tile_update(robot_pose)
             try:
                 validate_gps = bg_data.check_position()
@@ -1037,7 +1073,8 @@ def main(args=None):
                 control_data = FEAGI.control_data_processor(message_from_feagi)
                 if control_data is not None:
                     if 'motor_power_coefficient' in control_data:
-                        capabilities["motor"]["power_coefficient"] = control_data['motor_power_coefficient']
+                        capabilities["motor"]["power_coefficient"] = control_data[
+                            'motor_power_coefficient']
                     if 'robot_starting_position' in control_data:
                         for index in control_data['robot_starting_position']:
                             configuration.capabilities['position'][index][0] = \
@@ -1060,7 +1097,8 @@ def main(args=None):
                         if Model_data["robot_model"] != model_data['robot_sdf_file_name']:
                             print("current config: ", Model_data['robot_model'])
                             print("from FEAGI: ", model_data['robot_sdf_file_name'])
-                            update_robot(model_data['robot_sdf_file_name'], model_data['robot_sdf_file_name_path'])
+                            update_robot(model_data['robot_sdf_file_name'],
+                                         model_data['robot_sdf_file_name_path'])
                             Model_data['robot_model'] = model_data['robot_sdf_file_name']
                             Model_data['robot_model_path'] = model_data['robot_sdf_file_name_path']
                     if 'mu' in model_data:
@@ -1111,7 +1149,8 @@ def main(args=None):
                     message_to_feagi["data"] = dict()
                 if "sensory_data" not in message_to_feagi["data"]:
                     message_to_feagi["data"]["sensory_data"] = dict()
-                message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data['accelerator']
+                message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data[
+                    'accelerator']
             except Exception as e:
                 pass
                 # print("accelerator imu dict is not available at the moment: ", e)
@@ -1139,7 +1178,7 @@ def main(args=None):
                 if feagi_burst_speed > 1:
                     checkpoint_total = 5
                 if feagi_burst_speed < 1:
-                    checkpoint_total = 5/feagi_burst_speed
+                    checkpoint_total = 5 / feagi_burst_speed
                 if msg_counter < feagi_burst_counter:
                     feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
                     if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
@@ -1163,5 +1202,13 @@ def main(args=None):
     rclpy.shutdown()
 
 
-if __name__ == '__main__':
-    main()
+if __name__=='__main__':
+    while True:
+        main()
+        # try:
+        #     main(feagi_auth_url, feagi_settings, agent_settings, capabilities,
+        #          message_to_feagi)
+        # except Exception as e:
+        #     print(f"Controller run failed", e)
+        #     traceback.print_exc()
+        #     sleep(2)

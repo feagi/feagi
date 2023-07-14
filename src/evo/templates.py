@@ -173,6 +173,7 @@ cortical_template = {
     "cortical_mapping_dst": {},
     'firing_threshold': 1,
     "firing_threshold_increment": 0,
+    "firing_threshold_limit": 0,
     "mp_charge_accumulation": True,
     "refractory_period": 0,
     "leak_coefficient": 0,

@@ -66,7 +66,10 @@ def x_cortical_reposition(cortical_area, new_coordinates):
     runtime_data.genome['blueprint'][cortical_area]["relative_coordinate"][1] = new_coordinates[1]
     runtime_data.genome['blueprint'][cortical_area]["relative_coordinate"][2] = new_coordinates[2]
 
-    print("MN" * 40)
+
+def x_cortical_reposition_2d(cortical_area, new_coordinates):
+    runtime_data.genome['blueprint'][cortical_area]["2d_coordinate"][0] = new_coordinates[0]
+    runtime_data.genome['blueprint'][cortical_area]["2d_coordinate"][1] = new_coordinates[1]
 
 
 def x_cortical_rewire():
@@ -106,7 +109,6 @@ def update_cortical_properties(cortical_properties):
     - Cortical name
 
     """
-    print("\n$$$$ " * 10, cortical_properties)
 
     regeneration_flag = False
 
@@ -125,6 +127,10 @@ def update_cortical_properties(cortical_properties):
     if cortical_properties['cortical_coordinates'] is not None:
         x_cortical_reposition(cortical_area=cortical_area,
                               new_coordinates=cortical_properties['cortical_coordinates'])
+
+    if cortical_properties['cortical_coordinates_2d'] is not None:
+        x_cortical_reposition_2d(cortical_area=cortical_area,
+                                 new_coordinates=cortical_properties['cortical_coordinates_2d'])
 
     if cortical_properties['neuron_fire_threshold'] is not None:
         runtime_data.genome['blueprint'][cortical_area]['firing_threshold'] = \
@@ -233,6 +239,13 @@ def update_cortical_properties(cortical_properties):
                 cortical_properties['neuron_fire_threshold_increment']:
             runtime_data.genome['blueprint'][cortical_area]["firing_threshold_increment"] = \
                 cortical_properties['neuron_fire_threshold_increment']
+            regeneration_flag = True
+
+    if cortical_properties['neuron_firing_threshold_limit'] is not None:
+        if runtime_data.genome['blueprint'][cortical_area]["firing_threshold_limit"] != \
+                cortical_properties['neuron_firing_threshold_limit']:
+            runtime_data.genome['blueprint'][cortical_area]["firing_threshold_limit"] = \
+                cortical_properties['neuron_firing_threshold_limit']
             regeneration_flag = True
 
     if regeneration_flag:
@@ -502,6 +515,11 @@ def add_core_cortical_area(cortical_properties):
                 [cortical_properties['cortical_coordinates'][0],
                  cortical_properties['cortical_coordinates'][1],
                  cortical_properties['cortical_coordinates'][2]]
+
+            runtime_data.genome['blueprint'][cortical_area]["2d_coordinate"] = \
+                [cortical_properties['2d_coordinates'][0],
+                 cortical_properties['2d_coordinates'][1]]
+
             runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'] = dict()
             runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"] = \
                 template['per_voxel_neuron_cnt']
@@ -521,6 +539,8 @@ def add_core_cortical_area(cortical_properties):
                 template['mp_charge_accumulation']
             runtime_data.genome["blueprint"][cortical_area]["firing_threshold_increment"] = \
                 template['firing_threshold_increment']
+            runtime_data.genome["blueprint"][cortical_area]["firing_threshold_limit"] = \
+                template['firing_threshold_limit']
 
             runtime_data.genome["blueprint"][cortical_area]["group_id"] = cortical_properties['cortical_type']
 
@@ -593,6 +613,8 @@ def add_custom_cortical_area(cortical_name, cortical_coordinates, cortical_dimen
             template['mp_charge_accumulation']
         runtime_data.genome["blueprint"][cortical_area]["firing_threshold_increment"] = \
             template['firing_threshold_increment']
+        runtime_data.genome["blueprint"][cortical_area]["firing_threshold_limit"] = \
+            template['firing_threshold_limit']
 
         runtime_data.genome["blueprint"][cortical_area]["group_id"] = "CUSTOM"
 

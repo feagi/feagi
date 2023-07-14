@@ -18,12 +18,15 @@ limitations under the License.
 # !/usr/bin/env python3
 
 feagi_settings = {
+    # "feagi_auth_url": "http://127.0.0.1:9000/v1/k8/feagi_settings/auth_token",
+    "feagi_url": None,
+    "feagi_dns": None,
     "feagi_host": "127.0.0.1",
     "feagi_api_port": "8000",
 }
 
 agent_settings = {
-    "agent_data_port": "30009",
+    "agent_data_port": "10002",
     "agent_id": "tello_drone",
     "agent_type": "embodiment",
     'TTL': 2,

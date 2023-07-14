@@ -84,6 +84,11 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
         else:
             runtime_data.genome["blueprint"][_]["firing_threshold_increment"] = 0
 
+        if "firing_threshold_limit" not in runtime_data.genome["blueprint"][_]:
+            runtime_data.genome["blueprint"][_]["firing_threshold_limit"] = 0
+        else:
+            runtime_data.genome["blueprint"][_]["firing_threshold_limit"] = 0
+
         if "leak_variability" not in runtime_data.genome["blueprint"][_]:
             runtime_data.genome["blueprint"][_]["leak_variability"] = 0
         else:
