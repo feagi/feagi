@@ -15,18 +15,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================
 """
+import os
+
 
 feagi_settings = {
-    "feagi_host": "feagi",
-    "feagi_api_port": "8000",
+    # "feagi_auth_url": "http://127.0.0.1:9000/v1/k8/feagi_settings/auth_token",
+    "feagi_url": None,
+    "feagi_dns": None,
+    "feagi_host": os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"),
+    "feagi_api_port": os.environ.get('FEAGI_API_PORT', "8000")
 }
-
 agent_settings = {
-    "agent_data_port": "40007",
+    "agent_data_port": "10006",
     "agent_id": "javascript_webcam",
     "agent_type": "embodiment",
     'TTL': 2,
     'last_message': 0,
+    'godot_websocket_ip': "0.0.0.0",
+    'godot_websocket_port': os.environ.get('WS_WEBCAM_PORT', "9051")
 }
 
 capabilities = {

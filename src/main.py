@@ -22,7 +22,8 @@ This main module is responsible for driving the lifecycle of a single generation
 artificial brain at a time. To scale up the system to many parallel generations, FEAGI
 is intended to run within a container and scale up to many container instances.
 """
-
+import sys
+sys.path.append('../')
 import uvicorn
 import platform
 import json

@@ -3,11 +3,6 @@ FROM neuraville/ros-foxy_gazebo-ign
 ENV GAZEBO_CONTAINER=true
 ENV OPENBOX_ARGS='--startup "/opt/source-code/simulation/start_controller.sh"'
 
-RUN apt install -y wmctrl
-RUN apt install -y python3-pip
-RUN pip3 install opencv-python
-RUN pip3 install feagi-agent
-
 WORKDIR /etc/xdg/openbox
 RUN sed -i "s|<number>4</number>|<number>1</number> |g" rc.xml
 RUN mkdir -p /opt/source-code/simulation

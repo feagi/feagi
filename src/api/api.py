@@ -54,9 +54,8 @@ from inf.initialize import deploy_genome
 logger = logging.getLogger(__name__)
 
 
-description = """
-FEAGI REST API will help you integrate FEAGI into other applications and provides a programmatic method to interact with 
-FEAGI.
+description = """FEAGI REST API will help you integrate FEAGI into other applications and 
+provides a programmatic method to interact with FEAGI. 
 
 """
 
@@ -169,6 +168,7 @@ class UpdateCorticalProperties(BaseModel):
     cortical_neuron_per_vox_count: Optional[int]
     cortical_visibility: Optional[bool]
     cortical_coordinates: Optional[list]
+    cortical_coordinates_2d: Optional[list]
     cortical_dimensions: Optional[list]
     cortical_synaptic_attractivity: Optional[int]
     neuron_post_synaptic_potential: Optional[float]
@@ -176,6 +176,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_plasticity_constant: Optional[float]
     neuron_fire_threshold: Optional[float]
     neuron_fire_threshold_increment: Optional[float]
+    neuron_firing_threshold_limit: Optional[float]
     neuron_refractory_period: Optional[int]
     neuron_leak_coefficient: Optional[float]
     neuron_leak_variability: Optional[float]
@@ -481,6 +482,10 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                     cortical_data["relative_coordinate"][1],
                     cortical_data["relative_coordinate"][2]
                 ],
+                "cortical_coordinates_2d": [
+                    cortical_data["2d_coordinate"][0],
+                    cortical_data["2d_coordinate"][1]
+                ],
                 "cortical_dimensions": [
                     cortical_data["block_boundaries"][0],
                     cortical_data["block_boundaries"][1],
@@ -492,6 +497,7 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "neuron_plasticity_constant": cortical_data['plasticity_constant'],
                 "neuron_fire_threshold": cortical_data['firing_threshold'],
                 "neuron_fire_threshold_increment": cortical_data['firing_threshold_increment'],
+                "neuron_firing_threshold_limit": cortical_data['firing_threshold_limit'],
                 "neuron_refractory_period": cortical_data['refractory_period'],
                 "neuron_leak_coefficient": cortical_data['leak_coefficient'],
                 "neuron_leak_variability": cortical_data['leak_variability'],
@@ -1463,12 +1469,30 @@ async def gazebo_robot_default_files(response: Response):
 # ######  Connectome Endpoints #########
 # ######################################
 
-@app.api_route("/v1/feagi/connectome/cortical_areas", methods=['GET'], tags=["Connectome"])
-async def connectome_cortical_areas(response: Response):
+@app.api_route("/v1/feagi/connectome/cortical_areas/list/summary", methods=['GET'], tags=["Connectome"])
+async def connectome_cortical_areas_summary(response: Response):
     try:
         cortical_list = set()
         for cortical_area in runtime_data.brain:
             cortical_list.add(cortical_area)
+        response.status_code = status.HTTP_200_OK
+        return cortical_list
+
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/connectome/cortical_areas/list/detailed", methods=['GET'], tags=["Connectome"])
+async def connectome_cortical_areas(response: Response):
+    try:
+        cortical_list = dict()
+        for cortical_area in runtime_data.brain:
+            cortical_list[cortical_area] = {}
+            cortical_list[cortical_area]["name"] = runtime_data.genome["blueprint"][cortical_area]["cortical_name"]
+            cortical_list[cortical_area]["type"] = runtime_data.genome["blueprint"][cortical_area]["group_id"]
+            cortical_list[cortical_area]["position"] = []
+
         response.status_code = status.HTTP_200_OK
         return cortical_list
 
@@ -1814,36 +1838,52 @@ async def agent_properties(agent_id: str, response: Response):
         print("API Error:", e, traceback.print_exc)
 
 
+def assign_available_port():
+    ports_used = []
+    PORT_RANGES = (40001, 40050)
+    for agent_id, agent_info in runtime_data.agent_registry.items():
+        print(agent_id, agent_info, agent_info['agent_type'], type(agent_info['agent_type']))
+        if agent_info['agent_type'] != 'monitor':
+            ports_used.append(agent_info['agent_data_port'])
+    print("ports_used", ports_used)
+    for port in range(PORT_RANGES[0], PORT_RANGES[1]):
+        if port not in ports_used:
+            return port
+    return None
+
+
 @app.api_route("/v1/agent/register", methods=['POST'], tags=["Peripheral Nervous System"])
 async def agent_registration(request: Request, agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int,
                              response: Response):
-    try:
-        if agent_id not in runtime_data.agent_registry:
-            # Add new agent to the registry
-            runtime_data.agent_registry[agent_id] = {}
-        runtime_data.agent_registry[agent_id]["agent_type"] = agent_type
-        runtime_data.agent_registry[agent_id]["agent_ip"] = agent_ip
-        runtime_data.agent_registry[agent_id]["agent_data_port"] = agent_data_port
-        print(f"AGENT Details -- {agent_id} -- {agent_ip} -- {agent_type} -- {agent_data_port}")
-        print(f"Client IP ------------------------- {request.client.host}")
-        runtime_data.agent_registry[agent_id]["agent_ip"] = request.client.host
 
-        # Create the needed ZMQ listener for new agent
-        if agent_type == 'monitor':
-            # FEAGI will connect to remote ZMQ for messages
-            agent_router_address = "tcp://" + request.client.host + ':' + str(agent_data_port)
-            runtime_data.agent_registry[agent_id]["agent_router_address"] = agent_router_address
-            runtime_data.agent_registry[agent_id]["listener"] = Sub(address=agent_router_address)
+    try:
+        if agent_id in runtime_data.agent_registry:
+            agent_info = runtime_data.agent_registry[agent_id]
         else:
-            agent_router_address = f"tcp://*:{str(agent_data_port)}"
-            runtime_data.agent_registry[agent_id]["agent_router_address"] = agent_router_address
-            # FEAGI will open output_data_port for Agents to connect for messages
-            if 'listener' not in runtime_data.agent_registry[agent_id]:
-                runtime_data.agent_registry[agent_id]["listener"] = Sub(address=agent_router_address, bind=True)
+            agent_info = {}
+            agent_info["agent_id"] = agent_id
+            agent_info["agent_type"] = agent_type
+            # runtime_data.agent_registry[agent_id]["agent_ip"] = agent_ip
+            agent_info["agent_ip"] = request.client.host
+            if agent_type == 'monitor':
+                agent_router_address = f"tcp://{request.client.host}:{agent_data_port}"
+                agent_info["listener"] = Sub(address=agent_router_address, bind=False)
+            else:
+                agent_data_port = assign_available_port()
+                agent_router_address = f"tcp://*:{agent_data_port}"
+                agent_info["listener"] = Sub(address=agent_router_address, bind=True)
+
+            agent_info["agent_data_port"] = agent_data_port
+            agent_info["agent_router_address"] = agent_router_address
+
+        print(f"AGENT Details -- {agent_info}")
+        runtime_data.agent_registry[agent_id] = agent_info
 
         print("New agent has been successfully registered:", runtime_data.agent_registry[agent_id])
+        agent_info = runtime_data.agent_registry[agent_id].copy()
+        agent_info.pop('listener')
         response.status_code = status.HTTP_200_OK
-        return True
+        return agent_info
     except Exception as e:
         print("API Error:", e, traceback.print_exc())
         print("Error during agent registration.:", agent_id)
@@ -1855,7 +1895,8 @@ async def agent_registration(request: Request, agent_type: str, agent_id: str, a
 async def agent_deregisteration(agent_id: str, response: Response):
     try:
         if agent_id in runtime_data.agent_registry:
-            runtime_data.agent_registry.pop(agent_id)
+            agent_info = runtime_data.agent_registry.pop(agent_id)
+            agent_info['listener'].terminate()
             response.status_code = status.HTTP_200_OK
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
