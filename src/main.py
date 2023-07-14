@@ -31,14 +31,15 @@ import logging.config
 from inf.initialize import init_parameters, runtime_data
 
 if platform.system() == 'Windows':
-    with open("logging_config.json", "r") as config_file:
-        logging_config_data = json.load(config_file)
+    #with open("logging_config.json", "r") as config_file:
+    #    logging_config_data = json.load(config_file)
 
     # setup loggers
-    logging.config.dictConfig(logging_config_data)
+    #logging.config.dictConfig(logging_config_data)
 
     # get root logger
-    logger = logging.getLogger(__name__)
+    #logger = logging.getLogger(__name__)
+    pass
 
 init_parameters()
 
