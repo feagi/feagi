@@ -34,7 +34,7 @@ import requests
 from datetime import datetime
 from time import sleep
 from npu.physiology import *
-from npu import stimulator, aux
+from npu import stimulator, auxiliary
 from mem.memory import neuroplasticity
 from evo.stats import *
 from evo.death import death_manager
@@ -243,7 +243,13 @@ def burst_manager():
                     runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = \
                         runtime_data.fire_queue[fq_cortical_area][neuron_id][0] - leak_amount
 
-                    fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1]
+                    if runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'] == 0:
+                        fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1]
+                    else:
+                        fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1] + \
+                                         (runtime_data.fire_queue[fq_cortical_area][neuron_id][1] *
+                                          runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'])
+
                     membrane_potential = runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential']
 
                     # When neuron is ready to fire
@@ -542,7 +548,7 @@ def burst_manager():
         # print("^^^^^^^^^^ Previous FCL ^^^^^^^^^\n", runtime_data.previous_fcl)
 
         # Placeholder for auxiliary functions
-        aux.aux()
+        auxiliary.aux()
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         if not runtime_data.new_genome and runtime_data.brain_readiness:
