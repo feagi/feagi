@@ -41,6 +41,8 @@ zmq_queue = deque()
 BURST_SECOND = 0
 PREVIOUS_GENOME_TIMESTAMP = 0  # TO keep record of timestamp
 current_cortical_area = {}
+feagi_host = ""
+api_port = ""
 
 runtime_data = {
     "cortical_data": {},
@@ -217,10 +219,8 @@ def is_tcp_server_reachable(server_host, server_port):
         sock.settimeout(3)
         # Attempt to connect to the server
         sock.connect((server_host, server_port))
-        print("TRUE!!!")
         return True
     except Exception as e:
-        print("FALSE!!! ERROR: ", e)
         return False
 
 
@@ -355,7 +355,8 @@ def websocket_operation():
     asyncio.run(websocket_main())
 
 
-if __name__ == "__main__":
+def main():
+    global PREVIOUS_GENOME_TIMESTAMP, feagi_host, api_port
     print(
         "================================ @@@@@@@@@@@@@@@ "
         "==========================================")
@@ -413,7 +414,6 @@ if __name__ == "__main__":
     # FEAGI section ends
 
     # current_cortical_area = feagi_init(feagi_host=feagi_host, api_port=api_port)
-    bgsk = threading.Thread(target=websocket_operation, daemon=True).start()
     print("FEAGI initialization completed successfully")
     godot_list = {}  # initialized the list from Godot
     detect_lag = False
@@ -441,16 +441,17 @@ if __name__ == "__main__":
             else:
                 connect_status_counter += 1
                 if connect_status_counter >= 600000:
-                    if is_tcp_server_reachable(os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"),
-                                               int(3000)):
+                    if feagi.is_FEAGI_reachable(
+                            os.environ.get('FEAGI_HOST_INTERNAL',"127.0.0.1"), int(os.environ.get('FEAGI_OPU_PORT', "3000"))):
                         connect_status_counter = 0
                     else:
-                        print("reconnecting with FEAGI....")
-                        flag_ZMQ = True
-                        ipu_channel_address = "tcp://*:" + agent_data_port
-                        feagi_ipu_channel.__dict__['socket'].close()
-                        feagi_ipu_channel.__dict__['context'].term()
-                        feagi_ipu_channel = None
+                        break
+                        # print("reconnecting with FEAGI....")
+                        # flag_ZMQ = True
+                        # ipu_channel_address = "tcp://*:" + agent_data_port
+                        # feagi_ipu_channel.__dict__['socket'].close()
+                        # feagi_ipu_channel.__dict__['context'].term()
+                        # feagi_ipu_channel = None
         if one_frame is not None:
             if flag_ZMQ:
                 # FEAGI section start
@@ -565,3 +566,16 @@ if __name__ == "__main__":
             feagi_ipu_channel.send(godot_list)
         else:
             pass
+
+if __name__ == "__main__":
+    bgsk = threading.Thread(target=websocket_operation, daemon=True).start()
+    while True:
+        PREVIOUS_GENOME_TIMESTAMP = 0
+        feagi_flag = False
+        print("Waiting on FEAGI...")
+        while not feagi_flag:
+            print("false")
+            feagi_flag = feagi.is_FEAGI_reachable(
+                os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"), int(os.environ.get('FEAGI_OPU_PORT', "3000")))
+            sleep(2)
+        main()
