@@ -445,13 +445,8 @@ def main():
                             os.environ.get('FEAGI_HOST_INTERNAL',"127.0.0.1"), int(os.environ.get('FEAGI_OPU_PORT', "3000"))):
                         connect_status_counter = 0
                     else:
+                        zmq_queue.append("clear")
                         break
-                        # print("reconnecting with FEAGI....")
-                        # flag_ZMQ = True
-                        # ipu_channel_address = "tcp://*:" + agent_data_port
-                        # feagi_ipu_channel.__dict__['socket'].close()
-                        # feagi_ipu_channel.__dict__['context'].term()
-                        # feagi_ipu_channel = None
         if one_frame is not None:
             if flag_ZMQ:
                 # FEAGI section start
@@ -478,8 +473,9 @@ def main():
                     runtime_data["feagi_state"]['burst_duration'])
 
                 # todo: to obtain this info directly from FEAGI as part of registration
-                # ipu_channel_address = feagi.feagi_inbound(agent_settings["agent_data_port"])
-                # ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
+                #  ipu_channel_address = feagi.feagi_inbound(agent_settings["agent_data_port"])
+                #  ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
+                #  agent_data_port)
                 ipu_channel_address = "tcp://*:" + agent_data_port
                 opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
                                                            runtime_data["feagi_state"][
@@ -489,12 +485,14 @@ def main():
                 # FEAGI section ends
                 flag_ZMQ = False
             if one_frame["genome_changed"] != PREVIOUS_GENOME_TIMESTAMP:
+                print("genome: ", PREVIOUS_GENOME_TIMESTAMP, " genome changed: ", one_frame["genome_changed"])
                 PREVIOUS_GENOME_TIMESTAMP = one_frame["genome_changed"]
                 runtime_data["cortical_data"] = \
                     requests.get(
                         'http://' + feagi_host + ':' + api_port + DIMENSIONS_ENDPOINT).json()
-                print("updated time")
-                zmq_queue.append("updated")
+                if one_frame["genome_changed"] is not None:
+                    print("updated time")
+                    zmq_queue.append("updated")
             BURST_SECOND = one_frame['burst_frequency']
             if 'genome_reset' in one_frame:
                 runtime_data["cortical_data"] = {}
@@ -574,8 +572,8 @@ if __name__ == "__main__":
         feagi_flag = False
         print("Waiting on FEAGI...")
         while not feagi_flag:
-            print("false")
             feagi_flag = feagi.is_FEAGI_reachable(
-                os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"), int(os.environ.get('FEAGI_OPU_PORT', "3000")))
+                os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"),
+                int(os.environ.get('FEAGI_OPU_PORT', "3000")))
             sleep(2)
         main()
