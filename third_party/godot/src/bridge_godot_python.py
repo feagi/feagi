@@ -485,7 +485,7 @@ def main():
                 # FEAGI section ends
                 flag_ZMQ = False
             if one_frame["genome_changed"] != PREVIOUS_GENOME_TIMESTAMP:
-                print("genome: ", PREVIOUS_GENOME_TIMESTAMP, " genome changed: ", one_frame["genome_changed"])
+                # print("genome: ", PREVIOUS_GENOME_TIMESTAMP, " genome changed: ", one_frame["genome_changed"])
                 PREVIOUS_GENOME_TIMESTAMP = one_frame["genome_changed"]
                 runtime_data["cortical_data"] = \
                     requests.get(
