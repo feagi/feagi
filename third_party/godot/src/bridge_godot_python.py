@@ -65,22 +65,6 @@ def simulation_testing():
     return array
 
 
-def breakdown(feagi_input):
-    """
-    #TODO: Explain what this is for
-    """
-    data = feagi_input
-    data = list(data)
-    increment = 0
-    list1 = []
-
-    while increment < len(data):
-        voxel = [data[increment][1], data[increment][2], data[increment][3]]
-        list1.append(voxel)
-        increment += 1
-    print(list1)
-
-
 def godot_data(data_input):
     """
     Simply clean the list and remove all unnecessary special characters and deliver with name, xyz
@@ -102,41 +86,10 @@ def godot_data(data_input):
     return dict_with_updated_name
 
 
-def godot_selected_list(outside_list, godot_list):
-    name = outside_list[0]
-    x_input = int(outside_list[1])
-    y_input = int(outside_list[2])
-    z_input = int(outside_list[3])
-    if godot_list:
-        list_to_dict = godot_list
-    else:
-        list_to_dict = {"data": {}}
-        list_to_dict["data"]["direct_stimulation"] = {}
-
-    if list_to_dict["data"]["direct_stimulation"].get(name) is not None:
-        pass
-    else:
-        list_to_dict["data"]["direct_stimulation"][name] = []
-    for key in list_to_dict["data"]["direct_stimulation"]:
-        if key not in list_to_dict["data"]["direct_stimulation"]:
-            list_to_dict["data"]["direct_stimulation"][name] = []
-            list_to_dict["data"]["direct_stimulation"][name].append([x_input, y_input, z_input])
-        else:
-            list_to_dict["data"]["direct_stimulation"][name].append([x_input, y_input, z_input])
-    return list_to_dict
-
-
-def godot_deselected_list(outside_list, godot_list):
-    for key in godot_list["data"]["direct_stimulation"]:
-        if outside_list[0] == key:
-            for xyz in godot_list["data"]["direct_stimulation"][key]:
-                if xyz[0] == int(outside_list[1]) and xyz[1] == int(outside_list[2]) and xyz[
-                    2] == int(outside_list[3]):
-                    godot_list["data"]["direct_stimulation"][key].remove(xyz)
-    return godot_list
-
-
 def name_to_id(name):
+    """
+    Convert from name to id of the cortical area name
+    """
     for cortical_area in runtime_data["cortical_data"]:
         if cortical_area == name:
             return runtime_data["cortical_data"][cortical_area][7]
@@ -209,6 +162,9 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
 
 
 def is_tcp_server_reachable(server_host, server_port):
+    """
+    TO check if feagi is reachable.
+    """
     try:
         # Create a socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -220,6 +176,9 @@ def is_tcp_server_reachable(server_host, server_port):
 
 
 def reload_genome():
+    """
+    Every genome reloads or updated, this will be called.
+    """
     bool_flag = True
     cortical_name = []
     cortical_genome_dictionary = {"genome": {}}
@@ -276,6 +235,9 @@ def reload_genome():
 
 
 def feagi_init(feagi_host_input, api_port_input):
+    """
+    Feagi init.
+    """
     # Send a request to FEAGI for cortical dimensions
     awaiting_feagi_registration = True
     while awaiting_feagi_registration:
@@ -320,6 +282,9 @@ def feagi_init(feagi_host_input, api_port_input):
 
 
 async def echo(websocket):
+    """
+    Main thread for websocket only.
+    """
     while True:
         try:
             if "genome" in zmq_queue[0]:
@@ -342,6 +307,42 @@ async def echo(websocket):
 
 
 async def websocket_main():
+    """
+    This function sets up a WebSocket server using the 'websockets' library to communicate with a
+    Godot game engine.
+
+    The function establishes a WebSocket connection with a Godot game engine running on the
+    specified IP address and port provided in 'agent_settings'. It uses the 'echo' coroutine to
+    handle incoming WebSocket messages, which will echo back the received messages to the sender.
+
+    Parameters:
+        None
+
+    Returns:
+        None
+
+    Raises:
+        None
+
+    Note: - The 'agent_settings' dictionary should contain the following keys: -
+    'godot_websocket_ip': The IP address where websocket will broadcast for. By default,
+    it should be "0.0.0.0".
+    'godot_websocket_port': The port is by default to 9050. You can update in configuration.
+
+        - The WebSocket server is configured with the following options: - 'max_size': The
+        maximum size (in bytes) of incoming WebSocket messages. Set to 'None' for no limit. -
+        'max_queue': The maximum number of incoming WebSocket messages that can be queued for
+        processing. Set to 'None' for no limit. - 'write_limit': The maximum rate (in bytes per
+        second) at which outgoing WebSocket messages can be sent. Set to 'None' for no limit. -
+        'compression': The compression method to use for outgoing WebSocket messages. Set to
+        'None' for no compression.
+
+        - The function uses 'asyncio.Future()' to keep the WebSocket server running indefinitely.
+        This is required because the 'websockets.serve()' coroutine itself does not naturally
+        keep the server running; it only sets up the server to accept incoming connections and
+        requires another coroutine or task to run the event loop.
+
+    """
     async with websockets.serve(echo, agent_settings["godot_websocket_ip"],
                                 agent_settings['godot_websocket_port'], max_size=None,
                                 max_queue=None, write_limit=None, compression=None):
@@ -349,10 +350,19 @@ async def websocket_main():
 
 
 def websocket_operation():
+    """
+    Run asyncio using websocket operations.
+
+    This function runs the 'websocket_main()' coroutine using asyncio's 'run' function,
+    which provides a simple way to execute the coroutine in the event loop.
+    """
     asyncio.run(websocket_main())
 
 
 def main():
+    """
+    Main script for bridge to communicate with FEAGI and Godot.
+    """
     global PREVIOUS_GENOME_TIMESTAMP, FEAGI_HOST, API_PORT, BURST_SECOND
     print(
         "================================ @@@@@@@@@@@@@@@ "
@@ -385,6 +395,7 @@ def main():
     print("FEAGI AUTH URL ------- ", feagi_auth_url)
     FEAGI_HOST, API_PORT, app_data_port = feagi.feagi_setting_for_registration(feagi_settings,
                                                                                agent_settings)
+    print("app_data_port: ", app_data_port)
     runtime_data["feagi_state"] = feagi.feagi_registration(feagi_auth_url=feagi_auth_url,
                                                            feagi_settings=feagi_settings,
                                                            agent_settings=agent_settings,
