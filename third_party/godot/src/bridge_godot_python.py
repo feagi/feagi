@@ -144,17 +144,16 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
     return relative_coordinate
 
 
-def download_genome():
+def download_genome(feagi_host_input, api_port_input, endpoint):
     """
     Fetch and download the genome from FEAGI API
     """
     try:
-        data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
+        data_from_genome = requests.get('http://' + feagi_host_input + ':' + api_port_input +
                                         '/v1/feagi/genome/download',
                                         timeout=10).json()
         cortical_area_name = requests.get(
-            'http://' + feagi_host + ':' + api_port + dimensions_endpoint,
-            timeout=10).json()
+            'http://' + feagi_host_input + ':' + api_port_input + endpoint, timeout=10).json()
         return data_from_genome, cortical_area_name
     except requests.exceptions.RequestException as error:
         print("Error while fetching genome from FEAGI: ", error)
@@ -180,7 +179,7 @@ def process_genome_data(runtime_data_list, cortical_data):
     return cortical_genome_dictionary
 
 
-def reload_genome():
+def reload_genome(feagi_host_input, api_port_host, endpoint):
     """
     Every genome reloads or updated, this will be called.
     """
@@ -188,7 +187,8 @@ def reload_genome():
         cortical_genome_dictionary = {"genome": {}}
         print("+++ 0 +++")
 
-        data_from_genome, cortical_area_name = download_genome()
+        data_from_genome, cortical_area_name = download_genome(feagi_host_input, api_port_host,
+                                                               endpoint)
         if data_from_genome and cortical_area_name:
             runtime_data["cortical_data"] = data_from_genome
             print("cortical_area_name: ", cortical_area_name)
@@ -430,7 +430,7 @@ def main():
             zmq_queue.append("genome: " + json_object)
         if data_from_godot == "updated":
             data_from_godot = "{}"
-            reload_genome()
+            reload_genome(feagi_host, api_port, dimensions_endpoint)
             runtime_data["cortical_data"] = \
                 requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint,
                              timeout=10).json()
