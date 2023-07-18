@@ -41,8 +41,6 @@ runtime_data = {
     "old_cortical_data": {}
 }
 
-DIMENSIONS_ENDPOINT = '/v1/feagi/connectome/properties/dimensions'
-
 
 def simulation_testing():
     """
@@ -88,7 +86,7 @@ def name_to_id(name):
     return None
 
 
-def feagi_breakdown(data, feagi_host_input, api_port_input):
+def feagi_breakdown(data, feagi_host_input, api_port_input, dimensions_endpoint_input):
     """
     Designed for genome 2.0 only. Data is the input from feagi's raw data.
     This function will detect if cortical area list is different than the first, it will generate
@@ -100,13 +98,13 @@ def feagi_breakdown(data, feagi_host_input, api_port_input):
         if new_genome_num > runtime_data["genome_number"]:
             runtime_data["old_cortical_data"] = runtime_data["cortical_data"]
             runtime_data["cortical_data"] = \
-                requests.get('http://' + feagi_host_input + ':' + api_port_input + DIMENSIONS_ENDPOINT,
-                             timeout=10).json()
+                requests.get('http://' + feagi_host_input + ':' + api_port_input +
+                             dimensions_endpoint_input, timeout=10).json()
             if 'genome_reset' not in data and data == "{}":
                 runtime_data["cortical_data"] = \
                     requests.get(
-                        'http://' + feagi_host_input + ':' + api_port_input + DIMENSIONS_ENDPOINT,
-                        timeout=10).json()
+                        'http://' + feagi_host_input + ':' + api_port_input +
+                        dimensions_endpoint_input, timeout=10).json()
             if data != "{}":
                 if runtime_data["old_cortical_data"] != runtime_data["cortical_data"]:
                     pass
@@ -151,11 +149,11 @@ def download_genome():
     Fetch and download the genome from FEAGI API
     """
     try:
-        data_from_genome = requests.get('http://' + FEAGI_HOST + ':' + API_PORT +
+        data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
                                         '/v1/feagi/genome/download',
                                         timeout=10).json()
         cortical_area_name = requests.get(
-            'http://' + FEAGI_HOST + ':' + API_PORT + DIMENSIONS_ENDPOINT,
+            'http://' + feagi_host + ':' + api_port + dimensions_endpoint,
             timeout=10).json()
         return data_from_genome, cortical_area_name
     except requests.exceptions.RequestException as error:
@@ -287,7 +285,8 @@ def main():
     """
     Main script for bridge to communicate with FEAGI and Godot.
     """
-    PREVIOUS_GENOME_TIMESTAMP = 0
+    previous_genome_timestamp = 0
+    dimensions_endpoint = '/v1/feagi/connectome/properties/dimensions'
     print(
         "================================ @@@@@@@@@@@@@@@ "
         "==========================================")
@@ -317,7 +316,7 @@ def main():
     print("Connecting to FEAGI resources...")
     feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
     print("FEAGI AUTH URL ------- ", feagi_auth_url)
-    FEAGI_HOST, API_PORT, app_data_port = feagi.feagi_setting_for_registration(feagi_settings,
+    feagi_host, api_port, app_data_port = feagi.feagi_setting_for_registration(feagi_settings,
                                                                                agent_settings)
     print("app_data_port: ", app_data_port)
     capabilities = {}
@@ -371,7 +370,7 @@ def main():
                 print("Connecting to FEAGI resources...")
                 feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
                 print("FEAGI AUTH URL ------- ", feagi_auth_url)
-                FEAGI_HOST, API_PORT, app_data_port = feagi.feagi_setting_for_registration(
+                feagi_host, api_port, app_data_port = feagi.feagi_setting_for_registration(
                     feagi_settings,
                     agent_settings)
                 runtime_data["feagi_state"] = feagi.feagi_registration(
@@ -390,29 +389,28 @@ def main():
                 feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=True)
                 # FEAGI section ends
                 flag_zmq = False
-            if one_frame["genome_changed"] != PREVIOUS_GENOME_TIMESTAMP:
-                PREVIOUS_GENOME_TIMESTAMP = one_frame["genome_changed"]
+            if one_frame["genome_changed"] != previous_genome_timestamp:
+                previous_genome_timestamp = one_frame["genome_changed"]
                 runtime_data["cortical_data"] = \
                     requests.get(
-                        'http://' + FEAGI_HOST + ':' + API_PORT + DIMENSIONS_ENDPOINT,
+                        'http://' + feagi_host + ':' + api_port + dimensions_endpoint,
                         timeout=10).json()
                 if one_frame["genome_changed"] is not None:
                     print("updated time")
                     zmq_queue.append("updated")
-            BURST_SECOND = one_frame['burst_frequency']
+            burst_second = one_frame['burst_frequency']
             if 'genome_reset' in one_frame:
                 runtime_data["cortical_data"] = {}
-            one_frame = feagi_breakdown(one_frame, FEAGI_HOST, API_PORT)
+            one_frame = feagi_breakdown(one_frame, feagi_host, api_port, dimensions_endpoint)
             # Debug section start
             if one_frame != old_data:
                 old_data = one_frame
             # Debug section end
             # one_frame = simulation_testing() # This is to test the stress
-            if BURST_SECOND > agent_settings['burst_duration_threshold']:
+            if burst_second > agent_settings['burst_duration_threshold']:
                 zmq_queue.append(one_frame)
         if ws_queue:
-            data_from_godot = ws_queue[0].decode(
-                'UTF-8')  # ADDED this line to decode into string only
+            data_from_godot = ws_queue[0].decode('UTF-8')  # ADDED this line to decode into string
             ws_queue.pop()
         else:
             data_from_godot = "{}"
@@ -425,7 +423,7 @@ def main():
         if data_from_godot == "empty":
             print("EMPTY!")
             data_from_godot = "{}"
-            data_from_genome = requests.get('http://' + FEAGI_HOST + ':' + API_PORT +
+            data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
                                             '/v1/feagi/connectome/properties/dimensions',
                                             timeout=10).json()
             json_object = json.dumps(data_from_genome)
@@ -434,10 +432,10 @@ def main():
             data_from_godot = "{}"
             reload_genome()
             runtime_data["cortical_data"] = \
-                requests.get('http://' + FEAGI_HOST + ':' + API_PORT + DIMENSIONS_ENDPOINT,
+                requests.get('http://' + feagi_host + ':' + api_port + dimensions_endpoint,
                              timeout=10).json()
         if "cortical_name" in data_from_godot:
-            url = "http://" + FEAGI_HOST + ":" + API_PORT + "/v1/feagi/genome/cortical_area"
+            url = "http://" + feagi_host + ":" + api_port + "/v1/feagi/genome/cortical_area"
             request_obj = data_from_godot
             requests.post(url, data=request_obj, timeout=10)
             data_from_godot = {}
@@ -469,7 +467,6 @@ if __name__ == "__main__":
     zmq_queue = deque()
     current_cortical_area = {}
     while True:
-        PREVIOUS_GENOME_TIMESTAMP = 0
         FEAGI_FLAG = False
         print("Waiting on FEAGI...")
         while not FEAGI_FLAG:
