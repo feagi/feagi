@@ -62,10 +62,10 @@ DIMENSIONS_ENDPOINT = '/v1/feagi/connectome/properties/dimensions'
 def simulation_testing():
     array = []
     for i in range(1000):
-        X_EXAMPLE = random.randint(0, 64)
-        Y_EXAMPLE = random.randint(0, 64)
-        Z_EXAMPLE = random.randint(0, 64)
-        array.append((X_EXAMPLE, Y_EXAMPLE, Z_EXAMPLE))
+        x_example = random.randint(0, 64)
+        y_example = random.randint(0, 64)
+        z_example = random.randint(0, 64)
+        array.append((x_example, y_example, z_example))
     return array
 
 
@@ -442,7 +442,8 @@ def main():
                 connect_status_counter += 1
                 if connect_status_counter >= 600000:
                     if feagi.is_FEAGI_reachable(
-                            os.environ.get('FEAGI_HOST_INTERNAL',"127.0.0.1"), int(os.environ.get('FEAGI_OPU_PORT', "3000"))):
+                            os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"),
+                            int(os.environ.get('FEAGI_OPU_PORT', "3000"))):
                         connect_status_counter = 0
                     else:
                         zmq_queue.append("clear")
@@ -485,7 +486,6 @@ def main():
                 # FEAGI section ends
                 flag_ZMQ = False
             if one_frame["genome_changed"] != PREVIOUS_GENOME_TIMESTAMP:
-                # print("genome: ", PREVIOUS_GENOME_TIMESTAMP, " genome changed: ", one_frame["genome_changed"])
                 PREVIOUS_GENOME_TIMESTAMP = one_frame["genome_changed"]
                 runtime_data["cortical_data"] = \
                     requests.get(
@@ -564,6 +564,7 @@ def main():
             feagi_ipu_channel.send(godot_list)
         else:
             pass
+
 
 if __name__ == "__main__":
     bgsk = threading.Thread(target=websocket_operation, daemon=True).start()
