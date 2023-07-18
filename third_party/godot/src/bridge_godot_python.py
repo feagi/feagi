@@ -37,7 +37,7 @@ from feagi_agent import feagi_interface as feagi
 
 ws_queue = deque()
 zmq_queue = deque()
-BURST_SECOND = 0
+burst_second = 0
 PREVIOUS_GENOME_TIMESTAMP = 0  # TO keep record of timestamp
 current_cortical_area = {}
 feagi_host = ""
@@ -174,8 +174,9 @@ def feagi_breakdown(data):
         for i in data['godot']:
             new_list.append([i[1], i[2], i[3]])
         return new_list
-    except Exception as e:
-        print("Exception during feagi_breakdown", e)
+    except Exception as error:
+        print("Exception during feagi_breakdown", error)
+        return None
 
 
 def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_data):
@@ -195,7 +196,7 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
                             name_match) is not None:
                         pass
                     else:
-                        relative_coordinate["data"]["direct_stimulation"][name_match] = list()
+                        relative_coordinate["data"]["direct_stimulation"][name_match] = []
                     for xyz in stimulation_from_godot["data"]["direct_stimulation"][name_match]:
                         new_xyz = [xyz[0] - cortical_data[raw_id][0],
                                    xyz[1] - cortical_data[raw_id][1],
@@ -217,7 +218,7 @@ def is_tcp_server_reachable(server_host, server_port):
         sock.settimeout(3)
         sock.connect((server_host, server_port))
         return True
-    except Exception as e:
+    except Exception as error:
         return False
 
 
@@ -255,13 +256,13 @@ def reload_genome():
                             if x in i:
                                 if x not in cortical_genome_dictionary['genome']:
                                     # print("NOT FOUND: ", x)
-                                    cortical_genome_dictionary['genome'][x] = list()
+                                    cortical_genome_dictionary['genome'][x] = []
                                 cortical_genome_dictionary['genome'][x].append(
                                     runtime_data["cortical_data"]["blueprint"][i])
                     json_object = json.dumps(cortical_genome_dictionary)
                     zmq_queue.append(json_object)
                     # zmq_queue.append(cortical_genome_dictionary)
-            except Exception as e:
+            except Exception as error:
                 bool_flag = True
                 print("Error while fetching genome from FEAGI\n", traceback.print_exc())
         else:
@@ -304,13 +305,13 @@ def feagi_init(feagi_host, api_port):
                             for x in cortical_name:
                                 if x in i:
                                     if x not in cortical_genome_dictionary['genome']:
-                                        cortical_genome_dictionary['genome'][x] = list()
+                                        cortical_genome_dictionary['genome'][x] = []
                                     cortical_genome_dictionary['genome'][x].append(
                                         runtime_data["cortical_data"]["blueprint"][i])
                         json_object = json.dumps(cortical_genome_dictionary)
                         # zmq_queue.append(json_object)
                         # zmq_queue.append(cortical_genome_dictionary)
-                except Exception as e:
+                except Exception as error:
                     awaiting_feagi_registration = True
                     print("Error while fetching genome from FEAGI\n", traceback.print_exc())
             else:
@@ -335,7 +336,7 @@ async def echo(websocket):
                 zmq_queue[0] = stored_value
             await websocket.send(str(zmq_queue[0]))
             zmq_queue.pop()
-        except Exception as e:
+        except Exception as error:
             pass
         new_data = await websocket.recv()
         ws_queue.append(new_data)
@@ -490,22 +491,22 @@ def main():
                 if one_frame["genome_changed"] is not None:
                     print("updated time")
                     zmq_queue.append("updated")
-            BURST_SECOND = one_frame['burst_frequency']
+            burst_second = one_frame['burst_frequency']
             if 'genome_reset' in one_frame:
                 runtime_data["cortical_data"] = {}
                 try:
                     f = open("../godot_source/reset.txt", "w")
                     f.write("reset")
                     f.close()
-                except Exception as e:
-                    print("Error during genome reset:\n", e)
+                except Exception as error:
+                    print("Error during genome reset:\n", error)
             one_frame = feagi_breakdown(one_frame)
             # Debug section start
             if one_frame != old_data:
                 old_data = one_frame
             # Debug section end
             # one_frame = simulation_testing() # This is to test the stress
-            if BURST_SECOND > agent_settings['burst_duration_threshold']:
+            if burst_second > agent_settings['burst_duration_threshold']:
                 zmq_queue.append(one_frame)
         if ws_queue:
             data_from_godot = ws_queue[0].decode(
