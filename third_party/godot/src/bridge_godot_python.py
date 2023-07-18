@@ -93,9 +93,9 @@ def name_to_id(name):
     for cortical_area in runtime_data["cortical_data"]:
         if cortical_area == name:
             return runtime_data["cortical_data"][cortical_area][7]
-    else:
-        # pass
-        print("*** Failed to find cortical name ***")
+
+    print("*** Failed to find cortical name ***")
+    return None
 
 
 def feagi_breakdown(data):
@@ -134,30 +134,24 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
     Convert absolute coordinate from godot to relative coordinate for FEAGI. Dna_information is
     from the genome["blueprint"].
     """
-    relative_coordinate = {"data": {}}
-    relative_coordinate["data"]["direct_stimulation"] = {}
-    if stimulation_from_godot:
-        for key in stimulation_from_godot["data"]["direct_stimulation"]:
-            for name_match in cortical_data:
-                raw_id = name_match
-                name_match = cortical_data[raw_id][7]
-                if name_match == key:
-                    if relative_coordinate["data"]["direct_stimulation"].get(
-                            name_match) is not None:
-                        pass
-                    else:
-                        relative_coordinate["data"]["direct_stimulation"][name_match] = []
-                    for xyz in stimulation_from_godot["data"]["direct_stimulation"][name_match]:
-                        new_xyz = [xyz[0] - cortical_data[raw_id][0],
-                                   xyz[1] - cortical_data[raw_id][1],
-                                   xyz[2] - cortical_data[raw_id][2]]
-                        relative_coordinate["data"]["direct_stimulation"][name_match].append(
-                            new_xyz)
+    relative_coordinate = {"data": {"direct_stimulation": {}}}
 
-            else:
-                pass
-    else:
-        pass
+    if stimulation_from_godot:
+        for godot_key, xyz_list in stimulation_from_godot["data"]["direct_stimulation"].items():
+            for raw_id, cortical_info in cortical_data.items():
+                cortical_name = cortical_info[7]
+                if cortical_name == godot_key:
+                    if cortical_name not in relative_coordinate["data"]["direct_stimulation"]:
+                        relative_coordinate["data"]["direct_stimulation"][cortical_name] = []
+
+                    for xyz in xyz_list:
+                        new_xyz = [xyz[0] - cortical_info[0],
+                                   xyz[1] - cortical_info[1],
+                                   xyz[2] - cortical_info[2]]
+                        relative_coordinate["data"]["direct_stimulation"][cortical_name]. \
+                            append(new_xyz)
+                    break
+
     return relative_coordinate
 
 
@@ -264,8 +258,7 @@ async def websocket_main():
     specified IP address and port provided in 'agent_settings'. It uses the 'echo' coroutine to
     handle incoming WebSocket messages, which will echo back the received messages to the sender.
 
-    Parameters:
-        None
+    Parameters: None
 
     Returns:
         None
