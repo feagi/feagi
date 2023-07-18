@@ -26,15 +26,13 @@ from time import sleep
 from collections import deque
 import websockets
 import requests
-from configuration import *
+from configuration import agent_settings, feagi_settings
 from feagi_agent import feagi_interface as feagi
 
 ws_queue = deque()
 zmq_queue = deque()
-BURST_SECOND = 0
 current_cortical_area = {}
-FEAGI_HOST = ""
-API_PORT = ""
+FEAGI_HOST, API_PORT, BURST_SECOND = "", "", 0
 
 runtime_data = {
     "cortical_data": {},
