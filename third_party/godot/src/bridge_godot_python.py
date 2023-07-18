@@ -175,6 +175,20 @@ def is_tcp_server_reachable(server_host, server_port):
         return False
 
 
+def download_genome():
+    try:
+        data_from_genome = requests.get('http://' + FEAGI_HOST + ':' + API_PORT +
+                                        '/v1/feagi/genome/download',
+                                        timeout=10).json()
+        cortical_area_name = requests.get(
+            'http://' + FEAGI_HOST + ':' + API_PORT + DIMENSIONS_ENDPOINT,
+            timeout=10).json()
+        return data_from_genome, cortical_area_name
+    except Exception as error:
+        print("Error while fetching genome from FEAGI: ", error)
+        return None, None
+
+
 def reload_genome():
     """
     Every genome reloads or updated, this will be called.
@@ -183,102 +197,37 @@ def reload_genome():
     cortical_name = []
     cortical_genome_dictionary = {"genome": {}}
     print("+++ 0 +++")
+
     while bool_flag:
         if len(cortical_genome_dictionary["genome"]) == 0:
             print("+++ a +++")
-            try:
-                data_from_genome = requests.get('http://' + FEAGI_HOST + ':' + API_PORT +
-                                                '/v1/feagi/genome/download',
-                                                timeout=10).json()
-                cortical_area_name = requests.get(
-                    'http://' + FEAGI_HOST + ':' + API_PORT + DIMENSIONS_ENDPOINT,
-                    timeout=10).json()
+            data_from_genome, cortical_area_name = download_genome()
+            if data_from_genome and cortical_area_name:
                 runtime_data["cortical_data"] = data_from_genome
                 print("cortical_area_name: ", cortical_area_name)
 
                 for x in cortical_area_name:
-                    # print("worked: ", x)
                     cortical_name.append(cortical_area_name[x][7])
 
-                # print(50 * "*")
-                # print(runtime_data["cortical_data"])
-                # print(50 * "*")
-                # print(50 * "#")
-                # print(cortical_genome_dictionary)
-                # print(50 * "#")
-
-                if runtime_data["cortical_data"]:
-                    for i in runtime_data["cortical_data"]["blueprint"]:
-                        for x in cortical_name:
-                            # print("CURRENT: ", cortical_name)
-                            if x in i:
-                                if x not in cortical_genome_dictionary['genome']:
-                                    # print("NOT FOUND: ", x)
-                                    cortical_genome_dictionary['genome'][x] = []
-                                cortical_genome_dictionary['genome'][x].append(
-                                    runtime_data["cortical_data"]["blueprint"][i])
-                    json_object = json.dumps(cortical_genome_dictionary)
-                    zmq_queue.append(json_object)
-                    # zmq_queue.append(cortical_genome_dictionary)
-            except Exception as error:
+                for i in runtime_data["cortical_data"]["blueprint"]:
+                    for x in cortical_name:
+                        if x in i:
+                            if x not in cortical_genome_dictionary['genome']:
+                                cortical_genome_dictionary['genome'][x] = []
+                            cortical_genome_dictionary['genome'][x].append(
+                                runtime_data["cortical_data"]["blueprint"][i])
+                json_object = json.dumps(cortical_genome_dictionary)
+                zmq_queue.append(json_object)
+            else:
                 bool_flag = True
-                print("Error while fetching genome from FEAGI\n", traceback.print_exc())
         else:
             bool_flag = False
         time.sleep(2)
     print("Genome reloaded.")
     if len(ws_queue[0]) > 2:
         ws_queue.clear()
-    # print("ws queue: ", len(ws_queue[0]))
     runtime_data["cortical_data"] = cortical_area_name
     return cortical_genome_dictionary.copy()
-
-
-def feagi_init(feagi_host_input, api_port_input):
-    """
-    Feagi init.
-    """
-    # Send a request to FEAGI for cortical dimensions
-    awaiting_feagi_registration = True
-    while awaiting_feagi_registration:
-        print("********* ************ ********** ************* ***************\n")
-        print("Awaiting registration with FEAGI...2")
-        feagi_ipu_channel.send({"godot_init": True})
-
-        # print("Cortical_data", runtime_data["cortical_data"])
-
-        cortical_name = []
-        cortical_genome_dictionary = {"genome": {}}
-        while awaiting_feagi_registration:
-            if len(cortical_genome_dictionary["genome"]) == 0:
-                try:
-                    data_from_genome = requests.get('http://' +
-                                                    feagi_host_input + ':' + api_port_input +
-                                                    '/v1/feagi/genome/download', timeout=10).json()
-                    cortical_area_name = requests.get(
-                        'http://' + feagi_host_input + ':' + api_port_input +
-                        DIMENSIONS_ENDPOINT, timeout=10).json()
-                    runtime_data["cortical_data"] = data_from_genome
-
-                    for x in cortical_area_name:
-                        cortical_name.append(cortical_area_name[x][7])
-
-                    if runtime_data["cortical_data"]:
-                        for i in runtime_data["cortical_data"]["blueprint"]:
-                            for x in cortical_name:
-                                if x in i:
-                                    if x not in cortical_genome_dictionary['genome']:
-                                        cortical_genome_dictionary['genome'][x] = []
-                                    cortical_genome_dictionary['genome'][x].append(
-                                        runtime_data["cortical_data"]["blueprint"][i])
-                except Exception as error:
-                    awaiting_feagi_registration = True
-                    print("Error while fetching genome from FEAGI\n", traceback.print_exc())
-            else:
-                awaiting_feagi_registration = False
-            time.sleep(2)
-        runtime_data["cortical_data"] = cortical_area_name
-        return cortical_genome_dictionary.copy()
 
 
 async def echo(websocket):
