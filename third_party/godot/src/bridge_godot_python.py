@@ -180,45 +180,46 @@ def download_genome():
         return None, None
 
 
+def process_genome_data(runtime_data, cortical_data):
+    cortical_name = [cortical_data[x][7] for x in cortical_data]
+    cortical_genome_dictionary = {"genome": {}}
+
+    for i in runtime_data["cortical_data"]["blueprint"]:
+        for x in cortical_name:
+            if x in i:
+                if x not in cortical_genome_dictionary['genome']:
+                    cortical_genome_dictionary['genome'][x] = []
+                cortical_genome_dictionary['genome'][x].append(
+                    runtime_data["cortical_data"]["blueprint"][i])
+
+    return cortical_genome_dictionary
+
+
 def reload_genome():
     """
     Every genome reloads or updated, this will be called.
     """
-    bool_flag = True
-    cortical_name = []
-    cortical_genome_dictionary = {"genome": {}}
-    print("+++ 0 +++")
+    while True:
+        cortical_genome_dictionary = {"genome": {}}
+        print("+++ 0 +++")
 
-    while bool_flag:
-        if len(cortical_genome_dictionary["genome"]) == 0:
-            print("+++ a +++")
-            data_from_genome, cortical_area_name = download_genome()
-            if data_from_genome and cortical_area_name:
-                runtime_data["cortical_data"] = data_from_genome
-                print("cortical_area_name: ", cortical_area_name)
+        data_from_genome, cortical_area_name = download_genome()
+        if data_from_genome and cortical_area_name:
+            runtime_data["cortical_data"] = data_from_genome
+            print("cortical_area_name: ", cortical_area_name)
 
-                for x in cortical_area_name:
-                    cortical_name.append(cortical_area_name[x][7])
+            cortical_genome_dictionary = process_genome_data(runtime_data, cortical_area_name)
 
-                for i in runtime_data["cortical_data"]["blueprint"]:
-                    for x in cortical_name:
-                        if x in i:
-                            if x not in cortical_genome_dictionary['genome']:
-                                cortical_genome_dictionary['genome'][x] = []
-                            cortical_genome_dictionary['genome'][x].append(
-                                runtime_data["cortical_data"]["blueprint"][i])
-                json_object = json.dumps(cortical_genome_dictionary)
-                zmq_queue.append(json_object)
-            else:
-                bool_flag = True
-        else:
-            bool_flag = False
+            json_object = json.dumps(cortical_genome_dictionary)
+            zmq_queue.append(json_object)
+
         time.sleep(2)
-    print("Genome reloaded.")
-    if len(ws_queue[0]) > 2:
-        ws_queue.clear()
-    runtime_data["cortical_data"] = cortical_area_name
-    return cortical_genome_dictionary.copy()
+
+        print("Genome reloaded.")
+        if len(ws_queue[0]) > 2:
+            ws_queue.clear()
+        runtime_data["cortical_data"] = cortical_area_name
+        return cortical_genome_dictionary.copy()
 
 
 async def echo(websocket):
@@ -230,9 +231,6 @@ async def echo(websocket):
             if "genome" in zmq_queue[0]:
                 cortical_genome_list = str(zmq_queue[0])
                 zmq_queue.pop()
-                cortical_area_name = requests.get(
-                    'http://' + FEAGI_HOST + ':' + API_PORT + DIMENSIONS_ENDPOINT,
-                    timeout=10).json()
                 await websocket.send(cortical_genome_list)
             if len(zmq_queue) > 2:  # This will eliminate any stack up queue
                 stored_value = zmq_queue[len(zmq_queue) - 1]
@@ -453,7 +451,7 @@ def main():
         if "cortical_name" in data_from_godot:
             url = "http://" + FEAGI_HOST + ":" + API_PORT + "/v1/feagi/genome/cortical_area"
             request_obj = data_from_godot
-            requests.post(url, data=request_obj)
+            requests.post(url, data=request_obj, timeout=10)
             data_from_godot = {}
 
         invalid_values = {"None", "{}", "refresh", "[]"}
@@ -478,7 +476,7 @@ def main():
 
 
 if __name__ == "__main__":
-    BGSK = threading.Thread(target=websocket_operation, daemon=True).start()
+    threading.Thread(target=websocket_operation, daemon=True).start()
     while True:
         PREVIOUS_GENOME_TIMESTAMP = 0
         FEAGI_FLAG = False
