@@ -29,11 +29,6 @@ import requests
 from configuration import agent_settings, feagi_settings
 from feagi_agent import feagi_interface as feagi
 
-ws_queue = deque()
-zmq_queue = deque()
-current_cortical_area = {}
-FEAGI_HOST, API_PORT, BURST_SECOND = "", "", 0
-
 runtime_data = {
     "cortical_data": {},
     "current_burst_id": None,
@@ -93,7 +88,7 @@ def name_to_id(name):
     return None
 
 
-def feagi_breakdown(data):
+def feagi_breakdown(data, feagi_host_input, api_port_input):
     """
     Designed for genome 2.0 only. Data is the input from feagi's raw data.
     This function will detect if cortical area list is different than the first, it will generate
@@ -105,12 +100,12 @@ def feagi_breakdown(data):
         if new_genome_num > runtime_data["genome_number"]:
             runtime_data["old_cortical_data"] = runtime_data["cortical_data"]
             runtime_data["cortical_data"] = \
-                requests.get('http://' + FEAGI_HOST + ':' + API_PORT + DIMENSIONS_ENDPOINT,
+                requests.get('http://' + feagi_host_input + ':' + api_port_input + DIMENSIONS_ENDPOINT,
                              timeout=10).json()
             if 'genome_reset' not in data and data == "{}":
                 runtime_data["cortical_data"] = \
                     requests.get(
-                        'http://' + FEAGI_HOST + ':' + API_PORT + DIMENSIONS_ENDPOINT,
+                        'http://' + feagi_host_input + ':' + api_port_input + DIMENSIONS_ENDPOINT,
                         timeout=10).json()
             if data != "{}":
                 if runtime_data["old_cortical_data"] != runtime_data["cortical_data"]:
@@ -292,7 +287,7 @@ def main():
     """
     Main script for bridge to communicate with FEAGI and Godot.
     """
-    global PREVIOUS_GENOME_TIMESTAMP, FEAGI_HOST, API_PORT, BURST_SECOND
+    PREVIOUS_GENOME_TIMESTAMP = 0
     print(
         "================================ @@@@@@@@@@@@@@@ "
         "==========================================")
@@ -407,7 +402,7 @@ def main():
             BURST_SECOND = one_frame['burst_frequency']
             if 'genome_reset' in one_frame:
                 runtime_data["cortical_data"] = {}
-            one_frame = feagi_breakdown(one_frame)
+            one_frame = feagi_breakdown(one_frame, FEAGI_HOST, API_PORT)
             # Debug section start
             if one_frame != old_data:
                 old_data = one_frame
@@ -470,6 +465,9 @@ def main():
 
 if __name__ == "__main__":
     threading.Thread(target=websocket_operation, daemon=True).start()
+    ws_queue = deque()
+    zmq_queue = deque()
+    current_cortical_area = {}
     while True:
         PREVIOUS_GENOME_TIMESTAMP = 0
         FEAGI_FLAG = False
