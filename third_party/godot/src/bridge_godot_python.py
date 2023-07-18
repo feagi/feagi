@@ -20,7 +20,6 @@ import json
 import ast
 import asyncio
 import random
-import socket
 import threading
 import logging
 from time import sleep
@@ -123,6 +122,7 @@ def feagi_breakdown(data):
             new_list.append([i[1], i[2], i[3]])
         return new_list
     except Exception as error:
+        logging.exception(error)
         print("Exception during feagi_breakdown", error)
         return None
 
