@@ -21,13 +21,10 @@ import json
 import ast
 import asyncio
 import random
-import shutil
 import socket
 import threading
 from time import sleep
 from collections import deque
-from concurrent import futures
-from threading import Thread
 import zmq
 import websockets
 import requests
@@ -275,7 +272,7 @@ def reload_genome():
     return cortical_genome_dictionary.copy()
 
 
-def feagi_init(feagi_host, api_port):
+def feagi_init(feagi_host_input, api_port_input):
     # Send a request to FEAGI for cortical dimensions
     awaiting_feagi_registration = True
     while awaiting_feagi_registration:
@@ -290,10 +287,11 @@ def feagi_init(feagi_host, api_port):
         while awaiting_feagi_registration:
             if len(cortical_genome_dictionary["genome"]) == 0:
                 try:
-                    data_from_genome = requests.get('http://' + feagi_host + ':' + api_port +
+                    data_from_genome = requests.get('http://' +
+                                                    feagi_host_input + ':' + api_port_input +
                                                     '/v1/feagi/genome/download').json()
                     cortical_area_name = requests.get(
-                        'http://' + feagi_host + ':' + api_port + DIMENSIONS_ENDPOINT).json()
+                        'http://' + feagi_host_input + ':' + api_port_input + DIMENSIONS_ENDPOINT).json()
                     runtime_data["cortical_data"] = data_from_genome
 
                     for x in cortical_area_name:
@@ -394,10 +392,8 @@ def main():
     opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
                                                runtime_data["feagi_state"]['feagi_opu_port'])
     feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=True)
-    feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
     # FEAGI section ends
 
-    # current_cortical_area = feagi_init(feagi_host=feagi_host, api_port=api_port)
     print("FEAGI initialization completed successfully")
     godot_list = {}  # initialized the list from Godot
     detect_lag = False
@@ -453,11 +449,7 @@ def main():
                 #  ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
                 #  agent_data_port)
                 ipu_channel_address = "tcp://*:" + agent_data_port
-                opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
-                                                           runtime_data["feagi_state"][
-                                                               'feagi_opu_port'])
                 feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=True)
-                feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
                 # FEAGI section ends
                 flag_zmq = False
             if one_frame["genome_changed"] != PREVIOUS_GENOME_TIMESTAMP:
