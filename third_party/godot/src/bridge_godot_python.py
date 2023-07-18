@@ -60,12 +60,8 @@ DIMENSIONS_ENDPOINT = '/v1/feagi/connectome/properties/dimensions'
 
 
 def simulation_testing():
-    array = []
-    for i in range(1000):
-        x_example = random.randint(0, 64)
-        y_example = random.randint(0, 64)
-        z_example = random.randint(0, 64)
-        array.append((x_example, y_example, z_example))
+    array = [[random.randint(0, 64), random.randint(0, 64), random.randint(0, 64)] for _ in
+             range(1000)]
     return array
 
 
