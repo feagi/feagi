@@ -16,7 +16,6 @@ limitations under the License.
 """
 import time
 import os
-import traceback
 import json
 import ast
 import asyncio
@@ -25,7 +24,6 @@ import socket
 import threading
 from time import sleep
 from collections import deque
-import zmq
 import websockets
 import requests
 from configuration import *
@@ -34,7 +32,6 @@ from feagi_agent import feagi_interface as feagi
 ws_queue = deque()
 zmq_queue = deque()
 BURST_SECOND = 0
-PREVIOUS_GENOME_TIMESTAMP = 0  # TO keep record of timestamp
 current_cortical_area = {}
 FEAGI_HOST = ""
 API_PORT = ""
@@ -418,9 +415,8 @@ def main():
             if 'genome_reset' in one_frame:
                 runtime_data["cortical_data"] = {}
                 try:
-                    file = open("../godot_source/reset.txt", "w")
-                    file.write("reset")
-                    file.close()
+                    with open("../godot_source/reset.txt", "w") as file:
+                        file.write("reset")
                 except Exception as error:
                     print("Error during genome reset:\n", error)
             one_frame = feagi_breakdown(one_frame)
