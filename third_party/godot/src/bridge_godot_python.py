@@ -470,8 +470,8 @@ def main():
             requests.post(url, data=request_obj)
             data_from_godot = {}
 
-        if data_from_godot != "None" and data_from_godot != "{}" and data_from_godot != godot_list \
-                and data_from_godot != "refresh" and data_from_godot != "[]":
+        invalid_values = {"None", "{}", "refresh", "[]"}
+        if data_from_godot not in invalid_values and data_from_godot != godot_list:
             godot_list = godot_data(data_from_godot)
             converted_data = convert_absolute_to_relative_coordinate(
                 stimulation_from_godot=godot_list,
