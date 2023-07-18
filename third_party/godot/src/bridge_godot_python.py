@@ -383,8 +383,8 @@ def main():
                 print("** **", runtime_data["feagi_state"])
                 if isinstance(runtime_data.get("feagi_state"), dict) and 'burst_duration' in \
                         runtime_data["feagi_state"]:
-                    burst_duration = runtime_data["feagi_state"]['burst_duration']
-                    feagi_settings['feagi_burst_speed'] = float(burst_duration)
+                    feagi_settings['feagi_burst_speed'] = float(
+                        runtime_data["feagi_state"]['burst_duration'])
                 ipu_channel_address = "tcp://*:" + agent_data_port
                 feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=True)
                 # FEAGI section ends
