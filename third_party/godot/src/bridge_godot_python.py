@@ -22,6 +22,7 @@ import asyncio
 import random
 import socket
 import threading
+import logging
 from time import sleep
 from collections import deque
 import websockets
@@ -152,20 +153,6 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
     return relative_coordinate
 
 
-def is_tcp_server_reachable(server_host, server_port):
-    """
-    TO check if feagi is reachable.
-    """
-    try:
-        # Create a socket
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(3)
-        sock.connect((server_host, server_port))
-        return True
-    except Exception as error:
-        return False
-
-
 def download_genome():
     """
     Fetch and download the genome from FEAGI API
@@ -180,6 +167,7 @@ def download_genome():
         return data_from_genome, cortical_area_name
     except Exception as error:
         print("Error while fetching genome from FEAGI: ", error)
+        logging.exception(error)
         return None, None
 
 
