@@ -60,6 +60,11 @@ DIMENSIONS_ENDPOINT = '/v1/feagi/connectome/properties/dimensions'
 
 
 def simulation_testing():
+    """
+    This is to stress the CPU using Godot. You should be able to see the red cube filled with
+    small red cubes inside. You can simply uncomment this function in main() to test the
+    stress and increase the iteration numbers to stress more.
+    """
     array = [[random.randint(0, 64), random.randint(0, 64), random.randint(0, 64)] for _ in
              range(1000)]
     return array
@@ -81,22 +86,22 @@ def breakdown(feagi_input):
     print(list1)
 
 
-def godot_data(input):
+def godot_data(data_input):
     """
     Simply clean the list and remove all unnecessary special characters and deliver with name, xyz
     only
     """
-    data = ast.literal_eval(input)
+    data = ast.literal_eval(data_input)
     dict_with_updated_name = {"data": {}}
     dict_with_updated_name["data"]["direct_stimulation"] = dict({})
     for key in data["data"]["direct_stimulation"]:
-        Updated_name = key
-        if dict_with_updated_name["data"]["direct_stimulation"].get(Updated_name) is not None:
+        updated_name = key
+        if dict_with_updated_name["data"]["direct_stimulation"].get(updated_name) is not None:
             pass
         else:
-            dict_with_updated_name["data"]["direct_stimulation"][Updated_name] = []
+            dict_with_updated_name["data"]["direct_stimulation"][updated_name] = []
         for key_01 in data["data"]["direct_stimulation"][key]:
-            dict_with_updated_name["data"]["direct_stimulation"][Updated_name].append(key_01)
+            dict_with_updated_name["data"]["direct_stimulation"][updated_name].append(key_01)
 
     print("godot_data: ", dict_with_updated_name)
     return dict_with_updated_name
@@ -211,9 +216,7 @@ def is_tcp_server_reachable(server_host, server_port):
     try:
         # Create a socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # Set a timeout for the connection attempt
         sock.settimeout(3)
-        # Attempt to connect to the server
         sock.connect((server_host, server_port))
         return True
     except Exception as e:
