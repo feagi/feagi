@@ -121,7 +121,7 @@ def feagi_breakdown(data):
         for i in data['godot']:
             new_list.append([i[1], i[2], i[3]])
         return new_list
-    except Exception as error:
+    except requests.exceptions.RequestException as error:
         logging.exception(error)
         print("Exception during feagi_breakdown", error)
         return None
@@ -165,7 +165,7 @@ def download_genome():
             'http://' + FEAGI_HOST + ':' + API_PORT + DIMENSIONS_ENDPOINT,
             timeout=10).json()
         return data_from_genome, cortical_area_name
-    except Exception as error:
+    except requests.exceptions.RequestException as error:
         print("Error while fetching genome from FEAGI: ", error)
         logging.exception(error)
         return None, None
