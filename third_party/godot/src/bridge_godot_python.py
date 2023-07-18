@@ -17,24 +17,23 @@ limitations under the License.
 import time
 import os
 import traceback
-import sys
-import configuration
-import zmq
 import json
 import ast
 import asyncio
-import websockets
-import requests
 import random
 import shutil
 import socket
 import threading
 from time import sleep
-from configuration import *
-import concurrent.futures
-from threading import Thread
 from collections import deque
+from concurrent import futures
+from threading import Thread
+import zmq
+import websockets
+import requests
+from configuration import * 
 from feagi_agent import feagi_interface as feagi
+
 
 ws_queue = deque()
 zmq_queue = deque()
@@ -109,26 +108,25 @@ def godot_data(data_input):
 
 def godot_selected_list(outside_list, godot_list):
     name = outside_list[0]
-    x = int(outside_list[1])
-    y = int(outside_list[2])
-    z = int(outside_list[3])
+    x_input = int(outside_list[1])
+    y_input = int(outside_list[2])
+    z_input = int(outside_list[3])
     if godot_list:
         list_to_dict = godot_list
     else:
-        list_to_dict = {}
-        list_to_dict["data"] = {}
+        list_to_dict = {"data": {}}
         list_to_dict["data"]["direct_stimulation"] = {}
 
     if list_to_dict["data"]["direct_stimulation"].get(name) is not None:
         pass
     else:
-        list_to_dict["data"]["direct_stimulation"][name] = list()
+        list_to_dict["data"]["direct_stimulation"][name] = []
     for key in list_to_dict["data"]["direct_stimulation"]:
         if key not in list_to_dict["data"]["direct_stimulation"]:
-            list_to_dict["data"]["direct_stimulation"][name] = list()
-            list_to_dict["data"]["direct_stimulation"][name].append([x, y, z])
+            list_to_dict["data"]["direct_stimulation"][name] = []
+            list_to_dict["data"]["direct_stimulation"][name].append([x_input, y_input, z_input])
         else:
-            list_to_dict["data"]["direct_stimulation"][name].append([x, y, z])
+            list_to_dict["data"]["direct_stimulation"][name].append([x_input, y_input, z_input])
     return list_to_dict
 
 
@@ -344,8 +342,8 @@ async def echo(websocket):
 
 
 async def websocket_main():
-    async with websockets.serve(echo, configuration.agent_settings["godot_websocket_ip"],
-                                configuration.agent_settings['godot_websocket_port'], max_size=None,
+    async with websockets.serve(echo, agent_settings["godot_websocket_ip"],
+                                agent_settings['godot_websocket_port'], max_size=None,
                                 max_queue=None, write_limit=None, compression=None):
         await asyncio.Future()
 
