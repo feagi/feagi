@@ -180,17 +180,17 @@ def download_genome():
         return None, None
 
 
-def process_genome_data(runtime_data, cortical_data):
-    cortical_name = [cortical_data[x][7] for x in cortical_data]
+def process_genome_data(runtime_data_list, cortical_data):
+    cortical_name = [cortical_data[x_cortical][7] for x_cortical in cortical_data]
     cortical_genome_dictionary = {"genome": {}}
 
-    for i in runtime_data["cortical_data"]["blueprint"]:
-        for x in cortical_name:
-            if x in i:
-                if x not in cortical_genome_dictionary['genome']:
-                    cortical_genome_dictionary['genome'][x] = []
-                cortical_genome_dictionary['genome'][x].append(
-                    runtime_data["cortical_data"]["blueprint"][i])
+    for i in runtime_data_list["cortical_data"]["blueprint"]:
+        for x_cortical in cortical_name:
+            if x_cortical in i:
+                if x_cortical not in cortical_genome_dictionary['genome']:
+                    cortical_genome_dictionary['genome'][x_cortical] = []
+                cortical_genome_dictionary['genome'][x_cortical].append(
+                    runtime_data_list["cortical_data"]["blueprint"][i])
 
     return cortical_genome_dictionary
 
