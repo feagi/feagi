@@ -396,8 +396,10 @@ def main():
                 # agent_data_port = agent_settings["agent_data_port"]
                 agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
                 print("** **", runtime_data["feagi_state"])
-                feagi_settings['feagi_burst_speed'] = float(
-                    runtime_data["feagi_state"]['burst_duration'])
+                if isinstance(runtime_data.get("feagi_state"), dict) and 'burst_duration' in \
+                        runtime_data["feagi_state"]:
+                    feagi_settings['feagi_burst_speed'] = float(
+                        runtime_data["feagi_state"]['burst_duration'])
                 ipu_channel_address = "tcp://*:" + agent_data_port
                 feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=True)
                 # FEAGI section ends
@@ -414,11 +416,6 @@ def main():
             BURST_SECOND = one_frame['burst_frequency']
             if 'genome_reset' in one_frame:
                 runtime_data["cortical_data"] = {}
-                try:
-                    with open("../godot_source/reset.txt", "w") as file:
-                        file.write("reset")
-                except Exception as error:
-                    print("Error during genome reset:\n", error)
             one_frame = feagi_breakdown(one_frame)
             # Debug section start
             if one_frame != old_data:
