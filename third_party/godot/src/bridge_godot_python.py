@@ -135,7 +135,7 @@ def convert_absolute_to_relative_coordinate(stimulation_from_godot, cortical_dat
 
     if stimulation_from_godot:
         for godot_key, xyz_list in stimulation_from_godot["data"]["direct_stimulation"].items():
-            for raw_id, cortical_info in cortical_data.items():
+            for cortical_info in cortical_data.values():
                 cortical_name = cortical_info[7]
                 if cortical_name == godot_key:
                     if cortical_name not in relative_coordinate["data"]["direct_stimulation"]:
@@ -167,6 +167,9 @@ def is_tcp_server_reachable(server_host, server_port):
 
 
 def download_genome():
+    """
+    Fetch and download the genome from FEAGI API
+    """
     try:
         data_from_genome = requests.get('http://' + FEAGI_HOST + ':' + API_PORT +
                                         '/v1/feagi/genome/download',
@@ -181,6 +184,9 @@ def download_genome():
 
 
 def process_genome_data(runtime_data_list, cortical_data):
+    """
+    Check if the name matches
+    """
     cortical_name = [cortical_data[x_cortical][7] for x_cortical in cortical_data]
     cortical_genome_dictionary = {"genome": {}}
 
@@ -333,6 +339,7 @@ def main():
     FEAGI_HOST, API_PORT, app_data_port = feagi.feagi_setting_for_registration(feagi_settings,
                                                                                agent_settings)
     print("app_data_port: ", app_data_port)
+    capabilities = {}
     runtime_data["feagi_state"] = feagi.feagi_registration(feagi_auth_url=feagi_auth_url,
                                                            feagi_settings=feagi_settings,
                                                            agent_settings=agent_settings,

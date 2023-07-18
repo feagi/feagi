@@ -2,8 +2,6 @@
 
 import os
 
-app_name = 'godot'
-
 feagi_settings = {
     # "feagi_auth_url": "http://127.0.0.1:9000/v1/k8/feagi_settings/auth_token",
     "feagi_url": None,
@@ -22,8 +20,3 @@ agent_settings = {
     'godot_websocket_port': os.environ.get('WS_BRIDGE_PORT', "9050"),
     'burst_duration_threshold': 0.002
 }
-
-capabilities = {
-}
-
-message_to_feagi = {"data": {}}
