@@ -679,7 +679,9 @@ async def genome_neuron_morphology_properties(morphology_name, response: Respons
     try:
         if morphology_name in runtime_data.genome['neuron_morphologies']:
             response.status_code = status.HTTP_200_OK
-            return runtime_data.genome['neuron_morphologies'][morphology_name]
+            results = runtime_data.genome['neuron_morphologies'][morphology_name]
+            results["morphology_name"] = morphology_name
+            return results
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
     except Exception as e:
