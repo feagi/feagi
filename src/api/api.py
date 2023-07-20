@@ -470,6 +470,11 @@ async def fetch_cortical_properties(cortical_area, response: Response):
             if 'mp_charge_accumulation' not in cortical_data:
                 cortical_data['mp_charge_accumulation'] = True
 
+            if 'cortical_coordinates_2d' not in cortical_data:
+                cortical_data['cortical_coordinates_2d'] = []
+                cortical_data['cortical_coordinates_2d'][0] = None
+                cortical_data['cortical_coordinates_2d'][1] = None
+
             cortical_properties = {
                 "cortical_id": cortical_area,
                 "cortical_name": cortical_data['cortical_name'],
@@ -679,7 +684,9 @@ async def genome_neuron_morphology_properties(morphology_name, response: Respons
     try:
         if morphology_name in runtime_data.genome['neuron_morphologies']:
             response.status_code = status.HTTP_200_OK
-            return runtime_data.genome['neuron_morphologies'][morphology_name]
+            results = runtime_data.genome['neuron_morphologies'][morphology_name]
+            results["morphology_name"] = morphology_name
+            return results
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
     except Exception as e:
