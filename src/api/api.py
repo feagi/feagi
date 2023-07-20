@@ -471,9 +471,9 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 cortical_data['mp_charge_accumulation'] = True
 
             if 'cortical_coordinates_2d' not in cortical_data:
-                cortical_data['cortical_coordinates_2d'] = []
-                cortical_data['cortical_coordinates_2d'][0] = None
-                cortical_data['cortical_coordinates_2d'][1] = None
+                cortical_data['cortical_coordinates_2d'] = list()
+                cortical_data['cortical_coordinates_2d'].append(None)
+                cortical_data['cortical_coordinates_2d'].append(None)
 
             cortical_properties = {
                 "cortical_id": cortical_area,
