@@ -185,3 +185,17 @@ def api_message_processor(api_message):
         else:
             deploy_genome(neuroembryogenesis_flag=True, reset_runtime_data_flag=True,
                           genome_data=api_message['append_circuit']["genome_str"])
+
+    if 'reward' in api_message:
+        reward_intensity = api_message['reward']
+        # todo
+        pass
+
+    if 'punishment' in api_message:
+        punishment_intensity = api_message['punishment']
+        # todo
+        pass
+
+    if 'gameover' in api_message:
+        # todo
+        pass
