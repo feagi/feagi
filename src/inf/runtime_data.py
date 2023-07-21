@@ -145,6 +145,7 @@ shock_admin = False
 shock_scenarios = set()
 pain_flag = False
 
+
 # Robot
 robot_id = None
 robot_controller = {}

@@ -26,7 +26,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, conint
 from typing import Optional, Literal
 from ast import literal_eval
 from threading import Thread
@@ -219,8 +219,12 @@ class Stimulation(BaseModel):
     stimulation_script: dict
 
 
-class Training(BaseModel):
+class Shock(BaseModel):
     shock: tuple
+
+
+class Intensity(BaseModel):
+    intensity: conint(ge=0, le=9)
 
 
 class SPAStaticFiles(StaticFiles):
@@ -1401,7 +1405,7 @@ async def list_activated_shock_scenarios(response: Response):
 
 
 @app.api_route("/v1/feagi/training/shock/activate", methods=['POST'], tags=["Training"])
-async def activate_shock_scenarios(training: Training, response: Response):
+async def activate_shock_scenarios(shock: Shock, response: Response):
     """
     Enables shock for given scenarios. One or many shock scenario could coexist. e.g.
 
@@ -1415,11 +1419,56 @@ async def activate_shock_scenarios(training: Training, response: Response):
     """
     print("----Shock API----")
     try:
-        message = training.dict()
+        message = shock.dict()
         print(message)
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
         
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/training/reward", methods=['POST'], tags=["Training"])
+async def reward_intensity(intensity: Intensity, response: Response):
+    """
+    Captures feedback from the environment during training
+    """
+    try:
+        message = {'reward': intensity.intensity}
+        api_queue.put(item=message)
+        response.status_code = status.HTTP_200_OK
+
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/training/punishment", methods=['POST'], tags=["Training"])
+async def punishment_intensity(intensity: Intensity, response: Response):
+    """
+    Captures feedback from the environment during training
+    """
+    try:
+        message = {'punishment': intensity.intensity}
+        api_queue.put(item=message)
+        response.status_code = status.HTTP_200_OK
+
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/training/gameover", methods=['POST'], tags=["Training"])
+async def gameover_signal(response: Response):
+    """
+    Captures feedback from the environment during training
+    """
+    try:
+        message = {'gameover': True}
+        api_queue.put(item=message)
+        response.status_code = status.HTTP_200_OK
+
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
