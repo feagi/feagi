@@ -20,6 +20,7 @@ import time
 import string
 import logging
 import random
+import tempfile
 import io
 
 from fastapi import FastAPI, File, UploadFile, Response, status, Request, HTTPException
@@ -1739,18 +1740,23 @@ async def download_connectome(response: Response):
         print(file_name)
         brain_data = preserve_brain()
 
-        # Temporarily save to a file (could also use in-memory buffers, but this approach is straightforward)
-        file_path = "temp.gz"
-        with open(file_path, "wb") as f:
-            f.write(brain_data)
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.gz') as temp_file:
+            temp_file.write(brain_data)
 
-        # Serve the file with FileResponse
-        response = FileResponse(file_path, media_type="application/gzip", filename=file_name)
+            # Ensure all data is written
+            temp_file.flush()
 
-        # Optionally delete the temporary file after serving it (cleanup)
-        os.remove(file_path)
+            # Get the size of the file
+            temp_file_size = temp_file.tell()
+            print(f"Size of data: {temp_file_size} bytes")
 
-        return response
+            # Seek back to the start of the file
+            temp_file.seek(0)
+
+            # Create the FileResponse inside the with block
+            response = FileResponse(temp_file.name, media_type="application/gzip", filename=file_name)
+
+            return response
 
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
