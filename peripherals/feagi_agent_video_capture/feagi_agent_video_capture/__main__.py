@@ -4,10 +4,10 @@ import subprocess
 import sys
 import os
 import sysconfig
-import feagi_agent_webcam
+import feagi_agent_video_capture
 import traceback
 from time import sleep
-from feagi_agent_webcam.configuration import *
+from feagi_agent_video_capture.configuration import *
 
 if __name__ == '__main__':
     # Check if feagi_agent has arg
@@ -25,7 +25,10 @@ if __name__ == '__main__':
     if args['loop'] == "true" or args['loop'] == "True":
         capabilities["camera"]["video_loop"] = bool(args['loop'])
     if args['device']:
-        capabilities["camera"]["video_device_index"] = int(args['device'])
+        if args['device'] == "monitor":
+            capabilities["camera"]["video_device_index"] = "monitor"
+        else:
+            capabilities["camera"]["video_device_index"] = int(args['device'])
     else:
         capabilities["camera"]["video_device_index"] = 0
     if args['video']:
@@ -39,10 +42,10 @@ if __name__ == '__main__':
         inital_message_to_feagi = message_to_feagi.copy()
         while True:
             try:
-                from feagi_agent_webcam import controller as webcam_controller
+                from feagi_agent_video_capture import controller as video_controller
                 feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
                 print("FEAGI AUTH URL ------- ", feagi_auth_url)
-                webcam_controller.main(feagi_auth_url, feagi_settings, agent_settings,
+                video_controller.main(feagi_auth_url, feagi_settings, agent_settings,
                                        capabilities, message_to_feagi)
             except Exception as e:
                 feagi_settings = inital_feagi_setting.copy()
