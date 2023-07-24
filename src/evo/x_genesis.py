@@ -512,13 +512,13 @@ def add_core_cortical_area(cortical_properties):
                  ]
 
             runtime_data.genome['blueprint'][cortical_area]["relative_coordinate"] = \
-                [cortical_properties['cortical_coordinates'][0],
-                 cortical_properties['cortical_coordinates'][1],
-                 cortical_properties['cortical_coordinates'][2]]
+                [cortical_properties['coordinates_3d'][0],
+                 cortical_properties['coordinates_3d'][1],
+                 cortical_properties['coordinates_3d'][2]]
 
             runtime_data.genome['blueprint'][cortical_area]["2d_coordinate"] = \
-                [cortical_properties['2d_coordinates'][0],
-                 cortical_properties['2d_coordinates'][1]]
+                [cortical_properties['coordinates_2d'][0],
+                 cortical_properties['coordinates_2d'][1]]
 
             runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'] = dict()
             runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"] = \
@@ -552,12 +552,13 @@ def add_core_cortical_area(cortical_properties):
             save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                         file_name=runtime_data.connectome_path + "genome.json")
             runtime_data.last_genome_modification_time = datetime.datetime.now()
+            return cortical_area
 
     except KeyError:
         print("Error: New cortical area was not added.", traceback.print_exc())
 
 
-def add_custom_cortical_area(cortical_name, cortical_coordinates, cortical_dimensions, cortical_id_overwrite=None):
+def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cortical_dimensions, cortical_id_overwrite=None):
     # Generate Cortical ID
     # todo: instead of hard coding the length have the genome properties captured and reference instead
     temp_name = cortical_name
@@ -590,9 +591,13 @@ def add_custom_cortical_area(cortical_name, cortical_coordinates, cortical_dimen
              cortical_dimensions[2]]
 
         runtime_data.genome['blueprint'][cortical_area]["relative_coordinate"] = \
-            [cortical_coordinates[0],
-             cortical_coordinates[1],
-             cortical_coordinates[2]]
+            [coordinates_3d[0],
+             coordinates_3d[1],
+             coordinates_3d[2]]
+
+        runtime_data.genome['blueprint'][cortical_area]["2d_coordinate"] = \
+            [coordinates_2d[0],
+             coordinates_2d[1]]
 
         runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'] = {}
         runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"] = \
@@ -626,6 +631,7 @@ def add_custom_cortical_area(cortical_name, cortical_coordinates, cortical_dimen
         save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                     file_name=runtime_data.connectome_path + "genome.json")
         runtime_data.last_genome_modification_time = datetime.datetime.now()
+        return cortical_area
 
 
 def append_circuit(source_genome, circuit_origin):
@@ -698,7 +704,8 @@ def append_circuit(source_genome, circuit_origin):
                           "cortical_type": src_blueprint[cortical_area_id]['group_id'],
                           "cortical_name": src_blueprint[cortical_area_id]['cortical_name'],
                           "cortical_coordinates": [new_coordinates[0], new_coordinates[1], new_coordinates[2]],
-                          "channel_count": 1
+                          "channel_count": 1,
+                          "2d_coordinates": [0, 0]
                         })
                         appended_cortical_areas.add(cortical_area_id)
                         print(f"---------------Successfully imported a built-in cortical area. id:{cortical_area_id}")
