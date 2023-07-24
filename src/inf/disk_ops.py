@@ -20,6 +20,7 @@ import json
 import pickle
 import traceback
 import gzip
+import sys
 
 from inf import runtime_data
 from evo.genome_processor import genome_v1_v2_converter
@@ -210,6 +211,43 @@ def save_fcl_in_db(burst_number, fire_candidate_list, number_under_training):
     runtime_data.mongodb.insert_neuron_activity(fcl_data=fcl_data)
 
 
+def get_deep_size(obj, seen=None):
+    # Create a set to store objects that have been seen
+    if seen is None:
+        seen = set()
+
+    # Get object's memory size
+    size = sys.getsizeof(obj)
+
+    # If object is a dictionary, add sizes of its keys and values
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            if id(key) not in seen:
+                seen.add(id(key))
+                size += get_deep_size(key, seen)
+            if id(value) not in seen:
+                seen.add(id(value))
+                size += get_deep_size(value, seen)
+
+    # If object is a list, add sizes of its items
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        for item in obj:
+            if id(item) not in seen:
+                seen.add(id(item))
+                size += get_deep_size(item, seen)
+
+    return size
+
+
+# Convert to human-readable format
+def format_bytes(size):
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if size < 1024.0:
+            return f"{size:.2f} {unit}"
+        size /= 1024.0
+    return f"{size:.2f} TB"
+
+
 def preserve_brain():
     # Combine Brain Data
     brain = dict()
@@ -218,13 +256,22 @@ def preserve_brain():
     brain["genome"] = genome_v1_v2_converter(runtime_data.genome)
     brain["plasticity_dict"] = runtime_data.plasticity_dict
 
+    brain_size = get_deep_size(brain)
+    print("Brain size (pre compression):", format_bytes(brain_size))
+
     # Convert Brain to JSON
-    json_brain = json.dumps(brain)
-
-    # Compress Brain
-    gzip_brain = gzip.compress(json_brain.encode())
-
-    return gzip_brain
+    try:
+        json_brain = json.dumps(brain, default=set_default)
+        # Compress Brain
+        gzip_brain = gzip.compress(json_brain.encode())
+        size_of_compressed_data = len(gzip_brain)
+        compression_rate = round(brain_size / size_of_compressed_data * 100)
+        print(f"Compression rate: {compression_rate} %")
+        print("Brain size (post compression):", format_bytes(size_of_compressed_data))
+        print("_-" * 20)
+        return gzip_brain
+    except Exception as e:
+        print("Exception during brain jasonification", e, traceback.print_exc())
 
 
 def revive_brain(brain_data):
