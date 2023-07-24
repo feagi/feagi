@@ -9,8 +9,7 @@
 name: Upload Feagi agent video capture
 
 on:
-  release:
-    types: [published]
+  [workflow_dispatch]
 
 permissions:
   contents: read
