@@ -20,6 +20,7 @@ import time
 import string
 import logging
 import random
+import io
 
 from fastapi import FastAPI, File, UploadFile, Response, status, Request, HTTPException
 from fastapi.responses import JSONResponse
@@ -1712,7 +1713,7 @@ async def connectome_mapping_report(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        
+
 
 @app.get("/v1/feagi/connectome/download", tags=["Connectome"])
 async def download_connectome(response: Response):
@@ -1725,10 +1726,18 @@ async def download_connectome(response: Response):
         print(file_name)
         brain_data = preserve_brain()
 
-        headers = {
-            'Content-Disposition': f'attachment; filename="{file_name}"'
-        }
-        return Response(content=brain_data, headers=headers)
+        # Temporarily save to a file (could also use in-memory buffers, but this approach is straightforward)
+        file_path = "temp.gz"
+        with open(file_path, "wb") as f:
+            f.write(brain_data)
+
+        # Serve the file with FileResponse
+        response = FileResponse(file_path, media_type="application/gzip", filename=file_name)
+
+        # Optionally delete the temporary file after serving it (cleanup)
+        os.remove(file_path)
+
+        return response
 
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY

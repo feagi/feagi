@@ -19,7 +19,7 @@ import os.path
 import json
 import pickle
 import traceback
-import zlib
+import gzip
 
 from inf import runtime_data
 from evo.genome_processor import genome_v1_v2_converter
@@ -218,36 +218,39 @@ def preserve_brain():
     brain["genome"] = genome_v1_v2_converter(runtime_data.genome)
     brain["plasticity_dict"] = runtime_data.plasticity_dict
 
-    # Pickle Brain
-    pickled_brain = pickle.dumps(brain)
+    # Convert Brain to JSON
+    json_brain = json.dumps(brain)
 
     # Compress Brain
-    compressed_brain = zlib.compress(pickled_brain)
+    gzip_brain = gzip.compress(json_brain.encode())
 
-    return compressed_brain
+    return gzip_brain
 
 
 def revive_brain(brain_data):
     try:
         print("\n\n$$$$$$$$$$$$$$$$$      Brain Revival Begun     $$$$$$$$$$$$$$$$$")
         # Decompress brain data
-        decompressed_brain = zlib.decompress(brain_data)
+        decompressed_brain = gzip.decompress(brain_data)
 
-        # Unpickle brain data
-        unpickle_data = pickle.loads(decompressed_brain)
+        # Convert bytes back to string.
+        json_string = decompressed_brain.decode()
 
-        for type_ in unpickle_data:
+        # Load the string as a dictionary.
+        revived_brain = json.loads(json_string)
+
+        for type_ in revived_brain:
             print(f"!!!!!!!  {type_}")
 
         # Unpack the brain
-        if "connectome" in unpickle_data:
-            runtime_data.pending_brain = unpickle_data["connectome"]
-        if "voxel_dict" in unpickle_data:
-            runtime_data.pending_voxel_dict = unpickle_data["voxel_dict"]
-        if "genome" in unpickle_data:
-            runtime_data.pending_genome = unpickle_data["genome"]
-        if "plasticity_dict" in unpickle_data:
-            runtime_data.pending_plasticity_dict = unpickle_data["plasticity_dict"]
+        if "connectome" in revived_brain:
+            runtime_data.pending_brain = revived_brain["connectome"]
+        if "voxel_dict" in revived_brain:
+            runtime_data.pending_voxel_dict = revived_brain["voxel_dict"]
+        if "genome" in revived_brain:
+            runtime_data.pending_genome = revived_brain["genome"]
+        if "plasticity_dict" in revived_brain:
+            runtime_data.pending_plasticity_dict = revived_brain["plasticity_dict"]
         print("$$$$$$$$$$$$$$$$$      Brain Revival Completed       $$$$$$$$$$$$$$$$$\n\n")
 
     except Exception as e:
