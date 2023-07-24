@@ -15,6 +15,11 @@ from datetime import datetime
 from feagi_agent import retina as retina
 from feagi_agent import feagi_interface as feagi
 import traceback
+import time
+import mss
+import screeninfo
+import numpy
+from PIL import Image
 
 
 def chroma_keyer(frame, size, name_id):
@@ -62,6 +67,11 @@ def chroma_keyer(frame, size, name_id):
         return {'camera': {name_id: vision_dict}}
 
 
+def pil_frombytes(im):
+    """ Efficient Pillow version. """
+    return Image.frombytes('RGB', im.size, im.bgra, 'raw', 'BGRX').tobytes()
+
+
 def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_to_feagi):
     # Generate runtime dictionary
     previous_data_frame = dict()
@@ -107,18 +117,34 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     flag_counter = 0
     rgb['camera'] = dict()
 
-    cam = cv2.VideoCapture(capabilities['camera']['video_device_index'])
+    screen_info = screeninfo.get_monitors()[0]  # Assuming you want the primary monitor
+    screen_width = 600
+    screen_height = 600
+    monitor = {"top": 40, "left": 0, "width": screen_width, "height": screen_height}
+    if capabilities['camera']['video_device_index'] != "monitor":
+        cam = cv2.VideoCapture(capabilities['camera']['video_device_index'])
 
     while True:
         try:
             message_from_feagi = feagi_opu_channel.receive()
-            check, pixels = cam.read()
-            if bool(capabilities["camera"]["video_loop"]):
-                if check:
-                    pass
-                else:
-                    cam.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                    # check, pixels = cam.read()
+            if capabilities['camera']['video_device_index'] != "monitor":
+                check, pixels = cam.read()
+            else:
+                check = True
+            if capabilities['camera']['video_device_index'] != "monitor":
+                if bool(capabilities["camera"]["video_loop"]):
+                    if check:
+                        pass
+                    else:
+                        cam.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                        # check, pixels = cam.read()
+            if capabilities['camera']['video_device_index'] == "monitor":
+                with mss.mss() as sct:
+                    img = numpy.array(sct.grab(monitor))
+                    pixels = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
+                    cv2.imshow("OpenCV/Numpy normal", pixels)
+                    # print(rgb)
+                cv2.waitKey(25)
             retina_data = retina.frame_split(pixels, capabilities['camera']['retina_width_percent'],
                                              capabilities['camera']['retina_height_percent'])
             for i in retina_data:
