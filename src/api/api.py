@@ -575,7 +575,7 @@ async def add_cortical_area(new_custom_cortical_properties: NewCustomCorticalPro
     print(new_custom_cortical_properties)
     try:
         cortical_name = new_custom_cortical_properties.cortical_name
-        coordinates_3d = new_custom_cortical_properties.cortical_coordinates
+        coordinates_3d = new_custom_cortical_properties.coordinates_3d
         coordinates_2d = new_custom_cortical_properties.coordinates_2d
         cortical_dimensions = new_custom_cortical_properties.cortical_dimensions
         cortical_id = add_custom_cortical_area(cortical_name=cortical_name,
