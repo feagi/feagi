@@ -129,7 +129,7 @@ class NewCorticalProperties(BaseModel):
 class NewCustomCorticalProperties(BaseModel):
     cortical_name: str = Field(None, max_length=20, min_length=1)
     coordinates_2d: Optional[list] = [0, 0]
-    cortical_coordinates: list
+    coordinates_3d: list
     cortical_dimensions: list
 
 
