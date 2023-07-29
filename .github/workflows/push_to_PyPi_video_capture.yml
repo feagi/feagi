@@ -29,6 +29,9 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install build
+        ls -a
+        echo "next"
+        tree .
     - name: Build package
       run: python -m build peripherals/feagi_agent_video_capture/
     - name: Publish package
