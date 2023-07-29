@@ -1,11 +1,11 @@
 import datetime
 import json
-from inf.initialize import stage_genome
+from inf.initialize import deploy_genome
 from inf import runtime_data, disk_ops
 from evo.genome_processor import genome_ver_check
 from evo.autopilot import update_generation_dict
 from evo.x_genesis import update_cortical_properties, update_morphology_properties, update_cortical_mappings
-from evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal
+from evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal, append_circuit
 
 
 def api_message_processor(api_message):
@@ -16,6 +16,7 @@ def api_message_processor(api_message):
         if 'burst_duration' in api_message['burst_management']:
             if api_message['burst_management']['burst_duration'] is not None:
                 runtime_data.burst_timer = api_message['burst_management']['burst_duration']
+                runtime_data.genome['burst_delay'] = runtime_data.burst_timer
 
     if 'stimulation_script' in api_message:
         runtime_data.stimulation_script = api_message['stimulation_script']['stimulation_script']
@@ -98,7 +99,7 @@ def api_message_processor(api_message):
         print("========================================================")
 
         genome_data = dict(api_message['genome'])
-        stage_genome(neuroembryogenesis_flag=True, reset_runtime_data_flag=True, genome_data=genome_data)
+        deploy_genome(neuroembryogenesis_flag=True, reset_runtime_data_flag=True, genome_data=genome_data)
 
     if 'beacon_sub' in api_message:
         print("The following FEAGI beacon subscriber has been added:\n", api_message['beacon_sub'])
@@ -155,6 +156,8 @@ def api_message_processor(api_message):
                 api_message['robot_model']['slip2']
 
     if 'update_cortical_properties' in api_message:
+        print("### ### " * 20)
+        print(api_message)
         update_cortical_properties(cortical_properties=api_message['update_cortical_properties'])
 
     if 'update_cortical_mappings' in api_message:
@@ -167,10 +170,32 @@ def api_message_processor(api_message):
         cortical_removal(cortical_area=api_message['delete_cortical_area'],
                          genome_scrub=True)
 
-    if 'add_core_cortical_area' in api_message:
-        add_core_cortical_area(cortical_properties=api_message['add_core_cortical_area'])
+    # if 'add_core_cortical_area' in api_message:
+    #     add_core_cortical_area(cortical_properties=api_message['add_core_cortical_area'])
 
     if 'add_custom_cortical_area' in api_message:
-        add_custom_cortical_area(cortical_properties=api_message['add_custom_cortical_area'])
+        add_custom_cortical_area(cortical_name=api_message['add_custom_cortical_area']['cortical_name'],
+                                 cortical_coordinates=api_message['add_custom_cortical_area']['cortical_coordinates'],
+                                 cortical_dimensions=api_message['add_custom_cortical_area']['cortical_dimensions'])
 
-    api_message = {}
+    if 'append_circuit' in api_message:
+        if runtime_data.genome:
+            append_circuit(source_genome=api_message['append_circuit']["genome_str"],
+                           circuit_origin=api_message['append_circuit']['circuit_origin'])
+        else:
+            deploy_genome(neuroembryogenesis_flag=True, reset_runtime_data_flag=True,
+                          genome_data=api_message['append_circuit']["genome_str"])
+
+    if 'reward' in api_message:
+        reward_intensity = api_message['reward']
+        # todo
+        pass
+
+    if 'punishment' in api_message:
+        punishment_intensity = api_message['punishment']
+        # todo
+        pass
+
+    if 'gameover' in api_message:
+        # todo
+        pass

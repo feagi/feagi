@@ -105,6 +105,7 @@ def neurons_in_the_block(cortical_area, block_ref):
     except Exception as e:
         print("Warning! No neuron was detected for ", cortical_area, block_ref)
         print("..... possibly too sparse of a cortical area.\n")
+        print(e, traceback.print_exc())
         return []
 
 

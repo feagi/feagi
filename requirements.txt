@@ -1,5 +1,4 @@
 pip==21.2.4
-Cython==0.29.24
 numpy==1.22.0
 watchdog==2.1.5
 pymongo==3.11.2
@@ -14,6 +13,6 @@ python-multipart==0.0.5
 starlette~=0.17.1
 requests~=2.27.1
 starlette~=0.17.1
-matplotlib~=3.4.3
 setuptools~=57.0.0
 websockets~=10.2
+feagi_agent
