@@ -131,6 +131,13 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
                 "count": int
+            },
+            "Aperture": {
+                "enabled": True,
+                "cortical_id": "o_aptr",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 10],
+                "count": int
             }
         }
     },

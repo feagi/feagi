@@ -128,7 +128,7 @@ class NewCorticalProperties(BaseModel):
 
 class NewCustomCorticalProperties(BaseModel):
     cortical_name: str = Field(None, max_length=20, min_length=1)
-    coordinates_2d: list
+    coordinates_2d: Optional[list] = [0, 0]
     coordinates_3d: list
     cortical_dimensions: list
 
@@ -571,6 +571,8 @@ async def add_cortical_area(new_custom_cortical_properties: NewCustomCorticalPro
     """
     Enables changes against various Burst Engine parameters.
     """
+    print("--------")
+    print(new_custom_cortical_properties)
     try:
         cortical_name = new_custom_cortical_properties.cortical_name
         coordinates_3d = new_custom_cortical_properties.coordinates_3d
@@ -1487,6 +1489,16 @@ async def gameover_signal(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/training/gameover", methods=['GET'], tags=["Training"])
+async def training_report():
+    """
+    Returns stats associated with training
+    """
+    return {}
+
+
 
 
 # #########  Robot   ###########
