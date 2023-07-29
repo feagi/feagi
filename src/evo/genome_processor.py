@@ -135,17 +135,12 @@ def json_comment_catcher(key):
 
 
 def genome_2_1_convertor(flat_genome):
-    print("==#### 0 =======" * 5)
     genome = dict()
     genome['blueprint'] = dict()
-    print("==#### 00 =======" * 5)
     cortical_list = genome_2_cortical_list(flat_genome)
-    print("==#### 000 =======" * 5)
     # Assign a blank template to each cortical area
-    print("==#### 1 =======" * 5)
     for cortical_area in cortical_list:
         genome['blueprint'][cortical_area] = copy.deepcopy(genome_1_template)
-    print("==#### 2 =======" * 5)
     # Populate each cortical area with
     for cortical_area in genome['blueprint']:
         try:
@@ -155,7 +150,6 @@ def genome_2_1_convertor(flat_genome):
                     exon = gene[19:]
                     gene_type = gene[16:18]
                     if cortical_id == cortical_area:
-
                         if genome_2_to_1[exon] == "cortical_name":
                             genome['blueprint'][cortical_area][genome_2_to_1[exon]] = flat_genome[gene]
                         elif genome_2_to_1[exon] == "location_generation_type":
@@ -206,6 +200,16 @@ def genome_2_1_convertor(flat_genome):
                                     flat_genome[gene]
                             else:
                                 pass
+                        elif genome_2_to_1[exon] == "2d_coordinate":
+                            if gene[24] == 'x':
+                                genome['blueprint'][cortical_area]["2d_coordinate"][0] = \
+                                    flat_genome[gene]
+                            elif gene[24] == 'y':
+                                genome['blueprint'][cortical_area]["2d_coordinate"][1] = \
+                                    flat_genome[gene]
+                            else:
+                                pass
+
                         else:
                             try:
                                 genome['blueprint'][cortical_area][genome_2_to_1[exon]] = flat_genome[gene]
@@ -229,7 +233,7 @@ def genome_v1_v2_converter(genome_v1):
                     gene = "_____10c-" + cortical_area + "-" + genome_1_to_2[key]
                     genome_v2['blueprint'][gene] = genome_v1['blueprint'][cortical_area][key]
                 else:
-                    if key not in ["block_boundaries", "relative_coordinate"]:
+                    if key not in ["block_boundaries", "relative_coordinate", "2d_coordinate"]:
                         if key in genome_1_to_2:
                             gene = "_____10c-" + cortical_area + "-" + genome_1_to_2[key]
                             genome_v2['blueprint'][gene] = genome_v1['blueprint'][cortical_area][key]
@@ -255,6 +259,14 @@ def genome_v1_v2_converter(genome_v1):
                             genome_v1['blueprint'][cortical_area]["relative_coordinate"][1]
                         genome_v2['blueprint'][genez] = \
                             genome_v1['blueprint'][cortical_area]["relative_coordinate"][2]
+                    if key == "2d_coordinate":
+                        genex = "_____10c-" + cortical_area + "-" + "cx-2dcorx-i"
+                        geney = "_____10c-" + cortical_area + "-" + "cx-2dcory-i"
+
+                        genome_v2['blueprint'][genex] = \
+                            genome_v1['blueprint'][cortical_area]["2d_coordinate"][0]
+                        genome_v2['blueprint'][geney] = \
+                            genome_v1['blueprint'][cortical_area]["2d_coordinate"][1]
 
             elif key == "cortical_mapping_dst":
                 gene = "_____10c-" + cortical_area + "-cx-dstmap-d"
@@ -323,6 +335,8 @@ gene_decoder = {
     "_______c-______-cx-rcordx-i": "relative_coordinate_x",
     "_______c-______-cx-rcordy-i": "relative_coordinate_y",
     "_______c-______-cx-rcordz-i": "relative_coordinate_z",
+    "_______c-______-cx-2dcorx-i": "2d_coordinate_x",
+    "_______c-______-cx-2dcory-i": "2d_coordinate_y",
     "_______c-______-cx-___bbx-i": "block_boundary_x",
     "_______c-______-cx-___bby-i": "block_boundary_y",
     "_______c-______-cx-___bbz-i": "block_boundary_z",
@@ -333,7 +347,10 @@ gene_decoder = {
     "_______c-______-nx-pstcr_-f": "postsynaptic_current",
     "_______c-______-nx-pstcrm-f": "postsynaptic_current_max",
     "_______c-______-nx-plst_c-f": "plasticity_constant",
-    "_______c-______-nx-fire_t-f": "firing_threshold",
+    "_______c-______-nx-fire_t-f": 'firing_threshold',
+    "_______c-______-nx-fthinc-f": "firing_threshold_increment",
+    "_______c-______-nx-fthlim-i": "firing_threshold_limit",
+    "_______c-______-nx-mp_acc-b": "mp_charge_accumulation",
     "_______c-______-nx-refrac-i": "refractory_period",
     "_______c-______-nx-leak_c-f": "leak_coefficient",
     "_______c-______-nx-leak_v-i": "leak_variability",
@@ -358,15 +375,22 @@ genome_1_template = {
                 None,
                 None
             ],
+          "2d_coordinate": [
+                None,
+                None
+            ],
           "visualization": None,
           "postsynaptic_current": None,
           "plasticity_constant": None,
-          "firing_threshold": None,
+          'firing_threshold': None,
           "refractory_period": None,
           "leak_coefficient": None,
           "leak_variability": None,
           "consecutive_fire_cnt_max": None,
-          "snooze_length": None
+          "snooze_length": None,
+          "firing_threshold_increment": None,
+          "firing_threshold_limit": None,
+          "mp_charge_accumulation": None
       }
 
 genome_2_to_1 = {
@@ -376,6 +400,8 @@ genome_2_to_1 = {
     "rcordx-i": "relative_coordinate",
     "rcordy-i": "relative_coordinate",
     "rcordz-i": "relative_coordinate",
+    "2dcorx-i": "2d_coordinate",
+    "2dcory-i": "2d_coordinate",
     "___bbx-i": "block_boundaries",
     "___bby-i": "block_boundaries",
     "___bbz-i": "block_boundaries",
@@ -384,7 +410,9 @@ genome_2_to_1 = {
     "pstcr_-f": "postsynaptic_current",
     "pstcrm-f": "postsynaptic_current_max",
     "plst_c-f": "plasticity_constant",
-    "fire_t-f": "firing_threshold",
+    "fire_t-f": 'firing_threshold',
+    "fthinc-f": "firing_threshold_increment",
+    "fthlim-i": "firing_threshold_limit",
     "refrac-i": "refractory_period",
     "leak_c-f": "leak_coefficient",
     "leak_v-f": "leak_variability",
@@ -393,7 +421,8 @@ genome_2_to_1 = {
     "_group-t": "group_id",
     "dstmap-d": "cortical_mapping_dst",
     "de_gen-f": "degeneration",
-    "pspuni-b": "psp_uniform_distribution"
+    "pspuni-b": "psp_uniform_distribution",
+    "mp_acc-b": "mp_charge_accumulation"
 }
 
 genome_1_to_2 = {
@@ -406,7 +435,9 @@ genome_1_to_2 = {
     "postsynaptic_current": "nx-pstcr_-f",
     "postsynaptic_current_max": "nx-pstcrm-f",
     "plasticity_constant": "nx-plst_c-f",
-    "firing_threshold": "nx-fire_t-f",
+    'firing_threshold': "nx-fire_t-f",
+    "firing_threshold_increment": "nx-fthinc-f",
+    "firing_threshold_limit": "nx-fthlim-i",
     "refractory_period": "nx-refrac-i",
     "leak_coefficient": "nx-leak_c-f",
     "leak_variability": "nx-leak_v-f",
@@ -414,5 +445,6 @@ genome_1_to_2 = {
     "snooze_length": "nx-snooze-f",
     "degeneration": "cx-de_gen-f",
     "psp_uniform_distribution": "cx-pspuni-b",
-    "cortical_mapping_dst": "cx-dstmap-d"
+    "cortical_mapping_dst": "cx-dstmap-d",
+    "mp_charge_accumulation": "nx-mp_acc-b"
 }

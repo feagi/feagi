@@ -175,6 +175,11 @@ def blueprint_validator(genome):
     return genome_validity
 
 
+def core_validator(genome):
+    # TBD
+    return True
+
+
 def print_validity(validity_status):
     if validity_status:
         print("\n" + settings.Bcolors.OKGREEN + "* -- * " * 20 + settings.Bcolors.ENDC)
@@ -191,6 +196,8 @@ def print_validity(validity_status):
 
 
 def genome_validator(genome):
-    genome_validity = morphology_validator(genome=genome) and blueprint_validator(genome=genome)
+    genome_validity = morphology_validator(genome=genome) and \
+                      blueprint_validator(genome=genome) and \
+                      core_validator(genome=genome)
     print_validity(validity_status=genome_validity)
     return genome_validity
