@@ -170,8 +170,8 @@ def api_message_processor(api_message):
         cortical_removal(cortical_area=api_message['delete_cortical_area'],
                          genome_scrub=True)
 
-    if 'add_core_cortical_area' in api_message:
-        add_core_cortical_area(cortical_properties=api_message['add_core_cortical_area'])
+    # if 'add_core_cortical_area' in api_message:
+    #     add_core_cortical_area(cortical_properties=api_message['add_core_cortical_area'])
 
     if 'add_custom_cortical_area' in api_message:
         add_custom_cortical_area(cortical_name=api_message['add_custom_cortical_area']['cortical_name'],
