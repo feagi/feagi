@@ -20,6 +20,8 @@ import time
 import string
 import logging
 import random
+import tempfile
+import io
 
 from fastapi import FastAPI, File, UploadFile, Response, status, Request, HTTPException
 from fastapi.responses import JSONResponse
@@ -43,7 +45,7 @@ from evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
 from evo import synaptogenesis_rules
 from evo.stats import circuit_size
 from evo.genome_properties import genome_properties
-from evo.x_genesis import neighboring_cortical_areas
+from evo.x_genesis import neighboring_cortical_areas, add_core_cortical_area, add_custom_cortical_area
 from evo.genome_processor import genome_2_1_convertor
 from inf.disk_ops import preserve_brain, revive_brain
 from .config import settings
@@ -119,13 +121,15 @@ class MorphologyProperties(BaseModel):
 class NewCorticalProperties(BaseModel):
     cortical_type: str
     cortical_name: str
-    cortical_coordinates: list
+    coordinates_2d: list
+    coordinates_3d: list
     channel_count: Optional[int]
 
 
 class NewCustomCorticalProperties(BaseModel):
     cortical_name: str = Field(None, max_length=20, min_length=1)
-    cortical_coordinates: list
+    coordinates_2d: Optional[list] = [0, 0]
+    coordinates_3d: list
     cortical_dimensions: list
 
 
@@ -543,36 +547,49 @@ async def update_cortical_properties(message: UpdateCorticalProperties, response
 
 
 @app.api_route("/v1/feagi/genome/cortical_area", methods=['POST'], tags=["Genome"])
-async def add_cortical_area(message: NewCorticalProperties, response: Response):
+async def add_cortical_area(new_cortical_properties: NewCorticalProperties, response: Response):
     """
     Enables changes against various Burst Engine parameters.
     """
     try:
-        message = message.dict()
-        message = {'add_core_cortical_area': message}
-        print("*" * 50 + "\n", message)
-        api_queue.put(item=message)
-        response.status_code = status.HTTP_200_OK
+
+        # message = message.dict()
+        # message = {'add_core_cortical_area': message}
+        # print("*" * 50 + "\n", message)
+        # api_queue.put(item=message)
+        new_cortical_properties = dict(new_cortical_properties)
+        cortical_id = add_core_cortical_area(cortical_properties=new_cortical_properties)
+        # response.status_code = status.HTTP_200_OK
+        return JSONResponse(status_code=200, content={'cortical_id': cortical_id})
     except Exception as e:
         response.status_code = status.HTTP_400_BAD_REQUEST
         print("API Error:", e)
 
 
 @app.api_route("/v1/feagi/genome/custom_cortical_area", methods=['POST'], tags=["Genome"])
-async def add_cortical_area(message: NewCustomCorticalProperties, response: Response):
+async def add_cortical_area(new_custom_cortical_properties: NewCustomCorticalProperties, response: Response):
     """
     Enables changes against various Burst Engine parameters.
     """
+    print("--------")
+    print(new_custom_cortical_properties)
     try:
-        print("NewCustomCorticalProperties:\n", message)
-        message = message.dict()
-        message = {'add_custom_cortical_area': message}
-        print("*" * 50 + "\n", message)
-        api_queue.put(item=message)
-        response.status_code = status.HTTP_200_OK
+        cortical_name = new_custom_cortical_properties.cortical_name
+        coordinates_3d = new_custom_cortical_properties.coordinates_3d
+        coordinates_2d = new_custom_cortical_properties.coordinates_2d
+        cortical_dimensions = new_custom_cortical_properties.cortical_dimensions
+        cortical_id = add_custom_cortical_area(cortical_name=cortical_name,
+                                               coordinates_3d=coordinates_3d,
+                                               coordinates_2d=coordinates_2d,
+                                               cortical_dimensions=cortical_dimensions)
+        return JSONResponse(status_code=200, content={'cortical_id': cortical_id})
+        # message = {'add_custom_cortical_area': message}
+        # print("*" * 50 + "\n", message)
+        # api_queue.put(item=message)
+        # response.status_code = status.HTTP_200_OK
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e, traceback.print_exc(), message)
+        print("API Error:", e, traceback.print_exc(), new_custom_cortical_properties)
 
 
 @app.api_route("/v1/feagi/genome/cortical_area", methods=['DELETE'], tags=["Genome"])
@@ -1474,6 +1491,16 @@ async def gameover_signal(response: Response):
         print("API Error:", e)
 
 
+@app.api_route("/v1/feagi/training/gameover", methods=['GET'], tags=["Training"])
+async def training_report():
+    """
+    Returns stats associated with training
+    """
+    return {}
+
+
+
+
 # #########  Robot   ###########
 # ##############################
 
@@ -1712,7 +1739,7 @@ async def connectome_mapping_report(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-        
+
 
 @app.get("/v1/feagi/connectome/download", tags=["Connectome"])
 async def download_connectome(response: Response):
@@ -1725,10 +1752,23 @@ async def download_connectome(response: Response):
         print(file_name)
         brain_data = preserve_brain()
 
-        headers = {
-            'Content-Disposition': f'attachment; filename="{file_name}"'
-        }
-        return Response(content=brain_data, headers=headers)
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.gz') as temp_file:
+            temp_file.write(brain_data)
+
+            # Ensure all data is written
+            temp_file.flush()
+
+            # Get the size of the file
+            temp_file_size = temp_file.tell()
+            print(f"Size of data: {temp_file_size} bytes")
+
+            # Seek back to the start of the file
+            temp_file.seek(0)
+
+            # Create the FileResponse inside the with block
+            response = FileResponse(temp_file.name, media_type="application/gzip", filename=file_name)
+
+            return response
 
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
