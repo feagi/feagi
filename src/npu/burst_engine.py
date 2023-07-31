@@ -154,7 +154,7 @@ def burst_manager():
                       % (burst_duration, runtime_data.burst_count, runtime_data.current_age) + settings.Bcolors.ENDC)
             else:
                 print(settings.Bcolors.YELLOW +
-                      ">>> Burst duration @@@ ++ *^*: %s %i --- ---- ---- ---- ---- ---- ----"
+                      ">>> Burst duration @$@ ++ *^*: %s %i --- ---- ---- ---- ---- ---- ----"
                       % (burst_duration, runtime_data.burst_count) + settings.Bcolors.ENDC)
 
     def evolutionary_checkpoint():

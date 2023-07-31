@@ -183,6 +183,7 @@ class InfluxManagement:
         if runtime_data.parameters:
             self.evo_bucket = self.db_params["influxdb_evolutionary_bucket"]
             self.stats_bucket = self.db_params["influxdb_stats_bucket"]
+            self.game_stats_bucket = self.db_params["influxdb_game_stats_bucket"]
             self.org = self.db_params["influxdb_organization"]
             self.token = self.db_params["influxdb_token"]
 
@@ -313,6 +314,21 @@ class InfluxManagement:
             }
         ]
         self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
+
+    def insert_game_activity(self, genome_id, event, intensity=None):
+        event_data = [{
+            "measurement": "game_result",
+            "tags": {
+                "genome": genome_id,
+                "event": event
+            },
+            "fields": {
+                "count": 1,
+                "intensity": intensity
+            }
+        }]
+
+        self.write_client.write(bucket=self.game_stats_bucket, org=self.org, record=event_data)
 
     def insert_burst_checkpoints(self, connectome_path, burst_id):
         raw_data = [
