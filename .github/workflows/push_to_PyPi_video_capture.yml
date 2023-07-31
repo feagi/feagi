@@ -38,10 +38,9 @@ jobs:
     - name: Build package
       run: |
         python -m build peripherals/feagi_agent_video_capture/
-        ls peripherals/feagi_agent_video_capture/ && pwd peripherals/feagi_agent_video_capture/
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         user: ${{ secrets.PYPI_USER_TOKEN }}
         password: ${{ secrets.PYPI_API_TOKEN }}
-        packages-dir: feagi_agent_video_capture/
+        packages-dir: /home/runner/work/feagi/feagi/peripherals/feagi_agent_video_capture/
