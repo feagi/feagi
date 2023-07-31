@@ -39,6 +39,9 @@ jobs:
       run: |
         python -m build peripherals/feagi_agent_video_capture/
         echo $PYPI_USERNAME_TOKEN
+        echo "NEXT"
+        echo ${{ secrets.PYPI_USERNAME_TOKEN }}
+        echo "DONE"
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
