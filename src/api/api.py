@@ -1477,12 +1477,12 @@ async def punishment_intensity(intensity: Intensity, response: Response):
 
 
 @app.api_route("/v1/feagi/training/gameover", methods=['POST'], tags=["Training"])
-async def gameover_signal(response: Response):
+async def game_over_signal(response: Response):
     """
     Captures feedback from the environment during training
     """
     try:
-        message = {'gameover': True}
+        message = {'game_over': True}
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
 
@@ -1491,14 +1491,12 @@ async def gameover_signal(response: Response):
         print("API Error:", e)
 
 
-@app.api_route("/v1/feagi/training/gameover", methods=['GET'], tags=["Training"])
+@app.api_route("/v1/feagi/training/training_report", methods=['GET'], tags=["Training"])
 async def training_report():
     """
     Returns stats associated with training
     """
-    return {}
-
-
+    return runtime_data.training_stats
 
 
 # #########  Robot   ###########

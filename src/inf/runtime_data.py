@@ -94,7 +94,7 @@ plasticity_queue_candidates = dict()
 # Stats Collection
 neuron_mp_collection_scope = {}
 neuron_psp_collection_scope = {}
-
+training_stats = {}
 
 # Queues
 api_queue = None
@@ -144,7 +144,6 @@ shock_scenarios_options = tuple
 shock_admin = False
 shock_scenarios = set()
 pain_flag = False
-
 
 # Robot
 robot_id = None
