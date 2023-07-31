@@ -41,6 +41,6 @@ jobs:
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        user: ${{ secrets.PYPI_USER_TOKEN }}
-        password: ${{ secrets.PYPI_API_TOKEN }}
+        user: ${{ secrets.PYPI_USERNAME_TOKEN }}
+        password: ${{ secrets.PYPI_PASSWORD_TOKEN }}
         packages-dir: peripherals/feagi_agent_video_capture/dist
