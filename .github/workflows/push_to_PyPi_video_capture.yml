@@ -9,7 +9,13 @@
 name: Upload Feagi agent video capture
 
 on:
-  [workflow_dispatch]
+  push:
+    branches:
+      - feature-test
+  pull_request:
+    branches:
+      - feature-test
+  workflow_dispatch:
 
 permissions:
   contents: read
