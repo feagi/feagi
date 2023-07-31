@@ -43,4 +43,3 @@ jobs:
       with:
         user: ${{ secrets.PYPI_USER_TOKEN }}
         password: ${{ secrets.PYPI_API_TOKEN }}
-        packages-dir: /home/runner/work/feagi/feagi/peripherals/feagi_agent_video_capture/
