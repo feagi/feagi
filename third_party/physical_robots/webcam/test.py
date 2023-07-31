@@ -62,6 +62,15 @@ def rgba2rgb(rgba, background=(255, 255, 255)):
     return np.asarray(rgb_input, dtype='uint8')
 
 
+def check_aptr():
+    try:
+        raw_aptr = requests.get(get_size_for_aptr_cortical).json()
+        return raw_aptr['cortical_dimensions'][2]
+    except Exception as error:
+        print("error: ", error)
+        return 10
+
+
 async def echo(websocket):
     """
     The function echoes the data it receives from other connected websockets
@@ -138,15 +147,38 @@ if __name__ == "__main__":
 
         feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=False)
         feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
-
-        previous_frame_data = {}
-        FLAG_COUNTER = 0
+        genome_tracker = 0
+        get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area' \
+                                                   '=o_aptr'
+        raw_aptr = requests.get(get_size_for_aptr_cortical).json()
+        try:
+            aptr_cortical_size = raw_aptr['cortical_dimensions'][2]
+        except:
+            aptr_cortical_size = None
         msg_counter = runtime_data["feagi_state"]['burst_counter']
         while True:
             try:
                 message_from_feagi = feagi_opu_channel.receive()  # Get data from FEAGI
-                # OPU section STARTS
-                # OPU section ENDS
+                if message_from_feagi is not None:
+                    # OPU section STARTS
+                    if 'genome_num' in message_from_feagi:
+                        if message_from_feagi['genome_num'] != genome_tracker:
+                            genome_tracker = message_from_feagi['genome_num']
+
+                    if "o_aptr" in message_from_feagi["opu_data"]:
+                        if message_from_feagi["opu_data"]["o_aptr"]:
+                            for i in message_from_feagi["opu_data"]["o_aptr"]:
+                                feagi_aptr = (int(i.split('-')[-1]))
+                                if aptr_cortical_size is None:
+                                    aptr_cortical_size = check_aptr(aptr_cortical_size)
+                                elif aptr_cortical_size <= feagi_aptr:
+                                    aptr_cortical_size = check_aptr(aptr_cortical_size)
+                                max_range = capabilities['camera']['aperture_range'][1]
+                                min_range = capabilities['camera']['aperture_range'][0]
+                                capabilities['camera']["aperture_default"] = \
+                                    ((feagi_aptr / aptr_cortical_size) *
+                                     (max_range - min_range)) + min_range
+                    # OPU section ENDS
                 if np.any(rgb_array['current']):
                     if len(rgb_array['current']) == 1228800:
                         new_rgb = np.array(rgb_array['current'])
@@ -168,17 +200,15 @@ if __name__ == "__main__":
                                                          'retina_height_percent'])
                     for i in retina_data:
                         if 'C' in i:
-                            retina_data[i] = retina.center_data_compression(retina_data[i],
-                                                                            capabilities['camera']
-                                                                            [
-                                                                                "central_vision_compression"]
-                                                                            )
+                            retina_data[i] = \
+                                retina.center_data_compression(retina_data[i],
+                                                               capabilities['camera']
+                                                               ["central_vision_compression"])
                         else:
-                            retina_data[i] = retina.center_data_compression(retina_data[i],
-                                                                            capabilities['camera']
-                                                                            [
-                                                                                'peripheral_vision_compression'
-                                                                                ''])
+                            retina_data[i] = \
+                                retina.center_data_compression(retina_data[i],
+                                                               capabilities['camera']
+                                                               ['peripheral_vision_compression'])
                     if not previous_data_frame:
                         for i in retina_data:
                             PREVIOUS_NAME = str(i) + "_prev"
@@ -198,7 +228,8 @@ if __name__ == "__main__":
                                                    name,
                                                    capabilities[
                                                        'camera'][
-                                                       'deviation_threshold'])
+                                                       'deviation_threshold'],
+                                                   capabilities['camera']["aperture_default"])
                             else:
                                 PREVIOUS_NAME = str(i) + "_prev"
                                 rgb_data, previous_data_frame[PREVIOUS_NAME] = \
@@ -211,7 +242,8 @@ if __name__ == "__main__":
                                                    name,
                                                    capabilities[
                                                        'camera'][
-                                                       'deviation_threshold'])
+                                                       'deviation_threshold'],
+                                                   capabilities['camera']["aperture_default"])
                             for a in rgb_data['camera']:
                                 rgb['camera'][a] = rgb_data['camera'][a]
                     try:
@@ -227,25 +259,8 @@ if __name__ == "__main__":
                 # battery=aliens.healthpoint*10)
                 message_to_feagi['timestamp'] = datetime.now()
                 message_to_feagi['counter'] = msg_counter
-                msg_counter += 1
-                FLAG_COUNTER += 1
-                if FLAG_COUNTER == int(CHECKPOINT_TOTAL):
-                    feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint,
-                                                     timeout=5).json()
-                    feagi_burst_counter = requests.get(api_address + burst_counter_endpoint,
-                                                       timeout=5).json()
-                    FLAG_COUNTER = 0
-                    if feagi_burst_speed > 1:
-                        CHECKPOINT_TOTAL = 5
-                    if feagi_burst_speed < 1:
-                        CHECKPOINT_TOTAL = 5 / feagi_burst_speed
-                    if msg_counter < feagi_burst_counter:
-                        feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
-                        if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
-                            feagi_settings['feagi_burst_speed'] = feagi_burst_speed
-                    if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
-                        feagi_settings['feagi_burst_speed'] = feagi_burst_speed
-                        msg_counter = feagi_burst_counter
+                if message_from_feagi is not None:
+                    feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
                 sleep(feagi_settings['feagi_burst_speed'])
                 try:
                     pass
