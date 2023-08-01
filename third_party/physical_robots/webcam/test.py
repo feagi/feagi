@@ -80,6 +80,7 @@ async def echo(websocket):
         test = message
         rgb_array['current'] = list(test)
         await websocket.send("thanks")
+        print(type(rgb_array))
 
 
 async def main():
