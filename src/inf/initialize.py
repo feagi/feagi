@@ -46,6 +46,11 @@ from evo.templates import cortical_types
 logger = logging.getLogger(__name__)
 
 
+def utc_time():
+    current_time = datetime.utcnow()
+    return current_time
+
+
 def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, genome_data=None):
     print("=======================    Genome Staging Initiated        =======================")
     if neuroembryogenesis_flag:

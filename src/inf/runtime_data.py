@@ -171,3 +171,10 @@ agent_registry = {
 }
 """
 agent_registry = {}
+
+
+# Unique Logs
+logs = {
+    "PNS": set(),
+    "CNS": set()
+}
