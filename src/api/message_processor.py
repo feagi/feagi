@@ -6,6 +6,14 @@ from evo.genome_processor import genome_ver_check
 from evo.autopilot import update_generation_dict
 from evo.x_genesis import update_cortical_properties, update_morphology_properties, update_cortical_mappings
 from evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal, append_circuit
+from inf.db_handler import InfluxManagement
+
+influx = InfluxManagement()
+
+
+def record_training_event(event_name, details=None):
+    timestamp = datetime.datetime.utcnow().isoformat()
+    runtime_data.training_stats[timestamp] = {'event_name': event_name, 'details': details}
 
 
 def api_message_processor(api_message):
@@ -188,14 +196,24 @@ def api_message_processor(api_message):
 
     if 'reward' in api_message:
         reward_intensity = api_message['reward']
-        # todo
-        pass
+        if runtime_data.influxdb:
+            print("+++++++++++  REWARD ++++++++++++++")
+            runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="success", intensity=reward_intensity)
+        else:
+            record_training_event(event_name="reward", details={"intensity": reward_intensity})
 
     if 'punishment' in api_message:
         punishment_intensity = api_message['punishment']
-        # todo
-        pass
+        if runtime_data.influxdb:
+            print("----------- PUNISHMENT --------------")
+            runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="punishment",
+                                        intensity=punishment_intensity)
+        else:
+            record_training_event(event_name="punishment", details={"intensity": punishment_intensity})
 
-    if 'gameover' in api_message:
-        # todo
-        pass
+    if 'game_over' in api_message:
+        if runtime_data.influxdb:
+            runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="game_over")
+        else:
+            record_training_event(event_name="game_over")
+
