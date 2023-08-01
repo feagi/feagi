@@ -216,4 +216,3 @@ def api_message_processor(api_message):
             runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="game_over")
         else:
             record_training_event(event_name="game_over")
-
