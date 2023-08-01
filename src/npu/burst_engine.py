@@ -38,7 +38,7 @@ from npu import stimulator, auxiliary
 from mem.memory import neuroplasticity
 from evo.stats import *
 from evo.death import death_manager
-from inf.initialize import init_burst_engine, init_fcl
+from inf.initialize import init_burst_engine, init_fcl, utc_time
 from inf.messenger import Pub, Sub
 from pns.pns_router import opu_router, stimuli_router
 from api.message_processor import api_message_processor
@@ -331,6 +331,7 @@ def burst_manager():
         broadcast_message['genome_num'] = runtime_data.genome_counter
         broadcast_message['control_data'] = runtime_data.robot_controller
         broadcast_message['genome_changed'] = runtime_data.last_genome_modification_time
+        broadcast_message['sent_utc'] = utc_time()
         if runtime_data.robot_model:
             broadcast_message['model_data'] = runtime_data.robot_model
             print("R--" * 20)
