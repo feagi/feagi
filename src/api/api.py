@@ -2040,6 +2040,11 @@ async def feagi_health_check(response: Response):
     return health
 
 
+@app.get("/v1/feagi/unique_logs", tags=["System"])
+async def unique_log_entries():
+    return runtime_data.logs
+
+
 @app.api_route("/v1/feagi/register", methods=['POST'], tags=["System"])
 async def feagi_registration(message: Registration, response: Response):
     try:
