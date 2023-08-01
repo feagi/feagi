@@ -1089,6 +1089,29 @@ async def update_cortical_mapping_properties(queue_depth: int, response: Respons
         logger.error(traceback.print_exc())
 
 
+@app.api_route("/v1/feagi/genome/cortical_locations_2d", methods=['GET'], tags=["Genome"])
+async def cortical_2d_locations(response: Response):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+
+        report = dict()
+        for area in runtime_data.genome["blueprint"]:
+            if area not in report:
+                report[area] = list()
+            if "2d_coordinate" in runtime_data.genome['blueprint'][area]:
+                report[area] = runtime_data.genome['blueprint'][area]["2d_coordinate"]
+            else:
+                report[area].append([None, None])
+
+        return report
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e, traceback.print_exc())
+        logger.error(traceback.print_exc())
+
+
 # ######  Evolution #########
 # #############################
 
@@ -1491,14 +1514,12 @@ async def gameover_signal(response: Response):
         print("API Error:", e)
 
 
-@app.api_route("/v1/feagi/training/gameover", methods=['GET'], tags=["Training"])
+@app.api_route("/v1/feagi/training/training_report", methods=['GET'], tags=["Training"])
 async def training_report():
     """
     Returns stats associated with training
     """
-    return {}
-
-
+    return runtime_data.training_stats
 
 
 # #########  Robot   ###########
