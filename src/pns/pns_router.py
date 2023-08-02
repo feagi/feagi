@@ -158,8 +158,8 @@ def opu_router():
         if str(cortical_area)[0] == 'o':
             if cortical_area not in runtime_data.opu_data:
                 runtime_data.opu_data[cortical_area] = {}
-            runtime_data.opu_data[cortical_area] = active_neurons_in_blocks(cortical_area=cortical_area)
-    # print("--====>>>>> opu data ready for controller:", runtime_data.opu_data)
+            runtime_data.opu_data[cortical_area] = opu_percentage_report(cortical_area=cortical_area)
+
 
 #
 # def action_router():
