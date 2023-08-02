@@ -16,6 +16,7 @@ limitations under the License.
 import asyncio
 import threading
 from time import sleep
+import time
 from datetime import datetime
 import os
 
@@ -47,19 +48,21 @@ def rgba2rgb(rgba, background=(255, 255, 255)):
 
     assert channels == 4, 'RGBA image has 4 channels.'
 
-    rgb_input = np.zeros((row, col, 3), dtype='float32')
-    r_channel, g_channel, b_channel, alpha = rgba[:, :, 0], rgba[:, :, 1], rgba[:, :, 2], rgba[:, :,
-                                                                                          3]
-
-    alpha = np.asarray(alpha, dtype='float32') / 255.0
-
     R_CHANNEL, G_CHANNEL, B_CHANNEL = background
 
-    rgb_input[:, :, 0] = r_channel * alpha + (1.0 - alpha) * R_CHANNEL
-    rgb_input[:, :, 1] = g_channel * alpha + (1.0 - alpha) * G_CHANNEL
-    rgb_input[:, :, 2] = b_channel * alpha + (1.0 - alpha) * B_CHANNEL
+    alpha = rgba[:, :, 3] / 255.0
 
-    return np.asarray(rgb_input, dtype='uint8')
+    rgb_input = np.empty((row, col, 3), dtype='uint8')
+    rgb_input[:, :, 0] = (rgba[:, :, 0] * alpha + (1.0 - alpha) * R_CHANNEL).astype('uint8')
+    rgb_input[:, :, 1] = (rgba[:, :, 1] * alpha + (1.0 - alpha) * G_CHANNEL).astype('uint8')
+    rgb_input[:, :, 2] = (rgba[:, :, 2] * alpha + (1.0 - alpha) * B_CHANNEL).astype('uint8')
+
+    return rgb_input
+
+
+def utc_time():
+    current_time = datetime.utcnow()
+    return current_time
 
 
 def check_aptr():
@@ -79,8 +82,6 @@ async def echo(websocket):
     async for message in websocket:
         test = message
         rgb_array['current'] = list(test)
-        await websocket.send("thanks")
-        print(type(rgb_array))
 
 
 async def main():
@@ -159,8 +160,10 @@ if __name__ == "__main__":
         msg_counter = runtime_data["feagi_state"]['burst_counter']
         while True:
             try:
+                start_time = 0
                 message_from_feagi = feagi_opu_channel.receive()  # Get data from FEAGI
                 if message_from_feagi is not None:
+                    start_time = utc_time()
                     # OPU section STARTS
                     if 'genome_num' in message_from_feagi:
                         if message_from_feagi['genome_num'] != genome_tracker:
@@ -187,12 +190,18 @@ if __name__ == "__main__":
                     elif len(rgb_array['current']) == 266256:
                         new_rgb = np.array(rgb_array['current'])
                         new_rgb = new_rgb.reshape(258, 258, 4)
+                    elif len(rgb_array['current']) == 360000:
+                        new_rgb = np.array(rgb_array['current'])
+                        new_rgb = new_rgb.reshape(300, 300, 4)
                     elif len(rgb_array['current']) == 65536:
                         new_rgb = np.array(rgb_array['current'])
                         new_rgb = new_rgb.reshape(128, 128, 4)
                     elif len(rgb_array['current']) == 16384:
                         new_rgb = np.array(rgb_array['current'])
                         new_rgb = new_rgb.reshape(64, 64, 4)
+                    elif len(rgb_array['current']) == 120000:
+                        new_rgb = np.array(rgb_array['current'])
+                        new_rgb = new_rgb.reshape(150, 200, 4)
                     # new_rgb = new_rgb.astype(np.uint8)
                     new_rgb = rgba2rgb(new_rgb)
                     retina_data = retina.frame_split(new_rgb,
@@ -261,13 +270,14 @@ if __name__ == "__main__":
                 message_to_feagi['timestamp'] = datetime.now()
                 message_to_feagi['counter'] = msg_counter
                 if message_from_feagi is not None:
-                    feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
+                        feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
                 sleep(feagi_settings['feagi_burst_speed'])
                 try:
                     pass
                     # print(len(message_to_feagi['data']['sensory_data']['camera']['C']))
                 except Exception as error:
                     pass
+
                 feagi_ipu_channel.send(message_to_feagi)
                 message_to_feagi.clear()
                 for i in rgb['camera']:
