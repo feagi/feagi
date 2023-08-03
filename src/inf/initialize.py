@@ -29,7 +29,7 @@ from tempfile import gettempdir
 from threading import Thread
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import deque
 from inf import runtime_data, disk_ops, settings
 from shutil import copyfile
@@ -400,7 +400,7 @@ def init_resources():
 
 
 def init_infrastructure():
-    init_io_channels()
+    # init_io_channels()
     init_cortical_defaults()
     init_working_directory()
     init_container_variables()
@@ -492,7 +492,7 @@ def init_burst_engine():
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("\n\n")
-
+    runtime_data.burst_duration = timedelta(seconds=0.0001)
     runtime_data.death_flag = False
 
     try:
@@ -507,17 +507,17 @@ def init_burst_engine():
         print("==============================================\n\n")
 
 
-def init_io_channels():
-    # Initialize ZMQ connections
-    try:
+# def init_io_channels():
+#     # Initialize ZMQ connections
+#     try:
         # opu_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_opu_port']
         # print("OPU socket is:", opu_socket)
         # runtime_data.opu_pub = Pub(opu_socket)
         # print("OPU channel as been successfully established at ",
         #       runtime_data.parameters['Sockets']['feagi_opu_port'])
 
-        if runtime_data.parameters['Switches']['zmq_activity_publisher']:
-            runtime_data.brain_activity_pub = True
+        # if runtime_data.parameters['Switches']['zmq_activity_publisher']:
+        #     runtime_data.brain_activity_pub = True
         #     brain_activities_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['brain_activities_pub']
         #     print("Brain activity publisher socket is:", brain_activities_socket)
         #     runtime_data.brain_activity_pub = PubBrainActivities(brain_activities_socket)
@@ -534,9 +534,9 @@ def init_io_channels():
         #     runtime_data.router_address_embodiment = "tcp://" + runtime_data.parameters['Sockets']['embodiment_host_name'] \
         #                                          + ':' + runtime_data.parameters['Sockets']['feagi_inbound_port_embodiment']
 
-        print("Router addresses has been set")
-    except KeyError as e:
-        print('ERROR: OPU socket is not properly defined as part of feagi_configuration.ini\n', e)
+    #     print("Router addresses has been set")
+    # except KeyError as e:
+    #     print('ERROR: OPU socket is not properly defined as part of feagi_configuration.ini\n', e)
 
 
 def generate_cortical_dimensions():

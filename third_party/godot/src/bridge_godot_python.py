@@ -18,6 +18,7 @@ import time
 import os
 import json
 import ast
+import gzip
 import asyncio
 import random
 import threading
@@ -221,12 +222,13 @@ async def echo(websocket):
                 stored_value = zmq_queue[len(zmq_queue) - 1]
                 zmq_queue.clear()
                 zmq_queue[0] = stored_value
-            await websocket.send(str(zmq_queue[0]))
+            await websocket.send(gzip.compress(str(zmq_queue[0]).encode()))
             zmq_queue.pop()
         except Exception as error:
             pass
         new_data = await websocket.recv()
-        ws_queue.append(new_data)
+        decompressed_data = gzip.decompress(new_data)
+        ws_queue.append(decompressed_data)
 
 
 async def websocket_main():

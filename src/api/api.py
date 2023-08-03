@@ -1985,6 +1985,8 @@ async def agent_registration(request: Request, agent_type: str, agent_id: str, a
             if agent_type == 'monitor':
                 agent_router_address = f"tcp://{request.client.host}:{agent_data_port}"
                 agent_info["listener"] = Sub(address=agent_router_address, bind=False)
+                print("Publication of brain activity turned on!")
+                runtime_data.brain_activity_pub = True
             else:
                 agent_data_port = assign_available_port()
                 agent_router_address = f"tcp://*:{agent_data_port}"
