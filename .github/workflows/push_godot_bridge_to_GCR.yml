@@ -17,4 +17,4 @@ jobs:
         project_id: feagi-poc
         image_name: feagi/godot_bridge
         image_tag: v0.0.${{ github.run_number }}
-        dockerfile: ./Dockerfile
+        dockerfile: feagi/third_party/godot/
