@@ -29,7 +29,7 @@ from tempfile import gettempdir
 from threading import Thread
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import deque
 from inf import runtime_data, disk_ops, settings
 from shutil import copyfile
@@ -492,7 +492,7 @@ def init_burst_engine():
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("\n\n")
-
+    runtime_data.burst_duration = timedelta(seconds=0.0001)
     runtime_data.death_flag = False
 
     try:
