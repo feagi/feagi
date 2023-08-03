@@ -71,6 +71,7 @@ pending_voxel_dict = None
 # Burst Engine
 brain_readiness = False
 burst_publisher = None
+burst_duration = None
 burst_activities = {}
 burst_timer = None
 exit_condition = False
