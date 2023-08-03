@@ -1,4 +1,4 @@
-name: PushToGCR
+name: PushGdBridgeToGCR
 on:
   [workflow_dispatch]
 
