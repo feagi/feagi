@@ -1089,6 +1089,29 @@ async def update_cortical_mapping_properties(queue_depth: int, response: Respons
         logger.error(traceback.print_exc())
 
 
+@app.api_route("/v1/feagi/genome/cortical_locations_2d", methods=['GET'], tags=["Genome"])
+async def cortical_2d_locations(response: Response):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+
+        report = dict()
+        for area in runtime_data.genome["blueprint"]:
+            if area not in report:
+                report[area] = list()
+            if "2d_coordinate" in runtime_data.genome['blueprint'][area]:
+                report[area] = runtime_data.genome['blueprint'][area]["2d_coordinate"]
+            else:
+                report[area].append([None, None])
+
+        return report
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e, traceback.print_exc())
+        logger.error(traceback.print_exc())
+
+
 # ######  Evolution #########
 # #############################
 
@@ -1962,6 +1985,8 @@ async def agent_registration(request: Request, agent_type: str, agent_id: str, a
             if agent_type == 'monitor':
                 agent_router_address = f"tcp://{request.client.host}:{agent_data_port}"
                 agent_info["listener"] = Sub(address=agent_router_address, bind=False)
+                print("Publication of brain activity turned on!")
+                runtime_data.brain_activity_pub = True
             else:
                 agent_data_port = assign_available_port()
                 agent_router_address = f"tcp://*:{agent_data_port}"
@@ -2015,6 +2040,11 @@ async def feagi_health_check(response: Response):
     health["genome_validity"] = runtime_data.genome_validity
     health["brain_readiness"] = runtime_data.brain_readiness
     return health
+
+
+@app.get("/v1/feagi/unique_logs", tags=["System"])
+async def unique_log_entries():
+    return runtime_data.logs
 
 
 @app.api_route("/v1/feagi/register", methods=['POST'], tags=["System"])
