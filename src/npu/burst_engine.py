@@ -31,14 +31,14 @@ import glob
 import traceback
 
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from time import sleep
 from npu.physiology import *
 from npu import stimulator, auxiliary
 from mem.memory import neuroplasticity
 from evo.stats import *
 from evo.death import death_manager
-from inf.initialize import init_burst_engine, init_fcl
+from inf.initialize import init_burst_engine, init_fcl, utc_time
 from inf.messenger import Pub, Sub
 from pns.pns_router import opu_router, stimuli_router
 from api.message_processor import api_message_processor
@@ -143,19 +143,21 @@ def burst_manager():
             print("\n !! Genome not found !!")
 
         if runtime_data.parameters["Logs"]["print_burst_info"] and runtime_data.burst_timer > 0.1:
-            burst_duration = datetime.now() - burst_start_time
+            runtime_data.burst_duration = datetime.now() - burst_start_time
             if runtime_data.brain_readiness and runtime_data.genome_validity:
                 print(settings.Bcolors.UPDATE +
                       ">>> Burst duration ###: %s %i %i --- ---- ---- ---- ---- ---- ----"
-                      % (burst_duration, runtime_data.burst_count, runtime_data.current_age) + settings.Bcolors.ENDC)
+                      % (runtime_data.burst_duration, runtime_data.burst_count, runtime_data.current_age) +
+                      settings.Bcolors.ENDC)
             elif runtime_data.brain_readiness and not runtime_data.genome_validity:
                 print(settings.Bcolors.RED +
                       ">>> Burst duration ###: %s %i %i --- ---- ---- ---- ---- ---- ----"
-                      % (burst_duration, runtime_data.burst_count, runtime_data.current_age) + settings.Bcolors.ENDC)
+                      % (runtime_data.burst_duration, runtime_data.burst_count, runtime_data.current_age) +
+                      settings.Bcolors.ENDC)
             else:
                 print(settings.Bcolors.YELLOW +
                       ">>> Burst duration @$@ ++ *^*: %s %i --- ---- ---- ---- ---- ---- ----"
-                      % (burst_duration, runtime_data.burst_count) + settings.Bcolors.ENDC)
+                      % (runtime_data.burst_duration, runtime_data.burst_count) + settings.Bcolors.ENDC)
 
     def evolutionary_checkpoint():
         if runtime_data.burst_count % runtime_data.genome['evolution_burst_count'] == 0:
@@ -331,6 +333,7 @@ def burst_manager():
         broadcast_message['genome_num'] = runtime_data.genome_counter
         broadcast_message['control_data'] = runtime_data.robot_controller
         broadcast_message['genome_changed'] = runtime_data.last_genome_modification_time
+        broadcast_message['sent_utc'] = utc_time()
         if runtime_data.robot_model:
             broadcast_message['model_data'] = runtime_data.robot_model
             print("R--" * 20)
@@ -500,7 +503,9 @@ def burst_manager():
 
             return
         # todo: the following sleep value should be tied to Autopilot status
-        sleep(float(runtime_data.burst_timer))
+        burst_duration_in_sec = runtime_data.burst_duration.total_seconds()
+        if runtime_data.burst_timer > burst_duration_in_sec:
+            sleep(runtime_data.burst_timer - burst_duration_in_sec)
 
         burst_start_time = datetime.now()
         log_burst_activity_influx()
