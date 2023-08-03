@@ -40,15 +40,17 @@ capabilities = {
         "type": "ipu",
         "disabled": False,
         "count": 1,
-        "width": 8,
-        "height": 8,
+        "width": 128,
+        "height": 128,
         "deviation_threshold": 0.4,
         "retina_width_percent": 95,
         "retina_height_percent": 80,
         "central_vision_compression": [64, 64],
         "peripheral_vision_compression": [8, 8],
         "previous_data": {},
-        "video_device_index": 2
+        "video_device_index": 2,
+        "aperture_range": [0.1, 2],
+        "aperture_default": 2
     }
 }
 

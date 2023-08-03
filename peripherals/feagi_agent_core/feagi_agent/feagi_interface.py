@@ -137,8 +137,8 @@ def compose_message_to_feagi(original_message, data=None, battery=0):
             for sensor_data in original_message[sensor]:
                 if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
                     message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = \
-                    original_message[sensor][
-                        sensor_data]
+                        original_message[sensor][
+                            sensor_data]
         message_to_feagi["data"]["sensory_data"]["battery"] = {
             1: runtime_data["battery_charge_level"] / 100}
     return message_to_feagi, runtime_data["battery_charge_level"]
@@ -185,9 +185,9 @@ def opu_processor(data):
             if 'o_misc' in opu_data:
                 if opu_data['o_misc']:
                     for data_point in opu_data['o_misc']:
-                        data_point = block_to_array(data_point)
-                        device_id = data_point[0]
-                        device_power = data_point[2]
+                        processed_data_point = block_to_array(data_point)
+                        device_id = processed_data_point[0]
+                        device_power = opu_data['o_misc'][data_point]
                         processed_opu_data['misc'][device_id] = device_power
             if 'o__nav' in opu_data:
                 if opu_data['o__nav']:
@@ -212,9 +212,10 @@ def opu_processor(data):
                         device_power = data_point[2]
                         processed_opu_data['servo_position'][device_id] = device_power
             return processed_opu_data
-    except Exception:
-        # print("error: ", e)
-        pass
+    except Exception as error:
+        print("error: ", error)
+        traceback.print_exc()
+        # pass
 
 
 def control_data_processor(data):
