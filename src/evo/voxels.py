@@ -252,7 +252,7 @@ def opu_percentage_report(cortical_area):
     for block in report:
         block_index = block_ref_2_id(block)
         if block_index[1] == 0 and block_index[2] == 0:
-            opu_data[block_index[0]] = report[block]
+            opu_data[block] = report[block]
     return opu_data
 
 
