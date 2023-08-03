@@ -250,9 +250,8 @@ def opu_percentage_report(cortical_area):
     report = cortical_activity_percentage_by_voxel(cortical_area=cortical_area)
     opu_data = {}
     for block in report:
-        block_index = block_ref_2_id(block)
-        if block_index[1] == 0 and block_index[2] == 0:
-            opu_data[block] = report[block]
+        # block_index = block_ref_2_id(block)
+        opu_data[block] = report[block]
     return opu_data
 
 
