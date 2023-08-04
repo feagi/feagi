@@ -112,7 +112,8 @@ def frame_split(frame, width_percent, height_percent):
         vision['LM'] = frame[width_data2:, height_data1: height_data2]
         vision['LR'] = frame[width_data2:, height_data2:]
     except AttributeError:
-        print("No visual data to process!")
+        # print("No visual data to process!")
+        pass
     return vision
 
 
