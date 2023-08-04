@@ -201,7 +201,7 @@ class InfluxManagement:
                     token=self.token,
                     org=self.org
                 )
-                self.write_client = self.client.write_api(write_options=SYNCHRONOUS)
+                self.write_client = self.client.write_api()
                 print("Successfully connected to InfluxDb! ")
 
             except Exception as e:
