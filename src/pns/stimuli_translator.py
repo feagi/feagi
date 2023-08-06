@@ -142,13 +142,10 @@ def battery_translator(sensor_data):
 
     """
 
-    print("Translating Battery data...")
-
     cortical_area = 'i__bat'
     if cortical_area_in_genome(cortical_area):
         if sensor_data is not None:
             for sensor in sensor_data:
-                print("----------+++------->>>> Battery data:", sensor_data[sensor])
                 detections = stimuli_processor.range_to_coords(
                     cortical_area=cortical_area,
                     range_data=int(float(sensor_data[sensor]) * 100),
@@ -303,19 +300,20 @@ def accelerator_translator(accelerator_data):
     cortical_area = 'i__acc'
     if cortical_area_in_genome(cortical_area):
         if accelerator_data is not None:
-            x = accelerator_data['0']
-            y = accelerator_data['1']
-            z = accelerator_data['2']
-            holder_position = 0
-            for i in x, y, z:
-                detections = stimuli_processor.accelerator_to_coords(i, holder_position)
-                holder_position += 1
-                neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
-                if 'i__acc' not in runtime_data.fire_candidate_list:
-                    runtime_data.fire_candidate_list['i__acc'] = set()
-                for neuron in neurons:
-                    runtime_data.fire_candidate_list['i__acc'].add(neuron)
-                # runtime_data.fcl_queue.put({cortical_area: set(neurons)})
+            if '0' in accelerator_data and '1' in accelerator_data and '2' in accelerator_data:
+                x = accelerator_data['0']
+                y = accelerator_data['1']
+                z = accelerator_data['2']
+                holder_position = 0
+                for i in x, y, z:
+                    detections = stimuli_processor.accelerator_to_coords(i, holder_position)
+                    holder_position += 1
+                    neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
+                    if 'i__acc' not in runtime_data.fire_candidate_list:
+                        runtime_data.fire_candidate_list['i__acc'] = set()
+                    for neuron in neurons:
+                        runtime_data.fire_candidate_list['i__acc'].add(neuron)
+                    # runtime_data.fcl_queue.put({cortical_area: set(neurons)})
     else:
         runtime_data.logs["PNS"].add(f"Warning! Cortical stimulation received but genome missing {cortical_area}")
 

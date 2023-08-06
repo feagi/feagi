@@ -38,4 +38,3 @@ if RESULT == "OK":
     pass
 else:
     print(RESULT)
-    print(5 / 0)
