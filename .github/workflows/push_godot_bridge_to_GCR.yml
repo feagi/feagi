@@ -1,0 +1,20 @@
+name: PushGdBridgeToGCR
+on:
+  [workflow_dispatch]
+
+jobs:
+  Build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download Bridge
+      uses: actions/checkout@v2
+
+    - name: Push to GCR GitHub Action
+      uses: RafikFarhad/push-to-gcr-github-action@v4.1
+      with:
+        gcloud_service_key: ${{secrets.GCR_SERVICE}}
+        project_id: feagi-poc
+        image_name: feagi/godot_bridge
+        image_tag: v0.0.${{ github.run_number }}
+        dockerfile: feagi/third_party/godot/
