@@ -329,7 +329,14 @@ def init_timeseries_db():
     from inf import db_handler
     runtime_data.influxdb = db_handler.InfluxManagement()
     runtime_data.influxdb.test_influxdb()
-    return
+
+    # # Setup message queues
+    # runtime_data.influx_mp_queue = deque(maxlen=10)
+    # runtime_data.influx_psp_queue = deque(maxlen=10)
+    #
+    # # Instantiate a new process thread to read messages from the queue and save in db
+
+    return  
 
 
 def init_cortical_info():
