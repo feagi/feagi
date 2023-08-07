@@ -105,11 +105,8 @@ class Led:
 
     def ledIndex(self, index, R, G, B):
         color = self.LED_TYPR(self.ORDER, Color(R, G, B))
-        for i in range(8):
-            if index & 0x01 == 1:
-                self.strip.setPixelColor(i, color)
-                self.strip.show()
-            index = index >> 1
+        self.strip.setPixelColor(index, color)
+        self.strip.show()
 
     def ledMode(self, n):
         self.mode = n
