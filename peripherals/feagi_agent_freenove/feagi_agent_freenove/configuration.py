@@ -81,7 +81,7 @@ capabilities = {
         "deviation_threshold": 0.9,
         "retina_width_percent": 90,
         "retina_height_percent": 80,
-        "central_vision_compression": [128, 128],
+        "central_vision_compression": [64, 64],
         "peripheral_vision_compression": [8, 8],
         "previous_data": {},
         "aperture_range": [0.2, 2],
