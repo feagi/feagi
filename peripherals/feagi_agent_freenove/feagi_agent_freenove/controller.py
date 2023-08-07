@@ -486,6 +486,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     rolling_window_len = capabilities['motor']['rolling_window_len']
     motor_count = capabilities['motor']['count']
     msg_counter = 0
+    led_flag = False
     # rpm = (50 * 60) / 2 DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60
     # is the seconds of a minute w = (rpm / 60) * (2 * math.pi)  # 60 is second/minute velocity =
     # w * (configuration.capabilities['motor']['diameter_of_wheel'] / 2) ^ diameter is from
@@ -622,15 +623,20 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                     if 'misc' in opu_data:
                         if opu_data['misc'] != {}:
                             for data_point in opu_data['misc']:
+                                led_flag = True
                                 if data_point not in data_point_status:
                                     data_point_status[data_point] = True
                                 if data_point_status[data_point]:
-                                    led.LED_on(data_point, 255, 0, 0)
+                                    led.LED_on(
+                                        data_point,
+                                        int((opu_data['misc'][data_point]/100)*255),
+                                        0, 0)
                                 data_point_status[data_point] = not data_point_status[data_point]
                         else:
-                            for i in data_point_status:
-                                if not data_point_status[i]:
+                            if led_flag:
+                                for i in range(8):
                                     led.LED_on(i, 0, 0, 0)
+                                led_flag = False
 
                     if 'motor' in opu_data:
                         if opu_data['motor'] is not {}:
@@ -667,10 +673,12 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
             motor.stop()
             cam.release()
             print("ke: ", ke)
+            led.leds_off()
             break
         except Exception as e:
             print("ERROR: ", e)
             traceback.print_exc()
             motor.stop()
             cam.release()
+            led.leds_off()
             break
