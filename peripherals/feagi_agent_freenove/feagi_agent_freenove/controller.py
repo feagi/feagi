@@ -13,6 +13,7 @@ from picamera.array import PiRGBArray
 from time import sleep
 import time
 import cv2
+import traceback
 
 runtime_data = {
     "current_burst_id": 0,
@@ -625,11 +626,11 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                                     data_point_status[data_point] = True
                                 if data_point_status[data_point]:
                                     led.LED_on(data_point, 255, 0, 0)
-                                    print("datapoint: ", data_point)
-                                else:
-                                    led.LED_on(data_point, 0, 0, 0)
-                                    print("datapoint: ", data_point)
                                 data_point_status[data_point] = not data_point_status[data_point]
+                        else:
+                            for i in data_point_status:
+                                if not data_point_status[i]:
+                                    led.LED_on(i, 0, 0, 0)
 
                     if 'motor' in opu_data:
                         if opu_data['motor'] is not {}:
@@ -669,6 +670,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
             break
         except Exception as e:
             print("ERROR: ", e)
+            traceback.print_exc()
             motor.stop()
             cam.release()
             break
