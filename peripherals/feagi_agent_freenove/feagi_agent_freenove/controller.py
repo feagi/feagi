@@ -11,6 +11,8 @@ from datetime import datetime
 from collections import deque
 from picamera.array import PiRGBArray
 from time import sleep
+import time
+import cv2
 
 runtime_data = {
     "current_burst_id": 0,
@@ -400,6 +402,27 @@ class Ultrasonic:
         return distance_meter
 
 
+def process_retina_data(image, capabilities):
+    retina_data = retina.frame_split(image,
+                                     capabilities['camera']['retina_width_percent'],
+                                     capabilities['camera']['retina_height_percent'])
+
+    for key, data in retina_data.items():
+        compression = capabilities['camera']["central_vision_compression"] if 'C' in key else \
+            capabilities['camera']['peripheral_vision_compression']
+        retina_data[key] = retina.center_data_compression(data, compression)
+    return retina_data
+
+
+def get_rgb_for_key(key, data, capabilities, previous_data_frame):
+    compression = capabilities['camera']['central_vision_compression'] if 'C' in key else \
+        capabilities['camera']['peripheral_vision_compression']
+    previous_name = str(key) + "_prev"
+    return retina.get_rgb(data, compression, previous_data_frame[previous_name], key,
+                          capabilities['camera']['deviation_threshold'],
+                          capabilities['camera']["aperture_default"])
+
+
 # class Battery:
 #     def battery_total(self):
 #         adc = Adc()
@@ -453,9 +476,10 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     servo = Servo()
     ir = IR()
     ultrasonic = Ultrasonic()
-    # battery = Battery() - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    led = LED()
+    # battery = Battery()
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # - - - - - - - - - - - - - #
-
     flag = False
     keyboard_flag = True
     rolling_window_len = capabilities['motor']['rolling_window_len']
@@ -466,13 +490,11 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     # w * (configuration.capabilities['motor']['diameter_of_wheel'] / 2) ^ diameter is from
     # config and it just needs radius so I turned the diameter into a radius by divide it with 2
     motor_data = dict()
+    data_point_status = {}
     rolling_window = {}
     for motor_id in range(motor_count):
         rolling_window[motor_id] = deque([0] * rolling_window_len)
-    camera = PiCamera()
-    camera.resolution = (640, 480)
-    camera.framerate = 32
-    rawCapture = PiRGBArray(camera, size=(640, 480))
+    cam = cv2.VideoCapture(0)  # you need to do sudo rpi-update to be able to use this
     motor.stop()
     servo.set_default_position()
     genome_tracker = 0
@@ -485,157 +507,168 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
         print("aptr fetch error at: ", error)
     while True:
         try:
-            for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
-                if keyboard_flag:
-                    image = frame.array
-                    rawCapture.truncate(0)
-                    if capabilities['camera']['disabled'] is not True:
-                        retina_data = retina.frame_split(image,
-                                                         capabilities['camera'][
-                                                             'retina_width_percent'],
-                                                         capabilities['camera'][
-                                                             'retina_height_percent'])
-                        for i in retina_data:
-                            if 'C' in i:
-                                retina_data[i] = retina.center_data_compression(
-                                    retina_data[i],
-                                    capabilities['camera']["central_vision_compression"]
-                                )
-                            else:
-                                retina_data[i] = retina. \
-                                    center_data_compression(retina_data[i],
-                                                            capabilities['camera']
-                                                            ['peripheral_vision_compression'])
-                        rgb = dict()
-                        rgb['camera'] = dict()
-                        if previous_data_frame == {}:
-                            for i in retina_data:
-                                previous_name = str(i) + "_prev"
-                                previous_data_frame[previous_name] = {}
-                        for i in retina_data:
-                            name = i
-                            if 'prev' not in i:
-                                data = retina.ndarray_to_list(retina_data[i])
-                                if 'C' in i:
-                                    previous_name = str(i) + "_prev"
-                                    rgb_data, previous_data_frame[previous_name] = \
-                                        retina.get_rgb(data,
-                                                       capabilities[
-                                                           'camera'][
-                                                           'central_vision_compression'],
-                                                       previous_data_frame[
-                                                           previous_name],
-                                                       name,
-                                                       capabilities['camera'][
-                                                           'deviation_threshold'],
-                                                       capabilities[
-                                                           'camera'][
-                                                           "aperture_default"]
-                                                       )
-                                else:
-                                    previous_name = str(i) + "_prev"
-                                    rgb_data, previous_data_frame[previous_name] = \
-                                        retina.get_rgb(data, capabilities['camera'][
-                                            'peripheral_vision_compression'],
-                                                       previous_data_frame[previous_name], name,
-                                                       capabilities['camera'][
-                                                           'deviation_threshold'],
-                                                       capabilities[
-                                                           'camera'][
-                                                           "aperture_default"]
-                                                       )
-                                for a in rgb_data['camera']:
-                                    rgb['camera'][a] = rgb_data['camera'][a]
+            start = time.time()
+            ret, image = cam.read()
+            if capabilities['camera']['disabled'] is not True:
+                retina_data = retina.frame_split(image,
+                                                 capabilities['camera'][
+                                                     'retina_width_percent'],
+                                                 capabilities['camera'][
+                                                     'retina_height_percent'])
+                for i in retina_data:
+                    if 'C' in i:
+                        retina_data[i] = retina.center_data_compression(
+                            retina_data[i],
+                            capabilities['camera']["central_vision_compression"]
+                        )
                     else:
-                        rgb = {}
-                ir_data = ir.read()
-                if ir_data:
-                    formatted_ir_data = {'ir': {sensor: True for sensor in ir_data}}
-                else:
-                    formatted_ir_data = {}
+                        retina_data[i] = retina. \
+                            center_data_compression(retina_data[i],
+                                                    capabilities['camera']
+                                                    ['peripheral_vision_compression'])
+                rgb = dict()
+                rgb['camera'] = dict()
+                if previous_data_frame == {}:
+                    for i in retina_data:
+                        previous_name = str(i) + "_prev"
+                        previous_data_frame[previous_name] = {}
+                for i in retina_data:
+                    name = i
+                    if 'prev' not in i:
+                        data = retina.ndarray_to_list(retina_data[i])
+                        if 'C' in i:
+                            previous_name = str(i) + "_prev"
+                            rgb_data, previous_data_frame[previous_name] = \
+                                retina.get_rgb(data,
+                                               capabilities[
+                                                   'camera'][
+                                                   'central_vision_compression'],
+                                               previous_data_frame[
+                                                   previous_name],
+                                               name,
+                                               capabilities['camera'][
+                                                   'deviation_threshold'],
+                                               capabilities[
+                                                   'camera'][
+                                                   "aperture_default"]
+                                               )
+                        else:
+                            previous_name = str(i) + "_prev"
+                            rgb_data, previous_data_frame[previous_name] = \
+                                retina.get_rgb(data, capabilities['camera'][
+                                    'peripheral_vision_compression'],
+                                               previous_data_frame[previous_name], name,
+                                               capabilities['camera'][
+                                                   'deviation_threshold'],
+                                               capabilities[
+                                                   'camera'][
+                                                   "aperture_default"]
+                                               )
+                        for a in rgb_data['camera']:
+                            rgb['camera'][a] = rgb_data['camera'][a]
+            else:
+                rgb = {}
+            # print(time.time() - start)
+            ir_data = ir.read()
+            if ir_data:
+                formatted_ir_data = {'ir': {sensor: True for sensor in ir_data}}
+            else:
+                formatted_ir_data = {}
 
-                if ir_data:
-                    for ir_sensor in range(int(capabilities['infrared']['count'])):
-                        if ir_sensor not in formatted_ir_data['ir']:
-                            formatted_ir_data['ir'][ir_sensor] = False
-                else:
-                    formatted_ir_data['ir'] = {}
-                    for ir_sensor in range(int(capabilities['infrared']['count'])):
-                        formatted_ir_data['ir'][ir_sensor] = False
-
+            if ir_data:
                 for ir_sensor in range(int(capabilities['infrared']['count'])):
                     if ir_sensor not in formatted_ir_data['ir']:
                         formatted_ir_data['ir'][ir_sensor] = False
-                ultrasonic_data = ultrasonic.get_distance()
-                if ultrasonic_data:
-                    formatted_ultrasonic_data = {
-                        'ultrasonic': {
-                            sensor: data for sensor, data in enumerate([ultrasonic_data])
-                        }
+            else:
+                formatted_ir_data['ir'] = {}
+                for ir_sensor in range(int(capabilities['infrared']['count'])):
+                    formatted_ir_data['ir'][ir_sensor] = False
+
+            for ir_sensor in range(int(capabilities['infrared']['count'])):
+                if ir_sensor not in formatted_ir_data['ir']:
+                    formatted_ir_data['ir'][ir_sensor] = False
+            ultrasonic_data = ultrasonic.get_distance()
+            if ultrasonic_data:
+                formatted_ultrasonic_data = {
+                    'ultrasonic': {
+                        sensor: data for sensor, data in enumerate([ultrasonic_data])
                     }
-                else:
-                    formatted_ultrasonic_data = {}
-                message_to_feagi, battery = FEAGI.compose_message_to_feagi(
-                    original_message={**formatted_ir_data, **formatted_ultrasonic_data, **rgb})
-                # Removed battery due to error
-                # Process OPU data received from FEAGI and pass it along
-                message_from_feagi = feagi_opu_channel.receive()
-                if message_from_feagi is not None:
-                    if "o_aptr" in message_from_feagi["opu_data"]:
-                        if message_from_feagi["opu_data"]["o_aptr"]:
-                            for i in message_from_feagi["opu_data"]["o_aptr"]:
-                                feagi_aptr = (int(i.split('-')[-1]))
-                                if aptr_cortical_size is None:
-                                    aptr_cortical_size = check_aptr(aptr_cortical_size)
-                                elif aptr_cortical_size <= feagi_aptr:
-                                    aptr_cortical_size = check_aptr(aptr_cortical_size)
-                                max_range = capabilities['camera']['aperture_range'][1]
-                                min_range = capabilities['camera']['aperture_range'][0]
-                                capabilities['camera']["aperture_default"] = \
-                                    ((feagi_aptr / aptr_cortical_size) *
-                                     (max_range - min_range)) + min_range
-                    opu_data = FEAGI.opu_processor(message_from_feagi)
-                    if capabilities['motor']['disabled'] is not True:
-                        if 'motor' in opu_data:
-                            if opu_data['motor'] is not {}:
-                                for data_point in opu_data['motor']:
-                                    device_power = opu_data['motor'][data_point]
-                                    device_power = motor.power_convert(data_point, device_power)
-                                    device_id = motor.motor_converter(data_point)
-                                    if device_id not in motor_data:
-                                        motor_data[device_id] = dict()
-                                    rolling_window[device_id].append(device_power)
-                                    rolling_window[device_id].popleft()
+                }
+            else:
+                formatted_ultrasonic_data = {}
+            message_to_feagi, battery = FEAGI.compose_message_to_feagi(
+                original_message={**formatted_ir_data, **formatted_ultrasonic_data,
+                                  **rgb})  # Removed battery due to error
+            # Removed battery due to error
+            # Process OPU data received from FEAGI and pass it along
+            message_from_feagi = feagi_opu_channel.receive()
+            if message_from_feagi is not None:
+                if "o_aptr" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o_aptr"]:
+                        for i in message_from_feagi["opu_data"]["o_aptr"]:
+                            feagi_aptr = (int(i.split('-')[-1]))
+                            if aptr_cortical_size is None:
+                                aptr_cortical_size = check_aptr(aptr_cortical_size)
+                            elif aptr_cortical_size <= feagi_aptr:
+                                aptr_cortical_size = check_aptr(aptr_cortical_size)
+                            max_range = capabilities['camera']['aperture_range'][1]
+                            min_range = capabilities['camera']['aperture_range'][0]
+                            capabilities['camera']["aperture_default"] = \
+                                ((feagi_aptr / aptr_cortical_size) *
+                                 (max_range - min_range)) + min_range
+                opu_data = FEAGI.opu_processor(message_from_feagi)
+                if capabilities['motor']['disabled'] is not True:
+                    if 'misc' in opu_data:
+                        if opu_data['misc'] != {}:
+                            for data_point in opu_data['misc']:
+                                if data_point not in data_point_status:
+                                    data_point_status[data_point] = True
+                                if data_point_status[data_point]:
+                                    led.LED_on(data_point, 255, 0, 0)
+                                    print("datapoint: ", data_point)
                                 else:
-                                    for _ in range(motor_count):
-                                        rolling_window[_].append(0)
-                                        rolling_window[_].popleft()
-                    if capabilities['servo']['disabled'] is not True:
-                        if 'servo' in opu_data:
-                            for data_point in opu_data['servo']:
-                                device_id = data_point
-                                device_power = opu_data['servo'][data_point]
-                                servo.move(feagi_device_id=device_id, power=device_power)
-                message_to_feagi['timestamp'] = datetime.now()
-                message_to_feagi['counter'] = msg_counter
-                feagi_ipu_channel.send(message_to_feagi)
-                message_to_feagi.clear()
-                if message_from_feagi is not None:
-                    feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
-                for id in range(motor_count):
-                    motor_power = window_average(rolling_window[id])
-                    motor_power = motor_power * capabilities["motor"]["power_amount"]
-                    motor.move(id, motor_power)
+                                    led.LED_on(data_point, 0, 0, 0)
+                                    print("datapoint: ", data_point)
+                                data_point_status[data_point] = not data_point_status[data_point]
+
+                    if 'motor' in opu_data:
+                        if opu_data['motor'] is not {}:
+                            for data_point in opu_data['motor']:
+                                device_power = opu_data['motor'][data_point]
+                                device_power = motor.power_convert(data_point, device_power)
+                                device_id = motor.motor_converter(data_point)
+                                if device_id not in motor_data:
+                                    motor_data[device_id] = dict()
+                                rolling_window[device_id].append(device_power)
+                                rolling_window[device_id].popleft()
+                            else:
+                                for _ in range(motor_count):
+                                    rolling_window[_].append(0)
+                                    rolling_window[_].popleft()
+                if capabilities['servo']['disabled'] is not True:
+                    if 'servo' in opu_data:
+                        for data_point in opu_data['servo']:
+                            device_id = data_point
+                            device_power = opu_data['servo'][data_point]
+                            servo.move(feagi_device_id=device_id, power=device_power)
+            message_to_feagi['timestamp'] = datetime.now()
+            message_to_feagi['counter'] = msg_counter
+            feagi_ipu_channel.send(message_to_feagi)
+            message_to_feagi.clear()
+            # if message_from_feagi is not None:
+            #     feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
+            # sleep(1 / 40)
+            for id in range(motor_count):
+                motor_power = window_average(rolling_window[id])
+                motor_power = motor_power * capabilities["motor"]["power_amount"]
+                motor.move(id, motor_power)
         except KeyboardInterrupt as ke:  # Keyboard error
             motor.stop()
-            camera.stop_preview()
-            camera.close()
-            keyboard_flag = False
+            cam.release()
             print("ke: ", ke)
             break
         except Exception as e:
             print("ERROR: ", e)
             motor.stop()
-            camera.stop_preview()
-            camera.close()
+            cam.release()
             break
