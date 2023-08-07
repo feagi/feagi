@@ -35,7 +35,8 @@ def ndarray_to_list(array):
     return new_list
 
 
-def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr_level):
+def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr_level,
+            single_RGB=None):
     """
     frame should be a full raw rgb after used ndarray_to_list().
 
@@ -49,6 +50,8 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr
     name_id is cortical area's name.
 
     deviation_threshold is the threshold to reduce the massive red voxels on godot.
+
+    single_RGB should be 0 to 2. R = 0, G = 1, B = 2
     """
 
     vision_dict = dict()
@@ -73,6 +76,10 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr
                     if (abs((previous_frame[index] - frame[index])) / 100) > deviation_threshold:
                         dict_key = str(y_vision) + '-' + \
                                    str(abs((frame_row_count - 1) - x_vision)) + '-' + str(z_vision)
+                        if single_RGB != None:
+                            dict_key = str(y_vision) + '-' + \
+                                       str(abs((frame_row_count - 1) - x_vision)) + '-' + str(
+                                single_RGB)
                         vision_dict[dict_key] = frame[index]  # save the value for the changed
                         # index to the dict
                 z_vision += 1
