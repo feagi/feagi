@@ -23,7 +23,10 @@ import asyncio
 import random
 import threading
 import logging
+import pickle
+import lz4.frame
 from time import sleep
+from datetime import datetime
 from collections import deque
 import websockets
 import requests
@@ -352,7 +355,12 @@ def main():
             zmq_queue.clear()
             ws_queue.clear()
             detect_lag = False
-        one_frame = new_feagi_sub.receive()
+        compressed_data = new_feagi_sub.receive()
+        if compressed_data is not None:
+            decompressed_data = lz4.frame.decompress(compressed_data)
+            one_frame = pickle.loads(decompressed_data)
+        else:
+            one_frame = None
         if not flag_zmq:
             if one_frame is not None:
                 connect_status_counter = 0
@@ -367,6 +375,8 @@ def main():
                         zmq_queue.append("clear")
                         break
         if one_frame is not None:
+            # print((datetime.utcnow() - one_frame[
+            #     "sent_utc"]).total_seconds())
             if flag_zmq:
                 # FEAGI section start
                 print("Connecting to FEAGI resources...")
