@@ -5,6 +5,8 @@ import json
 import zmq
 import socket
 import requests
+import lz4.frame
+import pickle
 from time import sleep
 import traceback
 
@@ -29,7 +31,9 @@ class PubSub:
         self.flags = flags
 
     def send(self, message):
-        self.socket.send_pyobj(message)
+        encoded_data = pickle.dumps(message)
+        compressed_data = lz4.frame.compress(encoded_data)
+        self.socket.send_pyobj(compressed_data)
             
     def receive(self):
         try:
