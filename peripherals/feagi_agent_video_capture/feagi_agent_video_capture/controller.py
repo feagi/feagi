@@ -12,12 +12,17 @@ from datetime import datetime
 from feagi_agent import retina as retina
 from feagi_agent import feagi_interface as feagi
 import traceback
+import threading
 import time
+import pickle
+import lz4.frame
 import mss
 import screeninfo
 import numpy
+import multiprocessing
 from PIL import Image
 
+camera_data = {"vision": {}}
 
 def chroma_keyer(frame, size, name_id):
     """
@@ -78,17 +83,53 @@ def check_aptr(size):
         return 10
 
 
+def process_video(video_path, capabilities):
+    cam = cv2.VideoCapture(video_path)
+    screen_info = screeninfo.get_monitors()[0]  # Assuming you want the primary monitor
+    screen_width = 600
+    screen_height = 600
+    monitor = {"top": 40, "left": 0, "width": screen_width, "height": screen_height}
+    pixels = []
+    while True:
+        if capabilities['camera']['video_device_index'] != "monitor":
+            check, pixels = cam.read()
+        else:
+            check = True
+        if capabilities['camera']['video_device_index'] != "monitor":
+            if bool(capabilities["camera"]["video_loop"]):
+                if check:
+                    pass
+                else:
+                    print("check status: ", check)
+                    cam.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        if capabilities['camera']['video_device_index'] == "monitor":
+            with mss.mss() as sct:
+                img = numpy.array(sct.grab(monitor))
+                pixels = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
+                cv2.imshow("OpenCV/Numpy normal", pixels)
+                # print(rgb)
+            cv2.waitKey(25)
+        else:
+            if check:
+                cv2.imshow("test", pixels)
+                cv2.waitKey(30)
+        camera_data["vision"] = pixels
+
+    cam.release()
+    cv2.destroyAllWindows()
+
+
 def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_to_feagi):
     # Generate runtime dictionary
     previous_data_frame = dict()
-    runtime_data = {"cortical_data": {}, "current_burst_id": None, "stimulation_period": None,
+    runtime_data = {"vision": {}, "current_burst_id": None, "stimulation_period": None,
                     "feagi_state": None,
                     "feagi_network": None}
     feagi_flag = False
     print("retrying...")
     print("Waiting on FEAGI...")
     while not feagi_flag:
-        feagi_flag = feagi.is_FEAGI_reachable(feagi_settings["feagi_host"], 3000)
+        feagi_flag = feagi.is_FEAGI_reachable(feagi_settings["feagi_host"], 30000)
         sleep(2)
     burst_counter_endpoint = feagi.feagi_api_burst_counter()
     # FEAGI section start
@@ -127,34 +168,20 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
         aptr_cortical_size = raw_aptr['cortical_dimensions'][2]
     except:
         aptr_cortical_size = None
-    screen_info = screeninfo.get_monitors()[0]  # Assuming you want the primary monitor
-    screen_width = 600
-    screen_height = 600
-    monitor = {"top": 40, "left": 0, "width": screen_width, "height": screen_height}
-    if capabilities['camera']['video_device_index'] != "monitor":
-        cam = cv2.VideoCapture(capabilities['camera']['video_device_index'])
+    threading.Thread(target=process_video, args=(
+        capabilities['camera']['video_device_index'],
+        capabilities), daemon=True).start()
 
     while True:
         try:
-            message_from_feagi = feagi_opu_channel.receive()
-            if capabilities['camera']['video_device_index'] != "monitor":
-                check, pixels = cam.read()
+            compressed_data = feagi_opu_channel.receive()  # Get data from FEAGI
+            if compressed_data is not None:
+                decompressed_data = lz4.frame.decompress(compressed_data)
+                message_from_feagi = pickle.loads(decompressed_data)
             else:
-                check = True
-            if capabilities['camera']['video_device_index'] != "monitor":
-                if bool(capabilities["camera"]["video_loop"]):
-                    if check:
-                        pass
-                    else:
-                        cam.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                        # check, pixels = cam.read()
-            if capabilities['camera']['video_device_index'] == "monitor":
-                with mss.mss() as sct:
-                    img = numpy.array(sct.grab(monitor))
-                    pixels = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
-                    cv2.imshow("OpenCV/Numpy normal", pixels)
-                    # print(rgb)
-                cv2.waitKey(25)
+                message_from_feagi = None
+
+            pixels = camera_data['vision']
             retina_data = retina.frame_split(pixels, capabilities['camera']['retina_width_percent'],
                                              capabilities['camera']['retina_height_percent'])
             for i in retina_data:
@@ -162,8 +189,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                     retina_data[i] = retina.center_data_compression(
                         retina_data[i],
                         capabilities['camera'][
-                            "central_vision_compression"]
-                    )
+                            "central_vision_compression"])
                 else:
                     retina_data[i] = retina.center_data_compression(
                         retina_data[i],
@@ -188,6 +214,14 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                             capabilities['camera']["aperture_default"] = \
                                 ((feagi_aptr / aptr_cortical_size) *
                                  (max_range - min_range)) + min_range
+                if "o__dev" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o__dev"]:
+                        for i in message_from_feagi["opu_data"]["o__dev"]:
+                            print(i)
+                            dev_data = i
+                            digits = dev_data.split('-')
+                            third_digit = int(digits[2])
+                            capabilities['camera']["deviation_threshold"] = third_digit/10
                 # OPU section ENDS
             if previous_data_frame == {}:
                 for i in retina_data:
@@ -227,6 +261,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                                            capabilities['camera']["aperture_default"])
                     for a in rgb_data['camera']:
                         rgb['camera'][a] = rgb_data['camera'][a]
+
             try:
                 if "data" not in message_to_feagi:
                     message_to_feagi["data"] = dict()
@@ -241,10 +276,10 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
             if message_from_feagi is not None:
                 feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
             sleep(feagi_settings['feagi_burst_speed'])
-            try:
-                print("Len --", len(message_to_feagi['data']['sensory_data']['camera']['C']))
-            except:
-                pass
+            # try:
+            #     print("Len --", len(message_to_feagi['data']['sensory_data']['camera']['C']))
+            # except:
+            #     pass
             feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
             for i in rgb['camera']:
