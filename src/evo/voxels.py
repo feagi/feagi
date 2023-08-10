@@ -318,6 +318,7 @@ def subregion_neurons(src_cortical_area, region_definition):
                                                  block_ref=block_reference_builder(list(voxel)))
             for neuron in voxel_neurons:
                 neurons.add(neuron)
-    except Exception:
+    except Exception as e:
+        print("Exception while processing subregion neurons", e)
         pass
     return neurons
