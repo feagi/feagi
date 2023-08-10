@@ -680,6 +680,23 @@ async def genome_neuron_morphology_types(response: Response):
         print("API Error:", e)
 
 
+@app.api_route("/v1/feagi/morphologies/list/types", methods=['GET'], tags=["Genome"])
+async def genome_neuron_morphology_type_list(response: Response):
+    """
+    Returns the properties of a neuron morphology.
+    """
+    try:
+        response.status_code = status.HTTP_200_OK
+        report = {}
+        for morphology in runtime_data.genome["neuron_morphologies"]:
+            if morphology not in report:
+                report[morphology] = runtime_data.genome["neuron_morphologies"][morphology]["type"]
+        return report
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
 @app.api_route("/v1/feagi/genome/morphology_functions", methods=['GET'], tags=["Genome"])
 async def genome_neuron_morphology_functions(response: Response):
     """
