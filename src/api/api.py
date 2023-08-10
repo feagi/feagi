@@ -1129,6 +1129,19 @@ async def cortical_2d_locations(response: Response):
         logger.error(traceback.print_exc())
 
 
+@app.api_route("/v1/feagi/genome/cortical_area/geometry", methods=['GET'], tags=["Genome"])
+async def cortical_area_geometry(response: Response):
+    try:
+        if runtime_data.cortical_dimensions_by_id:
+            response.status_code = status.HTTP_200_OK
+            return runtime_data.cortical_dimensions_by_id
+        else:
+            response.status_code = status.HTTP_404_NOT_FOUND
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
 # ######  Evolution #########
 # #############################
 
@@ -1743,6 +1756,7 @@ async def connectome_dimensions_report(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
+
 
 
 @app.api_route("/v1/feagi/connectome/stats/cortical/cumulative", methods=['GET'], tags=["Connectome"])
