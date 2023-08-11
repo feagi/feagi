@@ -23,7 +23,10 @@ import asyncio
 import random
 import threading
 import logging
+import pickle
+import lz4.frame
 from time import sleep
+from datetime import datetime
 from collections import deque
 import websockets
 import requests
@@ -342,7 +345,6 @@ def main():
     new_feagi_sub = feagi.sub_initializer(opu_address=opu_channel_address)
     flag_zmq = False
     connect_status_counter = 0
-    burst_second = 0.01
     old_data = []
     while True:
         if detect_lag:
@@ -352,7 +354,15 @@ def main():
             zmq_queue.clear()
             ws_queue.clear()
             detect_lag = False
-        one_frame = new_feagi_sub.receive()
+        received_data = new_feagi_sub.receive()
+        if received_data is not None:
+            if isinstance(received_data, bytes):
+                decompressed_data = lz4.frame.decompress(received_data)
+                one_frame = pickle.loads(decompressed_data)
+            else:
+                one_frame = received_data
+        else:
+            one_frame = None
         if not flag_zmq:
             if one_frame is not None:
                 connect_status_counter = 0
@@ -367,6 +377,8 @@ def main():
                         zmq_queue.append("clear")
                         break
         if one_frame is not None:
+            # print((datetime.utcnow() - one_frame[
+            #     "sent_utc"]).total_seconds())
             if flag_zmq:
                 # FEAGI section start
                 print("Connecting to FEAGI resources...")
@@ -455,7 +467,11 @@ def main():
                     "cortical_data"])
             print("raw data from godot:", godot_list)
             print(">>> > > > >> > converted data:", converted_data)
-            feagi_ipu_channel.send(converted_data)
+            if agent_settings['compression']:
+                serialized_data = pickle.dumps(converted_data)
+                feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
+            else:
+                feagi_ipu_channel.send(converted_data)
             godot_list = {}
             converted_data = {}
 

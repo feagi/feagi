@@ -16,3 +16,4 @@ starlette~=0.17.1
 setuptools~=57.0.0
 websockets~=10.2
 feagi_agent
+lz4

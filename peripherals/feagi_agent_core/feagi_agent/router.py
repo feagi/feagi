@@ -5,6 +5,8 @@ import json
 import zmq
 import socket
 import requests
+import lz4.frame
+import pickle
 from time import sleep
 import traceback
 
