@@ -345,7 +345,6 @@ def main():
     new_feagi_sub = feagi.sub_initializer(opu_address=opu_channel_address)
     flag_zmq = False
     connect_status_counter = 0
-    burst_second = 0.01
     old_data = []
     while True:
         if detect_lag:
@@ -355,10 +354,13 @@ def main():
             zmq_queue.clear()
             ws_queue.clear()
             detect_lag = False
-        compressed_data = new_feagi_sub.receive()
-        if compressed_data is not None:
-            decompressed_data = lz4.frame.decompress(compressed_data)
-            one_frame = pickle.loads(decompressed_data)
+        received_data = new_feagi_sub.receive()
+        if received_data is not None:
+            if isinstance(received_data, bytes):
+                decompressed_data = lz4.frame.decompress(received_data)
+                one_frame = pickle.loads(decompressed_data)
+            else:
+                one_frame = received_data
         else:
             one_frame = None
         if not flag_zmq:
@@ -465,7 +467,11 @@ def main():
                     "cortical_data"])
             print("raw data from godot:", godot_list)
             print(">>> > > > >> > converted data:", converted_data)
-            feagi_ipu_channel.send(converted_data)
+            if agent_settings['compression']:
+                serialized_data = pickle.dumps(converted_data)
+                feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
+            else:
+                feagi_ipu_channel.send(converted_data)
             godot_list = {}
             converted_data = {}
 
