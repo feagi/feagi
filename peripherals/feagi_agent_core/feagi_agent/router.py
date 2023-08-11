@@ -31,9 +31,7 @@ class PubSub:
         self.flags = flags
 
     def send(self, message):
-        encoded_data = pickle.dumps(message)
-        compressed_data = lz4.frame.compress(encoded_data)
-        self.socket.send_pyobj(compressed_data)
+        self.socket.send_pyobj(message)
             
     def receive(self):
         try:
