@@ -85,6 +85,7 @@ capabilities = {
         "peripheral_vision_compression": [8, 8],
         "previous_data": {},
         "aperture_range": [0.2, 2],
+        "ISO_range": [0.1, 2],
         "aperture_default": 2
     },
 }

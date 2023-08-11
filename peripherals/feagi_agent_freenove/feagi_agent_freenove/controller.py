@@ -11,6 +11,8 @@ from datetime import datetime
 from collections import deque
 from picamera.array import PiRGBArray
 from time import sleep
+import pickle
+import lz4.frame
 import time
 import cv2
 import traceback
@@ -131,7 +133,7 @@ class Servo:
         except Exception as e:
             print("Error while setting initial position for the servo:", e)
 
-    def move(self, feagi_device_id, power):
+    def move(self, feagi_device_id, power, capabilities, feagi_settings):
         try:
             if feagi_device_id > 2 * capabilities['servo']['count']:
                 print("Warning! Number of servo channels from FEAGI exceed available Motor count!")
@@ -603,7 +605,12 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                                   **rgb})  # Removed battery due to error
             # Removed battery due to error
             # Process OPU data received from FEAGI and pass it along
-            message_from_feagi = feagi_opu_channel.receive()
+            compressed_data = feagi_opu_channel.receive()  # Get data from FEAGI
+            if compressed_data is not None:
+                decompressed_data = lz4.frame.decompress(compressed_data)
+                message_from_feagi = pickle.loads(decompressed_data)
+            else:
+                message_from_feagi = None
             if message_from_feagi is not None:
                 if "o_aptr" in message_from_feagi["opu_data"]:
                     if message_from_feagi["opu_data"]["o_aptr"]:
@@ -618,18 +625,31 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                             capabilities['camera']["aperture_default"] = \
                                 ((feagi_aptr / aptr_cortical_size) *
                                  (max_range - min_range)) + min_range
+                if "o__dev" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o__dev"]:
+                        for i in message_from_feagi["opu_data"]["o__dev"]:
+                            feagi_aptr = (int(i.split('-')[-1]))
+                            if aptr_cortical_size is None:
+                                aptr_cortical_size = check_aptr(aptr_cortical_size)
+                            elif aptr_cortical_size <= feagi_aptr:
+                                aptr_cortical_size = check_aptr(aptr_cortical_size)
+                            max_range = capabilities['camera']['ISO_range'][1]
+                            min_range = capabilities['camera']['ISO_range'][0]
+                            capabilities['camera']["deviation_threshold"] = \
+                                ((feagi_aptr / aptr_cortical_size) *
+                                 (max_range - min_range)) + min_range
                 opu_data = FEAGI.opu_processor(message_from_feagi)
                 if capabilities['motor']['disabled'] is not True:
-                    if 'misc' in opu_data:
-                        if opu_data['misc'] != {}:
-                            for data_point in opu_data['misc']:
+                    if 'led' in opu_data:
+                        if opu_data['led'] != {}:
+                            for data_point in opu_data['led']:
                                 led_flag = True
                                 if data_point not in data_point_status:
                                     data_point_status[data_point] = True
                                 if data_point_status[data_point]:
                                     led.LED_on(
                                         data_point,
-                                        int((opu_data['misc'][data_point]/100)*255),
+                                        int((opu_data['led'][data_point] / 100) * 255),
                                         0, 0)
                                 data_point_status[data_point] = not data_point_status[data_point]
                         else:
@@ -637,7 +657,6 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                                 for i in range(8):
                                     led.LED_on(i, 0, 0, 0)
                                 led_flag = False
-
                     if 'motor' in opu_data:
                         if opu_data['motor'] is not {}:
                             for data_point in opu_data['motor']:
@@ -657,7 +676,8 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                         for data_point in opu_data['servo']:
                             device_id = data_point
                             device_power = opu_data['servo'][data_point]
-                            servo.move(feagi_device_id=device_id, power=device_power)
+                            servo.move(feagi_device_id=device_id, power=device_power,
+                                       capabilities=capabilities, feagi_settings=feagi_settings)
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             feagi_ipu_channel.send(message_to_feagi)

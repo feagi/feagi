@@ -149,7 +149,7 @@ def opu_processor(data):
         processed_opu_data = {'motor': {}, 'servo': {}, 'battery': {}, 'discharged_battery': {},
                               'reset': {},
                               'camera': {}, 'misc': {}, 'navigation': {}, 'speed': {},
-                              'servo_position': {}}
+                              'servo_position': {}, "led": {}}
         opu_data = data["opu_data"]
         if opu_data is not None:
             if 'o__mot' in opu_data:
@@ -189,6 +189,13 @@ def opu_processor(data):
                         device_id = processed_data_point[0]
                         device_power = opu_data['o_misc'][data_point]
                         processed_opu_data['misc'][device_id] = device_power
+            if 'o__led' in opu_data:
+                if opu_data['o__led']:
+                    for data_point in opu_data['o__led']:
+                        processed_data_point = block_to_array(data_point)
+                        device_id = processed_data_point[0]
+                        device_power = opu_data['o__led'][data_point]
+                        processed_opu_data['led'][device_id] = device_power
             if 'o__nav' in opu_data:
                 if opu_data['o__nav']:
                     for data_point in opu_data['o__nav']:
