@@ -52,7 +52,7 @@ capabilities = {
         "cortical_mapping": "o__mot",
         "rolling_window_len": 5,
         "diameter_of_wheel": 0.065,
-        "power_amount": 650
+        "power_amount": 65
     },
     "infrared": {
         "type": "ipu",
@@ -78,12 +78,15 @@ capabilities = {
         "count": 1,
         "width": 8,
         "height": 8,
-        "deviation_threshold": 0.7,
+        "deviation_threshold": 0.9,
         "retina_width_percent": 90,
         "retina_height_percent": 80,
         "central_vision_compression": [64, 64],
         "peripheral_vision_compression": [8, 8],
-        "previous_data": {}
+        "previous_data": {},
+        "aperture_range": [0.2, 2],
+        "ISO_range": [0.1, 2],
+        "aperture_default": 2
     },
 }
 
