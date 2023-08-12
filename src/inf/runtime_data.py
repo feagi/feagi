@@ -71,6 +71,7 @@ pending_voxel_dict = None
 # Burst Engine
 brain_readiness = False
 burst_publisher = None
+burst_duration = None
 burst_activities = {}
 burst_timer = None
 exit_condition = False
@@ -94,7 +95,7 @@ plasticity_queue_candidates = dict()
 # Stats Collection
 neuron_mp_collection_scope = {}
 neuron_psp_collection_scope = {}
-
+training_stats = {}
 
 # Queues
 api_queue = None
@@ -145,7 +146,6 @@ shock_admin = False
 shock_scenarios = set()
 pain_flag = False
 
-
 # Robot
 robot_id = None
 robot_controller = {}
@@ -172,3 +172,10 @@ agent_registry = {
 }
 """
 agent_registry = {}
+
+
+# Unique Logs
+logs = {
+    "PNS": set(),
+    "CNS": set()
+}

@@ -18,11 +18,15 @@ import time
 import os
 import json
 import ast
+import gzip
 import asyncio
 import random
 import threading
 import logging
+import pickle
+import lz4.frame
 from time import sleep
+from datetime import datetime
 from collections import deque
 import websockets
 import requests
@@ -221,12 +225,13 @@ async def echo(websocket):
                 stored_value = zmq_queue[len(zmq_queue) - 1]
                 zmq_queue.clear()
                 zmq_queue[0] = stored_value
-            await websocket.send(str(zmq_queue[0]))
+            await websocket.send(gzip.compress(str(zmq_queue[0]).encode()))
             zmq_queue.pop()
         except Exception as error:
             pass
         new_data = await websocket.recv()
-        ws_queue.append(new_data)
+        decompressed_data = gzip.decompress(new_data)
+        ws_queue.append(decompressed_data)
 
 
 async def websocket_main():
@@ -267,7 +272,7 @@ async def websocket_main():
     """
     async with websockets.serve(echo, agent_settings["godot_websocket_ip"],
                                 agent_settings['godot_websocket_port'], max_size=None,
-                                max_queue=None, write_limit=None, compression=None):
+                                max_queue=None, write_limit=None):
         await asyncio.Future()
 
 
@@ -344,13 +349,20 @@ def main():
     while True:
         if detect_lag:
             opu_channel_address = 'tcp://' + feagi_settings['feagi_host'] + ':' + \
-                                  runtime_data["feagi_state"][
-                                      'feagi_opu_port']
+                                  runtime_data["feagi_state"]['feagi_opu_port']
             new_feagi_sub = feagi.sub_initializer(opu_address=opu_channel_address)
             zmq_queue.clear()
             ws_queue.clear()
             detect_lag = False
-        one_frame = new_feagi_sub.receive()
+        received_data = new_feagi_sub.receive()
+        if received_data is not None:
+            if isinstance(received_data, bytes):
+                decompressed_data = lz4.frame.decompress(received_data)
+                one_frame = pickle.loads(decompressed_data)
+            else:
+                one_frame = received_data
+        else:
+            one_frame = None
         if not flag_zmq:
             if one_frame is not None:
                 connect_status_counter = 0
@@ -365,6 +377,8 @@ def main():
                         zmq_queue.append("clear")
                         break
         if one_frame is not None:
+            # print((datetime.utcnow() - one_frame[
+            #     "sent_utc"]).total_seconds())
             if flag_zmq:
                 # FEAGI section start
                 print("Connecting to FEAGI resources...")
@@ -401,14 +415,18 @@ def main():
             burst_second = one_frame['burst_frequency']
             if 'genome_reset' in one_frame:
                 runtime_data["cortical_data"] = {}
-            one_frame = feagi_breakdown(one_frame, feagi_host, api_port, dimensions_endpoint)
+            processed_one_frame = feagi_breakdown(one_frame, feagi_host, api_port,
+                                                  dimensions_endpoint)
             # Debug section start
-            if one_frame != old_data:
-                old_data = one_frame
+            if processed_one_frame != old_data:
+                old_data = processed_one_frame
             # Debug section end
             # one_frame = simulation_testing() # This is to test the stress
             if burst_second > agent_settings['burst_duration_threshold']:
-                zmq_queue.append(one_frame)
+                zmq_queue.append(processed_one_frame)
+        # else:
+        #     print("ws: ", len(ws_queue), " zmq: ", len(zmq_queue))
+        #     sleep(burst_second)
         if ws_queue:
             data_from_godot = ws_queue[0].decode('UTF-8')  # ADDED this line to decode into string
             ws_queue.pop()
@@ -449,7 +467,11 @@ def main():
                     "cortical_data"])
             print("raw data from godot:", godot_list)
             print(">>> > > > >> > converted data:", converted_data)
-            feagi_ipu_channel.send(converted_data)
+            if agent_settings['compression']:
+                serialized_data = pickle.dumps(converted_data)
+                feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
+            else:
+                feagi_ipu_channel.send(converted_data)
             godot_list = {}
             converted_data = {}
 

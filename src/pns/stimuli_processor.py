@@ -189,7 +189,7 @@ def accelerator_to_coords(acc_data, direction):
          \
         ['block_boundaries'][2]
     try:
-        dist_map = round(map_value(float(acc_data), -20, 20, 0, Z_MAX - 1))
+        dist_map = round(map_value(float(acc_data), -1, 1, 0, Z_MAX - 1)) # TODO: Make 1, -1 to be scalable
     except TypeError as e:
         dist_map = 0
         print("Type Error in accelerator_to_coords...")
