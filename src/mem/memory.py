@@ -52,7 +52,7 @@ import traceback
 import logging
 from inf import runtime_data
 from evo.synapse import bidirectional_synapse, synapse
-from npu.physiology import list_upstream_neurons, post_synaptic_current_update
+from npu.physiology import list_upstream_plastic_neurons, list_downstream_plastic_neurons, post_synaptic_current_update
 
 
 logger = logging.getLogger(__name__)
@@ -67,9 +67,9 @@ def neuroplasticity():
     for neuron in common_neurons:
         try:
             cortical_area = neuron[:6]
-            presynaptic_neurons = list_upstream_neurons(cortical_area=cortical_area, neuron_id=neuron)
+            presynaptic_neurons = list_upstream_plastic_neurons(cortical_area=cortical_area, neuron_id=neuron)
 
-            postsynaptic_neurons = runtime_data.brain[cortical_area][neuron]['neighbors']
+            postsynaptic_neurons = list_downstream_plastic_neurons(cortical_area=cortical_area, neuron_id=neuron)
 
             postsynaptic_neurons_set = set()
             for item in postsynaptic_neurons:
