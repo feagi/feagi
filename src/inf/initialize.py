@@ -463,6 +463,7 @@ def init_brain():
     init_cortical_info()
     runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
+    runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
     # genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
     # genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])
     # runtime_data.genome['blueprint'] = genome2['blueprint']
@@ -566,6 +567,45 @@ def generate_cortical_dimensions():
         cortical_information[cortical_name].append(cortical_area)
 
     with open(runtime_data.connectome_path+"cortical_data.json", "w") as data_file:
+        data_file.seek(0)
+        data_file.write(json.dumps(cortical_information, indent=3))
+        data_file.truncate()
+
+    return cortical_information
+
+
+def generate_cortical_dimensions_by_id():
+    """
+    Generates the information needed to display cortical areas on Godot
+    """
+    cortical_information = {}
+
+    for cortical_area in runtime_data.genome["blueprint"]:
+        cortical_information[cortical_area] = {}
+        genes = runtime_data.genome["blueprint"][cortical_area]
+
+        cortical_information[cortical_area]["name"] = genes["cortical_name"]
+        cortical_information[cortical_area]["type"] = genes["group_id"]
+        cortical_information[cortical_area]["visible"] = genes["visualization"]
+
+        cortical_information[cortical_area]["position_2d"] = [
+            genes["2d_coordinate"][0],
+            genes["2d_coordinate"][1]
+        ]
+
+        cortical_information[cortical_area]["position_3d"] = [
+            genes["relative_coordinate"][0],
+            genes["relative_coordinate"][1],
+            genes["relative_coordinate"][2]
+        ]
+
+        cortical_information[cortical_area]["dimensions"] = [
+            genes["block_boundaries"][0],
+            genes["block_boundaries"][1],
+            genes["block_boundaries"][2]
+        ]
+
+    with open(runtime_data.connectome_path+"cortical_data_by_id.json", "w") as data_file:
         data_file.seek(0)
         data_file.write(json.dumps(cortical_information, indent=3))
         data_file.truncate()
