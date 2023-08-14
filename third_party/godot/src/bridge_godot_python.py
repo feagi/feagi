@@ -23,7 +23,10 @@ import asyncio
 import random
 import threading
 import logging
+import pickle
+import lz4.frame
 from time import sleep
+from datetime import datetime
 from collections import deque
 import websockets
 import requests
@@ -33,7 +36,7 @@ from feagi_agent import feagi_interface as feagi
 runtime_data = {
     "cortical_data": {},
     "current_burst_id": None,
-    "stimulation_period": None,
+    "stimulation_period": 0.01,
     "feagi_state": None,
     "feagi_network": None,
     "cortical_list": set(),
@@ -212,23 +215,29 @@ async def echo(websocket):
     """
     Main thread for websocket only.
     """
+    if not ws_operation:
+        ws_operation.append(websocket)
+    else:
+        ws_operation[0] = websocket
     while True:
-        try:
-            if "genome" in zmq_queue[0]:
-                cortical_genome_list = str(zmq_queue[0])
-                zmq_queue.pop()
-                await websocket.send(cortical_genome_list)
-            if len(zmq_queue) > 2:  # This will eliminate any stack up queue
-                stored_value = zmq_queue[len(zmq_queue) - 1]
-                zmq_queue.clear()
-                zmq_queue[0] = stored_value
-            await websocket.send(gzip.compress(str(zmq_queue[0]).encode()))
-            zmq_queue.pop()
-        except Exception as error:
-            pass
         new_data = await websocket.recv()
         decompressed_data = gzip.decompress(new_data)
         ws_queue.append(decompressed_data)
+        if "stimulation_period" in runtime_data:
+            sleep(runtime_data["stimulation_period"])
+
+async def bridge_to_BV():
+    while True:
+        if zmq_queue:
+            try:
+                if ws_operation:
+                    await ws_operation[0].send(gzip.compress(str(zmq_queue[0]).encode()))
+                    zmq_queue.pop()
+            except Exception as error:
+                sleep(0.001)
+                # print("ERROR INSIDE BRIDGE TO BV FGUNC: ", error)
+        else:
+            sleep(0.001)
 
 
 async def websocket_main():
@@ -281,6 +290,22 @@ def websocket_operation():
     which provides a simple way to execute the coroutine in the event loop.
     """
     asyncio.run(websocket_main())
+
+def bridge_operation():
+    asyncio.run(bridge_to_BV())
+
+def feagi_to_brain_visualizer():
+    """
+    Send data from feagi to BV
+    """
+    while True:
+        if len(zmq_queue) > 0:
+            if len(zmq_queue) > 2:
+                stored_value = zmq_queue.pop()
+                zmq_queue.clear()
+                zmq_queue.append(stored_value)
+        if "stimulation_period" in runtime_data:
+            sleep(runtime_data["stimulation_period"])
 
 
 def main():
@@ -352,7 +377,15 @@ def main():
             zmq_queue.clear()
             ws_queue.clear()
             detect_lag = False
-        one_frame = new_feagi_sub.receive()
+        received_data = new_feagi_sub.receive()
+        if received_data is not None:
+            if isinstance(received_data, bytes):
+                decompressed_data = lz4.frame.decompress(received_data)
+                one_frame = pickle.loads(decompressed_data)
+            else:
+                one_frame = received_data
+        else:
+            one_frame = None
         if not flag_zmq:
             if one_frame is not None:
                 connect_status_counter = 0
@@ -401,6 +434,7 @@ def main():
                     print("updated time")
                     zmq_queue.append("updated")
             burst_second = one_frame['burst_frequency']
+            runtime_data["stimulation_period"] = one_frame['burst_frequency']
             if 'genome_reset' in one_frame:
                 runtime_data["cortical_data"] = {}
             processed_one_frame = feagi_breakdown(one_frame, feagi_host, api_port,
@@ -412,9 +446,8 @@ def main():
             # one_frame = simulation_testing() # This is to test the stress
             if burst_second > agent_settings['burst_duration_threshold']:
                 zmq_queue.append(processed_one_frame)
-        # else:
-        #     print("ws: ", len(ws_queue), " zmq: ", len(zmq_queue))
-        #     sleep(burst_second)
+        else:
+            sleep(burst_second)
         if ws_queue:
             data_from_godot = ws_queue[0].decode('UTF-8')  # ADDED this line to decode into string
             ws_queue.pop()
@@ -455,7 +488,11 @@ def main():
                     "cortical_data"])
             print("raw data from godot:", godot_list)
             print(">>> > > > >> > converted data:", converted_data)
-            feagi_ipu_channel.send(converted_data)
+            if agent_settings['compression']:
+                serialized_data = pickle.dumps(converted_data)
+                feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
+            else:
+                feagi_ipu_channel.send(converted_data)
             godot_list = {}
             converted_data = {}
 
@@ -468,9 +505,12 @@ def main():
 
 
 if __name__ == "__main__":
-    threading.Thread(target=websocket_operation, daemon=True).start()
     ws_queue = deque()
     zmq_queue = deque()
+    ws_operation = deque()
+    threading.Thread(target=websocket_operation, daemon=True).start()
+    threading.Thread(target=bridge_operation, daemon=True).start()
+    threading.Thread(target=feagi_to_brain_visualizer, daemon=True).start()
     current_cortical_area = {}
     while True:
         FEAGI_FLAG = False
