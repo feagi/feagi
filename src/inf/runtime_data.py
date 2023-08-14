@@ -126,6 +126,7 @@ death_flag = False
 stats = {}
 opu_data = {}
 cortical_dimensions = {}
+cortical_dimensions_by_id = {}
 voxel_dict = {}
 cortical_types = {}
 cortical_defaults = None
