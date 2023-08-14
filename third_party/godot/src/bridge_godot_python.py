@@ -215,7 +215,10 @@ async def echo(websocket):
     """
     Main thread for websocket only.
     """
-    ws_operation.append(websocket)
+    if not ws_operation:
+        ws_operation.append(websocket)
+    else:
+        ws_operation[0] = websocket
     while True:
         new_data = await websocket.recv()
         decompressed_data = gzip.decompress(new_data)
@@ -231,7 +234,8 @@ async def bridge_to_BV():
                     await ws_operation[0].send(gzip.compress(str(zmq_queue[0]).encode()))
                     zmq_queue.pop()
             except Exception as error:
-                print("ERROR INSIDE BRIDGE TO BV FGUNC: ", error)
+                sleep(0.001)
+                # print("ERROR INSIDE BRIDGE TO BV FGUNC: ", error)
         else:
             sleep(0.001)
 
