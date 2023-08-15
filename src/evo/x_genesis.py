@@ -36,7 +36,7 @@ from evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter,
 from evo.genome_editor import save_genome
 from evo.connectome import reset_connectome_file
 from evo.neuroembryogenesis import cortical_name_list, develop, generate_plasticity_dict
-from inf.initialize import generate_cortical_dimensions, init_fcl
+from inf.initialize import generate_cortical_dimensions, generate_cortical_dimensions_by_id, init_fcl
 
 logger = logging.getLogger(__name__)
 
@@ -249,10 +249,13 @@ def update_cortical_properties(cortical_properties):
             regeneration_flag = True
 
     if regeneration_flag:
+
+        print("@-----@ " * 10)
         logger.info(f"Cortical regeneration triggered for {cortical_area}")
         cortical_regeneration(cortical_area=cortical_area)
 
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
+    runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                 file_name=runtime_data.connectome_path + "genome.json")
     runtime_data.last_genome_modification_time = datetime.datetime.now()
@@ -262,7 +265,7 @@ def update_cortical_mappings(cortical_mappings):
     cortical_area = cortical_mappings["src_cortical_area"]
     dst_cortical_area = cortical_mappings["dst_cortical_area"]
     mappings = cortical_mappings["mapping_data"]
-
+    print("++++++ 1")
     runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=cortical_area,
                                                  dst_cortical_area=dst_cortical_area)
 
@@ -406,6 +409,7 @@ def cortical_removal(cortical_area, genome_scrub=False):
                 runtime_data.future_fcl.pop(cortical_area)
             runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
             runtime_data.cortical_dimensions = generate_cortical_dimensions()
+            runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
             for upstream_area in upstream_cortical_areas:
                 if upstream_area in runtime_data.genome['blueprint']:
                     if cortical_area in runtime_data.genome['blueprint'][upstream_area]['cortical_mapping_dst']:
@@ -419,6 +423,7 @@ def prune_cortical_synapses(cortical_area):
         neighboring_cortical_areas(cortical_area, blueprint=runtime_data.genome["blueprint"])
 
     for src_cortical_area in upstream_cortical_areas:
+        print("++++++ 2")
         runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=src_cortical_area,
                                                      dst_cortical_area=cortical_area)
 
@@ -430,6 +435,7 @@ def cortical_regeneration(cortical_area):
     cortical_removal(cortical_area=cortical_area)
     print("##### 2 #####")
     x_corticogenesis(cortical_area)
+    print("%%%%%%%     Brain:\n", runtime_data.brain[cortical_area])
     print("##### 3 #####")
     upstream_cortical_areas, downstream_cortical_areas = \
         neighboring_cortical_areas(cortical_area, runtime_data.genome["blueprint"])
@@ -445,12 +451,13 @@ def cortical_regeneration(cortical_area):
     # Recreate synapses
     for src_cortical_area in upstream_cortical_areas:
         neuroembryogenesis.synaptogenesis(cortical_area=src_cortical_area, dst_cortical_area=cortical_area)
-    print("##### 7 #####")
+    print("##### 7 #####", downstream_cortical_areas)
     for dst_cortical_area in downstream_cortical_areas:
         neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
 
 
 def cortical_rewiring(src_cortical_area, dst_cortical_area):
+    print("++++++ 3")
     synapse.synaptic_pruner(src_cortical_area=src_cortical_area, dst_cortical_area=dst_cortical_area)
     neuroembryogenesis.synaptogenesis(cortical_area=src_cortical_area, dst_cortical_area=dst_cortical_area)
 
@@ -548,6 +555,7 @@ def add_core_cortical_area(cortical_properties):
             neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
             init_fcl(cortical_area)
             runtime_data.cortical_dimensions = generate_cortical_dimensions()
+            runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
 
             save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                         file_name=runtime_data.connectome_path + "genome.json")
@@ -627,6 +635,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
         neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
         init_fcl(cortical_area)
         runtime_data.cortical_dimensions = generate_cortical_dimensions()
+        runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
 
         save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                     file_name=runtime_data.connectome_path + "genome.json")
@@ -760,6 +769,8 @@ def append_circuit(source_genome, circuit_origin):
         develop(appended_cortical_areas)
 
         runtime_data.cortical_dimensions = generate_cortical_dimensions()
+        runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
+
         save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                     file_name=runtime_data.connectome_path + "genome.json")
         runtime_data.last_genome_modification_time = datetime.datetime.now()
