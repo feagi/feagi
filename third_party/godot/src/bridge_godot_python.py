@@ -18,13 +18,13 @@ import time
 import os
 import json
 import ast
-import gzip
 import asyncio
 import random
 import threading
 import logging
 import pickle
 import lz4.frame
+import zlib
 from time import sleep
 from datetime import datetime
 from collections import deque
@@ -221,21 +221,21 @@ async def echo(websocket):
         ws_operation[0] = websocket
     while True:
         new_data = await websocket.recv()
-        decompressed_data = gzip.decompress(new_data)
+        decompressed_data = zlib.decompress(new_data)
         ws_queue.append(decompressed_data)
         if "stimulation_period" in runtime_data:
             sleep(runtime_data["stimulation_period"])
+
 
 async def bridge_to_BV():
     while True:
         if zmq_queue:
             try:
                 if ws_operation:
-                    await ws_operation[0].send(gzip.compress(str(zmq_queue[0]).encode()))
+                    await ws_operation[0].send(zlib.compress(str(zmq_queue[0]).encode()))
                     zmq_queue.pop()
             except Exception as error:
                 sleep(0.001)
-                # print("ERROR INSIDE BRIDGE TO BV FGUNC: ", error)
         else:
             sleep(0.001)
 
@@ -291,8 +291,10 @@ def websocket_operation():
     """
     asyncio.run(websocket_main())
 
+
 def bridge_operation():
     asyncio.run(bridge_to_BV())
+
 
 def feagi_to_brain_visualizer():
     """
