@@ -376,11 +376,13 @@ def cortical_removal(cortical_area, genome_scrub=False):
             neighboring_cortical_areas(cortical_area, blueprint=runtime_data.genome["blueprint"])
 
         # Clean Upstream neuron associations
-        for downstream_cortical_area in downstream_cortical_areas:
-            for neuron in runtime_data.brain[downstream_cortical_area]:
-                for upstream_neuron in runtime_data.brain[downstream_cortical_area][neuron]["upstream_neurons"].copy():
-                    if upstream_neuron[:6] == cortical_area:
-                        runtime_data.brain[downstream_cortical_area][neuron]["upstream_neurons"].discard(upstream_neuron)
+        if len(downstream_cortical_areas) > 0:
+            for downstream_cortical_area in downstream_cortical_areas:
+                if downstream_cortical_area:
+                    for neuron in runtime_data.brain[downstream_cortical_area]:
+                        for upstream_neuron in runtime_data.brain[downstream_cortical_area][neuron]["upstream_neurons"].copy():
+                            if upstream_neuron[:6] == cortical_area:
+                                runtime_data.brain[downstream_cortical_area][neuron]["upstream_neurons"].discard(upstream_neuron)
 
         # Prune affected synapses
         prune_cortical_synapses(cortical_area=cortical_area)
@@ -447,7 +449,8 @@ def cortical_regeneration(cortical_area):
         neuroembryogenesis.synaptogenesis(cortical_area=src_cortical_area, dst_cortical_area=cortical_area)
     print("##### 7 #####")
     for dst_cortical_area in downstream_cortical_areas:
-        neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
+        if dst_cortical_area:
+            neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
 
 
 def cortical_rewiring(src_cortical_area, dst_cortical_area):

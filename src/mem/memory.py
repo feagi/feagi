@@ -101,7 +101,7 @@ def neuroplasticity():
 
 
 def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_cortical_area,
-                                     dst_neuron_id, long_term_depression=False, impact_multiplier=1.0):
+                                     dst_neuron_id, long_term_depression=False, impact_multiplier=0.1):
 
     plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"]
 
@@ -136,8 +136,9 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
         # todo: consider setting a postsynaptic_min in genome to be used instead of 0
         # Condition to prune a synapse if its postsynaptic_current is zero
         if new_psc < 0:
-            runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id,
-                                                  dst_cortical_area, dst_neuron_id))
+            new_psc = 0
+            # runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id,
+            #                                       dst_cortical_area, dst_neuron_id))
 
         post_synaptic_current_update(cortical_area_src=src_cortical_area, cortical_area_dst=dst_cortical_area,
                                      neuron_id_src=src_neuron_id, neuron_id_dst=dst_neuron_id,
