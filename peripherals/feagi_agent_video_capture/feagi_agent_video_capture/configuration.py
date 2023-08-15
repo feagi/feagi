@@ -30,6 +30,7 @@ agent_settings = {
     "agent_type": "embodiment",
     'TTL': 2,
     'last_message': 0,
+    'compression': True
 }
 
 capabilities = {
@@ -39,7 +40,7 @@ capabilities = {
         "count": 1,
         "width": 8,
         "height": 8,
-        "deviation_threshold": 0.5,
+        "deviation_threshold": 0.6,
         "retina_width_percent": 90,
         "retina_height_percent": 70,
         "central_vision_compression": [64, 64],
@@ -47,7 +48,7 @@ capabilities = {
         "previous_data": {},
         "video_device_index": 0,
         "video_loop": False,
-        "aperture_range": [0.7, 2],
+        "aperture_range": [0.1, 2],
         "aperture_default": 2
     }
 }
