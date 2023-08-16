@@ -27,6 +27,7 @@ if __name__ == '__main__':
     if args['ip']:
         feagi_settings["feagi_host"] = args['ip']
     if args['setup']:
+        current_path = feagi_agent_freenove.__path__
         new_path = current_path[0] + "/setup.sh " + current_path[0]
         subprocess.run([new_path, "arguments"], shell=True)
     if args['zmq_port']:
