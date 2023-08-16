@@ -28,6 +28,7 @@ sudo pip3 install feagi-agent
 sudo pip3 install rpi_ws281x
 sudo pip3 install opencv-python==4.6.0.66
 sudo pip3 install -U numpy
+sudo pip3 install lz4
 sudo groupadd gpio
 sudo usermod -aG gpio "${USER}"
 echo "Setup is complete!"
