@@ -501,7 +501,6 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     cam = cv2.VideoCapture(0)  # you need to do sudo rpi-update to be able to use this
     motor.stop()
     servo.set_default_position()
-    genome_tracker = 0
     get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr'
     raw_aptr = requests.get(get_size_for_aptr_cortical).json()
     try:
@@ -686,9 +685,9 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
             else:
                 feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
-            # if message_from_feagi is not None:
-            #     feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
-            # sleep(1 / 40)
+            if message_from_feagi is not None:
+                feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
+            sleep(feagi_settings['feagi_burst_speed'])
             for id in range(motor_count):
                 motor_power = window_average(rolling_window[id])
                 motor_power = motor_power * capabilities["motor"]["power_amount"]
