@@ -280,7 +280,11 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
             #     print("Len --", len(message_to_feagi['data']['sensory_data']['camera']['C']))
             # except:
             #     pass
-            feagi_ipu_channel.send(message_to_feagi)
+            if agent_settings['compression']:
+                serialized_data = pickle.dumps(message_to_feagi)
+                feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
+            else:
+                feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
             for i in rgb['camera']:
                 rgb['camera'][i].clear()
