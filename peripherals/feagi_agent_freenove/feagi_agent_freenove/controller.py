@@ -680,7 +680,11 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                                        capabilities=capabilities, feagi_settings=feagi_settings)
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
-            feagi_ipu_channel.send(message_to_feagi)
+            if agent_settings['compression']:
+                serialized_data = pickle.dumps(message_to_feagi)
+                feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
+            else:
+                feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
             # if message_from_feagi is not None:
             #     feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
