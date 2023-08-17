@@ -32,7 +32,8 @@ agent_settings = {
     'TTL': 2,
     'last_message': 0,
     'godot_websocket_ip': "0.0.0.0",
-    'godot_websocket_port': os.environ.get('WS_MICROBIT_PORT', "9052")
+    'godot_websocket_port': os.environ.get('WS_MICROBIT_PORT', "9052"),
+    'compression': True
 
 }
 
