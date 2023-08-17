@@ -24,7 +24,33 @@ from configuration import *
 from feagi_agent import feagi_interface as feagi
 
 ws = deque()
+ws_operation = deque()
 previous_data = ""
+
+
+async def bridge_to_godot():
+    while True:
+        if ws:
+            try:
+                if ws_operation:
+                    if len(ws) > 0:
+                        if len(ws) > 2:
+                            stored_value = ws.pop()
+                            ws.clear()
+                            ws.append(stored_value)
+                    await ws_operation[0].send(str(ws[0]))
+                    ws.pop()
+                if "stimulation_period" in runtime_data:
+                    sleep(runtime_data["stimulation_period"])
+            except Exception as error:
+                # print("error: ", error)
+                sleep(0.001)
+        else:
+            sleep(0.001)
+
+
+def bridge_operation():
+    asyncio.run(bridge_to_godot())
 
 
 async def echo(websocket):
@@ -49,26 +75,14 @@ async def echo(websocket):
             z_acc = int(message[10:14]) - 1000
             ultrasonic = float(message[14:16])
             sound_level = int(message[16:18])
+            # Store values in dictionary
+            microbit_data['ir'] = [ir0, ir1]
+            microbit_data['ultrasonic'] = ultrasonic / 25
+            microbit_data['accelerator'] = [x_acc, y_acc, z_acc]
+            microbit_data['sound_level'] = {sound_level}
         except Exception as Error_case:
             print("error: ", Error_case)
             print("raw: ", message)
-
-        # Store values in dictionary
-        microbit_data['ir'] = [ir0, ir1]
-        microbit_data['ultrasonic'] = ultrasonic / 25
-        microbit_data['accelerator'] = [x_acc, y_acc, z_acc]
-        microbit_data['sound_level'] = {sound_level}
-        try:
-            if len(ws) > 2:  # This will eliminate any stack up queue
-                stored_value = ws[len(ws) - 1]
-                ws.clear()
-                ws[0] = stored_value
-            print("SENDING: ", str(ws[0]))
-            await websocket.send(str(ws[0]))
-            ws.pop()
-        except Exception as error:
-            pass
-            # print("error: ", ERROR)
 
 
 async def main():
@@ -93,6 +107,8 @@ if __name__ == "__main__":
     FLAG_COUNTER = 0
     microbit_data = {'ir': [], 'ultrasonic': {}, 'acc': {}, 'sound_level': {}}
     BGSK = threading.Thread(target=websocket_operation, daemon=True).start()
+    threading.Thread(target=bridge_operation, daemon=True).start()
+    threading.Thread(target=godot_to_feagi, daemon=True).start()
     FLAG = True
     while True:
         feagi_flag = False
@@ -105,7 +121,7 @@ if __name__ == "__main__":
             sleep(2)
         previous_data_frame = {}
         runtime_data = {"cortical_data": {}, "current_burst_id": None,
-                        "stimulation_period": None, "feagi_state": None,
+                        "stimulation_period": 0.01, "feagi_state": None,
                         "feagi_network": None}
 
         feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
