@@ -19,6 +19,8 @@ from collections import deque
 from datetime import datetime
 from time import sleep
 import requests
+import lz4.frame
+import pickle
 import websockets
 from configuration import *
 from feagi_agent import feagi_interface as feagi
@@ -43,7 +45,7 @@ async def bridge_to_godot():
                 if "stimulation_period" in runtime_data:
                     sleep(runtime_data["stimulation_period"])
             except Exception as error:
-                # print("error: ", error)
+                print("error: ", error)
                 sleep(0.001)
         else:
             sleep(0.001)
@@ -59,7 +61,10 @@ async def echo(websocket):
     and sends the data from FEAGI to the connected websockets.
     """
     async for message in websocket:
-        # print("message: ", message)
+        if not ws_operation:
+            ws_operation.append(websocket)
+        else:
+            ws_operation[0] = websocket
         ir0, ir1 = False, False
         if message[0] == 'f':
             ir0 = 0
@@ -106,9 +111,9 @@ if __name__ == "__main__":
     CHECKPOINT_TOTAL = 5
     FLAG_COUNTER = 0
     microbit_data = {'ir': [], 'ultrasonic': {}, 'acc': {}, 'sound_level': {}}
-    BGSK = threading.Thread(target=websocket_operation, daemon=True).start()
+    threading.Thread(target=websocket_operation, daemon=True).start()
+    # threading.Thread(target=bridge_to_godot, daemon=True).start()
     threading.Thread(target=bridge_operation, daemon=True).start()
-    threading.Thread(target=godot_to_feagi, daemon=True).start()
     FLAG = True
     while True:
         feagi_flag = False
@@ -157,14 +162,24 @@ if __name__ == "__main__":
         while True:
             try:
                 WS_STRING = ""
-                message_from_feagi = feagi_opu_channel.receive()  # Get data from FEAGI
+
+                # Decompression section starts
+                received_data = feagi_opu_channel.receive() # Obtain data from FEAGI
+                if received_data is not None:
+                    if isinstance(received_data, bytes):
+                        decompressed_data = lz4.frame.decompress(received_data)
+                        message_from_feagi = pickle.loads(decompressed_data)
+                    else:
+                        message_from_feagi = received_data
+                else:
+                    message_from_feagi = None
+                # Decompression section ends
 
                 # OPU section STARTS
                 if message_from_feagi is not None:
                     opu_data = feagi.opu_processor(message_from_feagi)
                     WS_STRING = ""
                     for data_point in opu_data['motor']:
-                        # print("mot: ", opu_data['motor'], " len: ", len(opu_data['motor']))
                         if data_point == 0:
                             WS_STRING += "0"
                         elif data_point == 1:
@@ -173,16 +188,17 @@ if __name__ == "__main__":
                             WS_STRING += "2"
                         elif data_point == 3:
                             WS_STRING += "3"
-                        WS_STRING += str(opu_data['motor'][data_point] * 10).zfill(2)
+                        WS_STRING += str(opu_data['motor'][data_point] - 10).zfill(2) # Keep it 2
+                        # digits. It can go from 00 to 90. FEAGI will always publish 100 or less.
                     # Add additional zeros if '2' is not present in opu_data['motor']
                     if len(opu_data['motor']) < 2:
                         WS_STRING += "000"
                     if WS_STRING != "" and WS_STRING != "000":
                         ws.append(WS_STRING + '#')
+                        # ws.append("280180#")
 
                     if FLAG:
                         FLAG = False
-                        ws.append("f#")
                 # OPU section ENDS
 
                 if microbit_data['ir']:
@@ -220,32 +236,15 @@ if __name__ == "__main__":
 
                 message_to_feagi['timestamp'] = datetime.now()
                 message_to_feagi['counter'] = msg_counter
-                msg_counter += 1
-                FLAG_COUNTER += 1
-                if FLAG_COUNTER == int(CHECKPOINT_TOTAL):
-                    feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint,
-                                                     timeout=5).json()
-                    feagi_burst_counter = requests.get(api_address + burst_counter_endpoint,
-                                                       timeout=5).json()
-                    FLAG_COUNTER = 0
-                    if feagi_burst_speed > 1:
-                        CHECKPOINT_TOTAL = 5
-                    if feagi_burst_speed < 1:
-                        CHECKPOINT_TOTAL = 5 / feagi_burst_speed
-                    if msg_counter < feagi_burst_counter:
-                        feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
-                        if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
-                            feagi_settings['feagi_burst_speed'] = feagi_burst_speed
-                    if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
-                        feagi_settings['feagi_burst_speed'] = feagi_burst_speed
-                        msg_counter = feagi_burst_counter
+                if message_from_feagi is not None:
+                    feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
+                    runtime_data["stimulation_period"] = message_from_feagi['burst_frequency']
                 sleep(feagi_settings['feagi_burst_speed'])
-                try:
-                    pass
-                    # print(len(message_to_feagi['data']['sensory_data']['camera']['C']))
-                except Exception as ERROR:
-                    pass
-                feagi_ipu_channel.send(message_to_feagi)
+                if agent_settings['compression']:
+                    serialized_data = pickle.dumps(message_to_feagi)
+                    feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
+                else:
+                    feagi_ipu_channel.send(message_to_feagi)
                 message_to_feagi.clear()
             except Exception as e:
                 print("ERROR: ", e)
