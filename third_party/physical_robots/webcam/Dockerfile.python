@@ -13,6 +13,7 @@ RUN pip3 install --upgrade pip && \
 RUN pip3 install websockets
 RUN pip3 install fastapi
 RUN apt install -y libgl1-mesa-glx
+RUN pip3 install lz4
 
 ENV Running_In_CONTAINER Yes
 COPY test.py .
