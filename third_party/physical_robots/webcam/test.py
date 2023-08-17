@@ -23,6 +23,8 @@ import os
 import numpy as np
 import websockets
 import requests
+import pickle
+import lz4.frame
 
 from configuration import *
 from feagi_agent import retina
@@ -161,7 +163,19 @@ if __name__ == "__main__":
         while True:
             try:
                 start_time = 0
-                message_from_feagi = feagi_opu_channel.receive()  # Get data from FEAGI
+
+                # Decompression section starts
+                received_data = feagi_opu_channel.receive() # Obtain data from FEAGI
+                if received_data is not None:
+                    if isinstance(received_data, bytes):
+                        decompressed_data = lz4.frame.decompress(received_data)
+                        message_from_feagi = pickle.loads(decompressed_data)
+                    else:
+                        message_from_feagi = received_data
+                else:
+                    message_from_feagi = None
+                # Decompression section ends
+
                 if message_from_feagi is not None:
                     start_time = utc_time()
                     # OPU section STARTS
@@ -180,6 +194,19 @@ if __name__ == "__main__":
                                 max_range = capabilities['camera']['aperture_range'][1]
                                 min_range = capabilities['camera']['aperture_range'][0]
                                 capabilities['camera']["aperture_default"] = \
+                                    ((feagi_aptr / aptr_cortical_size) *
+                                     (max_range - min_range)) + min_range
+                    if "o__dev" in message_from_feagi["opu_data"]:
+                        if message_from_feagi["opu_data"]["o__dev"]:
+                            for i in message_from_feagi["opu_data"]["o__dev"]:
+                                feagi_aptr = (int(i.split('-')[-1]))
+                                if aptr_cortical_size is None:
+                                    aptr_cortical_size = check_aptr(aptr_cortical_size)
+                                elif aptr_cortical_size <= feagi_aptr:
+                                    aptr_cortical_size = check_aptr(aptr_cortical_size)
+                                max_range = capabilities['camera']['ISO_range'][1]
+                                min_range = capabilities['camera']['ISO_range'][0]
+                                capabilities['camera']["deviation_threshold"] = \
                                     ((feagi_aptr / aptr_cortical_size) *
                                      (max_range - min_range)) + min_range
                     # OPU section ENDS
@@ -272,13 +299,12 @@ if __name__ == "__main__":
                 if message_from_feagi is not None:
                         feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
                 sleep(feagi_settings['feagi_burst_speed'])
-                try:
-                    pass
-                    # print(len(message_to_feagi['data']['sensory_data']['camera']['C']))
-                except Exception as error:
-                    pass
 
-                feagi_ipu_channel.send(message_to_feagi)
+                if agent_settings['compression']:
+                    serialized_data = pickle.dumps(message_to_feagi)
+                    feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
+                else:
+                    feagi_ipu_channel.send(message_to_feagi)
                 message_to_feagi.clear()
                 for i in rgb['camera']:
                     rgb['camera'][i].clear()
