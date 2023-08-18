@@ -298,7 +298,7 @@ def bridge_operation():
 
 def feagi_to_brain_visualizer():
     """
-    Send data from feagi to BV
+    Keep zmq queue stay under 2 for bridge_to_BV()
     """
     while True:
         if len(zmq_queue) > 0:
