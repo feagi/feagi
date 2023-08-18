@@ -148,7 +148,7 @@ def opu_processor(data):
     try:
         processed_opu_data = {'motor': {}, 'servo': {}, 'battery': {}, 'discharged_battery': {},
                               'reset': {}, 'camera': {}, 'misc': {}, 'navigation': {}, 'speed': {},
-                              'servo_position': {}, "led": {}, "time": {}}
+                              'servo_position': {}, "led": {}}
         opu_data = data["opu_data"]
         if opu_data is not None:
             if 'o__mot' in opu_data:
