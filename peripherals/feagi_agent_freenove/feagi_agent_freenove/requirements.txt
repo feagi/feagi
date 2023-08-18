@@ -3,4 +3,4 @@ feagi-agent
 rpi_ws281x
 RPi.GPIO
 smbus
-picamera
+lz4

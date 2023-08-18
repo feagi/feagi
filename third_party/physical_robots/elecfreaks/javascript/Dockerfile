@@ -9,6 +9,7 @@ RUN pip3 install --upgrade pip && \
     pip3 install feagi_agent
 RUN pip3 install websockets
 RUN pip3 install fastapi
+RUN pip3 install lz4
 
 ENV Running_In_CONTAINER Yes
 WORKDIR /root/
