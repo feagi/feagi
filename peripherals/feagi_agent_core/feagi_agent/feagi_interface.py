@@ -217,13 +217,6 @@ def opu_processor(data):
                         device_id = data_point[0]
                         device_power = data_point[2]
                         processed_opu_data['servo_position'][device_id] = device_power
-            if 'o_time' in opu_data:
-                if opu_data['o_time']:
-                    for data_point in opu_data['o_time']:
-                        data_point = block_to_array(data_point)
-                        device_id = data_point[0]
-                        device_power = data_point[2]
-                        processed_opu_data['time'][device_id] = device_power
             return processed_opu_data
     except Exception as error:
         print("error: ", error)
