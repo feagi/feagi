@@ -1,0 +1,36 @@
+FROM dorowu/ubuntu-desktop-lxde-vnc:focal-arm64
+
+RUN locale  # check for UTF-8
+RUN sudo apt update
+RUN apt install -y wget
+RUN apt install -y gpg-agent
+RUN apt install -y locales
+RUN locale-gen en_US en_US.UTF-8
+RUN update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+RUN export LANG=en_US.UTF-8
+RUN apt install -y lsb-release
+RUN apt install -y curl gnupg2
+RUN sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key  -o /usr/share/keyrings/ros-archive-keyring.gpg
+RUN echo "deb http://packages.ros.org/ros2/ubuntu focal main" > /etc/apt/sources.list.d/ros2-latest.list
+RUN echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_release -cs` main" > /etc/apt/sources.list.d/gazebo-stable.list
+RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654
+RUN wget http://packages.osrfoundation.org/gazebo.key -O - | sudo apt-key add -
+RUN apt update
+RUN apt install -y ros-foxy-ros-ign-bridge
+RUN apt install -y ros-foxy-ros-ign-image
+RUN apt install -y wmctrl
+RUN apt install -y python3-pip
+RUN pip3 install opencv-python
+RUN pip3 install feagi-agent
+RUN sudo apt install libignition-gazebo3-dev -y \
+        lsb-release \
+        git \
+        python3-zmq \
+        xterm \
+        unzip \
+        build-essential \
+        cmake \
+        git \
+        ros-foxy-ros-base \
+        python3-colcon-common-extensions \
+        wmctrl

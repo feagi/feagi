@@ -1,0 +1,532 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+<!--Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.-->
+
+<!--Licensed under the Apache License, Version 2.0 (the "License");-->
+<!--you may not use this file except in compliance with the License.-->
+<!--You may obtain a copy of the License at-->
+
+<!--    http://www.apache.org/licenses/LICENSE-2.0-->
+
+<!--Unless required by applicable law or agreed to in writing, software-->
+<!--distributed under the License is distributed on an "AS IS" BASIS,-->
+<!--WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.-->
+<!--See the License for the specific language governing permissions and-->
+<!--limitations under the License.-->
+<!--==============================================================================-->
+
+<!--    <gui fullscreen='0'>-->
+<!--            <plugin name='3D View' filename='GzScene3D'>-->
+<!--                <ignition-gui>-->
+<!--                    <title>3D View</title>-->
+<!--                    <property type='bool' key='showTitleBar'>0</property>-->
+<!--                    <property type='string' key='state'>docked</property>-->
+<!--                </ignition-gui>-->
+<!--                <engine>ogre2</engine>-->
+<!--                <scene>scene</scene>-->
+<!--                <ambient_light>0.4 0.4 0.4</ambient_light>-->
+<!--                <background_color>0.8 0.8 0.8</background_color>-->
+<!--                <camera_pose>-6 0 6 0 0.5 0</camera_pose>-->
+<!--            </plugin>-->
+<!--            <plugin name='World stats' filename='WorldStats'>-->
+<!--                <ignition-gui>-->
+<!--                    <title>World stats</title>-->
+<!--                    <property type='bool' key='showTitleBar'>0</property>-->
+<!--                    <property type='bool' key='resizable'>0</property>-->
+<!--                    <property type='double' key='height'>110</property>-->
+<!--                    <property type='double' key='width'>290</property>-->
+<!--                    <property type='double' key='z'>1</property>-->
+<!--                    <property type='string' key='state'>floating</property>-->
+<!--                    <anchors target='3D View'>-->
+<!--                        <line own='right' target='right'/>-->
+<!--                        <line own='bottom' target='bottom'/>-->
+<!--                    </anchors>-->
+<!--                </ignition-gui>-->
+<!--                <sim_time>1</sim_time>-->
+<!--                <real_time>1</real_time>-->
+<!--                <real_time_factor>1</real_time_factor>-->
+<!--                <iterations>1</iterations>-->
+<!--            </plugin>-->
+<!--            <plugin name='Transform control' filename='TransformControl'>-->
+<!--                <ignition-gui>-->
+<!--                    <title>Transform control</title>-->
+<!--                    <anchors target='3D View'>-->
+<!--                        <line own='left' target='left'/>-->
+<!--                        <line own='top' target='top'/>-->
+<!--                    </anchors>-->
+<!--                    <property key='resizable' type='bool'>0</property>-->
+<!--                    <property key='width' type='double'>300</property>-->
+<!--                    <property key='height' type='double'>50</property>-->
+<!--                    <property key='state' type='string'>floating</property>-->
+<!--                    <property key='showTitleBar' type='bool'>0</property>-->
+<!--                    <property key='cardBackground' type='string'>#666666</property>-->
+<!--                </ignition-gui>-->
+<!--            </plugin>-->
+<!--    </gui>-->
+
+
+      <model name="stick-bot">
+          <pose>0 0 2 0 0 0</pose>
+          <link name="chassis">
+              <mass>10</mass>
+              <visual name="visual">
+                  <geometry>
+                      <box>
+                          <size>0.8 0.1 0.1</size>
+                      </box>
+                  </geometry>
+                  <material>
+<!--                    <ambient>0.2 0.2 0.2 1</ambient>-->
+                    <diffuse>1.0 1.0 1.0</diffuse>
+<!--                    <specular>0.2 0.2 0.2 1</specular>-->
+                    <pbr>
+                        <specular>
+                          <albedo_map>material/Solid_white.png</albedo_map>
+                          <specular_map>material/Solid_white.png</specular_map>
+                        </specular>
+                    </pbr>
+                  </material>
+              </visual>
+              <collision name="collision">
+                    <geometry>
+                      <box>
+                          <size>0.8 0.1 0.2</size>
+                      </box>
+                    </geometry>
+              </collision>
+          </link>
+
+          <link name="leg_one">
+            <pose relative_to='chassis'>-0.3 0.07 -0.09 0.2 0 0</pose>
+            <mass>1</mass>
+            <visual name='visual'>
+              <geometry>
+                <cylinder>
+                  <radius>0.005</radius>
+                  <length>0.2</length>
+                </cylinder>
+              </geometry>
+              <material>
+                <ambient>0.8 0.0 0.5 0.0</ambient>
+                <diffuse>0.5 0.0 0.5 1</diffuse>
+                <specular>0.2 0.3 0.4 0.5</specular>
+              </material>
+            </visual>
+            <collision name='collision'>
+              <geometry>
+                <cylinder>
+                  <radius>0.005</radius>
+                  <length>0.2</length>
+                </cylinder>
+              </geometry>
+            </collision>
+          </link>
+
+            <link name="leg_two">
+            <pose relative_to='chassis'>-0.3 -0.07 -0.09 -0.2 0 0</pose>
+            <mass>1</mass>
+            <visual name='visual'>
+              <geometry>
+                <cylinder>
+                  <radius>0.005</radius>
+                  <length>0.2</length>
+                </cylinder>
+              </geometry>
+              <material>
+                <ambient>0.8 0.0 0.5 0.0</ambient>
+                <diffuse>0.5 0.0 0.5 1</diffuse>
+                <specular>0.2 0.3 0.4 0.5</specular>
+              </material>
+            </visual>
+            <collision name='collision'>
+              <geometry>
+                <cylinder>
+                  <radius>0.005</radius>
+                  <length>0.2</length>
+                </cylinder>
+              </geometry>
+            </collision>
+          </link>
+
+            <link name="leg_three">
+            <pose relative_to='chassis'>0 0.07 -0.09 0.2 0 0</pose>
+            <mass>1</mass>
+            <visual name='visual'>
+              <geometry>
+                <cylinder>
+                  <radius>0.005</radius>
+                  <length>0.2</length>
+                </cylinder>
+              </geometry>
+              <material>
+                <ambient>0.8 0.0 0.5 0.0</ambient>
+                <diffuse>0.5 0.0 0.5 1</diffuse>
+                <specular>0.2 0.3 0.4 0.5</specular>
+              </material>
+            </visual>
+            <collision name='collision'>
+              <geometry>
+                <cylinder>
+                  <radius>0.005</radius>
+                  <length>0.2</length>
+                </cylinder>
+              </geometry>
+            </collision>
+          </link>
+
+            <link name="leg_four">
+            <pose relative_to='chassis'>0 -0.07 -0.09 -0.2 0 0</pose>
+            <mass>1</mass>
+            <visual name='visual'>
+              <geometry>
+                <cylinder>
+                  <radius>0.005</radius>
+                  <length>0.2</length>
+                </cylinder>
+              </geometry>
+              <material>
+                <ambient>0.8 0.0 0.5 0.0</ambient>
+                <diffuse>0.5 0.0 0.5 1</diffuse>
+                <specular>0.2 0.3 0.4 0.5</specular>
+              </material>
+            </visual>
+            <collision name='collision'>
+              <geometry>
+                <cylinder>
+                  <radius>0.005</radius>
+                  <length>0.2</length>
+                </cylinder>
+              </geometry>
+            </collision>
+          </link>
+
+           <link name="leg_five">
+            <pose relative_to='chassis'>0.3 0.07 -0.09 0.2 0 0</pose>
+            <mass>1</mass>
+            <visual name='visual'>
+              <geometry>
+                <cylinder>
+                  <radius>0.005</radius>
+                  <length>0.2</length>
+                </cylinder>
+              </geometry>
+              <material>
+                <ambient>0.8 0.0 0.5 0.0</ambient>
+                <diffuse>0.5 0.0 0.5 1</diffuse>
+                <specular>0.2 0.3 0.4 0.5</specular>
+              </material>
+            </visual>
+            <collision name='collision'>
+              <geometry>
+                <cylinder>
+                  <radius>0.005</radius>
+                  <length>0.2</length>
+                </cylinder>
+              </geometry>
+            </collision>
+          </link>
+
+            <link name="leg_six">
+            <pose relative_to='chassis'>0.3 -0.07 -0.09 -0.2 0 0</pose>
+            <mass>1</mass>
+            <visual name='visual'>
+              <geometry>
+                <cylinder>
+                  <radius>0.005</radius>
+                  <length>0.2</length>
+                </cylinder>
+              </geometry>
+              <material>
+                <ambient>0.8 0.0 0.5 0.0</ambient>
+                <diffuse>0.5 0.0 0.5 1</diffuse>
+                <specular>0.2 0.3 0.4 0.5</specular>
+              </material>
+            </visual>
+            <collision name='collision'>
+              <geometry>
+                <cylinder>
+                  <radius>0.005</radius>
+                  <length>0.2</length>
+                </cylinder>
+              </geometry>
+            </collision>
+          </link>
+
+          <link name="foot_one">
+              <pose relative_to="leg_one">0 0 -0.1 0 0 0</pose>
+              <mass>1</mass>
+              <visual name="visual">
+                  <geometry>
+                      <sphere>
+                          <radius>0.02</radius>
+                      </sphere>
+                  </geometry>
+                  <material>
+                    <ambient>0 1.0 0 1</ambient>
+                    <diffuse>0 1.0 0 1</diffuse>
+                    <specular>0.0 1.0 0.0 1</specular>
+                  </material>
+              </visual>
+              <collision name="collision">
+                  <geometry>
+                      <sphere>
+                          <radius>0.02</radius>
+                      </sphere>
+                  </geometry>
+              </collision>
+          </link>
+
+          <link name="foot_two">
+              <pose relative_to="leg_two">0 0 -0.1 0 0 0</pose>
+              <mass>1</mass>
+              <visual name="visual">
+                  <geometry>
+                      <sphere>
+                          <radius>0.02</radius>
+                      </sphere>
+                  </geometry>
+                  <material>
+                    <ambient>0 1.0 0 1</ambient>
+                    <diffuse>0 1.0 0 1</diffuse>
+                    <specular>0.0 1.0 0.0 1</specular>
+                  </material>
+              </visual>
+              <collision name="collision">
+                  <geometry>
+                      <sphere>
+                          <radius>0.02</radius>
+                      </sphere>
+                  </geometry>
+              </collision>
+          </link>
+
+          <link name="foot_three">
+              <pose relative_to="leg_three">0 0 -0.1 0 0 0</pose>
+              <mass>1</mass>
+              <visual name="visual">
+                  <geometry>
+                      <sphere>
+                          <radius>0.02</radius>
+                      </sphere>
+                  </geometry>
+                  <material>
+                    <ambient>0 1.0 0 1</ambient>
+                    <diffuse>0 1.0 0 1</diffuse>
+                    <specular>0.0 1.0 0.0 1</specular>
+                  </material>
+              </visual>
+              <collision name="collision">
+                  <geometry>
+                      <sphere>
+                          <radius>0.02</radius>
+                      </sphere>
+                  </geometry>
+              </collision>
+          </link>
+          <link name="foot_four">
+              <pose relative_to="leg_four">0 0 -0.1 0 0 0</pose>
+              <mass>1</mass>
+              <visual name="visual">
+                  <geometry>
+                      <sphere>
+                          <radius>0.02</radius>
+                      </sphere>
+                  </geometry>
+                  <material>
+                    <ambient>0 1.0 0 1</ambient>
+                    <diffuse>0 1.0 0 1</diffuse>
+                    <specular>0.0 1.0 0.0 1</specular>
+                  </material>
+              </visual>
+              <collision name="collision">
+                  <geometry>
+                      <sphere>
+                          <radius>0.02</radius>
+                      </sphere>
+                  </geometry>
+              </collision>
+          </link>
+          <link name="foot_five">
+              <pose relative_to="leg_five">0 0 -0.1 0 0 0</pose>
+              <mass>1</mass>
+              <visual name="visual">
+                  <geometry>
+                      <sphere>
+                          <radius>0.02</radius>
+                      </sphere>
+                  </geometry>
+                  <material>
+                    <ambient>0 1.0 0 1</ambient>
+                    <diffuse>0 1.0 0 1</diffuse>
+                    <specular>0.0 1.0 0.0 1</specular>
+                  </material>
+              </visual>
+              <collision name="collision">
+                  <geometry>
+                      <sphere>
+                          <radius>0.02</radius>
+                      </sphere>
+                  </geometry>
+              </collision>
+          </link>
+
+          <link name="foot_six">
+              <pose relative_to="leg_six">0 0 -0.1 0 0 0</pose>
+              <mass>1</mass>
+              <visual name="visual">
+                  <geometry>
+                      <sphere>
+                          <radius>0.02</radius>
+                      </sphere>
+                  </geometry>
+                  <material>
+                    <ambient>0 1.0 0 1</ambient>
+                    <diffuse>0 1.0 0 1</diffuse>
+                    <specular>0.0 1.0 0.0 1</specular>
+                  </material>
+              </visual>
+              <collision name="collision">
+                  <geometry>
+                      <sphere>
+                          <radius>0.02</radius>
+                      </sphere>
+                  </geometry>
+              </collision>
+          </link>
+
+       <joint name='leg_one_joint' type='revolute'>
+            <parent>chassis</parent>
+            <child>leg_one</child>
+            <axis>
+              <xyz>0 1 0</xyz>
+              <limit>
+                <lower>-0.5</lower>
+                <upper>0.5</upper>
+              </limit>
+            </axis>
+          </joint>
+        <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>leg_one_joint</joint_name>
+                <topic>S0</topic>
+        </plugin>
+
+        <joint name='leg_two_joint' type='revolute'>
+            <parent>chassis</parent>
+            <child>leg_two</child>
+            <axis>
+              <xyz>0 1 0</xyz>
+              <limit>
+                <lower>-0.5</lower>
+                <upper>0.5</upper>
+              </limit>
+            </axis>
+        </joint>
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>leg_two_joint</joint_name>
+            <topic>S1</topic>
+    </plugin>
+
+        <joint name='leg_three_joint' type='revolute'>
+            <parent>chassis</parent>
+            <child>leg_three</child>
+            <axis>
+              <xyz>0 1 0</xyz>
+              <limit>
+                <lower>-0.5</lower>
+                <upper>0.5</upper>
+              </limit>
+            </axis>
+        </joint>
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>leg_three_joint</joint_name>
+            <topic>S2</topic>
+    </plugin>
+        <joint name='leg_four_joint' type='revolute'>
+            <parent>chassis</parent>
+            <child>leg_four</child>
+            <axis>
+              <xyz>0 1 0</xyz>
+              <limit>
+                <lower>-0.5</lower>
+                <upper>0.5</upper>
+              </limit>
+            </axis>
+        </joint>
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>leg_four_joint</joint_name>
+            <topic>S3</topic>
+    </plugin>
+        <joint name='leg_five_joint' type='revolute'>
+            <parent>chassis</parent>
+            <child>leg_five</child>
+            <axis>
+              <xyz>0 1 0</xyz>
+              <limit>
+                <lower>-0.5</lower>
+                <upper>0.5</upper>
+              </limit>
+            </axis>
+        </joint>
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>leg_five_joint</joint_name>
+            <topic>S4</topic>
+    </plugin>
+
+        <joint name='leg_six_joint' type='revolute'>
+            <parent>chassis</parent>
+            <child>leg_six</child>
+            <axis>
+              <xyz>0 1 0</xyz>
+              <limit>
+                <lower>-0.5</lower>
+                <upper>0.5</upper>
+              </limit>
+            </axis>
+        </joint>
+    <plugin
+          filename="ignition-gazebo-joint-position-controller-system"
+          name="ignition::gazebo::systems::JointPositionController">
+          <joint_name>leg_six_joint</joint_name>
+            <topic>S5</topic>
+    </plugin>
+
+      <joint name='foot_one_joint' type='fixed'>
+        <parent>leg_one</parent>
+        <child>foot_one</child>
+      </joint>
+      <joint name='foot_two_joint' type='fixed'>
+        <parent>leg_two</parent>
+        <child>foot_two</child>
+      </joint>
+
+      <joint name='foot_three_joint' type='fixed'>
+        <parent>leg_three</parent>
+        <child>foot_three</child>
+      </joint>
+
+        <joint name='foot_four_joint' type='fixed'>
+        <parent>leg_four</parent>
+        <child>foot_four</child>
+      </joint>
+      <joint name='foot_five_joint' type='fixed'>
+        <parent>leg_five</parent>
+        <child>foot_five</child>
+      </joint>
+      <joint name='foot_six_joint' type='fixed'>
+        <parent>leg_six</parent>
+        <child>foot_six</child>
+      </joint>
+
+    </model>
+</sdf>
+
