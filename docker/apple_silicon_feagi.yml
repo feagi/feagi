@@ -39,7 +39,7 @@ services:
 #      - net
 
   grafana:
-    build: ../third_party/grafana/
+    build: ../third_party/visualizers/grafana
     deploy:
       resources:
         limits:
@@ -79,7 +79,7 @@ services:
 #        - ../third_party/gazebo/simulation/environments/material/map1.png:/opt/source-code/simulation/environments/material/map1.png
 
   brain_visualizer:
-    build: ../third_party/godot/html
+    build: ../third_party/visualizers/godot/html
     ports:
       - "6081:6081"
     env_file:
@@ -91,7 +91,7 @@ services:
       - godot_bridge
 
   godot_bridge:
-    build: ../third_party/godot/
+    build: ../third_party/visualizers/godot/
     deploy:
       resources:
         limits:
@@ -111,7 +111,7 @@ services:
 
   webcam_javascript_controller:
     build:
-      context: ../third_party/physical_robots/webcam
+      context: ../third_party/embodiments/webcam/javascript_webcam
       dockerfile: Dockerfile.python
     deploy:
       resources:
@@ -152,7 +152,7 @@ services:
         condition: service_healthy
 
   javascript_webcam:
-    build: ../third_party/physical_robots/webcam
+    build: ../third_party/embodiments/webcam/javascript_webcam
     ports:
       - "6086:6086"
     env_file:
