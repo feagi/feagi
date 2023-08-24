@@ -1,5 +1,0 @@
-requests
-opencv-python
-feagi-agent
-zmq
-psychopy
