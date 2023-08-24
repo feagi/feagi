@@ -273,6 +273,10 @@ def burst_manager():
 
                         neuron_stimulation_mp_logger(cortical_area=fq_cortical_area, neuron_id=neuron_id)
 
+                        # Update Plasticity Queue
+                        if fq_cortical_area in runtime_data.plasticity_dict:
+                            runtime_data.plasticity_queue_candidates.add(neuron_id)
+
                         # membrane_potential = \
                         #     runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential']
                         # membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
@@ -300,10 +304,6 @@ def burst_manager():
                         membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
                                                   membrane_potential_change=0, overwrite=True,
                                                   overwrite_value=membrane_potential)
-
-                    # Update Plasticity Queue
-                    if fq_cortical_area in runtime_data.plasticity_dict:
-                        runtime_data.plasticity_queue_candidates.add(neuron_id)
 
                     # Reset membrane potential for neurons that cannot hold charge
                     if not runtime_data.genome["blueprint"][fq_cortical_area]["mp_charge_accumulation"]:
@@ -476,6 +476,7 @@ def burst_manager():
         """
 
         if len(runtime_data.plasticity_queue) > runtime_data.plasticity_queue_depth:
+            # todo: The pop should happen much lower level
             runtime_data.plasticity_queue.pop(0)
         runtime_data.plasticity_queue_candidates = set()
 
