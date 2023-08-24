@@ -235,10 +235,19 @@ def update_cortical_properties(cortical_properties):
             regeneration_flag = True
 
     if cortical_properties['neuron_fire_threshold_increment'] is not None:
-        if runtime_data.genome['blueprint'][cortical_area]["firing_threshold_increment"] != \
+        genome_fire_threshold_increment = [
+            runtime_data.genome['blueprint'][cortical_area]["firing_threshold_increment_x"],
+            runtime_data.genome['blueprint'][cortical_area]["firing_threshold_increment_y"],
+            runtime_data.genome['blueprint'][cortical_area]["firing_threshold_increment_z"]
+        ]
+        if genome_fire_threshold_increment != \
                 cortical_properties['neuron_fire_threshold_increment']:
-            runtime_data.genome['blueprint'][cortical_area]["firing_threshold_increment"] = \
-                cortical_properties['neuron_fire_threshold_increment']
+            runtime_data.genome['blueprint'][cortical_area]["firing_threshold_increment_x"] = \
+                cortical_properties['neuron_fire_threshold_increment'][0]
+            runtime_data.genome['blueprint'][cortical_area]["firing_threshold_increment_y"] = \
+                cortical_properties['neuron_fire_threshold_increment'][1]
+            runtime_data.genome['blueprint'][cortical_area]["firing_threshold_increment_z"] = \
+                cortical_properties['neuron_fire_threshold_increment'][2]
             regeneration_flag = True
 
     if cortical_properties['neuron_firing_threshold_limit'] is not None:
