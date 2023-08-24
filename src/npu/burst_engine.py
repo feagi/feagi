@@ -69,13 +69,18 @@ def burst_manager():
         # todo: look into more dynamic mechanisms to set the burst duration timer
         # using the burst_timer as the starting point
         lowest_refresh_rate = runtime_data.burst_timer
-        if controller_capabilities:
-            for device in controller_capabilities:
-                if "refresh_rate" in device:
-                    if device["refresh_rate"] < lowest_refresh_rate:
-                        lowest_refresh_rate = device["refresh_rate"]
-            return float(lowest_refresh_rate)
-        else:
+        try:
+            if controller_capabilities:
+                for device in controller_capabilities:
+                    if "refresh_rate" in device:
+                        if device["refresh_rate"] < lowest_refresh_rate:
+                            lowest_refresh_rate = device["refresh_rate"]
+                return float(lowest_refresh_rate)
+            else:
+                return runtime_data.burst_timer
+        except Exception as e:
+            print("Exception on burst_duration_calculator", e, traceback.print_exc())
+            print("Controller capabilities:", controller_capabilities)
             return runtime_data.burst_timer
 
     # def consciousness_manager():
