@@ -52,7 +52,7 @@ import traceback
 import logging
 from inf import runtime_data
 from evo.synapse import bidirectional_synapse, synapse
-from npu.physiology import list_upstream_neurons, post_synaptic_current_update
+from npu.physiology import list_upstream_plastic_neurons, list_downstream_plastic_neurons, post_synaptic_current_update
 
 
 logger = logging.getLogger(__name__)
@@ -67,9 +67,9 @@ def neuroplasticity():
     for neuron in common_neurons:
         try:
             cortical_area = neuron[:6]
-            presynaptic_neurons = list_upstream_neurons(cortical_area=cortical_area, neuron_id=neuron)
+            presynaptic_neurons = list_upstream_plastic_neurons(cortical_area=cortical_area, neuron_id=neuron)
 
-            postsynaptic_neurons = runtime_data.brain[cortical_area][neuron]['neighbors']
+            postsynaptic_neurons = list_downstream_plastic_neurons(cortical_area=cortical_area, neuron_id=neuron)
 
             postsynaptic_neurons_set = set()
             for item in postsynaptic_neurons:
@@ -101,7 +101,7 @@ def neuroplasticity():
 
 
 def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_cortical_area,
-                                     dst_neuron_id, long_term_depression=False, impact_multiplier=1.0):
+                                     dst_neuron_id, long_term_depression=False, impact_multiplier=0.1):
 
     plasticity_constant = runtime_data.genome["blueprint"][src_cortical_area]["plasticity_constant"]
 
@@ -136,8 +136,9 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
         # todo: consider setting a postsynaptic_min in genome to be used instead of 0
         # Condition to prune a synapse if its postsynaptic_current is zero
         if new_psc < 0:
-            runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id,
-                                                  dst_cortical_area, dst_neuron_id))
+            new_psc = 0
+            # runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id,
+            #                                       dst_cortical_area, dst_neuron_id))
 
         post_synaptic_current_update(cortical_area_src=src_cortical_area, cortical_area_dst=dst_cortical_area,
                                      neuron_id_src=src_neuron_id, neuron_id_dst=dst_neuron_id,
