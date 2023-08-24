@@ -16,30 +16,116 @@
 import json
 import os
 import platform
+import traceback
+
 import psutil
 import string
 import random
 import logging
+
 from queue import Queue
 from configparser import ConfigParser
 from tempfile import gettempdir
 from threading import Thread
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import deque
 from inf import runtime_data, disk_ops, settings
 from shutil import copyfile
+from evo.connectome import reset_connectome
 from evo.stats import voxel_dict_summary
 from evo.genome_editor import save_genome
 from inf.messenger import Pub
-from evo.neuroembryogenesis import generate_plasticity_dict
-from evo.genome_processor import *
+from evo.neuroembryogenesis import generate_plasticity_dict, develop_brain
+from evo.genome_processor import genome_1_cortical_list, genome_ver_check
 from evo.genome_validator import *
 from evo.templates import cortical_types
 
 
 logger = logging.getLogger(__name__)
+
+
+def utc_time():
+    current_time = datetime.utcnow()
+    return current_time
+
+
+def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, genome_data=None):
+    print("=======================    Genome Staging Initiated        =======================")
+    if neuroembryogenesis_flag:
+        print("cortical_list:", runtime_data.cortical_list)
+        reset_connectome()
+    if reset_runtime_data_flag:
+        reset_runtime_data()
+    runtime_data.genome_counter += 1
+    runtime_data.genome_reset_flag = False
+    runtime_data.genome_ver = None
+    runtime_data.last_genome_modification_time = datetime.now()
+
+    if not genome_data:
+        try:
+            with open(runtime_data.connectome_path + "genome.json", "r") as genome_file:
+                genome_data = json.load(genome_file)
+                runtime_data.genome_file_name = "genome.json"
+                print("Genome loaded from connectome folder")
+        except Exception as e:
+            print("Exception while loading Genome from connectome folder", traceback.print_exc(), e)
+            print("Could not stage genome. No genome data available")
+
+    runtime_data.genome_orig = genome_data.copy()
+    runtime_data.genome = genome_data
+    runtime_data.genome = genome_ver_check(runtime_data.genome)
+    runtime_data.genome_ver = "2.0"
+    # todo temp check to find a better solution
+    for _ in runtime_data.genome["blueprint"]:
+        if "mp_charge_accumulation" not in runtime_data.genome["blueprint"][_]:
+            runtime_data.genome["blueprint"][_]["mp_charge_accumulation"] = True
+
+        if "firing_threshold_increment" not in runtime_data.genome["blueprint"][_]:
+            runtime_data.genome["blueprint"][_]["firing_threshold_increment"] = 0
+
+        if "firing_threshold_limit" not in runtime_data.genome["blueprint"][_]:
+            runtime_data.genome["blueprint"][_]["firing_threshold_limit"] = 0
+
+        if "leak_variability" not in runtime_data.genome["blueprint"][_]:
+            runtime_data.genome["blueprint"][_]["leak_variability"] = 0
+
+    if "plasticity_queue_depth" not in runtime_data.genome:
+        runtime_data.genome["plasticity_queue_depth"] = 3
+
+    runtime_data.plasticity_queue_depth = runtime_data.genome["plasticity_queue_depth"]
+    init_fcl()
+    init_brain()
+    if 'genome_id' not in runtime_data.genome:
+        runtime_data.genome['genome_id'] = id_gen(signature="_G")
+    runtime_data.genome_id = runtime_data.genome['genome_id']
+    print("brain_run_id", runtime_data.brain_run_id)
+    if runtime_data.autopilot:
+        update_generation_dict(genome_id=runtime_data.genome_id,
+                               robot_id=runtime_data.robot_id,
+                               env_id=runtime_data.environment_id)
+    # Process of artificial neuroembryogenesis that leads to connectome development
+    if neuroembryogenesis_flag:
+        develop_brain(reincarnation_mode=runtime_data.parameters[
+            'Brain_Development']['reincarnation_mode'])
+    print("=======================    Genome Staging Completed        =======================")
+    runtime_data.brain_readiness = True
+
+
+def update_ini_variables_from_environment(var_dict):
+    """
+    Function to update ini variables from environment
+    Any ini variable starting with $ will be referenced from environment
+    """
+    new_var_dict = {}
+    for key, val in var_dict.items():
+        new_var_dict[key] = val
+        if val.startswith('$'):
+            new_val = os.environ.get(val.lstrip('$'))
+            print(f"Fetching {key} from environment with ENV {val} - NEW VAL - {new_val}")
+            new_var_dict[key] = new_val
+    return new_var_dict
 
 
 def id_gen(size=6, chars=string.ascii_uppercase + string.digits, signature=''):
@@ -134,7 +220,10 @@ def init_parameters(ini_path='./feagi_configuration.ini'):
     print("_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+\n")
     feagi_config = ConfigParser()
     feagi_config.read(ini_path)
-    runtime_data.parameters = {s: dict(feagi_config.items(s)) for s in feagi_config.sections()}
+    runtime_data.parameters = { 
+        s: update_ini_variables_from_environment(dict(feagi_config.items(s))) \
+        for s in feagi_config.sections()
+    }
     # print("runtime_data.parameters ", runtime_data.parameters)
     if not runtime_data.parameters["InitData"]["working_directory"]:
         runtime_data.parameters["InitData"]["working_directory"] = gettempdir()
@@ -170,7 +259,7 @@ def init_working_directory():
     else:
         runtime_data.working_directory = runtime_data.parameters["InitData"]["working_directory"] + '/' + \
                                          runtime_data.brain_run_id
-        runtime_data.connectome_path = runtime_data.working_directory + '/connectome/'
+        runtime_data.connectome_path = runtime_data.working_directory + 'connectome/'
         runtime_data.parameters["InitData"]["connectome_path"] = runtime_data.connectome_path
 
         if not os.path.exists(runtime_data.connectome_path):
@@ -219,8 +308,6 @@ def init_genome_post_processes():
     # Augment cortical dimension dominance e.g. is it longer in x dimension or z
     for cortical_area in runtime_data.cortical_list:
         block_boundaries = runtime_data.genome["blueprint"][cortical_area]["block_boundaries"]
-        # block_boundaries = runtime_data.genome["blueprint"][]
-        print("%^ Block bounaries:", cortical_area, block_boundaries, runtime_data.genome["blueprint"][cortical_area])
         dominance = block_boundaries.index(max(block_boundaries))
         runtime_data.genome['blueprint'][cortical_area]['dimension_dominance'] = dominance
 
@@ -234,11 +321,22 @@ def init_timeseries_db():
     from inf import db_handler
     runtime_data.influxdb = db_handler.InfluxManagement()
     runtime_data.influxdb.test_influxdb()
-    return
+
+    # # Setup message queues
+    # runtime_data.influx_mp_queue = deque(maxlen=10)
+    # runtime_data.influx_psp_queue = deque(maxlen=10)
+    #
+    # # Instantiate a new process thread to read messages from the queue and save in db
+
+    return  
 
 
 def init_cortical_info():
     genome = runtime_data.genome
+    runtime_data.ipu_list = set()
+    runtime_data.opu_list = set()
+    runtime_data.mem_list = set()
+    runtime_data.core_list = set()
 
     for cortical_area in genome['blueprint']:
         try:
@@ -301,7 +399,7 @@ def init_resources():
 
 
 def init_infrastructure():
-    init_io_channels()
+    # init_io_channels()
     init_cortical_defaults()
     init_working_directory()
     init_container_variables()
@@ -331,19 +429,33 @@ def reset_runtime_data():
     runtime_data.current_age = 0
 
 
-def init_fcl(cortical_area_):
-    runtime_data.fire_candidate_list[cortical_area_] = set()
-    runtime_data.future_fcl[cortical_area_] = set()
-    runtime_data.previous_fcl[cortical_area_] = set()
-    # runtime_data.upstream_neurons[cortical_area_] = {}
+def init_fcl(cortical_area_=None):
+    print("\n\n=========================  Initializing the FCL ===================================\n\n")
+    runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
+    if not cortical_area_:
+        runtime_data.fire_candidate_list = {}
+        runtime_data.future_fcl = {}
+        runtime_data.previous_fcl = {}
+        for area in runtime_data.cortical_list:
+            runtime_data.fire_candidate_list[area] = set()
+            runtime_data.future_fcl[area] = set()
+            runtime_data.previous_fcl[area] = set()
+    else:
+        runtime_data.fire_candidate_list[cortical_area_] = set()
+        runtime_data.future_fcl[cortical_area_] = set()
+        runtime_data.previous_fcl[cortical_area_] = set()
+        # runtime_data.upstream_neurons[cortical_area_] = {}
+    print("\n\n=========================  FCL Initializing Completed ===================================\n\n")
 
 
 def init_brain():
+    print("\n\n=========================   Brain Initialization Started ===================================\n\n")
     runtime_data.last_alertness_trigger = datetime.now()
     runtime_data.brain_run_id = id_gen(signature='_R')
     init_cortical_info()
     runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
+    runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
     # genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
     # genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])
     # runtime_data.genome['blueprint'] = genome2['blueprint']
@@ -352,6 +464,14 @@ def init_brain():
     runtime_data.new_genome = True
     if 'burst_delay' in runtime_data.genome:
         runtime_data.burst_timer = float(runtime_data.genome['burst_delay'])
+
+    print("\n\n=========================   Brain Initialization Complete ===================================\n\n")
+    runtime_data.cumulative_stats = {}
+    for area in runtime_data.cortical_list:
+        runtime_data.cumulative_stats[area] = {}
+        runtime_data.cumulative_stats[area]["LTP"] = 0
+        runtime_data.cumulative_stats[area]["LTD"] = 0
+        runtime_data.cumulative_stats[area]["Bursts"] = 0
 
 
 def init_cortical_defaults():
@@ -372,7 +492,7 @@ def init_burst_engine():
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("\n\n")
-
+    runtime_data.burst_duration = timedelta(seconds=0.0001)
     runtime_data.death_flag = False
 
     try:
@@ -387,17 +507,17 @@ def init_burst_engine():
         print("==============================================\n\n")
 
 
-def init_io_channels():
-    # Initialize ZMQ connections
-    try:
+# def init_io_channels():
+#     # Initialize ZMQ connections
+#     try:
         # opu_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_opu_port']
         # print("OPU socket is:", opu_socket)
         # runtime_data.opu_pub = Pub(opu_socket)
         # print("OPU channel as been successfully established at ",
         #       runtime_data.parameters['Sockets']['feagi_opu_port'])
 
-        if runtime_data.parameters['Switches']['zmq_activity_publisher']:
-            runtime_data.brain_activity_pub = True
+        # if runtime_data.parameters['Switches']['zmq_activity_publisher']:
+        #     runtime_data.brain_activity_pub = True
         #     brain_activities_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['brain_activities_pub']
         #     print("Brain activity publisher socket is:", brain_activities_socket)
         #     runtime_data.brain_activity_pub = PubBrainActivities(brain_activities_socket)
@@ -414,9 +534,9 @@ def init_io_channels():
         #     runtime_data.router_address_embodiment = "tcp://" + runtime_data.parameters['Sockets']['embodiment_host_name'] \
         #                                          + ':' + runtime_data.parameters['Sockets']['feagi_inbound_port_embodiment']
 
-        print("Router addresses has been set")
-    except KeyError as e:
-        print('ERROR: OPU socket is not properly defined as part of feagi_configuration.ini\n', e)
+    #     print("Router addresses has been set")
+    # except KeyError as e:
+    #     print('ERROR: OPU socket is not properly defined as part of feagi_configuration.ini\n', e)
 
 
 def generate_cortical_dimensions():
@@ -439,6 +559,45 @@ def generate_cortical_dimensions():
         cortical_information[cortical_name].append(cortical_area)
 
     with open(runtime_data.connectome_path+"cortical_data.json", "w") as data_file:
+        data_file.seek(0)
+        data_file.write(json.dumps(cortical_information, indent=3))
+        data_file.truncate()
+
+    return cortical_information
+
+
+def generate_cortical_dimensions_by_id():
+    """
+    Generates the information needed to display cortical areas on Godot
+    """
+    cortical_information = {}
+
+    for cortical_area in runtime_data.genome["blueprint"]:
+        cortical_information[cortical_area] = {}
+        genes = runtime_data.genome["blueprint"][cortical_area]
+
+        cortical_information[cortical_area]["name"] = genes["cortical_name"]
+        cortical_information[cortical_area]["type"] = genes["group_id"]
+        cortical_information[cortical_area]["visible"] = genes["visualization"]
+
+        cortical_information[cortical_area]["position_2d"] = [
+            genes["2d_coordinate"][0],
+            genes["2d_coordinate"][1]
+        ]
+
+        cortical_information[cortical_area]["position_3d"] = [
+            genes["relative_coordinate"][0],
+            genes["relative_coordinate"][1],
+            genes["relative_coordinate"][2]
+        ]
+
+        cortical_information[cortical_area]["dimensions"] = [
+            genes["block_boundaries"][0],
+            genes["block_boundaries"][1],
+            genes["block_boundaries"][2]
+        ]
+
+    with open(runtime_data.connectome_path+"cortical_data_by_id.json", "w") as data_file:
         data_file.seek(0)
         data_file.write(json.dumps(cortical_information, indent=3))
         data_file.truncate()

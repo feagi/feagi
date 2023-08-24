@@ -28,21 +28,24 @@ todo: need a higher level mechanism to switch between life mode and autopilot mo
 """
 import os
 import glob
+import traceback
+
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from time import sleep
+import lz4.frame
+import pickle
 from npu.physiology import *
-from npu import stimulator
+from npu import stimulator, auxiliary
 from mem.memory import neuroplasticity
 from evo.stats import *
 from evo.death import death_manager
-from inf.initialize import init_burst_engine, init_fcl
+from inf.initialize import init_burst_engine, init_fcl, utc_time
 from inf.messenger import Pub, Sub
 from pns.pns_router import opu_router, stimuli_router
 from api.message_processor import api_message_processor
 from trn.shock import shock_manager
 from evo.autopilot import load_new_genome
-
 
 logger = logging.getLogger(__name__)
 
@@ -66,13 +69,18 @@ def burst_manager():
         # todo: look into more dynamic mechanisms to set the burst duration timer
         # using the burst_timer as the starting point
         lowest_refresh_rate = runtime_data.burst_timer
-        if controller_capabilities:
-            for device in controller_capabilities:
-                if "refresh_rate" in device:
-                    if device["refresh_rate"] < lowest_refresh_rate:
-                        lowest_refresh_rate = device["refresh_rate"]
-            return float(lowest_refresh_rate)
-        else:
+        try:
+            if controller_capabilities:
+                for device in controller_capabilities:
+                    if "refresh_rate" in device:
+                        if device["refresh_rate"] < lowest_refresh_rate:
+                            lowest_refresh_rate = device["refresh_rate"]
+                return float(lowest_refresh_rate)
+            else:
+                return runtime_data.burst_timer
+        except Exception as e:
+            print("Exception on burst_duration_calculator", e, traceback.print_exc())
+            print("Controller capabilities:", controller_capabilities)
             return runtime_data.burst_timer
 
     # def consciousness_manager():
@@ -134,16 +142,29 @@ def burst_manager():
                           + settings.Bcolors.ENDC)
 
     def burst_stats(burst_start_time):
+        if not runtime_data.brain:
+            print("\n !! Brain not found !!")
+        if not runtime_data.cortical_list:
+            print("\n !! Cortical list not found !!")
+        if not runtime_data.genome:
+            print("\n !! Genome not found !!")
+
         if runtime_data.parameters["Logs"]["print_burst_info"] and runtime_data.burst_timer > 0.1:
-            burst_duration = datetime.now() - burst_start_time
-            if runtime_data.genome:
+            runtime_data.burst_duration = datetime.now() - burst_start_time
+            if runtime_data.brain_readiness and runtime_data.genome_validity:
                 print(settings.Bcolors.UPDATE +
                       ">>> Burst duration ###: %s %i %i --- ---- ---- ---- ---- ---- ----"
-                      % (burst_duration, runtime_data.burst_count, runtime_data.current_age) + settings.Bcolors.ENDC)
+                      % (runtime_data.burst_duration, runtime_data.burst_count, runtime_data.current_age) +
+                      settings.Bcolors.ENDC)
+            elif runtime_data.brain_readiness and not runtime_data.genome_validity:
+                print(settings.Bcolors.RED +
+                      ">>> Burst duration ###: %s %i %i --- ---- ---- ---- ---- ---- ----"
+                      % (runtime_data.burst_duration, runtime_data.burst_count, runtime_data.current_age) +
+                      settings.Bcolors.ENDC)
             else:
                 print(settings.Bcolors.YELLOW +
-                      ">>> Burst duration @@@ ++ *^*: %s %i --- ---- ---- ---- ---- ---- ----"
-                      % (burst_duration, runtime_data.burst_count) + settings.Bcolors.ENDC)
+                      ">>> Burst duration @$@ ++ *@*: %s %i --- ---- ---- ---- ---- ---- ----"
+                      % (runtime_data.burst_duration, runtime_data.burst_count) + settings.Bcolors.ENDC)
 
     def evolutionary_checkpoint():
         if runtime_data.burst_count % runtime_data.genome['evolution_burst_count'] == 0:
@@ -194,7 +215,6 @@ def burst_manager():
 
     def fire_fcl_contents():
         # time_firing_activities = datetime.now()
-
         if candidate_list_counter(runtime_data.fire_candidate_list) == 0:
             runtime_data.empty_fcl_counter += 1
             print("FCL is empty!")
@@ -207,6 +227,7 @@ def burst_manager():
             runtime_data.fire_queue = dict()
 
             # Fire FCL neurons and pre-process viability of the downstream neurons for firing
+            # Todo: Move degeneration items to a higher level to save on compute cycles
             for fcl_cortical_area in runtime_data.fire_candidate_list:
                 if "degeneration" not in runtime_data.genome['blueprint'][fcl_cortical_area] or \
                         runtime_data.genome['blueprint'][fcl_cortical_area]['degeneration'] is None:
@@ -216,17 +237,29 @@ def burst_manager():
                 while runtime_data.fire_candidate_list[fcl_cortical_area]:
                     neuron_to_fire = runtime_data.fire_candidate_list[fcl_cortical_area].pop()
                     neuron_pre_fire_processing(fcl_cortical_area, neuron_to_fire, degenerate=degeneration_val)
+                    runtime_data.brain[fcl_cortical_area][neuron_to_fire][
+                        "last_membrane_potential_update"] = runtime_data.burst_count
                     neuron_stimulation_mp_logger(cortical_area=fcl_cortical_area, neuron_id=neuron_to_fire)
+                    runtime_data.brain[fcl_cortical_area][neuron_to_fire]['membrane_potential'] = 0
 
-            # Add neurons to future FCL
+            # Add neurons to future FCL   
+            # This is where neuron leak is considered and membrane potentials are updated+++
             for fq_cortical_area in runtime_data.fire_queue:
                 for neuron_id in runtime_data.fire_queue[fq_cortical_area]:
+                    # Neuron leak considerations
+                    leak_amount = neuron_leak(cortical_area=fq_cortical_area, neuron_id=neuron_id)
 
-                    runtime_data.brain[fq_cortical_area][neuron_id]["membrane_potential"] = \
-                        runtime_data.fire_queue[fq_cortical_area][neuron_id][0]
+                    runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = \
+                        runtime_data.fire_queue[fq_cortical_area][neuron_id][0] - leak_amount
 
-                    fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1]
-                    membrane_potential = runtime_data.brain[fq_cortical_area][neuron_id]["membrane_potential"]
+                    if runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'] == 0:
+                        fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1]
+                    else:
+                        fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1] + \
+                                         (runtime_data.fire_queue[fq_cortical_area][neuron_id][1] *
+                                          runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'])
+
+                    membrane_potential = runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential']
 
                     # When neuron is ready to fire
                     if membrane_potential >= fire_threshold and \
@@ -237,23 +270,45 @@ def burst_manager():
                             runtime_data.burst_count
                         # todo: Refactor the membrane potential update
                         # Setting the membrane potential of the neuron to 0 after being added to fire list
-                        membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
-                                                  membrane_potential_change=0, overwrite=True,
-                                                  overwrite_value=0)
+
+                        neuron_stimulation_mp_logger(cortical_area=fq_cortical_area, neuron_id=neuron_id)
+
+                        # membrane_potential = \
+                        #     runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential']
+                        # membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
+                        #                           membrane_potential_change=0, overwrite=True,
+                        #                           overwrite_value=membrane_potential)
+                        # membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
+                        #                           membrane_potential_change=0, overwrite=True,
+                        #                           overwrite_value=0)
+                        runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = 0
                         runtime_data.future_fcl[fq_cortical_area].add(neuron_id)
 
-                    elif membrane_potential <= 0:
+                    if runtime_data.genome["blueprint"][fq_cortical_area]["mp_charge_accumulation"]:
+                        membrane_potential = max(0, membrane_potential)
+                    else:
+                        membrane_potential = 0
+
+                    if membrane_potential <= 0:
                         # Setting the membrane potential of the neuron to 0 as the least allowable mp level
                         membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
                                                   membrane_potential_change=0, overwrite=True,
                                                   overwrite_value=0)
-
                     else:
                         membrane_potential = \
-                            runtime_data.brain[fq_cortical_area][neuron_id]["membrane_potential"]
+                            runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential']
                         membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
                                                   membrane_potential_change=0, overwrite=True,
                                                   overwrite_value=membrane_potential)
+
+                    # Update Plasticity Queue
+                    if fq_cortical_area in runtime_data.plasticity_dict:
+                        runtime_data.plasticity_queue_candidates.add(neuron_id)
+
+                    # Reset membrane potential for neurons that cannot hold charge
+                    if not runtime_data.genome["blueprint"][fq_cortical_area]["mp_charge_accumulation"]:
+                        for neuron in runtime_data.fire_queue[fq_cortical_area]:
+                            runtime_data.fire_queue[fq_cortical_area][neuron_id][0] = 0
 
             # Transferring future_fcl to current one and resetting the future one in process
             for _ in runtime_data.future_fcl:
@@ -269,6 +324,8 @@ def burst_manager():
 
     def init_burst_pub():
         # Initialize a broadcaster
+        if runtime_data.parameters['Sockets']['feagi_opu_port'] is None:
+            runtime_data.parameters['Sockets']['feagi_opu_port'] = "3000"  # Default port
         burst_engine_pub_address = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_opu_port']
         runtime_data.burst_publisher = Pub(address=burst_engine_pub_address)
         print("Burst publisher has been initialized @ ", burst_engine_pub_address)
@@ -283,6 +340,7 @@ def burst_manager():
         broadcast_message['genome_num'] = runtime_data.genome_counter
         broadcast_message['control_data'] = runtime_data.robot_controller
         broadcast_message['genome_changed'] = runtime_data.last_genome_modification_time
+        broadcast_message['sent_utc'] = utc_time()
         if runtime_data.robot_model:
             broadcast_message['model_data'] = runtime_data.robot_model
             print("R--" * 20)
@@ -306,7 +364,9 @@ def burst_manager():
 
         # broadcast_message['cortical_dimensions'] = runtime_data.cortical_dimensions
 
-        runtime_data.burst_publisher.send(message=broadcast_message)
+        # runtime_data.burst_publisher.send(message=broadcast_message)
+        serialized_data = pickle.dumps(broadcast_message)
+        runtime_data.burst_publisher.send(message=lz4.frame.compress(serialized_data))
         runtime_data.opu_data = {}
 
     def message_router():
@@ -350,23 +410,31 @@ def burst_manager():
         Convert FCL activities to a set of voxel locations and sends out through the ZMQ publisher
         """
         broadcast_message = set()
-
-        for _ in runtime_data.fire_candidate_list:
-            fire_list = set(runtime_data.fire_candidate_list[_])
-            if runtime_data.genome['blueprint'][_].get('visualization'):
-                while fire_list:
-                    firing_neuron = fire_list.pop()
-                    firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
-                    relative_coords = runtime_data.genome['blueprint'][_].get('relative_coordinate')
-                    broadcast_message.add(
-                        (
-                            runtime_data.burst_count,
-                            firing_neuron_loc[0] + relative_coords[0],
-                            firing_neuron_loc[1] + relative_coords[1],
-                            firing_neuron_loc[2] + relative_coords[2]
-                        )
-                    )
-        return broadcast_message
+        if runtime_data.genome:
+            if "blueprint" in runtime_data.genome:
+                try:
+                    for _ in runtime_data.fire_candidate_list:
+                        fire_list = set(runtime_data.fire_candidate_list[_])
+                        if runtime_data.genome['blueprint'][_].get('visualization'):
+                            while fire_list:
+                                firing_neuron = fire_list.pop()
+                                firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
+                                relative_coords = runtime_data.genome['blueprint'][_].get('relative_coordinate')
+                                broadcast_message.add(
+                                    (
+                                        runtime_data.burst_count,
+                                        firing_neuron_loc[0] + relative_coords[0],
+                                        firing_neuron_loc[1] + relative_coords[1],
+                                        firing_neuron_loc[2] + relative_coords[2]
+                                    )
+                                )
+                    return broadcast_message
+                except Exception as e:
+                    print("Exception during voxelization.", e, traceback.print_exc())
+            else:
+                print("No blueprint found in genome during voxelization!")
+        else:
+            print("No genome found during voxelization!")
 
     def terminate_on_low_perf():
         # TBD
@@ -381,12 +449,35 @@ def burst_manager():
             print("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
             print("Burst engine has detected a new genome!")
             print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
-            print("Cortical list", runtime_data.cortical_list)
-
-            for area in runtime_data.cortical_list:
-                init_fcl(area)
+            init_fcl()
             runtime_data.new_genome = False
+            runtime_data.pending_genome = None
+            if runtime_data.pending_brain:
+                runtime_data.brain = runtime_data.pending_brain
+            else:
+                print("No brain in pending state found!")
+            runtime_data.pending_brain = None
+            if runtime_data.pending_voxel_dict:
+                runtime_data.voxel_dict = runtime_data.pending_voxel_dict
+            else:
+                print("No voxel dictionary in pending state found!")
+            runtime_data.pending_voxel_dict = None
+
             runtime_data.feagi_state["state"] = "running"
+
+        # Maintaining a constant queue depth for the plasticity queue
+        """
+        Sample of the plasticity queue with queue depth of 3
+        plasticity_queue = [
+            {neuron1, neuron2, neuron4},
+            {neuron2, neuron4},
+            {neuron1, neuron2}
+        ]
+        """
+
+        if len(runtime_data.plasticity_queue) > runtime_data.plasticity_queue_depth:
+            runtime_data.plasticity_queue.pop(0)
+        runtime_data.plasticity_queue_candidates = set()
 
         if runtime_data.beacon_flag:
             try:
@@ -421,7 +512,9 @@ def burst_manager():
 
             return
         # todo: the following sleep value should be tied to Autopilot status
-        sleep(float(runtime_data.burst_timer))
+        burst_duration_in_sec = runtime_data.burst_duration.total_seconds()
+        if runtime_data.burst_timer > burst_duration_in_sec:
+            sleep(runtime_data.burst_timer - burst_duration_in_sec)
 
         burst_start_time = datetime.now()
         log_burst_activity_influx()
@@ -430,16 +523,20 @@ def burst_manager():
         if runtime_data.genome:
             runtime_data.current_age += 1
 
-        # Activating the always on neurons
-        if "___pwr" in runtime_data.brain:
-            for neuron in runtime_data.brain["___pwr"]:
-                runtime_data.fire_candidate_list["___pwr"].add(neuron)
+        if runtime_data.brain and runtime_data.brain_readiness:
+            # Activating the always on neurons
+            if "___pwr" in runtime_data.brain:
+                if "___pwr" not in runtime_data.fire_candidate_list:
+                    runtime_data.fire_candidate_list["___pwr"] = set()
 
-        # Manage ZMQ communication from and to FEAGI
-        message_router()
+                for neuron in runtime_data.brain["___pwr"]:
+                    runtime_data.fire_candidate_list["___pwr"].add(neuron)
 
-        # Process efferent signals
-        opu_router()
+            # Manage ZMQ communication from and to FEAGI
+            message_router()
+
+            # Process efferent signals
+            opu_router()
 
         # Feeding FCL queue content into the FCL
         while not runtime_data.fcl_queue.empty():
@@ -464,8 +561,16 @@ def burst_manager():
 
         # print("^^^^^^^^^^ Previous FCL ^^^^^^^^^\n", runtime_data.previous_fcl)
 
+        # Placeholder for auxiliary functions
+        auxiliary.aux()
+
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
-        fire_fcl_contents()
+        if not runtime_data.new_genome and runtime_data.brain_readiness:
+            fire_fcl_contents()
+        else:
+            print("Brain is not ready to fire FCL contents....")
+
+        runtime_data.plasticity_queue.append(runtime_data.plasticity_queue_candidates)
 
         # Auto-inject/test if applicable
         # todo: move the following functionality to the life.controller to run as a thread

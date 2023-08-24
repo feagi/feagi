@@ -29,6 +29,13 @@ cortical_types = {
                 "resolution": [1, 1, 1],
                 "count": int
             },
+            "inverse_infrared_sensor": {
+                "enabled": True,
+                "cortical_id": "i__inf",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 1],
+                "count": int
+            },
             "proximity_sensor": {
                 "enabled": True,
                 "cortical_id": "i__pro",
@@ -85,21 +92,35 @@ cortical_types = {
             },
             "Servo": {
                 "enabled": True,
-                "cortical_id": "o__mot",
+                "cortical_id": "o__srv",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 10],
+                "count": int
+            },
+            "Navigation": {
+                "enabled": True,
+                "cortical_id": "o__nav",
+                "structure": "asymmetric",
+                "resolution": [3, 1, 20],
+                "count": int
+            },
+            "Speed": {
+                "enabled": True,
+                "cortical_id": "o__spd",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
                 "count": int
             },
             "Battery": {
                 "enabled": True,
-                "cortical_id": "o__mot",
+                "cortical_id": "o__bat",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
                 "count": int
             },
             "Position_Initializer": {
                 "enabled": True,
-                "cortical_id": "o__mot",
+                "cortical_id": "o_init",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
                 "count": int
@@ -109,6 +130,13 @@ cortical_types = {
                 "cortical_id": "o__mot",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
+                "count": int
+            },
+            "Aperture": {
+                "enabled": True,
+                "cortical_id": "o_aptr",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 10],
                 "count": int
             }
         }
@@ -129,15 +157,11 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
                 "count": int
-            },
-            "Inverse_Infrared": {
-                "enabled": True,
-                "cortical_id": "ii_inf",
-                "structure": "asymmetric",
-                "resolution": [1, 1, 1],
-                "count": int
             }
         }
+    },
+    "MEMORY": {
+        "gui_name": "Memory"
     },
     "CUSTOM": {
         "gui_name": "Custom"
@@ -154,7 +178,10 @@ cortical_template = {
     "psp_uniform_distribution": True,
     "postsynaptic_current_max": 10,
     "cortical_mapping_dst": {},
-    "firing_threshold": 1,
+    'firing_threshold': 1,
+    "firing_threshold_increment": 0,
+    "firing_threshold_limit": 0,
+    "mp_charge_accumulation": True,
     "refractory_period": 0,
     "leak_coefficient": 0,
     "leak_variability": 0,

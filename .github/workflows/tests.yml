@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
     - name: Set up Python 3.8
@@ -21,11 +21,14 @@ jobs:
       with:
         python-version: 3.8
     - name: Install dependencies
+      timeout-minutes: 2
       run: |
         python setup.py install
         python -m pip install --upgrade pip
         pip install pytest pytest-cov pylint
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        export PYTHONPATH="$PWD"
+        cd src && python3 main.py &
     - name: Analyze code using pylint
       run: |
         files=`git diff --name-only --diff-filter=d HEAD^ | grep -E '\.py$' | tr '\n' ' '` 

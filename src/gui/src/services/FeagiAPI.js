@@ -1,6 +1,10 @@
 import axios from "axios";
 
-const FEAGI_URL = "http://localhost:8000/v1";
+// const FEAGI_URL = "http://localhost:8000/v1";
+
+const FEAGI_URL = window._env_.FEAGI_URL + "/v1";
+console.log(FEAGI_URL);
+
 
 const FeagiAPI = {
   async getBaselineSensory() {

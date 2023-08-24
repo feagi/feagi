@@ -35,7 +35,7 @@ def activation_function(postsynaptic_current):
 def reset_cumulative_counters(cortical_area, neuron_id):
     runtime_data.brain[cortical_area][neuron_id]["last_burst_num"] = runtime_data.burst_count
     runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"] = runtime_data.burst_count
-    runtime_data.brain[cortical_area][neuron_id]["cumulative_fire_count"] += 1
+    runtime_data.brain[cortical_area][neuron_id]['cumulative_fire_count'] += 1
     runtime_data.brain[cortical_area][neuron_id]["cumulative_fire_count_inst"] += 1
     # Condition to increase the consecutive fire count
     runtime_data.brain[cortical_area][neuron_id]["consecutive_fire_cnt"] += 1
@@ -48,11 +48,13 @@ def neuron_stimulation_mp_logger(cortical_area, neuron_id):
                           filter_criteria=runtime_data.neuron_mp_collection_scope[cortical_area]):
 
             vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
-            fire_threshold = runtime_data.genome["blueprint"][cortical_area]["firing_threshold"]
+            fire_threshold = runtime_data.brain[cortical_area][neuron_id]['firing_threshold']
 
-            mem_pot = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
+            mem_pot = runtime_data.brain[cortical_area][neuron_id]['membrane_potential']
 
             # Note: dst_cortical_area is fed to the src_cortical_area field since the membrane potential of dst changes
+
+            mem_pot = min(mem_pot, fire_threshold)
 
             # To demonstrate a spike when a neuron is artificially stimulated to fire
             runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
@@ -78,8 +80,25 @@ def neuron_stimulation_mp_logger(cortical_area, neuron_id):
                                                          membrane_potential=0 / 1)
 
 
+def update_membrane_potential_fire_queue(cortical_area, neuron_id, mp_update_amount=0, mp_overwrite=None):
+    dst_neuron_obj = runtime_data.brain[cortical_area][neuron_id]
+    if cortical_area not in runtime_data.fire_queue:
+        runtime_data.fire_queue[cortical_area] = dict()
+    if neuron_id not in runtime_data.fire_queue[cortical_area]:
+        runtime_data.fire_queue[cortical_area][neuron_id] = [None, None]
+        # Storing the membrane potential of the updated neuron
+        runtime_data.fire_queue[cortical_area][neuron_id][0] = dst_neuron_obj['membrane_potential']
+        # Storing the firing threshold of the updated neuron
+        runtime_data.fire_queue[cortical_area][neuron_id][1] = dst_neuron_obj['firing_threshold']
+    if mp_overwrite:
+        runtime_data.fire_queue[cortical_area][neuron_id][0] = mp_overwrite
+    else:
+        runtime_data.fire_queue[cortical_area][neuron_id][0] += mp_update_amount
+
+
 def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
-    """This function initiate the firing of Neuron in a given cortical area"""
+    """This function initiate the firing of Neuron in a given cortical area which includes updating the membrane
+    potential of the downstream neurons and tracking them in the fire_queue"""
 
     neighbor_list = list()
 
@@ -122,30 +141,16 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
                                          post_synaptic_current=new_psc)
         neuron_output = activation_function(postsynaptic_current)
 
-        # Update function
-        # todo: (neuron_output/neighbor_count) needs to be moved outside the loop for efficiency
-        dst_neuron_obj = runtime_data.brain[dst_cortical_area][dst_neuron_id]
-
-        # Update membrane potential of the downstream neuron
+        # Update membrane potential of the downstream neuron in the fire_queue
         if runtime_data.genome['blueprint'][cortical_area]['psp_uniform_distribution']:
-            membrane_potential_update(cortical_area=dst_cortical_area, neuron_id=dst_neuron_id,
-                                      membrane_potential_change=neuron_output, bypass_db_log=False,
-                                      src_cortical_area=cortical_area, src_neuron=neuron_id)
-        else:
-            membrane_potential_update(cortical_area=dst_cortical_area, neuron_id=dst_neuron_id,
-                                      membrane_potential_change=neuron_output/neighbor_count, bypass_db_log=False,
-                                      src_cortical_area=cortical_area, src_neuron=neuron_id)
+            update_membrane_potential_fire_queue(cortical_area=dst_cortical_area,
+                                                 neuron_id=dst_neuron_id,
+                                                 mp_update_amount=neuron_output)
 
-        # Update the fire_queue that holds a temporary list of all updated neurons across the brain during a burst
-        if dst_cortical_area not in runtime_data.fire_queue:
-            runtime_data.fire_queue[dst_cortical_area] = dict()
-        if dst_neuron_id not in runtime_data.fire_queue[dst_cortical_area]:
-            runtime_data.fire_queue[dst_cortical_area][dst_neuron_id] = list()
-            runtime_data.fire_queue[dst_cortical_area][dst_neuron_id] = [None, None]
-        # Storing the membrane potential of the updated neuron
-        runtime_data.fire_queue[dst_cortical_area][dst_neuron_id][0] = dst_neuron_obj["membrane_potential"]
-        # Storing the firing threshold of the updated neuron
-        runtime_data.fire_queue[dst_cortical_area][dst_neuron_id][1] = dst_neuron_obj["firing_threshold"]
+        else:
+            update_membrane_potential_fire_queue(cortical_area=dst_cortical_area,
+                                                 neuron_id=dst_neuron_id,
+                                                 mp_update_amount=neuron_output/neighbor_count)
 
 
 def neuron_leak(cortical_area, neuron_id):
@@ -167,12 +172,10 @@ def neuron_leak(cortical_area, neuron_id):
 
             last_membrane_potential_update = \
                 runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"]
-
             leak_window = runtime_data.burst_count - last_membrane_potential_update
             leak_value = leak_window * leak_coefficient
-
             # Capping the leak to the max allowable membrane potential
-            leak_value = min(leak_value, runtime_data.brain[cortical_area][neuron_id]["membrane_potential"])
+            # leak_value = min(leak_value, runtime_data.brain[cortical_area][neuron_id]['membrane_potential'])
 
             if leak_value < 0:
                 print("Warning! Leak less than 0 detected! ", leak_value)
@@ -211,16 +214,9 @@ def membrane_potential_update(cortical_area, neuron_id, membrane_potential_chang
     """
 
     if overwrite:
-        runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] = overwrite_value
+        runtime_data.brain[cortical_area][neuron_id]['membrane_potential'] = overwrite_value
     else:
-        leak_amount = neuron_leak(cortical_area=cortical_area, neuron_id=neuron_id)
-        runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] += membrane_potential_change - leak_amount
-        if runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] > \
-                runtime_data.genome["blueprint"][cortical_area]["firing_threshold"]:
-            runtime_data.brain[cortical_area][neuron_id]["membrane_potential"] = \
-                runtime_data.genome["blueprint"][cortical_area]["firing_threshold"]
-
-    runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] = runtime_data.burst_count
+        runtime_data.brain[cortical_area][neuron_id]['membrane_potential'] += membrane_potential_change
 
     if not bypass_db_log:
         # Assess the filter conditions set through the REST API
@@ -228,7 +224,7 @@ def membrane_potential_update(cortical_area, neuron_id, membrane_potential_chang
             if monitor_filter(cortical_area=cortical_area, neuron_id=neuron_id,
                               filter_criteria=runtime_data.neuron_mp_collection_scope[cortical_area]):
                 vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
-                dst_mp = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
+                dst_mp = runtime_data.brain[cortical_area][neuron_id]['membrane_potential']
                 # dst_cortical_area is fed to the src_cortical_area field since the membrane potential of dst changes
                 runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
                                                              src_cortical_area=cortical_area,
@@ -258,6 +254,8 @@ def membrane_potential_update(cortical_area, neuron_id, membrane_potential_chang
                                                  cortical_area_dst=cortical_area,
                                                  neuron_id_src=src_neuron, neuron_id_dst=neuron_id,
                                                  post_synaptic_current=psc)
+
+    runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] = runtime_data.burst_count
 
 
 def post_synaptic_current_update(cortical_area_src,
@@ -349,7 +347,7 @@ def pruner(pruning_data):
 
     try:
         runtime_data.brain[cortical_area_dst][dst_neuron_id][
-            "upstream_neurons"][cortical_area_src].remove(src_neuron_id)
+            "upstream_neurons"].remove(src_neuron_id)
         if dst_neuron_id in runtime_data.temp_neuron_list:
             runtime_data.temp_neuron_list.remove(dst_neuron_id)
     except KeyError as e:
@@ -378,4 +376,44 @@ def prune_all_candidates():
 
 
 def list_upstream_neurons(cortical_area, neuron_id):
-    return runtime_data.brain[cortical_area][neuron_id]["upstream_neurons"]
+    try:
+        if "upstream_neurons" in runtime_data.brain[cortical_area][neuron_id]:
+            return runtime_data.brain[cortical_area][neuron_id]["upstream_neurons"]
+    except KeyError:
+        print(f"Neuron {neuron_id} does not exist within {cortical_area}")
+
+
+def list_upstream_plastic_neurons(cortical_area, neuron_id):
+    try:
+        upstream_neurons = set()
+        upstream_plastic_areas = set()
+        for area in runtime_data.plasticity_dict[cortical_area]:
+            if runtime_data.plasticity_dict[cortical_area][area] == "afferent":
+                upstream_plastic_areas.add(area)
+
+        if "upstream_neurons" in runtime_data.brain[cortical_area][neuron_id]:
+            for upstream_neuron in runtime_data.brain[cortical_area][neuron_id]["upstream_neurons"]:
+                if upstream_neuron[:6] in upstream_plastic_areas:
+                    upstream_neurons.add(upstream_neuron)
+
+            return upstream_neurons
+    except KeyError:
+        print(f"Neuron {neuron_id} does not exist within {cortical_area}")
+
+
+def list_downstream_plastic_neurons(cortical_area, neuron_id):
+    try:
+        downstream_neurons = set()
+        downstream_plastic_areas = set()
+        for area in runtime_data.plasticity_dict[cortical_area]:
+            if runtime_data.plasticity_dict[cortical_area][area] == "efferent":
+                downstream_plastic_areas.add(area)
+
+        if "neighbors" in runtime_data.brain[cortical_area][neuron_id]:
+            for downstream_neuron in runtime_data.brain[cortical_area][neuron_id]["neighbors"]:
+                if downstream_neuron[:6] in downstream_plastic_areas:
+                    downstream_neurons.add(downstream_neuron)
+
+            return downstream_neurons
+    except KeyError:
+        print(f"Neuron {neuron_id} does not exist within {cortical_area}")

@@ -1,0 +1,82 @@
+version: "3"
+
+networks:
+  net:
+    driver: bridge
+
+services:
+  brain_visualizer:
+    build: ../third_party/godot/html
+    ports:
+      - "6081:6081"
+    env_file:
+      - ./.env
+    privileged: true
+    networks:
+      - net
+    depends_on:
+      - godot_bridge
+
+  godot_bridge:
+    build: ../third_party/godot/
+    deploy:
+      resources:
+        limits:
+          cpus: '3'
+          memory: '2g'
+    ports:
+      - "9050:9050"
+      - "30001:30001" # ZMQ port for feagi to connect for Gadot
+    env_file:
+      - ./.env
+    privileged: true
+    networks:
+      - net
+    depends_on:
+      - feagi
+
+  webcam_javascript_controller:
+    build:
+      context: ../third_party/physical_robots/webcam
+      dockerfile: Dockerfile.python
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
+    ports:
+      - "9051:9051"
+    env_file:
+      - ./.env
+    privileged: true
+    networks:
+      - net
+    depends_on:
+      - feagi
+
+  feagi:
+    build: ./
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
+    ports:
+      - "8000:8000"
+      - "40000-40050:40000-40050" # ZMQ Port for Agent to Connect to Feagi
+    env_file:
+      - ./.env
+    volumes:
+      - ../src/:/opt/source-code/feagi/src
+    networks:
+      - net
+
+
+  javascript_webcam:
+    build: ../third_party/physical_robots/webcam
+    ports:
+      - "6086:6086"
+    env_file:
+      - ./.env
+    networks:
+      - net

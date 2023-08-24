@@ -32,6 +32,7 @@ connectome.
 import logging
 import json
 import datetime
+import shutil
 import concurrent.futures
 from evo import neuron, synapse, stats, genetics, voxels
 from functools import partial
@@ -40,66 +41,11 @@ from inf import disk_ops
 from inf import settings
 from inf import runtime_data
 from inf.db_handler import InfluxManagement
+
 # from igraph import *
 # from igraph.directed_graph import DirectGraph
 
 log = logging.getLogger(__name__)
-
-
-# Resets the in-memory brain for each cortical area
-def reset_connectome_in_mem():
-    for item in runtime_data.cortical_list:
-        runtime_data.brain[item] = {}
-
-
-def reset_connectome_file(cortical_area):
-    file_name = runtime_data.connectome_path + cortical_area + '.json'
-    with open(file_name, "w") as connectome:
-        connectome.write(json.dumps({}))
-        connectome.truncate()
-    if runtime_data.parameters["Logs"]["print_brain_gen_activities"]:
-        print(settings.Bcolors.YELLOW + "Cortical area %s is has been cleared." % cortical_area
-              + settings.Bcolors.ENDC)
-    runtime_data.brain[cortical_area] = {}
-
-
-# Resets all connectome files
-def reset_connectome_files():
-    for cortical_area in runtime_data.genome['blueprint']:
-        reset_connectome_file(cortical_area=cortical_area)
-
-
-def reuse():
-    """
-    Placeholder for a function to reuse an existing connectome.
-
-    Returns:
-
-    """
-    log.info("Reusing an old connectome")
-    connectome_path = ''
-    return
-
-
-def connectome_backup(src, dst):
-    """
-    Backs up an existing connectome to preserve all the structures and associated memory data for future use.
-    Args:
-        src (String): Location of the source connectome folder
-        dst (String): Destination folder for storing connectome backup
-
-    Returns:
-
-    """
-    import shutil
-    import errno
-    try:
-        shutil.copytree(src, dst)
-    except OSError as exc:
-        if exc.errno == errno.ENOTDIR:
-            shutil.copy(src, dst)
-        else:
-            raise
 
 
 # Reads the list of all Cortical areas defined in Genome
@@ -221,6 +167,11 @@ def develop_brain(reincarnation_mode=False):
         genome_instructions = genetics.selection()
         start_time = datetime.datetime.now()
         develop()
+
+        print("-----------------  Brain Development Completed Successfully -------------------")
+        for _ in range(10):
+            print("#" * 40)
+
         print("\nBrain development lasted %s\n" % (datetime.datetime.now()-start_time))
 
 
@@ -274,11 +225,11 @@ def neurogenesis(cortical_area):
         except ZeroDivisionError:
             pass
 
-    disk_ops.save_brain_to_disk(cortical_area=cortical_area,
-                                brain=runtime_data.brain,
-                                parameters=runtime_data.parameters)
-    disk_ops.save_voxel_dict_to_disk(cortical_area=cortical_area,
-                                     voxel_dict=runtime_data.voxel_dict)
+    # disk_ops.save_brain_to_disk(cortical_area=cortical_area,
+    #                             brain=runtime_data.brain,
+    #                             parameters=runtime_data.parameters)
+    # disk_ops.save_voxel_dict_to_disk(cortical_area=cortical_area,
+    #                                  voxel_dict=runtime_data.voxel_dict)
 
 
 def synaptogenesis(cortical_area, dst_cortical_area=None):
@@ -322,11 +273,11 @@ def build_synapses(genome, brain, parameters, voxel_dict, connectome_path, src_c
 
             intercortical_mapping.append((src_cortical_area, mapped_cortical_area, synapse_count_))
 
-    disk_ops.save_brain_to_disk(cortical_area=src_cortical_area, brain=runtime_data.brain, parameters=parameters)
+    # disk_ops.save_brain_to_disk(cortical_area=src_cortical_area, brain=runtime_data.brain, parameters=parameters)
     return intercortical_mapping
 
 
-def develop():
+def develop(target_areas=None):
     print("-----------------------------------------------")
     print("-----------------------------------------------")
     print("------------  Brain generation has begun-------")
@@ -334,33 +285,33 @@ def develop():
     print("-----------------------------------------------")
 
     parameters = runtime_data.parameters
-    runtime_data.brain = {}
+
+    if not target_areas:
+        target_areas = runtime_data.cortical_list
 
     if parameters["Switches"]["folder_backup"]:
         # Backup the current folder
         connectome_backup('../Metis', '../Metis_archive/Metis_' + str(datetime.datetime.now()).replace(' ', '_'))
 
-    # Reset in-memory brain data
-    reset_connectome_in_mem()
-
-    print("Defined cortical areas: %s " % runtime_data.cortical_list)
+    print("Defined cortical areas: %s " % target_areas)
     print("::::: connectome path is:", runtime_data.connectome_path)
 
-    # --Reset Connectome--
-    reset_connectome_files()
-    
+    # --Corticogenesis-- Create definition of cortical areas in Connectome
+    for cortical_area in target_areas:
+        runtime_data.brain[cortical_area] = {}
+
     # --Voxelogenesis-- Create an empty dictionary for each voxel
-    for cortical_area in runtime_data.cortical_list:
+    for cortical_area in target_areas:
         voxelogenesis(cortical_area=cortical_area)
     
     # --Neurogenesis-- Creation of all Neurons across all cortical areas
-    for cortical_area in runtime_data.cortical_list:
+    for cortical_area in target_areas:
         neurogenesis(cortical_area=cortical_area)
 
     print("=================================== Neurogenesis Completed ==================================")
 
     # --Synaptogenesis-- Build Synapses within all cortical areas
-    for cortical_area in runtime_data.cortical_list:
+    for cortical_area in target_areas:
         synaptogenesis(cortical_area=cortical_area)
 
     print("=================================== Synaptogenesis Completed ==================================")
@@ -376,7 +327,7 @@ def develop():
     print("Neuronal mapping across all Cortical areas has been completed!!\n")
     print("Total brain neuron count:\t\t", connectome_neuron_count)
     print("Total brain synapse count:\t\t", connectome_synapse_count)
-    print("Total brain est. size on disk:\t", connectome_size_on_disk, 'MB')
+    print("Total brain est. size:\t", connectome_size_on_disk, 'MB')
 
     brain_structural_fitness = connectome_structural_fitness()
     print("Brain structural fitness was evaluated as: ", brain_structural_fitness)

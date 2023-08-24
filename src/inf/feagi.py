@@ -22,7 +22,6 @@ from inf import initialize
 from evo import neuroembryogenesis, death, genome_processor
 from npu import burst_engine
 from inf import runtime_data, disk_ops
-from trn import edu_controller
 from inf.initialize import init_parameters
 from evo.genome_editor import save_genome
 from configparser import ConfigParser
@@ -57,14 +56,13 @@ def start_feagi(api_queue=None):
     splash_screen()
 
     runtime_data.api_queue = api_queue
-    logging_config_file = './logging_config.json'
-
-    with open(logging_config_file, 'r') as data_file:
-        LOGGING_CONFIG = json.load(data_file)
-        if platform.system() == 'Windows':
-            win_temp_dir = os.path.join(tempfile.gettempdir(), os.urandom(24).hex())
-            LOGGING_CONFIG['handlers']['file']['filename'] = win_temp_dir
-        logging.config.dictConfig(LOGGING_CONFIG)
+    if platform.system() == 'Windows':
+        pass
+    else:
+        logging_config_file = './logging_config.json'
+        with open(logging_config_file, 'r') as data_file:
+            LOGGING_CONFIG = json.load(data_file)
+            logging.config.dictConfig(LOGGING_CONFIG)
 
     runtime_data.exit_condition = False
 
@@ -80,9 +78,6 @@ def start_feagi(api_queue=None):
 
         # Staring the burst_manager engine
         burst_engine.burst_manager()
-
-        # Starting the edu controller responsible for learning and evaluations
-        edu_controller.initialize()
 
         # A set of experiences will be outlined under life adventures that leads to learning
         # adventures.tbd()
