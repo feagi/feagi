@@ -48,6 +48,15 @@ import {Img} from "react-image";
 import map2 from "../assets/map2.png"
 import {Image} from "@mui/icons-material";
 
+const analytics_url = window._env_.ANALYTICS_URL;
+const gazebo_url = window._env_.GAZEBO_URL;
+const gadot_url = window._env_.GADOT_URL;
+
+console.log("Various URLS:")
+console.log(analytics_url);
+console.log(gazebo_url);
+console.log(gadot_url);
+
 
 const MonitoringDashboard = (props) => {
   const [frameHeight, setFrameHeight] = useState("");
@@ -90,7 +99,7 @@ const MonitoringDashboard = (props) => {
   };
 
   const handleActicityMonitor = () => {
-    window.open("http://localhost:6082/d/Se3OI7f7k/feagi-brain-activity-analyzer?orgId=1&refresh=1s", "_blank", "noopener,noreferrer");
+    window.open( analytics_url + "/d/Se3OI7f7k/feagi-brain-activity-analyzer?orgId=1&refresh=1s", "_blank", "noopener,noreferrer");
   };
 
 
@@ -456,7 +465,7 @@ const MonitoringDashboard = (props) => {
       </Drawer>
       <iframe
         id="godotFrame"
-        src="http://localhost:6081"
+        src={gadot_url}
         width="50%"
         height={scrollHeightScaled}
       />
@@ -476,7 +485,7 @@ const MonitoringDashboard = (props) => {
       <Iframe
         className="iframe"
         id="gazeboFrame"
-        url="http://localhost:6080"
+        url={gazebo_url}
         width="50%"
         height={scrollHeightScaled}
         onLoad={handleGazeboLoad}

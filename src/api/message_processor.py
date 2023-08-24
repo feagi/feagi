@@ -1,12 +1,19 @@
 import datetime
 import json
+from inf.initialize import deploy_genome
 from inf import runtime_data, disk_ops
-from inf.initialize import init_brain, reset_runtime_data, id_gen
 from evo.genome_processor import genome_ver_check
-from evo.neuroembryogenesis import develop_brain
 from evo.autopilot import update_generation_dict
 from evo.x_genesis import update_cortical_properties, update_morphology_properties, update_cortical_mappings
-from evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal
+from evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal, append_circuit
+from inf.db_handler import InfluxManagement
+
+influx = InfluxManagement()
+
+
+def record_training_event(event_name, details=None):
+    timestamp = datetime.datetime.utcnow().isoformat()
+    runtime_data.training_stats[timestamp] = {'event_name': event_name, 'details': details}
 
 
 def api_message_processor(api_message):
@@ -17,6 +24,7 @@ def api_message_processor(api_message):
         if 'burst_duration' in api_message['burst_management']:
             if api_message['burst_management']['burst_duration'] is not None:
                 runtime_data.burst_timer = api_message['burst_management']['burst_duration']
+                runtime_data.genome['burst_delay'] = runtime_data.burst_timer
 
     if 'stimulation_script' in api_message:
         runtime_data.stimulation_script = api_message['stimulation_script']['stimulation_script']
@@ -32,14 +40,13 @@ def api_message_processor(api_message):
             runtime_data.parameters['Logs']['print_messenger_logs'] \
                 = api_message['log_management']['print_messenger_logs']
 
-    if 'connectome_snapshot' in api_message:
-        if 'connectome_path' in api_message['connectome_snapshot']:
-            if api_message['connectome_snapshot']['connectome_path']:
-                print("Taking a snapshot of the brain... ... ...")
-                disk_ops.save_brain_to_disk(connectome_path=api_message['connectome_snapshot']['connectome_path'],
-                                            type='snapshot')
-            else:
-                disk_ops.save_brain_to_disk()
+    if 'connectome_path' in api_message:
+        if api_message['connectome_path']:
+            print("Taking a snapshot of the brain... ... ...")
+            disk_ops.save_brain_to_disk(connectome_path=api_message['connectome_path'],
+                                        type='snapshot')
+        else:
+            disk_ops.save_brain_to_disk()
 
     if 'neuron_mp_collection_scope' in api_message:
         if api_message['neuron_mp_collection_scope'] is not None:
@@ -98,31 +105,12 @@ def api_message_processor(api_message):
         print("========================================================")
         print(" Genome loading has been initiated by an API call...")
         print("========================================================")
-        reset_runtime_data()
-        runtime_data.genome_counter += 1
-        runtime_data.genome_reset_flag = False
-        runtime_data.genome_ver = None
-        runtime_data.last_genome_modification_time = datetime.datetime.now()
-        runtime_data.genome_orig = dict(api_message['genome']).copy()
-        runtime_data.genome = api_message['genome']
-        runtime_data.genome = genome_ver_check(runtime_data.genome)
-        runtime_data.genome_ver = "2.0"
-        init_brain()
-        if 'genome_id' not in runtime_data.genome:
-            runtime_data.genome['genome_id'] = id_gen(signature="_G")
-        runtime_data.genome_id = runtime_data.genome['genome_id']
-        print("#$% " * 30)
-        print("brain_run_id", runtime_data.brain_run_id)
-        if runtime_data.autopilot:
-            update_generation_dict(genome_id=runtime_data.genome_id,
-                                   robot_id=runtime_data.robot_id,
-                                   env_id=runtime_data.environment_id)
-        # Process of artificial neuroembryogenesis that leads to connectome development
-        develop_brain(reincarnation_mode=runtime_data.parameters[
-            'Brain_Development']['reincarnation_mode'])
+
+        genome_data = dict(api_message['genome'])
+        deploy_genome(neuroembryogenesis_flag=True, reset_runtime_data_flag=True, genome_data=genome_data)
 
     if 'beacon_sub' in api_message:
-        print("The following FEAGi beacon subscriber has been added:\n", api_message['beacon_sub'])
+        print("The following FEAGI beacon subscriber has been added:\n", api_message['beacon_sub'])
         runtime_data.beacon_sub.add(api_message['beacon_sub'])
 
     if 'beacon_unsub' in api_message:
@@ -176,6 +164,8 @@ def api_message_processor(api_message):
                 api_message['robot_model']['slip2']
 
     if 'update_cortical_properties' in api_message:
+        print("### ### " * 20)
+        print(api_message)
         update_cortical_properties(cortical_properties=api_message['update_cortical_properties'])
 
     if 'update_cortical_mappings' in api_message:
@@ -188,10 +178,41 @@ def api_message_processor(api_message):
         cortical_removal(cortical_area=api_message['delete_cortical_area'],
                          genome_scrub=True)
 
-    if 'add_core_cortical_area' in api_message:
-        add_core_cortical_area(cortical_properties=api_message['add_core_cortical_area'])
+    # if 'add_core_cortical_area' in api_message:
+    #     add_core_cortical_area(cortical_properties=api_message['add_core_cortical_area'])
 
     if 'add_custom_cortical_area' in api_message:
-        add_custom_cortical_area(cortical_properties=api_message['add_custom_cortical_area'])
+        add_custom_cortical_area(cortical_name=api_message['add_custom_cortical_area']['cortical_name'],
+                                 cortical_coordinates=api_message['add_custom_cortical_area']['cortical_coordinates'],
+                                 cortical_dimensions=api_message['add_custom_cortical_area']['cortical_dimensions'])
 
-    api_message = {}
+    if 'append_circuit' in api_message:
+        if runtime_data.genome:
+            append_circuit(source_genome=api_message['append_circuit']["genome_str"],
+                           circuit_origin=api_message['append_circuit']['circuit_origin'])
+        else:
+            deploy_genome(neuroembryogenesis_flag=True, reset_runtime_data_flag=True,
+                          genome_data=api_message['append_circuit']["genome_str"])
+
+    if 'reward' in api_message:
+        reward_intensity = api_message['reward']
+        if runtime_data.influxdb:
+            print("+++++++++++  REWARD ++++++++++++++")
+            runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="success", intensity=reward_intensity)
+        else:
+            record_training_event(event_name="reward", details={"intensity": reward_intensity})
+
+    if 'punishment' in api_message:
+        punishment_intensity = api_message['punishment']
+        if runtime_data.influxdb:
+            print("----------- PUNISHMENT --------------")
+            runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="punishment",
+                                        intensity=punishment_intensity)
+        else:
+            record_training_event(event_name="punishment", details={"intensity": punishment_intensity})
+
+    if 'game_over' in api_message:
+        if runtime_data.influxdb:
+            runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="game_over")
+        else:
+            record_training_event(event_name="game_over")

@@ -22,26 +22,29 @@ This main module is responsible for driving the lifecycle of a single generation
 artificial brain at a time. To scale up the system to many parallel generations, FEAGI
 is intended to run within a container and scale up to many container instances.
 """
-
+import sys
+sys.path.append('../')
 import uvicorn
+import platform
 import json
 import logging.config
 from inf.initialize import init_parameters, runtime_data
 
+if platform.system() == 'Windows':
+    with open("logging_config.json", "r") as config_file:
+        logging_config_data = json.load(config_file)
 
-with open("logging_config.json", "r") as config_file:
-    logging_config_data = json.load(config_file)
+    # setup loggers
+    logging.config.dictConfig(logging_config_data)
 
-# setup loggers
-logging.config.dictConfig(logging_config_data)
-
-# get root logger
-logger = logging.getLogger(__name__)
-
+    # get root logger
+    logger = logging.getLogger(__name__)
 
 init_parameters()
 
 if __name__ == "__main__":
     print("Starting FEAGI API on port ", runtime_data.parameters['Sockets']['feagi_api_port'])
+    if runtime_data.parameters['Sockets']['feagi_api_port'] is None:
+        runtime_data.parameters['Sockets']['feagi_api_port'] = 8000  # Default port
     uvicorn.run("src.api.api:app", host="0.0.0.0", port=int(runtime_data.parameters['Sockets']['feagi_api_port']),
                 reload=False, log_level="debug", debug=True)

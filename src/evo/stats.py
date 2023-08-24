@@ -297,7 +297,7 @@ def circuit_size(blueprint):
     Returns:
         (x, y, z)
     """
-    dimensions = [0, 0, 0]
+    dimensions = [1, 1, 1]
 
     for cortical_area in blueprint:
         x_coord = blueprint[cortical_area]["block_boundaries"][0] + blueprint[cortical_area]["relative_coordinate"][0]

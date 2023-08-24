@@ -17,8 +17,10 @@
 import logging
 import copy
 import traceback
+import datetime
 from evo.genome_editor import save_genome
-from evo.genome_validator import *
+from evo.genome_validator import genome_validator
+from inf import runtime_data
 
 logger = logging.getLogger(__name__)
 
@@ -28,18 +30,20 @@ def genome_ver_check(genome):
         if genome['version'] == "2.0":
             print("\n\n\n************ Genome Version 2.0 has been detected **************\n\n\n")
             try:
-                blueprint_validator(genome)
-            except Exception:
-                print("Error during genome validation!!\n", traceback.print_exc())
-            save_genome(genome=genome, file_name="../runtime_genome.json")
-            genome2 = genome_2_1_convertor(flat_genome=genome['blueprint'])
+                runtime_data.genome_validity = genome_validator(genome)
+                print("Genome validity=", runtime_data.genome_validity)
+            except Exception as e:
+                print("Error during genome validation!!\n", traceback.print_exc(), e)
+            genome = genome_morphology_updator(genome)
+            save_genome(genome=genome, file_name=runtime_data.connectome_path + "genome.json")
+            genome1 = genome_2_1_convertor(flat_genome=genome['blueprint'])
             genome_2_hierarchifier(flat_genome=genome['blueprint'])
-            genome['blueprint'] = genome2['blueprint']
+            genome['blueprint'] = genome1['blueprint']
             return genome
         else:
             print("ERROR! Genome is not compatible with 2.0 standard")
     except KeyError as e:
-        print("Error:", e, traceback.print_exc())
+        print("Exception during genome version check", e, traceback.print_exc())
         pass
 
 
@@ -103,13 +107,16 @@ def genome_2_cortical_list(flat_genome):
     """
     Generates a list of cortical areas inside genome
     """
-    cortical_list = list()
-    for key in flat_genome:
-        if json_comment_catcher(key):
-            cortical_id = key[9:15]
-            if cortical_id not in cortical_list and key[7] == "c":
-                cortical_list.append(cortical_id)
-    return cortical_list
+    try:
+        cortical_list = list()
+        for key in flat_genome:
+            if json_comment_catcher(key):
+                cortical_id = key[9:15]
+                if cortical_id not in cortical_list and key[7] == "c":
+                    cortical_list.append(cortical_id)
+        return cortical_list
+    except Exception as e:
+        print("Exception during genome_2_cortical_list", e, traceback.print_exc())
 
 
 def genome_1_cortical_list(genome):
@@ -134,71 +141,83 @@ def genome_2_1_convertor(flat_genome):
     # Assign a blank template to each cortical area
     for cortical_area in cortical_list:
         genome['blueprint'][cortical_area] = copy.deepcopy(genome_1_template)
-
     # Populate each cortical area with
     for cortical_area in genome['blueprint']:
-        for gene in flat_genome:
-            if json_comment_catcher(gene):
-                cortical_id = gene[9:15]
-                exon = gene[19:]
-                gene_type = gene[16:18]
-                if cortical_id == cortical_area:
-
-                    if genome_2_to_1[exon] == "cortical_name":
-                        genome['blueprint'][cortical_area][genome_2_to_1[exon]] = flat_genome[gene]
-                    elif genome_2_to_1[exon] == "location_generation_type":
-                        if flat_genome[gene]:
-                                genome['blueprint'][cortical_area][genome_2_to_1[exon]] = "random"
-                        else:
-                            genome['blueprint'][cortical_area][genome_2_to_1[exon]] = "sequential"
-                    elif genome_2_to_1[exon] == "cortical_mapping_dst":
-                        for destination in flat_genome[gene]:
-                            if json_comment_catcher(flat_genome[gene][destination]) and \
-                                    json_comment_catcher(destination):
-                                for mapping_recipe in flat_genome[gene][destination]:
-                                    if destination not in genome['blueprint'][cortical_area][genome_2_to_1[exon]]:
-                                        genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination] = list()
-
-                                    temp_dict = dict()
-                                    temp_dict["morphology_id"] = mapping_recipe[0]
-                                    temp_dict["morphology_scalar"] = mapping_recipe[1]
-                                    temp_dict["postSynapticCurrent_multiplier"] = mapping_recipe[2]
-                                    temp_dict["plasticity_flag"] = mapping_recipe[3]
-
-                                    genome['blueprint'][
-                                        cortical_area][genome_2_to_1[exon]][destination].append(temp_dict)
-
-                    elif genome_2_to_1[exon] == "block_boundaries":
-                        if gene[24] == 'x':
-                            genome['blueprint'][cortical_area]["block_boundaries"][0] = \
-                                flat_genome[gene]
-                        elif gene[24] == 'y':
-                            genome['blueprint'][cortical_area]["block_boundaries"][1] = \
-                                flat_genome[gene]
-                        elif gene[24] == 'z':
-                            genome['blueprint'][cortical_area]["block_boundaries"][2] = \
-                                flat_genome[gene]
-                        else:
-                            pass
-
-                    elif genome_2_to_1[exon] == "relative_coordinate":
-                        if gene[24] == 'x':
-                            genome['blueprint'][cortical_area]["relative_coordinate"][0] = \
-                                flat_genome[gene]
-                        elif gene[24] == 'y':
-                            genome['blueprint'][cortical_area]["relative_coordinate"][1] = \
-                                flat_genome[gene]
-                        elif gene[24] == 'z':
-                            genome['blueprint'][cortical_area]["relative_coordinate"][2] = \
-                                flat_genome[gene]
-                        else:
-                            pass
-                    else:
-                        try:
+        try:
+            for gene in flat_genome:
+                if json_comment_catcher(gene):
+                    cortical_id = gene[9:15]
+                    exon = gene[19:]
+                    gene_type = gene[16:18]
+                    if cortical_id == cortical_area:
+                        if genome_2_to_1[exon] == "cortical_name":
                             genome['blueprint'][cortical_area][genome_2_to_1[exon]] = flat_genome[gene]
-                        except Exception as e:
-                            print("Key not processed: ", cortical_area, e, traceback.print_exc())
+                        elif genome_2_to_1[exon] == "location_generation_type":
+                            if flat_genome[gene]:
+                                    genome['blueprint'][cortical_area][genome_2_to_1[exon]] = "random"
+                            else:
+                                genome['blueprint'][cortical_area][genome_2_to_1[exon]] = "sequential"
+                        elif genome_2_to_1[exon] == "cortical_mapping_dst":
+                            for destination in flat_genome[gene]:
+                                if json_comment_catcher(flat_genome[gene][destination]) and \
+                                        json_comment_catcher(destination):
+                                    for mapping_recipe in flat_genome[gene][destination]:
+                                        if destination not in genome['blueprint'][cortical_area][genome_2_to_1[exon]]:
+                                            genome['blueprint'][cortical_area][genome_2_to_1[exon]][destination] = \
+                                                list()
 
+                                        temp_dict = dict()
+                                        temp_dict["morphology_id"] = mapping_recipe[0]
+                                        temp_dict["morphology_scalar"] = mapping_recipe[1]
+                                        temp_dict["postSynapticCurrent_multiplier"] = mapping_recipe[2]
+                                        temp_dict["plasticity_flag"] = mapping_recipe[3]
+
+                                        genome['blueprint'][
+                                            cortical_area][genome_2_to_1[exon]][destination].append(temp_dict)
+
+                        elif genome_2_to_1[exon] == "block_boundaries":
+                            if gene[24] == 'x':
+                                genome['blueprint'][cortical_area]["block_boundaries"][0] = \
+                                    flat_genome[gene]
+                            elif gene[24] == 'y':
+                                genome['blueprint'][cortical_area]["block_boundaries"][1] = \
+                                    flat_genome[gene]
+                            elif gene[24] == 'z':
+                                genome['blueprint'][cortical_area]["block_boundaries"][2] = \
+                                    flat_genome[gene]
+                            else:
+                                pass
+
+                        elif genome_2_to_1[exon] == "relative_coordinate":
+                            if gene[24] == 'x':
+                                genome['blueprint'][cortical_area]["relative_coordinate"][0] = \
+                                    flat_genome[gene]
+                            elif gene[24] == 'y':
+                                genome['blueprint'][cortical_area]["relative_coordinate"][1] = \
+                                    flat_genome[gene]
+                            elif gene[24] == 'z':
+                                genome['blueprint'][cortical_area]["relative_coordinate"][2] = \
+                                    flat_genome[gene]
+                            else:
+                                pass
+                        elif genome_2_to_1[exon] == "2d_coordinate":
+                            if gene[24] == 'x':
+                                genome['blueprint'][cortical_area]["2d_coordinate"][0] = \
+                                    flat_genome[gene]
+                            elif gene[24] == 'y':
+                                genome['blueprint'][cortical_area]["2d_coordinate"][1] = \
+                                    flat_genome[gene]
+                            else:
+                                pass
+
+                        else:
+                            try:
+                                genome['blueprint'][cortical_area][genome_2_to_1[exon]] = flat_genome[gene]
+                            except Exception as e:
+                                print("Key not processed: ", cortical_area, e, traceback.print_exc())
+
+        except Exception as e:
+            print(f"Exception during gene translation of {cortical_area}", e, traceback.print_exc())
     return genome
 
 
@@ -214,7 +233,7 @@ def genome_v1_v2_converter(genome_v1):
                     gene = "_____10c-" + cortical_area + "-" + genome_1_to_2[key]
                     genome_v2['blueprint'][gene] = genome_v1['blueprint'][cortical_area][key]
                 else:
-                    if key not in ["block_boundaries", "relative_coordinate"]:
+                    if key not in ["block_boundaries", "relative_coordinate", "2d_coordinate"]:
                         if key in genome_1_to_2:
                             gene = "_____10c-" + cortical_area + "-" + genome_1_to_2[key]
                             genome_v2['blueprint'][gene] = genome_v1['blueprint'][cortical_area][key]
@@ -240,6 +259,14 @@ def genome_v1_v2_converter(genome_v1):
                             genome_v1['blueprint'][cortical_area]["relative_coordinate"][1]
                         genome_v2['blueprint'][genez] = \
                             genome_v1['blueprint'][cortical_area]["relative_coordinate"][2]
+                    if key == "2d_coordinate":
+                        genex = "_____10c-" + cortical_area + "-" + "cx-2dcorx-i"
+                        geney = "_____10c-" + cortical_area + "-" + "cx-2dcory-i"
+
+                        genome_v2['blueprint'][genex] = \
+                            genome_v1['blueprint'][cortical_area]["2d_coordinate"][0]
+                        genome_v2['blueprint'][geney] = \
+                            genome_v1['blueprint'][cortical_area]["2d_coordinate"][1]
 
             elif key == "cortical_mapping_dst":
                 gene = "_____10c-" + cortical_area + "-cx-dstmap-d"
@@ -264,6 +291,42 @@ def genome_v1_v2_converter(genome_v1):
     return genome_v2
 
 
+def morphology_convertor(morphology_in):
+    morphology_out = dict()
+    morphology_out["parameters"] = dict()
+    if "type" in morphology_in:
+        return morphology_in
+    else:
+        if "vectors" in morphology_in:
+            morphology_out["type"] = "vectors"
+            morphology_out["parameters"]["vectors"] = morphology_in["vectors"]
+            print("morphology_out:", morphology_out)
+        elif "patterns" in morphology_in:
+            morphology_out["type"] = "patterns"
+            morphology_out["parameters"]["patterns"] = morphology_in["patterns"]
+        elif "composite" in morphology_in:
+            morphology_out["type"] = "composite"
+            morphology_out["parameters"]["src_seed"] = morphology_in["composite"]["parameters"]["src_seed"]
+            morphology_out["parameters"]["src_pattern"] = morphology_in["composite"]["parameters"]["src_pattern"]
+            morphology_out["parameters"]["mapper_morphology"] = morphology_in["composite"]["mapper_morphology"]
+        elif "functions" in morphology_in:
+            morphology_out["type"] = "functions"
+
+        else:
+            pass
+        return morphology_out
+
+
+def genome_morphology_updator(genome):
+    try:
+        for morphology in genome["neuron_morphologies"]:
+            genome["neuron_morphologies"][morphology] = morphology_convertor(genome["neuron_morphologies"][morphology])
+    except Exception as e:
+        print("Error during genome morphology update!", e, traceback.print_exc())
+
+    return genome
+
+
 gene_decoder = {
     "_______b-_____s-__-__name-t": "species_name",
     "_______c-______-cx-__name-t": "cortical_name",
@@ -272,6 +335,8 @@ gene_decoder = {
     "_______c-______-cx-rcordx-i": "relative_coordinate_x",
     "_______c-______-cx-rcordy-i": "relative_coordinate_y",
     "_______c-______-cx-rcordz-i": "relative_coordinate_z",
+    "_______c-______-cx-2dcorx-i": "2d_coordinate_x",
+    "_______c-______-cx-2dcory-i": "2d_coordinate_y",
     "_______c-______-cx-___bbx-i": "block_boundary_x",
     "_______c-______-cx-___bby-i": "block_boundary_y",
     "_______c-______-cx-___bbz-i": "block_boundary_z",
@@ -282,7 +347,10 @@ gene_decoder = {
     "_______c-______-nx-pstcr_-f": "postsynaptic_current",
     "_______c-______-nx-pstcrm-f": "postsynaptic_current_max",
     "_______c-______-nx-plst_c-f": "plasticity_constant",
-    "_______c-______-nx-fire_t-f": "firing_threshold",
+    "_______c-______-nx-fire_t-f": 'firing_threshold',
+    "_______c-______-nx-fthinc-f": "firing_threshold_increment",
+    "_______c-______-nx-fthlim-i": "firing_threshold_limit",
+    "_______c-______-nx-mp_acc-b": "mp_charge_accumulation",
     "_______c-______-nx-refrac-i": "refractory_period",
     "_______c-______-nx-leak_c-f": "leak_coefficient",
     "_______c-______-nx-leak_v-i": "leak_variability",
@@ -307,15 +375,22 @@ genome_1_template = {
                 None,
                 None
             ],
+          "2d_coordinate": [
+                None,
+                None
+            ],
           "visualization": None,
           "postsynaptic_current": None,
           "plasticity_constant": None,
-          "firing_threshold": None,
+          'firing_threshold': None,
           "refractory_period": None,
           "leak_coefficient": None,
           "leak_variability": None,
           "consecutive_fire_cnt_max": None,
-          "snooze_length": None
+          "snooze_length": None,
+          "firing_threshold_increment": None,
+          "firing_threshold_limit": None,
+          "mp_charge_accumulation": None
       }
 
 genome_2_to_1 = {
@@ -325,6 +400,8 @@ genome_2_to_1 = {
     "rcordx-i": "relative_coordinate",
     "rcordy-i": "relative_coordinate",
     "rcordz-i": "relative_coordinate",
+    "2dcorx-i": "2d_coordinate",
+    "2dcory-i": "2d_coordinate",
     "___bbx-i": "block_boundaries",
     "___bby-i": "block_boundaries",
     "___bbz-i": "block_boundaries",
@@ -333,7 +410,9 @@ genome_2_to_1 = {
     "pstcr_-f": "postsynaptic_current",
     "pstcrm-f": "postsynaptic_current_max",
     "plst_c-f": "plasticity_constant",
-    "fire_t-f": "firing_threshold",
+    "fire_t-f": 'firing_threshold',
+    "fthinc-f": "firing_threshold_increment",
+    "fthlim-i": "firing_threshold_limit",
     "refrac-i": "refractory_period",
     "leak_c-f": "leak_coefficient",
     "leak_v-f": "leak_variability",
@@ -342,7 +421,8 @@ genome_2_to_1 = {
     "_group-t": "group_id",
     "dstmap-d": "cortical_mapping_dst",
     "de_gen-f": "degeneration",
-    "pspuni-b": "psp_uniform_distribution"
+    "pspuni-b": "psp_uniform_distribution",
+    "mp_acc-b": "mp_charge_accumulation"
 }
 
 genome_1_to_2 = {
@@ -355,7 +435,9 @@ genome_1_to_2 = {
     "postsynaptic_current": "nx-pstcr_-f",
     "postsynaptic_current_max": "nx-pstcrm-f",
     "plasticity_constant": "nx-plst_c-f",
-    "firing_threshold": "nx-fire_t-f",
+    'firing_threshold': "nx-fire_t-f",
+    "firing_threshold_increment": "nx-fthinc-f",
+    "firing_threshold_limit": "nx-fthlim-i",
     "refractory_period": "nx-refrac-i",
     "leak_coefficient": "nx-leak_c-f",
     "leak_variability": "nx-leak_v-f",
@@ -363,5 +445,6 @@ genome_1_to_2 = {
     "snooze_length": "nx-snooze-f",
     "degeneration": "cx-de_gen-f",
     "psp_uniform_distribution": "cx-pspuni-b",
-    "cortical_mapping_dst": "cx-dstmap-d"
+    "cortical_mapping_dst": "cx-dstmap-d",
+    "mp_charge_accumulation": "nx-mp_acc-b"
 }

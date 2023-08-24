@@ -282,8 +282,6 @@ def mutate(genome):
         if is_evolvable(key):
             cortical_list.append(key)
 
-    print("#@#@#@# $$$ Mutation is about to take place on the following cortical regions:\n", cortical_list)
-
     for cortical_area in cortical_list:
         # Anatomical changes
         genome = GeneModifier.change_cortical_dimensions(genome, cortical_area, factor_6)
