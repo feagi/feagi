@@ -120,11 +120,13 @@ def morphology_validator(genome):
 
 
 def blueprint_validator(genome):
-    blueprint = genome["blueprint"]
-    neuron_morphologies = genome["neuron_morphologies"]
-    cortical_list = cortical_list_gen(blueprint)
-
-    genome_validity = True
+    try:
+        blueprint = genome["blueprint"]
+        neuron_morphologies = genome["neuron_morphologies"]
+        cortical_list = cortical_list_gen(blueprint)
+        valid_genome = True
+    except Keyerror:
+        valid_genome = False
 
     def gene_segments(gene_):
         guide = \
