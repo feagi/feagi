@@ -1280,17 +1280,18 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area, response:
 async def cortical_neuron_membrane_potential_monitoring(cortical_area, state: bool, response: Response):
     print("Cortical membrane potential monitoring", runtime_data.neuron_mp_collection_scope)
     try:
-        print("influx:", runtime_data.influxdb)
-        if runtime_data.influxdb.test_influxdb():
-            if cortical_area in runtime_data.genome['blueprint']:
-                if state and cortical_area not in runtime_data.neuron_mp_collection_scope:
-                    runtime_data.neuron_mp_collection_scope[cortical_area] = {}
-                elif not state and cortical_area in runtime_data.neuron_mp_collection_scope:
-                    runtime_data.neuron_mp_collection_scope.pop(cortical_area)
-                else:
-                    pass
-            response.status_code = status.HTTP_200_OK
-            return True
+        if runtime_data.influxdb:
+            influx_readiness = runtime_data.influxdb.test_influxdb()
+            if influx_readiness:
+                if cortical_area in runtime_data.genome['blueprint']:
+                    if state and cortical_area not in runtime_data.neuron_mp_collection_scope:
+                        runtime_data.neuron_mp_collection_scope[cortical_area] = {}
+                    elif not state and cortical_area in runtime_data.neuron_mp_collection_scope:
+                        runtime_data.neuron_mp_collection_scope.pop(cortical_area)
+                    else:
+                        pass
+                response.status_code = status.HTTP_200_OK
+                return True
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
             print("Error: InfluxDb is not setup to collect timeseries data!")
@@ -1319,19 +1320,20 @@ async def cortical_synaptic_potential_monitoring(cortical_area, response: Respon
 async def cortical_synaptic_potential_monitoring(cortical_area, state: bool, response: Response):
     print("Cortical synaptic potential monitoring flag", runtime_data.neuron_psp_collection_scope)
     try:
-        if runtime_data.influxdb.test_influxdb():
-            if cortical_area in runtime_data.genome['blueprint']:
-                if state and cortical_area not in runtime_data.neuron_psp_collection_scope:
-                    runtime_data.neuron_psp_collection_scope[cortical_area] = {}
-                elif not state and cortical_area in runtime_data.neuron_psp_collection_scope:
-                    runtime_data.neuron_psp_collection_scope.pop(cortical_area)
-                else:
-                    pass
-            response.status_code = status.HTTP_200_OK
-            return True
+        if runtime_data.influxdb:
+            if runtime_data.influxdb.test_influxdb():
+                if cortical_area in runtime_data.genome['blueprint']:
+                    if state and cortical_area not in runtime_data.neuron_psp_collection_scope:
+                        runtime_data.neuron_psp_collection_scope[cortical_area] = {}
+                    elif not state and cortical_area in runtime_data.neuron_psp_collection_scope:
+                        runtime_data.neuron_psp_collection_scope.pop(cortical_area)
+                    else:
+                        pass
+                response.status_code = status.HTTP_200_OK
+                return True
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
-            return False
+            return "Error: Timeseries database is not setup!"
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
