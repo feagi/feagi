@@ -81,22 +81,14 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
     for _ in runtime_data.genome["blueprint"]:
         if "mp_charge_accumulation" not in runtime_data.genome["blueprint"][_]:
             runtime_data.genome["blueprint"][_]["mp_charge_accumulation"] = True
-        else:
-            runtime_data.genome["blueprint"][_]["mp_charge_accumulation"] = True
 
         if "firing_threshold_increment" not in runtime_data.genome["blueprint"][_]:
-            runtime_data.genome["blueprint"][_]["firing_threshold_increment"] = 0
-        else:
             runtime_data.genome["blueprint"][_]["firing_threshold_increment"] = 0
 
         if "firing_threshold_limit" not in runtime_data.genome["blueprint"][_]:
             runtime_data.genome["blueprint"][_]["firing_threshold_limit"] = 0
-        else:
-            runtime_data.genome["blueprint"][_]["firing_threshold_limit"] = 0
 
         if "leak_variability" not in runtime_data.genome["blueprint"][_]:
-            runtime_data.genome["blueprint"][_]["leak_variability"] = 0
-        else:
             runtime_data.genome["blueprint"][_]["leak_variability"] = 0
 
     if "plasticity_queue_depth" not in runtime_data.genome:
