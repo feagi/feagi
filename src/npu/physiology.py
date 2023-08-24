@@ -381,3 +381,39 @@ def list_upstream_neurons(cortical_area, neuron_id):
             return runtime_data.brain[cortical_area][neuron_id]["upstream_neurons"]
     except KeyError:
         print(f"Neuron {neuron_id} does not exist within {cortical_area}")
+
+
+def list_upstream_plastic_neurons(cortical_area, neuron_id):
+    try:
+        upstream_neurons = set()
+        upstream_plastic_areas = set()
+        for area in runtime_data.plasticity_dict[cortical_area]:
+            if runtime_data.plasticity_dict[cortical_area][area] == "afferent":
+                upstream_plastic_areas.add(area)
+
+        if "upstream_neurons" in runtime_data.brain[cortical_area][neuron_id]:
+            for upstream_neuron in runtime_data.brain[cortical_area][neuron_id]["upstream_neurons"]:
+                if upstream_neuron[:6] in upstream_plastic_areas:
+                    upstream_neurons.add(upstream_neuron)
+
+            return upstream_neurons
+    except KeyError:
+        print(f"Neuron {neuron_id} does not exist within {cortical_area}")
+
+
+def list_downstream_plastic_neurons(cortical_area, neuron_id):
+    try:
+        downstream_neurons = set()
+        downstream_plastic_areas = set()
+        for area in runtime_data.plasticity_dict[cortical_area]:
+            if runtime_data.plasticity_dict[cortical_area][area] == "efferent":
+                downstream_plastic_areas.add(area)
+
+        if "neighbors" in runtime_data.brain[cortical_area][neuron_id]:
+            for downstream_neuron in runtime_data.brain[cortical_area][neuron_id]["neighbors"]:
+                if downstream_neuron[:6] in downstream_plastic_areas:
+                    downstream_neurons.add(downstream_neuron)
+
+            return downstream_neurons
+    except KeyError:
+        print(f"Neuron {neuron_id} does not exist within {cortical_area}")
