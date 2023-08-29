@@ -94,19 +94,19 @@ def init_neuron(cortical_area, soma_location):
     # todo: firing_threshold_increment to have options in different directions
     fire_threshold_flag = False
 
-    if genome['blueprint'][cortical_area]['firing_threshold_increment_x']:
+    if "firing_threshold_increment_x" in genome['blueprint'][cortical_area]:
         runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] = \
             genome['blueprint'][cortical_area]['firing_threshold'] + \
             (genome['blueprint'][cortical_area]['firing_threshold_increment_x'] * soma_location[0])
         fire_threshold_flag = True
 
-    if genome['blueprint'][cortical_area]['firing_threshold_increment_y']:
+    if "firing_threshold_increment_y" in genome['blueprint'][cortical_area]:
         runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] = \
             genome['blueprint'][cortical_area]['firing_threshold'] + \
             (genome['blueprint'][cortical_area]['firing_threshold_increment_y'] * soma_location[1])
         fire_threshold_flag = True
 
-    if genome['blueprint'][cortical_area]['firing_threshold_increment_z']:
+    if "firing_threshold_increment_z" in genome['blueprint'][cortical_area]:
         runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] = \
             genome['blueprint'][cortical_area]['firing_threshold'] + \
             (genome['blueprint'][cortical_area]['firing_threshold_increment_z'] * soma_location[2])
