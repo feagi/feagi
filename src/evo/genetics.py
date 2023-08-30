@@ -187,14 +187,14 @@ class GeneModifier:
             genome['blueprint'][cortical_area]['snooze_length'] = 0
         return genome
 
-    @staticmethod
-    def change_vision_plasticity_constant(genome, change_percentage):
-        """ Function to increase or decrease the neuron snooze_length in a given cortical area"""
-        genome['blueprint']['vision_memory']['plasticity_constant'] += \
-            genome['blueprint']['vision_memory']['plasticity_constant'] * change_percentage
-        if genome['blueprint']['vision_memory']['plasticity_constant'] < 0:
-            genome['blueprint']['vision_memory']['plasticity_constant'] = 0
-        return genome
+    # @staticmethod
+    # def change_vision_plasticity_constant(genome, change_percentage):
+    #     """ Function to increase or decrease the neuron snooze_length in a given cortical area"""
+    #     genome['blueprint']['vision_memory']['plasticity_constant'] += \
+    #         genome['blueprint']['vision_memory']['plasticity_constant'] * change_percentage
+    #     if genome['blueprint']['vision_memory']['plasticity_constant'] < 0:
+    #         genome['blueprint']['vision_memory']['plasticity_constant'] = 0
+    #     return genome
 
 
     @staticmethod
@@ -292,7 +292,7 @@ def mutate(genome):
         genome = GeneModifier.change_depolarization_timer_threshold(genome, cortical_area, factor_3)
         genome = GeneModifier.change_firing_threshold(genome, cortical_area, factor_4)
         genome = GeneModifier.change_snooze_length(genome, cortical_area, factor_5)
-        genome = GeneModifier.change_vision_plasticity_constant(genome, factor_8)
+        # genome = GeneModifier.change_vision_plasticity_constant(genome, factor_8)
     return genome
 
 
