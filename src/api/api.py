@@ -177,7 +177,6 @@ class UpdateCorticalProperties(BaseModel):
     cortical_synaptic_attractivity: Optional[int]
     neuron_post_synaptic_potential: Optional[float]
     neuron_post_synaptic_potential_max: Optional[float]
-    neuron_plasticity_constant: Optional[float]
     neuron_fire_threshold: Optional[float]
     neuron_fire_threshold_increment: Optional[list]
     neuron_firing_threshold_limit: Optional[float]

@@ -168,10 +168,17 @@ def genome_2_1_convertor(flat_genome):
                                                     list()
 
                                             temp_dict = dict()
+
                                             temp_dict["morphology_id"] = mapping_recipe[0]
                                             temp_dict["morphology_scalar"] = mapping_recipe[1]
                                             temp_dict["postSynapticCurrent_multiplier"] = mapping_recipe[2]
                                             temp_dict["plasticity_flag"] = mapping_recipe[3]
+                                            try:
+                                                temp_dict["plasticity_constant"] = mapping_recipe[4]
+                                                temp_dict["ltp_multiplier"] = mapping_recipe[5]
+                                                temp_dict["ltd_multiplier"] = mapping_recipe[6]
+                                            except Exception as e:
+                                                print("Genome mapping missing plasticity parameters.", e)
 
                                             genome['blueprint'][
                                                 cortical_area][genome_2_to_1[exon]][destination].append(temp_dict)
@@ -347,7 +354,6 @@ gene_decoder = {
     "_______c-______-cx-de_gen-f": "degeneration",
     "_______c-______-nx-pstcr_-f": "postsynaptic_current",
     "_______c-______-nx-pstcrm-f": "postsynaptic_current_max",
-    "_______c-______-nx-plst_c-f": "plasticity_constant",
     "_______c-______-nx-fire_t-f": 'firing_threshold',
     "_______c-______-nx-ftincx-f": "firing_threshold_increment_x",
     "_______c-______-nx-ftincy-f": "firing_threshold_increment_y",
@@ -384,7 +390,6 @@ genome_1_template = {
     ],
     "visualization": True,
     "postsynaptic_current": None,
-    "plasticity_constant": None,
     'firing_threshold': None,
     "refractory_period": None,
     "leak_coefficient": None,
@@ -414,7 +419,6 @@ genome_2_to_1 = {
     "synatt-i": "synapse_attractivity",
     "pstcr_-f": "postsynaptic_current",
     "pstcrm-f": "postsynaptic_current_max",
-    "plst_c-f": "plasticity_constant",
     "fire_t-f": 'firing_threshold',
     "ftincx-f": "firing_threshold_increment_x",
     "ftincy-f": "firing_threshold_increment_y",
@@ -441,7 +445,6 @@ genome_1_to_2 = {
     "synapse_attractivity": "cx-synatt-i",
     "postsynaptic_current": "nx-pstcr_-f",
     "postsynaptic_current_max": "nx-pstcrm-f",
-    "plasticity_constant": "nx-plst_c-f",
     'firing_threshold': "nx-fire_t-f",
     "firing_threshold_increment_x": "ftincx-f",
     "firing_threshold_increment_y": "ftincy-f",
