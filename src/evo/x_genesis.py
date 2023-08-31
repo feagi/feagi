@@ -159,10 +159,6 @@ def update_cortical_properties(cortical_properties):
         runtime_data.genome["blueprint"][cortical_area]["degeneration"] = \
             cortical_properties['neuron_degeneracy_coefficient']
 
-    if cortical_properties['neuron_plasticity_constant'] is not None:
-        runtime_data.genome["blueprint"][cortical_area]["plasticity_constant"] = \
-            cortical_properties['neuron_plasticity_constant']
-
     if cortical_properties['neuron_post_synaptic_potential_max'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["postsynaptic_current_max"] = \
             cortical_properties['neuron_post_synaptic_potential_max']
