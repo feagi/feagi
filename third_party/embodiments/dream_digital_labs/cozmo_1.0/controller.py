@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+    #!/usr/bin/env python
 
 import time
 from PIL import Image
@@ -61,17 +61,18 @@ def on_robot_state(cli, pkt: pycozmo.protocol_encoder.RobotState):
     robot['battery'] = pkt.battery_voltage
 
 
-
 def on_body_info(cli, pkt: pycozmo.protocol_encoder.BodyInfo):
     print("pkt: ", pkt)
 
+
 def on_camera_image(cli, image):
-    rgb_value = list(image.getdata()) ## full rgb data
+    rgb_value = list(image.getdata())  ## full rgb data
     new_rgb = np.array(rgb_value)
     new_rgb = new_rgb.reshape(240, 320, 3)
     new_rgb = new_rgb.astype(np.uint8)
     rgb_array['current'] = new_rgb
     time.sleep(0.01)
+
 
 # # FEAGI REACHABLE CHECKER # #
 feagi_flag = False
@@ -127,10 +128,10 @@ cli = pycozmo.Client()
 cli.start()
 cli.connect()
 cli.wait_for_robot()
-print("max in rad: ", pycozmo.robot.MAX_HEAD_ANGLE.radians) # 0.7766715171374767
-print("min in rad: ", pycozmo.robot.MIN_HEAD_ANGLE.radians) # -0.4363323129985824
+print("max in rad: ", pycozmo.robot.MAX_HEAD_ANGLE.radians)  # 0.7766715171374767
+print("min in rad: ", pycozmo.robot.MIN_HEAD_ANGLE.radians)  # -0.4363323129985824
 angle = (pycozmo.robot.MAX_HEAD_ANGLE.radians - pycozmo.robot.MIN_HEAD_ANGLE.radians) / 2.0
-cli.set_head_angle(angle) # move head
+cli.set_head_angle(angle)  # move head
 lwheel_speed = 0  # Speed in millimeters per second for the left wheel
 rwheel_speed = 0  # Speed in millimeters per second for the right wheel
 lwheel_acc = 0  # Acceleration in millimeters per second squared for the left wheel
@@ -145,7 +146,7 @@ cli.add_handler(pycozmo.event.EvtNewRawCameraImage, on_camera_image)
 cli.add_handler(pycozmo.protocol_encoder.RobotState, on_robot_state)
 time.sleep(2)
 # time.sleep(5)
-#vision ends
+# vision ends
 while True:
     try:
         start = time.time()
@@ -181,7 +182,7 @@ while True:
                         dev_data = i
                         digits = dev_data.split('-')
                         third_digit = int(digits[2])
-                        capabilities['camera']["deviation_threshold"] = third_digit/10
+                        capabilities['camera']["deviation_threshold"] = third_digit / 10
             opu_data = FEAGI.opu_processor(message_from_feagi)
             if "motor" in opu_data:
                 rf, rb, lf, lb = 0.0, 0.0, 0.0, 0.0
@@ -192,12 +193,13 @@ while True:
                         rf = float(opu_data["motor"][i])
                     if i == 2:
                         lf = float(opu_data["motor"][i])
-                    if i==3:
+                    if i == 3:
                         lb = float(opu_data["motor"][i])
                     rwheel_speed = rf - rb
                     lwheel_speed = lf - lb
 
-                cli.drive_wheels(lwheel_speed, rwheel_speed, 100.0, 100.0, feagi_settings['feagi_burst_speed'])
+                cli.drive_wheels(lwheel_speed, rwheel_speed, 100.0, 100.0,
+                                 feagi_settings['feagi_burst_speed'])
 
             # OPU section ENDS
         new_rgb = rgb_array['current']
@@ -288,7 +290,8 @@ while True:
                     message_to_feagi["data"] = {}
                 if "sensory_data" not in message_to_feagi["data"]:
                     message_to_feagi["data"]["sensory_data"] = {}
-                message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data['accelerator']
+                message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data[
+                    'accelerator']
             except Exception as ERROR:
                 message_to_feagi["data"]["sensory_data"]['accelerator'] = {}
             # End accelerator section
@@ -306,6 +309,7 @@ while True:
             feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
         else:
             feagi_ipu_channel.send(message_to_feagi)
+        print("battery: ", battery)
         message_to_feagi.clear()
         for i in rgb['camera']:
             rgb['camera'][i].clear()
@@ -356,4 +360,4 @@ while True:
 # cli.enable_camera(enable=True, color=True)
 # cli.add_handler(pycozmo.event.EvtNewRawCameraImage, on_camera_image)
 # time.sleep(5)
-#vision ends
+# vision ends
