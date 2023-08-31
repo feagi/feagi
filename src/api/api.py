@@ -154,7 +154,6 @@ class NewCustomCorticalProperties(BaseModel):
 #     cortical_synaptic_attractivity: int
 #     neuron_post_synaptic_potential: float
 #     neuron_post_synaptic_potential_max: float
-#     neuron_plasticity_constant: float
 #     neuron_fire_threshold: float
 #     neuron_refractory_period: int
 #     neuron_leak_coefficient: float
