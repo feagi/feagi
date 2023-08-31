@@ -187,16 +187,6 @@ class GeneModifier:
             genome['blueprint'][cortical_area]['snooze_length'] = 0
         return genome
 
-    # @staticmethod
-    # def change_vision_plasticity_constant(genome, change_percentage):
-    #     """ Function to increase or decrease the neuron snooze_length in a given cortical area"""
-    #     genome['blueprint']['vision_memory']['plasticity_constant'] += \
-    #         genome['blueprint']['vision_memory']['plasticity_constant'] * change_percentage
-    #     if genome['blueprint']['vision_memory']['plasticity_constant'] < 0:
-    #         genome['blueprint']['vision_memory']['plasticity_constant'] = 0
-    #     return genome
-
-
     @staticmethod
     def change_growth_rule_4_param_2(genome, change_percentage):
         """ Function to increase or decrease the neuron snooze_length in a given cortical area"""
