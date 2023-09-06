@@ -114,7 +114,7 @@ class BurstEngine(BaseModel):
 
 class MorphologyProperties(BaseModel):
     name: str
-    type: Literal['vectors', 'patterns', 'composite', 'functions']
+    type: str
     parameters: dict
 
 
@@ -752,7 +752,7 @@ async def genome_neuron_morphology_usage_report(morphology_name, response: Respo
 
 @app.api_route("/v1/feagi/genome/morphology", methods=['PUT'], tags=["Genome"])
 async def genome_update_neuron_morphology(morphology_name: str,
-                                          morphology_type: Literal['vectors', 'patterns', 'composite', 'functions'],
+                                          morphology_type: str,
                                           morphology_parameters: dict,
                                           response: Response):
     """
@@ -775,7 +775,7 @@ async def genome_update_neuron_morphology(morphology_name: str,
 
 @app.api_route("/v1/feagi/genome/morphology", methods=['POST'], tags=["Genome"])
 async def genome_add_neuron_morphology(morphology_name: str,
-                                       morphology_type: Literal['vectors', 'patterns', 'composite', 'functions'],
+                                       morphology_type: str,
                                        morphology_parameters: dict,
                                        response: Response):
     """
