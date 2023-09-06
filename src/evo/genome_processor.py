@@ -368,11 +368,11 @@ gene_decoder = {
 }
 
 genome_1_template = {
-    "per_voxel_neuron_cnt": None,
-    "synapse_attractivity": None,
-    "degeneration": None,
+    "per_voxel_neuron_cnt": 1,
+    "synapse_attractivity": 100,
+    "degeneration": 0,
     "psp_uniform_distribution": False,
-    "postsynaptic_current_max": None,
+    "postsynaptic_current_max": 99999,
     "cortical_mapping_dst": {},
     "block_boundaries": [
         None,
@@ -380,27 +380,27 @@ genome_1_template = {
         None
     ],
     "relative_coordinate": [
-        None,
-        None,
-        None
+        0,
+        0,
+        0
     ],
     "2d_coordinate": [
-        None,
-        None
+        0,
+        0
     ],
     "visualization": True,
-    "postsynaptic_current": None,
-    'firing_threshold': None,
-    "refractory_period": None,
-    "leak_coefficient": None,
-    "leak_variability": None,
-    "consecutive_fire_cnt_max": None,
-    "snooze_length": None,
+    "postsynaptic_current": 1,
+    'firing_threshold': 1,
+    "refractory_period": 0,
+    "leak_coefficient": 0,
+    "leak_variability": 0,
+    "consecutive_fire_cnt_max": 0,
+    "snooze_length": 0,
     "firing_threshold_increment_x": 0,
     "firing_threshold_increment_y": 0,
     "firing_threshold_increment_z": 0,
-    "firing_threshold_limit": None,
-    "mp_charge_accumulation": None
+    "firing_threshold_limit": 99999,
+    "mp_charge_accumulation": True
     }
 
 genome_2_to_1 = {
