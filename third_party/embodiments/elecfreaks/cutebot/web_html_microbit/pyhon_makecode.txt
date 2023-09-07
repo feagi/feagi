@@ -7,7 +7,10 @@ def on_bluetooth_disconnected():
 bluetooth.on_bluetooth_disconnected(on_bluetooth_disconnected)
 
 def on_uart_data_received():
-    global feagi_string, powerR, powerL, directionR, directionL
+    directionL = 0
+    directionR = 0
+    powerL = 0
+    powerR = 0
     feagi_string = bluetooth.uart_read_until(serial.delimiters(Delimiters.HASH))
     directionR = int(feagi_string[0])
     directionL = int(feagi_string[3])
@@ -42,15 +45,6 @@ acc_y = ""
 acc_x = ""
 R_flag = ""
 L_flag = ""
-directionL = 0
-directionR = 0
-powerL = 0
-powerR = 0
-value2 = 0
-value1 = 0
-direction = ""
-feagi_string = ""
-negative_data = ""
 sound = ""
 timer = 0
 bluetooth.start_uart_service()
