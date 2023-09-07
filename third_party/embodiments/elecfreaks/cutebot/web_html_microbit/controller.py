@@ -179,23 +179,24 @@ if __name__ == "__main__":
                 if message_from_feagi is not None:
                     opu_data = feagi.opu_processor(message_from_feagi)
                     WS_STRING = ""
-                    for data_point in opu_data['motor']:
-                        if data_point == 0:
-                            WS_STRING += "0"
-                        elif data_point == 1:
-                            WS_STRING += "1"
-                        elif data_point == 2:
-                            WS_STRING += "2"
-                        elif data_point == 3:
-                            WS_STRING += "3"
-                        WS_STRING += str(opu_data['motor'][data_point] - 10).zfill(2) # Keep it 2
-                        # digits. It can go from 00 to 90. FEAGI will always publish 100 or less.
-                    # Add additional zeros if '2' is not present in opu_data['motor']
-                    if len(opu_data['motor']) < 2:
-                        WS_STRING += "000"
-                    if WS_STRING != "" and WS_STRING != "000":
-                        ws.append(WS_STRING + '#')
-                        # ws.append("280180#")
+                    if 'motor' in opu_data:
+                        if opu_data['motor']:
+                            for i in sorted(opu_data['motor']):  # Ensure that it's in order for microbit
+                                if i in [0, 1]:
+                                    WS_STRING += str(i) + str(opu_data['motor'][i]-10).zfill(2)  # Append the motor data as a two-digit
+                                    # string
+                                elif i in [2, 3]:
+                                    WS_STRING += str(i) + str(opu_data['motor'][i]-10).zfill(2)  # Append the motor data as a two-digit
+                                    # string
+                                else:
+                                    WS_STRING += str(i) + "00"  # If the motor value is not present, append "00"
+                            if len(WS_STRING) != 6:
+                                if int(WS_STRING[0]) < 2:
+                                    WS_STRING = WS_STRING + "500"
+                                else:
+                                    WS_STRING = "500" + WS_STRING
+                            WS_STRING = WS_STRING + "#"
+                            ws.append(WS_STRING)
 
                     if FLAG:
                         FLAG = False
