@@ -7,7 +7,7 @@ networks:
 
 services:
   godot_bridge:
-    image: neuraville/bridge
+    image: ${BRIDGE_IMAGE}
     deploy:
       resources:
         limits:
@@ -25,7 +25,7 @@ services:
       - feagi
 
   webcam_javascript_controller:
-    image: neuraville/webcam_controller
+    image: ${WEBCAM_CONTROLLER_IMAGE}
     deploy:
       resources:
         limits:
@@ -42,7 +42,7 @@ services:
       - feagi
 
   feagi:
-    image: neuraville/feagi
+    image: ${FEAGI_IMAGE}
     deploy:
       resources:
         limits:
@@ -59,7 +59,7 @@ services:
       - net
 
   brain_pong_controller:
-    image: neuraville/brain_pong:latest
+    image: ${BRAIN_PONG_IMAGE}
     ports:
       - "9055:9055"
     env_file:
@@ -69,7 +69,7 @@ services:
       - net
 
   microbit_controller:
-    image: neuraville/microbit:latest
+    image: ${MICROBIT_IMAGE}
     ports:
       - "9052:9052"
     env_file:
@@ -80,7 +80,7 @@ services:
 
 
   playground:
-    image: neuraville/playground:latest
+    image: ${PLAYGROUND_IMAGE}
     ports:
       - "4000:4000"
     privileged: true
