@@ -29,7 +29,7 @@ from tempfile import gettempdir
 from threading import Thread
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import deque
 from inf import runtime_data, disk_ops, settings
 from shutil import copyfile
@@ -44,6 +44,11 @@ from evo.templates import cortical_types
 
 
 logger = logging.getLogger(__name__)
+
+
+def utc_time():
+    current_time = datetime.utcnow()
+    return current_time
 
 
 def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, genome_data=None):
@@ -76,22 +81,14 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
     for _ in runtime_data.genome["blueprint"]:
         if "mp_charge_accumulation" not in runtime_data.genome["blueprint"][_]:
             runtime_data.genome["blueprint"][_]["mp_charge_accumulation"] = True
-        else:
-            runtime_data.genome["blueprint"][_]["mp_charge_accumulation"] = True
 
         if "firing_threshold_increment" not in runtime_data.genome["blueprint"][_]:
-            runtime_data.genome["blueprint"][_]["firing_threshold_increment"] = 0
-        else:
             runtime_data.genome["blueprint"][_]["firing_threshold_increment"] = 0
 
         if "firing_threshold_limit" not in runtime_data.genome["blueprint"][_]:
             runtime_data.genome["blueprint"][_]["firing_threshold_limit"] = 0
-        else:
-            runtime_data.genome["blueprint"][_]["firing_threshold_limit"] = 0
 
         if "leak_variability" not in runtime_data.genome["blueprint"][_]:
-            runtime_data.genome["blueprint"][_]["leak_variability"] = 0
-        else:
             runtime_data.genome["blueprint"][_]["leak_variability"] = 0
 
     if "plasticity_queue_depth" not in runtime_data.genome:
@@ -324,7 +321,14 @@ def init_timeseries_db():
     from inf import db_handler
     runtime_data.influxdb = db_handler.InfluxManagement()
     runtime_data.influxdb.test_influxdb()
-    return
+
+    # # Setup message queues
+    # runtime_data.influx_mp_queue = deque(maxlen=10)
+    # runtime_data.influx_psp_queue = deque(maxlen=10)
+    #
+    # # Instantiate a new process thread to read messages from the queue and save in db
+
+    return  
 
 
 def init_cortical_info():
@@ -395,7 +399,7 @@ def init_resources():
 
 
 def init_infrastructure():
-    init_io_channels()
+    # init_io_channels()
     init_cortical_defaults()
     init_working_directory()
     init_container_variables()
@@ -451,6 +455,7 @@ def init_brain():
     init_cortical_info()
     runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
+    runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
     # genome2 = genome_2_1_convertor(flat_genome=runtime_data.genome['blueprint'])
     # genome_2_hierarchifier(flat_genome=runtime_data.genome['blueprint'])
     # runtime_data.genome['blueprint'] = genome2['blueprint']
@@ -487,7 +492,7 @@ def init_burst_engine():
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("**** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** ****")
     print("\n\n")
-
+    runtime_data.burst_duration = timedelta(seconds=0.0001)
     runtime_data.death_flag = False
 
     try:
@@ -502,17 +507,17 @@ def init_burst_engine():
         print("==============================================\n\n")
 
 
-def init_io_channels():
-    # Initialize ZMQ connections
-    try:
+# def init_io_channels():
+#     # Initialize ZMQ connections
+#     try:
         # opu_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['feagi_opu_port']
         # print("OPU socket is:", opu_socket)
         # runtime_data.opu_pub = Pub(opu_socket)
         # print("OPU channel as been successfully established at ",
         #       runtime_data.parameters['Sockets']['feagi_opu_port'])
 
-        if runtime_data.parameters['Switches']['zmq_activity_publisher']:
-            runtime_data.brain_activity_pub = True
+        # if runtime_data.parameters['Switches']['zmq_activity_publisher']:
+        #     runtime_data.brain_activity_pub = True
         #     brain_activities_socket = 'tcp://0.0.0.0:' + runtime_data.parameters['Sockets']['brain_activities_pub']
         #     print("Brain activity publisher socket is:", brain_activities_socket)
         #     runtime_data.brain_activity_pub = PubBrainActivities(brain_activities_socket)
@@ -529,9 +534,9 @@ def init_io_channels():
         #     runtime_data.router_address_embodiment = "tcp://" + runtime_data.parameters['Sockets']['embodiment_host_name'] \
         #                                          + ':' + runtime_data.parameters['Sockets']['feagi_inbound_port_embodiment']
 
-        print("Router addresses has been set")
-    except KeyError as e:
-        print('ERROR: OPU socket is not properly defined as part of feagi_configuration.ini\n', e)
+    #     print("Router addresses has been set")
+    # except KeyError as e:
+    #     print('ERROR: OPU socket is not properly defined as part of feagi_configuration.ini\n', e)
 
 
 def generate_cortical_dimensions():
@@ -554,6 +559,45 @@ def generate_cortical_dimensions():
         cortical_information[cortical_name].append(cortical_area)
 
     with open(runtime_data.connectome_path+"cortical_data.json", "w") as data_file:
+        data_file.seek(0)
+        data_file.write(json.dumps(cortical_information, indent=3))
+        data_file.truncate()
+
+    return cortical_information
+
+
+def generate_cortical_dimensions_by_id():
+    """
+    Generates the information needed to display cortical areas on Godot
+    """
+    cortical_information = {}
+
+    for cortical_area in runtime_data.genome["blueprint"]:
+        cortical_information[cortical_area] = {}
+        genes = runtime_data.genome["blueprint"][cortical_area]
+
+        cortical_information[cortical_area]["name"] = genes["cortical_name"]
+        cortical_information[cortical_area]["type"] = genes["group_id"]
+        cortical_information[cortical_area]["visible"] = genes["visualization"]
+
+        cortical_information[cortical_area]["position_2d"] = [
+            genes["2d_coordinate"][0],
+            genes["2d_coordinate"][1]
+        ]
+
+        cortical_information[cortical_area]["position_3d"] = [
+            genes["relative_coordinate"][0],
+            genes["relative_coordinate"][1],
+            genes["relative_coordinate"][2]
+        ]
+
+        cortical_information[cortical_area]["dimensions"] = [
+            genes["block_boundaries"][0],
+            genes["block_boundaries"][1],
+            genes["block_boundaries"][2]
+        ]
+
+    with open(runtime_data.connectome_path+"cortical_data_by_id.json", "w") as data_file:
         data_file.seek(0)
         data_file.write(json.dumps(cortical_information, indent=3))
         data_file.truncate()
