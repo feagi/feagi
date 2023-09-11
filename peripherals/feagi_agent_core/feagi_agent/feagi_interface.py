@@ -147,8 +147,7 @@ def compose_message_to_feagi(original_message, data=None, battery=0):
 def opu_processor(data):
     try:
         processed_opu_data = {'motor': {}, 'servo': {}, 'battery': {}, 'discharged_battery': {},
-                              'reset': {},
-                              'camera': {}, 'misc': {}, 'navigation': {}, 'speed': {},
+                              'reset': {}, 'camera': {}, 'misc': {}, 'navigation': {}, 'speed': {},
                               'servo_position': {}, "led": {}}
         opu_data = data["opu_data"]
         if opu_data is not None:

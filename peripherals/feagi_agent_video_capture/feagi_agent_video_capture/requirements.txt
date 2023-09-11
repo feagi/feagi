@@ -1,4 +1,0 @@
-opencv-python
-feagi-agent
-requests
-zmq
