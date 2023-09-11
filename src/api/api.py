@@ -114,7 +114,7 @@ class BurstEngine(BaseModel):
 
 class MorphologyProperties(BaseModel):
     name: str
-    type: Literal['vectors', 'patterns', 'composite', 'functions']
+    type: str
     parameters: dict
 
 
@@ -154,7 +154,6 @@ class NewCustomCorticalProperties(BaseModel):
 #     cortical_synaptic_attractivity: int
 #     neuron_post_synaptic_potential: float
 #     neuron_post_synaptic_potential_max: float
-#     neuron_plasticity_constant: float
 #     neuron_fire_threshold: float
 #     neuron_refractory_period: int
 #     neuron_leak_coefficient: float
@@ -177,9 +176,8 @@ class UpdateCorticalProperties(BaseModel):
     cortical_synaptic_attractivity: Optional[int]
     neuron_post_synaptic_potential: Optional[float]
     neuron_post_synaptic_potential_max: Optional[float]
-    neuron_plasticity_constant: Optional[float]
     neuron_fire_threshold: Optional[float]
-    neuron_fire_threshold_increment: Optional[float]
+    neuron_fire_threshold_increment: Optional[list]
     neuron_firing_threshold_limit: Optional[float]
     neuron_refractory_period: Optional[int]
     neuron_leak_coefficient: Optional[float]
@@ -507,9 +505,12 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "cortical_destinations": cortical_data['cortical_mapping_dst'],
                 "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
                 "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
-                "neuron_plasticity_constant": cortical_data['plasticity_constant'],
                 "neuron_fire_threshold": cortical_data['firing_threshold'],
-                "neuron_fire_threshold_increment": cortical_data['firing_threshold_increment'],
+                "neuron_fire_threshold_increment": [
+                    cortical_data['firing_threshold_increment_x'],
+                    cortical_data['firing_threshold_increment_y'],
+                    cortical_data['firing_threshold_increment_z']
+                ],
                 "neuron_firing_threshold_limit": cortical_data['firing_threshold_limit'],
                 "neuron_refractory_period": cortical_data['refractory_period'],
                 "neuron_leak_coefficient": cortical_data['leak_coefficient'],
@@ -680,6 +681,23 @@ async def genome_neuron_morphology_types(response: Response):
         print("API Error:", e)
 
 
+@app.api_route("/v1/feagi/morphologies/list/types", methods=['GET'], tags=["Genome"])
+async def genome_neuron_morphology_type_list(response: Response):
+    """
+    Returns the properties of a neuron morphology.
+    """
+    try:
+        response.status_code = status.HTTP_200_OK
+        report = {}
+        for morphology in runtime_data.genome["neuron_morphologies"]:
+            if morphology not in report:
+                report[morphology] = runtime_data.genome["neuron_morphologies"][morphology]["type"]
+        return report
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
 @app.api_route("/v1/feagi/genome/morphology_functions", methods=['GET'], tags=["Genome"])
 async def genome_neuron_morphology_functions(response: Response):
     """
@@ -734,7 +752,7 @@ async def genome_neuron_morphology_usage_report(morphology_name, response: Respo
 
 @app.api_route("/v1/feagi/genome/morphology", methods=['PUT'], tags=["Genome"])
 async def genome_update_neuron_morphology(morphology_name: str,
-                                          morphology_type: Literal['vectors', 'patterns', 'composite', 'functions'],
+                                          morphology_type: str,
                                           morphology_parameters: dict,
                                           response: Response):
     """
@@ -757,7 +775,7 @@ async def genome_update_neuron_morphology(morphology_name: str,
 
 @app.api_route("/v1/feagi/genome/morphology", methods=['POST'], tags=["Genome"])
 async def genome_add_neuron_morphology(morphology_name: str,
-                                       morphology_type: Literal['vectors', 'patterns', 'composite', 'functions'],
+                                       morphology_type: str,
                                        morphology_parameters: dict,
                                        response: Response):
     """
@@ -1089,6 +1107,42 @@ async def update_cortical_mapping_properties(queue_depth: int, response: Respons
         logger.error(traceback.print_exc())
 
 
+@app.api_route("/v1/feagi/genome/cortical_locations_2d", methods=['GET'], tags=["Genome"])
+async def cortical_2d_locations(response: Response):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    try:
+
+        report = dict()
+        for area in runtime_data.genome["blueprint"]:
+            if area not in report:
+                report[area] = list()
+            if "2d_coordinate" in runtime_data.genome['blueprint'][area]:
+                report[area] = runtime_data.genome['blueprint'][area]["2d_coordinate"]
+            else:
+                report[area].append([None, None])
+
+        return report
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e, traceback.print_exc())
+        logger.error(traceback.print_exc())
+
+
+@app.api_route("/v1/feagi/genome/cortical_area/geometry", methods=['GET'], tags=["Genome"])
+async def cortical_area_geometry(response: Response):
+    try:
+        if runtime_data.cortical_dimensions_by_id:
+            response.status_code = status.HTTP_200_OK
+            return runtime_data.cortical_dimensions_by_id
+        else:
+            response.status_code = status.HTTP_404_NOT_FOUND
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
 # ######  Evolution #########
 # #############################
 
@@ -1227,17 +1281,18 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area, response:
 async def cortical_neuron_membrane_potential_monitoring(cortical_area, state: bool, response: Response):
     print("Cortical membrane potential monitoring", runtime_data.neuron_mp_collection_scope)
     try:
-        print("influx:", runtime_data.influxdb)
-        if runtime_data.influxdb.test_influxdb():
-            if cortical_area in runtime_data.genome['blueprint']:
-                if state and cortical_area not in runtime_data.neuron_mp_collection_scope:
-                    runtime_data.neuron_mp_collection_scope[cortical_area] = {}
-                elif not state and cortical_area in runtime_data.neuron_mp_collection_scope:
-                    runtime_data.neuron_mp_collection_scope.pop(cortical_area)
-                else:
-                    pass
-            response.status_code = status.HTTP_200_OK
-            return True
+        if runtime_data.influxdb:
+            influx_readiness = runtime_data.influxdb.test_influxdb()
+            if influx_readiness:
+                if cortical_area in runtime_data.genome['blueprint']:
+                    if state and cortical_area not in runtime_data.neuron_mp_collection_scope:
+                        runtime_data.neuron_mp_collection_scope[cortical_area] = {}
+                    elif not state and cortical_area in runtime_data.neuron_mp_collection_scope:
+                        runtime_data.neuron_mp_collection_scope.pop(cortical_area)
+                    else:
+                        pass
+                response.status_code = status.HTTP_200_OK
+                return True
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
             print("Error: InfluxDb is not setup to collect timeseries data!")
@@ -1266,19 +1321,20 @@ async def cortical_synaptic_potential_monitoring(cortical_area, response: Respon
 async def cortical_synaptic_potential_monitoring(cortical_area, state: bool, response: Response):
     print("Cortical synaptic potential monitoring flag", runtime_data.neuron_psp_collection_scope)
     try:
-        if runtime_data.influxdb.test_influxdb():
-            if cortical_area in runtime_data.genome['blueprint']:
-                if state and cortical_area not in runtime_data.neuron_psp_collection_scope:
-                    runtime_data.neuron_psp_collection_scope[cortical_area] = {}
-                elif not state and cortical_area in runtime_data.neuron_psp_collection_scope:
-                    runtime_data.neuron_psp_collection_scope.pop(cortical_area)
-                else:
-                    pass
-            response.status_code = status.HTTP_200_OK
-            return True
+        if runtime_data.influxdb:
+            if runtime_data.influxdb.test_influxdb():
+                if cortical_area in runtime_data.genome['blueprint']:
+                    if state and cortical_area not in runtime_data.neuron_psp_collection_scope:
+                        runtime_data.neuron_psp_collection_scope[cortical_area] = {}
+                    elif not state and cortical_area in runtime_data.neuron_psp_collection_scope:
+                        runtime_data.neuron_psp_collection_scope.pop(cortical_area)
+                    else:
+                        pass
+                response.status_code = status.HTTP_200_OK
+                return True
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
-            return False
+            return "Error: Timeseries database is not setup!"
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
@@ -1491,14 +1547,12 @@ async def gameover_signal(response: Response):
         print("API Error:", e)
 
 
-@app.api_route("/v1/feagi/training/gameover", methods=['GET'], tags=["Training"])
+@app.api_route("/v1/feagi/training/training_report", methods=['GET'], tags=["Training"])
 async def training_report():
     """
     Returns stats associated with training
     """
-    return {}
-
-
+    return runtime_data.training_stats
 
 
 # #########  Robot   ###########
@@ -1584,7 +1638,7 @@ async def connectome_cortical_areas(response: Response):
         print("API Error:", e)
 
 
-@app.api_route("/v1/feagi/connectome/cortical_info", methods=['POST'], tags=["Connectome"])
+@app.api_route("/v1/feagi/connectome/cortical_info", methods=['GET'], tags=["Connectome"])
 async def connectome_cortical_info(cortical_area: str, response: Response):
     try:
         if cortical_area in runtime_data.brain:
@@ -1705,6 +1759,7 @@ async def connectome_dimensions_report(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
+
 
 
 @app.api_route("/v1/feagi/connectome/stats/cortical/cumulative", methods=['GET'], tags=["Connectome"])
@@ -1964,6 +2019,8 @@ async def agent_registration(request: Request, agent_type: str, agent_id: str, a
             if agent_type == 'monitor':
                 agent_router_address = f"tcp://{request.client.host}:{agent_data_port}"
                 agent_info["listener"] = Sub(address=agent_router_address, bind=False)
+                print("Publication of brain activity turned on!")
+                runtime_data.brain_activity_pub = True
             else:
                 agent_data_port = assign_available_port()
                 agent_router_address = f"tcp://*:{agent_data_port}"
@@ -2017,6 +2074,11 @@ async def feagi_health_check(response: Response):
     health["genome_validity"] = runtime_data.genome_validity
     health["brain_readiness"] = runtime_data.brain_readiness
     return health
+
+
+@app.get("/v1/feagi/unique_logs", tags=["System"])
+async def unique_log_entries():
+    return runtime_data.logs
 
 
 @app.api_route("/v1/feagi/register", methods=['POST'], tags=["System"])

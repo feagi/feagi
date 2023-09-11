@@ -2,7 +2,7 @@
    "genome_id": "2022-07-10_21:53:10_961677_111111_G",
    "version": "2.0",
    "max_burst_count": 3,
-   "burst_delay": 1,
+   "burst_delay": 0.025,
    "max_age": 10000000,
    "evolution_burst_count": 50,
    "ipu_idle_threshold": 1000,
@@ -167,18 +167,20 @@
       },
       "to_block_[5, 7, 4]": {
          "parameters": {
-            "patterns": [[
+            "patterns": [
                [
-                  "*",
-                  "*",
-                  "*"
-               ],
-               [
-                  5,
-                  7,
-                  4
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     5,
+                     7,
+                     4
+                  ]
                ]
-            ]]
+            ]
          },
          "type": "patterns"
       },
@@ -918,6 +920,486 @@
                ]
             ]
          }
+      },
+      "intensity": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     0,
+                     0,
+                     "*"
+                  ]
+               ]
+            ]
+         }
+      },
+      "APT_low": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     7
+                  ],
+                  [
+                     0,
+                     0,
+                     8
+                  ]
+               ]
+            ]
+         }
+      },
+      "apt_high": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     2
+                  ],
+                  [
+                     0,
+                     0,
+                     2
+                  ]
+               ]
+            ]
+         }
+      },
+      "diagonal_proprio": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  1,
+                  1,
+                  0
+               ]
+            ]
+         }
+      },
+      "right_detect": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     7,
+                     "*",
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         }
+      },
+      "left_detect": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     "*",
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         }
+      },
+      "bbb3": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  -1,
+                  1,
+                  0
+               ]
+            ]
+         }
+      },
+      "ori_135_deg": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  1,
+                  -1,
+                  0
+               ],
+               [
+                  2,
+                  -2,
+                  0
+               ],
+               [
+                  3,
+                  -3,
+                  0
+               ],
+               [
+                  4,
+                  -4,
+                  0
+               ],
+               [
+                  5,
+                  -5,
+                  0
+               ]
+            ]
+         },
+         "type": "vectors"
+      },
+      "ori_115": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  1,
+                  -2,
+                  0
+               ],
+               [
+                  2,
+                  -4,
+                  0
+               ],
+               [
+                  3,
+                  -6,
+                  0
+               ],
+               [
+                  4,
+                  -9,
+                  0
+               ],
+               [
+                  5,
+                  -11,
+                  0
+               ]
+            ]
+         },
+         "type": "vectors"
+      },
+      "ori_0_deg": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  1,
+                  0,
+                  0
+               ],
+               [
+                  2,
+                  0,
+                  0
+               ],
+               [
+                  3,
+                  0,
+                  0
+               ],
+               [
+                  4,
+                  0,
+                  0
+               ]
+            ]
+         }
+      },
+      "ori_90_deg": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  0,
+                  1,
+                  0
+               ],
+               [
+                  0,
+                  2,
+                  0
+               ],
+               [
+                  0,
+                  3,
+                  0
+               ],
+               [
+                  0,
+                  4,
+                  0
+               ],
+               [
+                  0,
+                  5,
+                  0
+               ],
+               [
+                  0,
+                  6,
+                  0
+               ],
+               [
+                  0,
+                  7,
+                  0
+               ],
+               [
+                  0,
+                  8,
+                  0
+               ],
+               [
+                  0,
+                  9,
+                  0
+               ]
+            ]
+         }
+      },
+      "ori_45_deg": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  1,
+                  1,
+                  0
+               ],
+               [
+                  2,
+                  2,
+                  0
+               ],
+               [
+                  3,
+                  3,
+                  0
+               ],
+               [
+                  4,
+                  4,
+                  0
+               ],
+               [
+                  5,
+                  5,
+                  0
+               ],
+               [
+                  6,
+                  6,
+                  0
+               ],
+               [
+                  7,
+                  7,
+                  0
+               ],
+               [
+                  8,
+                  8,
+                  0
+               ]
+            ]
+         }
+      },
+      "ori_60_deg": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  1,
+                  1,
+                  0
+               ],
+               [
+                  1,
+                  2,
+                  0
+               ],
+               [
+                  2,
+                  3,
+                  0
+               ],
+               [
+                  2,
+                  4,
+                  0
+               ],
+               [
+                  3,
+                  5,
+                  0
+               ],
+               [
+                  3,
+                  6,
+                  0
+               ],
+               [
+                  4,
+                  7,
+                  0
+               ]
+            ]
+         }
+      },
+      "any_to_any": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "?",
+                     "?",
+                     "?"
+                  ],
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ]
+               ]
+            ]
+         }
+      },
+      "LED0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "LED0"
+      },
+      "LED1": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     1,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "LED1"
+      },
+      "LED2": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     2,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "LED2"
+      },
+      "LED3": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     3,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "LED3"
       }
    },
    "species": {
@@ -940,15 +1422,20 @@
       "_____10c-___pwr-cx-rcordx-i": 10,
       "_____10c-___pwr-cx-rcordy-i": 0,
       "_____10c-___pwr-cx-rcordz-i": -20,
+      "_____10c-___pwr-cx-2dcorx-i": null,
+      "_____10c-___pwr-cx-2dcory-i": null,
       "_____10c-___pwr-cx-gd_vis-b": true,
       "_____10c-___pwr-nx-pstcr_-f": 500,
       "_____10c-___pwr-nx-plst_c-f": 0.05,
       "_____10c-___pwr-nx-fire_t-f": 1,
       "_____10c-___pwr-nx-refrac-i": 0,
       "_____10c-___pwr-nx-leak_c-f": 10,
-      "_____10c-___pwr-nx-leak_v-f": null,
+      "_____10c-___pwr-nx-leak_v-f": 0,
       "_____10c-___pwr-nx-c_fr_c-i": 3,
       "_____10c-___pwr-nx-snooze-f": 0,
+      "_____10c-___pwr-nx-fthinc-f": 0,
+      "_____10c-___pwr-nx-fthlim-i": 0,
+      "_____10c-___pwr-nx-mp_acc-b": true,
       "_____10c-___pwr-cx-__name-t": "Brain_Power",
       "_____10c-___pwr-cx-_group-t": "IPU",
       "_____10c-_death-cx-_n_cnt-i": 1,
@@ -963,15 +1450,20 @@
       "_____10c-_death-cx-rcordx-i": 10,
       "_____10c-_death-cx-rcordy-i": 0,
       "_____10c-_death-cx-rcordz-i": -30,
+      "_____10c-_death-cx-2dcorx-i": null,
+      "_____10c-_death-cx-2dcory-i": null,
       "_____10c-_death-cx-gd_vis-b": true,
       "_____10c-_death-nx-pstcr_-f": 5,
       "_____10c-_death-nx-plst_c-f": 0.05,
       "_____10c-_death-nx-fire_t-f": 1,
       "_____10c-_death-nx-refrac-i": 0,
       "_____10c-_death-nx-leak_c-f": 10,
-      "_____10c-_death-nx-leak_v-f": null,
+      "_____10c-_death-nx-leak_v-f": 0,
       "_____10c-_death-nx-c_fr_c-i": 3,
       "_____10c-_death-nx-snooze-f": 0,
+      "_____10c-_death-nx-fthinc-f": 0,
+      "_____10c-_death-nx-fthlim-i": 0,
+      "_____10c-_death-nx-mp_acc-b": true,
       "_____10c-_death-cx-__name-t": "Brain_Death",
       "_____10c-_death-cx-_group-t": "IPU",
       "_____10c-i__inf-cx-_n_cnt-i": 1,
@@ -986,15 +1478,20 @@
       "_____10c-i__inf-cx-rcordx-i": 50,
       "_____10c-i__inf-cx-rcordy-i": 0,
       "_____10c-i__inf-cx-rcordz-i": -15,
+      "_____10c-i__inf-cx-2dcorx-i": null,
+      "_____10c-i__inf-cx-2dcory-i": null,
       "_____10c-i__inf-cx-gd_vis-b": true,
       "_____10c-i__inf-nx-pstcr_-f": 5,
       "_____10c-i__inf-nx-plst_c-f": 0.05,
       "_____10c-i__inf-nx-fire_t-f": 1,
       "_____10c-i__inf-nx-refrac-i": 0,
       "_____10c-i__inf-nx-leak_c-f": 10,
-      "_____10c-i__inf-nx-leak_v-f": null,
+      "_____10c-i__inf-nx-leak_v-f": 0,
       "_____10c-i__inf-nx-c_fr_c-i": 3,
       "_____10c-i__inf-nx-snooze-f": 0,
+      "_____10c-i__inf-nx-fthinc-f": 0,
+      "_____10c-i__inf-nx-fthlim-i": 0,
+      "_____10c-i__inf-nx-mp_acc-b": true,
       "_____10c-i__inf-cx-__name-t": "ir_ipu",
       "_____10c-i__inf-cx-_group-t": "IPU",
       "_____10c-ishock-cx-_n_cnt-i": 1,
@@ -1009,15 +1506,20 @@
       "_____10c-ishock-cx-rcordx-i": 80,
       "_____10c-ishock-cx-rcordy-i": 0,
       "_____10c-ishock-cx-rcordz-i": -30,
+      "_____10c-ishock-cx-2dcorx-i": null,
+      "_____10c-ishock-cx-2dcory-i": null,
       "_____10c-ishock-cx-gd_vis-b": true,
       "_____10c-ishock-nx-pstcr_-f": 5,
       "_____10c-ishock-nx-plst_c-f": 0.05,
       "_____10c-ishock-nx-fire_t-f": 1,
       "_____10c-ishock-nx-refrac-i": 0,
       "_____10c-ishock-nx-leak_c-f": 10,
-      "_____10c-ishock-nx-leak_v-f": null,
+      "_____10c-ishock-nx-leak_v-f": 0,
       "_____10c-ishock-nx-c_fr_c-i": 3,
       "_____10c-ishock-nx-snooze-f": 0,
+      "_____10c-ishock-nx-fthinc-f": 0,
+      "_____10c-ishock-nx-fthlim-i": 0,
+      "_____10c-ishock-nx-mp_acc-b": true,
       "_____10c-ishock-cx-__name-t": "shock_ipu",
       "_____10c-ishock-cx-_group-t": "IPU",
       "_____10c-ii_inf-cx-_n_cnt-i": 1,
@@ -1032,15 +1534,20 @@
       "_____10c-ii_inf-cx-rcordx-i": 60,
       "_____10c-ii_inf-cx-rcordy-i": 0,
       "_____10c-ii_inf-cx-rcordz-i": -15,
+      "_____10c-ii_inf-cx-2dcorx-i": null,
+      "_____10c-ii_inf-cx-2dcory-i": null,
       "_____10c-ii_inf-cx-gd_vis-b": true,
       "_____10c-ii_inf-nx-pstcr_-f": 5,
       "_____10c-ii_inf-nx-plst_c-f": 0.05,
       "_____10c-ii_inf-nx-fire_t-f": 1,
       "_____10c-ii_inf-nx-refrac-i": 0,
       "_____10c-ii_inf-nx-leak_c-f": 10,
-      "_____10c-ii_inf-nx-leak_v-f": null,
+      "_____10c-ii_inf-nx-leak_v-f": 0,
       "_____10c-ii_inf-nx-c_fr_c-i": 3,
       "_____10c-ii_inf-nx-snooze-f": 0,
+      "_____10c-ii_inf-nx-fthinc-f": 0,
+      "_____10c-ii_inf-nx-fthlim-i": 0,
+      "_____10c-ii_inf-nx-mp_acc-b": true,
       "_____10c-ii_inf-cx-__name-t": "inv_ir_ipu",
       "_____10c-ii_inf-cx-_group-t": "IPU",
       "_____10c-i__pro-cx-_n_cnt-i": 1,
@@ -1068,15 +1575,20 @@
       "_____10c-i__pro-cx-rcordx-i": 70,
       "_____10c-i__pro-cx-rcordy-i": 0,
       "_____10c-i__pro-cx-rcordz-i": -30,
+      "_____10c-i__pro-cx-2dcorx-i": null,
+      "_____10c-i__pro-cx-2dcory-i": null,
       "_____10c-i__pro-cx-gd_vis-b": true,
       "_____10c-i__pro-nx-pstcr_-f": 5,
       "_____10c-i__pro-nx-plst_c-f": 0.05,
       "_____10c-i__pro-nx-fire_t-f": 1,
       "_____10c-i__pro-nx-refrac-i": 0,
       "_____10c-i__pro-nx-leak_c-f": 10,
-      "_____10c-i__pro-nx-leak_v-f": null,
+      "_____10c-i__pro-nx-leak_v-f": 0,
       "_____10c-i__pro-nx-c_fr_c-i": 1,
       "_____10c-i__pro-nx-snooze-f": 0,
+      "_____10c-i__pro-nx-fthinc-f": 0,
+      "_____10c-i__pro-nx-fthlim-i": 0,
+      "_____10c-i__pro-nx-mp_acc-b": true,
       "_____10c-i__pro-cx-__name-t": "proximity_ipu",
       "_____10c-i__pro-cx-_group-t": "memory",
       "_____10c-t__pro-cx-_n_cnt-i": 1,
@@ -1104,17 +1616,20 @@
       "_____10c-t__pro-cx-rcordx-i": 60,
       "_____10c-t__pro-cx-rcordy-i": 0,
       "_____10c-t__pro-cx-rcordz-i": -30,
+      "_____10c-t__pro-cx-2dcorx-i": null,
+      "_____10c-t__pro-cx-2dcory-i": null,
       "_____10c-t__pro-cx-gd_vis-b": true,
       "_____10c-t__pro-nx-pstcr_-f": 5,
       "_____10c-t__pro-nx-plst_c-f": 0.05,
       "_____10c-t__pro-nx-fire_t-f": 2,
       "_____10c-t__pro-nx-refrac-i": 0,
       "_____10c-t__pro-nx-leak_c-f": 10,
-      "_____10c-t__pro-nx-leak_v-f": null,
+      "_____10c-t__pro-nx-leak_v-f": 0,
       "_____10c-t__pro-nx-c_fr_c-i": 1,
-      "_____10c-t__pro-nx-fthinc-f": 10,
-      "_____10c-t__pro-nx-mp_acc-b": true,
       "_____10c-t__pro-nx-snooze-f": 0,
+      "_____10c-t__pro-nx-fthinc-f": 0,
+      "_____10c-t__pro-nx-fthlim-i": 0,
+      "_____10c-t__pro-nx-mp_acc-b": true,
       "_____10c-t__pro-cx-__name-t": "proximity_thalamus",
       "_____10c-t__pro-cx-_group-t": "memory",
       "_____10c-i__bat-cx-_n_cnt-i": 1,
@@ -1129,15 +1644,20 @@
       "_____10c-i__bat-cx-rcordx-i": 90,
       "_____10c-i__bat-cx-rcordy-i": 0,
       "_____10c-i__bat-cx-rcordz-i": -30,
+      "_____10c-i__bat-cx-2dcorx-i": null,
+      "_____10c-i__bat-cx-2dcory-i": null,
       "_____10c-i__bat-cx-gd_vis-b": true,
       "_____10c-i__bat-nx-pstcr_-f": 5,
       "_____10c-i__bat-nx-plst_c-f": 0.05,
       "_____10c-i__bat-nx-fire_t-f": 1,
       "_____10c-i__bat-nx-refrac-i": 0,
       "_____10c-i__bat-nx-leak_c-f": 0,
-      "_____10c-i__bat-nx-leak_v-f": null,
+      "_____10c-i__bat-nx-leak_v-f": 0,
       "_____10c-i__bat-nx-c_fr_c-i": 3,
       "_____10c-i__bat-nx-snooze-f": 0,
+      "_____10c-i__bat-nx-fthinc-f": 0,
+      "_____10c-i__bat-nx-fthlim-i": 0,
+      "_____10c-i__bat-nx-mp_acc-b": true,
       "_____10c-i__bat-cx-__name-t": "battery_ipu",
       "_____10c-i__bat-cx-_group-t": "IPU",
       "_____10c-o__bat-cx-_n_cnt-i": 1,
@@ -1152,15 +1672,20 @@
       "_____10c-o__bat-cx-rcordx-i": 135,
       "_____10c-o__bat-cx-rcordy-i": 0,
       "_____10c-o__bat-cx-rcordz-i": -30,
+      "_____10c-o__bat-cx-2dcorx-i": null,
+      "_____10c-o__bat-cx-2dcory-i": null,
       "_____10c-o__bat-cx-gd_vis-b": true,
       "_____10c-o__bat-nx-pstcr_-f": 5,
       "_____10c-o__bat-nx-plst_c-f": 0.05,
       "_____10c-o__bat-nx-fire_t-f": 1,
       "_____10c-o__bat-nx-refrac-i": 0,
       "_____10c-o__bat-nx-leak_c-f": 0,
-      "_____10c-o__bat-nx-leak_v-f": null,
+      "_____10c-o__bat-nx-leak_v-f": 0,
       "_____10c-o__bat-nx-c_fr_c-i": 3,
       "_____10c-o__bat-nx-snooze-f": 0,
+      "_____10c-o__bat-nx-fthinc-f": 0,
+      "_____10c-o__bat-nx-fthlim-i": 0,
+      "_____10c-o__bat-nx-mp_acc-b": true,
       "_____10c-o__bat-cx-__name-t": "battery_opu",
       "_____10c-o__bat-cx-_group-t": "OPU",
       "_____10c-o_init-cx-_n_cnt-i": 1,
@@ -1175,15 +1700,20 @@
       "_____10c-o_init-cx-rcordx-i": 125,
       "_____10c-o_init-cx-rcordy-i": 0,
       "_____10c-o_init-cx-rcordz-i": -15,
+      "_____10c-o_init-cx-2dcorx-i": null,
+      "_____10c-o_init-cx-2dcory-i": null,
       "_____10c-o_init-cx-gd_vis-b": true,
       "_____10c-o_init-nx-pstcr_-f": 5,
       "_____10c-o_init-nx-plst_c-f": 0.05,
       "_____10c-o_init-nx-fire_t-f": 1,
       "_____10c-o_init-nx-refrac-i": 0,
       "_____10c-o_init-nx-leak_c-f": 0,
-      "_____10c-o_init-nx-leak_v-f": null,
+      "_____10c-o_init-nx-leak_v-f": 0,
       "_____10c-o_init-nx-c_fr_c-i": 3,
       "_____10c-o_init-nx-snooze-f": 0,
+      "_____10c-o_init-nx-fthinc-f": 0,
+      "_____10c-o_init-nx-fthlim-i": 0,
+      "_____10c-o_init-nx-mp_acc-b": true,
       "_____10c-o_init-cx-__name-t": "position_init_opu",
       "_____10c-o_init-cx-_group-t": "OPU",
       "_____10c-o__mot-cx-_n_cnt-i": 1,
@@ -1198,38 +1728,48 @@
       "_____10c-o__mot-cx-rcordx-i": 110,
       "_____10c-o__mot-cx-rcordy-i": 0,
       "_____10c-o__mot-cx-rcordz-i": -30,
+      "_____10c-o__mot-cx-2dcorx-i": null,
+      "_____10c-o__mot-cx-2dcory-i": null,
       "_____10c-o__mot-cx-gd_vis-b": true,
       "_____10c-o__mot-nx-pstcr_-f": 6,
       "_____10c-o__mot-nx-plst_c-f": 0.05,
       "_____10c-o__mot-nx-fire_t-f": 1,
       "_____10c-o__mot-nx-refrac-i": 0,
       "_____10c-o__mot-nx-leak_c-f": 0,
-      "_____10c-o__mot-nx-leak_v-f": null,
+      "_____10c-o__mot-nx-leak_v-f": 0,
       "_____10c-o__mot-nx-c_fr_c-i": 3,
       "_____10c-o__mot-nx-snooze-f": 0,
+      "_____10c-o__mot-nx-fthinc-f": 0,
+      "_____10c-o__mot-nx-fthlim-i": 0,
+      "_____10c-o__mot-nx-mp_acc-b": true,
       "_____10c-o__mot-cx-__name-t": "motor_opu",
       "_____10c-o__mot-cx-_group-t": "OPU",
       "_____10c-o_aptr-cx-_n_cnt-i": 1,
       "_____10c-o_aptr-cx-synatt-i": 100,
-      "_____10c-o_aptr-cx-de_gen-f": 0,
+      "_____10c-o_aptr-cx-de_gen-f": 0.0,
       "_____10c-o_aptr-cx-pspuni-b": false,
-      "_____10c-o_aptr-nx-pstcrm-f": 35,
+      "_____10c-o_aptr-nx-pstcrm-f": 35.0,
       "_____10c-o_aptr-cx-dstmap-d": {},
       "_____10c-o_aptr-cx-___bbx-i": 1,
       "_____10c-o_aptr-cx-___bby-i": 1,
       "_____10c-o_aptr-cx-___bbz-i": 10,
-      "_____10c-o_aptr-cx-rcordx-i": 40,
-      "_____10c-o_aptr-cx-rcordy-i": 20,
-      "_____10c-o_aptr-cx-rcordz-i": -30,
+      "_____10c-o_aptr-cx-rcordx-i": 55,
+      "_____10c-o_aptr-cx-rcordy-i": 42,
+      "_____10c-o_aptr-cx-rcordz-i": -64,
+      "_____10c-o_aptr-cx-2dcorx-i": null,
+      "_____10c-o_aptr-cx-2dcory-i": null,
       "_____10c-o_aptr-cx-gd_vis-b": true,
-      "_____10c-o_aptr-nx-pstcr_-f": 6,
+      "_____10c-o_aptr-nx-pstcr_-f": 6.0,
       "_____10c-o_aptr-nx-plst_c-f": 0.05,
-      "_____10c-o_aptr-nx-fire_t-f": 1,
+      "_____10c-o_aptr-nx-fire_t-f": 1.0,
       "_____10c-o_aptr-nx-refrac-i": 0,
       "_____10c-o_aptr-nx-leak_c-f": 0,
-      "_____10c-o_aptr-nx-leak_v-f": null,
+      "_____10c-o_aptr-nx-leak_v-f": 0,
       "_____10c-o_aptr-nx-c_fr_c-i": 3,
       "_____10c-o_aptr-nx-snooze-f": 0,
+      "_____10c-o_aptr-nx-fthinc-f": 0,
+      "_____10c-o_aptr-nx-fthlim-i": 0,
+      "_____10c-o_aptr-nx-mp_acc-b": true,
       "_____10c-o_aptr-cx-__name-t": "aperture_opu",
       "_____10c-o_aptr-cx-_group-t": "OPU",
       "_____10c-o_misc-cx-_n_cnt-i": 1,
@@ -1244,15 +1784,20 @@
       "_____10c-o_misc-cx-rcordx-i": 125,
       "_____10c-o_misc-cx-rcordy-i": 0,
       "_____10c-o_misc-cx-rcordz-i": -10,
+      "_____10c-o_misc-cx-2dcorx-i": null,
+      "_____10c-o_misc-cx-2dcory-i": null,
       "_____10c-o_misc-cx-gd_vis-b": true,
       "_____10c-o_misc-nx-pstcr_-f": 6,
       "_____10c-o_misc-nx-plst_c-f": 0.05,
       "_____10c-o_misc-nx-fire_t-f": 1,
       "_____10c-o_misc-nx-refrac-i": 0,
       "_____10c-o_misc-nx-leak_c-f": 0,
-      "_____10c-o_misc-nx-leak_v-f": null,
+      "_____10c-o_misc-nx-leak_v-f": 0,
       "_____10c-o_misc-nx-c_fr_c-i": 3,
       "_____10c-o_misc-nx-snooze-f": 0,
+      "_____10c-o_misc-nx-fthinc-f": 0,
+      "_____10c-o_misc-nx-fthlim-i": 0,
+      "_____10c-o_misc-nx-mp_acc-b": true,
       "_____10c-o_misc-cx-__name-t": "misc_opu",
       "_____10c-o_misc-cx-_group-t": "OPU",
       "_____10c-o__nav-cx-_n_cnt-i": 1,
@@ -1267,15 +1812,20 @@
       "_____10c-o__nav-cx-rcordx-i": 110,
       "_____10c-o__nav-cx-rcordy-i": 0,
       "_____10c-o__nav-cx-rcordz-i": -15,
+      "_____10c-o__nav-cx-2dcorx-i": null,
+      "_____10c-o__nav-cx-2dcory-i": null,
       "_____10c-o__nav-cx-gd_vis-b": true,
       "_____10c-o__nav-nx-pstcr_-f": 6,
       "_____10c-o__nav-nx-plst_c-f": 0.05,
       "_____10c-o__nav-nx-fire_t-f": 1,
       "_____10c-o__nav-nx-refrac-i": 0,
       "_____10c-o__nav-nx-leak_c-f": 0,
-      "_____10c-o__nav-nx-leak_v-f": null,
+      "_____10c-o__nav-nx-leak_v-f": 0,
       "_____10c-o__nav-nx-c_fr_c-i": 3,
       "_____10c-o__nav-nx-snooze-f": 0,
+      "_____10c-o__nav-nx-fthinc-f": 0,
+      "_____10c-o__nav-nx-fthlim-i": 0,
+      "_____10c-o__nav-nx-mp_acc-b": true,
       "_____10c-o__nav-cx-__name-t": "navigate_opu",
       "_____10c-o__nav-cx-_group-t": "OPU",
       "_____10c-o__spd-cx-_n_cnt-i": 1,
@@ -1290,15 +1840,20 @@
       "_____10c-o__spd-cx-rcordx-i": 115,
       "_____10c-o__spd-cx-rcordy-i": 0,
       "_____10c-o__spd-cx-rcordz-i": -10,
+      "_____10c-o__spd-cx-2dcorx-i": null,
+      "_____10c-o__spd-cx-2dcory-i": null,
       "_____10c-o__spd-cx-gd_vis-b": true,
       "_____10c-o__spd-nx-pstcr_-f": 6,
       "_____10c-o__spd-nx-plst_c-f": 0.05,
       "_____10c-o__spd-nx-fire_t-f": 1,
       "_____10c-o__spd-nx-refrac-i": 0,
       "_____10c-o__spd-nx-leak_c-f": 0,
-      "_____10c-o__spd-nx-leak_v-f": null,
+      "_____10c-o__spd-nx-leak_v-f": 0,
       "_____10c-o__spd-nx-c_fr_c-i": 3,
       "_____10c-o__spd-nx-snooze-f": 0,
+      "_____10c-o__spd-nx-fthinc-f": 0,
+      "_____10c-o__spd-nx-fthlim-i": 0,
+      "_____10c-o__spd-nx-mp_acc-b": true,
       "_____10c-o__spd-cx-__name-t": "speed",
       "_____10c-o__spd-cx-_group-t": "OPU",
       "_____10c-o__ser-cx-_n_cnt-i": 1,
@@ -1313,15 +1868,20 @@
       "_____10c-o__ser-cx-rcordx-i": 125,
       "_____10c-o__ser-cx-rcordy-i": 0,
       "_____10c-o__ser-cx-rcordz-i": -30,
+      "_____10c-o__ser-cx-2dcorx-i": null,
+      "_____10c-o__ser-cx-2dcory-i": null,
       "_____10c-o__ser-cx-gd_vis-b": true,
       "_____10c-o__ser-nx-pstcr_-f": 3,
       "_____10c-o__ser-nx-plst_c-f": 0.05,
       "_____10c-o__ser-nx-fire_t-f": 1,
       "_____10c-o__ser-nx-refrac-i": 0,
       "_____10c-o__ser-nx-leak_c-f": 0,
-      "_____10c-o__ser-nx-leak_v-f": null,
+      "_____10c-o__ser-nx-leak_v-f": 0,
       "_____10c-o__ser-nx-c_fr_c-i": 3,
       "_____10c-o__ser-nx-snooze-f": 0,
+      "_____10c-o__ser-nx-fthinc-f": 0,
+      "_____10c-o__ser-nx-fthlim-i": 0,
+      "_____10c-o__ser-nx-mp_acc-b": true,
       "_____10c-o__ser-cx-__name-t": "servo_opu",
       "_____10c-o__ser-cx-_group-t": "OPU",
       "_____10c-m__lef-cx-_n_cnt-i": 1,
@@ -1389,15 +1949,20 @@
       "_____10c-m__lef-cx-rcordx-i": 53,
       "_____10c-m__lef-cx-rcordy-i": 0,
       "_____10c-m__lef-cx-rcordz-i": 5,
+      "_____10c-m__lef-cx-2dcorx-i": null,
+      "_____10c-m__lef-cx-2dcory-i": null,
       "_____10c-m__lef-cx-gd_vis-b": true,
       "_____10c-m__lef-nx-pstcr_-f": 5,
       "_____10c-m__lef-nx-plst_c-f": 0.05,
       "_____10c-m__lef-nx-fire_t-f": 1,
       "_____10c-m__lef-nx-refrac-i": 0,
       "_____10c-m__lef-nx-leak_c-f": 10,
-      "_____10c-m__lef-nx-leak_v-f": null,
+      "_____10c-m__lef-nx-leak_v-f": 0,
       "_____10c-m__lef-nx-c_fr_c-i": 3,
       "_____10c-m__lef-nx-snooze-f": 0,
+      "_____10c-m__lef-nx-fthinc-f": 0,
+      "_____10c-m__lef-nx-fthlim-i": 0,
+      "_____10c-m__lef-nx-mp_acc-b": true,
       "_____10c-m__lef-cx-__name-t": "turn_left",
       "_____10c-m__lef-cx-_group-t": "OPU",
       "_____10c-m__rig-cx-_n_cnt-i": 1,
@@ -1465,15 +2030,20 @@
       "_____10c-m__rig-cx-rcordx-i": 62,
       "_____10c-m__rig-cx-rcordy-i": 0,
       "_____10c-m__rig-cx-rcordz-i": 5,
+      "_____10c-m__rig-cx-2dcorx-i": null,
+      "_____10c-m__rig-cx-2dcory-i": null,
       "_____10c-m__rig-cx-gd_vis-b": true,
       "_____10c-m__rig-nx-pstcr_-f": 5,
       "_____10c-m__rig-nx-plst_c-f": 0.05,
       "_____10c-m__rig-nx-fire_t-f": 1,
       "_____10c-m__rig-nx-refrac-i": 0,
       "_____10c-m__rig-nx-leak_c-f": 10,
-      "_____10c-m__rig-nx-leak_v-f": null,
+      "_____10c-m__rig-nx-leak_v-f": 0,
       "_____10c-m__rig-nx-c_fr_c-i": 3,
       "_____10c-m__rig-nx-snooze-f": 0,
+      "_____10c-m__rig-nx-fthinc-f": 0,
+      "_____10c-m__rig-nx-fthlim-i": 0,
+      "_____10c-m__rig-nx-mp_acc-b": true,
       "_____10c-m__rig-cx-__name-t": "turn_right",
       "_____10c-m__rig-cx-_group-t": "OPU",
       "_____10c-m__for-cx-_n_cnt-i": 1,
@@ -1501,15 +2071,20 @@
       "_____10c-m__for-cx-rcordx-i": 60,
       "_____10c-m__for-cx-rcordy-i": 0,
       "_____10c-m__for-cx-rcordz-i": 0,
+      "_____10c-m__for-cx-2dcorx-i": null,
+      "_____10c-m__for-cx-2dcory-i": null,
       "_____10c-m__for-cx-gd_vis-b": true,
       "_____10c-m__for-nx-pstcr_-f": 5,
       "_____10c-m__for-nx-plst_c-f": 0.05,
       "_____10c-m__for-nx-fire_t-f": 1,
       "_____10c-m__for-nx-refrac-i": 0,
       "_____10c-m__for-nx-leak_c-f": 10,
-      "_____10c-m__for-nx-leak_v-f": null,
+      "_____10c-m__for-nx-leak_v-f": 0,
       "_____10c-m__for-nx-c_fr_c-i": 3,
       "_____10c-m__for-nx-snooze-f": 0,
+      "_____10c-m__for-nx-fthinc-f": 0,
+      "_____10c-m__for-nx-fthlim-i": 0,
+      "_____10c-m__for-nx-mp_acc-b": true,
       "_____10c-m__for-cx-__name-t": "forward",
       "_____10c-m__for-cx-_group-t": "OPU",
       "_____10c-m__bac-cx-_n_cnt-i": 1,
@@ -1537,15 +2112,20 @@
       "_____10c-m__bac-cx-rcordx-i": 60,
       "_____10c-m__bac-cx-rcordy-i": 0,
       "_____10c-m__bac-cx-rcordz-i": 10,
+      "_____10c-m__bac-cx-2dcorx-i": null,
+      "_____10c-m__bac-cx-2dcory-i": null,
       "_____10c-m__bac-cx-gd_vis-b": true,
       "_____10c-m__bac-nx-pstcr_-f": 5,
       "_____10c-m__bac-nx-plst_c-f": 0.05,
       "_____10c-m__bac-nx-fire_t-f": 1,
       "_____10c-m__bac-nx-refrac-i": 0,
       "_____10c-m__bac-nx-leak_c-f": 10,
-      "_____10c-m__bac-nx-leak_v-f": null,
+      "_____10c-m__bac-nx-leak_v-f": 0,
       "_____10c-m__bac-nx-c_fr_c-i": 3,
       "_____10c-m__bac-nx-snooze-f": 0,
+      "_____10c-m__bac-nx-fthinc-f": 0,
+      "_____10c-m__bac-nx-fthlim-i": 0,
+      "_____10c-m__bac-nx-mp_acc-b": true,
       "_____10c-m__bac-cx-__name-t": "backward",
       "_____10c-m__bac-cx-_group-t": "OPU",
       "_____10c-i__gyr-cx-_n_cnt-i": 1,
@@ -1560,15 +2140,20 @@
       "_____10c-i__gyr-cx-rcordx-i": 50,
       "_____10c-i__gyr-cx-rcordy-i": 0,
       "_____10c-i__gyr-cx-rcordz-i": -30,
+      "_____10c-i__gyr-cx-2dcorx-i": null,
+      "_____10c-i__gyr-cx-2dcory-i": null,
       "_____10c-i__gyr-cx-gd_vis-b": true,
       "_____10c-i__gyr-nx-pstcr_-f": 5,
       "_____10c-i__gyr-nx-plst_c-f": 0.05,
       "_____10c-i__gyr-nx-fire_t-f": 1,
       "_____10c-i__gyr-nx-refrac-i": 0,
       "_____10c-i__gyr-nx-leak_c-f": 0,
-      "_____10c-i__gyr-nx-leak_v-f": null,
+      "_____10c-i__gyr-nx-leak_v-f": 0,
       "_____10c-i__gyr-nx-c_fr_c-i": 3,
       "_____10c-i__gyr-nx-snooze-f": 0,
+      "_____10c-i__gyr-nx-fthinc-f": 0,
+      "_____10c-i__gyr-nx-fthlim-i": 0,
+      "_____10c-i__gyr-nx-mp_acc-b": true,
       "_____10c-i__gyr-cx-__name-t": "gyroscope_ipu",
       "_____10c-i__gyr-cx-_group-t": "IPU",
       "_____10c-i__vis-cx-_n_cnt-i": 1,
@@ -1583,22 +2168,27 @@
       "_____10c-i__vis-cx-rcordx-i": 50,
       "_____10c-i__vis-cx-rcordy-i": 20,
       "_____10c-i__vis-cx-rcordz-i": -30,
+      "_____10c-i__vis-cx-2dcorx-i": null,
+      "_____10c-i__vis-cx-2dcory-i": null,
       "_____10c-i__vis-cx-gd_vis-b": true,
       "_____10c-i__vis-nx-pstcr_-f": 5,
       "_____10c-i__vis-nx-plst_c-f": 0.05,
       "_____10c-i__vis-nx-fire_t-f": 1,
       "_____10c-i__vis-nx-refrac-i": 0,
       "_____10c-i__vis-nx-leak_c-f": 0,
-      "_____10c-i__vis-nx-leak_v-f": null,
+      "_____10c-i__vis-nx-leak_v-f": 0,
       "_____10c-i__vis-nx-c_fr_c-i": 3,
       "_____10c-i__vis-nx-snooze-f": 0,
+      "_____10c-i__vis-nx-fthinc-f": 0,
+      "_____10c-i__vis-nx-fthlim-i": 0,
+      "_____10c-i__vis-nx-mp_acc-b": true,
       "_____10c-i__vis-cx-__name-t": "vision_ipu",
       "_____10c-i__vis-cx-_group-t": "IPU",
       "_____10c-i__v0C-cx-_n_cnt-i": 1,
       "_____10c-i__v0C-cx-synatt-i": 100,
-      "_____10c-i__v0C-cx-de_gen-f": 0,
+      "_____10c-i__v0C-cx-de_gen-f": 0.0,
       "_____10c-i__v0C-cx-pspuni-b": false,
-      "_____10c-i__v0C-nx-pstcrm-f": 35,
+      "_____10c-i__v0C-nx-pstcrm-f": 100.0,
       "_____10c-i__v0C-cx-dstmap-d": {},
       "_____10c-i__v0C-cx-___bbx-i": 64,
       "_____10c-i__v0C-cx-___bby-i": 64,
@@ -1606,15 +2196,20 @@
       "_____10c-i__v0C-cx-rcordx-i": 30,
       "_____10c-i__v0C-cx-rcordy-i": 40,
       "_____10c-i__v0C-cx-rcordz-i": -20,
+      "_____10c-i__v0C-cx-2dcorx-i": null,
+      "_____10c-i__v0C-cx-2dcory-i": null,
       "_____10c-i__v0C-cx-gd_vis-b": true,
-      "_____10c-i__v0C-nx-pstcr_-f": 5,
+      "_____10c-i__v0C-nx-pstcr_-f": 25.0,
       "_____10c-i__v0C-nx-plst_c-f": 0.05,
-      "_____10c-i__v0C-nx-fire_t-f": 1,
+      "_____10c-i__v0C-nx-fire_t-f": 1.0,
       "_____10c-i__v0C-nx-refrac-i": 0,
       "_____10c-i__v0C-nx-leak_c-f": 0,
-      "_____10c-i__v0C-nx-leak_v-f": null,
+      "_____10c-i__v0C-nx-leak_v-f": 0,
       "_____10c-i__v0C-nx-c_fr_c-i": 3,
       "_____10c-i__v0C-nx-snooze-f": 0,
+      "_____10c-i__v0C-nx-fthinc-f": 0,
+      "_____10c-i__v0C-nx-fthlim-i": 0,
+      "_____10c-i__v0C-nx-mp_acc-b": true,
       "_____10c-i__v0C-cx-__name-t": "vision_C",
       "_____10c-i__v0C-cx-_group-t": "IPU",
       "_____10c-i_v0LL-cx-_n_cnt-i": 1,
@@ -1629,15 +2224,20 @@
       "_____10c-i_v0LL-cx-rcordx-i": 20,
       "_____10c-i_v0LL-cx-rcordy-i": 30,
       "_____10c-i_v0LL-cx-rcordz-i": -20,
+      "_____10c-i_v0LL-cx-2dcorx-i": null,
+      "_____10c-i_v0LL-cx-2dcory-i": null,
       "_____10c-i_v0LL-cx-gd_vis-b": true,
       "_____10c-i_v0LL-nx-pstcr_-f": 5,
       "_____10c-i_v0LL-nx-plst_c-f": 0.05,
       "_____10c-i_v0LL-nx-fire_t-f": 1,
       "_____10c-i_v0LL-nx-refrac-i": 0,
       "_____10c-i_v0LL-nx-leak_c-f": 0,
-      "_____10c-i_v0LL-nx-leak_v-f": null,
+      "_____10c-i_v0LL-nx-leak_v-f": 0,
       "_____10c-i_v0LL-nx-c_fr_c-i": 3,
       "_____10c-i_v0LL-nx-snooze-f": 0,
+      "_____10c-i_v0LL-nx-fthinc-f": 0,
+      "_____10c-i_v0LL-nx-fthlim-i": 0,
+      "_____10c-i_v0LL-nx-mp_acc-b": true,
       "_____10c-i_v0LL-cx-__name-t": "vision_LL",
       "_____10c-i_v0LL-cx-_group-t": "IPU",
       "_____10c-i_v0LM-cx-_n_cnt-i": 1,
@@ -1652,15 +2252,20 @@
       "_____10c-i_v0LM-cx-rcordx-i": 55,
       "_____10c-i_v0LM-cx-rcordy-i": 30,
       "_____10c-i_v0LM-cx-rcordz-i": -20,
+      "_____10c-i_v0LM-cx-2dcorx-i": null,
+      "_____10c-i_v0LM-cx-2dcory-i": null,
       "_____10c-i_v0LM-cx-gd_vis-b": true,
       "_____10c-i_v0LM-nx-pstcr_-f": 5,
       "_____10c-i_v0LM-nx-plst_c-f": 0.05,
       "_____10c-i_v0LM-nx-fire_t-f": 1,
       "_____10c-i_v0LM-nx-refrac-i": 0,
       "_____10c-i_v0LM-nx-leak_c-f": 0,
-      "_____10c-i_v0LM-nx-leak_v-f": null,
+      "_____10c-i_v0LM-nx-leak_v-f": 0,
       "_____10c-i_v0LM-nx-c_fr_c-i": 3,
       "_____10c-i_v0LM-nx-snooze-f": 0,
+      "_____10c-i_v0LM-nx-fthinc-f": 0,
+      "_____10c-i_v0LM-nx-fthlim-i": 0,
+      "_____10c-i_v0LM-nx-mp_acc-b": true,
       "_____10c-i_v0LM-cx-__name-t": "vision_LM",
       "_____10c-i_v0LM-cx-_group-t": "IPU",
       "_____10c-i_v0LR-cx-_n_cnt-i": 1,
@@ -1675,15 +2280,20 @@
       "_____10c-i_v0LR-cx-rcordx-i": 95,
       "_____10c-i_v0LR-cx-rcordy-i": 30,
       "_____10c-i_v0LR-cx-rcordz-i": -20,
+      "_____10c-i_v0LR-cx-2dcorx-i": null,
+      "_____10c-i_v0LR-cx-2dcory-i": null,
       "_____10c-i_v0LR-cx-gd_vis-b": true,
       "_____10c-i_v0LR-nx-pstcr_-f": 5,
       "_____10c-i_v0LR-nx-plst_c-f": 0.05,
       "_____10c-i_v0LR-nx-fire_t-f": 1,
       "_____10c-i_v0LR-nx-refrac-i": 0,
       "_____10c-i_v0LR-nx-leak_c-f": 0,
-      "_____10c-i_v0LR-nx-leak_v-f": null,
+      "_____10c-i_v0LR-nx-leak_v-f": 0,
       "_____10c-i_v0LR-nx-c_fr_c-i": 3,
       "_____10c-i_v0LR-nx-snooze-f": 0,
+      "_____10c-i_v0LR-nx-fthinc-f": 0,
+      "_____10c-i_v0LR-nx-fthlim-i": 0,
+      "_____10c-i_v0LR-nx-mp_acc-b": true,
       "_____10c-i_v0LR-cx-__name-t": "vision_LR",
       "_____10c-i_v0LR-cx-_group-t": "IPU",
       "_____10c-i_v0ML-cx-_n_cnt-i": 1,
@@ -1698,15 +2308,20 @@
       "_____10c-i_v0ML-cx-rcordx-i": 20,
       "_____10c-i_v0ML-cx-rcordy-i": 70,
       "_____10c-i_v0ML-cx-rcordz-i": -20,
+      "_____10c-i_v0ML-cx-2dcorx-i": null,
+      "_____10c-i_v0ML-cx-2dcory-i": null,
       "_____10c-i_v0ML-cx-gd_vis-b": true,
       "_____10c-i_v0ML-nx-pstcr_-f": 5,
       "_____10c-i_v0ML-nx-plst_c-f": 0.05,
       "_____10c-i_v0ML-nx-fire_t-f": 1,
       "_____10c-i_v0ML-nx-refrac-i": 0,
       "_____10c-i_v0ML-nx-leak_c-f": 0,
-      "_____10c-i_v0ML-nx-leak_v-f": null,
+      "_____10c-i_v0ML-nx-leak_v-f": 0,
       "_____10c-i_v0ML-nx-c_fr_c-i": 3,
       "_____10c-i_v0ML-nx-snooze-f": 0,
+      "_____10c-i_v0ML-nx-fthinc-f": 0,
+      "_____10c-i_v0ML-nx-fthlim-i": 0,
+      "_____10c-i_v0ML-nx-mp_acc-b": true,
       "_____10c-i_v0ML-cx-__name-t": "vision_ML",
       "_____10c-i_v0ML-cx-_group-t": "IPU",
       "_____10c-i_v0MR-cx-_n_cnt-i": 1,
@@ -1721,15 +2336,20 @@
       "_____10c-i_v0MR-cx-rcordx-i": 95,
       "_____10c-i_v0MR-cx-rcordy-i": 70,
       "_____10c-i_v0MR-cx-rcordz-i": -20,
+      "_____10c-i_v0MR-cx-2dcorx-i": null,
+      "_____10c-i_v0MR-cx-2dcory-i": null,
       "_____10c-i_v0MR-cx-gd_vis-b": true,
       "_____10c-i_v0MR-nx-pstcr_-f": 5,
       "_____10c-i_v0MR-nx-plst_c-f": 0.05,
       "_____10c-i_v0MR-nx-fire_t-f": 1,
       "_____10c-i_v0MR-nx-refrac-i": 0,
       "_____10c-i_v0MR-nx-leak_c-f": 0,
-      "_____10c-i_v0MR-nx-leak_v-f": null,
+      "_____10c-i_v0MR-nx-leak_v-f": 0,
       "_____10c-i_v0MR-nx-c_fr_c-i": 3,
       "_____10c-i_v0MR-nx-snooze-f": 0,
+      "_____10c-i_v0MR-nx-fthinc-f": 0,
+      "_____10c-i_v0MR-nx-fthlim-i": 0,
+      "_____10c-i_v0MR-nx-mp_acc-b": true,
       "_____10c-i_v0MR-cx-__name-t": "vision_MR",
       "_____10c-i_v0MR-cx-_group-t": "IPU",
       "_____10c-i_v0TL-cx-_n_cnt-i": 1,
@@ -1744,15 +2364,20 @@
       "_____10c-i_v0TL-cx-rcordx-i": 20,
       "_____10c-i_v0TL-cx-rcordy-i": 105,
       "_____10c-i_v0TL-cx-rcordz-i": -20,
+      "_____10c-i_v0TL-cx-2dcorx-i": null,
+      "_____10c-i_v0TL-cx-2dcory-i": null,
       "_____10c-i_v0TL-cx-gd_vis-b": true,
       "_____10c-i_v0TL-nx-pstcr_-f": 5,
       "_____10c-i_v0TL-nx-plst_c-f": 0.05,
       "_____10c-i_v0TL-nx-fire_t-f": 1,
       "_____10c-i_v0TL-nx-refrac-i": 0,
       "_____10c-i_v0TL-nx-leak_c-f": 0,
-      "_____10c-i_v0TL-nx-leak_v-f": null,
+      "_____10c-i_v0TL-nx-leak_v-f": 0,
       "_____10c-i_v0TL-nx-c_fr_c-i": 3,
       "_____10c-i_v0TL-nx-snooze-f": 0,
+      "_____10c-i_v0TL-nx-fthinc-f": 0,
+      "_____10c-i_v0TL-nx-fthlim-i": 0,
+      "_____10c-i_v0TL-nx-mp_acc-b": true,
       "_____10c-i_v0TL-cx-__name-t": "vision_TL",
       "_____10c-i_v0TL-cx-_group-t": "IPU",
       "_____10c-i_v0TR-cx-_n_cnt-i": 1,
@@ -1767,15 +2392,20 @@
       "_____10c-i_v0TR-cx-rcordx-i": 95,
       "_____10c-i_v0TR-cx-rcordy-i": 105,
       "_____10c-i_v0TR-cx-rcordz-i": -20,
+      "_____10c-i_v0TR-cx-2dcorx-i": null,
+      "_____10c-i_v0TR-cx-2dcory-i": null,
       "_____10c-i_v0TR-cx-gd_vis-b": true,
       "_____10c-i_v0TR-nx-pstcr_-f": 5,
       "_____10c-i_v0TR-nx-plst_c-f": 0.05,
       "_____10c-i_v0TR-nx-fire_t-f": 1,
       "_____10c-i_v0TR-nx-refrac-i": 0,
       "_____10c-i_v0TR-nx-leak_c-f": 0,
-      "_____10c-i_v0TR-nx-leak_v-f": null,
+      "_____10c-i_v0TR-nx-leak_v-f": 0,
       "_____10c-i_v0TR-nx-c_fr_c-i": 3,
       "_____10c-i_v0TR-nx-snooze-f": 0,
+      "_____10c-i_v0TR-nx-fthinc-f": 0,
+      "_____10c-i_v0TR-nx-fthlim-i": 0,
+      "_____10c-i_v0TR-nx-mp_acc-b": true,
       "_____10c-i_v0TR-cx-__name-t": "vision_TR",
       "_____10c-i_v0TR-cx-_group-t": "IPU",
       "_____10c-i_v0TM-cx-_n_cnt-i": 1,
@@ -1790,15 +2420,20 @@
       "_____10c-i_v0TM-cx-rcordx-i": 55,
       "_____10c-i_v0TM-cx-rcordy-i": 105,
       "_____10c-i_v0TM-cx-rcordz-i": -20,
+      "_____10c-i_v0TM-cx-2dcorx-i": null,
+      "_____10c-i_v0TM-cx-2dcory-i": null,
       "_____10c-i_v0TM-cx-gd_vis-b": true,
       "_____10c-i_v0TM-nx-pstcr_-f": 5,
       "_____10c-i_v0TM-nx-plst_c-f": 0.05,
       "_____10c-i_v0TM-nx-fire_t-f": 1,
       "_____10c-i_v0TM-nx-refrac-i": 0,
       "_____10c-i_v0TM-nx-leak_c-f": 0,
-      "_____10c-i_v0TM-nx-leak_v-f": null,
+      "_____10c-i_v0TM-nx-leak_v-f": 0,
       "_____10c-i_v0TM-nx-c_fr_c-i": 3,
       "_____10c-i_v0TM-nx-snooze-f": 0,
+      "_____10c-i_v0TM-nx-fthinc-f": 0,
+      "_____10c-i_v0TM-nx-fthlim-i": 0,
+      "_____10c-i_v0TM-nx-mp_acc-b": true,
       "_____10c-i_v0TM-cx-__name-t": "vision_TM",
       "_____10c-i_v0TM-cx-_group-t": "IPU",
       "_____10c-i__acc-cx-_n_cnt-i": 1,
@@ -1813,16 +2448,49 @@
       "_____10c-i__acc-cx-rcordx-i": 40,
       "_____10c-i__acc-cx-rcordy-i": 0,
       "_____10c-i__acc-cx-rcordz-i": -30,
+      "_____10c-i__acc-cx-2dcorx-i": null,
+      "_____10c-i__acc-cx-2dcory-i": null,
       "_____10c-i__acc-cx-gd_vis-b": true,
       "_____10c-i__acc-nx-pstcr_-f": 5,
       "_____10c-i__acc-nx-plst_c-f": 0.05,
       "_____10c-i__acc-nx-fire_t-f": 1,
       "_____10c-i__acc-nx-refrac-i": 0,
       "_____10c-i__acc-nx-leak_c-f": 0,
-      "_____10c-i__acc-nx-leak_v-f": null,
+      "_____10c-i__acc-nx-leak_v-f": 0,
       "_____10c-i__acc-nx-c_fr_c-i": 3,
       "_____10c-i__acc-nx-snooze-f": 0,
+      "_____10c-i__acc-nx-fthinc-f": 0,
+      "_____10c-i__acc-nx-fthlim-i": 0,
+      "_____10c-i__acc-nx-mp_acc-b": true,
       "_____10c-i__acc-cx-__name-t": "accelerator_ipu",
-      "_____10c-i__acc-cx-_group-t": "IPU"
+      "_____10c-i__acc-cx-_group-t": "IPU",
+      "_____10c-o__dev-cx-_n_cnt-i": 1,
+      "_____10c-o__dev-cx-synatt-i": 100,
+      "_____10c-o__dev-cx-de_gen-f": 0,
+      "_____10c-o__dev-cx-pspuni-b": true,
+      "_____10c-o__dev-nx-pstcrm-f": 10,
+      "_____10c-o__dev-cx-dstmap-d": {},
+      "_____10c-o__dev-cx-___bbx-i": 1,
+      "_____10c-o__dev-cx-___bby-i": 1,
+      "_____10c-o__dev-cx-___bbz-i": 10,
+      "_____10c-o__dev-cx-rcordx-i": 64,
+      "_____10c-o__dev-cx-rcordy-i": 45,
+      "_____10c-o__dev-cx-rcordz-i": -73,
+      "_____10c-o__dev-cx-2dcorx-i": 0,
+      "_____10c-o__dev-cx-2dcory-i": 0,
+      "_____10c-o__dev-cx-gd_vis-b": true,
+      "_____10c-o__dev-nx-pstcr_-f": 1,
+      "_____10c-o__dev-nx-plst_c-f": 1,
+      "_____10c-o__dev-nx-fire_t-f": 1,
+      "_____10c-o__dev-nx-refrac-i": 0,
+      "_____10c-o__dev-nx-leak_c-f": 0,
+      "_____10c-o__dev-nx-leak_v-f": 0,
+      "_____10c-o__dev-nx-c_fr_c-i": 0,
+      "_____10c-o__dev-nx-snooze-f": 0,
+      "_____10c-o__dev-nx-fthinc-f": 0,
+      "_____10c-o__dev-nx-fthlim-i": 0,
+      "_____10c-o__dev-nx-mp_acc-b": true,
+      "_____10c-o__dev-cx-__name-t": "ISO",
+      "_____10c-o__dev-cx-_group-t": "OPU"
    }
 }
