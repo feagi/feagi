@@ -41,7 +41,7 @@ services:
       - feagi
 
   feagi:
-    image: neuraville/feagi
+    image: gcr.io/feagi-poc/feagi/feagi:8
     deploy:
       resources:
         limits:
