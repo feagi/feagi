@@ -69,13 +69,18 @@ def burst_manager():
         # todo: look into more dynamic mechanisms to set the burst duration timer
         # using the burst_timer as the starting point
         lowest_refresh_rate = runtime_data.burst_timer
-        if controller_capabilities:
-            for device in controller_capabilities:
-                if "refresh_rate" in device:
-                    if device["refresh_rate"] < lowest_refresh_rate:
-                        lowest_refresh_rate = device["refresh_rate"]
-            return float(lowest_refresh_rate)
-        else:
+        try:
+            if controller_capabilities:
+                for device in controller_capabilities:
+                    if "refresh_rate" in device:
+                        if device["refresh_rate"] < lowest_refresh_rate:
+                            lowest_refresh_rate = device["refresh_rate"]
+                return float(lowest_refresh_rate)
+            else:
+                return runtime_data.burst_timer
+        except Exception as e:
+            print("Exception on burst_duration_calculator", e, traceback.print_exc())
+            print("Controller capabilities:", controller_capabilities)
             return runtime_data.burst_timer
 
     # def consciousness_manager():
@@ -268,6 +273,10 @@ def burst_manager():
 
                         neuron_stimulation_mp_logger(cortical_area=fq_cortical_area, neuron_id=neuron_id)
 
+                        # Update Plasticity Queue
+                        if fq_cortical_area in runtime_data.plasticity_dict:
+                            runtime_data.plasticity_queue_candidates.add(neuron_id)
+
                         # membrane_potential = \
                         #     runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential']
                         # membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
@@ -295,10 +304,6 @@ def burst_manager():
                         membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
                                                   membrane_potential_change=0, overwrite=True,
                                                   overwrite_value=membrane_potential)
-
-                    # Update Plasticity Queue
-                    if fq_cortical_area in runtime_data.plasticity_dict:
-                        runtime_data.plasticity_queue_candidates.add(neuron_id)
 
                     # Reset membrane potential for neurons that cannot hold charge
                     if not runtime_data.genome["blueprint"][fq_cortical_area]["mp_charge_accumulation"]:
@@ -471,6 +476,7 @@ def burst_manager():
         """
 
         if len(runtime_data.plasticity_queue) > runtime_data.plasticity_queue_depth:
+            # todo: The pop should happen much lower level
             runtime_data.plasticity_queue.pop(0)
         runtime_data.plasticity_queue_candidates = set()
 

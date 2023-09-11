@@ -2189,20 +2189,7 @@
       "_____10c-i__v0C-cx-de_gen-f": 0.0,
       "_____10c-i__v0C-cx-pspuni-b": false,
       "_____10c-i__v0C-nx-pstcrm-f": 100.0,
-      "_____10c-i__v0C-cx-dstmap-d": {
-         "CAFint": [
-            [
-               "intensity",
-               [
-                  1,
-                  1,
-                  1
-               ],
-               1,
-               false
-            ]
-         ]
-      },
+      "_____10c-i__v0C-cx-dstmap-d": {},
       "_____10c-i__v0C-cx-___bbx-i": 64,
       "_____10c-i__v0C-cx-___bby-i": 64,
       "_____10c-i__v0C-cx-___bbz-i": 3,
@@ -2504,34 +2491,6 @@
       "_____10c-o__dev-nx-fthlim-i": 0,
       "_____10c-o__dev-nx-mp_acc-b": true,
       "_____10c-o__dev-cx-__name-t": "ISO",
-      "_____10c-o__dev-cx-_group-t": "OPU",
-      "_____10c-CAFint-cx-_n_cnt-i": 1,
-      "_____10c-CAFint-cx-synatt-i": 100,
-      "_____10c-CAFint-cx-de_gen-f": 0.0,
-      "_____10c-CAFint-cx-pspuni-b": true,
-      "_____10c-CAFint-nx-pstcrm-f": 10.0,
-      "_____10c-CAFint-cx-dstmap-d": {},
-      "_____10c-CAFint-cx-___bbx-i": 1,
-      "_____10c-CAFint-cx-___bby-i": 1,
-      "_____10c-CAFint-cx-___bbz-i": 10,
-      "_____10c-CAFint-cx-rcordx-i": 25,
-      "_____10c-CAFint-cx-rcordy-i": 0,
-      "_____10c-CAFint-cx-rcordz-i": -23,
-      "_____10c-CAFint-cx-2dcorx-i": 0,
-      "_____10c-CAFint-cx-2dcory-i": 0,
-      "_____10c-CAFint-cx-gd_vis-b": true,
-      "_____10c-CAFint-nx-pstcr_-f": 1.0,
-      "_____10c-CAFint-nx-plst_c-f": 1.0,
-      "_____10c-CAFint-nx-fire_t-f": 10.0,
-      "_____10c-CAFint-nx-refrac-i": 0,
-      "_____10c-CAFint-nx-leak_c-f": 0,
-      "_____10c-CAFint-nx-leak_v-f": 0,
-      "_____10c-CAFint-nx-c_fr_c-i": 0,
-      "_____10c-CAFint-nx-snooze-f": 0,
-      "_____10c-CAFint-nx-fthinc-f": 0,
-      "_____10c-CAFint-nx-fthlim-i": 0,
-      "_____10c-CAFint-nx-mp_acc-b": true,
-      "_____10c-CAFint-cx-__name-t": "intensity",
-      "_____10c-CAFint-cx-_group-t": "CUSTOM"
+      "_____10c-o__dev-cx-_group-t": "OPU"
    }
 }

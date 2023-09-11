@@ -90,12 +90,29 @@ def init_neuron(cortical_area, soma_location):
     #  consider using the group name part of Genome instead
     # runtime_data.brain[cortical_area][neuron_id]["depolarization_threshold"] = \
     #     genome['blueprint'][cortical_area]['depolarization_threshold']
-    if genome['blueprint'][cortical_area]['firing_threshold_increment']:
+
+    # todo: firing_threshold_increment to have options in different directions
+    fire_threshold_flag = False
+
+    if "firing_threshold_increment_x" in genome['blueprint'][cortical_area]:
         runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] = \
             genome['blueprint'][cortical_area]['firing_threshold'] + \
-            (genome['blueprint'][cortical_area]['firing_threshold_increment'] *
-             (soma_location[0] + soma_location[1] + soma_location[2]))
-    else:
+            (genome['blueprint'][cortical_area]['firing_threshold_increment_x'] * soma_location[0])
+        fire_threshold_flag = True
+
+    if "firing_threshold_increment_y" in genome['blueprint'][cortical_area]:
+        runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] = \
+            genome['blueprint'][cortical_area]['firing_threshold'] + \
+            (genome['blueprint'][cortical_area]['firing_threshold_increment_y'] * soma_location[1])
+        fire_threshold_flag = True
+
+    if "firing_threshold_increment_z" in genome['blueprint'][cortical_area]:
+        runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] = \
+            genome['blueprint'][cortical_area]['firing_threshold'] + \
+            (genome['blueprint'][cortical_area]['firing_threshold_increment_z'] * soma_location[2])
+        fire_threshold_flag = True
+
+    if not fire_threshold_flag:
         runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] = \
             genome['blueprint'][cortical_area]['firing_threshold']
 

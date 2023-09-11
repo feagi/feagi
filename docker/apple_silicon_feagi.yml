@@ -97,6 +97,7 @@ services:
         limits:
           cpus: '1'
           memory: '2g'
+    platform: linux/arm64
     ports:
       - "9050:9050"
       - "30001:30001" # ZMQ port for feagi to connect for Gadot
@@ -134,6 +135,7 @@ services:
         limits:
           cpus: '1'
           memory: '2g'
+    platform: linux/arm64
     ports:
       - "8000:8000"
       - "30000:30000"
@@ -141,8 +143,8 @@ services:
 #      - "10000-10050:10000-10050" # ZMQ Port for Agent to Connect to Feagi
     env_file:
       - ./.env
-#    volumes:
-#      - ../src/:/opt/source-code/feagi/src
+    volumes:
+      - ../src/:/opt/source-code/feagi/src
     networks:
       - net
     depends_on:
