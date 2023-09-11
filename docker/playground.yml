@@ -1,3 +1,4 @@
+
 version: "3"
 
 networks:
@@ -41,7 +42,7 @@ services:
       - feagi
 
   feagi:
-    image: gcr.io/feagi-poc/feagi/feagi:8
+    image: neuraville/feagi
     deploy:
       resources:
         limits:
