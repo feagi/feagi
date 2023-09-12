@@ -20,9 +20,9 @@ capabilities. All the needed software packages are containerized to provided a s
 * CPU:           4 Cores
 
 ### Supported Operating Systems
-* **macOS**: Montery (12.3.1) -- Apple and Intel chips are supported
-* **Windows**: 10
-* **Linux**: Ubuntu (18.04)
+* **macOS**: Montery (12.3.1) or newest (Apple Silicon and Intel chips)
+* **Windows**: 10 or newest
+* **Linux**: Ubuntu (18.04) or newest
 
 ### Dependencies
 Click on each dependency for installation instructions
