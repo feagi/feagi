@@ -66,17 +66,7 @@ services:
       - ./.env
     privileged: true
     networks:
-      - net
-
-  car_controller:
-    image: ${CAR_IMAGE}
-    ports:
-      - "9056:9056"
-    env_file:
-      - ./.env
-    privileged: true
-    networks:
-      - net
+      - net 
 
   microbit_controller:
     image: ${MICROBIT_IMAGE}
