@@ -33,32 +33,44 @@ Click on each dependency for installation instructions
 
 # Deployment
 ## 1. Clone the repository to your machine
-* Open the terminal or command line and change to the directory in which you would like to clone feagi. 
+* To open the CLI, follow the instructions for your operating system below:
+  - Windows: Press `Windows Key` + R, then type "CMD"
+  - Linux: ALT + CTRL + T
+  - Mac: COMMAND + SPACEBAR then type "terminal"
 * Run the command `git clone https://github.com/feagi/feagi.git`
 
 ## 2. Launch Docker Desktop
-Docker desktop application is required to launch FEAGI. If you do not have it installed you can download a free version at https://www.docker.com/products/docker-desktop/. There are multiple ways to launch docker desktop. The easiest is to search for the docker desktop application on your system and open the application. You should see a window that looks like this:  
+**MAC OR WINDOWS ONLY:** You will need to open Docker Desktop for Step 3. If Docker is already minimized in the tray, it is considered as already being open. If you do 
+not have it installed you can download a free version at https://www.docker.com/products/docker-desktop/. There are multiple ways to launch docker desktop. The easiest is to search for the docker desktop application on your system and open the application. You should see a window that looks like this:  
 <img src="https://user-images.githubusercontent.com/52722031/176945282-3fdfc4b7-f82c-4a2b-a8a1-0d6c86ac8acf.png"  width=50% height=50%>
 
+Linux: You can skip this as it's running in background already.
 
-## 3. Build
+
+## 3. Run
 In the command line/terminal run the following commands:
-* `cd [path to where feagi repo was cloned]/feagi/docker`
-* `docker compose -f feagi.yml build`
-
-Note: If running on a Mac with Apple chipset, substitute feagi.yml with feagi_apple_silicone.yml throughout this deployment guide.
-
-## 4. Run
-* In the feagi/docker folder in the command line, run `docker compose -f feagi.yml up -d ` 
-* **NOTE:** The -d prevents the application logs from being displayed. If you would like to see the logs, don't include the -d parameter. 
-* To launch the application, open browser to http://localhost:3000. You should see the GUI launch page that looks like this: 
-<img src="https://user-images.githubusercontent.com/52722031/176946338-aabb9ab5-7bdb-4103-bb95-c580fde64b04.png"  width=50% height=50%>
+* `cd feagi/docker`
+* `docker compose -f playground.yml up`
+* **NOTE:** The -d prevents the application logs from being displayed.
+  * Such as this command: `docker compose -f playground.yml up -d`
+  
+## 4. Launch the Brain Visualizer
+* To launch the application, open your browser and go to http://localhost:4000. You should see the playground launch page that looks like this:
+  ![BV](_static/BV.png)
+* Then click on the 'Default Genome' in the top right corner, which looks like this:
+  ![genome](_static/default_and_custom_genome.png)
+* You should see Brain Visualizer like this:
+  ![full_bv](_static/bv2.png)
 
 ## 5. Stopping the Application
 Because the application is running in the background, please make sure to always make sure to stop the application when done. There are two ways to do this.
-1. Run the command `docker compose -f feagi.yml down` inside the feagi/docker folder on your local system. You will see logs indicating that the containers have been stopped. 
-![Screen Shot 2022-07-01 at 2 03 41 PM](https://user-images.githubusercontent.com/52722031/176947412-6ebc1f3a-eb3d-4acf-999c-b6b40c20df77.png)
-2. Stop the containers in the docker desktop application. 
+1. Run the command `docker compose -f playground.yml down` inside the feagi/docker folder on your 
+   local system. You will see logs indicating that the containers have been stopped.
+
+**or**
+
+2. Stop the containers in the docker desktop application. See the orange circle
+  ![stop_docker](_static/stop_docker.png)
 
 # Troubleshooting
 This section displays errors that users have encountered when trying to install feagi. If you encounter an error not listed here, please create an issue and we will do our best to help resolve it. Additionally, if you encounter any errors not listed here and you resolve them yourself, please add them here to help others.
@@ -72,6 +84,7 @@ If you encounter any of the following errors, please ensure that docker desktop 
 
 **To confirm docker desktop is running:**
 * On Mac:  Clicking on the docker icon in the top right corner of your screen and ensure that you see "Docker Desktop is running"
+* 
 <img src="https://user-images.githubusercontent.com/52722031/176945111-016fbeae-5935-4d72-9ec3-20bba7803ee5.png"  width=40% height=40%>
 
 ### Errors encountered during running
