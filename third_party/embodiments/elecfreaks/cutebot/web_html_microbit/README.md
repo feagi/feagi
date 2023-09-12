@@ -12,6 +12,7 @@
 
 2. Visit this [link](https://github.com/Neuraville/feagi/blob/staging/third_party/embodiments/elecfreaks/cutebot/web_html_microbit/microbit-final_microbit_with_service.hex) and download 
    the HEX file. It should look like this and see the red circle. 
+
    ![Download HEX](_static/download_hex.png)
 3. Drag and drop the file from your Downloads folder to the Micro:bit.
    ![Drag and Drop](_static/arrow_drag_hex.png)
