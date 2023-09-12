@@ -51,9 +51,9 @@ Linux: You can skip this as it's running in background already.
 In the command line/terminal run the following commands:
 * `cd feagi/docker`
 * `docker compose -f playground.yml up -d`
-* **NOTE:** The `-d` flag prevents the application logs from being displayed. If you want to see 
-  the logs, omit the `-d` option.
-  * Such as this command: `docker compose -f playground.yml up`
+  * **NOTE:** The `-d` flag prevents the application logs from being displayed. If you want to see 
+    the logs, omit the `-d` option.
+    * Such as this command: `docker compose -f playground.yml up`
   
 ## 4. Launch the Brain Visualizer
 * To launch the application, open your browser and go to http://localhost:4000. You should see the playground launch page that looks like this:
