@@ -50,9 +50,10 @@ Linux: You can skip this as it's running in background already.
 ## 3. Run
 In the command line/terminal run the following commands:
 * `cd feagi/docker`
-* `docker compose -f playground.yml up`
-* **NOTE:** The -d prevents the application logs from being displayed.
-  * Such as this command: `docker compose -f playground.yml up -d`
+* `docker compose -f playground.yml up -d`
+* **NOTE:** The `-d` flag prevents the application logs from being displayed. If you want to see 
+  the logs, omit the `-d` option.
+  * Such as this command: `docker compose -f playground.yml up`
   
 ## 4. Launch the Brain Visualizer
 * To launch the application, open your browser and go to http://localhost:4000. You should see the playground launch page that looks like this:
@@ -73,7 +74,7 @@ Because the application is running in the background, please make sure to always
   ![stop_docker](_static/stop_docker.png)
 
 # Troubleshooting
-This section displays errors that users have encountered when trying to install feagi. If you encounter an error not listed here, please create an issue and we will do our best to help resolve it. Additionally, if you encounter any errors not listed here and you resolve them yourself, please add them here to help others.
+This section displays errors that users have encountered when trying to install feagi. If you encounter an error not listed here,  please create an issue and we will do our best to help resolve it. Additionally, if you encounter any errors not listed here and you resolve them yourself, please add them here to help others.
 
 ### Errors encountered during building
 
