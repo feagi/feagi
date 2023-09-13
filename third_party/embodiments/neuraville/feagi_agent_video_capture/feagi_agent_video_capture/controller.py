@@ -115,12 +115,24 @@ def process_video(video_path, capabilities):
             if check:
                 cv2.imshow("test", pixels)
                 cv2.waitKey(30)
-        # width, height = 0, 0
-        # if capabilities['camera']['width'] != 0:
-        #     width = capabilities['camera']['width']
-        # if capabilities['camera']['height'] != 0:
-        #     height = capabilities['camera']['height']
-        camera_data["vision"] = pixels
+        width, height = 0, 0
+        original_size = pixels.shape
+        if capabilities['camera']['width'] != 0:
+            width = capabilities['camera']['width']
+        else:
+            width = original_size[0]
+        if capabilities['camera']['height'] != 0:
+            height = capabilities['camera']['height']
+        else:
+            height = original_size[1]
+        if capabilities['camera']['width'] != 0 or capabilities['camera']['height'] != 0:
+            print("entered!")
+            dim = (width, height)
+            pixels = cv2.resize(pixels, dim, interpolation=cv2.INTER_AREA)
+            camera_data["vision"] = pixels
+        else:
+            camera_data["vision"] = pixels
+        print("original: ", pixels.shape)
 
     cam.release()
     cv2.destroyAllWindows()
@@ -169,7 +181,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     flag_counter = 0
     rgb['camera'] = dict()
     genome_tracker = 0
-    resolution_array = [1, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
+    resolution_array = [[32, 32], [64, 64], [128, 128], [256, 256], [400, 400]]
     get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr'
     raw_aptr = requests.get(get_size_for_aptr_cortical).json()
     try:
@@ -234,9 +246,12 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                         for i in message_from_feagi["opu_data"]["o_vres"]:
                             dev_data = feagi_agent.feagi_interface.block_to_array(i)
                             if dev_data[0] == 0:
-                                capabilities['camera']['width'] = resolution_array[dev_data[2]]
-                            if dev_data[0] == 1:
-                                capabilities['camera']['height'] = resolution_array[dev_data[2]]
+                                # print(resolution_array[dev_data[2]][0])
+                                capabilities['camera']['width'] = resolution_array[dev_data[2]][0]
+                                capabilities['camera']['height'] = resolution_array[dev_data[2]][1]
+                                print(capabilities['camera']['width'], " and ", capabilities['camera']['height'])
+                            # if dev_data[0] == 1:
+                            #     capabilities['camera']['height'] = resolution_array[dev_data[2]]
                 if "o_vact" in message_from_feagi["opu_data"]:
                     if message_from_feagi["opu_data"]["o_vact"]:
                         for i in message_from_feagi["opu_data"]["o_vact"]:
@@ -245,9 +260,8 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                                 capabilities['camera']['retina_width_percent'] = \
                                     message_from_feagi["opu_data"]["o_vact"][i]
                             if dev_data[0] == 1:
-                                capabilities['camera']['retina_height_percent'] = message_from_feagi["opu_data"]["o_vact"][i]
-
-
+                                capabilities['camera']['retina_height_percent'] = \
+                                message_from_feagi["opu_data"]["o_vact"][i]
                 # OPU section ENDS
             if previous_data_frame == {}:
                 for i in retina_data:
