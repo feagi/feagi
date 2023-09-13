@@ -6,6 +6,7 @@ Demo of dot kinematogram
 """
 
 import cv2
+import feagi_agent.feagi_interface
 import requests
 from time import sleep
 from datetime import datetime
@@ -23,6 +24,7 @@ import multiprocessing
 from PIL import Image
 
 camera_data = {"vision": {}}
+
 
 def chroma_keyer(frame, size, name_id):
     """
@@ -113,6 +115,11 @@ def process_video(video_path, capabilities):
             if check:
                 cv2.imshow("test", pixels)
                 cv2.waitKey(30)
+        # width, height = 0, 0
+        # if capabilities['camera']['width'] != 0:
+        #     width = capabilities['camera']['width']
+        # if capabilities['camera']['height'] != 0:
+        #     height = capabilities['camera']['height']
         camera_data["vision"] = pixels
 
     cam.release()
@@ -162,6 +169,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     flag_counter = 0
     rgb['camera'] = dict()
     genome_tracker = 0
+    resolution_array = [1, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
     get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr'
     raw_aptr = requests.get(get_size_for_aptr_cortical).json()
     try:
@@ -217,11 +225,29 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 if "o__dev" in message_from_feagi["opu_data"]:
                     if message_from_feagi["opu_data"]["o__dev"]:
                         for i in message_from_feagi["opu_data"]["o__dev"]:
-                            print(i)
                             dev_data = i
                             digits = dev_data.split('-')
                             third_digit = int(digits[2])
-                            capabilities['camera']["deviation_threshold"] = third_digit/10
+                            capabilities['camera']["deviation_threshold"] = third_digit / 10
+                if "o_vres" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o_vres"]:
+                        for i in message_from_feagi["opu_data"]["o_vres"]:
+                            dev_data = feagi_agent.feagi_interface.block_to_array(i)
+                            if dev_data[0] == 0:
+                                capabilities['camera']['width'] = resolution_array[dev_data[2]]
+                            if dev_data[0] == 1:
+                                capabilities['camera']['height'] = resolution_array[dev_data[2]]
+                if "o_vact" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o_vact"]:
+                        for i in message_from_feagi["opu_data"]["o_vact"]:
+                            dev_data = feagi_agent.feagi_interface.block_to_array(i)
+                            if dev_data[0] == 0:
+                                capabilities['camera']['retina_width_percent'] = \
+                                    message_from_feagi["opu_data"]["o_vact"][i]
+                            if dev_data[0] == 1:
+                                capabilities['camera']['retina_height_percent'] = message_from_feagi["opu_data"]["o_vact"][i]
+
+
                 # OPU section ENDS
             if previous_data_frame == {}:
                 for i in retina_data:
@@ -290,5 +316,6 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 rgb['camera'][i].clear()
         except Exception as e:
             print("ERROR! : ", e)
+            traceback.print_exc()
             cam.release()
             break
