@@ -121,6 +121,10 @@ def frame_split(frame, width_percent, height_percent):
             vision['LR'] = np.zeros((8, 8, 3))
 
         else:
+            if width_percent == 100:
+                width_percent = 100 - 1
+            if height_percent == 100:
+                height_percent = 100 - 1
             width_data1, width_data2, height_data1, height_data2 = snippet_rgb(full_data[0],
                                                                                width_percent,
                                                                                full_data[1],
