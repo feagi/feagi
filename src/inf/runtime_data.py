@@ -121,6 +121,8 @@ stimulation_script = {}
 stimulation_index = {}
 
 # Brain
+transforming_areas = set()   # Set containing the cortical id associated with transforming cortical areas
+brain_state = {}
 current_age = 0
 death_flag = False
 stats = {}

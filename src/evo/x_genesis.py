@@ -264,6 +264,7 @@ def update_cortical_properties(cortical_properties):
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                 file_name=runtime_data.connectome_path + "genome.json")
     runtime_data.last_genome_modification_time = datetime.datetime.now()
+    runtime_data.transforming_areas.remove(cortical_area)
 
 
 def update_cortical_mappings(cortical_mappings):
