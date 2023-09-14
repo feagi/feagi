@@ -113,7 +113,7 @@ def process_video(video_path, capabilities):
             cv2.waitKey(25)
         else:
             if check:
-                cv2.imshow("test", pixels)
+                # cv2.imshow("test", pixels)
                 cv2.waitKey(30)
         width, height = 0, 0
         original_size = pixels.shape
@@ -126,13 +126,12 @@ def process_video(video_path, capabilities):
         else:
             height = original_size[1]
         if capabilities['camera']['width'] != 0 or capabilities['camera']['height'] != 0:
-            print("entered!")
             dim = (width, height)
             pixels = cv2.resize(pixels, dim, interpolation=cv2.INTER_AREA)
             camera_data["vision"] = pixels
         else:
             camera_data["vision"] = pixels
-        print("original: ", pixels.shape)
+        # print("original: ", pixels.shape)
 
     cam.release()
     cv2.destroyAllWindows()
@@ -181,7 +180,6 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     flag_counter = 0
     rgb['camera'] = dict()
     genome_tracker = 0
-    resolution_array = [[32, 32], [64, 64], [128, 128], [256, 256], [400, 400]]
     get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr'
     raw_aptr = requests.get(get_size_for_aptr_cortical).json()
     try:
@@ -247,8 +245,8 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                             dev_data = feagi_agent.feagi_interface.block_to_array(i)
                             if dev_data[0] == 0:
                                 # print(resolution_array[dev_data[2]][0])
-                                capabilities['camera']['width'] = resolution_array[dev_data[2]][0]
-                                capabilities['camera']['height'] = resolution_array[dev_data[2]][1]
+                                capabilities['camera']['width'] = capabilities['camera']['resolution_array'][dev_data[2]][0]
+                                capabilities['camera']['height'] = capabilities['camera']['resolution_array'][dev_data[2]][1]
                                 print(capabilities['camera']['width'], " and ", capabilities['camera']['height'])
                             # if dev_data[0] == 1:
                             #     capabilities['camera']['height'] = resolution_array[dev_data[2]]
