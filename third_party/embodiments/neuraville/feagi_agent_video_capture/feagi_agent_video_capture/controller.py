@@ -188,19 +188,19 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 message_from_feagi = None
 
             pixels = camera_data['vision']
-            retina_data = retina.frame_split(pixels, capabilities['camera']['retina_width_percent'],
-                                             capabilities['camera']['retina_height_percent'])
+            retina_data = retina.frame_split(pixels, capabilities['camera']['central_vision_width_percent'],
+                                             capabilities['camera']['central_vision_height_percent'])
             for i in retina_data:
                 if 'C' in i:
                     retina_data[i] = retina.center_data_compression(
                         retina_data[i],
                         capabilities['camera'][
-                            "central_vision_compression"])
+                            "central_vision_resolution"])
                 else:
                     retina_data[i] = retina.center_data_compression(
                         retina_data[i],
                         capabilities['camera']
-                        ['peripheral_vision_compression'])
+                        ['peripheral_vision_resolution'])
             if message_from_feagi is not None:
                 # OPU section STARTS
                 if 'genome_num' in message_from_feagi:
@@ -226,22 +226,22 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                             dev_data = i
                             digits = dev_data.split('-')
                             third_digit = int(digits[2])
-                            capabilities['camera']["deviation_threshold"] = third_digit / 10
+                            capabilities['camera']["ISO_threshold"] = third_digit / 10
                 if "o_vres" in message_from_feagi["opu_data"]:
                     if message_from_feagi["opu_data"]["o_vres"]:
                         for i in message_from_feagi["opu_data"]["o_vres"]:
                             dev_data = feagi_agent.feagi_interface.block_to_array(i)
                             if dev_data[0] == 0:
-                                capabilities['camera']['current_select'] = capabilities['camera']['resolution_array'][dev_data[2]]
+                                capabilities['camera']['current_select'] = capabilities['camera']['resolution_presets'][dev_data[2]]
                 if "o_vact" in message_from_feagi["opu_data"]:
                     if message_from_feagi["opu_data"]["o_vact"]:
                         for i in message_from_feagi["opu_data"]["o_vact"]:
                             dev_data = feagi_agent.feagi_interface.block_to_array(i)
                             if dev_data[0] == 0:
-                                capabilities['camera']['retina_width_percent'] = \
+                                capabilities['camera']['central_vision_width_percent'] = \
                                     message_from_feagi["opu_data"]["o_vact"][i]
                             if dev_data[0] == 1:
-                                capabilities['camera']['retina_height_percent'] = \
+                                capabilities['camera']['central_vision_height_percent'] = \
                                 message_from_feagi["opu_data"]["o_vact"][i]
                 # OPU section ENDS
             if previous_data_frame == {}:
@@ -268,13 +268,13 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                             retina.get_rgb(data,
                                            capabilities[
                                                'camera'][
-                                               'central_vision_compression'],
+                                               'central_vision_resolution'],
                                            previous_data_frame[
                                                previous_name],
                                            name,
                                            capabilities[
                                                'camera'][
-                                               'deviation_threshold'],
+                                               'ISO_threshold'],
                                            capabilities['camera']["aperture_default"])
                     else:
                         previous_name = str(i) + "_prev"
@@ -282,13 +282,13 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                             retina.get_rgb(data,
                                            capabilities[
                                                'camera'][
-                                               'peripheral_vision_compression'],
+                                               'peripheral_vision_resolution'],
                                            previous_data_frame[
                                                previous_name],
                                            name,
                                            capabilities[
                                                'camera'][
-                                               'deviation_threshold'],
+                                               'ISO_threshold'],
                                            capabilities['camera']["aperture_default"])
                     for a in rgb_data['camera']:
                         rgb['camera'][a] = rgb_data['camera'][a]
