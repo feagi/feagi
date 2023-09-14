@@ -43,7 +43,7 @@ capabilities = {
         "deviation_threshold": 0.6,
         "retina_width_percent": 90,
         "retina_height_percent": 70,
-        "central_vision_compression": [900, 900],
+        "central_vision_compression": [64, 64],
         "peripheral_vision_compression": [8, 8],
         "resolution_array": [[8,8],[16,16],[32, 32], [64, 64], [128, 128], [256, 256], [400, 400], [500,500], [800,800], [1024, 900]],
         "previous_data": {},
