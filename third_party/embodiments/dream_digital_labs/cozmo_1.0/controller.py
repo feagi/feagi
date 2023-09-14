@@ -185,7 +185,7 @@ while True:
                         capabilities['camera']["deviation_threshold"] = third_digit / 10
             opu_data = FEAGI.opu_processor(message_from_feagi)
             if "motor" in opu_data:
-                rf, rb, lf, lb = 0.0, 0.0, 0.0, 0.0
+                rwheel_speed, lwheel_speed, rf, rb, lf, lb = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
                 for i in opu_data["motor"]:
                     if 1 == i:
                         rb = float(opu_data["motor"][i])
@@ -197,9 +197,7 @@ while True:
                         lb = float(opu_data["motor"][i])
                     rwheel_speed = rf - rb
                     lwheel_speed = lf - lb
-
-                cli.drive_wheels(lwheel_speed, rwheel_speed, 100.0, 100.0,
-                                 feagi_settings['feagi_burst_speed'])
+                cli.drive_wheels(lwheel_speed=lwheel_speed, rwheel_speed=rwheel_speed, duration=feagi_settings['feagi_burst_speed'])
 
             # OPU section ENDS
         new_rgb = rgb_array['current']
