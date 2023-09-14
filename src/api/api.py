@@ -1628,6 +1628,16 @@ async def connectome_cortical_areas_summary(response: Response):
         print("API Error:", e)
 
 
+@app.api_route("/v1/feagi/connectome/cortical_areas/list/transforming", methods=['GET'], tags=["Connectome"])
+async def transforming_cortical_areas_summary(response: Response):
+    try:
+        return runtime_data.transforming_areas
+
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
 @app.api_route("/v1/feagi/connectome/cortical_areas/list/detailed", methods=['GET'], tags=["Connectome"])
 async def connectome_cortical_areas(response: Response):
     try:
