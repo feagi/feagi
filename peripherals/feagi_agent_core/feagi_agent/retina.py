@@ -20,7 +20,10 @@ def snippet_rgb(inner_width, percent_a, inner_height, percent_b):
 
 def center_data_compression(frame, central_vision_compression):
     """capabilities['camera']["central_vision_compression"]"""
-    compressed = cv2.resize(frame, central_vision_compression, interpolation=cv2.INTER_AREA)
+    try:
+        compressed = cv2.resize(frame, central_vision_compression, interpolation=cv2.INTER_AREA)
+    except Exception as error:
+        compressed = []
     return compressed
 
 
@@ -31,9 +34,9 @@ def peripheral_data_compression(frame, peripheral_vision_compression):
 
 
 def ndarray_to_list(array):
-    array = array.flatten()
-    new_list = (array.tolist())
-    return new_list
+    if isinstance(array, np.ndarray) and array.size > 0:
+        return array.flatten().tolist()
+    return False
 
 
 def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr_level,
@@ -121,6 +124,10 @@ def frame_split(frame, width_percent, height_percent):
             vision['LR'] = np.zeros((8, 8, 3))
 
         else:
+            if width_percent == 100:
+                width_percent = 100 - 1
+            if height_percent == 100:
+                height_percent = 100 - 1
             width_data1, width_data2, height_data1, height_data2 = snippet_rgb(full_data[0],
                                                                                width_percent,
                                                                                full_data[1],
