@@ -109,29 +109,18 @@ def process_video(video_path, capabilities):
                 img = numpy.array(sct.grab(monitor))
                 pixels = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
                 cv2.imshow("OpenCV/Numpy normal", pixels)
-                # print(rgb)
             cv2.waitKey(25)
         else:
             if check:
                 # cv2.imshow("test", pixels)
                 cv2.waitKey(30)
-        width, height = 0, 0
-        original_size = pixels.shape
-        if capabilities['camera']['width'] != 0:
-            width = capabilities['camera']['width']
-        else:
-            width = original_size[0]
-        if capabilities['camera']['height'] != 0:
-            height = capabilities['camera']['height']
-        else:
-            height = original_size[1]
-        if capabilities['camera']['width'] != 0 or capabilities['camera']['height'] != 0:
-            dim = (width, height)
+        if capabilities['camera']['current_select']:
+            dim = (capabilities['camera']['current_select'][0], capabilities['camera'][
+                'current_select'][1])
             pixels = cv2.resize(pixels, dim, interpolation=cv2.INTER_AREA)
             camera_data["vision"] = pixels
         else:
             camera_data["vision"] = pixels
-        # print("original: ", pixels.shape)
 
     cam.release()
     cv2.destroyAllWindows()
@@ -176,8 +165,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     # FEAGI section ends
     msg_counter = runtime_data["feagi_state"]['burst_counter']
     rgb = dict()
-    checkpoint_total = 5
-    flag_counter = 0
+    capabilities['camera']['current_select'] = []
     rgb['camera'] = dict()
     genome_tracker = 0
     get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr'
@@ -244,12 +232,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                         for i in message_from_feagi["opu_data"]["o_vres"]:
                             dev_data = feagi_agent.feagi_interface.block_to_array(i)
                             if dev_data[0] == 0:
-                                # print(resolution_array[dev_data[2]][0])
-                                capabilities['camera']['width'] = capabilities['camera']['resolution_array'][dev_data[2]][0]
-                                capabilities['camera']['height'] = capabilities['camera']['resolution_array'][dev_data[2]][1]
-                                print(capabilities['camera']['width'], " and ", capabilities['camera']['height'])
-                            # if dev_data[0] == 1:
-                            #     capabilities['camera']['height'] = resolution_array[dev_data[2]]
+                                capabilities['camera']['current_select'] = capabilities['camera']['resolution_array'][dev_data[2]]
                 if "o_vact" in message_from_feagi["opu_data"]:
                     if message_from_feagi["opu_data"]["o_vact"]:
                         for i in message_from_feagi["opu_data"]["o_vact"]:
@@ -269,6 +252,16 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 name = i
                 if 'prev' not in i:
                     data = retina.ndarray_to_list(retina_data[i])
+                    if data is False:
+                        if len(camera_data['vision']) > 0:
+                            print("shape: ", camera_data["vision"].shape)
+                        print("The size: ", capabilities['camera']['current_select'], " is not "
+                                                                                      "available "
+                                                                                      "for this")
+                        print("Reverting to the original size")
+                        capabilities['camera']['current_select'] = []
+                        camera_data["vision"] = {}
+                        data = []
                     if 'C' in i:
                         previous_name = str(i) + "_prev"
                         rgb_data, previous_data_frame[previous_name] = \
@@ -314,10 +307,6 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
             if message_from_feagi is not None:
                 feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
             sleep(feagi_settings['feagi_burst_speed'])
-            # try:
-            #     print("Len --", len(message_to_feagi['data']['sensory_data']['camera']['C']))
-            # except:
-            #     pass
             if agent_settings['compression']:
                 serialized_data = pickle.dumps(message_to_feagi)
                 feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
@@ -329,5 +318,4 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
         except Exception as e:
             print("ERROR! : ", e)
             traceback.print_exc()
-            cam.release()
             break
