@@ -520,7 +520,10 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "neuron_degeneracy_coefficient": cortical_data['degeneration'],
                 "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution'],
                 "neuron_mp_charge_accumulation": cortical_data['mp_charge_accumulation'],
+                "transforming": False
             }
+            if cortical_area in runtime_data.transforming_areas:
+                cortical_properties["transforming"] = True
             response.status_code = status.HTTP_200_OK
             return cortical_properties
         else:
@@ -536,11 +539,16 @@ async def update_cortical_properties(message: UpdateCorticalProperties, response
     Enables changes against various Burst Engine parameters.
     """
     try:
-        message = message.dict()
-        message = {'update_cortical_properties': message}
-        print("*-----* " * 200 + "\n", message)
-        api_queue.put(item=message)
-        response.status_code = status.HTTP_200_OK
+        if message.cortical_id in runtime_data.transforming_areas:
+            return JSONResponse(status_code=409, content={'message': "Operation rejected as the target cortical area is"
+                                                                     "currently undergoing transformation."})
+        else:
+            runtime_data.transforming_areas.add(message.cortical_id)
+            message = message.dict()
+            message = {'update_cortical_properties': message}
+            print("*-----* " * 200 + "\n", message)
+            api_queue.put(item=message)
+            response.status_code = status.HTTP_200_OK
 
     except Exception as e:
         response.status_code = status.HTTP_400_BAD_REQUEST
