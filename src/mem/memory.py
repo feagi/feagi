@@ -93,8 +93,7 @@ def neuroplasticity():
                         src_neuron_id=neuron,
                         dst_cortical_area=postsynaptic_neuron[:6],
                         dst_neuron_id=postsynaptic_neuron,
-                        long_term_depression=True,
-                        impact_multiplier=1
+                        long_term_depression=True
                     )
         except Exception as e:
             print(f"Exception during neuroplasticity processing of {neuron}", e, traceback.print_exc())
