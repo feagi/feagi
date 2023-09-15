@@ -138,6 +138,20 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
                 "count": int
+            },
+            "Vision_Resolution": {
+                "enabled": True,
+                "cortical_id": "o_vres",
+                "structure": "asymmetric",
+                "resolution": [2, 1, 10],
+                "count": int
+            },
+            "Vision_Acuity": {
+                "enabled": True,
+                "cortical_id": "o_vact",
+                "structure": "asymmetric",
+                "resolution": [2, 1, 1],
+                "count": int
             }
         }
     },
@@ -172,20 +186,23 @@ cortical_types = {
 cortical_template = {
     "per_voxel_neuron_cnt": 1,
     "synapse_attractivity": 100,
-    "postsynaptic_current": 1,
-    "plasticity_constant": 1,
     "degeneration": 0,
-    "psp_uniform_distribution": True,
-    "postsynaptic_current_max": 10,
+    "psp_uniform_distribution": False,
+    "postsynaptic_current_max": 99999,
+    "plasticity_constant": 1,
     "cortical_mapping_dst": {},
-    'firing_threshold': 1,
     "firing_threshold_increment": 0,
-    "firing_threshold_limit": 0,
-    "mp_charge_accumulation": True,
+    "visualization": True,
+    "postsynaptic_current": 1,
+    'firing_threshold': 1,
     "refractory_period": 0,
     "leak_coefficient": 0,
     "leak_variability": 0,
     "consecutive_fire_cnt_max": 0,
     "snooze_length": 0,
-    "visualization": True
+    "firing_threshold_increment_x": 0,
+    "firing_threshold_increment_y": 0,
+    "firing_threshold_increment_z": 0,
+    "firing_threshold_limit": 99999,
+    "mp_charge_accumulation": True
 }
