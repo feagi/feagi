@@ -47,4 +47,4 @@ if __name__ == "__main__":
     if runtime_data.parameters['Sockets']['feagi_api_port'] is None:
         runtime_data.parameters['Sockets']['feagi_api_port'] = 8000  # Default port
     uvicorn.run("src.api.api:app", host="0.0.0.0", port=int(runtime_data.parameters['Sockets']['feagi_api_port']),
-                reload=False, log_level="debug", debug=True)
+                reload=False, log_level="debug", debug=True, workers=2)

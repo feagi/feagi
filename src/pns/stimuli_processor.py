@@ -189,7 +189,7 @@ def accelerator_to_coords(acc_data, direction):
          \
         ['block_boundaries'][2]
     try:
-        dist_map = round(map_value(float(acc_data), -20, 20, 0, Z_MAX - 1))
+        dist_map = round(map_value(float(acc_data), -1, 1, 0, Z_MAX - 1)) # TODO: Make 1, -1 to be scalable
     except TypeError as e:
         dist_map = 0
         print("Type Error in accelerator_to_coords...")
@@ -303,15 +303,15 @@ def coords_to_neuron_ids(detection_locations, cortical_area):
     :param cortical_area: name of cortical area (str)
     :return: list of neuron IDs (str)
     """
-    neuron_ids = []
+    neuron_ids = set()
+
     if detection_locations is not None:
-        for i in range(len(detection_locations)):
-            block_ref = block_reference_builder(detection_locations[i])
+        for location in detection_locations:
+            block_ref = block_reference_builder(location)
             block_neurons = neurons_in_the_block(cortical_area, block_ref)
-            for neuron in block_neurons:
-                if neuron is not None and neuron not in neuron_ids:
-                    neuron_ids.append(neuron)
-    return neuron_ids
+            neuron_ids.update(neuron for neuron in block_neurons if neuron is not None)
+
+    return list(neuron_ids)
 
 
 # todo: Move map value function out of proximity and to a more generic location

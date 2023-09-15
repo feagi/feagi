@@ -196,24 +196,23 @@ def api_message_processor(api_message):
 
     if 'reward' in api_message:
         reward_intensity = api_message['reward']
-        if influx:
+        if runtime_data.influxdb:
             print("+++++++++++  REWARD ++++++++++++++")
-            influx.insert_game_activity(genome_id=runtime_data.genome_id, event="success", intensity=reward_intensity)
+            runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="success", intensity=reward_intensity)
         else:
             record_training_event(event_name="reward", details={"intensity": reward_intensity})
 
     if 'punishment' in api_message:
         punishment_intensity = api_message['punishment']
-        if influx:
+        if runtime_data.influxdb:
             print("----------- PUNISHMENT --------------")
-            influx.insert_game_activity(genome_id=runtime_data.genome_id, event="punishment",
+            runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="punishment",
                                         intensity=punishment_intensity)
         else:
             record_training_event(event_name="punishment", details={"intensity": punishment_intensity})
 
     if 'game_over' in api_message:
-        if influx:
-            influx.insert_game_activity(genome_id=runtime_data.genome_id, event="game_over")
+        if runtime_data.influxdb:
+            runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="game_over")
         else:
             record_training_event(event_name="game_over")
-

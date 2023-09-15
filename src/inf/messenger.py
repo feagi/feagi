@@ -31,6 +31,8 @@ import logging
 import zmq
 import time
 from inf import runtime_data
+import pickle
+import lz4.frame
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +49,9 @@ class PubSub:
     def receive(self):
         try:
             payload = self.socket.recv_pyobj(flags=zmq.NOBLOCK)
-            return payload
+            decompressed_data = lz4.frame.decompress(payload)
+            decoded_data = pickle.loads(decompressed_data)
+            return decoded_data
         except zmq.ZMQError as e:
             if e.errno == zmq.EAGAIN:
                 pass
