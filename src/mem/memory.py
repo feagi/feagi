@@ -93,8 +93,7 @@ def neuroplasticity():
                         src_neuron_id=neuron,
                         dst_cortical_area=postsynaptic_neuron[:6],
                         dst_neuron_id=postsynaptic_neuron,
-                        long_term_depression=True,
-                        impact_multiplier=1
+                        long_term_depression=True
                     )
         except Exception as e:
             print(f"Exception during neuroplasticity processing of {neuron}", e, traceback.print_exc())
@@ -103,16 +102,16 @@ def neuroplasticity():
 def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_cortical_area,
                                      dst_neuron_id, long_term_depression=False):
 
-    for mapping in runtime_data.brain[src_cortical_area]["neighbors"][dst_cortical_area]:
+    for mapping in runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_cortical_area]:
         plasticity_flag = \
-            runtime_data.brain[src_cortical_area]["neighbors"][dst_cortical_area][mapping]["plasticity_flag"]
+            runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_cortical_area][mapping]["plasticity_flag"]
         if plasticity_flag:
             ltp_multiplier = \
-                runtime_data.brain[src_cortical_area]["neighbors"][dst_cortical_area][mapping]["ltp_multiplier"]
+                runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_cortical_area][mapping]["ltp_multiplier"]
             ltd_multiplier = \
-                runtime_data.brain[src_cortical_area]["neighbors"][dst_cortical_area][mapping]["ltd_multiplier"]
+                runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_cortical_area][mapping]["ltd_multiplier"]
             plasticity_constant = \
-                runtime_data.brain[src_cortical_area]["neighbors"][dst_cortical_area][mapping]["plasticity_constant"]
+                runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_cortical_area][mapping]["plasticity_constant"]
 
             if long_term_depression:
                 # When long term depression flag is set, there will be negative synaptic influence caused
@@ -133,7 +132,7 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
 
             try:
                 new_psc = \
-                    runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
+                    runtime_data.brain[src_cortical_area][src_neuron_id][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
 
                 new_psc += plasticity_constant
 
