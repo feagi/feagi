@@ -138,6 +138,20 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
                 "count": int
+            },
+            "Vision_Resolution": {
+                "enabled": True,
+                "cortical_id": "o_vres",
+                "structure": "asymmetric",
+                "resolution": [2, 1, 10],
+                "count": int
+            },
+            "Vision_Acuity": {
+                "enabled": True,
+                "cortical_id": "o_vact",
+                "structure": "asymmetric",
+                "resolution": [2, 1, 1],
+                "count": int
             }
         }
     },
