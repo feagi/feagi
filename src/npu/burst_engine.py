@@ -252,19 +252,41 @@ def burst_manager():
                     runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = \
                         runtime_data.fire_queue[fq_cortical_area][neuron_id][0] - leak_amount
 
-                    if runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'] == 0:
-                        fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1]
-                    else:
-                        fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1] + \
-                                         (runtime_data.fire_queue[fq_cortical_area][neuron_id][1] *
-                                          runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'])
+                    fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1]
+
+                    # if runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'] == 0:
+                    #     fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1]
+                    # else:
+                    #     fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1] + \
+                    #                      (runtime_data.fire_queue[fq_cortical_area][neuron_id][1] *
+                    #                       runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'])
 
                     membrane_potential = runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential']
 
+                    ready_to_fire = False
                     # When neuron is ready to fire
-                    if membrane_potential >= fire_threshold and \
-                            refractory_check(fq_cortical_area, neuron_id) and \
-                            consecutive_fire_threshold_check(cortical_area_=fq_cortical_area, neuron_id=neuron_id):
+                    if membrane_potential >= fire_threshold:
+                        if runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'] == 0:
+                            if refractory_check(fq_cortical_area, neuron_id) and \
+                                    consecutive_fire_threshold_check(cortical_area_=fq_cortical_area, neuron_id=neuron_id):
+                                ready_to_fire = True
+                        else:
+                            if membrane_potential <= fire_threshold * \
+                                (100 + runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit']) / \
+                                    100:
+                                if refractory_check(fq_cortical_area, neuron_id) and \
+                                        consecutive_fire_threshold_check(cortical_area_=fq_cortical_area,
+                                                                         neuron_id=neuron_id):
+                                    ready_to_fire = True
+
+                    # if membrane_potential >= fire_threshold and \
+                    #         refractory_check(fq_cortical_area, neuron_id) and \
+                    #         consecutive_fire_threshold_check(cortical_area_=fq_cortical_area, neuron_id=neuron_id):
+                    #     if runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'] > 0:
+                    #         if membrane_potential <= fire_threshold * \
+                    #                 runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit']:
+
+                    if ready_to_fire:
                         # The actual trigger to fire the neuron
                         runtime_data.brain[fq_cortical_area][neuron_id]["last_membrane_potential_reset_burst"] = \
                             runtime_data.burst_count
