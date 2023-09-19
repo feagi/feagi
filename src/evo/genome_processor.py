@@ -173,12 +173,20 @@ def genome_2_1_convertor(flat_genome):
                                             temp_dict["morphology_scalar"] = mapping_recipe[1]
                                             temp_dict["postSynapticCurrent_multiplier"] = mapping_recipe[2]
                                             temp_dict["plasticity_flag"] = mapping_recipe[3]
-                                            try:
-                                                temp_dict["plasticity_constant"] = mapping_recipe[4]
-                                                temp_dict["ltp_multiplier"] = mapping_recipe[5]
-                                                temp_dict["ltd_multiplier"] = mapping_recipe[6]
-                                            except Exception as e:
-                                                print("Genome mapping missing plasticity parameters.", e)
+                                            if mapping_recipe[3]:
+                                                try:
+                                                    temp_dict["plasticity_constant"] = mapping_recipe[4]
+                                                    temp_dict["ltp_multiplier"] = mapping_recipe[5]
+                                                    temp_dict["ltd_multiplier"] = mapping_recipe[6]
+                                                except Exception as e:
+                                                    temp_dict["plasticity_constant"] = 1
+                                                    temp_dict["ltp_multiplier"] = 1
+                                                    temp_dict["ltd_multiplier"] = 1
+                                            else:
+                                                temp_dict["plasticity_flag"] = False
+                                                temp_dict["plasticity_constant"] = 1
+                                                temp_dict["ltp_multiplier"] = 1
+                                                temp_dict["ltd_multiplier"] = 1
 
                                             genome['blueprint'][
                                                 cortical_area][genome_2_to_1[exon]][destination].append(temp_dict)
