@@ -1,4 +1,3 @@
-
 version: "3"
 
 networks:
@@ -6,6 +5,48 @@ networks:
     driver: bridge
 
 services:
+  influxdb:
+    image: ${INFLUX_DB_IMAGE}
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
+    ports:
+      - 8086:8086
+    env_file:
+      - ./.env
+    volumes:
+      - influxdb_data:/var/lib/influxdb
+#    healthcheck:
+#      test: "exit 0"
+    networks:
+      - net
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8086" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  grafana:
+    build: ${GRAFANA_IMAGE}
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '1g'
+    env_file:
+      - ./.env
+    ports:
+      - 6082:3000
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - net
+    depends_on:
+      influxdb:
+        condition: service_healthy
+
   godot_bridge:
     image: ${BRIDGE_IMAGE}
     deploy:
@@ -66,7 +107,7 @@ services:
       - ./.env
     privileged: true
     networks:
-      - net 
+      - net
 
   microbit_controller:
     image: ${MICROBIT_IMAGE}
