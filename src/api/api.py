@@ -747,12 +747,15 @@ async def genome_neuron_morphology_usage_report(morphology_name, response: Respo
     Returns the properties of a neuron morphology.
     """
     try:
-        usage_list = morphology_usage_list(morphology_name=morphology_name, genome=runtime_data.genome)
-        if usage_list:
-            response.status_code = status.HTTP_200_OK
-            return usage_list
+        if morphology_name in runtime_data.genome["neuron_morphologies"]:
+            usage_list = morphology_usage_list(morphology_name=morphology_name, genome=runtime_data.genome)
+            if usage_list:
+                response.status_code = status.HTTP_200_OK
+                return usage_list
+            else:
+                return JSONResponse(status_code=200, content=[])
         else:
-            response.status_code = status.HTTP_404_NOT_FOUND
+            return JSONResponse(status_code=404, content="Morphology not found")
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e, traceback.print_exc())
