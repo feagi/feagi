@@ -203,6 +203,6 @@ cortical_template = {
     "firing_threshold_increment_x": 0,
     "firing_threshold_increment_y": 0,
     "firing_threshold_increment_z": 0,
-    "firing_threshold_limit": 99999,
+    "firing_threshold_limit": 0,
     "mp_charge_accumulation": True
 }
