@@ -203,51 +203,6 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                         retina_data[i],
                         capabilities['camera']
                         ['peripheral_vision_resolution'])
-            if message_from_feagi is not None:
-                # OPU section STARTS
-                if 'genome_num' in message_from_feagi:
-                    if message_from_feagi['genome_num'] != genome_tracker:
-                        genome_tracker = message_from_feagi['genome_num']
-
-                if "o_aptr" in message_from_feagi["opu_data"]:
-                    if message_from_feagi["opu_data"]["o_aptr"]:
-                        for i in message_from_feagi["opu_data"]["o_aptr"]:
-                            feagi_aptr = (int(i.split('-')[-1]))
-                            if aptr_cortical_size is None:
-                                aptr_cortical_size = check_aptr(aptr_cortical_size)
-                            elif aptr_cortical_size <= feagi_aptr:
-                                aptr_cortical_size = check_aptr(aptr_cortical_size)
-                            max_range = capabilities['camera']['aperture_range'][1]
-                            min_range = capabilities['camera']['aperture_range'][0]
-                            capabilities['camera']["aperture_default"] = \
-                                ((feagi_aptr / aptr_cortical_size) *
-                                 (max_range - min_range)) + min_range
-                if "o__dev" in message_from_feagi["opu_data"]:
-                    if message_from_feagi["opu_data"]["o__dev"]:
-                        for i in message_from_feagi["opu_data"]["o__dev"]:
-                            dev_data = i
-                            digits = dev_data.split('-')
-                            third_digit = int(digits[2])
-                            capabilities['camera']["iso_threshold"] = third_digit / 10
-                if "o_vres" in message_from_feagi["opu_data"]:
-                    if message_from_feagi["opu_data"]["o_vres"]:
-                        for i in message_from_feagi["opu_data"]["o_vres"]:
-                            dev_data = feagi_agent.feagi_interface.block_to_array(i)
-                            if dev_data[0] == 0:
-                                capabilities['camera']['current_select'] = capabilities['camera']['resolution_presets'][dev_data[2]]
-                if "o_vact" in message_from_feagi["opu_data"]:
-                    if message_from_feagi["opu_data"]["o_vact"]:
-                        for i in message_from_feagi["opu_data"]["o_vact"]:
-                            dev_data = feagi_agent.feagi_interface.block_to_array(i)
-                            if dev_data[0] == 0:
-                                capabilities['camera']['central_vision_allocation_percentage'][0]\
-                                    = \
-                                    message_from_feagi["opu_data"]["o_vact"][i]
-                            if dev_data[0] == 1:
-                                capabilities['camera']['central_vision_allocation_percentage'][1]\
-                                    = \
-                                message_from_feagi["opu_data"]["o_vact"][i]
-                # OPU section ENDS
             if previous_data_frame == {}:
                 for i in retina_data:
                     previous_name = str(i) + "_prev"
@@ -296,6 +251,52 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                                            capabilities['camera']["aperture_default"])
                     for a in rgb_data['camera']:
                         rgb['camera'][a] = rgb_data['camera'][a]
+
+            if message_from_feagi is not None:
+                # OPU section STARTS
+                if 'genome_num' in message_from_feagi:
+                    if message_from_feagi['genome_num'] != genome_tracker:
+                        genome_tracker = message_from_feagi['genome_num']
+
+                if "o_aptr" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o_aptr"]:
+                        for i in message_from_feagi["opu_data"]["o_aptr"]:
+                            feagi_aptr = (int(i.split('-')[-1]))
+                            if aptr_cortical_size is None:
+                                aptr_cortical_size = check_aptr(aptr_cortical_size)
+                            elif aptr_cortical_size <= feagi_aptr:
+                                aptr_cortical_size = check_aptr(aptr_cortical_size)
+                            max_range = capabilities['camera']['aperture_range'][1]
+                            min_range = capabilities['camera']['aperture_range'][0]
+                            capabilities['camera']["aperture_default"] = \
+                                ((feagi_aptr / aptr_cortical_size) *
+                                 (max_range - min_range)) + min_range
+                if "o__dev" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o__dev"]:
+                        for i in message_from_feagi["opu_data"]["o__dev"]:
+                            dev_data = i
+                            digits = dev_data.split('-')
+                            third_digit = int(digits[2])
+                            capabilities['camera']["iso_threshold"] = third_digit / 10
+                if "o_vres" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o_vres"]:
+                        for i in message_from_feagi["opu_data"]["o_vres"]:
+                            dev_data = feagi_agent.feagi_interface.block_to_array(i)
+                            if dev_data[0] == 0:
+                                capabilities['camera']['current_select'] = capabilities['camera']['resolution_presets'][dev_data[2]]
+                if "o_vact" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o_vact"]:
+                        for i in message_from_feagi["opu_data"]["o_vact"]:
+                            dev_data = feagi_agent.feagi_interface.block_to_array(i)
+                            if dev_data[0] == 0:
+                                capabilities['camera']['central_vision_allocation_percentage'][0]\
+                                    = \
+                                    message_from_feagi["opu_data"]["o_vact"][i]
+                            if dev_data[0] == 1:
+                                capabilities['camera']['central_vision_allocation_percentage'][1]\
+                                    = \
+                                message_from_feagi["opu_data"]["o_vact"][i]
+                # OPU section ENDS  
 
             try:
                 if "data" not in message_to_feagi:
