@@ -1076,7 +1076,7 @@ async def connectome_cortical_map(response: Response):
             cortical_map[cortical_area] = dict()
             for dst in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"]:
                 cortical_map[cortical_area][dst] = 0
-                for mapping in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"]:
+                for mapping in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"][dst]:
                     cortical_map[cortical_area][dst] += 1
 
         response.status_code = status.HTTP_200_OK
