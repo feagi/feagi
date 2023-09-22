@@ -188,9 +188,9 @@ if __name__ == "__main__":
                             for i in message_from_feagi["opu_data"]["o_aptr"]:
                                 feagi_aptr = (int(i.split('-')[-1]))
                                 if aptr_cortical_size is None:
-                                    aptr_cortical_size = check_aptr(aptr_cortical_size)
+                                    aptr_cortical_size = check_aptr()
                                 elif aptr_cortical_size <= feagi_aptr:
-                                    aptr_cortical_size = check_aptr(aptr_cortical_size)
+                                    aptr_cortical_size = check_aptr()
                                 max_range = capabilities['camera']['aperture_range'][1]
                                 min_range = capabilities['camera']['aperture_range'][0]
                                 capabilities['camera']["aperture_default"] = \
@@ -201,9 +201,9 @@ if __name__ == "__main__":
                             for i in message_from_feagi["opu_data"]["o__dev"]:
                                 feagi_aptr = (int(i.split('-')[-1]))
                                 if aptr_cortical_size is None:
-                                    aptr_cortical_size = check_aptr(aptr_cortical_size)
+                                    aptr_cortical_size = check_aptr()
                                 elif aptr_cortical_size <= feagi_aptr:
-                                    aptr_cortical_size = check_aptr(aptr_cortical_size)
+                                    aptr_cortical_size = check_aptr()
                                 max_range = capabilities['camera']['ISO_range'][1]
                                 min_range = capabilities['camera']['ISO_range'][0]
                                 capabilities['camera']["deviation_threshold"] = \

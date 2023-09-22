@@ -405,27 +405,6 @@ class Ultrasonic:
         return distance_meter
 
 
-def process_retina_data(image, capabilities):
-    retina_data = retina.frame_split(image,
-                                     capabilities['camera']['retina_width_percent'],
-                                     capabilities['camera']['retina_height_percent'])
-
-    for key, data in retina_data.items():
-        compression = capabilities['camera']["central_vision_compression"] if 'C' in key else \
-            capabilities['camera']['peripheral_vision_compression']
-        retina_data[key] = retina.center_data_compression(data, compression)
-    return retina_data
-
-
-def get_rgb_for_key(key, data, capabilities, previous_data_frame):
-    compression = capabilities['camera']['central_vision_compression'] if 'C' in key else \
-        capabilities['camera']['peripheral_vision_compression']
-    previous_name = str(key) + "_prev"
-    return retina.get_rgb(data, compression, previous_data_frame[previous_name], key,
-                          capabilities['camera']['deviation_threshold'],
-                          capabilities['camera']["aperture_default"])
-
-
 # class Battery:
 #     def battery_total(self):
 #         adc = Adc()
@@ -483,8 +462,6 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     # battery = Battery()
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # - - - - - - - - - - - - - #
-    flag = False
-    keyboard_flag = True
     rolling_window_len = capabilities['motor']['rolling_window_len']
     motor_count = capabilities['motor']['count']
     msg_counter = 0
@@ -602,7 +579,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
             message_to_feagi, battery = FEAGI.compose_message_to_feagi(
                 original_message={**formatted_ir_data, **formatted_ultrasonic_data,
                                   **rgb})  # Removed battery due to error
-            # Removed battery due to error
+            # Disabled battery due to error
             # Process OPU data received from FEAGI and pass it along
             compressed_data = feagi_opu_channel.receive()  # Get data from FEAGI
             if compressed_data is not None:
