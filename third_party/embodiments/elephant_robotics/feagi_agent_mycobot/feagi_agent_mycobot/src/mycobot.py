@@ -307,7 +307,7 @@ feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
 # camera.framerate = 32
 # rawCapture = PiRGBArray(camera, size=(640, 480))
 
-# Necessry variables section:
+# Necessary variables section:
 flag = True
 keyboard_flag = True
 msg_counter = 0
@@ -396,24 +396,6 @@ while keyboard_flag:
         # Doing the misc background work (check on sync setting #
         msg_counter += 1
         flag += 1
-        # if flag == 100:
-        #     feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
-        #     feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
-        #     flag = 0
-        #     if msg_counter < feagi_burst_counter:
-        #         message_from_feagi = feagi_opu_channel.receive()
-        #         opu_data = FEAGI.opu_processor(message_from_feagi)
-        #         if opu_data['servo_position']:
-        #             for data_point in opu_data['servo_position']:
-        #                 device_id = data_point + 1
-        #                 encoder_position = ((capabilities['servo']['servo_range'][str(device_id)][1] -
-        #                                      capabilities['servo']['servo_range'][str(device_id)][0]) / 20) * \
-        #                                    opu_data['servo_position'][data_point]
-        #                 runtime_data['target_position'][device_id] = encoder_position
-        #                 speed[device_id] = (opu_data['servo_position'][data_point] - 10) * 10
-        #         feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-        #         if feagi_burst_speed != network_settings['feagi_burst_speed']:
-        #             network_settings['feagi_burst_speed'] = feagi_burst_speed
         for i in encoder_speed['encoder_speed']:
             encoder_speed['encoder_speed'][i] = {}
         for i in speed:
