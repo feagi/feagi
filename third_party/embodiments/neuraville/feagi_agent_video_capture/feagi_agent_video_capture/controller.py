@@ -184,10 +184,16 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 if "o__dev" in message_from_feagi["opu_data"]:
                     if message_from_feagi["opu_data"]["o__dev"]:
                         for i in message_from_feagi["opu_data"]["o__dev"]:
-                            dev_data = i
-                            digits = dev_data.split('-')
-                            third_digit = int(digits[2])
-                            capabilities['camera']["iso_threshold"] = third_digit / 10
+                            feagi_aptr = (int(i.split('-')[-1]))
+                            if aptr_cortical_size is None:
+                                aptr_cortical_size = check_aptr()
+                            elif aptr_cortical_size <= feagi_aptr:
+                                aptr_cortical_size = check_aptr()
+                            max_range = capabilities['camera']['iso_range'][1]
+                            min_range = capabilities['camera']['iso_range'][0]
+                            capabilities['camera']["iso_default"] = \
+                                ((feagi_aptr / aptr_cortical_size) *
+                                 (max_range - min_range)) + min_range
                 if "o_vres" in message_from_feagi["opu_data"]:
                     if message_from_feagi["opu_data"]["o_vres"]:
                         for i in message_from_feagi["opu_data"]["o_vres"]:
