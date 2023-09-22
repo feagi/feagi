@@ -27,6 +27,86 @@ def center_data_compression(frame, central_vision_compression):
     return compressed
 
 
+def check_previous_data(previous_data_frame, retina_data):
+    """
+    Verify if `previous_data_frame` is not empty.
+    If it is empty, create an empty dictionary with multiple pieces inside using the `retina_data`.
+    """
+
+    if previous_data_frame == {}:
+        for i in retina_data:
+            previous_name = str(i) + "_prev"
+            previous_data_frame[previous_name] = {}
+        return previous_data_frame
+    return previous_data_frame
+
+
+def detect_change_edge(frame, previous_data_frame, retina_data, current_selected_size,
+                       central_resolution, peripheral_resolution, current_iso_selected,
+                       aperture_default):
+    """
+    This function is designed to compare the previous data with the current data and then detect
+    which is different, while being handled by an ISO threshold which can be found in configuration.py.
+
+    Parameters:
+        frame (ndarray): RGB data.
+        previous_data_frame (dict): Previous data containing old RGB values stored in the controller.
+        retina_data (dict): Latest RGB data.
+        current_selected_size (array): It is capabilities['camera']['current_select'] in the config.
+        central_resolution (array): Capabilities['camera']["central_vision_resolution"].
+        peripheral_resolution (array): Capabilities['camera']['peripheral_vision_resolution'].
+        current_iso_selected (float): Capabilities['camera']['iso_threshold'].
+        aperture_default (float): Capabilities['camera']["aperture_default"].
+    """
+
+    rgb = {'camera': {}}
+    for i in retina_data:
+        name = i
+        if 'prev' not in i:
+            data = ndarray_to_list(retina_data[i])
+            if data is False:
+                if len(frame) > 0:
+                    print("shape: ", frame.shape)
+                print("The size: ", current_selected_size, " is not available for this")
+                print("Reverting to the original size")
+                current_selected_size = []
+                frame = {}
+                data = []
+            if 'C' in i:
+                previous_name = str(i) + "_prev"
+                rgb_data, previous_data_frame[previous_name] = \
+                    get_rgb(data, central_resolution, previous_data_frame[previous_name], name,
+                            current_iso_selected,aperture_default)
+            else:
+                previous_name = str(i) + "_prev"
+                rgb_data, previous_data_frame[previous_name] = \
+                    get_rgb(data, peripheral_resolution, previous_data_frame[previous_name],
+                            name, current_iso_selected, aperture_default)
+            for a in rgb_data['camera']:
+                rgb['camera'][a] = rgb_data['camera'][a]
+    return previous_data_frame, rgb['camera'], current_selected_size
+
+
+def frame_compression(frame, central_resolution, peripheral_resolution):
+    """
+    It will compress all pieces using the `central_resolution` and `peripheral_resolution`.
+    The key with 'C' will be compressed with central resolution, while the non-'C' keys will use
+    peripheral resolution.
+
+    Parameters:
+        frame (array): Latest RGB data.
+        central_resolution (array): Capabilities['camera']["central_vision_resolution"].
+        peripheral_resolution (array): Capabilities['camera']['peripheral_vision_resolution'].
+    """
+
+    for i in frame:
+        if 'C' in i:
+            frame[i] = center_data_compression(frame[i], central_resolution)
+        else:
+            frame[i] = center_data_compression(frame[i], peripheral_resolution)
+    return frame
+
+
 def peripheral_data_compression(frame, peripheral_vision_compression):
     """capabilities['camera']["peripheral_vision_compression"]"""
     compressed = cv2.resize(frame, peripheral_vision_compression, interpolation=cv2.INTER_AREA)
@@ -73,8 +153,8 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr
     frame_len = len(previous_frame)
     try:
         # if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length
-            # matches the
-            # resolution setting
+        # matches the
+        # resolution setting
         for index in range(frame_len):
             if previous_frame[index] != frame[index]:
                 if (abs((previous_frame[index] - frame[index])) / 100) > deviation_threshold:
@@ -98,7 +178,7 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr
     except Exception as e:
         print("Error: Raw data frame does not match frame resolution")
         print("Error due to this: ", e)
-    if len(vision_dict) > (frame_row_count * frame_col_count)/atpr_level:
+    if len(vision_dict) > (frame_row_count * frame_col_count) / atpr_level:
         return {'camera': {name_id: {}}}, previous_frame_data
     else:
         return {'camera': {name_id: vision_dict}}, previous_frame_data
