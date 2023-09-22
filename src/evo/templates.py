@@ -138,6 +138,20 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
                 "count": int
+            },
+            "Vision_Resolution": {
+                "enabled": True,
+                "cortical_id": "o_vres",
+                "structure": "asymmetric",
+                "resolution": [2, 1, 10],
+                "count": int
+            },
+            "Vision_Acuity": {
+                "enabled": True,
+                "cortical_id": "o_vact",
+                "structure": "asymmetric",
+                "resolution": [2, 1, 1],
+                "count": int
             }
         }
     },
@@ -189,6 +203,6 @@ cortical_template = {
     "firing_threshold_increment_x": 0,
     "firing_threshold_increment_y": 0,
     "firing_threshold_increment_z": 0,
-    "firing_threshold_limit": 99999,
+    "firing_threshold_limit": 0,
     "mp_charge_accumulation": True
 }
