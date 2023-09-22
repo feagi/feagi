@@ -949,9 +949,10 @@ async def cortical_area_types(response: Response):
     Returns the list of supported cortical types
     """
     try:
-        if runtime_data.cortical_types:
+        if runtime_data.cortical_defaults:
+            print(runtime_data.cortical_defaults)
             response.status_code = status.HTTP_200_OK
-            return runtime_data.cortical_types
+            return json.dumps(runtime_data.cortical_defaults)
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
     except Exception as e:
@@ -1104,8 +1105,22 @@ async def connectome_cortical_id_name_mapping_table(response: Response):
         print("API Error:", e)
 
 
+@app.api_route("/v1/feagi/genome/plasticity_queue_depth", methods=['GET'], tags=["Genome"])
+async def show_plasticity_queue_depth(response: Response):
+    """
+    Returns the current plasticity queue depth value
+    """
+    try:
+        response.status_code = status.HTTP_200_OK
+        return runtime_data.genome["plasticity_queue_depth"]
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e, traceback.print_exc())
+        logger.error(traceback.print_exc())
+
+
 @app.api_route("/v1/feagi/genome/plasticity_queue_depth", methods=['PUT'], tags=["Genome"])
-async def update_cortical_mapping_properties(queue_depth: int, response: Response):
+async def update_plasticity_queue_depth(queue_depth: int, response: Response):
     """
     Enables changes against various Burst Engine parameters.
     """
