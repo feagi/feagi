@@ -41,7 +41,7 @@ capabilities = {
         "cortical_mapping": "o__ser",
         'count': 2,
         'topic_identifier': '/S',
-        'power_amount': 0.5
+        'power_amount': 1000
 
     },
     "motor": {

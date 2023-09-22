@@ -21,10 +21,13 @@ from PIL import Image
 import pycozmo
 from feagi_agent import feagi_interface as FEAGI
 from feagi_agent import retina as retina
+from feagi_agent import pns_gateway as pns
 from configuration import *
 import requests
 import sys
 import os
+import threading
+import asyncio
 from datetime import datetime
 from collections import deque
 import numpy as np
@@ -77,17 +80,87 @@ def on_robot_state(cli, pkt: pycozmo.protocol_encoder.RobotState):
     robot['battery'] = pkt.battery_voltage
 
 
+async def expressions():
+    expressions_array = [
+        pycozmo.expressions.Anger(),
+        pycozmo.expressions.Sadness(),
+        pycozmo.expressions.Happiness(),
+        pycozmo.expressions.Surprise(),
+        pycozmo.expressions.Disgust(),
+        pycozmo.expressions.Fear(),
+        pycozmo.expressions.Pleading(),
+        pycozmo.expressions.Vulnerability(),
+        pycozmo.expressions.Despair(),
+        pycozmo.expressions.Guilt(),
+        pycozmo.expressions.Disappointment(),
+        pycozmo.expressions.Embarrassment(),
+        pycozmo.expressions.Horror(),
+        pycozmo.expressions.Skepticism(),
+        pycozmo.expressions.Annoyance(),
+        pycozmo.expressions.Fury(),
+        pycozmo.expressions.Suspicion(),
+        pycozmo.expressions.Rejection(),
+        pycozmo.expressions.Boredom(),
+        pycozmo.expressions.Tiredness(),
+        pycozmo.expressions.Asleep(),
+        pycozmo.expressions.Confusion(),
+        pycozmo.expressions.Amazement(),
+        pycozmo.expressions.Excitement(),
+    ]
+    while True:
+        if face_selected:
+            face_generator = pycozmo.procedural_face.interpolate(
+                pycozmo.expressions.Neutral(), expressions_array[face_selected[0]],
+                pycozmo.robot.FRAME_RATE // 3)
+            for face in face_generator:
+                # Render face image.
+                im = face.render()
+
+                # The Cozmo protocol expects a 128x32 image, so take only the even lines.
+                np_im = np.array(im)
+                np_im2 = np_im[::2]
+                im2 = Image.fromarray(np_im2)
+
+                # Display face image.
+                cli.display_image(im2)
+            face_selected.pop()
+        else:
+            time.sleep(0.05)
+
+
+def face_starter():
+    asyncio.run(expressions())
+
+
 def on_body_info(cli, pkt: pycozmo.protocol_encoder.BodyInfo):
     print("pkt: ", pkt)
 
 
 def on_camera_image(cli, image):
-    rgb_value = list(image.getdata())  ## full rgb data
+    rgb_value = list(image.getdata())  # full rgb data
     new_rgb = np.array(rgb_value)
     new_rgb = new_rgb.reshape(240, 320, 3)
     new_rgb = new_rgb.astype(np.uint8)
     rgb_array['current'] = new_rgb
     time.sleep(0.01)
+
+
+def move_head(cli, angle, max, min):
+    if min <= angle <= max:
+        cli.set_head_angle(angle)  # move head
+        return True
+    else:
+        print("reached to limit")
+        return False
+
+
+def lift_arms(cli, angle, max, min):
+    if min <= angle <= max:
+        cli.set_lift_height(angle)  # move head
+        return True
+    else:
+        print("reached to limit")
+        return False
 
 
 # # FEAGI REACHABLE CHECKER # #
@@ -129,10 +202,13 @@ feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # - - - #
 
+threading.Thread(target=face_starter, daemon=True).start()
 msg_counter = 0
 rgb = {}
 rgb['camera'] = {}
 genome_tracker = 0
+face_selected = deque()
+capabilities['camera']['current_select'] = []
 get_size_for_aptr_cortical = api_address + '/v1/FEAGI/genome/cortical_area?cortical_area=o_aptr'
 raw_aptr = requests.get(get_size_for_aptr_cortical).json()
 try:
@@ -146,8 +222,13 @@ cli.connect()
 cli.wait_for_robot()
 print("max in rad: ", pycozmo.robot.MAX_HEAD_ANGLE.radians)  # 0.7766715171374767
 print("min in rad: ", pycozmo.robot.MIN_HEAD_ANGLE.radians)  # -0.4363323129985824
-angle = (pycozmo.robot.MAX_HEAD_ANGLE.radians - pycozmo.robot.MIN_HEAD_ANGLE.radians) / 2.0
-cli.set_head_angle(angle)  # move head
+max = pycozmo.robot.MAX_HEAD_ANGLE.radians - 0.1
+min = pycozmo.robot.MIN_HEAD_ANGLE.radians + 0.1
+max_lift = pycozmo.MAX_LIFT_HEIGHT.mm - 5
+min_lift = pycozmo.MIN_LIFT_HEIGHT.mm + 5
+head_angle = (pycozmo.robot.MAX_HEAD_ANGLE.radians - pycozmo.robot.MIN_HEAD_ANGLE.radians) / 2.0
+arms_angle = 50
+cli.set_head_angle(head_angle)  # move head
 lwheel_speed = 0  # Speed in millimeters per second for the left wheel
 rwheel_speed = 0  # Speed in millimeters per second for the right wheel
 lwheel_acc = 0  # Acceleration in millimeters per second squared for the left wheel
@@ -158,6 +239,7 @@ duration = 0  # Duration in seconds for how long to drive the wheels
 
 # vision capture
 cli.enable_camera(enable=True, color=True)
+
 cli.add_handler(pycozmo.event.EvtNewRawCameraImage, on_camera_image)
 cli.add_handler(pycozmo.protocol_encoder.RobotState, on_robot_state)
 time.sleep(2)
@@ -201,32 +283,61 @@ while True:
                         capabilities['camera']["deviation_threshold"] = third_digit / 10
             opu_data = FEAGI.opu_processor(message_from_feagi)
             if "motor" in opu_data:
-                rwheel_speed, lwheel_speed, rf, rb, lf, lb = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-                for i in opu_data["motor"]:
-                    if 1 == i:
-                        rb = float(opu_data["motor"][i])
-                    if i == 0:
-                        rf = float(opu_data["motor"][i])
-                    if i == 2:
-                        lf = float(opu_data["motor"][i])
-                    if i == 3:
-                        lb = float(opu_data["motor"][i])
-                    rwheel_speed = rf - rb
-                    lwheel_speed = lf - lb
-                cli.drive_wheels(lwheel_speed=lwheel_speed, rwheel_speed=rwheel_speed, duration=feagi_settings['feagi_burst_speed'])
-
+                if opu_data["motor"]:
+                    rwheel_speed, lwheel_speed, rf, rb, lf, lb = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+                    for i in opu_data["motor"]:
+                        if 1 == i:
+                            rb = float(opu_data["motor"][i])
+                            print("done")
+                        if i == 0:
+                            rf = float(opu_data["motor"][i])
+                        if i == 2:
+                            lf = float(opu_data["motor"][i])
+                        if i == 3:
+                            lb = float(opu_data["motor"][i])
+                        rwheel_speed = rf - rb
+                        lwheel_speed = lf - lb
+                    cli.drive_wheels(lwheel_speed=lwheel_speed, rwheel_speed=rwheel_speed,
+                                     duration=feagi_settings['feagi_burst_speed'])
+            if "servo" in opu_data:
+                if opu_data['servo']:
+                    for i in opu_data['servo']:
+                        if i == 0:
+                            test = head_angle
+                            test += opu_data['servo'][i] / capabilities["servo"]["power_amount"]
+                            if move_head(cli, test, max, min):
+                                head_angle = test
+                        elif i == 1:
+                            test = head_angle
+                            test -= opu_data['servo'][i] / capabilities["servo"]["power_amount"]
+                            if move_head(cli, head_angle, max, min):
+                                head_angle = test
+                        if i == 2:
+                            test = arms_angle
+                            test += opu_data['servo'][i] / 100
+                            if lift_arms(cli, test, max_lift, min_lift):
+                                arms_angle = test
+                        elif i == 3:
+                            test = arms_angle
+                            test -= opu_data['servo'][i] / 100
+                            if lift_arms(cli, test, max_lift, min_lift):
+                                arms_angle = test
+            if "misc" in opu_data:
+                if opu_data["misc"]:
+                    for i in opu_data["misc"]:
+                        face_selected.append(i)
             # OPU section ENDS
         new_rgb = rgb_array['current']
         previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
-            er.generate_rgb(new_rgb,
-                            capabilities['camera']['central_vision_allocation_percentage'][0],
-                            capabilities['camera']['central_vision_allocation_percentage'][1],
-                            capabilities['camera']["central_vision_resolution"],
-                            capabilities['camera']['peripheral_vision_resolution'],
-                            previous_data_frame,
-                            capabilities['camera']['current_select'],
-                            capabilities['camera']['iso_default'],
-                            capabilities['camera']["aperture_default"])
+            pns.generate_rgb(new_rgb,
+                             capabilities['camera']['central_vision_allocation_percentage'][0],
+                             capabilities['camera']['central_vision_allocation_percentage'][1],
+                             capabilities['camera']["central_vision_resolution"],
+                             capabilities['camera']['peripheral_vision_resolution'],
+                             previous_data_frame,
+                             capabilities['camera']['current_select'],
+                             capabilities['camera']['iso_default'],
+                             capabilities['camera']["aperture_default"])
         battery = robot['battery']
         try:
             ultrasonic_data = robot['ultrasonic'][0]
@@ -260,8 +371,7 @@ while True:
                 message_to_feagi["data"] = {}
             if "sensory_data" not in message_to_feagi["data"]:
                 message_to_feagi["data"]["sensory_data"] = {}
-            message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data[
-                'accelerator']
+            message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data['accelerator']
         except Exception as ERROR:
             message_to_feagi["data"]["sensory_data"]['accelerator'] = {}
         # End accelerator section
@@ -279,12 +389,13 @@ while True:
             feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
         else:
             feagi_ipu_channel.send(message_to_feagi)
-        print("battery: ", battery)
+        # print("battery: ", battery)
         message_to_feagi.clear()
         for i in rgb['camera']:
             rgb['camera'][i].clear()
     except Exception as e:
         print("ERROR: ", e)
+        print(traceback)
         break
 
 # pycozmo.setup_basic_logging(log_level="DEBUG", protocol_log_level="DEBUG")
