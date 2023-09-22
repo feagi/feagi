@@ -181,15 +181,19 @@ if __name__ == "__main__":
                     WS_STRING = ""
                     if 'motor' in opu_data:
                         if opu_data['motor']:
-                            for i in sorted(opu_data['motor']):  # Ensure that it's in order for microbit
+                            # Ensure that it's in order for microbit
+                            for i in sorted(opu_data['motor']):
                                 if i in [0, 1]:
-                                    WS_STRING += str(i) + str(opu_data['motor'][i]-10).zfill(2)  # Append the motor data as a two-digit
+                                    # Append the motor data as a two-digit
+                                    WS_STRING += str(i) + str(opu_data['motor'][i]-10).zfill(2)
                                     # string
                                 elif i in [2, 3]:
-                                    WS_STRING += str(i) + str(opu_data['motor'][i]-10).zfill(2)  # Append the motor data as a two-digit
+                                    # Append the motor data as a two-digit
+                                    WS_STRING += str(i) + str(opu_data['motor'][i]-10).zfill(2)
                                     # string
                                 else:
-                                    WS_STRING += str(i) + "00"  # If the motor value is not present, append "00"
+                                    # If the motor value is not present, append "00"
+                                    WS_STRING += str(i) + "00"
                             if len(WS_STRING) != 6:
                                 if int(WS_STRING[0]) < 2:
                                     WS_STRING = WS_STRING + "500"
