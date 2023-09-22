@@ -159,7 +159,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                                 capabilities['camera']['peripheral_vision_resolution'],
                                 previous_data_frame,
                                 capabilities['camera']['current_select'],
-                                capabilities['camera']['iso_threshold'],
+                                capabilities['camera']['iso_default'],
                                 capabilities['camera']["aperture_default"])
 
             if message_from_feagi is not None:
