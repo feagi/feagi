@@ -26,57 +26,7 @@ from PIL import Image
 camera_data = {"vision": {}}
 
 
-def chroma_keyer(frame, size, name_id):
-    """
-    This function allows you to remove the specific color. In psychopy window, it shows a gray
-    which is 128,128,128. So this function will remove the 128 and focus on something else than
-    the gray. Consider this as making the data into a transparent.
-
-    Currently, this is in BETA and not used in any of this code.
-    """
-    vision_dict = dict()
-    frame_row_count = size[0]  # width
-    frame_col_count = size[1]  # height
-
-    x_vision = 0  # row counter
-    y_vision = 0  # col counter
-    z_vision = 0  # RGB counter
-
-    previous_frame = {}
-    frame_len = frame_row_count * frame_col_count * 3  # hardcoded. Needs to update this section.
-    try:
-        if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length
-            # matches the resolution setting
-            for index in range(frame_len):
-                if frame[index] != 128:
-                    dict_key = str(y_vision) + '-' + str(
-                        abs((frame_row_count - 1) - x_vision)) + '-' + str(
-                        0)
-                    vision_dict[dict_key] = frame[
-                        index]  # save the value for the changed index to the dict
-                z_vision += 1
-                if z_vision == 3:
-                    z_vision = 0
-                    y_vision += 1
-                    if y_vision == frame_col_count:
-                        y_vision = 0
-                        x_vision += 1
-    except Exception as e:
-        print("Error: Raw data frame does not match frame resolution")
-        print("Error due to this: ", e)
-
-    if len(vision_dict) > 3500:
-        return {'camera': {name_id: {}}}
-    else:
-        return {'camera': {name_id: vision_dict}}
-
-
-def pil_frombytes(im):
-    """ Efficient Pillow version. """
-    return Image.frombytes('RGB', im.size, im.bgra, 'raw', 'BGRX').tobytes()
-
-
-def check_aptr(size):
+def check_aptr():
     try:
         raw_aptr = requests.get(get_size_for_aptr_cortical).json()
         return raw_aptr['cortical_dimensions'][2]
@@ -214,9 +164,9 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                         for i in message_from_feagi["opu_data"]["o_aptr"]:
                             feagi_aptr = (int(i.split('-')[-1]))
                             if aptr_cortical_size is None:
-                                aptr_cortical_size = check_aptr(aptr_cortical_size)
+                                aptr_cortical_size = check_aptr()
                             elif aptr_cortical_size <= feagi_aptr:
-                                aptr_cortical_size = check_aptr(aptr_cortical_size)
+                                aptr_cortical_size = check_aptr()
                             max_range = capabilities['camera']['aperture_range'][1]
                             min_range = capabilities['camera']['aperture_range'][0]
                             capabilities['camera']["aperture_default"] = \
