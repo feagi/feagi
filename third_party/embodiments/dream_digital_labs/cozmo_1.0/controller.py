@@ -1,4 +1,20 @@
-    #!/usr/bin/env python
+#!/usr/bin/env python
+"""
+Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+"""
 
 import time
 from PIL import Image
@@ -201,99 +217,55 @@ while True:
 
             # OPU section ENDS
         new_rgb = rgb_array['current']
-        # cv2.imshow("test", new_rgb)
-        # cv2.waitKey(30)
-        retina_data = retina.frame_split(new_rgb,
-                                         capabilities['camera']['retina_width_percent'],
-                                         capabilities['camera'][
-                                             'retina_height_percent'])
-        for i in retina_data:
-            if 'C' in i:
-                retina_data[i] = \
-                    retina.center_data_compression(retina_data[i],
-                                                   capabilities['camera']
-                                                   ["central_vision_compression"])
-            else:
-                retina_data[i] = \
-                    retina.center_data_compression(retina_data[i],
-                                                   capabilities['camera']
-                                                   ['peripheral_vision_compression'])
-        if not previous_data_frame:
-            for i in retina_data:
-                PREVIOUS_NAME = str(i) + "_prev"
-                previous_data_frame[PREVIOUS_NAME] = {}
-        for i in retina_data:
-            name = i
-            if 'prev' not in i:
-                data = retina.ndarray_to_list(retina_data[i])
-                if 'C' in i:
-                    PREVIOUS_NAME = str(i) + "_prev"
-                    rgb_data, previous_data_frame[PREVIOUS_NAME] = \
-                        retina.get_rgb(data,
-                                       capabilities['camera'][
-                                           'central_vision_compression'],
-                                       previous_data_frame[
-                                           PREVIOUS_NAME],
-                                       name,
-                                       capabilities[
-                                           'camera'][
-                                           'deviation_threshold'],
-                                       capabilities['camera']["aperture_default"])
-                else:
-                    PREVIOUS_NAME = str(i) + "_prev"
-                    rgb_data, previous_data_frame[PREVIOUS_NAME] = \
-                        retina.get_rgb(data,
-                                       capabilities[
-                                           'camera'][
-                                           'peripheral_vision_compression'],
-                                       previous_data_frame[
-                                           PREVIOUS_NAME],
-                                       name,
-                                       capabilities[
-                                           'camera'][
-                                           'deviation_threshold'],
-                                       capabilities['camera']["aperture_default"])
-                for a in rgb_data['camera']:
-                    rgb['camera'][a] = rgb_data['camera'][a]
-            battery = robot['battery']
-            try:
-                ultrasonic_data = robot['ultrasonic'][0]
-                if ultrasonic_data:
-                    formatted_ultrasonic_data = {
-                        'ultrasonic': {
-                            sensor: data for sensor, data in enumerate([ultrasonic_data])
-                        }
+        previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
+            er.generate_rgb(new_rgb,
+                            capabilities['camera']['central_vision_allocation_percentage'][0],
+                            capabilities['camera']['central_vision_allocation_percentage'][1],
+                            capabilities['camera']["central_vision_resolution"],
+                            capabilities['camera']['peripheral_vision_resolution'],
+                            previous_data_frame,
+                            capabilities['camera']['current_select'],
+                            capabilities['camera']['iso_default'],
+                            capabilities['camera']["aperture_default"])
+        battery = robot['battery']
+        try:
+            ultrasonic_data = robot['ultrasonic'][0]
+            if ultrasonic_data:
+                formatted_ultrasonic_data = {
+                    'ultrasonic': {
+                        sensor: data for sensor, data in enumerate([ultrasonic_data])
                     }
-                else:
-                    formatted_ultrasonic_data = {}
-                message_to_feagi, battery = FEAGI.compose_message_to_feagi(
-                    original_message={**formatted_ultrasonic_data}, battery=battery)
-            except Exception as ERROR:
-                print("ERROR IN ULTRASONIC: ", ERROR)
-                ultrasonic_data = 0
-            try:
-                if "data" not in message_to_feagi:
-                    message_to_feagi["data"] = {}
-                if "sensory_data" not in message_to_feagi["data"]:
-                    message_to_feagi["data"]["sensory_data"] = {}
-                message_to_feagi["data"]["sensory_data"]['camera'] = rgb['camera']
-            except Exception as e:
-                print("error: ", e)
-            # Add accelerator section
-            try:
-                runtime_data['accelerator']['0'] = robot['accelerator'][0]
-                runtime_data['accelerator']['1'] = robot['accelerator'][1]
-                runtime_data['accelerator']['2'] = robot['accelerator'][2]
-                if "data" not in message_to_feagi:
-                    message_to_feagi["data"] = {}
-                if "sensory_data" not in message_to_feagi["data"]:
-                    message_to_feagi["data"]["sensory_data"] = {}
-                message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data[
-                    'accelerator']
-            except Exception as ERROR:
-                message_to_feagi["data"]["sensory_data"]['accelerator'] = {}
-            # End accelerator section
-            # Psychopy game ends
+                }
+            else:
+                formatted_ultrasonic_data = {}
+            message_to_feagi, battery = FEAGI.compose_message_to_feagi(
+                original_message={**formatted_ultrasonic_data}, battery=battery)
+        except Exception as ERROR:
+            print("ERROR IN ULTRASONIC: ", ERROR)
+            ultrasonic_data = 0
+        try:
+            if "data" not in message_to_feagi:
+                message_to_feagi["data"] = {}
+            if "sensory_data" not in message_to_feagi["data"]:
+                message_to_feagi["data"]["sensory_data"] = {}
+            message_to_feagi["data"]["sensory_data"]['camera'] = rgb['camera']
+        except Exception as e:
+            print("error: ", e)
+        # Add accelerator section
+        try:
+            runtime_data['accelerator']['0'] = robot['accelerator'][0]
+            runtime_data['accelerator']['1'] = robot['accelerator'][1]
+            runtime_data['accelerator']['2'] = robot['accelerator'][2]
+            if "data" not in message_to_feagi:
+                message_to_feagi["data"] = {}
+            if "sensory_data" not in message_to_feagi["data"]:
+                message_to_feagi["data"]["sensory_data"] = {}
+            message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data[
+                'accelerator']
+        except Exception as ERROR:
+            message_to_feagi["data"]["sensory_data"]['accelerator'] = {}
+        # End accelerator section
+        # Psychopy game ends
         # message_to_feagi, battery = FEAGI.compose_message_to_feagi({**rgb},
         # battery=aliens.healthpoint*10)
         message_to_feagi['timestamp'] = datetime.now()
