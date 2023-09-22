@@ -6,6 +6,7 @@ Demo of dot kinematogram
 """
 
 import cv2
+import feagi_agent.feagi_interface
 import requests
 from time import sleep
 from datetime import datetime
@@ -24,57 +25,8 @@ from PIL import Image
 
 camera_data = {"vision": {}}
 
-def chroma_keyer(frame, size, name_id):
-    """
-    This function allows you to remove the specific color. In psychopy window, it shows a gray
-    which is 128,128,128. So this function will remove the 128 and focus on something else than
-    the gray. Consider this as making the data into a transparent.
 
-    Currently, this is in BETA and not used in any of this code.
-    """
-    vision_dict = dict()
-    frame_row_count = size[0]  # width
-    frame_col_count = size[1]  # height
-
-    x_vision = 0  # row counter
-    y_vision = 0  # col counter
-    z_vision = 0  # RGB counter
-
-    previous_frame = {}
-    frame_len = frame_row_count * frame_col_count * 3  # hardcoded. Needs to update this section.
-    try:
-        if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length
-            # matches the resolution setting
-            for index in range(frame_len):
-                if frame[index] != 128:
-                    dict_key = str(y_vision) + '-' + str(
-                        abs((frame_row_count - 1) - x_vision)) + '-' + str(
-                        0)
-                    vision_dict[dict_key] = frame[
-                        index]  # save the value for the changed index to the dict
-                z_vision += 1
-                if z_vision == 3:
-                    z_vision = 0
-                    y_vision += 1
-                    if y_vision == frame_col_count:
-                        y_vision = 0
-                        x_vision += 1
-    except Exception as e:
-        print("Error: Raw data frame does not match frame resolution")
-        print("Error due to this: ", e)
-
-    if len(vision_dict) > 3500:
-        return {'camera': {name_id: {}}}
-    else:
-        return {'camera': {name_id: vision_dict}}
-
-
-def pil_frombytes(im):
-    """ Efficient Pillow version. """
-    return Image.frombytes('RGB', im.size, im.bgra, 'raw', 'BGRX').tobytes()
-
-
-def check_aptr(size):
+def check_aptr():
     try:
         raw_aptr = requests.get(get_size_for_aptr_cortical).json()
         return raw_aptr['cortical_dimensions'][2]
@@ -107,13 +59,18 @@ def process_video(video_path, capabilities):
                 img = numpy.array(sct.grab(monitor))
                 pixels = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
                 cv2.imshow("OpenCV/Numpy normal", pixels)
-                # print(rgb)
             cv2.waitKey(25)
         else:
             if check:
-                cv2.imshow("test", pixels)
+                # cv2.imshow("test", pixels)
                 cv2.waitKey(30)
-        camera_data["vision"] = pixels
+        if capabilities['camera']['current_select']:
+            dim = (capabilities['camera']['current_select'][0], capabilities['camera'][
+                'current_select'][1])
+            pixels = cv2.resize(pixels, dim, interpolation=cv2.INTER_AREA)
+            camera_data["vision"] = pixels
+        else:
+            camera_data["vision"] = pixels
 
     cam.release()
     cv2.destroyAllWindows()
@@ -158,8 +115,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     # FEAGI section ends
     msg_counter = runtime_data["feagi_state"]['burst_counter']
     rgb = dict()
-    checkpoint_total = 5
-    flag_counter = 0
+    capabilities['camera']['current_select'] = []
     rgb['camera'] = dict()
     genome_tracker = 0
     get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr'
@@ -182,19 +138,21 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 message_from_feagi = None
 
             pixels = camera_data['vision']
-            retina_data = retina.frame_split(pixels, capabilities['camera']['retina_width_percent'],
-                                             capabilities['camera']['retina_height_percent'])
+            retina_data = retina.frame_split(pixels, capabilities['camera'][
+                'central_vision_allocation_percentage'][0],
+                                             capabilities['camera'][
+                                                 'central_vision_allocation_percentage'][1])
             for i in retina_data:
                 if 'C' in i:
                     retina_data[i] = retina.center_data_compression(
                         retina_data[i],
                         capabilities['camera'][
-                            "central_vision_compression"])
+                            "central_vision_resolution"])
                 else:
                     retina_data[i] = retina.center_data_compression(
                         retina_data[i],
                         capabilities['camera']
-                        ['peripheral_vision_compression'])
+                        ['peripheral_vision_resolution'])
             if message_from_feagi is not None:
                 # OPU section STARTS
                 if 'genome_num' in message_from_feagi:
@@ -206,9 +164,9 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                         for i in message_from_feagi["opu_data"]["o_aptr"]:
                             feagi_aptr = (int(i.split('-')[-1]))
                             if aptr_cortical_size is None:
-                                aptr_cortical_size = check_aptr(aptr_cortical_size)
+                                aptr_cortical_size = check_aptr()
                             elif aptr_cortical_size <= feagi_aptr:
-                                aptr_cortical_size = check_aptr(aptr_cortical_size)
+                                aptr_cortical_size = check_aptr()
                             max_range = capabilities['camera']['aperture_range'][1]
                             min_range = capabilities['camera']['aperture_range'][0]
                             capabilities['camera']["aperture_default"] = \
@@ -217,11 +175,28 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 if "o__dev" in message_from_feagi["opu_data"]:
                     if message_from_feagi["opu_data"]["o__dev"]:
                         for i in message_from_feagi["opu_data"]["o__dev"]:
-                            print(i)
                             dev_data = i
                             digits = dev_data.split('-')
                             third_digit = int(digits[2])
-                            capabilities['camera']["deviation_threshold"] = third_digit/10
+                            capabilities['camera']["iso_threshold"] = third_digit / 10
+                if "o_vres" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o_vres"]:
+                        for i in message_from_feagi["opu_data"]["o_vres"]:
+                            dev_data = feagi_agent.feagi_interface.block_to_array(i)
+                            if dev_data[0] == 0:
+                                capabilities['camera']['current_select'] = capabilities['camera']['resolution_presets'][dev_data[2]]
+                if "o_vact" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o_vact"]:
+                        for i in message_from_feagi["opu_data"]["o_vact"]:
+                            dev_data = feagi_agent.feagi_interface.block_to_array(i)
+                            if dev_data[0] == 0:
+                                capabilities['camera']['central_vision_allocation_percentage'][0]\
+                                    = \
+                                    message_from_feagi["opu_data"]["o_vact"][i]
+                            if dev_data[0] == 1:
+                                capabilities['camera']['central_vision_allocation_percentage'][1]\
+                                    = \
+                                message_from_feagi["opu_data"]["o_vact"][i]
                 # OPU section ENDS
             if previous_data_frame == {}:
                 for i in retina_data:
@@ -231,19 +206,29 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 name = i
                 if 'prev' not in i:
                     data = retina.ndarray_to_list(retina_data[i])
+                    if data is False:
+                        if len(camera_data['vision']) > 0:
+                            print("shape: ", camera_data["vision"].shape)
+                        print("The size: ", capabilities['camera']['current_select'], " is not "
+                                                                                      "available "
+                                                                                      "for this")
+                        print("Reverting to the original size")
+                        capabilities['camera']['current_select'] = []
+                        camera_data["vision"] = {}
+                        data = []
                     if 'C' in i:
                         previous_name = str(i) + "_prev"
                         rgb_data, previous_data_frame[previous_name] = \
                             retina.get_rgb(data,
                                            capabilities[
                                                'camera'][
-                                               'central_vision_compression'],
+                                               'central_vision_resolution'],
                                            previous_data_frame[
                                                previous_name],
                                            name,
                                            capabilities[
                                                'camera'][
-                                               'deviation_threshold'],
+                                               'iso_threshold'],
                                            capabilities['camera']["aperture_default"])
                     else:
                         previous_name = str(i) + "_prev"
@@ -251,13 +236,13 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                             retina.get_rgb(data,
                                            capabilities[
                                                'camera'][
-                                               'peripheral_vision_compression'],
+                                               'peripheral_vision_resolution'],
                                            previous_data_frame[
                                                previous_name],
                                            name,
                                            capabilities[
                                                'camera'][
-                                               'deviation_threshold'],
+                                               'iso_threshold'],
                                            capabilities['camera']["aperture_default"])
                     for a in rgb_data['camera']:
                         rgb['camera'][a] = rgb_data['camera'][a]
@@ -276,10 +261,6 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
             if message_from_feagi is not None:
                 feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
             sleep(feagi_settings['feagi_burst_speed'])
-            # try:
-            #     print("Len --", len(message_to_feagi['data']['sensory_data']['camera']['C']))
-            # except:
-            #     pass
             if agent_settings['compression']:
                 serialized_data = pickle.dumps(message_to_feagi)
                 feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
@@ -290,5 +271,5 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 rgb['camera'][i].clear()
         except Exception as e:
             print("ERROR! : ", e)
-            cam.release()
+            traceback.print_exc()
             break
