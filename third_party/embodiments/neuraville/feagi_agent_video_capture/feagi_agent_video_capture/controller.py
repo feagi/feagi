@@ -1,8 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 """
-Demo of dot kinematogram
+Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
 """
 
 import cv2
@@ -11,6 +23,7 @@ import requests
 from time import sleep
 from datetime import datetime
 from feagi_agent import retina as retina
+from feagi_agent import extracting_retina as er
 from feagi_agent import feagi_interface as feagi
 import traceback
 import threading
@@ -138,22 +151,16 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 message_from_feagi = None
 
             pixels = camera_data['vision']
-            width_percentage = capabilities['camera']['central_vision_allocation_percentage'][0]
-            height_percentage = capabilities['camera']['central_vision_allocation_percentage'][1]
-            central_resolution = capabilities['camera']["central_vision_resolution"]
-            peripheral_resolution = capabilities['camera']['peripheral_vision_resolution']
-            current_selected_size = capabilities['camera']['current_select']
-            current_iso_selected = capabilities['camera']['iso_threshold']
-            aperture_default = capabilities['camera']["aperture_default"]
-            retina_data = retina.frame_split(pixels, width_percentage, height_percentage)
-            retina_data = retina.frame_compression(retina_data,
-                                                   central_resolution, peripheral_resolution)
-            previous_data_frame = retina.check_previous_data(previous_data_frame, retina_data)
             previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
-                retina.detect_change_edge(camera_data['vision'], previous_data_frame,
-                                          retina_data, current_selected_size, central_resolution,
-                                          peripheral_resolution, current_iso_selected,
-                                          aperture_default)
+                er.generate_rgb(pixels,
+                                capabilities['camera']['central_vision_allocation_percentage'][0],
+                                capabilities['camera']['central_vision_allocation_percentage'][1],
+                                capabilities['camera']["central_vision_resolution"],
+                                capabilities['camera']['peripheral_vision_resolution'],
+                                previous_data_frame,
+                                capabilities['camera']['current_select'],
+                                capabilities['camera']['iso_threshold'],
+                                capabilities['camera']["aperture_default"])
 
             if message_from_feagi is not None:
                 # OPU section STARTS
@@ -186,20 +193,21 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                         for i in message_from_feagi["opu_data"]["o_vres"]:
                             dev_data = feagi_agent.feagi_interface.block_to_array(i)
                             if dev_data[0] == 0:
-                                capabilities['camera']['current_select'] = capabilities['camera']['resolution_presets'][dev_data[2]]
+                                capabilities['camera']['current_select'] = \
+                                capabilities['camera']['resolution_presets'][dev_data[2]]
                 if "o_vact" in message_from_feagi["opu_data"]:
                     if message_from_feagi["opu_data"]["o_vact"]:
                         for i in message_from_feagi["opu_data"]["o_vact"]:
                             dev_data = feagi_agent.feagi_interface.block_to_array(i)
                             if dev_data[0] == 0:
-                                capabilities['camera']['central_vision_allocation_percentage'][0]\
+                                capabilities['camera']['central_vision_allocation_percentage'][0] \
                                     = \
                                     message_from_feagi["opu_data"]["o_vact"][i]
                             if dev_data[0] == 1:
-                                capabilities['camera']['central_vision_allocation_percentage'][1]\
+                                capabilities['camera']['central_vision_allocation_percentage'][1] \
                                     = \
-                                message_from_feagi["opu_data"]["o_vact"][i]
-                # OPU section ENDS  
+                                    message_from_feagi["opu_data"]["o_vact"][i]
+                # OPU section ENDS
 
             try:
                 if "data" not in message_to_feagi:
