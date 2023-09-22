@@ -180,43 +180,9 @@ def misc_control(self, data, battery_level):
             print("Error at: ", e)
 
 
-def list_to_dict(full_list):
-    test = dict()
-    test['vision'] = dict()
-    for x in range(len(full_list)):
-        for i in full_list[x]:
-            test['vision'][x] = i
-    return test['vision']
-
-
 def full_frame(self):
     frame_read = self.get_frame_read()
     return frame_read.frame
-
-
-def convert_feagi_to_english(feagi):
-    """
-    convert feagi's data into human readable data
-    """
-    new_dict = dict()
-    if feagi != {}:
-        try:
-            for i in feagi:
-                if i == 0:
-                    new_dict['f'] = feagi[i]
-                if i == 1:
-                    new_dict['b'] = feagi[i]
-                if i == 2:
-                    new_dict['r'] = feagi[i]
-                if i == 3:
-                    new_dict['l'] = feagi[i]
-                if i == 4:
-                    new_dict['u'] = feagi[i]
-                if i == 5:
-                    new_dict['d'] = feagi[i]
-        except Exception as e:
-            print("ERROR: ", e)
-    return new_dict
 
 
 def start_camera(self):
@@ -229,10 +195,6 @@ def start_camera(self):
 def navigate_to_xyz(self, x=0, y=0, z=0, s=0):
     cmd = 'go {} {} {} {}'.format(x, y, z, s)
     self.send_control_command(cmd)
-
-
-def convert_data_into_split(data):
-    return -1 * (data - 10)
 
 
 def convert_gyro_into_feagi(value, resolution, range_number):
