@@ -163,7 +163,7 @@ def opu_processor(data):
                     for data_point in opu_data['o__ser']:
                         processed_data_point = block_to_array(data_point)
                         device_id = processed_data_point[0]
-                        device_power = processed_data_point[2]
+                        device_power = opu_data['o__ser'][data_point]
                         processed_opu_data['servo'][device_id] = device_power
             if 'o_cbat' in opu_data:
                 if opu_data['o__bat']:
