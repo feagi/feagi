@@ -23,7 +23,7 @@ import requests
 from time import sleep
 from datetime import datetime
 from feagi_agent import retina as retina
-from feagi_agent import extracting_retina as er
+from feagi_agent import pns_gateway as pns
 from feagi_agent import feagi_interface as feagi
 import traceback
 import threading
@@ -152,7 +152,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
 
             pixels = camera_data['vision']
             previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
-                er.generate_rgb(pixels,
+                pns.generate_rgb(pixels,
                                 capabilities['camera']['central_vision_allocation_percentage'][0],
                                 capabilities['camera']['central_vision_allocation_percentage'][1],
                                 capabilities['camera']["central_vision_resolution"],
@@ -173,9 +173,9 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                         for i in message_from_feagi["opu_data"]["o_aptr"]:
                             feagi_aptr = (int(i.split('-')[-1]))
                             if aptr_cortical_size is None:
-                                aptr_cortical_size = check_aptr(aptr_cortical_size)
+                                aptr_cortical_size = check_aptr()
                             elif aptr_cortical_size <= feagi_aptr:
-                                aptr_cortical_size = check_aptr(aptr_cortical_size)
+                                aptr_cortical_size = check_aptr()
                             max_range = capabilities['camera']['aperture_range'][1]
                             min_range = capabilities['camera']['aperture_range'][0]
                             capabilities['camera']["aperture_default"] = \
