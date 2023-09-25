@@ -23,6 +23,8 @@ from feagi_agent import feagi_interface as FEAGI
 from feagi_agent import retina as retina
 from feagi_agent import pns_gateway as pns
 from configuration import *
+from typing import Optional, List
+from pycozmo.procedural_face import ProceduralFace, DEFAULT_WIDTH, DEFAULT_HEIGHT
 import requests
 import sys
 import os
@@ -104,6 +106,7 @@ async def expressions():
         pycozmo.expressions.Confusion(),
         pycozmo.expressions.Amazement(),
         pycozmo.expressions.Excitement(),
+        pycozmo.expressions.Excitement2()
     ]
     while True:
         if face_selected:
@@ -245,7 +248,8 @@ if __name__ == '__main__':
     min = pycozmo.robot.MIN_HEAD_ANGLE.radians + 0.1
     max_lift = pycozmo.MAX_LIFT_HEIGHT.mm - 5
     min_lift = pycozmo.MIN_LIFT_HEIGHT.mm + 5
-    angle_of_head = (pycozmo.robot.MAX_HEAD_ANGLE.radians - pycozmo.robot.MIN_HEAD_ANGLE.radians) / 2.0
+    angle_of_head = (
+                                pycozmo.robot.MAX_HEAD_ANGLE.radians - pycozmo.robot.MIN_HEAD_ANGLE.radians) / 2.0
     angle_of_arms = 50  # TODO: How to obtain the arms encoders in real time
     cli.set_head_angle(angle_of_head)  # move head
     lwheel_speed = 0  # Speed in millimeters per second for the left wheel
