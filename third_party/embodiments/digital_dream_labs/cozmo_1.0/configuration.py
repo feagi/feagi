@@ -55,6 +55,9 @@ capabilities = {
         "diameter_of_wheel": 0.065,
         "power_amount": 65
     },
+    "misc": {
+        "type": "opu"
+    },
     "infrared": {
         "type": "ipu",
         "disabled": False,
@@ -91,4 +94,3 @@ capabilities = {
 }
 
 message_to_feagi = {"data": {}}
-

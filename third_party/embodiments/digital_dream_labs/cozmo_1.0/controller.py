@@ -161,8 +161,8 @@ def lift_arms(cli, angle, max, min):
         return False
 
 
-def updating_robot(obtained_data, device_list, feagi_settings):
-    for x in device_list:
+def action(obtained_data, device_list, feagi_settings   ):
+    for device in device_list: # TODO: work on 'device'
         if "motor" in obtained_data:
             wheel_speeds = {"rf": 0, "rb": 0, "lf": 0, "lb": 0}
 
@@ -176,32 +176,33 @@ def updating_robot(obtained_data, device_list, feagi_settings):
             cli.drive_wheels(lwheel_speed=lwheel_speed,
                              rwheel_speed=rwheel_speed,
                              duration=feagi_settings['feagi_burst_speed'])
-        # if "servo" in obtained_data:
-        #     for i in opu_data['servo']:
-        #         if i == 0:
-        #             test = head_angle
-        #             test += opu_data['servo'][i] / capabilities["servo"]["power_amount"]
-        #             if move_head(cli, test, max, min):
-        #                 head_angle = test
-        #         elif i == 1:
-        #             test = head_angle
-        #             test -= opu_data['servo'][i] / capabilities["servo"]["power_amount"]
-        #             if move_head(cli, head_angle, max, min):
-        #                 head_angle = test
-        #         if i == 2:
-        #             test = arms_angle
-        #             test += opu_data['servo'][i] / 100
-        #             if lift_arms(cli, test, max_lift, min_lift):
-        #                 arms_angle = test
-        #         elif i == 3:
-        #             test = arms_angle
-        #             test -= opu_data['servo'][i] / 100
-        #             if lift_arms(cli, test, max_lift, min_lift):
-        #                     arms_angle = test
-        # if "misc" in opu_data:
-        #     if opu_data["misc"]:
-        #         for i in opu_data["misc"]:
-        #             face_selected.append(i)
+        if "servo" in obtained_data:
+            global head_angle, arms_angle
+            for i in obtained_data['servo']:
+                if i == 0:
+                    test = head_angle
+                    test += obtained_data['servo'][i] / capabilities["servo"]["power_amount"]
+                    if move_head(cli, test, max, min):
+                        head_angle = test
+                elif i == 1:
+                    test = head_angle
+                    test -= obtained_data['servo'][i] / capabilities["servo"]["power_amount"]
+                    if move_head(cli, head_angle, max, min):
+                        head_angle = test
+                if i == 2:
+                    test = arms_angle
+                    test += obtained_data['servo'][i] / 100
+                    if lift_arms(cli, test, max_lift, min_lift):
+                        arms_angle = test
+                elif i == 3:
+                    test = arms_angle
+                    test -= obtained_data['servo'][i] / 100
+                    if lift_arms(cli, test, max_lift, min_lift):
+                        arms_angle = test
+        if "misc" in obtained_data:
+            if obtained_data["misc"]:
+                for i in obtained_data["misc"]:
+                    face_selected.append(i)
 
 
 # # FEAGI REACHABLE CHECKER # #
@@ -279,7 +280,7 @@ cli.add_handler(pycozmo.event.EvtNewRawCameraImage, on_camera_image)
 cli.add_handler(pycozmo.protocol_encoder.RobotState, on_robot_state)
 time.sleep(2)
 # vision ends
-sensor_list = pns.generate_OPU_list(capabilities)  # get the OPU sensors
+device_list = pns.generate_OPU_list(capabilities)  # get the OPU sensors
 while True:
     try:
         start = time.time()
@@ -291,8 +292,8 @@ while True:
                                                    aptr_cortical_size)
             capabilities = pns.fetch_iso_data(message_from_feagi, capabilities, aptr_cortical_size)
             # OPU section STARTS
-            obtained_signals = pns.obtain_signals(sensor_list, message_from_feagi)
-            updating_robot(obtained_signals, sensor_list, feagi_settings)
+            obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
+            action(obtained_signals, device_list, feagi_settings)
             # OPU section ENDS
         new_rgb = rgb_array['current']
         previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
