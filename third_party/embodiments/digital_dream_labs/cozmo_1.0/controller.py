@@ -161,8 +161,8 @@ def lift_arms(cli, angle, max, min):
         return False
 
 
-def action(obtained_data, device_list, feagi_settings   ):
-    for device in device_list: # TODO: work on 'device'
+def action(obtained_data, device_list, feagi_settings, head_angle, arms_angle):
+    for device in device_list:  # TODO: work on 'device'
         if "motor" in obtained_data:
             wheel_speeds = {"rf": 0, "rb": 0, "lf": 0, "lb": 0}
 
@@ -177,32 +177,34 @@ def action(obtained_data, device_list, feagi_settings   ):
                              rwheel_speed=rwheel_speed,
                              duration=feagi_settings['feagi_burst_speed'])
         if "servo" in obtained_data:
-            global head_angle, arms_angle
             for i in obtained_data['servo']:
                 if i == 0:
-                    test = head_angle
-                    test += obtained_data['servo'][i] / capabilities["servo"]["power_amount"]
-                    if move_head(cli, test, max, min):
-                        head_angle = test
+                    test_head_angle = head_angle
+                    test_head_angle += obtained_data['servo'][i] / capabilities["servo"][
+                        "power_amount"]
+                    if move_head(cli, test_head_angle, max, min):
+                        head_angle = test_head_angle
                 elif i == 1:
-                    test = head_angle
-                    test -= obtained_data['servo'][i] / capabilities["servo"]["power_amount"]
+                    test_head_angle = head_angle
+                    test_head_angle -= obtained_data['servo'][i] / capabilities["servo"][
+                        "power_amount"]
                     if move_head(cli, head_angle, max, min):
-                        head_angle = test
+                        head_angle = test_head_angle
                 if i == 2:
-                    test = arms_angle
-                    test += obtained_data['servo'][i] / 100
-                    if lift_arms(cli, test, max_lift, min_lift):
-                        arms_angle = test
+                    test_head_angle = arms_angle
+                    test_head_angle += obtained_data['servo'][i] / 100
+                    if lift_arms(cli, test_head_angle, max_lift, min_lift):
+                        arms_angle = test_head_angle
                 elif i == 3:
-                    test = arms_angle
-                    test -= obtained_data['servo'][i] / 100
-                    if lift_arms(cli, test, max_lift, min_lift):
-                        arms_angle = test
+                    test_head_angle = arms_angle
+                    test_head_angle -= obtained_data['servo'][i] / 100
+                    if lift_arms(cli, test_head_angle, max_lift, min_lift):
+                        arms_angle = test_head_angle
         if "misc" in obtained_data:
             if obtained_data["misc"]:
                 for i in obtained_data["misc"]:
                     face_selected.append(i)
+    return arms_angle, head_angle
 
 
 # # FEAGI REACHABLE CHECKER # #
@@ -219,36 +221,14 @@ while not feagi_flag:
 
 # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # - - - - - - - - - - - - - - - - - - #
-print("Connecting to FEAGI resources...")
-feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
-runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_auth_url=feagi_auth_url,
-                                                       feagi_settings=feagi_settings,
-                                                       agent_settings=agent_settings,
-                                                       capabilities=capabilities)
-api_address = runtime_data['feagi_state']["feagi_url"]
-# agent_data_port = agent_settings["agent_data_port"]
-agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
-print("** **", runtime_data["feagi_state"])
-feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
-
-# todo: to obtain this info directly from FEAGI as part of registration
-# ipu_channel_address = FEAGI.feagi_inbound(agent_settings["agent_data_port"])
-ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
-
-print("IPU_channel_address=", ipu_channel_address)
-opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
-                                           runtime_data["feagi_state"]['feagi_opu_port'])
-
-feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
-feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
+feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
+    FEAGI.connect_to_feagi(feagi_settings,runtime_data, agent_settings, capabilities)
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# - - - #
+face_selected = deque()
 threading.Thread(target=face_starter, daemon=True).start()
 msg_counter = 0
-rgb = {}
-rgb['camera'] = {}
+rgb = {'camera': {}}
 genome_tracker = 0
-face_selected = deque()
 capabilities['camera']['current_select'] = []
 get_size_for_aptr_cortical = api_address + '/v1/FEAGI/genome/cortical_area?cortical_area=o_aptr'
 raw_aptr = requests.get(get_size_for_aptr_cortical).json()
@@ -264,9 +244,9 @@ max = pycozmo.robot.MAX_HEAD_ANGLE.radians - 0.1
 min = pycozmo.robot.MIN_HEAD_ANGLE.radians + 0.1
 max_lift = pycozmo.MAX_LIFT_HEIGHT.mm - 5
 min_lift = pycozmo.MIN_LIFT_HEIGHT.mm + 5
-head_angle = (pycozmo.robot.MAX_HEAD_ANGLE.radians - pycozmo.robot.MIN_HEAD_ANGLE.radians) / 2.0
-arms_angle = 50
-cli.set_head_angle(head_angle)  # move head
+angle_of_head = (pycozmo.robot.MAX_HEAD_ANGLE.radians - pycozmo.robot.MIN_HEAD_ANGLE.radians) / 2.0
+angle_of_arms = 50  # TODO: How to obtain the arms encoders in real time
+cli.set_head_angle(angle_of_head)  # move head
 lwheel_speed = 0  # Speed in millimeters per second for the left wheel
 rwheel_speed = 0  # Speed in millimeters per second for the right wheel
 lwheel_acc = 0  # Acceleration in millimeters per second squared for the left wheel
@@ -286,14 +266,18 @@ while True:
         start = time.time()
         message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
         if message_from_feagi is not None:
+            # Obtain the size of aptr
             if aptr_cortical_size is None:
                 aptr_cortical_size = pns.check_aptr(raw_aptr)
+            # Update the aptr
             capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
                                                    aptr_cortical_size)
+            # Update the ISO
             capabilities = pns.fetch_iso_data(message_from_feagi, capabilities, aptr_cortical_size)
             # OPU section STARTS
             obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
-            action(obtained_signals, device_list, feagi_settings)
+            angle_of_arms, angle_of_head = action(obtained_signals, device_list, feagi_settings,
+                                                  angle_of_arms, angle_of_head)
             # OPU section ENDS
         new_rgb = rgb_array['current']
         previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
@@ -343,9 +327,7 @@ while True:
         except Exception as ERROR:
             message_to_feagi["data"]["sensory_data"]['accelerator'] = {}
         # End accelerator section
-        # Psychopy game ends
-        # message_to_feagi, battery = FEAGI.compose_message_to_feagi({**rgb},
-        # battery=aliens.healthpoint*10)
+
         message_to_feagi['timestamp'] = datetime.now()
         message_to_feagi['counter'] = msg_counter
         if message_from_feagi is not None:
@@ -353,7 +335,6 @@ while True:
         sleep(feagi_settings['feagi_burst_speed'])
 
         pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
-        # print("battery: ", battery)
         message_to_feagi.clear()
         for i in rgb['camera']:
             rgb['camera'][i].clear()
@@ -361,48 +342,3 @@ while True:
         print("ERROR: ", e)
         traceback.print_exc()
         break
-
-# pycozmo.setup_basic_logging(log_level="DEBUG", protocol_log_level="DEBUG")
-
-# Needs to figure how to connect without needed wifi to cozmo
-# conn = pycozmo.conn.Connection(("192.168.50.227", 5551))
-# conn.start()
-# conn.connect()
-# conn.wait_for_robot()
-# conn.drive_wheels(lwheel_speed=50.0, rwheel_speed=50.0, duration=0.2)
-# conn.disconnect()
-# conn.stop()
-## testing section ends
-
-# cli = pycozmo.Client()
-# cli.start()
-# cli.connect()
-# cli.wait_for_robot()
-# cli.enable_camera(enable=True, color=True)
-# cli.add_handler(pycozmo.event.EvtNewRawCameraImage, on_camera_image, one_shot=True)
-
-
-# cli = pycozmo.connect()
-
-# Raise head.
-# cli = pycozmo.Client()
-# cli.start()
-# cli.connect()
-# cli.wait_for_robot()
-# print("max in rad: ", pycozmo.robot.MAX_HEAD_ANGLE.radians) # 0.7766715171374767
-# print("min in rad: ", pycozmo.robot.MIN_HEAD_ANGLE.radians) # -0.4363323129985824
-# angle = (pycozmo.robot.MAX_HEAD_ANGLE.radians - pycozmo.robot.MIN_HEAD_ANGLE.radians) / 2.0
-# # cli.set_head_angle(angle) # move head
-# # lwheel_speed = 100.0  # Speed in millimeters per second for the left wheel
-# # rwheel_speed = 100.0  # Speed in millimeters per second for the right wheel
-# # lwheel_acc = 30.0  # Acceleration in millimeters per second squared for the left wheel
-# # rwheel_acc = 30.0  # Acceleration in millimeters per second squared for the right wheel
-# # duration = 2.0  # Duration in seconds for how long to drive the wheels
-# # cli.drive_wheels(lwheel_speed, rwheel_speed, lwheel_acc, rwheel_acc, duration)
-#
-#
-# # vision capture
-# cli.enable_camera(enable=True, color=True)
-# cli.add_handler(pycozmo.event.EvtNewRawCameraImage, on_camera_image)
-# time.sleep(5)
-# vision ends
