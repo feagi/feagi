@@ -161,6 +161,52 @@ def lift_arms(cli, angle, max, min):
         return False
 
 
+def updating_robot(obtained_data, sensor_list, feagi_settings):
+    for x in sensor_list:
+        if "motor" in obtained_data:
+            rwheel_speed, lwheel_speed, rf, rb, lf, lb = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+            for i in obtained_data["motor"]:
+                if 1 == i:
+                    rb = float(obtained_data["motor"][i])
+                if i == 0:
+                    rf = float(obtained_data["motor"][i])
+                if i == 2:
+                    lf = float(obtained_data["motor"][i])
+                if i == 3:
+                    lb = float(obtained_data["motor"][i])
+                rwheel_speed = rf - rb
+                lwheel_speed = lf - lb
+            cli.drive_wheels(lwheel_speed=lwheel_speed,
+                             rwheel_speed=rwheel_speed,
+                             duration=feagi_settings['feagi_burst_speed'])
+        # if "servo" in obtained_data:
+        #     for i in opu_data['servo']:
+        #         if i == 0:
+        #             test = head_angle
+        #             test += opu_data['servo'][i] / capabilities["servo"]["power_amount"]
+        #             if move_head(cli, test, max, min):
+        #                 head_angle = test
+        #         elif i == 1:
+        #             test = head_angle
+        #             test -= opu_data['servo'][i] / capabilities["servo"]["power_amount"]
+        #             if move_head(cli, head_angle, max, min):
+        #                 head_angle = test
+        #         if i == 2:
+        #             test = arms_angle
+        #             test += opu_data['servo'][i] / 100
+        #             if lift_arms(cli, test, max_lift, min_lift):
+        #                 arms_angle = test
+        #         elif i == 3:
+        #             test = arms_angle
+        #             test -= opu_data['servo'][i] / 100
+        #             if lift_arms(cli, test, max_lift, min_lift):
+        #                     arms_angle = test
+        # if "misc" in opu_data:
+        #     if opu_data["misc"]:
+        #         for i in opu_data["misc"]:
+        #             face_selected.append(i)
+
+
 # # FEAGI REACHABLE CHECKER # #
 feagi_flag = False
 print("retrying...")
@@ -199,7 +245,6 @@ feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
 feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # - - - #
-
 threading.Thread(target=face_starter, daemon=True).start()
 msg_counter = 0
 rgb = {}
@@ -229,8 +274,6 @@ rwheel_speed = 0  # Speed in millimeters per second for the right wheel
 lwheel_acc = 0  # Acceleration in millimeters per second squared for the left wheel
 rwheel_acc = 0  # Acceleration in millimeters per second squared for the right wheel
 duration = 0  # Duration in seconds for how long to drive the wheels
-# cli.drive_wheels(lwheel_speed, rwheel_speed, lwheel_acc, rwheel_acc, duration)
-
 
 # vision capture
 cli.enable_camera(enable=True, color=True)
@@ -238,8 +281,8 @@ cli.enable_camera(enable=True, color=True)
 cli.add_handler(pycozmo.event.EvtNewRawCameraImage, on_camera_image)
 cli.add_handler(pycozmo.protocol_encoder.RobotState, on_robot_state)
 time.sleep(2)
-# time.sleep(5)
 # vision ends
+sensor_list = pns.generate_OPU_list(capabilities)  # get the OPU sensors
 while True:
     try:
         start = time.time()
@@ -251,51 +294,8 @@ while True:
                                                    aptr_cortical_size)
             capabilities = pns.fetch_iso_data(message_from_feagi, capabilities, aptr_cortical_size)
             # OPU section STARTS
-            opu_data = FEAGI.opu_processor(message_from_feagi)
-            if "motor" in opu_data:
-                if opu_data["motor"]:
-                    rwheel_speed, lwheel_speed, rf, rb, lf, lb = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-                    for i in opu_data["motor"]:
-                        if 1 == i:
-                            rb = float(opu_data["motor"][i])
-                            print("done")
-                        if i == 0:
-                            rf = float(opu_data["motor"][i])
-                        if i == 2:
-                            lf = float(opu_data["motor"][i])
-                        if i == 3:
-                            lb = float(opu_data["motor"][i])
-                        rwheel_speed = rf - rb
-                        lwheel_speed = lf - lb
-                    cli.drive_wheels(lwheel_speed=lwheel_speed, rwheel_speed=rwheel_speed,
-                                     duration=feagi_settings['feagi_burst_speed'])
-            if "servo" in opu_data:
-                if opu_data['servo']:
-                    for i in opu_data['servo']:
-                        if i == 0:
-                            test = head_angle
-                            test += opu_data['servo'][i] / capabilities["servo"]["power_amount"]
-                            if move_head(cli, test, max, min):
-                                head_angle = test
-                        elif i == 1:
-                            test = head_angle
-                            test -= opu_data['servo'][i] / capabilities["servo"]["power_amount"]
-                            if move_head(cli, head_angle, max, min):
-                                head_angle = test
-                        if i == 2:
-                            test = arms_angle
-                            test += opu_data['servo'][i] / 100
-                            if lift_arms(cli, test, max_lift, min_lift):
-                                arms_angle = test
-                        elif i == 3:
-                            test = arms_angle
-                            test -= opu_data['servo'][i] / 100
-                            if lift_arms(cli, test, max_lift, min_lift):
-                                arms_angle = test
-            if "misc" in opu_data:
-                if opu_data["misc"]:
-                    for i in opu_data["misc"]:
-                        face_selected.append(i)
+            obtained_signals = pns.obtain_signals(sensor_list, message_from_feagi)
+            updating_robot(obtained_signals, sensor_list, feagi_settings)
             # OPU section ENDS
         new_rgb = rgb_array['current']
         previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
