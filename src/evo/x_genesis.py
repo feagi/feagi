@@ -506,9 +506,9 @@ def add_core_cortical_area(cortical_properties):
     try:
         template = templates.cortical_template.copy()
         cortical_type = cortical_properties['cortical_type']
-        cortical_name = cortical_properties['cortical_name']
+        cortical_id_ = cortical_properties['cortical_id']
         cortical_area = \
-            templates.cortical_types[cortical_type]["supported_devices"][cortical_name]['cortical_id']
+            templates.cortical_types[cortical_type]["supported_devices"][cortical_id_]['cortical_id']
 
         if cortical_area in runtime_data.genome['blueprint']:
             print("Warning! Cortical area already part of genome. Nothing got added.")
@@ -519,12 +519,12 @@ def add_core_cortical_area(cortical_properties):
             runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
             runtime_data.genome["blueprint"][cortical_area] = \
                 template.copy()
-            runtime_data.genome["blueprint"][cortical_area]["cortical_name"] = cortical_name
+            runtime_data.genome["blueprint"][cortical_area]["cortical_name"] = cortical_id_
             runtime_data.genome['blueprint'][cortical_area]["block_boundaries"] = \
                 [cortical_properties['channel_count'] *
-                 templates.cortical_types[cortical_type]['supported_devices'][cortical_name]['resolution'][0],
-                 templates.cortical_types[cortical_type]['supported_devices'][cortical_name]['resolution'][1],
-                 templates.cortical_types[cortical_type]['supported_devices'][cortical_name]['resolution'][2],
+                 templates.cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][0],
+                 templates.cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][1],
+                 templates.cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][2],
                  ]
 
             runtime_data.genome['blueprint'][cortical_area]["relative_coordinate"] = \

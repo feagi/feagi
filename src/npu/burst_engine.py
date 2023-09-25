@@ -240,7 +240,9 @@ def burst_manager():
                     runtime_data.brain[fcl_cortical_area][neuron_to_fire][
                         "last_membrane_potential_update"] = runtime_data.burst_count
                     neuron_stimulation_mp_logger(cortical_area=fcl_cortical_area, neuron_id=neuron_to_fire)
-                    runtime_data.brain[fcl_cortical_area][neuron_to_fire]['membrane_potential'] = 0
+                    runtime_data.brain[fcl_cortical_area][neuron_to_fire]['membrane_potential'] = \
+                        membrane_potential_update(cortical_area=fcl_cortical_area, neuron_id=neuron_to_fire,
+                                                  membrane_potential_change=0, overwrite=True, overwrite_value=0)
 
             # Add neurons to future FCL   
             # This is where neuron leak is considered and membrane potentials are updated+++
@@ -250,7 +252,8 @@ def burst_manager():
                     leak_amount = neuron_leak(cortical_area=fq_cortical_area, neuron_id=neuron_id)
 
                     runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = \
-                        runtime_data.fire_queue[fq_cortical_area][neuron_id][0] - leak_amount
+                        membrane_potential_update(cortical_area=fcl_cortical_area, neuron_id=neuron_to_fire,
+                                                  membrane_potential_change=leak_amount * -1)
 
                     fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1]
 
@@ -307,7 +310,9 @@ def burst_manager():
                         # membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
                         #                           membrane_potential_change=0, overwrite=True,
                         #                           overwrite_value=0)
-                        runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = 0
+                        runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = \
+                            membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
+                                                      membrane_potential_change=0, overwrite=True, overwrite_value=0)
                         runtime_data.future_fcl[fq_cortical_area].add(neuron_id)
 
                     if runtime_data.genome["blueprint"][fq_cortical_area]["mp_charge_accumulation"]:

@@ -256,6 +256,7 @@ def membrane_potential_update(cortical_area, neuron_id, membrane_potential_chang
                                                  post_synaptic_current=psc)
 
     runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] = runtime_data.burst_count
+    return runtime_data.brain[cortical_area][neuron_id]['membrane_potential']
 
 
 def post_synaptic_current_update(cortical_area_src,
