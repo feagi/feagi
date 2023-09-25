@@ -32,8 +32,6 @@ from datetime import datetime
 from collections import deque
 import numpy as np
 from time import sleep
-import pickle
-import lz4.frame
 import traceback
 import cv2
 
@@ -211,10 +209,7 @@ face_selected = deque()
 capabilities['camera']['current_select'] = []
 get_size_for_aptr_cortical = api_address + '/v1/FEAGI/genome/cortical_area?cortical_area=o_aptr'
 raw_aptr = requests.get(get_size_for_aptr_cortical).json()
-try:
-    aptr_cortical_size = raw_aptr['cortical_dimensions'][2]
-except:
-    aptr_cortical_size = None
+aptr_cortical_size = pns.fetch_aptr_size(10, raw_aptr, None)
 # Raise head.
 cli = pycozmo.Client()
 cli.start()
@@ -248,39 +243,14 @@ time.sleep(2)
 while True:
     try:
         start = time.time()
-        received_data = feagi_opu_channel.receive()  # Obtain data from FEAGI
-        if received_data is not None:
-            if isinstance(received_data, bytes):
-                decompressed_data = lz4.frame.decompress(received_data)
-                message_from_feagi = pickle.loads(decompressed_data)
-            else:
-                message_from_feagi = received_data
-        else:
-            message_from_feagi = None
-        # Decompression section ends
-
+        message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
         if message_from_feagi is not None:
+            if aptr_cortical_size is None:
+                aptr_cortical_size = pns.check_aptr(raw_aptr)
+            capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
+                                                   aptr_cortical_size)
+            capabilities = pns.fetch_iso_data(message_from_feagi, capabilities, aptr_cortical_size)
             # OPU section STARTS
-            if "o_aptr" in message_from_feagi["opu_data"]:
-                if message_from_feagi["opu_data"]["o_aptr"]:
-                    for i in message_from_feagi["opu_data"]["o_aptr"]:
-                        feagi_aptr = (int(i.split('-')[-1]))
-                        if aptr_cortical_size is None:
-                            aptr_cortical_size = check_aptr(aptr_cortical_size)
-                        elif aptr_cortical_size <= feagi_aptr:
-                            aptr_cortical_size = check_aptr(aptr_cortical_size)
-                        max_range = capabilities['camera']['aperture_range'][1]
-                        min_range = capabilities['camera']['aperture_range'][0]
-                        capabilities['camera']["aperture_default"] = \
-                            ((feagi_aptr / aptr_cortical_size) *
-                             (max_range - min_range)) + min_range
-            if "o__dev" in message_from_feagi["opu_data"]:
-                if message_from_feagi["opu_data"]["o__dev"]:
-                    for i in message_from_feagi["opu_data"]["o__dev"]:
-                        dev_data = i
-                        digits = dev_data.split('-')
-                        third_digit = int(digits[2])
-                        capabilities['camera']["deviation_threshold"] = third_digit / 10
             opu_data = FEAGI.opu_processor(message_from_feagi)
             if "motor" in opu_data:
                 if opu_data["motor"]:
@@ -384,18 +354,14 @@ while True:
             feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
         sleep(feagi_settings['feagi_burst_speed'])
 
-        if agent_settings['compression']:
-            serialized_data = pickle.dumps(message_to_feagi)
-            feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
-        else:
-            feagi_ipu_channel.send(message_to_feagi)
+        pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
         # print("battery: ", battery)
         message_to_feagi.clear()
         for i in rgb['camera']:
             rgb['camera'][i].clear()
     except Exception as e:
         print("ERROR: ", e)
-        print(traceback)
+        traceback.print_exc()
         break
 
 # pycozmo.setup_basic_logging(log_level="DEBUG", protocol_log_level="DEBUG")
