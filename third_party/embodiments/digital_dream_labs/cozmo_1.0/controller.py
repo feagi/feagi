@@ -161,21 +161,18 @@ def lift_arms(cli, angle, max, min):
         return False
 
 
-def updating_robot(obtained_data, sensor_list, feagi_settings):
-    for x in sensor_list:
+def updating_robot(obtained_data, device_list, feagi_settings):
+    for x in device_list:
         if "motor" in obtained_data:
-            rwheel_speed, lwheel_speed, rf, rb, lf, lb = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-            for i in obtained_data["motor"]:
-                if 1 == i:
-                    rb = float(obtained_data["motor"][i])
-                if i == 0:
-                    rf = float(obtained_data["motor"][i])
-                if i == 2:
-                    lf = float(obtained_data["motor"][i])
-                if i == 3:
-                    lb = float(obtained_data["motor"][i])
-                rwheel_speed = rf - rb
-                lwheel_speed = lf - lb
+            wheel_speeds = {"rf": 0, "rb": 0, "lf": 0, "lb": 0}
+
+            for i, value in obtained_data["motor"].items():
+                if i in [0, 1]:
+                    wheel_speeds["r" + ["f", "b"][i]] = float(value)
+                if i in [2, 3]:
+                    wheel_speeds["l" + ["f", "b"][i - 2]] = float(value)
+            rwheel_speed = wheel_speeds["rf"] - wheel_speeds["rb"]
+            lwheel_speed = wheel_speeds["lf"] - wheel_speeds["lb"]
             cli.drive_wheels(lwheel_speed=lwheel_speed,
                              rwheel_speed=rwheel_speed,
                              duration=feagi_settings['feagi_burst_speed'])
