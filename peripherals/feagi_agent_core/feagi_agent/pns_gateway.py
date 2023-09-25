@@ -140,10 +140,10 @@ def generate_OPU_list(capabilities):
     return sensor_list
 
 
-def obtain_signals(sensor_list, message_from_feagi):
+def obtain_opu_data(device_list, message_from_feagi):
     opu_signal_dict = {}
     opu_data = feagi.opu_processor(message_from_feagi)
-    for i in sensor_list:
+    for i in device_list:
         if i in opu_data and opu_data[i]:
             for x in opu_data[i]:
                 if i not in opu_signal_dict:
