@@ -255,3 +255,25 @@ def control_data_processor(data):
                     float(control_data['robot_starting_position'][position_index][2])
         return configuration.capabilities["motor"]["power_coefficient"], \
                configuration.capabilities["position"]
+
+
+def connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities):
+    print("Connecting to FEAGI resources...")
+    feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
+    runtime_data["feagi_state"] = feagi_registration(feagi_auth_url=feagi_auth_url,
+                                                     feagi_settings=feagi_settings,
+                                                     agent_settings=agent_settings,
+                                                     capabilities=capabilities)
+    api_address = runtime_data['feagi_state']["feagi_url"]
+    agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
+    print("** **", runtime_data["feagi_state"])
+    feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
+    ipu_channel_address = feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
+
+    print("IPU_channel_address=", ipu_channel_address)
+    opu_channel_address = feagi_outbound(feagi_settings['feagi_host'],
+                                         runtime_data["feagi_state"]['feagi_opu_port'])
+
+    feagi_ipu_channel = pub_initializer(ipu_channel_address, bind=False)
+    feagi_opu_channel = sub_initializer(opu_address=opu_channel_address)
+    return feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel
