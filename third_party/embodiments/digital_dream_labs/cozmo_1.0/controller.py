@@ -206,6 +206,7 @@ def action(obtained_data, device_list, feagi_settings, head_angle, arms_angle):
                     face_selected.append(i)
     return arms_angle, head_angle
 
+
 if __name__ == '__main__':
     # # FEAGI REACHABLE CHECKER # #
     feagi_flag = False
@@ -222,7 +223,7 @@ if __name__ == '__main__':
     # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # - - - - - - - - - - - - - - - - - - #
     feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
-        FEAGI.connect_to_feagi(feagi_settings,runtime_data, agent_settings, capabilities)
+        FEAGI.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities)
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     face_selected = deque()
     threading.Thread(target=face_starter, daemon=True).start()
@@ -238,8 +239,8 @@ if __name__ == '__main__':
     cli.start()
     cli.connect()
     cli.wait_for_robot()
-    print("max in rad: ", pycozmo.robot.MAX_HEAD_ANGLE.radians)  # 0.7766715171374767
-    print("min in rad: ", pycozmo.robot.MIN_HEAD_ANGLE.radians)  # -0.4363323129985824
+    # print("max in rad: ", pycozmo.robot.MAX_HEAD_ANGLE.radians)  # 0.7766715171374767
+    # print("min in rad: ", pycozmo.robot.MIN_HEAD_ANGLE.radians)  # -0.4363323129985824
     max = pycozmo.robot.MAX_HEAD_ANGLE.radians - 0.1
     min = pycozmo.robot.MIN_HEAD_ANGLE.radians + 0.1
     max_lift = pycozmo.MAX_LIFT_HEIGHT.mm - 5
@@ -273,7 +274,8 @@ if __name__ == '__main__':
                 capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
                                                        aptr_cortical_size)
                 # Update the ISO
-                capabilities = pns.fetch_iso_data(message_from_feagi, capabilities, aptr_cortical_size)
+                capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
+                                                  aptr_cortical_size)
                 # OPU section STARTS
                 obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
                 angle_of_arms, angle_of_head = action(obtained_signals, device_list, feagi_settings,
@@ -323,7 +325,8 @@ if __name__ == '__main__':
                     message_to_feagi["data"] = {}
                 if "sensory_data" not in message_to_feagi["data"]:
                     message_to_feagi["data"]["sensory_data"] = {}
-                message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data['accelerator']
+                message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data[
+                    'accelerator']
             except Exception as ERROR:
                 message_to_feagi["data"]["sensory_data"]['accelerator'] = {}
             # End accelerator section
@@ -342,4 +345,3 @@ if __name__ == '__main__':
             print("ERROR: ", e)
             traceback.print_exc()
             break
-
