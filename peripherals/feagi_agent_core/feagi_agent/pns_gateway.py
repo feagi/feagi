@@ -19,6 +19,7 @@ limitations under the License.
 import pickle
 import lz4.frame
 import requests
+from feagi_agent import feagi_interface as feagi
 from feagi_agent import retina as retina
 
 
@@ -85,7 +86,8 @@ def fetch_aperture_data(message_from_feagi, capabilities, aptr_cortical_size):
         if message_from_feagi["opu_data"]["o_aptr"]:
             for i in message_from_feagi["opu_data"]["o_aptr"]:
                 feagi_aptr = (int(i.split('-')[-1]))
-                aptr_cortical_size = fetch_aptr_size(aptr_cortical_size, aptr_cortical_size, feagi_aptr)
+                aptr_cortical_size = fetch_aptr_size(aptr_cortical_size, aptr_cortical_size,
+                                                     feagi_aptr)
                 max_range = capabilities['camera']['aperture_range'][1]
                 min_range = capabilities['camera']['aperture_range'][0]
                 capabilities['camera']["iso_default"] = \
@@ -127,3 +129,24 @@ def check_aptr(get_size_for_aptr_cortical):
     except Exception as error:
         print("error: ", error)
         return 10
+
+
+def generate_OPU_list(capabilities):
+    sensor_list = []
+    for i in capabilities:
+        if "type" in capabilities[i]:
+            if "opu" in capabilities[i]["type"]:
+                sensor_list.append(i)
+    return sensor_list
+
+
+def obtain_signals(sensor_list, message_from_feagi):
+    opu_signal_dict = {}
+    opu_data = feagi.opu_processor(message_from_feagi)
+    for i in sensor_list:
+        if i in opu_data and opu_data[i]:
+            for x in opu_data[i]:
+                if i not in opu_signal_dict:
+                    opu_signal_dict[i] = {}
+                opu_signal_dict[i][x] = opu_data[i][x]
+    return opu_signal_dict
