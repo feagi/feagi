@@ -950,9 +950,8 @@ async def cortical_area_types(response: Response):
     """
     try:
         if runtime_data.cortical_defaults:
-            print(runtime_data.cortical_defaults)
             response.status_code = status.HTTP_200_OK
-            return json.dumps(runtime_data.cortical_defaults)
+            return runtime_data.cortical_defaults
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
     except Exception as e:
