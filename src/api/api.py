@@ -120,7 +120,7 @@ class MorphologyProperties(BaseModel):
 
 class NewCorticalProperties(BaseModel):
     cortical_type: str
-    cortical_name: str
+    cortical_id: str
     coordinates_2d: list
     coordinates_3d: list
     channel_count: Optional[int]
@@ -576,7 +576,7 @@ async def add_cortical_area(new_cortical_properties: NewCorticalProperties, resp
 
 
 @app.api_route("/v1/feagi/genome/custom_cortical_area", methods=['POST'], tags=["Genome"])
-async def add_cortical_area(new_custom_cortical_properties: NewCustomCorticalProperties, response: Response):
+async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCorticalProperties, response: Response):
     """
     Enables changes against various Burst Engine parameters.
     """
