@@ -24,7 +24,7 @@ from feagi_agent import retina as retina
 from feagi_agent import pns_gateway as pns
 from configuration import *
 from typing import Optional, List
-from pycozmo.procedural_face import ProceduralFace, DEFAULT_WIDTH, DEFAULT_HEIGHT
+import facial_expression
 import requests
 import sys
 import os
@@ -82,38 +82,56 @@ def on_robot_state(cli, pkt: pycozmo.protocol_encoder.RobotState):
 
 async def expressions():
     expressions_array = [
-        pycozmo.expressions.Anger(),
-        pycozmo.expressions.Sadness(),
-        pycozmo.expressions.Happiness(),
-        pycozmo.expressions.Surprise(),
-        pycozmo.expressions.Disgust(),
-        pycozmo.expressions.Fear(),
-        pycozmo.expressions.Pleading(),
-        pycozmo.expressions.Vulnerability(),
-        pycozmo.expressions.Despair(),
-        pycozmo.expressions.Guilt(),
-        pycozmo.expressions.Disappointment(),
-        pycozmo.expressions.Embarrassment(),
-        pycozmo.expressions.Horror(),
-        pycozmo.expressions.Skepticism(),
-        pycozmo.expressions.Annoyance(),
-        pycozmo.expressions.Fury(),
-        pycozmo.expressions.Suspicion(),
-        pycozmo.expressions.Rejection(),
-        pycozmo.expressions.Boredom(),
-        pycozmo.expressions.Tiredness(),
-        pycozmo.expressions.Asleep(),
-        pycozmo.expressions.Confusion(),
-        pycozmo.expressions.Amazement(),
-        pycozmo.expressions.Excitement(),
-        pycozmo.expressions.Excitement2()
+        facial_expression.Excitement2(),
+        facial_expression.Anger(),
+        facial_expression.Sadness(),
+        facial_expression.Happiness(),
+        facial_expression.Surprise(),
+        facial_expression.Disgust(),
+        facial_expression.Fear(),
+        facial_expression.Pleading(),
+        facial_expression.Vulnerability(),
+        facial_expression.Despair(),
+        facial_expression.Guilt(),
+        facial_expression.Disappointment(),
+        facial_expression.Embarrassment(),
+        facial_expression.Horror(),
+        facial_expression.Skepticism(),
+        facial_expression.Annoyance(),
+        facial_expression.Fury(),
+        facial_expression.Suspicion(),
+        facial_expression.Rejection(),
+        facial_expression.Boredom(),
+        facial_expression.Tiredness(),
+        facial_expression.Asleep(),
+        facial_expression.Confusion(),
+        facial_expression.Amazement(),
+        facial_expression.Excitement()
     ]
     while True:
         if face_selected:
+            print("here: ", face_selected)
             face_generator = pycozmo.procedural_face.interpolate(
-                pycozmo.expressions.Neutral(), expressions_array[face_selected[0]],
-                pycozmo.robot.FRAME_RATE // 3)
+                facial_expression.Neutral(), expressions_array[face_selected[0]],
+                pycozmo.robot.FRAME_RATE // 2)
             for face in face_generator:
+                # expressions_array[0].eyes[0].lids[1].y -= 0.1
+                # expressions_array[0].eyes[0].lids[1].bend -= 0.1
+                # expressions_array[0].eyes[0].lids[0].angle += 25.0
+                # expressions_array[0].eyes[1].upper_inner_radius_x += 1.0
+                # expressions_array[0].eyes[0].upper_inner_radius_x += 1.0
+                # expressions_array[0].eyes[0].scale_x += 1.25
+                # expressions_array[0].eyes[1].upper_outer_radius_x = 1.0
+                if eye_one_location:
+                    expressions_array[0].eyes[0].center_x = eye_one_location[0][0]
+                    expressions_array[0].eyes[0].center_y = eye_one_location[0][1]
+                    eye_one_location.pop()
+                if eye_two_location:
+                    expressions_array[0].eyes[1].center_x = eye_two_location[0][0]
+                    expressions_array[0].eyes[1].center_y = eye_two_location[0][1]
+                    eye_two_location.pop()
+
+
                 # Render face image.
                 im = face.render()
 
@@ -179,6 +197,7 @@ def action(obtained_data, device_list, feagi_settings, head_angle, arms_angle):
             cli.drive_wheels(lwheel_speed=lwheel_speed,
                              rwheel_speed=rwheel_speed,
                              duration=feagi_settings['feagi_burst_speed'])
+            obtained_data['motor'].clear()
         if "servo" in obtained_data:
             for i in obtained_data['servo']:
                 if i == 0:
@@ -203,10 +222,13 @@ def action(obtained_data, device_list, feagi_settings, head_angle, arms_angle):
                     test_head_angle -= obtained_data['servo'][i] / 100
                     if lift_arms(cli, test_head_angle, max_lift, min_lift):
                         arms_angle = test_head_angle
+            obtained_data['servo'].clear()
         if "misc" in obtained_data:
             if obtained_data["misc"]:
+                print("face: ", face_selected, " misc: ", obtained_data["misc"])
                 for i in obtained_data["misc"]:
                     face_selected.append(i)
+            obtained_data['misc'].clear()
     return arms_angle, head_angle
 
 
@@ -229,6 +251,8 @@ if __name__ == '__main__':
         FEAGI.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities)
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     face_selected = deque()
+    eye_one_location = deque()
+    eye_two_location = deque()
     threading.Thread(target=face_starter, daemon=True).start()
     msg_counter = 0
     rgb = {'camera': {}}
@@ -249,7 +273,7 @@ if __name__ == '__main__':
     max_lift = pycozmo.MAX_LIFT_HEIGHT.mm - 5
     min_lift = pycozmo.MIN_LIFT_HEIGHT.mm + 5
     angle_of_head = (
-                                pycozmo.robot.MAX_HEAD_ANGLE.radians - pycozmo.robot.MIN_HEAD_ANGLE.radians) / 2.0
+                            pycozmo.robot.MAX_HEAD_ANGLE.radians - pycozmo.robot.MIN_HEAD_ANGLE.radians) / 2.0
     angle_of_arms = 50  # TODO: How to obtain the arms encoders in real time
     cli.set_head_angle(angle_of_head)  # move head
     lwheel_speed = 0  # Speed in millimeters per second for the left wheel
@@ -285,6 +309,28 @@ if __name__ == '__main__':
                 angle_of_arms, angle_of_head = action(obtained_signals, device_list, feagi_settings,
                                                       angle_of_arms, angle_of_head)
                 # OPU section ENDS
+                if "o_eye1" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o_eye1"]:        
+                        for i in message_from_feagi["opu_data"]["o_eye1"]:
+                            split_data = i.split("-")
+                            y_array = [160, 80, 0]
+                            if split_data[0] == '2':
+                                eye_one_location.append([90, y_array[int(split_data[1])]])
+                            if split_data[0] == '1':
+                                eye_one_location.append([0, y_array[int(split_data[1])]])
+                            if split_data[0] == '0':
+                                eye_one_location.append([-30, y_array[int(split_data[1])]])
+                if "o_eye2" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o_eye2"]:
+                        for i in message_from_feagi["opu_data"]["o_eye2"]:
+                            split_data = i.split("-")
+                            y_array = [160, 80, 0]
+                            if split_data[0] == '2':
+                                eye_two_location.append([60, y_array[int(split_data[1])]])
+                            if split_data[0] == '1':
+                                eye_two_location.append([-10, y_array[int(split_data[1])]])
+                            if split_data[0] == '0':
+                                eye_two_location.append([-30, y_array[int(split_data[1])]])
             new_rgb = rgb_array['current']
             previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
                 pns.generate_rgb(new_rgb,
