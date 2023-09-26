@@ -120,7 +120,7 @@ class MorphologyProperties(BaseModel):
 
 class NewCorticalProperties(BaseModel):
     cortical_type: str
-    cortical_name: str
+    cortical_id: str
     coordinates_2d: list
     coordinates_3d: list
     channel_count: Optional[int]
@@ -576,7 +576,7 @@ async def add_cortical_area(new_cortical_properties: NewCorticalProperties, resp
 
 
 @app.api_route("/v1/feagi/genome/custom_cortical_area", methods=['POST'], tags=["Genome"])
-async def add_cortical_area(new_custom_cortical_properties: NewCustomCorticalProperties, response: Response):
+async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCorticalProperties, response: Response):
     """
     Enables changes against various Burst Engine parameters.
     """
@@ -949,9 +949,9 @@ async def cortical_area_types(response: Response):
     Returns the list of supported cortical types
     """
     try:
-        if runtime_data.cortical_types:
+        if runtime_data.cortical_defaults:
             response.status_code = status.HTTP_200_OK
-            return runtime_data.cortical_types
+            return runtime_data.cortical_defaults
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
     except Exception as e:
@@ -1104,8 +1104,22 @@ async def connectome_cortical_id_name_mapping_table(response: Response):
         print("API Error:", e)
 
 
+@app.api_route("/v1/feagi/genome/plasticity_queue_depth", methods=['GET'], tags=["Genome"])
+async def show_plasticity_queue_depth(response: Response):
+    """
+    Returns the current plasticity queue depth value
+    """
+    try:
+        response.status_code = status.HTTP_200_OK
+        return runtime_data.genome["plasticity_queue_depth"]
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e, traceback.print_exc())
+        logger.error(traceback.print_exc())
+
+
 @app.api_route("/v1/feagi/genome/plasticity_queue_depth", methods=['PUT'], tags=["Genome"])
-async def update_cortical_mapping_properties(queue_depth: int, response: Response):
+async def update_plasticity_queue_depth(queue_depth: int, response: Response):
     """
     Enables changes against various Burst Engine parameters.
     """
