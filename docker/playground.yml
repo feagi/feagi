@@ -96,6 +96,8 @@ services:
 #      - "10000-10050:10000-10050" # ZMQ Port for Agent to Connect to Feagi
     env_file:
       - ./.env
+    volumes:
+      - ../src/:/opt/source-code/feagi/src
     networks:
       - net
 
