@@ -82,6 +82,7 @@ def on_robot_state(cli, pkt: pycozmo.protocol_encoder.RobotState):
 
 async def expressions():
     expressions_array = [
+        facial_expression.Neutral(),
         facial_expression.Excitement2(),
         facial_expression.Anger(),
         facial_expression.Sadness(),
@@ -108,39 +109,39 @@ async def expressions():
         facial_expression.Amazement(),
         facial_expression.Excitement()
     ]
+    face_ignor_threshold = 1
+    last_face_expression_time = time.time()
     while True:
         if face_selected:
-            face_generator = pycozmo.procedural_face.interpolate(
-                facial_expression.Neutral(), expressions_array[face_selected[0]],
-                pycozmo.robot.FRAME_RATE // 2)
-            for face in face_generator:
-                # expressions_array[0].eyes[0].lids[1].y -= 0.1
-                # expressions_array[0].eyes[0].lids[1].bend -= 0.1
-                # expressions_array[0].eyes[0].lids[0].angle += 25.0
-                # expressions_array[0].eyes[1].upper_inner_radius_x += 1.0
-                # expressions_array[0].eyes[0].upper_inner_radius_x += 1.0
-                # expressions_array[0].eyes[0].scale_x += 1.25
-                # expressions_array[0].eyes[1].upper_outer_radius_x = 1.0
-                if eye_one_location:
-                    expressions_array[0].eyes[0].center_x = eye_one_location[0][0]
-                    expressions_array[0].eyes[0].center_y = eye_one_location[0][1]
-                    eye_one_location.pop()
-                if eye_two_location:
-                    expressions_array[0].eyes[1].center_x = eye_two_location[0][0]
-                    expressions_array[0].eyes[1].center_y = eye_two_location[0][1]
-                    eye_two_location.pop()
-
-
-                # Render face image.
-                im = face.render()
-
-                # The Cozmo protocol expects a 128x32 image, so take only the even lines.
-                np_im = np.array(im)
-                np_im2 = np_im[::2]
-                im2 = Image.fromarray(np_im2)
-
-                # Display face image.
-                cli.display_image(im2)
+            if time.time() - last_face_expression_time > face_ignor_threshold:
+                last_face_expression_time = time.time()
+                face_generator = pycozmo.procedural_face.interpolate(
+                    facial_expression.Neutral(), expressions_array[face_selected[0]],
+                    pycozmo.robot.FRAME_RATE // 2)
+                for face in face_generator:
+                    # expressions_array[0].eyes[0].lids[1].y -= 0.1
+                    # expressions_array[0].eyes[0].lids[1].bend -= 0.1
+                    # expressions_array[0].eyes[0].lids[0].angle += 25.0
+                    # expressions_array[0].eyes[1].upper_inner_radius_x += 1.0
+                    # expressions_array[0].eyes[0].upper_inner_radius_x += 1.0
+                    # expressions_array[0].eyes[0].scale_x += 1.25
+                    # expressions_array[0].eyes[1].upper_outer_radius_x = 1.0
+                    if eye_one_location:
+                        expressions_array[0].eyes[0].center_x = eye_one_location[0][0]
+                        expressions_array[0].eyes[0].center_y = eye_one_location[0][1]
+                        eye_one_location.pop()
+                    if eye_two_location:
+                        expressions_array[0].eyes[1].center_x = eye_two_location[0][0]
+                        expressions_array[0].eyes[1].center_y = eye_two_location[0][1]
+                        eye_two_location.pop()
+                    # Render face image.
+                    im = face.render()
+                    # The Cozmo protocol expects a 128x32 image, so take only the even lines.
+                    np_im = np.array(im)
+                    np_im2 = np_im[::2]
+                    im2 = Image.fromarray(np_im2)
+                    # Display face image.
+                    cli.display_image(im2)
             face_selected.pop()
         else:
             time.sleep(0.05)
@@ -312,9 +313,9 @@ if __name__ == '__main__':
                     if message_from_feagi["opu_data"]["o_eye1"]:
                         for i in message_from_feagi["opu_data"]["o_eye1"]:
                             split_data = i.split("-")
-                            y_array = [160, 80, 0]
+                            y_array = [70, 40, -60]
                             if split_data[0] == '2':
-                                eye_one_location.append([90, y_array[int(split_data[1])]])
+                                eye_one_location.append([80, y_array[int(split_data[1])]])
                             if split_data[0] == '1':
                                 eye_one_location.append([0, y_array[int(split_data[1])]])
                             if split_data[0] == '0':
@@ -324,9 +325,9 @@ if __name__ == '__main__':
                     if message_from_feagi["opu_data"]["o_eye2"]:
                         for i in message_from_feagi["opu_data"]["o_eye2"]:
                             split_data = i.split("-")
-                            y_array = [160, 80, 0]
+                            y_array = [65, 40, -50]
                             if split_data[0] == '2':
-                                eye_two_location.append([60, y_array[int(split_data[1])]])
+                                eye_two_location.append([40, y_array[int(split_data[1])]])
                             if split_data[0] == '1':
                                 eye_two_location.append([-10, y_array[int(split_data[1])]])
                             if split_data[0] == '0':
