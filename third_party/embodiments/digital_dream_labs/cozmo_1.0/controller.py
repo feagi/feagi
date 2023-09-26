@@ -110,7 +110,6 @@ async def expressions():
     ]
     while True:
         if face_selected:
-            print("here: ", face_selected)
             face_generator = pycozmo.procedural_face.interpolate(
                 facial_expression.Neutral(), expressions_array[face_selected[0]],
                 pycozmo.robot.FRAME_RATE // 2)
@@ -310,7 +309,7 @@ if __name__ == '__main__':
                                                       angle_of_arms, angle_of_head)
                 # OPU section ENDS
                 if "o_eye1" in message_from_feagi["opu_data"]:
-                    if message_from_feagi["opu_data"]["o_eye1"]:        
+                    if message_from_feagi["opu_data"]["o_eye1"]:
                         for i in message_from_feagi["opu_data"]["o_eye1"]:
                             split_data = i.split("-")
                             y_array = [160, 80, 0]
@@ -320,6 +319,7 @@ if __name__ == '__main__':
                                 eye_one_location.append([0, y_array[int(split_data[1])]])
                             if split_data[0] == '0':
                                 eye_one_location.append([-30, y_array[int(split_data[1])]])
+                        face_selected.append(0)
                 if "o_eye2" in message_from_feagi["opu_data"]:
                     if message_from_feagi["opu_data"]["o_eye2"]:
                         for i in message_from_feagi["opu_data"]["o_eye2"]:
@@ -331,6 +331,8 @@ if __name__ == '__main__':
                                 eye_two_location.append([-10, y_array[int(split_data[1])]])
                             if split_data[0] == '0':
                                 eye_two_location.append([-30, y_array[int(split_data[1])]])
+                        if len(face_selected) == 0:
+                            face_selected.append(0)
             new_rgb = rgb_array['current']
             previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
                 pns.generate_rgb(new_rgb,
