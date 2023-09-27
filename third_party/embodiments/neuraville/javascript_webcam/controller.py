@@ -135,7 +135,6 @@ if __name__ == "__main__":
         while True:
             try:
                 start_time = 0
-
                 message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
                 if message_from_feagi is not None:
                     start_time = utc_time()
@@ -152,9 +151,9 @@ if __name__ == "__main__":
                     capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
                                                       aptr_cortical_size)
                     # Update the vres
-                    capabilities = pns.fetch_res(message_from_feagi, capabilities)
+                    capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
                     # Update the aceture
-                    capabilities = pns.fetch_vact(message_from_feagi, capabilities)
+                    capabilities = pns.fetch_vision_acuity(message_from_feagi, capabilities)
                     # OPU section ENDS
                 if np.any(rgb_array['current']):
                     if len(rgb_array['current']) == 1228800:
