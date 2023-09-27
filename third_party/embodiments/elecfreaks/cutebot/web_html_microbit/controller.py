@@ -107,6 +107,7 @@ def websocket_operation():
     """
     asyncio.run(main())
 
+
 def action(obtained_data, device_list):
     for device in device_list:
         WS_STRING = ""
@@ -132,6 +133,7 @@ def action(obtained_data, device_list):
                         WS_STRING = "500" + WS_STRING
                 WS_STRING = WS_STRING + "#"
                 ws.append(WS_STRING)
+
 
 if __name__ == "__main__":
     CHECKPOINT_TOTAL = 5
