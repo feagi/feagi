@@ -110,6 +110,30 @@ def fetch_iso_data(message_from_feagi, capabilities, aptr_cortical_size):
                      (max_range - min_range)) + min_range
     return capabilities
 
+def fetch_res(message_from_feagi, capabilities):
+    if "o_vres" in message_from_feagi["opu_data"]:
+        if message_from_feagi["opu_data"]["o_vres"]:
+            for i in message_from_feagi["opu_data"]["o_vres"]:
+                dev_data = feagi.block_to_array(i) # TODO: remove use feagi interface
+                if dev_data[0] == 0:
+                    capabilities['camera']['current_select'] = \
+                        capabilities['camera']['resolution_presets'][dev_data[2]]
+    return capabilities
+
+def fetch_vact(message_from_feagi, capabilities):
+    if "o_vact" in message_from_feagi["opu_data"]:
+        if message_from_feagi["opu_data"]["o_vact"]:
+            for i in message_from_feagi["opu_data"]["o_vact"]:
+                dev_data = feagi.block_to_array(i)
+                if dev_data[0] == 0:
+                    capabilities['camera']['central_vision_allocation_percentage'][0] \
+                        = \
+                        message_from_feagi["opu_data"]["o_vact"][i]
+                if dev_data[0] == 1:
+                    capabilities['camera']['central_vision_allocation_percentage'][1] \
+                        = \
+                        message_from_feagi["opu_data"]["o_vact"][i]
+    return capabilities
 
 def fetch_aptr_size(aptr_cortical_size, get_size_for_aptr_cortical, feagi_aptr=None):
     if aptr_cortical_size is None:
@@ -129,6 +153,7 @@ def check_aptr(get_size_for_aptr_cortical):
     except Exception as error:
         print("error: ", error)
         return 10
+
 
 
 def generate_OPU_list(capabilities):
