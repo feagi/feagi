@@ -10,6 +10,7 @@ from picamera import PiCamera
 from datetime import datetime
 from collections import deque
 from picamera.array import PiRGBArray
+from feagi_agent import pns_gateway as pns
 from time import sleep
 import pickle
 import lz4.frame
@@ -26,17 +27,6 @@ runtime_data = {
     'motor_status': {},
     'servo_status': {}
 }
-
-previous_data_frame = dict()
-
-
-def check_aptr(size):
-    try:
-        raw_aptr = requests.get(size).json()
-        return raw_aptr['cortical_dimensions'][2]
-    except Exception as error:
-        print("error: ", error)
-        return 10
 
 
 def window_average(sequence):
@@ -412,6 +402,51 @@ class Ultrasonic:
 #         # print(Power)
 #         return Power
 
+def action(obtained_data, device_list, led_flag, feagi_settings, capabilities, motor_data,
+           rolling_window, motor, servo, led):
+    motor_count = capabilities['motor']['count']
+    for device in device_list:
+        if 'led' in obtained_data:
+            if obtained_data['led'] != {}:
+                for data_point in obtained_data['led']:
+                    led_flag = True
+                    if data_point not in data_point_status:
+                        data_point_status[data_point] = True
+                    if data_point_status[data_point]:
+                        led.LED_on(
+                            data_point,
+                            int((obtained_data['led'][data_point] / 100) * 255),
+                            0, 0)
+                    data_point_status[data_point] = not data_point_status[data_point]
+            else:
+                if led_flag:
+                    for i in range(8):
+                        led.LED_on(i, 0, 0, 0)
+                    led_flag = False
+        if 'motor' in obtained_data:
+            if obtained_data['motor'] is not {}:
+                for data_point in obtained_data['motor']:
+                    device_power = obtained_data['motor'][data_point]
+                    device_power = motor.power_convert(data_point, device_power)
+                    device_id = motor.motor_converter(data_point)
+                    if device_id not in motor_data:
+                        motor_data[device_id] = dict()
+                    rolling_window[device_id].append(device_power)
+                    rolling_window[device_id].popleft()
+        else:
+            for _ in range(motor_count):
+                rolling_window[_].append(0)
+                rolling_window[_].popleft()
+        if capabilities['servo']['disabled'] is not True:
+            if 'servo' in obtained_data:
+                for data_point in obtained_data['servo']:
+                    device_id = data_point
+                    device_power = obtained_data['servo'][data_point]
+                    servo.move(feagi_device_id=device_id, power=device_power,
+                               capabilities=capabilities, feagi_settings=feagi_settings)
+    return led_flag
+
+
 def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_to_feagi, args):
     GPIO.cleanup()
     # # FEAGI REACHABLE CHECKER # #
@@ -453,99 +488,67 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     # - - - #
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # - - - # Initializer section
+    # --- Initializer section ---
     motor = Motor()
     servo = Servo()
     ir = IR()
     ultrasonic = Ultrasonic()
     led = LED()
-    # battery = Battery()
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # - - - - - - - - - - - - - #
+    # battery = Battery()  # Commented out, not currently in use
+
+    # --- Variables ---
     rolling_window_len = capabilities['motor']['rolling_window_len']
     motor_count = capabilities['motor']['count']
     msg_counter = 0
     led_flag = False
-    # rpm = (50 * 60) / 2 DC motor has 2 poles, 50 is the freq and it's constant (why??) and 60
-    # is the seconds of a minute w = (rpm / 60) * (2 * math.pi)  # 60 is second/minute velocity =
-    # w * (configuration.capabilities['motor']['diameter_of_wheel'] / 2) ^ diameter is from
-    # config and it just needs radius so I turned the diameter into a radius by divide it with 2
+
+    # rpm = (50 * 60) / 2  # DC motor has 2 poles, 50 is the freq and it's constant (why??) and
+    # 60 is the seconds of a minute w = (rpm / 60) * (2 * math.pi)  # 60 is second/minute
+    # velocity = w * (configuration.capabilities['motor']['diameter_of_wheel'] / 2) diameter is
+    # from config and it just needs radius so I turned the diameter into a radius by divide it
+    # with 2
+
+    # --- Data Containers ---
     motor_data = dict()
+    previous_data_frame = dict()
+
+    # Initialize camera selection list
+    capabilities['camera']['current_select'] = []
+
+    # Status for data points
     data_point_status = {}
+
+    # Rolling windows for each motor
     rolling_window = {}
+
+    # Initialize rolling window for each motor
     for motor_id in range(motor_count):
         rolling_window[motor_id] = deque([0] * rolling_window_len)
+
     cam = cv2.VideoCapture(0)  # you need to do sudo rpi-update to be able to use this
     motor.stop()
     servo.set_default_position()
     get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr'
     raw_aptr = requests.get(get_size_for_aptr_cortical).json()
-    try:
-        aptr_cortical_size = raw_aptr['cortical_dimensions'][2]
-    except Exception as error:
-        aptr_cortical_size = None
-        print("aptr fetch error at: ", error)
+    device_list = pns.generate_OPU_list(capabilities)
+    aptr_cortical_size = pns.fetch_aptr_size(10, raw_aptr, None)
     while True:
         try:
-            start = time.time()
-            ret, image = cam.read()
             if capabilities['camera']['disabled'] is not True:
-                retina_data = retina.frame_split(image,
-                                                 capabilities['camera'][
-                                                     'retina_width_percent'],
-                                                 capabilities['camera'][
-                                                     'retina_height_percent'])
-                for i in retina_data:
-                    if 'C' in i:
-                        retina_data[i] = retina.center_data_compression(
-                            retina_data[i],
-                            capabilities['camera']["central_vision_compression"]
-                        )
-                    else:
-                        retina_data[i] = retina. \
-                            center_data_compression(retina_data[i],
-                                                    capabilities['camera']
-                                                    ['peripheral_vision_compression'])
+                ret, image = cam.read()
                 rgb = dict()
-                rgb['camera'] = dict()
-                if previous_data_frame == {}:
-                    for i in retina_data:
-                        previous_name = str(i) + "_prev"
-                        previous_data_frame[previous_name] = {}
-                for i in retina_data:
-                    name = i
-                    if 'prev' not in i:
-                        data = retina.ndarray_to_list(retina_data[i])
-                        if 'C' in i:
-                            previous_name = str(i) + "_prev"
-                            rgb_data, previous_data_frame[previous_name] = \
-                                retina.get_rgb(data,
-                                               capabilities[
-                                                   'camera'][
-                                                   'central_vision_compression'],
-                                               previous_data_frame[
-                                                   previous_name],
-                                               name,
-                                               capabilities['camera'][
-                                                   'deviation_threshold'],
-                                               capabilities[
-                                                   'camera'][
-                                                   "aperture_default"]
-                                               )
-                        else:
-                            previous_name = str(i) + "_prev"
-                            rgb_data, previous_data_frame[previous_name] = \
-                                retina.get_rgb(data, capabilities['camera'][
-                                    'peripheral_vision_compression'],
-                                               previous_data_frame[previous_name], name,
-                                               capabilities['camera'][
-                                                   'deviation_threshold'],
-                                               capabilities[
-                                                   'camera'][
-                                                   "aperture_default"]
-                                               )
-                        for a in rgb_data['camera']:
-                            rgb['camera'][a] = rgb_data['camera'][a]
+                previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] \
+                    = pns.generate_rgb(image,
+                                       capabilities['camera'][
+                                           'central_vision_allocation_percentage'][0],
+                                       capabilities['camera'][
+                                           'central_vision_allocation_percentage'][1],
+                                       capabilities['camera']["central_vision_resolution"],
+                                       capabilities['camera']['peripheral_vision_resolution'],
+                                       previous_data_frame,
+                                       capabilities['camera']['current_select'],
+                                       capabilities['camera']['iso_default'],
+                                       capabilities['camera']["aperture_default"])
             else:
                 rgb = {}
             # print(time.time() - start)
@@ -581,79 +584,20 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                                   **rgb})  # Removed battery due to error
             # Disabled battery due to error
             # Process OPU data received from FEAGI and pass it along
-            compressed_data = feagi_opu_channel.receive()  # Get data from FEAGI
-            if compressed_data is not None:
-                decompressed_data = lz4.frame.decompress(compressed_data)
-                message_from_feagi = pickle.loads(decompressed_data)
-            else:
-                message_from_feagi = None
+            message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
             if message_from_feagi is not None:
-                if "o_aptr" in message_from_feagi["opu_data"]:
-                    if message_from_feagi["opu_data"]["o_aptr"]:
-                        for i in message_from_feagi["opu_data"]["o_aptr"]:
-                            feagi_aptr = (int(i.split('-')[-1]))
-                            if aptr_cortical_size is None:
-                                aptr_cortical_size = check_aptr(aptr_cortical_size)
-                            elif aptr_cortical_size <= feagi_aptr:
-                                aptr_cortical_size = check_aptr(aptr_cortical_size)
-                            max_range = capabilities['camera']['aperture_range'][1]
-                            min_range = capabilities['camera']['aperture_range'][0]
-                            capabilities['camera']["aperture_default"] = \
-                                ((feagi_aptr / aptr_cortical_size) *
-                                 (max_range - min_range)) + min_range
-                if "o__dev" in message_from_feagi["opu_data"]:
-                    if message_from_feagi["opu_data"]["o__dev"]:
-                        for i in message_from_feagi["opu_data"]["o__dev"]:
-                            feagi_aptr = (int(i.split('-')[-1]))
-                            if aptr_cortical_size is None:
-                                aptr_cortical_size = check_aptr(aptr_cortical_size)
-                            elif aptr_cortical_size <= feagi_aptr:
-                                aptr_cortical_size = check_aptr(aptr_cortical_size)
-                            max_range = capabilities['camera']['ISO_range'][1]
-                            min_range = capabilities['camera']['ISO_range'][0]
-                            capabilities['camera']["deviation_threshold"] = \
-                                ((feagi_aptr / aptr_cortical_size) *
-                                 (max_range - min_range)) + min_range
-                opu_data = FEAGI.opu_processor(message_from_feagi)
-                if capabilities['motor']['disabled'] is not True:
-                    if 'led' in opu_data:
-                        if opu_data['led'] != {}:
-                            for data_point in opu_data['led']:
-                                led_flag = True
-                                if data_point not in data_point_status:
-                                    data_point_status[data_point] = True
-                                if data_point_status[data_point]:
-                                    led.LED_on(
-                                        data_point,
-                                        int((opu_data['led'][data_point] / 100) * 255),
-                                        0, 0)
-                                data_point_status[data_point] = not data_point_status[data_point]
-                        else:
-                            if led_flag:
-                                for i in range(8):
-                                    led.LED_on(i, 0, 0, 0)
-                                led_flag = False
-                    if 'motor' in opu_data:
-                        if opu_data['motor'] is not {}:
-                            for data_point in opu_data['motor']:
-                                device_power = opu_data['motor'][data_point]
-                                device_power = motor.power_convert(data_point, device_power)
-                                device_id = motor.motor_converter(data_point)
-                                if device_id not in motor_data:
-                                    motor_data[device_id] = dict()
-                                rolling_window[device_id].append(device_power)
-                                rolling_window[device_id].popleft()
-                            else:
-                                for _ in range(motor_count):
-                                    rolling_window[_].append(0)
-                                    rolling_window[_].popleft()
-                if capabilities['servo']['disabled'] is not True:
-                    if 'servo' in opu_data:
-                        for data_point in opu_data['servo']:
-                            device_id = data_point
-                            device_power = opu_data['servo'][data_point]
-                            servo.move(feagi_device_id=device_id, power=device_power,
-                                       capabilities=capabilities, feagi_settings=feagi_settings)
+                # Obtain the size of aptr
+                if aptr_cortical_size is None:
+                    aptr_cortical_size = pns.check_aptr(raw_aptr)
+                # Update the aptr
+                capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
+                                                       aptr_cortical_size)
+                # Update the ISO
+                capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
+                                                  aptr_cortical_size)
+                obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
+                led_flag = action(obtained_signals, device_list, led_flag, feagi_settings,
+                                  capabilities, motor_data, rolling_window, motor, servo, led)
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             if agent_settings['compression']:
