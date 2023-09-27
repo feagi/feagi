@@ -134,9 +134,9 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 # Update the ISO
                 capabilities = pns.fetch_iso_data(message_from_feagi, capabilities, aptr_cortical_size)
                 # Update the vres
-                capabilities = pns.fetch_res(message_from_feagi, capabilities)
+                capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
                 # Update the aceture
-                capabilities = pns.fetch_vact(message_from_feagi, capabilities)
+                capabilities = pns.fetch_vision_acuity(message_from_feagi, capabilities)
                 # OPU section STARTS
                 if 'genome_num' in message_from_feagi:
                     if message_from_feagi['genome_num'] != genome_tracker:
