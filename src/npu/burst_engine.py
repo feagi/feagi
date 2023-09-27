@@ -248,15 +248,16 @@ def burst_manager():
             # This is where neuron leak is considered and membrane potentials are updated+++
             for fq_cortical_area in runtime_data.fire_queue:
                 for neuron_id in runtime_data.fire_queue[fq_cortical_area]:
+                    print("==============   1")
                     # Neuron leak considerations
                     leak_amount = neuron_leak(cortical_area=fq_cortical_area, neuron_id=neuron_id)
-
+                    print("==============   2", neuron_id, runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'])
                     runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = \
                         membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
                                                   membrane_potential_change=leak_amount * -1)
 
                     fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1]
-
+                    print(fq_cortical_area, neuron_id, fire_threshold, leak_amount)
                     # if runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'] == 0:
                     #     fire_threshold = runtime_data.fire_queue[fq_cortical_area][neuron_id][1]
                     # else:
@@ -264,8 +265,8 @@ def burst_manager():
                     #                      (runtime_data.fire_queue[fq_cortical_area][neuron_id][1] *
                     #                       runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'])
 
-                    membrane_potential = runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential']
-
+                    membrane_potential = runtime_data.fire_queue[fq_cortical_area][neuron_id][0]
+                    print("membrane_potential:", membrane_potential)
                     ready_to_fire = False
                     # When neuron is ready to fire
                     if membrane_potential >= fire_threshold:
@@ -273,13 +274,16 @@ def burst_manager():
                             if refractory_check(fq_cortical_area, neuron_id) and \
                                     consecutive_fire_threshold_check(cortical_area_=fq_cortical_area, neuron_id=neuron_id):
                                 ready_to_fire = True
+                                print("@@ @ ready to fire!")
                         else:
                             if membrane_potential <= fire_threshold * \
                                 (100 + runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit']) / \
                                     100:
+                                print("==============   3")
                                 if refractory_check(fq_cortical_area, neuron_id) and \
                                         consecutive_fire_threshold_check(cortical_area_=fq_cortical_area,
                                                                          neuron_id=neuron_id):
+                                    print("==============   4")
                                     ready_to_fire = True
 
                     # if membrane_potential >= fire_threshold and \
@@ -290,6 +294,7 @@ def burst_manager():
                     #                 runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit']:
 
                     if ready_to_fire:
+                        print(">>>>>", neuron_id)
                         # The actual trigger to fire the neuron
                         runtime_data.brain[fq_cortical_area][neuron_id]["last_membrane_potential_reset_burst"] = \
                             runtime_data.burst_count
@@ -310,6 +315,10 @@ def burst_manager():
                         # membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
                         #                           membrane_potential_change=0, overwrite=True,
                         #                           overwrite_value=0)
+                        runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = \
+                            membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
+                                                      membrane_potential_change=0, overwrite=True,
+                                                      overwrite_value=membrane_potential)
                         runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = \
                             membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
                                                       membrane_potential_change=0, overwrite=True, overwrite_value=0)

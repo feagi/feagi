@@ -54,7 +54,7 @@ def neuron_stimulation_mp_logger(cortical_area, neuron_id):
 
             # Note: dst_cortical_area is fed to the src_cortical_area field since the membrane potential of dst changes
 
-            mem_pot = min(mem_pot, fire_threshold)
+            # mem_pot = min(mem_pot, fire_threshold)
 
             # To demonstrate a spike when a neuron is artificially stimulated to fire
             runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
@@ -64,13 +64,13 @@ def neuron_stimulation_mp_logger(cortical_area, neuron_id):
                                                          dst_voxel_y=vox_y,
                                                          dst_voxel_z=vox_z,
                                                          membrane_potential=mem_pot / 1)
-            runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
-                                                         src_cortical_area=cortical_area,
-                                                         src_neuron_id=neuron_id,
-                                                         dst_voxel_x=vox_x,
-                                                         dst_voxel_y=vox_y,
-                                                         dst_voxel_z=vox_z,
-                                                         membrane_potential=fire_threshold / 1)
+            # runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
+            #                                              src_cortical_area=cortical_area,
+            #                                              src_neuron_id=neuron_id,
+            #                                              dst_voxel_x=vox_x,
+            #                                              dst_voxel_y=vox_y,
+            #                                              dst_voxel_z=vox_z,
+            #                                              membrane_potential=fire_threshold / 1)
             runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
                                                          src_cortical_area=cortical_area,
                                                          src_neuron_id=neuron_id,
