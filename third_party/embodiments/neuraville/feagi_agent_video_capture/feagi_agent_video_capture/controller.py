@@ -90,7 +90,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     print("retrying...")
     print("Waiting on FEAGI...")
     while not feagi_flag:
-        feagi_flag = feagi.is_FEAGI_reachable(feagi_settings["feagi_host"], 30000)
+        feagi_flag = feagi.is_FEAGI_reachable(feagi_settings["feagi_host"], 3000)
         sleep(2)
     burst_counter_endpoint = feagi.feagi_api_burst_counter()
     # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
