@@ -217,22 +217,28 @@ def offset_z(value, resolution, range_number):
         return 0
 
 
-def main():
-    # # # # # # # # # # # # Variables/Dictionaries section # # # # # # # # # # # # # # # - - - -
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+if __name__ == '__main__':
+    feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
+    print("FEAGI AUTH URL ------- ", feagi_auth_url)
     runtime_data = dict()
-    msg_counter = 0
-    flag_counter = 0
-    checkpoint_total = 5
-    flying_flag = False
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # - - - #
 
     # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # - - - - - - - - - - - - - - - - - - #
     feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
         FEAGI.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities)
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    # # # # # # # # # # # # Variables/Dictionaries section # # # # # # # # # # # # # # # - - - -
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+    msg_counter = 0
+    flag_counter = 0
+    checkpoint_total = 5
+    flying_flag = False
+    get_size_for_aptr_cortical = api_address + '/v1/FEAGI/genome/cortical_area?cortical_area=o_aptr'
+    raw_aptr = requests.get(get_size_for_aptr_cortical).json()
+    aptr_cortical_size = pns.fetch_aptr_size(10, raw_aptr, None)
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # - - - #
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # - - - # Initializer section
@@ -254,60 +260,16 @@ def main():
             bat = get_battery(data)
             battery = bat['battery_charge_level']
             data = full_frame(tello)
-            retina_data = retina.frame_split(
-                data,
-                configuration.capabilities['camera']['retina_width_percent'],
-                configuration.capabilities['camera']['retina_height_percent'])
-            for i in retina_data:
-                if 'C' in i:
-                    retina_data[i] = retina.center_data_compression(
-                        retina_data[i],
-                        capabilities['camera'][
-                            "central_vision_compression"])
-                else:
-                    retina_data[i] = retina.center_data_compression(
-                        retina_data[i],
-                        capabilities['camera']
-                        ['peripheral_vision_compression'])
-            rgb = dict()
-            rgb['camera'] = dict()
-            if previous_data_frame == {}:
-                for i in retina_data:
-                    previous_name = str(i) + "_prev"
-                    previous_data_frame[previous_name] = {}
-            for i in retina_data:
-                name = i
-                if 'prev' not in i:
-                    data = retina.ndarray_to_list(retina_data[i])
-                    if 'C' in i:
-                        previous_name = str(i) + "_prev"
-                        rgb_data, previous_data_frame[previous_name] = retina.get_rgb(
-                            data,
-                            capabilities[
-                                'camera'][
-                                'central_vision_compression'],
-                            previous_data_frame[
-                                previous_name],
-                            name,
-                            configuration.capabilities[
-                                'camera'][
-                                'deviation_threshold'])
-                    else:
-                        previous_name = str(i) + "_prev"
-                        rgb_data, previous_data_frame[previous_name] = retina.get_rgb(
-                            data,
-                            capabilities[
-                                'camera'][
-                                'peripheral_vision_compression']
-                            ,
-                            previous_data_frame[
-                                previous_name],
-                            name,
-                            configuration.capabilities[
-                                'camera'][
-                                'deviation_threshold'])
-                    for a in rgb_data['camera']:
-                        rgb['camera'][a] = rgb_data['camera'][a]
+            previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
+                pns.generate_rgb(data,
+                                 capabilities['camera']['central_vision_allocation_percentage'][0],
+                                 capabilities['camera']['central_vision_allocation_percentage'][1],
+                                 capabilities['camera']["central_vision_resolution"],
+                                 capabilities['camera']['peripheral_vision_resolution'],
+                                 previous_data_frame,
+                                 capabilities['camera']['current_select'],
+                                 capabilities['camera']['iso_default'],
+                                 capabilities['camera']["aperture_default"])
             configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(
                 original_message=gyro,
                 data=configuration.message_to_feagi,
@@ -378,15 +340,3 @@ def main():
         except KeyboardInterrupt as ke:
             print("ERROR: ", ke)
             tello.end()
-
-
-if __name__ == '__main__':
-    feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
-    print("FEAGI AUTH URL ------- ", feagi_auth_url)
-    while True:
-        try:
-            main()
-        except Exception as e:
-            print(f"Controller run failed", e)
-            traceback.print_exc()
-            sleep(2)
