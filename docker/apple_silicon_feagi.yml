@@ -163,18 +163,6 @@ services:
       influxdb:
         condition: service_healthy
 
-#  gui:
-#    build:
-#      context: ../src/gui/
-#    ports:
-#      - "3000:3000"
-#    env_file:
-#      - ./.env
-#    networks:
-#      - net
-#    depends_on:
-#      - feagi
-
 volumes:
   grafana_data:
   influxdb_data:
