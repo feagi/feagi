@@ -16,6 +16,6 @@ RUN apt install -y libgl1-mesa-glx
 RUN pip3 install lz4
 
 ENV Running_In_CONTAINER Yes
-COPY test.py .
+COPY controller.py .
 COPY configuration.py .
-CMD ["python3", "test.py"]
+CMD ["python3", "controller.py"]
