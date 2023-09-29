@@ -285,9 +285,6 @@ class RobotModel(BaseModel):
     slip2 = 1.0
 
 
-app.mount("/home", SPAStaticFiles(directory="gui", html=True), name="static")
-
-
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """
@@ -2226,96 +2223,3 @@ async def change_circuit_library_path(circuit_library_path: str, response: Respo
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
 
-
-# ######   GUI  Endpoints #########
-# ###################################
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/ipu", methods=['GET'], tags=["GUI"])
-async def supported_ipu_list(response: Response):
-    try:
-        if gui_baseline['ipu']:
-            response.status_code = status.HTTP_200_OK
-            return gui_baseline['ipu']
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
-
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/opu", methods=['GET'], tags=["GUI"])
-async def supported_opu_list(response: Response):
-    try:
-        if gui_baseline['opu']:
-            response.status_code = status.HTTP_200_OK
-            return gui_baseline['opu']
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
-
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/morphology", methods=['GET'], tags=["GUI"])
-async def supported_morphology_list(response: Response):
-    try:
-        if gui_baseline['morphology']:
-            response.status_code = status.HTTP_200_OK
-            return gui_baseline['morphology']
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
-
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/cortical-genes", methods=['GET'], tags=["GUI"])
-async def supported_cortical_genes_list(response: Response):
-    try:
-        if gui_baseline['cortical_genes']:
-            response.status_code = status.HTTP_200_OK
-            return gui_baseline['cortical_genes']
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
-        
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/morphology-scalar", methods=['GET'], tags=["GUI"])
-async def supported_cortical_genes_list(response: Response):
-    try:
-        if gui_baseline['morphology_scalar']:
-            response.status_code = status.HTTP_200_OK
-            return gui_baseline['morphology_scalar']
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
-        
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/psc-multiplier", methods=['GET'], tags=["GUI"])
-async def supported_cortical_genes_list(response: Response):
-    try:
-        if gui_baseline['postSynapticCurrent_multiplier']:
-            response.status_code = status.HTTP_200_OK
-            return gui_baseline['postSynapticCurrent_multiplier']
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
-
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/plasticity-flag", methods=['GET'], tags=["GUI"])
-async def supported_cortical_genes_list(response: Response):
-    try:
-        if gui_baseline['plasticity_flag']:
-            response.status_code = status.HTTP_200_OK
-            return gui_baseline['plasticity_flag']
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
