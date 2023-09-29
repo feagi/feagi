@@ -6,5 +6,5 @@ You need to ensure that you have granted permission for this script to communica
 2) Click setting
 3) Click `Advanced`
 4) Checked `Allow the default Docker socket`
-See the image:[docker setting](_static/docker_setting.png)
+See the image:![docker setting](_static/docker_setting.png)
 5) Run python
