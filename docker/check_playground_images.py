@@ -14,6 +14,17 @@ def get_image_digest(image_name, tag):
         print(f"An error occurred: {e}")
 
 
+def pull_image(image_name, tag):
+    print("Pulling ", image_name, ":" ,tag, " now....")     
+    client = docker.from_env()
+    try:
+        image = f"{image_name}:{tag}"
+        client.images.pull(image)
+        print(f"Successfully pulled image: {image}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+
 def get_dockerhub_digest(url):
     response = requests.get(url)
 
@@ -41,3 +52,5 @@ if __name__ == "__main__":
             sha = repo_digest.split(':')[-1]
             if sha == latest_sha:
                 print("your ", current_image, " is up to dated.")
+        else:
+            pull_image(name_of_image, tag_type)
