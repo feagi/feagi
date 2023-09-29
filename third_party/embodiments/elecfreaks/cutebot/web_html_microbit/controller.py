@@ -113,19 +113,30 @@ def action(obtained_data, device_list):
         WS_STRING = ""
         if 'motor' in obtained_data:
             if obtained_data['motor']:
-                # Ensure that it's in order for microbit
-                for i in sorted(obtained_data['motor']):
+                if len(obtained_data['motor']) >= 3:
+                    if 0 in obtained_data['motor']:
+                        if 1 in obtained_data['motor']:
+                            if obtained_data['motor'][0] >= obtained_data['motor'][1]:
+                                obtained_data['motor'].pop(1)
+                            else:
+                                obtained_data['motor'].pop(0)
+                    if 2 in obtained_data['motor']:
+                        if 3 in obtained_data['motor']:
+                            if obtained_data['motor'][2] >= obtained_data['motor'][3]:
+                                obtained_data['motor'].pop(3)
+                            else:
+                                obtained_data['motor'].pop(2)
+                for i in sorted(obtained_data['motor']):  # Ensure that it's in order for microbit
                     if i in [0, 1]:
-                        # Append the motor data as a two-digit
-                        WS_STRING += str(i) + str(obtained_data['motor'][i] - 10).zfill(2)
+                        WS_STRING += str(i) + str(obtained_data['motor'][i] - 60).zfill(
+                            2)  # Append the motor data as a two-digit
                         # string
                     elif i in [2, 3]:
-                        # Append the motor data as a two-digit
-                        WS_STRING += str(i) + str(obtained_data['motor'][i] - 10).zfill(2)
+                        WS_STRING += str(i) + str(obtained_data['motor'][i] - 60).zfill(
+                            2)  # Append the motor data as a two-digit
                         # string
                     else:
-                        # If the motor value is not present, append "00"
-                        WS_STRING += str(i) + "00"
+                        WS_STRING += str(i) + "00"  # If the motor value is not present, append "00"
                 if len(WS_STRING) != 6:
                     if int(WS_STRING[0]) < 2:
                         WS_STRING = WS_STRING + "500"
