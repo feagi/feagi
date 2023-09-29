@@ -101,57 +101,60 @@ def neuroplasticity():
 
 def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_cortical_area,
                                      dst_neuron_id, long_term_depression=False):
+    print(runtime_data.genome["blueprint"][src_cortical_area])
+    if dst_cortical_area in runtime_data.genome["blueprint"][src_cortical_area]["cortical_mapping_dst"]:
+        for mapping in runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_cortical_area]:
+            plasticity_flag = \
+                runtime_data.genome["blueprint"][src_cortical_area]["cortical_mapping_dst"][dst_cortical_area][mapping]["plasticity_flag"]
+            if plasticity_flag:
+                ltp_multiplier = \
+                    runtime_data.genome["blueprint"][src_cortical_area]["cortical_mapping_dst"][dst_cortical_area][mapping]["ltp_multiplier"]
+                ltd_multiplier = \
+                    runtime_data.genome["blueprint"][src_cortical_area]["cortical_mapping_dst"][dst_cortical_area][mapping]["ltd_multiplier"]
+                plasticity_constant = \
+                    runtime_data.genome["blueprint"][src_cortical_area]["cortical_mapping_dst"][dst_cortical_area][mapping]["plasticity_constant"]
 
-    for mapping in runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_cortical_area]:
-        plasticity_flag = \
-            runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_cortical_area][mapping]["plasticity_flag"]
-        if plasticity_flag:
-            ltp_multiplier = \
-                runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_cortical_area][mapping]["ltp_multiplier"]
-            ltd_multiplier = \
-                runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_cortical_area][mapping]["ltd_multiplier"]
-            plasticity_constant = \
-                runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_cortical_area][mapping]["plasticity_constant"]
+                if long_term_depression:
+                    # When long term depression flag is set, there will be negative synaptic influence caused
+                    plasticity_constant = plasticity_constant * ltd_multiplier * -1
+                    # print("<> <> <> <> <> <> <> <> <>   LTD  <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
+                    try:
+                        runtime_data.cumulative_stats[src_cortical_area]["LTD"] += 1
+                    except Exception as e:
+                        print("Exception during LTD:", e)
 
-            if long_term_depression:
-                # When long term depression flag is set, there will be negative synaptic influence caused
-                plasticity_constant = plasticity_constant * ltd_multiplier * -1
-                # print("<> <> <> <> <> <> <> <> <>   LTD  <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
+                else:
+                    # print("<> <> <> <> <> <> <> <> <>  LTP  <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
+                    plasticity_constant = plasticity_constant * ltp_multiplier
+                    try:
+                        runtime_data.cumulative_stats[src_cortical_area]["LTP"] += 1
+                    except Exception as e:
+                        print("Exception during LTP:", e)
+
                 try:
-                    runtime_data.cumulative_stats[src_cortical_area]["LTD"] += 1
-                except Exception as e:
-                    print("Exception during LTD:", e)
+                    new_psc = \
+                        runtime_data.brain[src_cortical_area][src_neuron_id][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
 
-            else:
-                # print("<> <> <> <> <> <> <> <> <>  LTP  <> <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
-                plasticity_constant = plasticity_constant * ltp_multiplier
-                try:
-                    runtime_data.cumulative_stats[src_cortical_area]["LTP"] += 1
-                except Exception as e:
-                    print("Exception during LTP:", e)
+                    new_psc += plasticity_constant
 
-            try:
-                new_psc = \
-                    runtime_data.brain[src_cortical_area][src_neuron_id][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
+                    # Condition to cap the postsynaptic_current and provide prohibitory reaction
+                    if new_psc > runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]:
+                        new_psc = runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]
 
-                new_psc += plasticity_constant
+                    # Condition to prevent postsynaptic current to become negative
+                    # todo: consider setting a postsynaptic_min in genome to be used instead of 0
+                    # Condition to prune a synapse if its postsynaptic_current is zero
+                    if new_psc < 0:
+                        new_psc = 0
+                        # runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id,
+                        #                                       dst_cortical_area, dst_neuron_id))
 
-                # Condition to cap the postsynaptic_current and provide prohibitory reaction
-                if new_psc > runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]:
-                    new_psc = runtime_data.genome["blueprint"][src_cortical_area]["postsynaptic_current_max"]
+                    post_synaptic_current_update(cortical_area_src=src_cortical_area, cortical_area_dst=dst_cortical_area,
+                                                 neuron_id_src=src_neuron_id, neuron_id_dst=dst_neuron_id,
+                                                 post_synaptic_current=new_psc)
 
-                # Condition to prevent postsynaptic current to become negative
-                # todo: consider setting a postsynaptic_min in genome to be used instead of 0
-                # Condition to prune a synapse if its postsynaptic_current is zero
-                if new_psc < 0:
-                    new_psc = 0
-                    # runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id,
-                    #                                       dst_cortical_area, dst_neuron_id))
-
-                post_synaptic_current_update(cortical_area_src=src_cortical_area, cortical_area_dst=dst_cortical_area,
-                                             neuron_id_src=src_neuron_id, neuron_id_dst=dst_neuron_id,
-                                             post_synaptic_current=new_psc)
-
-            except KeyError as e:
-                print("\n\n\nKey Error on longterm_potentiation_depression:", e, traceback.print_exc())
-                pass
+                except KeyError as e:
+                    print("\n\n\nKey Error on longterm_potentiation_depression:", e, traceback.print_exc())
+                    pass
+    else:
+        print(f"longterm_potentiation_depression did not find {dst_cortical_area} as a mapping in {src_cortical_area}")
