@@ -14,6 +14,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import time
 import logging
 import random
 import traceback
@@ -176,6 +177,7 @@ class MongoManagement:
 class InfluxManagement:
     def __init__(self):
         import influxdb_client
+        from influxdb_client import InfluxDBClient, Point
         from influxdb_client.client.write_api import SYNCHRONOUS
 
         self.db_params = runtime_data.parameters['Database']
@@ -245,8 +247,13 @@ class InfluxManagement:
         #           "ERROR: Cannot connect to << InfluxDb >> Database \n ::: %s" % str(repr(e)) + settings.Bcolors.ENDC)
 
     def insert_neuron_activity(self, connectome_path, src_cortical_area, src_neuron_id,
-                               dst_voxel_x, dst_voxel_y, dst_voxel_z, membrane_potential):
+                               dst_voxel_x, dst_voxel_y, dst_voxel_z, membrane_potential, timestamp=None):
         dst_voxel_id = str(dst_voxel_x) + "-" + str(dst_voxel_y) + "-" + str(dst_voxel_z)
+
+        # If timestamp is None, use the current time in nanoseconds since the Unix Epoch
+        if timestamp is None:
+            timestamp = int(time.time() * 1e9)
+
         raw_data = [
             {
                 "measurement": "neuron",
@@ -258,22 +265,27 @@ class InfluxManagement:
                     "dst_voxel_y": dst_voxel_y,
                     "dst_voxel_z": dst_voxel_z,
                     "dst_voxel_id": dst_voxel_id
-
                 },
                 "fields": {
                     'membrane_potential': float(membrane_potential)
-                }
+                },
+                "time": timestamp  # Inserting the timestamp here
             }
         ]
         self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
 
-    def insert_synaptic_activity(self, connectome_path, src_cortical_area, dst_cortical_area,  
-                                 src_voxel_x, src_voxel_y, src_voxel_z, 
+    def insert_synaptic_activity(self, connectome_path, src_cortical_area, dst_cortical_area,
+                                 src_voxel_x, src_voxel_y, src_voxel_z,
                                  dst_voxel_x, dst_voxel_y, dst_voxel_z,
                                  src_neuron_id, dst_neuron_id,
-                                 post_synaptic_current):
+                                 post_synaptic_current, timestamp=None):
         src_voxel_id = str(src_voxel_x) + "-" + str(src_voxel_y) + "-" + str(src_voxel_z)
         dst_voxel_id = str(dst_voxel_x) + "-" + str(dst_voxel_y) + "-" + str(dst_voxel_z)
+
+        # If timestamp is None, use the current time in nanoseconds since the Unix Epoch
+        if timestamp is None:
+            timestamp = int(time.time() * 1e9)
+
         raw_data = [
             {
                 "measurement": "synapse",
@@ -294,7 +306,8 @@ class InfluxManagement:
                 },
                 "fields": {
                     "postSynapticCurrent": float(post_synaptic_current)
-                }
+                },
+                "time": timestamp  # Inserting the timestamp here
             }
         ]
         self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
