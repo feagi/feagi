@@ -90,7 +90,7 @@ def fetch_aperture_data(message_from_feagi, capabilities, aptr_cortical_size):
                                                      feagi_aptr)
                 max_range = capabilities['camera']['aperture_range'][1]
                 min_range = capabilities['camera']['aperture_range'][0]
-                capabilities['camera']["iso_default"] = \
+                capabilities['camera']["aperture_default"] = \
                     ((feagi_aptr / aptr_cortical_size) *
                      (max_range - min_range)) + min_range
     return capabilities
@@ -177,3 +177,4 @@ def obtain_opu_data(device_list, message_from_feagi):
                     opu_signal_dict[i] = {}
                 opu_signal_dict[i][x] = opu_data[i][x]
     return opu_signal_dict
+

@@ -1,12 +1,10 @@
-import cv2
 import time
 import requests
-import numpy as np
 import configuration
-from feagi_agent import retina as retina
 from configuration import *
 from djitellopy import Tello
 from datetime import datetime
+from feagi_agent import pns_gateway as pns
 from feagi_agent import feagi_interface as FEAGI
 
 previous_data_frame = dict()
@@ -217,37 +215,57 @@ def offset_z(value, resolution, range_number):
         return 0
 
 
-def main(feagi_auth_url):
+def action(obtained_signals, device_list, flying_flag):
+    for device in device_list:
+        if 'misc' in obtained_signals:
+            for i in obtained_signals['misc']:
+                misc_control(tello, i, battery)
+        if flying_flag:
+            if 'navigation' in obtained_signals:
+                if obtained_signals['navigation']:
+                    try:
+                        data0 = obtained_signals['navigation'][0] * 10
+                    except Exception as e:
+                        data0 = 0
+                    try:
+                        data1 = obtained_signals['navigation'][1] * 10
+                    except Exception as e:
+                        data1 = 0
+                    try:
+                        data2 = obtained_signals['navigation'][2] * 10
+                    except Exception as e:
+                        data2 = 0
+                    try:
+                        speed = obtained_signals['speed'][0] * 10
+                    except Exception as e:
+                        speed = 0
+                    navigate_to_xyz(tello, data0, data1, data2, speed)
+
+
+if __name__ == '__main__':
+    feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
+    print("FEAGI AUTH URL ------- ", feagi_auth_url)
+    runtime_data = dict()
+
+    # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # - - - - - - - - - - - - - - - - - - #
+    feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
+        FEAGI.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities)
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     # # # # # # # # # # # # Variables/Dictionaries section # # # # # # # # # # # # # # # - - - -
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-    runtime_data = dict()
     msg_counter = 0
     flag_counter = 0
     checkpoint_total = 5
     flying_flag = False
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # - - - #
-
-    # # # # # # # # # # # # # # # FEAGI registration # # # # # # # # # # # # # # # # # # - - - -
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-    print("Connecting to FEAGI resources...")
-    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_auth_url=feagi_auth_url,
-                                                           feagi_settings=feagi_settings,
-                                                           agent_settings=agent_settings,
-                                                           capabilities=capabilities)
-    api_address = runtime_data['feagi_state']["feagi_url"]
-    stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
-    burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
-
-    agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
-    print("** **", runtime_data["feagi_state"])
-    feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
-    ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
-    print("IPU_channel_address=", ipu_channel_address)
-    opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
-                                               runtime_data["feagi_state"]['feagi_opu_port'])
-    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
-    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
+    get_size_for_aptr_cortical = api_address + '/v1/FEAGI/genome/cortical_area?cortical_area=o_aptr'
+    raw_aptr = requests.get(get_size_for_aptr_cortical).json()
+    aptr_cortical_size = pns.fetch_aptr_size(10, raw_aptr, None)
+    rgb = dict()
+    rgb['camera'] = dict()
+    capabilities['camera']['current_select'] = []
+    device_list = pns.generate_OPU_list(capabilities)  # get the OPU sensors
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # - - - #
 
@@ -271,60 +289,16 @@ def main(feagi_auth_url):
             bat = get_battery(data)
             battery = bat['battery_charge_level']
             data = full_frame(tello)
-            retina_data = retina.frame_split(
-                data,
-                configuration.capabilities['camera']['retina_width_percent'],
-                configuration.capabilities['camera']['retina_height_percent'])
-            for i in retina_data:
-                if 'C' in i:
-                    retina_data[i] = retina.center_data_compression(
-                        retina_data[i],
-                        capabilities['camera'][
-                            "central_vision_compression"])
-                else:
-                    retina_data[i] = retina.center_data_compression(
-                        retina_data[i],
-                        capabilities['camera']
-                        ['peripheral_vision_compression'])
-            rgb = dict()
-            rgb['camera'] = dict()
-            if previous_data_frame == {}:
-                for i in retina_data:
-                    previous_name = str(i) + "_prev"
-                    previous_data_frame[previous_name] = {}
-            for i in retina_data:
-                name = i
-                if 'prev' not in i:
-                    data = retina.ndarray_to_list(retina_data[i])
-                    if 'C' in i:
-                        previous_name = str(i) + "_prev"
-                        rgb_data, previous_data_frame[previous_name] = retina.get_rgb(
-                            data,
-                            capabilities[
-                                'camera'][
-                                'central_vision_compression'],
-                            previous_data_frame[
-                                previous_name],
-                            name,
-                            configuration.capabilities[
-                                'camera'][
-                                'deviation_threshold'])
-                    else:
-                        previous_name = str(i) + "_prev"
-                        rgb_data, previous_data_frame[previous_name] = retina.get_rgb(
-                            data,
-                            capabilities[
-                                'camera'][
-                                'peripheral_vision_compression']
-                            ,
-                            previous_data_frame[
-                                previous_name],
-                            name,
-                            configuration.capabilities[
-                                'camera'][
-                                'deviation_threshold'])
-                    for a in rgb_data['camera']:
-                        rgb['camera'][a] = rgb_data['camera'][a]
+            previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
+                pns.generate_rgb(data,
+                                 capabilities['camera']['central_vision_allocation_percentage'][0],
+                                 capabilities['camera']['central_vision_allocation_percentage'][1],
+                                 capabilities['camera']["central_vision_resolution"],
+                                 capabilities['camera']['peripheral_vision_resolution'],
+                                 previous_data_frame,
+                                 capabilities['camera']['current_select'],
+                                 capabilities['camera']['iso_default'],
+                                 capabilities['camera']["aperture_default"])
             configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(
                 original_message=gyro,
                 data=configuration.message_to_feagi,
@@ -341,69 +315,27 @@ def main(feagi_auth_url):
                 original_message=rgb,
                 data=configuration.message_to_feagi,
                 battery=battery)
-
-            message_from_feagi = feagi_opu_channel.receive()
+            message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
             if message_from_feagi is not None:
-                opu_data = FEAGI.opu_processor(message_from_feagi)
-                if 'misc' in opu_data:
-                    for i in opu_data['misc']:
-                        misc_control(tello, i, battery)
-                if flying_flag:
-                    if 'navigation' in opu_data:
-                        if opu_data['navigation']:
-                            try:
-                                data0 = opu_data['navigation'][0] * 10
-                            except Exception as e:
-                                data0 = 0
-                            try:
-                                data1 = opu_data['navigation'][1] * 10
-                            except Exception as e:
-                                data1 = 0
-                            try:
-                                data2 = opu_data['navigation'][2] * 10
-                            except Exception as e:
-                                data2 = 0
-                            try:
-                                speed = opu_data['speed'][0] * 10
-                            except Exception as e:
-                                speed = 0
-                            navigate_to_xyz(tello, data0, data1, data2, speed)
+                if aptr_cortical_size is None:
+                    aptr_cortical_size = pns.check_aptr(raw_aptr)
+                # Update the aptr
+                capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
+                                                       aptr_cortical_size)
+                # Update the ISO
+                capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
+                                                  aptr_cortical_size)
+                obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
+                action(obtained_signals, device_list, flying_flag)
 
             # Preparing to send data to FEAGI
             configuration.message_to_feagi['timestamp'] = datetime.now()
             configuration.message_to_feagi['counter'] = msg_counter
-            feagi_ipu_channel.send(configuration.message_to_feagi)
+            pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
             configuration.message_to_feagi.clear()
-            msg_counter += 1
-            flag_counter += 1
-            if flag_counter == int(checkpoint_total):
-                feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
-                feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
-                flag_counter = 0
-                if feagi_burst_speed > 1:
-                    checkpoint_total = 5
-                if feagi_burst_speed < 1:
-                    checkpoint_total = 5 / feagi_burst_speed
-                if msg_counter < feagi_burst_counter:
-                    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-                    if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
-                        feagi_settings['feagi_burst_speed'] = feagi_burst_speed
-                if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
-                    feagi_settings['feagi_burst_speed'] = feagi_burst_speed
-                    msg_counter = feagi_burst_counter
+            if message_from_feagi is not None:
+                feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
             time.sleep(feagi_settings['feagi_burst_speed'])
         except KeyboardInterrupt as ke:
             print("ERROR: ", ke)
             tello.end()
-
-
-if __name__ == '__main__':
-    feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
-    print("FEAGI AUTH URL ------- ", feagi_auth_url)
-    while True:
-        try:
-            main(feagi_auth_url)
-        except Exception as e:
-            print(f"Controller run failed", e)
-            traceback.print_exc()
-            sleep(2)
