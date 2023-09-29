@@ -15,7 +15,7 @@ def get_image_digest(image_name, tag):
 
 
 def pull_image(image_name, tag):
-    print("Pulling ", image_name, ":" ,tag, " now....")     
+    print("Pulling ", image_name, ":" ,tag, " now....")
     client = docker.from_env()
     try:
         image = f"{image_name}:{tag}"
