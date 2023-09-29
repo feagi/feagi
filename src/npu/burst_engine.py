@@ -296,7 +296,7 @@ def burst_manager():
                         # todo: Refactor the membrane potential update
                         # Setting the membrane potential of the neuron to 0 after being added to fire list
 
-                        neuron_stimulation_mp_logger(cortical_area=fq_cortical_area, neuron_id=neuron_id)
+                        # neuron_stimulation_mp_logger(cortical_area=fq_cortical_area, neuron_id=neuron_id)
 
                         # Update Plasticity Queue
                         if fq_cortical_area in runtime_data.plasticity_dict:
@@ -320,7 +320,8 @@ def burst_manager():
                         runtime_data.future_fcl[fq_cortical_area].add(neuron_id)
 
                     if runtime_data.genome["blueprint"][fq_cortical_area]["mp_charge_accumulation"]:
-                        membrane_potential = max(0, membrane_potential)
+                        runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = \
+                            max(0, membrane_potential)
                     else:
                         membrane_potential = 0
 
