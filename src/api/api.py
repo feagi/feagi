@@ -1470,6 +1470,20 @@ async def neuron_postsynaptic_potential_monitoring_scope(message: dict, response
 # ######  Training Endpoints #######
 # ##################################
 
+
+@app.api_route("/v1/feagi/training/reset_game_stats", methods=['DELETE'], tags=["Training"])
+async def delete_game_stats_from_db(response: Response):
+    """
+    Erases the game statistics from the database.
+    """
+    try:
+        runtime_data.influxdb.drop_game_activity()
+        response.status_code = status.HTTP_200_OK
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
 @app.api_route("/v1/feagi/training/shock/options", methods=['Get'], tags=["Training"])
 async def list_available_shock_scenarios(response: Response):
     """
