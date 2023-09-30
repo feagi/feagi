@@ -428,6 +428,12 @@ class InfluxManagement:
     def drop_neuron_activity(self):
         self.client.buckets_api().delete_bucket(self.stats_bucket)
 
+    def drop_game_activity(self):
+        # Get the list of buckets
+        bucket = self.client.buckets_api().find_bucket_by_name(bucket_name="data")
+        print("bucket:", bucket)
+        self.client.buckets_api().delete_bucket(bucket=bucket["id"])
+
     def test_influxdb(self):
         try:
             if self.client.buckets_api().find_buckets(name=self.stats_bucket):
