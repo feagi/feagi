@@ -101,12 +101,15 @@ def neuroplasticity():
 
 def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_cortical_area,
                                      dst_neuron_id, long_term_depression=False):
-    print(runtime_data.genome["blueprint"][src_cortical_area])
+    print("longterm_potentiation_depression-1")
     if dst_cortical_area in runtime_data.genome["blueprint"][src_cortical_area]["cortical_mapping_dst"]:
-        for mapping in runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_cortical_area]:
+        print("longterm_potentiation_depression-2")
+        for mapping in runtime_data.genome["blueprint"][src_cortical_area]["cortical_mapping_dst"][dst_cortical_area]:
+            print("longterm_potentiation_depression-3")
             plasticity_flag = \
                 runtime_data.genome["blueprint"][src_cortical_area]["cortical_mapping_dst"][dst_cortical_area][mapping]["plasticity_flag"]
             if plasticity_flag:
+                print("longterm_potentiation_depression-4")
                 ltp_multiplier = \
                     runtime_data.genome["blueprint"][src_cortical_area]["cortical_mapping_dst"][dst_cortical_area][mapping]["ltp_multiplier"]
                 ltd_multiplier = \
