@@ -48,7 +48,7 @@ def neuron_stimulation_mp_logger(cortical_area, neuron_id):
                           filter_criteria=runtime_data.neuron_mp_collection_scope[cortical_area]):
 
             vox_x, vox_y, vox_z = [vox for vox in runtime_data.brain[cortical_area][neuron_id]['soma_location']]
-            fire_threshold = runtime_data.brain[cortical_area][neuron_id]['firing_threshold']
+            # fire_threshold = runtime_data.brain[cortical_area][neuron_id]['firing_threshold']
 
             mem_pot = runtime_data.brain[cortical_area][neuron_id]['membrane_potential']
 
@@ -57,6 +57,7 @@ def neuron_stimulation_mp_logger(cortical_area, neuron_id):
             # mem_pot = min(mem_pot, fire_threshold)
 
             # To demonstrate a spike when a neuron is artificially stimulated to fire
+            # print(fire_threshold,  "<<<<<<<----------------")
             runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
                                                          src_cortical_area=cortical_area,
                                                          src_neuron_id=neuron_id,
@@ -71,13 +72,13 @@ def neuron_stimulation_mp_logger(cortical_area, neuron_id):
             #                                              dst_voxel_y=vox_y,
             #                                              dst_voxel_z=vox_z,
             #                                              membrane_potential=fire_threshold / 1)
-            runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
-                                                         src_cortical_area=cortical_area,
-                                                         src_neuron_id=neuron_id,
-                                                         dst_voxel_x=vox_x,
-                                                         dst_voxel_y=vox_y,
-                                                         dst_voxel_z=vox_z,
-                                                         membrane_potential=0 / 1)
+            # runtime_data.influxdb.insert_neuron_activity(connectome_path=runtime_data.connectome_path,
+            #                                              src_cortical_area=cortical_area,
+            #                                              src_neuron_id=neuron_id,
+            #                                              dst_voxel_x=vox_x,
+            #                                              dst_voxel_y=vox_y,
+            #                                              dst_voxel_z=vox_z,
+            #                                              membrane_potential=0 / 1)
 
 
 def update_membrane_potential_fire_queue(cortical_area, neuron_id, mp_update_amount=0, mp_overwrite=None):
@@ -162,7 +163,7 @@ def neuron_leak(cortical_area, neuron_id):
     # Keeping track of the leak occurrences during a burst to prevent duplicate leaks across multiple update cycles
     # within the same burst
     leak_value = 0
-
+    membrane_potential = runtime_data.brain[cortical_area][neuron_id]["membrane_potential"]
     # Leaky behavior
     leak_coefficient = \
         runtime_data.brain[cortical_area][neuron_id]["leak_coefficient"]
@@ -180,6 +181,7 @@ def neuron_leak(cortical_area, neuron_id):
             if leak_value < 0:
                 print("Warning! Leak less than 0 detected! ", leak_value)
 
+    leak_value = min(membrane_potential, leak_value)
     return leak_value
 
 
