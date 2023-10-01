@@ -184,13 +184,15 @@
           "fields": "",
           "values": false
         },
-        "text": {},
+        "text": {
+          "titleSize": 1
+        },
         "textMode": "auto"
       },
       "pluginVersion": "8.2.5",
       "targets": [
         {
-          "query": "// Define the bucket and time range\nbucket = \"data\"\nstart_time = -1d // for example, last 1 day\nstop_time = now()\n\n// Count of success\nsuccessCount = from(bucket: bucket)\n  |> range(start: start_time, stop: stop_time)\n  |> filter(fn: (r) => \n      r[\"_measurement\"] == \"game_result\" and \n      r[\"_field\"] == \"count\" and \n      r[\"event\"] == \"success\"\n  )\n  |> count()\n\n// Count of punishment\npunishmentCount = from(bucket: bucket)\n  |> range(start: start_time, stop: stop_time)\n  |> filter(fn: (r) => \n      r[\"_measurement\"] == \"game_result\" and \n      r[\"_field\"] == \"count\" and \n      r[\"event\"] == \"punishment\"\n  )\n  |> count()\n\n// Calculate the success rate\nresult = join(\n  tables: {success: successCount, punishment: punishmentCount},\n  on: [\"_start\", \"_stop\"]\n)\n  |> map(fn: (r) => {\n    total = float(v: r._value_success) + float(v: r._value_punishment)\n    return {\n      _time: r._time,\n      _value: if total == 0.0 then 0.0 else float(v: r._value_success * 100) / total,\n      _field: \"successRate\"\n    }\n  })\n\n// Yield the result\nresult |> yield(name: \"successRate\")\n\n",
+          "query": "// Define the bucket and time range\nbucket = \"data\"\nstart_time = v.timeRangeStart\nstop_time = v.timeRangeStop\n\n// Count of success\nsuccessCount = from(bucket: bucket)\n  |> range(start: start_time, stop: stop_time)\n  |> filter(fn: (r) => \n      r[\"_measurement\"] == \"game_result\" and \n      r[\"_field\"] == \"count\" and \n      r[\"event\"] == \"success\"\n  )\n  |> count()\n\n// Count of punishment\npunishmentCount = from(bucket: bucket)\n  |> range(start: start_time, stop: stop_time)\n  |> filter(fn: (r) => \n      r[\"_measurement\"] == \"game_result\" and \n      r[\"_field\"] == \"count\" and \n      r[\"event\"] == \"punishment\"\n  )\n  |> count()\n\n// Calculate the success rate\nresult = join(\n  tables: {success: successCount, punishment: punishmentCount},\n  on: [\"_start\", \"_stop\"]\n)\n  |> map(fn: (r) => {\n    total = float(v: r._value_success) + float(v: r._value_punishment)\n    return {\n      _time: r._time,\n      _value: if total == 0.0 then 0.0 else float(v: r._value_success * 100) / total,\n      _field: \"successRate\"\n    }\n  })\n\n// Yield the result\nresult |> yield(name: \"successRate\")\n\n",
           "refId": "A"
         }
       ],
@@ -493,12 +495,12 @@
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-3h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Game Dashboard",
   "uid": "6yux5u34z",
-  "version": 25
+  "version": 26
 }
