@@ -136,7 +136,7 @@
           "refId": "A"
         }
       ],
-      "title": "Panel Title",
+      "title": "Success vs Punishment",
       "transparent": true,
       "type": "piechart"
     },
@@ -221,7 +221,46 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "count success"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-green",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "Success"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "count punishment"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-red",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "Punishment"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 11,
@@ -337,36 +376,6 @@
                 }
               }
             ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "count {event=\"punishment\", genome=\"2022-07-10_21:53:10_961677_111111_G\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-red",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "count {event=\"success\", genome=\"2022-07-10_21:53:10_961677_111111_G\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-green",
-                  "mode": "fixed"
-                }
-              }
-            ]
           }
         ]
       },
@@ -396,7 +405,7 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Panel Title",
+      "title": "Success / Punishment Timeline",
       "type": "timeseries"
     }
   ],
@@ -502,5 +511,5 @@
   "timezone": "",
   "title": "Game Dashboard",
   "uid": "6yux5u34z",
-  "version": 26
+  "version": 30
 }
