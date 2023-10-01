@@ -23,7 +23,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 6,
-  "iteration": 1691434820961,
+  "iteration": 1696132533960,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -73,11 +73,41 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "count {event=\"punishment\", genome=\"2022-07-10_21:53:10_961677_111111_G\"}"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "count {event=\"success\", genome=\"2022-07-10_21:53:10_961677_111111_G\"}"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
           }
         ]
       },
       "gridPos": {
-        "h": 12,
+        "h": 11,
         "w": 9,
         "x": 0,
         "y": 0
@@ -130,14 +160,71 @@
                 "value": 80
               }
             ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 5,
+        "x": 9,
+        "y": 0
+      },
+      "id": 8,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.2.5",
+      "targets": [
+        {
+          "query": "// Define the bucket and time range\nbucket = \"data\"\nstart_time = -1d // for example, last 1 day\nstop_time = now()\n\n// Count of success\nsuccessCount = from(bucket: bucket)\n  |> range(start: start_time, stop: stop_time)\n  |> filter(fn: (r) => \n      r[\"_measurement\"] == \"game_result\" and \n      r[\"_field\"] == \"count\" and \n      r[\"event\"] == \"success\"\n  )\n  |> count()\n\n// Count of punishment\npunishmentCount = from(bucket: bucket)\n  |> range(start: start_time, stop: stop_time)\n  |> filter(fn: (r) => \n      r[\"_measurement\"] == \"game_result\" and \n      r[\"_field\"] == \"count\" and \n      r[\"event\"] == \"punishment\"\n  )\n  |> count()\n\n// Calculate the success rate\nresult = join(\n  tables: {success: successCount, punishment: punishmentCount},\n  on: [\"_start\", \"_stop\"]\n)\n  |> map(fn: (r) => {\n    total = float(v: r._value_success) + float(v: r._value_punishment)\n    return {\n      _time: r._time,\n      _value: if total == 0.0 then 0.0 else float(v: r._value_success * 100) / total,\n      _field: \"successRate\"\n    }\n  })\n\n// Yield the result\nresult |> yield(name: \"successRate\")\n\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Success Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
           }
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 12,
-        "w": 15,
-        "x": 9,
+        "h": 11,
+        "w": 10,
+        "x": 14,
         "y": 0
       },
       "id": 2,
@@ -248,6 +335,36 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "count {event=\"punishment\", genome=\"2022-07-10_21:53:10_961677_111111_G\"}"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "count {event=\"success\", genome=\"2022-07-10_21:53:10_961677_111111_G\"}"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
           }
         ]
       },
@@ -255,7 +372,7 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 12
+        "y": 11
       },
       "id": 6,
       "options": {
@@ -383,5 +500,5 @@
   "timezone": "",
   "title": "Game Dashboard",
   "uid": "6yux5u34z",
-  "version": 14
+  "version": 25
 }
