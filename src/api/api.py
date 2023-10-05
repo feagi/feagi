@@ -994,20 +994,26 @@ async def circuit_library(response: Response):
         print("API Error:", e)
 
 
-@app.api_route("/v1/feagi/genome/circuit_size", methods=['GET'], tags=["Genome"])
+@app.api_route("/v1/feagi/genome/circuit_description", methods=['GET'], tags=["Genome"])
 async def cortical_area_types(circuit_name, response: Response):
     """
-    Returns the overall size of a circuit
+    Returns circuit aka. genome description including its size
     """
     try:
         with open("./evo/circuits/" + circuit_name, "r") as genome_file:
             genome_data = json.load(genome_file)
 
         genome2 = genome_2_1_convertor(flat_genome=genome_data["blueprint"])
-        circuit_size_ = circuit_size(blueprint=genome2["blueprint"])
 
+        circuit_description = {}
+        circuit_size_ = circuit_size(blueprint=genome2["blueprint"])
+        circuit_description["size"] = circuit_size_
+        if "description" in runtime_data.genome:
+            circuit_description["description"] = runtime_data.genome["description"]
+        else:
+            circuit_description["description"] = ""
         response.status_code = status.HTTP_200_OK
-        return circuit_size_
+        return circuit_description
 
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
