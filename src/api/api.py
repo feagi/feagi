@@ -21,6 +21,7 @@ import string
 import logging
 import random
 import tempfile
+from version import __version__
 import io
 
 from fastapi import FastAPI, File, UploadFile, Response, status, Request, HTTPException
@@ -2106,6 +2107,11 @@ async def agent_deregisteration(agent_id: str, response: Response):
 
 # ######   System Endpoints #########
 # ###################################
+
+
+@app.get("/v1/feagi/version", tags=["System"])
+def get_version():
+    return {"version": __version__}
 
 
 @app.get("/v1/feagi/health_check", tags=["System"])
