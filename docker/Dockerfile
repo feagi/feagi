@@ -1,6 +1,7 @@
 FROM neuraville/feagi-base-os2
 
 ARG REPO="https://github.com/feagi/feagi.git"
+ARG BRANCH="main"
 
 ENV Running_In_CONTAINER Yes
 
