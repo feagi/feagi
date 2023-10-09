@@ -74,9 +74,9 @@
       <inertial>
         <mass>0.408233</mass>
         <inertia>
-          <ixx>0.03</ixx>
-          <iyy>0.03</iyy>
-          <izz>0.03</izz>
+          <ixx>0.0264</ixx>
+          <iyy>0.0264</iyy>
+          <izz>0.0211</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -134,9 +134,9 @@
       <inertial>
         <mass>0.408233</mass>
         <inertia>
-          <ixx>0.03</ixx>
-          <iyy>0.03</iyy>
-          <izz>0.03</izz>
+          <ixx>0.0264</ixx>
+          <iyy>0.0264</iyy>
+          <izz>0.0211</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -194,9 +194,9 @@
       <inertial>
         <mass>0.408233</mass>
         <inertia>
-          <ixx>0.03</ixx>
-          <iyy>0.03</iyy>
-          <izz>0.03</izz>
+          <ixx>0.0264</ixx>
+          <iyy>0.0264</iyy>
+          <izz>0.0211</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -254,9 +254,9 @@
       <inertial>
         <mass>0.408233</mass>
         <inertia>
-          <ixx>0.03</ixx>
-          <iyy>0.03</iyy>
-          <izz>0.03</izz>
+          <ixx>0.0264</ixx>
+          <iyy>0.0264</iyy>
+          <izz>0.0211</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>

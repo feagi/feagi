@@ -10,6 +10,8 @@ RUN pip3 install --upgrade pip && \
 RUN pip3 install websockets
 RUN pip3 install fastapi
 RUN pip3 install lz4
+RUN pip3 install opencv-python==4.7.0.68
+RUN apt install -y libgl1-mesa-glx
 
 ENV Running_In_CONTAINER Yes
 WORKDIR /root/

@@ -28,6 +28,8 @@ import subprocess
 import requests
 import xml.etree.ElementTree as Xml_et
 import numpy as np
+import pickle
+import lz4.frame
 
 from std_msgs.msg import String
 from subprocess import PIPE, Popen
@@ -37,6 +39,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from feagi_agent import retina as retina
 from feagi_agent import feagi_interface as FEAGI
+from feagi_agent import pns_gateway as pns
 from sensor_msgs.msg import LaserScan, Image, BatteryState, Imu
 from rclpy.qos import qos_profile_sensor_data
 from configuration import *
@@ -63,7 +66,6 @@ goal = dict()
 goal['xf'] = 0
 goal['xb'] = 0
 goal['yl'] = 0
-previous_data_frame = dict()
 location_stored = dict()
 tile_margin = dict()
 old_list = dict()
@@ -445,48 +447,23 @@ class Camera_Subscriber(Node):
             qos_profile=qos_profile_sensor_data)
 
     def main_camera_function(self, msg):
+        global previous_data_frame
         image = msg.data
         image = np.array(image)
-        image = image.reshape(capabilities['camera']['width'], capabilities['camera']['height'], 3)
-        retina_data = retina.frame_split(
-            image,
-            configuration.capabilities['camera']['retina_width_percent'],
-            configuration.capabilities['camera']['retina_height_percent'])
-        for i in retina_data:
-            if 'C' in i:
-                retina_data[i] = retina.center_data_compression(
-                    retina_data[i],
-                    capabilities['camera']["central_vision_compression"])
-            else:
-                retina_data[i] = retina.center_data_compression(retina_data[i],
-                                                                capabilities['camera']
-                                                                ['peripheral_vision_compression'])
-        rgb = dict()
-        rgb['camera'] = dict()
-        if previous_data_frame == {}:
-            for i in retina_data:
-                previous_name = str(i) + "_prev"
-                previous_data_frame[previous_name] = {}
-        for i in retina_data:
-            name = i
-            if 'prev' not in i:
-                # data = retina_data[i] # data is very straightforward from gazebo
-                data = retina.ndarray_to_list(retina_data[i])
-                if 'C' in i:
-                    previous_name = str(i) + "_prev"
-                    rgb_data, previous_data_frame[previous_name] = \
-                        retina.get_rgb(data,
-                                       capabilities['camera']['central_vision_compression'],
-                                       previous_data_frame[previous_name], name,
-                                       configuration.capabilities['camera']['deviation_threshold'])
-                else:
-                    previous_name = str(i) + "_prev"
-                    rgb_data, previous_data_frame[previous_name] = \
-                        retina.get_rgb(data,capabilities['camera']['peripheral_vision_compression'],
-                                       previous_data_frame[previous_name],name,
-                                       configuration.capabilities['camera']['deviation_threshold'])
-                for a in rgb_data['camera']:
-                    rgb['camera'][a] = rgb_data['camera'][a]
+        image = image.reshape(capabilities["camera"]["resolution_presets"][8][0], capabilities[
+            "camera"]["resolution_presets"][8][1], 3)
+        previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] \
+            = pns.generate_rgb(image,
+                               capabilities['camera'][
+                                   'central_vision_allocation_percentage'][0],
+                               capabilities['camera'][
+                                   'central_vision_allocation_percentage'][1],
+                               capabilities['camera']["central_vision_resolution"],
+                               capabilities['camera']['peripheral_vision_resolution'],
+                               previous_data_frame,
+                               capabilities['camera']['current_select'],
+                               capabilities['camera']['iso_default'],
+                               capabilities['camera']["aperture_default"])
         runtime_data['pixel'] = rgb
 
     @staticmethod
@@ -889,46 +866,20 @@ def convert_feagi_to_english(feagi):
     return new_dict
 
 
-def main(args=None):
+if __name__ == '__main__':
+    args = None
+    previous_data_frame = dict()
+    rgb = dict()
+    capabilities['camera']['current_select'] = []
+    rgb['camera'] = dict()
     feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
     print("FEAGI AUTH URL ------- ", feagi_auth_url)
     print("Connecting to FEAGI resources...")
-    # # # # # # # # # # # # # # # FEAGI registration # # # # # # # # # # # # # # # # # # - - - -
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
-    print("Connecting to FEAGI resources...")
-    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_auth_url=feagi_auth_url,
-                                                           feagi_settings=feagi_settings,
-                                                           agent_settings=agent_settings,
-                                                           capabilities=capabilities)
-    api_address = runtime_data['feagi_state']["feagi_url"]
 
-    stimulation_period_endpoint = FEAGI.feagi_api_burst_engine()
-    burst_counter_endpoint = FEAGI.feagi_api_burst_counter()
-
-    # agent_data_port = agent_settings["agent_data_port"]
-    agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
-    print("** **", runtime_data["feagi_state"])
-    feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
-
-    # todo: to obtain this info directly from FEAGI as part of registration
-    # ipu_channel_address = FEAGI.feagi_inbound(agent_settings["agent_data_port"])
-    ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
-    # if args['http_type']:
-    #     http = args['http_type']
-    # else:
-    #     http = 'http://'
-    # if args['port_disabled'] == 'true':
-    #     api_address = http + feagi_host
-    # else:
-    #     api_address = http + feagi_host + ':' + api_port
-    print("IPU_channel_address=", ipu_channel_address)
-    opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
-                                               runtime_data["feagi_state"]['feagi_opu_port'])
-
-    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
-    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # - - - #
+    # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
+        FEAGI.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities)
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     rclpy.init(args=args)
     executor = rclpy.executors.MultiThreadedExecutor()
@@ -944,6 +895,14 @@ def main(args=None):
     rotor = Rotor(count=0, identifier='0', model='/x3_uav/gazebo/command/twist')
 
     position_init = PosInit()
+
+    get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area' \
+                                               '=o_aptr'
+    raw_aptr = requests.get(get_size_for_aptr_cortical).json()
+    try:
+        aptr_cortical_size = raw_aptr['cortical_dimensions'][2]
+    except:
+        aptr_cortical_size = None
 
     # Instantiate controller classes with Subscriber nature
     # Ultrasonic Sensor
@@ -985,8 +944,6 @@ def main(args=None):
 
     executor_thread = Thread(target=executor.spin, daemon=True)
     executor_thread.start()
-    msg_counter = 0
-    flag = 0
     IsFlying = False
     checkpoint_total = 5
     flag_counter = 0
@@ -1009,9 +966,21 @@ def main(args=None):
             except:
                 pass
             # Process OPU data received from FEAGI and pass it along
-            message_from_feagi = feagi_opu_channel.receive()
+            message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
             battery.consume_battery()
             try:
+                if aptr_cortical_size is None:
+                    aptr_cortical_size = pns.check_aptr(raw_aptr)
+                # Update the aptr
+                capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
+                                                       aptr_cortical_size)
+                # Update the ISO
+                capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
+                                                  aptr_cortical_size)
+                # Update the vres
+                capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
+                # Update the aceture
+                capabilities = pns.fetch_vision_acuity(message_from_feagi, capabilities)
                 opu_data = FEAGI.opu_processor(message_from_feagi)
                 if 'motor' in opu_data:
                     for data_point in opu_data['motor']:
@@ -1166,27 +1135,17 @@ def main(args=None):
             message_to_feagi['counter'] = msg_counter
             if message_from_feagi is not None:
                 message_from_feagi['pose'] = robot_pose
-            feagi_ipu_channel.send(message_to_feagi)
+            if agent_settings['compression']:
+                serialized_data = pickle.dumps(message_to_feagi)
+                feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
+            else:
+                feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
             runtime_data['pixel'].clear()
-            msg_counter += 1
-            flag_counter += 1
-            if flag_counter == int(checkpoint_total):
-                feagi_burst_speed = requests.get(api_address + stimulation_period_endpoint).json()
-                feagi_burst_counter = requests.get(api_address + burst_counter_endpoint).json()
-                flag_counter = 0
-                if feagi_burst_speed > 1:
-                    checkpoint_total = 5
-                if feagi_burst_speed < 1:
-                    checkpoint_total = 5 / feagi_burst_speed
-                if msg_counter < feagi_burst_counter:
-                    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
-                    if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
-                        feagi_settings['feagi_burst_speed'] = feagi_burst_speed
-                if feagi_burst_speed != feagi_settings['feagi_burst_speed']:
-                    feagi_settings['feagi_burst_speed'] = feagi_burst_speed
-                    msg_counter = feagi_burst_counter
+            if message_from_feagi is not None:
+                feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
             sleep(feagi_settings['feagi_burst_speed'])
+
     except KeyboardInterrupt:
         pass
 
@@ -1200,15 +1159,3 @@ def main(args=None):
         ir_feeds[ir_node].destroy_node()
 
     rclpy.shutdown()
-
-
-if __name__=='__main__':
-    while True:
-        main()
-        # try:
-        #     main(feagi_auth_url, feagi_settings, agent_settings, capabilities,
-        #          message_to_feagi)
-        # except Exception as e:
-        #     print(f"Controller run failed", e)
-        #     traceback.print_exc()
-        #     sleep(2)

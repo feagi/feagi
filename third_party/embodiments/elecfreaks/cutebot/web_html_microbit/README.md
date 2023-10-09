@@ -10,7 +10,7 @@
 1. Connect your micro-USB cable to the micro:bit and your computer.
    ![Connected Microbit](_static/microbit_and_usb.jpg)
 
-2. Visit this [link](https://github.com/Neuraville/feagi/blob/staging/third_party/embodiments/elecfreaks/cutebot/web_html_microbit/microbit-final_microbit_with_service.hex) and download 
+2. Visit this [link](https://github.com/feagi/feagi/blob/staging/third_party/embodiments/elecfreaks/cutebot/web_html_microbit/microbit-final_microbit_with_service.hex) and download 
    the HEX file. It should look like this and see the red circle. 
 
    ![Download HEX](_static/download_hex.png)

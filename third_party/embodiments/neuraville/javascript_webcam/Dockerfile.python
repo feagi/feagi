@@ -6,7 +6,7 @@ RUN apt-get update
 
 # Python
 RUN pip3 install --upgrade pip && \
-    pip3 install feagi_agent && \
+    pip3 install -U feagi_agent && \
     pip3 install jinja2 && \
     pip3 install pygame && \
     pip3 install opencv-python==4.7.0.68
@@ -16,6 +16,8 @@ RUN apt install -y libgl1-mesa-glx
 RUN pip3 install lz4
 
 ENV Running_In_CONTAINER Yes
-COPY test.py .
-COPY configuration.py .
-CMD ["python3", "test.py"]
+WORKDIR /root/
+
+COPY /third_party/embodiments/neuraville/javascript_webcam/controller.py /root/
+COPY /third_party/embodiments/neuraville/javascript_webcam/configuration.py /root/
+CMD ["python3", "controller.py"]

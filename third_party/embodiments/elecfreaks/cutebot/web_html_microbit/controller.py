@@ -23,6 +23,7 @@ import lz4.frame
 import pickle
 import websockets
 from configuration import *
+from feagi_agent import pns_gateway as pns
 from feagi_agent import feagi_interface as feagi
 
 ws = deque()
@@ -107,6 +108,44 @@ def websocket_operation():
     asyncio.run(main())
 
 
+def action(obtained_data, device_list):
+    for device in device_list:
+        WS_STRING = ""
+        if 'motor' in obtained_data:
+            if obtained_data['motor']:
+                if len(obtained_data['motor']) >= 3:
+                    if 0 in obtained_data['motor']:
+                        if 1 in obtained_data['motor']:
+                            if obtained_data['motor'][0] >= obtained_data['motor'][1]:
+                                obtained_data['motor'].pop(1)
+                            else:
+                                obtained_data['motor'].pop(0)
+                    if 2 in obtained_data['motor']:
+                        if 3 in obtained_data['motor']:
+                            if obtained_data['motor'][2] >= obtained_data['motor'][3]:
+                                obtained_data['motor'].pop(3)
+                            else:
+                                obtained_data['motor'].pop(2)
+                for i in sorted(obtained_data['motor']):  # Ensure that it's in order for microbit
+                    if i in [0, 1]:
+                        WS_STRING += str(i) + str(obtained_data['motor'][i] - 60).zfill(
+                            2)  # Append the motor data as a two-digit
+                        # string
+                    elif i in [2, 3]:
+                        WS_STRING += str(i) + str(obtained_data['motor'][i] - 60).zfill(
+                            2)  # Append the motor data as a two-digit
+                        # string
+                    else:
+                        WS_STRING += str(i) + "00"  # If the motor value is not present, append "00"
+                if len(WS_STRING) != 6:
+                    if int(WS_STRING[0]) < 2:
+                        WS_STRING = WS_STRING + "500"
+                    else:
+                        WS_STRING = "500" + WS_STRING
+                WS_STRING = WS_STRING + "#"
+                ws.append(WS_STRING)
+
+
 if __name__ == "__main__":
     CHECKPOINT_TOTAL = 5
     FLAG_COUNTER = 0
@@ -114,7 +153,7 @@ if __name__ == "__main__":
     threading.Thread(target=websocket_operation, daemon=True).start()
     # threading.Thread(target=bridge_to_godot, daemon=True).start()
     threading.Thread(target=bridge_operation, daemon=True).start()
-    FLAG = True
+    device_list = pns.generate_OPU_list(capabilities)
     while True:
         feagi_flag = False
         print("Waiting on FEAGI...")
@@ -134,73 +173,19 @@ if __name__ == "__main__":
 
         # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # - - - - - - - - - - - - - - - - - - #
-        print("Connecting to FEAGI resources...")
-        runtime_data["feagi_state"] = feagi.feagi_registration(feagi_auth_url=feagi_auth_url,
-                                                               feagi_settings=feagi_settings,
-                                                               agent_settings=agent_settings,
-                                                               capabilities=capabilities)
-        api_address = runtime_data['feagi_state']["feagi_url"]
-        stimulation_period_endpoint = feagi.feagi_api_burst_engine()
-        burst_counter_endpoint = feagi.feagi_api_burst_counter()
-
-        agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
-        print("** **", runtime_data["feagi_state"])
-        feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
-
-        # todo: to obtain this info directly from FEAGI as part of registration
-        ipu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
-        print("IPU_channel_address=", ipu_channel_address)
-        opu_channel_address = feagi.feagi_outbound(feagi_settings['feagi_host'],
-                                                   runtime_data["feagi_state"]['feagi_opu_port'])
-
-        feagi_ipu_channel = feagi.pub_initializer(ipu_channel_address, bind=False)
-        feagi_opu_channel = feagi.sub_initializer(opu_address=opu_channel_address)
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        # - - - - - #
+        feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
+            feagi.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities)
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         msg_counter = runtime_data["feagi_state"]['burst_counter']
         runtime_data['accelerator'] = {}
         while True:
             try:
-                WS_STRING = ""
-
-                # Decompression section starts
-                received_data = feagi_opu_channel.receive() # Obtain data from FEAGI
-                if received_data is not None:
-                    if isinstance(received_data, bytes):
-                        decompressed_data = lz4.frame.decompress(received_data)
-                        message_from_feagi = pickle.loads(decompressed_data)
-                    else:
-                        message_from_feagi = received_data
-                else:
-                    message_from_feagi = None
-                # Decompression section ends
-
-                # OPU section STARTS
+                message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
                 if message_from_feagi is not None:
-                    opu_data = feagi.opu_processor(message_from_feagi)
-                    WS_STRING = ""
-                    if 'motor' in opu_data:
-                        if opu_data['motor']:
-                            for i in sorted(opu_data['motor']):  # Ensure that it's in order for microbit
-                                if i in [0, 1]:
-                                    WS_STRING += str(i) + str(opu_data['motor'][i]-10).zfill(2)  # Append the motor data as a two-digit
-                                    # string
-                                elif i in [2, 3]:
-                                    WS_STRING += str(i) + str(opu_data['motor'][i]-10).zfill(2)  # Append the motor data as a two-digit
-                                    # string
-                                else:
-                                    WS_STRING += str(i) + "00"  # If the motor value is not present, append "00"
-                            if len(WS_STRING) != 6:
-                                if int(WS_STRING[0]) < 2:
-                                    WS_STRING = WS_STRING + "500"
-                                else:
-                                    WS_STRING = "500" + WS_STRING
-                            WS_STRING = WS_STRING + "#"
-                            ws.append(WS_STRING)
-
-                    if FLAG:
-                        FLAG = False
-                # OPU section ENDS
+                    # OPU section STARTS
+                    obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
+                    action(obtained_signals, device_list)
+                    # OPU section ENDS
 
                 if microbit_data['ir']:
                     ir_data = {0: bool(microbit_data['ir'][0]), 1: bool(microbit_data['ir'][1])}
