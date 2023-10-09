@@ -14,13 +14,19 @@
 # limitations under the License.
 # ==============================================================================
 
+import time
 import logging
 import random
 import traceback
+from datetime import datetime, timedelta
 
 from pymongo.errors import ServerSelectionTimeoutError
 from pymongo import MongoClient, DESCENDING, ASCENDING
 from inf import runtime_data, settings
+
+import influxdb_client
+from influxdb_client import InfluxDBClient, Point, WriteOptions, Bucket
+from influxdb_client.client.write_api import SYNCHRONOUS
 
 
 logger = logging.getLogger(__name__)
@@ -175,16 +181,24 @@ class MongoManagement:
 
 class InfluxManagement:
     def __init__(self):
-        import influxdb_client
-        from influxdb_client.client.write_api import SYNCHRONOUS
-
         self.db_params = runtime_data.parameters['Database']
 
         if runtime_data.parameters:
             self.evo_bucket = self.db_params["influxdb_evolutionary_bucket"]
             self.stats_bucket = self.db_params["influxdb_stats_bucket"]
+            self.game_stats_bucket = self.db_params["influxdb_game_stats_bucket"]
             self.org = self.db_params["influxdb_organization"]
             self.token = self.db_params["influxdb_token"]
+
+            # self.write_options = WriteOptions(
+            #     batch_size=1000,  # Write every 1000 points
+            #     flush_interval=10_000,  # Flush every 10 seconds
+            #     jitter_interval=2_000,  # Jitter interval of 2 seconds
+            #     retry_interval=5_000,  # Retry every 5 seconds
+            #     max_retries=5,  # Maximum of 5 retries
+            #     max_retry_delay=30_000,  # Maximum retry delay of 30 seconds
+            #     exponential_base=2  # Exponential base of 2 for backoff strategy
+            # )
 
             # todo: db address needs to be def from a config file instead
             print('Running in container: ', runtime_data.running_in_container)
@@ -200,7 +214,7 @@ class InfluxManagement:
                     token=self.token,
                     org=self.org
                 )
-                self.write_client = self.client.write_api(write_options=SYNCHRONOUS)
+                self.write_client = self.client.write_api()
                 print("Successfully connected to InfluxDb! ")
 
             except Exception as e:
@@ -243,9 +257,44 @@ class InfluxManagement:
         #     print(settings.Bcolors.RED +
         #           "ERROR: Cannot connect to << InfluxDb >> Database \n ::: %s" % str(repr(e)) + settings.Bcolors.ENDC)
 
+    def create_new_bucket(self, bucket_name):
+        try:
+            # Create a new bucket with the same name
+            print("Creating a new bucket called ", bucket_name)
+
+            self.client.buckets_api().create_bucket(bucket_name=bucket_name, org_id=self.org)
+            print("@#@#@#@#@#@   @#@#@#@#@#    @# @#@#@ #@# @#  @# @# @ #@#")
+        except Exception as e:
+            print("Exception:", e, traceback.print_exc())
+
+    def delete_bucket_content(self, bucket_name):
+        # Perform the delete operation
+        try:
+            # Calculate the start date as 30 days ago from now
+            start_date = datetime.utcnow() - timedelta(days=30)
+            # Format it in the RFC3339Nano format
+            start_str = start_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+            # Get the current time in the RFC3339Nano format
+            stop_str = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+
+            predicate = "_measurement=\"game_result\""
+            self.client.delete_api().delete(start=start_str, stop=stop_str,
+                                            bucket=bucket_name, org=self.org,
+                                            predicate=predicate)
+            print("Data deleted successfully.")
+            print("- " * 100)
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
     def insert_neuron_activity(self, connectome_path, src_cortical_area, src_neuron_id,
-                               dst_voxel_x, dst_voxel_y, dst_voxel_z, membrane_potential):
+                               dst_voxel_x, dst_voxel_y, dst_voxel_z, membrane_potential, timestamp=None):
         dst_voxel_id = str(dst_voxel_x) + "-" + str(dst_voxel_y) + "-" + str(dst_voxel_z)
+
+        # If timestamp is None, use the current time in nanoseconds since the Unix Epoch
+        if timestamp is None:
+            timestamp = int(time.time() * 1e9)
+
         raw_data = [
             {
                 "measurement": "neuron",
@@ -257,22 +306,27 @@ class InfluxManagement:
                     "dst_voxel_y": dst_voxel_y,
                     "dst_voxel_z": dst_voxel_z,
                     "dst_voxel_id": dst_voxel_id
-
                 },
                 "fields": {
                     'membrane_potential': float(membrane_potential)
-                }
+                },
+                "time": timestamp  # Inserting the timestamp here
             }
         ]
         self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
 
-    def insert_synaptic_activity(self, connectome_path, src_cortical_area, dst_cortical_area,  
-                                 src_voxel_x, src_voxel_y, src_voxel_z, 
+    def insert_synaptic_activity(self, connectome_path, src_cortical_area, dst_cortical_area,
+                                 src_voxel_x, src_voxel_y, src_voxel_z,
                                  dst_voxel_x, dst_voxel_y, dst_voxel_z,
                                  src_neuron_id, dst_neuron_id,
-                                 post_synaptic_current):
+                                 post_synaptic_current, timestamp=None):
         src_voxel_id = str(src_voxel_x) + "-" + str(src_voxel_y) + "-" + str(src_voxel_z)
         dst_voxel_id = str(dst_voxel_x) + "-" + str(dst_voxel_y) + "-" + str(dst_voxel_z)
+
+        # If timestamp is None, use the current time in nanoseconds since the Unix Epoch
+        if timestamp is None:
+            timestamp = int(time.time() * 1e9)
+
         raw_data = [
             {
                 "measurement": "synapse",
@@ -293,7 +347,8 @@ class InfluxManagement:
                 },
                 "fields": {
                     "postSynapticCurrent": float(post_synaptic_current)
-                }
+                },
+                "time": timestamp  # Inserting the timestamp here
             }
         ]
         self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
@@ -313,6 +368,21 @@ class InfluxManagement:
             }
         ]
         self.write_client.write(bucket=self.stats_bucket, org=self.org, record=raw_data)
+
+    def insert_game_activity(self, genome_id, event, intensity=None):
+        event_data = [{
+            "measurement": "game_result",
+            "tags": {
+                "genome": genome_id,
+                "event": event
+            },
+            "fields": {
+                "count": 1,
+                "intensity": intensity
+            }
+        }]
+
+        self.write_client.write(bucket=self.game_stats_bucket, org=self.org, record=event_data)
 
     def insert_burst_checkpoints(self, connectome_path, burst_id):
         raw_data = [
@@ -398,6 +468,20 @@ class InfluxManagement:
 
     def drop_neuron_activity(self):
         self.client.buckets_api().delete_bucket(self.stats_bucket)
+
+    def drop_game_activity(self):
+        # Get the list of buckets
+        print("@@@ @   @ @ @ @  @ @\n" * 20)
+        self.delete_bucket_content(bucket_name=self.game_stats_bucket)
+        # self.create_new_bucket(bucket_name=self.game_stats_bucket)
+
+        # # Create a new bucket with the same name
+        # new_bucket = self.client.buckets_api().create_bucket(bucket_name=bucket.name, org_id=self.org)
+        # # new_bucket = self.client.buckets_api().create_bucket(Bucket=bucket)
+        # self.client.buckets_api().create_bucket(bucket=new_bucket)
+        #
+        # # Get the Write API object
+        # self.write_client = self.client.write_api()
 
     def test_influxdb(self):
         try:

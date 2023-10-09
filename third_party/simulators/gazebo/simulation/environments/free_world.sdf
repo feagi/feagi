@@ -1,0 +1,142 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+<!--Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.-->
+
+<!--Licensed under the Apache License, Version 2.0 (the "License");-->
+<!--you may not use this file except in compliance with the License.-->
+<!--You may obtain a copy of the License at-->
+
+<!--    http://www.apache.org/licenses/LICENSE-2.0-->
+
+<!--Unless required by applicable law or agreed to in writing, software-->
+<!--distributed under the License is distributed on an "AS IS" BASIS,-->
+<!--WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.-->
+<!--See the License for the specific language governing permissions and-->
+<!--limitations under the License.-->
+<!--==============================================================================-->
+  <world name="free_world">
+  <scene>
+    <grid>false</grid>
+    <shadows>false</shadows>
+    <ambient>1.0 1.0 1.0 1.0</ambient>
+  </scene>
+
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.05</max_step_size>
+      <real_time_factor>-1</real_time_factor>
+    </physics>
+
+    <plugin
+      filename="ignition-gazebo-physics-system"
+      name="ignition::gazebo::systems::Physics">
+    </plugin>
+    <plugin
+      filename="ignition-gazebo-imu-system"
+      name="ignition::gazebo::systems::Imu">
+    </plugin>
+    <plugin
+      filename="ignition-gazebo-user-commands-system"
+      name="ignition::gazebo::systems::UserCommands">
+    </plugin>
+    <plugin
+      filename="ignition-gazebo-scene-broadcaster-system"
+      name="ignition::gazebo::systems::SceneBroadcaster">
+    </plugin>
+
+    <gui fullscreen='0'>
+            <plugin name='3D View' filename='GzScene3D'>
+                <ignition-gui>
+                    <title>3D View</title>
+                    <property type='bool' key='showTitleBar'>0</property>
+                    <property type='string' key='state'>docked</property>
+                </ignition-gui>
+                <engine>ogre2</engine>
+                <scene>scene</scene>
+                <ambient_light>0.4 0.4 0.4</ambient_light>
+                <background_color>0.8 0.8 0.8</background_color>
+                <camera_pose>-6 0 6 0 0.5 0</camera_pose>
+            </plugin>
+            <plugin name='World stats' filename='WorldStats'>
+                <ignition-gui>
+                    <title>World stats</title>
+                    <property type='bool' key='showTitleBar'>0</property>
+                    <property type='bool' key='resizable'>0</property>
+                    <property type='double' key='height'>110</property>
+                    <property type='double' key='width'>290</property>
+                    <property type='double' key='z'>1</property>
+                    <property type='string' key='state'>floating</property>
+                    <anchors target='3D View'>
+                        <line own='right' target='right'/>
+                        <line own='bottom' target='bottom'/>
+                    </anchors>
+                </ignition-gui>
+            </plugin>
+            <plugin name='Transform control' filename='TransformControl'>
+                <ignition-gui>
+                    <title>Transform control</title>
+                    <anchors target='3D View'>
+                        <line own='left' target='left'/>
+                        <line own='top' target='top'/>
+                    </anchors>
+                    <property key='resizable' type='bool'>0</property>
+                    <property key='width' type='double'>300</property>
+                    <property key='height' type='double'>50</property>
+                    <property key='state' type='string'>floating</property>
+                    <property key='showTitleBar' type='bool'>0</property>
+                    <property key='cardBackground' type='string'>#666666</property>
+                </ignition-gui>
+            </plugin>
+      </gui>
+
+
+    <light type="directional" name="sun">
+      <cast_shadows>false</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>1 1 1 1</diffuse>
+      <specular>0.5 0.5 0.5 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.1 -0.9</direction>
+      <camera_pose>3 2 2 0 0 0</camera_pose>
+    </light>
+
+    <model name="ground_plane">
+      <static>true</static>
+
+    <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>10 10</size>
+            </plane>
+          </geometry>
+          <material>
+            <diffuse>1.0 1.0 1.0</diffuse>
+            <pbr>
+                <specular>
+                    <albedo_map>material/map1.png</albedo_map>
+                    <specular_map>material/map1.png</specular_map>
+                </specular>
+              </pbr>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+
+  </world>
+</sdf>
+

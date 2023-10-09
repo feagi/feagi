@@ -137,8 +137,8 @@ def compose_message_to_feagi(original_message, data=None, battery=0):
             for sensor_data in original_message[sensor]:
                 if sensor_data not in message_to_feagi["data"]["sensory_data"][sensor]:
                     message_to_feagi["data"]["sensory_data"][sensor][sensor_data] = \
-                    original_message[sensor][
-                        sensor_data]
+                        original_message[sensor][
+                            sensor_data]
         message_to_feagi["data"]["sensory_data"]["battery"] = {
             1: runtime_data["battery_charge_level"] / 100}
     return message_to_feagi, runtime_data["battery_charge_level"]
@@ -147,23 +147,23 @@ def compose_message_to_feagi(original_message, data=None, battery=0):
 def opu_processor(data):
     try:
         processed_opu_data = {'motor': {}, 'servo': {}, 'battery': {}, 'discharged_battery': {},
-                              'reset': {},
-                              'camera': {}, 'misc': {}, 'navigation': {}, 'speed': {},
-                              'servo_position': {}}
+                              'reset': {}, 'camera': {}, 'misc': {}, 'navigation': {}, 'speed': {},
+                              'servo_position': {}, "led": {}, "vision_resolution": {},
+                              "vision_acuity": {}}
         opu_data = data["opu_data"]
         if opu_data is not None:
             if 'o__mot' in opu_data:
                 for data_point in opu_data['o__mot']:
-                    data_point = block_to_array(data_point)
-                    device_id = data_point[0]
-                    device_power = data_point[2]
+                    processed_data_point = block_to_array(data_point)
+                    device_id = processed_data_point[0]
+                    device_power = opu_data['o__mot'][data_point]
                     processed_opu_data['motor'][device_id] = device_power
             if 'o__ser' in opu_data:
                 if opu_data['o__ser']:
                     for data_point in opu_data['o__ser']:
-                        data_point = block_to_array(data_point)
-                        device_id = data_point[0]
-                        device_power = data_point[2]
+                        processed_data_point = block_to_array(data_point)
+                        device_id = processed_data_point[0]
+                        device_power = opu_data['o__ser'][data_point]
                         processed_opu_data['servo'][device_id] = device_power
             if 'o_cbat' in opu_data:
                 if opu_data['o__bat']:
@@ -185,10 +185,17 @@ def opu_processor(data):
             if 'o_misc' in opu_data:
                 if opu_data['o_misc']:
                     for data_point in opu_data['o_misc']:
-                        data_point = block_to_array(data_point)
-                        device_id = data_point[0]
-                        device_power = data_point[2]
+                        processed_data_point = block_to_array(data_point)
+                        device_id = processed_data_point[0]
+                        device_power = opu_data['o_misc'][data_point]
                         processed_opu_data['misc'][device_id] = device_power
+            if 'o__led' in opu_data:
+                if opu_data['o__led']:
+                    for data_point in opu_data['o__led']:
+                        processed_data_point = block_to_array(data_point)
+                        device_id = processed_data_point[0]
+                        device_power = opu_data['o__led'][data_point]
+                        processed_opu_data['led'][device_id] = device_power
             if 'o__nav' in opu_data:
                 if opu_data['o__nav']:
                     for data_point in opu_data['o__nav']:
@@ -211,10 +218,25 @@ def opu_processor(data):
                         device_id = data_point[0]
                         device_power = data_point[2]
                         processed_opu_data['servo_position'][device_id] = device_power
+            if 'o_vres' in opu_data:
+                if opu_data['o_vres']:
+                    for data_point in opu_data['o_vres']:
+                        data_point = block_to_array(data_point)
+                        device_id = data_point[0]
+                        device_power = data_point[2]
+                        processed_opu_data['vision_resolution'][device_id] = device_power
+            if 'o_vact' in opu_data:
+                if opu_data['o_vact']:
+                    for data_point in opu_data['o_vact']:
+                        data_point = block_to_array(data_point)
+                        device_id = data_point[0]
+                        device_power = data_point[2]
+                        processed_opu_data['vision_acuity'][device_id] = device_power
             return processed_opu_data
-    except Exception:
-        # print("error: ", e)
-        pass
+    except Exception as error:
+        print("error: ", error)
+        traceback.print_exc()
+        # pass
 
 
 def control_data_processor(data):
@@ -233,3 +255,25 @@ def control_data_processor(data):
                     float(control_data['robot_starting_position'][position_index][2])
         return configuration.capabilities["motor"]["power_coefficient"], \
                configuration.capabilities["position"]
+
+
+def connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities):
+    print("Connecting to FEAGI resources...")
+    feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
+    runtime_data["feagi_state"] = feagi_registration(feagi_auth_url=feagi_auth_url,
+                                                     feagi_settings=feagi_settings,
+                                                     agent_settings=agent_settings,
+                                                     capabilities=capabilities)
+    api_address = runtime_data['feagi_state']["feagi_url"]
+    agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
+    print("** **", runtime_data["feagi_state"])
+    feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
+    ipu_channel_address = feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
+
+    print("IPU_channel_address=", ipu_channel_address)
+    opu_channel_address = feagi_outbound(feagi_settings['feagi_host'],
+                                         runtime_data["feagi_state"]['feagi_opu_port'])
+
+    feagi_ipu_channel = pub_initializer(ipu_channel_address, bind=False)
+    feagi_opu_channel = sub_initializer(opu_address=opu_channel_address)
+    return feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel

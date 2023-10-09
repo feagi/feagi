@@ -1,0 +1,137 @@
+version: "3"
+
+networks:
+  net:
+    driver: bridge
+
+services:
+  influxdb:
+    image: ${INFLUX_DB_IMAGE}
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
+    ports:
+      - 8086:8086
+    env_file:
+      - ./.env
+    volumes:
+      - influxdb_data:/var/lib/influxdb
+#    healthcheck:
+#      test: "exit 0"
+    networks:
+      - net
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8086" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  grafana:
+    build: ${GRAFANA_IMAGE}
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '1g'
+    env_file:
+      - ./.env
+    ports:
+      - 6082:3000
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - net
+    depends_on:
+      influxdb:
+        condition: service_healthy
+
+  godot_bridge:
+    image: ${BRIDGE_IMAGE}
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1g'
+    ports:
+      - "9050:9050"
+      - "30001:30001" # ZMQ port for feagi to connect for Gadot
+    env_file:
+      - ./.env
+    privileged: true
+    networks:
+      - net
+    depends_on:
+      - feagi
+
+  webcam_javascript_controller:
+    image: ${WEBCAM_CONTROLLER_IMAGE}
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
+    ports:
+      - "9051:9051"
+    env_file:
+      - ./.env
+    privileged: true
+    networks:
+      - net
+    depends_on:
+      - feagi
+
+  feagi:
+    image: ${FEAGI_IMAGE}
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
+    ports:
+      - "8000:8000"
+      - "30000:30000"
+      - "40000-40050:40000-40050"
+#      - "10000-10050:10000-10050" # ZMQ Port for Agent to Connect to Feagi
+    env_file:
+      - ./.env
+    volumes:
+      - ../src/:/opt/source-code/feagi/src
+    networks:
+      - net
+
+  brain_pong_controller:
+    image: ${BRAIN_PONG_IMAGE}
+    ports:
+      - "9055:9055"
+    env_file:
+      - ./.env
+    privileged: true
+    networks:
+      - net
+
+  microbit_controller:
+    image: ${MICROBIT_IMAGE}
+    ports:
+      - "9052:9052"
+    env_file:
+      - ./.env
+    privileged: true
+    networks:
+      - net
+
+
+  playground:
+    image: ${PLAYGROUND_IMAGE}
+    ports:
+      - "4000:4000"
+    env_file:
+      - ./.env
+    privileged: true
+    networks:
+      - net
+
+volumes:
+  grafana_data:
+  influxdb_data:

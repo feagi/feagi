@@ -71,6 +71,7 @@ pending_voxel_dict = None
 # Burst Engine
 brain_readiness = False
 burst_publisher = None
+burst_duration = None
 burst_activities = {}
 burst_timer = None
 exit_condition = False
@@ -94,7 +95,7 @@ plasticity_queue_candidates = dict()
 # Stats Collection
 neuron_mp_collection_scope = {}
 neuron_psp_collection_scope = {}
-
+training_stats = {}
 
 # Queues
 api_queue = None
@@ -120,11 +121,13 @@ stimulation_script = {}
 stimulation_index = {}
 
 # Brain
+transforming_areas = set()   # Set containing the cortical id associated with transforming cortical areas
 current_age = 0
 death_flag = False
 stats = {}
 opu_data = {}
 cortical_dimensions = {}
+cortical_dimensions_by_id = {}
 voxel_dict = {}
 cortical_types = {}
 cortical_defaults = None
@@ -144,7 +147,6 @@ shock_scenarios_options = tuple
 shock_admin = False
 shock_scenarios = set()
 pain_flag = False
-
 
 # Robot
 robot_id = None
@@ -172,3 +174,10 @@ agent_registry = {
 }
 """
 agent_registry = {}
+
+
+# Unique Logs
+logs = {
+    "PNS": set(),
+    "CNS": set()
+}

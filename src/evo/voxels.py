@@ -238,6 +238,23 @@ def percent_active_neurons_in_block(block_ref, cortical_area, current_fcl=True):
         return percent_active_neurons
 
 
+def cortical_activity_percentage_by_voxel(cortical_area):
+    report = {}
+    blocks_with_active_neurons = active_neurons_in_blocks(cortical_area=cortical_area)
+    for block in blocks_with_active_neurons:
+        report[block] = percent_active_neurons_in_block(block_ref=block, cortical_area=cortical_area)
+    return report
+
+
+def opu_percentage_report(cortical_area):
+    report = cortical_activity_percentage_by_voxel(cortical_area=cortical_area)
+    opu_data = {}
+    for block in report:
+        # block_index = block_ref_2_id(block)
+        opu_data[block] = report[block]
+    return opu_data
+
+
 def active_neurons_in_blocks(cortical_area, current_fcl=True, include_neurons=False):
     """
     Returns a dict of block_refs and their corresponding active (i.e. currently present
@@ -301,6 +318,7 @@ def subregion_neurons(src_cortical_area, region_definition):
                                                  block_ref=block_reference_builder(list(voxel)))
             for neuron in voxel_neurons:
                 neurons.add(neuron)
-    except Exception:
+    except Exception as e:
+        print("Exception while processing subregion neurons", e)
         pass
     return neurons
