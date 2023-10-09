@@ -22,8 +22,8 @@
   </scene>
 
     <physics name="1ms" type="ignored">
-      <max_step_size>0.001</max_step_size>
-      <real_time_factor>1.0</real_time_factor>
+      <max_step_size>0.05</max_step_size>
+      <real_time_factor>-1</real_time_factor>
     </physics>
 
     <plugin
@@ -70,10 +70,6 @@
                         <line own='bottom' target='bottom'/>
                     </anchors>
                 </ignition-gui>
-                <sim_time>0.1</sim_time>
-                <real_time>0.1</real_time>
-                <real_time_factor>0.1</real_time_factor>
-                <iterations>0.1</iterations>
             </plugin>
             <plugin name='Transform control' filename='TransformControl'>
                 <ignition-gui>

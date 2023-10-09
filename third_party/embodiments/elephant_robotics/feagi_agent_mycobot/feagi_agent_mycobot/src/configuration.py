@@ -30,6 +30,7 @@ agent_settings = {
     "agent_type": "embodiment",
     'TTL': 2,
     'last_message': 0,
+    'compression': True
 }
 
 capabilities = {
