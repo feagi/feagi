@@ -21,6 +21,7 @@ import string
 import logging
 import random
 import tempfile
+from version import __version__
 import io
 
 from fastapi import FastAPI, File, UploadFile, Response, status, Request, HTTPException
@@ -120,7 +121,7 @@ class MorphologyProperties(BaseModel):
 
 class NewCorticalProperties(BaseModel):
     cortical_type: str
-    cortical_name: str
+    cortical_id: str
     coordinates_2d: list
     coordinates_3d: list
     channel_count: Optional[int]
@@ -283,9 +284,6 @@ class RobotModel(BaseModel):
 
     slip2: float
     slip2 = 1.0
-
-
-app.mount("/home", SPAStaticFiles(directory="gui", html=True), name="static")
 
 
 @app.middleware("http")
@@ -576,7 +574,7 @@ async def add_cortical_area(new_cortical_properties: NewCorticalProperties, resp
 
 
 @app.api_route("/v1/feagi/genome/custom_cortical_area", methods=['POST'], tags=["Genome"])
-async def add_cortical_area(new_custom_cortical_properties: NewCustomCorticalProperties, response: Response):
+async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCorticalProperties, response: Response):
     """
     Enables changes against various Burst Engine parameters.
     """
@@ -747,12 +745,15 @@ async def genome_neuron_morphology_usage_report(morphology_name, response: Respo
     Returns the properties of a neuron morphology.
     """
     try:
-        usage_list = morphology_usage_list(morphology_name=morphology_name, genome=runtime_data.genome)
-        if usage_list:
-            response.status_code = status.HTTP_200_OK
-            return usage_list
+        if morphology_name in runtime_data.genome["neuron_morphologies"]:
+            usage_list = morphology_usage_list(morphology_name=morphology_name, genome=runtime_data.genome)
+            if usage_list:
+                response.status_code = status.HTTP_200_OK
+                return usage_list
+            else:
+                return JSONResponse(status_code=200, content=[])
         else:
-            response.status_code = status.HTTP_404_NOT_FOUND
+            return JSONResponse(status_code=404, content="Morphology not found")
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e, traceback.print_exc())
@@ -946,9 +947,9 @@ async def cortical_area_types(response: Response):
     Returns the list of supported cortical types
     """
     try:
-        if runtime_data.cortical_types:
+        if runtime_data.cortical_defaults:
             response.status_code = status.HTTP_200_OK
-            return runtime_data.cortical_types
+            return runtime_data.cortical_defaults
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
     except Exception as e:
@@ -993,20 +994,26 @@ async def circuit_library(response: Response):
         print("API Error:", e)
 
 
-@app.api_route("/v1/feagi/genome/circuit_size", methods=['GET'], tags=["Genome"])
+@app.api_route("/v1/feagi/genome/circuit_description", methods=['GET'], tags=["Genome"])
 async def cortical_area_types(circuit_name, response: Response):
     """
-    Returns the overall size of a circuit
+    Returns circuit aka. genome description including its size
     """
     try:
         with open("./evo/circuits/" + circuit_name, "r") as genome_file:
             genome_data = json.load(genome_file)
 
         genome2 = genome_2_1_convertor(flat_genome=genome_data["blueprint"])
-        circuit_size_ = circuit_size(blueprint=genome2["blueprint"])
 
+        circuit_description = {}
+        circuit_size_ = circuit_size(blueprint=genome2["blueprint"])
+        circuit_description["size"] = circuit_size_
+        if "description" in runtime_data.genome:
+            circuit_description["description"] = runtime_data.genome["description"]
+        else:
+            circuit_description["description"] = ""
         response.status_code = status.HTTP_200_OK
-        return circuit_size_
+        return circuit_description
 
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -1101,8 +1108,22 @@ async def connectome_cortical_id_name_mapping_table(response: Response):
         print("API Error:", e)
 
 
+@app.api_route("/v1/feagi/genome/plasticity_queue_depth", methods=['GET'], tags=["Genome"])
+async def show_plasticity_queue_depth(response: Response):
+    """
+    Returns the current plasticity queue depth value
+    """
+    try:
+        response.status_code = status.HTTP_200_OK
+        return runtime_data.genome["plasticity_queue_depth"]
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e, traceback.print_exc())
+        logger.error(traceback.print_exc())
+
+
 @app.api_route("/v1/feagi/genome/plasticity_queue_depth", methods=['PUT'], tags=["Genome"])
-async def update_cortical_mapping_properties(queue_depth: int, response: Response):
+async def update_plasticity_queue_depth(queue_depth: int, response: Response):
     """
     Enables changes against various Burst Engine parameters.
     """
@@ -1455,6 +1476,20 @@ async def neuron_postsynaptic_potential_monitoring_scope(message: dict, response
 
 # ######  Training Endpoints #######
 # ##################################
+
+
+@app.api_route("/v1/feagi/training/reset_game_stats", methods=['DELETE'], tags=["Training"])
+async def delete_game_stats_from_db(response: Response):
+    """
+    Erases the game statistics from the database.
+    """
+    try:
+        runtime_data.influxdb.drop_game_activity()
+        response.status_code = status.HTTP_200_OK
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
 
 @app.api_route("/v1/feagi/training/shock/options", methods=['Get'], tags=["Training"])
 async def list_available_shock_scenarios(response: Response):
@@ -2080,6 +2115,11 @@ async def agent_deregisteration(agent_id: str, response: Response):
 # ###################################
 
 
+@app.get("/v1/feagi/version", tags=["System"])
+def get_version():
+    return {"version": __version__}
+
+
 @app.get("/v1/feagi/health_check", tags=["System"])
 async def feagi_health_check(response: Response):
     response.status_code = status.HTTP_200_OK
@@ -2209,96 +2249,3 @@ async def change_circuit_library_path(circuit_library_path: str, response: Respo
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
 
-
-# ######   GUI  Endpoints #########
-# ###################################
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/ipu", methods=['GET'], tags=["GUI"])
-async def supported_ipu_list(response: Response):
-    try:
-        if gui_baseline['ipu']:
-            response.status_code = status.HTTP_200_OK
-            return gui_baseline['ipu']
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
-
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/opu", methods=['GET'], tags=["GUI"])
-async def supported_opu_list(response: Response):
-    try:
-        if gui_baseline['opu']:
-            response.status_code = status.HTTP_200_OK
-            return gui_baseline['opu']
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
-
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/morphology", methods=['GET'], tags=["GUI"])
-async def supported_morphology_list(response: Response):
-    try:
-        if gui_baseline['morphology']:
-            response.status_code = status.HTTP_200_OK
-            return gui_baseline['morphology']
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
-
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/cortical-genes", methods=['GET'], tags=["GUI"])
-async def supported_cortical_genes_list(response: Response):
-    try:
-        if gui_baseline['cortical_genes']:
-            response.status_code = status.HTTP_200_OK
-            return gui_baseline['cortical_genes']
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
-        
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/morphology-scalar", methods=['GET'], tags=["GUI"])
-async def supported_cortical_genes_list(response: Response):
-    try:
-        if gui_baseline['morphology_scalar']:
-            response.status_code = status.HTTP_200_OK
-            return gui_baseline['morphology_scalar']
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
-        
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/psc-multiplier", methods=['GET'], tags=["GUI"])
-async def supported_cortical_genes_list(response: Response):
-    try:
-        if gui_baseline['postSynapticCurrent_multiplier']:
-            response.status_code = status.HTTP_200_OK
-            return gui_baseline['postSynapticCurrent_multiplier']
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
-
-
-@app.api_route("/v1/feagi/feagi/gui_baseline/plasticity-flag", methods=['GET'], tags=["GUI"])
-async def supported_cortical_genes_list(response: Response):
-    try:
-        if gui_baseline['plasticity_flag']:
-            response.status_code = status.HTTP_200_OK
-            return gui_baseline['plasticity_flag']
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
