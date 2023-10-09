@@ -18,6 +18,6 @@ RUN pip3 install lz4
 ENV Running_In_CONTAINER Yes
 WORKDIR /root/
 
-COPY /third_party/embodiments/neuraville/javascript_webcam/controller.py /root/
-COPY /third_party/embodiments/neuraville/javascript_webcam/configuration.py /root/
+COPY controller.py /root/
+COPY configuration.py /root/
 CMD ["python3", "controller.py"]
