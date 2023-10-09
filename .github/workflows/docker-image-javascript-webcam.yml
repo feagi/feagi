@@ -26,7 +26,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: third_party/embodiments/neuraville/javascript_webcam
+          context: third_party/embodiments/neuraville/javascript_webcam/Dockerfile.python
           platforms: linux/amd64,linux/arm64
           push: true
           tags: neuraville/webcam_controller:latest
