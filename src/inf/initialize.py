@@ -475,11 +475,7 @@ def init_brain():
 
 
 def init_cortical_defaults():
-    cortical_types = set()
-    for entry in cortical_types:
-        cortical_types.add(entry)
-    runtime_data.cortical_types = cortical_types
-    runtime_data.cortical_defaults = cortical_types
+    runtime_data.cortical_defaults = cortical_types.copy()
 
 
 def init_burst_engine():
