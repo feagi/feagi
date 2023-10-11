@@ -2033,6 +2033,8 @@ async def agent_properties(agent_id: str, response: Response):
             agent_info["agent_ip"] = runtime_data.agent_registry[agent_id]["agent_ip"]
             agent_info["agent_data_port"] = runtime_data.agent_registry[agent_id]["agent_data_port"]
             agent_info["agent_router_address"] = runtime_data.agent_registry[agent_id]["agent_router_address"]
+            agent_info["agent_version"] = runtime_data.agent_registry[agent_id]["agent_version"]
+            agent_info["controller_version"] = runtime_data.agent_registry[agent_id]["controller_version"]
             response.status_code = status.HTTP_200_OK
             return agent_info
         else:
@@ -2058,7 +2060,7 @@ def assign_available_port():
 
 @app.api_route("/v1/agent/register", methods=['POST'], tags=["Peripheral Nervous System"])
 async def agent_registration(request: Request, agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int,
-                             response: Response):
+                             agent_version: str, controller_version: str, response: Response):
 
     try:
         if agent_id in runtime_data.agent_registry:
@@ -2081,6 +2083,8 @@ async def agent_registration(request: Request, agent_type: str, agent_id: str, a
 
             agent_info["agent_data_port"] = agent_data_port
             agent_info["agent_router_address"] = agent_router_address
+            agent_info["agent_version"] = agent_version
+            agent_info["controller_version"] = controller_version
 
         print(f"AGENT Details -- {agent_info}")
         runtime_data.agent_registry[agent_id] = agent_info
