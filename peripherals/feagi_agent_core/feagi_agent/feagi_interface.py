@@ -1,5 +1,6 @@
 import traceback
 from feagi_agent import router
+from version import __version__
 from time import sleep
 import requests
 import socket
@@ -13,7 +14,8 @@ def sub_initializer(opu_address, flags=router.zmq.NOBLOCK):
     return router.Sub(address=opu_address, flags=flags)
 
 
-def feagi_registration(feagi_auth_url, feagi_settings, agent_settings, capabilities, version):
+def feagi_registration(feagi_auth_url, feagi_settings, agent_settings, capabilities,
+                       controller_version):
     host_info = router.app_host_info()
     runtime_data = {
         "host_network": {},
@@ -28,12 +30,13 @@ def feagi_registration(feagi_auth_url, feagi_settings, agent_settings, capabilit
         try:
             runtime_data["feagi_state"] = \
                 router.register_with_feagi(feagi_auth_url, feagi_settings, agent_settings,
-                                           capabilities)
+                                           capabilities, controller_version, __version__)
         except Exception as e:
             print("ERROR__: ", e, traceback.print_exc())
             pass
         sleep(1)
-    print("\nversion: ", version, "\n")
+    print("\nversion: ", controller_version, "\n")
+    print("\nagent version: ", __version__, "\n")
     return runtime_data["feagi_state"]
 
 
