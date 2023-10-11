@@ -24,6 +24,7 @@ from feagi_agent import retina as retina
 from feagi_agent import pns_gateway as pns
 from configuration import *
 from typing import Optional, List
+from version import __version__
 import facial_expression
 import requests
 import sys
@@ -248,7 +249,8 @@ if __name__ == '__main__':
     # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # - - - - - - - - - - - - - - - - - - #
     feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
-        FEAGI.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities)
+        FEAGI.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities,
+                               __version__)
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     face_selected = deque()
     eye_one_location = deque()
