@@ -18,6 +18,7 @@ jobs:
                   -e 's|COPY configuration.py /root/|COPY configuration.py /root/|' \
                   -e 's|COPY version.py /root/|COPY version.py /root/|' \
               "Dockerfile" > "Dockerfile"
+          fi
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
