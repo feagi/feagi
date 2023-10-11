@@ -20,4 +20,5 @@ WORKDIR /root/
 
 COPY /third_party/embodiments/neuraville/javascript_webcam/controller.py /root/
 COPY /third_party/embodiments/neuraville/javascript_webcam/configuration.py /root/
+COPY /third_party/embodiments/neuraville/javascript_webcam/version.py /root/
 CMD ["python3", "controller.py"]
