@@ -1,6 +1,6 @@
 import traceback
 from feagi_agent import router
-from version import __version__
+from feagi_agent.version import __version__
 from time import sleep
 import requests
 import socket
