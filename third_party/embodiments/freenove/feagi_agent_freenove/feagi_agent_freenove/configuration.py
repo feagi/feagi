@@ -77,18 +77,20 @@ capabilities = {
         "type": "ipu",
         "disabled": False,
         "count": 1,
-        "width": 8,
-        "height": 8,
-        "deviation_threshold": 0.9,
-        "retina_width_percent": 90,
-        "retina_height_percent": 80,
-        "central_vision_compression": [64, 64],
-        "peripheral_vision_compression": [8, 8],
+        "iso_default": 0.9,
+        "iso_range": [0.1, 2],
+        "central_vision_allocation_percentage": [95, 80],
+        "central_vision_resolution": [64, 64],
+        "peripheral_vision_resolution": [8, 8],
+        "resolution_presets": [[8, 8], [16, 16], [32, 32], [64, 64], [128, 128], [256, 256],
+                               [400, 400], [500, 500], [800, 800], [1024, 900]],
         "previous_data": {},
         "aperture_range": [0.2, 2],
-        "ISO_range": [0.1, 2],
         "aperture_default": 2
     },
+    "led": {
+        "type": "opu"
+    }
 }
 
 message_to_feagi = {"data": {}}

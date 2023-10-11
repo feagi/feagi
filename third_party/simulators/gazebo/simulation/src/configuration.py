@@ -31,6 +31,7 @@ agent_settings = {
     "agent_type": "embodiment",
     'TTL': 2,
     'last_message': 0,
+    'compression': True
 }
 
 capabilities = {
@@ -65,14 +66,17 @@ capabilities = {
         "type": "ipu",
         "disabled": False,
         "count": 1,
-        "width": 600,
-        "height": 600,
-        "deviation_threshold": 0.1,
-        "retina_width_percent": 60,
-        "retina_height_percent": 40,
-        "central_vision_compression": [64, 64],
-        "peripheral_vision_compression": [8, 8],
-        "previous_data": {}
+        "iso_default": 0.1,
+        "iso_range": [0.1, 2],
+        "central_vision_allocation_percentage": [60, 40],
+        "central_vision_resolution": [64, 64],
+        "peripheral_vision_resolution": [8, 8],
+        "resolution_presets": [[8, 8], [16, 16], [32, 32], [64, 64], [128, 128], [256, 256],
+                               [400, 400], [500, 500], [600, 600], [800, 800], [1024, 900]],
+        "previous_data": {},
+        "video_device_index": 2,
+        "aperture_range": [0.1, 2],
+        "aperture_default": 2
     },
     "battery": {
         "type": "ipu",

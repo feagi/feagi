@@ -173,12 +173,20 @@ def genome_2_1_convertor(flat_genome):
                                             temp_dict["morphology_scalar"] = mapping_recipe[1]
                                             temp_dict["postSynapticCurrent_multiplier"] = mapping_recipe[2]
                                             temp_dict["plasticity_flag"] = mapping_recipe[3]
-                                            try:
-                                                temp_dict["plasticity_constant"] = mapping_recipe[4]
-                                                temp_dict["ltp_multiplier"] = mapping_recipe[5]
-                                                temp_dict["ltd_multiplier"] = mapping_recipe[6]
-                                            except Exception as e:
-                                                print("Genome mapping missing plasticity parameters.", e)
+                                            if mapping_recipe[3]:
+                                                try:
+                                                    temp_dict["plasticity_constant"] = mapping_recipe[4]
+                                                    temp_dict["ltp_multiplier"] = mapping_recipe[5]
+                                                    temp_dict["ltd_multiplier"] = mapping_recipe[6]
+                                                except Exception as e:
+                                                    temp_dict["plasticity_constant"] = 1
+                                                    temp_dict["ltp_multiplier"] = 1
+                                                    temp_dict["ltd_multiplier"] = 1
+                                            else:
+                                                temp_dict["plasticity_flag"] = False
+                                                temp_dict["plasticity_constant"] = 1
+                                                temp_dict["ltp_multiplier"] = 1
+                                                temp_dict["ltd_multiplier"] = 1
 
                                             genome['blueprint'][
                                                 cortical_area][genome_2_to_1[exon]][destination].append(temp_dict)
@@ -399,7 +407,7 @@ genome_1_template = {
     "firing_threshold_increment_x": 0,
     "firing_threshold_increment_y": 0,
     "firing_threshold_increment_z": 0,
-    "firing_threshold_limit": 99999,
+    "firing_threshold_limit": 0,
     "mp_charge_accumulation": True
     }
 
@@ -446,9 +454,9 @@ genome_1_to_2 = {
     "postsynaptic_current": "nx-pstcr_-f",
     "postsynaptic_current_max": "nx-pstcrm-f",
     'firing_threshold': "nx-fire_t-f",
-    "firing_threshold_increment_x": "ftincx-f",
-    "firing_threshold_increment_y": "ftincy-f",
-    "firing_threshold_increment_z": "ftincz-f",
+    "firing_threshold_increment_x": "nx-ftincx-f",
+    "firing_threshold_increment_y": "nx-ftincy-f",
+    "firing_threshold_increment_z": "nx-ftincz-f",
     "firing_threshold_limit": "nx-fthlim-i",
     "refractory_period": "nx-refrac-i",
     "leak_coefficient": "nx-leak_c-f",

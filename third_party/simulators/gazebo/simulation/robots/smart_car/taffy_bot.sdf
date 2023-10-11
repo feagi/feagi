@@ -102,9 +102,9 @@
       <mass>20</mass>
         <inertial>
         <inertia>
-          <ixx>0.5</ixx>
-          <iyy>0.5</iyy>
-          <izz>0.5</izz>
+          <ixx>0.0264</ixx>
+          <iyy>0.0264</iyy>
+          <izz>0.0211</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -155,9 +155,9 @@
       <mass>20</mass>
         <inertial>
         <inertia>
-          <ixx>0.5</ixx>
-          <iyy>0.5</iyy>
-          <izz>0.5</izz>
+          <ixx>0.0264</ixx>
+          <iyy>0.0264</iyy>
+          <izz>0.0211</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -208,9 +208,9 @@
       <mass>20</mass>
         <inertial>
         <inertia>
-          <ixx>0.5</ixx>
-          <iyy>0.5</iyy>
-          <izz>0.5</izz>
+          <ixx>0.0264</ixx>
+          <iyy>0.0264</iyy>
+          <izz>0.0211</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -261,9 +261,9 @@
       <mass>20</mass>
         <inertial>
         <inertia>
-          <ixx>0.5</ixx>
-          <iyy>0.5</iyy>
-          <izz>0.5</izz>
+          <ixx>0.0264</ixx>
+          <iyy>0.0264</iyy>
+          <izz>0.0211</izz>
           <ixy>0</ixy>
           <ixz>0</ixz>
           <iyz>0</iyz>
@@ -436,6 +436,54 @@
           </box>
         </geometry>
       </collision>
+      <frame name="lidar_frame" attached_to='sensor'>
+        </frame>
+      <sensor name='gpu_lidar' type='gpu_lidar'>
+          <always_on>1</always_on>
+          <visualize>true</visualize>
+          <topic>ultrasonic0</topic>
+          <update_rate>100</update_rate>
+          <lidar>
+              <scan>
+                  <vertical>
+                    <samples>5</samples>
+                    <resolution>1</resolution>
+                    <min_angle>0.00</min_angle>
+                    <max_angle>0.25</max_angle>
+                  </vertical>
+              </scan>
+          <range>
+            <min>0.120000</min>
+            <max>4</max>
+            <resolution>0.015000</resolution>
+          </range>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.01</stddev>
+          </noise>
+        </lidar>
+    </sensor>
+      <sensor name="rgbd_camera" type="rgbd_camera">
+          <update_rate>100</update_rate>
+          <visualize>true</visualize>
+          <always_on>1</always_on>
+          <topic>Camera0</topic>
+          <camera>
+<!--            <horizontal_fov>0.1</horizontal_fov>-->
+            <image>
+              <width>600</width>
+              <height>600</height>
+              <format>L_INT8</format>
+<!--              <anti-aliasing>1</anti-aliasing>-->
+            </image>
+            <clip>
+              <near>0.1</near>
+              <far>10</far>
+            </clip>
+            <scale_to_hfov>true</scale_to_hfov>
+          </camera>
+      </sensor>
     </link>
 
       <link name='right_IR'>

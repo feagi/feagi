@@ -22,155 +22,135 @@ cortical_types = {
     "IPU": {
         "gui_name": "Sensors",
         "supported_devices": {
-            "infrared_sensor": {
+            "i__inf ": {
                 "enabled": True,
-                "cortical_id": "i__inf",
+                "cortical_name": "infrared_sensor",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 1],
-                "count": int
+                "resolution": [1, 1, 1]
             },
-            "inverse_infrared_sensor": {
+            "i_iinf": {
                 "enabled": True,
-                "cortical_id": "i__inf",
+                "cortical_name": "inverse_infrared_sensor",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 1],
-                "count": int
+                "resolution": [1, 1, 1]
             },
-            "proximity_sensor": {
+            "i__pro": {
                 "enabled": True,
-                "cortical_id": "i__pro",
+                "cortical_name": "proximity_sensor ",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 10],
-                "count": int
+                "resolution": [1, 1, 10]
             },
-            "accelerometer_sensor": {
+            "i__acc": {
                 "enabled": True,
-                "cortical_id": "i__acc",
+                "cortical_name": "accelerometer_sensor",
                 "structure": "symmetric",
-                "resolution": [1, 1, 20],
-                "count": int
+                "resolution": [1, 1, 20]
             },
-            "gyroscope_sensor": {
+            "i__gyr": {
                 "enabled": True,
-                "cortical_id": "i__gyr",
+                "cortical_name": "gyroscope_sensor",
                 "structure": "symmetric",
-                "resolution": [1, 1, 20],
-                "count": int
+                "resolution": [1, 1, 20]
             },
-            "shock_sensor": {
+            "ishock": {
                 "enabled": True,
-                "cortical_id": "ishock",
+                "cortical_name": "shock_sensor",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 1],
-                "count": int
+                "resolution": [1, 1, 1]
             },
-            "battery_sensor": {
+            "i__bat": {
                 "enabled": True,
-                "cortical_id": "i__bat",
+                "cortical_name": "battery_sensor",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 10],
-                "count": int
+                "resolution": [1, 1, 10]
             },
-            "vision_sensor": {
+            "i__vis": {
                 "enabled": True,
-                "cortical_id": "i__vis",
+                "cortical_name": "vision_sensor",
                 "structure": "asymmetric",
-                "resolution": [64, 64, 1],
-                "count": int
+                "resolution": [64, 64, 1]
             }
         }
     },
     "OPU": {
-        "gui_name": "Actuators",
+        "gui_name": "o__mot",
         "supported_devices": {
             "Motor": {
                 "enabled": True,
-                "cortical_id": "o__mot",
+                "cortical_name": "Actuators",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 10],
-                "count": int
+                "resolution": [1, 1, 10]
             },
-            "Servo": {
+            "o__srv": {
                 "enabled": True,
-                "cortical_id": "o__srv",
+                "cortical_name": "Servo",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 10],
-                "count": int
+                "resolution": [1, 1, 10]
             },
-            "Navigation": {
+            "o__nav": {
                 "enabled": True,
-                "cortical_id": "o__nav",
+                "cortical_name": "Navigation",
                 "structure": "asymmetric",
-                "resolution": [3, 1, 20],
-                "count": int
+                "resolution": [3, 1, 20]
             },
-            "Speed": {
+            "o__spd": {
                 "enabled": True,
-                "cortical_id": "o__spd",
+                "cortical_name": "Speed",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 10],
-                "count": int
+                "resolution": [1, 1, 10]
             },
-            "Battery": {
+            "o__bat": {
                 "enabled": True,
-                "cortical_id": "o__bat",
+                "cortical_name": "Battery",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 10],
-                "count": int
+                "resolution": [1, 1, 10]
             },
-            "Position_Initializer": {
+            "o_init": {
                 "enabled": True,
-                "cortical_id": "o_init",
+                "cortical_name": "Position_Initializer",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 1],
-                "count": int
+                "resolution": [1, 1, 1]
             },
-            "Misc": {
+            "o__mot": {
                 "enabled": True,
-                "cortical_id": "o__mot",
+                "cortical_name": "Misc",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 1],
-                "count": int
+                "resolution": [1, 1, 1]
             },
-            "Aperture": {
+            "o_aptr": {
                 "enabled": True,
-                "cortical_id": "o_aptr",
+                "cortical_name": "Aperture",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 10],
-                "count": int
+                "resolution": [1, 1, 10]
             },
-            "Vision_Resolution": {
+            "o_vres": {
                 "enabled": True,
-                "cortical_id": "o_vres",
+                "cortical_name": "Vision_Resolution",
                 "structure": "asymmetric",
-                "resolution": [2, 1, 10],
-                "count": int
+                "resolution": [2, 1, 10]
             },
-            "Vision_Acuity": {
+            "o_vact": {
                 "enabled": True,
-                "cortical_id": "o_vact",
+                "cortical_name": "Vision_Acuity",
                 "structure": "asymmetric",
-                "resolution": [2, 1, 1],
-                "count": int
+                "resolution": [2, 1, 1]
             }
         }
     },
     "CORE": {
         "gui_name": "Core",
         "supported_devices": {
-            "Death": {
+            "_death": {
                 "enabled": True,
-                "cortical_id": "_death",
+                "cortical_name": "Death",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 1],
-                "count": int
+                "resolution": [1, 1, 1]
             },
-            "Power": {
+            "___pwr": {
                 "enabled": False,
-                "cortical_id": "___pwr",
+                "cortical_name": "Power",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 1],
-                "count": int
+                "resolution": [1, 1, 1]
             }
         }
     },
@@ -203,6 +183,6 @@ cortical_template = {
     "firing_threshold_increment_x": 0,
     "firing_threshold_increment_y": 0,
     "firing_threshold_increment_z": 0,
-    "firing_threshold_limit": 99999,
+    "firing_threshold_limit": 0,
     "mp_charge_accumulation": True
 }
