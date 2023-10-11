@@ -6,6 +6,7 @@ from collections import deque
 from threading import Thread
 from configuration import *
 from rclpy.node import Node
+from version import __version__
 from feagi_agent import pns_gateway as pns
 import cv2
 import os
@@ -333,7 +334,7 @@ device_list = pns.generate_OPU_list(capabilities)  # get the OPU sensors
 # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # - - - - - - - - - - - - - - - - - - #
 feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
-    FEAGI.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities)
+    FEAGI.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities, __version__)
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Camera section
 # camera = PiCamera()
