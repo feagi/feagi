@@ -28,6 +28,7 @@ import lz4.frame
 
 from configuration import *
 from feagi_agent import retina
+from version import __version__
 from feagi_agent import feagi_interface as feagi
 from feagi_agent import pns_gateway as pns
 
@@ -119,7 +120,8 @@ if __name__ == "__main__":
 
         # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
-            feagi.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities)
+            feagi.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities,
+                                   __version__)
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 

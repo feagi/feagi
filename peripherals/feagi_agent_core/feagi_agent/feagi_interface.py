@@ -13,7 +13,7 @@ def sub_initializer(opu_address, flags=router.zmq.NOBLOCK):
     return router.Sub(address=opu_address, flags=flags)
 
 
-def feagi_registration(feagi_auth_url, feagi_settings, agent_settings, capabilities):
+def feagi_registration(feagi_auth_url, feagi_settings, agent_settings, capabilities, version):
     host_info = router.app_host_info()
     runtime_data = {
         "host_network": {},
@@ -33,6 +33,7 @@ def feagi_registration(feagi_auth_url, feagi_settings, agent_settings, capabilit
             print("ERROR__: ", e, traceback.print_exc())
             pass
         sleep(1)
+    print("\nversion: ", version, "\n")
     return runtime_data["feagi_state"]
 
 
@@ -257,13 +258,14 @@ def control_data_processor(data):
                configuration.capabilities["position"]
 
 
-def connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities):
+def connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities, current_version):
     print("Connecting to FEAGI resources...")
     feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
     runtime_data["feagi_state"] = feagi_registration(feagi_auth_url=feagi_auth_url,
                                                      feagi_settings=feagi_settings,
                                                      agent_settings=agent_settings,
-                                                     capabilities=capabilities)
+                                                     capabilities=capabilities,
+                                                     version=current_version)
     api_address = runtime_data['feagi_state']["feagi_url"]
     agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
     print("** **", runtime_data["feagi_state"])

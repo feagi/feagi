@@ -4,6 +4,7 @@ import configuration
 from configuration import *
 from djitellopy import Tello
 from datetime import datetime
+from version import __version__
 from feagi_agent import pns_gateway as pns
 from feagi_agent import feagi_interface as FEAGI
 
@@ -250,7 +251,8 @@ if __name__ == '__main__':
     # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # - - - - - - - - - - - - - - - - - - #
     feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
-        FEAGI.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities)
+        FEAGI.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities,
+                               __version__)
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     # # # # # # # # # # # # Variables/Dictionaries section # # # # # # # # # # # # # # # - - - -
