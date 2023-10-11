@@ -22,6 +22,7 @@ import feagi_agent.feagi_interface
 import requests
 from time import sleep
 from datetime import datetime
+from version import __version__
 from feagi_agent import retina as retina
 from feagi_agent import pns_gateway as pns
 from feagi_agent import feagi_interface as feagi
@@ -96,7 +97,8 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # - - - - - - - - - - - - - - - - - - #
     feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
-        feagi.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities)
+        feagi.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities,
+                               __version__)
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     msg_counter = runtime_data["feagi_state"]['burst_counter']
     rgb = dict()

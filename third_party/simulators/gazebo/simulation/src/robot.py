@@ -30,7 +30,7 @@ import xml.etree.ElementTree as Xml_et
 import numpy as np
 import pickle
 import lz4.frame
-
+from version import __version__
 from std_msgs.msg import String
 from subprocess import PIPE, Popen
 from configuration import message_to_feagi
@@ -878,7 +878,8 @@ if __name__ == '__main__':
 
     # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
-        FEAGI.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities)
+        FEAGI.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities,
+                               __version__)
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     rclpy.init(args=args)

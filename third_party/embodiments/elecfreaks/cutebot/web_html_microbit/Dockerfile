@@ -18,4 +18,5 @@ WORKDIR /root/
 
 COPY controller.py /root/
 COPY configuration.py /root/
+COPY version.py /root/
 CMD ["python3", "controller.py"]

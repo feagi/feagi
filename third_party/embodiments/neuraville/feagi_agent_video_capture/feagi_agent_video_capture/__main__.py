@@ -43,10 +43,11 @@ if __name__ == '__main__':
         while True:
             try:
                 from feagi_agent_video_capture import controller as video_controller
+
                 feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
                 print("FEAGI AUTH URL ------- ", feagi_auth_url)
                 video_controller.main(feagi_auth_url, feagi_settings, agent_settings,
-                                       capabilities, message_to_feagi)
+                                      capabilities, message_to_feagi)
             except Exception as e:
                 feagi_settings = inital_feagi_setting.copy()
                 agent_settings = inital_agent_settings.copy()

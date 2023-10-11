@@ -23,6 +23,7 @@ import lz4.frame
 import pickle
 import websockets
 from configuration import *
+from version import __version__
 from feagi_agent import pns_gateway as pns
 from feagi_agent import feagi_interface as feagi
 
@@ -174,7 +175,8 @@ if __name__ == "__main__":
         # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # - - - - - - - - - - - - - - - - - - #
         feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
-            feagi.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities)
+            feagi.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities,
+                                   __version__)
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         msg_counter = runtime_data["feagi_state"]['burst_counter']
         runtime_data['accelerator'] = {}
