@@ -2119,9 +2119,16 @@ async def agent_deregisteration(agent_id: str, response: Response):
 # ###################################
 
 
-@app.get("/v1/feagi/version", tags=["System"])
-def get_version():
-    return {"version": __version__}
+@app.get("/v1/feagi/versions", tags=["System"])
+def get_versions():
+    all_versions = dict()
+    all_versions["feagi"] = __version__
+    for agent_id in runtime_data.agent_registry:
+        if agent_id not in all_versions:
+            all_versions[agent_id] = {}
+        all_versions[agent_id]["agent_version"] = runtime_data.agent_registry[agent_id]["agent_version"]
+        all_versions[agent_id]["controller_version"] = runtime_data.agent_registry[agent_id]["controller_version"]
+    return all_versions
 
 
 @app.get("/v1/feagi/health_check", tags=["System"])
