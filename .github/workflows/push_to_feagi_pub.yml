@@ -15,7 +15,9 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Unstage .env changes
-      run: git restore --source=HEAD --staged /docker/.env
+      run: pwd
+      run: ls -latr
+      run: git restore --source=HEAD --staged ./docker/.env
 
     - name: Setup Git with PAT
       run: |
