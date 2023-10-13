@@ -268,7 +268,7 @@ def connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities,
                                                      feagi_settings=feagi_settings,
                                                      agent_settings=agent_settings,
                                                      capabilities=capabilities,
-                                                     version=current_version)
+                                                     controller_version=current_version)
     api_address = runtime_data['feagi_state']["feagi_url"]
     agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
     print("** **", runtime_data["feagi_state"])
