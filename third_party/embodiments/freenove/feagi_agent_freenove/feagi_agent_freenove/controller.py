@@ -4,6 +4,7 @@ from feagi_agent import retina as retina
 import requests
 import sys
 import os
+from version import __version__
 from feagi_agent_freenove.Led import *
 from feagi_agent_freenove.PCA9685 import PCA9685
 from picamera import PiCamera
@@ -463,29 +464,10 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
 
     # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # - - - - - - - - - - - - - - - - - - #
-    print("Connecting to FEAGI resources...")
-    runtime_data["feagi_state"] = FEAGI.feagi_registration(feagi_auth_url=feagi_auth_url,
-                                                           feagi_settings=feagi_settings,
-                                                           agent_settings=agent_settings,
-                                                           capabilities=capabilities)
-    api_address = runtime_data['feagi_state']["feagi_url"]
-    # agent_data_port = agent_settings["agent_data_port"]
-    agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
-    print("** **", runtime_data["feagi_state"])
-    feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
-
-    # todo: to obtain this info directly from FEAGI as part of registration
-    # ipu_channel_address = FEAGI.feagi_inbound(agent_settings["agent_data_port"])
-    ipu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'], agent_data_port)
-
-    print("IPU_channel_address=", ipu_channel_address)
-    opu_channel_address = FEAGI.feagi_outbound(feagi_settings['feagi_host'],
-                                               runtime_data["feagi_state"]['feagi_opu_port'])
-
-    feagi_ipu_channel = FEAGI.pub_initializer(ipu_channel_address, bind=False)
-    feagi_opu_channel = FEAGI.sub_initializer(opu_address=opu_channel_address)
+    feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
+        FEAGI.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities,
+                               __version__)
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # - - - #
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # --- Initializer section ---

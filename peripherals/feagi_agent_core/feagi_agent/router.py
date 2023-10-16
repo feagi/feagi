@@ -174,7 +174,8 @@ def feagi_settings_from_composer(feagi_auth_url, feagi_settings):
     return feagi_settings
 
 
-def register_with_feagi(feagi_auth_url, feagi_settings, agent_settings, agent_capabilities):
+def register_with_feagi(feagi_auth_url, feagi_settings, agent_settings, agent_capabilities,
+                        controller_version, agent_version):
     """
     To trade information between FEAGI and Controller
 
@@ -207,6 +208,8 @@ def register_with_feagi(feagi_auth_url, feagi_settings, agent_settings, agent_ca
             agent_registration_data["agent_id"] = str(agent_settings['agent_id'])
             agent_registration_data["agent_ip"] = str(agent_settings['agent_ip'])
             agent_registration_data["agent_data_port"] = int(agent_settings['agent_data_port'])
+            agent_registration_data["controller_version"] = str(controller_version)
+            agent_registration_data["agent_version"] = str(agent_version)
 
             response = requests.post(feagi_url + registration_endpoint, params=agent_registration_data)
             if response.status_code == 200:

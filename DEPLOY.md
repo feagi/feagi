@@ -58,7 +58,9 @@ In the command line/terminal run the following commands:
 ## 4. Launch the Brain Visualizer
 * To launch the application, open your browser and go to http://localhost:4000. You should see the playground launch page that looks like this:
   ![BV](_static/BV.png)
-* Then click on the 'Default Genome' in the top right corner, which looks like this:
+
+* Then click on 'Genomes' in the top right corner, and after that, click on 'Default Genome', which looks like this:
+* 
   ![genome](_static/default_and_custom_genome.png)
 * You should see Brain Visualizer like this:
   ![full_bv](_static/bv2.png)
