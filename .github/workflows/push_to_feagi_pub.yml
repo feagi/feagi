@@ -19,7 +19,7 @@ jobs:
 
     - name: Setup Git with PAT
       run: |
-        git config --global user.email "action@github.com"
+        git config --global user.email "dev@neuraville.com"
         git config --global user.name "GitHub Action"
         git remote add public https://x-access-token:${{ secrets.FEAGI_PAT }}@github.com/feagi/feagi.git
 
