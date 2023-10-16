@@ -20,6 +20,7 @@ __pycache__/*
 .pydevproject
 .settings
 .idea
+*.env
 tags
 
 # Package files

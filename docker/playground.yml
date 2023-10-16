@@ -126,6 +126,8 @@ services:
     image: ${PLAYGROUND_IMAGE}
     ports:
       - "4000:4000"
+    env_file:
+      - ./.env
     privileged: true
     networks:
       - net

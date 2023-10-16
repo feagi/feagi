@@ -21,6 +21,7 @@ import string
 import logging
 import random
 import tempfile
+from version import __version__
 import io
 
 from fastapi import FastAPI, File, UploadFile, Response, status, Request, HTTPException
@@ -993,20 +994,26 @@ async def circuit_library(response: Response):
         print("API Error:", e)
 
 
-@app.api_route("/v1/feagi/genome/circuit_size", methods=['GET'], tags=["Genome"])
+@app.api_route("/v1/feagi/genome/circuit_description", methods=['GET'], tags=["Genome"])
 async def cortical_area_types(circuit_name, response: Response):
     """
-    Returns the overall size of a circuit
+    Returns circuit aka. genome description including its size
     """
     try:
         with open("./evo/circuits/" + circuit_name, "r") as genome_file:
             genome_data = json.load(genome_file)
 
         genome2 = genome_2_1_convertor(flat_genome=genome_data["blueprint"])
-        circuit_size_ = circuit_size(blueprint=genome2["blueprint"])
 
+        circuit_description = {}
+        circuit_size_ = circuit_size(blueprint=genome2["blueprint"])
+        circuit_description["size"] = circuit_size_
+        if "description" in runtime_data.genome:
+            circuit_description["description"] = runtime_data.genome["description"]
+        else:
+            circuit_description["description"] = ""
         response.status_code = status.HTTP_200_OK
-        return circuit_size_
+        return circuit_description
 
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -1469,6 +1476,20 @@ async def neuron_postsynaptic_potential_monitoring_scope(message: dict, response
 
 # ######  Training Endpoints #######
 # ##################################
+
+
+@app.api_route("/v1/feagi/training/reset_game_stats", methods=['DELETE'], tags=["Training"])
+async def delete_game_stats_from_db(response: Response):
+    """
+    Erases the game statistics from the database.
+    """
+    try:
+        runtime_data.influxdb.drop_game_activity()
+        response.status_code = status.HTTP_200_OK
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
 
 @app.api_route("/v1/feagi/training/shock/options", methods=['Get'], tags=["Training"])
 async def list_available_shock_scenarios(response: Response):
@@ -2012,6 +2033,8 @@ async def agent_properties(agent_id: str, response: Response):
             agent_info["agent_ip"] = runtime_data.agent_registry[agent_id]["agent_ip"]
             agent_info["agent_data_port"] = runtime_data.agent_registry[agent_id]["agent_data_port"]
             agent_info["agent_router_address"] = runtime_data.agent_registry[agent_id]["agent_router_address"]
+            agent_info["agent_version"] = runtime_data.agent_registry[agent_id]["agent_version"]
+            agent_info["controller_version"] = runtime_data.agent_registry[agent_id]["controller_version"]
             response.status_code = status.HTTP_200_OK
             return agent_info
         else:
@@ -2037,7 +2060,7 @@ def assign_available_port():
 
 @app.api_route("/v1/agent/register", methods=['POST'], tags=["Peripheral Nervous System"])
 async def agent_registration(request: Request, agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int,
-                             response: Response):
+                             agent_version: str, controller_version: str, response: Response):
 
     try:
         if agent_id in runtime_data.agent_registry:
@@ -2060,6 +2083,8 @@ async def agent_registration(request: Request, agent_type: str, agent_id: str, a
 
             agent_info["agent_data_port"] = agent_data_port
             agent_info["agent_router_address"] = agent_router_address
+            agent_info["agent_version"] = agent_version
+            agent_info["controller_version"] = controller_version
 
         print(f"AGENT Details -- {agent_info}")
         runtime_data.agent_registry[agent_id] = agent_info
@@ -2092,6 +2117,18 @@ async def agent_deregisteration(agent_id: str, response: Response):
 
 # ######   System Endpoints #########
 # ###################################
+
+
+@app.get("/v1/feagi/versions", tags=["System"])
+def get_versions():
+    all_versions = dict()
+    all_versions["feagi"] = __version__
+    for agent_id in runtime_data.agent_registry:
+        if agent_id not in all_versions:
+            all_versions[agent_id] = {}
+        all_versions[agent_id]["agent_version"] = runtime_data.agent_registry[agent_id]["agent_version"]
+        all_versions[agent_id]["controller_version"] = runtime_data.agent_registry[agent_id]["controller_version"]
+    return all_versions
 
 
 @app.get("/v1/feagi/health_check", tags=["System"])
