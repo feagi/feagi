@@ -20,7 +20,7 @@ jobs:
     - name: Setup Git with PAT
       run: |
         git config --global user.email "dev@neuraville.com"
-        git config --global user.name "GitHub Action"
+        git config --global user.name "NeuravilleDeveloper"
         git remote add public https://x-access-token:${{ secrets.FEAGI_PAT }}@github.com/feagi/feagi.git
 
     - name: Commit changes without .env and push to public repo
