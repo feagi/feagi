@@ -42,8 +42,8 @@ jobs:
         git add ./docker/.env
         git commit -m "Resolved .env conflict favoring remote version"
 
-    - name: Unstage .github directory changes
-      run: git restore --source=HEAD --staged .github/
+    - name: Unstage .github directory changes for NV_*.yml files
+      run: git restore --source=HEAD --staged .github/NV_*.yml
 
     - name: Checkout or create neuraville branch
       run: |
