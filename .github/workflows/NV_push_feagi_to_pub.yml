@@ -33,10 +33,10 @@ jobs:
         git config --global user.name "NeuravilleDeveloper"
         git remote add public https://x-access-token:${{ secrets.FEAGI_PAT5 }}@github.com/feagi/feagi.git
 
-    - name: Fetch latest from public repo and merge with allow unrelated histories
-      run: |
-        git fetch public
-        git merge public/staging --allow-unrelated-histories || true
+    # - name: Fetch latest from public repo and merge with allow unrelated histories
+    #   run: |
+    #     git fetch public
+    #     git merge public/staging --allow-unrelated-histories || true
 
     - name: Resolve .env conflict favoring remote version
       run: |
