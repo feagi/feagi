@@ -2,6 +2,8 @@ name: Push to feagi/feagi
 
 on:
   push:
+    paths-ignore:
+      - '.github/workflows/NV_*.yml'
     branches:
       - pre-pub-staging
   workflow_dispatch:
