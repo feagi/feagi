@@ -4,7 +4,7 @@ from feagi_agent import retina as retina
 import requests
 import sys
 import os
-from version import __version__
+from feagi_agent_freenove.version import __version__
 from feagi_agent_freenove.Led import *
 from feagi_agent_freenove.PCA9685 import PCA9685
 from picamera import PiCamera
@@ -18,16 +18,6 @@ import lz4.frame
 import time
 import cv2
 import traceback
-
-runtime_data = {
-    "current_burst_id": 0,
-    "feagi_state": None,
-    "cortical_list": (),
-    "battery_charge_level": 1,
-    "host_network": {},
-    'motor_status': {},
-    'servo_status': {}
-}
 
 
 def window_average(sequence):
@@ -448,18 +438,29 @@ def action(obtained_data, device_list, led_flag, feagi_settings, capabilities, m
     return led_flag
 
 
-def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_to_feagi, args):
+def main(feagi_settings, agent_settings, capabilities):
     GPIO.cleanup()
     # # FEAGI REACHABLE CHECKER # #
     feagi_flag = False
     print("retrying...")
     print("Waiting on FEAGI...")
     while not feagi_flag:
+        print("ip: ", os.environ.get('FEAGI_HOST_INTERNAL', feagi_settings["feagi_host"]))
+        print("here: ", int(os.environ.get('FEAGI_OPU_PORT', "30000")))
         feagi_flag = FEAGI.is_FEAGI_reachable(
             os.environ.get('FEAGI_HOST_INTERNAL', feagi_settings["feagi_host"]),
-            int(os.environ.get('FEAGI_OPU_PORT', "3000")))
+            int(os.environ.get('FEAGI_OPU_PORT', "30000")))
         sleep(2)
 
+    runtime_data = {
+        "current_burst_id": 0,
+        "feagi_state": None,
+        "cortical_list": (),
+        "battery_charge_level": 1,
+        "host_network": {},
+        'motor_status': {},
+        'servo_status': {}
+    }
     # # FEAGI REACHABLE CHECKER COMPLETED # #
 
     # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -578,6 +579,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
                                                   aptr_cortical_size)
                 obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
+                print("obtained signals: ", obtained_signals)
                 led_flag = action(obtained_signals, device_list, led_flag, feagi_settings,
                                   capabilities, motor_data, rolling_window, motor, servo, led)
             message_to_feagi['timestamp'] = datetime.now()
