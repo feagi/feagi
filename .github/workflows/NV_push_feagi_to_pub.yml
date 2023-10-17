@@ -38,11 +38,11 @@ jobs:
     #     git fetch public
     #     git merge public/staging --allow-unrelated-histories || true
 
-    - name: Resolve .env conflict favoring remote version
-      run: |
-        git checkout --theirs ./docker/.env
-        git add ./docker/.env
-        git commit -m "Resolved .env conflict favoring remote version"
+    # - name: Resolve .env conflict favoring remote version
+    #   run: |
+    #     git checkout --theirs ./docker/.env
+    #     git add ./docker/.env
+    #     git commit -m "Resolved .env conflict favoring remote version"
 
     - name: Checkout or create neuraville branch
       run: |
