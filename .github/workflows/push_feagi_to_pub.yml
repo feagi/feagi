@@ -13,6 +13,8 @@ jobs:
     steps:
     - name: Check out code
       uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.FEAGI_PAT5 }}
 
     - name: Unstage .env changes
       run: git restore --source=HEAD --staged ./docker/.env
