@@ -39,7 +39,7 @@ jobs:
     - name: Commit other changes and push to public repo
       run: |
         git fetch public staging
-        git merge public/staging
+        git rebase public/staging
         git push -u public $BRANCH_NAME
 
     - name: Create PR on feagi/feagi repo
