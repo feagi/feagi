@@ -1,14 +1,31 @@
-name: Push to Public FEAGI
+name: Upload Feagi agent video capture2
 
 on:
   [workflow_dispatch]
 
-jobs:
-  sync:
-    runs-on: ubuntu-latest
+permissions:
+  contents: read
 
+jobs:
+  deploy:
+
+    runs-on: ubuntu-latest
+    if: github.repository == 'feagi/feagi'
     steps:
-    - name: Check out code
-      uses: actions/checkout@v2
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v3
       with:
-        token: ${{ secrets.FEAGI_PAT5 }}
+        python-version: '3.x'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build
+        ls -a
+    - name: Build package
+      run: python -m build
+    - name: Publish package
+      uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
+      with:
+        user: ${{ secrets.PYPI_USER_TOKEN }}
+        password: ${{ secrets.PYPI_API_TOKEN }}
