@@ -33,24 +33,11 @@ jobs:
         git config --global user.name "NeuravilleDeveloper"
         git remote add public https://x-access-token:${{ secrets.FEAGI_PAT5 }}@github.com/feagi/feagi.git
 
-    # - name: Fetch latest from public repo and merge with allow unrelated histories
-    #   run: |
-    #     git fetch public
-    #     git merge public/staging --allow-unrelated-histories || true
-
-    # - name: Resolve .env conflict favoring remote version
-    #   run: |
-    #     git checkout --theirs ./docker/.env
-    #     git add ./docker/.env
-    #     git commit -m "Resolved .env conflict favoring remote version"
 
     - name: Checkout or create neuraville branch
       run: |
         git checkout $BRANCH_NAME || git checkout -b $BRANCH_NAME
 
-    # - name: Pull latest changes from neuraville branch on public repo
-    #   run: |
-    #     git pull public $BRANCH_NAME || true
 
     - name: Commit other changes and push to public repo
       run: |
