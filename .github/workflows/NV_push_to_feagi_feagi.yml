@@ -25,7 +25,7 @@ jobs:
       run: git restore --source=HEAD --staged ./docker/.env
 
     - name: Unstage .github directory changes for NV_*.yml files
-      run: git restore --source=HEAD --staged .github/NV_*.yml
+      run: git restore --source=HEAD --staged .github/NV_*.yml || true
 
     - name: Setup Git with PAT
       run: |
