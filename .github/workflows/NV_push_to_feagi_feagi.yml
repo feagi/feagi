@@ -1,4 +1,4 @@
-name: Push to feagi/feagi
+name: Push to Public FEAGI
 
 on:
   push:
