@@ -1,11 +1,6 @@
 name: Push to Public FEAGI
 
 on:
-  push:
-    paths-ignore:
-      - '.github/workflows/NV_*.yml'
-    branches:
-      - pre-pub-staging
   workflow_dispatch:
 
 jobs:
