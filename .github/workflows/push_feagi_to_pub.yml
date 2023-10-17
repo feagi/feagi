@@ -28,7 +28,7 @@ jobs:
     - name: Fetch latest from public repo and merge
       run: |
         git fetch public
-        git merge public/staging
+        git merge public/staging --allow-unrelated-histories
         
     - name: Commit changes without .env and push to public repo
       run: |
