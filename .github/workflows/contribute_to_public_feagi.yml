@@ -48,7 +48,7 @@ jobs:
       run: |
         git commit -m "Neuraville update" || true
         git fetch --all
-        git merge origin/staging
+        git merge public/staging
         git push -u public $BRANCH_NAME
 
     - name: Create PR on feagi/feagi repo
