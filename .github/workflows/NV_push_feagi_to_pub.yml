@@ -48,9 +48,9 @@ jobs:
       run: |
         git checkout $BRANCH_NAME || git checkout -b $BRANCH_NAME
 
-    - name: Pull latest changes from neuraville branch on public repo
-      run: |
-        git pull public $BRANCH_NAME || true
+    # - name: Pull latest changes from neuraville branch on public repo
+    #   run: |
+    #     git pull public $BRANCH_NAME || true
 
     - name: Commit other changes and push to public repo
       run: |
