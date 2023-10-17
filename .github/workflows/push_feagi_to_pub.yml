@@ -39,6 +39,11 @@ jobs:
     - name: Unstage .github directory changes
       run: git restore --source=HEAD --staged .github/
 
+    - name: Pull latest changes from neuraville branch on public repo
+      run: |
+        git pull public neuraville || true
+
+
     - name: Commit other changes and push to public repo
       run: |
         git checkout -b neuraville
