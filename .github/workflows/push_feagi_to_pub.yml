@@ -21,8 +21,8 @@ jobs:
 
     - name: Setup Git with PAT
       run: |
-        git config --global user.email "m.nadji.tehrani@gmail.com"
-        git config --global user.name "m-nadji-tehrani"
+        git config --global user.email "dev@neuraville.com"
+        git config --global user.name "NeuravilleDeveloper"
         git remote add public https://x-access-token:${{ secrets.FEAGI_PAT5 }}@github.com/feagi/feagi.git
 
     - name: Fetch latest from public repo and merge
