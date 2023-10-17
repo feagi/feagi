@@ -28,20 +28,21 @@ jobs:
     - name: Fetch latest from public repo and merge with allow unrelated histories
       run: |
         git fetch public
-        git merge public/staging --allow-unrelated-histories
+        git merge public/staging --allow-unrelated-histories || true
 
-    - name: Remove .github directory
-      run: rm -rf .github
-
-    - name: Commit removal of .github directory
+    - name: Resolve .env conflict favoring remote version
       run: |
-        git add .
-        git diff --cached --exit-code || git commit -m "Remove .github directory"
+        git checkout --theirs ./docker/.env
+        git add ./docker/.env
+        git commit -m "Resolved .env conflict favoring remote version"
 
-    - name: Commit changes without .env and push to public repo
+    - name: Unstage .github directory changes
+      run: git restore --source=HEAD --staged .github/
+
+    - name: Commit other changes and push to public repo
       run: |
         git checkout -b neuraville
-        git diff --exit-code || git commit -m "Sync with pre-pub-staging excluding .env"
+        git diff --exit-code || git commit -m "Sync with pre-pub-staging excluding .env and .github directory changes"
         git push public neuraville
         
     - name: Create PR on feagi/feagi repo
