@@ -55,11 +55,11 @@ jobs:
     - name: Create PR on feagi/feagi repo
       uses: repo-sync/pull-request@v2
       with:
-        source_repo: "Neuraville/feagi"
-        destination_repo: "feagi/feagi"
+        destination_repository: "feagi/feagi"
         source_branch: "neuraville"
         destination_branch: "staging"
         pr_title: "Sync with Neuraville pre-pub-staging"
-        pr_body: "This PR syncs with the latest changes from the Neuraville pre-pub-staging branch."
+        pr_body: "This PR syncs with latest Neuraville Inc. development code."
         pr_label: "sync"
         github_token: ${{ secrets.FEAGI_PAT5 }}
+
