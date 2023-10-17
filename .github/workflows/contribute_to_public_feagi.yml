@@ -47,7 +47,7 @@ jobs:
     - name: Commit other changes and push to public repo
       run: |
         git commit -m "Neuraville update" || true
-        git fetch --all
+        git fetch public
         git merge public/staging
         git push -u public $BRANCH_NAME
 
