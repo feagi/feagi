@@ -1,0 +1,45 @@
+name: Update Javascript Webcam Hub
+
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - 'third_party/embodiments/neuraville/javascript_webcam/**'
+
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Update Dockerfile
+        run: |
+          cd third_party/embodiments/neuraville/javascript_webcam/
+          if [ -f Dockerfile ]; then
+              sed -e 's|COPY controller.py /root/|COPY controller.py /root/|' \
+                  -e 's|COPY configuration.py /root/|COPY configuration.py /root/|' \
+                  -e 's|COPY version.py /root/|COPY version.py /root/|' \
+                  "Dockerfile" > "NewDockerfile"
+          fi
+          mv NewDockerfile Dockerfile
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: List Files
+        run: |
+          ls third_party/embodiments/neuraville/javascript_webcam
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: third_party/embodiments/neuraville/javascript_webcam
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: neuraville/webcam_controller:latest
