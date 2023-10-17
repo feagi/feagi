@@ -9,7 +9,9 @@
 name: Upload Feagi agent video capture4
 
 on:
-  [workflow_dispatch]
+  workflow_dispatch:
+    branches:
+      - pre-pub-staging
 
 permissions:
   contents: read
