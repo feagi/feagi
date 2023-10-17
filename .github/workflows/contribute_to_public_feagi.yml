@@ -26,12 +26,6 @@ jobs:
     - name: Generate branch name
       run: echo "BRANCH_NAME=neuraville-$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_ENV
 
-    - name: Unstage .env changes
-      run: git restore --source=HEAD --staged ./docker/.env
-
-    - name: Unstage .github directory changes for NV_*.yml files
-      run: git restore --source=HEAD --staged .github/NV_*.yml || true
-
     - name: Setup Git with PAT
       run: |
         git config --global user.email "dev@neuraville.com"
@@ -47,7 +41,7 @@ jobs:
     - name: Commit other changes and push to public repo
       run: |
         git commit -m "Neuraville update" || true
-        git fetch public
+        git fetch public staging
         git merge public/staging
         git push -u public $BRANCH_NAME
 
