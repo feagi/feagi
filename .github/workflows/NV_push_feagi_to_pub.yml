@@ -21,9 +21,11 @@ jobs:
     - name: Generate branch name
       run: echo "BRANCH_NAME=neuraville-$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_ENV
 
-
     - name: Unstage .env changes
       run: git restore --source=HEAD --staged ./docker/.env
+
+    - name: Unstage .github directory changes for NV_*.yml files
+      run: git restore --source=HEAD --staged .github/NV_*.yml
 
     - name: Setup Git with PAT
       run: |
@@ -41,9 +43,6 @@ jobs:
         git checkout --theirs ./docker/.env
         git add ./docker/.env
         git commit -m "Resolved .env conflict favoring remote version"
-
-    - name: Unstage .github directory changes for NV_*.yml files
-      run: git restore --source=HEAD --staged .github/NV_*.yml
 
     - name: Checkout or create neuraville branch
       run: |
