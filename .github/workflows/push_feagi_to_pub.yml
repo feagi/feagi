@@ -16,6 +16,10 @@ jobs:
       with:
         token: ${{ secrets.FEAGI_PAT5 }}
 
+    - name: Generate branch name
+      run: echo "BRANCH_NAME=neuraville-$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_ENV
+
+
     - name: Unstage .env changes
       run: git restore --source=HEAD --staged ./docker/.env
 
@@ -41,22 +45,22 @@ jobs:
 
     - name: Checkout or create neuraville branch
       run: |
-        git checkout neuraville || git checkout -b neuraville
+        git checkout $BRANCH_NAME || git checkout -b $BRANCH_NAME
 
     - name: Pull latest changes from neuraville branch on public repo
       run: |
-        git pull public neuraville || true
+        git pull public $BRANCH_NAME || true
 
     - name: Commit other changes and push to public repo
       run: |
         git diff --exit-code || git commit -m "Sync with pre-pub-staging excluding .env and .github directory changes"
-        git push public neuraville
+        git push public $BRANCH_NAME
 
     - name: Create PR on feagi/feagi repo
       uses: repo-sync/pull-request@v2
       with:
         destination_repository: "feagi/feagi"
-        source_branch: "neuraville"
+        source_branch: $BRANCH_NAME
         destination_branch: "staging"
         pr_title: "Updates from Neuraville Inc"
         pr_body: "This PR syncs with latest Neuraville Inc. development code."
