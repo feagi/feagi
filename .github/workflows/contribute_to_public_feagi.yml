@@ -46,7 +46,7 @@ jobs:
 
     - name: Commit other changes and push to public repo
       run: |
-        git commit -m "Neuraville update"
+        git commit -m "Neuraville update" || true
         git push public $BRANCH_NAME
 
     - name: Create PR on feagi/feagi repo
