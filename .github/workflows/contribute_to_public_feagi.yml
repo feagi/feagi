@@ -46,8 +46,8 @@ jobs:
 
     - name: Commit other changes and push to public repo
       run: |
-        git diff --exit-code || git commit -m "Sync with pre-pub-staging excluding .env and .github directory changes"
-        git push public $BRANCH_NAME --force
+        git commit -m "Neuraville update"
+        git push public $BRANCH_NAME
 
     - name: Create PR on feagi/feagi repo
       uses: repo-sync/pull-request@v2
