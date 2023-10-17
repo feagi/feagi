@@ -12,6 +12,3 @@ jobs:
       uses: actions/checkout@v2
       with:
         token: ${{ secrets.FEAGI_PAT5 }}
-
-    - name: Generate branch name
-      run: echo "BRANCH_NAME=neuraville-$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_ENV
