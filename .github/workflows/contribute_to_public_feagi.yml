@@ -7,8 +7,6 @@ name: Contribute to public FEAGI
 on:
   workflow_dispatch:
   push:
-    paths-ignore:
-      - '.github/workflows/NV_*.yml'
     branches:
       - pre-pub-staging
 
@@ -40,7 +38,6 @@ jobs:
 
     - name: Commit other changes and push to public repo
       run: |
-        git commit -m "Neuraville update" || true
         git fetch public staging
         git merge public/staging
         git push -u public $BRANCH_NAME
