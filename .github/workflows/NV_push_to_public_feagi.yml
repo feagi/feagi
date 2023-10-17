@@ -1,7 +1,7 @@
 name: Push to Public FEAGI
 
 on:
-  workflow_dispatch:
+  [workflow_dispatch]
 
 jobs:
   sync:
