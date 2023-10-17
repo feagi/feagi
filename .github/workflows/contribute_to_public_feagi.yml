@@ -1,0 +1,54 @@
+# This is a basic workflow that is manually triggered
+
+name: Contribute to public FEAGI
+
+# Controls when the action will run. Workflow runs when manually triggered using the UI
+# or API.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - pre-pub-staging
+
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.FEAGI_PAT5 }}
+
+    - name: Generate branch name
+      run: echo "BRANCH_NAME=neuraville-$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_ENV
+
+    - name: Setup Git with PAT
+      run: |
+        git config --global user.email "dev@neuraville.com"
+        git config --global user.name "NeuravilleDeveloper"
+        git remote add public https://x-access-token:${{ secrets.FEAGI_PAT5 }}@github.com/feagi/feagi.git
+
+
+    - name: Checkout or create neuraville branch
+      run: |
+        git checkout $BRANCH_NAME || git checkout -b $BRANCH_NAME
+
+
+    - name: Commit other changes and push to public repo
+      run: |
+        git fetch public staging
+        git rebase public/staging
+        git push -u public $BRANCH_NAME
+
+    - name: Create PR on feagi/feagi repo
+      uses: repo-sync/pull-request@v2
+      with:
+        destination_repository: "feagi/feagi"
+        source_branch: $BRANCH_NAME
+        destination_branch: "staging"
+        pr_title: "Updates from Neuraville Inc"
+        pr_body: "This PR syncs with latest Neuraville Inc. development code."
+        pr_label: "sync"
+        github_token: ${{ secrets.FEAGI_PAT5 }}

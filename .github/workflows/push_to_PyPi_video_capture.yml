@@ -18,7 +18,7 @@ jobs:
   deploy:
 
     runs-on: ubuntu-latest
-
+    if: github.repository == 'feagi/feagi'
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python
