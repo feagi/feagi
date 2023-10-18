@@ -364,34 +364,30 @@ class Ultrasonic:
         GPIO.setwarnings(False)
         self.trigger_pin = 27
         self.echo_pin = 22
-        self.MAX_DISTANCE = 300
-        self.timeOut = self.MAX_DISTANCE * 60
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.trigger_pin, GPIO.OUT)
         GPIO.setup(self.echo_pin, GPIO.IN)
 
-        def pulseIn(self, pin, level, timeOut):
-            t0 = time.time()
-            while GPIO.input(pin) != level:
-                elapsed_time = time.time() - t0
-                if elapsed_time > timeOut * 0.000001:
-                    return 0
-            t0 = time.time()
-            while GPIO.input(pin) == level:
-                elapsed_time = time.time() - t0
-                if elapsed_time > timeOut * 0.000001:
-                    return 0
-            pulse_time = elapsed_time * 1000000
-            return pulse_time
+    def send_trigger_pulse(self):
+        GPIO.output(self.trigger_pin, True)
+        # time.sleep(0.00015)
+        GPIO.output(self.trigger_pin, False)
+
+    def wait_for_echo(self, value, timeout):
+        count = timeout
+        while GPIO.input(self.echo_pin) != value and count > 0:
+            count = count - 1
 
     def get_distance(self):
-        distance_cm = [0, 0, 0, 0, 0]
-        for i in range(5):
-            GPIO.output(self.trigger_pin, GPIO.HIGH)  # make trigger_pin output 10us HIGH level
-            time.sleep(0.00001)  # 10us
-            GPIO.output(self.trigger_pin, GPIO.LOW)  # make trigger_pin output LOW level
-            pingTime = self.pulseIn(self.echo_pin, GPIO.HIGH, self.timeOut)
-            distance_cm[i] = pingTime * 340.0 / 2.0 / 10000.0
+        distance_cm = [0, 0, 0]
+        for i in range(3):
+            self.send_trigger_pulse()
+            self.wait_for_echo(True, 10000)
+            start = time.time()
+            self.wait_for_echo(False, 10000)
+            finish = time.time()
+            pulse_len = finish - start
+            distance_cm[i] = pulse_len / 0.000058
         distance_cm = sorted(distance_cm)
         distance_meter = (distance_cm[1] * 0.01) * 2
         return distance_meter
@@ -489,15 +485,15 @@ def start_motor(motor, feagi_settings, capabilities, rolling_window):
     asyncio.run(move_control(motor, feagi_settings, capabilities, rolling_window))
 
 
-async def listening_feagi(feagi_dict, feagi_opu_channel):
+async def listening_feagi(feagi_dict, feagi_opu_channel, feagi_settings):
     while True:
         if len(feagi_dict) > 2:
             feagi_dict.popleft()
         feagi_dict.append(pns.efferent_signaling(feagi_opu_channel))
 
 
-def start_feagi_bridge(feagi_dict, feagi_opu_channel):
-    asyncio.run(listening_feagi(feagi_dict, feagi_opu_channel))
+def start_feagi_bridge(feagi_dict, feagi_opu_channel, feagi_settings):
+    asyncio.run(listening_feagi(feagi_dict, feagi_opu_channel, feagi_settings))
 
 
 def main(feagi_settings, agent_settings, capabilities):
@@ -568,12 +564,12 @@ def main(feagi_settings, agent_settings, capabilities):
         rolling_window[motor_id] = deque([0] * rolling_window_len)
 
     threading.Thread(target=start_IR, args=(feagi_settings,), daemon=True).start()
-    threading.Thread(target=start_feagi_bridge, args=(feagi_dict, feagi_opu_channel,),
-                     daemon=True).start()
+    # threading.Thread(target=start_feagi_bridge, args=(feagi_dict, feagi_opu_channel,
+    #                                                   feagi_settings,), daemon=True).start()
     threading.Thread(target=start_motor, args=(motor, feagi_settings, capabilities,
-                                               rolling_window,),
-                     daemon=True).start()
-    threading.Thread(target=start_ultrasonic, args=(feagi_settings,), daemon=True).start()
+                                               rolling_window,), daemon=True).start()
+    # threading.Thread(target=start_ultrasonic, args=(feagi_settings,), daemon=True).start()
+    # ultrasonic = Ultrasonic()
     cam = cv2.VideoCapture(0)  # you need to do sudo rpi-update to be able to use this
     motor.stop()
     servo.set_default_position()
@@ -584,24 +580,23 @@ def main(feagi_settings, agent_settings, capabilities):
     while True:
         try:
             # Process OPU data received from FEAGI and pass it along
-            if feagi_dict:
-                message_to_feagi = feagi_dict[0]
-                if message_from_feagi:
-                    print("motor: ", message_from_feagi["opu_data"]["o__mot"])
-                if message_from_feagi is not None:
-                    # Obtain the size of aptr
-                    if aptr_cortical_size is None:
-                        aptr_cortical_size = pns.check_aptr(raw_aptr)
-                    # Update the aptr
-                    capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
-                                                           aptr_cortical_size)
-                    # Update the ISO
-                    capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
-                                                      aptr_cortical_size)
-                    obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
-                    # print("obtained: ", obtained_signals)
-                    led_flag = action(obtained_signals, device_list, led_flag, feagi_settings,
-                                      capabilities, motor_data, rolling_window, motor, servo, led)
+            # if feagi_dict:
+            message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
+            print("motor: ", message_from_feagi["opu_data"]["o__mot"])
+            if message_from_feagi is not None:
+                # Obtain the size of aptr
+                if aptr_cortical_size is None:
+                    aptr_cortical_size = pns.check_aptr(raw_aptr)
+                # Update the aptr
+                capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
+                                                       aptr_cortical_size)
+                # Update the ISO
+                capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
+                                                  aptr_cortical_size)
+                obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
+                # print("obtained: ", obtained_signals)
+                led_flag = action(obtained_signals, device_list, led_flag, feagi_settings,
+                                  capabilities, motor_data, rolling_window, motor, servo, led)
             if capabilities['camera']['disabled'] is not True:
                 ret, image = cam.read()
                 rgb = dict()
@@ -630,6 +625,7 @@ def main(feagi_settings, agent_settings, capabilities):
 
             # Fetch ultrasonic data
             ultrasonic_list = ultrasonic_data[0] if ultrasonic_data else []
+            # ultrasonic_list = ultrasonic.get_distance()
             formatted_ultrasonic_data = {
                 'ultrasonic': {sensor: data for sensor, data in enumerate([ultrasonic_list])}}
 
@@ -648,7 +644,7 @@ def main(feagi_settings, agent_settings, capabilities):
             message_to_feagi.clear()
             if message_from_feagi is not None:
                 feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
-            sleep(feagi_settings['feagi_burst_speed'])
+            # sleep(feagi_settings['feagi_burst_speed'])
         except KeyboardInterrupt as ke:  # Keyboard error
             motor.stop()
             cam.release()
