@@ -107,7 +107,7 @@ class Servo:
         elif channel == '7':
             self.PwmServo.setServoPulse(15, 500 + float((angle + error) / 0.09))
 
-    def set_default_position(self):
+    def set_default_position(self, runtime_data):
         try:
             # Setting the initial position for the servo
             servo_0_initial_position = 90
@@ -121,7 +121,7 @@ class Servo:
         except Exception as e:
             print("Error while setting initial position for the servo:", e)
 
-    def move(self, feagi_device_id, power, capabilities, feagi_settings):
+    def move(self, feagi_device_id, power, capabilities, feagi_settings, runtime_data):
         try:
             if feagi_device_id > 2 * capabilities['servo']['count']:
                 print("Warning! Number of servo channels from FEAGI exceed available Motor count!")
@@ -382,12 +382,13 @@ class Ultrasonic:
         distance_cm = [0, 0, 0]
         for i in range(3):
             self.send_trigger_pulse()
-            self.wait_for_echo(True, 10000)
+            self.wait_for_echo(True, 1000)
             start = time.time()
-            self.wait_for_echo(False, 10000)
+            self.wait_for_echo(False, 1000)
             finish = time.time()
             pulse_len = finish - start
             distance_cm[i] = pulse_len / 0.000058
+            print("here: ", distance_cm[i])
         distance_cm = sorted(distance_cm)
         distance_meter = (distance_cm[1] * 0.01) * 2
         return distance_meter
@@ -400,8 +401,9 @@ class Ultrasonic:
 #         # print(Power)
 #         return Power
 
+
 def action(obtained_data, device_list, led_flag, feagi_settings, capabilities, motor_data,
-           rolling_window, motor, servo, led):
+           rolling_window, motor, servo, led, runtime_data):
     motor_count = capabilities['motor']['count']
     for device in device_list:
         if 'led' in obtained_data:
@@ -441,7 +443,8 @@ def action(obtained_data, device_list, led_flag, feagi_settings, capabilities, m
                     device_id = data_point
                     device_power = obtained_data['servo'][data_point]
                     servo.move(feagi_device_id=device_id, power=device_power,
-                               capabilities=capabilities, feagi_settings=feagi_settings)
+                               capabilities=capabilities, feagi_settings=feagi_settings,
+                               runtime_data=runtime_data)
     return led_flag
 
 
@@ -569,10 +572,10 @@ def main(feagi_settings, agent_settings, capabilities):
     threading.Thread(target=start_motor, args=(motor, feagi_settings, capabilities,
                                                rolling_window,), daemon=True).start()
     # threading.Thread(target=start_ultrasonic, args=(feagi_settings,), daemon=True).start()
-    # ultrasonic = Ultrasonic()
+    ultrasonic = Ultrasonic()
     cam = cv2.VideoCapture(0)  # you need to do sudo rpi-update to be able to use this
     motor.stop()
-    servo.set_default_position()
+    servo.set_default_position(runtime_data)
     get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr'
     raw_aptr = requests.get(get_size_for_aptr_cortical).json()
     device_list = pns.generate_OPU_list(capabilities)
@@ -582,7 +585,6 @@ def main(feagi_settings, agent_settings, capabilities):
             # Process OPU data received from FEAGI and pass it along
             # if feagi_dict:
             message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
-            print("motor: ", message_from_feagi["opu_data"]["o__mot"])
             if message_from_feagi is not None:
                 # Obtain the size of aptr
                 if aptr_cortical_size is None:
@@ -596,7 +598,7 @@ def main(feagi_settings, agent_settings, capabilities):
                 obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
                 # print("obtained: ", obtained_signals)
                 led_flag = action(obtained_signals, device_list, led_flag, feagi_settings,
-                                  capabilities, motor_data, rolling_window, motor, servo, led)
+                                  capabilities, motor_data, rolling_window, motor, servo, led, runtime_data)
             if capabilities['camera']['disabled'] is not True:
                 ret, image = cam.read()
                 rgb = dict()
