@@ -1326,7 +1326,7 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area, response:
             response.status_code = status.HTTP_200_OK
             return True
         else:
-            response.status_code = status.HTTP_404_NOT_FOUND
+            response.status_code = status.HTTP_200_OK
             return False
 
     except Exception as e:
@@ -1367,7 +1367,7 @@ async def cortical_synaptic_potential_monitoring(cortical_area, response: Respon
             response.status_code = status.HTTP_200_OK
             return True
         else:
-            response.status_code = status.HTTP_404_NOT_FOUND
+            response.status_code = status.HTTP_200_OK
             return False
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
