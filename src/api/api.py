@@ -1212,7 +1212,7 @@ async def update_coord_3d(new_3d_coordinates: dict, response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e, traceback.print_exc())
-        print("ensure the provided data structure is a dict with cortical area id as keys and the value as [x, y]")
+        print("ensure the provided data structure is a dict with cortical area id as keys and the value as [x, y, z]")
         logger.error(traceback.print_exc())
 
 
