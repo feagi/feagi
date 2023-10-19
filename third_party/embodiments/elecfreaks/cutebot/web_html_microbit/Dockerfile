@@ -6,7 +6,7 @@ RUN apt-get update
 
 # Python
 RUN pip3 install --upgrade pip && \
-    pip3 install feagi_agent
+    pip3 install -U feagi_agent
 RUN pip3 install websockets
 RUN pip3 install fastapi
 RUN pip3 install lz4

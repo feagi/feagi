@@ -39,10 +39,9 @@ if __name__ == '__main__':
     print("FEAGI AUTH URL ------- ", feagi_auth_url)
     while True:
         try:
-            freenove_smartcar_controller.main(feagi_auth_url, feagi_settings,
+            freenove_smartcar_controller.main(feagi_settings,
                                               agent_settings,
-                                              capabilities,
-                                              message_to_feagi, args)
+                                              capabilities)
         except Exception as e:
             print(f"Controller run failed", e)
             traceback.print_exc()
