@@ -1172,6 +1172,55 @@ async def cortical_area_geometry(response: Response):
         print("API Error:", e)
 
 
+@app.api_route("/v1/feagi/genome/coord_2d", methods=['PUT'], tags=["Genome"])
+async def update_coord_2d(new_2d_coordinates: dict, response: Response):
+    """
+    Accepts a dictionary of 2D coordinates of one or more cortical areas and update them in genome.
+    """
+    try:
+        for cortical_area in new_2d_coordinates:
+            if cortical_area in runtime_data.genome["blueprint"]:
+                runtime_data.genome["blueprint"][cortical_area]["2d_coordinate"][0] = \
+                    new_2d_coordinates[cortical_area][0]
+                runtime_data.genome["blueprint"][cortical_area]["2d_coordinate"][1] = \
+                    new_2d_coordinates[cortical_area][1]
+
+        response.status_code = status.HTTP_200_OK
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e, traceback.print_exc())
+        print("ensure the provided data structure is a dict with cortical area id as keys and the value as [x, y]")
+        logger.error(traceback.print_exc())
+
+
+@app.api_route("/v1/feagi/genome/coord_3d", methods=['PUT'], tags=["Genome"])
+async def update_coord_3d(new_3d_coordinates: dict, response: Response):
+    """
+    Accepts a dictionary of 3D coordinates of one or more cortical areas and update them in genome.
+    """
+    try:
+        for cortical_area in new_3d_coordinates:
+            if cortical_area in runtime_data.genome["blueprint"]:
+                runtime_data.genome["blueprint"][cortical_area]["relative_coordinate"][0] = \
+                    new_3d_coordinates[cortical_area][0]
+                runtime_data.genome["blueprint"][cortical_area]["relative_coordinate"][1] = \
+                    new_3d_coordinates[cortical_area][1]
+                runtime_data.genome["blueprint"][cortical_area]["relative_coordinate"][2] = \
+                    new_3d_coordinates[cortical_area][2]
+
+        response.status_code = status.HTTP_200_OK
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e, traceback.print_exc())
+        print("ensure the provided data structure is a dict with cortical area id as keys and the value as [x, y, z]")
+        logger.error(traceback.print_exc())
+
+
+
+
+
+
+
 # ######  Evolution #########
 # #############################
 
@@ -1298,7 +1347,7 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area, response:
             response.status_code = status.HTTP_200_OK
             return True
         else:
-            response.status_code = status.HTTP_404_NOT_FOUND
+            response.status_code = status.HTTP_200_OK
             return False
 
     except Exception as e:
@@ -1339,7 +1388,7 @@ async def cortical_synaptic_potential_monitoring(cortical_area, response: Respon
             response.status_code = status.HTTP_200_OK
             return True
         else:
-            response.status_code = status.HTTP_404_NOT_FOUND
+            response.status_code = status.HTTP_200_OK
             return False
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
