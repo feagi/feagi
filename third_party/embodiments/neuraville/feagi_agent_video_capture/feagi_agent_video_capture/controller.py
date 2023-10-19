@@ -22,7 +22,7 @@ import feagi_agent.feagi_interface
 import requests
 from time import sleep
 from datetime import datetime
-from version import __version__
+from feagi_agent.version import __version__
 from feagi_agent import retina as retina
 from feagi_agent import pns_gateway as pns
 from feagi_agent import feagi_interface as feagi
@@ -42,10 +42,10 @@ camera_data = {"vision": {}}
 
 def process_video(video_path, capabilities):
     cam = cv2.VideoCapture(video_path)
-    screen_info = screeninfo.get_monitors()[0]  # Assuming you want the primary monitor
-    screen_width = 600
-    screen_height = 600
-    monitor = {"top": 40, "left": 0, "width": screen_width, "height": screen_height}
+    if capabilities['camera']['video_device_index'] == "monitor":
+        screen_width = 600
+        screen_height = 600
+        monitor = {"top": 40, "left": 0, "width": screen_width, "height": screen_height}
     pixels = []
     while True:
         if capabilities['camera']['video_device_index'] != "monitor":
@@ -55,20 +55,16 @@ def process_video(video_path, capabilities):
         if capabilities['camera']['video_device_index'] != "monitor":
             if bool(capabilities["camera"]["video_loop"]):
                 if check:
-                    pass
+                    sleep(0.01)
+                    cv2.imshow("OpenCV/Numpy normal", pixels)
                 else:
-                    print("check status: ", check)
                     cam.set(cv2.CAP_PROP_POS_FRAMES, 0)
         if capabilities['camera']['video_device_index'] == "monitor":
             with mss.mss() as sct:
                 img = numpy.array(sct.grab(monitor))
                 pixels = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
                 cv2.imshow("OpenCV/Numpy normal", pixels)
-            cv2.waitKey(25)
-        else:
-            if check:
-                # cv2.imshow("test", pixels)
-                cv2.waitKey(30)
+            # cv2.waitKey(25)
         if capabilities['camera']['current_select']:
             dim = (capabilities['camera']['current_select'][0], capabilities['camera'][
                 'current_select'][1])
@@ -76,6 +72,8 @@ def process_video(video_path, capabilities):
             camera_data["vision"] = pixels
         else:
             camera_data["vision"] = pixels
+        cv2.waitKey(30)
+
 
     cam.release()
     cv2.destroyAllWindows()
@@ -93,7 +91,6 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     while not feagi_flag:
         feagi_flag = feagi.is_FEAGI_reachable(feagi_settings["feagi_host"], 3000)
         sleep(2)
-    burst_counter_endpoint = feagi.feagi_api_burst_counter()
     # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # - - - - - - - - - - - - - - - - - - #
     feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
