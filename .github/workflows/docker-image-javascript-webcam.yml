@@ -11,6 +11,7 @@ on:
 jobs:
   docker:
     runs-on: ubuntu-latest
+    if: github.repository == 'feagi/feagi'
     steps:
       - name: Checkout
         uses: actions/checkout@v4

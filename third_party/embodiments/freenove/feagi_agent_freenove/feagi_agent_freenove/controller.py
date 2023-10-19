@@ -4,7 +4,9 @@ from feagi_agent import retina as retina
 import requests
 import sys
 import os
-from version import __version__
+import threading
+import asyncio
+from feagi_agent_freenove.version import __version__
 from feagi_agent_freenove.Led import *
 from feagi_agent_freenove.PCA9685 import PCA9685
 from picamera import PiCamera
@@ -19,15 +21,10 @@ import time
 import cv2
 import traceback
 
-runtime_data = {
-    "current_burst_id": 0,
-    "feagi_state": None,
-    "cortical_list": (),
-    "battery_charge_level": 1,
-    "host_network": {},
-    'motor_status': {},
-    'servo_status': {}
-}
+ir_data = deque()
+ultrasonic_data = deque()
+feagi_dict = deque()
+feagi_settings = dict()
 
 
 def window_average(sequence):
@@ -110,7 +107,7 @@ class Servo:
         elif channel == '7':
             self.PwmServo.setServoPulse(15, 500 + float((angle + error) / 0.09))
 
-    def set_default_position(self):
+    def set_default_position(self, runtime_data):
         try:
             # Setting the initial position for the servo
             servo_0_initial_position = 90
@@ -124,7 +121,7 @@ class Servo:
         except Exception as e:
             print("Error while setting initial position for the servo:", e)
 
-    def move(self, feagi_device_id, power, capabilities, feagi_settings):
+    def move(self, feagi_device_id, power, capabilities, feagi_settings, runtime_data):
         try:
             if feagi_device_id > 2 * capabilities['servo']['count']:
                 print("Warning! Number of servo channels from FEAGI exceed available Motor count!")
@@ -385,12 +382,13 @@ class Ultrasonic:
         distance_cm = [0, 0, 0]
         for i in range(3):
             self.send_trigger_pulse()
-            self.wait_for_echo(True, 10000)
+            self.wait_for_echo(True, 1000)
             start = time.time()
-            self.wait_for_echo(False, 10000)
+            self.wait_for_echo(False, 1000)
             finish = time.time()
             pulse_len = finish - start
             distance_cm[i] = pulse_len / 0.000058
+            print("here: ", distance_cm[i])
         distance_cm = sorted(distance_cm)
         distance_meter = (distance_cm[1] * 0.01) * 2
         return distance_meter
@@ -403,8 +401,9 @@ class Ultrasonic:
 #         # print(Power)
 #         return Power
 
+
 def action(obtained_data, device_list, led_flag, feagi_settings, capabilities, motor_data,
-           rolling_window, motor, servo, led):
+           rolling_window, motor, servo, led, runtime_data):
     motor_count = capabilities['motor']['count']
     for device in device_list:
         if 'led' in obtained_data:
@@ -444,22 +443,85 @@ def action(obtained_data, device_list, led_flag, feagi_settings, capabilities, m
                     device_id = data_point
                     device_power = obtained_data['servo'][data_point]
                     servo.move(feagi_device_id=device_id, power=device_power,
-                               capabilities=capabilities, feagi_settings=feagi_settings)
+                               capabilities=capabilities, feagi_settings=feagi_settings,
+                               runtime_data=runtime_data)
     return led_flag
 
 
-def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_to_feagi, args):
+async def read_background(feagi_settings):
+    ir = IR()
+    while True:
+        if len(ir_data) > 2:
+            ir_data.popleft()
+        ir_data.append(ir.read())
+        sleep(feagi_settings['feagi_burst_speed'])
+
+
+def start_IR(feagi_settings):
+    asyncio.run(read_background(feagi_settings))
+
+
+async def read_ultrasonic(feagi_settings):
+    ultrasonic = Ultrasonic()
+    while True:
+        if len(ultrasonic_data) > 2:
+            ultrasonic_data.popleft()
+        ultrasonic_data.append(ultrasonic.get_distance())
+        sleep(feagi_settings['feagi_burst_speed'])
+
+
+def start_ultrasonic(feagi_settings):
+    asyncio.run(read_ultrasonic(feagi_settings))
+
+
+async def move_control(motor, feagi_settings, capabilities, rolling_window):
+    motor_count = capabilities['motor']['count']
+    while True:
+        for id in range(motor_count):
+            motor_power = window_average(rolling_window[id])
+            motor_power = motor_power * capabilities["motor"]["power_amount"]
+            motor.move(id, motor_power)
+        sleep(feagi_settings['feagi_burst_speed'])
+
+
+def start_motor(motor, feagi_settings, capabilities, rolling_window):
+    asyncio.run(move_control(motor, feagi_settings, capabilities, rolling_window))
+
+
+async def listening_feagi(feagi_dict, feagi_opu_channel, feagi_settings):
+    while True:
+        if len(feagi_dict) > 2:
+            feagi_dict.popleft()
+        feagi_dict.append(pns.efferent_signaling(feagi_opu_channel))
+
+
+def start_feagi_bridge(feagi_dict, feagi_opu_channel, feagi_settings):
+    asyncio.run(listening_feagi(feagi_dict, feagi_opu_channel, feagi_settings))
+
+
+def main(feagi_settings, agent_settings, capabilities):
     GPIO.cleanup()
     # # FEAGI REACHABLE CHECKER # #
     feagi_flag = False
     print("retrying...")
     print("Waiting on FEAGI...")
     while not feagi_flag:
+        print("ip: ", os.environ.get('FEAGI_HOST_INTERNAL', feagi_settings["feagi_host"]))
+        print("here: ", int(os.environ.get('FEAGI_OPU_PORT', "30000")))
         feagi_flag = FEAGI.is_FEAGI_reachable(
             os.environ.get('FEAGI_HOST_INTERNAL', feagi_settings["feagi_host"]),
-            int(os.environ.get('FEAGI_OPU_PORT', "3000")))
+            int(os.environ.get('FEAGI_OPU_PORT', "30000")))
         sleep(2)
 
+    runtime_data = {
+        "current_burst_id": 0,
+        "feagi_state": None,
+        "cortical_list": (),
+        "battery_charge_level": 1,
+        "host_network": {},
+        'motor_status': {},
+        'servo_status': {}
+    }
     # # FEAGI REACHABLE CHECKER COMPLETED # #
 
     # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -473,8 +535,6 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     # --- Initializer section ---
     motor = Motor()
     servo = Servo()
-    ir = IR()
-    ultrasonic = Ultrasonic()
     led = LED()
     # battery = Battery()  # Commented out, not currently in use
 
@@ -493,7 +553,6 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     # --- Data Containers ---
     motor_data = dict()
     previous_data_frame = dict()
-
     # Initialize camera selection list
     capabilities['camera']['current_select'] = []
 
@@ -507,15 +566,39 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     for motor_id in range(motor_count):
         rolling_window[motor_id] = deque([0] * rolling_window_len)
 
+    threading.Thread(target=start_IR, args=(feagi_settings,), daemon=True).start()
+    # threading.Thread(target=start_feagi_bridge, args=(feagi_dict, feagi_opu_channel,
+    #                                                   feagi_settings,), daemon=True).start()
+    threading.Thread(target=start_motor, args=(motor, feagi_settings, capabilities,
+                                               rolling_window,), daemon=True).start()
+    # threading.Thread(target=start_ultrasonic, args=(feagi_settings,), daemon=True).start()
+    ultrasonic = Ultrasonic()
     cam = cv2.VideoCapture(0)  # you need to do sudo rpi-update to be able to use this
     motor.stop()
-    servo.set_default_position()
+    servo.set_default_position(runtime_data)
     get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr'
     raw_aptr = requests.get(get_size_for_aptr_cortical).json()
     device_list = pns.generate_OPU_list(capabilities)
     aptr_cortical_size = pns.fetch_aptr_size(10, raw_aptr, None)
     while True:
         try:
+            # Process OPU data received from FEAGI and pass it along
+            # if feagi_dict:
+            message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
+            if message_from_feagi is not None:
+                # Obtain the size of aptr
+                if aptr_cortical_size is None:
+                    aptr_cortical_size = pns.check_aptr(raw_aptr)
+                # Update the aptr
+                capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
+                                                       aptr_cortical_size)
+                # Update the ISO
+                capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
+                                                  aptr_cortical_size)
+                obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
+                # print("obtained: ", obtained_signals)
+                led_flag = action(obtained_signals, device_list, led_flag, feagi_settings,
+                                  capabilities, motor_data, rolling_window, motor, servo, led, runtime_data)
             if capabilities['camera']['disabled'] is not True:
                 ret, image = cam.read()
                 rgb = dict()
@@ -534,52 +617,25 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
             else:
                 rgb = {}
             # print(time.time() - start)
-            ir_data = ir.read()
-            if ir_data:
-                formatted_ir_data = {'ir': {sensor: True for sensor in ir_data}}
-            else:
-                formatted_ir_data = {}
 
-            if ir_data:
-                for ir_sensor in range(int(capabilities['infrared']['count'])):
-                    if ir_sensor not in formatted_ir_data['ir']:
-                        formatted_ir_data['ir'][ir_sensor] = False
-            else:
-                formatted_ir_data['ir'] = {}
-                for ir_sensor in range(int(capabilities['infrared']['count'])):
-                    formatted_ir_data['ir'][ir_sensor] = False
-
+            # Fetch IR data
+            ir_list = ir_data[0] if ir_data else []
+            formatted_ir_data = {'ir': {sensor: True for sensor in ir_list}}
             for ir_sensor in range(int(capabilities['infrared']['count'])):
                 if ir_sensor not in formatted_ir_data['ir']:
                     formatted_ir_data['ir'][ir_sensor] = False
-            ultrasonic_data = ultrasonic.get_distance()
-            if ultrasonic_data:
-                formatted_ultrasonic_data = {
-                    'ultrasonic': {
-                        sensor: data for sensor, data in enumerate([ultrasonic_data])
-                    }
-                }
-            else:
-                formatted_ultrasonic_data = {}
+
+            # Fetch ultrasonic data
+            ultrasonic_list = ultrasonic_data[0] if ultrasonic_data else []
+            # ultrasonic_list = ultrasonic.get_distance()
+            formatted_ultrasonic_data = {
+                'ultrasonic': {sensor: data for sensor, data in enumerate([ultrasonic_list])}}
+
+            # Ordering the message to send data to FEAGI
             message_to_feagi, battery = FEAGI.compose_message_to_feagi(
                 original_message={**formatted_ir_data, **formatted_ultrasonic_data,
                                   **rgb})  # Removed battery due to error
             # Disabled battery due to error
-            # Process OPU data received from FEAGI and pass it along
-            message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
-            if message_from_feagi is not None:
-                # Obtain the size of aptr
-                if aptr_cortical_size is None:
-                    aptr_cortical_size = pns.check_aptr(raw_aptr)
-                # Update the aptr
-                capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
-                                                       aptr_cortical_size)
-                # Update the ISO
-                capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
-                                                  aptr_cortical_size)
-                obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
-                led_flag = action(obtained_signals, device_list, led_flag, feagi_settings,
-                                  capabilities, motor_data, rolling_window, motor, servo, led)
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             if agent_settings['compression']:
@@ -590,11 +646,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
             message_to_feagi.clear()
             if message_from_feagi is not None:
                 feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
-            sleep(feagi_settings['feagi_burst_speed'])
-            for id in range(motor_count):
-                motor_power = window_average(rolling_window[id])
-                motor_power = motor_power * capabilities["motor"]["power_amount"]
-                motor.move(id, motor_power)
+            # sleep(feagi_settings['feagi_burst_speed'])
         except KeyboardInterrupt as ke:  # Keyboard error
             motor.stop()
             cam.release()
