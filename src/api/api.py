@@ -51,7 +51,7 @@ from evo.genome_processor import genome_2_1_convertor
 from inf.disk_ops import preserve_brain, revive_brain
 from .config import settings
 from inf.messenger import Sub
-from inf.initialize import deploy_genome
+from inf.initialize import deploy_genome, generate_cortical_dimensions_by_id
 
 
 logger = logging.getLogger(__name__)
@@ -1185,6 +1185,7 @@ async def update_coord_2d(new_2d_coordinates: dict, response: Response):
                 runtime_data.genome["blueprint"][cortical_area]["2d_coordinate"][1] = \
                     new_2d_coordinates[cortical_area][1]
 
+        runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
         response.status_code = status.HTTP_200_OK
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -1208,6 +1209,7 @@ async def update_coord_3d(new_3d_coordinates: dict, response: Response):
                 runtime_data.genome["blueprint"][cortical_area]["relative_coordinate"][2] = \
                     new_3d_coordinates[cortical_area][2]
 
+        runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
         response.status_code = status.HTTP_200_OK
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
