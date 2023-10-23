@@ -50,6 +50,7 @@ def process_video(video_path, capabilities):
     while True:
         if capabilities['camera']['video_device_index'] != "monitor":
             check, pixels = cam.read()
+            print("debug: ", pixels.shape)
         else:
             check = True
         if capabilities['camera']['video_device_index'] != "monitor":
@@ -66,9 +67,11 @@ def process_video(video_path, capabilities):
                 cv2.imshow("OpenCV/Numpy normal", pixels)
             # cv2.waitKey(25)
         if capabilities['camera']['current_select']:
+            capabilities['camera']["central_vision_resolution"] = capabilities['camera']['current_select']
             dim = (capabilities['camera']['current_select'][0], capabilities['camera'][
                 'current_select'][1])
             pixels = cv2.resize(pixels, dim, interpolation=cv2.INTER_AREA)
+            print("compression data: ", pixels.shape)
             camera_data["vision"] = pixels
         else:
             camera_data["vision"] = pixels
