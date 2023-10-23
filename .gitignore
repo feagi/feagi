@@ -20,7 +20,6 @@ __pycache__/*
 .pydevproject
 .settings
 .idea
-*.env
 tags
 
 # Package files
@@ -74,3 +73,4 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.import
+**/.env
