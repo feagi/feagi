@@ -50,7 +50,6 @@ def process_video(video_path, capabilities):
     while True:
         if capabilities['camera']['video_device_index'] != "monitor":
             check, pixels = cam.read()
-            print("debug: ", pixels.shape)
         else:
             check = True
         if capabilities['camera']['video_device_index'] != "monitor":
@@ -71,9 +70,12 @@ def process_video(video_path, capabilities):
             dim = (capabilities['camera']['current_select'][0], capabilities['camera'][
                 'current_select'][1])
             pixels = cv2.resize(pixels, dim, interpolation=cv2.INTER_AREA)
-            print("compression data: ", pixels.shape)
+            if capabilities["camera"]["mirror"]:
+                pixels = cv2.flip(pixels, 1)
             camera_data["vision"] = pixels
         else:
+            if capabilities["camera"]["mirror"]:
+                pixels = cv2.flip(pixels, 1)
             camera_data["vision"] = pixels
         cv2.waitKey(30)
 
@@ -108,9 +110,8 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr'
     raw_aptr = requests.get(get_size_for_aptr_cortical).json()
     aptr_cortical_size = pns.fetch_aptr_size(10, raw_aptr, None)
-    threading.Thread(target=process_video, args=(
-        capabilities['camera']['video_device_index'],
-        capabilities), daemon=True).start()
+    threading.Thread(target=process_video, args=(capabilities['camera']['video_device_index'],
+                                                 capabilities), daemon=True).start()
 
     while True:
         try:
