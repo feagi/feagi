@@ -178,3 +178,17 @@ def obtain_opu_data(device_list, message_from_feagi):
                 opu_signal_dict[i][x] = opu_data[i][x]
     return opu_signal_dict
 
+
+def obtain_data_type(data):
+    if type(data).__name__ == "ImagingCore":
+        print("ImagingCore")
+        return "ImagingCore"
+    elif type(data).__name__ == "ndarray":
+        print("numpy.ndarray")
+        return "numpy.ndarray"
+    elif type(data).__name__ == "list":
+        print("list")
+        return "list"
+    else:
+        print("Couldn't find: ", type(data).__name__, " and full name of the class: ", type(data))
+        return "Unknown"
