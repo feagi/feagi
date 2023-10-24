@@ -28,6 +28,7 @@ from feagi_agent import pns_gateway as pns
 from feagi_agent import feagi_interface as feagi
 import traceback
 import threading
+import os
 import time
 import pickle
 import lz4.frame
@@ -90,12 +91,13 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     runtime_data = {"vision": {}, "current_burst_id": None, "stimulation_period": None,
                     "feagi_state": None,
                     "feagi_network": None}
-    feagi_flag = False
     print("retrying...")
+    FEAGI_FLAG = False
     print("Waiting on FEAGI...")
-    while not feagi_flag:
-        feagi_flag = feagi.is_FEAGI_reachable(feagi_settings["feagi_host"], 3000)
-        sleep(2)
+    while not FEAGI_FLAG:
+        FEAGI_FLAG = feagi.is_FEAGI_reachable(
+            os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"),
+            int(os.environ.get('FEAGI_OPU_PORT', "3000")))
     # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # - - - - - - - - - - - - - - - - - - #
     feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
