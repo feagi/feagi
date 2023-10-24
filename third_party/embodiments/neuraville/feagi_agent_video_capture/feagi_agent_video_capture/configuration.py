@@ -49,7 +49,8 @@ capabilities = {
         "video_device_index": 0,
         "video_loop": False,
         "aperture_range": [0.1, 2],
-        "aperture_default": 2
+        "aperture_default": 2,
+        "mirror": True
     }
 }
 
