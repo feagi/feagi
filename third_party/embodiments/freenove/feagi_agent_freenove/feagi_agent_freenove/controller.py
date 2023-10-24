@@ -506,8 +506,6 @@ def main(feagi_settings, agent_settings, capabilities):
     print("retrying...")
     print("Waiting on FEAGI...")
     while not feagi_flag:
-        print("ip: ", os.environ.get('FEAGI_HOST_INTERNAL', feagi_settings["feagi_host"]))
-        print("here: ", int(os.environ.get('FEAGI_OPU_PORT', "30000")))
         feagi_flag = FEAGI.is_FEAGI_reachable(
             os.environ.get('FEAGI_HOST_INTERNAL', feagi_settings["feagi_host"]),
             int(os.environ.get('FEAGI_OPU_PORT', "30000")))
