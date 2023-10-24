@@ -22,6 +22,7 @@ import pycozmo
 from feagi_agent import feagi_interface as FEAGI
 from feagi_agent import retina as retina
 from feagi_agent import pns_gateway as pns
+from feagi_agent import PIL_retina as pitina
 from configuration import *
 from typing import Optional, List
 from version import __version__
@@ -157,10 +158,9 @@ def on_body_info(cli, pkt: pycozmo.protocol_encoder.BodyInfo):
 
 
 def on_camera_image(cli, image):
-    rgb_value = list(image.getdata())  # full rgb data
-    new_rgb = np.array(rgb_value)
-    new_rgb = new_rgb.reshape(240, 320, 3)
-    new_rgb = new_rgb.astype(np.uint8)
+    size = pitina.obtain_size(image)
+    new_rgb = retina.pitina_to_retina(image.getdata(), size)
+    new_rgb = retina.update_astype(new_rgb)
     rgb_array['current'] = new_rgb
     time.sleep(0.01)
 
