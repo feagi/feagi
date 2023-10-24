@@ -41,7 +41,7 @@ capabilities = {
         "iso_default": 0.6,
         "iso_range": [0.1, 2],
         "central_vision_allocation_percentage": [90, 70],
-        "central_vision_resolution": [16, 16],
+        "central_vision_resolution": [64, 64],
         "peripheral_vision_resolution": [8, 8],
         "resolution_presets": [[8, 8], [16, 16], [32, 32], [64, 64], [128, 128], [256, 256],
                                [400, 400], [480, 320], [500, 500], [800, 800], [1024, 900]],
