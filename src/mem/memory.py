@@ -67,7 +67,7 @@ def neuroplasticity():
     for neuron in common_neurons:
         try:
             cortical_area = neuron[:6]
-            presynaptic_neurons = list_upstream_plastic_neurons(cortical_area=cortical_area, neuron_id=neuron)
+            # presynaptic_neurons = list_upstream_plastic_neurons(cortical_area=cortical_area, neuron_id=neuron)
 
             postsynaptic_neurons = list_downstream_plastic_neurons(cortical_area=cortical_area, neuron_id=neuron)
 
@@ -75,7 +75,7 @@ def neuroplasticity():
             for item in postsynaptic_neurons:
                 postsynaptic_neurons_set.add(item)
 
-            connected_neurons = presynaptic_neurons | postsynaptic_neurons_set
+            # connected_neurons = presynaptic_neurons | postsynaptic_neurons_set
 
             for postsynaptic_neuron in postsynaptic_neurons:
                 if postsynaptic_neuron in common_neurons:
@@ -112,14 +112,14 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
                 if long_term_depression:
                     # When long term depression flag is set, there will be negative synaptic influence caused
                     plasticity_constant = plasticity_constant * ltd_multiplier * -1
-                    # print("<> <> <> <> <> <> <> <> <>  LTD  <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
+                    # print("<> <> <> <> <> <> <> <> <>  LTD  <> <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id, plasticity_constant)
                     try:
                         runtime_data.cumulative_stats[src_cortical_area]["LTD"] += 1
                     except Exception as e:
                         print("Exception during LTD:", e)
 
                 else:
-                    # print("<> <> <> <> <> <> <> <> <>  LTP  <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id)
+                    # print("<> <> <> <> <> <> <> <> <>  LTP  <> <> <> <> <> <> <> <>", src_neuron_id, dst_neuron_id, plasticity_constant)
                     plasticity_constant = plasticity_constant * ltp_multiplier
                     try:
                         runtime_data.cumulative_stats[src_cortical_area]["LTP"] += 1
@@ -129,7 +129,6 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
                 try:
                     new_psc = \
                         runtime_data.brain[src_cortical_area][src_neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
-
                     new_psc += plasticity_constant
 
                     # Condition to cap the postsynaptic_current and provide prohibitory reaction
@@ -143,8 +142,8 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
                         new_psc = 0
                         # runtime_data.prunning_candidates.add((src_cortical_area, src_neuron_id,
                         #                                       dst_cortical_area, dst_neuron_id))
-
-                    post_synaptic_current_update(cortical_area_src=src_cortical_area, cortical_area_dst=dst_cortical_area,
+                    post_synaptic_current_update(cortical_area_src=src_cortical_area,
+                                                 cortical_area_dst=dst_cortical_area,
                                                  neuron_id_src=src_neuron_id, neuron_id_dst=dst_neuron_id,
                                                  post_synaptic_current=new_psc)
 
