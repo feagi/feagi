@@ -19,6 +19,7 @@ limitations under the License.
 import cv2
 import numpy as np
 
+
 def resize_calculate(a, b, p):
     after_percent = p / 100
     remain_percent = ((100 - p) / 2) / 100
@@ -91,7 +92,7 @@ def detect_change_edge(frame, previous_data_frame, retina_data, current_selected
                 previous_name = str(i) + "_prev"
                 rgb_data, previous_data_frame[previous_name] = \
                     get_rgb(data, central_resolution, previous_data_frame[previous_name], name,
-                            current_iso_selected,aperture_default)
+                            current_iso_selected, aperture_default)
             else:
                 previous_name = str(i) + "_prev"
                 rgb_data, previous_data_frame[previous_name] = \
@@ -250,3 +251,17 @@ def pan(frame, origin, x, y):
     """
     vision = frame[origin[1]:origin[1] + y, origin[0]:origin[0] + x]
     return vision
+
+
+def obtain_dimesion(data, data_type):
+    if data_type == "list":
+        dimension = np.array(data)
+        return dimension.shape
+    elif data_type == "ndarray":
+        return data.shape
+
+
+def pitina_to_retina(data, size):
+    rgb_value = list(data)
+    new_rgb = np.array(rgb_value)
+    return new_rgb.reshape(size[1], size[0], 3)
