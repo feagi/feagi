@@ -271,7 +271,6 @@ def post_synaptic_current_update(cortical_area_src,
     """
     runtime_data.brain[cortical_area_src][neuron_id_src]["neighbors"][neuron_id_dst]["postsynaptic_current"] = \
         post_synaptic_current
-
     # Assess the filter conditions set through the REST API
     if cortical_area_dst in runtime_data.neuron_psp_collection_scope:
         if monitor_filter(cortical_area=cortical_area_dst, neuron_id=neuron_id_dst,
