@@ -19,7 +19,6 @@ limitations under the License.
 import cv2
 import numpy as np
 
-
 def resize_calculate(a, b, p):
     after_percent = p / 100
     remain_percent = ((100 - p) / 2) / 100
@@ -194,6 +193,7 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr
     except Exception as e:
         print("Error: Raw data frame does not match frame resolution")
         print("Error due to this: ", e)
+        previous_frame_data = {}
     if len(vision_dict) > (frame_row_count * frame_col_count) / atpr_level:
         return {'camera': {name_id: {}}}, previous_frame_data
     else:
