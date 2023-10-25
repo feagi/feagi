@@ -499,13 +499,15 @@ def start_feagi_bridge(feagi_dict, feagi_opu_channel, feagi_settings):
     asyncio.run(listening_feagi(feagi_dict, feagi_opu_channel, feagi_settings))
 
 
-def main(feagi_settings, agent_settings, capabilities):
+def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
     GPIO.cleanup()
     # # FEAGI REACHABLE CHECKER # #
     feagi_flag = False
     print("retrying...")
     print("Waiting on FEAGI...")
     while not feagi_flag:
+        print("ip: ", os.environ.get('FEAGI_HOST_INTERNAL', feagi_settings["feagi_host"]))
+        print("here: ", int(os.environ.get('FEAGI_OPU_PORT', "30000")))
         feagi_flag = FEAGI.is_FEAGI_reachable(
             os.environ.get('FEAGI_HOST_INTERNAL', feagi_settings["feagi_host"]),
             int(os.environ.get('FEAGI_OPU_PORT', "30000")))
@@ -526,7 +528,7 @@ def main(feagi_settings, agent_settings, capabilities):
     # - - - - - - - - - - - - - - - - - - #
     feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
         FEAGI.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities,
-                               __version__)
+                               __version__, feagi_auth_url)
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
