@@ -158,8 +158,11 @@ def on_body_info(cli, pkt: pycozmo.protocol_encoder.BodyInfo):
 
 
 def on_camera_image(cli, image):
+    # Obtain the size automatically which will be needed in next line after the next line
     size = pitina.obtain_size(image)
+    # Convert into ndarray based on the size it gets
     new_rgb = retina.pitina_to_retina(image.getdata(), size)
+    # update astype to work well with retina and cv2
     new_rgb = retina.update_astype(new_rgb)
     rgb_array['current'] = new_rgb
     time.sleep(0.01)
