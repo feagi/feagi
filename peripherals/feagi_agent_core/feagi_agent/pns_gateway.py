@@ -185,7 +185,7 @@ def obtain_data_type(data):
         return "ImagingCore"
     elif type(data).__name__ == "ndarray":
         print("numpy.ndarray")
-        return "numpy.ndarray"
+        return "ndarray"
     elif type(data).__name__ == "list":
         print("list")
         return "list"
