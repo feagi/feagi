@@ -253,7 +253,7 @@ def pan(frame, origin, x, y):
     return vision
 
 
-def obtain_dimesion(data, data_type):
+def obtain_dimension(data, data_type):
     if data_type == "list":
         dimension = np.array(data)
         return dimension.shape
@@ -265,3 +265,19 @@ def pitina_to_retina(data, size):
     rgb_value = list(data)
     new_rgb = np.array(rgb_value)
     return new_rgb.reshape(size[1], size[0], 3)
+
+
+def update_astype(data):
+    return data.astype(np.uint8)
+
+
+def RGBA_list_to_ndarray(data, size):
+    new_rgb = np.array(data)
+    new_rgb = new_rgb.reshape(size[0], size[1], 4)
+    return new_rgb
+
+
+def RGB_list_to_ndarray(data, size):
+    new_rgb = np.array(data)
+    new_rgb = new_rgb.reshape(size[0], size[1], 3)
+    return new_rgb
