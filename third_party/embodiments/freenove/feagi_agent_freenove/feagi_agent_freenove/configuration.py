@@ -86,7 +86,8 @@ capabilities = {
                                [400, 400], [500, 500], [800, 800], [1024, 900]],
         "previous_data": {},
         "aperture_range": [0.2, 2],
-        "aperture_default": 2
+        "aperture_default": 2,
+        "mirror": True
     },
     "led": {
         "type": "opu"
