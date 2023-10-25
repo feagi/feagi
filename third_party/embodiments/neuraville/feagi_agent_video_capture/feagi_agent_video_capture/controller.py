@@ -67,7 +67,8 @@ def process_video(video_path, capabilities):
                 cv2.imshow("OpenCV/Numpy normal", pixels)
             # cv2.waitKey(25)
         if capabilities['camera']['current_select']:
-            capabilities['camera']["central_vision_resolution"] = capabilities['camera']['current_select']
+            capabilities['camera']["central_vision_resolution"] = capabilities['camera'][
+                'current_select']
             dim = (capabilities['camera']['current_select'][0], capabilities['camera'][
                 'current_select'][1])
             pixels = cv2.resize(pixels, dim, interpolation=cv2.INTER_AREA)
@@ -79,7 +80,6 @@ def process_video(video_path, capabilities):
                 pixels = cv2.flip(pixels, 1)
             camera_data["vision"] = pixels
         cv2.waitKey(30)
-
 
     cam.release()
     cv2.destroyAllWindows()
@@ -95,9 +95,8 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     FEAGI_FLAG = False
     print("Waiting on FEAGI...")
     while not FEAGI_FLAG:
-        FEAGI_FLAG = feagi.is_FEAGI_reachable(
-            os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"),
-            int(os.environ.get('FEAGI_OPU_PORT', "3000")))
+        FEAGI_FLAG = feagi.is_FEAGI_reachable(os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"),
+                                              int(os.environ.get('FEAGI_OPU_PORT', "3000")))
     # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # - - - - - - - - - - - - - - - - - - #
     feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
@@ -121,23 +120,25 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
             pixels = camera_data['vision']
             previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
                 pns.generate_rgb(pixels,
-                                capabilities['camera']['central_vision_allocation_percentage'][0],
-                                capabilities['camera']['central_vision_allocation_percentage'][1],
-                                capabilities['camera']["central_vision_resolution"],
-                                capabilities['camera']['peripheral_vision_resolution'],
-                                previous_data_frame,
-                                capabilities['camera']['current_select'],
-                                capabilities['camera']['iso_default'],
-                                capabilities['camera']["aperture_default"])
+                                 capabilities['camera']['central_vision_allocation_percentage'][0],
+                                 capabilities['camera']['central_vision_allocation_percentage'][1],
+                                 capabilities['camera']["central_vision_resolution"],
+                                 capabilities['camera']['peripheral_vision_resolution'],
+                                 previous_data_frame,
+                                 capabilities['camera']['current_select'],
+                                 capabilities['camera']['iso_default'],
+                                 capabilities['camera']["aperture_default"])
 
             if message_from_feagi is not None:
                 # Obtain the size of aptr
                 if aptr_cortical_size is None:
                     aptr_cortical_size = pns.check_aptr(raw_aptr)
                 # Update the aptr
-                capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities, aptr_cortical_size)
+                capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
+                                                       aptr_cortical_size)
                 # Update the ISO
-                capabilities = pns.fetch_iso_data(message_from_feagi, capabilities, aptr_cortical_size)
+                capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
+                                                  aptr_cortical_size)
                 # Update the vres
                 capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
                 # Update the aceture
