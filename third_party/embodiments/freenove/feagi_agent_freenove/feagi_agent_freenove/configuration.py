@@ -17,11 +17,11 @@ limitations under the License.
 # !/usr/bin/env python3
 
 feagi_settings = {
-    # "feagi_auth_url": "http://127.0.0.1:9000/v1/k8/feagi_settings/auth_token",
-    "feagi_url": None,
-    "feagi_dns": None,
-    "feagi_host": "127.0.0.1",
-    "feagi_api_port": "8000",
+    "feagi_url": None,  # gets updated
+    "feagi_auth_url": None,  # composer for getting the Feagi URL link - First Priority
+    "feagi_dns": None,  # URL https://neurobotics.studio - Second priority
+    "feagi_host": "127.0.0.1",  # feagi IP  - third priority
+    "feagi_api_port": "8000",  # feagi Port - third priority
 }
 
 agent_settings = {
@@ -86,7 +86,8 @@ capabilities = {
                                [400, 400], [500, 500], [800, 800], [1024, 900]],
         "previous_data": {},
         "aperture_range": [0.2, 2],
-        "aperture_default": 2
+        "aperture_default": 2,
+        "mirror": True
     },
     "led": {
         "type": "opu"
