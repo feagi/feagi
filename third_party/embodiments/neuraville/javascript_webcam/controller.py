@@ -33,6 +33,7 @@ from feagi_agent import feagi_interface as feagi
 from feagi_agent import pns_gateway as pns
 
 rgb_array = {}
+webcam_size = {'size': []}
 
 
 def rgba2rgb(rgba, background=(255, 255, 255)):
@@ -77,6 +78,7 @@ async def echo(websocket):
     async for message in websocket:
         test = message
         rgb_array['current'] = list(test)
+        webcam_size['size'] = []
 
 
 async def main():
@@ -124,7 +126,6 @@ if __name__ == "__main__":
                                    __version__)
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-
         genome_tracker = 0
         get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area' \
                                                    '=o_aptr'
@@ -158,26 +159,14 @@ if __name__ == "__main__":
                     capabilities = pns.fetch_vision_acuity(message_from_feagi, capabilities)
                     # OPU section ENDS
                 if np.any(rgb_array['current']):
-                    if len(rgb_array['current']) == 1228800:
-                        new_rgb = np.array(rgb_array['current'])
-                        new_rgb = new_rgb.reshape(480, 640, 4)
-                    elif len(rgb_array['current']) == 266256:
-                        new_rgb = np.array(rgb_array['current'])
-                        new_rgb = new_rgb.reshape(258, 258, 4)
-                    elif len(rgb_array['current']) == 360000:
-                        new_rgb = np.array(rgb_array['current'])
-                        new_rgb = new_rgb.reshape(300, 300, 4)
-                    elif len(rgb_array['current']) == 65536:
-                        new_rgb = np.array(rgb_array['current'])
-                        new_rgb = new_rgb.reshape(128, 128, 4)
-                    elif len(rgb_array['current']) == 16384:
-                        new_rgb = np.array(rgb_array['current'])
-                        new_rgb = new_rgb.reshape(64, 64, 4)
-                    elif len(rgb_array['current']) == 120000:
-                        new_rgb = np.array(rgb_array['current'])
-                        new_rgb = new_rgb.reshape(150, 200, 4)
-                    # new_rgb = new_rgb.astype(np.uint8)
+                    if not webcam_size['size']:
+                        webcam_size['size'].append(rgb_array['current'].pop(0))
+                        webcam_size['size'].append(rgb_array['current'].pop(0))
+                    new_rgb = retina.RGBA_list_to_ndarray(rgb_array['current'], webcam_size['size'])
+                    new_rgb = retina.update_astype(new_rgb)
                     new_rgb = rgba2rgb(new_rgb)
+                    if capabilities["camera"]["mirror"]:
+                        new_rgb = retina.flip_video(new_rgb)
                     previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] \
                         = pns.generate_rgb(new_rgb,
                                            capabilities['camera'][
@@ -202,7 +191,7 @@ if __name__ == "__main__":
                 message_to_feagi['timestamp'] = datetime.now()
                 message_to_feagi['counter'] = msg_counter
                 if message_from_feagi is not None:
-                        feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
+                    feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
                 sleep(feagi_settings['feagi_burst_speed'])
 
                 if agent_settings['compression']:
