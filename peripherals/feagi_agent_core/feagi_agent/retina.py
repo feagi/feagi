@@ -281,3 +281,7 @@ def RGB_list_to_ndarray(data, size):
     new_rgb = np.array(data)
     new_rgb = new_rgb.reshape(size[0], size[1], 3)
     return new_rgb
+
+
+def flip_video(data):
+    return cv2.flip(data, 1)
