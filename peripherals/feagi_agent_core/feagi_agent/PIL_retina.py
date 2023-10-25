@@ -20,15 +20,5 @@ from PIL import Image
 
 
 def obtain_size(data):
-    print("here: ", data.size)
-    # return data.size()
+    return data.size
 
-
-def obtain_astype(data):
-    return data.astype(np.uint8)
-
-
-def pitina_to_ndarray(data, size):
-    rgb_value = list(data)
-    new_rgb = np.array(rgb_value)
-    return new_rgb.reshape(size[1], size[0], 3)
