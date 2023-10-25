@@ -25,8 +25,6 @@ if __name__ == '__main__':
                         required=False)
     parser.add_argument('-url', '--url', help='full url',
                         required=False)
-    parser.add_argument('-dns', '--dns', help='dns',
-                        required=False)
     args = vars(parser.parse_args())
     if args['ip']:
         feagi_settings["feagi_host"] = args['ip']
@@ -40,10 +38,8 @@ if __name__ == '__main__':
         feagi_settings["feagi_api_port"] = args['api_port']
     from feagi_agent_freenove import controller as freenove_smartcar_controller
     if args['url']:
-        feagi_auth_url = args['url']
-        # feagi_settings['feagi_dns'] = args['dns']
-    else:
-        feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
+        feagi_settings['feagi_dns'] = args['url']
+    feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
     print("FEAGI AUTH URL ------- ", feagi_auth_url)
     while True:
         try:
