@@ -589,6 +589,8 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
                 # Obtain the size of aptr
                 if aptr_cortical_size is None:
                     aptr_cortical_size = pns.check_aptr(raw_aptr)
+                # Update the vres
+                capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
                 # Update the aptr
                 capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
                                                        aptr_cortical_size)
@@ -601,6 +603,14 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
                                   capabilities, motor_data, rolling_window, motor, servo, led, runtime_data)
             if capabilities['camera']['disabled'] is not True:
                 ret, image = cam.read()
+                if capabilities['camera']['current_select']:
+                    capabilities['camera']["central_vision_resolution"] = capabilities['camera'][
+                        'current_select']
+                    dim = (capabilities['camera']['current_select'][0], capabilities['camera'][
+                        'current_select'][1])
+                    image = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
+                if capabilities['camera']['mirror']:
+                    image = retina.flip_video(image)
                 rgb = dict()
                 previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] \
                     = pns.generate_rgb(image,
