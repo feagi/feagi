@@ -164,6 +164,8 @@ def on_camera_image(cli, image):
     new_rgb = retina.pitina_to_retina(image.getdata(), size)
     # update astype to work well with retina and cv2
     new_rgb = retina.update_astype(new_rgb)
+    if capabilities['camera']['mirror']:
+        new_rgb = retina.flip_video(new_rgb)
     rgb_array['current'] = new_rgb
     time.sleep(0.01)
 
@@ -302,7 +304,7 @@ if __name__ == '__main__':
             if message_from_feagi is not None:
                 # Obtain the size of aptr
                 if aptr_cortical_size is None:
-                    aptr_cortical_size = pns.check_aptr(raw_aptr)
+                    aptr_cortical_size = pns.check_aptr(raw_aptr)   
                 # Update the aptr
                 capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
                                                        aptr_cortical_size)
