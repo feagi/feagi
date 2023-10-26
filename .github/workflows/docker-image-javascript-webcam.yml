@@ -25,7 +25,7 @@ jobs:
           git config --global user.email "BrainVisualizerPushAction@neuraville.com"
           git config --global --add safe.directory /__w/brain-visualizer/brain-visualizer
           echo "set vars"
-          git fetch origin
+          git checkout -b temp
       - name: Update Dockerfile and version
         run: |
           export FEAGI_PATH=$(pwd)
@@ -43,7 +43,7 @@ jobs:
           git add .
           git commit -m "Updated Version"
           echo "committed"
-          git push origin staging
+          git push origin temp:version --force
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
