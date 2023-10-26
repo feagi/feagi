@@ -264,7 +264,7 @@ if __name__ == '__main__':
     msg_counter = 0
     rgb = {'camera': {}}
     genome_tracker = 0
-    capabilities['camera']['current_select'] = []
+    capabilities['camera']['current_select'] = [[], []]
     get_size_for_aptr_cortical = api_address + '/v1/FEAGI/genome/cortical_area?cortical_area=o_aptr'
     raw_aptr = requests.get(get_size_for_aptr_cortical).json()
     aptr_cortical_size = pns.fetch_aptr_size(10, raw_aptr, None)

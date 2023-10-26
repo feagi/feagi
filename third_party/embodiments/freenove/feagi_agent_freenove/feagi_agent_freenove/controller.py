@@ -554,7 +554,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
     motor_data = dict()
     previous_data_frame = dict()
     # Initialize camera selection list
-    capabilities['camera']['current_select'] = []
+    capabilities['camera']['current_select'] = [[], []]
 
     # Status for data points
     data_point_status = {}
