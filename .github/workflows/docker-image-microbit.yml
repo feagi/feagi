@@ -5,6 +5,7 @@ on:
     branches:
       - "main"
     paths:
+      - '!third_party/embodiments/elecfreaks/cutebot/web_html_microbit/version.py'
       - 'third_party/embodiments/elecfreaks/cutebot/web_html_microbit/**'
 
 
@@ -16,15 +17,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }} 
-      - name: Update Dockerfile
-        run: |
-          if [ -f Dockerfile ]; then
-              sed -e 's|COPY controller.py /root/|COPY controller.py /root/|' \
-                  -e 's|COPY configuration.py /root/|COPY configuration.py /root/|' \
-                  -e 's|COPY version.py /root/|COPY version.py /root/|' \
-              "Dockerfile" > "Dockerfile"
-          fi
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Merge in New Changes
         run: |
           # Set up Git
@@ -33,16 +26,23 @@ jobs:
           git config --global --add safe.directory /__w/brain-visualizer/brain-visualizer
           echo "set vars"
           git fetch origin
-          git checkout -b temp
-      - name: Set Compile Time
+      - name: Update Dockerfile
         run: |
-          ./version_generate.sh
+          export FEAGI_PATH=$(pwd)
+          cd third_party/embodiments/elecfreaks/cutebot/web_html_microbit/
+          bash $FEAGI_PATH/generate_version.sh
+          if [ -f Dockerfile ]; then
+              sed -e 's|COPY controller.py /root/|COPY controller.py /root/|' \
+                  -e 's|COPY configuration.py /root/|COPY configuration.py /root/|' \
+                  -e 's|COPY version.py /root/|COPY version.py /root/|' \
+              "Dockerfile" > "Dockerfile"
+          fi
       - name: Push version changes
         run: |
           git add .
           git commit -m "Updated Version"
           echo "committed"
-          git push origin temp:web_export --force
+          git push origin staging
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
