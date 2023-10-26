@@ -3,7 +3,7 @@ name: Update Javascript Webcam Hub
 on:
   push:
     branches:
-      - "staging"
+      - "main"
     paths:
       - '!third_party/embodiments/neuraville/javascript_webcam/version.py'
       - 'third_party/embodiments/neuraville/javascript_webcam/**'
@@ -12,6 +12,7 @@ on:
 jobs:
   docker:
     runs-on: ubuntu-latest
+    if: github.repository == 'feagi/feagi'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
