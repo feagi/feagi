@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }} 
       - name: Update Dockerfile
         run: |
           cd third_party/embodiments/neuraville/javascript_webcam/
@@ -25,6 +27,24 @@ jobs:
                   "Dockerfile" > "NewDockerfile"
           fi
           mv NewDockerfile Dockerfile
+      - name: Merge in New Changes
+        run: |
+          # Set up Git
+          git config --global user.name "BrainVisualizerPushAction"
+          git config --global user.email "BrainVisualizerPushAction@neuraville.com"
+          git config --global --add safe.directory /__w/brain-visualizer/brain-visualizer
+          echo "set vars"
+          git fetch origin
+          git checkout -b temp
+      - name: Set Compile Time
+        run: |
+          ./version_generate.sh
+      - name: Push version changes
+        run: |
+          git add .
+          git commit -m "Updated Version"
+          echo "committed"
+          git push origin temp:web_export --force
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
