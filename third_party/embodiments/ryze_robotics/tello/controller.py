@@ -267,7 +267,7 @@ if __name__ == '__main__':
     aptr_cortical_size = pns.fetch_aptr_size(10, raw_aptr, None)
     rgb = dict()
     rgb['camera'] = dict()
-    capabilities['camera']['current_select'] = []
+    capabilities['camera']['current_select'] = [[], []]
     device_list = pns.generate_OPU_list(capabilities)  # get the OPU sensors
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # - - - #

@@ -66,12 +66,6 @@ def process_video(video_path, capabilities):
                 pixels = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
                 cv2.imshow("OpenCV/Numpy normal", pixels)
             # cv2.waitKey(25)
-        if capabilities['camera']['current_select']:
-            capabilities['camera']["central_vision_resolution"] = capabilities['camera'][
-                'current_select']
-            dim = (capabilities['camera']['current_select'][0], capabilities['camera'][
-                'current_select'][1])
-            pixels = cv2.resize(pixels, dim, interpolation=cv2.INTER_AREA)
             if capabilities["camera"]["mirror"]:
                 pixels = cv2.flip(pixels, 1)
             camera_data["vision"] = pixels
@@ -105,7 +99,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     msg_counter = runtime_data["feagi_state"]['burst_counter']
     rgb = dict()
-    capabilities['camera']['current_select'] = []
+    capabilities['camera']['current_select'] = [[], []]
     rgb['camera'] = dict()
     genome_tracker = 0
     get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr'

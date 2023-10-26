@@ -104,7 +104,7 @@ if __name__ == "__main__":
     CHECKPOINT_TOTAL = 5
     rgb['camera'] = {}
     rgb_array['current'] = {}
-    capabilities['camera']['current_select'] = []
+    capabilities['camera']['current_select'] = [[], []]
     BGSK = threading.Thread(target=websocket_operation, daemon=True).start()
     while True:
         feagi_flag = False
