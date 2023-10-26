@@ -37,6 +37,11 @@ def generate_rgb(frame, width_percentage, height_percentage, central_resolution,
         current_iso_selected (float): Capabilities['camera']['iso_threshold'].
         aperture_default (float): Capabilities['camera']["aperture_default"].
     """
+    if current_selected_size:
+        if current_selected_size[0]:
+            central_resolution = current_selected_size[0]
+        if current_selected_size[1]:
+            peripheral_resolution = current_selected_size[1]
     retina_data = retina.frame_split(frame, width_percentage, height_percentage)
     retina_data = retina.frame_compression(retina_data,
                                            central_resolution, peripheral_resolution)
@@ -117,7 +122,21 @@ def fetch_resolution_selected(message_from_feagi, capabilities):
             for i in message_from_feagi["opu_data"]["o_vres"]:
                 dev_data = feagi.block_to_array(i)  # TODO: remove use feagi interface
                 if dev_data[0] == 0:
-                    capabilities['camera']['current_select'] = \
+                    capabilities['camera']['current_select'][0] = \
+                        capabilities['camera']['resolution_presets'][dev_data[2]]
+                if dev_data[0] == 1:
+                    capabilities['camera']['current_select'][1] = \
+                        capabilities['camera']['resolution_presets'][dev_data[2]]
+    return capabilities
+
+
+def fetch_resolution_peripherals_selected(message_from_feagi, capabilities):
+    if "o_pres" in message_from_feagi["opu_data"]:
+        if message_from_feagi["opu_data"]["o_pres"]:
+            for i in message_from_feagi["opu_data"]["o_pres"]:
+                dev_data = feagi.block_to_array(i)  # TODO: remove use feagi interface
+                if dev_data[0] == 0:
+                    capabilities['camera']['current_select_peripheral'] = \
                         capabilities['camera']['resolution_presets'][dev_data[2]]
     return capabilities
 
