@@ -25,7 +25,7 @@ jobs:
         run: |
           export FEAGI_PATH=$(pwd)
           cd third_party/embodiments/neuraville/javascript_webcam/
-          bash FEAGI_PATH/generate_version.sh
+          bash $FEAGI_PATH/generate_version.sh
           if [ -f Dockerfile ]; then
               sed -e 's|COPY controller.py /root/|COPY controller.py /root/|' \
                   -e 's|COPY configuration.py /root/|COPY configuration.py /root/|' \
