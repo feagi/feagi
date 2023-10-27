@@ -5,6 +5,7 @@ from configuration import *
 from djitellopy import Tello
 from datetime import datetime
 from version import __version__
+from feagi_agent import retina
 from feagi_agent import pns_gateway as pns
 from feagi_agent import feagi_interface as FEAGI
 
@@ -266,7 +267,7 @@ if __name__ == '__main__':
     aptr_cortical_size = pns.fetch_aptr_size(10, raw_aptr, None)
     rgb = dict()
     rgb['camera'] = dict()
-    capabilities['camera']['current_select'] = []
+    capabilities['camera']['current_select'] = [[], []]
     device_list = pns.generate_OPU_list(capabilities)  # get the OPU sensors
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # - - - #
@@ -291,6 +292,11 @@ if __name__ == '__main__':
             bat = get_battery(data)
             battery = bat['battery_charge_level']
             data = full_frame(tello)
+            if capabilities['camera']['current_select']:
+                capabilities['camera']["central_vision_resolution"] = capabilities['camera'][
+                    'current_select']
+            if capabilities['camera']['mirror']:
+                data = retina.flip_video(data)
             previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
                 pns.generate_rgb(data,
                                  capabilities['camera']['central_vision_allocation_percentage'][0],
@@ -321,6 +327,8 @@ if __name__ == '__main__':
             if message_from_feagi is not None:
                 if aptr_cortical_size is None:
                     aptr_cortical_size = pns.check_aptr(raw_aptr)
+                # Update the vres
+                capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
                 # Update the aptr
                 capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
                                                        aptr_cortical_size)

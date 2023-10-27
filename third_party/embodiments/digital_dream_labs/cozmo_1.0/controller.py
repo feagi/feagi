@@ -22,6 +22,7 @@ import pycozmo
 from feagi_agent import feagi_interface as FEAGI
 from feagi_agent import retina as retina
 from feagi_agent import pns_gateway as pns
+from feagi_agent import PIL_retina as pitina
 from configuration import *
 from typing import Optional, List
 from version import __version__
@@ -157,10 +158,14 @@ def on_body_info(cli, pkt: pycozmo.protocol_encoder.BodyInfo):
 
 
 def on_camera_image(cli, image):
-    rgb_value = list(image.getdata())  # full rgb data
-    new_rgb = np.array(rgb_value)
-    new_rgb = new_rgb.reshape(240, 320, 3)
-    new_rgb = new_rgb.astype(np.uint8)
+    # Obtain the size automatically which will be needed in next line after the next line
+    size = pitina.obtain_size(image)
+    # Convert into ndarray based on the size it gets
+    new_rgb = retina.pitina_to_retina(image.getdata(), size)
+    # update astype to work well with retina and cv2
+    new_rgb = retina.update_astype(new_rgb)
+    if capabilities['camera']['mirror']:
+        new_rgb = retina.flip_video(new_rgb)
     rgb_array['current'] = new_rgb
     time.sleep(0.01)
 
@@ -259,7 +264,7 @@ if __name__ == '__main__':
     msg_counter = 0
     rgb = {'camera': {}}
     genome_tracker = 0
-    capabilities['camera']['current_select'] = []
+    capabilities['camera']['current_select'] = [[], []]
     get_size_for_aptr_cortical = api_address + '/v1/FEAGI/genome/cortical_area?cortical_area=o_aptr'
     raw_aptr = requests.get(get_size_for_aptr_cortical).json()
     aptr_cortical_size = pns.fetch_aptr_size(10, raw_aptr, None)
@@ -299,7 +304,7 @@ if __name__ == '__main__':
             if message_from_feagi is not None:
                 # Obtain the size of aptr
                 if aptr_cortical_size is None:
-                    aptr_cortical_size = pns.check_aptr(raw_aptr)
+                    aptr_cortical_size = pns.check_aptr(raw_aptr)   
                 # Update the aptr
                 capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
                                                        aptr_cortical_size)

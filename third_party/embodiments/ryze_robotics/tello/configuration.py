@@ -62,7 +62,8 @@ capabilities = {
         "field_of_vision_origin": [100, 100],
         "aperture_range": [0.2, 2],
         "iso_range": [0.1, 2],
-        "aperture_default": 2
+        "aperture_default": 2,
+        "mirror": True
     },
     "battery": {
         "type": "ipu",

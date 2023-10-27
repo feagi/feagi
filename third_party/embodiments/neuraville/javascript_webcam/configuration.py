@@ -51,7 +51,8 @@ capabilities = {
         "previous_data": {},
         "video_device_index": 2,
         "aperture_range": [0.1, 2],
-        "aperture_default": 2
+        "aperture_default": 2,
+        "mirror": True
     }
 }
 

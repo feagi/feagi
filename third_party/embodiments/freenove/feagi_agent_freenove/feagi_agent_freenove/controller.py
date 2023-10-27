@@ -499,19 +499,19 @@ def start_feagi_bridge(feagi_dict, feagi_opu_channel, feagi_settings):
     asyncio.run(listening_feagi(feagi_dict, feagi_opu_channel, feagi_settings))
 
 
-def main(feagi_settings, agent_settings, capabilities):
+def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
     GPIO.cleanup()
     # # FEAGI REACHABLE CHECKER # #
     feagi_flag = False
     print("retrying...")
     print("Waiting on FEAGI...")
-    while not feagi_flag:
-        print("ip: ", os.environ.get('FEAGI_HOST_INTERNAL', feagi_settings["feagi_host"]))
-        print("here: ", int(os.environ.get('FEAGI_OPU_PORT', "30000")))
-        feagi_flag = FEAGI.is_FEAGI_reachable(
-            os.environ.get('FEAGI_HOST_INTERNAL', feagi_settings["feagi_host"]),
-            int(os.environ.get('FEAGI_OPU_PORT', "30000")))
-        sleep(2)
+    # while not feagi_flag:
+    #     print("ip: ", os.environ.get('FEAGI_HOST_INTERNAL', feagi_settings["feagi_host"]))
+    #     print("here: ", int(os.environ.get('FEAGI_OPU_PORT', "30000")))
+    #     feagi_flag = FEAGI.is_FEAGI_reachable(
+    #         os.environ.get('FEAGI_HOST_INTERNAL', feagi_settings["feagi_host"]),
+    #         int(os.environ.get('FEAGI_OPU_PORT', "30000")))
+    #     sleep(2)
 
     runtime_data = {
         "current_burst_id": 0,
@@ -554,7 +554,7 @@ def main(feagi_settings, agent_settings, capabilities):
     motor_data = dict()
     previous_data_frame = dict()
     # Initialize camera selection list
-    capabilities['camera']['current_select'] = []
+    capabilities['camera']['current_select'] = [[], []]
 
     # Status for data points
     data_point_status = {}
@@ -589,6 +589,10 @@ def main(feagi_settings, agent_settings, capabilities):
                 # Obtain the size of aptr
                 if aptr_cortical_size is None:
                     aptr_cortical_size = pns.check_aptr(raw_aptr)
+                    
+                # Update the vres
+                capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
+                
                 # Update the aptr
                 capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
                                                        aptr_cortical_size)
@@ -601,6 +605,14 @@ def main(feagi_settings, agent_settings, capabilities):
                                   capabilities, motor_data, rolling_window, motor, servo, led, runtime_data)
             if capabilities['camera']['disabled'] is not True:
                 ret, image = cam.read()
+                if capabilities['camera']['current_select']:
+                    capabilities['camera']["central_vision_resolution"] = capabilities['camera'][
+                        'current_select']
+                    dim = (capabilities['camera']['current_select'][0], capabilities['camera'][
+                        'current_select'][1])
+                    image = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
+                if capabilities['camera']['mirror']:
+                    image = retina.flip_video(image)
                 rgb = dict()
                 previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] \
                     = pns.generate_rgb(image,
