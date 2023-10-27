@@ -870,7 +870,7 @@ if __name__ == '__main__':
     args = None
     previous_data_frame = dict()
     rgb = dict()
-    capabilities['camera']['current_select'] = []
+    capabilities['camera']['current_select'] = [[], []]
     rgb['camera'] = dict()
     feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
     print("FEAGI AUTH URL ------- ", feagi_auth_url)
