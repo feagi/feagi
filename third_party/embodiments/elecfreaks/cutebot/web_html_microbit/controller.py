@@ -77,16 +77,16 @@ async def echo(websocket):
         else:
             ir1 = 1
         try:
-            x_acc = int(message[2:6]) - 1000
-            y_acc = int(message[6:10]) - 1000
-            z_acc = int(message[10:14]) - 1000
-            ultrasonic = float(message[14:16])
-            sound_level = int(message[16:18])
+            # x_acc = int(message[2:6]) - 1000
+            # y_acc = int(message[6:10]) - 1000
+            # z_acc = int(message[10:14]) - 1000
+            # ultrasonic = float(message[14:16])
+            # sound_level = int(message[16:18])
             # Store values in dictionary
             microbit_data['ir'] = [ir0, ir1]
-            microbit_data['ultrasonic'] = ultrasonic / 25
-            microbit_data['accelerator'] = [x_acc, y_acc, z_acc]
-            microbit_data['sound_level'] = {sound_level}
+            # microbit_data['ultrasonic'] = ultrasonic / 25
+            # microbit_data['accelerator'] = [x_acc, y_acc, z_acc]
+            # microbit_data['sound_level'] = {sound_level}
         except Exception as Error_case:
             print("error: ", Error_case)
             print("raw: ", message)
@@ -195,31 +195,31 @@ if __name__ == "__main__":
                     formatted_ir_data['ir'].update(ir_data)  # Should work
                 else:
                     formatted_ir_data = {}
-                ultrasonic_data = microbit_data['ultrasonic']
-                if ultrasonic_data:
-                    formatted_ultrasonic_data = {
-                        'ultrasonic': {
-                            sensor: data for sensor, data in enumerate([ultrasonic_data])
-                        }
-                    }
-                else:
-                    formatted_ultrasonic_data = {}
+                # ultrasonic_data = microbit_data['ultrasonic']
+                # if ultrasonic_data:
+                #     formatted_ultrasonic_data = {
+                #         'ultrasonic': {
+                #             sensor: data for sensor, data in enumerate([ultrasonic_data])
+                #         }
+                #     }
+                # else:
+                #     formatted_ultrasonic_data = {}
                 message_to_feagi, battery = feagi.compose_message_to_feagi(
-                    original_message={**formatted_ir_data, **formatted_ultrasonic_data})
+                    original_message={**formatted_ir_data})
 
                 # Add accelerator section
-                try:
-                    runtime_data['accelerator']['0'] = microbit_data['accelerator'][0]
-                    runtime_data['accelerator']['1'] = microbit_data['accelerator'][1]
-                    runtime_data['accelerator']['2'] = microbit_data['accelerator'][2]
-                    if "data" not in message_to_feagi:
-                        message_to_feagi["data"] = {}
-                    if "sensory_data" not in message_to_feagi["data"]:
-                        message_to_feagi["data"]["sensory_data"] = {}
-                    message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data[
-                        'accelerator']
-                except Exception as ERROR:
-                    message_to_feagi["data"]["sensory_data"]['accelerator'] = {}
+                # try:
+                #     runtime_data['accelerator']['0'] = microbit_data['accelerator'][0]
+                #     runtime_data['accelerator']['1'] = microbit_data['accelerator'][1]
+                #     runtime_data['accelerator']['2'] = microbit_data['accelerator'][2]
+                #     if "data" not in message_to_feagi:
+                #         message_to_feagi["data"] = {}
+                #     if "sensory_data" not in message_to_feagi["data"]:
+                #         message_to_feagi["data"]["sensory_data"] = {}
+                #     message_to_feagi["data"]["sensory_data"]['accelerator'] = runtime_data[
+                #         'accelerator']
+                # except Exception as ERROR:
+                #     message_to_feagi["data"]["sensory_data"]['accelerator'] = {}
                 # End accelerator section
 
                 message_to_feagi['timestamp'] = datetime.now()
