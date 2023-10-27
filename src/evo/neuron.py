@@ -92,29 +92,21 @@ def init_neuron(cortical_area, soma_location):
     #     genome['blueprint'][cortical_area]['depolarization_threshold']
 
     # todo: firing_threshold_increment to have options in different directions
-    fire_threshold_flag = False
+
+    runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] = \
+        genome['blueprint'][cortical_area]['firing_threshold']
 
     if "firing_threshold_increment_x" in genome['blueprint'][cortical_area]:
-        runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] = \
-            genome['blueprint'][cortical_area]['firing_threshold'] + \
-            (genome['blueprint'][cortical_area]['firing_threshold_increment_x'] * soma_location[0])
-        fire_threshold_flag = True
+        runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] += \
+            genome['blueprint'][cortical_area]['firing_threshold_increment_x'] * soma_location[0]
 
     if "firing_threshold_increment_y" in genome['blueprint'][cortical_area]:
-        runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] = \
-            genome['blueprint'][cortical_area]['firing_threshold'] + \
-            (genome['blueprint'][cortical_area]['firing_threshold_increment_y'] * soma_location[1])
-        fire_threshold_flag = True
+        runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] += \
+            genome['blueprint'][cortical_area]['firing_threshold_increment_y'] * soma_location[1]
 
     if "firing_threshold_increment_z" in genome['blueprint'][cortical_area]:
-        runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] = \
-            genome['blueprint'][cortical_area]['firing_threshold'] + \
-            (genome['blueprint'][cortical_area]['firing_threshold_increment_z'] * soma_location[2])
-        fire_threshold_flag = True
-
-    if not fire_threshold_flag:
-        runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] = \
-            genome['blueprint'][cortical_area]['firing_threshold']
+        runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] += \
+            genome['blueprint'][cortical_area]['firing_threshold_increment_z'] * soma_location[2]
 
     leak = genome['blueprint'][cortical_area]['leak_coefficient']
     leak_variability = genome['blueprint'][cortical_area]['leak_variability']
