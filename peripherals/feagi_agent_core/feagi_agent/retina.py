@@ -91,8 +91,8 @@ def detect_change_edge(frame, previous_data_frame, retina_data, current_selected
             if 'C' in i:
                 previous_name = str(i) + "_prev"
                 rgb_data, previous_data_frame[previous_name] = \
-                    get_rgb(data, central_resolution, previous_data_frame[previous_name], name,
-                            current_iso_selected,aperture_default)
+                        get_rgb(data, central_resolution, previous_data_frame[previous_name], name,
+                            current_iso_selected, aperture_default)
             else:
                 previous_name = str(i) + "_prev"
                 rgb_data, previous_data_frame[previous_name] = \
@@ -194,6 +194,7 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr
     except Exception as e:
         print("Error: Raw data frame does not match frame resolution")
         print("Error due to this: ", e)
+        previous_frame_data = {}
     if len(vision_dict) > (frame_row_count * frame_col_count) / atpr_level:
         return {'camera': {name_id: {}}}, previous_frame_data
     else:
@@ -250,3 +251,37 @@ def pan(frame, origin, x, y):
     """
     vision = frame[origin[1]:origin[1] + y, origin[0]:origin[0] + x]
     return vision
+
+
+def obtain_dimension(data, data_type):
+    if data_type == "list":
+        dimension = np.array(data)
+        return dimension.shape
+    elif data_type == "ndarray":
+        return data.shape
+
+
+def pitina_to_retina(data, size):
+    rgb_value = list(data)
+    new_rgb = np.array(rgb_value)
+    return new_rgb.reshape(size[1], size[0], 3)
+
+
+def update_astype(data):
+    return data.astype(np.uint8)
+
+
+def RGBA_list_to_ndarray(data, size):
+    new_rgb = np.array(data)
+    new_rgb = new_rgb.reshape(size[0], size[1], 4)
+    return new_rgb
+
+
+def RGB_list_to_ndarray(data, size):
+    new_rgb = np.array(data)
+    new_rgb = new_rgb.reshape(size[0], size[1], 3)
+    return new_rgb
+
+
+def flip_video(data):
+    return cv2.flip(data, 1)
