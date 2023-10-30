@@ -10,6 +10,7 @@ RUN pip3 install --upgrade pip && \
     pip3 install opencv-python==4.7.0.68
 RUN pip3 install websockets
 RUN pip3 install fastapi
+RUN apt-get update
 RUN apt install -y libgl1-mesa-glx
 RUN pip3 install lz4
 

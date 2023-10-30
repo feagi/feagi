@@ -294,11 +294,16 @@ def genome_v1_v2_converter(genome_v1):
                         morphology_scalar = entry["morphology_scalar"]
                         postSynapticCurrent_multiplier = entry["postSynapticCurrent_multiplier"]
                         plasticity_flag = entry["plasticity_flag"]
-
+                        plasticity_constant = entry["plasticity_constant"]
+                        ltp_multiplier = entry["ltp_multiplier"]
+                        ltd_multiplier = entry["ltd_multiplier"]
                         destination_map[destination].append([morphology_id,
                                                             morphology_scalar,
                                                             postSynapticCurrent_multiplier,
-                                                            plasticity_flag])
+                                                            plasticity_flag,
+                                                            plasticity_constant,
+                                                            ltp_multiplier,
+                                                            ltd_multiplier])
 
                 genome_v2['blueprint'][gene] = destination_map
             else:
