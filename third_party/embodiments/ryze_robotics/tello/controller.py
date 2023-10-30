@@ -292,9 +292,6 @@ if __name__ == '__main__':
             bat = get_battery(data)
             battery = bat['battery_charge_level']
             data = full_frame(tello)
-            if capabilities['camera']['current_select']:
-                capabilities['camera']["central_vision_resolution"] = capabilities['camera'][
-                    'current_select']
             if capabilities['camera']['mirror']:
                 data = retina.flip_video(data)
             previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
