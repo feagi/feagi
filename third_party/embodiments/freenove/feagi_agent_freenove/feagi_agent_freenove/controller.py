@@ -600,7 +600,8 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
                 obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
                 # print("obtained: ", obtained_signals)
                 led_flag = action(obtained_signals, device_list, led_flag, feagi_settings,
-                                  capabilities, motor_data, rolling_window, motor, servo, led, runtime_data)
+                                  capabilities, motor_data, rolling_window, motor, servo, led,
+                                  runtime_data)
             if capabilities['camera']['disabled'] is not True:
                 ret, image = cam.read()
                 if capabilities['camera']['current_select'][0]:
