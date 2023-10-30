@@ -294,9 +294,22 @@ def genome_v1_v2_converter(genome_v1):
                         morphology_scalar = entry["morphology_scalar"]
                         postSynapticCurrent_multiplier = entry["postSynapticCurrent_multiplier"]
                         plasticity_flag = entry["plasticity_flag"]
-                        plasticity_constant = entry["plasticity_constant"]
-                        ltp_multiplier = entry["ltp_multiplier"]
-                        ltd_multiplier = entry["ltd_multiplier"]
+
+                        if "plasticity_constant" in entry:
+                            plasticity_constant = entry["plasticity_constant"]
+                        else:
+                            plasticity_constant = 1
+
+                        if "ltp_multiplier" in entry:
+                            ltp_multiplier = entry["ltp_multiplier"]
+                        else:
+                            ltp_multiplier = 1
+
+                        if "ltp_multiplier" in entry:
+                            ltd_multiplier = entry["ltd_multiplier"]
+                        else:
+                            ltd_multiplier = 1
+
                         destination_map[destination].append([morphology_id,
                                                             morphology_scalar,
                                                             postSynapticCurrent_multiplier,
