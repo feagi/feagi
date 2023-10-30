@@ -7,8 +7,6 @@ name: Contribute to public FEAGI
 on:
   workflow_dispatch:
   push:
-    paths-ignore:
-      - '.github/workflows/NV_*.yml'
     branches:
       - pre-pub-staging
 
@@ -26,12 +24,6 @@ jobs:
     - name: Generate branch name
       run: echo "BRANCH_NAME=neuraville-$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_ENV
 
-    - name: Unstage .env changes
-      run: git restore --source=HEAD --staged ./docker/.env
-
-    - name: Unstage .github directory changes for NV_*.yml files
-      run: git restore --source=HEAD --staged .github/NV_*.yml || true
-
     - name: Setup Git with PAT
       run: |
         git config --global user.email "dev@neuraville.com"
@@ -46,16 +38,18 @@ jobs:
 
     - name: Commit other changes and push to public repo
       run: |
-        git diff --exit-code || git commit -m "Sync with pre-pub-staging excluding .env and .github directory changes"
-        git push public $BRANCH_NAME --force
+        git fetch public staging
+        git rebase public/staging
+        git push -u public $BRANCH_NAME
 
     - name: Create PR on feagi/feagi repo
       uses: repo-sync/pull-request@v2
       with:
         destination_repository: "feagi/feagi"
-        source_branch: $BRANCH_NAME
+        source_branch: ${{ env.BRANCH_NAME }}
         destination_branch: "staging"
         pr_title: "Updates from Neuraville Inc"
         pr_body: "This PR syncs with latest Neuraville Inc. development code."
         pr_label: "sync"
         github_token: ${{ secrets.FEAGI_PAT5 }}
+
