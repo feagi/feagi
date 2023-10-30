@@ -324,7 +324,6 @@ if __name__ == '__main__':
             if message_from_feagi is not None:
                 if aptr_cortical_size is None:
                     aptr_cortical_size = pns.check_aptr(raw_aptr)
-
                 # Update the vres
                 capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
                 # Update the aptr
