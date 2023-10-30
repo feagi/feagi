@@ -588,8 +588,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
             if message_from_feagi is not None:
                 # Obtain the size of aptr
                 if aptr_cortical_size is None:
-                    aptr_cortical_size = pns.check_aptr(raw_aptr)
-                    
+                    aptr_cortical_size = pns.check_aptr(raw_aptr)                    
                 # Update the vres
                 capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
                 
@@ -602,14 +601,15 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
                 obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
                 # print("obtained: ", obtained_signals)
                 led_flag = action(obtained_signals, device_list, led_flag, feagi_settings,
-                                  capabilities, motor_data, rolling_window, motor, servo, led, runtime_data)
+                                  capabilities, motor_data, rolling_window, motor, servo, led,
+                                  runtime_data)
             if capabilities['camera']['disabled'] is not True:
                 ret, image = cam.read()
-                if capabilities['camera']['current_select']:
+                if capabilities['camera']['current_select'][0]:
                     capabilities['camera']["central_vision_resolution"] = capabilities['camera'][
-                        'current_select']
-                    dim = (capabilities['camera']['current_select'][0], capabilities['camera'][
-                        'current_select'][1])
+                        'current_select'][0]
+                    dim = (capabilities['camera']['current_select'][0][0], capabilities['camera'][
+                        'current_select'][0][1])
                     image = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
                 if capabilities['camera']['mirror']:
                     image = retina.flip_video(image)
