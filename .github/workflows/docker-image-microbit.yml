@@ -18,31 +18,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Merge in New Changes
-        run: |
-          # Set up Git
-          git config --global user.name "BrainVisualizerPushAction"
-          git config --global user.email "BrainVisualizerPushAction@neuraville.com"
-          git config --global --add safe.directory /__w/brain-visualizer/brain-visualizer
-          echo "set vars"
-          git checkout -b temp
       - name: Update Dockerfile
         run: |
-          export FEAGI_PATH=$(pwd)
           cd third_party/embodiments/elecfreaks/cutebot/web_html_microbit/
-          bash $FEAGI_PATH/generate_version.sh
           if [ -f Dockerfile ]; then
               sed -e 's|COPY controller.py /root/|COPY controller.py /root/|' \
                   -e 's|COPY configuration.py /root/|COPY configuration.py /root/|' \
                   -e 's|COPY version.py /root/|COPY version.py /root/|' \
               "Dockerfile" > "Dockerfile"
           fi
-      - name: Push version changes
-        run: |
-          git add .
-          git commit -m "Updated Version"
-          echo "committed"
-          git push origin temp:version --force
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
