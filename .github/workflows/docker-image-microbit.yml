@@ -40,10 +40,11 @@ jobs:
           mv NewDockerfile Dockerfile
       - name: Push version changes
         run: |
+          git pull origin pre-release
           git add .
           git commit -m "Updated Version"
           echo "committed"
-          git push origin temp:version --force
+          git push origin temp:pre-release
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
