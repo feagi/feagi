@@ -30,6 +30,7 @@ jobs:
         fetch-depth: 0
         repository: feagi/feagi
         path: community-feagi
+        token: ${{ secrets.PUBLIC_PAT_MNT }}
 
     - name: Merge code
       run: |
