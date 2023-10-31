@@ -1,32 +1,30 @@
 name: Create a PR contain versions
 
 on:
-  workflow_dispatch:
-  push:
+  create:
     branches:
-      - "pre-release"
+      - 'pre-release'
+    push:
+      branches:
+        - 'pre-release'
+  workflow_dispatch:
 
 jobs:
   PR_to_main:
     runs-on: ubuntu-latest
     if: github.repository == 'feagi/feagi'
     steps:
-    - name: Check out code
-      uses: actions/checkout@v2
-      with:
-        repository: feagi/feagi
-        token: ${{ secrets.PUBLIC_PAT_MNT }}
     - name: Create PR using GitHub CLI
       run: |
         # Set up GitHub CLI
-        gh auth login --with-token <<< "${{ secrets.PUBLIC_PAT_MNT }}"
+        gh auth login --with-token <<< "${{ secrets.GITHUB_TOKEN }}"
         
         # Create a pull request
         gh pr create \
           --repo feagi/feagi \
-          --base pre-release \
-          --head main \
+          --base main \
+          --head pre-release \
           --title "Updates versions along with new changes" \
           --body "This PR syncs with latest Neuraville Inc. development code."
       env:
-        GH_CLI_TOKEN: ${{ secrets.PUBLIC_PAT_MNT }}
+        GH_CLI_TOKEN: ${{ secrets.GITHUB_TOKEN }}
