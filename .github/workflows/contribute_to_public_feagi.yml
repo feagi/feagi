@@ -23,10 +23,10 @@ jobs:
     - name: Generate branch name
       run: echo "BRANCH_NAME=neuraville-$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_ENV
 
-    - name: Checkout or create neuraville branch
-      run: |
-        cd neuraville-feagi
-        git checkout $BRANCH_NAME || git checkout -b $BRANCH_NAME
+    # - name: Checkout or create neuraville branch
+    #   run: |
+    #     cd neuraville-feagi
+    #     git checkout $BRANCH_NAME || git checkout -b $BRANCH_NAME
 
     - name: Check out Community code
       uses: actions/checkout@v4
