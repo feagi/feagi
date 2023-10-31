@@ -1,15 +1,12 @@
-# This is a basic workflow that is manually triggered
-
 name: Contribute to public FEAGI
 
-# Controls when the action will run. Workflow runs when manually triggered using the UI
-# or API.
 on:
   workflow_dispatch:
   push:
+    paths-ignore:
+      - '.github/workflows/**'
     branches:
       - pre-pub-staging
-
 
 jobs:
   sync:
@@ -19,37 +16,37 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v2
       with:
-        token: ${{ secrets.FEAGI_PAT5 }}
+        repository: feagi/feagi
+        token: ${{ secrets.PUBLIC_PAT_MNT }}
 
     - name: Generate branch name
       run: echo "BRANCH_NAME=neuraville-$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_ENV
-
-    - name: Setup Git with PAT
-      run: |
-        git config --global user.email "dev@neuraville.com"
-        git config --global user.name "NeuravilleDeveloper"
-        git remote add public https://x-access-token:${{ secrets.FEAGI_PAT5 }}@github.com/feagi/feagi.git
-
 
     - name: Checkout or create neuraville branch
       run: |
         git checkout $BRANCH_NAME || git checkout -b $BRANCH_NAME
 
-
-    - name: Commit other changes and push to public repo
+    - name: Setup Git with PAT and commit changes
       run: |
-        git fetch public staging
-        git rebase public/staging
-        git push -u public $BRANCH_NAME
+        git config --global user.email "dev@neuraville.com"
+        git config --global user.name "NeuravilleDeveloper"
+        git remote add public https://github.com/feagi/feagi.git
+        git diff --exit-code || git commit -m "Sync with pre-pub-staging excluding .env and .github directory changes"
+        git push public ${{ env.BRANCH_NAME }} --force
+      env:
+        GITHUB_TOKEN: ${{ secrets.PUBLIC_PAT_MNT }}
 
-    - name: Create PR on feagi/feagi repo
-      uses: repo-sync/pull-request@v2
-      with:
-        destination_repository: "feagi/feagi"
-        source_branch: ${{ env.BRANCH_NAME }}
-        destination_branch: "staging"
-        pr_title: "Updates from Neuraville Inc"
-        pr_body: "This PR syncs with latest Neuraville Inc. development code."
-        pr_label: "sync"
-        github_token: ${{ secrets.FEAGI_PAT5 }}
-
+    - name: Create PR using GitHub CLI
+      run: |
+        # Set up GitHub CLI
+        gh auth login --with-token <<< "${{ secrets.PUBLIC_PAT_MNT }}"
+        
+        # Create a pull request
+        gh pr create \
+          --repo feagi/feagi \
+          --base staging \
+          --head ${{ env.BRANCH_NAME }} \
+          --title "Updates from Neuraville Inc" \
+          --body "This PR syncs with latest Neuraville Inc. development code."
+      env:
+        GH_CLI_TOKEN: ${{ secrets.PUBLIC_PAT_MNT }}
