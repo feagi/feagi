@@ -1,7 +1,7 @@
 name: Update Microbit Hub 
 
 on:
-  [workflow_dispatch]:
+  [workflow_dispatch]
   # push:
   #   branches:
   #     - "main"
