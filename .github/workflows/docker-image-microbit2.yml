@@ -2,12 +2,12 @@ name: Update Microbit Hub
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - "main"
-    paths:
-      - '!third_party/embodiments/elecfreaks/cutebot/web_html_microbit/version.py'
-      - 'third_party/embodiments/elecfreaks/cutebot/web_html_microbit/**'
+  # push:
+  #   branches:
+  #     - "main"
+  #   paths:
+  #     - '!third_party/embodiments/elecfreaks/cutebot/web_html_microbit/version.py'
+  #     - 'third_party/embodiments/elecfreaks/cutebot/web_html_microbit/**'
 
 
 jobs:
