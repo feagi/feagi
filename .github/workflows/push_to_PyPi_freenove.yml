@@ -33,7 +33,7 @@ jobs:
       run: | 
         python -m build third_party/embodiments/freenove/feagi_agent_freenove/
     - name: Publish package
-      uses: actions/upload-artifact@v3
+      uses: actions/setup-python@v4
       with:
         user: ${{ secrets.PYPI_USER_TOKEN }}
         password: ${{ secrets.PYPI_API_TOKEN }}
