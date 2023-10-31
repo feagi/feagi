@@ -30,7 +30,7 @@ jobs:
       run: |
         git config --global user.email "dev@neuraville.com"
         git config --global user.name "NeuravilleDeveloper"
-        git remote add public https://github.com/feagi/feagi.git
+        git remote add public https://x-access-token:${{ secrets.PUBLIC_PAT_MNT }}@github.com/feagi/feagi.git
         git diff --exit-code || git commit -m "Sync with pre-pub-staging excluding .env and .github directory changes"
         git push public ${{ env.BRANCH_NAME }}
       env:
