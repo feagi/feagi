@@ -37,4 +37,4 @@ jobs:
       with:
         user: ${{ secrets.PYPI_USER_TOKEN }}
         password: ${{ secrets.PYPI_API_TOKEN }}
-        packages_dir: ./third_party/embodiments/freenove/feagi_agent_freenove/
+        packages_dir: third_party/embodiments/freenove/feagi_agent_freenove/
