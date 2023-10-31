@@ -1,71 +1,32 @@
-name: Update versions
+name: Create a PR contain versions
 
 on:
+  workflow_dispatch:
   push:
     branches:
-      - "staging"
-    paths:
-      - '!third_party/embodiments/elecfreaks/cutebot/web_html_microbit/version.py'
-      - 'third_party/embodiments/elecfreaks/cutebot/web_html_microbit/**'
-      - '!third_party/embodiments/neuraville/javascript_webcam/version.py'
-      - 'third_party/embodiments/neuraville/javascript_webcam/**'
-
+      - "pre-release"
 
 jobs:
-  microbit_version:
+  PR_to_main:
     runs-on: ubuntu-latest
     if: github.repository == 'feagi/feagi'
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Merge in New Changes
-        run: |
-          # Set up Git
-          git config --global user.name "BrainVisualizerPushAction"
-          git config --global user.email "BrainVisualizerPushAction@neuraville.com"
-          git config --global --add safe.directory /__w/brain-visualizer/brain-visualizer
-          echo "set vars"
-          git checkout -b temp
-      - name: Update Dockerfile
-        run: |
-          export FEAGI_PATH=$(pwd)
-          cd third_party/embodiments/elecfreaks/cutebot/web_html_microbit/
-          bash $FEAGI_PATH/generate_version.sh
-      - name: Push version changes
-        run: |
-          git pull origin version
-          git add .
-          git commit -m "Updated Version"
-          echo "committed"
-          git push origin temp:version
-
-  javascript_webcam:
-    runs-on: ubuntu-latest
-    if: github.repository == 'feagi/feagi'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Merge in New Changes
-        run: |
-          # Set up Git
-          git config --global user.name "BrainVisualizerPushAction"
-          git config --global user.email "BrainVisualizerPushAction@neuraville.com"
-          git config --global --add safe.directory /__w/brain-visualizer/brain-visualizer
-          echo "set vars"
-          git checkout -b temp
-      - name: Update Dockerfile and version
-        run: |
-          export FEAGI_PATH=$(pwd)
-          cd third_party/embodiments/neuraville/javascript_webcam/
-          bash $FEAGI_PATH/generate_version.sh
-      - name: Push version changes
-        run: |
-          git pull origin version
-          git add .
-          git commit -m "Updated Version"
-          echo "committed"
-          git push origin temp:version
+    - name: Check out code
+      uses: actions/checkout@v2
+      with:
+        repository: feagi/feagi
+        token: ${{ secrets.PUBLIC_PAT_MNT }}
+    - name: Create PR using GitHub CLI
+      run: |
+        # Set up GitHub CLI
+        gh auth login --with-token <<< "${{ secrets.PUBLIC_PAT_MNT }}"
+        
+        # Create a pull request
+        gh pr create \
+          --repo feagi/feagi \
+          --base pre-release \
+          --head main \
+          --title "Updates versions along with new changes" \
+          --body "This PR syncs with latest Neuraville Inc. development code."
+      env:
+        GH_CLI_TOKEN: ${{ secrets.PUBLIC_PAT_MNT }}
