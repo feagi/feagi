@@ -1,4 +1,4 @@
-name: Update Microbit Hub
+name: Update Microbit Hub 
 
 on:
   workflow_dispatch:
