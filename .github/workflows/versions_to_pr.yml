@@ -2,7 +2,7 @@ name: Create a PR contain versions
 
 on:
   workflow_dispatch:
-  push:
+  create:
     branches:
       - "pre-release"
 
@@ -11,11 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     if: github.repository == 'feagi/feagi'
     steps:
-    - name: Check out code
-      uses: actions/checkout@v2
-      with:
-        repository: feagi/feagi
-        token: ${{ secrets.PUBLIC_PAT_MNT }}
     - name: Create PR using GitHub CLI
       run: |
         # Set up GitHub CLI
