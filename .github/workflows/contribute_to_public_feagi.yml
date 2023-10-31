@@ -13,13 +13,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check out code
+    - name: Check out Neuraville code
       uses: actions/checkout@v4
       with:
         sparse-checkout: .
-      # with:
-      #   repository: feagi/feagi
-      #   token: ${{ secrets.PUBLIC_PAT_MNT }}
 
     - name: Generate branch name
       run: echo "BRANCH_NAME=neuraville-$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_ENV
