@@ -16,7 +16,7 @@ jobs:
     - name: Check out Neuraville code
       uses: actions/checkout@v4
       with:
-        sparse-checkout: .
+        # sparse-checkout: .
         fetch-depth: 0
         path: neuraville-feagi
 
