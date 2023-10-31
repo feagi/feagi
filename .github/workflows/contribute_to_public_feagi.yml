@@ -15,9 +15,9 @@ jobs:
     steps:
     - name: Check out code
       uses: actions/checkout@v2
-      with:
-        repository: feagi/feagi
-        token: ${{ secrets.PUBLIC_PAT_MNT }}
+      # with:
+      #   repository: feagi/feagi
+      #   token: ${{ secrets.PUBLIC_PAT_MNT }}
 
     - name: Generate branch name
       run: echo "BRANCH_NAME=neuraville-$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_ENV
