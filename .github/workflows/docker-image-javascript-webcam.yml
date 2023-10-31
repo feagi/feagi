@@ -1,4 +1,4 @@
-name: Update Javascript Webcam Hub
+name: Update Webcam Controller Hub
 
 on:
   workflow_dispatch:
