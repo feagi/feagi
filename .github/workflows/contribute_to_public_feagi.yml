@@ -35,9 +35,14 @@ jobs:
         fetch-depth: 0
         path: community-feagi
 
+    - name: Merge code
+      run: |
+        cp -R neuraville-feagi/* community-feagi/
+
+
     - name: Setup Git with PAT and commit changes
       run: |
-        cd neuraville-feagi
+        cd community-feagi
         git config --global user.email "dev@neuraville.com"
         git config --global user.name "NeuravilleDeveloper"
         git remote | grep public && git remote remove public
