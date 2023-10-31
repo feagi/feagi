@@ -47,6 +47,7 @@ jobs:
         git config --global user.name "NeuravilleDeveloper"
         git remote | grep public && git remote remove public
         git remote add public https://github.com/feagi/feagi.git
+        git checkout $BRANCH_NAME || git checkout -b $BRANCH_NAME
         git diff --exit-code || git commit -m "Sync with pre-pub-staging excluding .env and .github directory changes"
         git push public ${{ env.BRANCH_NAME }}
 
