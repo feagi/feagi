@@ -4,6 +4,9 @@ on:
   create:
     branches:
       - 'pre-release'
+    push:
+      branches:
+        - 'pre-release'
   workflow_dispatch:
 
 jobs:
