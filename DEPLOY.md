@@ -86,7 +86,7 @@ If you encounter any of the following errors, please ensure that docker desktop 
 2. ![Screen Shot 2022-07-01 at 1 29 23 PM](https://user-images.githubusercontent.com/52722031/176945407-1b7f3770-d0b2-4cf5-bb40-62aa02f907e7.png)
 
 **To confirm docker desktop is running:**
-* On Mac:  Clicking on the docker icon in the top right corner of your screen and ensure that you see "Docker Desktop is running"
+* On Mac:  Clicking on the docker icon in the top right corner of your screen and ensure that you see "Docker Desktop is running" 
 * 
 <img src="https://user-images.githubusercontent.com/52722031/176945111-016fbeae-5935-4d72-9ec3-20bba7803ee5.png"  width=40% height=40%>
 
