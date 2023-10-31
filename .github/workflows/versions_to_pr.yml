@@ -1,10 +1,10 @@
 name: Create a PR contain versions
 
 on:
-  workflow_dispatch:
   create:
     branches:
-      - "pre-release"
+      - 'pre-release'
+  workflow_dispatch:
 
 jobs:
   PR_to_main:
