@@ -1,6 +1,7 @@
 name: Update Javascript Webcam Hub
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - "main"

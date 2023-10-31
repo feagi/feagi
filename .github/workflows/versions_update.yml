@@ -1,6 +1,7 @@
 name: Create a PR contain versions
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - "pre-release"
