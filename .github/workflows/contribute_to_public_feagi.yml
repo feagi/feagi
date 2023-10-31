@@ -16,7 +16,8 @@ jobs:
     - name: Check out Neuraville code
       uses: actions/checkout@v4
       with:
-        # sparse-checkout: .
+        repository: Neuraville/feagi
+        ref: pre-pub-staging
         fetch-depth: 0
         path: neuraville-feagi
 
@@ -26,11 +27,13 @@ jobs:
     - name: Check out Community code
       uses: actions/checkout@v4
       with:
-        sparse-checkout: .
-        fetch-depth: 0
         repository: feagi/feagi
+        ref: staging
         path: community-feagi
         token: ${{ secrets.PUBLIC_PAT_MNT }}
+        sparse-checkout: .
+        fetch-depth: 0
+
 
     - name: Setup Git Identity for Merge
       run: |
