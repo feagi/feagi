@@ -52,7 +52,7 @@ def genome_2_print(genome):
         print(cortical_area)
         for gene in genome[cortical_area]:
             try:
-                print("      ", genome_2_to_1[gene], "\n\t\t\t", genome[cortical_area][gene])
+                print("       ", genome_2_to_1[gene], "\n\t\t\t", genome[cortical_area][gene])
             except:
                 pass
 
