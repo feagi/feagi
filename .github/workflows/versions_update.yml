@@ -8,6 +8,14 @@ on:
 
 jobs:
   PR_to_main:
+    runs-on: ubuntu-latest
+    if: github.repository == 'feagi/feagi'
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+      with:
+        repository: feagi/feagi
+        token: ${{ secrets.PUBLIC_PAT_MNT }}
     - name: Create PR using GitHub CLI
       run: |
         # Set up GitHub CLI
