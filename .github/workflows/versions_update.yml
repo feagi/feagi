@@ -1,6 +1,7 @@
 name: Update versions
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - "staging"
