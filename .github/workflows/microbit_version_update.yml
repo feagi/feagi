@@ -1,4 +1,4 @@
-name: Update versions
+name: Update Microbit versions
 
 on:
   workflow_dispatch:
