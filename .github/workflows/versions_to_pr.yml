@@ -19,8 +19,8 @@ jobs:
         # Create a pull request
         gh pr create \
           --repo feagi/feagi \
-          --base pre-release \
-          --head main \
+          --base main \
+          --head pre-release \
           --title "Updates versions along with new changes" \
           --body "This PR syncs with latest Neuraville Inc. development code."
       env:
