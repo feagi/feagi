@@ -24,6 +24,7 @@ jobs:
 
     - name: Checkout or create neuraville branch
       run: |
+        cd neuraville-feagi
         git checkout $BRANCH_NAME || git checkout -b $BRANCH_NAME
 
     - name: Check out Community code
