@@ -39,15 +39,19 @@ jobs:
       run: |
         cp -R neuraville-feagi/* community-feagi/
 
-
     - name: Setup Git with PAT and commit changes
       run: |
         cd community-feagi
-        git config --global user.email "dev@neuraville.com"
-        git config --global user.name "NeuravilleDeveloper"
+    
+        git config user.email "dev@neuraville.com"
+        git config user.name "NeuravilleDeveloper"
+        
+        # Use PAT for authentication
         git remote | grep public && git remote remove public
-        git remote add public https://github.com/feagi/feagi.git
+        git remote add public https://NeuravilleDeveloper:${{ secrets.PUBLIC_PAT_MNT }}@github.com/feagi/feagi.git
+
         git checkout $BRANCH_NAME || git checkout -b $BRANCH_NAME
+        
         git diff --exit-code || git commit -m "Sync with pre-pub-staging excluding .env and .github directory changes"
         git push public ${{ env.BRANCH_NAME }}
 
