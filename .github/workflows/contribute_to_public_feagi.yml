@@ -32,7 +32,7 @@ jobs:
         git config --global user.name "NeuravilleDeveloper"
         git remote add public https://github.com/feagi/feagi.git
         git diff --exit-code || git commit -m "Sync with pre-pub-staging excluding .env and .github directory changes"
-        git push public ${{ env.BRANCH_NAME }} --force
+        git push public ${{ env.BRANCH_NAME }}
       env:
         GITHUB_TOKEN: ${{ secrets.PUBLIC_PAT_MNT }}
 
