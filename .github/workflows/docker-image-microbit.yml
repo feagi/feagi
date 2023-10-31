@@ -1,4 +1,4 @@
-name: Update Javascript Webcam Hub
+name: Update Microbit Hub
 
 on:
   workflow_dispatch:
@@ -6,8 +6,8 @@ on:
     branches:
       - "main"
     paths:
-      - '!third_party/embodiments/neuraville/javascript_webcam/version.py'
-      - 'third_party/embodiments/neuraville/javascript_webcam/**'
+      - '!third_party/embodiments/elecfreaks/cutebot/web_html_microbit/version.py'
+      - 'third_party/embodiments/elecfreaks/cutebot/web_html_microbit/**'
 
 
 jobs:
@@ -27,16 +27,16 @@ jobs:
           git config --global --add safe.directory /__w/brain-visualizer/brain-visualizer
           echo "set vars"
           git checkout -b temp
-      - name: Update Dockerfile  and version
+      - name: Update Dockerfile
         run: |
           export FEAGI_PATH=$(pwd)
-          cd third_party/embodiments/neuraville/javascript_webcam/
+          cd third_party/embodiments/elecfreaks/cutebot/web_html_microbit/
           bash $FEAGI_PATH/generate_version.sh
           if [ -f Dockerfile ]; then
               sed -e 's|COPY controller.py /root/|COPY controller.py /root/|' \
                   -e 's|COPY configuration.py /root/|COPY configuration.py /root/|' \
                   -e 's|COPY version.py /root/|COPY version.py /root/|' \
-                  "Dockerfile" > "NewDockerfile"
+              "Dockerfile" > "NewDockerfile"
           fi
           mv NewDockerfile Dockerfile
       - name: Push version changes
@@ -55,13 +55,10 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: List Files
-        run: |
-          ls third_party/embodiments/neuraville/javascript_webcam
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: third_party/embodiments/neuraville/javascript_webcam
+          context: third_party/embodiments/elecfreaks/cutebot/web_html_microbit
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: neuraville/webcam_controller:latest
+          tags: neuraville/microbit:latest
