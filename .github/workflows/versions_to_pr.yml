@@ -24,4 +24,4 @@ jobs:
           --title "Updates versions along with new changes" \
           --body "This PR syncs with latest Neuraville Inc. development code."
       env:
-        GH_CLI_TOKEN: ${{ secrets.PUBLIC_PAT_MNT }}
+        GH_CLI_TOKEN: ${{ secrets.GITHUB_TOKEN }}
