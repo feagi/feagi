@@ -32,6 +32,13 @@ jobs:
         path: community-feagi
         token: ${{ secrets.PUBLIC_PAT_MNT }}
 
+    - name: Setup Git Identity for Merge
+      run: |
+        cd community-feagi
+        git config user.email "dev@neuraville.com"
+        git config user.name "NeuravilleDeveloper"
+
+
     - name: Merge Neuraville code into Community code
       run: |
         cd community-feagi
