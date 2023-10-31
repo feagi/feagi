@@ -17,6 +17,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         sparse-checkout: .
+        fetch-depth: 0
         path: neuraville-feagi
 
     - name: Generate branch name
@@ -31,12 +32,14 @@ jobs:
       uses: actions/checkout@v4
       with:
         sparse-checkout: .
+        fetch-depth: 0
         path: community-feagi
 
     - name: Setup Git with PAT and commit changes
       run: |
         git config --global user.email "dev@neuraville.com"
         git config --global user.name "NeuravilleDeveloper"
+        git remote | grep public && git remote remove public
         git remote add public https://github.com/feagi/feagi.git
         git diff --exit-code || git commit -m "Sync with pre-pub-staging excluding .env and .github directory changes"
         git push public ${{ env.BRANCH_NAME }}
