@@ -62,8 +62,8 @@ jobs:
         git config user.email "dev@neuraville.com"
         git config user.name "NeuravilleDeveloper"
         git remote | grep public && git remote remove public
-        gh auth login --with-token <<< "${{ secrets.PUBLIC_PAT_MNT }}"
-        git remote add public https://github.com/feagi/feagi.git
+        # gh auth login --with-token <<< "${{ secrets.PUBLIC_PAT_MNT }}"
+        git remote add public https://x-access-token:${{ secrets.PUBLIC_PAT_MNT }}@github.com/feagi/feagi.git
         git branch --all
         git status
         git checkout $BRANCH_NAME || git checkout -b $BRANCH_NAME
