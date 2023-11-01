@@ -31,12 +31,11 @@ jobs:
         pip install build
         ls -a
         echo "next"
-        tree .
-    - name: Build package
-      run: python -m build third_party/embodiments/freenove/feagi_agent_freenove/
-    - name: Publish package
-      uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
-      with:
-        user: ${{ secrets.PYPI_USER_TOKEN }}
-        password: ${{ secrets.PYPI_API_TOKEN }}
-        packages_dir: third_party/embodiments/freenove/feagi_agent_freenove/
+    - name: Build package then publish to pypi
+      run: |
+        python -m build third_party/embodiments/freenove/feagi_agent_freenove/
+        export TWINE_USERNAME=${{ secrets.PYPI_USER_TOKEN }}
+        export TWINE_PASSWORD=${{ secrets.PYPI_API_TOKEN }}
+        cd third_party/embodiments/freenove/feagi_agent_freenove/
+        twine upload dist/*
+
