@@ -25,7 +25,7 @@ jobs:
       run: echo "BRANCH_NAME=neuraville-$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_ENV
 
     - name: Check out Community code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
       with:
         repository: feagi/feagi
         ref: staging
