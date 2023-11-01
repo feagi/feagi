@@ -29,6 +29,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install build
+        pip install twine
         ls -a
         echo "next"
         tree .
