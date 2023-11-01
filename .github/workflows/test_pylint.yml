@@ -1,4 +1,4 @@
-name: c
+name: Code Analysis using PyLint
 
 on:
   push:
