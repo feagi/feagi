@@ -29,6 +29,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install build
+        pip install twine
         ls -a
         echo "next"
     - name: Build package then publish to pypi
@@ -36,5 +37,5 @@ jobs:
         python -m build third_party/embodiments/freenove/feagi_agent_freenove/
         export TWINE_USERNAME=${{ secrets.PYPI_USER_TOKEN }}
         export TWINE_PASSWORD=${{ secrets.PYPI_API_TOKEN }}
-        twine upload third_party/embodiments/freenove/feagi_agent_freenove/dist/*
+        python -m twine upload third_party/embodiments/freenove/feagi_agent_freenove/dist/*
 
