@@ -8,6 +8,8 @@ on:
     paths:
       - '!third_party/embodiments/neuraville/javascript_webcam/version.py'
       - 'third_party/embodiments/neuraville/javascript_webcam/**'
+      - 'generate_version.sh'
+
 
 
 jobs:
