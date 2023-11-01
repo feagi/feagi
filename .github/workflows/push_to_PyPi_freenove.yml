@@ -34,11 +34,11 @@ jobs:
         echo "next"
     - name: Build package then publish to pypi
       run: |
-        python -m build third_party/embodiments/freenove/feagi_agent_freenove/
+        python3 -m build third_party/embodiments/freenove/feagi_agent_freenove/
         export TWINE_USERNAME=${{ secrets.PYPI_USER_TOKEN }}
         export TWINE_PASSWORD=${{ secrets.PYPI_API_TOKEN }}
         cd third_party/embodiments/freenove/feagi_agent_freenove/
-        python -m twine upload -u $TWINE_USERNAME -p $TWINE_PASSWORD dist/*
+        python3 -m twine upload -u $TWINE_USERNAME -p $TWINE_PASSWORD dist/*
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_USER_TOKEN }}
         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
