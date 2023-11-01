@@ -30,7 +30,7 @@ jobs:
         repository: feagi/feagi
         ref: staging
         path: community-feagi
-        # token: ${{ secrets.PUBLIC_PAT_MNT }}
+        token: ${{ secrets.PUBLIC_PAT_MNT }}
         sparse-checkout: .
         fetch-depth: 0
 
@@ -47,6 +47,8 @@ jobs:
         cd community-feagi
         git remote add neuraville ../neuraville-feagi
         git fetch neuraville
+        git branch --all
+        git status
         git merge neuraville/pre-pub-staging --allow-unrelated-histories
 
     - name: Check for merge conflicts
