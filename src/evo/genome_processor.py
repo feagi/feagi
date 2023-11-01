@@ -73,7 +73,7 @@ def genome_2_validator(genome_2):
                 print("Warning! Key did not meet length requirement:", key)
                 gene_anomalies += 1
         if gene_anomalies == 0:
-            print("\nGene length verification...... PASSED!")
+            print("\nGene length verification ...... PASSED!")
         else:
             print("\nGene length verification...... Failed!   ", gene_anomalies, " anomalies detected")
         return gene_anomalies
