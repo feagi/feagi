@@ -38,8 +38,5 @@ jobs:
         export TWINE_USERNAME=${{ secrets.PYPI_USER_TOKEN }}
         export TWINE_PASSWORD=${{ secrets.PYPI_API_TOKEN }}
         cd third_party/embodiments/freenove/feagi_agent_freenove/
-        python3 -m twine upload -u $TWINE_USERNAME -p $TWINE_PASSWORD dist/*
-      env:
-        TWINE_USERNAME: ${{ secrets.PYPI_USER_TOKEN }}
-        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        python3 -m twine upload -u ${{ secrets.PYPI_USER_TOKEN }} -p ${{ secrets.PYPI_API_TOKEN }} dist/*
 
