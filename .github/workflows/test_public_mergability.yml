@@ -1,0 +1,49 @@
+name: Brain Visualizer Public Mergability Test
+
+on:
+  pull_request:
+    branches:
+      - staging
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out PR code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        path: source-branch-code
+
+    - name: Generate branch name
+      run: echo "BRANCH_NAME=neuraville-$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_ENV
+
+    - name: Check out Community code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        repository: feagi/feagi
+        path: community-code
+        token: ${{ secrets.PUBLIC_PAT_MNT }}
+
+    - name: Setup Git Identity for Merge
+      run: |
+        cd community-code
+        git config user.email "dev@neuraville.com"
+        git config user.name "NeuravilleDeveloper"
+
+
+    - name: Merge code from source branch into Community code
+      run: |
+        cd community-code
+        git remote add neuraville ../source-branch-code
+        git fetch neuraville
+        git merge neuraville/${{ github.head_ref }} --allow-unrelated-histories
+
+    - name: Check for merge conflicts
+      run: |
+        if git diff --name-only --diff-filter=U | grep -q .; then
+          echo "Merge conflicts detected!"
+          exit 1
+        fi
