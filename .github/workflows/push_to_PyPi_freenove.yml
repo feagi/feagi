@@ -36,5 +36,7 @@ jobs:
       run: |
         python3 -m build third_party/embodiments/freenove/feagi_agent_freenove/
         cd third_party/embodiments/freenove/feagi_agent_freenove/
+        echo ${{ secrets.PYPI_USER_TOKEN }}
+        echo ${{ secrets.PYPI_API_TOKEN }}
         python3 -m twine upload -u ${{ secrets.PYPI_USER_TOKEN }} -p ${{ secrets.PYPI_API_TOKEN }} dist/*
 
