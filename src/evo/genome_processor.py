@@ -75,7 +75,7 @@ def genome_2_validator(genome_2):
         if gene_anomalies == 0:
             print("\nGene length verification...... PASSED!")
         else:
-            print("\nGene length verification....... Failed!   ", gene_anomalies, " anomalies detected")
+            print("\nGene length verification...... Failed!   ", gene_anomalies, " anomalies detected")
         return gene_anomalies
 
 
