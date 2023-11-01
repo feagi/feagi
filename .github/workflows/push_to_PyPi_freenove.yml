@@ -29,12 +29,15 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install build
-    - name: Build package
-      run: | 
-        python -m build third_party/embodiments/freenove/feagi_agent_freenove/
-    - name: Publish package
-      uses: actions/setup-python@v4
-      with:
-        user: ${{ secrets.PYPI_USERNAME_TOKEN }}
-        password: ${{ secrets.PYPI_PASSWORD_TOKEN }}
-        packages_dir: third_party/embodiments/freenove/feagi_agent_freenove/
+        pip install twine
+        ls -a
+        echo "next"
+    - name: Build package then publish to pypi
+      run: |
+        python3 -m build third_party/embodiments/freenove/feagi_agent_freenove/
+        cd third_party/embodiments/freenove/feagi_agent_freenove/
+        python3 -m twine upload -u $TWINE_USERNAME -p $TWINE_PASSWORD dist/*
+      env:
+        TWINE_USERNAME: ${{ secrets.PYPI_USERNAME_TOKEN }}
+        TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD_TOKEN }}
+
