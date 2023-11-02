@@ -42,4 +42,9 @@ jobs:
           git add .
           git commit -m "Updated Webcam Version"
           echo "committed"
-          git push origin temp:pre-release
+          if git ls-remote --heads origin pre-release | grep -q 'pre-release'; then
+            git pull origin pre-release
+            git push origin temp:pre-release
+          else
+              git push origin temp:pre-release
+          fi
