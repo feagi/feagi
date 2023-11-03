@@ -1,0 +1,50 @@
+name: Update Webcam versions
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "staging"
+    paths:
+      - '!third_party/embodiments/neuraville/javascript_webcam/version.py'
+      - 'third_party/embodiments/neuraville/javascript_webcam/**'
+      - 'generate_version.sh'
+
+jobs:
+  javascript_webcam:
+    runs-on: ubuntu-latest
+    if: github.repository == 'feagi/feagi'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge in New Changes
+        run: |
+          # Set up Git
+          git config --global user.name "BrainVisualizerPushAction"
+          git config --global user.email "BrainVisualizerPushAction@neuraville.com"
+          git config --global --add safe.directory /__w/brain-visualizer/brain-visualizer
+          echo "set vars"
+          git checkout -b temp
+      - name: Update Dockerfile and version
+        run: |
+          export FEAGI_PATH=$(pwd)
+          cd third_party/embodiments/neuraville/javascript_webcam/
+          bash $FEAGI_PATH/generate_version.sh
+      - name: Push version changes
+        run: |
+          if git ls-remote --heads origin pre-release | grep -q 'pre-release'; then
+            git pull origin pre-release
+          else
+            echo "pre-release branch does not exist on remote repository. Continuing with the workflow."
+          fi
+          git add .
+          git commit -m "Updated Webcam Version"
+          echo "committed"
+          if git ls-remote --heads origin pre-release | grep -q 'pre-release'; then
+            git pull origin pre-release
+            git push origin temp:pre-release
+          else
+              git push origin temp:pre-release
+          fi
