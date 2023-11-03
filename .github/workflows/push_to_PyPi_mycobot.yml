@@ -6,7 +6,7 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-name: Upload Feagi agent
+name: Upload MyCobot
 
 on:
   [workflow_dispatch]
@@ -35,8 +35,8 @@ jobs:
         tree .
     - name: Build package then publish to pypi
       run: |
-        python3 -m build peripherals/feagi_agent_core/
-        cd peripherals/feagi_agent_core/
+        python3 -m build third_party/embodiments/elephant_robotics/feagi_agent_mycobot/
+        cd third_party/embodiments/elephant_robotics/feagi_agent_mycobot/
         python3 -m twine upload -u $TWINE_USERNAME -p $TWINE_PASSWORD dist/*
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME_TOKEN }}

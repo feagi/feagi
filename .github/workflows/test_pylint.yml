@@ -1,4 +1,4 @@
-name: Testing
+name: Code Analysis using PyLint
 
 on:
   push:
