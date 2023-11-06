@@ -38,7 +38,7 @@ import numpy as np
 from time import sleep
 import traceback
 import cv2
-import test
+import motor_functions
 
 runtime_data = {
     "current_burst_id": 0,
@@ -203,12 +203,12 @@ def action(obtained_data, device_list, feagi_settings, head_angle, arms_angle):
                         wheel_speeds["l" + ["f", "b"][i - 2]] = float(value)
                 rwheel_speed = wheel_speeds["rf"] - wheel_speeds["rb"]
                 lwheel_speed = wheel_speeds["lf"] - wheel_speeds["lb"]
-                test.drive_wheels(cli, lwheel_speed=lwheel_speed,
+                motor_functionsdrive_wheels(cli, lwheel_speed=lwheel_speed,
                                  rwheel_speed=rwheel_speed,
                                  duration=feagi_settings['feagi_burst_speed'])
                 # obtained_data['motor'].clear()
         else:
-            test.stop_motor(cli)
+            motor_functionsstop_motor(cli)
         if "servo" in obtained_data:
             for i in obtained_data['servo']:
                 if i == 0:
