@@ -159,7 +159,6 @@ if __name__ == "__main__":
                     capabilities = pns.fetch_vision_acuity(message_from_feagi, capabilities)
                     # OPU section ENDS
                 if np.any(rgb_array['current']):
-                    start_time = utc_time()
                     if not webcam_size['size']:
                         webcam_size['size'].append(rgb_array['current'].pop(0))
                         webcam_size['size'].append(rgb_array['current'].pop(0))
