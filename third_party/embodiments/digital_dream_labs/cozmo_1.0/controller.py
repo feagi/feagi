@@ -38,6 +38,7 @@ import numpy as np
 from time import sleep
 import traceback
 import cv2
+import test
 
 runtime_data = {
     "current_burst_id": 0,
@@ -167,7 +168,7 @@ def on_camera_image(cli, image):
     if capabilities['camera']['mirror']:
         new_rgb = retina.flip_video(new_rgb)
     rgb_array['current'] = new_rgb
-    time.sleep(0.01)
+    # time.sleep(0.01)
 
 
 def move_head(cli, angle, max, min):
@@ -191,19 +192,23 @@ def lift_arms(cli, angle, max, min):
 def action(obtained_data, device_list, feagi_settings, head_angle, arms_angle):
     for device in device_list:  # TODO: work on 'device'
         if "motor" in obtained_data:
-            wheel_speeds = {"rf": 0, "rb": 0, "lf": 0, "lb": 0}
+            if obtained_data["motor"]:
+                print("here: ", obtained_data["motor"])
+                wheel_speeds = {"rf": 0, "rb": 0, "lf": 0, "lb": 0}
 
-            for i, value in obtained_data["motor"].items():
-                if i in [0, 1]:
-                    wheel_speeds["r" + ["f", "b"][i]] = float(value)
-                if i in [2, 3]:
-                    wheel_speeds["l" + ["f", "b"][i - 2]] = float(value)
-            rwheel_speed = wheel_speeds["rf"] - wheel_speeds["rb"]
-            lwheel_speed = wheel_speeds["lf"] - wheel_speeds["lb"]
-            cli.drive_wheels(lwheel_speed=lwheel_speed,
-                             rwheel_speed=rwheel_speed,
-                             duration=feagi_settings['feagi_burst_speed'])
-            obtained_data['motor'].clear()
+                for i, value in obtained_data["motor"].items():
+                    if i in [0, 1]:
+                        wheel_speeds["r" + ["f", "b"][i]] = float(value)
+                    if i in [2, 3]:
+                        wheel_speeds["l" + ["f", "b"][i - 2]] = float(value)
+                rwheel_speed = wheel_speeds["rf"] - wheel_speeds["rb"]
+                lwheel_speed = wheel_speeds["lf"] - wheel_speeds["lb"]
+                test.drive_wheels(cli, lwheel_speed=lwheel_speed,
+                                 rwheel_speed=rwheel_speed,
+                                 duration=feagi_settings['feagi_burst_speed'])
+                # obtained_data['motor'].clear()
+        else:
+            test.stop_motor(cli)
         if "servo" in obtained_data:
             for i in obtained_data['servo']:
                 if i == 0:
@@ -299,7 +304,6 @@ if __name__ == '__main__':
     device_list = pns.generate_OPU_list(capabilities)  # get the OPU sensors
     while True:
         try:
-            start = time.time()
             message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
             if message_from_feagi is not None:
                 # Obtain the size of aptr
@@ -342,6 +346,8 @@ if __name__ == '__main__':
                         if len(face_selected) == 0:
                             face_selected.append(0)
             new_rgb = rgb_array['current']
+            # cv2.imshow("test", new_rgb)
+            # cv2.waitKey(30)
             previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
                 pns.generate_rgb(new_rgb,
                                  capabilities['camera']['central_vision_allocation_percentage'][0],
