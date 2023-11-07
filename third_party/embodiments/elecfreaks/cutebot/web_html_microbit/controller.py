@@ -129,12 +129,16 @@ def action(obtained_data, device_list):
                                 obtained_data['motor'].pop(2)
                 for i in sorted(obtained_data['motor']):  # Ensure that it's in order for microbit
                     if i in [0, 1]:
-                        WS_STRING += str(i) + str(obtained_data['motor'][i] - 60).zfill(
-                            2)  # Append the motor data as a two-digit
+                        data_power = obtained_data['motor'][i]
+                        if data_power <= 0:
+                            data_power = 1
+                        WS_STRING += str(i) + str(data_power-1).zfill(2)  # Append the motor data as a two-digit
                         # string
                     elif i in [2, 3]:
-                        WS_STRING += str(i) + str(obtained_data['motor'][i] - 60).zfill(
-                            2)  # Append the motor data as a two-digit
+                        data_power = obtained_data['motor'][i]
+                        if data_power <= 0:
+                            data_power = 1
+                        WS_STRING += str(i) + str(data_power-1).zfill(2)  # Append the motor data as a two-digit
                         # string
                     else:
                         WS_STRING += str(i) + "00"  # If the motor value is not present, append "00"
