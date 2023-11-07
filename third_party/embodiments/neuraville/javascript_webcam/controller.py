@@ -19,6 +19,7 @@ from time import sleep
 import time
 from datetime import datetime
 import os
+import traceback
 
 import numpy as np
 import websockets
@@ -77,8 +78,9 @@ async def echo(websocket):
     """
     async for message in websocket:
         test = message
-        rgb_array['current'] = list(test)
+        rgb_array['current'] = list(lz4.frame.decompress(test))
         webcam_size['size'] = []
+
 
 
 async def main():
@@ -137,10 +139,8 @@ if __name__ == "__main__":
         msg_counter = runtime_data["feagi_state"]['burst_counter']
         while True:
             try:
-                start_time = 0
                 message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
                 if message_from_feagi is not None:
-                    start_time = utc_time()
                     # OPU section STARTS
                     if 'genome_num' in message_from_feagi:
                         if message_from_feagi['genome_num'] != genome_tracker:
@@ -162,9 +162,8 @@ if __name__ == "__main__":
                     if not webcam_size['size']:
                         webcam_size['size'].append(rgb_array['current'].pop(0))
                         webcam_size['size'].append(rgb_array['current'].pop(0))
-                    new_rgb = retina.RGBA_list_to_ndarray(rgb_array['current'], webcam_size['size'])
+                    new_rgb = retina.RGB_list_to_ndarray(rgb_array['current'], webcam_size['size'])
                     new_rgb = retina.update_astype(new_rgb)
-                    new_rgb = rgba2rgb(new_rgb)
                     if capabilities["camera"]["mirror"]:
                         new_rgb = retina.flip_video(new_rgb)
                     previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] \
@@ -204,4 +203,6 @@ if __name__ == "__main__":
                     rgb['camera'][i].clear()
             except Exception as e:
                 print("ERROR: ", e)
+                print("ERROR__: ", traceback.print_exc())
+
                 break
