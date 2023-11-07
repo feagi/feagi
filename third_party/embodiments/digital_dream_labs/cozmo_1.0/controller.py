@@ -56,6 +56,10 @@ previous_data_frame = dict()
 robot = {'accelerator': [], "ultrasonic": [], "gyro": [], 'servo_head': [], "battery": []}
 
 
+def window_average(sequence):
+    return sum(sequence) // len(sequence)
+
+
 def on_robot_state(cli, pkt: pycozmo.protocol_encoder.RobotState):
     """
     timestamp: The timestamp associated with the robot state.
@@ -171,6 +175,21 @@ def on_camera_image(cli, image):
     # time.sleep(0.01)
 
 
+async def move_control(motor, feagi_settings, capabilities, rolling_window):
+    motor_count = capabilities['motor']['count']
+    while True:
+        print("len: ", rolling_window)
+        for id in range(motor_count):
+            motor_power = window_average(rolling_window[id])
+            motor_power = motor_power * capabilities["motor"]["power_amount"]
+            motor.move(id, motor_power)
+        sleep(feagi_settings['feagi_burst_speed'])
+
+
+def start_motor(motor, feagi_settings, capabilities, rolling_window):
+    asyncio.run(move_control(motor, feagi_settings, capabilities, rolling_window))
+
+
 def move_head(cli, angle, max, min):
     if min <= angle <= max:
         cli.set_head_angle(angle)  # move head
@@ -190,25 +209,23 @@ def lift_arms(cli, angle, max, min):
 
 
 def action(obtained_data, device_list, feagi_settings, head_angle, arms_angle):
+    motor_count = capabilities['motor']['count']
     for device in device_list:  # TODO: work on 'device'
-        if "motor" in obtained_data:
-            if obtained_data["motor"]:
-                print("here: ", obtained_data["motor"])
-                wheel_speeds = {"rf": 0, "rb": 0, "lf": 0, "lb": 0}
-
-                for i, value in obtained_data["motor"].items():
-                    if i in [0, 1]:
-                        wheel_speeds["r" + ["f", "b"][i]] = float(value)
-                    if i in [2, 3]:
-                        wheel_speeds["l" + ["f", "b"][i - 2]] = float(value)
-                rwheel_speed = wheel_speeds["rf"] - wheel_speeds["rb"]
-                lwheel_speed = wheel_speeds["lf"] - wheel_speeds["lb"]
-                motor_functionsdrive_wheels(cli, lwheel_speed=lwheel_speed,
-                                 rwheel_speed=rwheel_speed,
-                                 duration=feagi_settings['feagi_burst_speed'])
-                # obtained_data['motor'].clear()
+        if 'motor' in obtained_data:
+            if obtained_data['motor'] is not {}:
+                for data_point in obtained_data['motor']:
+                    device_power = obtained_data['motor'][data_point]
+                    device_power = motor.power_convert(data_point, device_power)
+                    device_id = motor.motor_converter(data_point)
+                    if device_id not in motor_data:
+                        motor_data[device_id] = dict()
+                    rolling_window[device_id].append(device_power)
+                    rolling_window[device_id].popleft()
         else:
-            motor_functionsstop_motor(cli)
+            for _ in range(motor_count):
+                rolling_window[_].append(0)
+                rolling_window[_].popleft()
+
         if "servo" in obtained_data:
             for i in obtained_data['servo']:
                 if i == 0:
@@ -265,7 +282,14 @@ if __name__ == '__main__':
     face_selected = deque()
     eye_one_location = deque()
     eye_two_location = deque()
+    rolling_window_len = capabilities['motor']['rolling_window_len']
+    # Rolling windows for each motor
+    rolling_window = {}
+
     threading.Thread(target=face_starter, daemon=True).start()
+    threading.Thread(target=start_motor, args=(capabilities['motor']['count'], feagi_settings,
+                                               capabilities,
+                                               rolling_window,), daemon=True).start()
     msg_counter = 0
     rgb = {'camera': {}}
     genome_tracker = 0
@@ -302,14 +326,19 @@ if __name__ == '__main__':
     time.sleep(2)
     # vision ends
     device_list = pns.generate_OPU_list(capabilities)  # get the OPU sensors
+
+    # Initialize rolling window for each motor
+    for motor_id in range(motor_count):
+        rolling_window[motor_id] = deque([0] * rolling_window_len)
+
     while True:
         try:
             message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
             if message_from_feagi is not None:
                 # Obtain the size of aptr
                 if aptr_cortical_size is None:
-                    aptr_cortical_size = pns.check_aptr(raw_aptr)   
-                # Update the aptr
+                    aptr_cortical_size = pns.check_aptr(raw_aptr)
+                    # Update the aptr
                 capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
                                                        aptr_cortical_size)
                 # Update the ISO

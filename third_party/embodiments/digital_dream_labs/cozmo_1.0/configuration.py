@@ -51,7 +51,7 @@ capabilities = {
         'topic_identifier': '/M',
         "refresh_rate": 1,
         "cortical_mapping": "o__mot",
-        "rolling_window_len": 5,
+        "rolling_window_len": 2,
         "diameter_of_wheel": 0.065,
         "power_amount": 65
     },
