@@ -175,14 +175,21 @@ def on_camera_image(cli, image):
     # time.sleep(0.01)
 
 
-async def move_control(motor, feagi_settings, capabilities, rolling_window):
+async def move_control(cli, feagi_settings, capabilities, rolling_window):
     motor_count = capabilities['motor']['count']
     while True:
-        print("len: ", rolling_window)
+        wheel_speeds = {"rf": 0, "rb": 0, "lf": 0, "lb": 0}
         for id in range(motor_count):
             motor_power = window_average(rolling_window[id])
-            motor_power = motor_power * capabilities["motor"]["power_amount"]
-            motor.move(id, motor_power)
+            if id in [0, 1]:
+                wheel_speeds["r" + ["f", "b"][id]] = float(motor_power)
+            if id in [2, 3]:
+                wheel_speeds["l" + ["f", "b"][id - 2]] = float(motor_power)
+        rwheel_speed = wheel_speeds["rf"] - wheel_speeds["rb"]
+        lwheel_speed = wheel_speeds["lf"] - wheel_speeds["lb"]
+        motor_functions.drive_wheels(cli, lwheel_speed=lwheel_speed,
+                                     rwheel_speed=rwheel_speed,
+                                     duration=feagi_settings['feagi_burst_speed'])
         sleep(feagi_settings['feagi_burst_speed'])
 
 
@@ -190,7 +197,16 @@ def start_motor(motor, feagi_settings, capabilities, rolling_window):
     asyncio.run(move_control(motor, feagi_settings, capabilities, rolling_window))
 
 
+def test_camera(cli):
+    cli.add_handler(pycozmo.event.EvtNewRawCameraImage, on_camera_image)
+
+
+def robot_status(cli):
+    cli.add_handler(pycozmo.protocol_encoder.RobotState, on_robot_state)
+
+
 def move_head(cli, angle, max, min):
+    print("ANGLE: ", angle)
     if min <= angle <= max:
         cli.set_head_angle(angle)  # move head
         return True
@@ -208,15 +224,14 @@ def lift_arms(cli, angle, max, min):
         return False
 
 
-def action(obtained_data, device_list, feagi_settings, head_angle, arms_angle):
+def action(obtained_data, device_list, feagi_settings, arms_angle, head_angle):
     motor_count = capabilities['motor']['count']
     for device in device_list:  # TODO: work on 'device'
         if 'motor' in obtained_data:
             if obtained_data['motor'] is not {}:
                 for data_point in obtained_data['motor']:
                     device_power = obtained_data['motor'][data_point]
-                    device_power = motor.power_convert(data_point, device_power)
-                    device_id = motor.motor_converter(data_point)
+                    device_id = float(data_point)
                     if device_id not in motor_data:
                         motor_data[device_id] = dict()
                     rolling_window[device_id].append(device_power)
@@ -227,30 +242,31 @@ def action(obtained_data, device_list, feagi_settings, head_angle, arms_angle):
                 rolling_window[_].popleft()
 
         if "servo" in obtained_data:
-            for i in obtained_data['servo']:
-                if i == 0:
-                    test_head_angle = head_angle
-                    test_head_angle += obtained_data['servo'][i] / capabilities["servo"][
-                        "power_amount"]
-                    if move_head(cli, test_head_angle, max, min):
-                        head_angle = test_head_angle
-                elif i == 1:
-                    test_head_angle = head_angle
-                    test_head_angle -= obtained_data['servo'][i] / capabilities["servo"][
-                        "power_amount"]
-                    if move_head(cli, head_angle, max, min):
-                        head_angle = test_head_angle
-                if i == 2:
-                    test_head_angle = arms_angle
-                    test_head_angle += obtained_data['servo'][i] / 100
-                    if lift_arms(cli, test_head_angle, max_lift, min_lift):
-                        arms_angle = test_head_angle
-                elif i == 3:
-                    test_head_angle = arms_angle
-                    test_head_angle -= obtained_data['servo'][i] / 100
-                    if lift_arms(cli, test_head_angle, max_lift, min_lift):
-                        arms_angle = test_head_angle
-            obtained_data['servo'].clear()
+            if obtained_data["servo"] is not {}:
+                for i in obtained_data['servo']:
+                    if i == 0:
+                        test_head_angle = head_angle
+                        test_head_angle += obtained_data['servo'][i] / capabilities["servo"][
+                            "power_amount"]
+                        if move_head(cli, test_head_angle, max, min):
+                            head_angle = test_head_angle
+                    elif i == 1:
+                        test_head_angle = head_angle
+                        test_head_angle -= obtained_data['servo'][i] / capabilities["servo"][
+                            "power_amount"]
+                        if move_head(cli, head_angle, max, min):
+                            head_angle = test_head_angle
+                    if i == 2:
+                        test_arm_angle = arms_angle
+                        test_arm_angle += obtained_data['servo'][i] / 60
+                        if lift_arms(cli, test_arm_angle, max_lift, min_lift):
+                            arms_angle = test_arm_angle
+                    elif i == 3:
+                        test_arm_angle = arms_angle
+                        test_arm_angle -= obtained_data['servo'][i] / 60
+                        if lift_arms(cli, test_arm_angle, max_lift, min_lift):
+                            arms_angle = test_arm_angle
+                obtained_data['servo'].clear()
         if "misc" in obtained_data:
             if obtained_data["misc"]:
                 print("face: ", face_selected, " misc: ", obtained_data["misc"])
@@ -282,14 +298,16 @@ if __name__ == '__main__':
     face_selected = deque()
     eye_one_location = deque()
     eye_two_location = deque()
+    motor_data = dict()
     rolling_window_len = capabilities['motor']['rolling_window_len']
+    motor_count = capabilities['motor']['count']
     # Rolling windows for each motor
     rolling_window = {}
+    # Initialize rolling window for each motor
+    for motor_id in range(motor_count):
+        rolling_window[motor_id] = deque([0] * rolling_window_len)
 
     threading.Thread(target=face_starter, daemon=True).start()
-    threading.Thread(target=start_motor, args=(capabilities['motor']['count'], feagi_settings,
-                                               capabilities,
-                                               rolling_window,), daemon=True).start()
     msg_counter = 0
     rgb = {'camera': {}}
     genome_tracker = 0
@@ -308,8 +326,11 @@ if __name__ == '__main__':
     min = pycozmo.robot.MIN_HEAD_ANGLE.radians + 0.1
     max_lift = pycozmo.MAX_LIFT_HEIGHT.mm - 5
     min_lift = pycozmo.MIN_LIFT_HEIGHT.mm + 5
-    angle_of_head = (
-                            pycozmo.robot.MAX_HEAD_ANGLE.radians - pycozmo.robot.MIN_HEAD_ANGLE.radians) / 2.0
+    threading.Thread(target=start_motor, args=(cli, feagi_settings,
+                                               capabilities,
+                                               rolling_window,), daemon=True).start()
+    angle_of_head = \
+        (pycozmo.robot.MAX_HEAD_ANGLE.radians - pycozmo.robot.MIN_HEAD_ANGLE.radians) / 2.0
     angle_of_arms = 50  # TODO: How to obtain the arms encoders in real time
     cli.set_head_angle(angle_of_head)  # move head
     lwheel_speed = 0  # Speed in millimeters per second for the left wheel
@@ -320,16 +341,11 @@ if __name__ == '__main__':
 
     # vision capture
     cli.enable_camera(enable=True, color=True)
-
-    cli.add_handler(pycozmo.event.EvtNewRawCameraImage, on_camera_image)
-    cli.add_handler(pycozmo.protocol_encoder.RobotState, on_robot_state)
+    threading.Thread(target=robot_status, args=(cli,), daemon=True).start()
+    threading.Thread(target=test_camera, args=(cli,), daemon=True).start()
     time.sleep(2)
     # vision ends
     device_list = pns.generate_OPU_list(capabilities)  # get the OPU sensors
-
-    # Initialize rolling window for each motor
-    for motor_id in range(motor_count):
-        rolling_window[motor_id] = deque([0] * rolling_window_len)
 
     while True:
         try:
@@ -375,8 +391,6 @@ if __name__ == '__main__':
                         if len(face_selected) == 0:
                             face_selected.append(0)
             new_rgb = rgb_array['current']
-            # cv2.imshow("test", new_rgb)
-            # cv2.waitKey(30)
             previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
                 pns.generate_rgb(new_rgb,
                                  capabilities['camera']['central_vision_allocation_percentage'][0],
