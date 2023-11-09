@@ -53,7 +53,8 @@ runtime_data = {
 rgb_array = dict()
 rgb_array['current'] = {}
 previous_data_frame = dict()
-robot = {'accelerator': [], "ultrasonic": [], "gyro": [], 'servo_head': [], "battery": []}
+robot = {'accelerator': [], "ultrasonic": [], "gyro": [], 'servo_head': [], "battery": [],
+         'lift_height': []}
 
 
 def window_average(sequence):
@@ -85,6 +86,7 @@ def on_robot_state(cli, pkt: pycozmo.protocol_encoder.RobotState):
     robot["gyro"] = [pkt.gyro_x, pkt.gyro_y, pkt.gyro_z]
     robot['servo_head'] = pkt.head_angle_rad
     robot['battery'] = pkt.battery_voltage
+    robot['lift_height'] = pkt.lift_height_mm
 
 
 async def expressions():
@@ -445,7 +447,6 @@ if __name__ == '__main__':
             if message_from_feagi is not None:
                 feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
             sleep(feagi_settings['feagi_burst_speed'])
-
             pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
             message_to_feagi.clear()
             for i in rgb['camera']:
