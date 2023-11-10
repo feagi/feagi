@@ -80,7 +80,7 @@ capabilities = {
         "type": "ipu",
         "disabled": False,
         "count": 1,
-        "iso_default": 0.2,
+        "iso_default": 0.67,
         "central_vision_allocation_percentage": [90, 80],
         "central_vision_resolution": [64, 64],
         "peripheral_vision_resolution": [8, 8],
@@ -89,7 +89,7 @@ capabilities = {
         "previous_data": {},
         "aperture_range": [0.2, 2],
         "iso_range": [0.1, 2],
-        "aperture_default": 2,
+        "aperture_default": 0.2,
         "mirror": True
     },
 }
