@@ -260,12 +260,12 @@ def action(obtained_data, device_list, feagi_settings, arms_angle, head_angle):
                             head_angle = test_head_angle
                     if i == 2:
                         test_arm_angle = arms_angle
-                        test_arm_angle += obtained_data['servo'][i] / 60
+                        test_arm_angle += obtained_data['servo'][i] / 40
                         if lift_arms(cli, test_arm_angle, max_lift, min_lift):
                             arms_angle = test_arm_angle
                     elif i == 3:
                         test_arm_angle = arms_angle
-                        test_arm_angle -= obtained_data['servo'][i] / 60
+                        test_arm_angle -= obtained_data['servo'][i] / 40
                         if lift_arms(cli, test_arm_angle, max_lift, min_lift):
                             arms_angle = test_arm_angle
                 obtained_data['servo'].clear()
