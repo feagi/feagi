@@ -28,13 +28,42 @@ import pickle
 import lz4.frame
 
 from configuration import *
+from collections import deque
 from feagi_agent import retina
 from version import __version__
 from feagi_agent import feagi_interface as feagi
 from feagi_agent import pns_gateway as pns
 
 rgb_array = {}
+ws = deque()
+ws_operation = deque()
 webcam_size = {'size': []}
+
+
+async def bridge_to_godot():
+    while True:
+        if ws:
+            try:
+                if ws_operation:
+                    if len(ws) > 0:
+                        if len(ws) > 2:
+                            stored_value = ws.pop()
+                            ws.clear()
+                            ws.append(stored_value)
+                    await ws_operation[0].send(str(ws[0]))
+                    ws.pop()
+                if "stimulation_period" in runtime_data:
+                    sleep(runtime_data["stimulation_period"])
+            except Exception as error:
+                print("error in websocket sender: ", error)
+                traceback.print_exc()
+                sleep(0.001)
+        else:
+            sleep(0.001)
+
+
+def bridge_operation():
+    asyncio.run(bridge_to_godot())
 
 
 def rgba2rgb(rgba, background=(255, 255, 255)):
@@ -77,10 +106,13 @@ async def echo(websocket):
     and sends the data from FEAGI to the connected websockets.
     """
     async for message in websocket:
+        if not ws_operation:
+            ws_operation.append(websocket)
+        else:
+            ws_operation[0] = websocket
         test = message
         rgb_array['current'] = list(lz4.frame.decompress(test))
         webcam_size['size'] = []
-
 
 
 async def main():
@@ -107,7 +139,8 @@ if __name__ == "__main__":
     rgb['camera'] = {}
     rgb_array['current'] = {}
     capabilities['camera']['current_select'] = [[], []]
-    BGSK = threading.Thread(target=websocket_operation, daemon=True).start()
+    threading.Thread(target=websocket_operation, daemon=True).start()
+    threading.Thread(target=bridge_operation, daemon=True).start()
     while True:
         feagi_flag = False
         print("Waiting on FEAGI...")
@@ -119,7 +152,7 @@ if __name__ == "__main__":
         print("DONE")
         previous_data_frame = {}
         runtime_data = {"cortical_data": {}, "current_burst_id": None,
-                        "stimulation_period": None, "feagi_state": None,
+                        "stimulation_period": 0.01, "feagi_state": None,
                         "feagi_network": None}
 
         # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -141,6 +174,8 @@ if __name__ == "__main__":
             try:
                 message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
                 if message_from_feagi is not None:
+                    if message_from_feagi['burst_frequency'] != runtime_data["stimulation_period"]:
+                        ws.append(message_from_feagi['burst_frequency'])
                     # OPU section STARTS
                     if 'genome_num' in message_from_feagi:
                         if message_from_feagi['genome_num'] != genome_tracker:
@@ -191,6 +226,7 @@ if __name__ == "__main__":
                 message_to_feagi['counter'] = msg_counter
                 if message_from_feagi is not None:
                     feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
+                    runtime_data["stimulation_period"] = message_from_feagi['burst_frequency']
                 sleep(feagi_settings['feagi_burst_speed'])
 
                 if agent_settings['compression']:
