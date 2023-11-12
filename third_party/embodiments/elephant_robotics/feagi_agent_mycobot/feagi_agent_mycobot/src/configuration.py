@@ -47,6 +47,9 @@ capabilities = {
         "peripheral_vision_compression": [8, 8],
         "previous_data": {}
     },
+    "servo_position": {
+        "type": "opu"
+    },
     "servo": {
         "type": "opu",
         "disabled": False,

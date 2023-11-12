@@ -218,9 +218,9 @@ def opu_processor(data):
             if 'o__pos' in opu_data:
                 if opu_data['o__pos']:
                     for data_point in opu_data['o__pos']:
-                        data_point = block_to_array(data_point)
-                        device_id = data_point[0]
-                        device_power = data_point[2]
+                        processed_data_point = block_to_array(data_point)
+                        device_id = processed_data_point[0]
+                        device_power = processed_data_point[2]
                         processed_opu_data['servo_position'][device_id] = device_power
             if 'o_vres' in opu_data:
                 if opu_data['o_vres']:
