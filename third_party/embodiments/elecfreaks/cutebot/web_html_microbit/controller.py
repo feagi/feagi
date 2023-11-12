@@ -42,6 +42,7 @@ async def bridge_to_godot():
                             stored_value = ws.pop()
                             ws.clear()
                             ws.append(stored_value)
+                    print("ws: ", ws[0])
                     await ws_operation[0].send(str(ws[0]))
                     ws.pop()
                 if "stimulation_period" in runtime_data:
@@ -127,15 +128,19 @@ def action(obtained_data, device_list):
                                 obtained_data['motor'].pop(3)
                             else:
                                 obtained_data['motor'].pop(2)
-                for i in sorted(obtained_data['motor']):  # Ensure that it's in order for microbit
+                new_dict = {'motor': {}}
+                for x in obtained_data['motor']:
+                    if x in [0, 1, 2, 3]:
+                        new_dict['motor'][x] = obtained_data['motor'][x]
+                for i in sorted(new_dict['motor']):  # Ensure that it's in order for microbit
                     if i in [0, 1]:
-                        data_power = obtained_data['motor'][i]
+                        data_power = new_dict['motor'][i]
                         if data_power <= 0:
                             data_power = 1
                         WS_STRING += str(i) + str(data_power-1).zfill(2)  # Append the motor data as a two-digit
                         # string
                     elif i in [2, 3]:
-                        data_power = obtained_data['motor'][i]
+                        data_power = new_dict['motor'][i]
                         if data_power <= 0:
                             data_power = 1
                         WS_STRING += str(i) + str(data_power-1).zfill(2)  # Append the motor data as a two-digit
