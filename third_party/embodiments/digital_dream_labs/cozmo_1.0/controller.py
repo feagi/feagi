@@ -222,7 +222,7 @@ def lift_arms(cli, angle, max, min):
         cli.set_lift_height(angle)  # move head
         return True
     else:
-        print("reached to limit")
+        face_selected.append(4)
         return False
 
 
