@@ -89,8 +89,10 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     FEAGI_FLAG = False
     print("Waiting on FEAGI...")
     while not FEAGI_FLAG:
-        FEAGI_FLAG = feagi.is_FEAGI_reachable(os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"),
-                                              int(os.environ.get('FEAGI_OPU_PORT', "3000")))
+        FEAGI_FLAG = feagi.is_FEAGI_reachable(
+            os.environ.get('FEAGI_HOST_INTERNAL', feagi_settings["feagi_host"]),
+            int(os.environ.get('FEAGI_OPU_PORT', "3000")))
+        sleep(2)
     # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # - - - - - - - - - - - - - - - - - - #
     feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel = \
