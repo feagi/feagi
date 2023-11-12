@@ -9,10 +9,8 @@ import asyncio
 from feagi_agent_freenove.version import __version__
 from feagi_agent_freenove.Led import *
 from feagi_agent_freenove.PCA9685 import PCA9685
-from picamera import PiCamera
 from datetime import datetime
 from collections import deque
-from picamera.array import PiRGBArray
 from feagi_agent import pns_gateway as pns
 from time import sleep
 import pickle
@@ -85,8 +83,7 @@ class Servo:
         self.PwmServo = PCA9685(0x40, debug=True)
         self.PwmServo.setPWMFreq(50)
         self.device_position = float()
-        self.servo_ranges = {0: [10, 160],
-                             1: [78, 160]}
+        self.servo_ranges = {i: [78, 160] for i in range(13)}
 
     def setServoPwm(self, channel, angle, error=10):
         angle = float(angle)
