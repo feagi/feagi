@@ -7,11 +7,9 @@ def on_bluetooth_disconnected():
 bluetooth.on_bluetooth_disconnected(on_bluetooth_disconnected)
 
 def on_uart_data_received():
-    global feagi_string, directionR, directionL, powerR, powerL, 
-MOTOR_STATUS
+    global MOTOR_STATUS, feagi_string, directionR, directionL, powerR, powerL
     MOTOR_STATUS = "start"
-    feagi_string = 
-bluetooth.uart_read_until(serial.delimiters(Delimiters.HASH))
+    feagi_string = bluetooth.uart_read_until(serial.delimiters(Delimiters.HASH))
     directionR = int(feagi_string[0])
     directionL = int(feagi_string[3])
     if len(feagi_string) == 6:
@@ -21,38 +19,39 @@ bluetooth.uart_read_until(serial.delimiters(Delimiters.HASH))
         powerR = 0
         powerL = 0
     if directionR == 1:
-        powerR = powerR * -1
+        powerR = powerR * -0.6
     elif directionR == 0:
-        powerR = powerR
+        powerR = powerR * 0.6
     else:
         powerR = 0
     if directionL == 3:
-        powerL = powerL * -1
+        powerL = powerL * -0.6
     elif directionL == 2:
-        powerL = powerL
+        powerL = powerL * 0.6
     else:
         powerL = 0
     cuteBot.motors(int(powerL), int(powerR))
     pause(95)
     MOTOR_STATUS = "done"
-bluetooth.on_uart_data_received(serial.delimiters(Delimiters.HASH), 
-on_uart_data_received)
+bluetooth.on_uart_data_received(serial.delimiters(Delimiters.HASH), on_uart_data_received)
 
+current_RR = ""
+new_data_RR = ""
+R_flag = ""
+L_flag = ""
 powerL = 0
 powerR = 0
 directionL = 0
 directionR = 0
+MOTOR_STATUS = ""
 feagi_string = ""
-current_RR = ""
-L_flag = ""
-R_flag = ""
 MOTOR_STATUS = "done"
 bluetooth.start_uart_service()
 basic.show_string("1")
 keyboard.start_keyboard_service()
 
 def on_forever():
-    global L_flag, R_flag, current_RR, powerL, powerR
+    global L_flag, R_flag, new_data_RR, current_RR, powerL, powerR
     if cuteBot.tracking(cuteBot.TrackingState.L_LINE_R_UNLINE) == True:
         L_flag = "t"
     elif cuteBot.tracking(cuteBot.TrackingState.L_LINE_R_UNLINE) == False:
@@ -64,19 +63,16 @@ def on_forever():
     if cuteBot.tracking(cuteBot.TrackingState.L_R_LINE) == True:
         R_flag = "t"
         L_flag = "t"
-    new_data_RR = L_flag + R_flag
+    new_data_RR = "" + L_flag + R_flag
     if current_RR != new_data_RR:
         current_RR = new_data_RR
         bluetooth.uart_write_string(new_data_RR)
     if MOTOR_STATUS == "done":
         if powerR == 0 and powerL == 0:
-            cuteBot.stopcar()
+            cuteBot.motors(int(powerL), int(powerR))
         if powerL != 0:
             powerL = 0
         if powerR != 0:
             powerR = 0
 basic.forever(on_forever)
-
-
-
 
