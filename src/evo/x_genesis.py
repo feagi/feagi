@@ -599,7 +599,7 @@ def add_core_cortical_area(cortical_properties):
 
             save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                         file_name=runtime_data.connectome_path + "genome.json")
-            # runtime_data.last_genome_modification_time = datetime.datetime.now()
+            runtime_data.last_genome_modification_time = datetime.datetime.now()
             return cortical_id_
 
     except KeyError:
@@ -679,7 +679,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
 
         save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                     file_name=runtime_data.connectome_path + "genome.json")
-        # runtime_data.last_genome_modification_time = datetime.datetime.now()
+        runtime_data.last_genome_modification_time = datetime.datetime.now()
         return cortical_area
 
 
