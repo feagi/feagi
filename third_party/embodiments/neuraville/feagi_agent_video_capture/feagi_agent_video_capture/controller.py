@@ -43,6 +43,8 @@ camera_data = {"vision": {}}
 
 def process_video(video_path, capabilities):
     cam = cv2.VideoCapture(video_path)
+    cam.set(3, 320)
+    cam.set(4, 240)
     if capabilities['camera']['video_device_index'] == "monitor":
         screen_width = 600
         screen_height = 600
