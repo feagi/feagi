@@ -109,7 +109,7 @@ def update_cortical_properties(cortical_properties):
     - Cortical name
 
     """
-
+    changed_areas = set()
     regeneration_flag = False
 
     if 'cortical_id' not in cortical_properties:
@@ -123,21 +123,26 @@ def update_cortical_properties(cortical_properties):
     if cortical_properties['cortical_name'] is not None:
         runtime_data.genome['blueprint'][cortical_area]["cortical_name"] = \
             cortical_properties['cortical_name']
+        changed_areas.add("name")
 
     if cortical_properties['cortical_coordinates'] is not None:
         x_cortical_reposition(cortical_area=cortical_area,
                               new_coordinates=cortical_properties['cortical_coordinates'])
+        changed_areas.add("3d_loc")
 
     if cortical_properties['cortical_coordinates_2d'] is not None:
         x_cortical_reposition_2d(cortical_area=cortical_area,
                                  new_coordinates=cortical_properties['cortical_coordinates_2d'])
+        changed_areas.add("2d_loc")
 
     if cortical_properties['neuron_fire_threshold'] is not None:
         runtime_data.genome['blueprint'][cortical_area]['firing_threshold'] = \
             cortical_properties['neuron_fire_threshold']
 
         for neuron_ in runtime_data.brain[cortical_area]:
-            runtime_data.brain[cortical_area][neuron_]['firing_threshold'] = cortical_properties['neuron_fire_threshold']
+            runtime_data.brain[cortical_area][neuron_]['firing_threshold'] = \
+                cortical_properties['neuron_fire_threshold']
+        changed_areas.add("blueprint")
 
     if cortical_properties['neuron_post_synaptic_potential'] is not None:
         for neuron_id in runtime_data.brain[cortical_area]:
@@ -146,34 +151,42 @@ def update_cortical_properties(cortical_properties):
                     cortical_properties['neuron_post_synaptic_potential']
         runtime_data.genome['blueprint'][cortical_area]["postsynaptic_current"] = \
             cortical_properties['neuron_post_synaptic_potential']
+        changed_areas.add("blueprint")
 
     if cortical_properties['neuron_refractory_period'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["refractory_period"] = \
             cortical_properties['neuron_refractory_period']
+        changed_areas.add("blueprint")
 
     if cortical_properties['neuron_snooze_period'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["snooze_length"] = \
             cortical_properties['neuron_snooze_period']
+        changed_areas.add("blueprint")
 
     if cortical_properties['neuron_degeneracy_coefficient'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["degeneration"] = \
             cortical_properties['neuron_degeneracy_coefficient']
+        changed_areas.add("blueprint")
 
     if cortical_properties['neuron_post_synaptic_potential_max'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["postsynaptic_current_max"] = \
             cortical_properties['neuron_post_synaptic_potential_max']
+        changed_areas.add("blueprint")
 
     if cortical_properties['neuron_consecutive_fire_count'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["consecutive_fire_cnt_max"] = \
             cortical_properties['neuron_consecutive_fire_count']
+        changed_areas.add("blueprint")
 
     if cortical_properties['neuron_mp_charge_accumulation'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["mp_charge_accumulation"] = \
             cortical_properties['neuron_mp_charge_accumulation']
+        changed_areas.add("blueprint")
 
     if cortical_properties['cortical_visibility'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["visualization"] = \
             cortical_properties['cortical_visibility']
+        changed_areas.add("3d_viz")
 
     # ####################################################
     # Conditions that require cortical regeneration
@@ -184,16 +197,19 @@ def update_cortical_properties(cortical_properties):
             regeneration_flag = True
             runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][0] = \
                 cortical_properties['cortical_dimensions'][0]
+            changed_areas.add("3d_dimm")
         if runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][1] != \
                 cortical_properties['cortical_dimensions'][1] and cortical_properties['cortical_dimensions'][1] > 0:
             regeneration_flag = True
             runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][1] = \
                 cortical_properties['cortical_dimensions'][1]
+            changed_areas.add("3d_dimm")
         if runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][2] != \
                 cortical_properties['cortical_dimensions'][2] and cortical_properties['cortical_dimensions'][2] > 0:
             regeneration_flag = True
             runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][2] = \
                 cortical_properties['cortical_dimensions'][2]
+            changed_areas.add("3d_dimm")
 
     if cortical_properties['cortical_neuron_per_vox_count'] is not None:
         if runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"] != \
@@ -201,6 +217,7 @@ def update_cortical_properties(cortical_properties):
             regeneration_flag = True
             runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"] = \
                 cortical_properties['cortical_neuron_per_vox_count']
+            changed_areas.add("blueprint")
 
     if cortical_properties['cortical_synaptic_attractivity'] is not None:
         if runtime_data.genome["blueprint"][cortical_area]["synapse_attractivity"] != \
@@ -208,6 +225,7 @@ def update_cortical_properties(cortical_properties):
             regeneration_flag = True
             runtime_data.genome["blueprint"][cortical_area]["synapse_attractivity"] = \
                 cortical_properties['cortical_synaptic_attractivity']
+            changed_areas.add("blueprint")
 
     if cortical_properties['neuron_leak_variability'] is not None:
         if runtime_data.genome["blueprint"][cortical_area]["leak_variability"] != \
@@ -215,6 +233,7 @@ def update_cortical_properties(cortical_properties):
             regeneration_flag = True
             runtime_data.genome['blueprint'][cortical_area]["leak_variability"] = \
                 cortical_properties['neuron_leak_variability']
+            changed_areas.add("blueprint")
 
     if cortical_properties['neuron_leak_coefficient'] is not None:
         if runtime_data.genome['blueprint'][cortical_area]["leak_coefficient"] != \
@@ -222,6 +241,7 @@ def update_cortical_properties(cortical_properties):
             runtime_data.genome['blueprint'][cortical_area]["leak_coefficient"] = \
                 cortical_properties['neuron_leak_coefficient']
             regeneration_flag = True
+            changed_areas.add("blueprint")
 
     if cortical_properties['neuron_psp_uniform_distribution'] is not None:
         if runtime_data.genome['blueprint'][cortical_area]["psp_uniform_distribution"] != \
@@ -229,6 +249,7 @@ def update_cortical_properties(cortical_properties):
             runtime_data.genome['blueprint'][cortical_area]["psp_uniform_distribution"] = \
                 cortical_properties['neuron_psp_uniform_distribution']
             regeneration_flag = True
+            changed_areas.add("blueprint")
 
     if cortical_properties['neuron_fire_threshold_increment'] is not None:
         genome_fire_threshold_increment = [
@@ -245,6 +266,7 @@ def update_cortical_properties(cortical_properties):
             runtime_data.genome['blueprint'][cortical_area]["firing_threshold_increment_z"] = \
                 cortical_properties['neuron_fire_threshold_increment'][2]
             regeneration_flag = True
+            changed_areas.add("blueprint")
 
     if cortical_properties['neuron_firing_threshold_limit'] is not None:
         if runtime_data.genome['blueprint'][cortical_area]["firing_threshold_limit"] != \
@@ -252,9 +274,9 @@ def update_cortical_properties(cortical_properties):
             runtime_data.genome['blueprint'][cortical_area]["firing_threshold_limit"] = \
                 cortical_properties['neuron_firing_threshold_limit']
             regeneration_flag = True
+            changed_areas.add("blueprint")
 
     if regeneration_flag:
-
         print("@-----@ " * 10)
         logger.info(f"Cortical regeneration triggered for {cortical_area}")
         cortical_regeneration(cortical_area=cortical_area)
@@ -263,8 +285,15 @@ def update_cortical_properties(cortical_properties):
     runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                 file_name=runtime_data.connectome_path + "genome.json")
-    runtime_data.last_genome_modification_time = datetime.datetime.now()
+    # runtime_data.last_genome_modification_time = datetime.datetime.now()
     runtime_data.transforming_areas.remove(cortical_area)
+    update_evo_change_register(change_area=changed_areas)
+
+
+def update_evo_change_register(change_area: set):
+    for change in change_area:
+        if change in runtime_data.evo_change_register:
+            runtime_data.evo_change_register[change] = runtime_data.burst_count
 
 
 def update_cortical_mappings(cortical_mappings):
@@ -297,6 +326,7 @@ def update_cortical_mappings(cortical_mappings):
     neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                 file_name=runtime_data.connectome_path + "genome.json")
+    update_evo_change_register(change_area={"mappings"})
 
     # added_mappings, removed_mappings, modified_mappings = \
     #     mapping_change_report(cortical_area=cortical_area, new_mapping=cortical_properties['cortical_destinations'])
@@ -349,6 +379,7 @@ def update_morphology_properties(morphology_properties):
                 cortical_rewiring(src_cortical_area=impacted_area[0], dst_cortical_area=impacted_area[1])
             save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                         file_name=runtime_data.connectome_path + "genome.json")
+            update_evo_change_register(change_area={"morphology"})
 
         else:
             print("Error during processing morphology change request!\n Morphology name not found: ",
@@ -568,7 +599,7 @@ def add_core_cortical_area(cortical_properties):
 
             save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                         file_name=runtime_data.connectome_path + "genome.json")
-            runtime_data.last_genome_modification_time = datetime.datetime.now()
+            # runtime_data.last_genome_modification_time = datetime.datetime.now()
             return cortical_id_
 
     except KeyError:
@@ -648,7 +679,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
 
         save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                     file_name=runtime_data.connectome_path + "genome.json")
-        runtime_data.last_genome_modification_time = datetime.datetime.now()
+        # runtime_data.last_genome_modification_time = datetime.datetime.now()
         return cortical_area
 
 
