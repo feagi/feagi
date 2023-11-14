@@ -1218,11 +1218,6 @@ async def update_coord_3d(new_3d_coordinates: dict, response: Response):
         logger.error(traceback.print_exc())
 
 
-
-
-
-
-
 # ######  Evolution #########
 # #############################
 
@@ -1278,6 +1273,22 @@ async def list_generations(response: Response):
         if runtime_data.generation_dict:
             response.status_code = status.HTTP_200_OK
             return runtime_data.generation_dict
+        else:
+            response.status_code = status.HTTP_404_NOT_FOUND
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/evolution/change_register", methods=['GET'], tags=["Evolution"])
+async def list_generations(response: Response):
+    """
+    Return details about all generations.
+    """
+    try:
+        if runtime_data.evo_change_register:
+            response.status_code = status.HTTP_200_OK
+            return runtime_data.evo_change_register
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
     except Exception as e:

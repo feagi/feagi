@@ -61,6 +61,16 @@ genome_reset_flag = False
 last_genome_modification_time = None
 genome_validity = False
 original_genome_id = []
+evo_change_register = {
+    "morphology": 0,
+    "blueprint": 0,
+    "mappings": 0,
+    "3d_loc": 0,
+    "2d_loc": 0,
+    "3d_dimm": 0,
+    "name": 0,
+    "3d_viz": 0
+}
 
 # Staging Zone
 pending_genome = None
@@ -91,7 +101,6 @@ fire_list = []
 prunning_candidates = set()
 plasticity_queue_candidates = dict()
 
-
 # Stats Collection
 neuron_mp_collection_scope = {}
 neuron_psp_collection_scope = {}
@@ -107,14 +116,12 @@ comprehension_queue = ''
 plasticity_queue = list()
 plasticity_queue_depth = 3
 
-
 # cumulative_neighbor_count = 0
 time_neuron_update = ''
 time_apply_plasticity_ext = ''
 plasticity_time_total = None
 plasticity_time_total_p1 = None
 tester_test_stats = {}
-
 
 # Stimulation
 stimulation_script = {}
