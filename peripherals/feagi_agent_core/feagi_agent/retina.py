@@ -91,7 +91,7 @@ def detect_change_edge(frame, previous_data_frame, retina_data, current_selected
             if 'C' in i:
                 previous_name = str(i) + "_prev"
                 rgb_data, previous_data_frame[previous_name] = \
-                        get_rgb(data, central_resolution, previous_data_frame[previous_name], name,
+                    get_rgb(data, central_resolution, previous_data_frame[previous_name], name,
                             current_iso_selected, aperture_default)
             else:
                 previous_name = str(i) + "_prev"
@@ -100,6 +100,7 @@ def detect_change_edge(frame, previous_data_frame, retina_data, current_selected
                             name, current_iso_selected, aperture_default)
             for a in rgb_data['camera']:
                 rgb['camera'][a] = rgb_data['camera'][a]
+
     return previous_data_frame, rgb['camera'], current_selected_size
 
 
@@ -175,10 +176,10 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr
             if previous_frame[index] != frame[index]:
                 if (abs((previous_frame[index] - frame[index])) / 100) > deviation_threshold:
                     dict_key = str(y_vision) + '-' + \
-                               str(abs((frame_row_count - 1) - x_vision)) + '-' + str(z_vision)
+                               str(abs((frame_col_count - 1) - x_vision)) + '-' + str(z_vision)
                     if single_RGB != None:
                         dict_key = str(y_vision) + '-' + \
-                                   str(abs((frame_row_count - 1) - x_vision)) + '-' + str(
+                                   str(abs((frame_col_count - 1) - x_vision)) + '-' + str(
                             single_RGB)
                     vision_dict[dict_key] = frame[index]  # save the value for the changed
                     # index to the dict
@@ -186,7 +187,7 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr
             if z_vision == 3:
                 z_vision = 0
                 y_vision += 1
-                if y_vision == frame_col_count:
+                if y_vision == frame_row_count:
                     y_vision = 0
                     x_vision += 1
         if frame != {}:
