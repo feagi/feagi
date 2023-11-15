@@ -152,6 +152,7 @@ async def expressions():
                     # Display face image.
                     cli.display_image(im2)
             face_selected.pop()
+            print("poped")
         else:
             time.sleep(0.05)
 
@@ -232,12 +233,13 @@ def action(obtained_data, device_list, feagi_settings, arms_angle, head_angle):
         if 'motor' in obtained_data:
             if obtained_data['motor'] is not {}:
                 for data_point in obtained_data['motor']:
-                    device_power = obtained_data['motor'][data_point]
-                    device_id = float(data_point)
-                    if device_id not in motor_data:
-                        motor_data[device_id] = dict()
-                    rolling_window[device_id].append(device_power)
-                    rolling_window[device_id].popleft()
+                    if data_point in [0,1,2,3]:
+                        device_power = obtained_data['motor'][data_point]
+                        device_id = float(data_point)
+                        if device_id not in motor_data:
+                            motor_data[device_id] = dict()
+                        rolling_window[device_id].append(device_power)
+                        rolling_window[device_id].popleft()
         else:
             for _ in range(motor_count):
                 rolling_window[_].append(0)
