@@ -433,6 +433,14 @@ def cortical_removal(cortical_area, genome_scrub=False):
         # Clear voxel indexes
         voxels.voxel_reset(cortical_area=cortical_area)
 
+        # FCL cleanup
+        if cortical_area in runtime_data.fire_candidate_list:
+            runtime_data.fire_candidate_list.pop(cortical_area)
+        if cortical_area in runtime_data.future_fcl:
+            runtime_data.future_fcl.pop(cortical_area)
+        if cortical_area in runtime_data.previous_fcl:
+            runtime_data.previous_fcl.pop(cortical_area)
+
         # Update Plasticity Dict
         generate_plasticity_dict()
 
@@ -440,12 +448,7 @@ def cortical_removal(cortical_area, genome_scrub=False):
         if genome_scrub:
             if cortical_area in runtime_data.genome['blueprint']:
                 runtime_data.genome['blueprint'].pop(cortical_area)
-            if cortical_area in runtime_data.fire_candidate_list:
-                runtime_data.fire_candidate_list.pop(cortical_area)
-            if cortical_area in runtime_data.previous_fcl:
-                runtime_data.previous_fcl.pop(cortical_area)
-            if cortical_area in runtime_data.future_fcl:
-                runtime_data.future_fcl.pop(cortical_area)
+
             runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
             runtime_data.cortical_dimensions = generate_cortical_dimensions()
             runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
@@ -453,6 +456,8 @@ def cortical_removal(cortical_area, genome_scrub=False):
                 if upstream_area in runtime_data.genome['blueprint']:
                     if cortical_area in runtime_data.genome['blueprint'][upstream_area]['cortical_mapping_dst']:
                         runtime_data.genome['blueprint'][upstream_area]['cortical_mapping_dst'].pop(cortical_area)
+
+        runtime_data.manual_delete_list.add(cortical_area)
         save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                     file_name=runtime_data.connectome_path + "genome.json")
 
