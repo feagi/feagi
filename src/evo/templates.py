@@ -64,11 +64,11 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10]
             },
-            "i__vis": {
+            "i__v0C": {
                 "enabled": True,
                 "cortical_name": "vision_sensor",
                 "structure": "asymmetric",
-                "resolution": [64, 64, 1]
+                "resolution": [64, 64, 3]
             }
         }
     },

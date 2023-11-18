@@ -412,7 +412,8 @@ def vision_translator(vision_data):
                             detections = stimuli_processor.vision_to_coords(r)
                             holder_position += 1
                             neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
-                            if cortical_area not in runtime_data.fire_candidate_list:
+                            if cortical_area not in runtime_data.fire_candidate_list and \
+                                    cortical_area not in runtime_data.manual_delete_list:
                                 runtime_data.fire_candidate_list[cortical_area] = set()
                             for neuron in neurons:
                                 runtime_data.fire_candidate_list[cortical_area].add(neuron)
@@ -422,7 +423,8 @@ def vision_translator(vision_data):
                             detections = stimuli_processor.vision_to_coords(r)
                             holder_position += 1
                             neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
-                            if cortical_area not in runtime_data.fire_candidate_list:
+                            if cortical_area not in runtime_data.fire_candidate_list and \
+                                    cortical_area not in runtime_data.manual_delete_list:
                                 runtime_data.fire_candidate_list[cortical_area] = set()
                             for neuron in neurons:
                                 runtime_data.fire_candidate_list[cortical_area].add(neuron)
@@ -432,7 +434,8 @@ def vision_translator(vision_data):
                             detections = stimuli_processor.vision_to_coords(r)
                             holder_position += 1
                             neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
-                            if cortical_area not in runtime_data.fire_candidate_list:
+                            if cortical_area not in runtime_data.fire_candidate_list and \
+                                    cortical_area not in runtime_data.manual_delete_list:
                                 runtime_data.fire_candidate_list[cortical_area] = set()
                             for neuron in neurons:
                                 runtime_data.fire_candidate_list[cortical_area].add(neuron)
@@ -442,7 +445,8 @@ def vision_translator(vision_data):
                             detections = stimuli_processor.vision_to_coords(r)
                             holder_position += 1
                             neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
-                            if cortical_area not in runtime_data.fire_candidate_list:
+                            if cortical_area not in runtime_data.fire_candidate_list and \
+                                    cortical_area not in runtime_data.manual_delete_list:
                                 runtime_data.fire_candidate_list[cortical_area] = set()
                             for neuron in neurons:
                                 runtime_data.fire_candidate_list[cortical_area].add(neuron)
@@ -452,7 +456,8 @@ def vision_translator(vision_data):
                             detections = stimuli_processor.vision_to_coords(r)
                             holder_position += 1
                             neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
-                            if cortical_area not in runtime_data.fire_candidate_list:
+                            if cortical_area not in runtime_data.fire_candidate_list and \
+                                    cortical_area not in runtime_data.manual_delete_list:
                                 runtime_data.fire_candidate_list[cortical_area] = set()
                             for neuron in neurons:
                                 runtime_data.fire_candidate_list[cortical_area].add(neuron)
@@ -462,7 +467,8 @@ def vision_translator(vision_data):
                             detections = stimuli_processor.vision_to_coords(r)
                             holder_position += 1
                             neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
-                            if cortical_area not in runtime_data.fire_candidate_list:
+                            if cortical_area not in runtime_data.fire_candidate_list and \
+                                    cortical_area not in runtime_data.manual_delete_list:
                                 runtime_data.fire_candidate_list[cortical_area] = set()
                             for neuron in neurons:
                                 runtime_data.fire_candidate_list[cortical_area].add(neuron)
@@ -472,7 +478,8 @@ def vision_translator(vision_data):
                             detections = stimuli_processor.vision_to_coords(r)
                             holder_position += 1
                             neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
-                            if cortical_area not in runtime_data.fire_candidate_list:
+                            if cortical_area not in runtime_data.fire_candidate_list and \
+                                    cortical_area not in runtime_data.manual_delete_list:
                                 runtime_data.fire_candidate_list[cortical_area] = set()
                             for neuron in neurons:
                                 runtime_data.fire_candidate_list[cortical_area].add(neuron)
@@ -482,7 +489,8 @@ def vision_translator(vision_data):
                             detections = stimuli_processor.vision_to_coords(r)
                             holder_position += 1
                             neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
-                            if cortical_area not in runtime_data.fire_candidate_list:
+                            if cortical_area not in runtime_data.fire_candidate_list and \
+                                    cortical_area not in runtime_data.manual_delete_list:
                                 runtime_data.fire_candidate_list[cortical_area] = set()
                             for neuron in neurons:
                                 runtime_data.fire_candidate_list[cortical_area].add(neuron)
@@ -492,7 +500,8 @@ def vision_translator(vision_data):
                             detections = stimuli_processor.vision_to_coords(r)
                             holder_position += 1
                             neurons = stimuli_processor.coords_to_neuron_ids(detections, cortical_area=cortical_area)
-                            if cortical_area not in runtime_data.fire_candidate_list:
+                            if cortical_area not in runtime_data.fire_candidate_list and \
+                                    cortical_area not in runtime_data.manual_delete_list:
                                 runtime_data.fire_candidate_list[cortical_area] = set()
                             for neuron in neurons:
                                 runtime_data.fire_candidate_list[cortical_area].add(neuron)
