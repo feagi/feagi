@@ -163,7 +163,7 @@ def burst_manager():
                       settings.Bcolors.ENDC)
             else:
                 print(settings.Bcolors.YELLOW +
-                      ">>> Burst duration @$@ ++ *@*: %s %i --- ---- ---- ---- ---- ---- ----"
+                      ">>> Burst duration @#@ ++ *@*: %s %i --- ---- ---- ---- ---- ---- ----"
                       % (runtime_data.burst_duration, runtime_data.burst_count) + settings.Bcolors.ENDC)
 
     def evolutionary_checkpoint():
@@ -434,6 +434,7 @@ def burst_manager():
                         godot_data = runtime_data.agent_registry[agent]["listener"].receive()
                         if godot_data:
                             stimuli_router(godot_data)
+                            print(">> Godot data:", godot_data)
             except Exception as e:
                 print("Error on message router:", e, traceback.print_exc())
                 pass
