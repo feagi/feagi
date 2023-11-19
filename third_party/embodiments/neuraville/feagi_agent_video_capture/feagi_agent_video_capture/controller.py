@@ -32,8 +32,8 @@ import os
 import time
 import pickle
 import lz4.frame
-import mss
 import screeninfo
+import mss
 import numpy
 import multiprocessing
 from PIL import Image
@@ -44,9 +44,7 @@ camera_data = {"vision": {}}
 def process_video(video_path, capabilities):
     cam = cv2.VideoCapture(video_path)
     if capabilities['camera']['video_device_index'] == "monitor":
-        screen_width = 600
-        screen_height = 600
-        monitor = {"top": 40, "left": 0, "width": screen_width, "height": screen_height}
+        all_monitors = screeninfo.get_monitors() # Needs to create an IPU for this
     pixels = []
     while True:
         if capabilities['camera']['video_device_index'] != "monitor":
@@ -62,10 +60,16 @@ def process_video(video_path, capabilities):
                     cam.set(cv2.CAP_PROP_POS_FRAMES, 0)
         if capabilities['camera']['video_device_index'] == "monitor":
             with mss.mss() as sct:
-                img = numpy.array(sct.grab(monitor))
-                pixels = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
-                cv2.imshow("OpenCV/Numpy normal", pixels)
-            # cv2.waitKey(25)
+              monitors = all_monitors[capabilities['camera']['monitor']]
+              monitor = {
+                "top": monitors.y,
+                "left": monitors.x,
+                "width": monitors.width,
+                "height": monitors.height
+              }
+
+              img = numpy.array(sct.grab(monitor))
+              pixels = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
             if capabilities["camera"]["mirror"]:
                 pixels = cv2.flip(pixels, 1)
             camera_data["vision"] = pixels
@@ -74,6 +78,15 @@ def process_video(video_path, capabilities):
                 pixels = cv2.flip(pixels, 1)
             camera_data["vision"] = pixels
         cv2.waitKey(30)
+        # print("len: ", len(pixels), " and shape: ", pixels.shape)
+        # try:
+        #   if len(pixels) == 600:
+        #     cv2.imshow("OpenCV/Numpy normal", pixels)
+        #     if cv2.waitKey(25) & 0xFF == ord("q"):
+        #       cv2.destroyAllWindows()
+        #       break
+        # except:
+        #   traceback.print_exc()
 
     cam.release()
     cv2.destroyAllWindows()
@@ -125,7 +138,6 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                                  capabilities['camera']['iso_default'],
                                  capabilities['camera']["aperture_default"],
                                  camera_index=capabilities['camera']["index"])
-
             if message_from_feagi is not None:
                 # Obtain the size of aptr
                 if aptr_cortical_size is None:
@@ -144,6 +156,11 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 if 'genome_num' in message_from_feagi:
                     if message_from_feagi['genome_num'] != genome_tracker:
                         genome_tracker = message_from_feagi['genome_num']
+                if "o__mon" in message_from_feagi["opu_data"]:
+                  if message_from_feagi["opu_data"]["o__mon"]:
+                    for i in message_from_feagi["opu_data"]["o__mon"]:
+                      monitor_update = feagi.block_to_array(i)
+                      capabilities['camera']['monitor'] = monitor_update[0]
                 # OPU section ENDS
 
             try:
