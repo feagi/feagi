@@ -144,6 +144,11 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
             post_synaptic_current_update(cortical_area_src=cortical_area, cortical_area_dst=dst_cortical_area,
                                          neuron_id_src=neuron_id, neuron_id_dst=dst_neuron_id,
                                          post_synaptic_current=new_psc)
+
+        if runtime_data.genome['blueprint'][cortical_area]['mp_driven_psp']:
+            print("@_> " * 10, runtime_data.brain[cortical_area][neuron_id]['membrane_potential'])
+            postsynaptic_current = runtime_data.brain[cortical_area][neuron_id]['membrane_potential']
+
         neuron_output = activation_function(postsynaptic_current)
 
         # Update membrane potential of the downstream neuron in the fire_queue
