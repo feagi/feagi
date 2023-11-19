@@ -37,7 +37,7 @@ capabilities = {
     "camera": {
         "type": "ipu",
         "disabled": False,
-        "count": 1,
+        "index": "00",
         "iso_default": 0.6,
         "iso_range": [0.1, 2],
         "central_vision_allocation_percentage": [90, 70],

@@ -318,6 +318,23 @@ async def log_requests(request: Request, call_next):
 
 # ######  Genome Endpoints #########
 # ##################################
+@app.api_route("/v1/feagi/genome/upload/blank", methods=['POST'], tags=["Genome"])
+async def upload_blank_genome(response: Response):
+    try:
+
+        with open("./evo/defaults/genome/blank_genome.json", "r") as genome_file:
+            genome_data = json.load(genome_file)
+            runtime_data.genome_file_name = "blank_genome.json"
+        runtime_data.brain_readiness = False
+        message = {'genome': genome_data}
+
+        api_queue.put(item=message)
+        response.status_code = status.HTTP_200_OK
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
 @app.api_route("/v1/feagi/genome/upload/default", methods=['POST'], tags=["Genome"])
 async def genome_default_upload(response: Response):
     try:

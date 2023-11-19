@@ -33,7 +33,7 @@ capabilities = {
     "camera": {
         "type": "ipu",
         "disabled": False,
-        "count": 1,
+        "index": "00",
         "width": 8,
         "height": 8,
         "deviation_threshold": 0.1,

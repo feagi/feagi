@@ -201,7 +201,7 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr
         return {'camera': {name_id: vision_dict}}, previous_frame_data
 
 
-def frame_split(frame, width_percent, height_percent):
+def frame_split(frame, width_percent, height_percent, camera_index: str):
     vision = dict()
     try:
         full_data = frame.shape
@@ -210,15 +210,15 @@ def frame_split(frame, width_percent, height_percent):
                                                                                width_percent,
                                                                                full_data[1],
                                                                                height_percent)
-            vision['C'] = frame[width_data1:width_data2, height_data1:height_data2]
-            vision['TL'] = np.zeros((8, 8, 3))
-            vision['TM'] = np.zeros((8, 8, 3))
-            vision['TR'] = np.zeros((8, 8, 3))
-            vision['ML'] = np.zeros((8, 8, 3))
-            vision['MR'] = np.zeros((8, 8, 3))
-            vision['LL'] = np.zeros((8, 8, 3))
-            vision['LM'] = np.zeros((8, 8, 3))
-            vision['LR'] = np.zeros((8, 8, 3))
+            vision[camera_index + '_C'] = frame[width_data1:width_data2, height_data1:height_data2]
+            vision[camera_index + 'TL'] = np.zeros((8, 8, 3))
+            vision[camera_index + 'TM'] = np.zeros((8, 8, 3))
+            vision[camera_index + 'TR'] = np.zeros((8, 8, 3))
+            vision[camera_index + 'ML'] = np.zeros((8, 8, 3))
+            vision[camera_index + 'MR'] = np.zeros((8, 8, 3))
+            vision[camera_index + 'LL'] = np.zeros((8, 8, 3))
+            vision[camera_index + 'LM'] = np.zeros((8, 8, 3))
+            vision[camera_index + 'LR'] = np.zeros((8, 8, 3))
 
         else:
             if width_percent == 100:
@@ -229,15 +229,15 @@ def frame_split(frame, width_percent, height_percent):
                                                                                width_percent,
                                                                                full_data[1],
                                                                                height_percent)
-            vision['TL'] = frame[0:width_data1, 0:height_data1]
-            vision['TM'] = frame[0:width_data1, height_data1:height_data2]
-            vision['TR'] = frame[0:width_data1, height_data2:]
-            vision['ML'] = frame[width_data1:width_data2, 0:height_data1]
-            vision['C'] = frame[width_data1:width_data2, height_data1:height_data2]
-            vision['MR'] = frame[width_data1:width_data2, height_data2:]
-            vision['LL'] = frame[width_data2:, 0:height_data1]
-            vision['LM'] = frame[width_data2:, height_data1: height_data2]
-            vision['LR'] = frame[width_data2:, height_data2:]
+            vision[camera_index + 'TL'] = frame[0:width_data1, 0:height_data1]
+            vision[camera_index + 'TM'] = frame[0:width_data1, height_data1:height_data2]
+            vision[camera_index + 'TR'] = frame[0:width_data1, height_data2:]
+            vision[camera_index + 'ML'] = frame[width_data1:width_data2, 0:height_data1]
+            vision[camera_index + '_C'] = frame[width_data1:width_data2, height_data1:height_data2]
+            vision[camera_index + 'MR'] = frame[width_data1:width_data2, height_data2:]
+            vision[camera_index + 'LL'] = frame[width_data2:, 0:height_data1]
+            vision[camera_index + 'LM'] = frame[width_data2:, height_data1: height_data2]
+            vision[camera_index + 'LR'] = frame[width_data2:, height_data2:]
     except AttributeError:
         # print("No visual data to process!")
         pass

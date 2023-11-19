@@ -123,7 +123,8 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                                  previous_data_frame,
                                  capabilities['camera']['current_select'],
                                  capabilities['camera']['iso_default'],
-                                 capabilities['camera']["aperture_default"])
+                                 capabilities['camera']["aperture_default"],
+                                 camera_index=capabilities['camera']["index"])
 
             if message_from_feagi is not None:
                 # Obtain the size of aptr

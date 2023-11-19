@@ -402,7 +402,8 @@ if __name__ == '__main__':
                                  previous_data_frame,
                                  capabilities['camera']['current_select'],
                                  capabilities['camera']['iso_default'],
-                                 capabilities['camera']["aperture_default"])
+                                 capabilities['camera']["aperture_default"],
+                                 camera_index=capabilities['camera']["index"])
             battery = robot['battery']
             try:
                 ultrasonic_data = robot['ultrasonic'][0]
