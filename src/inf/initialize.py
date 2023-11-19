@@ -82,6 +82,9 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
         if "mp_charge_accumulation" not in runtime_data.genome["blueprint"][_]:
             runtime_data.genome["blueprint"][_]["mp_charge_accumulation"] = True
 
+        if "mp_driven_psp" not in runtime_data.genome["blueprint"][_]:
+            runtime_data.genome["blueprint"][_]["mp_driven_psp"] = False
+
         if "firing_threshold_increment" not in runtime_data.genome["blueprint"][_]:
             runtime_data.genome["blueprint"][_]["firing_threshold_increment"] = 0
 
