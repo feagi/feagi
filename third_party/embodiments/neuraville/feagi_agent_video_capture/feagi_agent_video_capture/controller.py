@@ -43,6 +43,8 @@ camera_data = {"vision": {}}
 
 def process_video(video_path, capabilities):
     cam = cv2.VideoCapture(video_path)
+    cam.set(3, 320)
+    cam.set(4, 240)
     if capabilities['camera']['video_device_index'] == "monitor":
         all_monitors = screeninfo.get_monitors() # Needs to create an IPU for this
     pixels = []

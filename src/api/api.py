@@ -188,6 +188,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_degeneracy_coefficient: Optional[float]
     neuron_psp_uniform_distribution: Optional[bool]
     neuron_mp_charge_accumulation: Optional[bool]
+    neuron_mp_driven_psp: Optional[bool]
 
 
 # class Network(BaseModel):
@@ -491,6 +492,9 @@ async def fetch_cortical_properties(cortical_area, response: Response):
             if 'mp_charge_accumulation' not in cortical_data:
                 cortical_data['mp_charge_accumulation'] = True
 
+            if 'mp_driven_psp' not in cortical_data:
+                cortical_data['mp_driven_psp'] = False
+
             if '2d_coordinate' not in cortical_data:
                 cortical_data['2d_coordinate'] = list()
                 cortical_data['2d_coordinate'].append(None)
@@ -535,6 +539,7 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "neuron_degeneracy_coefficient": cortical_data['degeneration'],
                 "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution'],
                 "neuron_mp_charge_accumulation": cortical_data['mp_charge_accumulation'],
+                "neuron_mp_driven_psp": cortical_data['mp_driven_psp'],
                 "transforming": False
             }
             if cortical_area in runtime_data.transforming_areas:

@@ -416,6 +416,7 @@ gene_decoder = {
     "_______c-______-nx-ftincz-f": "firing_threshold_increment_z",
     "_______c-______-nx-fthlim-i": "firing_threshold_limit",
     "_______c-______-nx-mp_acc-b": "mp_charge_accumulation",
+    "_______c-______-nx-mp_psp-b": "mp_driven_psp",
     "_______c-______-nx-refrac-i": "refractory_period",
     "_______c-______-nx-leak_c-f": "leak_coefficient",
     "_______c-______-nx-leak_v-i": "leak_variability",
@@ -456,7 +457,8 @@ genome_1_template = {
     "firing_threshold_increment_y": 0,
     "firing_threshold_increment_z": 0,
     "firing_threshold_limit": 0,
-    "mp_charge_accumulation": True
+    "mp_charge_accumulation": True,
+    "mp_driven_psp": False
     }
 
 genome_2_to_1 = {
@@ -489,7 +491,8 @@ genome_2_to_1 = {
     "dstmap-d": "cortical_mapping_dst",
     "de_gen-f": "degeneration",
     "pspuni-b": "psp_uniform_distribution",
-    "mp_acc-b": "mp_charge_accumulation"
+    "mp_acc-b": "mp_charge_accumulation",
+    "mp_psp-b": "mp_driven_psp"
 }
 
 genome_1_to_2 = {
@@ -514,5 +517,6 @@ genome_1_to_2 = {
     "degeneration": "cx-de_gen-f",
     "psp_uniform_distribution": "cx-pspuni-b",
     "cortical_mapping_dst": "cx-dstmap-d",
-    "mp_charge_accumulation": "nx-mp_acc-b"
+    "mp_charge_accumulation": "nx-mp_acc-b",
+    "mp_driven_psp": "nx-mp_psp-b"
 }

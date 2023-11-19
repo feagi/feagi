@@ -115,6 +115,7 @@ async def echo(websocket):
         webcam_size['size'] = []
 
 
+
 async def main():
     """
     The main function handles the websocket and spins the asyncio to run the echo function
