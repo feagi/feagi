@@ -88,7 +88,7 @@ def detect_change_edge(frame, previous_data_frame, retina_data, current_selected
                 current_selected_size = []
                 frame = {}
                 data = []
-            if 'C' in i:
+            if '_C' in i:
                 previous_name = str(i) + "_prev"
                 rgb_data, previous_data_frame[previous_name] = \
                         get_rgb(data, central_resolution, previous_data_frame[previous_name], name,
