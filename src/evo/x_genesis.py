@@ -290,7 +290,7 @@ def update_cortical_properties(cortical_properties):
     runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                 file_name=runtime_data.connectome_path + "genome.json")
-    # runtime_data.last_genome_modification_time = datetime.datetime.now()
+    runtime_data.last_genome_modification_time = datetime.datetime.now()
     runtime_data.transforming_areas.remove(cortical_area)
     update_evo_change_register(change_area=changed_areas)
 
