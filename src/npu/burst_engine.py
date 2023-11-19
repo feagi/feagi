@@ -312,6 +312,7 @@ def burst_manager():
 
                     if ready_to_fire:
                         # The actual trigger to fire the neuron
+                        pre_fire_mp = runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential']
                         runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = 0
                         membrane_potential = \
                             runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential']
@@ -350,7 +351,9 @@ def burst_manager():
                         #     membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
                         #                               membrane_potential_change=0, overwrite=True, overwrite_value=0)
                         #
-                        runtime_data.future_fcl[fq_cortical_area].add(neuron_id)
+                        add_neuron_to_fcl(cortical_area=fq_cortical_area,
+                                          neuron_id=neuron_id,
+                                          pre_fire_mp=pre_fire_mp)
 
                     if runtime_data.genome["blueprint"][fq_cortical_area]["mp_charge_accumulation"]:
                         runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = \

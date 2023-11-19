@@ -98,7 +98,16 @@ def update_membrane_potential_fire_queue(cortical_area, neuron_id, mp_update_amo
         runtime_data.fire_queue[cortical_area][neuron_id][0] += mp_update_amount
     if fcl_insertion:
         if runtime_data.fire_queue[cortical_area][neuron_id][0] > runtime_data.fire_queue[cortical_area][neuron_id][1]:
-            runtime_data.future_fcl[cortical_area].add(neuron_id)
+            add_neuron_to_fcl(cortical_area=cortical_area,
+                              neuron_id=neuron_id,
+                              pre_fire_mp=runtime_data.fire_queue[cortical_area][neuron_id][0])
+
+
+def add_neuron_to_fcl(cortical_area, neuron_id, pre_fire_mp):
+    if cortical_area not in runtime_data.future_fcl:
+        runtime_data.future_fcl[cortical_area] = set()
+    runtime_data.future_fcl[cortical_area].add(neuron_id)
+    runtime_data.brain[cortical_area][neuron_id]["pre_fire_mp"] = pre_fire_mp
 
 
 def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
@@ -146,8 +155,7 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
                                          post_synaptic_current=new_psc)
 
         if runtime_data.genome['blueprint'][cortical_area]['mp_driven_psp']:
-            print("@_> " * 10, runtime_data.brain[cortical_area][neuron_id]['membrane_potential'])
-            postsynaptic_current = runtime_data.brain[cortical_area][neuron_id]['membrane_potential']
+            postsynaptic_current = runtime_data.brain[cortical_area][neuron_id]['pre_fire_mp']
 
         neuron_output = activation_function(postsynaptic_current)
 
