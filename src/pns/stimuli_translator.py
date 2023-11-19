@@ -19,6 +19,7 @@
 import logging
 from evo.voxels import *
 from pns import stimuli_processor
+from npu.physiology import update_membrane_potential_fire_queue
 
 logger = logging.getLogger(__name__)
 
@@ -400,7 +401,10 @@ def inject_visual_stimuli_to_fcl(cortical_area, sub_region_data):
             block_neurons = neurons_in_the_block(cortical_area, pixel_coordinate)
             neuron_ids.update(neuron for neuron in block_neurons if neuron is not None)
             for neuron in neuron_ids:
-                runtime_data.fire_candidate_list[cortical_area].add(neuron)
+                update_membrane_potential_fire_queue(cortical_area=cortical_area,
+                                                     neuron_id=neuron,
+                                                     mp_update_amount=sub_region_data[pixel_coordinate],
+                                                     fcl_insertion=True)
 
 
 def vision_translator(vision_data):
@@ -435,11 +439,15 @@ def vision_translator(vision_data):
     """
 
     if vision_data is not None:
-        print("Visio_data:\n", vision_data)
         for data_packet_key in vision_data:
-            cortical_area = "iv" + data_packet_key
+            if data_packet_key == 'C':
+                print("! " * 20)
+                print("!! Warning !! : Update controller to use new vision id formats...")
+                print("! " * 20)
+                cortical_area = "iv00_C"
+            else:
+                cortical_area = "iv" + data_packet_key
             inject_visual_stimuli_to_fcl(cortical_area=cortical_area, sub_region_data=vision_data[data_packet_key])
-
 
                 # if 'C' in sub_region:
                 #     cortical_area = "i__v" + str(camera_index) + str('C')  # generate specific cortical area

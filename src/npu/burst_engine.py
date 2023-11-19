@@ -357,10 +357,7 @@ def burst_manager():
                             max(0, membrane_potential)
                     else:
                         runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = 0
-                        # Reset membrane potential for neurons that cannot hold charge
-                        for neuron in runtime_data.fire_queue[fq_cortical_area]:
-                            runtime_data.fire_queue[fq_cortical_area][neuron_id][0] = 0
-                            runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = 0
+                        runtime_data.fire_queue[fq_cortical_area][neuron_id][0] = 0
 
             # Transferring future_fcl to current one and resetting the future one in process
             for _ in runtime_data.future_fcl:

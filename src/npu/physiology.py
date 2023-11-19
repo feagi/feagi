@@ -81,7 +81,8 @@ def neuron_stimulation_mp_logger(cortical_area, neuron_id):
             #                                              membrane_potential=0 / 1)
 
 
-def update_membrane_potential_fire_queue(cortical_area, neuron_id, mp_update_amount=0, mp_overwrite=None):
+def update_membrane_potential_fire_queue(cortical_area, neuron_id, mp_update_amount=0, mp_overwrite=None,
+                                         fcl_insertion=False):
     dst_neuron_obj = runtime_data.brain[cortical_area][neuron_id]
     if cortical_area not in runtime_data.fire_queue:
         runtime_data.fire_queue[cortical_area] = dict()
@@ -95,6 +96,9 @@ def update_membrane_potential_fire_queue(cortical_area, neuron_id, mp_update_amo
         runtime_data.fire_queue[cortical_area][neuron_id][0] = mp_overwrite
     else:
         runtime_data.fire_queue[cortical_area][neuron_id][0] += mp_update_amount
+    if fcl_insertion:
+        if runtime_data.fire_queue[cortical_area][neuron_id][0] > runtime_data.fire_queue[cortical_area][neuron_id][1]:
+            runtime_data.future_fcl[cortical_area].add(neuron_id)
 
 
 def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
