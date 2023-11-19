@@ -126,7 +126,7 @@ async def expressions():
                 last_face_expression_time = time.time()
                 face_generator = pycozmo.procedural_face.interpolate(
                     facial_expression.Neutral(), expressions_array[face_selected[0]],
-                    pycozmo.robot.FRAME_RATE // 2)
+                    pycozmo.robot.FRAME_RATE*2)
                 for face in face_generator:
                     # expressions_array[0].eyes[0].lids[1].y -= 0.1
                     # expressions_array[0].eyes[0].lids[1].bend -= 0.1
@@ -152,6 +152,7 @@ async def expressions():
                     # Display face image.
                     cli.display_image(im2)
             face_selected.pop()
+            print("poped")
         else:
             time.sleep(0.05)
 
@@ -232,12 +233,13 @@ def action(obtained_data, device_list, feagi_settings, arms_angle, head_angle):
         if 'motor' in obtained_data:
             if obtained_data['motor'] is not {}:
                 for data_point in obtained_data['motor']:
-                    device_power = obtained_data['motor'][data_point]
-                    device_id = float(data_point)
-                    if device_id not in motor_data:
-                        motor_data[device_id] = dict()
-                    rolling_window[device_id].append(device_power)
-                    rolling_window[device_id].popleft()
+                    if data_point in [0,1,2,3]:
+                        device_power = obtained_data['motor'][data_point]
+                        device_id = float(data_point)
+                        if device_id not in motor_data:
+                            motor_data[device_id] = dict()
+                        rolling_window[device_id].append(device_power)
+                        rolling_window[device_id].popleft()
         else:
             for _ in range(motor_count):
                 rolling_window[_].append(0)
@@ -367,6 +369,9 @@ if __name__ == '__main__':
                 angle_of_arms, angle_of_head = action(obtained_signals, device_list, feagi_settings,
                                                       angle_of_arms, angle_of_head)
                 # OPU section ENDS
+                if "o_misc" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o_misc"]:
+                        print(message_from_feagi["opu_data"]["o_misc"])
                 if "o_eye1" in message_from_feagi["opu_data"]:
                     if message_from_feagi["opu_data"]["o_eye1"]:
                         for i in message_from_feagi["opu_data"]["o_eye1"]:
@@ -392,6 +397,12 @@ if __name__ == '__main__':
                                 eye_two_location.append([-30, y_array[int(split_data[1])]])
                         if len(face_selected) == 0:
                             face_selected.append(0)
+                if "o_init" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o_init"]:
+                        for i in message_from_feagi["opu_data"]["o_init"]:
+                            split_data = i.split("-")
+                            if split_data[0] == '0':
+                                motor_functions.display_lines(cli)
             new_rgb = rgb_array['current']
             previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
                 pns.generate_rgb(new_rgb,
