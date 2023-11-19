@@ -176,8 +176,6 @@ def on_camera_image(cli, image):
         new_rgb = retina.flip_video(new_rgb)
     rgb_array['current'] = new_rgb
     # time.sleep(0.01)
-
-
 async def move_control(cli, feagi_settings, capabilities, rolling_window):
     motor_count = capabilities['motor']['count']
     while True:
@@ -244,7 +242,6 @@ def action(obtained_data, device_list, feagi_settings, arms_angle, head_angle):
             for _ in range(motor_count):
                 rolling_window[_].append(0)
                 rolling_window[_].popleft()
-
         if "servo" in obtained_data:
             if obtained_data["servo"] is not {}:
                 for i in obtained_data['servo']:
@@ -404,6 +401,8 @@ if __name__ == '__main__':
                             if split_data[0] == '0':
                                 motor_functions.display_lines(cli)
             new_rgb = rgb_array['current']
+            # cv2.imshow("test", new_rgb)
+            # cv2.waitKey(30)
             previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
                 pns.generate_rgb(new_rgb,
                                  capabilities['camera']['central_vision_allocation_percentage'][0],
