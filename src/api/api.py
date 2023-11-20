@@ -188,6 +188,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_degeneracy_coefficient: Optional[float]
     neuron_psp_uniform_distribution: Optional[bool]
     neuron_mp_charge_accumulation: Optional[bool]
+    neuron_mp_driven_psp: Optional[bool]
 
 
 # class Network(BaseModel):
@@ -318,6 +319,23 @@ async def log_requests(request: Request, call_next):
 
 # ######  Genome Endpoints #########
 # ##################################
+@app.api_route("/v1/feagi/genome/upload/blank", methods=['POST'], tags=["Genome"])
+async def upload_blank_genome(response: Response):
+    try:
+
+        with open("./evo/defaults/genome/blank_genome.json", "r") as genome_file:
+            genome_data = json.load(genome_file)
+            runtime_data.genome_file_name = "blank_genome.json"
+        runtime_data.brain_readiness = False
+        message = {'genome': genome_data}
+
+        api_queue.put(item=message)
+        response.status_code = status.HTTP_200_OK
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
 @app.api_route("/v1/feagi/genome/upload/default", methods=['POST'], tags=["Genome"])
 async def genome_default_upload(response: Response):
     try:
@@ -474,6 +492,9 @@ async def fetch_cortical_properties(cortical_area, response: Response):
             if 'mp_charge_accumulation' not in cortical_data:
                 cortical_data['mp_charge_accumulation'] = True
 
+            if 'mp_driven_psp' not in cortical_data:
+                cortical_data['mp_driven_psp'] = False
+
             if '2d_coordinate' not in cortical_data:
                 cortical_data['2d_coordinate'] = list()
                 cortical_data['2d_coordinate'].append(None)
@@ -518,6 +539,7 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "neuron_degeneracy_coefficient": cortical_data['degeneration'],
                 "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution'],
                 "neuron_mp_charge_accumulation": cortical_data['mp_charge_accumulation'],
+                "neuron_mp_driven_psp": cortical_data['mp_driven_psp'],
                 "transforming": False
             }
             if cortical_area in runtime_data.transforming_areas:

@@ -163,7 +163,7 @@ def burst_manager():
                       settings.Bcolors.ENDC)
             else:
                 print(settings.Bcolors.YELLOW +
-                      ">>> Burst duration @$@ ++ *@*: %s %i --- ---- ---- ---- ---- ---- ----"
+                      ">>> Burst duration @#@ ++ *@*: %s %i --- ---- ---- ---- ---- ---- ----"
                       % (runtime_data.burst_duration, runtime_data.burst_count) + settings.Bcolors.ENDC)
 
     def evolutionary_checkpoint():
@@ -312,6 +312,7 @@ def burst_manager():
 
                     if ready_to_fire:
                         # The actual trigger to fire the neuron
+                        pre_fire_mp = runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential']
                         runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = 0
                         membrane_potential = \
                             runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential']
@@ -350,17 +351,16 @@ def burst_manager():
                         #     membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
                         #                               membrane_potential_change=0, overwrite=True, overwrite_value=0)
                         #
-                        runtime_data.future_fcl[fq_cortical_area].add(neuron_id)
+                        add_neuron_to_fcl(cortical_area=fq_cortical_area,
+                                          neuron_id=neuron_id,
+                                          pre_fire_mp=pre_fire_mp)
 
                     if runtime_data.genome["blueprint"][fq_cortical_area]["mp_charge_accumulation"]:
                         runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = \
                             max(0, membrane_potential)
                     else:
                         runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = 0
-                        # Reset membrane potential for neurons that cannot hold charge
-                        for neuron in runtime_data.fire_queue[fq_cortical_area]:
-                            runtime_data.fire_queue[fq_cortical_area][neuron_id][0] = 0
-                            runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = 0
+                        runtime_data.fire_queue[fq_cortical_area][neuron_id][0] = 0
 
             # Transferring future_fcl to current one and resetting the future one in process
             for _ in runtime_data.future_fcl:
@@ -437,6 +437,7 @@ def burst_manager():
                         godot_data = runtime_data.agent_registry[agent]["listener"].receive()
                         if godot_data:
                             stimuli_router(godot_data)
+                            print(">> Godot data:", godot_data)
             except Exception as e:
                 print("Error on message router:", e, traceback.print_exc())
                 pass

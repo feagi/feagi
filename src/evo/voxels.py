@@ -100,12 +100,10 @@ def neurons_in_the_block(cortical_area, block_ref):
     Generates a list of Neurons in the given block
     block_id to be entered as [x,y,z]
     """
-    try:
+    if block_ref in runtime_data.voxel_dict[cortical_area]:
         return runtime_data.voxel_dict[cortical_area][block_ref]
-    except Exception as e:
-        print("Warning! No neuron was detected for ", cortical_area, block_ref)
-        print("..... possibly too sparse of a cortical area.\n")
-        print(e, traceback.print_exc())
+    else:
+        print(f"Warning! Voxel with reference {block_ref} does not exist in {cortical_area}.")
         return []
 
 

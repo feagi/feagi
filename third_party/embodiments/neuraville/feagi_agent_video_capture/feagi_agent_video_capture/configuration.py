@@ -37,7 +37,7 @@ capabilities = {
     "camera": {
         "type": "ipu",
         "disabled": False,
-        "count": 1,
+        "index": "00",
         "iso_default": 0.6,
         "iso_range": [0.1, 2],
         "central_vision_allocation_percentage": [90, 70],
@@ -50,7 +50,8 @@ capabilities = {
         "video_loop": False,
         "aperture_range": [0.1, 2],
         "aperture_default": 2,
-        "mirror": True
+        "mirror": True,
+        "monitor": 0
     }
 }
 
