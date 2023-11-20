@@ -18,6 +18,7 @@ limitations under the License.
 
 import cv2
 import numpy as np
+import time
 
 
 def resize_calculate(a, b, p):
@@ -76,6 +77,7 @@ def detect_change_edge(frame, previous_data_frame, retina_data, current_selected
     """
 
     rgb = {'camera': {}}
+    start_time = time.time()
     for i in retina_data:
         name = i
         if 'prev' not in i:
@@ -95,8 +97,9 @@ def detect_change_edge(frame, previous_data_frame, retina_data, current_selected
                 get_rgb(data, resolution, previous_data_frame[previous_name], name,
                         current_iso_selected, aperture_default)
 
-            for a in rgb_data['camera']:
-                rgb['camera'][a] = rgb_data['camera'][a]
+        for a in rgb_data['camera']:
+            rgb['camera'][a] = rgb_data['camera'][a]
+    print("DEBUG### detect_change_edge total: ", time.time() - start_time)
 
     return previous_data_frame, rgb['camera'], current_selected_size
 
@@ -168,6 +171,7 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr
         # if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length
         # matches the
         # resolution setting
+        start_time = time.time()
         for index in range(frame_len):
             if previous_frame[index] != frame[index]:
                 if (abs((previous_frame[index] - frame[index])) / 100) > deviation_threshold:
@@ -186,6 +190,7 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr
                 if y_vision == frame_row_count:
                     y_vision = 0
                     x_vision += 1
+        print("DEBUG### get_rgb total: ", time.time() - start_time)
         if frame != {}:
             previous_frame_data = frame
     except Exception as e:
