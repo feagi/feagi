@@ -129,6 +129,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
         try:
             message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
             pixels = camera_data['vision']
+            start_time = time.time()
             previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
                 pns.generate_rgb(pixels,
                                  capabilities['camera']['central_vision_allocation_percentage'][0],
@@ -140,6 +141,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                                  capabilities['camera']['iso_default'],
                                  capabilities['camera']["aperture_default"],
                                  camera_index=capabilities['camera']["index"])
+            print("total: ", time.time() - start_time)
             if message_from_feagi is not None:
                 # Obtain the size of aptr
                 if aptr_cortical_size is None:
