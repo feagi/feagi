@@ -50,7 +50,8 @@ capabilities = {
         "video_loop": False,
         "aperture_range": [0.1, 2],
         "aperture_default": 2,
-        "mirror": True
+        "mirror": True,
+        "monitor": 0
     }
 }
 
