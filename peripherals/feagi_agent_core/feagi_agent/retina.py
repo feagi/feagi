@@ -88,16 +88,13 @@ def detect_change_edge(frame, previous_data_frame, retina_data, current_selected
                 current_selected_size = []
                 frame = {}
                 data = []
-            if '_C' in i:
-                previous_name = str(i) + "_prev"
-                rgb_data, previous_data_frame[previous_name] = \
-                    get_rgb(data, central_resolution, previous_data_frame[previous_name], name,
-                            current_iso_selected, aperture_default)
-            else:
-                previous_name = str(i) + "_prev"
-                rgb_data, previous_data_frame[previous_name] = \
-                    get_rgb(data, peripheral_resolution, previous_data_frame[previous_name],
-                            name, current_iso_selected, aperture_default)
+
+            previous_name = str(i) + "_prev"
+            resolution = central_resolution if '_C' in i else peripheral_resolution
+            rgb_data, previous_data_frame[previous_name] = \
+                get_rgb(data, resolution, previous_data_frame[previous_name], name,
+                        current_iso_selected, aperture_default)
+
             for a in rgb_data['camera']:
                 rgb['camera'][a] = rgb_data['camera'][a]
 
@@ -156,8 +153,7 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr
     """
 
     vision_dict = dict()
-    frame_row_count = size[0]  # width
-    frame_col_count = size[1]  # height
+    frame_row_count, frame_col_count = size
 
     x_vision = 0  # row counter
     y_vision = 0  # col counter
