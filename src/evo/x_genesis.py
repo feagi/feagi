@@ -183,6 +183,11 @@ def update_cortical_properties(cortical_properties):
             cortical_properties['neuron_mp_charge_accumulation']
         changed_areas.add("blueprint")
 
+    if cortical_properties['neuron_mp_driven_psp'] is not None:
+        runtime_data.genome["blueprint"][cortical_area]["mp_driven_psp"] = \
+            cortical_properties['neuron_mp_driven_psp']
+        changed_areas.add("blueprint")
+
     if cortical_properties['cortical_visibility'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["visualization"] = \
             cortical_properties['cortical_visibility']
@@ -285,7 +290,7 @@ def update_cortical_properties(cortical_properties):
     runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                 file_name=runtime_data.connectome_path + "genome.json")
-    # runtime_data.last_genome_modification_time = datetime.datetime.now()
+    runtime_data.last_genome_modification_time = datetime.datetime.now()
     runtime_data.transforming_areas.remove(cortical_area)
     update_evo_change_register(change_area=changed_areas)
 
@@ -433,6 +438,14 @@ def cortical_removal(cortical_area, genome_scrub=False):
         # Clear voxel indexes
         voxels.voxel_reset(cortical_area=cortical_area)
 
+        # FCL cleanup
+        if cortical_area in runtime_data.fire_candidate_list:
+            runtime_data.fire_candidate_list.pop(cortical_area)
+        if cortical_area in runtime_data.future_fcl:
+            runtime_data.future_fcl.pop(cortical_area)
+        if cortical_area in runtime_data.previous_fcl:
+            runtime_data.previous_fcl.pop(cortical_area)
+
         # Update Plasticity Dict
         generate_plasticity_dict()
 
@@ -440,12 +453,7 @@ def cortical_removal(cortical_area, genome_scrub=False):
         if genome_scrub:
             if cortical_area in runtime_data.genome['blueprint']:
                 runtime_data.genome['blueprint'].pop(cortical_area)
-            if cortical_area in runtime_data.fire_candidate_list:
-                runtime_data.fire_candidate_list.pop(cortical_area)
-            if cortical_area in runtime_data.previous_fcl:
-                runtime_data.previous_fcl.pop(cortical_area)
-            if cortical_area in runtime_data.future_fcl:
-                runtime_data.future_fcl.pop(cortical_area)
+
             runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
             runtime_data.cortical_dimensions = generate_cortical_dimensions()
             runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
@@ -453,6 +461,8 @@ def cortical_removal(cortical_area, genome_scrub=False):
                 if upstream_area in runtime_data.genome['blueprint']:
                     if cortical_area in runtime_data.genome['blueprint'][upstream_area]['cortical_mapping_dst']:
                         runtime_data.genome['blueprint'][upstream_area]['cortical_mapping_dst'].pop(cortical_area)
+
+        runtime_data.manual_delete_list.add(cortical_area)
         save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                     file_name=runtime_data.connectome_path + "genome.json")
 
@@ -584,6 +594,8 @@ def add_core_cortical_area(cortical_properties):
                 template['postsynaptic_current_max']
             runtime_data.genome["blueprint"][cortical_id_]["mp_charge_accumulation"] = \
                 template['mp_charge_accumulation']
+            runtime_data.genome["blueprint"][cortical_id_]["mp_driven_psp"] = \
+                template['mp_driven_psp']
             runtime_data.genome["blueprint"][cortical_id_]["firing_threshold_increment"] = \
                 template['firing_threshold_increment']
             runtime_data.genome["blueprint"][cortical_id_]["firing_threshold_limit"] = \
@@ -599,7 +611,7 @@ def add_core_cortical_area(cortical_properties):
 
             save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                         file_name=runtime_data.connectome_path + "genome.json")
-            # runtime_data.last_genome_modification_time = datetime.datetime.now()
+            runtime_data.last_genome_modification_time = datetime.datetime.now()
             return cortical_id_
 
     except KeyError:
@@ -664,6 +676,8 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
             template['postsynaptic_current_max']
         runtime_data.genome["blueprint"][cortical_area]["mp_charge_accumulation"] = \
             template['mp_charge_accumulation']
+        runtime_data.genome["blueprint"][cortical_area]["mp_driven_psp"] = \
+            template['mp_driven_psp']
         runtime_data.genome["blueprint"][cortical_area]["firing_threshold_increment"] = \
             template['firing_threshold_increment']
         runtime_data.genome["blueprint"][cortical_area]["firing_threshold_limit"] = \
@@ -679,7 +693,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
 
         save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                     file_name=runtime_data.connectome_path + "genome.json")
-        # runtime_data.last_genome_modification_time = datetime.datetime.now()
+        runtime_data.last_genome_modification_time = datetime.datetime.now()
         return cortical_area
 
 

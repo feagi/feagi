@@ -134,19 +134,49 @@ def json_comment_catcher(key):
         return True
 
 
+def cortical_area_id_update_checker(cortical_id):
+    """
+    Responsible for updating deprecated cortical names to new ones
+    """
+    if cortical_id == "i__v0C":
+        return "iv00_C"
+    elif cortical_id == "i_v0LL":
+        return "iv00LL"
+    elif cortical_id == "i_v0LR":
+        return "iv00LR"
+    elif cortical_id == "i_v0LM":
+        return "iv00LM"
+    elif cortical_id == "i_v0ML":
+        return "iv00ML"
+    elif cortical_id == "i_v0MR":
+        return "iv00MR"
+    elif cortical_id == "i_v0TL":
+        return "iv00TL"
+    elif cortical_id == "i_v0TR":
+        return "iv00TR"
+    elif cortical_id == "i_v0TM":
+        return "iv00TM"
+    else:
+        return cortical_id
+
+
 def genome_2_1_convertor(flat_genome):
     genome = dict()
     genome['blueprint'] = dict()
     cortical_list = genome_2_cortical_list(flat_genome)
+    print("%" * 30)
+    print(cortical_list)
     # Assign a blank template to each cortical area
     for cortical_area in cortical_list:
-        genome['blueprint'][cortical_area] = copy.deepcopy(genome_1_template)
+        genome['blueprint'][cortical_area_id_update_checker(cortical_id=cortical_area)] = \
+            copy.deepcopy(genome_1_template)
+
     # Populate each cortical area with
     for cortical_area in genome['blueprint']:
         try:
             for gene in flat_genome:
                 if json_comment_catcher(gene):
-                    cortical_id = gene[9:15]
+                    cortical_id = cortical_area_id_update_checker(cortical_id=gene[9:15])
                     exon = gene[19:]
                     gene_type = gene[16:18]
                     if exon in genome_2_to_1:
@@ -386,6 +416,7 @@ gene_decoder = {
     "_______c-______-nx-ftincz-f": "firing_threshold_increment_z",
     "_______c-______-nx-fthlim-i": "firing_threshold_limit",
     "_______c-______-nx-mp_acc-b": "mp_charge_accumulation",
+    "_______c-______-nx-mp_psp-b": "mp_driven_psp",
     "_______c-______-nx-refrac-i": "refractory_period",
     "_______c-______-nx-leak_c-f": "leak_coefficient",
     "_______c-______-nx-leak_v-i": "leak_variability",
@@ -426,7 +457,8 @@ genome_1_template = {
     "firing_threshold_increment_y": 0,
     "firing_threshold_increment_z": 0,
     "firing_threshold_limit": 0,
-    "mp_charge_accumulation": True
+    "mp_charge_accumulation": True,
+    "mp_driven_psp": False
     }
 
 genome_2_to_1 = {
@@ -459,7 +491,8 @@ genome_2_to_1 = {
     "dstmap-d": "cortical_mapping_dst",
     "de_gen-f": "degeneration",
     "pspuni-b": "psp_uniform_distribution",
-    "mp_acc-b": "mp_charge_accumulation"
+    "mp_acc-b": "mp_charge_accumulation",
+    "mp_psp-b": "mp_driven_psp"
 }
 
 genome_1_to_2 = {
@@ -484,5 +517,6 @@ genome_1_to_2 = {
     "degeneration": "cx-de_gen-f",
     "psp_uniform_distribution": "cx-pspuni-b",
     "cortical_mapping_dst": "cx-dstmap-d",
-    "mp_charge_accumulation": "nx-mp_acc-b"
+    "mp_charge_accumulation": "nx-mp_acc-b",
+    "mp_driven_psp": "nx-mp_psp-b"
 }
