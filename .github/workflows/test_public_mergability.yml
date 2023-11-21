@@ -1,4 +1,4 @@
-name: Brain Visualizer Public Mergability Test
+name: Community FEAGI Mergability Test
 
 on:
   pull_request:
