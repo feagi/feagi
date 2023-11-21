@@ -419,6 +419,8 @@ def valid_pattern(lst):
 def genome_morphology_updator(genome):
     try:
         for morphology in genome["neuron_morphologies"]:
+            if not morphology:
+                genome["neuron_morphologies"].pop(morphology)
             genome["neuron_morphologies"][morphology] = morphology_convertor(genome["neuron_morphologies"][morphology])
         runtime_data.genome_validity = genome_validator(genome)
     except Exception as e:
