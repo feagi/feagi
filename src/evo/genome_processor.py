@@ -358,8 +358,9 @@ def genome_v1_v2_converter(genome_v1):
 def morphology_convertor(morphology_in):
     morphology_out = dict()
     morphology_out["parameters"] = dict()
+    # Upgrade old genome missing type
     if "type" in morphology_in:
-        return morphology_in
+        morphology_out = morphology_in
     else:
         if "vectors" in morphology_in:
             morphology_out["type"] = "vectors"
@@ -375,16 +376,53 @@ def morphology_convertor(morphology_in):
             morphology_out["parameters"]["mapper_morphology"] = morphology_in["composite"]["mapper_morphology"]
         elif "functions" in morphology_in:
             morphology_out["type"] = "functions"
-
         else:
             pass
-        return morphology_out
+
+    print("morphology out 1", morphology_out)
+    # Fix pattern nesting
+    if "patterns" in morphology_out["parameters"]:
+        for pattern in morphology_out["parameters"]["patterns"]:
+            if not valid_pattern(pattern):
+                print("#### >>>", pattern)
+                if len(pattern) == 3:
+                    print("> >", morphology_in)
+                    morphology_out["parameters"]["patterns"] = [morphology_out["parameters"]["patterns"]]
+                    print("> >", morphology_out)
+            break
+
+    return morphology_out
+
+
+def valid_pattern(lst):
+    # Check if the input is a list
+    if not isinstance(lst, list):
+        return False
+
+    for sublist in lst:
+        # Check if each element of the list is also a list
+        if not isinstance(sublist, list):
+            return False
+
+        # Check if the inner list has a length of 3
+        if len(sublist) != 3:
+            return False
+
+        # Check if each element in the inner list is an integer, '*', or '?'
+        for item in sublist:
+            if not (isinstance(item, int) or item in ['*', '?']):
+                return False
+
+    return True
 
 
 def genome_morphology_updator(genome):
     try:
         for morphology in genome["neuron_morphologies"]:
+            if not morphology:
+                genome["neuron_morphologies"].pop(morphology)
             genome["neuron_morphologies"][morphology] = morphology_convertor(genome["neuron_morphologies"][morphology])
+        runtime_data.genome_validity = genome_validator(genome)
     except Exception as e:
         print("Error during genome morphology update!", e, traceback.print_exc())
 
