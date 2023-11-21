@@ -79,8 +79,11 @@ def process_video(video_path, capabilities):
             if capabilities["camera"]["mirror"]:
                 pixels = cv2.flip(pixels, 1)
             camera_data["vision"] = pixels
-        # if capabilities['camera']['snap'] != []:
-        #     cv2.imshow("test", capabilities['camera']['snap'])
+        try:
+            if capabilities['camera']['snap'] != []:
+                cv2.imshow("test", capabilities['camera']['snap'])
+        except:
+            pass
         cv2.waitKey(30)
         # print("len: ", len(pixels), " and shape: ", pixels.shape)
         # try:
