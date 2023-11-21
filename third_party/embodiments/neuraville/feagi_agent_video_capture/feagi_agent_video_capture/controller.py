@@ -46,7 +46,7 @@ def process_video(video_path, capabilities):
     cam.set(3, 320)
     cam.set(4, 240)
     if capabilities['camera']['video_device_index'] == "monitor":
-        all_monitors = screeninfo.get_monitors() # Needs to create an IPU for this
+        all_monitors = screeninfo.get_monitors()  # Needs to create an IPU for this
     pixels = []
     while True:
         if capabilities['camera']['video_device_index'] != "monitor":
@@ -62,16 +62,16 @@ def process_video(video_path, capabilities):
                     cam.set(cv2.CAP_PROP_POS_FRAMES, 0)
         if capabilities['camera']['video_device_index'] == "monitor":
             with mss.mss() as sct:
-              monitors = all_monitors[capabilities['camera']['monitor']]
-              monitor = {
-                "top": monitors.y,
-                "left": monitors.x,
-                "width": monitors.width,
-                "height": monitors.height
-              }
+                monitors = all_monitors[capabilities['camera']['monitor']]
+                monitor = {
+                    "top": monitors.y,
+                    "left": monitors.x,
+                    "width": monitors.width,
+                    "height": monitors.height
+                }
 
-              img = numpy.array(sct.grab(monitor))
-              pixels = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
+                img = numpy.array(sct.grab(monitor))
+                pixels = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
             if capabilities["camera"]["mirror"]:
                 pixels = cv2.flip(pixels, 1)
             camera_data["vision"] = pixels
@@ -79,6 +79,8 @@ def process_video(video_path, capabilities):
             if capabilities["camera"]["mirror"]:
                 pixels = cv2.flip(pixels, 1)
             camera_data["vision"] = pixels
+        # if capabilities['camera']['snap'] != []:
+        #     cv2.imshow("test", capabilities['camera']['snap'])
         cv2.waitKey(30)
         # print("len: ", len(pixels), " and shape: ", pixels.shape)
         # try:
@@ -130,18 +132,36 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
             message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
             pixels = camera_data['vision']
             start_time = time.time()
-            previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
-                pns.generate_rgb(pixels,
-                                 capabilities['camera']['central_vision_allocation_percentage'][0],
-                                 capabilities['camera']['central_vision_allocation_percentage'][1],
-                                 capabilities['camera']["central_vision_resolution"],
-                                 capabilities['camera']['peripheral_vision_resolution'],
-                                 previous_data_frame,
-                                 capabilities['camera']['current_select'],
-                                 capabilities['camera']['iso_default'],
-                                 capabilities['camera']["aperture_default"],
-                                 camera_index=capabilities['camera']["index"])
-            print("total: ", time.time() - start_time)
+            # print("START TIMER")
+            if capabilities['camera']['snap'] != []:
+                previous_data_frame, camera, capabilities['camera']['current_select'] = \
+                    pns.generate_rgb(capabilities['camera']['snap'],
+                                     capabilities['camera']['central_vision_allocation_percentage'][0],
+                                     capabilities['camera']['central_vision_allocation_percentage'][1],
+                                     capabilities['camera']["central_vision_resolution"],
+                                     capabilities['camera']['peripheral_vision_resolution'],
+                                     previous_data_frame,
+                                     capabilities['camera']['current_select'],
+                                     capabilities['camera']['iso_default'],
+                                     0,
+                                     camera_index=capabilities['camera']["index"],
+                                     snap=True)
+                rgb['camera'] = camera
+                capabilities['camera']['snap'] = []
+            else:
+                previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] = \
+                    pns.generate_rgb(pixels,
+                                     capabilities['camera']['central_vision_allocation_percentage'][0],
+                                     capabilities['camera']['central_vision_allocation_percentage'][1],
+                                     capabilities['camera']["central_vision_resolution"],
+                                     capabilities['camera']['peripheral_vision_resolution'],
+                                     previous_data_frame,
+                                     capabilities['camera']['current_select'],
+                                     capabilities['camera']['iso_default'],
+                                     capabilities['camera']["aperture_default"],
+                                     camera_index=capabilities['camera']["index"])
+            # print("DEBUG### main_controller total: ", time.time() - start_time)
+            # print("STOP TIMER")
             if message_from_feagi is not None:
                 # Obtain the size of aptr
                 if aptr_cortical_size is None:
@@ -157,14 +177,17 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 # Update the aceture
                 capabilities = pns.fetch_vision_acuity(message_from_feagi, capabilities)
                 # OPU section STARTS
+                if "o_snap" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o_snap"]:
+                        capabilities['camera']['snap'] = pixels
                 if 'genome_num' in message_from_feagi:
                     if message_from_feagi['genome_num'] != genome_tracker:
                         genome_tracker = message_from_feagi['genome_num']
                 if "o__mon" in message_from_feagi["opu_data"]:
-                  if message_from_feagi["opu_data"]["o__mon"]:
-                    for i in message_from_feagi["opu_data"]["o__mon"]:
-                      monitor_update = feagi.block_to_array(i)
-                      capabilities['camera']['monitor'] = monitor_update[0]
+                    if message_from_feagi["opu_data"]["o__mon"]:
+                        for i in message_from_feagi["opu_data"]["o__mon"]:
+                            monitor_update = feagi.block_to_array(i)
+                            capabilities['camera']['monitor'] = monitor_update[0]
                 # OPU section ENDS
 
             try:
@@ -174,7 +197,8 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                     message_to_feagi["data"]["sensory_data"] = dict()
                 message_to_feagi["data"]["sensory_data"]['camera'] = rgb['camera']
             except Exception as e:
-                pass
+                print("ERROR: ", e)
+                traceback.print_exc()
             # Psychopy game ends
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
