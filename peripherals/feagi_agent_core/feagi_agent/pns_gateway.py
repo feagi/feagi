@@ -25,7 +25,7 @@ from feagi_agent import retina as retina
 
 def generate_rgb(frame, width_percentage, height_percentage, central_resolution,
                  peripheral_resolution, previous_data_frame, current_selected_size,
-                 current_iso_selected, aperture_default, camera_index):
+                 current_iso_selected, aperture_default, camera_index, single_RGB=None, snap=None):
     """"
         frame (ndarray): RGB data.
         previous_data_frame (dict): Previous data containing old RGB values stored in the
@@ -50,7 +50,7 @@ def generate_rgb(frame, width_percentage, height_percentage, central_resolution,
         retina.detect_change_edge(frame, previous_data_frame,
                                   retina_data, current_selected_size, central_resolution,
                                   peripheral_resolution, current_iso_selected,
-                                  aperture_default)
+                                  aperture_default, single_RGB, snap)
     return previous_data_frame, camera, selected
 
 
