@@ -60,7 +60,7 @@ def check_previous_data(previous_data_frame, retina_data):
 
 def detect_change_edge(frame, previous_data_frame, retina_data, current_selected_size,
                        central_resolution, peripheral_resolution, current_iso_selected,
-                       aperture_default):
+                       aperture_default, single_RGB=None, snap=None):
     """
     This function is designed to compare the previous data with the current data and then detect
     which is different, while being handled by an ISO threshold which can be found in configuration.py.
@@ -95,11 +95,11 @@ def detect_change_edge(frame, previous_data_frame, retina_data, current_selected
             resolution = central_resolution if '_C' in i else peripheral_resolution
             rgb_data, previous_data_frame[previous_name] = \
                 get_rgb(data, resolution, previous_data_frame[previous_name], name,
-                        current_iso_selected, aperture_default)
+                        current_iso_selected, aperture_default, single_RGB, snap)
 
         for a in rgb_data['camera']:
             rgb['camera'][a] = rgb_data['camera'][a]
-    print("DEBUG### detect_change_edge total: ", time.time() - start_time)
+    # print("DEBUG### detect_change_edge total: ", time.time() - start_time)
 
     return previous_data_frame, rgb['camera'], current_selected_size
 
@@ -137,7 +137,7 @@ def ndarray_to_list(array):
 
 
 def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr_level,
-            single_RGB=None):
+            single_RGB=None, snap=None):
     """
     frame should be a full raw rgb after used ndarray_to_list().
 
@@ -172,17 +172,38 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr
         # matches the
         # resolution setting
         start_time = time.time()
-        for index in range(frame_len):
-            if previous_frame[index] != frame[index]:
-                if (abs((previous_frame[index] - frame[index])) / 100) > deviation_threshold:
-                    dict_key = str(y_vision) + '-' + \
-                               str(abs((frame_col_count - 1) - x_vision)) + '-' + str(z_vision)
-                    if single_RGB != None:
+        for index in range(frame_len): # Start to iterate all previous data from previous frame
+            if snap: # it will reset the index to zero everytime you snap the image
+                previous_frame[index] = 0
+            if previous_frame[index] != frame[index]: # Compare and see if the number is mismatch
+                if (abs((previous_frame[index] - frame[index])) / 100) > deviation_threshold and \
+                        not snap:
+                    #above is for to compare the iso and ensure that it adds if it is greater
+                    # than the iso requirement.
+                    if single_RGB != None: # This is for single layer. Let's say, if you put B
+                        # which is 1. If u put G which is 2.
                         dict_key = str(y_vision) + '-' + \
                                    str(abs((frame_col_count - 1) - x_vision)) + '-' + str(
                             single_RGB)
+                    else:
+                        dict_key = str(y_vision) + '-' + \
+                                   str(abs((frame_col_count - 1) - x_vision)) + '-' + str(z_vision)
                     vision_dict[dict_key] = frame[index]  # save the value for the changed
-                    # index to the dict
+
+                if (abs((previous_frame[index] - frame[index])) / 100) < deviation_threshold and \
+                        snap:
+                    # above is for to compare the iso and ensure that it adds if it is greater
+                    # than the iso requirement.
+                    if single_RGB != None:  # This is for single layer. Let's say, if you put B
+                        # which is 1. If u put G which is 2.
+                        dict_key = str(y_vision) + '-' + \
+                                   str(abs((frame_col_count - 1) - x_vision)) + '-' + str(
+                            single_RGB)
+                    else:
+                        dict_key = str(y_vision) + '-' + \
+                                   str(abs((frame_col_count - 1) - x_vision)) + '-' + str(z_vision)
+                    vision_dict[dict_key] = frame[index]  # save the value for the changed
+
             z_vision += 1
             if z_vision == 3:
                 z_vision = 0
@@ -190,14 +211,18 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr
                 if y_vision == frame_row_count:
                     y_vision = 0
                     x_vision += 1
-        print("DEBUG### get_rgb total: ", time.time() - start_time)
+        # print("DEBUG### get_rgb total: ", time.time() - start_time)
         if frame != {}:
-            previous_frame_data = frame
+            previous_frame_data = frame # pass the current frame to previous frame data so it can
+            # be used in next frame
     except Exception as e:
         print("Error: Raw data frame does not match frame resolution")
         print("Error due to this: ", e)
         previous_frame_data = {}
-    if len(vision_dict) > (frame_row_count * frame_col_count) / atpr_level:
+    if snap: #only snap
+        return {'camera': {name_id: vision_dict}}, previous_frame_data
+    if len(vision_dict) > (frame_row_count * frame_col_count) / atpr_level: # to control the
+        # amount of websocket data goes through. So if it exceeded, it will discard completely.
         return {'camera': {name_id: {}}}, previous_frame_data
     else:
         return {'camera': {name_id: vision_dict}}, previous_frame_data
