@@ -81,7 +81,8 @@ def neuron_stimulation_mp_logger(cortical_area, neuron_id):
             #                                              membrane_potential=0 / 1)
 
 
-def update_membrane_potential_fire_queue(cortical_area, neuron_id, mp_update_amount=0, mp_overwrite=None):
+def update_membrane_potential_fire_queue(cortical_area, neuron_id, mp_update_amount=0, mp_overwrite=None,
+                                         fcl_insertion=False):
     dst_neuron_obj = runtime_data.brain[cortical_area][neuron_id]
     if cortical_area not in runtime_data.fire_queue:
         runtime_data.fire_queue[cortical_area] = dict()
@@ -95,6 +96,18 @@ def update_membrane_potential_fire_queue(cortical_area, neuron_id, mp_update_amo
         runtime_data.fire_queue[cortical_area][neuron_id][0] = mp_overwrite
     else:
         runtime_data.fire_queue[cortical_area][neuron_id][0] += mp_update_amount
+    if fcl_insertion:
+        if runtime_data.fire_queue[cortical_area][neuron_id][0] > runtime_data.fire_queue[cortical_area][neuron_id][1]:
+            add_neuron_to_fcl(cortical_area=cortical_area,
+                              neuron_id=neuron_id,
+                              pre_fire_mp=runtime_data.fire_queue[cortical_area][neuron_id][0])
+
+
+def add_neuron_to_fcl(cortical_area, neuron_id, pre_fire_mp):
+    if cortical_area not in runtime_data.future_fcl:
+        runtime_data.future_fcl[cortical_area] = set()
+    runtime_data.future_fcl[cortical_area].add(neuron_id)
+    runtime_data.brain[cortical_area][neuron_id]["pre_fire_mp"] = pre_fire_mp
 
 
 def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
@@ -140,6 +153,10 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
             post_synaptic_current_update(cortical_area_src=cortical_area, cortical_area_dst=dst_cortical_area,
                                          neuron_id_src=neuron_id, neuron_id_dst=dst_neuron_id,
                                          post_synaptic_current=new_psc)
+
+        if runtime_data.genome['blueprint'][cortical_area]['mp_driven_psp']:
+            postsynaptic_current = runtime_data.brain[cortical_area][neuron_id]['pre_fire_mp']
+
         neuron_output = activation_function(postsynaptic_current)
 
         # Update membrane potential of the downstream neuron in the fire_queue
