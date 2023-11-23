@@ -518,11 +518,16 @@ def main():
                     image = frame.array
                     rawCapture.truncate(0)
                     if capabilities['camera']['disabled'] is not True:
-                        retina_data = retina.frame_split(image,
-                                                         configuration.capabilities['camera']['retina_width_percent'],
-                                                         configuration.capabilities['camera']['retina_height_percent'])
+                        retina_data = \
+                            retina.frame_split(frame=image,
+                                               width_percent=configuration.capabilities['camera']
+                                               ['retina_width_percent'],
+                                               height_percent=configuration.capabilities['camera']
+                                               ['retina_height_percent'],
+                                               camera_index=configuration.capabilities['camera']
+                                               ['index'])
                         for i in retina_data:
-                            if 'C' in i:
+                            if '_C' in i:
                                 retina_data[i] = retina.center_data_compression(retina_data[i],
                                                                                 capabilities['camera'][
                                                                                     "central_vision_compression"]
@@ -541,7 +546,7 @@ def main():
                             name = i
                             if 'prev' not in i:
                                 data = retina.ndarray_to_list(retina_data[i])
-                                if 'C' in i:
+                                if '_C' in i:
                                     previous_name = str(i) + "_prev"
                                     rgb_data, previous_data_frame[previous_name] = \
                                         retina.get_rgb(data,
