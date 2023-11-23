@@ -303,7 +303,8 @@ if __name__ == '__main__':
                                  previous_data_frame,
                                  capabilities['camera']['current_select'],
                                  capabilities['camera']['iso_default'],
-                                 capabilities['camera']["aperture_default"])
+                                 capabilities['camera']["aperture_default"],
+                                 camera_index=capabilities['camera']["index"])
             configuration.message_to_feagi, bat = FEAGI.compose_message_to_feagi(
                 original_message=gyro,
                 data=configuration.message_to_feagi,

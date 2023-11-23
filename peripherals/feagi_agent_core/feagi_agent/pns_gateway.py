@@ -25,7 +25,7 @@ from feagi_agent import retina as retina
 
 def generate_rgb(frame, width_percentage, height_percentage, central_resolution,
                  peripheral_resolution, previous_data_frame, current_selected_size,
-                 current_iso_selected, aperture_default):
+                 current_iso_selected, aperture_default, camera_index):
     """"
         frame (ndarray): RGB data.
         previous_data_frame (dict): Previous data containing old RGB values stored in the
@@ -42,7 +42,7 @@ def generate_rgb(frame, width_percentage, height_percentage, central_resolution,
             central_resolution = current_selected_size[0]
         if current_selected_size[1]:
             peripheral_resolution = current_selected_size[1]
-    retina_data = retina.frame_split(frame, width_percentage, height_percentage)
+    retina_data = retina.frame_split(frame, width_percentage, height_percentage, camera_index=camera_index)
     retina_data = retina.frame_compression(retina_data,
                                            central_resolution, peripheral_resolution)
     previous_data_frame = retina.check_previous_data(previous_data_frame, retina_data)

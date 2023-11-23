@@ -64,11 +64,59 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10]
             },
-            "i__vis": {
+            "iv00_C": {
                 "enabled": True,
-                "cortical_name": "vision_sensor",
+                "cortical_name": "central_vision_sensor",
                 "structure": "asymmetric",
-                "resolution": [64, 64, 1]
+                "resolution": [64, 64, 3]
+            },
+            "iv00TR": {
+                "enabled": True,
+                "cortical_name": "top_right_peripheral_vision_sensor",
+                "structure": "asymmetric",
+                "resolution": [8, 8, 3]
+            },
+            "iv00TL": {
+                "enabled": True,
+                "cortical_name": "top_left_peripheral_vision_sensor",
+                "structure": "asymmetric",
+                "resolution": [8, 8, 3]
+            },
+            "iv00TM": {
+                "enabled": True,
+                "cortical_name": "top_middle_peripheral_vision_sensor",
+                "structure": "asymmetric",
+                "resolution": [8, 8, 3]
+            },
+            "iv00ML": {
+                "enabled": True,
+                "cortical_name": "middle_left_peripheral_vision_sensor",
+                "structure": "asymmetric",
+                "resolution": [8, 8, 3]
+            },
+            "iv00MR": {
+                "enabled": True,
+                "cortical_name": "middle_right_peripheral_vision_sensor",
+                "structure": "asymmetric",
+                "resolution": [8, 8, 3]
+            },
+            "iv00LL": {
+                "enabled": True,
+                "cortical_name": "lower_left_peripheral_vision_sensor",
+                "structure": "asymmetric",
+                "resolution": [8, 8, 3]
+            },
+            "iv00LR": {
+                "enabled": True,
+                "cortical_name": "lower_right_peripheral_vision_sensor",
+                "structure": "asymmetric",
+                "resolution": [8, 8, 3]
+            },
+            "iv00LM": {
+                "enabled": True,
+                "cortical_name": "lower_middle_peripheral_vision_sensor",
+                "structure": "asymmetric",
+                "resolution": [8, 8, 3]
             }
         }
     },
@@ -184,5 +232,6 @@ cortical_template = {
     "firing_threshold_increment_y": 0,
     "firing_threshold_increment_z": 0,
     "firing_threshold_limit": 0,
-    "mp_charge_accumulation": True
+    "mp_charge_accumulation": True,
+    "mp_driven_psp": False
 }
