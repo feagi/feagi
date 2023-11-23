@@ -134,19 +134,49 @@ def json_comment_catcher(key):
         return True
 
 
+def cortical_area_id_update_checker(cortical_id):
+    """
+    Responsible for updating deprecated cortical names to new ones
+    """
+    if cortical_id == "i__v0C":
+        return "iv00_C"
+    elif cortical_id == "i_v0LL":
+        return "iv00LL"
+    elif cortical_id == "i_v0LR":
+        return "iv00LR"
+    elif cortical_id == "i_v0LM":
+        return "iv00LM"
+    elif cortical_id == "i_v0ML":
+        return "iv00ML"
+    elif cortical_id == "i_v0MR":
+        return "iv00MR"
+    elif cortical_id == "i_v0TL":
+        return "iv00TL"
+    elif cortical_id == "i_v0TR":
+        return "iv00TR"
+    elif cortical_id == "i_v0TM":
+        return "iv00TM"
+    else:
+        return cortical_id
+
+
 def genome_2_1_convertor(flat_genome):
     genome = dict()
     genome['blueprint'] = dict()
     cortical_list = genome_2_cortical_list(flat_genome)
+    print("%" * 30)
+    print(cortical_list)
     # Assign a blank template to each cortical area
     for cortical_area in cortical_list:
-        genome['blueprint'][cortical_area] = copy.deepcopy(genome_1_template)
+        genome['blueprint'][cortical_area_id_update_checker(cortical_id=cortical_area)] = \
+            copy.deepcopy(genome_1_template)
+
     # Populate each cortical area with
     for cortical_area in genome['blueprint']:
         try:
             for gene in flat_genome:
                 if json_comment_catcher(gene):
-                    cortical_id = gene[9:15]
+                    cortical_id = cortical_area_id_update_checker(cortical_id=gene[9:15])
                     exon = gene[19:]
                     gene_type = gene[16:18]
                     if exon in genome_2_to_1:
@@ -328,8 +358,9 @@ def genome_v1_v2_converter(genome_v1):
 def morphology_convertor(morphology_in):
     morphology_out = dict()
     morphology_out["parameters"] = dict()
+    # Upgrade old genome missing type
     if "type" in morphology_in:
-        return morphology_in
+        morphology_out = morphology_in
     else:
         if "vectors" in morphology_in:
             morphology_out["type"] = "vectors"
@@ -345,16 +376,53 @@ def morphology_convertor(morphology_in):
             morphology_out["parameters"]["mapper_morphology"] = morphology_in["composite"]["mapper_morphology"]
         elif "functions" in morphology_in:
             morphology_out["type"] = "functions"
-
         else:
             pass
-        return morphology_out
+
+    print("morphology out 1", morphology_out)
+    # Fix pattern nesting
+    if "patterns" in morphology_out["parameters"]:
+        for pattern in morphology_out["parameters"]["patterns"]:
+            if not valid_pattern(pattern):
+                print("#### >>>", pattern)
+                if len(pattern) == 3:
+                    print("> >", morphology_in)
+                    morphology_out["parameters"]["patterns"] = [morphology_out["parameters"]["patterns"]]
+                    print("> >", morphology_out)
+            break
+
+    return morphology_out
+
+
+def valid_pattern(lst):
+    # Check if the input is a list
+    if not isinstance(lst, list):
+        return False
+
+    for sublist in lst:
+        # Check if each element of the list is also a list
+        if not isinstance(sublist, list):
+            return False
+
+        # Check if the inner list has a length of 3
+        if len(sublist) != 3:
+            return False
+
+        # Check if each element in the inner list is an integer, '*', or '?'
+        for item in sublist:
+            if not (isinstance(item, int) or item in ['*', '?']):
+                return False
+
+    return True
 
 
 def genome_morphology_updator(genome):
     try:
         for morphology in genome["neuron_morphologies"]:
+            if not morphology:
+                genome["neuron_morphologies"].pop(morphology)
             genome["neuron_morphologies"][morphology] = morphology_convertor(genome["neuron_morphologies"][morphology])
+        runtime_data.genome_validity = genome_validator(genome)
     except Exception as e:
         print("Error during genome morphology update!", e, traceback.print_exc())
 
@@ -386,6 +454,7 @@ gene_decoder = {
     "_______c-______-nx-ftincz-f": "firing_threshold_increment_z",
     "_______c-______-nx-fthlim-i": "firing_threshold_limit",
     "_______c-______-nx-mp_acc-b": "mp_charge_accumulation",
+    "_______c-______-nx-mp_psp-b": "mp_driven_psp",
     "_______c-______-nx-refrac-i": "refractory_period",
     "_______c-______-nx-leak_c-f": "leak_coefficient",
     "_______c-______-nx-leak_v-i": "leak_variability",
@@ -426,7 +495,8 @@ genome_1_template = {
     "firing_threshold_increment_y": 0,
     "firing_threshold_increment_z": 0,
     "firing_threshold_limit": 0,
-    "mp_charge_accumulation": True
+    "mp_charge_accumulation": True,
+    "mp_driven_psp": False
     }
 
 genome_2_to_1 = {
@@ -459,7 +529,8 @@ genome_2_to_1 = {
     "dstmap-d": "cortical_mapping_dst",
     "de_gen-f": "degeneration",
     "pspuni-b": "psp_uniform_distribution",
-    "mp_acc-b": "mp_charge_accumulation"
+    "mp_acc-b": "mp_charge_accumulation",
+    "mp_psp-b": "mp_driven_psp"
 }
 
 genome_1_to_2 = {
@@ -484,5 +555,6 @@ genome_1_to_2 = {
     "degeneration": "cx-de_gen-f",
     "psp_uniform_distribution": "cx-pspuni-b",
     "cortical_mapping_dst": "cx-dstmap-d",
-    "mp_charge_accumulation": "nx-mp_acc-b"
+    "mp_charge_accumulation": "nx-mp_acc-b",
+    "mp_driven_psp": "nx-mp_psp-b"
 }

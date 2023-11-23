@@ -88,10 +88,10 @@ def detect_change_edge(frame, previous_data_frame, retina_data, current_selected
                 current_selected_size = []
                 frame = {}
                 data = []
-            if 'C' in i:
+            if '_C' in i:
                 previous_name = str(i) + "_prev"
                 rgb_data, previous_data_frame[previous_name] = \
-                        get_rgb(data, central_resolution, previous_data_frame[previous_name], name,
+                    get_rgb(data, central_resolution, previous_data_frame[previous_name], name,
                             current_iso_selected, aperture_default)
             else:
                 previous_name = str(i) + "_prev"
@@ -100,6 +100,7 @@ def detect_change_edge(frame, previous_data_frame, retina_data, current_selected
                             name, current_iso_selected, aperture_default)
             for a in rgb_data['camera']:
                 rgb['camera'][a] = rgb_data['camera'][a]
+
     return previous_data_frame, rgb['camera'], current_selected_size
 
 
@@ -175,10 +176,10 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr
             if previous_frame[index] != frame[index]:
                 if (abs((previous_frame[index] - frame[index])) / 100) > deviation_threshold:
                     dict_key = str(y_vision) + '-' + \
-                               str(abs((frame_row_count - 1) - x_vision)) + '-' + str(z_vision)
+                               str(abs((frame_col_count - 1) - x_vision)) + '-' + str(z_vision)
                     if single_RGB != None:
                         dict_key = str(y_vision) + '-' + \
-                                   str(abs((frame_row_count - 1) - x_vision)) + '-' + str(
+                                   str(abs((frame_col_count - 1) - x_vision)) + '-' + str(
                             single_RGB)
                     vision_dict[dict_key] = frame[index]  # save the value for the changed
                     # index to the dict
@@ -186,7 +187,7 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr
             if z_vision == 3:
                 z_vision = 0
                 y_vision += 1
-                if y_vision == frame_col_count:
+                if y_vision == frame_row_count:
                     y_vision = 0
                     x_vision += 1
         if frame != {}:
@@ -201,7 +202,7 @@ def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr
         return {'camera': {name_id: vision_dict}}, previous_frame_data
 
 
-def frame_split(frame, width_percent, height_percent):
+def frame_split(frame, width_percent, height_percent, camera_index: str):
     vision = dict()
     try:
         full_data = frame.shape
@@ -210,15 +211,15 @@ def frame_split(frame, width_percent, height_percent):
                                                                                width_percent,
                                                                                full_data[1],
                                                                                height_percent)
-            vision['C'] = frame[width_data1:width_data2, height_data1:height_data2]
-            vision['TL'] = np.zeros((8, 8, 3))
-            vision['TM'] = np.zeros((8, 8, 3))
-            vision['TR'] = np.zeros((8, 8, 3))
-            vision['ML'] = np.zeros((8, 8, 3))
-            vision['MR'] = np.zeros((8, 8, 3))
-            vision['LL'] = np.zeros((8, 8, 3))
-            vision['LM'] = np.zeros((8, 8, 3))
-            vision['LR'] = np.zeros((8, 8, 3))
+            vision[camera_index + '_C'] = frame[width_data1:width_data2, height_data1:height_data2]
+            vision[camera_index + 'TL'] = np.zeros((8, 8, 3))
+            vision[camera_index + 'TM'] = np.zeros((8, 8, 3))
+            vision[camera_index + 'TR'] = np.zeros((8, 8, 3))
+            vision[camera_index + 'ML'] = np.zeros((8, 8, 3))
+            vision[camera_index + 'MR'] = np.zeros((8, 8, 3))
+            vision[camera_index + 'LL'] = np.zeros((8, 8, 3))
+            vision[camera_index + 'LM'] = np.zeros((8, 8, 3))
+            vision[camera_index + 'LR'] = np.zeros((8, 8, 3))
 
         else:
             if width_percent == 100:
@@ -229,15 +230,15 @@ def frame_split(frame, width_percent, height_percent):
                                                                                width_percent,
                                                                                full_data[1],
                                                                                height_percent)
-            vision['TL'] = frame[0:width_data1, 0:height_data1]
-            vision['TM'] = frame[0:width_data1, height_data1:height_data2]
-            vision['TR'] = frame[0:width_data1, height_data2:]
-            vision['ML'] = frame[width_data1:width_data2, 0:height_data1]
-            vision['C'] = frame[width_data1:width_data2, height_data1:height_data2]
-            vision['MR'] = frame[width_data1:width_data2, height_data2:]
-            vision['LL'] = frame[width_data2:, 0:height_data1]
-            vision['LM'] = frame[width_data2:, height_data1: height_data2]
-            vision['LR'] = frame[width_data2:, height_data2:]
+            vision[camera_index + 'TL'] = frame[0:width_data1, 0:height_data1]
+            vision[camera_index + 'TM'] = frame[0:width_data1, height_data1:height_data2]
+            vision[camera_index + 'TR'] = frame[0:width_data1, height_data2:]
+            vision[camera_index + 'ML'] = frame[width_data1:width_data2, 0:height_data1]
+            vision[camera_index + '_C'] = frame[width_data1:width_data2, height_data1:height_data2]
+            vision[camera_index + 'MR'] = frame[width_data1:width_data2, height_data2:]
+            vision[camera_index + 'LL'] = frame[width_data2:, 0:height_data1]
+            vision[camera_index + 'LM'] = frame[width_data2:, height_data1: height_data2]
+            vision[camera_index + 'LR'] = frame[width_data2:, height_data2:]
     except AttributeError:
         # print("No visual data to process!")
         pass

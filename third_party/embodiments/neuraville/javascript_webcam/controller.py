@@ -115,6 +115,7 @@ async def echo(websocket):
         webcam_size['size'] = []
 
 
+
 async def main():
     """
     The main function handles the websocket and spins the asyncio to run the echo function
@@ -212,7 +213,8 @@ if __name__ == "__main__":
                                            previous_data_frame,
                                            capabilities['camera']['current_select'],
                                            capabilities['camera']['iso_default'],
-                                           capabilities['camera']["aperture_default"])
+                                           capabilities['camera']["aperture_default"],
+                                           camera_index=capabilities['camera']["index"])
                 # Prepare thee dict to send camera data to FEAGI
                 try:
                     if "data" not in message_to_feagi:
