@@ -20,10 +20,13 @@ import cv2
 import traceback
 
 
+def get_device_of_vision(device):
+    return cv2.VideoCapture(device)
+
+
 def vision_frame_capture(device, RGB_flag=True):
     check, frame = device.read()  # 0 is the default
     if RGB_flag:
         return frame
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     return frame
-
