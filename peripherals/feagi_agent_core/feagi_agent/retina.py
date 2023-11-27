@@ -18,6 +18,7 @@ limitations under the License.
 
 import cv2
 import traceback
+from datetime import datetime
 
 
 def get_device_of_vision(device):
@@ -47,9 +48,9 @@ def vision_frame_capture(device, RGB_flag=True):
       for grayscale, it displays a single dimension.
       Example format: [[x, y, z], [x, y, z]].
     """
-
+    datetime_start = datetime.now()
     check, frame = device.read()  # 0 is the default
     if RGB_flag:
-        return frame
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    return frame
+        return frame, datetime.now()-datetime_start
+    else:
+        return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), datetime.now()-datetime_start
