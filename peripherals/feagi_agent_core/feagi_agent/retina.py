@@ -57,38 +57,43 @@ def vision_frame_capture(device, RGB_flag=True):
 
 def vision_region_coordinates(frame_width, frame_height, x1, x2, y1, y2):
     prime_x1 = int(frame_width * (x1 / 100))
-    prime_x2 = int((frame_width - prime_x1) * (x2 / 100))
+    prime_x2 = int((frame_width * (x2 / 100) + prime_x1))
     prime_x3 = int(frame_width - (prime_x1 + prime_x2))
     prime_y1 = int(frame_height * (y1 / 100))
-    prime_y2 = int((frame_height - prime_y1) * (y2 / 100))
-    prime_y3 = int(frame_height - (prime_x1 + prime_x2))
+    prime_y2 = int((frame_height) * (y2 / 100) + prime_y1)
+    prime_y3 = int(frame_height - (prime_y1 + prime_y2))
+
 
     vision = dict()
-    vision['TL'] = [prime_x1, 0, prime_y1, 0]
-    vision['TM'] = [0, prime_x2, prime_y1, 0]
-    vision['TR'] = [prime_x3, prime_x2, prime_y1, 0]
-    vision['ML'] = [prime_x1, 0, prime_y2, 0]
-    vision['C'] = [0, prime_x2, prime_y2, 0]
-    vision['MR'] = [prime_x3, prime_x2, prime_y2, 0]
-    vision['LL'] = [prime_x1, prime_y3, 0]
-    vision['LM'] = [0, prime_x2, prime_y3, 0]
-    vision['LR'] = [prime_x2, prime_x3, prime_y3, 0]
+    vision['TL'] = [0, 0, prime_x1, prime_y1]
+    vision['TM'] = [prime_x1, 0, prime_x2, prime_y1]
+    vision['TR'] = [prime_x2, 0, prime_x3, prime_y1]
+    vision['ML'] = [prime_x1, 0, prime_x2, prime_y1]
+    vision['C'] = [prime_x1, prime_y1, prime_x2, prime_y2]
+    vision['MR'] = [prime_x1, prime_y1, prime_x2, prime_y2]
+    # vision['LL'] = [prime_x2, prime_y2, prime_x3, prime_y3]
+    # vision['LM'] = [prime_x2, prime_y2, prime_x3, prime_y3]
+    # vision['LR'] = [prime_x2, prime_y3, prime_x3, 0]
     return vision
 
 
 def split_vision_regions(vision, frame):
     test = dict()
-    test['TL'] = frame[0:vision['TL'][0], 0:(vision['TL'][2] + vision['TL'][3])]
-    test['TM'] = frame[vision['TL'][0]:vision['TM'][1], 0:vision['TM'][2]+vision['TM'][3]]
+    # area = "TM"
+    print(vision)
+    for area in vision:
+        print("NAME: ", area)
+        test[area] = frame[vision[area][0]:vision[area][2], vision[area][1]:vision[area][3]]
     return test
+
 
 cam = get_device_of_vision(2)
 while True:
     pixels, time = vision_frame_capture(cam)
-    vision_dict = vision_region_coordinates(1000, 600, 10, 20, 40, 60)
+    vision_dict = vision_region_coordinates(pixels.shape[0], pixels.shape[1], 10, 20, 40, 60)
     data = split_vision_regions(vision_dict, pixels)
-    print(data)
     for i in data:
+        print("AREA: ", i)
         cv2.imshow(i, data[i])
     cv2.imshow("full", pixels)
     # # for i in vision_dict:
