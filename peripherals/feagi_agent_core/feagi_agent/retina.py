@@ -53,12 +53,3 @@ def vision_frame_capture(device, RGB_flag=True):
         return frame, datetime.now()
     else:
         return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), datetime.now()
-
-
-cam = get_device_of_vision(2)
-while True:
-    pixels, time = vision_frame_capture(cam)
-    cv2.imshow('videoUI', pixels)
-    print(time)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
