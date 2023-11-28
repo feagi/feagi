@@ -17,6 +17,7 @@ limitations under the License.
 """
 
 import cv2
+import numpy as np
 import traceback
 import requests
 from datetime import datetime
@@ -147,3 +148,64 @@ def downsize_regions(frame, resize, RGB_flag=True):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         compressed_dict = cv2.resize(frame, resize, interpolation=cv2.INTER_AREA)
     return compressed_dict
+
+
+def change_detector(previous, current):
+    feagi_data = dict()
+    if len(previous.shape) < 3:
+        for x in range(previous.shape[0]):
+            for y in range(previous.shape[1]):
+                if previous[x, y] != current[x, y]:
+                    # print((abs((previous[x, y] - current[x, y])) / 100), previous[x, y],
+                    #       " ",  current[x,y])
+                    if (abs((previous[x, y] - current[x, y])) / 100) > 2.5:
+                        # print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+                        key = f'{x}-{y}-{0}'
+                        feagi_data[key] = (current[x, y])
+    else:
+        for x in range(previous.shape[0]):
+            for y in range(previous.shape[1]):
+                for z in range(previous.shape[2]):
+                    if previous[x, y, z] != current[x, y, z]:
+                        if (abs((previous[x, y, z] - current[x, y, z])) / 100) > 2.5:
+                            key = f'{x}-{y}-{z}'
+                            feagi_data[key] = (current[x, y, z])
+    return feagi_data
+
+
+# DEBUG CODE ONLY. REMOVE ONCE DONE
+cam = get_device_of_vision(2)
+url = 'http://127.0.0.1:8000/v1/feagi/genome/cortical_area/geometry'
+response = requests.get(url)
+data = response.json()
+items = ["_C", "LL", "LM", "LR", "MR", "ML", "TR", "TL", "TM"]
+resize_list = {}
+previous_frame_data = {}
+for i in data:
+    for x in items:
+        if x in i:
+            dimension_array = data[i]["dimensions"][0], data[i]["dimensions"][1]
+            resize_list[x] = dimension_array
+while True:
+    raw_frame, time = vision_frame_capture(cam)
+    region_coordinates = vision_region_coordinates(frame_width=raw_frame.shape[1],
+                                                   frame_height=raw_frame.shape[0],
+                                                   x1=25, x2=50,
+                                                   y1=25, y2=50)
+    segmented_frame_data = split_vision_regions(coordinates=region_coordinates,
+                                                raw_frame_data=raw_frame)
+    compressed_data = dict()
+    for i in segmented_frame_data:
+        if "_C" in i:
+            compressed_data[i] = downsize_regions(segmented_frame_data[i], resize_list[i])
+        else:
+            compressed_data[i] = downsize_regions(segmented_frame_data[i], resize_list[i], False)
+    for test in compressed_data:
+        if previous_frame_data != {}:
+            test2 = change_detector(previous_frame_data[test], compressed_data[test])
+            # print(test2)
+    previous_frame_data = compressed_data
+    # for segment in compressed_data:
+    #     cv2.imshow(segment, compressed_data[segment])
+    # if cv2.waitKey(1) & 0xFF == ord('q'):
+    #     break
