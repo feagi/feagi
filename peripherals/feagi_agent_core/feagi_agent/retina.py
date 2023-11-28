@@ -86,15 +86,15 @@ def vision_region_coordinates(frame_width, frame_height, x1, x2, y1, y2):
     y2_prime = y1_prime + int((frame_height - y1_prime) * (y2 / 100))
 
     region_coordinates = dict()
-    region_coordinates['TL'] = [0, 0, x1_prime, y1_prime]
-    region_coordinates['TM'] = [x1_prime, 0, x2_prime, y1_prime]
-    region_coordinates['TR'] = [x2_prime, 0, frame_width, y1_prime]
-    region_coordinates['ML'] = [0, y1_prime, x1_prime, y2_prime]
-    region_coordinates['_C'] = [x1_prime, y1_prime, x2_prime, y2_prime]
-    region_coordinates['MR'] = [x2_prime, y1_prime, frame_width, y2_prime]
-    region_coordinates['LL'] = [0, y2_prime, x1_prime, frame_height]
-    region_coordinates['LM'] = [x1_prime, y2_prime, x2_prime, frame_height]
-    region_coordinates['LR'] = [x2_prime, y2_prime, frame_width, frame_height]
+    region_coordinates['00TL'] = [0, 0, x1_prime, y1_prime]
+    region_coordinates['00TM'] = [x1_prime, 0, x2_prime, y1_prime]
+    region_coordinates['00TR'] = [x2_prime, 0, frame_width, y1_prime]
+    region_coordinates['00ML'] = [0, y1_prime, x1_prime, y2_prime]
+    region_coordinates['00_C'] = [x1_prime, y1_prime, x2_prime, y2_prime]
+    region_coordinates['00MR'] = [x2_prime, y1_prime, frame_width, y2_prime]
+    region_coordinates['00LL'] = [0, y2_prime, x1_prime, frame_height]
+    region_coordinates['00LM'] = [x1_prime, y2_prime, x2_prime, frame_height]
+    region_coordinates['00LR'] = [x2_prime, y2_prime, frame_width, frame_height]
     return region_coordinates
 
 
@@ -152,22 +152,73 @@ def downsize_regions(frame, resize, RGB_flag=True):
 
 def change_detector(previous, current):
     feagi_data = dict()
+    threshold = 10
+    # print("$$$$$------------------------------shape", previous.shape)
     if len(previous.shape) < 3:
-        for x in range(previous.shape[0]):
-            for y in range(previous.shape[1]):
-                if previous[x, y] != current[x, y]:
-                    # print((abs((previous[x, y] - current[x, y])) / 100), previous[x, y],
-                    #       " ",  current[x,y])
-                    if (abs((previous[x, y] - current[x, y])) / 100) > 2.5:
-                        # print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-                        key = f'{x}-{y}-{0}'
-                        feagi_data[key] = (current[x, y])
+        pass
+        # for x in range(previous.shape[0]):
+        #     for y in range(previous.shape[1]):
+        #         if previous[x, y] != current[x, y]:
+        #             if (abs((previous[x, y] - current[x, y])) * 100 / 255) > threshold:
+        #                 # print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+        #                 # print((abs((previous[x, y] - current[x, y])) / 100), previous[x, y],
+        #                 #       " ", current[x, y])
+        #                 # print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
+        #                 key = f'{x}-{y}-{0}'
+        #                 feagi_data[key] = (current[x, y])
     else:
         for x in range(previous.shape[0]):
             for y in range(previous.shape[1]):
+                # print("UPDATED Y: ", )
                 for z in range(previous.shape[2]):
+                    # print("z: ", z, " shape: ", previous.shape[2])
+                    # print("^^^___" * 20)
                     if previous[x, y, z] != current[x, y, z]:
-                        if (abs((previous[x, y, z] - current[x, y, z])) / 100) > 2.5:
-                            key = f'{x}-{y}-{z}'
-                            feagi_data[key] = (current[x, y, z])
+                        difference = abs(int(previous[x, y, z]) - int(current[x, y, z]))
+                        # print("difference-1", difference)
+                        difference = difference * 100 / 255
+                        # print("difference-2", difference)
+                        # print("$%_" * 20)
+                        if difference > threshold:
+                            # print("####################################")
+                            # print("previous:", previous[x, y, z])
+                            # print("current:", current[x, y, z])
+                            # print("difference_:", difference)
+                            # print("####################################\n")
+                            key = f'{y}-{64-x}-{z}'
+                            feagi_data[key] = (current[y, x, z])
     return feagi_data
+
+cam = get_device_of_vision(2)
+url = 'http://127.0.0.1:8000/v1/feagi/genome/cortical_area/geometry'
+response = requests.get(url)
+data = response.json()
+items = ["_C", "LL", "LM", "LR", "MR", "ML", "TR", "TL", "TM"]
+resize_list = {}
+for i in data:
+    for x in items:
+        if x in i:
+            dimension_array = data[i]["dimensions"][0], data[i]["dimensions"][1]
+            resize_list[x] = dimension_array
+while True:
+    raw_frame, time = vision_frame_capture(cam)
+    region_coordinates = vision_region_coordinates(frame_width=raw_frame.shape[1],
+                                                   frame_height=raw_frame.shape[0],
+                                                   x1=25, x2=50,
+                                                   y1=25, y2=50)
+    segmented_frame_data = split_vision_regions(coordinates=region_coordinates,
+                                                raw_frame_data=raw_frame)
+    compressed_data = dict()
+    for i in segmented_frame_data:
+        if "_C" in i:
+            compressed_data[i] = downsize_regions(segmented_frame_data[i], resize_list[i])
+        else:
+            compressed_data[i] = downsize_regions(segmented_frame_data[i], resize_list[i], False)
+    for segment in compressed_data:
+        cv2.imshow(segment, compressed_data[segment])
+    # cv2.imshow("full", raw_frame)
+    # # for i in vision_dict:
+    # #     print(vision_dict)
+    #     # cv2.imshow(i, vision_dict[i])
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
