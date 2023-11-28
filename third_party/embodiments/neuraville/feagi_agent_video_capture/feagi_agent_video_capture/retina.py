@@ -159,67 +159,41 @@ def downsize_regions(frame, resize, RGB_flag=True):
 
 
 def change_detector(previous, current):
+    """
+    Detects changes between previous and current frames and checks against a threshold.
+
+    Compares the previous and current frames to identify differences. If the difference
+    exceeds a predefined threshold (iso), it records the change in a dictionary for Feagi.
+
+    Inputs:
+    - previous: Dictionary with 'cortical' keys containing NumPy ndarray frames.
+    - current: Dictionary with 'cortical' keys containing NumPy ndarray frames.
+
+    Output:
+    - Dictionary containing changes in the ndarray frames.
+    """
+
     start_time = datetime.now()
     feagi_data = dict()
     threshold = 10
-    size = previous.shape
-    # print("$$$$$------------------------------shape", previous.shape)
-    if len(size) < 3:
-        for x in range(size[0]):
-            for y in range(size[1]):
+    size_of_frame = previous.shape
+    if len(size_of_frame) < 3:
+        for x in range(size_of_frame[0]):
+            for y in range(size_of_frame[1]):
                 if previous[x, y] != current[x, y]:
                     if (abs((previous[x, y] - current[x, y])) * 100 / 255) > threshold:
-                        key = f'{y}-{size[1] - x}-{0}'
+                        key = f'{y}-{size_of_frame[1] - x}-{0}'
                         feagi_data[key] = (current[x, y])
     else:
-        for x in range(size[0]):
-            for y in range(size[1]):
-                for z in range(size[2]):
+        for x in range(size_of_frame[0]):
+            for y in range(size_of_frame[1]):
+                for z in range(size_of_frame[2]):
                     if previous[x, y, z] != current[x, y, z]:
                         difference = abs(int(previous[x, y, z]) - int(current[x, y, z]))
                         difference = difference * 100 / 255
                         if difference > threshold:
-                            key = f'{y}-{size[1] - x}-{z}'
+                            key = f'{y}-{size_of_frame[1] - x}-{z}'
                             feagi_data[key] = (current[y, x, z])
     print("change_detector time total: ", (datetime.now() - start_time).total_seconds())
     return feagi_data
 
-
-# cam = get_device_of_vision(2)
-# url = 'http://127.0.0.1:8000/v1/feagi/genome/cortical_area/geometry'
-# response = requests.get(url)
-# data = response.json()
-# items = ["_C", "LL", "LM", "LR", "MR", "ML", "TR", "TL", "TM"]
-# resize_list = {}
-# previous_frame_data = {}
-# for i in data:
-#     for x in items:
-#         if x in i:
-#             dimension_array = data[i]["dimensions"][0], data[i]["dimensions"][1]
-#             resize_list[x] = dimension_array
-# while True:
-#     raw_frame, time = vision_frame_capture(cam)
-#     region_coordinates = vision_region_coordinates(frame_width=raw_frame.shape[1],
-#                                                    frame_height=raw_frame.shape[0],
-#                                                    x1=25, x2=50,
-#                                                    y1=25, y2=50)
-#     segmented_frame_data = split_vision_regions(coordinates=region_coordinates,
-#                                                 raw_frame_data=raw_frame)
-#     compressed_data = dict()
-#     for i in segmented_frame_data:
-#         if "_C" in i:
-#             compressed_data[i] = downsize_regions(segmented_frame_data[i], resize_list[i])
-#         else:
-#             compressed_data[i] = downsize_regions(segmented_frame_data[i], resize_list[i], False)
-#     for segment in compressed_data:
-#         cv2.imshow(segment, compressed_data[segment])
-#     vision_dict = dict()
-#     for test in compressed_data:
-#         # print("Test:---------------------", test)
-#         if previous_frame_data != {}:
-#             vision_dict[test] = change_detector(previous_frame_data[test],
-#                                                 compressed_data[test])
-#     previous_frame_data = compressed_data
-#
-#     if cv2.waitKey(1) & 0xFF == ord('q'):
-#         break
