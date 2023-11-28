@@ -87,8 +87,8 @@ while True:
     raw_frame, time = vision_frame_capture(cam)
     region_coordinates = vision_region_coordinates(frame_width=raw_frame.shape[1],
                                                    frame_height=raw_frame.shape[0],
-                                                   x1=10, x2=10,
-                                                   y1=20, y2=40)
+                                                   x1=25, x2=50,
+                                                   y1=25, y2=50)
     segmented_frame_data = split_vision_regions(coordinates=region_coordinates, raw_frame_data=raw_frame)
     for segment in segmented_frame_data:
         cv2.imshow(segment, segmented_frame_data[segment])
