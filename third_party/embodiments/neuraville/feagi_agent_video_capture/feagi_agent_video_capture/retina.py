@@ -50,14 +50,16 @@ def vision_frame_capture(device, RGB_flag=True):
       for grayscale, it displays a single dimension.
       Example format: [[x, y, z], [x, y, z]].
     """
+    start_time = datetime.now()
     check, frame = device.read()  # 0 is the default
+    print("vision_frame_capture time total: ", (datetime.now() - start_time).total_seconds())
     if RGB_flag:
         return frame, datetime.now()
     else:
         return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), datetime.now()
 
 
-def vision_region_coordinates(frame_width, frame_height, x1, x2, y1, y2):
+def vision_region_coordinates(frame_width, frame_height, x1, x2, y1, y2, camera_index):
     """
     Calculate coordinates for nine different regions within a frame based on given percentages.
 
@@ -80,21 +82,23 @@ def vision_region_coordinates(frame_width, frame_height, x1, x2, y1, y2):
     Note: Make sure that x1, x2, y1, and y2 are valid percentage values within the range of 0 to
     100.
     """
+    start_time = datetime.now()
     x1_prime = int(frame_width * (x1 / 100))
-    x2_prime = int((frame_width * (x2 / 100) + x1_prime))
+    x2_prime = x1_prime + int((frame_width - x1_prime) * (x2 / 100))
     y1_prime = int(frame_height * (y1 / 100))
-    y2_prime = int((frame_height * y2 / 100) + y1_prime)
+    y2_prime = y1_prime + int((frame_height - y1_prime) * (y2 / 100))
 
     region_coordinates = dict()
-    region_coordinates['00TL'] = [0, 0, x1_prime, y1_prime]
-    region_coordinates['00TM'] = [x1_prime, 0, x2_prime, y1_prime]
-    region_coordinates['00TR'] = [x2_prime, 0, frame_width, y1_prime]
-    region_coordinates['00ML'] = [0, y1_prime, x1_prime, y2_prime]
-    region_coordinates['00_C'] = [x1_prime, y1_prime, x2_prime, y2_prime]
-    region_coordinates['00MR'] = [x2_prime, y1_prime, frame_width, y2_prime]
-    region_coordinates['00LL'] = [0, y2_prime, x1_prime, frame_height]
-    region_coordinates['00LM'] = [x1_prime, y2_prime, x2_prime, frame_height]
-    region_coordinates['00LR'] = [x2_prime, y2_prime, frame_width, frame_height]
+    region_coordinates[camera_index + 'TL'] = [0, 0, x1_prime, y1_prime]
+    region_coordinates[camera_index + 'TM'] = [x1_prime, 0, x2_prime, y1_prime]
+    region_coordinates[camera_index + 'TR'] = [x2_prime, 0, frame_width, y1_prime]
+    region_coordinates[camera_index + 'ML'] = [0, y1_prime, x1_prime, y2_prime]
+    region_coordinates[camera_index + '_C'] = [x1_prime, y1_prime, x2_prime, y2_prime]
+    region_coordinates[camera_index + 'MR'] = [x2_prime, y1_prime, frame_width, y2_prime]
+    region_coordinates[camera_index + 'LL'] = [0, y2_prime, x1_prime, frame_height]
+    region_coordinates[camera_index + 'LM'] = [x1_prime, y2_prime, x2_prime, frame_height]
+    region_coordinates[camera_index + 'LR'] = [x2_prime, y2_prime, frame_width, frame_height]
+    print("vision_region_coordinates time total: ", (datetime.now() - start_time).total_seconds())
     return region_coordinates
 
 
@@ -115,10 +119,12 @@ def split_vision_regions(coordinates, raw_frame_data):
     - Display: Visual representation or display of all nine regions independently within the frame.
     """
 
+    start_time = datetime.now()
     frame_segments = dict()
     for region in coordinates:
         frame_segments[region] = raw_frame_data[coordinates[region][1]:coordinates[region][3],
                                  coordinates[region][0]:coordinates[region][2]]
+    print("split_vision_regions time total: ", (datetime.now() - start_time).total_seconds())
     return frame_segments
 
 
@@ -142,62 +148,78 @@ def downsize_regions(frame, resize, RGB_flag=True):
     Make sure that the 'frame' input is a valid NumPy ndarray and the 'resize' parameter contains
     appropriate width and height values for compression.
     """
+    start_time = datetime.now()
     if RGB_flag:
         compressed_dict = cv2.resize(frame, resize, interpolation=cv2.INTER_AREA)
     else:
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         compressed_dict = cv2.resize(frame, resize, interpolation=cv2.INTER_AREA)
+    print("downsize_regions time total: ", (datetime.now() - start_time).total_seconds())
     return compressed_dict
 
 
 def change_detector(previous, current):
+    start_time = datetime.now()
     feagi_data = dict()
     threshold = 10
-    print("$$$$$------------------------------shape", previous.shape)
-    if len(previous.shape) < 3:
-        pass
-        # for x in range(previous.shape[0]):
-        #     for y in range(previous.shape[1]):
-        #         if previous[x, y] != current[x, y]:
-        #             if (abs((previous[x, y] - current[x, y])) * 100 / 255) > threshold:
-        #                 # print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-        #                 # print((abs((previous[x, y] - current[x, y])) / 100), previous[x, y],
-        #                 #       " ", current[x, y])
-        #                 # print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
-        #                 key = f'{x}-{y}-{0}'
-        #                 feagi_data[key] = (current[x, y])
+    size = previous.shape
+    # print("$$$$$------------------------------shape", previous.shape)
+    if len(size) < 3:
+        for x in range(size[0]):
+            for y in range(size[1]):
+                if previous[x, y] != current[x, y]:
+                    if (abs((previous[x, y] - current[x, y])) * 100 / 255) > threshold:
+                        key = f'{y}-{size[1] - x}-{0}'
+                        feagi_data[key] = (current[x, y])
     else:
-        for x in range(previous.shape[1]):
-            for y in range(previous.shape[0]):
-                print("UPDATED Y: ", )
-                for z in range(previous.shape[2]):
-                    print("z: ", z, " shape: ", previous.shape[2])
-                    print("^^^___" * 20)
+        for x in range(size[0]):
+            for y in range(size[1]):
+                for z in range(size[2]):
                     if previous[x, y, z] != current[x, y, z]:
-                        difference = abs(previous[x, y, z] - current[x, y, z])
-                        print("difference-1", difference)
+                        difference = abs(int(previous[x, y, z]) - int(current[x, y, z]))
                         difference = difference * 100 / 255
-                        print("difference-2", difference)
-                        print("$%_" * 20)
                         if difference > threshold:
-                            print("####################################")
-                            print("previous:", previous[x, y, z])
-                            print("current:", current[x, y, z])
-                            print("difference_:", difference)
-                            print("####################################\n")
-                            key = f'{x}-{y}-{z}'
-                            feagi_data[key] = (current[x, y, z])
+                            key = f'{y}-{size[1] - x}-{z}'
+                            feagi_data[key] = (current[y, x, z])
+    print("change_detector time total: ", (datetime.now() - start_time).total_seconds())
     return feagi_data
 
-# def detect_change_edge():
 
-
-
-
-
-
-
-    # for segment in compressed_data:
-    #     cv2.imshow(segment, compressed_data[segment])
-    # if cv2.waitKey(1) & 0xFF == ord('q'):
-    #     break
+# cam = get_device_of_vision(2)
+# url = 'http://127.0.0.1:8000/v1/feagi/genome/cortical_area/geometry'
+# response = requests.get(url)
+# data = response.json()
+# items = ["_C", "LL", "LM", "LR", "MR", "ML", "TR", "TL", "TM"]
+# resize_list = {}
+# previous_frame_data = {}
+# for i in data:
+#     for x in items:
+#         if x in i:
+#             dimension_array = data[i]["dimensions"][0], data[i]["dimensions"][1]
+#             resize_list[x] = dimension_array
+# while True:
+#     raw_frame, time = vision_frame_capture(cam)
+#     region_coordinates = vision_region_coordinates(frame_width=raw_frame.shape[1],
+#                                                    frame_height=raw_frame.shape[0],
+#                                                    x1=25, x2=50,
+#                                                    y1=25, y2=50)
+#     segmented_frame_data = split_vision_regions(coordinates=region_coordinates,
+#                                                 raw_frame_data=raw_frame)
+#     compressed_data = dict()
+#     for i in segmented_frame_data:
+#         if "_C" in i:
+#             compressed_data[i] = downsize_regions(segmented_frame_data[i], resize_list[i])
+#         else:
+#             compressed_data[i] = downsize_regions(segmented_frame_data[i], resize_list[i], False)
+#     for segment in compressed_data:
+#         cv2.imshow(segment, compressed_data[segment])
+#     vision_dict = dict()
+#     for test in compressed_data:
+#         # print("Test:---------------------", test)
+#         if previous_frame_data != {}:
+#             vision_dict[test] = change_detector(previous_frame_data[test],
+#                                                 compressed_data[test])
+#     previous_frame_data = compressed_data
+#
+#     if cv2.waitKey(1) & 0xFF == ord('q'):
+#         break

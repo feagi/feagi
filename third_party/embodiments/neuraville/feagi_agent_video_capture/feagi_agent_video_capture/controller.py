@@ -175,7 +175,8 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                     x1=capabilities['camera']['gaze_control'][0], x2=capabilities['camera'][
                         'gaze_control'][1],
                     y1=capabilities['camera']['pupil_control'][0], y2=capabilities['camera'][
-                        'pupil_control'][1])
+                        'pupil_control'][1],
+                camera_index="00")
                 segmented_frame_data = retina.split_vision_regions(coordinates=region_coordinates,
                                                                    raw_frame_data=raw_frame)
                 compressed_data = dict()
