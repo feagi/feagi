@@ -58,10 +58,10 @@ def vision_frame_capture(device, RGB_flag=True):
 def vision_region_coordinates(frame_width, frame_height, x1, x2, y1, y2):
     prime_x1 = int(frame_width * (x1 / 100))
     prime_x2 = int((frame_width * (x2 / 100) + prime_x1))
-    prime_x3 = int(frame_width - (prime_x1 + prime_x2))
+    prime_x3 = int(frame_width - prime_x2)
     prime_y1 = int(frame_height * (y1 / 100))
-    prime_y2 = int((frame_height) * (y2 / 100) + prime_y1)
-    prime_y3 = int(frame_height - (prime_y1 + prime_y2))
+    prime_y2 = int((frame_height * y2 / 100) + prime_y1)
+    prime_y3 = int(frame_height - prime_y2)
 
 
     vision = dict()
@@ -71,9 +71,10 @@ def vision_region_coordinates(frame_width, frame_height, x1, x2, y1, y2):
     vision['ML'] = [prime_x1, 0, prime_x2, prime_y1]
     vision['C'] = [prime_x1, prime_y1, prime_x2, prime_y2]
     vision['MR'] = [prime_x1, prime_y1, prime_x2, prime_y2]
-    # vision['LL'] = [prime_x2, prime_y2, prime_x3, prime_y3]
-    # vision['LM'] = [prime_x2, prime_y2, prime_x3, prime_y3]
-    # vision['LR'] = [prime_x2, prime_y3, prime_x3, 0]
+    vision['LL'] = [0, prime_y2, prime_x1, prime_y3]
+    print(f"y1: {prime_y1}, x1: {prime_x1}, y2: {prime_y2}, x2: {prime_x2}, x3: {prime_x3}, y3: {prime_y3}")
+    vision['LM'] = [prime_x1, prime_y2, prime_x2, prime_y3]
+    vision['LR'] = [prime_x2, prime_y2, prime_x3, prime_y3]
     return vision
 
 
@@ -87,10 +88,11 @@ def split_vision_regions(vision, frame):
     return test
 
 
-cam = get_device_of_vision(2)
+cam = get_device_of_vision(0)
 while True:
     pixels, time = vision_frame_capture(cam)
-    vision_dict = vision_region_coordinates(pixels.shape[0], pixels.shape[1], 10, 20, 40, 60)
+    print("shape: ", pixels.shape)
+    vision_dict = vision_region_coordinates(pixels.shape[0], pixels.shape[1], 10, 20, 20, 40)
     data = split_vision_regions(vision_dict, pixels)
     for i in data:
         print("AREA: ", i)
