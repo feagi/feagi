@@ -143,59 +143,67 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 name = i.replace("iv", "")
                 dimension_array = data[i]["dimensions"][0], data[i]["dimensions"][1]
                 resize_list[name] = dimension_array
-    cam = retina.get_device_of_vision(0)
+    cam = retina.get_device_of_vision(2)
     while True:
         try:
             message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
             pixels = camera_data['vision']
             # start_time = time.time()
             # print("START TIMER")
-            # if capabilities['camera']['snap'] != []:
-            #     previous_data_frame, camera, capabilities['camera']['current_select'] = \
-            #         pns.generate_rgb(capabilities['camera']['snap'],
-            #                          capabilities['camera']['central_vision_allocation_percentage'][
-            #                              0],
-            #                          capabilities['camera']['central_vision_allocation_percentage'][
-            #                              1],
-            #                          capabilities['camera']["central_vision_resolution"],
-            #                          capabilities['camera']['peripheral_vision_resolution'],
-            #                          previous_data_frame,
-            #                          capabilities['camera']['current_select'],
-            #                          capabilities['camera']['iso_default'],
-            #                          0,
-            #                          camera_index=capabilities['camera']["index"],
-            #                          snap=True)
-            #     rgb['camera'] = camera
-            #     capabilities['camera']['snap'] = []
-            # else:
-            raw_frame, time = retina.vision_frame_capture(cam)
-            region_coordinates = retina.vision_region_coordinates(
-                frame_width=raw_frame.shape[1],
-                frame_height=raw_frame.shape[0],
-                x1=25, x2=50,
-                y1=25, y2=50)
-            segmented_frame_data = retina.split_vision_regions(coordinates=region_coordinates,
-                                                               raw_frame_data=raw_frame)
-            compressed_data = dict()
-            for i in segmented_frame_data:
-                if "00_C" in i:
-                    compressed_data[i] = retina.downsize_regions(segmented_frame_data[i],
-                                                                 resize_list[i])
-                else:
-                    print(resize_list)
-                    compressed_data[i] = retina.downsize_regions(segmented_frame_data[i],
-                                                                 resize_list[i], False)
-            vision_dict = dict()
-            print(compressed_data["00_C"])
-            print("@" * 100)
+            if capabilities['camera']['snap'] != []:
+                previous_data_frame, camera, capabilities['camera']['current_select'] = \
+                    pns.generate_rgb(capabilities['camera']['snap'],
+                                     capabilities['camera']['central_vision_allocation_percentage'][
+                                         0],
+                                     capabilities['camera']['central_vision_allocation_percentage'][
+                                         1],
+                                     capabilities['camera']["central_vision_resolution"],
+                                     capabilities['camera']['peripheral_vision_resolution'],
+                                     previous_data_frame,
+                                     capabilities['camera']['current_select'],
+                                     capabilities['camera']['iso_default'],
+                                     0,
+                                     camera_index=capabilities['camera']["index"],
+                                     snap=True)
+                rgb['camera'] = camera
+                capabilities['camera']['snap'] = []
+            else:
+                raw_frame, time = retina.vision_frame_capture(cam)
+                region_coordinates = retina.vision_region_coordinates(
+                    frame_width=raw_frame.shape[1],
+                    frame_height=raw_frame.shape[0],
+                    x1=capabilities['camera']['gaze_control'][0], x2=capabilities['camera'][
+                        'gaze_control'][1],
+                    y1=capabilities['camera']['pupil_control'][0], y2=capabilities['camera'][
+                        'pupil_control'][1])
+                segmented_frame_data = retina.split_vision_regions(coordinates=region_coordinates,
+                                                                   raw_frame_data=raw_frame)
+                compressed_data = dict()
+                for i in segmented_frame_data:
+                    if "00_C" in i:
+                        compressed_data[i] = retina.downsize_regions(segmented_frame_data[i],
+                                                                     resize_list[i])
+                    else:
+                        # print(resize_list)
+                        compressed_data[i] = retina.downsize_regions(segmented_frame_data[i],
+                                                                     resize_list[i], False)
+                for segment in compressed_data:
+                    cv2.imshow(segment, compressed_data[segment])
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+                vision_dict = dict()
+                # print(compressed_data["00_C"])
+                # print("@" * 100)
 
-            for test in compressed_data:
-                print("Test:---------------------", test)
-                if previous_frame_data != {}:
-                    vision_dict[test] = retina.change_detector(previous_frame_data[test],
-                                                               compressed_data[test])
-            previous_frame_data = compressed_data
-            rgb['camera'] = vision_dict
+                for test in compressed_data:
+                    # print("Test:---------------------", test)
+                    if previous_frame_data != {}:
+                        vision_dict[test] = retina.change_detector(previous_frame_data[test],
+                                                                   compressed_data[test])
+                previous_frame_data = compressed_data
+                rgb['camera'] = vision_dict
+            # Under else if
+
             # print("DEBUG### main_controller total: ", time.time() - start_time)
             # print("STOP TIMER")
             if message_from_feagi is not None:
@@ -225,7 +233,24 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                             monitor_update = feagi.block_to_array(i)
                             capabilities['camera']['monitor'] = monitor_update[0]
                 # OPU section ENDS
-
+                if 'o__gaz' in message_from_feagi["opu_data"]:
+                    for data_point in message_from_feagi["opu_data"]['o__gaz']:
+                        print("GAZEBO WORKED")
+                        processed_data_point = feagi.block_to_array(data_point)
+                        device_id = processed_data_point[0]
+                        device_power = message_from_feagi["opu_data"]['o__gaz'][data_point]
+                        if device_power == 100:
+                            device_power -= 1
+                        capabilities['camera']['gaze_control'][device_id] = device_power
+                    print(capabilities['camera']['gaze_control'])
+                if 'o__pup' in message_from_feagi["opu_data"]:
+                    for data_point in message_from_feagi["opu_data"]['o__pup']:
+                        processed_data_point = feagi.block_to_array(data_point)
+                        device_id = processed_data_point[0]
+                        device_power = message_from_feagi["opu_data"]['o__pup'][data_point]
+                        if device_power == 100:
+                            device_power -= 1
+                        capabilities['camera']['pupil_control'][device_id] = device_power
             try:
                 if "data" not in message_to_feagi:
                     message_to_feagi["data"] = dict()
@@ -246,8 +271,6 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
             else:
                 feagi_ipu_channel.send(message_to_feagi)
-            for i in message_to_feagi["data"]["sensory_data"]["camera"]:
-                print(i)
             message_to_feagi.clear()
             for i in rgb['camera']:
                 rgb['camera'][i].clear()
