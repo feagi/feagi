@@ -147,38 +147,3 @@ def downsize_regions(frame, resize, RGB_flag=True):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         compressed_dict = cv2.resize(frame, resize, interpolation=cv2.INTER_AREA)
     return compressed_dict
-
-
-cam = get_device_of_vision(2)
-url = 'http://127.0.0.1:8000/v1/feagi/genome/cortical_area/geometry'
-response = requests.get(url)
-data = response.json()
-items = ["_C", "LL", "LM", "LR", "MR", "ML", "TR", "TL", "TM"]
-resize_list = {}
-for i in data:
-    for x in items:
-        if x in i:
-            dimension_array = data[i]["dimensions"][0], data[i]["dimensions"][1]
-            resize_list[x] = dimension_array
-while True:
-    raw_frame, time = vision_frame_capture(cam)
-    region_coordinates = vision_region_coordinates(frame_width=raw_frame.shape[1],
-                                                   frame_height=raw_frame.shape[0],
-                                                   x1=25, x2=50,
-                                                   y1=25, y2=50)
-    segmented_frame_data = split_vision_regions(coordinates=region_coordinates,
-                                                raw_frame_data=raw_frame)
-    compressed_data = dict()
-    for i in segmented_frame_data:
-        if "_C" in i:
-            compressed_data[i] = downsize_regions(segmented_frame_data[i], resize_list[i])
-        else:
-            compressed_data[i] = downsize_regions(segmented_frame_data[i], resize_list[i], False)
-    for segment in compressed_data:
-        cv2.imshow(segment, compressed_data[segment])
-    # cv2.imshow("full", raw_frame)
-    # # for i in vision_dict:
-    # #     print(vision_dict)
-    #     # cv2.imshow(i, vision_dict[i])
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
