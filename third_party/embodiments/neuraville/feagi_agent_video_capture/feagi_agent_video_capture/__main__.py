@@ -42,7 +42,7 @@ if __name__ == '__main__':
         inital_message_to_feagi = message_to_feagi.copy()
         while True:
             try:
-                from feagi_agent_video_capture import controller as video_controller
+                import controller as video_controller
 
                 feagi_auth_url = feagi_settings.pop('feagi_auth_url', None)
                 print("FEAGI AUTH URL ------- ", feagi_auth_url)
