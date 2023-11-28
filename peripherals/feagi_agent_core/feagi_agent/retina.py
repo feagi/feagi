@@ -81,9 +81,9 @@ def vision_region_coordinates(frame_width, frame_height, x1, x2, y1, y2):
     100.
     """
     x1_prime = int(frame_width * (x1 / 100))
-    x2_prime = int((frame_width * (x2 / 100) + x1_prime))
+    x2_prime = x1_prime + int((frame_width - x1_prime) * (x2 / 100))
     y1_prime = int(frame_height * (y1 / 100))
-    y2_prime = int((frame_height * y2 / 100) + y1_prime)
+    y2_prime = y1_prime + int((frame_height - y1_prime) * (y2 / 100))
 
     region_coordinates = dict()
     region_coordinates['TL'] = [0, 0, x1_prime, y1_prime]
@@ -171,41 +171,3 @@ def change_detector(previous, current):
                             key = f'{x}-{y}-{z}'
                             feagi_data[key] = (current[x, y, z])
     return feagi_data
-
-
-# DEBUG CODE ONLY. REMOVE ONCE DONE
-cam = get_device_of_vision(2)
-url = 'http://127.0.0.1:8000/v1/feagi/genome/cortical_area/geometry'
-response = requests.get(url)
-data = response.json()
-items = ["_C", "LL", "LM", "LR", "MR", "ML", "TR", "TL", "TM"]
-resize_list = {}
-previous_frame_data = {}
-for i in data:
-    for x in items:
-        if x in i:
-            dimension_array = data[i]["dimensions"][0], data[i]["dimensions"][1]
-            resize_list[x] = dimension_array
-while True:
-    raw_frame, time = vision_frame_capture(cam)
-    region_coordinates = vision_region_coordinates(frame_width=raw_frame.shape[1],
-                                                   frame_height=raw_frame.shape[0],
-                                                   x1=25, x2=50,
-                                                   y1=25, y2=50)
-    segmented_frame_data = split_vision_regions(coordinates=region_coordinates,
-                                                raw_frame_data=raw_frame)
-    compressed_data = dict()
-    for i in segmented_frame_data:
-        if "_C" in i:
-            compressed_data[i] = downsize_regions(segmented_frame_data[i], resize_list[i])
-        else:
-            compressed_data[i] = downsize_regions(segmented_frame_data[i], resize_list[i], False)
-    for test in compressed_data:
-        if previous_frame_data != {}:
-            test2 = change_detector(previous_frame_data[test], compressed_data[test])
-            # print(test2)
-    previous_frame_data = compressed_data
-    # for segment in compressed_data:
-    #     cv2.imshow(segment, compressed_data[segment])
-    # if cv2.waitKey(1) & 0xFF == ord('q'):
-    #     break
