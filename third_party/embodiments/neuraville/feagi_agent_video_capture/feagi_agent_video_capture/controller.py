@@ -176,7 +176,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                         'gaze_control'][1],
                     y1=capabilities['camera']['pupil_control'][0], y2=capabilities['camera'][
                         'pupil_control'][1],
-                camera_index="00")
+                    camera_index="00")
                 segmented_frame_data = retina.split_vision_regions(coordinates=region_coordinates,
                                                                    raw_frame_data=raw_frame)
                 compressed_data = dict()
@@ -197,10 +197,15 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 # print("@" * 100)
 
                 for test in compressed_data:
-                    # print("Test:---------------------", test)
-                    if previous_frame_data != {}:
-                        vision_dict[test] = retina.change_detector(previous_frame_data[test],
-                                                                   compressed_data[test])
+                    if 'C' in test:
+                        if previous_frame_data != {}:
+                            vision_dict[test] = retina.change_detector(previous_frame_data[test],
+                                                                       compressed_data[test])
+                    else:
+                        if previous_frame_data != {}:
+                            vision_dict[test] = retina.change_detector_grayscale(
+                                previous_frame_data[test],
+                                compressed_data[test])
                 previous_frame_data = compressed_data
                 rgb['camera'] = vision_dict
             # Under else if
@@ -236,14 +241,12 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 # OPU section ENDS
                 if 'o__gaz' in message_from_feagi["opu_data"]:
                     for data_point in message_from_feagi["opu_data"]['o__gaz']:
-                        print("GAZEBO WORKED")
                         processed_data_point = feagi.block_to_array(data_point)
                         device_id = processed_data_point[0]
                         device_power = message_from_feagi["opu_data"]['o__gaz'][data_point]
                         if device_power == 100:
                             device_power -= 1
                         capabilities['camera']['gaze_control'][device_id] = device_power
-                    print(capabilities['camera']['gaze_control'])
                 if 'o__pup' in message_from_feagi["opu_data"]:
                     for data_point in message_from_feagi["opu_data"]['o__pup']:
                         processed_data_point = feagi.block_to_array(data_point)
