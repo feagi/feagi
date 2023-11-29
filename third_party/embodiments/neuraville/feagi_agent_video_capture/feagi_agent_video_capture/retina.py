@@ -20,7 +20,6 @@ import cv2
 import numpy as np
 import traceback
 import requests
-from numba import jit
 from datetime import datetime
 
 
@@ -158,7 +157,7 @@ def downsize_regions(frame, resize, RGB_flag=True):
     print("downsize_regions time total: ", (datetime.now() - start_time).total_seconds())
     return compressed_dict
 
-@jit
+
 def create_feagi_data(significant_changes, current, shape):
     feagi_data = {}
     if len(shape) < 3:
@@ -192,15 +191,42 @@ def change_detector(previous, current):
     - Dictionary containing changes in the ndarray frames.
     """
     start_time = datetime.now()
-
-    # Using cv2.absdiff for optimized difference calculation
-    difference = cv2.absdiff(previous, current)
-    thresholded = cv2.threshold(difference, 10, 255, cv2.THRESH_BINARY)[1]
-
-    # Convert to boolean array for significant changes
-    significant_changes = thresholded > 0
-
-    feagi_data = create_feagi_data(significant_changes, current, previous.shape)
+    feagi_data = dict()
+    threshold = 10
+    print("previous: ", previous)
+    print("current: ", current)
+    if len(previous.shape) < 3:
+        for row_prev, row_new in zip(previous, current):
+            print("row: ", row_prev, " and row_new: ", row_new)
+            if not np.array_equal(row_prev, row_new):
+                pass
+                # if (abs((row_prev - row_new)) * 100 / 255) > threshold:
+                #     key = f'{y}-{size_of_frame[1] - x}-{0}'
+                #     feagi_data[key] = (current[x, y])
+                # pass
+                # print("row: ", row_prev[0], " and row_new: ", row_new[0])
+                #previous:  [[134 129 127 126 126 125 123 122]
+                #  [143 136 131 130 129 128 127 127]
+                #  [158 144 138 136 134 132 131 132]
+                #  [178 155 148 146 144 141 139 140]
+                #  [192 166 162 162 160 153 150 152]
+                #  [170 160 168 176 175 167 161 165]
+                #  [180 184 205 229 235 226 187 170]
+                #  [174 182 204 236 251 219 238 214]]
+                # current:  [[139 134 131 130 131 129 128 128]
+                #  [148 141 136 135 134 133 132 132]
+                #  [163 149 143 141 139 137 136 137]
+                #  [184 161 153 151 149 146 144 145]
+                #  [199 172 168 168 165 159 155 157]
+                #  [176 165 174 183 181 173 167 171]
+                #  [186 190 212 234 237 228 193 176]
+                #  [180 188 211 242 251 222 240 221]]
+                # row:  [134 129 127 126 126 125 123 122]  and row_new:  [139 134 131 130 131 129 128 128]
+    else:
+        for row_prev, row_new in zip(previous[0], current[0]):
+            if not np.array_equal(row_prev, row_new):
+                pass
+                # print("row: ", row_prev[0], " and row_new: ", row_new[0])
 
     print("change_detector_optimized time total: ",
           (datetime.now() - start_time).total_seconds())
