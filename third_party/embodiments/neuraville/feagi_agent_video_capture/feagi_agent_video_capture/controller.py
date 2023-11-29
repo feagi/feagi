@@ -180,14 +180,13 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 segmented_frame_data = retina.split_vision_regions(coordinates=region_coordinates,
                                                                    raw_frame_data=raw_frame)
                 compressed_data = dict()
-                for i in segmented_frame_data:
-                    if "00_C" in i:
-                        compressed_data[i] = retina.downsize_regions(segmented_frame_data[i],
-                                                                     resize_list[i])
+                for cortical in segmented_frame_data:
+                    if "00_C" in cortical:
+                        compressed_data[cortical] = retina.downsize_regions(segmented_frame_data[cortical],
+                                                                     resize_list[cortical])
                     else:
-                        # print(resize_list)
-                        compressed_data[i] = retina.downsize_regions(segmented_frame_data[i],
-                                                                     resize_list[i], False)
+                        compressed_data[cortical] = retina.downsize_regions(segmented_frame_data[cortical],
+                                                                     resize_list[cortical], False)
                 for segment in compressed_data:
                     cv2.imshow(segment, compressed_data[segment])
                 if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -196,16 +195,16 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 # print(compressed_data["00_C"])
                 # print("@" * 100)
 
-                for test in compressed_data:
-                    if 'C' in test:
+                for get_region in compressed_data:
+                    if '_C' in get_region:
                         if previous_frame_data != {}:
-                            vision_dict[test] = retina.change_detector(previous_frame_data[test],
-                                                                       compressed_data[test])
+                            vision_dict[get_region] = retina.change_detector(previous_frame_data[get_region],
+                                                                       compressed_data[get_region])
                     else:
                         if previous_frame_data != {}:
-                            vision_dict[test] = retina.change_detector_grayscale(
-                                previous_frame_data[test],
-                                compressed_data[test])
+                            vision_dict[get_region] = retina.change_detector_grayscale(
+                                previous_frame_data[get_region],
+                                compressed_data[get_region])
                 previous_frame_data = compressed_data
                 rgb['camera'] = vision_dict
             # Under else if
