@@ -158,6 +158,24 @@ def downsize_regions(frame, resize, RGB_flag=True):
     return compressed_dict
 
 
+def create_feagi_data(significant_changes, current, shape):
+    feagi_data = {}
+    if len(shape) < 3:
+        for x in range(shape[0]):
+            for y in range(shape[1]):
+                if significant_changes[x, y]:
+                    key = f'{y}-{shape[1] - x}-{0}'
+                    feagi_data[key] = int(current[x, y])
+    else:
+        for x in range(shape[0]):
+            for y in range(shape[1]):
+                for z in range(shape[2]):
+                    if significant_changes[x, y, z]:
+                        key = f'{y}-{shape[1] - x}-{z}'
+                        feagi_data[key] = int(current[x, y, z])
+    return feagi_data
+
+
 def change_detector(previous, current):
     """
     Detects changes between previous and current frames and checks against a threshold.
@@ -172,28 +190,38 @@ def change_detector(previous, current):
     Output:
     - Dictionary containing changes in the ndarray frames.
     """
-
     start_time = datetime.now()
-    feagi_data = dict()
-    threshold = 10
-    size_of_frame = previous.shape
-    if len(size_of_frame) < 3:
-        for x in range(size_of_frame[0]):
-            for y in range(size_of_frame[1]):
-                if previous[x, y] != current[x, y]:
-                    if (abs((previous[x, y] - current[x, y])) * 100 / 255) > threshold:
-                        key = f'{y}-{size_of_frame[1] - x}-{0}'
-                        feagi_data[key] = (current[x, y])
-    else:
-        for x in range(size_of_frame[0]):
-            for y in range(size_of_frame[1]):
-                for z in range(size_of_frame[2]):
-                    if previous[x, y, z] != current[x, y, z]:
-                        difference = abs(int(previous[x, y, z]) - int(current[x, y, z]))
-                        difference = difference * 100 / 255
-                        if difference > threshold:
-                            key = f'{y}-{size_of_frame[1] - x}-{z}'
-                            feagi_data[key] = (current[y, x, z])
-    print("change_detector time total: ", (datetime.now() - start_time).total_seconds())
-    return feagi_data
 
+    # Using cv2.absdiff for optimized difference calculation
+    difference = cv2.absdiff(previous, current)
+    thresholded = cv2.threshold(difference, 10, 255, cv2.THRESH_BINARY)[1]
+
+    # Convert to boolean array for significant changes
+    significant_changes = thresholded > 0
+
+    feagi_data = create_feagi_data(significant_changes, current, previous.shape)
+
+    print("change_detector_optimized time total: ",
+          (datetime.now() - start_time).total_seconds())
+    return feagi_data
+    # print("row: ", row_prev, " and row_new: ", row_new)
+    # size_of_frame = previous.shape
+    # if len(size_of_frame) < 3:
+    #     for x in range(size_of_frame[0]):
+    #         for y in range(size_of_frame[1]):
+    #             if previous[x, y] != current[x, y]:
+    #                 if (abs((previous[x, y] - current[x, y])) * 100 / 255) > threshold:
+    #                     key = f'{y}-{size_of_frame[1] - x}-{0}'
+    #                     feagi_data[key] = (current[x, y])
+    # else:
+    #     for x in range(size_of_frame[0]):
+    #         for y in range(size_of_frame[1]):
+    #             for z in range(size_of_frame[2]):
+    #                 if previous[x, y, z] != current[x, y, z]:
+    #                     difference = abs(int(previous[x, y, z]) - int(current[x, y, z]))
+    #                     difference = difference * 100 / 255
+    #                     if difference > threshold:
+    #                         key = f'{y}-{size_of_frame[1] - x}-{z}'
+    #                         feagi_data[key] = (current[y, x, z])
+    # print("change_detector time total: ", (datetime.now() - start_time).total_seconds())
+    # return feagi_data
