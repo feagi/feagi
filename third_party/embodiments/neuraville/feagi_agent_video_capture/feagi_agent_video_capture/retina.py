@@ -20,6 +20,7 @@ import cv2
 import numpy as np
 import traceback
 import requests
+from numba import jit
 from datetime import datetime
 
 
@@ -157,7 +158,7 @@ def downsize_regions(frame, resize, RGB_flag=True):
     print("downsize_regions time total: ", (datetime.now() - start_time).total_seconds())
     return compressed_dict
 
-
+@jit
 def create_feagi_data(significant_changes, current, shape):
     feagi_data = {}
     if len(shape) < 3:
