@@ -53,7 +53,7 @@ def vision_frame_capture(device, RGB_flag=True):
     """
     start_time = datetime.now()
     check, frame = device.read()  # 0 is the default
-    print("vision_frame_capture time total: ", (datetime.now() - start_time).total_seconds())
+    # print("vision_frame_capture time total: ", (datetime.now() - start_time).total_seconds())
     if RGB_flag:
         return frame, datetime.now()
     else:
@@ -99,7 +99,7 @@ def vision_region_coordinates(frame_width, frame_height, x1, x2, y1, y2, camera_
     region_coordinates[camera_index + 'LL'] = [0, y2_prime, x1_prime, frame_height]
     region_coordinates[camera_index + 'LM'] = [x1_prime, y2_prime, x2_prime, frame_height]
     region_coordinates[camera_index + 'LR'] = [x2_prime, y2_prime, frame_width, frame_height]
-    print("vision_region_coordinates time total: ", (datetime.now() - start_time).total_seconds())
+    # print("vision_region_coordinates time total: ", (datetime.now() - start_time).total_seconds())
     return region_coordinates
 
 
@@ -125,7 +125,7 @@ def split_vision_regions(coordinates, raw_frame_data):
     for region in coordinates:
         frame_segments[region] = raw_frame_data[coordinates[region][1]:coordinates[region][3],
                                  coordinates[region][0]:coordinates[region][2]]
-    print("split_vision_regions time total: ", (datetime.now() - start_time).total_seconds())
+    # print("split_vision_regions time total: ", (datetime.now() - start_time).total_seconds())
     return frame_segments
 
 
@@ -155,26 +155,68 @@ def downsize_regions(frame, resize, RGB_flag=True):
     else:
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         compressed_dict = cv2.resize(frame, resize, interpolation=cv2.INTER_AREA)
-    print("downsize_regions time total: ", (datetime.now() - start_time).total_seconds())
+    # print("downsize_regions time total: ", (datetime.now() - start_time).total_seconds())
     return compressed_dict
+
 
 @jit
 def create_feagi_data(significant_changes, current, shape):
+    start_time = datetime.now()
     feagi_data = {}
-    if len(shape) < 3:
-        for x in range(shape[0]):
-            for y in range(shape[1]):
-                if significant_changes[x, y]:
-                    key = f'{y}-{shape[1] - x}-{0}'
-                    feagi_data[key] = int(current[x, y])
-    else:
-        for x in range(shape[0]):
-            for y in range(shape[1]):
-                for z in range(shape[2]):
-                    if significant_changes[x, y, z]:
-                        key = f'{y}-{shape[1] - x}-{z}'
-                        feagi_data[key] = int(current[x, y, z])
+    size_of_frame = shape
+    for x in range(size_of_frame[0]):
+        for y in range(size_of_frame[1]):
+            for z in range(size_of_frame[2]):
+                if significant_changes[x, y, z]:
+                    key = f'{y}-{size_of_frame[1] - x}-{z}'
+                    feagi_data[key] = int(current[x, y, z])
+    print("C change_detector_optimized time total: ",
+          (datetime.now() - start_time).total_seconds())
     return feagi_data
+
+
+@jit
+def create_feagi_data_grayscale(significant_changes, current, shape):
+    start_time = datetime.now()
+    feagi_data = {}
+    size_of_frame = shape
+    for x in range(size_of_frame[0]):
+        for y in range(size_of_frame[1]):
+            if significant_changes[x, y]:
+                key = f'{y}-{size_of_frame[1] - x}-{0}'
+                feagi_data[key] = int(current[x, y])
+    print("peripheral change_detector_optimized time total: ",
+          (datetime.now() - start_time).total_seconds())
+    return feagi_data
+
+
+def change_detector_grayscale(previous, current):
+    """
+    Detects changes between previous and current frames and checks against a threshold.
+
+    Compares the previous and current frames to identify differences. If the difference
+    exceeds a predefined threshold (iso), it records the change in a dictionary for Feagi.
+
+    Inputs:
+    - previous: Dictionary with 'cortical' keys containing NumPy ndarray frames.
+    - current: Dictionary with 'cortical' keys containing NumPy ndarray frames.
+
+    Output:
+    - Dictionary containing changes in the ndarray frames.
+    """
+
+    # Using cv2.absdiff for optimized difference calculation
+    difference = cv2.absdiff(previous, current)
+    thresholded = cv2.threshold(difference, 10, 255, cv2.THRESH_BINARY)[1]
+
+    # Convert to boolean array for significant changes
+    significant_changes = thresholded > 0
+
+    feagi_data = create_feagi_data_grayscale(significant_changes, current, previous.shape)
+    #
+    # print("change_detector_optimized time total: ",
+    #       (datetime.now() - start_time).total_seconds())
+    return dict(feagi_data)
 
 
 def change_detector(previous, current):
@@ -191,7 +233,6 @@ def change_detector(previous, current):
     Output:
     - Dictionary containing changes in the ndarray frames.
     """
-    start_time = datetime.now()
 
     # Using cv2.absdiff for optimized difference calculation
     difference = cv2.absdiff(previous, current)
@@ -200,11 +241,11 @@ def change_detector(previous, current):
     # Convert to boolean array for significant changes
     significant_changes = thresholded > 0
 
-    feagi_data = create_feagi_data(significant_changes, current, previous.shape)
-
-    print("change_detector_optimized time total: ",
-          (datetime.now() - start_time).total_seconds())
-    return feagi_data
+    feagi_data= create_feagi_data(significant_changes, current, previous.shape)
+    #
+    # print("change_detector_optimized time total: ",
+    #       (datetime.now() - start_time).total_seconds())
+    return dict(feagi_data)
     # print("row: ", row_prev, " and row_new: ", row_new)
     # size_of_frame = previous.shape
     # if len(size_of_frame) < 3:
