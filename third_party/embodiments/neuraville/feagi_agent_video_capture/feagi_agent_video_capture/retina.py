@@ -174,6 +174,7 @@ def create_feagi_data(significant_changes, current, shape):
           (datetime.now() - start_time).total_seconds())
     return feagi_data
 
+
 @jit
 def create_feagi_data_grayscale(significant_changes, current, shape):
     start_time = datetime.now()
