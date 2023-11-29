@@ -135,13 +135,15 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     response = requests.get(url)
     data = response.json()
     items = ["00_C", "00LL", "00LM", "00LR", "00MR", "00ML", "00TR", "00TL", "00TM"]
+    previous_genome_timestamp = 0
     resize_list = {}
     previous_frame_data = {}
     for i in data:
         for x in items:
             if x in i:
                 name = i.replace("iv", "")
-                dimension_array = data[i]["dimensions"][0], data[i]["dimensions"][1]
+                dimension_array = data[i]["dimensions"][0], data[i]["dimensions"][1],\
+                                  data[i]["dimensions"][2]
                 resize_list[name] = dimension_array
     cam = retina.get_device_of_vision(2)
     while True:
@@ -181,12 +183,9 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                                                                    raw_frame_data=raw_frame)
                 compressed_data = dict()
                 for cortical in segmented_frame_data:
-                    if "00_C" in cortical:
-                        compressed_data[cortical] = retina.downsize_regions(segmented_frame_data[cortical],
-                                                                     resize_list[cortical])
-                    else:
-                        compressed_data[cortical] = retina.downsize_regions(segmented_frame_data[cortical],
-                                                                     resize_list[cortical], False)
+                    compressed_data[cortical] = retina.downsize_regions(
+                        segmented_frame_data[cortical],
+                        resize_list[cortical])
                 for segment in compressed_data:
                     cv2.imshow(segment, compressed_data[segment])
                 if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -196,10 +195,11 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 # print("@" * 100)
 
                 for get_region in compressed_data:
-                    if '_C' in get_region:
+                    if resize_list[get_region][2] == 3:
                         if previous_frame_data != {}:
-                            vision_dict[get_region] = retina.change_detector(previous_frame_data[get_region],
-                                                                       compressed_data[get_region])
+                            vision_dict[get_region] = retina.change_detector(
+                                previous_frame_data[get_region],
+                                compressed_data[get_region])
                     else:
                         if previous_frame_data != {}:
                             vision_dict[get_region] = retina.change_detector_grayscale(
@@ -226,6 +226,26 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 # Update the aceture
                 capabilities = pns.fetch_vision_acuity(message_from_feagi, capabilities)
                 # OPU section STARTS
+                if "genome_changed" in message_from_feagi:
+                    if message_from_feagi["genome_changed"]:
+                        if message_from_feagi["genome_changed"] != previous_genome_timestamp:
+                            #TODO: move this to a function inside feagi interface
+                            response = requests.get(url)
+                            data = response.json()
+                            items = ["00_C", "00LL", "00LM", "00LR", "00MR", "00ML", "00TR", "00TL",
+                                     "00TM"]
+                            resize_list = {}
+                            previous_frame_data = {}
+                            for i in data:
+                                for x in items:
+                                    if x in i:
+                                        name = i.replace("iv", "")
+                                        dimension_array = data[i]["dimensions"][0], \
+                                                          data[i]["dimensions"][1], \
+                                                          data[i]["dimensions"][2]
+                                        resize_list[name] = dimension_array
+                            previous_genome_timestamp = message_from_feagi["genome_changed"]
+
                 if "o_snap" in message_from_feagi["opu_data"]:
                     if message_from_feagi["opu_data"]["o_snap"]:
                         capabilities['camera']['snap'] = pixels
@@ -246,6 +266,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                         if device_power == 100:
                             device_power -= 1
                         capabilities['camera']['gaze_control'][device_id] = device_power
+                    # print(capabilities['camera']['gaze_control'])
                 if 'o__pup' in message_from_feagi["opu_data"]:
                     for data_point in message_from_feagi["opu_data"]['o__pup']:
                         processed_data_point = feagi.block_to_array(data_point)
@@ -254,6 +275,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                         if device_power == 100:
                             device_power -= 1
                         capabilities['camera']['pupil_control'][device_id] = device_power
+
             try:
                 if "data" not in message_to_feagi:
                     message_to_feagi["data"] = dict()

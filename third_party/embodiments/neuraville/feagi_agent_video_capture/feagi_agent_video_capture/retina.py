@@ -128,7 +128,7 @@ def split_vision_regions(coordinates, raw_frame_data):
     return frame_segments
 
 
-def downsize_regions(frame, resize, RGB_flag=True):
+def downsize_regions(frame, resize):
     """
     Downsize regions within a frame using specified width and height for compression.
 
@@ -149,11 +149,11 @@ def downsize_regions(frame, resize, RGB_flag=True):
     appropriate width and height values for compression.
     """
     start_time = datetime.now()
-    if RGB_flag:
-        compressed_dict = cv2.resize(frame, resize, interpolation=cv2.INTER_AREA)
-    else:
+    if resize[2] == 3:
+        compressed_dict = cv2.resize(frame, [resize[0], resize[1]], interpolation=cv2.INTER_AREA)
+    if resize[2] == 1:
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        compressed_dict = cv2.resize(frame, resize, interpolation=cv2.INTER_AREA)
+        compressed_dict = cv2.resize(frame, [resize[0], resize[1]], interpolation=cv2.INTER_AREA)
     # print("downsize_regions time total: ", (datetime.now() - start_time).total_seconds())
     return compressed_dict
 
@@ -166,10 +166,10 @@ def create_feagi_data(significant_changes, current, shape):
         for y in range(size_of_frame[1]):
             for z in range(size_of_frame[2]):
                 if significant_changes[x, y, z]:
-                    key = f'{y}-{size_of_frame[1] - x}-{z}'
+                    key = f'{y}-{(size_of_frame[1] - 1) - x}-{z}'
                     feagi_data[key] = int(current[x, y, z])
-    print("C change_detector_optimized time total: ",
-          (datetime.now() - start_time).total_seconds())
+    # print("C change_detector_optimized time total: ",
+    #       (datetime.now() - start_time).total_seconds())
     return feagi_data
 
 
@@ -180,10 +180,10 @@ def create_feagi_data_grayscale(significant_changes, current, shape):
     for x in range(size_of_frame[0]):
         for y in range(size_of_frame[1]):
             if significant_changes[x, y]:
-                key = f'{y}-{size_of_frame[1] - x}-{0}'
+                key = f'{y}-{(size_of_frame[1] - 1) - x}-{0}'
                 feagi_data[key] = int(current[x, y])
-    print("peripheral change_detector_optimized time total: ",
-          (datetime.now() - start_time).total_seconds())
+    # print("peripheral change_detector_optimized time total: ",
+    #       (datetime.now() - start_time).total_seconds())
     return feagi_data
 
 
@@ -208,13 +208,13 @@ def change_detector_grayscale(previous, current):
 
     # Convert to boolean array for significant changes
     significant_changes = thresholded > 0
-    print("Grayscale signifcant change: ", significant_changes)
+    # print("Grayscale signifcant change: ", significant_changes)
 
     feagi_data = create_feagi_data_grayscale(significant_changes, current, previous.shape)
     #
     # print("change_detector_optimized time total: ",
     #       (datetime.now() - start_time).total_seconds())
-    return dict(feagi_data)
+    return feagi_data
 
 
 def change_detector(previous, current):
@@ -238,11 +238,10 @@ def change_detector(previous, current):
 
     # Convert to boolean array for significant changes
     significant_changes = thresholded > 0
-    print("RGB signifcant change: ", significant_changes)
+    # print("RGB signifcant change: ", significant_changes)
 
-    feagi_data= create_feagi_data(significant_changes, current, previous.shape)
+    feagi_data = create_feagi_data(significant_changes, current, previous.shape)
     #
     # print("change_detector_optimized time total: ",
     #       (datetime.now() - start_time).total_seconds())
     return dict(feagi_data)
-    
