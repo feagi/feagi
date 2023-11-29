@@ -20,7 +20,6 @@ import cv2
 import numpy as np
 import traceback
 import requests
-from numba import jit
 from datetime import datetime
 
 
@@ -159,7 +158,6 @@ def downsize_regions(frame, resize, RGB_flag=True):
     return compressed_dict
 
 
-@jit
 def create_feagi_data(significant_changes, current, shape):
     start_time = datetime.now()
     feagi_data = {}
@@ -175,7 +173,6 @@ def create_feagi_data(significant_changes, current, shape):
     return feagi_data
 
 
-@jit
 def create_feagi_data_grayscale(significant_changes, current, shape):
     start_time = datetime.now()
     feagi_data = {}
@@ -211,6 +208,7 @@ def change_detector_grayscale(previous, current):
 
     # Convert to boolean array for significant changes
     significant_changes = thresholded > 0
+    print("Grayscale signifcant change: ", significant_changes)
 
     feagi_data = create_feagi_data_grayscale(significant_changes, current, previous.shape)
     #
@@ -240,30 +238,11 @@ def change_detector(previous, current):
 
     # Convert to boolean array for significant changes
     significant_changes = thresholded > 0
+    print("RGB signifcant change: ", significant_changes)
 
     feagi_data= create_feagi_data(significant_changes, current, previous.shape)
     #
     # print("change_detector_optimized time total: ",
     #       (datetime.now() - start_time).total_seconds())
     return dict(feagi_data)
-    # print("row: ", row_prev, " and row_new: ", row_new)
-    # size_of_frame = previous.shape
-    # if len(size_of_frame) < 3:
-    #     for x in range(size_of_frame[0]):
-    #         for y in range(size_of_frame[1]):
-    #             if previous[x, y] != current[x, y]:
-    #                 if (abs((previous[x, y] - current[x, y])) * 100 / 255) > threshold:
-    #                     key = f'{y}-{size_of_frame[1] - x}-{0}'
-    #                     feagi_data[key] = (current[x, y])
-    # else:
-    #     for x in range(size_of_frame[0]):
-    #         for y in range(size_of_frame[1]):
-    #             for z in range(size_of_frame[2]):
-    #                 if previous[x, y, z] != current[x, y, z]:
-    #                     difference = abs(int(previous[x, y, z]) - int(current[x, y, z]))
-    #                     difference = difference * 100 / 255
-    #                     if difference > threshold:
-    #                         key = f'{y}-{size_of_frame[1] - x}-{z}'
-    #                         feagi_data[key] = (current[y, x, z])
-    # print("change_detector time total: ", (datetime.now() - start_time).total_seconds())
-    # return feagi_data
+    
