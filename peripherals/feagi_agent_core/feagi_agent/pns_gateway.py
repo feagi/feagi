@@ -105,14 +105,14 @@ def fetch_iso_data(message_from_feagi, capabilities, aptr_cortical_size):
     if "o__dev" in message_from_feagi["opu_data"]:
         if message_from_feagi["opu_data"]["o__dev"]:
             for i in message_from_feagi["opu_data"]["o__dev"]:
+                device_id = i.split('-')
                 feagi_aptr = (int(i.split('-')[-1]))
                 aptr_cortical_size = fetch_aptr_size(aptr_cortical_size, aptr_cortical_size,
                                                      feagi_aptr)
                 max_range = capabilities['camera']['iso_range'][1]
                 min_range = capabilities['camera']['iso_range'][0]
-                capabilities['camera']["iso_default"] = \
-                    ((feagi_aptr / aptr_cortical_size) *
-                     (max_range - min_range)) + min_range
+                capabilities['camera']["iso_default"][int(device_id[0])] = \
+                    ((feagi_aptr / aptr_cortical_size) * (max_range - min_range)) + min_range
     return capabilities
 
 
