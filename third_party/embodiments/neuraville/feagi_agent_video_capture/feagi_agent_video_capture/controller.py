@@ -145,70 +145,58 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 dimension_array = data[i]["dimensions"][0], data[i]["dimensions"][1], \
                                   data[i]["dimensions"][2]
                 resize_list[name] = dimension_array
-    cam = retina.get_device_of_vision(2)
+    cam = retina.get_device_of_vision('thoroai_sample_1.mp4')
     while True:
         try:
             message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
-            pixels = camera_data['vision']
-            # start_time = time.time()
-            # print("START TIMER")
+            # pixels = camera_data['vision'] # uncomment and replace pixels to raw_frame
+            raw_frame, time, check = retina.vision_frame_capture(cam)
             if capabilities['camera']['snap'] != []:
-                previous_data_frame, camera, capabilities['camera']['current_select'] = \
-                    pns.generate_rgb(capabilities['camera']['snap'],
-                                     capabilities['camera']['central_vision_allocation_percentage'][
-                                         0],
-                                     capabilities['camera']['central_vision_allocation_percentage'][
-                                         1],
-                                     capabilities['camera']["central_vision_resolution"],
-                                     capabilities['camera']['peripheral_vision_resolution'],
-                                     previous_data_frame,
-                                     capabilities['camera']['current_select'],
-                                     capabilities['camera']['iso_default'],
-                                     0,
-                                     camera_index=capabilities['camera']["index"],
-                                     snap=True)
-                rgb['camera'] = camera
+                raw_frame = capabilities['camera']['snap']
+                cv2.imshow("OpenCV/Numpy normal", raw_frame)
                 capabilities['camera']['snap'] = []
-            else:
-                raw_frame, time = retina.vision_frame_capture(cam)
-                region_coordinates = retina.vision_region_coordinates(
-                    frame_width=raw_frame.shape[1],
-                    frame_height=raw_frame.shape[0],
-                    x1=capabilities['camera']['gaze_control'][0], x2=capabilities['camera'][
-                        'gaze_control'][1],
-                    y1=capabilities['camera']['pupil_control'][0], y2=capabilities['camera'][
-                        'pupil_control'][1],
-                    camera_index="00")
-                segmented_frame_data = retina.split_vision_regions(coordinates=region_coordinates,
-                                                                   raw_frame_data=raw_frame)
-                compressed_data = dict()
-                for cortical in segmented_frame_data:
-                    compressed_data[cortical] = retina.downsize_regions(
-                        segmented_frame_data[cortical],
-                        resize_list[cortical])
-                for segment in compressed_data:
-                    cv2.imshow(segment, compressed_data[segment])
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-                vision_dict = dict()
-                # print(compressed_data["00_C"])
-                # print("@" * 100)
+            if bool(capabilities["camera"]["video_loop"]):
+                if check:
+                    sleep(0.01)
+                    cv2.imshow("OpenCV/Numpy normal", raw_frame)
+                else:
+                    cam.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            region_coordinates = retina.vision_region_coordinates(
+                frame_width=raw_frame.shape[1],
+                frame_height=raw_frame.shape[0],
+                x1=capabilities['camera']['gaze_control'][0], x2=capabilities['camera'][
+                    'gaze_control'][1],
+                y1=capabilities['camera']['pupil_control'][0], y2=capabilities['camera'][
+                    'pupil_control'][1],
+                camera_index="00")
+            segmented_frame_data = retina.split_vision_regions(coordinates=region_coordinates,
+                                                               raw_frame_data=raw_frame)
+            compressed_data = dict()
+            for cortical in segmented_frame_data:
+                compressed_data[cortical] = retina.downsize_regions(
+                    segmented_frame_data[cortical],
+                    resize_list[cortical])
+            for segment in compressed_data:
+                cv2.imshow(segment, compressed_data[segment])
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+            vision_dict = dict()
 
-                for get_region in compressed_data:
-                    if resize_list[get_region][2] == 3:
-                        if previous_frame_data != {}:
-                            vision_dict[get_region] = retina.change_detector(
-                                previous_frame_data[get_region],
-                                compressed_data[get_region],
-                                capabilities['camera']['iso_default'])
-                    else:
-                        if previous_frame_data != {}:
-                            vision_dict[get_region] = retina.change_detector_grayscale(
-                                previous_frame_data[get_region],
-                                compressed_data[get_region],
-                                capabilities['camera']['iso_default'])
-                previous_frame_data = compressed_data
-                rgb['camera'] = vision_dict
+            for get_region in compressed_data:
+                if resize_list[get_region][2] == 3:
+                    if previous_frame_data != {}:
+                        vision_dict[get_region] = retina.change_detector(
+                            previous_frame_data[get_region],
+                            compressed_data[get_region],
+                            capabilities['camera']['iso_default'])
+                else:
+                    if previous_frame_data != {}:
+                        vision_dict[get_region] = retina.change_detector_grayscale(
+                            previous_frame_data[get_region],
+                            compressed_data[get_region],
+                            capabilities['camera']['iso_default'])
+            previous_frame_data = compressed_data
+            rgb['camera'] = vision_dict
             # Under else if
 
             # print("DEBUG### main_controller total: ", time.time() - start_time)
@@ -250,7 +238,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
 
                 if "o_snap" in message_from_feagi["opu_data"]:
                     if message_from_feagi["opu_data"]["o_snap"]:
-                        capabilities['camera']['snap'] = pixels
+                        capabilities['camera']['snap'] = raw_frame
                 if 'genome_num' in message_from_feagi:
                     if message_from_feagi['genome_num'] != genome_tracker:
                         genome_tracker = message_from_feagi['genome_num']
