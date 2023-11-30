@@ -54,9 +54,9 @@ def vision_frame_capture(device, RGB_flag=True):
     check, frame = device.read()  # 0 is the default
     # print("vision_frame_capture time total: ", (datetime.now() - start_time).total_seconds())
     if RGB_flag:
-        return frame, datetime.now()
+        return frame, datetime.now(), check
     else:
-        return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), datetime.now()
+        return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), datetime.now(), check
 
 
 def vision_region_coordinates(frame_width, frame_height, x1, x2, y1, y2, camera_index):
