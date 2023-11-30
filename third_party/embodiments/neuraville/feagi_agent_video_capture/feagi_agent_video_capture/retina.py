@@ -187,7 +187,7 @@ def create_feagi_data_grayscale(significant_changes, current, shape):
     return feagi_data
 
 
-def change_detector_grayscale(previous, current):
+def change_detector_grayscale(previous, current, capabilities):
     """
     Detects changes between previous and current frames and checks against a threshold.
 
@@ -204,7 +204,9 @@ def change_detector_grayscale(previous, current):
 
     # Using cv2.absdiff for optimized difference calculation
     difference = cv2.absdiff(previous, current)
-    thresholded = cv2.threshold(difference, 10, 255, cv2.THRESH_BINARY)[1]
+    thresholded = cv2.threshold(difference, capabilities[0],
+                                capabilities[1],
+                                cv2.THRESH_BINARY)[1]
 
     # Convert to boolean array for significant changes
     significant_changes = thresholded > 0
@@ -217,7 +219,7 @@ def change_detector_grayscale(previous, current):
     return feagi_data
 
 
-def change_detector(previous, current):
+def change_detector(previous, current, capabilities):
     """
     Detects changes between previous and current frames and checks against a threshold.
 
@@ -234,7 +236,9 @@ def change_detector(previous, current):
 
     # Using cv2.absdiff for optimized difference calculation
     difference = cv2.absdiff(previous, current)
-    thresholded = cv2.threshold(difference, 10, 255, cv2.THRESH_BINARY)[1]
+    thresholded = cv2.threshold(difference, capabilities[0],
+                                capabilities[1],
+                                cv2.THRESH_BINARY)[1]
 
     # Convert to boolean array for significant changes
     significant_changes = thresholded > 0
