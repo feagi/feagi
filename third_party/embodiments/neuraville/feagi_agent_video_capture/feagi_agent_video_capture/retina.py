@@ -251,7 +251,7 @@ def change_detector(previous, current, capabilities):
     return dict(feagi_data)
 
 
-def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previous_frame_data):
+def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previous_frame_data, rgb):
     region_coordinates = vision_region_coordinates(raw_frame.shape[1],
                                                    raw_frame.shape[0], capabilities['camera'][
                                                        'gaze_control'][0], capabilities['camera'][
