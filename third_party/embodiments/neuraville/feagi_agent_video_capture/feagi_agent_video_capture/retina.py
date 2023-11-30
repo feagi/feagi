@@ -249,3 +249,56 @@ def change_detector(previous, current, capabilities):
     # print("change_detector_optimized time total: ",
     #       (datetime.now() - start_time).total_seconds())
     return dict(feagi_data)
+
+
+def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previous_frame_data):
+    region_coordinates = vision_region_coordinates(raw_frame.shape[1],
+                                                   raw_frame.shape[0], capabilities['camera'][
+                                                       'gaze_control'][0], capabilities['camera'][
+                                                       'gaze_control'][1],
+                                                   capabilities['camera']['pupil_control'][0],
+                                                   capabilities['camera']['pupil_control'][1],
+                                                   camera_index)
+    segmented_frame_data = split_vision_regions(coordinates=region_coordinates,
+                                                raw_frame_data=raw_frame)
+    compressed_data = dict()
+    for cortical in segmented_frame_data:
+        compressed_data[cortical] = downsize_regions(
+            segmented_frame_data[cortical],
+            resize_list[cortical])
+    vision_dict = dict()
+
+    for get_region in compressed_data:
+        if resize_list[get_region][2] == 3:
+            if previous_frame_data != {}:
+                vision_dict[get_region] = change_detector(
+                    previous_frame_data[get_region],
+                    compressed_data[get_region],
+                    capabilities['camera']['iso_default'])
+        else:
+            if previous_frame_data != {}:
+                vision_dict[get_region] = change_detector_grayscale(
+                    previous_frame_data[get_region],
+                    compressed_data[get_region],
+                    capabilities['camera']['iso_default'])
+    previous_frame_data = compressed_data
+    rgb['camera'] = vision_dict
+    return previous_frame_data, rgb
+
+
+def obtain_cortical_vision_size(camera_index, response):
+    size_list = {}
+    data = response.json()
+    items = [camera_index + "_C", camera_index + "LL", camera_index + "LM", camera_index + "LR",
+             camera_index + "MR", camera_index + "ML", camera_index + "TR", camera_index + "TL",
+             camera_index + "TM"]
+    for name_from_data in data:
+        for fetch_name in items:
+            if fetch_name in name_from_data:
+                name = name_from_data.replace("iv", "")
+                dimension_array = data[name_from_data]["dimensions"][0], \
+                                  data[name_from_data]["dimensions"][1], \
+                                  data[name_from_data]["dimensions"][2]
+                size_list[name] = dimension_array
+    return size_list
+
