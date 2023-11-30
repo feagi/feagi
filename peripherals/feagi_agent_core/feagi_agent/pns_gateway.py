@@ -25,7 +25,7 @@ from feagi_agent import retina as retina
 
 def generate_rgb(frame, width_percentage, height_percentage, central_resolution,
                  peripheral_resolution, previous_data_frame, current_selected_size,
-                 current_iso_selected, aperture_default, camera_index, single_RGB=None, snap=None):
+                 current_iso_selected, aperture_default, camera_index):
     """"
         frame (ndarray): RGB data.
         previous_data_frame (dict): Previous data containing old RGB values stored in the
@@ -37,22 +37,31 @@ def generate_rgb(frame, width_percentage, height_percentage, central_resolution,
         current_iso_selected (float): Capabilities['camera']['iso_threshold'].
         aperture_default (float): Capabilities['camera']["aperture_default"].
     """
-    if current_selected_size:
-        if current_selected_size[0]:
-            central_resolution = current_selected_size[0]
-        if current_selected_size[1]:
-            peripheral_resolution = current_selected_size[1]
-    retina_data = retina.frame_split(frame, width_percentage, height_percentage, camera_index=camera_index)
+    retina.detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previous_frame_data)
     retina_data = retina.frame_compression(retina_data,
                                            central_resolution, peripheral_resolution)
     previous_data_frame = retina.check_previous_data(previous_data_frame, retina_data)
-    previous_data_frame, camera, selected = \
+    previous_data_frame, camera = \
         retina.detect_change_edge(frame, previous_data_frame,
                                   retina_data, current_selected_size, central_resolution,
                                   peripheral_resolution, current_iso_selected,
                                   aperture_default, single_RGB, snap)
-    return previous_data_frame, camera, selected
+    return previous_data_frame, camera
 
+
+def generate_feagi_data(rgb, msg_counter, date):
+    try:
+        if "data" not in message_to_feagi:
+            message_to_feagi["data"] = dict()
+        if "sensory_data" not in message_to_feagi["data"]:
+            message_to_feagi["data"]["sensory_data"] = dict()
+        message_to_feagi["data"]["sensory_data"]['camera'] = rgb['camera']
+    except Exception as e:
+        print("ERROR: ", e)
+        traceback.print_exc()
+    message_to_feagi['timestamp'] = date
+    message_to_feagi['counter'] = msg_counter
+    return message_to_feagi
 
 def efferent_signaling(feagi_opu_channel):
     """
@@ -112,7 +121,8 @@ def fetch_iso_data(message_from_feagi, capabilities, aptr_cortical_size):
                 max_range = capabilities['camera']['iso_range'][1]
                 min_range = capabilities['camera']['iso_range'][0]
                 capabilities['camera']["iso_default"][int(device_id[0])] = \
-                    ((feagi_aptr / aptr_cortical_size) * (max_range - min_range)) + min_range
+                    int(((feagi_aptr / aptr_cortical_size) * (max_range - min_range)) + min_range)
+            print(capabilities['camera']["iso_default"])
     return capabilities
 
 
