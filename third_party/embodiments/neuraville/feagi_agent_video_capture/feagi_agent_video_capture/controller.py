@@ -142,7 +142,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
         for x in items:
             if x in i:
                 name = i.replace("iv", "")
-                dimension_array = data[i]["dimensions"][0], data[i]["dimensions"][1],\
+                dimension_array = data[i]["dimensions"][0], data[i]["dimensions"][1], \
                                   data[i]["dimensions"][2]
                 resize_list[name] = dimension_array
     cam = retina.get_device_of_vision(2)
@@ -199,12 +199,14 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                         if previous_frame_data != {}:
                             vision_dict[get_region] = retina.change_detector(
                                 previous_frame_data[get_region],
-                                compressed_data[get_region])
+                                compressed_data[get_region],
+                                capabilities['camera']['iso_default'])
                     else:
                         if previous_frame_data != {}:
                             vision_dict[get_region] = retina.change_detector_grayscale(
                                 previous_frame_data[get_region],
-                                compressed_data[get_region])
+                                compressed_data[get_region],
+                                capabilities['camera']['iso_default'])
                 previous_frame_data = compressed_data
                 rgb['camera'] = vision_dict
             # Under else if
@@ -229,7 +231,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 if "genome_changed" in message_from_feagi:
                     if message_from_feagi["genome_changed"]:
                         if message_from_feagi["genome_changed"] != previous_genome_timestamp:
-                            #TODO: move this to a function inside feagi interface
+                            # TODO: move this to a function inside feagi interface
                             response = requests.get(url)
                             data = response.json()
                             items = ["00_C", "00LL", "00LM", "00LR", "00MR", "00ML", "00TR", "00TL",
