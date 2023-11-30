@@ -268,6 +268,10 @@ def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previ
             resize_list[cortical])
     vision_dict = dict()
 
+    for segment in compressed_data:
+        cv2.imshow(segment, compressed_data[segment])
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
     for get_region in compressed_data:
         if resize_list[get_region][2] == 3:
             if previous_frame_data != {}:
