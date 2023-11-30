@@ -44,8 +44,8 @@ camera_data = {"vision": {}}
 
 def process_video(video_path, capabilities):
     cam = cv2.VideoCapture(video_path)
-    cam.set(3, 320)
-    cam.set(4, 240)
+    # cam.set(3, 320)
+    # cam.set(4, 240)
     if capabilities['camera']['video_device_index'] == "monitor":
         all_monitors = screeninfo.get_monitors()  # Needs to create an IPU for this
     pixels = []
@@ -79,12 +79,13 @@ def process_video(video_path, capabilities):
         else:
             if capabilities["camera"]["mirror"]:
                 pixels = cv2.flip(pixels, 1)
+            print("worked")
             camera_data["vision"] = pixels
-        try:
-            if capabilities['camera']['snap'] != []:
-                cv2.imshow("test", capabilities['camera']['snap'])
-        except:
-            pass
+        # try:
+        #     if capabilities['camera']['snap'] != []:
+        #         cv2.imshow("test", capabilities['camera']['snap'])
+        # except:
+        #     pass
         cv2.waitKey(30)
         # print("len: ", len(pixels), " and shape: ", pixels.shape)
         # try:
@@ -128,79 +129,27 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr'
     raw_aptr = requests.get(get_size_for_aptr_cortical).json()
     aptr_cortical_size = pns.fetch_aptr_size(10, raw_aptr, None)
-    # threading.Thread(target=process_video, args=(capabilities['camera']['video_device_index'],
-    #                                              capabilities), daemon=True).start()
-    # DEBUG CODE ONLY. REMOVE ONCE DONE
-    url = 'http://127.0.0.1:8000/v1/feagi/genome/cortical_area/geometry'
-    response = requests.get(url)
-    data = response.json()
-    items = ["00_C", "00LL", "00LM", "00LR", "00MR", "00ML", "00TR", "00TL", "00TM"]
+    threading.Thread(target=process_video, args=(capabilities['camera']['video_device_index'],
+                                                 capabilities), daemon=True).start()
+    response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
+    resize_list = retina.obtain_cortical_vision_size(capabilities['camera']["index"], response)
     previous_genome_timestamp = 0
-    resize_list = {}
     previous_frame_data = {}
-    for i in data:
-        for x in items:
-            if x in i:
-                name = i.replace("iv", "")
-                dimension_array = data[i]["dimensions"][0], data[i]["dimensions"][1], \
-                                  data[i]["dimensions"][2]
-                resize_list[name] = dimension_array
-    cam = retina.get_device_of_vision('thoroai_sample_1.mp4')
     while True:
         try:
             message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
-            # pixels = camera_data['vision'] # uncomment and replace pixels to raw_frame
-            raw_frame, time, check = retina.vision_frame_capture(cam)
+            raw_frame = camera_data['vision'] # uncomment and replace pixels to raw_frame
+            print("DEBUGGING RAW FRAME: ", raw_frame)
             if capabilities['camera']['snap'] != []:
                 raw_frame = capabilities['camera']['snap']
                 cv2.imshow("OpenCV/Numpy normal", raw_frame)
                 capabilities['camera']['snap'] = []
-            if bool(capabilities["camera"]["video_loop"]):
-                if check:
-                    sleep(0.01)
-                    cv2.imshow("OpenCV/Numpy normal", raw_frame)
-                else:
-                    cam.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            region_coordinates = retina.vision_region_coordinates(
-                frame_width=raw_frame.shape[1],
-                frame_height=raw_frame.shape[0],
-                x1=capabilities['camera']['gaze_control'][0], x2=capabilities['camera'][
-                    'gaze_control'][1],
-                y1=capabilities['camera']['pupil_control'][0], y2=capabilities['camera'][
-                    'pupil_control'][1],
-                camera_index="00")
-            segmented_frame_data = retina.split_vision_regions(coordinates=region_coordinates,
-                                                               raw_frame_data=raw_frame)
-            compressed_data = dict()
-            for cortical in segmented_frame_data:
-                compressed_data[cortical] = retina.downsize_regions(
-                    segmented_frame_data[cortical],
-                    resize_list[cortical])
-            for segment in compressed_data:
-                cv2.imshow(segment, compressed_data[segment])
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-            vision_dict = dict()
-
-            for get_region in compressed_data:
-                if resize_list[get_region][2] == 3:
-                    if previous_frame_data != {}:
-                        vision_dict[get_region] = retina.change_detector(
-                            previous_frame_data[get_region],
-                            compressed_data[get_region],
-                            capabilities['camera']['iso_default'])
-                else:
-                    if previous_frame_data != {}:
-                        vision_dict[get_region] = retina.change_detector_grayscale(
-                            previous_frame_data[get_region],
-                            compressed_data[get_region],
-                            capabilities['camera']['iso_default'])
-            previous_frame_data = compressed_data
-            rgb['camera'] = vision_dict
-            # Under else if
+            previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
+                                                                 capabilities['camera']["index"],
+                                                                 resize_list,
+                                                                 previous_frame_data)
 
             # print("DEBUG### main_controller total: ", time.time() - start_time)
-            # print("STOP TIMER")
             if message_from_feagi is not None:
                 # Obtain the size of aptr
                 if aptr_cortical_size is None:
@@ -219,23 +168,11 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 if "genome_changed" in message_from_feagi:
                     if message_from_feagi["genome_changed"]:
                         if message_from_feagi["genome_changed"] != previous_genome_timestamp:
-                            # TODO: move this to a function inside feagi interface
-                            response = requests.get(url)
-                            data = response.json()
-                            items = ["00_C", "00LL", "00LM", "00LR", "00MR", "00ML", "00TR", "00TL",
-                                     "00TM"]
-                            resize_list = {}
-                            previous_frame_data = {}
-                            for i in data:
-                                for x in items:
-                                    if x in i:
-                                        name = i.replace("iv", "")
-                                        dimension_array = data[i]["dimensions"][0], \
-                                                          data[i]["dimensions"][1], \
-                                                          data[i]["dimensions"][2]
-                                        resize_list[name] = dimension_array
+                            response = requests.get(
+                                api_address + '/v1/feagi/genome/cortical_area/geometry')
+                            resize_list = retina.obtain_cortical_vision_size(
+                                capabilities['camera']["index"], response)
                             previous_genome_timestamp = message_from_feagi["genome_changed"]
-
                 if "o_snap" in message_from_feagi["opu_data"]:
                     if message_from_feagi["opu_data"]["o_snap"]:
                         capabilities['camera']['snap'] = raw_frame
@@ -266,18 +203,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                             device_power -= 1
                         capabilities['camera']['pupil_control'][device_id] = device_power
 
-            try:
-                if "data" not in message_to_feagi:
-                    message_to_feagi["data"] = dict()
-                if "sensory_data" not in message_to_feagi["data"]:
-                    message_to_feagi["data"]["sensory_data"] = dict()
-                message_to_feagi["data"]["sensory_data"]['camera'] = rgb['camera']
-            except Exception as e:
-                print("ERROR: ", e)
-                traceback.print_exc()
-            # Psychopy game ends
-            message_to_feagi['timestamp'] = datetime.now()
-            message_to_feagi['counter'] = msg_counter
+            message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now())
             if message_from_feagi is not None:
                 feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
             sleep(feagi_settings['feagi_burst_speed'])
