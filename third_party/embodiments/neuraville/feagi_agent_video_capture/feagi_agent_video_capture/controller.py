@@ -23,7 +23,6 @@ import requests
 from time import sleep
 from datetime import datetime
 from feagi_agent.version import __version__
-import sys
 import retina
 from feagi_agent import pns_gateway as pns
 from feagi_agent import feagi_interface as feagi
@@ -58,7 +57,7 @@ def process_video(video_path, capabilities):
             if bool(capabilities["camera"]["video_loop"]):
                 if check:
                     sleep(0.01)
-                    cv2.imshow("OpenCV/Numpy normal", pixels)
+                    # cv2.imshow("OpenCV/Numpy normal", pixels)
                 else:
                     cam.set(cv2.CAP_PROP_POS_FRAMES, 0)
         if capabilities['camera']['video_device_index'] == "monitor":
@@ -79,7 +78,6 @@ def process_video(video_path, capabilities):
         else:
             if capabilities["camera"]["mirror"]:
                 pixels = cv2.flip(pixels, 1)
-            print("worked")
             camera_data["vision"] = pixels
         # try:
         #     if capabilities['camera']['snap'] != []:
@@ -102,6 +100,8 @@ def process_video(video_path, capabilities):
 
 
 def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_to_feagi):
+    threading.Thread(target=process_video, args=(capabilities['camera']['video_device_index'],
+                                                 capabilities), daemon=True).start()
     # Generate runtime dictionary
     previous_data_frame = dict()
     runtime_data = {"vision": {}, "current_burst_id": None, "stimulation_period": None,
@@ -123,14 +123,13 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     msg_counter = runtime_data["feagi_state"]['burst_counter']
     rgb = dict()
-    capabilities['camera']['current_select'] = [[], []]
     rgb['camera'] = dict()
     genome_tracker = 0
     get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr'
     raw_aptr = requests.get(get_size_for_aptr_cortical).json()
     aptr_cortical_size = pns.fetch_aptr_size(10, raw_aptr, None)
-    threading.Thread(target=process_video, args=(capabilities['camera']['video_device_index'],
-                                                 capabilities), daemon=True).start()
+    # threading.Thread(target=process_video, args=(capabilities['camera']['video_device_index'],
+    #                                              capabilities), daemon=True).start()
     response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
     resize_list = retina.obtain_cortical_vision_size(capabilities['camera']["index"], response)
     previous_genome_timestamp = 0
@@ -139,7 +138,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
         try:
             message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
             raw_frame = camera_data['vision'] # uncomment and replace pixels to raw_frame
-            print("DEBUGGING RAW FRAME: ", raw_frame)
+            # print("DEBUGGING RAW FRAME: ", raw_frame)
             if capabilities['camera']['snap'] != []:
                 raw_frame = capabilities['camera']['snap']
                 cv2.imshow("OpenCV/Numpy normal", raw_frame)
@@ -147,7 +146,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
             previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
                                                                  capabilities['camera']["index"],
                                                                  resize_list,
-                                                                 previous_frame_data)
+                                                                 previous_frame_data, rgb)
 
             # print("DEBUG### main_controller total: ", time.time() - start_time)
             if message_from_feagi is not None:
@@ -203,7 +202,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                             device_power -= 1
                         capabilities['camera']['pupil_control'][device_id] = device_power
 
-            message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now())
+            message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(), message_to_feagi)
             if message_from_feagi is not None:
                 feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
             sleep(feagi_settings['feagi_burst_speed'])
@@ -218,4 +217,3 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
         except Exception as e:
             print("ERROR! : ", e)
             traceback.print_exc()
-            break
