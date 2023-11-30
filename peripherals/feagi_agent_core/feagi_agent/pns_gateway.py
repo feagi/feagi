@@ -19,6 +19,7 @@ limitations under the License.
 import pickle
 import lz4.frame
 import requests
+import traceback
 from feagi_agent import feagi_interface as feagi
 from feagi_agent import retina as retina
 
@@ -49,7 +50,7 @@ def generate_rgb(frame, width_percentage, height_percentage, central_resolution,
     return previous_data_frame, camera
 
 
-def generate_feagi_data(rgb, msg_counter, date):
+def generate_feagi_data(rgb, msg_counter, date, message_to_feagi):
     try:
         if "data" not in message_to_feagi:
             message_to_feagi["data"] = dict()
