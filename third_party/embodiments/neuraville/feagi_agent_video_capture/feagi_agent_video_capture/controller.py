@@ -84,7 +84,7 @@ def process_video(video_path, capabilities):
         #         cv2.imshow("test", capabilities['camera']['snap'])
         # except:
         #     pass
-        cv2.waitKey(30)
+        # cv2.waitKey(30)
         # print("len: ", len(pixels), " and shape: ", pixels.shape)
         # try:
         #   if len(pixels) == 600:
@@ -147,7 +147,6 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                                                                  capabilities['camera']["index"],
                                                                  resize_list,
                                                                  previous_frame_data, rgb)
-
             # print("DEBUG### main_controller total: ", time.time() - start_time)
             if message_from_feagi is not None:
                 # Obtain the size of aptr
