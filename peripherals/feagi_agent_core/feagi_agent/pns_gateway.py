@@ -22,6 +22,12 @@ import requests
 import traceback
 from feagi_agent import feagi_interface as feagi
 from feagi_agent import retina as retina
+from feagi_agent import router
+
+# Variable storage #
+api_address = ''
+raw_aptr = -1
+aptr_cortical_size = None
 
 
 def generate_rgb(frame, width_percentage, height_percentage, central_resolution,
@@ -52,6 +58,10 @@ def generate_rgb(frame, width_percentage, height_percentage, central_resolution,
 
 
 def generate_feagi_data(rgb, msg_counter, date, message_to_feagi):
+    """
+    This function generates data for Feagi by combining RGB values, message counter, and date into
+    the provided message.
+    """
     try:
         if "data" not in message_to_feagi:
             message_to_feagi["data"] = dict()
@@ -91,6 +101,9 @@ def efferent_signaling(feagi_opu_channel):
 
 
 def afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings):
+    """
+    send data to FEAGI
+    """
     if agent_settings['compression']:
         serialized_data = pickle.dumps(message_to_feagi)
         feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
@@ -99,6 +112,11 @@ def afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings):
 
 
 def fetch_aperture_data(message_from_feagi, capabilities, aptr_cortical_size):
+    """
+    This determines the WebSocket transmission capacity. A lower value allows more WebSocket data
+    to pass through, whereas a higher value restricts the amount of WebSocket data that can
+    be transmitted.
+    """
     if "o_aptr" in message_from_feagi["opu_data"]:
         if message_from_feagi["opu_data"]["o_aptr"]:
             for i in message_from_feagi["opu_data"]["o_aptr"]:
@@ -114,6 +132,11 @@ def fetch_aperture_data(message_from_feagi, capabilities, aptr_cortical_size):
 
 
 def fetch_iso_data(message_from_feagi, capabilities, aptr_cortical_size):
+    """
+       The higher the threshold, the lower its sensitivity. Conversely, the lower the threshold,
+       the higher the sensitivity. In essence, a lower threshold makes the camera more sensitive to
+       pick things up.
+    """
     if "o__dev" in message_from_feagi["opu_data"]:
         if message_from_feagi["opu_data"]["o__dev"]:
             for i in message_from_feagi["opu_data"]["o__dev"]:
