@@ -103,7 +103,6 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     threading.Thread(target=process_video, args=(capabilities['camera']['video_device_index'],
                                                  capabilities), daemon=True).start()
     # Generate runtime dictionary
-    previous_data_frame = dict()
     runtime_data = {"vision": {}, "current_burst_id": None, "stimulation_period": None,
                     "feagi_state": None,
                     "feagi_network": None}
@@ -149,6 +148,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                                                                  previous_frame_data, rgb)
             # print("DEBUG### main_controller total: ", time.time() - start_time)
             if message_from_feagi is not None:
+                # OPU section STARTS
                 # Obtain the size of aptr
                 if aptr_cortical_size is None:
                     aptr_cortical_size = pns.check_aptr(raw_aptr)
@@ -162,48 +162,21 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
                 # Update the aceture
                 capabilities = pns.fetch_vision_acuity(message_from_feagi, capabilities)
-                # OPU section STARTS
-                if "genome_changed" in message_from_feagi:
-                    if message_from_feagi["genome_changed"]:
-                        if message_from_feagi["genome_changed"] != previous_genome_timestamp:
-                            response = requests.get(
-                                api_address + '/v1/feagi/genome/cortical_area/geometry')
-                            resize_list = retina.obtain_cortical_vision_size(
-                                capabilities['camera']["index"], response)
-                            previous_genome_timestamp = message_from_feagi["genome_changed"]
-                if "o_snap" in message_from_feagi["opu_data"]:
-                    if message_from_feagi["opu_data"]["o_snap"]:
-                        capabilities['camera']['snap'] = raw_frame
-                if 'genome_num' in message_from_feagi:
-                    if message_from_feagi['genome_num'] != genome_tracker:
-                        genome_tracker = message_from_feagi['genome_num']
-                if "o__mon" in message_from_feagi["opu_data"]:
-                    if message_from_feagi["opu_data"]["o__mon"]:
-                        for i in message_from_feagi["opu_data"]["o__mon"]:
-                            monitor_update = feagi.block_to_array(i)
-                            capabilities['camera']['monitor'] = monitor_update[0]
+                genome_changed = pns.detect_genome_change(message_from_feagi)
+                # This applies to cortical change.
+                if genome_changed != previous_genome_timestamp:
+                    response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
+                    resize_list = retina.obtain_cortical_vision_size(capabilities['camera']["index"], response)
+                    previous_genome_timestamp = message_from_feagi["genome_changed"]
+                capabilities = pns.obtain_snap_data(raw_frame, message_from_feagi, capabilities)
+                genome_tracker = pns.obtain_genome_number(genome_tracker, message_from_feagi)
+                capabilities = pns.monitor_switch(message_from_feagi, capabilities)
+                capabilities = pns.gaze_control_update(message_from_feagi, capabilities)
+                capabilities = pns.pupil_control_update(message_from_feagi, capabilities)
                 # OPU section ENDS
-                if 'o__gaz' in message_from_feagi["opu_data"]:
-                    for data_point in message_from_feagi["opu_data"]['o__gaz']:
-                        processed_data_point = feagi.block_to_array(data_point)
-                        device_id = processed_data_point[0]
-                        device_power = message_from_feagi["opu_data"]['o__gaz'][data_point]
-                        if device_power == 100:
-                            device_power -= 1
-                        capabilities['camera']['gaze_control'][device_id] = device_power
-                    # print(capabilities['camera']['gaze_control'])
-                if 'o__pup' in message_from_feagi["opu_data"]:
-                    for data_point in message_from_feagi["opu_data"]['o__pup']:
-                        processed_data_point = feagi.block_to_array(data_point)
-                        device_id = processed_data_point[0]
-                        device_power = message_from_feagi["opu_data"]['o__pup'][data_point]
-                        if device_power == 100:
-                            device_power -= 1
-                        capabilities['camera']['pupil_control'][device_id] = device_power
 
             message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(), message_to_feagi)
-            if message_from_feagi is not None:
-                feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
+            feagi_settings['feagi_burst_speed'] = pns.check_refresh_rate(message_from_feagi, feagi_settings['feagi_burst_speed'])
             sleep(feagi_settings['feagi_burst_speed'])
             if agent_settings['compression']:
                 serialized_data = pickle.dumps(message_to_feagi)
