@@ -25,6 +25,9 @@ import pickle
 from time import sleep
 import traceback
 
+global_feagi_opu_channel = '' # Updated by feagi.connect_to_feagi()
+global_api_address = '' # Updated by feagi.connect_to_feagi
+
 
 def app_host_info():
     host_name = socket.gethostname()
@@ -47,7 +50,7 @@ class PubSub:
 
     def send(self, message):
         self.socket.send_pyobj(message)
-            
+
     def receive(self):
         try:
             payload = self.socket.recv_pyobj(flags=self.flags)
@@ -60,13 +63,13 @@ class PubSub:
 
     def terminate(self):
         self.socket.close()
-        
+
     def destroy(self):
         self.context.destroy()
-        
-        
+
+
 class Pub(PubSub):
-    
+
     def __init__(self, address, bind=True, flags=None):
         PubSub.__init__(self, flags)
         print(f"Pub -|- Add - {address}, Bind - {bind}")
@@ -130,7 +133,7 @@ class Sub(PubSub):
 #                 # Receive FEAGI settings
 #                 feagi_settings['burst_duration'] = requests.get(api_address + stimulation_period_endpoint).json()
 #                 feagi_settings['burst_counter'] = requests.get(api_address + burst_counter_endpoint).json()
-                
+
 
 #                 if feagi_settings and feagi_settings['burst_duration'] and feagi_settings['burst_counter']:
 #                     print("\n\n\n\nRegistration is complete....")
@@ -166,11 +169,11 @@ def feagi_settings_from_composer(feagi_auth_url, feagi_settings):
     else:
         print(f"Missing feagi_auth_url, using default feagi settings")
 
-
     if feagi_settings.get('feagi_dns') is not None:
-        feagi_settings['feagi_url'] = feagi_settings['feagi_dns'] 
-    else: 
-        feagi_settings['feagi_url'] = f"http://{feagi_settings['feagi_host']}:{feagi_settings['feagi_api_port']}"
+        feagi_settings['feagi_url'] = feagi_settings['feagi_dns']
+    else:
+        feagi_settings[
+            'feagi_url'] = f"http://{feagi_settings['feagi_host']}:{feagi_settings['feagi_api_port']}"
     return feagi_settings
 
 
@@ -190,10 +193,9 @@ def register_with_feagi(feagi_auth_url, feagi_settings, agent_settings, agent_ca
     registration_complete = False
     while not registration_complete:
         try:
-            print(f"Original Feagi Settings ---- {feagi_settings}")  
+            print(f"Original Feagi Settings ---- {feagi_settings}")
             feagi_settings = feagi_settings_from_composer(feagi_auth_url, feagi_settings)
-            feagi_url = feagi_settings['feagi_url']           
-               
+            feagi_url = feagi_settings['feagi_url']
 
             network_output = requests.get(feagi_url + network_endpoint).json()
             # print(f"network_output ---- {network_output}")     
@@ -202,7 +204,7 @@ def register_with_feagi(feagi_auth_url, feagi_settings, agent_settings, agent_ca
                 print("Data from FEAGI::", feagi_settings)
             else:
                 print("No feagi settings!")
-                
+
             agent_registration_data = dict()
             agent_registration_data["agent_type"] = str(agent_settings['agent_type'])
             agent_registration_data["agent_id"] = str(agent_settings['agent_id'])
@@ -211,16 +213,19 @@ def register_with_feagi(feagi_auth_url, feagi_settings, agent_settings, agent_ca
             agent_registration_data["controller_version"] = str(controller_version)
             agent_registration_data["agent_version"] = str(agent_version)
 
-            response = requests.post(feagi_url + registration_endpoint, params=agent_registration_data)
+            response = requests.post(feagi_url + registration_endpoint,
+                                     params=agent_registration_data)
             if response.status_code == 200:
-                feagi_settings['agent_state'] =  response.json()
+                feagi_settings['agent_state'] = response.json()
                 print("Agent successfully registered with FEAGI!")
                 # Receive FEAGI settings
-                feagi_settings['burst_duration'] = requests.get(feagi_url + stimulation_period_endpoint).json()
-                feagi_settings['burst_counter'] = requests.get(feagi_url + burst_counter_endpoint).json()
-                
+                feagi_settings['burst_duration'] = requests.get(
+                    feagi_url + stimulation_period_endpoint).json()
+                feagi_settings['burst_counter'] = requests.get(
+                    feagi_url + burst_counter_endpoint).json()
 
-                if feagi_settings and feagi_settings['burst_duration'] and feagi_settings['burst_counter']:
+                if feagi_settings and feagi_settings['burst_duration'] and feagi_settings[
+                    'burst_counter']:
                     print("\n\n\n\nRegistration is complete....")
                     registration_complete = True
         except Exception as e:
@@ -228,7 +233,7 @@ def register_with_feagi(feagi_auth_url, feagi_settings, agent_settings, agent_ca
             # traceback.print_exc()
         sleep(2)
 
-    print(f"Final Feagi Settings ---- {feagi_settings}")     
+    print(f"Final Feagi Settings ---- {feagi_settings}")
     feagi_ip = feagi_settings['feagi_host']
     agent_data_port = feagi_settings['agent_state']['agent_data_port']
     print("feagi_ip:agent_data_port", feagi_ip, agent_data_port)
