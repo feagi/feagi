@@ -38,7 +38,8 @@ def generate_rgb(frame, width_percentage, height_percentage, central_resolution,
         current_iso_selected (float): Capabilities['camera']['iso_threshold'].
         aperture_default (float): Capabilities['camera']["aperture_default"].
     """
-    retina.detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previous_frame_data)
+    retina.detect_change_edge(raw_frame, capabilities, camera_index, resize_list,
+                              previous_frame_data)
     retina_data = retina.frame_compression(retina_data,
                                            central_resolution, peripheral_resolution)
     previous_data_frame = retina.check_previous_data(previous_data_frame, retina_data)
@@ -63,6 +64,7 @@ def generate_feagi_data(rgb, msg_counter, date, message_to_feagi):
     message_to_feagi['timestamp'] = date
     message_to_feagi['counter'] = msg_counter
     return message_to_feagi
+
 
 def efferent_signaling(feagi_opu_channel):
     """
@@ -222,3 +224,62 @@ def obtain_data_type(data):
     else:
         print("Couldn't find: ", type(data).__name__, " and full name of the class: ", type(data))
         return "Unknown"
+
+
+def obtain_snap_data(raw_frame, message_from_feagi, capabilities):
+    if "o_snap" in message_from_feagi["opu_data"]:
+        if message_from_feagi["opu_data"]["o_snap"]:
+            capabilities['camera']['snap'] = raw_frame
+    return capabilities
+
+
+def obtain_genome_number(genome_tracker, message_from_feagi):
+    if 'genome_num' in message_from_feagi:
+        if message_from_feagi['genome_num'] != genome_tracker:
+            return message_from_feagi['genome_num']
+    return genome_tracker
+
+
+def monitor_switch(message_from_feagi, capabilities):
+    if "o__mon" in message_from_feagi["opu_data"]:
+        if message_from_feagi["opu_data"]["o__mon"]:
+            for i in message_from_feagi["opu_data"]["o__mon"]:
+                monitor_update = feagi.block_to_array(i)
+                capabilities['camera']['monitor'] = monitor_update[0]
+    return capabilities
+
+
+def gaze_control_update(message_from_feagi, capabilities):
+    if 'o__gaz' in message_from_feagi["opu_data"]:
+        for data_point in message_from_feagi["opu_data"]['o__gaz']:
+            processed_data_point = feagi.block_to_array(data_point)
+            device_id = processed_data_point[0]
+            device_power = message_from_feagi["opu_data"]['o__gaz'][data_point]
+            if device_power == 100:
+                device_power -= 1
+            capabilities['camera']['gaze_control'][device_id] = device_power
+    return capabilities
+
+
+def pupil_control_update(message_from_feagi, capabilities):
+    if 'o__pup' in message_from_feagi["opu_data"]:
+        for data_point in message_from_feagi["opu_data"]['o__pup']:
+            processed_data_point = feagi.block_to_array(data_point)
+            device_id = processed_data_point[0]
+            device_power = message_from_feagi["opu_data"]['o__pup'][data_point]
+            if device_power == 100:
+                device_power -= 1
+            capabilities['camera']['pupil_control'][device_id] = device_power
+    return capabilities
+
+
+def detect_genome_change(message_from_feagi):
+    if "genome_changed" in message_from_feagi:
+        if message_from_feagi["genome_changed"]:
+            return message_from_feagi["genome_changed"]
+
+
+def check_refresh_rate(message_from_feagi, current_second):
+    if message_from_feagi is not None:
+        return message_from_feagi['burst_frequency']
+    return current_second
