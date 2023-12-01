@@ -203,19 +203,22 @@ def change_detector_grayscale(previous, current, capabilities):
     """
 
     # Using cv2.absdiff for optimized difference calculation
-    difference = cv2.absdiff(previous, current)
-    thresholded = cv2.threshold(difference, capabilities[0],
-                                capabilities[1],
-                                cv2.THRESH_BINARY)[1]
+    if current.shape == previous.shape:
+        difference = cv2.absdiff(previous, current)
+        thresholded = cv2.threshold(difference, capabilities[0],
+                                    capabilities[1],
+                                    cv2.THRESH_BINARY)[1]
 
-    # Convert to boolean array for significant changes
-    significant_changes = thresholded > 0
-    # print("Grayscale signifcant change: ", significant_changes)
+        # Convert to boolean array for significant changes
+        significant_changes = thresholded > 0
+        # print("Grayscale signifcant change: ", significant_changes)
 
-    feagi_data = create_feagi_data_grayscale(significant_changes, current, previous.shape)
-    #
-    # print("change_detector_optimized time total: ",
-    #       (datetime.now() - start_time).total_seconds())
+        feagi_data = create_feagi_data_grayscale(significant_changes, current, previous.shape)
+        #
+        # print("change_detector_optimized time total: ",
+        #       (datetime.now() - start_time).total_seconds())
+    else:
+        return {}
     return feagi_data
 
 
@@ -235,19 +238,22 @@ def change_detector(previous, current, capabilities):
     """
 
     # Using cv2.absdiff for optimized difference calculation
-    difference = cv2.absdiff(previous, current)
-    thresholded = cv2.threshold(difference, capabilities[0],
-                                capabilities[1],
-                                cv2.THRESH_BINARY)[1]
+    if current.shape == previous.shape:
+        difference = cv2.absdiff(previous, current)
+        thresholded = cv2.threshold(difference, capabilities[0],
+                                    capabilities[1],
+                                    cv2.THRESH_BINARY)[1]
 
-    # Convert to boolean array for significant changes
-    significant_changes = thresholded > 0
-    # print("RGB signifcant change: ", significant_changes)
+        # Convert to boolean array for significant changes
+        significant_changes = thresholded > 0
+        # print("RGB signifcant change: ", significant_changes)
 
-    feagi_data = create_feagi_data(significant_changes, current, previous.shape)
-    #
-    # print("change_detector_optimized time total: ",
-    #       (datetime.now() - start_time).total_seconds())
+        feagi_data = create_feagi_data(significant_changes, current, previous.shape)
+        #
+        # print("change_detector_optimized time total: ",
+        #       (datetime.now() - start_time).total_seconds())
+    else:
+        return {}
     return dict(feagi_data)
 
 
