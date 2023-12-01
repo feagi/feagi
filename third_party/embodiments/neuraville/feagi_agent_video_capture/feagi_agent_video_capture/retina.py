@@ -21,6 +21,10 @@ import numpy as np
 import traceback
 import requests
 from datetime import datetime
+from feagi_agent import pns_gateway as pns
+
+
+genome_tracker = 0
 
 
 def get_device_of_vision(device):
@@ -257,7 +261,8 @@ def change_detector(previous, current, capabilities):
     return dict(feagi_data)
 
 
-def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previous_frame_data, rgb):
+def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previous_frame_data,
+                       rgb):
     region_coordinates = vision_region_coordinates(raw_frame.shape[1],
                                                    raw_frame.shape[0], capabilities['camera'][
                                                        'gaze_control'][0], capabilities['camera'][
@@ -312,3 +317,36 @@ def obtain_cortical_vision_size(camera_index, response):
                 size_list[name] = dimension_array
     return size_list
 
+
+def vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel, api_address,
+                    feagi_settings, raw_frame):
+    message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
+    if message_from_feagi is not None:
+        # OPU section STARTS
+        # Obtain the size of aptr
+        if pns.aptr_cortical_size is None:
+            pns.aptr_cortical_size = pns.check_aptr(api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr')
+        # Update the aptr
+        capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
+                                               pns.aptr_cortical_size)
+        # Update the ISO
+        capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
+                                          pns.aptr_cortical_size)
+        # Update the vres
+        capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
+        # Update the aceture
+        capabilities = pns.fetch_vision_acuity(message_from_feagi, capabilities)
+        genome_changed = pns.detect_genome_change(message_from_feagi)
+        # This applies to cortical change.
+        if genome_changed != previous_genome_timestamp:
+            response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
+            capabilities['camera']['size_list'] = \
+                obtain_cortical_vision_size(capabilities['camera']["index"], response)
+            previous_genome_timestamp = message_from_feagi["genome_changed"]
+        capabilities = pns.obtain_snap_data(raw_frame, message_from_feagi, capabilities)
+        capabilities = pns.monitor_switch(message_from_feagi, capabilities)
+        capabilities = pns.gaze_control_update(message_from_feagi, capabilities)
+        capabilities = pns.pupil_control_update(message_from_feagi, capabilities)
+        feagi_settings['feagi_burst_speed'] = pns.check_refresh_rate(message_from_feagi,
+                                                                   feagi_settings['feagi_burst_speed'])
+    return capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed']
