@@ -23,7 +23,7 @@ import requests
 from time import sleep
 from datetime import datetime
 from feagi_agent.version import __version__
-import retina
+import retina as retina
 from feagi_agent import pns_gateway as pns
 from feagi_agent import feagi_interface as feagi
 import traceback
@@ -79,21 +79,6 @@ def process_video(video_path, capabilities):
             if capabilities["camera"]["mirror"]:
                 pixels = cv2.flip(pixels, 1)
             camera_data["vision"] = pixels
-        # try:
-        #     if capabilities['camera']['snap'] != []:
-        #         cv2.imshow("test", capabilities['camera']['snap'])
-        # except:
-        #     pass
-        # cv2.waitKey(30)
-        # print("len: ", len(pixels), " and shape: ", pixels.shape)
-        # try:
-        #   if len(pixels) == 600:
-        #     cv2.imshow("OpenCV/Numpy normal", pixels)
-        #     if cv2.waitKey(25) & 0xFF == ord("q"):
-        #       cv2.destroyAllWindows()
-        #       break
-        # except:
-        #   traceback.print_exc()
 
     cam.release()
     cv2.destroyAllWindows()
@@ -123,69 +108,33 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     msg_counter = runtime_data["feagi_state"]['burst_counter']
     rgb = dict()
     rgb['camera'] = dict()
-    genome_tracker = 0
-    get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr'
-    raw_aptr = requests.get(get_size_for_aptr_cortical).json()
-    aptr_cortical_size = pns.fetch_aptr_size(10, raw_aptr, None)
-    # threading.Thread(target=process_video, args=(capabilities['camera']['video_device_index'],
-    #                                              capabilities), daemon=True).start()
     response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
-    resize_list = retina.obtain_cortical_vision_size(capabilities['camera']["index"], response)
+    capabilities['camera']['size_list'] = retina.obtain_cortical_vision_size(capabilities['camera']["index"], response)
     previous_genome_timestamp = 0
     previous_frame_data = {}
     while True:
         try:
-            message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
-            raw_frame = camera_data['vision'] # uncomment and replace pixels to raw_frame
-            # print("DEBUGGING RAW FRAME: ", raw_frame)
+            raw_frame = camera_data['vision']
             if capabilities['camera']['snap'] != []:
                 raw_frame = capabilities['camera']['snap']
                 cv2.imshow("OpenCV/Numpy normal", raw_frame)
                 capabilities['camera']['snap'] = []
             previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
                                                                  capabilities['camera']["index"],
-                                                                 resize_list,
+                                                                 capabilities['camera']['size_list'],
                                                                  previous_frame_data, rgb)
-            # print("DEBUG### main_controller total: ", time.time() - start_time)
-            if message_from_feagi is not None:
-                # OPU section STARTS
-                # Obtain the size of aptr
-                if aptr_cortical_size is None:
-                    aptr_cortical_size = pns.check_aptr(raw_aptr)
-                # Update the aptr
-                capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
-                                                       aptr_cortical_size)
-                # Update the ISO
-                capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
-                                                  aptr_cortical_size)
-                # Update the vres
-                capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
-                # Update the aceture
-                capabilities = pns.fetch_vision_acuity(message_from_feagi, capabilities)
-                genome_changed = pns.detect_genome_change(message_from_feagi)
-                # This applies to cortical change.
-                if genome_changed != previous_genome_timestamp:
-                    response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
-                    resize_list = retina.obtain_cortical_vision_size(capabilities['camera']["index"], response)
-                    previous_genome_timestamp = message_from_feagi["genome_changed"]
-                capabilities = pns.obtain_snap_data(raw_frame, message_from_feagi, capabilities)
-                genome_tracker = pns.obtain_genome_number(genome_tracker, message_from_feagi)
-                capabilities = pns.monitor_switch(message_from_feagi, capabilities)
-                capabilities = pns.gaze_control_update(message_from_feagi, capabilities)
-                capabilities = pns.pupil_control_update(message_from_feagi, capabilities)
-                # OPU section ENDS
+            capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed'] = \
+                retina.vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel,
+                                       api_address, feagi_settings, raw_frame)
 
-            message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(), message_to_feagi)
-            feagi_settings['feagi_burst_speed'] = pns.check_refresh_rate(message_from_feagi, feagi_settings['feagi_burst_speed'])
+            message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(),
+                                                       message_to_feagi)
             sleep(feagi_settings['feagi_burst_speed'])
-            if agent_settings['compression']:
-                serialized_data = pickle.dumps(message_to_feagi)
-                feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
-            else:
-                feagi_ipu_channel.send(message_to_feagi)
+            pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
             message_to_feagi.clear()
             for i in rgb['camera']:
                 rgb['camera'][i].clear()
         except Exception as e:
+            # pass
             print("ERROR! : ", e)
             traceback.print_exc()
