@@ -186,8 +186,6 @@ def create_feagi_data_grayscale(significant_changes, current, shape):
             if significant_changes[x, y]:
                 key = f'{y}-{(size_of_frame[1] - 1) - x}-{0}'
                 feagi_data[key] = int(current[x, y])
-    # print("peripheral change_detector_optimized time total: ",
-    #       (datetime.now() - start_time).total_seconds())
     return feagi_data
 
 
@@ -208,14 +206,25 @@ def change_detector_grayscale(previous, current, capabilities):
 
     # Using cv2.absdiff for optimized difference calculation
     if current.shape == previous.shape:
-        difference = cv2.absdiff(previous, current)
-        thresholded = cv2.threshold(difference, capabilities[0],
-                                    capabilities[1],
-                                    cv2.THRESH_BINARY)[1]
 
+        if capabilities['camera']['snap'] == []:
+            difference = cv2.absdiff(previous, current)
+
+        else:
+            print("Snap!")
+            difference = cv2.absdiff(0, current)
+            print(current)
+
+        thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
+                                capabilities['camera']['iso_default'][1],
+                                    cv2.THRESH_TOZERO)[1]
+
+        thresholded = cv2.threshold(thresholded, capabilities['camera']['iso_default'][0],
+                                    capabilities['camera']['iso_default'][1],
+                                    cv2.THRESH_TOZERO_INV)[1]
         # Convert to boolean array for significant changes
         significant_changes = thresholded > 0
-        # print("Grayscale signifcant change: ", significant_changes)
+
 
         feagi_data = create_feagi_data_grayscale(significant_changes, current, previous.shape)
         #
@@ -244,12 +253,18 @@ def change_detector(previous, current, capabilities):
     # Using cv2.absdiff for optimized difference calculation
     if current.shape == previous.shape:
         difference = cv2.absdiff(previous, current)
-        thresholded = cv2.threshold(difference, capabilities[0],
-                                    capabilities[1],
-                                    cv2.THRESH_BINARY)[1]
+        if capabilities['camera']['snap'] == []:
+            thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
+                                        capabilities['camera']['iso_default'][1],
+                                        cv2.THRESH_BINARY)[1]
+            # Convert to boolean array for significant changes
+            significant_changes = thresholded > 0
+        else:
+            thresholded = cv2.threshold(difference, 0, 255,
+                                        cv2.THRESH_BINARY)[1]
+            # Convert to boolean array for significant changes
+            significant_changes = thresholded > 0
 
-        # Convert to boolean array for significant changes
-        significant_changes = thresholded > 0
         # print("RGB signifcant change: ", significant_changes)
 
         feagi_data = create_feagi_data(significant_changes, current, previous.shape)
@@ -279,23 +294,23 @@ def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previ
             resize_list[cortical])
     vision_dict = dict()
 
-    for segment in compressed_data:
-        cv2.imshow(segment, compressed_data[segment])
-    if cv2.waitKey(30) & 0xFF == ord('q'):
-        pass
+    # for segment in compressed_data:
+    #     cv2.imshow(segment, compressed_data[segment])
+    # if cv2.waitKey(30) & 0xFF == ord('q'):
+    #     pass
     for get_region in compressed_data:
         if resize_list[get_region][2] == 3:
             if previous_frame_data != {}:
                 vision_dict[get_region] = change_detector(
                     previous_frame_data[get_region],
                     compressed_data[get_region],
-                    capabilities['camera']['iso_default'])
+                    capabilities)
         else:
             if previous_frame_data != {}:
                 vision_dict[get_region] = change_detector_grayscale(
                     previous_frame_data[get_region],
                     compressed_data[get_region],
-                    capabilities['camera']['iso_default'])
+                    capabilities)
     previous_frame_data = compressed_data
     rgb['camera'] = vision_dict
     return previous_frame_data, rgb
