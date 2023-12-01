@@ -29,7 +29,7 @@ import lz4.frame
 
 from configuration import *
 from collections import deque
-from feagi_agent import retina
+import retina
 from version import __version__
 from feagi_agent import feagi_interface as feagi
 from feagi_agent import pns_gateway as pns
@@ -115,7 +115,6 @@ async def echo(websocket):
         webcam_size['size'] = []
 
 
-
 async def main():
     """
     The main function handles the websocket and spins the asyncio to run the echo function
@@ -161,86 +160,46 @@ if __name__ == "__main__":
             feagi.connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities,
                                    __version__)
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-        genome_tracker = 0
-        get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area' \
-                                                   '=o_aptr'
-        raw_aptr = requests.get(get_size_for_aptr_cortical).json()
-        try:
-            aptr_cortical_size = raw_aptr['cortical_dimensions'][2]
-        except:
-            aptr_cortical_size = None
         msg_counter = runtime_data["feagi_state"]['burst_counter']
+        previous_frame_data = dict()
+        previous_genome_timestamp = 0
+        response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
+        capabilities['camera']['size_list'] = retina.obtain_cortical_vision_size(
+            capabilities['camera']["index"], response)
         while True:
             try:
-                message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
-                if message_from_feagi is not None:
-                    if message_from_feagi['burst_frequency'] != runtime_data["stimulation_period"]:
-                        ws.append(message_from_feagi['burst_frequency'])
-                    # OPU section STARTS
-                    if 'genome_num' in message_from_feagi:
-                        if message_from_feagi['genome_num'] != genome_tracker:
-                            genome_tracker = message_from_feagi['genome_num']
-                    if aptr_cortical_size is None:
-                        aptr_cortical_size = pns.check_aptr(raw_aptr)
-                    # Update the aptr
-                    capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
-                                                           aptr_cortical_size)
-                    # Update the ISO
-                    capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
-                                                      aptr_cortical_size)
-                    # Update the vres
-                    capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
-                    # Update the aceture
-                    capabilities = pns.fetch_vision_acuity(message_from_feagi, capabilities)
-                    # OPU section ENDS
                 if np.any(rgb_array['current']):
                     if not webcam_size['size']:
                         webcam_size['size'].append(rgb_array['current'].pop(0))
                         webcam_size['size'].append(rgb_array['current'].pop(0))
-                    new_rgb = retina.RGB_list_to_ndarray(rgb_array['current'], webcam_size['size'])
-                    new_rgb = retina.update_astype(new_rgb)
+                    raw_frame = retina.RGB_list_to_ndarray(rgb_array['current'],
+                                                           webcam_size['size'])
+                    raw_frame = retina.update_astype(raw_frame)
                     if capabilities["camera"]["mirror"]:
-                        new_rgb = retina.flip_video(new_rgb)
-                    previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] \
-                        = pns.generate_rgb(new_rgb,
-                                           capabilities['camera'][
-                                               'central_vision_allocation_percentage'][0],
-                                           capabilities['camera'][
-                                               'central_vision_allocation_percentage'][1],
-                                           capabilities['camera']["central_vision_resolution"],
-                                           capabilities['camera']['peripheral_vision_resolution'],
-                                           previous_data_frame,
-                                           capabilities['camera']['current_select'],
-                                           capabilities['camera']['iso_default'],
-                                           capabilities['camera']["aperture_default"],
-                                           camera_index=capabilities['camera']["index"])
-                # Prepare thee dict to send camera data to FEAGI
-                try:
-                    if "data" not in message_to_feagi:
-                        message_to_feagi["data"] = {}
-                    if "sensory_data" not in message_to_feagi["data"]:
-                        message_to_feagi["data"]["sensory_data"] = {}
-                    message_to_feagi["data"]["sensory_data"]['camera'] = rgb['camera']
-                except Exception as e:
-                    pass
-                message_to_feagi['timestamp'] = datetime.now()
-                message_to_feagi['counter'] = msg_counter
-                if message_from_feagi is not None:
-                    feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
-                    runtime_data["stimulation_period"] = message_from_feagi['burst_frequency']
-                sleep(feagi_settings['feagi_burst_speed'])
+                        raw_frame = retina.flip_video(raw_frame)
+                    if capabilities['camera']['snap'] != []:
+                        raw_frame = capabilities['camera']['snap']
+                    previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
+                                                                         capabilities['camera'][
+                                                                             "index"],
+                                                                         capabilities['camera'][
+                                                                             'size_list'],
+                                                                         previous_frame_data, rgb)
+                    capabilities['camera']['snap'] = []
+                    capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed'] = \
+                        retina.vision_progress(capabilities, previous_genome_timestamp,
+                                               feagi_opu_channel,
+                                               api_address, feagi_settings, raw_frame)
 
-                if agent_settings['compression']:
-                    serialized_data = pickle.dumps(message_to_feagi)
-                    feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
-                else:
-                    feagi_ipu_channel.send(message_to_feagi)
-                message_to_feagi.clear()
-                for i in rgb['camera']:
-                    rgb['camera'][i].clear()
+                    message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(),
+                                                               message_to_feagi)
+                    sleep(feagi_settings['feagi_burst_speed'])
+                    pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
+
+                    message_to_feagi.clear()
+                    for i in rgb['camera']:
+                        rgb['camera'][i].clear()
             except Exception as e:
-                print("ERROR: ", e)
-                print("ERROR__: ", traceback.print_exc())
-
-                break
+                # pass
+                print("ERROR! : ", e)
+                traceback.print_exc()
