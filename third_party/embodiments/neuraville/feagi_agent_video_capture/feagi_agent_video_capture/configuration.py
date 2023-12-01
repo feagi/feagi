@@ -54,7 +54,8 @@ capabilities = {
         "monitor": 0,
         "snap": [],
         "gaze_control": {0: 25, 1: 50},
-        "pupil_control": {0: 25, 1: 50}
+        "pupil_control": {0: 25, 1: 50},
+        "size_list": []
     }
 }
 
