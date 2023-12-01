@@ -112,17 +112,18 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     capabilities['camera']['size_list'] = retina.obtain_cortical_vision_size(capabilities['camera']["index"], response)
     previous_genome_timestamp = 0
     previous_frame_data = {}
+    raw_frame = []
     while True:
         try:
-            raw_frame = camera_data['vision']
+            if camera_data['vision'] is not None:
+                raw_frame = camera_data['vision']
             if capabilities['camera']['snap'] != []:
                 raw_frame = capabilities['camera']['snap']
-                cv2.imshow("OpenCV/Numpy normal", raw_frame)
-                capabilities['camera']['snap'] = []
             previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
                                                                  capabilities['camera']["index"],
                                                                  capabilities['camera']['size_list'],
                                                                  previous_frame_data, rgb)
+            capabilities['camera']['snap'] = []
             capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed'] = \
                 retina.vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel,
                                        api_address, feagi_settings, raw_frame)
@@ -131,6 +132,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                                                        message_to_feagi)
             sleep(feagi_settings['feagi_burst_speed'])
             pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
+
             message_to_feagi.clear()
             for i in rgb['camera']:
                 rgb['camera'][i].clear()
