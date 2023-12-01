@@ -29,7 +29,7 @@ import lz4.frame
 
 from configuration import *
 from collections import deque
-import retina
+from feagi_agent import retina
 from version import __version__
 from feagi_agent import feagi_interface as feagi
 from feagi_agent import pns_gateway as pns
