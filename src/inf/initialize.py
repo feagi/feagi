@@ -1,5 +1,4 @@
-
-# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+# Copyright 2016-2023 The FEAGI Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 import json
 import os
 import platform
@@ -79,6 +79,9 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
     runtime_data.genome_ver = "2.0"
 
     # todo temp check to find a better solution
+    if "lifespan_mgmt_interval" not in runtime_data.genome:
+        runtime_data.genome["lifespan_mgmt_interval"] = 10
+
     for _ in runtime_data.genome["blueprint"]:
         if "mp_charge_accumulation" not in runtime_data.genome["blueprint"][_]:
             runtime_data.genome["blueprint"][_]["mp_charge_accumulation"] = True

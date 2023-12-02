@@ -101,6 +101,7 @@ temp_neuron_list = []
 fire_list = []
 prunning_candidates = set()
 plasticity_queue_candidates = dict()
+upcoming_lifesnap_mgmt = None
 
 # Stats Collection
 neuron_mp_collection_scope = {}
@@ -149,6 +150,7 @@ cortical_list = []
 intercortical_mapping = []
 brain_is_running = False
 cumulative_stats = {}
+memory_regions = set()
 
 # Training
 shock_scenarios_options = tuple
