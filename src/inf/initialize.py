@@ -77,6 +77,7 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
     runtime_data.genome = genome_data
     runtime_data.genome = genome_ver_check(runtime_data.genome)
     runtime_data.genome_ver = "2.0"
+
     # todo temp check to find a better solution
     for _ in runtime_data.genome["blueprint"]:
         if "mp_charge_accumulation" not in runtime_data.genome["blueprint"][_]:
