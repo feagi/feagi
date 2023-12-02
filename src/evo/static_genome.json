@@ -7,6 +7,7 @@
    "evolution_burst_count": 50,
    "ipu_idle_threshold": 1000,
    "plasticity_queue_depth": 3,
+   "lifespan_mgmt_interval": 10,
    "neuron_morphologies": {
       "decrease_filter_diagonal": {
          "parameters": {

@@ -37,9 +37,10 @@ import lz4.frame
 import pickle
 from npu.physiology import *
 from npu import stimulator, auxiliary
-from mem.memory import neuroplasticity
+from mem.memory import neuroplasticity, long_short_term_memory
 from evo.stats import *
 from evo.death import death_manager
+from evo.neuron import neuron_apoptosis
 from inf.initialize import init_burst_engine, init_fcl, utc_time
 from inf.messenger import Pub, Sub
 from pns.pns_router import opu_router, stimuli_router
@@ -609,6 +610,8 @@ def burst_manager():
 
         # Forming memories through creation of cell assemblies
         neuroplasticity()
+        long_short_term_memory
+        lstm_lifespan_mgmt()
 
         # A deep copy of the FCL to previous FCL
         for _ in runtime_data.fire_candidate_list:
@@ -758,3 +761,26 @@ def toggle_brain_status():
     else:
         runtime_data.brain_is_running = True
         print("Brain is now running!!!")
+
+
+def lstm_lifespan_mgmt():
+    """
+    Handles lifecycle management for memory neurons
+    """
+    if runtime_data.memory_regions:
+        if runtime_data.burst_count > runtime_data.upcoming_lifesnap_mgmt:
+            runtime_data.upcoming_lifesnap_mgmt += runtime_data.genome["lifespan_mgmt_interval"]
+
+            for memory_cortical_area in runtime_data.memory_regions:
+                for neuron in runtime_data.brain[memory_cortical_area]:
+                    # Neuron lifespan management
+                    if not runtime_data.brain[memory_cortical_area][neuron]["immortal"]:
+                        # Neuron Apoptosis check
+                        if runtime_data.brain[memory_cortical_area][neuron]["lifespan"] < runtime_data.burst_count:
+                            neuron_apoptosis(cortical_area=memory_cortical_area, neuron_id=neuron)
+                        # Short-term Memory to Long-term Memory transformation check
+                        elif runtime_data.brain[memory_cortical_area][neuron]["lifespan"] > \
+                                runtime_data.burst_count + \
+                                runtime_data.genome["blueprint"][memory_cortical_area]["lstm_threshold"]:
+                            # Convert Short Term Memory Neuron to Long Term Memory Neuron
+                            runtime_data.brain[memory_cortical_area][neuron]["immortal"] = True

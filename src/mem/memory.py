@@ -50,6 +50,7 @@ reduced) and incorporated in the new neuroplasticity function (below).
 """
 import traceback
 import logging
+import xxhash
 from inf import runtime_data
 from evo.synapse import bidirectional_synapse, synapse
 from npu.physiology import list_upstream_plastic_neurons, list_downstream_plastic_neurons, post_synaptic_current_update
@@ -154,3 +155,26 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
                     pass
     else:
         print(f"longterm_potentiation_depression did not find {dst_cortical_area} as a mapping in {src_cortical_area}")
+
+
+def long_short_term_memory():
+    ;oajsdofijs
+    pass
+
+
+def generate_mem_hash_cache(serial_numbers_set):
+    combined_hash = 0
+    hash_cache = {}
+
+    for serial_number in serial_numbers_set:
+        if serial_number not in hash_cache:
+            # Compute and cache the hash for new serial numbers
+            hash_cache[serial_number] = xxhash.xxh32(serial_number).intdigest()
+
+        # Retrieve the hash from the cache
+        individual_hash = hash_cache[serial_number]
+
+        # Combine hashes using XOR
+        combined_hash ^= individual_hash
+
+    return hex(combined_hash)

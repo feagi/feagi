@@ -4,42 +4,42 @@ import random
 import xxhash
 
 
-def shuffle_set_contents(input_set):
-    """
-    Shuffles the contents of a set and returns them as a list.
-
-    Parameters:
-    input_set (set): The set to shuffle.
-
-    Returns:
-    list: A list with shuffled contents of the original set.
-    """
-    shuffled_list = list(input_set)
-    random.shuffle(shuffled_list)
-    return shuffled_list
-
-
-def generate_serial_number_set(base, length, count):
-    """
-    Generates a set of unique serial numbers.
-
-    Parameters:
-    base (str): The base part of the serial number.
-    length (int): The length of the unique part of the serial number.
-    count (int): The number of serial numbers to generate.
-
-    Returns:
-    set: A set of unique serial numbers.
-    """
-    unique_set = set()
-    while len(unique_set) < count:
-        # Generate a random unique part
-        unique_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=length)) + '_N'
-        # Combine with the base part
-        new_element = base + unique_part
-        unique_set.add(new_element)
-
-    return unique_set
+# def shuffle_set_contents(input_set):
+#     """
+#     Shuffles the contents of a set and returns them as a list.
+#
+#     Parameters:
+#     input_set (set): The set to shuffle.
+#
+#     Returns:
+#     list: A list with shuffled contents of the original set.
+#     """
+#     shuffled_list = list(input_set)
+#     random.shuffle(shuffled_list)
+#     return shuffled_list
+#
+#
+# def generate_serial_number_set(base, length, count):
+#     """
+#     Generates a set of unique serial numbers.
+#
+#     Parameters:
+#     base (str): The base part of the serial number.
+#     length (int): The length of the unique part of the serial number.
+#     count (int): The number of serial numbers to generate.
+#
+#     Returns:
+#     set: A set of unique serial numbers.
+#     """
+#     unique_set = set()
+#     while len(unique_set) < count:
+#         # Generate a random unique part
+#         unique_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=length)) + '_N'
+#         # Combine with the base part
+#         new_element = base + unique_part
+#         unique_set.add(new_element)
+#
+#     return unique_set
 
 
 def generate_unique_xxhash_cache(serial_numbers_set):
