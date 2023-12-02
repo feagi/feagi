@@ -407,4 +407,5 @@ def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subre
     return candidate_list
 
 
-
+def syn_memory():
+    pass
