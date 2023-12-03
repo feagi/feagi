@@ -184,6 +184,13 @@ def init_container_variables():
         runtime_data.gazebo = True
 
 
+def init_memory_register():
+    for cortical_are in runtime_data.genome["blueprint"]:
+        if "lstm" in runtime_data.genome["blueprint"][cortical_are]:
+            if runtime_data.genome["blueprint"][cortical_are]["lstm"]:
+                runtime_data.memory_register.add(cortical_are)
+
+
 def running_in_container():
     """
     Identifies if FEAGI is running in a container or not based on the ENV variable set during the container creation
@@ -422,6 +429,7 @@ def reset_runtime_data():
     runtime_data.stats = {}
     runtime_data.brain = {}
     runtime_data.cortical_list = {}
+    runtime_data.memory_register = {}
     runtime_data.cortical_dimensions = {}
     runtime_data.stimulation_script = {}
     runtime_data.shock_admin = False
@@ -460,6 +468,7 @@ def init_brain():
     runtime_data.last_alertness_trigger = datetime.now()
     runtime_data.brain_run_id = id_gen(signature='_R')
     init_cortical_info()
+    init_memory_register()
     runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
     runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()

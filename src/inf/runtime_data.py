@@ -150,7 +150,7 @@ cortical_list = []
 intercortical_mapping = []
 brain_is_running = False
 cumulative_stats = {}
-memory_regions = set()
+memory_register = {}
 
 # Training
 shock_scenarios_options = tuple
