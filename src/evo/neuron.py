@@ -65,10 +65,12 @@ def init_neuron(cortical_area, soma_location, memory_hash=None):
     if memory_hash:
         immortality = False
         is_memory_type = True
+        lifespan = runtime_data.genome["blueprint"][cortical_area]["init_lifespan"] + runtime_data.burst_count
         neuron_id = str(cortical_area + '_' + memory_hash)
     else:
         immortality = True
         is_memory_type = False
+        lifespan = None
         neuron_id = neuron_id_gen(cortical_id=cortical_area)
 
     runtime_data.brain[cortical_area][neuron_id] = {}
@@ -85,8 +87,7 @@ def init_neuron(cortical_area, soma_location, memory_hash=None):
     runtime_data.brain[cortical_area][neuron_id]["snooze_till_burst_num"] = 0
     runtime_data.brain[cortical_area][neuron_id]["last_burst_num"] = 0
     runtime_data.brain[cortical_area][neuron_id]["activity_history"] = []
-    runtime_data.brain[cortical_area][neuron_id]["lifespan"] = \
-        runtime_data.genome["blueprint"][cortical_area]["lifespan"]
+    runtime_data.brain[cortical_area][neuron_id]["lifespan"] = lifespan
     runtime_data.brain[cortical_area][neuron_id]["immortal"] = immortality
     runtime_data.brain[cortical_area][neuron_id]["soma_location"] = soma_location
     # loc_blk is a two element list where first element being the location of the neuron and second being the block
@@ -154,3 +155,15 @@ def neuron_apoptosis(cortical_area, neuron_id):
     runtime_data.brain[cortical_area].pop(neuron_id)
     print("^^^^^^" * 20)
     print(f"Neuron {neuron_id} from {cortical_area} just died!")
+
+
+def increase_neuron_lifespan(cortical_area, neuron_id):
+    if cortical_area in runtime_data.brain:
+        if neuron_id in runtime_data.brain[cortical_area]:
+            runtime_data.brain[cortical_area][neuron_id]["lifespan"] += \
+                runtime_data.genome["blueprint"][cortical_area]["lifespan_growth_rate"]
+
+            # Check eligibility for neuron immortality (Short-term to Long-term memory xfer)
+            if runtime_data.brain[cortical_area][neuron_id]["lifespan"] > \
+                    runtime_data.genome["blueprint"][cortical_area]["longterm_mem_threshold"]:
+                runtime_data.brain[cortical_area][neuron_id]["immortal"] = True
