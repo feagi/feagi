@@ -205,7 +205,11 @@ cortical_template = {
     "firing_threshold_increment_z": 0,
     "firing_threshold_limit": 0,
     "mp_charge_accumulation": True,
-    "mp_driven_psp": False
+    "mp_driven_psp": False,
+    "is_mem_type": False,
+    "longterm_mem_threshold": 100,
+    "lifespan_growth_rate": 1,
+    "init_lifespan": 9
 }
 
 

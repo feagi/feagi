@@ -462,7 +462,11 @@ gene_decoder = {
     "_______c-______-nx-leak_c-f": "leak_coefficient",
     "_______c-______-nx-leak_v-i": "leak_variability",
     "_______c-______-nx-c_fr_c-i": "consecutive_fire_cnt_max",
-    "_______c-______-nx-snooze-f": "snooze_length"
+    "_______c-______-nx-snooze-f": "snooze_length",
+    "_______c-______-cx-memory-b": "is_mem_type",
+    "_______c-______-cx-mem__t-i": "longterm_mem_threshold",
+    "_______c-______-cx-mem_gr-i": "lifespan_growth_rate",
+    "_______c-______-cx-mem_ls-i": "init_lifespan"
 }
 
 genome_1_template = {
@@ -499,7 +503,11 @@ genome_1_template = {
     "firing_threshold_increment_z": 0,
     "firing_threshold_limit": 0,
     "mp_charge_accumulation": True,
-    "mp_driven_psp": False
+    "mp_driven_psp": False,
+    "is_mem_type": False,
+    "longterm_mem_threshold": 100,
+    "lifespan_growth_rate": 1,
+    "init_lifespan": 9
     }
 
 genome_2_to_1 = {
@@ -533,7 +541,11 @@ genome_2_to_1 = {
     "de_gen-f": "degeneration",
     "pspuni-b": "psp_uniform_distribution",
     "mp_acc-b": "mp_charge_accumulation",
-    "mp_psp-b": "mp_driven_psp"
+    "mp_psp-b": "mp_driven_psp",
+    "memory-b": "is_mem_type",
+    "mem__t-i": "longterm_mem_threshold",
+    "mem_gr-i": "lifespan_growth_rate",
+    "mem_ls-i": "init_lifespan"
 }
 
 genome_1_to_2 = {
@@ -559,5 +571,9 @@ genome_1_to_2 = {
     "psp_uniform_distribution": "cx-pspuni-b",
     "cortical_mapping_dst": "cx-dstmap-d",
     "mp_charge_accumulation": "nx-mp_acc-b",
-    "mp_driven_psp": "nx-mp_psp-b"
+    "mp_driven_psp": "nx-mp_psp-b",
+    "is_mem_type": "cx-memory-b",
+    "longterm_mem_threshold": "cx-mem__t-i",
+    "lifespan_growth_rate": "cx-mem_gr-i",
+    "init_lifespan": "cx-mem_ls-i"
 }
