@@ -353,7 +353,7 @@ def vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel, 
         genome_changed = pns.detect_genome_change(message_from_feagi)
         # This applies to cortical change.
         if genome_changed != previous_genome_timestamp:
-            response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
+            response = pns.grab_geometry()
             capabilities['camera']['size_list'] = \
                 obtain_cortical_vision_size(capabilities['camera']["index"], response)
             previous_genome_timestamp = message_from_feagi["genome_changed"]
