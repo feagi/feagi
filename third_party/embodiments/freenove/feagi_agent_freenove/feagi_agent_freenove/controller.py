@@ -540,22 +540,15 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
     motor_count = capabilities['motor']['count']
     msg_counter = 0
     led_flag = False
-
-    # rpm = (50 * 60) / 2  # DC motor has 2 poles, 50 is the freq and it's constant (why??) and
-    # 60 is the seconds of a minute w = (rpm / 60) * (2 * math.pi)  # 60 is second/minute
-    # velocity = w * (configuration.capabilities['motor']['diameter_of_wheel'] / 2) diameter is
-    # from config and it just needs radius so I turned the diameter into a radius by divide it
-    # with 2
+    rgb = dict()
+    rgb['camera'] = dict()
 
     # --- Data Containers ---
     motor_data = dict()
-    previous_data_frame = dict()
-    # Initialize camera selection list
-    capabilities['camera']['current_select'] = [[], []]
-
+    previous_genome_timestamp = dict()
     # Status for data points
     data_point_status = {}
-
+    previous_frame_data = {}
     # Rolling windows for each motor
     rolling_window = {}
 
@@ -573,81 +566,49 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
     cam = cv2.VideoCapture(0)  # you need to do sudo rpi-update to be able to use this
     motor.stop()
     servo.set_default_position(runtime_data)
-    get_size_for_aptr_cortical = api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr'
-    raw_aptr = requests.get(get_size_for_aptr_cortical).json()
     device_list = pns.generate_OPU_list(capabilities)
-    aptr_cortical_size = pns.fetch_aptr_size(10, raw_aptr, None)
+    response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
+    capabilities['camera']['size_list'] = retina.obtain_cortical_vision_size(
+        capabilities['camera']["index"], response)
+    raw_frame = []
     while True:
         try:
             if capabilities['camera']['disabled'] is not True:
-                ret, image = cam.read()
-                if capabilities['camera']['current_select'][0]:
-                    capabilities['camera']["central_vision_resolution"] = capabilities['camera'][
-                        'current_select'][0]
-                    dim = (capabilities['camera']['current_select'][0][0], capabilities['camera'][
-                        'current_select'][0][1])
-                    image = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
-                if capabilities['camera']['mirror']:
-                    image = retina.flip_video(image)
-                rgb = dict()
-                if len(capabilities['camera']['snap']) > 0:
-                    previous_data_frame, camera, capabilities['camera']['current_select'] = \
-                        pns.generate_rgb(capabilities['camera']['snap'],
-                                         capabilities['camera'][
-                                             'central_vision_allocation_percentage'][0],
-                                         capabilities['camera'][
-                                             'central_vision_allocation_percentage'][1],
-                                         capabilities['camera']["central_vision_resolution"],
-                                         capabilities['camera']['peripheral_vision_resolution'],
-                                         previous_data_frame,
-                                         capabilities['camera']['current_select'],
-                                         capabilities['camera']['iso_default'],
-                                         capabilities['camera']['iso_default'],
-                                         camera_index=capabilities['camera']["index"],
-                                         snap=True)
-                    rgb['camera'] = camera
+                ret, raw_frame = cam.read()
+                try:
+                    if capabilities['camera']['snap'] != []:
+                        raw_frame = capabilities['camera']['snap']
+                    previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
+                                                                         capabilities['camera'][
+                                                                             "index"],
+                                                                         capabilities['camera'][
+                                                                             'size_list'],
+                                                                         previous_frame_data, rgb)
                     capabilities['camera']['snap'] = []
-                else:
-                    previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] \
-                        = pns.generate_rgb(image,
-                                           capabilities['camera'][
-                                               'central_vision_allocation_percentage'][0],
-                                           capabilities['camera'][
-                                               'central_vision_allocation_percentage'][1],
-                                           capabilities['camera']["central_vision_resolution"],
-                                           capabilities['camera']['peripheral_vision_resolution'],
-                                           previous_data_frame,
-                                           capabilities['camera']['current_select'],
-                                           capabilities['camera']['iso_default'],
-                                           capabilities['camera']["aperture_default"],
-                                           camera_index=capabilities['camera']["index"])
-            else:
-                rgb = {}
-            # Process OPU data received from FEAGI and pass it along
-            # if feagi_dict:
+                    capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed'] = \
+                        retina.vision_progress(capabilities, previous_genome_timestamp,
+                                               feagi_opu_channel,
+                                               api_address, feagi_settings, raw_frame)
+
+                    message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(),
+                                                               message_to_feagi)
+                    sleep(feagi_settings['feagi_burst_speed'])
+                    pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
+
+                    message_to_feagi.clear()
+                    for i in rgb['camera']:
+                        rgb['camera'][i].clear()
+                except Exception as e:
+                    # pass
+                    print("ERROR! : ", e)
+                    traceback.print_exc()
+
             message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
             if message_from_feagi is not None:
-                # Obtain the size of aptr
-                if aptr_cortical_size is None:
-                    aptr_cortical_size = pns.check_aptr(raw_aptr)
-                    # Update the vres
-                capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
-
-                # Update the aptr
-                capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
-                                                       aptr_cortical_size)
-                # Update the ISO
-                capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
-                                                  aptr_cortical_size)
                 obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
-                # print("obtained: ", obtained_signals)
                 led_flag = action(obtained_signals, device_list, led_flag, feagi_settings,
                                   capabilities, motor_data, rolling_window, motor, servo, led,
                                   runtime_data)
-                if "o_snap" in message_from_feagi["opu_data"]:
-                    if message_from_feagi["opu_data"]["o_snap"]:
-                        capabilities['camera']['snap'] = image
-            # print(time.time() - start)
             # Fetch IR data
             ir_list = ir_data[0] if ir_data else []
             formatted_ir_data = {'ir': {sensor: True for sensor in ir_list}}
@@ -663,20 +624,11 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
 
             # Ordering the message to send data to FEAGI
             message_to_feagi, battery = FEAGI.compose_message_to_feagi(
-                original_message={**formatted_ir_data, **formatted_ultrasonic_data,
-                                  **rgb})  # Removed battery due to error
-            # Disabled battery due to error
-            message_to_feagi['timestamp'] = datetime.now()
-            message_to_feagi['counter'] = msg_counter
-            if agent_settings['compression']:
-                serialized_data = pickle.dumps(message_to_feagi)
-                feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
-            else:
-                feagi_ipu_channel.send(message_to_feagi)
-            message_to_feagi.clear()
-            if message_from_feagi is not None:
-                feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
-            # sleep(feagi_settings['feagi_burst_speed'])
+                original_message={**formatted_ir_data, **formatted_ultrasonic_data, **rgb})
+            # Removed battery due to error
+            message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(),
+                                                       message_to_feagi)
+            sleep(feagi_settings['feagi_burst_speed'])
         except KeyboardInterrupt as ke:  # Keyboard error
             motor.stop()
             cam.release()
