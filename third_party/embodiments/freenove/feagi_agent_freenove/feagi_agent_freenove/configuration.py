@@ -77,8 +77,8 @@ capabilities = {
         "type": "ipu",
         "disabled": False,
         "index": "00",
-        "iso_default": 0.9,
-        "iso_range": [0.1, 2],
+        "iso_default": [50, 255],
+        "iso_range": [1, 255],
         "central_vision_allocation_percentage": [90, 80],
         "central_vision_resolution": [64, 64],
         "peripheral_vision_resolution": [8, 8],
@@ -88,7 +88,10 @@ capabilities = {
         "aperture_range": [0.2, 2],
         "aperture_default": 2,
         "mirror": True,
-        "snap": []
+        "snap": [],
+        "gaze_control": {0: 25, 1: 50},
+        "pupil_control": {0: 25, 1: 50},
+        "size_list": []
     },
     "led": {
         "type": "opu"
