@@ -25,8 +25,8 @@ import pickle
 from time import sleep
 import traceback
 
-global_feagi_opu_channel = '' # Updated by feagi.connect_to_feagi()
-global_api_address = '' # Updated by feagi.connect_to_feagi
+global_feagi_opu_channel = ''  # Updated by feagi.connect_to_feagi()
+global_api_address = ''  # Updated by feagi.connect_to_feagi
 
 
 def app_host_info():
@@ -94,6 +94,50 @@ class Sub(PubSub):
             self.socket.bind(address)
         else:
             self.socket.connect(address)
+
+
+def fetch_feagi(feagi_opu_channel):
+    """
+    Obtain the data from feagi's OPU
+    """
+    received_data = feagi_opu_channel.receive()  # Obtain data from FEAGI
+    # Verify if the data is not None
+    if received_data is not None:
+        # Verify if the data is compressed
+        if isinstance(received_data, bytes):
+            # Decompress
+            decompressed_data = lz4.frame.decompress(received_data)
+            # Another decompress of json
+            message_from_feagi = pickle.loads(decompressed_data)
+            return message_from_feagi
+        else:
+            # Directly obtain without any compressions
+            message_from_feagi = received_data
+            return message_from_feagi
+    else:
+        # It's None so no action will taken once it returns the None
+        message_from_feagi = None
+        return message_from_feagi
+
+
+def send_feagi(message_to_feagi, feagi_ipu_channel, agent_settings):
+    """
+    send data to FEAGI
+    """
+    if agent_settings['compression']:
+        serialized_data = pickle.dumps(message_to_feagi)
+        feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
+    else:
+        feagi_ipu_channel.send(message_to_feagi)
+
+
+def fetch_aptr(get_size_for_aptr_cortical):
+    try:
+        raw_aptr = requests.get(get_size_for_aptr_cortical).json()
+        return raw_aptr['cortical_dimensions'][2]
+    except Exception as error:
+        print("error: ", error)
+        return 10
 
 
 # def register_with_feagi(feagi_ip, feagi_api_port, agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int,
@@ -198,7 +242,7 @@ def register_with_feagi(feagi_auth_url, feagi_settings, agent_settings, agent_ca
             feagi_url = feagi_settings['feagi_url']
 
             network_output = requests.get(feagi_url + network_endpoint).json()
-            # print(f"network_output ---- {network_output}")     
+            # print(f"network_output ---- {network_output}")
             feagi_settings['feagi_opu_port'] = network_output['feagi_opu_port']
             if feagi_settings:
                 print("Data from FEAGI::", feagi_settings)
