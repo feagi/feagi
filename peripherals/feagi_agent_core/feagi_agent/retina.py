@@ -337,15 +337,15 @@ def vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel, 
     if message_from_feagi is not None:
         # OPU section STARTS
         # Obtain the size of aptr
-        if pns.aptr_cortical_size is None:
-            pns.aptr_cortical_size = pns.check_aptr(
+        if pns.global_aptr_cortical_size is None:
+            pns.global_aptr_cortical_size = pns.check_aptr(
                 api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr')
         # Update the aptr
         capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
-                                               pns.aptr_cortical_size)
+                                               pns.global_aptr_cortical_size)
         # Update the ISO
         capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
-                                          pns.aptr_cortical_size)
+                                          pns.global_aptr_cortical_size)
         # Update the vres
         capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
         # Update the aceture
@@ -375,6 +375,7 @@ def RGB_list_to_ndarray(data, size):
     new_rgb = np.array(data)
     new_rgb = new_rgb.reshape(size[0], size[1], 3)
     return new_rgb
+
 
 def flip_video(data):
     return cv2.flip(data, 1)
