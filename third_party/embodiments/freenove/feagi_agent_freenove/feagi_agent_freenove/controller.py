@@ -579,27 +579,6 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
     aptr_cortical_size = pns.fetch_aptr_size(10, raw_aptr, None)
     while True:
         try:
-            # Process OPU data received from FEAGI and pass it along
-            # if feagi_dict:
-            message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
-            if message_from_feagi is not None:
-                # Obtain the size of aptr
-                if aptr_cortical_size is None:
-                    aptr_cortical_size = pns.check_aptr(raw_aptr)                    
-                # Update the vres
-                capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
-                
-                # Update the aptr
-                capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
-                                                       aptr_cortical_size)
-                # Update the ISO
-                capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
-                                                  aptr_cortical_size)
-                obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
-                # print("obtained: ", obtained_signals)
-                led_flag = action(obtained_signals, device_list, led_flag, feagi_settings,
-                                  capabilities, motor_data, rolling_window, motor, servo, led,
-                                  runtime_data)
             if capabilities['camera']['disabled'] is not True:
                 ret, image = cam.read()
                 if capabilities['camera']['current_select'][0]:
@@ -611,23 +590,64 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
                 if capabilities['camera']['mirror']:
                     image = retina.flip_video(image)
                 rgb = dict()
-                previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] \
-                    = pns.generate_rgb(image,
-                                       capabilities['camera'][
-                                           'central_vision_allocation_percentage'][0],
-                                       capabilities['camera'][
-                                           'central_vision_allocation_percentage'][1],
-                                       capabilities['camera']["central_vision_resolution"],
-                                       capabilities['camera']['peripheral_vision_resolution'],
-                                       previous_data_frame,
-                                       capabilities['camera']['current_select'],
-                                       capabilities['camera']['iso_default'],
-                                       capabilities['camera']["aperture_default"],
-                                       camera_index=capabilities['camera']["index"])
+                if len(capabilities['camera']['snap']) > 0:
+                    previous_data_frame, camera, capabilities['camera']['current_select'] = \
+                        pns.generate_rgb(capabilities['camera']['snap'],
+                                         capabilities['camera'][
+                                             'central_vision_allocation_percentage'][0],
+                                         capabilities['camera'][
+                                             'central_vision_allocation_percentage'][1],
+                                         capabilities['camera']["central_vision_resolution"],
+                                         capabilities['camera']['peripheral_vision_resolution'],
+                                         previous_data_frame,
+                                         capabilities['camera']['current_select'],
+                                         capabilities['camera']['iso_default'],
+                                         capabilities['camera']['iso_default'],
+                                         camera_index=capabilities['camera']["index"],
+                                         snap=True)
+                    rgb['camera'] = camera
+                    capabilities['camera']['snap'] = []
+                else:
+                    previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] \
+                        = pns.generate_rgb(image,
+                                           capabilities['camera'][
+                                               'central_vision_allocation_percentage'][0],
+                                           capabilities['camera'][
+                                               'central_vision_allocation_percentage'][1],
+                                           capabilities['camera']["central_vision_resolution"],
+                                           capabilities['camera']['peripheral_vision_resolution'],
+                                           previous_data_frame,
+                                           capabilities['camera']['current_select'],
+                                           capabilities['camera']['iso_default'],
+                                           capabilities['camera']["aperture_default"],
+                                           camera_index=capabilities['camera']["index"])
             else:
                 rgb = {}
-            # print(time.time() - start)
+            # Process OPU data received from FEAGI and pass it along
+            # if feagi_dict:
+            message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
+            if message_from_feagi is not None:
+                # Obtain the size of aptr
+                if aptr_cortical_size is None:
+                    aptr_cortical_size = pns.check_aptr(raw_aptr)
+                    # Update the vres
+                capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
 
+                # Update the aptr
+                capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
+                                                       aptr_cortical_size)
+                # Update the ISO
+                capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
+                                                  aptr_cortical_size)
+                obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
+                # print("obtained: ", obtained_signals)
+                led_flag = action(obtained_signals, device_list, led_flag, feagi_settings,
+                                  capabilities, motor_data, rolling_window, motor, servo, led,
+                                  runtime_data)
+                if "o_snap" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o_snap"]:
+                        capabilities['camera']['snap'] = image
+            # print(time.time() - start)
             # Fetch IR data
             ir_list = ir_data[0] if ir_data else []
             formatted_ir_data = {'ir': {sensor: True for sensor in ir_list}}
