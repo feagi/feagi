@@ -38,9 +38,9 @@ capabilities = {
         "type": "ipu",
         "disabled": False,
         "index": "00",
-        "iso_default": 0.6,
-        "iso_range": [0.1, 2],
-        "central_vision_allocation_percentage": [90, 70],
+        "iso_default": [10, 255],
+        "iso_range": [1, 255],
+        "central_vision_allocation_percentage": [80, 60],
         "central_vision_resolution": [64, 64],
         "peripheral_vision_resolution": [8, 8],
         "resolution_presets": [[8, 8], [16, 16], [32, 32], [64, 64], [80, 60], [128, 128], [160, 120],
@@ -50,8 +50,12 @@ capabilities = {
         "video_loop": False,
         "aperture_range": [0.1, 2],
         "aperture_default": 2,
-        "mirror": True,
-        "monitor": 0
+        "mirror": False,
+        "monitor": 0,
+        "snap": [],
+        "gaze_control": {0: 25, 1: 50},
+        "pupil_control": {0: 25, 1: 50},
+        "size_list": []
     }
 }
 

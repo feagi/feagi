@@ -270,6 +270,7 @@ def connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities,
                                                      capabilities=capabilities,
                                                      controller_version=current_version)
     api_address = runtime_data['feagi_state']["feagi_url"]
+    router.global_api_address = api_address
     agent_data_port = str(runtime_data["feagi_state"]['agent_state']['agent_data_port'])
     print("** **", runtime_data["feagi_state"])
     feagi_settings['feagi_burst_speed'] = float(runtime_data["feagi_state"]['burst_duration'])
@@ -281,4 +282,5 @@ def connect_to_feagi(feagi_settings, runtime_data, agent_settings, capabilities,
 
     feagi_ipu_channel = pub_initializer(ipu_channel_address, bind=False)
     feagi_opu_channel = sub_initializer(opu_address=opu_channel_address)
+    router.global_feagi_opu_channel = feagi_opu_channel
     return feagi_settings, runtime_data, api_address, feagi_ipu_channel, feagi_opu_channel
