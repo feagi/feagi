@@ -84,7 +84,8 @@ def fetch_iso_data(message_from_feagi, capabilities, aptr_cortical_size):
             for i in message_from_feagi["opu_data"]["o__dev"]:
                 device_id = i.split('-')
                 feagi_aptr = (int(i.split('-')[-1]))
-                aptr_cortical_size = fetch_aptr_size(global_aptr_cortical_size, global_aptr_cortical_size,
+                aptr_cortical_size = fetch_aptr_size(global_aptr_cortical_size,
+                                                     global_aptr_cortical_size,
                                                      feagi_aptr)
                 max_range = capabilities['camera']['iso_range'][1]
                 min_range = capabilities['camera']['iso_range'][0]
@@ -148,6 +149,10 @@ def fetch_aptr_size(aptr_cortical_size, get_size_for_aptr_cortical, feagi_aptr=N
 
 def check_aptr(get_size_for_aptr_cortical):
     return router.fetch_aptr(get_size_for_aptr_cortical)
+
+
+def grab_geometry():
+    return router.fetch_geometry()
 
 
 def generate_OPU_list(capabilities):
