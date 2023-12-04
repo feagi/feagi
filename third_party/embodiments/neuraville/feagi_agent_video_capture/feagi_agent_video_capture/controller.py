@@ -24,7 +24,6 @@ from time import sleep
 from datetime import datetime
 from feagi_agent.version import __version__
 from feagi_agent import retina as retina
-from feagi_agent import pns_gateway as pns
 from feagi_agent import feagi_interface as feagi
 import traceback
 import threading
