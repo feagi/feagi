@@ -17,7 +17,6 @@ limitations under the License.
 """
 
 from feagi_agent import feagi_interface as feagi
-from feagi_agent import retina as retina
 from feagi_agent import router
 
 # Variable storage #
