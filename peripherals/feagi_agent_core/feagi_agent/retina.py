@@ -286,9 +286,8 @@ def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previ
                                                 raw_frame_data=raw_frame)
     compressed_data = dict()
     for cortical in segmented_frame_data:
-        compressed_data[cortical] = downsize_regions(
-            segmented_frame_data[cortical],
-            resize_list[cortical])
+        compressed_data[cortical] = downsize_regions(segmented_frame_data[cortical],
+                                                     resize_list[cortical])
     vision_dict = dict()
 
     # for segment in compressed_data:
@@ -319,19 +318,28 @@ def obtain_cortical_vision_size(camera_index, response):
     items = [camera_index + "_C", camera_index + "LL", camera_index + "LM", camera_index + "LR",
              camera_index + "MR", camera_index + "ML", camera_index + "TR", camera_index + "TL",
              camera_index + "TM"]
-    for name_from_data in data:
-        for fetch_name in items:
-            if fetch_name in name_from_data:
-                name = name_from_data.replace("iv", "")
-                dimension_array = data[name_from_data]["dimensions"][0], \
-                                  data[name_from_data]["dimensions"][1], \
-                                  data[name_from_data]["dimensions"][2]
-                size_list[name] = dimension_array
+    if data is not None:
+        for name_from_data in data:
+            for fetch_name in items:
+                if fetch_name in name_from_data:
+                    name = name_from_data.replace("iv", "")
+                    dimension_array = data[name_from_data]["dimensions"][0], \
+                                      data[name_from_data]["dimensions"][1], \
+                                      data[name_from_data]["dimensions"][2]
+                    size_list[name] = dimension_array
     return size_list
+
+
+def update_size_list(capabilities):
+    response = pns.grab_geometry()
+    capabilities['camera']['size_list'] = \
+        obtain_cortical_vision_size(capabilities['camera']["index"], response)
+    return capabilities
 
 
 def vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel, api_address,
                     feagi_settings, raw_frame):
+    global genome_tracker # horrible, worst in programming. TODO: FIX THIS
     message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
     if message_from_feagi is not None:
         # OPU section STARTS
@@ -349,12 +357,15 @@ def vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel, 
         capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
         # Update the aceture
         capabilities = pns.fetch_vision_acuity(message_from_feagi, capabilities)
+        # Update resize if genome has been changed:
+        current_tracker = pns.obtain_genome_number(genome_tracker, message_from_feagi)
+        if genome_tracker != current_tracker:
+            capabilities = update_size_list(capabilities)
+            genome_tracker = current_tracker
         genome_changed = pns.detect_genome_change(message_from_feagi)
         # This applies to cortical change.
         if genome_changed != previous_genome_timestamp:
-            response = pns.grab_geometry()
-            capabilities['camera']['size_list'] = \
-                obtain_cortical_vision_size(capabilities['camera']["index"], response)
+            capabilities = update_size_list(capabilities)
             previous_genome_timestamp = message_from_feagi["genome_changed"]
         capabilities = pns.obtain_snap_data(raw_frame, message_from_feagi, capabilities)
         capabilities = pns.monitor_switch(message_from_feagi, capabilities)
