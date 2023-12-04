@@ -19,7 +19,6 @@ limitations under the License.
 import cv2
 import numpy as np
 import traceback
-import requests
 from datetime import datetime
 from feagi_agent import pns_gateway as pns
 

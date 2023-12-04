@@ -140,6 +140,10 @@ def fetch_aptr(get_size_for_aptr_cortical):
         return 10
 
 
+def fetch_geometry():
+    return requests.get(global_api_address + '/v1/feagi/genome/cortical_area/geometry')
+
+
 # def register_with_feagi(feagi_ip, feagi_api_port, agent_type: str, agent_id: str, agent_ip: str, agent_data_port: int,
 #                         agent_capabilities):
 #     """
