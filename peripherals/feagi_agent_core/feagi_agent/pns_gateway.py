@@ -18,6 +18,7 @@ limitations under the License.
 
 from feagi_agent import feagi_interface as feagi
 from feagi_agent import router
+import traceback
 
 # Variable storage #
 raw_aptr = -1
