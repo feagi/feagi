@@ -18,270 +18,375 @@ limitations under the License.
 
 import cv2
 import numpy as np
+import traceback
+from datetime import datetime
+from feagi_agent import pns_gateway as pns
+
+genome_tracker = 0
 
 
-def resize_calculate(a, b, p):
-    after_percent = p / 100
-    remain_percent = ((100 - p) / 2) / 100
-    c = b * remain_percent
-    d = b * (after_percent + remain_percent)
-    return int(c), int(d)
-
-
-def snippet_rgb(inner_width, percent_a, inner_height, percent_b):
-    data0, data1 = resize_calculate(0, inner_width, percent_a)
-    data2, data3 = resize_calculate(0, inner_height, percent_b)
-    return data0, data1, data2, data3
-
-
-def center_data_compression(frame, central_vision_compression):
-    """capabilities['camera']["central_vision_compression"]"""
-    try:
-        compressed = cv2.resize(frame, central_vision_compression, interpolation=cv2.INTER_AREA)
-    except Exception as error:
-        compressed = []
-    return compressed
-
-
-def check_previous_data(previous_data_frame, retina_data):
+def get_device_of_vision(device):
     """
-    Verify if `previous_data_frame` is not empty.
-    If it is empty, create an empty dictionary with multiple pieces inside using the `retina_data`.
+    Obtain the camera source and bind it using the provided address.
+
+    Args:
+    - device: The path to the file, video, or webcam. Webcam should be an integer number.
+
+    Returns:
+    - An address corresponding to the webcam source, enabling its use across different files.
     """
-
-    if previous_data_frame == {}:
-        for i in retina_data:
-            previous_name = str(i) + "_prev"
-            previous_data_frame[previous_name] = {}
-        return previous_data_frame
-    return previous_data_frame
+    return cv2.VideoCapture(device)
 
 
-def detect_change_edge(frame, previous_data_frame, retina_data, current_selected_size,
-                       central_resolution, peripheral_resolution, current_iso_selected,
-                       aperture_default):
+def vision_frame_capture(device, RGB_flag=True):
     """
-    This function is designed to compare the previous data with the current data and then detect
-    which is different, while being handled by an ISO threshold which can be found in configuration.py.
+    Capture frames from the specified `device`, which represents the camera source.
 
-    Parameters:
-        frame (ndarray): RGB data.
-        previous_data_frame (dict): Previous data containing old RGB values stored in the controller.
-        retina_data (dict): Latest RGB data.
-        current_selected_size (array): It is capabilities['camera']['current_select'] in the config.
-        central_resolution (array): Capabilities['camera']["central_vision_resolution"].
-        peripheral_resolution (array): Capabilities['camera']['peripheral_vision_resolution'].
-        current_iso_selected (float): Capabilities['camera']['iso_threshold'].
-        aperture_default (float): Capabilities['camera']["aperture_default"].
+    Args:
+    - device: The camera device obtained using the `get_device_of_vision()` function.
+    - RGB_flag: A boolean indicating whether to retrieve data in RGB format (default: True).
+      If set to False, the function returns grayscale data.
+
+    Returns:
+    - An nd.array representing the captured frame data. For RGB, it contains three dimensions;
+      for grayscale, it displays a single dimension.
+      Example format: [[x, y, z], [x, y, z]].
     """
-
-    rgb = {'camera': {}}
-    for i in retina_data:
-        name = i
-        if 'prev' not in i:
-            data = ndarray_to_list(retina_data[i])
-            if data is False:
-                if len(frame) > 0:
-                    print("shape: ", frame.shape)
-                print("The size: ", current_selected_size, " is not available for this")
-                print("Reverting to the original size")
-                current_selected_size = []
-                frame = {}
-                data = []
-            if '_C' in i:
-                previous_name = str(i) + "_prev"
-                rgb_data, previous_data_frame[previous_name] = \
-                    get_rgb(data, central_resolution, previous_data_frame[previous_name], name,
-                            current_iso_selected, aperture_default)
-            else:
-                previous_name = str(i) + "_prev"
-                rgb_data, previous_data_frame[previous_name] = \
-                    get_rgb(data, peripheral_resolution, previous_data_frame[previous_name],
-                            name, current_iso_selected, aperture_default)
-            for a in rgb_data['camera']:
-                rgb['camera'][a] = rgb_data['camera'][a]
-
-    return previous_data_frame, rgb['camera'], current_selected_size
-
-
-def frame_compression(frame, central_resolution, peripheral_resolution):
-    """
-    It will compress all pieces using the `central_resolution` and `peripheral_resolution`.
-    The key with 'C' will be compressed with central resolution, while the non-'C' keys will use
-    peripheral resolution.
-
-    Parameters:
-        frame (array): Latest RGB data.
-        central_resolution (array): Capabilities['camera']["central_vision_resolution"].
-        peripheral_resolution (array): Capabilities['camera']['peripheral_vision_resolution'].
-    """
-
-    for i in frame:
-        if 'C' in i:
-            frame[i] = center_data_compression(frame[i], central_resolution)
-        else:
-            frame[i] = center_data_compression(frame[i], peripheral_resolution)
-    return frame
-
-
-def peripheral_data_compression(frame, peripheral_vision_compression):
-    """capabilities['camera']["peripheral_vision_compression"]"""
-    compressed = cv2.resize(frame, peripheral_vision_compression, interpolation=cv2.INTER_AREA)
-    return compressed
-
-
-def ndarray_to_list(array):
-    if isinstance(array, np.ndarray) and array.size > 0:
-        return array.flatten().tolist()
-    return False
-
-
-def get_rgb(frame, size, previous_frame_data, name_id, deviation_threshold, atpr_level,
-            single_RGB=None):
-    """
-    frame should be a full raw rgb after used ndarray_to_list().
-
-    size should be coming from the configuration.capabilities['camera'][
-    'peripheral_vision_compression'] or configuration.capabilities['camera'][
-    'central_vision_compression']
-
-    previous should be held and used by a global dictionary to hold the old data so that way,
-    it can compare and see the difference.
-
-    name_id is cortical area's name.
-
-    deviation_threshold is the threshold to reduce the massive red voxels on godot.
-
-    single_RGB should be 0 to 2. R = 0, G = 1, B = 2
-    """
-
-    vision_dict = dict()
-    frame_row_count = size[0]  # width
-    frame_col_count = size[1]  # height
-
-    x_vision = 0  # row counter
-    y_vision = 0  # col counter
-    z_vision = 0  # RGB counter
-
-    try:
-        previous_frame = previous_frame_data
-    except Exception:
-        previous_frame = [0, 0]
-    frame_len = len(previous_frame)
-    try:
-        # if frame_len == frame_row_count * frame_col_count * 3:  # check to ensure frame length
-        # matches the
-        # resolution setting
-        for index in range(frame_len):
-            if previous_frame[index] != frame[index]:
-                if (abs((previous_frame[index] - frame[index])) / 100) > deviation_threshold:
-                    dict_key = str(y_vision) + '-' + \
-                               str(abs((frame_col_count - 1) - x_vision)) + '-' + str(z_vision)
-                    if single_RGB != None:
-                        dict_key = str(y_vision) + '-' + \
-                                   str(abs((frame_col_count - 1) - x_vision)) + '-' + str(
-                            single_RGB)
-                    vision_dict[dict_key] = frame[index]  # save the value for the changed
-                    # index to the dict
-            z_vision += 1
-            if z_vision == 3:
-                z_vision = 0
-                y_vision += 1
-                if y_vision == frame_row_count:
-                    y_vision = 0
-                    x_vision += 1
-        if frame != {}:
-            previous_frame_data = frame
-    except Exception as e:
-        print("Error: Raw data frame does not match frame resolution")
-        print("Error due to this: ", e)
-        previous_frame_data = {}
-    if len(vision_dict) > (frame_row_count * frame_col_count) / atpr_level:
-        return {'camera': {name_id: {}}}, previous_frame_data
+    start_time = datetime.now()
+    check, frame = device.read()  # 0 is the default
+    # print("vision_frame_capture time total: ", (datetime.now() - start_time).total_seconds())
+    if RGB_flag:
+        return frame, datetime.now(), check
     else:
-        return {'camera': {name_id: vision_dict}}, previous_frame_data
+        return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), datetime.now(), check
 
 
-def frame_split(frame, width_percent, height_percent, camera_index: str):
-    vision = dict()
-    try:
-        full_data = frame.shape
-        if width_percent == height_percent:
-            width_data1, width_data2, height_data1, height_data2 = snippet_rgb(full_data[0],
-                                                                               width_percent,
-                                                                               full_data[1],
-                                                                               height_percent)
-            vision[camera_index + '_C'] = frame[width_data1:width_data2, height_data1:height_data2]
-            vision[camera_index + 'TL'] = np.zeros((8, 8, 3))
-            vision[camera_index + 'TM'] = np.zeros((8, 8, 3))
-            vision[camera_index + 'TR'] = np.zeros((8, 8, 3))
-            vision[camera_index + 'ML'] = np.zeros((8, 8, 3))
-            vision[camera_index + 'MR'] = np.zeros((8, 8, 3))
-            vision[camera_index + 'LL'] = np.zeros((8, 8, 3))
-            vision[camera_index + 'LM'] = np.zeros((8, 8, 3))
-            vision[camera_index + 'LR'] = np.zeros((8, 8, 3))
+def vision_region_coordinates(frame_width, frame_height, x1, x2, y1, y2, camera_index):
+    """
+    Calculate coordinates for nine different regions within a frame based on given percentages.
+
+    This function computes the coordinates for nine regions within a frame, defined by x1, x2,
+    y1, and y2 percentages. These percentages indicate the position of a point within the frame's
+    width and height.
+
+    Inputs:
+    - frame_width: Integer, width of the frame.
+    - frame_height: Integer, height of the frame.
+    - x1, x2, y1, y2: integers representing percentages (0 to 100) along x-axis
+    and y-axis.
+                      For example, x1=50, y1=40 corresponds to 50% and 40%.
+
+    Output:
+    - region_coordinates: Dictionary containing coordinates for nine different regions:
+                          'TL', 'TM', 'TR', 'ML', '_C', 'MR', 'LL', 'LM', 'LR'.
+                          Each region has its respective coordinates within the frame.
+
+    Note: Make sure that x1, x2, y1, and y2 are valid percentage values within the range of 0 to
+    100.
+    """
+    start_time = datetime.now()
+    x1_prime = int(frame_width * (x1 / 100))
+    x2_prime = x1_prime + int((frame_width - x1_prime) * (x2 / 100))
+    y1_prime = int(frame_height * (y1 / 100))
+    y2_prime = y1_prime + int((frame_height - y1_prime) * (y2 / 100))
+
+    region_coordinates = dict()
+    region_coordinates[camera_index + 'TL'] = [0, 0, x1_prime, y1_prime]
+    region_coordinates[camera_index + 'TM'] = [x1_prime, 0, x2_prime, y1_prime]
+    region_coordinates[camera_index + 'TR'] = [x2_prime, 0, frame_width, y1_prime]
+    region_coordinates[camera_index + 'ML'] = [0, y1_prime, x1_prime, y2_prime]
+    region_coordinates[camera_index + '_C'] = [x1_prime, y1_prime, x2_prime, y2_prime]
+    region_coordinates[camera_index + 'MR'] = [x2_prime, y1_prime, frame_width, y2_prime]
+    region_coordinates[camera_index + 'LL'] = [0, y2_prime, x1_prime, frame_height]
+    region_coordinates[camera_index + 'LM'] = [x1_prime, y2_prime, x2_prime, frame_height]
+    region_coordinates[camera_index + 'LR'] = [x2_prime, y2_prime, frame_width, frame_height]
+    # print("vision_region_coordinates time total: ", (datetime.now() - start_time).total_seconds())
+    return region_coordinates
+
+
+def split_vision_regions(coordinates, raw_frame_data):
+    """
+    Split a frame into separate regions based on provided coordinates.
+
+    This function takes the output coordinates from the 'vision_region_coordinates()' function
+    and the raw frame data, then splits the frame into nine distinct regions according to those
+    coordinates.
+
+    Inputs:
+    - coordinates: Dictionary containing the coordinates for nine regions, usually obtained
+                   from the 'vision_region_coordinates()' function.
+    - raw_frame_data: The original frame data or image used for splitting into regions.
+
+    Output:
+    - Display: Visual representation or display of all nine regions independently within the frame.
+    """
+
+    start_time = datetime.now()
+    frame_segments = dict()
+    for region in coordinates:
+        frame_segments[region] = raw_frame_data[coordinates[region][1]:coordinates[region][3],
+                                 coordinates[region][0]:coordinates[region][2]]
+    # print("split_vision_regions time total: ", (datetime.now() - start_time).total_seconds())
+    return frame_segments
+
+
+def downsize_regions(frame, resize):
+    """
+    Downsize regions within a frame using specified width and height for compression.
+
+    This function utilizes the resize parameter to compress regions within a frame obtained from
+     FEAGI's API.
+    The frame should be represented as a NumPy ndarray.
+
+    Inputs:
+    - frame: NumPy ndarray representing the image/frame data.
+    - resize: Tuple containing width and height values for compression.
+              Example: (8, 8), (64, 64), (64, 32)
+
+    Output:
+    - compressed_dict: Dictionary containing compressed data for nine regions.
+                       Each region will be represented within the compressed_dict.
+
+    Make sure that the 'frame' input is a valid NumPy ndarray and the 'resize' parameter contains
+    appropriate width and height values for compression.
+    """
+    start_time = datetime.now()
+    if resize[2] == 3:
+        compressed_dict = cv2.resize(frame, [resize[0], resize[1]], interpolation=cv2.INTER_AREA)
+    if resize[2] == 1:
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        compressed_dict = cv2.resize(frame, [resize[0], resize[1]], interpolation=cv2.INTER_AREA)
+    # print("downsize_regions time total: ", (datetime.now() - start_time).total_seconds())
+    return compressed_dict
+
+
+def create_feagi_data(significant_changes, current, shape):
+    start_time = datetime.now()
+    feagi_data = {}
+    size_of_frame = shape
+    for x in range(size_of_frame[0]):
+        for y in range(size_of_frame[1]):
+            for z in range(size_of_frame[2]):
+                if significant_changes[x, y, z]:
+                    key = f'{y}-{(size_of_frame[1] - 1) - x}-{z}'
+                    feagi_data[key] = int(current[x, y, z])
+    # print("C change_detector_optimized time total: ",
+    #       (datetime.now() - start_time).total_seconds())
+    return feagi_data
+
+
+def create_feagi_data_grayscale(significant_changes, current, shape):
+    start_time = datetime.now()
+    feagi_data = {}
+    size_of_frame = shape
+    for x in range(size_of_frame[0]):
+        for y in range(size_of_frame[1]):
+            if significant_changes[x, y]:
+                key = f'{y}-{(size_of_frame[1] - 1) - x}-{0}'
+                feagi_data[key] = int(current[x, y])
+    return feagi_data
+
+
+def change_detector_grayscale(previous, current, capabilities):
+    """
+    Detects changes between previous and current frames and checks against a threshold.
+
+    Compares the previous and current frames to identify differences. If the difference
+    exceeds a predefined threshold (iso), it records the change in a dictionary for Feagi.
+
+    Inputs:
+    - previous: Dictionary with 'cortical' keys containing NumPy ndarray frames.
+    - current: Dictionary with 'cortical' keys containing NumPy ndarray frames.
+
+    Output:
+    - Dictionary containing changes in the ndarray frames.
+    """
+
+    # Using cv2.absdiff for optimized difference calculation
+    if current.shape == previous.shape:
+
+        if capabilities['camera']['snap'] == []:
+            difference = cv2.absdiff(previous, current)
 
         else:
-            if width_percent == 100:
-                width_percent = 100 - 1
-            if height_percent == 100:
-                height_percent = 100 - 1
-            width_data1, width_data2, height_data1, height_data2 = snippet_rgb(full_data[0],
-                                                                               width_percent,
-                                                                               full_data[1],
-                                                                               height_percent)
-            vision[camera_index + 'TL'] = frame[0:width_data1, 0:height_data1]
-            vision[camera_index + 'TM'] = frame[0:width_data1, height_data1:height_data2]
-            vision[camera_index + 'TR'] = frame[0:width_data1, height_data2:]
-            vision[camera_index + 'ML'] = frame[width_data1:width_data2, 0:height_data1]
-            vision[camera_index + '_C'] = frame[width_data1:width_data2, height_data1:height_data2]
-            vision[camera_index + 'MR'] = frame[width_data1:width_data2, height_data2:]
-            vision[camera_index + 'LL'] = frame[width_data2:, 0:height_data1]
-            vision[camera_index + 'LM'] = frame[width_data2:, height_data1: height_data2]
-            vision[camera_index + 'LR'] = frame[width_data2:, height_data2:]
-    except AttributeError:
-        # print("No visual data to process!")
-        pass
-    return vision
+            print("Snap!")
+            difference = cv2.absdiff(0, current)
+            print(current)
+
+        thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
+                                    capabilities['camera']['iso_default'][1],
+                                    cv2.THRESH_TOZERO)[1]
+
+        thresholded = cv2.threshold(thresholded, capabilities['camera']['iso_default'][0],
+                                    capabilities['camera']['iso_default'][1],
+                                    cv2.THRESH_TOZERO_INV)[1]
+        # Convert to boolean array for significant changes
+        significant_changes = thresholded > 0
+
+        feagi_data = create_feagi_data_grayscale(significant_changes, current, previous.shape)
+        #
+        # print("change_detector_optimized time total: ",
+        #       (datetime.now() - start_time).total_seconds())
+    else:
+        return {}
+    return feagi_data
 
 
-def pan(frame, origin, x, y):
+def change_detector(previous, current, capabilities):
     """
-    No filter involves. No resize or compression. Just return all boxes.
-    This is heavily leveraged on the frame_split() function.
+    Detects changes between previous and current frames and checks against a threshold.
+
+    Compares the previous and current frames to identify differences. If the difference
+    exceeds a predefined threshold (iso), it records the change in a dictionary for Feagi.
+
+    Inputs:
+    - previous: Dictionary with 'cortical' keys containing NumPy ndarray frames.
+    - current: Dictionary with 'cortical' keys containing NumPy ndarray frames.
+
+    Output:
+    - Dictionary containing changes in the ndarray frames.
     """
-    vision = frame[origin[1]:origin[1] + y, origin[0]:origin[0] + x]
-    return vision
+
+    # Using cv2.absdiff for optimized difference calculation
+    if current.shape == previous.shape:
+        difference = cv2.absdiff(previous, current)
+        if capabilities['camera']['snap'] == []:
+            thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
+                                        capabilities['camera']['iso_default'][1],
+                                        cv2.THRESH_BINARY)[1]
+            # Convert to boolean array for significant changes
+            significant_changes = thresholded > 0
+        else:
+            thresholded = cv2.threshold(difference, 0, 255,
+                                        cv2.THRESH_BINARY)[1]
+            # Convert to boolean array for significant changes
+            significant_changes = thresholded > 0
+
+        # print("RGB signifcant change: ", significant_changes)
+
+        feagi_data = create_feagi_data(significant_changes, current, previous.shape)
+        #
+        # print("change_detector_optimized time total: ",
+        #       (datetime.now() - start_time).total_seconds())
+    else:
+        return {}
+    return dict(feagi_data)
 
 
-def obtain_dimension(data, data_type):
-    if data_type == "list":
-        dimension = np.array(data)
-        return dimension.shape
-    elif data_type == "ndarray":
-        return data.shape
+def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previous_frame_data,
+                       rgb):
+  if resize_list:
+    region_coordinates = vision_region_coordinates(raw_frame.shape[1],
+                                                   raw_frame.shape[0], capabilities['camera'][
+                                                       'gaze_control'][0], capabilities['camera'][
+                                                       'gaze_control'][1],
+                                                   capabilities['camera']['pupil_control'][0],
+                                                   capabilities['camera']['pupil_control'][1],
+                                                   camera_index)
+    segmented_frame_data = split_vision_regions(coordinates=region_coordinates,
+                                                raw_frame_data=raw_frame)
+    compressed_data = dict()
+    for cortical in segmented_frame_data:
+        compressed_data[cortical] = downsize_regions(segmented_frame_data[cortical],
+                                                     resize_list[cortical])
+    vision_dict = dict()
+
+    # for segment in compressed_data:
+    #     cv2.imshow(segment, compressed_data[segment])
+    # if cv2.waitKey(30) & 0xFF == ord('q'):
+    #     pass
+    for get_region in compressed_data:
+        if resize_list[get_region][2] == 3:
+            if previous_frame_data != {}:
+                vision_dict[get_region] = change_detector(
+                    previous_frame_data[get_region],
+                    compressed_data[get_region],
+                    capabilities)
+        else:
+            if previous_frame_data != {}:
+                vision_dict[get_region] = change_detector_grayscale(
+                    previous_frame_data[get_region],
+                    compressed_data[get_region],
+                    capabilities)
+    previous_frame_data = compressed_data
+    rgb['camera'] = vision_dict
+    return previous_frame_data, rgb
+  return resize_list, resize_list # sending empty dict
 
 
-def pitina_to_retina(data, size):
-    rgb_value = list(data)
-    new_rgb = np.array(rgb_value)
-    return new_rgb.reshape(size[1], size[0], 3)
+def obtain_cortical_vision_size(camera_index, response):
+    size_list = {}
+    data = response.json()
+    items = [camera_index + "_C", camera_index + "LL", camera_index + "LM", camera_index + "LR",
+             camera_index + "MR", camera_index + "ML", camera_index + "TR", camera_index + "TL",
+             camera_index + "TM"]
+    if data is not None:
+        for name_from_data in data:
+            for fetch_name in items:
+                if fetch_name in name_from_data:
+                    name = name_from_data.replace("iv", "")
+                    dimension_array = data[name_from_data]["dimensions"][0], \
+                                      data[name_from_data]["dimensions"][1], \
+                                      data[name_from_data]["dimensions"][2]
+                    size_list[name] = dimension_array
+    return size_list
+
+
+def update_size_list(capabilities):
+    response = pns.grab_geometry()
+    capabilities['camera']['size_list'] = \
+        obtain_cortical_vision_size(capabilities['camera']["index"], response)
+    return capabilities
+
+
+def vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel, api_address,
+                    feagi_settings, raw_frame):
+    global genome_tracker # horrible, worst in programming. TODO: FIX THIS
+    message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
+    if message_from_feagi is not None:
+        # OPU section STARTS
+        # Obtain the size of aptr
+        if pns.global_aptr_cortical_size is None:
+            pns.global_aptr_cortical_size = pns.check_aptr(
+                api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr')
+        # Update the aptr
+        capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
+                                               pns.global_aptr_cortical_size)
+        # Update the ISO
+        capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
+                                          pns.global_aptr_cortical_size)
+        # Update the vres
+        capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
+        # Update the aceture
+        capabilities = pns.fetch_vision_acuity(message_from_feagi, capabilities)
+        # Update resize if genome has been changed:
+        current_tracker = pns.obtain_genome_number(genome_tracker, message_from_feagi)
+        if genome_tracker != current_tracker:
+            capabilities = update_size_list(capabilities)
+            genome_tracker = current_tracker
+        genome_changed = pns.detect_genome_change(message_from_feagi)
+        # This applies to cortical change.
+        if genome_changed != previous_genome_timestamp:
+            capabilities = update_size_list(capabilities)
+            previous_genome_timestamp = message_from_feagi["genome_changed"]
+        capabilities = pns.obtain_snap_data(raw_frame, message_from_feagi, capabilities)
+        capabilities = pns.monitor_switch(message_from_feagi, capabilities)
+        capabilities = pns.gaze_control_update(message_from_feagi, capabilities)
+        capabilities = pns.pupil_control_update(message_from_feagi, capabilities)
+        feagi_settings['feagi_burst_speed'] = pns.check_refresh_rate(message_from_feagi,
+                                                                     feagi_settings[
+                                                                         'feagi_burst_speed'])
+    return capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed']
 
 
 def update_astype(data):
     return data.astype(np.uint8)
 
 
-def RGBA_list_to_ndarray(data, size):
-    new_rgb = np.array(data)
-    new_rgb = new_rgb.reshape(size[0], size[1], 4)
-    return new_rgb
-
-
 def RGB_list_to_ndarray(data, size):
-    new_rgb = np.array(data)
-    new_rgb = new_rgb.reshape(size[0], size[1], 3)
-    return new_rgb
+  new_rgb = np.array(data)
+  new_rgb = new_rgb.reshape(size[0], size[1], 3)
+  return new_rgb
 
 
 def flip_video(data):
