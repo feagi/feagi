@@ -275,6 +275,7 @@ def change_detector(previous, current, capabilities):
 
 def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previous_frame_data,
                        rgb):
+  if resize_list:
     region_coordinates = vision_region_coordinates(raw_frame.shape[1],
                                                    raw_frame.shape[0], capabilities['camera'][
                                                        'gaze_control'][0], capabilities['camera'][
@@ -310,6 +311,7 @@ def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previ
     previous_frame_data = compressed_data
     rgb['camera'] = vision_dict
     return previous_frame_data, rgb
+  return resize_list, resize_list # sending empty dict
 
 
 def obtain_cortical_vision_size(camera_index, response):
@@ -382,9 +384,9 @@ def update_astype(data):
 
 
 def RGB_list_to_ndarray(data, size):
-    new_rgb = np.array(data)
-    new_rgb = new_rgb.reshape(size[0], size[1], 3)
-    return new_rgb
+  new_rgb = np.array(data)
+  new_rgb = new_rgb.reshape(size[0], size[1], 3)
+  return new_rgb
 
 
 def flip_video(data):
