@@ -289,6 +289,7 @@ def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previ
     for cortical in segmented_frame_data:
         compressed_data[cortical] = downsize_regions(segmented_frame_data[cortical],
                                                      resize_list[cortical])
+
     vision_dict = dict()
 
     # for segment in compressed_data:
