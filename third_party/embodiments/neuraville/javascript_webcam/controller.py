@@ -190,16 +190,16 @@ if __name__ == "__main__":
                         retina.vision_progress(capabilities, previous_genome_timestamp,
                                                feagi_opu_channel,
                                                api_address, feagi_settings, raw_frame)
-
-                    message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(),
-                                                               message_to_feagi)
+                    if rgb:
+                        message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(),
+                                                                   message_to_feagi)
+                        pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
+                        message_to_feagi.clear()
+                        for i in rgb['camera']:
+                            rgb['camera'][i].clear()
                     sleep(feagi_settings['feagi_burst_speed'])
-                    pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
-
-                    message_to_feagi.clear()
-                    for i in rgb['camera']:
-                        rgb['camera'][i].clear()
             except Exception as e:
                 # pass
                 print("ERROR! : ", e)
                 traceback.print_exc()
+
