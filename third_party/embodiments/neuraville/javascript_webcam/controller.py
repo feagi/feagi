@@ -195,8 +195,8 @@ if __name__ == "__main__":
                                                                    message_to_feagi)
                         pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
                         message_to_feagi.clear()
-                        for i in rgb['camera']:
-                            rgb['camera'][i].clear()
+                        for cortical_area in rgb['camera']:
+                            rgb['camera'][cortical_area].clear()
                     sleep(feagi_settings['feagi_burst_speed'])
             except Exception as e:
                 # pass
