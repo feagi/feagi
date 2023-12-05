@@ -230,5 +230,203 @@ cortical_template = {
     "firing_threshold_increment_z": 0,
     "firing_threshold_limit": 0,
     "mp_charge_accumulation": True,
-    "mp_driven_psp": False
+    "mp_driven_psp": False,
+    "is_mem_type": False,
+    "longterm_mem_threshold": 100,
+    "lifespan_growth_rate": 1,
+    "init_lifespan": 9
+}
+
+
+core_morphologies = {
+    "block_to_block": {
+        "parameters": {
+            "vectors": [
+                [
+                    0,
+                    0,
+                    0
+                ]
+            ]
+        },
+        "type": "vectors"
+    },
+    "projector": {
+        "parameters": {},
+        "type": "functions"
+    },
+    "memory": {
+        "parameters": {},
+        "type": "functions"
+    },
+    "0-0-0_to_all": {
+        "type": "patterns",
+        "parameters": {
+            "patterns": [
+                [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        "*",
+                        "*",
+                        "*"
+                    ]
+                ]
+            ]
+        }
+    },
+    "all_to_0-0-0": {
+        "type": "patterns",
+        "parameters": {
+            "patterns": [
+                [
+                    [
+                        "*",
+                        "*",
+                        "*"
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ]
+                ]
+            ]
+        }
+    },
+    "all_to_all": {
+        "type": "patterns",
+        "parameters": {
+            "patterns": [
+                [
+                    [
+                        "?",
+                        "?",
+                        "?"
+                    ],
+                    [
+                        "*",
+                        "*",
+                        "*"
+                    ]
+                ]
+            ]
+        }
+    },
+    "lateral_+x": {
+        "parameters": {
+            "vectors": [
+                [
+                    1,
+                    0,
+                    0
+                ]
+            ]
+        },
+        "type": "vectors"
+    },
+    "lateral_-x": {
+        "parameters": {
+            "vectors": [
+                [
+                    -1,
+                    0,
+                    0
+                ]
+            ]
+        },
+        "type": "vectors"
+    },
+    "lateral_+y": {
+        "parameters": {
+            "vectors": [
+                [
+                    0,
+                    1,
+                    0
+                ]
+            ]
+        },
+        "type": "vectors"
+    },
+    "lateral_-y": {
+        "parameters": {
+            "vectors": [
+                [
+                    0,
+                    -1,
+                    0
+                ]
+            ]
+        },
+        "type": "vectors"
+    },
+    "lateral_+z": {
+        "parameters": {
+            "vectors": [
+                [
+                    0,
+                    0,
+                    1
+                ]
+            ]
+        },
+        "type": "vectors"
+    },
+    "lateral_-z": {
+        "parameters": {
+            "vectors": [
+                [
+                    0,
+                    0,
+                    -1
+                ]
+            ]
+        },
+        "type": "vectors"
+    },
+    "randomizer": {
+        "parameters": {},
+        "type": "functions"
+    },
+    "expander_x": {
+        "parameters": {},
+        "type": "functions"
+    },
+    "reducer_x": {
+        "parameters": {},
+        "type": "functions"
+    },
+    "lateral_pairs_x": {
+        "parameters": {},
+        "type": "functions"
+    },
+    "tile": {
+        "parameters": {
+            "src_seed": [
+                16,
+                16,
+                1
+            ],
+            "src_pattern": [
+                [
+                    1,
+                    0
+                ],
+                [
+                    1,
+                    0
+                ],
+                [
+                    1,
+                    0
+                ]
+            ],
+            "mapper_morphology": "projector"
+        },
+        "type": "composite"
+    },
 }
