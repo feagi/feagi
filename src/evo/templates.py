@@ -182,6 +182,12 @@ cortical_types = {
                 "cortical_name": "Vision_Acuity",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 1]
+            },
+            "o_snap": {
+                "enabled": True,
+                "cortical_name": "Vision_Screenshot",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 1]
             }
         }
     },
