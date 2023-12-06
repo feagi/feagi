@@ -1097,8 +1097,8 @@ async def genome_append_circuit(circuit_name: str,
         print("API Error:", e)
 
 
-@app.api_route("/v1/feagi/genome/cortical_map", methods=['GET'], tags=["Genome"])
-async def connectome_cortical_map(response: Response):
+@app.api_route("/v1/feagi/genome/cortical_map_detailed", methods=['GET'], tags=["Genome"])
+async def connectome_detailed_cortical_map(response: Response):
     try:
         cortical_map = dict()
         for cortical_area in runtime_data.genome["blueprint"]:
@@ -1107,6 +1107,25 @@ async def connectome_cortical_map(response: Response):
                 cortical_map[cortical_area][dst] = list()
                 for mapping in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"][dst]:
                     cortical_map[cortical_area][dst].append(mapping)
+
+        response.status_code = status.HTTP_200_OK
+        return cortical_map
+
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/genome/cortical_map", methods=['GET'], tags=["Genome"])
+async def connectome_cortical_map(response: Response):
+    try:
+        cortical_map = dict()
+        for cortical_area in runtime_data.genome["blueprint"]:
+            cortical_map[cortical_area] = dict()
+            for dst in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"]:
+                cortical_map[cortical_area][dst] = 0
+                for mapping in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"][dst]:
+                    cortical_map[cortical_area][dst] += 1
 
         response.status_code = status.HTTP_200_OK
         return cortical_map
