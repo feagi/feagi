@@ -689,6 +689,8 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
         runtime_data.genome["blueprint"][cortical_area]["firing_threshold_limit"] = \
             template['firing_threshold_limit']
 
+        runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] = ""
+
         if is_memory:
             runtime_data.genome["blueprint"][cortical_area]["longterm_mem_threshold"] = \
                 template['longterm_mem_threshold']
@@ -696,7 +698,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
                 template['lifespan_growth_rate']
             runtime_data.genome["blueprint"][cortical_area]["init_lifespan"] = \
                 template['init_lifespan']
-            runtime_data.genome["is_mem_type"][cortical_area]["is_mem_type"] = True
+            runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] = "MEMORY"
 
         runtime_data.genome["blueprint"][cortical_area]["group_id"] = "CUSTOM"
 
@@ -730,7 +732,7 @@ def append_circuit(source_genome, circuit_origin):
         for cortical_area_id in src_blueprint:
             print(f"-----Attempting to import cortical area {cortical_area_id}")
             try:
-                if src_blueprint[cortical_area_id]['group_id'] not in ["IPU", "OPU", "Core"]:
+                if src_blueprint[cortical_area_id]['group_id'] not in ["IPU", "OPU", "CORE"]:
                     src_cortical_area = src_blueprint[cortical_area_id]
                     new_cortical_name = src_blueprint[cortical_area_id]["cortical_name"]
                     new_cortical_area_id = cortical_area_id

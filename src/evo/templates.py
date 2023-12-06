@@ -209,6 +209,7 @@ cortical_types = {
 
 
 cortical_template = {
+    "sub_group_id": "",
     "per_voxel_neuron_cnt": 1,
     "synapse_attractivity": 100,
     "degeneration": 0,
