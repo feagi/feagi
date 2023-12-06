@@ -2221,17 +2221,31 @@ async def agent_deregisteration(agent_id: str, response: Response):
 # ######   System Endpoints #########
 # ###################################
 
+def human_readable_version(version):
+    print(version)
+    time_portion = str(version)[-10:]
+    reminder = str(version)[:-10]
+    human_readable_time = datetime.datetime.utcfromtimestamp(int(time_portion))
+    if int(reminder) == 0:
+        reminder = "community"
+    return reminder + '-' + human_readable_time.strftime("%Y-%m-%d %H:%M:%S UTC")
+
 
 @app.get("/v1/feagi/versions", tags=["System"])
 def get_versions():
-    all_versions = dict()
-    all_versions["feagi"] = __version__
-    for agent_id in runtime_data.agent_registry:
-        if agent_id not in all_versions:
-            all_versions[agent_id] = {}
-        all_versions[agent_id]["agent_version"] = runtime_data.agent_registry[agent_id]["agent_version"]
-        all_versions[agent_id]["controller_version"] = runtime_data.agent_registry[agent_id]["controller_version"]
-    return all_versions
+    try:
+        all_versions = dict()
+        all_versions["feagi"] = human_readable_version(__version__)
+        for agent_id in runtime_data.agent_registry:
+            if agent_id not in all_versions:
+                all_versions[agent_id] = {}
+            all_versions[agent_id]["agent_version"] = \
+                human_readable_version(runtime_data.agent_registry[agent_id]["agent_version"])
+            all_versions[agent_id]["controller_version"] = \
+                human_readable_version(runtime_data.agent_registry[agent_id]["controller_version"])
+        return all_versions
+    except Exception as e:
+        print(f"Error during version collection {e}")
 
 
 @app.get("/v1/feagi/health_check", tags=["System"])
