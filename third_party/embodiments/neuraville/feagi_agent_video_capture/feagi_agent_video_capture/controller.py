@@ -18,7 +18,6 @@ limitations under the License.
 """
 
 import cv2
-import feagi_agent.feagi_interface
 import requests
 from time import sleep
 from datetime import datetime
@@ -29,27 +28,31 @@ from feagi_agent import feagi_interface as feagi
 import traceback
 import threading
 import os
-import time
-import pickle
-import lz4.frame
 import screeninfo
 import mss
 import numpy
-import multiprocessing
-from PIL import Image
 
 camera_data = {"vision": {}}
 
 
 def process_video(video_path, capabilities):
-    cam = cv2.VideoCapture(video_path)
+    if capabilities["camera"]["image"] == "":
+      cam = cv2.VideoCapture(video_path)
     # cam.set(3, 320)
     # cam.set(4, 240)
     if capabilities['camera']['video_device_index'] == "monitor":
         all_monitors = screeninfo.get_monitors()  # Needs to create an IPU for this
     pixels = []
+    static_image = []
     while True:
         if capabilities['camera']['video_device_index'] != "monitor":
+          if capabilities["camera"]["image"] != "":
+            if static_image == []:
+              pixels = cv2.imread(capabilities["camera"]["image"], 1)
+              static_image = pixels
+            else:
+              pixels = static_image
+          else:
             check, pixels = cam.read()
         else:
             check = True
@@ -116,9 +119,9 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
         try:
             if camera_data['vision'] is not None:
                 raw_frame = camera_data['vision']
-                cv2.imshow("OpenCV/Numpy normal", raw_frame) # Move to main due to Mac's restriction
-                if cv2.waitKey(10) & 0xFF == ord('q'):
-                    pass
+                # cv2.imshow("OpenCV/Numpy normal", raw_frame) # Move to main due to Mac's restriction
+                # if cv2.waitKey(10) & 0xFF == ord('q'):
+                #     pass
             if capabilities['camera']['snap'] != []:
                 raw_frame = capabilities['camera']['snap']
             previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
@@ -142,3 +145,4 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
             # pass
             print("ERROR! : ", e)
             traceback.print_exc()
+            break
