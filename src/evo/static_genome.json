@@ -7,44 +7,8 @@
    "evolution_burst_count": 50,
    "ipu_idle_threshold": 1000,
    "plasticity_queue_depth": 3,
+   "lifespan_mgmt_interval": 10,
    "neuron_morphologies": {
-      "block_to_block": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  0,
-                  0
-               ]
-            ]
-         },
-         "type": "vectors"
-      },
-      "tile": {
-         "parameters": {
-            "src_seed": [
-               16,
-               16,
-               1
-            ],
-            "src_pattern": [
-               [
-                  1,
-                  0
-               ],
-               [
-                  1,
-                  0
-               ],
-               [
-                  1,
-                  0
-               ]
-            ],
-            "mapper_morphology": "projector"
-         },
-         "type": "composite"
-      },
       "decrease_filter_diagonal": {
          "parameters": {
             "vectors": [
@@ -93,78 +57,6 @@
          },
          "type": "vectors"
       },
-      "lateral_+x": {
-         "parameters": {
-            "vectors": [
-               [
-                  1,
-                  0,
-                  0
-               ]
-            ]
-         },
-         "type": "vectors"
-      },
-      "lateral_-x": {
-         "parameters": {
-            "vectors": [
-               [
-                  -1,
-                  0,
-                  0
-               ]
-            ]
-         },
-         "type": "vectors"
-      },
-      "lateral_+y": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  1,
-                  0
-               ]
-            ]
-         },
-         "type": "vectors"
-      },
-      "lateral_-y": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  -1,
-                  0
-               ]
-            ]
-         },
-         "type": "vectors"
-      },
-      "lateral_+z": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  0,
-                  1
-               ]
-            ]
-         },
-         "type": "vectors"
-      },
-      "lateral_-z": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  0,
-                  -1
-               ]
-            ]
-         },
-         "type": "vectors"
-      },
       "to_block_[5, 7, 4]": {
          "parameters": {
             "patterns": [
@@ -183,26 +75,6 @@
             ]
          },
          "type": "patterns"
-      },
-      "expander_x": {
-         "parameters": {},
-         "type": "functions"
-      },
-      "projector": {
-         "parameters": {},
-         "type": "functions"
-      },
-      "reducer_x": {
-         "parameters": {},
-         "type": "functions"
-      },
-      "randomizer": {
-         "parameters": {},
-         "type": "functions"
-      },
-      "lateral_pairs_x": {
-         "parameters": {},
-         "type": "functions"
       },
       "turn_left_level_one": {
          "parameters": {
@@ -883,44 +755,6 @@
             ]
          }
       },
-      "0-0-0_to_all": {
-         "type": "patterns",
-         "parameters": {
-            "patterns": [
-               [
-                  [
-                     0,
-                     0,
-                     0
-                  ],
-                  [
-                     "*",
-                     "*",
-                     "*"
-                  ]
-               ]
-            ]
-         }
-      },
-      "all_to_0-0-0": {
-         "type": "patterns",
-         "parameters": {
-            "patterns": [
-               [
-                  [
-                     "*",
-                     "*",
-                     "*"
-                  ],
-                  [
-                     0,
-                     0,
-                     0
-                  ]
-               ]
-            ]
-         }
-      },
       "intensity": {
          "type": "patterns",
          "parameters": {
@@ -1301,105 +1135,6 @@
                ]
             ]
          }
-      },
-      "any_to_any": {
-         "type": "patterns",
-         "parameters": {
-            "patterns": [
-               [
-                  [
-                     "?",
-                     "?",
-                     "?"
-                  ],
-                  [
-                     "*",
-                     "*",
-                     "*"
-                  ]
-               ]
-            ]
-         }
-      },
-      "LED0": {
-         "type": "patterns",
-         "parameters": {
-            "patterns": [
-               [
-                  [
-                     "*",
-                     "*",
-                     "*"
-                  ],
-                  [
-                     0,
-                     0,
-                     0
-                  ]
-               ]
-            ]
-         },
-         "morphology_name": "LED0"
-      },
-      "LED1": {
-         "type": "patterns",
-         "parameters": {
-            "patterns": [
-               [
-                  [
-                     "*",
-                     "*",
-                     "*"
-                  ],
-                  [
-                     1,
-                     0,
-                     0
-                  ]
-               ]
-            ]
-         },
-         "morphology_name": "LED1"
-      },
-      "LED2": {
-         "type": "patterns",
-         "parameters": {
-            "patterns": [
-               [
-                  [
-                     "*",
-                     "*",
-                     "*"
-                  ],
-                  [
-                     2,
-                     0,
-                     0
-                  ]
-               ]
-            ]
-         },
-         "morphology_name": "LED2"
-      },
-      "LED3": {
-         "type": "patterns",
-         "parameters": {
-            "patterns": [
-               [
-                  [
-                     "*",
-                     "*",
-                     "*"
-                  ],
-                  [
-                     3,
-                     0,
-                     0
-                  ]
-               ]
-            ]
-         },
-         "morphology_name": "LED3"
       }
    },
    "species": {
