@@ -470,6 +470,7 @@ gene_decoder = {
 }
 
 genome_1_template = {
+    "sub_group_id": "",
     "per_voxel_neuron_cnt": 1,
     "synapse_attractivity": 100,
     "degeneration": 0,
@@ -537,6 +538,7 @@ genome_2_to_1 = {
     "c_fr_c-i": "consecutive_fire_cnt_max",
     "snooze-f": "snooze_length",
     "_group-t": "group_id",
+    "subgrp-t": "sub_group_id",
     "dstmap-d": "cortical_mapping_dst",
     "de_gen-f": "degeneration",
     "pspuni-b": "psp_uniform_distribution",
@@ -551,6 +553,7 @@ genome_2_to_1 = {
 genome_1_to_2 = {
     "cortical_name": "cx-__name-t",
     "group_id": "cx-_group-t",
+    "sub_group_id": "cx-_subgrp-t",
     "per_voxel_neuron_cnt": "cx-_n_cnt-i",
     "visualization": "cx-gd_vis-b",
     "location_generation_type": "cx-__rand-b",

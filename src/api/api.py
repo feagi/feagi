@@ -169,7 +169,6 @@ class NewCustomCorticalProperties(BaseModel):
 class UpdateCorticalProperties(BaseModel):
     cortical_id: str = Field(None, max_length=6, min_length=6)
     cortical_name: Optional[str]
-    cortical_group: Optional[str]
     cortical_neuron_per_vox_count: Optional[int]
     cortical_visibility: Optional[bool]
     cortical_coordinates: Optional[list]
@@ -508,6 +507,7 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "cortical_id": cortical_area,
                 "cortical_name": cortical_data['cortical_name'],
                 "cortical_group": cortical_data['group_id'],
+                "cortical_sub_group": cortical_data['sub_group_id'],
                 "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
                 "cortical_visibility": cortical_data['visualization'],
                 "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
@@ -547,7 +547,6 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "neuron_longterm_mem_threshold": cortical_data['longterm_mem_threshold'],
                 "neuron_lifespan_growth_rate": cortical_data['lifespan_growth_rate'],
                 "neuron_init_lifespan": cortical_data['init_lifespan'],
-                "is_mem_type": cortical_data['is_mem_type'],
                 "transforming": False
             }
             if cortical_area in runtime_data.transforming_areas:
@@ -1797,6 +1796,7 @@ async def connectome_cortical_areas(response: Response):
             cortical_list[cortical_area] = {}
             cortical_list[cortical_area]["name"] = runtime_data.genome["blueprint"][cortical_area]["cortical_name"]
             cortical_list[cortical_area]["type"] = runtime_data.genome["blueprint"][cortical_area]["group_id"]
+            cortical_list[cortical_area]["sub_type"] = runtime_data.genome["blueprint"][cortical_area]["sub_group_id"]
             cortical_list[cortical_area]["position"] = []
 
         response.status_code = status.HTTP_200_OK
