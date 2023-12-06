@@ -48,10 +48,11 @@ def process_video(video_path, capabilities):
         if capabilities['camera']['video_device_index'] != "monitor":
           if capabilities["camera"]["image"] != "":
             if static_image == []:
-              pixels = cv2.imread(capabilities["camera"]["image"], 1)
+              pixels = cv2.imread(capabilities["camera"]["image"], -1)
               static_image = pixels
             else:
               pixels = static_image
+              pixels = adjust_gamma(pixels)
           else:
             check, pixels = cam.read()
         else:
@@ -86,6 +87,13 @@ def process_video(video_path, capabilities):
     cv2.destroyAllWindows()
 
 
+def adjust_gamma(image, gamma=5.0):
+  invGamma = 1.0 / gamma
+  table = numpy.array([((i / 255.0) ** invGamma) * 255
+		for i in numpy.arange(0, 256)]).astype("uint8")
+  # apply gamma correction using the lookup table
+  return cv2.LUT(image, table)
+
 def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_to_feagi):
     threading.Thread(target=process_video, args=(capabilities['camera']['video_device_index'],
                                                  capabilities), daemon=True).start()
@@ -119,9 +127,9 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
         try:
             if camera_data['vision'] is not None:
                 raw_frame = camera_data['vision']
-                # cv2.imshow("OpenCV/Numpy normal", raw_frame) # Move to main due to Mac's restriction
-                # if cv2.waitKey(10) & 0xFF == ord('q'):
-                #     pass
+                cv2.imshow("OpenCV/Numpy normal", raw_frame) # Move to main due to Mac's restriction
+                if cv2.waitKey(10) & 0xFF == ord('q'):
+                    pass
             if capabilities['camera']['snap'] != []:
                 raw_frame = capabilities['camera']['snap']
             previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
