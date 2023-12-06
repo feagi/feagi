@@ -132,6 +132,7 @@ class NewCustomCorticalProperties(BaseModel):
     coordinates_2d: Optional[list] = [0, 0]
     coordinates_3d: list
     cortical_dimensions: list
+    is_memory: Optional[bool] = False
 
 
 # class NewCorticalProperties_old(BaseModel):
@@ -189,6 +190,9 @@ class UpdateCorticalProperties(BaseModel):
     neuron_psp_uniform_distribution: Optional[bool]
     neuron_mp_charge_accumulation: Optional[bool]
     neuron_mp_driven_psp: Optional[bool]
+    neuron_longterm_mem_threshold: Optional[int]
+    neuron_lifespan_growth_rate: Optional[int]
+    neuron_init_lifespan: Optional[int]
 
 
 # class Network(BaseModel):
@@ -540,6 +544,10 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution'],
                 "neuron_mp_charge_accumulation": cortical_data['mp_charge_accumulation'],
                 "neuron_mp_driven_psp": cortical_data['mp_driven_psp'],
+                "neuron_longterm_mem_threshold": cortical_data['longterm_mem_threshold'],
+                "neuron_lifespan_growth_rate": cortical_data['lifespan_growth_rate'],
+                "neuron_init_lifespan": cortical_data['init_lifespan'],
+                "is_mem_type": cortical_data['is_mem_type'],
                 "transforming": False
             }
             if cortical_area in runtime_data.transforming_areas:
@@ -606,11 +614,16 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
         cortical_name = new_custom_cortical_properties.cortical_name
         coordinates_3d = new_custom_cortical_properties.coordinates_3d
         coordinates_2d = new_custom_cortical_properties.coordinates_2d
-        cortical_dimensions = new_custom_cortical_properties.cortical_dimensions
+        is_memory = new_custom_cortical_properties.is_memory
+        if is_memory:
+            cortical_dimensions = [1, 1, 1]
+        else:
+            cortical_dimensions = new_custom_cortical_properties.cortical_dimensions
         cortical_id = add_custom_cortical_area(cortical_name=cortical_name,
                                                coordinates_3d=coordinates_3d,
                                                coordinates_2d=coordinates_2d,
-                                               cortical_dimensions=cortical_dimensions)
+                                               cortical_dimensions=cortical_dimensions,
+                                               is_memory=is_memory)
         return JSONResponse(status_code=200, content={'cortical_id': cortical_id})
         # message = {'add_custom_cortical_area': message}
         # print("*" * 50 + "\n", message)
