@@ -132,7 +132,7 @@ class NewCustomCorticalProperties(BaseModel):
     coordinates_2d: Optional[list] = [0, 0]
     coordinates_3d: list
     cortical_dimensions: list
-    is_memory: Optional[bool] = False
+    sub_group_id: Optional[str] = False
 
 
 # class NewCorticalProperties_old(BaseModel):
@@ -613,10 +613,12 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
         cortical_name = new_custom_cortical_properties.cortical_name
         coordinates_3d = new_custom_cortical_properties.coordinates_3d
         coordinates_2d = new_custom_cortical_properties.coordinates_2d
-        is_memory = new_custom_cortical_properties.is_memory
-        if is_memory:
+        sub_group_id = new_custom_cortical_properties.sub_group_id
+        if "MEMORY" in sub_group_id:
+            is_memory = True
             cortical_dimensions = [1, 1, 1]
         else:
+            is_memory = False
             cortical_dimensions = new_custom_cortical_properties.cortical_dimensions
         cortical_id = add_custom_cortical_area(cortical_name=cortical_name,
                                                coordinates_3d=coordinates_3d,
