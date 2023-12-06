@@ -65,36 +65,6 @@ async def bridge_to_godot():
 def bridge_operation():
     asyncio.run(bridge_to_godot())
 
-
-def rgba2rgb(rgba, background=(255, 255, 255)):
-    """
-    The rgba2rgb function takes an input image in the form of a numpy array with shape (row, col,
-    ch), where ch is equal to 4, indicating that the input image has an RGBA color space.
-
-    The function converts the RGBA image to an RGB image by blending the RGB channels of the
-    input image with a specified background color using the alpha channel as a weighting factor.
-    The resulting image is then returned as a numpy array with shape (row, col, 3), where ch is
-    now equal to 3, indicating that the output image is in the RGB color space.
-    """
-    row, col, channels = rgba.shape
-
-    if channels == 3:
-        return rgba
-
-    assert channels == 4, 'RGBA image has 4 channels.'
-
-    R_CHANNEL, G_CHANNEL, B_CHANNEL = background
-
-    alpha = rgba[:, :, 3] / 255.0
-
-    rgb_input = np.empty((row, col, 3), dtype='uint8')
-    rgb_input[:, :, 0] = (rgba[:, :, 0] * alpha + (1.0 - alpha) * R_CHANNEL).astype('uint8')
-    rgb_input[:, :, 1] = (rgba[:, :, 1] * alpha + (1.0 - alpha) * G_CHANNEL).astype('uint8')
-    rgb_input[:, :, 2] = (rgba[:, :, 2] * alpha + (1.0 - alpha) * B_CHANNEL).astype('uint8')
-
-    return rgb_input
-
-
 def utc_time():
     current_time = datetime.utcnow()
     return current_time
