@@ -205,11 +205,11 @@ def change_detector_grayscale(previous, current, capabilities):
     # Using cv2.absdiff for optimized difference calculation
     if current.shape == previous.shape:
 
-        if capabilities['camera']['snap'] == []:
+        if capabilities['camera']['blink'] == []:
             difference = cv2.absdiff(previous, current)
 
         else:
-            print("Snap!")
+            print("Blink!")
             difference = cv2.absdiff(0, current)
             print(current)
 
@@ -250,7 +250,7 @@ def change_detector(previous, current, capabilities):
     # Using cv2.absdiff for optimized difference calculation
     if current.shape == previous.shape:
         difference = cv2.absdiff(previous, current)
-        if capabilities['camera']['snap'] == []:
+        if capabilities['camera']['blink'] == []:
             thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
                                         capabilities['camera']['iso_default'][1],
                                         cv2.THRESH_BINARY)[1]
@@ -369,7 +369,7 @@ def vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel, 
         if genome_changed != previous_genome_timestamp:
             capabilities = update_size_list(capabilities)
             previous_genome_timestamp = message_from_feagi["genome_changed"]
-        capabilities = pns.obtain_snap_data(raw_frame, message_from_feagi, capabilities)
+        capabilities = pns.obtain_blink_data(raw_frame, message_from_feagi, capabilities)
         capabilities = pns.monitor_switch(message_from_feagi, capabilities)
         capabilities = pns.gaze_control_update(message_from_feagi, capabilities)
         capabilities = pns.pupil_control_update(message_from_feagi, capabilities)

@@ -147,15 +147,15 @@ if __name__ == "__main__":
                     raw_frame = retina.update_astype(raw_frame)
                     if capabilities["camera"]["mirror"]:
                         raw_frame = retina.flip_video(raw_frame)
-                    if capabilities['camera']['snap'] != []:
-                        raw_frame = capabilities['camera']['snap']
+                    if capabilities['camera']['blink'] != []:
+                        raw_frame = capabilities['camera']['blink']
                     previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
                                                                          capabilities['camera'][
                                                                              "index"],
                                                                          capabilities['camera'][
                                                                              'size_list'],
                                                                          previous_frame_data, rgb)
-                    capabilities['camera']['snap'] = []
+                    capabilities['camera']['blink'] = []
                     capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed'] = \
                         retina.vision_progress(capabilities, previous_genome_timestamp,
                                                feagi_opu_channel,

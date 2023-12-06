@@ -165,21 +165,21 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10]
             },
-            "o_vres": {
+            "o__pup": {
                 "enabled": True,
-                "cortical_name": "Vision_Resolution",
-                "structure": "asymmetric",
-                "resolution": [2, 1, 10]
-            },
-            "o_vact": {
-                "enabled": True,
-                "cortical_name": "Vision_Acuity",
+                "cortical_name": "Vision_Pupil",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 1]
             },
-            "o_snap": {
+            "o__gaz": {
                 "enabled": True,
-                "cortical_name": "Vision_Screenshot",
+                "cortical_name": "Vision_Gaze",
+                "structure": "asymmetric",
+                "resolution": [2, 1, 1]
+            },
+            "o_blnk": {
+                "enabled": True,
+                "cortical_name": "Visual_Blink",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             }

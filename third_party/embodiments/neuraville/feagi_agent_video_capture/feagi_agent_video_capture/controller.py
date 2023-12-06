@@ -130,13 +130,13 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                 cv2.imshow("OpenCV/Numpy normal", raw_frame) # Move to main due to Mac's restriction
                 if cv2.waitKey(10) & 0xFF == ord('q'):
                     pass
-            if capabilities['camera']['snap'] != []:
-                raw_frame = capabilities['camera']['snap']
+            if capabilities['camera']['blink'] != []:
+                raw_frame = capabilities['camera']['blink']
             previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
                                                                  capabilities['camera']["index"],
                                                                  capabilities['camera']['size_list'],
                                                                  previous_frame_data, rgb)
-            capabilities['camera']['snap'] = []
+            capabilities['camera']['blink'] = []
             capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed'] = \
                 retina.vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel,
                                        api_address, feagi_settings, raw_frame)
