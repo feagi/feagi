@@ -22,6 +22,7 @@ import feagi_agent.feagi_interface
 import requests
 from time import sleep
 from datetime import datetime
+from feagi_agent import pns_gateway as pns
 from feagi_agent.version import __version__
 from feagi_agent import retina as retina
 from feagi_agent import feagi_interface as feagi
@@ -55,8 +56,7 @@ def process_video(video_path, capabilities):
         if capabilities['camera']['video_device_index'] != "monitor":
             if bool(capabilities["camera"]["video_loop"]):
                 if check:
-                    sleep(0.01)
-                    # cv2.imshow("OpenCV/Numpy normal", pixels)
+                    sleep(0.05)
                 else:
                     cam.set(cv2.CAP_PROP_POS_FRAMES, 0)
         if capabilities['camera']['video_device_index'] == "monitor":
@@ -116,6 +116,9 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
         try:
             if camera_data['vision'] is not None:
                 raw_frame = camera_data['vision']
+                cv2.imshow("OpenCV/Numpy normal", raw_frame) # Move to main due to Mac's restriction
+                if cv2.waitKey(10) & 0xFF == ord('q'):
+                    pass
             if capabilities['camera']['snap'] != []:
                 raw_frame = capabilities['camera']['snap']
             previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
