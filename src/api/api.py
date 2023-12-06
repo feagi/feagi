@@ -2202,17 +2202,28 @@ async def agent_deregisteration(agent_id: str, response: Response):
 # ######   System Endpoints #########
 # ###################################
 
+def linux_to_human_time(linux_time):
+    # The provided Linux time seems to be in microseconds (as it's significantly larger than typical Unix timestamps)
+    # Dividing by 1,000,000 to convert to seconds
+    human_readable_time = datetime.datetime.utcfromtimestamp(int(linux_time) / 1_000_000)
+    return human_readable_time.strftime("%Y-%m-%d %H:%M:%S UTC")
+
 
 @app.get("/v1/feagi/versions", tags=["System"])
 def get_versions():
-    all_versions = dict()
-    all_versions["feagi"] = __version__
-    for agent_id in runtime_data.agent_registry:
-        if agent_id not in all_versions:
-            all_versions[agent_id] = {}
-        all_versions[agent_id]["agent_version"] = runtime_data.agent_registry[agent_id]["agent_version"]
-        all_versions[agent_id]["controller_version"] = runtime_data.agent_registry[agent_id]["controller_version"]
-    return all_versions
+    try:
+        all_versions = dict()
+        all_versions["feagi"] = linux_to_human_time(__version__)
+        for agent_id in runtime_data.agent_registry:
+            if agent_id not in all_versions:
+                all_versions[agent_id] = {}
+            all_versions[agent_id]["agent_version"] = \
+                linux_to_human_time(runtime_data.agent_registry[agent_id]["agent_version"])
+            all_versions[agent_id]["controller_version"] = \
+                linux_to_human_time(runtime_data.agent_registry[agent_id]["controller_version"])
+        return all_versions
+    except Exception as e:
+        print(f"Error during version collection {e}")
 
 
 @app.get("/v1/feagi/health_check", tags=["System"])
