@@ -1,4 +1,4 @@
-# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+# Copyright 2016-2023 The FEAGI Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1092,6 +1092,25 @@ async def genome_append_circuit(circuit_name: str,
             api_queue.put(item=data)
 
             response.status_code = status.HTTP_200_OK
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/genome/cortical_map_detailed", methods=['GET'], tags=["Genome"])
+async def connectome_detailed_cortical_map(response: Response):
+    try:
+        cortical_map = dict()
+        for cortical_area in runtime_data.genome["blueprint"]:
+            cortical_map[cortical_area] = dict()
+            for dst in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"]:
+                cortical_map[cortical_area][dst] = list()
+                for mapping in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"][dst]:
+                    cortical_map[cortical_area][dst].append(mapping)
+
+        response.status_code = status.HTTP_200_OK
+        return cortical_map
+
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
