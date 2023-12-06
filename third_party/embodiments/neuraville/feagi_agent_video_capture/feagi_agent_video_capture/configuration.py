@@ -47,6 +47,7 @@ capabilities = {
                                [256, 256], [320, 240], [400, 400], [480, 320], [500, 500], [800, 800], [1024, 900]],
         "previous_data": {},
         "video_device_index": 0,
+        "image": "",
         "video_loop": False,
         "aperture_range": [0.1, 2],
         "aperture_default": 2,
