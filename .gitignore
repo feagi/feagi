@@ -74,3 +74,4 @@ yarn-debug.log*
 yarn-error.log*
 *.import
 **/.env
+.env
