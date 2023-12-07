@@ -132,6 +132,7 @@ class NewCustomCorticalProperties(BaseModel):
     coordinates_2d: Optional[list] = [0, 0]
     coordinates_3d: list
     cortical_dimensions: list
+    sub_group_id: Optional[str] = False
 
 
 # class NewCorticalProperties_old(BaseModel):
@@ -168,7 +169,6 @@ class NewCustomCorticalProperties(BaseModel):
 class UpdateCorticalProperties(BaseModel):
     cortical_id: str = Field(None, max_length=6, min_length=6)
     cortical_name: Optional[str]
-    cortical_group: Optional[str]
     cortical_neuron_per_vox_count: Optional[int]
     cortical_visibility: Optional[bool]
     cortical_coordinates: Optional[list]
@@ -189,6 +189,9 @@ class UpdateCorticalProperties(BaseModel):
     neuron_psp_uniform_distribution: Optional[bool]
     neuron_mp_charge_accumulation: Optional[bool]
     neuron_mp_driven_psp: Optional[bool]
+    neuron_longterm_mem_threshold: Optional[int]
+    neuron_lifespan_growth_rate: Optional[int]
+    neuron_init_lifespan: Optional[int]
 
 
 # class Network(BaseModel):
@@ -504,6 +507,7 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "cortical_id": cortical_area,
                 "cortical_name": cortical_data['cortical_name'],
                 "cortical_group": cortical_data['group_id'],
+                "cortical_sub_group": cortical_data['sub_group_id'],
                 "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
                 "cortical_visibility": cortical_data['visualization'],
                 "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
@@ -540,6 +544,9 @@ async def fetch_cortical_properties(cortical_area, response: Response):
                 "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution'],
                 "neuron_mp_charge_accumulation": cortical_data['mp_charge_accumulation'],
                 "neuron_mp_driven_psp": cortical_data['mp_driven_psp'],
+                "neuron_longterm_mem_threshold": cortical_data['longterm_mem_threshold'],
+                "neuron_lifespan_growth_rate": cortical_data['lifespan_growth_rate'],
+                "neuron_init_lifespan": cortical_data['init_lifespan'],
                 "transforming": False
             }
             if cortical_area in runtime_data.transforming_areas:
@@ -606,11 +613,18 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
         cortical_name = new_custom_cortical_properties.cortical_name
         coordinates_3d = new_custom_cortical_properties.coordinates_3d
         coordinates_2d = new_custom_cortical_properties.coordinates_2d
-        cortical_dimensions = new_custom_cortical_properties.cortical_dimensions
+        sub_group_id = new_custom_cortical_properties.sub_group_id
+        if "MEMORY" in sub_group_id:
+            is_memory = True
+            cortical_dimensions = [1, 1, 1]
+        else:
+            is_memory = False
+            cortical_dimensions = new_custom_cortical_properties.cortical_dimensions
         cortical_id = add_custom_cortical_area(cortical_name=cortical_name,
                                                coordinates_3d=coordinates_3d,
                                                coordinates_2d=coordinates_2d,
-                                               cortical_dimensions=cortical_dimensions)
+                                               cortical_dimensions=cortical_dimensions,
+                                               is_memory=is_memory)
         return JSONResponse(status_code=200, content={'cortical_id': cortical_id})
         # message = {'add_custom_cortical_area': message}
         # print("*" * 50 + "\n", message)
@@ -1784,6 +1798,7 @@ async def connectome_cortical_areas(response: Response):
             cortical_list[cortical_area] = {}
             cortical_list[cortical_area]["name"] = runtime_data.genome["blueprint"][cortical_area]["cortical_name"]
             cortical_list[cortical_area]["type"] = runtime_data.genome["blueprint"][cortical_area]["group_id"]
+            cortical_list[cortical_area]["sub_type"] = runtime_data.genome["blueprint"][cortical_area]["sub_group_id"]
             cortical_list[cortical_area]["position"] = []
 
         response.status_code = status.HTTP_200_OK
@@ -2226,8 +2241,13 @@ def human_readable_version(version):
     time_portion = str(version)[-10:]
     reminder = str(version)[:-10]
     human_readable_time = datetime.datetime.utcfromtimestamp(int(time_portion))
-    if int(reminder) == 0:
-        reminder = "community"
+    if reminder:
+        if int(reminder) == 0:
+            reminder = "C"
+        else:
+            reminder = "N"
+    else:
+        reminder = "N"
     return reminder + '-' + human_readable_time.strftime("%Y-%m-%d %H:%M:%S UTC")
 
 

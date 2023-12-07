@@ -205,13 +205,13 @@ def change_detector_grayscale(previous, current, capabilities):
     # Using cv2.absdiff for optimized difference calculation
     if current.shape == previous.shape:
 
-        if capabilities['camera']['snap'] == []:
+        if capabilities['camera']['blink'] == []:
             difference = cv2.absdiff(previous, current)
 
         else:
-            print("Snap!")
+            # print("Blink!")
             difference = cv2.absdiff(0, current)
-            print(current)
+            # print(current)
 
         thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
                                     capabilities['camera']['iso_default'][1],
@@ -249,25 +249,21 @@ def change_detector(previous, current, capabilities):
 
     # Using cv2.absdiff for optimized difference calculation
     if current.shape == previous.shape:
-        difference = cv2.absdiff(previous, current)
-        if capabilities['camera']['snap'] == []:
-            thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
-                                        capabilities['camera']['iso_default'][1],
-                                        cv2.THRESH_BINARY)[1]
-            # Convert to boolean array for significant changes
-            significant_changes = thresholded > 0
-        else:
-            thresholded = cv2.threshold(difference, 0, 255,
-                                        cv2.THRESH_BINARY)[1]
-            # Convert to boolean array for significant changes
-            significant_changes = thresholded > 0
 
-        # print("RGB signifcant change: ", significant_changes)
+        if capabilities['camera']['blink'] == []:
+            difference = cv2.absdiff(previous, current)
+
+        else:
+            difference = current
+
+        thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
+                                    capabilities['camera']['iso_default'][1],
+                                    cv2.THRESH_TOZERO)[1]
+
+        # Convert to boolean array for significant changes
+        significant_changes = thresholded > 0
 
         feagi_data = create_feagi_data(significant_changes, current, previous.shape)
-        #
-        # print("change_detector_optimized time total: ",
-        #       (datetime.now() - start_time).total_seconds())
     else:
         return {}
     return dict(feagi_data)
@@ -369,7 +365,7 @@ def vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel, 
         if genome_changed != previous_genome_timestamp:
             capabilities = update_size_list(capabilities)
             previous_genome_timestamp = message_from_feagi["genome_changed"]
-        capabilities = pns.obtain_snap_data(raw_frame, message_from_feagi, capabilities)
+        capabilities = pns.obtain_blink_data(raw_frame, message_from_feagi, capabilities)
         capabilities = pns.monitor_switch(message_from_feagi, capabilities)
         capabilities = pns.gaze_control_update(message_from_feagi, capabilities)
         capabilities = pns.pupil_control_update(message_from_feagi, capabilities)

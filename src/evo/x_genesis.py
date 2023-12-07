@@ -535,12 +535,17 @@ def mapping_change_report(cortical_area, new_mapping):
     return added, removed, modified
 
 
-def cortical_id_gen(seed='___'):
+def cortical_id_gen(seed='___', is_memory=False):
     while True:
         chars = string.ascii_uppercase + string.digits
-        random_id = 'C' + str('').join(random.choice(chars) for _ in range(2)) + seed
-        if random_id not in runtime_data.cortical_list:
-            return random_id
+        if not is_memory:
+            random_id = 'C' + str('').join(random.choice(chars) for _ in range(2)) + seed
+            if random_id not in runtime_data.cortical_list:
+                return random_id
+        else:
+            random_id = 'M' + str('').join(random.choice(chars) for _ in range(2)) + seed
+            if random_id not in runtime_data.cortical_list:
+                return random_id
 
 
 def add_core_cortical_area(cortical_properties):
@@ -618,7 +623,8 @@ def add_core_cortical_area(cortical_properties):
         print("Error: New cortical area was not added.", traceback.print_exc())
 
 
-def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cortical_dimensions, cortical_id_overwrite=None):
+def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cortical_dimensions,
+                             cortical_id_overwrite=None, is_memory=False):
     # Generate Cortical ID
     # todo: instead of hard coding the length have the genome properties captured and reference instead
     temp_name = cortical_name
@@ -627,7 +633,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
     if cortical_id_overwrite:
         cortical_area = cortical_id_overwrite
     else:
-        cortical_area = cortical_id_gen(temp_name[:3])
+        cortical_area = cortical_id_gen(temp_name[:3], is_memory=is_memory)
 
     cortical_names = neuroembryogenesis.cortical_name_list()
     template = templates.cortical_template.copy()
@@ -683,6 +689,17 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
         runtime_data.genome["blueprint"][cortical_area]["firing_threshold_limit"] = \
             template['firing_threshold_limit']
 
+        runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] = ""
+
+        if is_memory:
+            runtime_data.genome["blueprint"][cortical_area]["longterm_mem_threshold"] = \
+                template['longterm_mem_threshold']
+            runtime_data.genome["blueprint"][cortical_area]["lifespan_growth_rate"] = \
+                template['lifespan_growth_rate']
+            runtime_data.genome["blueprint"][cortical_area]["init_lifespan"] = \
+                template['init_lifespan']
+            runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] = "MEMORY"
+
         runtime_data.genome["blueprint"][cortical_area]["group_id"] = "CUSTOM"
 
         neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
@@ -715,7 +732,7 @@ def append_circuit(source_genome, circuit_origin):
         for cortical_area_id in src_blueprint:
             print(f"-----Attempting to import cortical area {cortical_area_id}")
             try:
-                if src_blueprint[cortical_area_id]['group_id'] not in ["IPU", "OPU", "Core"]:
+                if src_blueprint[cortical_area_id]['group_id'] not in ["IPU", "OPU", "CORE"]:
                     src_cortical_area = src_blueprint[cortical_area_id]
                     new_cortical_name = src_blueprint[cortical_area_id]["cortical_name"]
                     new_cortical_area_id = cortical_area_id

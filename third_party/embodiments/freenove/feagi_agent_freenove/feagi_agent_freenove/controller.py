@@ -590,9 +590,9 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
                 if capabilities['camera']['mirror']:
                     image = retina.flip_video(image)
                 rgb = dict()
-                if len(capabilities['camera']['snap']) > 0:
+                if len(capabilities['camera']['blink']) > 0:
                     previous_data_frame, camera, capabilities['camera']['current_select'] = \
-                        pns.generate_rgb(capabilities['camera']['snap'],
+                        pns.generate_rgb(capabilities['camera']['blink'],
                                          capabilities['camera'][
                                              'central_vision_allocation_percentage'][0],
                                          capabilities['camera'][
@@ -604,9 +604,9 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
                                          capabilities['camera']['iso_default'],
                                          capabilities['camera']['iso_default'],
                                          camera_index=capabilities['camera']["index"],
-                                         snap=True)
+                                         blink=True)
                     rgb['camera'] = camera
-                    capabilities['camera']['snap'] = []
+                    capabilities['camera']['blink'] = []
                 else:
                     previous_data_frame, rgb['camera'], capabilities['camera']['current_select'] \
                         = pns.generate_rgb(image,
@@ -644,9 +644,9 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
                 led_flag = action(obtained_signals, device_list, led_flag, feagi_settings,
                                   capabilities, motor_data, rolling_window, motor, servo, led,
                                   runtime_data)
-                if "o_snap" in message_from_feagi["opu_data"]:
-                    if message_from_feagi["opu_data"]["o_snap"]:
-                        capabilities['camera']['snap'] = image
+                if "o_blnk" in message_from_feagi["opu_data"]:
+                    if message_from_feagi["opu_data"]["o_blnk"]:
+                        capabilities['camera']['blink'] = image
             # print(time.time() - start)
             # Fetch IR data
             ir_list = ir_data[0] if ir_data else []
