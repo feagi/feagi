@@ -249,18 +249,25 @@ def change_detector(previous, current, capabilities):
 
     # Using cv2.absdiff for optimized difference calculation
     if current.shape == previous.shape:
-        difference = cv2.absdiff(previous, current)
+
         if capabilities['camera']['blink'] == []:
-            thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
-                                        capabilities['camera']['iso_default'][1],
-                                        cv2.THRESH_BINARY)[1]
-            # Convert to boolean array for significant changes
-            significant_changes = thresholded > 0
+            difference = cv2.absdiff(previous, current)
+
         else:
-            thresholded = cv2.threshold(difference, 0, 255,
-                                        cv2.THRESH_BINARY)[1]
-            # Convert to boolean array for significant changes
-            significant_changes = thresholded > 0
+            print("Blink!")
+            difference = cv2.absdiff(np.zeros_like(current), current)
+            print(current)
+
+        thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
+                                    capabilities['camera']['iso_default'][1],
+                                    cv2.THRESH_TOZERO)[1]
+        #
+        # thresholded = cv2.threshold(thresholded, capabilities['camera']['iso_default'][0],
+        #                             capabilities['camera']['iso_default'][1],
+        #                             cv2.THRESH_TOZERO_INV)[1]
+        cv2.imshow("current difference", thresholded)
+        # Convert to boolean array for significant changes
+        significant_changes = thresholded > 0
 
         # print("RGB signifcant change: ", significant_changes)
 
