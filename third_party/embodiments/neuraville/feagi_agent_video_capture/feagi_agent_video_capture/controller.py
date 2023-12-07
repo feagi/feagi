@@ -52,7 +52,7 @@ def process_video(video_path, capabilities):
               static_image = pixels
             else:
               pixels = static_image
-              pixels = adjust_gamma(pixels)
+              # pixels = adjust_gamma(pixels)
           else:
             check, pixels = cam.read()
         else:
