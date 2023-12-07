@@ -592,18 +592,18 @@ def generate_cortical_dimensions_by_id():
         cortical_information[cortical_area]["cortical_group"] = genes["group_id"]
         cortical_information[cortical_area]["visible"] = genes["visualization"]
 
-        cortical_information[cortical_area]["position_2d"] = [
+        cortical_information[cortical_area]["coordinates_2d"] = [
             genes["2d_coordinate"][0],
             genes["2d_coordinate"][1]
         ]
 
-        cortical_information[cortical_area]["position_3d"] = [
+        cortical_information[cortical_area]["coordinates_3d"] = [
             genes["relative_coordinate"][0],
             genes["relative_coordinate"][1],
             genes["relative_coordinate"][2]
         ]
 
-        cortical_information[cortical_area]["dimensions"] = [
+        cortical_information[cortical_area]["cortical_dimensions"] = [
             genes["block_boundaries"][0],
             genes["block_boundaries"][1],
             genes["block_boundaries"][2]
