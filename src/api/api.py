@@ -132,7 +132,7 @@ class NewCustomCorticalProperties(BaseModel):
     coordinates_2d: Optional[list] = [0, 0]
     coordinates_3d: list
     cortical_dimensions: list
-    sub_group_id: Optional[str] = False
+    sub_group_id: Optional[str] = ""
 
 
 # class NewCorticalProperties_old(BaseModel):
