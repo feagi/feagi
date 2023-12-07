@@ -209,9 +209,9 @@ def change_detector_grayscale(previous, current, capabilities):
             difference = cv2.absdiff(previous, current)
 
         else:
-            print("Blink!")
+            # print("Blink!")
             difference = cv2.absdiff(0, current)
-            print(current)
+            # print(current)
 
         thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
                                     capabilities['camera']['iso_default'][1],
@@ -254,27 +254,16 @@ def change_detector(previous, current, capabilities):
             difference = cv2.absdiff(previous, current)
 
         else:
-            print("Blink!")
-            difference = cv2.absdiff(np.zeros_like(current), current)
-            print(current)
+            difference = current
 
         thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
                                     capabilities['camera']['iso_default'][1],
                                     cv2.THRESH_TOZERO)[1]
-        #
-        # thresholded = cv2.threshold(thresholded, capabilities['camera']['iso_default'][0],
-        #                             capabilities['camera']['iso_default'][1],
-        #                             cv2.THRESH_TOZERO_INV)[1]
-        cv2.imshow("current difference", thresholded)
+
         # Convert to boolean array for significant changes
         significant_changes = thresholded > 0
 
-        # print("RGB signifcant change: ", significant_changes)
-
         feagi_data = create_feagi_data(significant_changes, current, previous.shape)
-        #
-        # print("change_detector_optimized time total: ",
-        #       (datetime.now() - start_time).total_seconds())
     else:
         return {}
     return dict(feagi_data)
@@ -298,10 +287,10 @@ def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previ
                                                      resize_list[cortical])
     vision_dict = dict()
 
-    # for segment in compressed_data:
-    #     cv2.imshow(segment, compressed_data[segment])
-    # if cv2.waitKey(30) & 0xFF == ord('q'):
-    #     pass
+    for segment in compressed_data:
+        cv2.imshow(segment, compressed_data[segment])
+    if cv2.waitKey(30) & 0xFF == ord('q'):
+        pass
     for get_region in compressed_data:
         if resize_list[get_region][2] == 3:
             if previous_frame_data != {}:
