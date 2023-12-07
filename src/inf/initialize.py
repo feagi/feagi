@@ -588,7 +588,7 @@ def generate_cortical_dimensions_by_id():
         cortical_information[cortical_area] = {}
         genes = runtime_data.genome["blueprint"][cortical_area]
 
-        cortical_information[cortical_area]["name"] = genes["cortical_name"]
+        cortical_information[cortical_area]["cortical_name"] = genes["cortical_name"]
         cortical_information[cortical_area]["cortical_group"] = genes["group_id"]
         cortical_information[cortical_area]["visible"] = genes["visualization"]
 
