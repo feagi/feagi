@@ -2241,8 +2241,13 @@ def human_readable_version(version):
     time_portion = str(version)[-10:]
     reminder = str(version)[:-10]
     human_readable_time = datetime.datetime.utcfromtimestamp(int(time_portion))
-    if int(reminder) == 0:
-        reminder = "community"
+    if reminder:
+        if int(reminder) == 0:
+            reminder = "C"
+        else:
+            reminder = "N"
+    else:
+        reminder = "N"
     return reminder + '-' + human_readable_time.strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
