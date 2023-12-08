@@ -62,7 +62,7 @@ if __name__ == "__main__":
         try:
             message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
             if message_from_feagi is not None:
-                print("TEST: ", message_from_feagi)
+
                 if "data" not in message_to_feagi:
                     message_to_feagi["data"] = {}
                 if "sensory_data" not in message_to_feagi["data"]:
@@ -78,7 +78,9 @@ if __name__ == "__main__":
             if agent_settings['compression']:
                 serialized_data = pickle.dumps(message_to_feagi)
                 feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
+                print("Compressed:", message_to_feagi)
             else:
+                print("Un-Compressed:", message_to_feagi)
                 feagi_ipu_channel.send(message_to_feagi)
             message_to_feagi.clear()
         except Exception as e:

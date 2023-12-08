@@ -38,27 +38,6 @@ agent_settings = {
 }
 
 capabilities = {
-    "camera": {
-        "type": "ipu",
-        "disabled": False,
-        "index": "00",
-        "iso_default": [10, 255],
-        "iso_range": [1, 255],
-        "central_vision_allocation_percentage": [95, 80],
-        "central_vision_resolution": [64, 64],
-        "peripheral_vision_resolution": [8, 8],
-        "resolution_presets": [[8, 8], [16, 16], [32, 32], [64, 64], [128, 128], [256, 256],
-                               [400, 400], [500, 500], [800, 800], [1024, 900]],
-        "previous_data": {},
-        "video_device_index": 2,
-        "aperture_range": [0.1, 2],
-        "aperture_default": 2,
-        "mirror": True,
-        "blink": [],
-        "gaze_control": {0: 25, 1: 50},
-        "pupil_control": {0: 25, 1: 50},
-        "size_list": []
-    }
 }
 
 message_to_feagi = {"data": {}}
