@@ -46,6 +46,15 @@ def generate_feagi_data(rgb, msg_counter, date, message_to_feagi):
     return message_to_feagi
 
 
+def prepare_the_feagi_data(name, data, message_to_feagi):
+    if "data" not in message_to_feagi:
+        message_to_feagi["data"] = {}
+    if "sensory_data" not in message_to_feagi["data"]:
+        message_to_feagi["data"]["sensory_data"] = {}
+    message_to_feagi["data"]["sensory_data"][name] = data
+    return message_to_feagi
+
+
 def efferent_signaling(feagi_opu_channel):
     """ get OPU from FEAGI """
     return router.fetch_feagi(feagi_opu_channel)
