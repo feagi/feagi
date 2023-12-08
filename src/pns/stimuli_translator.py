@@ -218,13 +218,10 @@ def convert_ir_to_fire_list(ir_data):
         runtime_data.logs["PNS"].add(f"Warning! Cortical stimulation received but genome missing {cortical_area}")
 
 
-def training_translator(data):
-    cortical_area = "i___ID"
-    if cortical_area_in_genome(cortical_area):
-        if data is not None:
-            neurons = stimuli_processor.coords_to_neuron_ids(data, cortical_area=cortical_area)
-            for neuron in neurons:
-                runtime_data.fire_candidate_list[cortical_area].add(neuron)
+def training_translator(stimulation):
+    cortical_area = "i___id"
+    if stimulation is not None:
+        inject_stimuli_to_fcl(cortical_area=cortical_area, stimulation=stimulation)
 
 
 def lidar_translator(proximity_data):
@@ -403,16 +400,16 @@ def encoder_speed_translator(encoder_speed_data):
         runtime_data.logs["PNS"].add(f"Warning! Cortical stimulation received but genome missing {cortical_area}")
 
 
-def inject_visual_stimuli_to_fcl(cortical_area, sub_region_data):
+def inject_stimuli_to_fcl(cortical_area, stimulation):
     if cortical_area in runtime_data.genome["blueprint"]:
-        for pixel_coordinate in sub_region_data:
+        for pixel_coordinate in stimulation:
             neuron_ids = set()
             block_neurons = neurons_in_the_block(cortical_area, pixel_coordinate)
             neuron_ids.update(neuron for neuron in block_neurons if neuron is not None)
             for neuron in neuron_ids:
                 update_membrane_potential_fire_queue(cortical_area=cortical_area,
                                                      neuron_id=neuron,
-                                                     mp_update_amount=sub_region_data[pixel_coordinate],
+                                                     mp_update_amount=stimulation[pixel_coordinate],
                                                      fcl_insertion=True)
 
 
@@ -456,7 +453,7 @@ def vision_translator(vision_data):
                 cortical_area = "iv00_C"
             else:
                 cortical_area = "iv" + data_packet_key
-            inject_visual_stimuli_to_fcl(cortical_area=cortical_area, sub_region_data=vision_data[data_packet_key])
+            inject_stimuli_to_fcl(cortical_area=cortical_area, stimulation=vision_data[data_packet_key])
 
                 # if 'C' in sub_region:
                 #     cortical_area = "i__v" + str(camera_index) + str('C')  # generate specific cortical area
