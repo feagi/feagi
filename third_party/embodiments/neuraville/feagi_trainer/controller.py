@@ -58,10 +58,27 @@ if __name__ == "__main__":
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     msg_counter = runtime_data["feagi_state"]['burst_counter']
     previous_genome_timestamp = 0
+
+    if not pns.full_list_dimension:
+        pns.full_list_dimension = pns.fetch_full_dimensions(
+            api_address + '/v1/feagi/connectome/properties/dimensions')
+        print(pns.full_list_dimension)
+    genome_tracker = 0  # Temporarily
     while True:
         try:
             message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
             if message_from_feagi is not None:
+                genome_changed = pns.detect_genome_change(message_from_feagi)
+                # This applies to cortical change.
+                if genome_changed != previous_genome_timestamp:
+                    pns.full_list_dimension = pns.fetch_full_dimensions(
+                        api_address + '/v1/feagi/connectome/properties/dimensions')
+                    previous_genome_timestamp = message_from_feagi["genome_changed"]
+                current_tracker = pns.obtain_genome_number(genome_tracker, message_from_feagi)
+                if genome_tracker != current_tracker:
+                    pns.full_list_dimension = pns.fetch_full_dimensions(
+                        api_address + '/v1/feagi/connectome/properties/dimensions')
+                    genome_tracker = current_tracker
 
                 if "data" not in message_to_feagi:
                     message_to_feagi["data"] = {}
