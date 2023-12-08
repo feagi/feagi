@@ -17,12 +17,10 @@ limitations under the License.
 ==============================================================================
 """
 
-import lz4.frame
 from time import sleep
 from datetime import datetime
 from feagi_agent import pns_gateway as pns
 from feagi_agent.version import __version__
-import pickle
 from feagi_agent import feagi_interface as feagi
 import traceback
 from configuration import *
@@ -33,8 +31,8 @@ def PRINT_FROM_IPU(message_from_feagi):
     print(message_from_feagi)
 
 
-def SEND_AS_IPU_DATA():
-    return {"1-1-1": 10, "0-0-0": 50, "0-1-2": 30}
+def pass_ipu_data_to_training(data):
+    return data
 
 
 if __name__ == "__main__":
@@ -64,12 +62,13 @@ if __name__ == "__main__":
             api_address + '/v1/feagi/connectome/properties/dimensions')
         print(pns.full_list_dimension)
     genome_tracker = 0  # Temporarily
+
     while True:
         try:
             message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
             if message_from_feagi is not None:
+                # # Checking on refresh rate and genome status
                 genome_changed = pns.detect_genome_change(message_from_feagi)
-                # This applies to cortical change.
                 if genome_changed != previous_genome_timestamp:
                     pns.full_list_dimension = pns.fetch_full_dimensions(
                         api_address + '/v1/feagi/connectome/properties/dimensions')
@@ -79,27 +78,17 @@ if __name__ == "__main__":
                     pns.full_list_dimension = pns.fetch_full_dimensions(
                         api_address + '/v1/feagi/connectome/properties/dimensions')
                     genome_tracker = current_tracker
+                # # End
 
-                if "data" not in message_to_feagi:
-                    message_to_feagi["data"] = {}
-                if "sensory_data" not in message_to_feagi["data"]:
-                    message_to_feagi["data"]["sensory_data"] = {}
-                message_to_feagi["data"]["sensory_data"]['training'] = SEND_AS_IPU_DATA()  #
-                # SENDTOIPU!!
+            message_to_feagi = pns.prepare_the_feagi_data('training',
+                                                          pass_ipu_data_to_training({"0-0-0": 100}),
+                                                          message_to_feagi)
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
-            if message_from_feagi is not None:
-                feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
-                runtime_data["stimulation_period"] = message_from_feagi['burst_frequency']
-            sleep(feagi_settings['feagi_burst_speed'])
-            if agent_settings['compression']:
-                serialized_data = pickle.dumps(message_to_feagi)
-                feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
-                print("Compressed:", message_to_feagi)
-            else:
-                print("Un-Compressed:", message_to_feagi)
-                feagi_ipu_channel.send(message_to_feagi)
-            message_to_feagi.clear()
+            feagi_settings['feagi_burst_speed'] = pns.check_refresh_rate(message_from_feagi,
+                                                                         feagi_settings[
+                                                                             'feagi_burst_speed'])
+            pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
         except Exception as e:
             # pass
             print("ERROR! : ", e)
