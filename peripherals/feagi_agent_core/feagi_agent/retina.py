@@ -365,6 +365,8 @@ def vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel, 
         if genome_changed != previous_genome_timestamp:
             capabilities = update_size_list(capabilities)
             previous_genome_timestamp = message_from_feagi["genome_changed"]
+        ID_data = pns.detect_ID_data(message_from_feagi)
+        print("RECIEVED DATA FROM ID: ", ID_data)
         capabilities = pns.obtain_blink_data(raw_frame, message_from_feagi, capabilities)
         capabilities = pns.monitor_switch(message_from_feagi, capabilities)
         capabilities = pns.gaze_control_update(message_from_feagi, capabilities)

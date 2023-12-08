@@ -29,6 +29,14 @@ from configuration import *
 import os
 
 
+def PRINT_FROM_IPU(message_from_feagi):
+    print(message_from_feagi)
+
+
+def SEND_AS_IPU_DATA():
+    return {"1-1-1": 10, "0-0-0": 50, "0-1-2": 30}
+
+
 if __name__ == "__main__":
     # Generate runtime dictionary
     runtime_data = {"vision": {}, "current_burst_id": None, "stimulation_period": None,
@@ -54,11 +62,13 @@ if __name__ == "__main__":
         try:
             message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
             if message_from_feagi is not None:
+                print("TEST: ", message_from_feagi)
                 if "data" not in message_to_feagi:
                     message_to_feagi["data"] = {}
                 if "sensory_data" not in message_to_feagi["data"]:
                     message_to_feagi["data"]["sensory_data"] = {}
-                message_to_feagi["data"]["sensory_data"]['ID'] = pns.detect_ID_data(message_from_feagi)
+                message_to_feagi["data"]["sensory_data"]['training'] = SEND_AS_IPU_DATA()  #
+                # SENDTOIPU!!
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
             if message_from_feagi is not None:
@@ -70,7 +80,6 @@ if __name__ == "__main__":
                 feagi_ipu_channel.send(message=lz4.frame.compress(serialized_data))
             else:
                 feagi_ipu_channel.send(message_to_feagi)
-            print(message_to_feagi)
             message_to_feagi.clear()
         except Exception as e:
             # pass
