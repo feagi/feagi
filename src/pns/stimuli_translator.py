@@ -218,6 +218,15 @@ def convert_ir_to_fire_list(ir_data):
         runtime_data.logs["PNS"].add(f"Warning! Cortical stimulation received but genome missing {cortical_area}")
 
 
+def training_translator(data):
+    cortical_area = "i___ID"
+    if cortical_area_in_genome(cortical_area):
+        if data is not None:
+            neurons = stimuli_processor.coords_to_neuron_ids(data, cortical_area=cortical_area)
+            for neuron in neurons:
+                runtime_data.fire_candidate_list[cortical_area].add(neuron)
+
+
 def lidar_translator(proximity_data):
     """
     Translate the lidar messages based on its type.
