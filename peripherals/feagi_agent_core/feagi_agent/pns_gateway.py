@@ -149,17 +149,6 @@ def fetch_aptr_size(aptr_cortical_size, get_size_for_aptr_cortical, feagi_aptr=N
         return aptr_cortical_size
 
 
-def fetch_ID_size(ID_cortical_size, get_size_for_aptr_cortical, device_ID=None):
-    if ID_cortical_size is None:
-        if device_ID is not None:
-            if device_ID >= global_aptr_cortical_size:
-                return global_aptr_cortical_size
-        ID_cortical_size = check_aptr(get_size_for_aptr_cortical)
-        return ID_cortical_size
-    else:
-        return ID_cortical_size
-
-
 def check_aptr(get_size_for_aptr_cortical):
     return router.fetch_aptr(get_size_for_aptr_cortical)
 
