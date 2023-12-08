@@ -25,6 +25,9 @@ from feagi_agent import feagi_interface as feagi
 import traceback
 from configuration import *
 import os
+import cv2
+import glob
+import numpy as np
 
 
 def PRINT_FROM_IPU(message_from_feagi):
@@ -35,7 +38,23 @@ def pass_ipu_data_to_training(data):
     return data
 
 
+def collect_images(path_to_directory):
+    pattern = f"{path_to_directory}/*.jpg"
+    jpg_files = glob.glob(pattern)
+    return jpg_files
+
+
+def generate_image(images_list, loop, pause):
+    if loop:
+        pass
+    else:
+        for jpg_file in images_list:
+            img = cv2.imread(jpg_file)
+            sleep(pause)
+
+
 if __name__ == "__main__":
+    generate_image(".", False, 2)
     # Generate runtime dictionary
     runtime_data = {"vision": {}, "current_burst_id": None, "stimulation_period": None,
                     "feagi_state": None,
@@ -63,6 +82,8 @@ if __name__ == "__main__":
         print(pns.full_list_dimension)
     genome_tracker = 0  # Temporarily
 
+    name = [0, 0, 0]
+    x, y, z = name
     while True:
         try:
             message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
@@ -80,8 +101,14 @@ if __name__ == "__main__":
                     genome_tracker = current_tracker
                 # # End
 
+            random_image = np.random.randint(0, 256, size=(300, 300, 3), dtype=np.uint8)
+            value = random_image[(x, y, z)]
+            new_dict = dict()
+            name_key = "{}-{}-{}".format(x, y, z)
+            new_dict[name_key] = value
+            generate_image(".", name_key + ".jpg", 1, random_image)
             message_to_feagi = pns.prepare_the_feagi_data('training',
-                                                          pass_ipu_data_to_training({"0-0-0": 100}),
+                                                          pass_ipu_data_to_training(new_dict),
                                                           message_to_feagi)
             message_to_feagi['timestamp'] = datetime.now()
             message_to_feagi['counter'] = msg_counter
