@@ -238,6 +238,17 @@ def pupil_control_update(message_from_feagi, capabilities):
     return capabilities
 
 
+def detect_ID_data(message_from_feagi):
+    """
+    :param message_from_feagi: Should be a dict from FEAGI data only
+    :return: Return the data that given by FEAGI
+    """
+    if "o___ID" in message_from_feagi["opu_data"]:
+        if message_from_feagi["opu_data"]["o___ID"]:
+            # Just send to feagi of dict, thats it
+            return message_from_feagi["opu_data"]["o___ID"]
+    return {}
+
 def detect_genome_change(message_from_feagi):
     if "genome_changed" in message_from_feagi:
         if message_from_feagi["genome_changed"]:
