@@ -23,6 +23,8 @@ import traceback
 # Variable storage #
 raw_aptr = -1
 global_aptr_cortical_size = None
+global_ID_cortical_size = None
+full_list_dimension = []
 
 
 def generate_feagi_data(rgb, msg_counter, date, message_to_feagi):
@@ -147,8 +149,23 @@ def fetch_aptr_size(aptr_cortical_size, get_size_for_aptr_cortical, feagi_aptr=N
         return aptr_cortical_size
 
 
+def fetch_ID_size(ID_cortical_size, get_size_for_aptr_cortical, device_ID=None):
+    if ID_cortical_size is None:
+        if device_ID is not None:
+            if device_ID >= global_aptr_cortical_size:
+                return global_aptr_cortical_size
+        ID_cortical_size = check_aptr(get_size_for_aptr_cortical)
+        return ID_cortical_size
+    else:
+        return ID_cortical_size
+
+
 def check_aptr(get_size_for_aptr_cortical):
     return router.fetch_aptr(get_size_for_aptr_cortical)
+
+
+def check_ID_size(get_size_for_ID):
+    return router.fetch_ID(get_size_for_ID)
 
 
 def grab_geometry():
@@ -249,6 +266,7 @@ def detect_ID_data(message_from_feagi):
             return message_from_feagi["opu_data"]["o___ID"]
     return {}
 
+
 def detect_genome_change(message_from_feagi):
     if "genome_changed" in message_from_feagi:
         if message_from_feagi["genome_changed"]:
@@ -259,3 +277,7 @@ def check_refresh_rate(message_from_feagi, current_second):
     if message_from_feagi is not None:
         return message_from_feagi['burst_frequency']
     return current_second
+
+
+def fetch_full_dimensions(url):
+    return router.fetch_all_size(url)
