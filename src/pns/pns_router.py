@@ -147,7 +147,7 @@ def stimuli_router(ipu_data):
 
                 if 'training' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
                     try:
-                        stimuli_translator.training_translator(data=ipu_data["data"]["sensory_data"][sensor_type])
+                        stimuli_translator.training_translator(stimulation=ipu_data["data"]["sensory_data"][sensor_type])
                     except Exception:
                         print("ERROR while processing Object Identification Training IPU", traceback.format_exc())
 
