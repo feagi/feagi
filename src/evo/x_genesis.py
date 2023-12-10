@@ -732,10 +732,16 @@ def append_circuit(source_genome, circuit_origin):
         for cortical_area_id in src_blueprint:
             print(f"-----Attempting to import cortical area {cortical_area_id}")
             try:
+                src_cortical_area = src_blueprint[cortical_area_id]
+                new_cortical_name = src_blueprint[cortical_area_id]["cortical_name"]
+                new_cortical_area_id = cortical_area_id
+
+                new_coordinates = [src_cortical_area["relative_coordinate"][0] + circuit_origin[0],
+                                   src_cortical_area["relative_coordinate"][1] + circuit_origin[1],
+                                   src_cortical_area["relative_coordinate"][2] + circuit_origin[2],
+                                   ]
+
                 if src_blueprint[cortical_area_id]['group_id'] not in ["IPU", "OPU", "CORE"]:
-                    src_cortical_area = src_blueprint[cortical_area_id]
-                    new_cortical_name = src_blueprint[cortical_area_id]["cortical_name"]
-                    new_cortical_area_id = cortical_area_id
 
                     if cortical_area_id in dst_blueprint:
                         while new_cortical_area_id == cortical_area_id:
@@ -747,11 +753,6 @@ def append_circuit(source_genome, circuit_origin):
                             new_cortical_name = \
                                 src_blueprint[cortical_area_id]["cortical_name"] + \
                                 "".join(random.choice(string.ascii_uppercase) for _ in range(3))
-
-                    new_coordinates = [src_cortical_area["relative_coordinate"][0] + circuit_origin[0],
-                                       src_cortical_area["relative_coordinate"][1] + circuit_origin[1],
-                                       src_cortical_area["relative_coordinate"][2] + circuit_origin[2],
-                                       ]
 
                     upstream_cortical_areas, downstream_cortical_areas = \
                         neighboring_cortical_areas(cortical_area=cortical_area_id, blueprint=src_blueprint)
@@ -780,12 +781,15 @@ def append_circuit(source_genome, circuit_origin):
                           f"id:{new_cortical_area_id} name:{new_cortical_name}")
                 else:
                     if cortical_area_id not in dst_blueprint:
+                        print("@___" * 20)
+                        print(f"Importing {cortical_area_id} as a non-custom cortical area")
                         add_core_cortical_area(cortical_properties={
-                          "cortical_type": src_blueprint[cortical_area_id]['group_id'],
-                          "cortical_name": src_blueprint[cortical_area_id]['cortical_name'],
-                          "cortical_coordinates": [new_coordinates[0], new_coordinates[1], new_coordinates[2]],
-                          "channel_count": 1,
-                          "2d_coordinates": [0, 0]
+                            "cortical_id": cortical_area_id,
+                            "cortical_type": src_blueprint[cortical_area_id]['group_id'],
+                            "cortical_name": src_blueprint[cortical_area_id]['cortical_name'],
+                            "coordinates_3d": [new_coordinates[0], new_coordinates[1], new_coordinates[2]],
+                            "channel_count": 1,
+                            "coordinates_2d": [0, 0]
                         })
                         appended_cortical_areas.add(cortical_area_id)
                         print(f"---------------Successfully imported a built-in cortical area. id:{cortical_area_id}")
