@@ -20,41 +20,20 @@ limitations under the License.
 from time import sleep
 from datetime import datetime
 from feagi_agent import pns_gateway as pns
+from feagi_agent import retina as retina
 from feagi_agent.version import __version__
 from feagi_agent import feagi_interface as feagi
+import trainer as feagi_trainer
 import traceback
 from configuration import *
+import requests
 import os
 import cv2
 import glob
 import numpy as np
 
 
-def PRINT_FROM_IPU(message_from_feagi):
-    print(message_from_feagi)
-
-
-def pass_ipu_data_to_training(data):
-    return data
-
-
-def collect_images(path_to_directory):
-    pattern = f"{path_to_directory}/*.jpg"
-    jpg_files = glob.glob(pattern)
-    return jpg_files
-
-
-def generate_image(images_list, loop, pause):
-    if loop:
-        pass
-    else:
-        for jpg_file in images_list:
-            img = cv2.imread(jpg_file)
-            sleep(pause)
-
-
 if __name__ == "__main__":
-    generate_image(".", False, 2)
     # Generate runtime dictionary
     runtime_data = {"vision": {}, "current_burst_id": None, "stimulation_period": None,
                     "feagi_state": None,
@@ -63,8 +42,7 @@ if __name__ == "__main__":
     FEAGI_FLAG = False
     print("Waiting on FEAGI...")
     while not FEAGI_FLAG:
-        FEAGI_FLAG = feagi.is_FEAGI_reachable(
-            os.environ.get('FEAGI_HOST_INTERNAL', feagi_settings["feagi_host"]),
+        FEAGI_FLAG = feagi.is_FEAGI_reachable(os.environ.get('FEAGI_HOST_INTERNAL', feagi_settings["feagi_host"]),
             int(os.environ.get('FEAGI_OPU_PORT', "3000")))
         sleep(2)
     # # # FEAGI registration # # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -77,47 +55,62 @@ if __name__ == "__main__":
     previous_genome_timestamp = 0
 
     if not pns.full_list_dimension:
-        pns.full_list_dimension = pns.fetch_full_dimensions(
-            api_address + '/v1/feagi/connectome/properties/dimensions')
-        print(pns.full_list_dimension)
+        pns.full_list_dimension = pns.fetch_full_dimensions(api_address + '/v1/feagi/connectome/properties/dimensions')
     genome_tracker = 0  # Temporarily
-
-    name = [0, 0, 0]
-    x, y, z = name
+    rgb = dict()
+    rgb['camera'] = dict()
+    previous_frame_data = {}
+    loop = True
+    path = "./"
+    response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
+    size_list = retina.obtain_cortical_vision_size("00", response) # Temporarily
     while True:
-        try:
-            message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
-            if message_from_feagi is not None:
-                # # Checking on refresh rate and genome status
-                genome_changed = pns.detect_genome_change(message_from_feagi)
-                if genome_changed != previous_genome_timestamp:
-                    pns.full_list_dimension = pns.fetch_full_dimensions(
-                        api_address + '/v1/feagi/connectome/properties/dimensions')
-                    previous_genome_timestamp = message_from_feagi["genome_changed"]
-                current_tracker = pns.obtain_genome_number(genome_tracker, message_from_feagi)
-                if genome_tracker != current_tracker:
-                    pns.full_list_dimension = pns.fetch_full_dimensions(
-                        api_address + '/v1/feagi/connectome/properties/dimensions')
-                    genome_tracker = current_tracker
-                # # End
+        list_images = feagi_trainer.gather_all_images(path)
+        for image in list_images:
+            try:
+                message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
+                if message_from_feagi is not None:
+                    # # Checking on refresh rate and genome status
+                    genome_changed = pns.detect_genome_change(message_from_feagi)
+                    if genome_changed != previous_genome_timestamp:
+                        pns.full_list_dimension = pns.fetch_full_dimensions(
+                            api_address + '/v1/feagi/connectome/properties/dimensions')
+                        previous_genome_timestamp = message_from_feagi["genome_changed"]
+                    current_tracker = pns.obtain_genome_number(genome_tracker, message_from_feagi)
+                    if genome_tracker != current_tracker:
+                        pns.full_list_dimension = pns.fetch_full_dimensions(
+                            api_address + '/v1/feagi/connectome/properties/dimensions')
+                        genome_tracker = current_tracker
+                    # # End
 
-            random_image = np.random.randint(0, 256, size=(300, 300, 3), dtype=np.uint8)
-            value = random_image[(x, y, z)]
-            new_dict = dict()
-            name_key = "{}-{}-{}".format(x, y, z)
-            new_dict[name_key] = value
-            generate_image(".", name_key + ".jpg", 1, random_image)
-            message_to_feagi = pns.prepare_the_feagi_data('training',
-                                                          pass_ipu_data_to_training(new_dict),
-                                                          message_to_feagi)
-            message_to_feagi['timestamp'] = datetime.now()
-            message_to_feagi['counter'] = msg_counter
-            feagi_settings['feagi_burst_speed'] = pns.check_refresh_rate(message_from_feagi,
-                                                                         feagi_settings[
-                                                                             'feagi_burst_speed'])
-            pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
-        except Exception as e:
-            # pass
-            print("ERROR! : ", e)
-            traceback.print_exc()
+                # Process for ID training
+                raw_frame = feagi_trainer.read_single(path + image)
+                new_dict = feagi_trainer.id_data_obtain(image)
+                message_to_feagi = pns.prepare_the_feagi_data('training', new_dict, message_to_feagi)
+                # Process ends for the ID training
+
+                #Post image into vision
+                previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
+                                                                     "00",
+                                                                     size_list,
+                                                                     previous_frame_data, rgb)
+                capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed'] = \
+                    retina.vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel,
+                                           api_address, feagi_settings, raw_frame)
+
+                message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(),
+                                                           message_to_feagi)
+                # Vision process ends
+
+
+                sleep(feagi_settings['feagi_burst_speed'])
+                feagi_settings['feagi_burst_speed'] = pns.check_refresh_rate(message_from_feagi,
+                                                                             feagi_settings['feagi_burst_speed'])
+                pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
+                message_to_feagi.clear()
+            except Exception as e:
+                # pass
+                print("ERROR! : ", e)
+                traceback.print_exc()
+        if not loop:
             break
