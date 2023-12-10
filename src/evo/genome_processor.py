@@ -553,7 +553,7 @@ genome_2_to_1 = {
 genome_1_to_2 = {
     "cortical_name": "cx-__name-t",
     "group_id": "cx-_group-t",
-    "sub_group_id": "cx-_subgrp-t",
+    "sub_group_id": "cx-subgrp-t",
     "per_voxel_neuron_cnt": "cx-_n_cnt-i",
     "visualization": "cx-gd_vis-b",
     "location_generation_type": "cx-__rand-b",
