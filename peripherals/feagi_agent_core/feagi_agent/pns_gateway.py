@@ -260,7 +260,6 @@ def detect_ID_data(message_from_feagi):
     """
     if "o___ID" in message_from_feagi["opu_data"]:
         if message_from_feagi["opu_data"]["o___ID"]:
-            # Just send to feagi of dict, thats it
             return message_from_feagi["opu_data"]["o___ID"]
     return {}
 
