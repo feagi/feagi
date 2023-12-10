@@ -19,11 +19,17 @@ import traceback
 import datetime
 from evo.genome_editor import save_genome
 from evo.genome_validator import genome_validator
-from evo.templates import core_morphologies
+from evo.templates import core_morphologies, cortical_types
 from inf import runtime_data
 
 
 logger = logging.getLogger(__name__)
+
+
+def merge_core_morphologies(genome):
+    for core_morphology in core_morphologies:
+        genome["neuron_morphologies"][core_morphology] = core_morphologies[core_morphology].copy()
+    return genome
 
 
 def genome_ver_check(genome):
@@ -35,8 +41,7 @@ def genome_ver_check(genome):
                 print("Genome validity=", runtime_data.genome_validity)
             except Exception as e:
                 print("Error during genome validation!!\n", traceback.print_exc(), e)
-            for core_morphology in core_morphologies:
-                genome["neuron_morphologies"][core_morphology] = core_morphologies[core_morphology].copy()
+            genome = merge_core_morphologies(genome)
             genome = genome_morphology_updator(genome)
             save_genome(genome=genome, file_name=runtime_data.connectome_path + "genome.json")
             genome1 = genome_2_1_convertor(flat_genome=genome['blueprint'])

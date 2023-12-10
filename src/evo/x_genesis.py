@@ -412,6 +412,9 @@ def neighboring_cortical_areas(cortical_area, blueprint=None):
 def cortical_removal(cortical_area, genome_scrub=False):
     if cortical_area not in runtime_data.cortical_list:
         print("Error: Cortical area requested for removal does not exist:", cortical_area)
+
+    elif cortical_area in templates.cortical_types["CORE"]["supported_devices"]:
+        print("Error: Cortical areas of CORE type cannot be removed", cortical_area)
     else:
         print("Processing cortical removal for", cortical_area)
         msg = "Processing cortical removal request for" + cortical_area
@@ -583,28 +586,32 @@ def add_core_cortical_area(cortical_properties):
                  cortical_properties['coordinates_2d'][1]]
 
             runtime_data.genome['blueprint'][cortical_id_]['cortical_mapping_dst'] = dict()
-            runtime_data.genome["blueprint"][cortical_id_]["per_voxel_neuron_cnt"] = \
-                template['per_voxel_neuron_cnt']
-            runtime_data.genome["blueprint"][cortical_id_]["synapse_attractivity"] = \
-                template['synapse_attractivity']
-            runtime_data.genome["blueprint"][cortical_id_]["postsynaptic_current"] = \
-                template['postsynaptic_current']
-            runtime_data.genome["blueprint"][cortical_id_]["plasticity_constant"] = \
-                template['plasticity_constant']
-            runtime_data.genome["blueprint"][cortical_id_]["degeneration"] = \
-                template['degeneration']
-            runtime_data.genome["blueprint"][cortical_id_]["psp_uniform_distribution"] = \
-                template['psp_uniform_distribution']
-            runtime_data.genome["blueprint"][cortical_id_]["postsynaptic_current_max"] = \
-                template['postsynaptic_current_max']
-            runtime_data.genome["blueprint"][cortical_id_]["mp_charge_accumulation"] = \
-                template['mp_charge_accumulation']
-            runtime_data.genome["blueprint"][cortical_id_]["mp_driven_psp"] = \
-                template['mp_driven_psp']
-            runtime_data.genome["blueprint"][cortical_id_]["firing_threshold_increment"] = \
-                template['firing_threshold_increment']
-            runtime_data.genome["blueprint"][cortical_id_]["firing_threshold_limit"] = \
-                template['firing_threshold_limit']
+
+            for parameter in template:
+                runtime_data.genome["blueprint"][cortical_id_][parameter] = template[parameter]
+
+            # runtime_data.genome["blueprint"][cortical_id_]["per_voxel_neuron_cnt"] = \
+            #     template['per_voxel_neuron_cnt']
+            # runtime_data.genome["blueprint"][cortical_id_]["synapse_attractivity"] = \
+            #     template['synapse_attractivity']
+            # runtime_data.genome["blueprint"][cortical_id_]["postsynaptic_current"] = \
+            #     template['postsynaptic_current']
+            # runtime_data.genome["blueprint"][cortical_id_]["plasticity_constant"] = \
+            #     template['plasticity_constant']
+            # runtime_data.genome["blueprint"][cortical_id_]["degeneration"] = \
+            #     template['degeneration']
+            # runtime_data.genome["blueprint"][cortical_id_]["psp_uniform_distribution"] = \
+            #     template['psp_uniform_distribution']
+            # runtime_data.genome["blueprint"][cortical_id_]["postsynaptic_current_max"] = \
+            #     template['postsynaptic_current_max']
+            # runtime_data.genome["blueprint"][cortical_id_]["mp_charge_accumulation"] = \
+            #     template['mp_charge_accumulation']
+            # runtime_data.genome["blueprint"][cortical_id_]["mp_driven_psp"] = \
+            #     template['mp_driven_psp']
+            # runtime_data.genome["blueprint"][cortical_id_]["firing_threshold_increment"] = \
+            #     template['firing_threshold_increment']
+            # runtime_data.genome["blueprint"][cortical_id_]["firing_threshold_limit"] = \
+            #     template['firing_threshold_limit']
 
             runtime_data.genome["blueprint"][cortical_id_]["group_id"] = cortical_properties['cortical_type']
 

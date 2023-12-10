@@ -192,13 +192,17 @@ cortical_types = {
                 "enabled": True,
                 "cortical_name": "Death",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 1]
+                "resolution": [1, 1, 1],
+                "coordinate_3d": [0, 0, -10],
+                "coordinate_2d": [-10, -20]
             },
             "___pwr": {
                 "enabled": False,
                 "cortical_name": "Power",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 1]
+                "resolution": [1, 1, 1],
+                "coordinate_3d": [0, 0, -20],
+                "coordinate_2d": [-10, -10]
             }
         }
     },
