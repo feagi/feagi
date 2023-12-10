@@ -345,6 +345,10 @@ def vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel, 
         if pns.global_aptr_cortical_size is None:
             pns.global_aptr_cortical_size = pns.check_aptr(
                 api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr')
+        if pns.global_ID_cortical_size is None:
+            pns.global_ID_cortical_size = pns.check_ID_size(api_address +
+                                                            '/v1/feagi/genome/cortical_area'
+                                                            '?cortical_area=i___ID')
         # Update the aptr
         capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
                                                pns.global_aptr_cortical_size)
