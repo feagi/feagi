@@ -46,21 +46,27 @@ def generate_feagi_data(rgb, msg_counter, date, message_to_feagi):
     return message_to_feagi
 
 
-def prepare_the_feagi_data(name, data, message_to_feagi):
+def append_sensory_data_for_feagi(sensory_category, sensory_data, message_to_feagi):
+    """
+    :param sensory_category: A name such as training, camera, IR, ultrasonic and so on.
+    :param sensory_data: The data of dict only
+    :param message_to_feagi: Use the existing dict to append
+    :return: the updated dict called `message_to_feagi`
+    """
     if "data" not in message_to_feagi:
         message_to_feagi["data"] = {}
     if "sensory_data" not in message_to_feagi["data"]:
         message_to_feagi["data"]["sensory_data"] = {}
-    message_to_feagi["data"]["sensory_data"][name] = data
+    message_to_feagi["data"]["sensory_data"][sensory_category] = sensory_data
     return message_to_feagi
 
 
-def efferent_signaling(feagi_opu_channel):
+def signals_from_feagi(feagi_opu_channel):
     """ get OPU from FEAGI """
     return router.fetch_feagi(feagi_opu_channel)
 
 
-def afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings):
+def signals_to_feagi(message_to_feagi, feagi_ipu_channel, agent_settings):
     router.send_feagi(message_to_feagi, feagi_ipu_channel, agent_settings)
 
 
