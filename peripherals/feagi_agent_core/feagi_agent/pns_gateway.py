@@ -168,7 +168,7 @@ def check_aptr(get_size_for_aptr_cortical):
     return router.fetch_aptr(get_size_for_aptr_cortical)
 
 
-def check_ID_size(get_size_for_ID):
+def check_id_size(get_size_for_ID):
     return router.fetch_ID(get_size_for_ID)
 
 
