@@ -90,7 +90,7 @@ if __name__ == "__main__":
             raw_frame = feagi_trainer.read_single_image(capabilities['image_reader']['path'] + image)
             new_dict = feagi_trainer.image_identity_constructor(image)
             message_to_feagi = pns.prepare_the_feagi_data('training', new_dict, message_to_feagi)
-            if capabilities['image_reader']['loop'] < int((datetime.now() -
+            if capabilities['image_reader']['pause'] < int((datetime.now() -
                                                            start_timer).total_seconds()):
                 start_timer = 0
             # Process ends for the ID training
