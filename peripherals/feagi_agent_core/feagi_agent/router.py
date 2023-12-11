@@ -140,9 +140,10 @@ def fetch_aptr(get_size_for_aptr_cortical):
         return 10
 
 
-def fetch_all_size(url):
+def fetch_cortical_dimensions():
     try:
-        list_dimesions = requests.get(url).json()
+        list_dimesions = requests.\
+            get(global_api_address + '/v1/feagi/connectome/properties/dimensions').json()
         return list_dimesions
     except Exception as e:
         print("e: ", e)
