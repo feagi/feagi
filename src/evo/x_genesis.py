@@ -788,8 +788,6 @@ def append_circuit(source_genome, circuit_origin):
                           f"id:{new_cortical_area_id} name:{new_cortical_name}")
                 else:
                     if cortical_area_id not in dst_blueprint:
-                        print("@___" * 20)
-                        print(f"Importing {cortical_area_id} as a non-custom cortical area")
                         add_core_cortical_area(cortical_properties={
                             "cortical_id": cortical_area_id,
                             "cortical_type": src_blueprint[cortical_area_id]['group_id'],
