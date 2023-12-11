@@ -282,5 +282,5 @@ def check_refresh_rate(message_from_feagi, current_second):
     return current_second
 
 
-def fetch_full_dimensions(url):
-    return router.fetch_all_size(url)
+def fetch_full_dimensions():
+    return router.fetch_cortical_dimensions()
