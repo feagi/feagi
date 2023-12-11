@@ -61,6 +61,11 @@ capabilities = {
         "gaze_control": {0: 25, 1: 50},
         "pupil_control": {0: 25, 1: 50},
         "size_list": []
+    },
+    "image_reader": {
+        "loop": True,
+        "pause": 2,
+        "path": "./"
     }
 }
 
