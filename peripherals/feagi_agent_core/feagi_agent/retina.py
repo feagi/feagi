@@ -205,7 +205,7 @@ def change_detector_grayscale(previous, current, capabilities):
     # Using cv2.absdiff for optimized difference calculation
     if current.shape == previous.shape:
 
-        if capabilities['camera']['blink'] == []:
+        if len(capabilities['camera']['blink']) == 0:
             difference = cv2.absdiff(previous, current)
 
         else:
@@ -247,7 +247,7 @@ def change_detector(previous, current, capabilities):
     # Using cv2.absdiff for optimized difference calculation
     if current.shape == previous.shape:
 
-        if capabilities['camera']['blink'] == []:
+        if len(capabilities['camera']['blink']) == 0:
             difference = cv2.absdiff(previous, current)
 
         else:
