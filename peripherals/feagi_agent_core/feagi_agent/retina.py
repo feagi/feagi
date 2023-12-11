@@ -210,16 +210,13 @@ def change_detector_grayscale(previous, current, capabilities):
 
         else:
             # print("Blink!")
-            difference = cv2.absdiff(0, current)
+            difference = current
             # print(current)
 
         thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
                                     capabilities['camera']['iso_default'][1],
                                     cv2.THRESH_TOZERO)[1]
-
-        thresholded = cv2.threshold(thresholded, capabilities['camera']['iso_default'][0],
-                                    capabilities['camera']['iso_default'][1],
-                                    cv2.THRESH_TOZERO_INV)[1]
+        # cv2.imshow("center only", thresholded)
         # Convert to boolean array for significant changes
         significant_changes = thresholded > 0
 
@@ -338,17 +335,13 @@ def update_size_list(capabilities):
 def vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel, api_address,
                     feagi_settings, raw_frame):
     global genome_tracker # horrible, worst in programming. TODO: FIX THIS
-    message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
+    message_from_feagi = pns.signals_from_feagi(feagi_opu_channel)
     if message_from_feagi is not None:
         # OPU section STARTS
         # Obtain the size of aptr
         if pns.global_aptr_cortical_size is None:
             pns.global_aptr_cortical_size = pns.check_aptr(
                 api_address + '/v1/feagi/genome/cortical_area?cortical_area=o_aptr')
-        if pns.global_ID_cortical_size is None:
-            pns.global_ID_cortical_size = pns.check_ID_size(api_address +
-                                                            '/v1/feagi/genome/cortical_area'
-                                                            '?cortical_area=i___ID')
         # Update the aptr
         capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
                                                pns.global_aptr_cortical_size)
@@ -369,8 +362,6 @@ def vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel, 
         if genome_changed != previous_genome_timestamp:
             capabilities = update_size_list(capabilities)
             previous_genome_timestamp = message_from_feagi["genome_changed"]
-        ID_data = pns.detect_ID_data(message_from_feagi)
-        print("RECIEVED DATA FROM ID: ", ID_data)
         capabilities = pns.obtain_blink_data(raw_frame, message_from_feagi, capabilities)
         capabilities = pns.monitor_switch(message_from_feagi, capabilities)
         capabilities = pns.gaze_control_update(message_from_feagi, capabilities)

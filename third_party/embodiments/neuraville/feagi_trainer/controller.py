@@ -28,6 +28,7 @@ import traceback
 from configuration import *
 import requests
 import os
+import numpy as np
 
 if __name__ == "__main__":
     # Generate runtime dictionary
@@ -62,6 +63,7 @@ if __name__ == "__main__":
     start_timer = datetime.now()
     list_images = feagi_trainer.gather_all_images(capabilities['image_reader']['path'])
     pointer = 0
+    flag_blink = True
     while True:
         try:
             if start_timer == 0:
@@ -88,6 +90,14 @@ if __name__ == "__main__":
             image = list_images[pointer]
             # Process for ID training
             raw_frame = feagi_trainer.read_single_image(capabilities['image_reader']['path'] + image)
+            if not flag_blink:
+                flag_blink = True
+                raw_frame = capabilities['camera']['blink']
+                capabilities['camera']['blink'] = []
+            else:
+                flag_blink = False
+                capabilities['camera']['blink'] = raw_frame
+
             new_dict = feagi_trainer.image_identity_constructor(image)
             message_to_feagi = pns.append_sensory_data_for_feagi('training',
                                                                  new_dict, message_to_feagi)
