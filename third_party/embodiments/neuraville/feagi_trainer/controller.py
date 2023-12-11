@@ -73,7 +73,7 @@ if __name__ == "__main__":
                         break
                     else:
                         pointer = 0
-            message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
+            message_from_feagi = pns.signals_from_feagi(feagi_opu_channel)
             if message_from_feagi is not None:
                 # # Checking on refresh rate and genome status
                 genome_changed = pns.detect_genome_change(message_from_feagi)
@@ -89,17 +89,17 @@ if __name__ == "__main__":
             # Process for ID training
             raw_frame = feagi_trainer.read_single_image(capabilities['image_reader']['path'] + image)
             new_dict = feagi_trainer.image_identity_constructor(image)
-            message_to_feagi = pns.prepare_the_feagi_data('training', new_dict, message_to_feagi)
+            message_to_feagi = pns.append_sensory_data_for_feagi('training',
+                                                                 new_dict, message_to_feagi)
             if capabilities['image_reader']['pause'] < int((datetime.now() -
                                                            start_timer).total_seconds()):
                 start_timer = 0
             # Process ends for the ID training
 
             # Post image into vision
-            previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
-                                                                 "00",
-                                                                 size_list,
-                                                                 previous_frame_data, rgb)
+            previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities, "00",
+                                                                 size_list, previous_frame_data,
+                                                                 rgb)
             capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed'] = \
                 retina.vision_progress(capabilities, previous_genome_timestamp,
                                        feagi_opu_channel,
@@ -113,7 +113,7 @@ if __name__ == "__main__":
             feagi_settings['feagi_burst_speed'] = pns.check_refresh_rate(message_from_feagi,
                                                                          feagi_settings[
                                                                              'feagi_burst_speed'])
-            pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
+            pns.signals_to_feagi(message_to_feagi, feagi_ipu_channel, agent_settings)
             message_to_feagi.clear()
         except Exception as e:
             # pass
