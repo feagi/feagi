@@ -61,7 +61,7 @@ def vision_frame_capture(device, RGB_flag=True):
         return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), datetime.now(), check
 
 
-def vision_region_coordinates(frame_width, frame_height, x1, x2, y1, y2, camera_index):
+def vision_region_coordinates(frame_width, frame_height, x1, x2, y1, y2, camera_index,size_list):
     """
     Calculate coordinates for nine different regions within a frame based on given percentages.
 
@@ -91,15 +91,24 @@ def vision_region_coordinates(frame_width, frame_height, x1, x2, y1, y2, camera_
     y2_prime = y1_prime + int((frame_height - y1_prime) * (y2 / 100))
 
     region_coordinates = dict()
-    region_coordinates[camera_index + 'TL'] = [0, 0, x1_prime, y1_prime]
-    region_coordinates[camera_index + 'TM'] = [x1_prime, 0, x2_prime, y1_prime]
-    region_coordinates[camera_index + 'TR'] = [x2_prime, 0, frame_width, y1_prime]
-    region_coordinates[camera_index + 'ML'] = [0, y1_prime, x1_prime, y2_prime]
-    region_coordinates[camera_index + '_C'] = [x1_prime, y1_prime, x2_prime, y2_prime]
-    region_coordinates[camera_index + 'MR'] = [x2_prime, y1_prime, frame_width, y2_prime]
-    region_coordinates[camera_index + 'LL'] = [0, y2_prime, x1_prime, frame_height]
-    region_coordinates[camera_index + 'LM'] = [x1_prime, y2_prime, x2_prime, frame_height]
-    region_coordinates[camera_index + 'LR'] = [x2_prime, y2_prime, frame_width, frame_height]
+    if (camera_index + 'TL') in size_list:
+        region_coordinates[camera_index + 'TL'] = [0, 0, x1_prime, y1_prime]
+    if (camera_index + 'TM') in size_list:
+        region_coordinates[camera_index + 'TM'] = [x1_prime, 0, x2_prime, y1_prime]
+    if (camera_index + 'TR') in size_list:
+        region_coordinates[camera_index + 'TR'] = [x2_prime, 0, frame_width, y1_prime]
+    if (camera_index + 'ML') in size_list:
+        region_coordinates[camera_index + 'ML'] = [0, y1_prime, x1_prime, y2_prime]
+    if (camera_index + '_C') in size_list:
+        region_coordinates[camera_index + '_C'] = [x1_prime, y1_prime, x2_prime, y2_prime]
+    if (camera_index + 'MR') in size_list:
+        region_coordinates[camera_index + 'MR'] = [x2_prime, y1_prime, frame_width, y2_prime]
+    if (camera_index + 'LL') in size_list:
+        region_coordinates[camera_index + 'LL'] = [0, y2_prime, x1_prime, frame_height]
+    if (camera_index + 'LM') in size_list:
+        region_coordinates[camera_index + 'LM'] = [x1_prime, y2_prime, x2_prime, frame_height]
+    if (camera_index + 'LR') in size_list:
+        region_coordinates[camera_index + 'LR'] = [x2_prime, y2_prime, frame_width, frame_height]
     # print("vision_region_coordinates time total: ", (datetime.now() - start_time).total_seconds())
     return region_coordinates
 
@@ -207,16 +216,19 @@ def change_detector_grayscale(previous, current, capabilities):
 
         if len(capabilities['camera']['blink']) == 0:
             difference = cv2.absdiff(previous, current)
+            thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
+                                        capabilities['camera']['iso_default'][1],
+                                        cv2.THRESH_TRUNC)[1]
 
         else:
             # print("Blink!")
             difference = current
             # print(current)
-
-        thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
-                                    capabilities['camera']['iso_default'][1],
-                                    cv2.THRESH_TOZERO)[1]
-        # cv2.imshow("center only", thresholded)
+            thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
+                                        capabilities['camera']['iso_default'][1],
+                                        cv2.THRESH_TOZERO )[1]
+        print(check_brightness(current))
+        cv2.imshow("center only", thresholded)
         # Convert to boolean array for significant changes
         significant_changes = thresholded > 0
 
@@ -268,14 +280,17 @@ def change_detector(previous, current, capabilities):
 
 def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previous_frame_data,
                        rgb):
+
   if resize_list:
     region_coordinates = vision_region_coordinates(raw_frame.shape[1],
-                                                   raw_frame.shape[0], capabilities['camera'][
-                                                       'gaze_control'][0], capabilities['camera'][
-                                                       'gaze_control'][1],
-                                                   capabilities['camera']['pupil_control'][0],
-                                                   capabilities['camera']['pupil_control'][1],
-                                                   camera_index)
+                                                   raw_frame.shape[0], abs(capabilities['camera'][
+                                                       'gaze_control'][0]), abs(capabilities[
+                                                                                                                                                         'camera'][
+                                                       'gaze_control'][1]),
+                                                   abs(capabilities['camera']['pupil_control'][0]),
+                                                   abs(capabilities['camera']['pupil_control'][1]),
+                                                   camera_index,
+                                                   resize_list)
     segmented_frame_data = split_vision_regions(coordinates=region_coordinates,
                                                 raw_frame_data=raw_frame)
     compressed_data = dict()
@@ -284,10 +299,10 @@ def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previ
                                                      resize_list[cortical])
     vision_dict = dict()
 
-    # for segment in compressed_data:
-    #     cv2.imshow(segment, compressed_data[segment])
-    # if cv2.waitKey(30) & 0xFF == ord('q'):
-    #     pass
+    for segment in compressed_data:
+        cv2.imshow(segment, compressed_data[segment])
+    if cv2.waitKey(30) & 0xFF == ord('q'):
+        pass
     for get_region in compressed_data:
         if resize_list[get_region][2] == 3:
             if previous_frame_data != {}:
@@ -384,3 +399,20 @@ def RGB_list_to_ndarray(data, size):
 
 def flip_video(data):
     return cv2.flip(data, 1)
+
+
+def check_brightness(frame):
+
+    # Calculate the average pixel intensity (brightness)
+    average_intensity = cv2.mean(frame)[0]
+
+    # Define thresholds for brightness
+    brightness_threshold = 127  # Adjust this threshold as needed
+
+    # Check if the average intensity is above or below the threshold
+    if average_intensity > brightness_threshold:
+        return "Image is too bright"
+    elif average_intensity < brightness_threshold:
+        return "Image is too dark"
+    else:
+        return "Image is neither too bright nor too dark"
