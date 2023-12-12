@@ -4,18 +4,18 @@ import cv2
 from feagi_agent import pns_gateway as pns
 
 
-def gather_all_images(path_direction):
+def scan_the_folder(path_direction):
     """
     Generator to yield image files with specific pattern in filename.
     Useful for filtering training images provided by the user.
-    Will ignore the file if it doesn't have #-#-# in the filename.
+    Will ignore the file if it doesn't have #-#-# in the filename or isn't an image.
     """
     folder_path = path_direction
     files = os.listdir(folder_path)
     pattern = re.compile(r'\d+-\d+-\d+\..+')
-
+    image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp']
     for filename in files:
-        if pattern.match(filename):
+        if pattern.match(filename) and os.path.splitext(filename)[1].lower() in image_extensions:
             yield filename
 
 
@@ -26,23 +26,9 @@ def read_single_image(absolute_to_file, filename):
     return cv2.imread(absolute_to_file + filename), id_message
 
 
-def initalize_the_folder(path):
-    return gather_all_images(path)
-
-
-def id_training_with_image(message_to_feagi, image, capabilities, start_timer,
-                           flag_blink,
-                           raw_frame=[]):
+def id_training_with_image(message_to_feagi, image, capabilities, raw_frame=[]):
     # Process for ID training
     raw_frame, name_id = read_single_image(capabilities['image_reader']['path'], image)
-    if not flag_blink:
-        flag_blink = True
-        raw_frame = capabilities['camera']['blink']
-        capabilities['camera']['blink'] = []
-    else:
-        flag_blink = False
-        capabilities['camera']['blink'] = raw_frame
-
     message_to_feagi = pns.append_sensory_data_for_feagi('training', name_id, message_to_feagi)
     # Process ends for the ID training
-    return message_to_feagi, start_timer, image, flag_blink, raw_frame
+    return message_to_feagi, image, raw_frame
