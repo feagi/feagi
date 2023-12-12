@@ -50,44 +50,29 @@ if __name__ == "__main__":
                                __version__)
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     msg_counter = runtime_data["feagi_state"]['burst_counter']
-    previous_genome_timestamp = 0
 
     if not pns.full_list_dimension:
         pns.full_list_dimension = pns.fetch_full_dimensions()
-    genome_tracker = 0  # Temporarily
     rgb = dict()
     rgb['camera'] = dict()
     previous_frame_data = {}
     response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
     size_list = retina.obtain_cortical_vision_size("00", response)  # Temporarily
-    start_timer = datetime.now()
-    list_images = feagi_trainer.gather_all_images(capabilities['image_reader']['path'])
+    start_timer = 0
     pointer = 0
     flag_blink = True
     while True:
+        message_from_feagi = pns.signals_from_feagi(feagi_opu_channel)
+
+        if message_from_feagi is not None:
+            # Check if the genome inside FEAGI is updated or changed.
+            # This is useful for following up on real-time data.
+            pns.check_genome_status(message_from_feagi)
         try:
             if start_timer == 0:
                 start_timer = datetime.now()
-                if pointer < len(list_images) - 1:
-                    pointer += 1
-                elif pointer == len(list_images) - 1:
-                    if not capabilities['image_reader']['loop']:
-                        break
-                    else:
-                        pointer = 0
-            message_from_feagi = pns.signals_from_feagi(feagi_opu_channel)
-            if message_from_feagi is not None:
-                # # Checking on refresh rate and genome status
-                genome_changed = pns.detect_genome_change(message_from_feagi)
-                if genome_changed != previous_genome_timestamp:
-                    pns.full_list_dimension = pns.fetch_full_dimensions()
-                    previous_genome_timestamp = message_from_feagi["genome_changed"]
-                current_tracker = pns.obtain_genome_number(genome_tracker, message_from_feagi)
-                if genome_tracker != current_tracker:
-                    pns.full_list_dimension = pns.fetch_full_dimensions()
-                    genome_tracker = current_tracker
-                # # End
-            image = list_images[pointer]
+                image = next(list_images)
+
             # Process for ID training
             raw_frame = feagi_trainer.read_single_image(capabilities['image_reader']['path'] + image)
             if not flag_blink:
@@ -101,7 +86,7 @@ if __name__ == "__main__":
             new_dict = feagi_trainer.image_identity_constructor(image)
             message_to_feagi = pns.append_sensory_data_for_feagi('training',
                                                                  new_dict, message_to_feagi)
-            if capabilities['image_reader']['pause'] < int((datetime.now() -
+            if capabilities['image_reader']['pause'] <= int((datetime.now() -
                                                            start_timer).total_seconds()):
                 start_timer = 0
             # Process ends for the ID training
@@ -110,8 +95,8 @@ if __name__ == "__main__":
             previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities, "00",
                                                                  size_list, previous_frame_data,
                                                                  rgb)
-            capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed'] = \
-                retina.vision_progress(capabilities, previous_genome_timestamp,
+            capabilities, feagi_settings['feagi_burst_speed'] = \
+                retina.vision_progress(capabilities,
                                        feagi_opu_channel,
                                        api_address, feagi_settings, raw_frame)
 
@@ -125,7 +110,13 @@ if __name__ == "__main__":
                                                                              'feagi_burst_speed'])
             pns.signals_to_feagi(message_to_feagi, feagi_ipu_channel, agent_settings)
             message_to_feagi.clear()
+        except StopIteration:
+            # Check if you need to loop
+            if capabilities['image_reader']['loop']:
+                list_images = feagi_trainer.gather_all_images(capabilities['image_reader']['path'])
+                image = next(list_images)
+            else:
+                break  # Exit the loop if you don't need to loop
         except Exception as e:
-            # pass
             print("ERROR! : ", e)
             traceback.print_exc()

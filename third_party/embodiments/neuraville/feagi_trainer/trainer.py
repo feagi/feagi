@@ -52,7 +52,7 @@ def initalize_the_folder(path):
     global list_images
     list_images = gather_all_images(path)
 
-def id_training(raw_frame=[]):
+def id_training(message_to_feagi, raw_frame=[]):
     global start_timer, list_images
     try:
         if start_timer == 0:
