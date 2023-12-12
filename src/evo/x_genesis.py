@@ -256,6 +256,30 @@ def update_cortical_properties(cortical_properties):
             regeneration_flag = True
             changed_areas.add("blueprint")
 
+    if cortical_properties['neuron_longterm_mem_threshold'] is not None:
+        if runtime_data.genome['blueprint'][cortical_area]["longterm_mem_threshold"] != \
+                cortical_properties['neuron_longterm_mem_threshold']:
+            runtime_data.genome['blueprint'][cortical_area]["longterm_mem_threshold"] = \
+                cortical_properties['neuron_longterm_mem_threshold']
+            regeneration_flag = False
+            changed_areas.add("blueprint")
+
+    if cortical_properties['neuron_lifespan_growth_rate'] is not None:
+        if runtime_data.genome['blueprint'][cortical_area]["lifespan_growth_rate"] != \
+                cortical_properties['neuron_lifespan_growth_rate']:
+            runtime_data.genome['blueprint'][cortical_area]["lifespan_growth_rate"] = \
+                cortical_properties['neuron_lifespan_growth_rate']
+            regeneration_flag = False
+            changed_areas.add("blueprint")
+
+    if cortical_properties['neuron_init_lifespan'] is not None:
+        if runtime_data.genome['blueprint'][cortical_area]["init_lifespan"] != \
+                cortical_properties['neuron_init_lifespan']:
+            runtime_data.genome['blueprint'][cortical_area]["init_lifespan"] = \
+                cortical_properties['neuron_init_lifespan']
+            regeneration_flag = False
+            changed_areas.add("blueprint")
+
     if cortical_properties['neuron_fire_threshold_increment'] is not None:
         genome_fire_threshold_increment = [
             runtime_data.genome['blueprint'][cortical_area]["firing_threshold_increment_x"],
