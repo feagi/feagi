@@ -16,19 +16,14 @@ def scan_the_folder(path_direction):
     image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp']
     for filename in files:
         if pattern.match(filename) and os.path.splitext(filename)[1].lower() in image_extensions:
-            yield filename
+            id_message = dict()
+            name_only = os.path.splitext(filename)[0]
+            id_message[name_only] = 100
+            yield cv2.imread(path_direction + filename), id_message
 
 
-def read_single_image(absolute_to_file, filename):
-    id_message = dict()
-    name_only = os.path.splitext(filename)[0]
-    id_message[name_only] = 100
-    return cv2.imread(absolute_to_file + filename), id_message
-
-
-def id_training_with_image(message_to_feagi, image, capabilities, raw_frame=[]):
+def id_training_with_image(message_to_feagi, name_id):
     # Process for ID training
-    raw_frame, name_id = read_single_image(capabilities['image_reader']['path'], image)
     message_to_feagi = pns.append_sensory_data_for_feagi('training', name_id, message_to_feagi)
     # Process ends for the ID training
-    return message_to_feagi, image, raw_frame
+    return message_to_feagi
