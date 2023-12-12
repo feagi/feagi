@@ -28,7 +28,6 @@ import traceback
 from configuration import *
 import requests
 import os
-import numpy as np
 
 if __name__ == "__main__":
     # Generate runtime dictionary
@@ -61,35 +60,28 @@ if __name__ == "__main__":
     start_timer = 0
     pointer = 0
     flag_blink = True
+    list_images = feagi_trainer.gather_all_images(capabilities['image_reader']['path'])
+    image = next(list_images)
+    raw_frame = []
     while True:
-        message_from_feagi = pns.signals_from_feagi(feagi_opu_channel)
-
-        if message_from_feagi is not None:
-            # Check if the genome inside FEAGI is updated or changed.
-            # This is useful for following up on real-time data.
-            pns.check_genome_status(message_from_feagi)
         try:
+            message_from_feagi = pns.signals_from_feagi(feagi_opu_channel)
+            if message_from_feagi is not None:
+                # Check if the genome inside FEAGI is updated or changed.
+                # This is useful for following up on real-time data.
+                pns.check_genome_status(message_from_feagi)
+
+            # Training ID with image starts section
             if start_timer == 0:
                 start_timer = datetime.now()
                 image = next(list_images)
-
-            # Process for ID training
-            raw_frame = feagi_trainer.read_single_image(capabilities['image_reader']['path'] + image)
-            if not flag_blink:
-                flag_blink = True
-                raw_frame = capabilities['camera']['blink']
-                capabilities['camera']['blink'] = []
-            else:
-                flag_blink = False
-                capabilities['camera']['blink'] = raw_frame
-
-            new_dict = feagi_trainer.image_identity_constructor(image)
-            message_to_feagi = pns.append_sensory_data_for_feagi('training',
-                                                                 new_dict, message_to_feagi)
+            message_to_feagi, start_timer, image, flag_blink, raw_frame = \
+                feagi_trainer.id_training_with_image(message_to_feagi, image, capabilities,
+                                                     start_timer, flag_blink, raw_frame)
             if capabilities['image_reader']['pause'] <= int((datetime.now() -
-                                                           start_timer).total_seconds()):
+                                                             start_timer).total_seconds()):
                 start_timer = 0
-            # Process ends for the ID training
+            # Training ID wiht image ends section
 
             # Post image into vision
             previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities, "00",
@@ -111,7 +103,6 @@ if __name__ == "__main__":
             pns.signals_to_feagi(message_to_feagi, feagi_ipu_channel, agent_settings)
             message_to_feagi.clear()
         except StopIteration:
-            # Check if you need to loop
             if capabilities['image_reader']['loop']:
                 list_images = feagi_trainer.gather_all_images(capabilities['image_reader']['path'])
                 image = next(list_images)
