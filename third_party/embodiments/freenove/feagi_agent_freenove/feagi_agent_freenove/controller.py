@@ -574,36 +574,21 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
     while True:
         try:
             if capabilities['camera']['disabled'] is not True:
-                ret, raw_frame = cam.read()
-                try:
-                    if capabilities['camera']['snap'] != []:
-                        raw_frame = capabilities['camera']['snap']
-                    previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
-                                                                         capabilities['camera'][
-                                                                             "index"],
-                                                                         capabilities['camera'][
-                                                                             'size_list'],
-                                                                         previous_frame_data, rgb)
-                    capabilities['camera']['snap'] = []
-                    capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed'] = \
-                        retina.vision_progress(capabilities, previous_genome_timestamp,
-                                               feagi_opu_channel,
-                                               api_address, feagi_settings, raw_frame)
+                ret, image = cam.read()
+                if capabilities['camera']['current_select'][0]:
+                    capabilities['camera']["central_vision_resolution"] = capabilities['camera'][
+                        'current_select'][0]
+                    dim = (capabilities['camera']['current_select'][0][0], capabilities['camera'][
+                        'current_select'][0][1])
+                    image = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
+                if capabilities['camera']['mirror']:
+                    image = retina.flip_video(image)
+                rgb = dict()
+                if len(capabilities['camera']['blink']) > 0:
 
-                    message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(),
-                                                               message_to_feagi)
-                    sleep(feagi_settings['feagi_burst_speed'])
-                    pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
-
-                    message_to_feagi.clear()
-                    for i in rgb['camera']:
-                        rgb['camera'][i].clear()
-                except Exception as e:
-                    # pass
-                    print("ERROR! : ", e)
-                    traceback.print_exc()
-
-            message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
+            # Process OPU data received from FEAGI and pass it along
+            # if feagi_dict:
+            message_from_feagi = pns.signals_from_feagi(feagi_opu_channel)
             if message_from_feagi is not None:
                 obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
                 led_flag = action(obtained_signals, device_list, led_flag, feagi_settings,

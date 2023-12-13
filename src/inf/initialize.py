@@ -1,5 +1,4 @@
-
-# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+# Copyright 2016-2023 The FEAGI Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 import json
 import os
 import platform
@@ -77,7 +77,11 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
     runtime_data.genome = genome_data
     runtime_data.genome = genome_ver_check(runtime_data.genome)
     runtime_data.genome_ver = "2.0"
+
     # todo temp check to find a better solution
+    if "lifespan_mgmt_interval" not in runtime_data.genome:
+        runtime_data.genome["lifespan_mgmt_interval"] = 10
+
     for _ in runtime_data.genome["blueprint"]:
         if "mp_charge_accumulation" not in runtime_data.genome["blueprint"][_]:
             runtime_data.genome["blueprint"][_]["mp_charge_accumulation"] = True
@@ -178,6 +182,13 @@ def init_container_variables():
         runtime_data.mongodb = True
     if os.environ.get('gazebo', False):
         runtime_data.gazebo = True
+
+
+def init_memory_register():
+    for cortical_are in runtime_data.genome["blueprint"]:
+        if "lstm" in runtime_data.genome["blueprint"][cortical_are]:
+            if runtime_data.genome["blueprint"][cortical_are]["lstm"]:
+                runtime_data.memory_register.add(cortical_are)
 
 
 def running_in_container():
@@ -418,6 +429,7 @@ def reset_runtime_data():
     runtime_data.stats = {}
     runtime_data.brain = {}
     runtime_data.cortical_list = {}
+    runtime_data.memory_register = {}
     runtime_data.cortical_dimensions = {}
     runtime_data.stimulation_script = {}
     runtime_data.shock_admin = False
@@ -456,6 +468,7 @@ def init_brain():
     runtime_data.last_alertness_trigger = datetime.now()
     runtime_data.brain_run_id = id_gen(signature='_R')
     init_cortical_info()
+    init_memory_register()
     runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
     runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
@@ -575,22 +588,23 @@ def generate_cortical_dimensions_by_id():
         cortical_information[cortical_area] = {}
         genes = runtime_data.genome["blueprint"][cortical_area]
 
-        cortical_information[cortical_area]["name"] = genes["cortical_name"]
-        cortical_information[cortical_area]["type"] = genes["group_id"]
+        cortical_information[cortical_area]["cortical_name"] = genes["cortical_name"]
+        cortical_information[cortical_area]["cortical_group"] = genes["group_id"]
+        cortical_information[cortical_area]["cortical_sub_group"] = genes["sub_group_id"]
         cortical_information[cortical_area]["visible"] = genes["visualization"]
 
-        cortical_information[cortical_area]["position_2d"] = [
+        cortical_information[cortical_area]["coordinates_2d"] = [
             genes["2d_coordinate"][0],
             genes["2d_coordinate"][1]
         ]
 
-        cortical_information[cortical_area]["position_3d"] = [
+        cortical_information[cortical_area]["coordinates_3d"] = [
             genes["relative_coordinate"][0],
             genes["relative_coordinate"][1],
             genes["relative_coordinate"][2]
         ]
 
-        cortical_information[cortical_area]["dimensions"] = [
+        cortical_information[cortical_area]["cortical_dimensions"] = [
             genes["block_boundaries"][0],
             genes["block_boundaries"][1],
             genes["block_boundaries"][2]

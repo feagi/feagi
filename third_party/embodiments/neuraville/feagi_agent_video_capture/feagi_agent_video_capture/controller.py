@@ -18,45 +18,49 @@ limitations under the License.
 """
 
 import cv2
-import feagi_agent.feagi_interface
 import requests
 from time import sleep
 from datetime import datetime
+from feagi_agent import pns_gateway as pns
 from feagi_agent.version import __version__
 from feagi_agent import retina as retina
 from feagi_agent import feagi_interface as feagi
 import traceback
 import threading
 import os
-import time
-import pickle
-import lz4.frame
 import screeninfo
 import mss
 import numpy
-import multiprocessing
-from PIL import Image
 
 camera_data = {"vision": {}}
 
 
 def process_video(video_path, capabilities):
-    cam = cv2.VideoCapture(video_path)
+    if capabilities["camera"]["image"] == "":
+      cam = cv2.VideoCapture(video_path)
     # cam.set(3, 320)
     # cam.set(4, 240)
     if capabilities['camera']['video_device_index'] == "monitor":
         all_monitors = screeninfo.get_monitors()  # Needs to create an IPU for this
     pixels = []
+    static_image = []
     while True:
         if capabilities['camera']['video_device_index'] != "monitor":
+          if capabilities["camera"]["image"] != "":
+            if static_image == []:
+              pixels = cv2.imread(capabilities["camera"]["image"], -1)
+              static_image = pixels
+            else:
+              pixels = static_image
+              # pixels = adjust_gamma(pixels)
+          else:
             check, pixels = cam.read()
         else:
             check = True
         if capabilities['camera']['video_device_index'] != "monitor":
             if bool(capabilities["camera"]["video_loop"]):
                 if check:
-                    sleep(0.01)
-                    # cv2.imshow("OpenCV/Numpy normal", pixels)
+                    sleep(0.05)
                 else:
                     cam.set(cv2.CAP_PROP_POS_FRAMES, 0)
         if capabilities['camera']['video_device_index'] == "monitor":
@@ -82,6 +86,13 @@ def process_video(video_path, capabilities):
     cam.release()
     cv2.destroyAllWindows()
 
+
+def adjust_gamma(image, gamma=5.0):
+  invGamma = 1.0 / gamma
+  table = numpy.array([((i / 255.0) ** invGamma) * 255
+		for i in numpy.arange(0, 256)]).astype("uint8")
+  # apply gamma correction using the lookup table
+  return cv2.LUT(image, table)
 
 def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_to_feagi):
     threading.Thread(target=process_video, args=(capabilities['camera']['video_device_index'],
@@ -116,13 +127,16 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
         try:
             if camera_data['vision'] is not None:
                 raw_frame = camera_data['vision']
-            if capabilities['camera']['snap'] != []:
-                raw_frame = capabilities['camera']['snap']
+                cv2.imshow("OpenCV/Numpy normal", raw_frame) # Move to main due to Mac's restriction
+                if cv2.waitKey(10) & 0xFF == ord('q'):
+                    pass
+            if capabilities['camera']['blink'] != []:
+                raw_frame = capabilities['camera']['blink']
             previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
                                                                  capabilities['camera']["index"],
                                                                  capabilities['camera']['size_list'],
                                                                  previous_frame_data, rgb)
-            capabilities['camera']['snap'] = []
+            capabilities['camera']['blink'] = []
             capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed'] = \
                 retina.vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel,
                                        api_address, feagi_settings, raw_frame)
@@ -139,3 +153,4 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
             # pass
             print("ERROR! : ", e)
             traceback.print_exc()
+            break

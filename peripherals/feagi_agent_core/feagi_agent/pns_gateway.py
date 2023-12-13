@@ -18,6 +18,7 @@ limitations under the License.
 
 from feagi_agent import feagi_interface as feagi
 from feagi_agent import router
+import traceback
 
 # Variable storage #
 raw_aptr = -1
@@ -190,10 +191,10 @@ def obtain_data_type(data):
         return "Unknown"
 
 
-def obtain_snap_data(raw_frame, message_from_feagi, capabilities):
-    if "o_snap" in message_from_feagi["opu_data"]:
-        if message_from_feagi["opu_data"]["o_snap"]:
-            capabilities['camera']['snap'] = raw_frame
+def obtain_blink_data(raw_frame, message_from_feagi, capabilities):
+    if "o_blnk" in message_from_feagi["opu_data"]:
+        if message_from_feagi["opu_data"]["o_blnk"]:
+            capabilities['camera']['blink'] = raw_frame
     return capabilities
 
 

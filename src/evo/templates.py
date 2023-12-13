@@ -121,19 +121,19 @@ cortical_types = {
         }
     },
     "OPU": {
-        "gui_name": "o__mot",
+        "gui_name": "Actuators",
         "supported_devices": {
-            "Motor": {
+            "o__mot": {
                 "enabled": True,
-                "cortical_name": "Actuators",
+                "cortical_name": "Misc",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 10]
+                "resolution": [1, 1, 1]
             },
             "o__srv": {
                 "enabled": True,
                 "cortical_name": "Servo",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 10]
+                "resolution": [1, 1, 1]
             },
             "o__nav": {
                 "enabled": True,
@@ -159,33 +159,27 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
-            "o__mot": {
-                "enabled": True,
-                "cortical_name": "Misc",
-                "structure": "asymmetric",
-                "resolution": [1, 1, 1]
-            },
             "o_aptr": {
                 "enabled": True,
                 "cortical_name": "Aperture",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10]
             },
-            "o_vres": {
+            "o__pup": {
                 "enabled": True,
-                "cortical_name": "Vision_Resolution",
-                "structure": "asymmetric",
-                "resolution": [2, 1, 10]
-            },
-            "o_vact": {
-                "enabled": True,
-                "cortical_name": "Vision_Acuity",
+                "cortical_name": "Vision_Pupil",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 1]
             },
-            "o_snap": {
+            "o__gaz": {
                 "enabled": True,
-                "cortical_name": "Vision_Screenshot",
+                "cortical_name": "Vision_Gaze",
+                "structure": "asymmetric",
+                "resolution": [2, 1, 1]
+            },
+            "o_blnk": {
+                "enabled": True,
+                "cortical_name": "Visual_Blink",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             }
@@ -198,18 +192,19 @@ cortical_types = {
                 "enabled": True,
                 "cortical_name": "Death",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 1]
+                "resolution": [1, 1, 1],
+                "coordinate_3d": [0, 0, -10],
+                "coordinate_2d": [-10, -20]
             },
             "___pwr": {
                 "enabled": False,
                 "cortical_name": "Power",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 1]
+                "resolution": [1, 1, 1],
+                "coordinate_3d": [0, 0, -20],
+                "coordinate_2d": [-10, -10]
             }
         }
-    },
-    "MEMORY": {
-        "gui_name": "Memory"
     },
     "CUSTOM": {
         "gui_name": "Custom"
@@ -218,6 +213,7 @@ cortical_types = {
 
 
 cortical_template = {
+    "sub_group_id": "",
     "per_voxel_neuron_cnt": 1,
     "synapse_attractivity": 100,
     "degeneration": 0,
@@ -239,5 +235,203 @@ cortical_template = {
     "firing_threshold_increment_z": 0,
     "firing_threshold_limit": 0,
     "mp_charge_accumulation": True,
-    "mp_driven_psp": False
+    "mp_driven_psp": False,
+    "is_mem_type": False,
+    "longterm_mem_threshold": 100,
+    "lifespan_growth_rate": 1,
+    "init_lifespan": 9
+}
+
+
+core_morphologies = {
+    "block_to_block": {
+        "parameters": {
+            "vectors": [
+                [
+                    0,
+                    0,
+                    0
+                ]
+            ]
+        },
+        "type": "vectors"
+    },
+    "projector": {
+        "parameters": {},
+        "type": "functions"
+    },
+    "memory": {
+        "parameters": {},
+        "type": "functions"
+    },
+    "0-0-0_to_all": {
+        "type": "patterns",
+        "parameters": {
+            "patterns": [
+                [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        "*",
+                        "*",
+                        "*"
+                    ]
+                ]
+            ]
+        }
+    },
+    "all_to_0-0-0": {
+        "type": "patterns",
+        "parameters": {
+            "patterns": [
+                [
+                    [
+                        "*",
+                        "*",
+                        "*"
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ]
+                ]
+            ]
+        }
+    },
+    "all_to_all": {
+        "type": "patterns",
+        "parameters": {
+            "patterns": [
+                [
+                    [
+                        "?",
+                        "?",
+                        "?"
+                    ],
+                    [
+                        "*",
+                        "*",
+                        "*"
+                    ]
+                ]
+            ]
+        }
+    },
+    "lateral_+x": {
+        "parameters": {
+            "vectors": [
+                [
+                    1,
+                    0,
+                    0
+                ]
+            ]
+        },
+        "type": "vectors"
+    },
+    "lateral_-x": {
+        "parameters": {
+            "vectors": [
+                [
+                    -1,
+                    0,
+                    0
+                ]
+            ]
+        },
+        "type": "vectors"
+    },
+    "lateral_+y": {
+        "parameters": {
+            "vectors": [
+                [
+                    0,
+                    1,
+                    0
+                ]
+            ]
+        },
+        "type": "vectors"
+    },
+    "lateral_-y": {
+        "parameters": {
+            "vectors": [
+                [
+                    0,
+                    -1,
+                    0
+                ]
+            ]
+        },
+        "type": "vectors"
+    },
+    "lateral_+z": {
+        "parameters": {
+            "vectors": [
+                [
+                    0,
+                    0,
+                    1
+                ]
+            ]
+        },
+        "type": "vectors"
+    },
+    "lateral_-z": {
+        "parameters": {
+            "vectors": [
+                [
+                    0,
+                    0,
+                    -1
+                ]
+            ]
+        },
+        "type": "vectors"
+    },
+    "randomizer": {
+        "parameters": {},
+        "type": "functions"
+    },
+    "expander_x": {
+        "parameters": {},
+        "type": "functions"
+    },
+    "reducer_x": {
+        "parameters": {},
+        "type": "functions"
+    },
+    "lateral_pairs_x": {
+        "parameters": {},
+        "type": "functions"
+    },
+    "tile": {
+        "parameters": {
+            "src_seed": [
+                16,
+                16,
+                1
+            ],
+            "src_pattern": [
+                [
+                    1,
+                    0
+                ],
+                [
+                    1,
+                    0
+                ],
+                [
+                    1,
+                    0
+                ]
+            ],
+            "mapper_morphology": "projector"
+        },
+        "type": "composite"
+    },
 }
