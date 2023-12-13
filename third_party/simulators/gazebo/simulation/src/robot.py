@@ -968,7 +968,7 @@ if __name__ == '__main__':
             except:
                 pass
             # Process OPU data received from FEAGI and pass it along
-            message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
+            message_from_feagi = pns.signals_from_feagi(feagi_opu_channel)
             battery.consume_battery()
             try:
                 if aptr_cortical_size is None:
