@@ -117,6 +117,12 @@ cortical_types = {
                 "cortical_name": "lower_middle_peripheral_vision_sensor",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 3]
+            },
+            "i___id": {
+                "enabled": True,
+                "cortical_name": "ID_Trainer",
+                "structure": "asymmetric",
+                "resolution": [1, 10, 1]
             }
         }
     },
@@ -182,6 +188,12 @@ cortical_types = {
                 "cortical_name": "Visual_Blink",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
+            },
+            "o___id": {
+                "enabled": True,
+                "cortical_name": "ID_Recognition",
+                "structure": "asymmetric",
+                "resolution": [1, 10, 1]
             }
         }
     },
