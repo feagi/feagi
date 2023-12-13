@@ -77,7 +77,7 @@ capabilities = {
         "type": "ipu",
         "disabled": False,
         "index": "00",
-        "iso_default": [50, 255],
+        "iso_default": [150, 255],
         "iso_range": [1, 255],
         "central_vision_allocation_percentage": [90, 80],
         "central_vision_resolution": [64, 64],

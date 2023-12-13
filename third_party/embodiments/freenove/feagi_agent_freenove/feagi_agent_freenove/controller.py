@@ -1,23 +1,22 @@
-from feagi_agent import feagi_interface as FEAGI
-import RPi.GPIO as GPIO
-from feagi_agent import retina as retina
-import requests
 import sys
-import os
-import threading
-import asyncio
-from feagi_agent_freenove.version import __version__
-from feagi_agent_freenove.Led import *
-from feagi_agent_freenove.PCA9685 import PCA9685
-from datetime import datetime
-from collections import deque
-from feagi_agent import pns_gateway as pns
-from time import sleep
-import pickle
-import lz4.frame
-import time
 import cv2
+import time
+import asyncio
+import requests
+import threading
 import traceback
+import RPi.GPIO as GPIO
+from time import sleep
+from collections import deque
+from datetime import datetime
+from feagi_agent_freenove.Led import *
+from feagi_agent import retina as retina
+from feagi_agent import pns_gateway as pns
+from feagi_agent import feagi_interface as FEAGI
+from feagi_agent_freenove.PCA9685 import PCA9685
+from feagi_agent_freenove.version import __version__
+
+
 
 ir_data = deque()
 ultrasonic_data = deque()
@@ -489,7 +488,7 @@ async def listening_feagi(feagi_dict, feagi_opu_channel, feagi_settings):
     while True:
         if len(feagi_dict) > 2:
             feagi_dict.popleft()
-        feagi_dict.append(pns.signals_from_feagi(feagi_opu_channel))
+        feagi_dict.append(pns.efferent_signaling(feagi_opu_channel))
 
 
 def start_feagi_bridge(feagi_dict, feagi_opu_channel, feagi_settings):
@@ -549,6 +548,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
     # Status for data points
     data_point_status = {}
     previous_frame_data = {}
+    message_to_feagi = {}
     # Rolling windows for each motor
     rolling_window = {}
 
@@ -574,20 +574,22 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
     while True:
         try:
             if capabilities['camera']['disabled'] is not True:
-                ret, image = cam.read()
-                if capabilities['camera']['current_select'][0]:
-                    capabilities['camera']["central_vision_resolution"] = capabilities['camera'][
-                        'current_select'][0]
-                    dim = (capabilities['camera']['current_select'][0][0], capabilities['camera'][
-                        'current_select'][0][1])
-                    image = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
-                if capabilities['camera']['mirror']:
-                    image = retina.flip_video(image)
-                rgb = dict()
+                ret, raw_frame = cam.read()
                 if len(capabilities['camera']['blink']) > 0:
+                    raw_frame = capabilities['camera']['blink']
+                # Post image into vision
+                previous_frame_data, rgb = retina.detect_change_edge(raw_frame,
+                                                                     capabilities,
+                                                                     capabilities['camera']['index'],
+                                                                     capabilities['camera']['size_list'],
+                                                                     previous_frame_data,
+                                                                     rgb)
+                capabilities['camera']['blink'] = []
+                capabilities, feagi_settings['feagi_burst_speed'] = retina.vision_progress(
+                    capabilities, feagi_opu_channel, api_address, feagi_settings, raw_frame)
 
-            # Process OPU data received from FEAGI and pass it along
-            # if feagi_dict:
+                message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(),
+                                                           message_to_feagi)
             message_from_feagi = pns.signals_from_feagi(feagi_opu_channel)
             if message_from_feagi is not None:
                 obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
@@ -614,6 +616,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
             message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(),
                                                        message_to_feagi)
             sleep(feagi_settings['feagi_burst_speed'])
+            pns.signals_to_feagi(message_to_feagi, feagi_ipu_channel, agent_settings)
         except KeyboardInterrupt as ke:  # Keyboard error
             motor.stop()
             cam.release()
