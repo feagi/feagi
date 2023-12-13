@@ -23,6 +23,7 @@ from datetime import datetime
 from feagi_agent import pns_gateway as pns
 
 genome_tracker = 0
+previous_genome_timestamp = 0
 
 
 def get_device_of_vision(device):
@@ -227,8 +228,7 @@ def change_detector_grayscale(previous, current, capabilities):
             thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
                                         capabilities['camera']['iso_default'][1],
                                         cv2.THRESH_TOZERO )[1]
-        print(check_brightness(current))
-        cv2.imshow("center only", thresholded)
+        # cv2.imshow("center only", thresholded)
         # Convert to boolean array for significant changes
         significant_changes = thresholded > 0
 
@@ -299,10 +299,10 @@ def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previ
                                                      resize_list[cortical])
     vision_dict = dict()
 
-    for segment in compressed_data:
-        cv2.imshow(segment, compressed_data[segment])
-    if cv2.waitKey(30) & 0xFF == ord('q'):
-        pass
+    # for segment in compressed_data:
+    #     cv2.imshow(segment, compressed_data[segment])
+    # if cv2.waitKey(30) & 0xFF == ord('q'):
+    #     pass
     for get_region in compressed_data:
         if resize_list[get_region][2] == 3:
             if previous_frame_data != {}:
@@ -333,9 +333,9 @@ def obtain_cortical_vision_size(camera_index, response):
             for fetch_name in items:
                 if fetch_name in name_from_data:
                     name = name_from_data.replace("iv", "")
-                    dimension_array = data[name_from_data]["dimensions"][0], \
-                                      data[name_from_data]["dimensions"][1], \
-                                      data[name_from_data]["dimensions"][2]
+                    dimension_array = data[name_from_data]["cortical_dimensions"][0], \
+                                      data[name_from_data]["cortical_dimensions"][1], \
+                                      data[name_from_data]["cortical_dimensions"][2]
                     size_list[name] = dimension_array
     return size_list
 
@@ -347,9 +347,9 @@ def update_size_list(capabilities):
     return capabilities
 
 
-def vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel, api_address,
+def vision_progress(capabilities, feagi_opu_channel, api_address,
                     feagi_settings, raw_frame):
-    global genome_tracker # horrible, worst in programming. TODO: FIX THIS
+    global genome_tracker, previous_genome_timestamp # horrible, worst in programming. TODO: FIX THIS
     message_from_feagi = pns.signals_from_feagi(feagi_opu_channel)
     if message_from_feagi is not None:
         # OPU section STARTS
@@ -384,7 +384,7 @@ def vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel, 
         feagi_settings['feagi_burst_speed'] = pns.check_refresh_rate(message_from_feagi,
                                                                      feagi_settings[
                                                                          'feagi_burst_speed'])
-    return capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed']
+    return capabilities, feagi_settings['feagi_burst_speed']
 
 
 def update_astype(data):
