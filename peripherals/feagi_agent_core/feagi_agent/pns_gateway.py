@@ -25,6 +25,8 @@ raw_aptr = -1
 global_aptr_cortical_size = None
 global_ID_cortical_size = None
 full_list_dimension = []
+previous_genome_timestamp = 0
+genome_tracker = 0
 
 
 def generate_feagi_data(rgb, msg_counter, date, message_to_feagi):
@@ -264,9 +266,9 @@ def detect_ID_data(message_from_feagi):
     :param message_from_feagi: Should be a dict from FEAGI data only
     :return: Return the data that given by FEAGI
     """
-    if "o___ID" in message_from_feagi["opu_data"]:
-        if message_from_feagi["opu_data"]["o___ID"]:
-            return message_from_feagi["opu_data"]["o___ID"]
+    if "o___id" in message_from_feagi["opu_data"]:
+        if message_from_feagi["opu_data"]["o___id"]:
+            return message_from_feagi["opu_data"]["o___id"]
     return {}
 
 
@@ -284,3 +286,15 @@ def check_refresh_rate(message_from_feagi, current_second):
 
 def fetch_full_dimensions():
     return router.fetch_cortical_dimensions()
+
+
+def check_genome_status(message_from_feagi):
+    global previous_genome_timestamp, genome_tracker
+    genome_changed = detect_genome_change(message_from_feagi)
+    if genome_changed != previous_genome_timestamp:
+        full_list_dimension = fetch_full_dimensions()
+        previous_genome_timestamp = message_from_feagi["genome_changed"]
+    current_tracker = obtain_genome_number(genome_tracker, message_from_feagi)
+    if genome_tracker != current_tracker:
+        full_list_dimension = fetch_full_dimensions()
+        genome_tracker = current_tracker
