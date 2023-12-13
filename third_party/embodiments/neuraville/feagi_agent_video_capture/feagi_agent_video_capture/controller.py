@@ -144,7 +144,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
             message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(),
                                                        message_to_feagi)
             sleep(feagi_settings['feagi_burst_speed'])
-            pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
+            pns.signals_to_feagi(message_to_feagi, feagi_ipu_channel, agent_settings)
 
             message_to_feagi.clear()
             for i in rgb['camera']:

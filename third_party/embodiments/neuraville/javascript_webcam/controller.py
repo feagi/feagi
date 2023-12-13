@@ -163,7 +163,7 @@ if __name__ == "__main__":
                     if rgb:
                         message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(),
                                                                    message_to_feagi)
-                        pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
+                        pns.signals_to_feagi(message_to_feagi, feagi_ipu_channel, agent_settings)
                         message_to_feagi.clear()
                         for cortical_area in rgb['camera']:
                             rgb['camera'][cortical_area].clear()

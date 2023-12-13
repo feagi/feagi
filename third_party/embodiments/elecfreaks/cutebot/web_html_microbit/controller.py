@@ -191,7 +191,7 @@ if __name__ == "__main__":
         runtime_data['accelerator'] = {}
         while True:
             try:
-                message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
+                message_from_feagi = pns.signals_from_feagi(feagi_opu_channel)
                 if message_from_feagi is not None:
                     # OPU section STARTS
                     obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)

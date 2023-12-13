@@ -140,6 +140,16 @@ def fetch_aptr(get_size_for_aptr_cortical):
         return 10
 
 
+def fetch_cortical_dimensions():
+    try:
+        list_dimesions = requests.\
+            get(global_api_address + '/v1/feagi/connectome/properties/dimensions').json()
+        return list_dimesions
+    except Exception as e:
+        print("e: ", e)
+        return []
+
+
 def fetch_geometry():
     return requests.get(global_api_address + '/v1/feagi/genome/cortical_area/geometry')
 

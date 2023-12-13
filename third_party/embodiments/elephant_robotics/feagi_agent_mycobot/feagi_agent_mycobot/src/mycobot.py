@@ -371,7 +371,7 @@ executor_thread.start()
 while keyboard_flag:
     try:
         # OPU section
-        message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
+        message_from_feagi = pns.signals_from_feagi(feagi_opu_channel)
         if message_from_feagi is not None:
             obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
             action(obtained_signals, device_list, runtime_data)
@@ -400,7 +400,7 @@ while keyboard_flag:
         # SENDING MESSAGE TO FEAGI SECTION # #
         message_to_feagi['timestamp'] = datetime.now()
         message_to_feagi['counter'] = msg_counter
-        pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
+        pns.signals_to_feagi(message_to_feagi, feagi_ipu_channel, agent_settings)
         message_to_feagi.clear()
 
         # Doing the misc background work (check on sync setting #

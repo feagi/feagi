@@ -489,7 +489,7 @@ async def listening_feagi(feagi_dict, feagi_opu_channel, feagi_settings):
     while True:
         if len(feagi_dict) > 2:
             feagi_dict.popleft()
-        feagi_dict.append(pns.efferent_signaling(feagi_opu_channel))
+        feagi_dict.append(pns.signals_from_feagi(feagi_opu_channel))
 
 
 def start_feagi_bridge(feagi_dict, feagi_opu_channel, feagi_settings):
