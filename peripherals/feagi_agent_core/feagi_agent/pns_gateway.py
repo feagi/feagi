@@ -305,8 +305,6 @@ def fetch_vision_turner(message_from_feagi, capabilities, size):
                 processed_data_point = feagi.block_to_array(data_point)
                 device_id = processed_data_point[0]
                 device_power = message_from_feagi["opu_data"]['ovtune'][data_point]
-                if device_power == 100:
-                    device_power -= 1
                 capabilities['camera']['effect'][device_id] = device_power
     print("pns: ", capabilities['camera']['effect'])
     return capabilities
