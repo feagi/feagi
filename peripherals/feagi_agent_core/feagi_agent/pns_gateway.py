@@ -287,7 +287,6 @@ def check_refresh_rate(message_from_feagi, current_second):
 def fetch_full_dimensions():
     return router.fetch_cortical_dimensions()
 
-
 def check_genome_status(message_from_feagi):
     global previous_genome_timestamp, genome_tracker
     genome_changed = detect_genome_change(message_from_feagi)
@@ -298,3 +297,16 @@ def check_genome_status(message_from_feagi):
     if genome_tracker != current_tracker:
         full_list_dimension = fetch_full_dimensions()
         genome_tracker = current_tracker
+
+def fetch_vision_turner(message_from_feagi, capabilities, size):
+    if "ovtune" in message_from_feagi["opu_data"]:
+        if message_from_feagi["opu_data"]["ovtune"]:
+            for data_point in message_from_feagi["opu_data"]["ovtune"]:
+                processed_data_point = feagi.block_to_array(data_point)
+                device_id = processed_data_point[0]
+                device_power = message_from_feagi["opu_data"]['ovtune'][data_point]
+                if device_power == 100:
+                    device_power -= 1
+                capabilities['camera']['effect'][device_id] = device_power
+    print("pns: ", capabilities['camera']['effect'])
+    return capabilities
