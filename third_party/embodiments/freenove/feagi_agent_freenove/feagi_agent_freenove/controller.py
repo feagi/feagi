@@ -568,8 +568,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
     servo.set_default_position(runtime_data)
     device_list = pns.generate_OPU_list(capabilities)
     response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
-    capabilities['camera']['size_list'] = retina.obtain_cortical_vision_size(
-        capabilities['camera']["index"], response)
+    capabilities['camera']['size_list'] = retina.obtain_cortical_vision_size(capabilities['camera']["index"], response)
     raw_frame = []
     while True:
         try:
