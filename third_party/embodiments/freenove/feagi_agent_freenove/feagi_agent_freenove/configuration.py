@@ -88,7 +88,7 @@ capabilities = {
         "aperture_range": [0.2, 2],
         "aperture_default": 2,
         "mirror": True,
-        "snap": []
+        "blink": []
     },
     "led": {
         "type": "opu"

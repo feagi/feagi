@@ -23,6 +23,7 @@ from datetime import datetime
 from feagi_agent import pns_gateway as pns
 
 genome_tracker = 0
+previous_genome_timestamp = 0
 
 
 def get_device_of_vision(device):
@@ -61,7 +62,7 @@ def vision_frame_capture(device, RGB_flag=True):
         return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), datetime.now(), check
 
 
-def vision_region_coordinates(frame_width, frame_height, x1, x2, y1, y2, camera_index):
+def vision_region_coordinates(frame_width, frame_height, x1, x2, y1, y2, camera_index,size_list):
     """
     Calculate coordinates for nine different regions within a frame based on given percentages.
 
@@ -91,15 +92,24 @@ def vision_region_coordinates(frame_width, frame_height, x1, x2, y1, y2, camera_
     y2_prime = y1_prime + int((frame_height - y1_prime) * (y2 / 100))
 
     region_coordinates = dict()
-    region_coordinates[camera_index + 'TL'] = [0, 0, x1_prime, y1_prime]
-    region_coordinates[camera_index + 'TM'] = [x1_prime, 0, x2_prime, y1_prime]
-    region_coordinates[camera_index + 'TR'] = [x2_prime, 0, frame_width, y1_prime]
-    region_coordinates[camera_index + 'ML'] = [0, y1_prime, x1_prime, y2_prime]
-    region_coordinates[camera_index + '_C'] = [x1_prime, y1_prime, x2_prime, y2_prime]
-    region_coordinates[camera_index + 'MR'] = [x2_prime, y1_prime, frame_width, y2_prime]
-    region_coordinates[camera_index + 'LL'] = [0, y2_prime, x1_prime, frame_height]
-    region_coordinates[camera_index + 'LM'] = [x1_prime, y2_prime, x2_prime, frame_height]
-    region_coordinates[camera_index + 'LR'] = [x2_prime, y2_prime, frame_width, frame_height]
+    if (camera_index + 'TL') in size_list:
+        region_coordinates[camera_index + 'TL'] = [0, 0, x1_prime, y1_prime]
+    if (camera_index + 'TM') in size_list:
+        region_coordinates[camera_index + 'TM'] = [x1_prime, 0, x2_prime, y1_prime]
+    if (camera_index + 'TR') in size_list:
+        region_coordinates[camera_index + 'TR'] = [x2_prime, 0, frame_width, y1_prime]
+    if (camera_index + 'ML') in size_list:
+        region_coordinates[camera_index + 'ML'] = [0, y1_prime, x1_prime, y2_prime]
+    if (camera_index + '_C') in size_list:
+        region_coordinates[camera_index + '_C'] = [x1_prime, y1_prime, x2_prime, y2_prime]
+    if (camera_index + 'MR') in size_list:
+        region_coordinates[camera_index + 'MR'] = [x2_prime, y1_prime, frame_width, y2_prime]
+    if (camera_index + 'LL') in size_list:
+        region_coordinates[camera_index + 'LL'] = [0, y2_prime, x1_prime, frame_height]
+    if (camera_index + 'LM') in size_list:
+        region_coordinates[camera_index + 'LM'] = [x1_prime, y2_prime, x2_prime, frame_height]
+    if (camera_index + 'LR') in size_list:
+        region_coordinates[camera_index + 'LR'] = [x2_prime, y2_prime, frame_width, frame_height]
     # print("vision_region_coordinates time total: ", (datetime.now() - start_time).total_seconds())
     return region_coordinates
 
@@ -205,21 +215,21 @@ def change_detector_grayscale(previous, current, capabilities):
     # Using cv2.absdiff for optimized difference calculation
     if current.shape == previous.shape:
 
-        if capabilities['camera']['snap'] == []:
+        if len(capabilities['camera']['blink']) == 0:
             difference = cv2.absdiff(previous, current)
+            _, thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0], capabilities['camera']['iso_default'][1], cv2.THRESH_TOZERO)
+            # thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
+            #                             capabilities['camera']['iso_default'][1],
+            #                             cv2.THRESH_TRUNC)[1]
 
         else:
-            print("Snap!")
-            difference = cv2.absdiff(0, current)
-            print(current)
-
-        thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
-                                    capabilities['camera']['iso_default'][1],
-                                    cv2.THRESH_TOZERO)[1]
-
-        thresholded = cv2.threshold(thresholded, capabilities['camera']['iso_default'][0],
-                                    capabilities['camera']['iso_default'][1],
-                                    cv2.THRESH_TOZERO_INV)[1]
+            # print("Blink!")
+            difference = current
+            # print(current)
+            thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][2],
+                                        capabilities['camera']['iso_default'][3],
+                                        cv2.THRESH_TOZERO )[1]
+        # cv2.imshow("center only", thresholded)
         # Convert to boolean array for significant changes
         significant_changes = thresholded > 0
 
@@ -249,25 +259,26 @@ def change_detector(previous, current, capabilities):
 
     # Using cv2.absdiff for optimized difference calculation
     if current.shape == previous.shape:
-        difference = cv2.absdiff(previous, current)
-        if capabilities['camera']['snap'] == []:
-            thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
-                                        capabilities['camera']['iso_default'][1],
-                                        cv2.THRESH_BINARY)[1]
-            # Convert to boolean array for significant changes
-            significant_changes = thresholded > 0
-        else:
-            thresholded = cv2.threshold(difference, 0, 255,
-                                        cv2.THRESH_BINARY)[1]
-            # Convert to boolean array for significant changes
-            significant_changes = thresholded > 0
 
-        # print("RGB signifcant change: ", significant_changes)
+        if len(capabilities['camera']['blink']) == 0:
+            difference = cv2.absdiff(previous, current)
+            _, thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0], capabilities['camera']['iso_default'][1], cv2.THRESH_TOZERO)
+            # thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
+            #                             capabilities['camera']['iso_default'][1],
+            #                             cv2.THRESH_TRUNC)[1]
+
+        else:
+            # print("Blink!")
+            difference = current
+            # print(current)
+            thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][2],
+                                        capabilities['camera']['iso_default'][3],
+                                        cv2.THRESH_TOZERO )[1]
+
+        # Convert to boolean array for significant changes
+        significant_changes = thresholded > 0
 
         feagi_data = create_feagi_data(significant_changes, current, previous.shape)
-        #
-        # print("change_detector_optimized time total: ",
-        #       (datetime.now() - start_time).total_seconds())
     else:
         return {}
     return dict(feagi_data)
@@ -275,14 +286,17 @@ def change_detector(previous, current, capabilities):
 
 def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previous_frame_data,
                        rgb):
+
   if resize_list:
     region_coordinates = vision_region_coordinates(raw_frame.shape[1],
-                                                   raw_frame.shape[0], capabilities['camera'][
-                                                       'gaze_control'][0], capabilities['camera'][
-                                                       'gaze_control'][1],
-                                                   capabilities['camera']['pupil_control'][0],
-                                                   capabilities['camera']['pupil_control'][1],
-                                                   camera_index)
+                                                   raw_frame.shape[0], abs(capabilities['camera'][
+                                                       'gaze_control'][0]), abs(capabilities[
+                                                                                                                                                         'camera'][
+                                                       'gaze_control'][1]),
+                                                   abs(capabilities['camera']['pupil_control'][0]),
+                                                   abs(capabilities['camera']['pupil_control'][1]),
+                                                   camera_index,
+                                                   resize_list)
     segmented_frame_data = split_vision_regions(coordinates=region_coordinates,
                                                 raw_frame_data=raw_frame)
     compressed_data = dict()
@@ -325,9 +339,9 @@ def obtain_cortical_vision_size(camera_index, response):
             for fetch_name in items:
                 if fetch_name in name_from_data:
                     name = name_from_data.replace("iv", "")
-                    dimension_array = data[name_from_data]["dimensions"][0], \
-                                      data[name_from_data]["dimensions"][1], \
-                                      data[name_from_data]["dimensions"][2]
+                    dimension_array = data[name_from_data]["cortical_dimensions"][0], \
+                                      data[name_from_data]["cortical_dimensions"][1], \
+                                      data[name_from_data]["cortical_dimensions"][2]
                     size_list[name] = dimension_array
     return size_list
 
@@ -339,10 +353,10 @@ def update_size_list(capabilities):
     return capabilities
 
 
-def vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel, api_address,
+def vision_progress(capabilities, feagi_opu_channel, api_address,
                     feagi_settings, raw_frame):
-    global genome_tracker # horrible, worst in programming. TODO: FIX THIS
-    message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
+    global genome_tracker, previous_genome_timestamp # horrible, worst in programming. TODO: FIX THIS
+    message_from_feagi = pns.signals_from_feagi(feagi_opu_channel)
     if message_from_feagi is not None:
         # OPU section STARTS
         # Obtain the size of aptr
@@ -369,14 +383,14 @@ def vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel, 
         if genome_changed != previous_genome_timestamp:
             capabilities = update_size_list(capabilities)
             previous_genome_timestamp = message_from_feagi["genome_changed"]
-        capabilities = pns.obtain_snap_data(raw_frame, message_from_feagi, capabilities)
+        capabilities = pns.obtain_blink_data(raw_frame, message_from_feagi, capabilities)
         capabilities = pns.monitor_switch(message_from_feagi, capabilities)
         capabilities = pns.gaze_control_update(message_from_feagi, capabilities)
         capabilities = pns.pupil_control_update(message_from_feagi, capabilities)
         feagi_settings['feagi_burst_speed'] = pns.check_refresh_rate(message_from_feagi,
                                                                      feagi_settings[
                                                                          'feagi_burst_speed'])
-    return capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed']
+    return capabilities, feagi_settings['feagi_burst_speed']
 
 
 def update_astype(data):
@@ -391,3 +405,20 @@ def RGB_list_to_ndarray(data, size):
 
 def flip_video(data):
     return cv2.flip(data, 1)
+
+
+def check_brightness(frame):
+
+    # Calculate the average pixel intensity (brightness)
+    average_intensity = cv2.mean(frame)[0]
+
+    # Define thresholds for brightness
+    brightness_threshold = 127  # Adjust this threshold as needed
+
+    # Check if the average intensity is above or below the threshold
+    if average_intensity > brightness_threshold:
+        return "Image is too bright"
+    elif average_intensity < brightness_threshold:
+        return "Image is too dark"
+    else:
+        return "Image is neither too bright nor too dark"

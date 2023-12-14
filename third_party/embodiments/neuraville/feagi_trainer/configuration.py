@@ -16,20 +16,24 @@ limitations under the License.
 ==============================================================================
 """
 
+import os
+
+
 feagi_settings = {
     # "feagi_auth_url": "http://127.0.0.1:9000/v1/k8/feagi_settings/auth_token",
     "feagi_url": None,
     "feagi_dns": None,
-    "feagi_host": "127.0.0.1",
-    "feagi_api_port": "8000",
+    "feagi_host": os.environ.get('FEAGI_HOST_INTERNAL', "127.0.0.1"),
+    "feagi_api_port": os.environ.get('FEAGI_API_PORT', "8000")
 }
-
 agent_settings = {
-    "agent_data_port": "10005",
-    "agent_id": "camera_1",
+    "agent_data_port": "10006",
+    "agent_id": "javascript_webcam",
     "agent_type": "embodiment",
     'TTL': 2,
     'last_message': 0,
+    'godot_websocket_ip': "0.0.0.0",
+    'godot_websocket_port': os.environ.get('WS_WEBCAM_PORT', "9051"),
     'compression': True
 }
 
@@ -38,7 +42,7 @@ capabilities = {
         "type": "ipu",
         "disabled": False,
         "index": "00",
-        "iso_default": [10, 255],
+        "iso_default": [10, 255, 130, 51, 255],
         "iso_range": [1, 255],
         "central_vision_allocation_percentage": [80, 60],
         "central_vision_resolution": [64, 64],
@@ -57,7 +61,14 @@ capabilities = {
         "gaze_control": {0: 25, 1: 50},
         "pupil_control": {0: 25, 1: 50},
         "size_list": []
+    },
+    "image_reader": {
+        "loop": True,
+        "pause": 2,
+        "path": "./",
+        "test_mode": True
     }
 }
 
 message_to_feagi = {"data": {}}
+
