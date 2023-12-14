@@ -54,7 +54,7 @@ def neuron_id_gen(cortical_id=None, size=6, chars=string.ascii_uppercase + strin
     return str(cortical_id + '_' + now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_' + (''.join(random.choice(chars) for _ in range(size))) + '_N'
 
 
-def init_neuron(cortical_area, soma_location, memory_hash=None):
+def init_neuron(cortical_area, soma_location, mem_neuron_id=None):
     """
     Responsible for adding a Neuron to connectome
 
@@ -62,11 +62,11 @@ def init_neuron(cortical_area, soma_location, memory_hash=None):
 
     genome = runtime_data.genome
 
-    if memory_hash:
+    if mem_neuron_id:
         immortality = False
         is_memory_type = True
         lifespan = runtime_data.genome["blueprint"][cortical_area]["init_lifespan"] + runtime_data.burst_count
-        neuron_id = str(cortical_area + '_' + memory_hash)
+        neuron_id = str(cortical_area + '_' + mem_neuron_id)
     else:
         immortality = True
         is_memory_type = False
