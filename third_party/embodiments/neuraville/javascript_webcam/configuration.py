@@ -54,7 +54,7 @@ capabilities = {
         "aperture_range": [0.1, 2],
         "aperture_default": 2,
         "mirror": True,
-        "snap": [],
+        "blink": [],
         "gaze_control": {0: 25, 1: 50},
         "pupil_control": {0: 25, 1: 50},
         "size_list": []
