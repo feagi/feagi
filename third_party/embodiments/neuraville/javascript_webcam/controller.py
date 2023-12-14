@@ -156,8 +156,8 @@ if __name__ == "__main__":
                                                                              'size_list'],
                                                                          previous_frame_data, rgb)
                     capabilities['camera']['blink'] = []
-                    capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed'] = \
-                        retina.vision_progress(capabilities, previous_genome_timestamp,
+                    capabilities, feagi_settings['feagi_burst_speed'] = \
+                        retina.vision_progress(capabilities,
                                                feagi_opu_channel,
                                                api_address, feagi_settings, raw_frame)
                     if rgb:
