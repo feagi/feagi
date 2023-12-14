@@ -48,7 +48,7 @@ def process_video(video_path, capabilities):
         if capabilities['camera']['video_device_index'] != "monitor":
           if capabilities["camera"]["image"] != "":
             if static_image == []:
-              pixels = cv2.imread(capabilities["camera"]["image"], -1)
+              # pixels = cv2.imread(capabilities["camera"]["image"], -1)
               static_image = pixels
             else:
               pixels = static_image
@@ -82,7 +82,6 @@ def process_video(video_path, capabilities):
             if capabilities["camera"]["mirror"]:
                 pixels = cv2.flip(pixels, 1)
             camera_data["vision"] = pixels
-
     cam.release()
     cv2.destroyAllWindows()
 
@@ -120,32 +119,28 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     rgb['camera'] = dict()
     response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
     capabilities['camera']['size_list'] = retina.obtain_cortical_vision_size(capabilities['camera']["index"], response)
-    previous_genome_timestamp = 0
     previous_frame_data = {}
     raw_frame = []
     while True:
         try:
             if camera_data['vision'] is not None:
                 raw_frame = camera_data['vision']
-                cv2.imshow("OpenCV/Numpy normal", raw_frame) # Move to main due to Mac's restriction
-                if cv2.waitKey(10) & 0xFF == ord('q'):
-                    pass
             if capabilities['camera']['blink'] != []:
                 raw_frame = capabilities['camera']['blink']
             previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
                                                                  capabilities['camera']["index"],
                                                                  capabilities['camera']['size_list'],
                                                                  previous_frame_data, rgb)
+            capabilities['camera']['effect'].clear()
             capabilities['camera']['blink'] = []
-            capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed'] = \
-                retina.vision_progress(capabilities, previous_genome_timestamp, feagi_opu_channel,
-                                       api_address, feagi_settings, raw_frame)
+            capabilities, feagi_settings['feagi_burst_speed'] = \
+                retina.vision_progress(capabilities, feagi_opu_channel, api_address, feagi_settings,
+                                       raw_frame)
 
             message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(),
                                                        message_to_feagi)
             sleep(feagi_settings['feagi_burst_speed'])
             pns.signals_to_feagi(message_to_feagi, feagi_ipu_channel, agent_settings)
-
             message_to_feagi.clear()
             for i in rgb['camera']:
                 rgb['camera'][i].clear()
