@@ -38,7 +38,7 @@ capabilities = {
         "type": "ipu",
         "disabled": False,
         "index": "00",
-        "iso_default": [10, 255],
+        "iso_default": [10, 255, 130, 51, 255], # 140, 150
         "iso_range": [1, 255],
         "central_vision_allocation_percentage": [80, 60],
         "central_vision_resolution": [64, 64],
@@ -56,7 +56,9 @@ capabilities = {
         "blink": [],
         "gaze_control": {0: 25, 1: 50},
         "pupil_control": {0: 25, 1: 50},
-        "size_list": []
+        "size_list": [],
+        "effect": {},
+        "vision_tuner_range": [0, 100]
     }
 }
 
