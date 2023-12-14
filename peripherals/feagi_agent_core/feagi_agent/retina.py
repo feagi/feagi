@@ -217,16 +217,17 @@ def change_detector_grayscale(previous, current, capabilities):
 
         if len(capabilities['camera']['blink']) == 0:
             difference = cv2.absdiff(previous, current)
-            thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
-                                        capabilities['camera']['iso_default'][1],
-                                        cv2.THRESH_TRUNC)[1]
+            _, thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0], capabilities['camera']['iso_default'][1], cv2.THRESH_TOZERO)
+            # thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
+            #                             capabilities['camera']['iso_default'][1],
+            #                             cv2.THRESH_TRUNC)[1]
 
         else:
             # print("Blink!")
             difference = current
             # print(current)
-            thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
-                                        capabilities['camera']['iso_default'][1],
+            thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][2],
+                                        capabilities['camera']['iso_default'][3],
                                         cv2.THRESH_TOZERO )[1]
         # cv2.imshow("center only", thresholded)
         # Convert to boolean array for significant changes
@@ -261,13 +262,18 @@ def change_detector(previous, current, capabilities):
 
         if len(capabilities['camera']['blink']) == 0:
             difference = cv2.absdiff(previous, current)
+            _, thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0], capabilities['camera']['iso_default'][1], cv2.THRESH_TOZERO)
+            # thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
+            #                             capabilities['camera']['iso_default'][1],
+            #                             cv2.THRESH_TRUNC)[1]
 
         else:
+            # print("Blink!")
             difference = current
-
-        thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
-                                    capabilities['camera']['iso_default'][1],
-                                    cv2.THRESH_TOZERO)[1]
+            # print(current)
+            thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][2],
+                                        capabilities['camera']['iso_default'][3],
+                                        cv2.THRESH_TOZERO )[1]
 
         # Convert to boolean array for significant changes
         significant_changes = thresholded > 0
