@@ -1,5 +1,5 @@
 
-# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+# Copyright 2016-2023 The FEAGI Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ def neuron_id_gen(cortical_id=None, size=6, chars=string.ascii_uppercase + strin
     return str(cortical_id + '_' + now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_' + (''.join(random.choice(chars) for _ in range(size))) + '_N'
 
 
-def init_neuron(cortical_area, soma_location):
+def init_neuron(cortical_area, soma_location, memory_hash=None):
     """
     Responsible for adding a Neuron to connectome
 
@@ -62,9 +62,19 @@ def init_neuron(cortical_area, soma_location):
 
     genome = runtime_data.genome
 
-    neuron_id = neuron_id_gen(cortical_id=cortical_area)
+    if memory_hash:
+        immortality = False
+        is_memory_type = True
+        lifespan = runtime_data.genome["blueprint"][cortical_area]["init_lifespan"] + runtime_data.burst_count
+        neuron_id = str(cortical_area + '_' + memory_hash)
+    else:
+        immortality = True
+        is_memory_type = False
+        lifespan = None
+        neuron_id = neuron_id_gen(cortical_id=cortical_area)
 
     runtime_data.brain[cortical_area][neuron_id] = {}
+    runtime_data.brain[cortical_area][neuron_id]["memory_neuron"] = is_memory_type
     runtime_data.brain[cortical_area][neuron_id]["neighbors"] = {}
     runtime_data.brain[cortical_area][neuron_id]["upstream_neurons"] = set()
     runtime_data.brain[cortical_area][neuron_id]["event_id"] = {}
@@ -77,6 +87,8 @@ def init_neuron(cortical_area, soma_location):
     runtime_data.brain[cortical_area][neuron_id]["snooze_till_burst_num"] = 0
     runtime_data.brain[cortical_area][neuron_id]["last_burst_num"] = 0
     runtime_data.brain[cortical_area][neuron_id]["activity_history"] = []
+    runtime_data.brain[cortical_area][neuron_id]["lifespan"] = lifespan
+    runtime_data.brain[cortical_area][neuron_id]["immortal"] = immortality
     runtime_data.brain[cortical_area][neuron_id]["soma_location"] = soma_location
     # loc_blk is a two element list where first element being the location of the neuron and second being the block
     # runtime_data.brain[cortical_area][neuron_id]["dendrite_locations"] = dendrite_locations
@@ -136,9 +148,22 @@ def create_neuron(cortical_area, voxel):
         runtime_data.voxel_dict[cortical_area][voxel].add(neuron_id)
 
 
-def neuron_apoptosis(cortical_area):
+def neuron_apoptosis(cortical_area, neuron_id):
     """
     Responsible for programmed death of neuron
     """
-    # todo: implement the function
-    return
+    runtime_data.brain[cortical_area].pop(neuron_id)
+    print("^^^^^^" * 20)
+    print(f"Neuron {neuron_id} from {cortical_area} just died!")
+
+
+def increase_neuron_lifespan(cortical_area, neuron_id):
+    if cortical_area in runtime_data.brain:
+        if neuron_id in runtime_data.brain[cortical_area]:
+            runtime_data.brain[cortical_area][neuron_id]["lifespan"] += \
+                runtime_data.genome["blueprint"][cortical_area]["lifespan_growth_rate"]
+
+            # Check eligibility for neuron immortality (Short-term to Long-term memory xfer)
+            if runtime_data.brain[cortical_area][neuron_id]["lifespan"] > \
+                    runtime_data.genome["blueprint"][cortical_area]["longterm_mem_threshold"]:
+                runtime_data.brain[cortical_area][neuron_id]["immortal"] = True

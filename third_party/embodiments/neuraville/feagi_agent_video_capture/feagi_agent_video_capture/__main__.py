@@ -17,6 +17,7 @@ if __name__ == '__main__':
     parser.add_argument('-device', '--device', help='To bind the location or index of webcam.',
                         required=False)
     parser.add_argument('-video', '--video', help='Use the path to video to read', required=False)
+    parser.add_argument('-image', '--image', help='Use the path to image to read', required=False)
     parser.add_argument('-port', '--port', help='Change the port instead of default 8000.',
                         required=False)
     args = vars(parser.parse_args())
@@ -35,6 +36,8 @@ if __name__ == '__main__':
         capabilities["camera"]["video_device_index"] = args['video']
     if args['port']:
         feagi_settings["feagi_api_port"] = args['port']
+    if args['image']:
+      capabilities["camera"]["image"] = args['image']
     if __name__ == '__main__':
         inital_feagi_setting = feagi_settings.copy()
         inital_agent_settings = agent_settings.copy()

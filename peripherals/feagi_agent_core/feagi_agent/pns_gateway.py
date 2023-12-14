@@ -23,6 +23,10 @@ import traceback
 # Variable storage #
 raw_aptr = -1
 global_aptr_cortical_size = None
+global_ID_cortical_size = None
+full_list_dimension = []
+previous_genome_timestamp = 0
+genome_tracker = 0
 
 
 def generate_feagi_data(rgb, msg_counter, date, message_to_feagi):
@@ -44,12 +48,27 @@ def generate_feagi_data(rgb, msg_counter, date, message_to_feagi):
     return message_to_feagi
 
 
-def efferent_signaling(feagi_opu_channel):
+def append_sensory_data_for_feagi(sensory_category, sensory_data, message_to_feagi):
+    """
+    :param sensory_category: A name such as training, camera, IR, ultrasonic and so on.
+    :param sensory_data: The data of dict only
+    :param message_to_feagi: Use the existing dict to append
+    :return: the updated dict called `message_to_feagi`
+    """
+    if "data" not in message_to_feagi:
+        message_to_feagi["data"] = {}
+    if "sensory_data" not in message_to_feagi["data"]:
+        message_to_feagi["data"]["sensory_data"] = {}
+    message_to_feagi["data"]["sensory_data"][sensory_category] = sensory_data
+    return message_to_feagi
+
+
+def signals_from_feagi(feagi_opu_channel):
     """ get OPU from FEAGI """
     return router.fetch_feagi(feagi_opu_channel)
 
 
-def afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings):
+def signals_to_feagi(message_to_feagi, feagi_ipu_channel, agent_settings):
     router.send_feagi(message_to_feagi, feagi_ipu_channel, agent_settings)
 
 
@@ -151,6 +170,10 @@ def check_aptr(get_size_for_aptr_cortical):
     return router.fetch_aptr(get_size_for_aptr_cortical)
 
 
+def check_id_size(get_size_for_ID):
+    return router.fetch_ID(get_size_for_ID)
+
+
 def grab_geometry():
     return router.fetch_geometry()
 
@@ -191,10 +214,10 @@ def obtain_data_type(data):
         return "Unknown"
 
 
-def obtain_snap_data(raw_frame, message_from_feagi, capabilities):
-    if "o_snap" in message_from_feagi["opu_data"]:
-        if message_from_feagi["opu_data"]["o_snap"]:
-            capabilities['camera']['snap'] = raw_frame
+def obtain_blink_data(raw_frame, message_from_feagi, capabilities):
+    if "o_blnk" in message_from_feagi["opu_data"]:
+        if message_from_feagi["opu_data"]["o_blnk"]:
+            capabilities['camera']['blink'] = raw_frame
     return capabilities
 
 
@@ -238,6 +261,17 @@ def pupil_control_update(message_from_feagi, capabilities):
     return capabilities
 
 
+def detect_ID_data(message_from_feagi):
+    """
+    :param message_from_feagi: Should be a dict from FEAGI data only
+    :return: Return the data that given by FEAGI
+    """
+    if "o___id" in message_from_feagi["opu_data"]:
+        if message_from_feagi["opu_data"]["o___id"]:
+            return message_from_feagi["opu_data"]["o___id"]
+    return {}
+
+
 def detect_genome_change(message_from_feagi):
     if "genome_changed" in message_from_feagi:
         if message_from_feagi["genome_changed"]:
@@ -248,3 +282,19 @@ def check_refresh_rate(message_from_feagi, current_second):
     if message_from_feagi is not None:
         return message_from_feagi['burst_frequency']
     return current_second
+
+
+def fetch_full_dimensions():
+    return router.fetch_cortical_dimensions()
+
+
+def check_genome_status(message_from_feagi):
+    global previous_genome_timestamp, genome_tracker
+    genome_changed = detect_genome_change(message_from_feagi)
+    if genome_changed != previous_genome_timestamp:
+        full_list_dimension = fetch_full_dimensions()
+        previous_genome_timestamp = message_from_feagi["genome_changed"]
+    current_tracker = obtain_genome_number(genome_tracker, message_from_feagi)
+    if genome_tracker != current_tracker:
+        full_list_dimension = fetch_full_dimensions()
+        genome_tracker = current_tracker

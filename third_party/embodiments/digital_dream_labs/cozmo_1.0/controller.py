@@ -350,7 +350,7 @@ if __name__ == '__main__':
 
     while True:
         try:
-            message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
+            message_from_feagi = pns.signals_from_feagi(feagi_opu_channel)
             if message_from_feagi is not None:
                 # Obtain the size of aptr
                 if aptr_cortical_size is None:
@@ -458,7 +458,7 @@ if __name__ == '__main__':
             if message_from_feagi is not None:
                 feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
             sleep(feagi_settings['feagi_burst_speed'])
-            pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
+            pns.signals_to_feagi(message_to_feagi, feagi_ipu_channel, agent_settings)
             message_to_feagi.clear()
             for i in rgb['camera']:
                 rgb['camera'][i].clear()
