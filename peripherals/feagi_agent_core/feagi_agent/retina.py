@@ -373,15 +373,7 @@ def vision_progress(capabilities, feagi_opu_channel, api_address,
         # Update the aceture
         capabilities = pns.fetch_vision_acuity(message_from_feagi, capabilities)
         # Update resize if genome has been changed:
-        current_tracker = pns.obtain_genome_number(genome_tracker, message_from_feagi)
-        if genome_tracker != current_tracker:
-            capabilities = update_size_list(capabilities)
-            genome_tracker = current_tracker
-        genome_changed = pns.detect_genome_change(message_from_feagi)
-        # This applies to cortical change.
-        if genome_changed != previous_genome_timestamp:
-            capabilities = update_size_list(capabilities)
-            previous_genome_timestamp = message_from_feagi["genome_changed"]
+        pns.check_genome_status(message_from_feagi)
         capabilities = pns.obtain_blink_data(raw_frame, message_from_feagi, capabilities)
         capabilities = pns.monitor_switch(message_from_feagi, capabilities)
         capabilities = pns.gaze_control_update(message_from_feagi, capabilities)
