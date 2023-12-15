@@ -48,7 +48,7 @@ def process_video(video_path, capabilities):
         if capabilities['camera']['video_device_index'] != "monitor":
           if capabilities["camera"]["image"] != "":
             if static_image == []:
-              # pixels = cv2.imread(capabilities["camera"]["image"], -1)
+              pixels = cv2.imread(capabilities["camera"]["image"], -1)
               static_image = pixels
             else:
               pixels = static_image
@@ -131,7 +131,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
                                                                  capabilities['camera']["index"],
                                                                  capabilities['camera']['size_list'],
                                                                  previous_frame_data, rgb)
-            capabilities['camera']['effect'].clear()
+            # capabilities['camera']['effect'].clear()
             capabilities['camera']['blink'] = []
             capabilities, feagi_settings['feagi_burst_speed'] = \
                 retina.vision_progress(capabilities, feagi_opu_channel, api_address, feagi_settings,
