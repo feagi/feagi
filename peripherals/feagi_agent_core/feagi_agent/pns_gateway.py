@@ -240,24 +240,42 @@ def monitor_switch(message_from_feagi, capabilities):
 def gaze_control_update(message_from_feagi, capabilities):
     if 'o__gaz' in message_from_feagi["opu_data"]:
         for data_point in message_from_feagi["opu_data"]['o__gaz']:
-            processed_data_point = feagi.block_to_array(data_point)
-            device_id = processed_data_point[0]
-            device_power = message_from_feagi["opu_data"]['o__gaz'][data_point]
-            if device_power == 100:
-                device_power -= 1
-            capabilities['camera']['gaze_control'][device_id] = device_power
+            device_id = data_point.split('-')[0]
+            if int(device_id) in [0, 1]:
+                feagi_aptr = (int(data_point.split('-')[-1]))
+                aptr_cortical_size = full_list_dimension['Vision_Gaze'][6] - 1
+                max_range = capabilities['camera']['vision_range'][1]
+                min_range = capabilities['camera']['vision_range'][0]
+                capabilities['camera']["gaze_control"][int(device_id)] = int(((feagi_aptr / aptr_cortical_size) * (max_range - min_range)) + min_range)
+            # Comment new method out
+            # processed_data_point = feagi.block_to_array(data_point)
+            # device_id = processed_data_point[0]
+            # device_power = message_from_feagi["opu_data"]['o__gaz'][data_point]
+            # if device_power == 100:
+            #     device_power -= 1
+            # capabilities['camera']['gaze_control'][device_id] = device_power
     return capabilities
 
 
 def pupil_control_update(message_from_feagi, capabilities):
     if 'o__pup' in message_from_feagi["opu_data"]:
         for data_point in message_from_feagi["opu_data"]['o__pup']:
-            processed_data_point = feagi.block_to_array(data_point)
-            device_id = processed_data_point[0]
-            device_power = message_from_feagi["opu_data"]['o__pup'][data_point]
-            if device_power == 100:
-                device_power -= 1
-            capabilities['camera']['pupil_control'][device_id] = device_power
+            device_id = data_point.split('-')[0]
+            if int(device_id) in [0, 1]:
+                feagi_aptr = (int(data_point.split('-')[-1]))
+                aptr_cortical_size = full_list_dimension['Vision_Pupil'][6] - 1
+                max_range = capabilities['camera']['vision_range'][1]
+                min_range = capabilities['camera']['vision_range'][0]
+                capabilities['camera']["pupil_control"][int(device_id)] = int(((feagi_aptr /
+                                                                    aptr_cortical_size) * (max_range - min_range)) + min_range)
+        #comment new method out
+        # for data_point in message_from_feagi["opu_data"]['o__pup']:
+        #     processed_data_point = feagi.block_to_array(data_point)
+        #     device_id = processed_data_point[0]
+        #     device_power = message_from_feagi["opu_data"]['o__pup'][data_point]
+        #     if device_power == 100:
+        #         device_power -= 1
+        #     capabilities['camera']['pupil_control'][device_id] = device_power
     return capabilities
 
 
@@ -288,7 +306,9 @@ def fetch_full_dimensions():
     return router.fetch_cortical_dimensions()
 
 def check_genome_status(message_from_feagi):
-    global previous_genome_timestamp, genome_tracker
+    global previous_genome_timestamp, genome_tracker, full_list_dimension
+    if len(full_list_dimension) == 0:
+        full_list_dimension = fetch_full_dimensions()
     genome_changed = detect_genome_change(message_from_feagi)
     if genome_changed != previous_genome_timestamp:
         full_list_dimension = fetch_full_dimensions()
@@ -301,10 +321,20 @@ def check_genome_status(message_from_feagi):
 def fetch_vision_turner(message_from_feagi, capabilities, size):
     if "ovtune" in message_from_feagi["opu_data"]:
         if message_from_feagi["opu_data"]["ovtune"]:
-            for data_point in message_from_feagi["opu_data"]["ovtune"]:
-                processed_data_point = feagi.block_to_array(data_point)
-                device_id = processed_data_point[0]
-                device_power = message_from_feagi["opu_data"]['ovtune'][data_point]
-                capabilities['camera']['effect'][device_id] = device_power
+            for data_point in message_from_feagi["opu_data"]['ovtune']:
+                device_id = data_point.split('-')[0]
+                feagi_aptr = (int(data_point.split('-')[-1]))
+                aptr_cortical_size = full_list_dimension['threshold'][6] - 1
+                max_range = 255
+                min_range = 0
+                capabilities['camera']["effect"][int(device_id)] = int(((feagi_aptr /
+                                                                                aptr_cortical_size) * (
+                                                                                           max_range - min_range)) + min_range)
+
+            # for data_point in message_from_feagi["opu_data"]["ovtune"]:
+            #     processed_data_point = feagi.block_to_array(data_point)
+            #     device_id = processed_data_point[0]
+            #     device_power = message_from_feagi["opu_data"]['ovtune'][data_point]
+            #     capabilities['camera']['effect'][device_id] = device_power
     print("pns: ", capabilities['camera']['effect'])
     return capabilities
