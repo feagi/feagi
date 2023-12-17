@@ -167,9 +167,6 @@ def neuron_apoptosis(cortical_area, neuron_id):
     if cortical_area in runtime_data.fire_queue:
         if neuron_id in runtime_data.fire_queue[cortical_area]:
             runtime_data.fire_queue[cortical_area].remove(neuron_id)
-    print("^^^^^^" * 20)
-    print(f"Neuron {neuron_id} from {cortical_area} just died!")
-    print("^^^^^^" * 20)
 
 
 def increase_neuron_lifespan(cortical_area, neuron_id):
@@ -188,7 +185,5 @@ def increase_neuron_lifespan(cortical_area, neuron_id):
 def convert_shortterm_to_longterm(memory_area, memory_neuron_id):
     if not runtime_data.brain[memory_area][memory_neuron_id]["immortal"]:
         runtime_data.brain[memory_area][memory_neuron_id]["immortal"] = True
-        print(f"--{memory_neuron_id}--" * 50)
-        print("\nShort-term memory converted to longterm!")
         synapse_count = memory_synapse(memory_cortical_area=memory_area, memory_neuron_id=memory_neuron_id)
-        print(f"{synapse_count} new memory-driven synapses has been formed")
+        return synapse_count
