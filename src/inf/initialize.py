@@ -187,7 +187,7 @@ def init_container_variables():
 def init_memory_register():
     for cortical_area in runtime_data.genome["blueprint"]:
         if "sub_group_id" in runtime_data.genome["blueprint"][cortical_area]:
-            if runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] == "Memory":
+            if runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] == "MEMORY":
                 runtime_data.memory_register[cortical_area] = set()
 
 

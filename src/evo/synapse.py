@@ -186,6 +186,7 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
 
 def memory_synapse(memory_cortical_area, memory_neuron_id):
     # todo: add counters to track global synapse count
+    synapse_count = 0
     if runtime_data.brain[memory_cortical_area][memory_neuron_id]["immortal"]:
         for dst_cortical_area in runtime_data.genome["blueprint"][memory_cortical_area]["cortical_mapping_dst"]:
             for dst_neuron_id in runtime_data.brain[dst_cortical_area]:
@@ -196,6 +197,9 @@ def memory_synapse(memory_cortical_area, memory_neuron_id):
                         postsynaptic_current=
                         runtime_data.genome["blueprint"][memory_cortical_area]["postsynaptic_current"]
                         )
+                synapse_count += 1
+                print("@-@", synapse_count)
+    return synapse_count
 
 
 def cortical_mapping(blueprint=None):

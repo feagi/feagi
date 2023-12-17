@@ -578,6 +578,9 @@ def burst_manager():
         if runtime_data.genome:
             runtime_data.current_age += 1
 
+        # Short-term and Long-term memory formation
+        long_short_term_memory()
+
         if runtime_data.brain and runtime_data.brain_readiness:
             # Activating the always on neurons
             if "___pwr" in runtime_data.brain:
@@ -607,9 +610,7 @@ def burst_manager():
         # logging neuron activities to the influxdb
         # log_neuron_activity_influx()
 
-        # Forming memories through creation of cell assemblies
         neuroplasticity()
-        long_short_term_memory()
         lstm_lifespan_mgmt()
 
         # A deep copy of the FCL to previous FCL
