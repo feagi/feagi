@@ -25,6 +25,7 @@ import logging
 # import collections
 # import numpy as np
 from evo.voxels import *
+from evo.synapse import memory_synapse
 
 
 logger = logging.getLogger(__name__)
@@ -152,9 +153,23 @@ def neuron_apoptosis(cortical_area, neuron_id):
     """
     Responsible for programmed death of neuron
     """
-    runtime_data.brain[cortical_area].pop(neuron_id)
+    if neuron_id in runtime_data.brain[cortical_area]:
+        runtime_data.brain[cortical_area].pop(neuron_id)
+    if cortical_area in runtime_data.fire_candidate_list:
+        if neuron_id in runtime_data.fire_candidate_list[cortical_area]:
+            runtime_data.fire_candidate_list[cortical_area].remove(neuron_id)
+    if cortical_area in runtime_data.future_fcl:
+        if neuron_id in runtime_data.future_fcl[cortical_area]:
+            runtime_data.future_fcl[cortical_area].remove(neuron_id)
+    if cortical_area in runtime_data.previous_fcl:
+        if neuron_id in runtime_data.previous_fcl[cortical_area]:
+            runtime_data.previous_fcl[cortical_area].remove(neuron_id)
+    if cortical_area in runtime_data.fire_queue:
+        if neuron_id in runtime_data.fire_queue[cortical_area]:
+            runtime_data.fire_queue[cortical_area].remove(neuron_id)
     print("^^^^^^" * 20)
     print(f"Neuron {neuron_id} from {cortical_area} just died!")
+    print("^^^^^^" * 20)
 
 
 def increase_neuron_lifespan(cortical_area, neuron_id):
@@ -165,5 +180,15 @@ def increase_neuron_lifespan(cortical_area, neuron_id):
 
             # Check eligibility for neuron immortality (Short-term to Long-term memory xfer)
             if runtime_data.brain[cortical_area][neuron_id]["lifespan"] > \
-                    runtime_data.genome["blueprint"][cortical_area]["longterm_mem_threshold"]:
-                runtime_data.brain[cortical_area][neuron_id]["immortal"] = True
+                    runtime_data.genome["blueprint"][cortical_area]["longterm_mem_threshold"] + \
+                    runtime_data.burst_count:
+                convert_shortterm_to_longterm(memory_area=cortical_area, memory_neuron_id=neuron_id)
+
+
+def convert_shortterm_to_longterm(memory_area, memory_neuron_id):
+    if not runtime_data.brain[memory_area][memory_neuron_id]["immortal"]:
+        runtime_data.brain[memory_area][memory_neuron_id]["immortal"] = True
+        print(f"--{memory_neuron_id}--" * 50)
+        print("\nShort-term memory converted to longterm!")
+        synapse_count = memory_synapse(memory_cortical_area=memory_area, memory_neuron_id=memory_neuron_id)
+        print(f"{synapse_count} new memory-driven synapses has been formed")

@@ -476,6 +476,10 @@ def cortical_removal(cortical_area, genome_scrub=False):
         # Update Plasticity Dict
         generate_plasticity_dict()
 
+        # Update memory register
+        if cortical_area in runtime_data.memory_register:
+            runtime_data.memory_register.pop(cortical_area)
+
         # Optional genome scrub
         if genome_scrub:
             if cortical_area in runtime_data.genome['blueprint']:
