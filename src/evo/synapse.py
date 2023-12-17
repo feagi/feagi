@@ -198,7 +198,6 @@ def memory_synapse(memory_cortical_area, memory_neuron_id):
                         runtime_data.genome["blueprint"][memory_cortical_area]["postsynaptic_current"]
                         )
                 synapse_count += 1
-                print("@-@", synapse_count)
     return synapse_count
 
 
