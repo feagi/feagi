@@ -52,8 +52,8 @@ import traceback
 import logging
 import xxhash
 from inf import runtime_data
-from evo.neuron import init_neuron, increase_neuron_lifespan, neuron_apoptosis
-from evo.synapse import bidirectional_synapse, synapse
+from evo.neuron import init_neuron, increase_neuron_lifespan, neuron_apoptosis, convert_shortterm_to_longterm
+from evo.synapse import memory_synapse
 from npu.physiology import list_upstream_plastic_neurons, list_downstream_plastic_neurons, post_synaptic_current_update
 
 
@@ -163,20 +163,25 @@ def long_short_term_memory():
     if runtime_data.memory_register:
         for memory_cortical_area in runtime_data.memory_register:
             neurogenesis_list = set()
-            for upstream_cortical_area in memory_cortical_area:
-                if runtime_data.fire_candidate_list[upstream_cortical_area]:
-                    neurogenesis_list.add(runtime_data.fire_candidate_list[upstream_cortical_area])
+            for upstream_cortical_area in runtime_data.memory_register[memory_cortical_area]:
+                if upstream_cortical_area in runtime_data.fire_candidate_list:
+                    if runtime_data.fire_candidate_list[upstream_cortical_area]:
+                        neurogenesis_list.update(runtime_data.fire_candidate_list[upstream_cortical_area])
 
-            print(f"Memory Neurogenesis list of neurons for {memory_cortical_area}")
             memory_hash = generate_mem_hash_cache(afferent_neuron_list=neurogenesis_list)
 
             mem_neuron_id = convert_hash_to_neuron_id(cortical_area=memory_cortical_area, memory_hash=memory_hash)
 
-            if mem_neuron_id not in runtime_data.brain[memory_cortical_area]:
-                init_neuron(cortical_area=memory_cortical_area, soma_location=[0, 0, 0], memory_hash=memory_hash)
-
+            if mem_neuron_id not in runtime_data.brain[memory_cortical_area] and memory_hash != "0x0":
+                init_neuron(cortical_area=memory_cortical_area, soma_location=[0, 0, 0], mem_neuron_id=memory_hash)
             else:
                 increase_neuron_lifespan(cortical_area=memory_cortical_area, neuron_id=mem_neuron_id)
+
+            if memory_hash != "0x0":
+                if memory_cortical_area not in runtime_data.future_fcl:
+                    runtime_data.future_fcl[memory_cortical_area] = set()
+
+                runtime_data.fire_candidate_list[memory_cortical_area].add(mem_neuron_id)
 
 
 def lstm_lifespan_mgmt():
@@ -193,18 +198,20 @@ def lstm_lifespan_mgmt():
 
 def memory_cleanup():
     for memory_cortical_area in runtime_data.memory_register:
+        apoptosis_candidates = set()
         for neuron in runtime_data.brain[memory_cortical_area]:
             # Neuron lifespan management
             if not runtime_data.brain[memory_cortical_area][neuron]["immortal"]:
                 # Neuron Apoptosis check
                 if runtime_data.brain[memory_cortical_area][neuron]["lifespan"] < runtime_data.burst_count:
-                    neuron_apoptosis(cortical_area=memory_cortical_area, neuron_id=neuron)
+                    apoptosis_candidates.add(neuron)
                 # Short-term Memory to Long-term Memory transformation check
                 elif runtime_data.brain[memory_cortical_area][neuron]["lifespan"] > \
                         runtime_data.burst_count + \
-                        runtime_data.genome["blueprint"][memory_cortical_area]["lstm_threshold"]:
-                    # Convert Short Term Memory Neuron to Long Term Memory Neuron
-                    runtime_data.brain[memory_cortical_area][neuron]["immortal"] = True
+                        runtime_data.genome["blueprint"][memory_cortical_area]["longterm_mem_threshold"]:
+                    convert_shortterm_to_longterm(memory_area=memory_cortical_area, memory_neuron_id=neuron)
+        for apoptosis_candidate in apoptosis_candidates:
+            neuron_apoptosis(cortical_area=memory_cortical_area, neuron_id=apoptosis_candidate)
 
 
 def generate_mem_hash_cache(afferent_neuron_list):
