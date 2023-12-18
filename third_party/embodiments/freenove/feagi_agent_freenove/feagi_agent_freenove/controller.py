@@ -489,7 +489,7 @@ async def listening_feagi(feagi_dict, feagi_opu_channel, feagi_settings):
     while True:
         if len(feagi_dict) > 2:
             feagi_dict.popleft()
-        feagi_dict.append(pns.efferent_signaling(feagi_opu_channel))
+        feagi_dict.append(pns.signals_from_feagi(feagi_opu_channel))
 
 
 def start_feagi_bridge(feagi_dict, feagi_opu_channel, feagi_settings):
@@ -625,7 +625,7 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
                 rgb = {}
             # Process OPU data received from FEAGI and pass it along
             # if feagi_dict:
-            message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
+            message_from_feagi = pns.signals_from_feagi(feagi_opu_channel)
             if message_from_feagi is not None:
                 # Obtain the size of aptr
                 if aptr_cortical_size is None:

@@ -321,7 +321,7 @@ if __name__ == '__main__':
                 original_message=rgb,
                 data=configuration.message_to_feagi,
                 battery=battery)
-            message_from_feagi = pns.efferent_signaling(feagi_opu_channel)
+            message_from_feagi = pns.signals_from_feagi(feagi_opu_channel)
             if message_from_feagi is not None:
                 if aptr_cortical_size is None:
                     aptr_cortical_size = pns.check_aptr(raw_aptr)
@@ -339,7 +339,7 @@ if __name__ == '__main__':
             # Preparing to send data to FEAGI
             configuration.message_to_feagi['timestamp'] = datetime.now()
             configuration.message_to_feagi['counter'] = msg_counter
-            pns.afferent_signaling(message_to_feagi, feagi_ipu_channel, agent_settings)
+            pns.signals_to_feagi(message_to_feagi, feagi_ipu_channel, agent_settings)
             configuration.message_to_feagi.clear()
             if message_from_feagi is not None:
                 feagi_settings['feagi_burst_speed'] = message_from_feagi['burst_frequency']
