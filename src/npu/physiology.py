@@ -119,7 +119,6 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
     # Setting Destination to the list of Neurons connected to the firing Neuron
     try:
         neighbor_list = runtime_data.brain[cortical_area][neuron_id]["neighbors"]
-
     except KeyError:
         print(settings.Bcolors.RED + "KeyError on accessing neighbor_list while firing a neuron" +
               settings.Bcolors.ENDC)
