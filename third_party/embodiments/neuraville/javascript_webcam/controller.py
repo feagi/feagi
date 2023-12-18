@@ -132,7 +132,6 @@ if __name__ == "__main__":
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         msg_counter = runtime_data["feagi_state"]['burst_counter']
         previous_frame_data = dict()
-        previous_genome_timestamp = 0
         response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
         capabilities['camera']['size_list'] = retina.obtain_cortical_vision_size(
             capabilities['camera']["index"], response)
@@ -156,8 +155,8 @@ if __name__ == "__main__":
                                                                              'size_list'],
                                                                          previous_frame_data, rgb)
                     capabilities['camera']['blink'] = []
-                    capabilities, previous_genome_timestamp, feagi_settings['feagi_burst_speed'] = \
-                        retina.vision_progress(capabilities, previous_genome_timestamp,
+                    capabilities, feagi_settings['feagi_burst_speed'] = \
+                        retina.vision_progress(capabilities,
                                                feagi_opu_channel,
                                                api_address, feagi_settings, raw_frame)
                     if rgb:
