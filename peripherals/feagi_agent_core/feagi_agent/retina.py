@@ -230,8 +230,8 @@ def change_detector_grayscale(previous, current, capabilities):
                                         cv2.THRESH_TOZERO )[1]
             thresholded = effect(thresholded, capabilities)
         # print(check_brightness(current))
-        cv2.imshow("center only", thresholded)
-        cv2.imshow("original", current)
+        # cv2.imshow("center only", thresholded)
+        # cv2.imshow("original", current)
         # Convert to boolean array for significant changes
         significant_changes = thresholded > 0
 
@@ -270,6 +270,7 @@ def change_detector(previous, current, capabilities):
                                            cv2.THRESH_TOZERO)
             # thresholded = effect(thresholded, capabilities)
         else:
+            # print("Blink!")
             difference = current
             thresholded = cv2.threshold(difference, capabilities['camera']['threshold_default'][2],
                                         capabilities['camera']['threshold_default'][3],
