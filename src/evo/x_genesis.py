@@ -476,6 +476,10 @@ def cortical_removal(cortical_area, genome_scrub=False):
         # Update Plasticity Dict
         generate_plasticity_dict()
 
+        # Update memory register
+        if cortical_area in runtime_data.memory_register:
+            runtime_data.memory_register.pop(cortical_area)
+
         # Optional genome scrub
         if genome_scrub:
             if cortical_area in runtime_data.genome['blueprint']:
@@ -730,6 +734,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
             runtime_data.genome["blueprint"][cortical_area]["init_lifespan"] = \
                 template['init_lifespan']
             runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] = "MEMORY"
+            runtime_data.memory_register[cortical_area] = set()
 
         runtime_data.genome["blueprint"][cortical_area]["group_id"] = "CUSTOM"
 
