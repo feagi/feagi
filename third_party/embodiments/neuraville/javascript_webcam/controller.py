@@ -132,7 +132,6 @@ if __name__ == "__main__":
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         msg_counter = runtime_data["feagi_state"]['burst_counter']
         previous_frame_data = dict()
-        previous_genome_timestamp = 0
         response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
         capabilities['camera']['size_list'] = retina.obtain_cortical_vision_size(
             capabilities['camera']["index"], response)
