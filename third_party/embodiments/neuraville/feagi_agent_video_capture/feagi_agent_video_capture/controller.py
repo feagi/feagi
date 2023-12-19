@@ -119,7 +119,6 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities, message_t
     rgb['camera'] = dict()
     response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
     capabilities['camera']['size_list'] = retina.obtain_cortical_vision_size(capabilities['camera']["index"], response)
-    capabilities['camera']['threshold_name'] = cv2.THRESH_BINARY
     previous_frame_data = {}
     raw_frame = []
     while True:
