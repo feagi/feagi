@@ -58,6 +58,7 @@ capabilities = {
         "blink": [],
         "gaze_control": {0: 25, 1: 50},
         "pupil_control": {0: 25, 1: 50},
+        "vision_range": [1, 99],
         "size_list": [],
         "effect": {},
         "enhancement": {},
