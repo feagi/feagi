@@ -147,8 +147,7 @@ if __name__ == "__main__":
                     if capabilities['camera']['blink'] != []:
                         raw_frame = capabilities['camera']['blink']
                     if not capabilities['camera']['size_list']:
-                        response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
-                        capabilities['camera']['size_list'] = retina.obtain_cortical_vision_size(capabilities['camera']["index"], response)
+                        capabilities = retina.update_size_list(capabilities)
                     previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
                                                                          capabilities['camera'][
                                                                              "index"],
