@@ -18,13 +18,11 @@ import threading
 from time import sleep
 import time
 from datetime import datetime
-import os
 import traceback
 
 import numpy as np
 import websockets
 import requests
-import pickle
 import lz4.frame
 
 from configuration import *
@@ -148,6 +146,9 @@ if __name__ == "__main__":
                         raw_frame = retina.flip_video(raw_frame)
                     if capabilities['camera']['blink'] != []:
                         raw_frame = capabilities['camera']['blink']
+                    if not capabilities['camera']['size_list']:
+                        response = requests.get(api_address + '/v1/feagi/genome/cortical_area/geometry')
+                        capabilities['camera']['size_list'] = retina.obtain_cortical_vision_size(capabilities['camera']["index"], response)
                     previous_frame_data, rgb = retina.detect_change_edge(raw_frame, capabilities,
                                                                          capabilities['camera'][
                                                                              "index"],
