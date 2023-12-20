@@ -14,7 +14,7 @@ if __name__ == "__main__":
     print("Waiting on FEAGI...")
     while not feagi_flag:
         feagi_flag = feagi.is_FEAGI_reachable(os.environ.get('FEAGI_HOST_INTERNAL',
-                                                             "192.168.10.111"), int(os.environ.get(
+                                                             "127.0.0.1"), int(os.environ.get(
             'FEAGI_OPU_PORT', "3000")))
         sleep(2)
     print("DONE")
