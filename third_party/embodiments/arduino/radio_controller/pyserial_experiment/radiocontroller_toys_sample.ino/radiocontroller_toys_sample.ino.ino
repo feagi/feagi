@@ -44,7 +44,7 @@ void loop() {
     store_list[3] = "7";
     Serial.println("7 TRUE!");
   }
-  delay(2000);
+  delay(100);
   for (int i = 0; i < 5; i++) {
       if (store_list[i].length() > 0) { // Check if the string is not empty
           digitalWrite(store_list[i].toInt(), LOW);
