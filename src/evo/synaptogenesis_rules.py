@@ -414,5 +414,3 @@ def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subre
 def syn_memory(src_cortical_area, dst_cortical_area):
     if dst_cortical_area in runtime_data.memory_register:
         runtime_data.memory_register[dst_cortical_area].add(src_cortical_area)
-        print("#--#__" * 20)
-        print(runtime_data.memory_register)
