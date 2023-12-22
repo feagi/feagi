@@ -183,6 +183,8 @@ def long_short_term_memory():
                     runtime_data.future_fcl[memory_cortical_area] = set()
 
                 runtime_data.lstm_fire_queue.add(mem_neuron_id)
+                if memory_cortical_area in runtime_data.plasticity_dict:
+                    runtime_data.plasticity_queue_candidates.add(mem_neuron_id)
 
     inject_lstm_fire_queue_to_fcl()
 
