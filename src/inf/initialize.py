@@ -185,10 +185,10 @@ def init_container_variables():
 
 
 def init_memory_register():
-    for cortical_are in runtime_data.genome["blueprint"]:
-        if "lstm" in runtime_data.genome["blueprint"][cortical_are]:
-            if runtime_data.genome["blueprint"][cortical_are]["lstm"]:
-                runtime_data.memory_register.add(cortical_are)
+    for cortical_area in runtime_data.genome["blueprint"]:
+        if "sub_group_id" in runtime_data.genome["blueprint"][cortical_area]:
+            if runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] == "MEMORY":
+                runtime_data.memory_register[cortical_area] = set()
 
 
 def running_in_container():
@@ -428,10 +428,12 @@ def reset_runtime_data():
     runtime_data.genome = {}
     runtime_data.stats = {}
     runtime_data.brain = {}
+    runtime_data.plasticity_dict = {}
     runtime_data.cortical_list = {}
     runtime_data.memory_register = {}
     runtime_data.cortical_dimensions = {}
     runtime_data.stimulation_script = {}
+    runtime_data.plasticity_queue_candidates = set()
     runtime_data.shock_admin = False
     runtime_data.shock_scenarios = tuple
 

@@ -101,7 +101,7 @@ temp_neuron_list = []
 fire_list = []
 prunning_candidates = set()
 plasticity_queue_candidates = dict()
-upcoming_lifesnap_mgmt = None
+upcoming_lifesnap_mgmt = 0
 
 # Stats Collection
 neuron_mp_collection_scope = {}
@@ -124,6 +124,7 @@ time_apply_plasticity_ext = ''
 plasticity_time_total = None
 plasticity_time_total_p1 = None
 tester_test_stats = {}
+lstm_fire_queue = set()
 
 # Stimulation
 stimulation_script = {}
@@ -151,6 +152,7 @@ intercortical_mapping = []
 brain_is_running = False
 cumulative_stats = {}
 memory_register = {}
+
 
 # Training
 shock_scenarios_options = tuple

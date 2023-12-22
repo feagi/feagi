@@ -248,6 +248,7 @@ def build_synapses(genome, brain, parameters, voxel_dict, connectome_path, src_c
     Develops all the synapses originated from neurons within a given cortical area which could be both internal and
     external.
     """
+
     runtime_data.parameters = parameters
     # if runtime_data.parameters["Database"]["influxdb_enabled"]:
     #     from inf import db_handler
@@ -306,7 +307,11 @@ def develop(target_areas=None):
     
     # --Neurogenesis-- Creation of all Neurons across all cortical areas
     for cortical_area in target_areas:
-        neurogenesis(cortical_area=cortical_area)
+        if "sub_group_id" in runtime_data.genome["blueprint"][cortical_area]:
+            if "MEMORY" not in runtime_data.genome["blueprint"][cortical_area]["sub_group_id"]:
+                neurogenesis(cortical_area=cortical_area)
+        else:
+            neurogenesis(cortical_area=cortical_area)
 
     print("=================================== Neurogenesis Completed ==================================")
 

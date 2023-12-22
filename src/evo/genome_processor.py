@@ -399,6 +399,9 @@ def morphology_convertor(morphology_in):
                     print("> >", morphology_out)
             break
 
+    if "class" not in morphology_out:
+        morphology_out["class"] = "custom"
+
     return morphology_out
 
 

@@ -25,6 +25,7 @@ import logging
 # import collections
 # import numpy as np
 from evo.voxels import *
+from evo.synapse import memory_synapse
 
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ def neuron_id_gen(cortical_id=None, size=6, chars=string.ascii_uppercase + strin
     return str(cortical_id + '_' + now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_' + (''.join(random.choice(chars) for _ in range(size))) + '_N'
 
 
-def init_neuron(cortical_area, soma_location, memory_hash=None):
+def init_neuron(cortical_area, soma_location, mem_neuron_id=None):
     """
     Responsible for adding a Neuron to connectome
 
@@ -62,11 +63,11 @@ def init_neuron(cortical_area, soma_location, memory_hash=None):
 
     genome = runtime_data.genome
 
-    if memory_hash:
+    if mem_neuron_id:
         immortality = False
         is_memory_type = True
         lifespan = runtime_data.genome["blueprint"][cortical_area]["init_lifespan"] + runtime_data.burst_count
-        neuron_id = str(cortical_area + '_' + memory_hash)
+        neuron_id = str(cortical_area + '_' + mem_neuron_id)
     else:
         immortality = True
         is_memory_type = False
@@ -152,9 +153,20 @@ def neuron_apoptosis(cortical_area, neuron_id):
     """
     Responsible for programmed death of neuron
     """
-    runtime_data.brain[cortical_area].pop(neuron_id)
-    print("^^^^^^" * 20)
-    print(f"Neuron {neuron_id} from {cortical_area} just died!")
+    if neuron_id in runtime_data.brain[cortical_area]:
+        runtime_data.brain[cortical_area].pop(neuron_id)
+    if cortical_area in runtime_data.fire_candidate_list:
+        if neuron_id in runtime_data.fire_candidate_list[cortical_area]:
+            runtime_data.fire_candidate_list[cortical_area].remove(neuron_id)
+    if cortical_area in runtime_data.future_fcl:
+        if neuron_id in runtime_data.future_fcl[cortical_area]:
+            runtime_data.future_fcl[cortical_area].remove(neuron_id)
+    if cortical_area in runtime_data.previous_fcl:
+        if neuron_id in runtime_data.previous_fcl[cortical_area]:
+            runtime_data.previous_fcl[cortical_area].remove(neuron_id)
+    if cortical_area in runtime_data.fire_queue:
+        if neuron_id in runtime_data.fire_queue[cortical_area]:
+            runtime_data.fire_queue[cortical_area].remove(neuron_id)
 
 
 def increase_neuron_lifespan(cortical_area, neuron_id):
@@ -165,5 +177,13 @@ def increase_neuron_lifespan(cortical_area, neuron_id):
 
             # Check eligibility for neuron immortality (Short-term to Long-term memory xfer)
             if runtime_data.brain[cortical_area][neuron_id]["lifespan"] > \
-                    runtime_data.genome["blueprint"][cortical_area]["longterm_mem_threshold"]:
-                runtime_data.brain[cortical_area][neuron_id]["immortal"] = True
+                    runtime_data.genome["blueprint"][cortical_area]["longterm_mem_threshold"] + \
+                    runtime_data.burst_count:
+                convert_shortterm_to_longterm(memory_area=cortical_area, memory_neuron_id=neuron_id)
+
+
+def convert_shortterm_to_longterm(memory_area, memory_neuron_id):
+    if not runtime_data.brain[memory_area][memory_neuron_id]["immortal"]:
+        runtime_data.brain[memory_area][memory_neuron_id]["immortal"] = True
+        synapse_count = memory_synapse(memory_cortical_area=memory_area, memory_neuron_id=memory_neuron_id)
+        return synapse_count
