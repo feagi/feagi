@@ -836,6 +836,7 @@ async def genome_add_neuron_morphology(morphology_name: str,
         if morphology_name not in runtime_data.genome['neuron_morphologies']:
             runtime_data.genome['neuron_morphologies'][morphology_name] = {}
             runtime_data.genome['neuron_morphologies'][morphology_name]["type"] = morphology_type
+            runtime_data.genome['neuron_morphologies'][morphology_name]["class"] = "custom"
             runtime_data.genome['neuron_morphologies'][morphology_name]["parameters"] = morphology_parameters
         else:
             pass
@@ -850,14 +851,21 @@ async def genome_delete_neuron_morphology(morphology_name, response: Response):
     """
     Returns the properties of a neuron morphology.
     """
+    # todo: Needs to be rewritten
     try:
         if morphology_name in runtime_data.genome['neuron_morphologies']:
-            usage = morphology_usage_list(morphology_name=morphology_name, genome=runtime_data.genome)
-            if not usage:
-                runtime_data.genome['neuron_morphologies'].pop(morphology_name)
-                response.status_code = status.HTTP_200_OK
+            if "class" in runtime_data.genome['neuron_morphologies'][morphology_name]:
+                if runtime_data.genome['neuron_morphologies'][morphology_name]["class"] == "custom":
+                    usage = morphology_usage_list(morphology_name=morphology_name, genome=runtime_data.genome)
+                    if not usage:
+                        runtime_data.genome['neuron_morphologies'].pop(morphology_name)
+                        response.status_code = status.HTTP_200_OK
+                    else:
+                        response.status_code = status.HTTP_404_NOT_FOUND
+                elif runtime_data.genome['neuron_morphologies'][morphology_name]["class"] == "core":
+                    response.status_code = status.HTTP_400_BAD_REQUEST
             else:
-                response.status_code = status.HTTP_404_NOT_FOUND
+                pass
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
     except Exception as e:
