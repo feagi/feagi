@@ -306,7 +306,11 @@ def develop(target_areas=None):
     
     # --Neurogenesis-- Creation of all Neurons across all cortical areas
     for cortical_area in target_areas:
-        neurogenesis(cortical_area=cortical_area)
+        if "sub_group_id" in runtime_data.genome["blueprint"][cortical_area]:
+            if "MEMORY" not in runtime_data.genome["blueprint"][cortical_area]["sub_group_id"]:
+                neurogenesis(cortical_area=cortical_area)
+        else:
+            neurogenesis(cortical_area=cortical_area)
 
     print("=================================== Neurogenesis Completed ==================================")
 

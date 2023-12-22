@@ -22,7 +22,7 @@ cortical_types = {
     "IPU": {
         "gui_name": "Sensors",
         "supported_devices": {
-            "i__inf ": {
+            "i__inf": {
                 "enabled": True,
                 "cortical_name": "infrared_sensor",
                 "structure": "asymmetric",
