@@ -18,7 +18,6 @@ limitations under the License.
 
 import os
 
-
 feagi_settings = {
     # "feagi_auth_url": "http://127.0.0.1:9000/v1/k8/feagi_settings/auth_token",
     "feagi_url": None,
@@ -42,9 +41,11 @@ capabilities = {
         "type": "ipu",
         "disabled": False,
         "index": "00",
-        "iso_default": [10, 255],
-        "iso_range": [1, 255],
-        "central_vision_allocation_percentage": [95, 80],
+        "threshold_default": [10, 255, 130, 51],  # min #1, max #1, min #2, max #2,
+        "threshold_range": [1, 255],
+        "threshold_type": {},
+        "threshold_name": 0, # Binary_threshold
+        "central_vision_allocation_percentage": [80, 60],
         "central_vision_resolution": [64, 64],
         "peripheral_vision_resolution": [8, 8],
         "resolution_presets": [[8, 8], [16, 16], [32, 32], [64, 64], [128, 128], [256, 256],
@@ -57,9 +58,12 @@ capabilities = {
         "blink": [],
         "gaze_control": {0: 25, 1: 50},
         "pupil_control": {0: 25, 1: 50},
-        "size_list": []
+        "vision_range": [1, 99],
+        "size_list": [],
+        "effect": {},
+        "enhancement": {},
+        "vision_tuner_range": [0, 255]
     }
 }
 
 message_to_feagi = {"data": {}}
-

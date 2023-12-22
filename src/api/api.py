@@ -68,7 +68,7 @@ app = FastAPI(
     version=settings.version,
     terms_of_service=settings.terms_of_service,
     contact=settings.contact,
-    license_info=settings.license_info,
+    license_info=settings.license_info
 )
 
 
@@ -490,71 +490,77 @@ async def fetch_cortical_properties(cortical_area, response: Response):
     """
     try:
         if len(cortical_area) == genome_properties["structure"]["cortical_name_length"]:
-            cortical_data = runtime_data.genome['blueprint'][cortical_area]
+            if cortical_area in runtime_data.genome['blueprint']:
+                cortical_data = runtime_data.genome['blueprint'][cortical_area]
 
-            if 'mp_charge_accumulation' not in cortical_data:
-                cortical_data['mp_charge_accumulation'] = True
+                if 'mp_charge_accumulation' not in cortical_data:
+                    cortical_data['mp_charge_accumulation'] = True
 
-            if 'mp_driven_psp' not in cortical_data:
-                cortical_data['mp_driven_psp'] = False
+                if 'mp_driven_psp' not in cortical_data:
+                    cortical_data['mp_driven_psp'] = False
 
-            if '2d_coordinate' not in cortical_data:
-                cortical_data['2d_coordinate'] = list()
-                cortical_data['2d_coordinate'].append(None)
-                cortical_data['2d_coordinate'].append(None)
+                if '2d_coordinate' not in cortical_data:
+                    cortical_data['2d_coordinate'] = list()
+                    cortical_data['2d_coordinate'].append(None)
+                    cortical_data['2d_coordinate'].append(None)
 
-            cortical_properties = {
-                "cortical_id": cortical_area,
-                "cortical_name": cortical_data['cortical_name'],
-                "cortical_group": cortical_data['group_id'],
-                "cortical_sub_group": cortical_data['sub_group_id'],
-                "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
-                "cortical_visibility": cortical_data['visualization'],
-                "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
-                "cortical_coordinates": [
-                    cortical_data["relative_coordinate"][0],
-                    cortical_data["relative_coordinate"][1],
-                    cortical_data["relative_coordinate"][2]
-                ],
-                "cortical_coordinates_2d": [
-                    cortical_data["2d_coordinate"][0],
-                    cortical_data["2d_coordinate"][1]
-                ],
-                "cortical_dimensions": [
-                    cortical_data["block_boundaries"][0],
-                    cortical_data["block_boundaries"][1],
-                    cortical_data["block_boundaries"][2]
-                ],
-                "cortical_destinations": cortical_data['cortical_mapping_dst'],
-                "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
-                "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
-                "neuron_fire_threshold": cortical_data['firing_threshold'],
-                "neuron_fire_threshold_increment": [
-                    cortical_data['firing_threshold_increment_x'],
-                    cortical_data['firing_threshold_increment_y'],
-                    cortical_data['firing_threshold_increment_z']
-                ],
-                "neuron_firing_threshold_limit": cortical_data['firing_threshold_limit'],
-                "neuron_refractory_period": cortical_data['refractory_period'],
-                "neuron_leak_coefficient": cortical_data['leak_coefficient'],
-                "neuron_leak_variability": cortical_data['leak_variability'],
-                "neuron_consecutive_fire_count": cortical_data['consecutive_fire_cnt_max'],
-                "neuron_snooze_period": cortical_data['snooze_length'],
-                "neuron_degeneracy_coefficient": cortical_data['degeneration'],
-                "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution'],
-                "neuron_mp_charge_accumulation": cortical_data['mp_charge_accumulation'],
-                "neuron_mp_driven_psp": cortical_data['mp_driven_psp'],
-                "neuron_longterm_mem_threshold": cortical_data['longterm_mem_threshold'],
-                "neuron_lifespan_growth_rate": cortical_data['lifespan_growth_rate'],
-                "neuron_init_lifespan": cortical_data['init_lifespan'],
-                "transforming": False
-            }
-            if cortical_area in runtime_data.transforming_areas:
-                cortical_properties["transforming"] = True
-            response.status_code = status.HTTP_200_OK
-            return cortical_properties
+                cortical_properties = {
+                    "cortical_id": cortical_area,
+                    "cortical_name": cortical_data['cortical_name'],
+                    "cortical_group": cortical_data['group_id'],
+                    "cortical_sub_group": cortical_data['sub_group_id'],
+                    "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
+                    "cortical_visibility": cortical_data['visualization'],
+                    "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
+                    "cortical_coordinates": [
+                        cortical_data["relative_coordinate"][0],
+                        cortical_data["relative_coordinate"][1],
+                        cortical_data["relative_coordinate"][2]
+                    ],
+                    "cortical_coordinates_2d": [
+                        cortical_data["2d_coordinate"][0],
+                        cortical_data["2d_coordinate"][1]
+                    ],
+                    "cortical_dimensions": [
+                        cortical_data["block_boundaries"][0],
+                        cortical_data["block_boundaries"][1],
+                        cortical_data["block_boundaries"][2]
+                    ],
+                    "cortical_destinations": cortical_data['cortical_mapping_dst'],
+                    "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
+                    "neuron_post_synaptic_potential_max": cortical_data['postsynaptic_current_max'],
+                    "neuron_fire_threshold": cortical_data['firing_threshold'],
+                    "neuron_fire_threshold_increment": [
+                        cortical_data['firing_threshold_increment_x'],
+                        cortical_data['firing_threshold_increment_y'],
+                        cortical_data['firing_threshold_increment_z']
+                    ],
+                    "neuron_firing_threshold_limit": cortical_data['firing_threshold_limit'],
+                    "neuron_refractory_period": cortical_data['refractory_period'],
+                    "neuron_leak_coefficient": cortical_data['leak_coefficient'],
+                    "neuron_leak_variability": cortical_data['leak_variability'],
+                    "neuron_consecutive_fire_count": cortical_data['consecutive_fire_cnt_max'],
+                    "neuron_snooze_period": cortical_data['snooze_length'],
+                    "neuron_degeneracy_coefficient": cortical_data['degeneration'],
+                    "neuron_psp_uniform_distribution": cortical_data['psp_uniform_distribution'],
+                    "neuron_mp_charge_accumulation": cortical_data['mp_charge_accumulation'],
+                    "neuron_mp_driven_psp": cortical_data['mp_driven_psp'],
+                    "neuron_longterm_mem_threshold": cortical_data['longterm_mem_threshold'],
+                    "neuron_lifespan_growth_rate": cortical_data['lifespan_growth_rate'],
+                    "neuron_init_lifespan": cortical_data['init_lifespan'],
+                    "transforming": False
+                }
+                if cortical_area in runtime_data.transforming_areas:
+                    cortical_properties["transforming"] = True
+                response.status_code = status.HTTP_200_OK
+                return cortical_properties
+            else:
+                response.status_code = status.HTTP_400_BAD_REQUEST
+                print(f"{cortical_area} was not found in blueprint")
         else:
             response.status_code = status.HTTP_400_BAD_REQUEST
+            print(f"{cortical_area} is not meeting standard lenght constrainst",
+                  genome_properties["structure"]["cortical_name_length"])
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", traceback.print_exc(), e)
@@ -588,7 +594,7 @@ async def add_cortical_area(new_cortical_properties: NewCorticalProperties, resp
     Enables changes against various Burst Engine parameters.
     """
     try:
-
+        print("Adding core cortical area:\n", new_cortical_properties)
         # message = message.dict()
         # message = {'add_core_cortical_area': message}
         # print("*" * 50 + "\n", message)
@@ -1938,7 +1944,6 @@ async def connectome_dimensions_report(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-
 
 
 @app.api_route("/v1/feagi/connectome/stats/cortical/cumulative", methods=['GET'], tags=["Connectome"])

@@ -214,22 +214,24 @@ def change_detector_grayscale(previous, current, capabilities):
 
     # Using cv2.absdiff for optimized difference calculation
     if current.shape == previous.shape:
-
         if len(capabilities['camera']['blink']) == 0:
+            current = effect(current, capabilities)
             difference = cv2.absdiff(previous, current)
-            _, thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0], capabilities['camera']['iso_default'][1], cv2.THRESH_TOZERO)
-            # thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
-            #                             capabilities['camera']['iso_default'][1],
-            #                             cv2.THRESH_TRUNC)[1]
-
+            if capabilities['camera']['threshold_type']:
+                capabilities['camera']['threshold_name'] = threshold_detect(difference, capabilities)
+            _, thresholded = cv2.threshold(difference, capabilities['camera']['threshold_default'][0],
+                                           capabilities['camera']['threshold_default'][1],
+                                           capabilities['camera']['threshold_name'])
+            # thresholded = effect(thresholded, capabilities)
         else:
-            # print("Blink!")
             difference = current
-            # print(current)
-            thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][2],
-                                        capabilities['camera']['iso_default'][3],
+            thresholded = cv2.threshold(difference, capabilities['camera']['threshold_default'][2],
+                                        capabilities['camera']['threshold_default'][3],
                                         cv2.THRESH_TOZERO )[1]
+            thresholded = effect(thresholded, capabilities)
+        # print(check_brightness(current))
         # cv2.imshow("center only", thresholded)
+        # cv2.imshow("original", current)
         # Convert to boolean array for significant changes
         significant_changes = thresholded > 0
 
@@ -261,19 +263,19 @@ def change_detector(previous, current, capabilities):
     if current.shape == previous.shape:
 
         if len(capabilities['camera']['blink']) == 0:
+            current = effect(current, capabilities)
             difference = cv2.absdiff(previous, current)
-            _, thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0], capabilities['camera']['iso_default'][1], cv2.THRESH_TOZERO)
-            # thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][0],
-            #                             capabilities['camera']['iso_default'][1],
-            #                             cv2.THRESH_TRUNC)[1]
-
+            _, thresholded = cv2.threshold(difference, capabilities['camera']['threshold_default'][0],
+                                           capabilities['camera']['threshold_default'][1],
+                                           cv2.THRESH_TOZERO)
+            # thresholded = effect(thresholded, capabilities)
         else:
             # print("Blink!")
             difference = current
-            # print(current)
-            thresholded = cv2.threshold(difference, capabilities['camera']['iso_default'][2],
-                                        capabilities['camera']['iso_default'][3],
+            thresholded = cv2.threshold(difference, capabilities['camera']['threshold_default'][2],
+                                        capabilities['camera']['threshold_default'][3],
                                         cv2.THRESH_TOZERO )[1]
+            # thresholded = effect(thresholded, capabilities)
 
         # Convert to boolean array for significant changes
         significant_changes = thresholded > 0
@@ -307,8 +309,8 @@ def detect_change_edge(raw_frame, capabilities, camera_index, resize_list, previ
 
     # for segment in compressed_data:
     #     cv2.imshow(segment, compressed_data[segment])
-    # if cv2.waitKey(30) & 0xFF == ord('q'):
-    #     pass
+    if cv2.waitKey(30) & 0xFF == ord('q'):
+        pass
     for get_region in compressed_data:
         if resize_list[get_region][2] == 3:
             if previous_frame_data != {}:
@@ -366,30 +368,26 @@ def vision_progress(capabilities, feagi_opu_channel, api_address,
         # Update the aptr
         capabilities = pns.fetch_aperture_data(message_from_feagi, capabilities,
                                                pns.global_aptr_cortical_size)
-        # Update the ISO
-        capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
-                                          pns.global_aptr_cortical_size)
+        # # Update the ISO
+        # capabilities = pns.fetch_iso_data(message_from_feagi, capabilities,
+        #                                   pns.global_aptr_cortical_size)
+        # Update the effect
+        capabilities = pns.fetch_vision_turner(message_from_feagi, capabilities, 10) # Hardcoded
+        capabilities = pns.fetch_enhancement_data(message_from_feagi, capabilities)
+        capabilities = pns.fetch_threshold_type(message_from_feagi, capabilities)
+        # for now
         # Update the vres
         capabilities = pns.fetch_resolution_selected(message_from_feagi, capabilities)
         # Update the aceture
         capabilities = pns.fetch_vision_acuity(message_from_feagi, capabilities)
         # Update resize if genome has been changed:
-        current_tracker = pns.obtain_genome_number(genome_tracker, message_from_feagi)
-        if genome_tracker != current_tracker:
-            capabilities = update_size_list(capabilities)
-            genome_tracker = current_tracker
-        genome_changed = pns.detect_genome_change(message_from_feagi)
-        # This applies to cortical change.
-        if genome_changed != previous_genome_timestamp:
-            capabilities = update_size_list(capabilities)
-            previous_genome_timestamp = message_from_feagi["genome_changed"]
+        pns.check_genome_status(message_from_feagi)
         capabilities = pns.obtain_blink_data(raw_frame, message_from_feagi, capabilities)
         capabilities = pns.monitor_switch(message_from_feagi, capabilities)
         capabilities = pns.gaze_control_update(message_from_feagi, capabilities)
         capabilities = pns.pupil_control_update(message_from_feagi, capabilities)
         feagi_settings['feagi_burst_speed'] = pns.check_refresh_rate(message_from_feagi,
-                                                                     feagi_settings[
-                                                                         'feagi_burst_speed'])
+                                                                     feagi_settings['feagi_burst_speed'])
     return capabilities, feagi_settings['feagi_burst_speed']
 
 
@@ -422,3 +420,89 @@ def check_brightness(frame):
         return "Image is too dark"
     else:
         return "Image is neither too bright nor too dark"
+
+
+def threshold_detect(image, capabilities):
+    threshold_type = [cv2.THRESH_BINARY, cv2.THRESH_BINARY_INV, cv2.THRESH_TRUNC, cv2.THRESH_TOZERO,
+                      cv2.THRESH_TOZERO_INV, cv2.THRESH_OTSU, ]
+    threshold_total = cv2.THRESH_BINARY
+    if capabilities['camera']['threshold_type']:
+        for threshold_selected in range(len(capabilities['camera']['threshold_type'])):
+            threshold_total = threshold_type[threshold_selected]
+    capabilities['camera']['threshold_type'].clear()
+    return threshold_total
+
+
+def effect(image, capabilities):
+    if any(value in capabilities['camera']['enhancement'] for value in [0]):
+        if capabilities['camera']['enhancement'][0] > 0:
+            shadow = capabilities['camera']['enhancement'][0]
+            highlight = 255
+        else:
+            shadow = 0
+            highlight = 255 + capabilities['camera']['enhancement'][0]
+        alpha_b = (highlight - shadow) / 255
+        gamma_b = shadow
+        image = cv2.addWeighted(image, alpha_b, image, 0, gamma_b)
+    if any(value in capabilities['camera']['enhancement'] for value in [1]):
+        image = cv2.convertScaleAbs(image, alpha=capabilities['camera']['enhancement'][1], beta=0)
+    if any(value in capabilities['camera']['enhancement'] for value in [2]):
+        maxIntensity = 255.0
+        phi = 1
+        theta = 1
+
+        adjusted = (maxIntensity / phi) * (image / (maxIntensity / theta)) ** capabilities['camera']['enhancement'][2]
+        image = np.array(adjusted, dtype=np.uint8)
+    return image
+
+
+    # threshold1, threshold2 = 0, 1
+    # if any(value in capabilities['camera']['effect'] for value in [threshold1, threshold2]):
+    #     if threshold1 not in capabilities['camera']['effect']:
+    #         capabilities['camera']['effect'][threshold1] = 0
+    #     if threshold2 not in capabilities['camera']['effect']:
+    #         capabilities['camera']['effect'][threshold2] = 255
+    #     image = cv2.threshold(image, capabilities['camera']['effect'][threshold1],
+    #                                     capabilities['camera']['effect'][threshold2],
+    #                                     cv2.THRESH_BINARY )[1]
+    # threshold1 += 2
+    # threshold2 += 2
+    # if any(value in capabilities['camera']['effect'] for value in [threshold1, threshold2]):
+    #     if threshold1 not in capabilities['camera']['effect']:
+    #         capabilities['camera']['effect'][threshold1] = 0
+    #     if threshold2 not in capabilities['camera']['effect']:
+    #         capabilities['camera']['effect'][threshold2] = 255
+    #     image = cv2.threshold(image, capabilities['camera']['effect'][threshold1],
+    #                                     capabilities['camera']['effect'][threshold2],
+    #                                     cv2.THRESH_BINARY_INV )[1]
+    # threshold1 += 2
+    # threshold2 += 2
+    # if any(value in capabilities['camera']['effect'] for value in [threshold1, threshold2]):
+    #     if threshold1 not in capabilities['camera']['effect']:
+    #         capabilities['camera']['effect'][threshold1] = 0
+    #     if threshold2 not in capabilities['camera']['effect']:
+    #         capabilities['camera']['effect'][threshold2] = 255
+    #     image = cv2.threshold(image, capabilities['camera']['effect'][threshold1],
+    #                                     capabilities['camera']['effect'][threshold2],
+    #                                     cv2.THRESH_TRUNC )[1]
+    # threshold1 += 2
+    # threshold2 += 2
+    # if any(value in capabilities['camera']['effect'] for value in [threshold1, threshold2]):
+    #     if threshold1 not in capabilities['camera']['effect']:
+    #         capabilities['camera']['effect'][threshold1] = 0
+    #     if threshold2 not in capabilities['camera']['effect']:
+    #         capabilities['camera']['effect'][threshold2] = 255
+    #     image = cv2.threshold(image, capabilities['camera']['effect'][threshold1],
+    #                                     capabilities['camera']['effect'][threshold2],
+    #                                     cv2.THRESH_TOZERO )[1]
+    # threshold1 += 2
+    # threshold2 += 2
+    # if any(value in capabilities['camera']['effect'] for value in [threshold1, threshold2]):
+    #     if threshold1 not in capabilities['camera']['effect']:
+    #         capabilities['camera']['effect'][threshold1] = 0
+    #     if threshold2 not in capabilities['camera']['effect']:
+    #         capabilities['camera']['effect'][threshold2] = 255
+    #     image = cv2.threshold(image, capabilities['camera']['effect'][threshold1],
+    #                                     capabilities['camera']['effect'][threshold2],
+    #                                     cv2.THRESH_TOZERO_INV )[1]
+    # return image
