@@ -115,7 +115,6 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
     todo: deficiency when brain gen is false
     """
 
-    print(f"creating synapses between {cortical_area} and {cortical_area_dst}")
     # to accommodate the new namespace used by multiprocessing
     if brain_gen:
         runtime_data.brain = brain
