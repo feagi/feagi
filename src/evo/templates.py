@@ -22,7 +22,7 @@ cortical_types = {
     "IPU": {
         "gui_name": "Sensors",
         "supported_devices": {
-            "i__inf ": {
+            "i__inf": {
                 "enabled": True,
                 "cortical_name": "infrared_sensor",
                 "structure": "asymmetric",
@@ -266,15 +266,18 @@ core_morphologies = {
                 ]
             ]
         },
-        "type": "vectors"
+        "type": "vectors",
+        "class": "core"
     },
     "projector": {
         "parameters": {},
-        "type": "functions"
+        "type": "functions",
+        "class": "core"
     },
     "memory": {
         "parameters": {},
-        "type": "functions"
+        "type": "functions",
+        "class": "core"
     },
     "0-0-0_to_all": {
         "type": "patterns",
@@ -293,7 +296,8 @@ core_morphologies = {
                     ]
                 ]
             ]
-        }
+        },
+        "class": "core"
     },
     "all_to_0-0-0": {
         "type": "patterns",
@@ -312,7 +316,8 @@ core_morphologies = {
                     ]
                 ]
             ]
-        }
+        },
+        "class": "core"
     },
     "all_to_all": {
         "type": "patterns",
@@ -331,7 +336,8 @@ core_morphologies = {
                     ]
                 ]
             ]
-        }
+        },
+        "class": "core"
     },
     "lateral_+x": {
         "parameters": {
@@ -343,7 +349,8 @@ core_morphologies = {
                 ]
             ]
         },
-        "type": "vectors"
+        "type": "vectors",
+        "class": "core"
     },
     "lateral_-x": {
         "parameters": {
@@ -355,7 +362,8 @@ core_morphologies = {
                 ]
             ]
         },
-        "type": "vectors"
+        "type": "vectors",
+        "class": "core"
     },
     "lateral_+y": {
         "parameters": {
@@ -367,7 +375,8 @@ core_morphologies = {
                 ]
             ]
         },
-        "type": "vectors"
+        "type": "vectors",
+        "class": "core"
     },
     "lateral_-y": {
         "parameters": {
@@ -379,7 +388,8 @@ core_morphologies = {
                 ]
             ]
         },
-        "type": "vectors"
+        "type": "vectors",
+        "class": "core"
     },
     "lateral_+z": {
         "parameters": {
@@ -391,7 +401,8 @@ core_morphologies = {
                 ]
             ]
         },
-        "type": "vectors"
+        "type": "vectors",
+        "class": "core"
     },
     "lateral_-z": {
         "parameters": {
@@ -403,23 +414,28 @@ core_morphologies = {
                 ]
             ]
         },
-        "type": "vectors"
+        "type": "vectors",
+        "class": "core"
     },
     "randomizer": {
         "parameters": {},
-        "type": "functions"
+        "type": "functions",
+        "class": "core"
     },
     "expander_x": {
         "parameters": {},
-        "type": "functions"
+        "type": "functions",
+        "class": "core"
     },
     "reducer_x": {
         "parameters": {},
-        "type": "functions"
+        "type": "functions",
+        "class": "core"
     },
     "lateral_pairs_x": {
         "parameters": {},
-        "type": "functions"
+        "type": "functions",
+        "class": "core"
     },
     "tile": {
         "parameters": {
@@ -444,6 +460,7 @@ core_morphologies = {
             ],
             "mapper_morphology": "projector"
         },
-        "type": "composite"
-    },
+        "type": "composite",
+        "class": "core"
+    }
 }

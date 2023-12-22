@@ -248,6 +248,7 @@ def build_synapses(genome, brain, parameters, voxel_dict, connectome_path, src_c
     Develops all the synapses originated from neurons within a given cortical area which could be both internal and
     external.
     """
+
     runtime_data.parameters = parameters
     # if runtime_data.parameters["Database"]["influxdb_enabled"]:
     #     from inf import db_handler
