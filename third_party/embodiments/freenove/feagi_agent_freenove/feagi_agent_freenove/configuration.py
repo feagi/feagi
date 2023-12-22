@@ -77,21 +77,25 @@ capabilities = {
         "type": "ipu",
         "disabled": False,
         "index": "00",
-        "iso_default": [150, 255],
-        "iso_range": [1, 255],
-        "central_vision_allocation_percentage": [90, 80],
+        "threshold_default": [10, 255, 130, 51],  # min #1, max #1, min #2, max #2,
+        "threshold_range": [1, 255],
+        "threshold_type": {},
+        "threshold_name": 0, # Binary_threshold
+        "central_vision_allocation_percentage": [80, 60],
         "central_vision_resolution": [64, 64],
         "peripheral_vision_resolution": [8, 8],
         "resolution_presets": [[8, 8], [16, 16], [32, 32], [64, 64], [128, 128], [256, 256],
                                [400, 400], [500, 500], [800, 800], [1024, 900]],
         "previous_data": {},
-        "aperture_range": [0.2, 2],
-        "aperture_default": 2,
         "mirror": True,
         "blink": [],
         "gaze_control": {0: 25, 1: 50},
         "pupil_control": {0: 25, 1: 50},
-        "size_list": []
+        "vision_range": [1, 99],
+        "size_list": [],
+        "effect": {},
+        "enhancement": {},
+        "vision_tuner_range": [0, 255]
     },
     "led": {
         "type": "opu"

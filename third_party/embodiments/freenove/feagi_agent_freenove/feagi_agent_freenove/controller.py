@@ -11,7 +11,9 @@ from collections import deque
 from datetime import datetime
 from feagi_agent_freenove.Led import *
 from feagi_agent import retina as retina
+from feagi_agent import sensors as sensors
 from feagi_agent import pns_gateway as pns
+from feagi_agent import actuators as actuators
 from feagi_agent import feagi_interface as FEAGI
 from feagi_agent_freenove.PCA9685 import PCA9685
 from feagi_agent_freenove.version import __version__
@@ -384,7 +386,6 @@ class Ultrasonic:
             finish = time.time()
             pulse_len = finish - start
             distance_cm[i] = pulse_len / 0.000058
-            print("here: ", distance_cm[i])
         distance_cm = sorted(distance_cm)
         distance_meter = (distance_cm[1] * 0.01) * 2
         return distance_meter
@@ -398,49 +399,48 @@ class Ultrasonic:
 #         return Power
 
 
-def action(obtained_data, device_list, led_flag, feagi_settings, capabilities, motor_data,
+def action(obtained_data, led_flag, feagi_settings, capabilities, motor_data,
            rolling_window, motor, servo, led, runtime_data):
     motor_count = capabilities['motor']['count']
-    for device in device_list:
-        if 'led' in obtained_data:
-            if obtained_data['led'] != {}:
-                for data_point in obtained_data['led']:
-                    led_flag = True
-                    if data_point not in data_point_status:
-                        data_point_status[data_point] = True
-                    if data_point_status[data_point]:
-                        led.LED_on(
-                            data_point,
-                            int((obtained_data['led'][data_point] / 100) * 255),
-                            0, 0)
-                    data_point_status[data_point] = not data_point_status[data_point]
-            else:
-                if led_flag:
-                    for i in range(8):
-                        led.LED_on(i, 0, 0, 0)
-                    led_flag = False
-        if 'motor' in obtained_data:
-            if obtained_data['motor'] is not {}:
-                for data_point in obtained_data['motor']:
-                    device_power = obtained_data['motor'][data_point]
-                    device_power = motor.power_convert(data_point, device_power)
-                    device_id = motor.motor_converter(data_point)
-                    if device_id not in motor_data:
-                        motor_data[device_id] = dict()
-                    rolling_window[device_id].append(device_power)
-                    rolling_window[device_id].popleft()
+    if 'led' in obtained_data:
+        if obtained_data['led'] != {}:
+            for data_point in obtained_data['led']:
+                led_flag = True
+                if data_point not in data_point_status:
+                    data_point_status[data_point] = True
+                if data_point_status[data_point]:
+                    led.LED_on(
+                        data_point,
+                        int((obtained_data['led'][data_point] / 100) * 255),
+                        0, 0)
+                data_point_status[data_point] = not data_point_status[data_point]
         else:
-            for _ in range(motor_count):
-                rolling_window[_].append(0)
-                rolling_window[_].popleft()
-        if capabilities['servo']['disabled'] is not True:
-            if 'servo' in obtained_data:
-                for data_point in obtained_data['servo']:
-                    device_id = data_point
-                    device_power = obtained_data['servo'][data_point]
-                    servo.move(feagi_device_id=device_id, power=device_power,
-                               capabilities=capabilities, feagi_settings=feagi_settings,
-                               runtime_data=runtime_data)
+            if led_flag:
+                for i in range(8):
+                    led.LED_on(i, 0, 0, 0)
+                led_flag = False
+    if 'motor' in obtained_data:
+        if obtained_data['motor'] is not {}:
+            for data_point in obtained_data['motor']:
+                device_power = obtained_data['motor'][data_point]
+                device_power = motor.power_convert(data_point, device_power)
+                device_id = motor.motor_converter(data_point)
+                if device_id not in motor_data:
+                    motor_data[device_id] = dict()
+                rolling_window[device_id].append(device_power)
+                rolling_window[device_id].popleft()
+    else:
+        for _ in range(motor_count):
+            rolling_window[_].append(0)
+            rolling_window[_].popleft()
+    if capabilities['servo']['disabled'] is not True:
+        if 'servo' in obtained_data:
+            for data_point in obtained_data['servo']:
+                device_id = data_point
+                device_power = obtained_data['servo'][data_point]
+                servo.move(feagi_device_id=device_id, power=device_power,
+                           capabilities=capabilities, feagi_settings=feagi_settings,
+                           runtime_data=runtime_data)
     return led_flag
 
 
@@ -590,31 +590,27 @@ def main(feagi_auth_url, feagi_settings, agent_settings, capabilities):
                 message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(),
                                                            message_to_feagi)
             message_from_feagi = pns.signals_from_feagi(feagi_opu_channel)
+
+            # Fetch data such as motor, servo, etc and pass to a function (you make ur own action. 
             if message_from_feagi is not None:
                 obtained_signals = pns.obtain_opu_data(device_list, message_from_feagi)
-                led_flag = action(obtained_signals, device_list, led_flag, feagi_settings,
+                led_flag = action(obtained_signals, led_flag, feagi_settings,
                                   capabilities, motor_data, rolling_window, motor, servo, led,
                                   runtime_data)
             # Fetch IR data
             ir_list = ir_data[0] if ir_data else []
-            formatted_ir_data = {'ir': {sensor: True for sensor in ir_list}}
-            for ir_sensor in range(int(capabilities['infrared']['count'])):
-                if ir_sensor not in formatted_ir_data['ir']:
-                    formatted_ir_data['ir'][ir_sensor] = False
+            message_to_feagi = sensors.fetch_infrared_sensor(ir_list, message_to_feagi, capabilities)
 
             # Fetch ultrasonic data
-            ultrasonic_list = ultrasonic_data[0] if ultrasonic_data else []
-            # ultrasonic_list = ultrasonic.get_distance()
-            formatted_ultrasonic_data = {
-                'ultrasonic': {sensor: data for sensor, data in enumerate([ultrasonic_list])}}
+            ultrasonic_list = ultrasonic.get_distance()
+            message_to_feagi = sensors.fetch_ultrasonic_sensor(ultrasonic_list, message_to_feagi)
 
-            # Ordering the message to send data to FEAGI
-            message_to_feagi, battery = FEAGI.compose_message_to_feagi(
-                original_message={**formatted_ir_data, **formatted_ultrasonic_data, **rgb})
             # Removed battery due to error
+            # Wrapping camera data into a frame for FEAGI
             message_to_feagi = pns.generate_feagi_data(rgb, msg_counter, datetime.now(),
                                                        message_to_feagi)
             sleep(feagi_settings['feagi_burst_speed'])
+            # Send the data contains IR, Ultrasonic, and camera
             pns.signals_to_feagi(message_to_feagi, feagi_ipu_channel, agent_settings)
         except KeyboardInterrupt as ke:  # Keyboard error
             motor.stop()
