@@ -182,7 +182,6 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
         brain = runtime_data.brain
     else:
         brain = {}
-    print("Synapse count:", synapse_count)
     return synapse_count, brain
 
 
