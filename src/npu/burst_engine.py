@@ -330,6 +330,7 @@ def burst_manager():
                         # Update Plasticity Queue
                         if fq_cortical_area in runtime_data.plasticity_dict:
                             runtime_data.plasticity_queue_candidates.add(neuron_id)
+                            print("@@@@@@ added to plasticity queue: ", neuron_id)
 
                         # membrane_potential = \
                         #     runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential']
