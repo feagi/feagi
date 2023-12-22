@@ -160,6 +160,7 @@ def longterm_potentiation_depression(src_cortical_area, src_neuron_id, dst_corti
 
 def long_short_term_memory():
     # todo: build up the runtime_date.memory_register from synaptogenesis
+    runtime_data.lstm_fire_queue = set()
     if runtime_data.memory_register:
         for memory_cortical_area in runtime_data.memory_register:
             neurogenesis_list = set()
@@ -181,7 +182,9 @@ def long_short_term_memory():
                 if memory_cortical_area not in runtime_data.future_fcl:
                     runtime_data.future_fcl[memory_cortical_area] = set()
 
-                runtime_data.fire_candidate_list[memory_cortical_area].add(mem_neuron_id)
+                runtime_data.lstm_fire_queue.add(mem_neuron_id)
+
+    inject_lstm_fire_queue_to_fcl()
 
 
 def lstm_lifespan_mgmt():
@@ -194,6 +197,14 @@ def lstm_lifespan_mgmt():
 
             # Wipe short-term memory neurons that has expired
             memory_cleanup()
+
+
+def inject_lstm_fire_queue_to_fcl():
+    for neuron in runtime_data.lstm_fire_queue:
+        cortical_area = neuron[:6]
+        if cortical_area not in runtime_data.fire_candidate_list:
+            runtime_data.fire_candidate_list[cortical_area] = set()
+        runtime_data.fire_candidate_list[cortical_area].add(neuron)
 
 
 def memory_cleanup():
@@ -235,3 +246,10 @@ def generate_mem_hash_cache(afferent_neuron_list):
 def convert_hash_to_neuron_id(cortical_area, memory_hash):
     neuron_id = str(cortical_area + '_' + memory_hash)
     return neuron_id
+
+
+def is_memory_cortical_area(cortical_area):
+    if "MEMORY" in runtime_data.genome["blueprint"][cortical_area]["sub_group_id"]:
+        return True
+    else:
+        return False
