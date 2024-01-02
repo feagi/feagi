@@ -135,7 +135,7 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
-            "o__srv": {
+            "o__ser": {
                 "enabled": True,
                 "cortical_name": "Servo",
                 "structure": "asymmetric",
@@ -165,12 +165,6 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
-            "o_aptr": {
-                "enabled": True,
-                "cortical_name": "Aperture",
-                "structure": "asymmetric",
-                "resolution": [1, 1, 10]
-            },
             "o__pup": {
                 "enabled": True,
                 "cortical_name": "Vision_Pupil",
@@ -194,6 +188,24 @@ cortical_types = {
                 "cortical_name": "ID_Recognition",
                 "structure": "asymmetric",
                 "resolution": [1, 10, 1]
+            },
+            "ov_enh": {
+                "enabled": True,
+                "cortical_name": "enhancement",
+                "structure": "asymmetric",
+                "resolution": [3, 1, 10]
+            },
+            "ovtune": {
+                "enabled": True,
+                "cortical_name": "threshold",
+                "structure": "asymmetric",
+                "resolution": [2, 1, 10]
+            },
+            "ov_thr": {
+                "enabled": True,
+                "cortical_name": "threshold_type",
+                "structure": "asymmetric",
+                "resolution": [4, 1, 1]
             }
         }
     },
