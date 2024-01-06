@@ -52,7 +52,8 @@ def neuron_id_gen(cortical_id=None, size=6, chars=string.ascii_uppercase + strin
     now = datetime.datetime.now()
     # Rand gen source partially from:
     # http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
-    return str(cortical_id + '_' + now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_' + (''.join(random.choice(chars) for _ in range(size))) + '_N'
+    return str(cortical_id + '_' + now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_' + \
+           (''.join(random.choice(chars) for _ in range(size))) + '_N'
 
 
 def init_neuron(cortical_area, soma_location, mem_neuron_id=None):
