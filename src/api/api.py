@@ -1038,8 +1038,8 @@ def pending_amalgamation():
     else:
         # todo: externalize the amalgamation timeout currently hardcoded below
         amalgamation_reqeust_timeout = 500
-        if datetime.datetime.now() - runtime_data.pending_amalgamation["initiation_time"] > \
-                amalgamation_reqeust_timeout:
+        elapsed_time = datetime.datetime.now() - runtime_data.pending_amalgamation["initiation_time"]
+        if elapsed_time.seconds > amalgamation_reqeust_timeout:
             print(f"Pending amalgamation got voided due to exceeding {amalgamation_reqeust_timeout} threshold! ")
             runtime_data.pending_amalgamation = {}
             return False
@@ -1083,26 +1083,35 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, response
 
 
 @app.api_route("/v1/feagi/genome/amalgamation_by_upload", methods=['POST'], tags=["Genome"])
-async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, response: Response):
+async def amalgamation_attempt(response: Response, file: UploadFile = File(...)):
     try:
         if pending_amalgamation():
             raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
         else:
+            data = await file.read()
+            runtime_data.brain_readiness = False
+            runtime_data.genome_file_name = file.filename
+
+            genome_str = json.loads(data)
+            genome_2 = genome_2_1_convertor(genome_str["blueprint"])
+            print("Genome_str:", genome_str)
+            print("genome_2:", genome_2)
+            
             now = datetime.datetime.now()
             amalgamation_id = str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_A'
-            runtime_data.pending_amalgamation["genome_id"] = amalgamation_param.genome_id
-            runtime_data.pending_amalgamation["genome_title"] = amalgamation_param.genome_title
-            runtime_data.pending_amalgamation["genome_payload"] = amalgamation_param.genome_payload
+            runtime_data.pending_amalgamation["genome_id"] = runtime_data.genome_file_name
+            runtime_data.pending_amalgamation["genome_title"] = runtime_data.genome_file_name
+            runtime_data.pending_amalgamation["genome_payload"] = genome_str
             runtime_data.pending_amalgamation["initiation_time"] = datetime.datetime.now()
             runtime_data.pending_amalgamation["amalgamation_id"] = amalgamation_id
             runtime_data.pending_amalgamation["circuit_size"] = \
-                circuit_size(blueprint=amalgamation_param.genome_payload["blueprint"])
+                circuit_size(blueprint=genome_2["blueprint"])
 
             runtime_data.amalgamation_history[amalgamation_id] = "pending"
             return amalgamation_id
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
+        print("API Error:", e, traceback.print_exc())
 
 
 @app.api_route("/v1/feagi/genome/amalgamation_by_filename", methods=['POST'], tags=["Genome"])
