@@ -618,8 +618,8 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
     print(new_custom_cortical_properties)
     try:
         cortical_name = new_custom_cortical_properties.cortical_name
-        coordinates_3d = new_custom_cortical_properties.coordinates_3d
-        coordinates_2d = new_custom_cortical_properties.coordinates_2d
+        coordinates_3d = new_custom_cortical_properties.coordinates_3d.copy()
+        coordinates_2d = new_custom_cortical_properties.coordinates_2d.copy()
         sub_group_id = new_custom_cortical_properties.sub_group_id
         copy_of = new_custom_cortical_properties.copy_of
         if "MEMORY" in sub_group_id:
