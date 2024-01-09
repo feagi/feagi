@@ -30,7 +30,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field, conint
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 from ast import literal_eval
 from threading import Thread
 from queue import Queue
@@ -130,8 +130,8 @@ class NewCorticalProperties(BaseModel):
 class NewCustomCorticalProperties(BaseModel):
     cortical_name: str = Field(None, max_length=20, min_length=1)
     coordinates_2d: Optional[list] = [0, 0]
-    coordinates_3d: list
-    cortical_dimensions: list
+    coordinates_3d: List[int] = Field(default=[0, 0, 0])
+    cortical_dimensions: List[int] = Field(default=[1, 1, 1])
     sub_group_id: Optional[str] = ""
     copy_of: Optional[str] = ""
 
