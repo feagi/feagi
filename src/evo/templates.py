@@ -123,12 +123,6 @@ cortical_types = {
                 "cortical_name": "ID_Trainer",
                 "structure": "asymmetric",
                 "resolution": [1, 10, 1]
-            },
-            "i__pos": {
-                "enabled": True,
-                "cortical_name": "servo_position_ipu",
-                "structure": "asymmetric",
-                "resolution": [6, 1, 20]
             }
         }
     },
@@ -137,7 +131,7 @@ cortical_types = {
         "supported_devices": {
             "o__mot": {
                 "enabled": True,
-                "cortical_name": "Misc",
+                "cortical_name": "Motor",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
@@ -213,12 +207,12 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [4, 1, 1]
             },
-            "o__pos": {
+            "o_misc": {
                 "enabled": True,
-                "cortical_name": "servo_position_opu",
+                "cortical_name": "Misc",
                 "structure": "asymmetric",
-                "resolution": [6, 1, 20]
-            }
+                "resolution": [1, 1, 1]
+            },
         }
     },
     "CORE": {
