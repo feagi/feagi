@@ -677,7 +677,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
     cortical_names = neuroembryogenesis.cortical_name_list()
     if copy_of:
         if copy_of in runtime_data.genome["blueprint"]:
-            template = runtime_data.genome["blueprint"][copy_of]
+            template = runtime_data.genome["blueprint"][copy_of].copy()
             template["cortical_mapping_dst"] = {}
             template["cortical_name"] = cortical_name
             print("$---" * 50)
