@@ -686,8 +686,6 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
             template = runtime_data.genome["blueprint"][copy_of].copy()
             template["cortical_mapping_dst"] = {}
             template["cortical_name"] = cortical_name
-            print("$---" * 50)
-            print(template)
         else:
             print("Source cortical area chosen for cloning is not part of Genome")
             raise CustomError

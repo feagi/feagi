@@ -614,8 +614,6 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
     """
     Enables changes against various Burst Engine parameters.
     """
-    print("--------")
-    print(new_custom_cortical_properties)
     try:
         cortical_name = new_custom_cortical_properties.cortical_name
         coordinates_3d = new_custom_cortical_properties.coordinates_3d.copy()
@@ -635,10 +633,6 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
                                                is_memory=is_memory,
                                                copy_of=copy_of)
         return JSONResponse(status_code=200, content={'cortical_id': cortical_id})
-        # message = {'add_custom_cortical_area': message}
-        # print("*" * 50 + "\n", message)
-        # api_queue.put(item=message)
-        # response.status_code = status.HTTP_200_OK
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e, traceback.print_exc(), new_custom_cortical_properties)
@@ -651,7 +645,6 @@ async def delete_cortical_area(cortical_area_name, response: Response):
     """
     try:
         message = {'delete_cortical_area': cortical_area_name}
-        print("*" * 50 + "\n", message)
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
     except Exception as e:
