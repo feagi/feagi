@@ -1089,13 +1089,10 @@ async def amalgamation_attempt(response: Response, file: UploadFile = File(...))
             raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
         else:
             data = await file.read()
-            runtime_data.brain_readiness = False
             runtime_data.genome_file_name = file.filename
 
             genome_str = json.loads(data)
             genome_2 = genome_2_1_convertor(genome_str["blueprint"])
-            print("Genome_str:", genome_str)
-            print("genome_2:", genome_2)
             
             now = datetime.datetime.now()
             amalgamation_id = str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_A'
