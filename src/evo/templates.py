@@ -131,7 +131,7 @@ cortical_types = {
         "supported_devices": {
             "o__mot": {
                 "enabled": True,
-                "cortical_name": "Motor",
+                "cortical_name": "Motor Opu",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
