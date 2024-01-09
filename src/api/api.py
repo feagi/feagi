@@ -133,6 +133,7 @@ class NewCustomCorticalProperties(BaseModel):
     coordinates_3d: list
     cortical_dimensions: list
     sub_group_id: Optional[str] = ""
+    copy_of: Optional[str] = ""
 
 
 # class NewCorticalProperties_old(BaseModel):
@@ -620,6 +621,7 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
         coordinates_3d = new_custom_cortical_properties.coordinates_3d
         coordinates_2d = new_custom_cortical_properties.coordinates_2d
         sub_group_id = new_custom_cortical_properties.sub_group_id
+        copy_of = new_custom_cortical_properties.copy_of
         if "MEMORY" in sub_group_id:
             is_memory = True
             cortical_dimensions = [1, 1, 1]
@@ -630,7 +632,8 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
                                                coordinates_3d=coordinates_3d,
                                                coordinates_2d=coordinates_2d,
                                                cortical_dimensions=cortical_dimensions,
-                                               is_memory=is_memory)
+                                               is_memory=is_memory,
+                                               copy_of=copy_of)
         return JSONResponse(status_code=200, content={'cortical_id': cortical_id})
         # message = {'add_custom_cortical_area': message}
         # print("*" * 50 + "\n", message)
@@ -1031,7 +1034,7 @@ async def cortical_area_types(cortical_type, response: Response):
 
 def pending_amalgamation():
     if not runtime_data.pending_amalgamation:
-        return True
+        return False
     else:
         # todo: externalize the amalgamation timeout currently hardcoded below
         amalgamation_reqeust_timeout = 500
@@ -1056,7 +1059,53 @@ class AmalgamationRequest(BaseModel):
     genome_payload: Optional[dict] = None
 
 
-@app.api_route("/v1/feagi/genome/amalgamation_attempt", methods=['POST'], tags=["Genome"])
+@app.api_route("/v1/feagi/genome/amalgamation_by_payload", methods=['POST'], tags=["Genome"])
+async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, response: Response):
+    try:
+        if pending_amalgamation():
+            raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
+        else:
+            now = datetime.datetime.now()
+            amalgamation_id = str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_A'
+            runtime_data.pending_amalgamation["genome_id"] = amalgamation_param.genome_id
+            runtime_data.pending_amalgamation["genome_title"] = amalgamation_param.genome_title
+            runtime_data.pending_amalgamation["genome_payload"] = amalgamation_param.genome_payload
+            runtime_data.pending_amalgamation["initiation_time"] = datetime.datetime.now()
+            runtime_data.pending_amalgamation["amalgamation_id"] = amalgamation_id
+            runtime_data.pending_amalgamation["circuit_size"] = \
+                circuit_size(blueprint=amalgamation_param.genome_payload["blueprint"])
+
+            runtime_data.amalgamation_history[amalgamation_id] = "pending"
+            return amalgamation_id
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/genome/amalgamation_by_upload", methods=['POST'], tags=["Genome"])
+async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, response: Response):
+    try:
+        if pending_amalgamation():
+            raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
+        else:
+            now = datetime.datetime.now()
+            amalgamation_id = str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_A'
+            runtime_data.pending_amalgamation["genome_id"] = amalgamation_param.genome_id
+            runtime_data.pending_amalgamation["genome_title"] = amalgamation_param.genome_title
+            runtime_data.pending_amalgamation["genome_payload"] = amalgamation_param.genome_payload
+            runtime_data.pending_amalgamation["initiation_time"] = datetime.datetime.now()
+            runtime_data.pending_amalgamation["amalgamation_id"] = amalgamation_id
+            runtime_data.pending_amalgamation["circuit_size"] = \
+                circuit_size(blueprint=amalgamation_param.genome_payload["blueprint"])
+
+            runtime_data.amalgamation_history[amalgamation_id] = "pending"
+            return amalgamation_id
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        print("API Error:", e)
+
+
+@app.api_route("/v1/feagi/genome/amalgamation_by_filename", methods=['POST'], tags=["Genome"])
 async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, response: Response):
     try:
         if pending_amalgamation():
@@ -1111,6 +1160,11 @@ async def circuit_library(amalgamation_id, response: Response):
         raise HTTPException(status_code=404, detail="No matching amalgamation found")
 
 
+@app.api_route("/v1/feagi/genome/amalgamation_cancellation", methods=['DELETE'], tags=["Genome"])
+async def cancel_amalgamation_request(amalgamation_id):
+    cancel_pending_amalgamation(amalgamation_id)
+
+
 @app.api_route("/v1/feagi/genome/circuits", methods=['GET'], tags=["Genome"])
 async def circuit_library(response: Response):
     """
@@ -1124,11 +1178,6 @@ async def circuit_library(response: Response):
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         print("API Error:", e)
-
-
-@app.api_route("/v1/feagi/genome/amalgamation_cancellation", methods=['DELETE'], tags=["Genome"])
-async def cancel_amalgamation_request():
-    cancel_pending_amalgamation()
 
 
 # @app.api_route("/v1/feagi/genome/circuit_description", methods=['GET'], tags=["Genome"])
