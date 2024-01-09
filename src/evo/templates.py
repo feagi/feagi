@@ -123,6 +123,12 @@ cortical_types = {
                 "cortical_name": "ID_Trainer",
                 "structure": "asymmetric",
                 "resolution": [1, 10, 1]
+            },
+            "i__pos": {
+                "enabled": True,
+                "cortical_name": "servo_position_ipu",
+                "structure": "asymmetric",
+                "resolution": [6, 1, 20]
             }
         }
     },
@@ -206,6 +212,12 @@ cortical_types = {
                 "cortical_name": "threshold_type",
                 "structure": "asymmetric",
                 "resolution": [4, 1, 1]
+            },
+            "o__pos": {
+                "enabled": True,
+                "cortical_name": "servo_position_opu",
+                "structure": "asymmetric",
+                "resolution": [6, 1, 20]
             }
         }
     },
