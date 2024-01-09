@@ -331,7 +331,7 @@ def servo_position_translator(servo_data):
 
     todo: add details here about the message format and expectations
     """
-    cortical_area = 'i__pos'
+    cortical_area = 'i_spos'
     if cortical_area_in_genome(cortical_area):
         if servo_data is not None:
             numbers_of_servo = len(servo_data)
