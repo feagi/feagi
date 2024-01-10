@@ -2453,7 +2453,9 @@ async def feagi_health_check(response: Response):
 
     if pending_amalgamation():
         health["amalgamation_pending"] = {
+            "initiation_time": runtime_data.pending_amalgamation["initiation_time"],
             "genome_id": runtime_data.pending_amalgamation["genome_id"],
+            "amalgamation_id": runtime_data.pending_amalgamation["amalgamation_id"],
             "genome_title": runtime_data.pending_amalgamation["genome_title"],
             "circuit_size": runtime_data.pending_amalgamation["circuit_size"]
         }
