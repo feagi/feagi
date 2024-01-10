@@ -759,16 +759,20 @@ async def genome_neuron_morphology_functions(response: Response):
         print("API Error:", e, traceback.print_exc())
 
 
-@app.api_route("/v1/feagi/genome/morphology", methods=['GET'], tags=["Genome"])
-async def genome_neuron_morphology_properties(morphology_name, response: Response):
+class MorphologyName(BaseModel):
+    name: string
+    
+
+@app.api_route("/v1/feagi/genome/morphology", methods=['POST'], tags=["Genome"])
+async def genome_neuron_morphology_properties(morphology_name: MorphologyName, response: Response):
     """
     Returns the properties of a neuron morphology.
     """
     try:
-        if morphology_name in runtime_data.genome['neuron_morphologies']:
+        if morphology_name.name in runtime_data.genome['neuron_morphologies']:
             response.status_code = status.HTTP_200_OK
-            results = runtime_data.genome['neuron_morphologies'][morphology_name]
-            results["morphology_name"] = morphology_name
+            results = runtime_data.genome['neuron_morphologies'][morphology_name.name]
+            results["morphology_name"] = morphology_name.name
             return results
         else:
             response.status_code = status.HTTP_404_NOT_FOUND
