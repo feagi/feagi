@@ -131,7 +131,7 @@ cortical_types = {
         "supported_devices": {
             "o__mot": {
                 "enabled": True,
-                "cortical_name": "Misc",
+                "cortical_name": "Motor Opu",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
@@ -206,7 +206,13 @@ cortical_types = {
                 "cortical_name": "threshold_type",
                 "structure": "asymmetric",
                 "resolution": [4, 1, 1]
-            }
+            },
+            "o_misc": {
+                "enabled": True,
+                "cortical_name": "Misc",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 1]
+            },
         }
     },
     "CORE": {

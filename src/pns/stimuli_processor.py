@@ -225,8 +225,8 @@ def servo_positions_to_coords(servo_data, servo_id):
         '6': [0, 4096]
     }
 
-    Y_MAX = runtime_data.genome['blueprint']['i__pos']["block_boundaries"][1]
-    Z_MAX = runtime_data.genome['blueprint']['i__pos']["block_boundaries"][2]
+    Y_MAX = runtime_data.genome['blueprint']['i_spos']["block_boundaries"][1]
+    Z_MAX = runtime_data.genome['blueprint']['i_spos']["block_boundaries"][2]
 
     detection_locations = []
     idx = servo_id
