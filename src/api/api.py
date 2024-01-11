@@ -484,12 +484,17 @@ async def reset_genome(response: Response):
         print("API Error:", e)
 
 
+class CorticalName(BaseModel):
+    cortical_name: str
+
+
 @app.api_route("/v1/feagi/genome/cortical_area", methods=['GET'], tags=["Genome"])
-async def fetch_cortical_properties(cortical_area, response: Response):
+async def fetch_cortical_properties(cortical_name: CorticalName, response: Response):
     """
     Returns the properties of cortical areas
     """
     try:
+        cortical_area = cortical_name.cortical_name
         if len(cortical_area) == genome_properties["structure"]["cortical_name_length"]:
             if cortical_area in runtime_data.genome['blueprint']:
                 cortical_data = runtime_data.genome['blueprint'][cortical_area]
@@ -639,11 +644,12 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
 
 
 @app.api_route("/v1/feagi/genome/cortical_area", methods=['DELETE'], tags=["Genome"])
-async def delete_cortical_area(cortical_area_name, response: Response):
+async def delete_cortical_area(cortical_name: CorticalName, response: Response):
     """
     Enables changes against various Burst Engine parameters.
     """
     try:
+        cortical_area_name = cortical_name.cortical_name
         message = {'delete_cortical_area': cortical_area_name}
         api_queue.put(item=message)
         response.status_code = status.HTTP_200_OK
@@ -669,11 +675,12 @@ async def genome_cortical_ids(response: Response):
 
 
 @app.api_route("/v1/feagi/genome/cortical_name_location", methods=['GET'], tags=["Genome"])
-async def genome_cortical_location_by_name(cortical_name, response: Response):
+async def genome_cortical_location_by_name(cortical_name: CorticalName, response: Response):
     """
     Returns a comprehensive list of all cortical area names.
     """
     try:
+        cortical_name = cortical_name.cortical_name
         cortical_area = cortical_name_to_id(cortical_name=cortical_name)
         response.status_code = status.HTTP_200_OK
         return runtime_data.genome["blueprint"][cortical_area]["relative_coordinate"]
@@ -761,7 +768,7 @@ async def genome_neuron_morphology_functions(response: Response):
 
 class MorphologyName(BaseModel):
     name: string
-    
+
 
 @app.api_route("/v1/feagi/genome/morphology", methods=['POST'], tags=["Genome"])
 async def genome_neuron_morphology_properties(morphology_name: MorphologyName, response: Response):
@@ -782,11 +789,12 @@ async def genome_neuron_morphology_properties(morphology_name: MorphologyName, r
 
 
 @app.api_route("/v1/feagi/genome/morphology_usage", methods=['GET'], tags=["Genome"])
-async def genome_neuron_morphology_usage_report(morphology_name, response: Response):
+async def genome_neuron_morphology_usage_report(morphology_name: MorphologyName, response: Response):
     """
     Returns the properties of a neuron morphology.
     """
     try:
+        morphology_name = morphology_name.name
         if morphology_name in runtime_data.genome["neuron_morphologies"]:
             usage_list = morphology_usage_list(morphology_name=morphology_name, genome=runtime_data.genome)
             if usage_list:
@@ -801,19 +809,23 @@ async def genome_neuron_morphology_usage_report(morphology_name, response: Respo
         print("API Error:", e, traceback.print_exc())
 
 
+class MorphologyInput(BaseModel):
+    morphology_name: str
+    morphology_type: str
+    morphology_parameters: dict
+
+
 @app.api_route("/v1/feagi/genome/morphology", methods=['PUT'], tags=["Genome"])
-async def genome_update_neuron_morphology(morphology_name: str,
-                                          morphology_type: str,
-                                          morphology_parameters: dict,
+async def genome_update_neuron_morphology(morphology_input: MorphologyInput,
                                           response: Response):
     """
     Enables changes against various Burst Engine parameters.
     """
     try:
         message = {}
-        message["name"] = morphology_name
-        message["type"] = morphology_type
-        message["parameters"] = morphology_parameters
+        message["name"] = morphology_input.morphology_name
+        message["type"] = morphology_input.morphology_type
+        message["parameters"] = morphology_input.morphology_parameters
 
         message = {'update_morphology_properties': message}
         print("*" * 50 + "\n", message)
@@ -825,19 +837,18 @@ async def genome_update_neuron_morphology(morphology_name: str,
 
 
 @app.api_route("/v1/feagi/genome/morphology", methods=['POST'], tags=["Genome"])
-async def genome_add_neuron_morphology(morphology_name: str,
-                                       morphology_type: str,
-                                       morphology_parameters: dict,
+async def genome_add_neuron_morphology(morphology_input: MorphologyInput,
                                        response: Response):
     """
     Enables changes against various Burst Engine parameters.
     """
     try:
-        if morphology_name not in runtime_data.genome['neuron_morphologies']:
+        if morphology_input.morphology_name not in runtime_data.genome['neuron_morphologies']:
             runtime_data.genome['neuron_morphologies'][morphology_name] = {}
-            runtime_data.genome['neuron_morphologies'][morphology_name]["type"] = morphology_type
+            runtime_data.genome['neuron_morphologies'][morphology_name]["type"] = morphology_input.morphology_type
             runtime_data.genome['neuron_morphologies'][morphology_name]["class"] = "custom"
-            runtime_data.genome['neuron_morphologies'][morphology_name]["parameters"] = morphology_parameters
+            runtime_data.genome['neuron_morphologies'][morphology_name]["parameters"] = \
+                morphology_input.morphology_parameters
         else:
             pass
         response.status_code = status.HTTP_200_OK
@@ -847,12 +858,13 @@ async def genome_add_neuron_morphology(morphology_name: str,
 
 
 @app.api_route("/v1/feagi/genome/morphology", methods=['DELETE'], tags=["Genome"])
-async def genome_delete_neuron_morphology(morphology_name, response: Response):
+async def genome_delete_neuron_morphology(morphology_name: MorphologyName, response: Response):
     """
     Returns the properties of a neuron morphology.
     """
     # todo: Needs to be rewritten
     try:
+        morphology_name = morphology_name.name
         if morphology_name in runtime_data.genome['neuron_morphologies']:
             if "class" in runtime_data.genome['neuron_morphologies'][morphology_name]:
                 if runtime_data.genome['neuron_morphologies'][morphology_name]["class"] == "custom":
@@ -888,11 +900,12 @@ async def genome_delete_neuron_morphology(morphology_name, response: Response):
 
 
 @app.api_route("/v1/feagi/genome/cortical_mappings/efferents", methods=['GET'], tags=["Genome"])
-async def fetch_cortical_mappings(cortical_area, response: Response):
+async def fetch_cortical_mappings(cortical_name: CorticalName, response: Response):
     """
     Returns the list of cortical areas downstream to the given cortical areas
     """
     try:
+        cortical_area = cortical_name.cortical_name
         if len(cortical_area) == genome_properties["structure"]["cortical_name_length"]:
             cortical_mappings = set()
             for destination in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
@@ -906,11 +919,12 @@ async def fetch_cortical_mappings(cortical_area, response: Response):
 
 
 @app.api_route("/v1/feagi/genome/cortical_mappings/afferents", methods=['GET'], tags=["Genome"])
-async def fetch_cortical_mappings(cortical_area, response: Response):
+async def fetch_cortical_mappings(cortical_name: CorticalName, response: Response):
     """
     Returns the list of cortical areas downstream to the given cortical areas
     """
     try:
+        cortical_area = cortical_name.cortical_name
         if len(cortical_area) == genome_properties["structure"]["cortical_name_length"]:
             upstream_cortical_areas, downstream_cortical_areas = \
                 neighboring_cortical_areas(cortical_area, blueprint=runtime_data.genome["blueprint"])
@@ -924,11 +938,12 @@ async def fetch_cortical_mappings(cortical_area, response: Response):
 
 
 @app.api_route("/v1/feagi/genome/cortical_mappings_by_name", methods=['GET'], tags=["Genome"])
-async def fetch_cortical_mappings(cortical_area, response: Response):
+async def fetch_cortical_mappings(cortical_name: CorticalName, response: Response):
     """
     Returns the list of cortical names being downstream to the given cortical areas
     """
     try:
+        cortical_area = cortical_name.cortical_name
         cortical_mappings = set()
         for destination in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
             cortical_mappings.add(runtime_data.genome['blueprint'][destination]['cortical_name'])
@@ -940,11 +955,12 @@ async def fetch_cortical_mappings(cortical_area, response: Response):
 
 
 @app.api_route("/v1/feagi/genome/cortical_mappings_detailed", methods=['GET'], tags=["Genome"])
-async def fetch_cortical_mappings(cortical_area, response: Response):
+async def fetch_cortical_mappings(cortical_name: CorticalName, response: Response):
     """
     Returns the list of cortical areas downstream to the given cortical areas
     """
     try:
+        cortical_area = cortical_name.cortical_name
         if runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
             response.status_code = status.HTTP_200_OK
             return runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']
@@ -955,12 +971,19 @@ async def fetch_cortical_mappings(cortical_area, response: Response):
         print("API Error:", e)
 
 
+class CorticalAreaSrcDst(BaseModel):
+    src_cortical_area: str
+    dst_cortical_area: str
+
+
 @app.api_route("/v1/feagi/genome/mapping_properties", methods=['GET'], tags=["Genome"])
-async def fetch_cortical_mapping_properties(src_cortical_area, dst_cortical_area, response: Response):
+async def fetch_cortical_mapping_properties(source_destination: CorticalAreaSrcDst, response: Response):
     """
     Returns the list of cortical areas downstream to the given cortical areas
     """
     try:
+        src_cortical_area = source_destination.src_cortical_area
+        dst_cortical_area = source_destination.dst_cortical_area
         if dst_cortical_area in runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst']:
             response.status_code = status.HTTP_200_OK
             return runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'][dst_cortical_area]
@@ -971,13 +994,22 @@ async def fetch_cortical_mapping_properties(src_cortical_area, dst_cortical_area
         print("API Error:", e)
 
 
+class UpdateCorticalMappingProperties(BaseModel):
+    src_cortical_area: str
+    dst_cortical_area: str
+    mapping_string: list
+
+
 @app.api_route("/v1/feagi/genome/mapping_properties", methods=['PUT'], tags=["Genome"])
-async def update_cortical_mapping_properties(src_cortical_area, dst_cortical_area,
-                                             mapping_string: list, response: Response):
+async def update_cortical_mapping_properties(cortical_mapping_properties: UpdateCorticalMappingProperties,
+                                             response: Response):
     """
     Enables changes against various Burst Engine parameters.
     """
     try:
+        src_cortical_area = cortical_mapping_properties.src_cortical_area
+        dst_cortical_area = cortical_mapping_properties.dst_cortical_area
+        mapping_string = cortical_mapping_properties.mapping_string
         data = dict()
         data["mapping_data"] = mapping_string
         data["src_cortical_area"] = src_cortical_area
