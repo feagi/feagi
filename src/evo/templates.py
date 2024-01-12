@@ -135,25 +135,25 @@ cortical_types = {
     "OPU": {
         "gui_name": "Actuators",
         "supported_devices": {
-            "o__mot": {
+            "o_mper": {
                 "enabled": True,
                 "cortical_name": "Motor Percentage OPU",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
-            "op_mot": {
+            "o_mpos": {
                 "enabled": True,
                 "cortical_name": "Motor Position OPU",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10]
             },
-            "o__ser": {
+            "o_sper": {
                 "enabled": True,
                 "cortical_name": "Servo Percentage OPU",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
-            "op_ser": {
+            "o_spos": {
                 "enabled": True,
                 "cortical_name": "Servo Position OPU",
                 "structure": "asymmetric",

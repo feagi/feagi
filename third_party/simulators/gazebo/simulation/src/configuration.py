@@ -39,7 +39,7 @@ capabilities = {
         "type": "opu",
         "disabled": True,
         "refresh_rate": 1,
-        "cortical_mapping": "o__ser",
+        "cortical_mapping": "o_sper",
         'count': 2,
         'topic_identifier': '/S'
     },
@@ -49,7 +49,7 @@ capabilities = {
         "count": 4,
         'topic_identifier': '/M',
         "refresh_rate": 1,
-        "cortical_mapping": "o__mot",
+        "cortical_mapping": "o_mper",
         "power_coefficient": 0.02,
         "wheel_diameter": 0.065,  # radius is in sdf under wheels inside <link></link>
     },

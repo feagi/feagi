@@ -157,7 +157,7 @@ def opu_router():
     Relays neuronal activities to the controller.
     Sample data format for runtime_data.opu_data:
 
-    {'o__bat': {}, 'o__mot': {'0-0-0': 47, '0-0-5': 48, '0-0-15': 50, '0-0-1': 45}}
+    {'o__bat': {}, 'o_mper': {'0-0-0': 47, '0-0-5': 48, '0-0-15': 50, '0-0-1': 45}}
 
     """
     for cortical_area in runtime_data.fire_candidate_list:
@@ -183,12 +183,12 @@ def opu_router():
 #
 #     # todo: need a better differentiation between movement and motor modules
 #     # Movement handler
-#     if 'o__mot' in runtime_data.fire_candidate_list:
-#         if len(runtime_data.fire_candidate_list["o__mot"]) > 0:
+#     if 'o_mper' in runtime_data.fire_candidate_list:
+#         if len(runtime_data.fire_candidate_list["o_mper"]) > 0:
 #             # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
 #             # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
 #             # movement.activate_motor(data)
-#             activity_report = opu_activity_report(cortical_area='o__mot')
+#             activity_report = opu_activity_report(cortical_area='o_mper')
 #             # print("motor activity report", activity_report)
 #             motor_data = dict()
 #             for device in activity_report:
@@ -208,12 +208,12 @@ def opu_router():
 #                 motor_data[device]['speed'] = chosen_block
 #             action_processor.activate_device(device_type='motor', device_data=motor_data)
 #
-#     if 'o__ser' in runtime_data.fire_candidate_list:
-#         if len(runtime_data.fire_candidate_list["o__ser"]) > 0:
+#     if 'o_sper' in runtime_data.fire_candidate_list:
+#         if len(runtime_data.fire_candidate_list["o_sper"]) > 0:
 #             # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
 #             # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
 #             # movement.activate_motor(data)
-#             activity_report = opu_activity_report(cortical_area='o__ser')
+#             activity_report = opu_activity_report(cortical_area='o_sper')
 #             device_data = dict()
 #             for device in activity_report:
 #                 # if there are "ties" w/r/t block activity, this will select the first index in the list w/the tie value

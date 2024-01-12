@@ -1530,7 +1530,7 @@ async def stimulation_string_upload(stimulation_script: Stimulation, response: R
     "IR_pain": {
         "repeat": 10,
         "definition": [
-            [{"i__pro": ["0-0-3"], "o__mot": ["2-0-7"]}, 10],
+            [{"i__pro": ["0-0-3"], "o_mper": ["2-0-7"]}, 10],
             [{"i__pro": ["0-0-8"]}, 5],
             [{"i__bat": ["0-0-7"]}, 1],
             [{}, 50]
@@ -1690,7 +1690,7 @@ async def neuron_membrane_potential_monitoring_scope(message: dict, response: Re
     Monitor the membrane potential of select cortical areas and voxels in Grafana.
     Message Template:
             {
-                "o__mot": {
+                "o_mper": {
                     "voxels": [[0, 0, 0], [2, 0, 0]],
                     "neurons": []
                 },
@@ -1719,7 +1719,7 @@ async def neuron_postsynaptic_potential_monitoring_scope(message: dict, response
 
     Message Template:
             {
-                "o__mot": {
+                "o_mper": {
                     "dst_filter": {
                         "voxels": [[0, 0, 0], [2, 0, 0]],
                         "neurons": []

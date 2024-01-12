@@ -22,8 +22,8 @@ gui_baseline = {
         'i__pro'
     },
     'opu': {
-        'o__mot',
-        'o__ser'
+        'o_mper',
+        'o_sper'
     },
     "morphology": {
         "block_to_block": {

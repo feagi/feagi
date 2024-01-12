@@ -470,27 +470,27 @@
             ]
          ]
       },
-      "_____10c-o__mot-cx-__name-t": "motor_opu",
-      "_____10c-o__mot-cx-_group-t": "OPU",
-      "_____10c-o__mot-cx-_n_cnt-i": 1,
-      "_____10c-o__mot-nx-gd_vis-b": true,
-      "_____10c-o__mot-nx-rcordx-i": 0,
-      "_____10c-o__mot-nx-rcordy-i": 10,
-      "_____10c-o__mot-nx-rcordz-i": 10,
-      "_____10c-o__mot-nx-___bbx-i": 8,
-      "_____10c-o__mot-nx-___bby-i": 1,
-      "_____10c-o__mot-nx-___bbz-i": 10,
-      "_____10c-o__mot-cx-synatt-i": 100,
-      "_____10c-o__mot-cx-pstcr_-f": 500,
-      "_____10c-o__mot-cx-pstcrm-f": 35,
-      "_____10c-o__mot-cx-plst_c-f": 0.05,
-      "_____10c-o__mot-nx-fire_t-f": 1,
-      "_____10c-o__mot-nx-refrac-i": 0,
-      "_____10c-o__mot-nx-leak_c-f": 0,
-      "_____10c-o__mot-nx-c_fr_c-i": 3,
-      "_____10c-o__mot-nx-snooze-f": 0,
-      "_____10c-o__mot-cx-de_gen-f": 0,
-      "_____10c-o__mot-cx-dstmap-d": {
+      "_____10c-o_mper-cx-__name-t": "motor_opu",
+      "_____10c-o_mper-cx-_group-t": "OPU",
+      "_____10c-o_mper-cx-_n_cnt-i": 1,
+      "_____10c-o_mper-nx-gd_vis-b": true,
+      "_____10c-o_mper-nx-rcordx-i": 0,
+      "_____10c-o_mper-nx-rcordy-i": 10,
+      "_____10c-o_mper-nx-rcordz-i": 10,
+      "_____10c-o_mper-nx-___bbx-i": 8,
+      "_____10c-o_mper-nx-___bby-i": 1,
+      "_____10c-o_mper-nx-___bbz-i": 10,
+      "_____10c-o_mper-cx-synatt-i": 100,
+      "_____10c-o_mper-cx-pstcr_-f": 500,
+      "_____10c-o_mper-cx-pstcrm-f": 35,
+      "_____10c-o_mper-cx-plst_c-f": 0.05,
+      "_____10c-o_mper-nx-fire_t-f": 1,
+      "_____10c-o_mper-nx-refrac-i": 0,
+      "_____10c-o_mper-nx-leak_c-f": 0,
+      "_____10c-o_mper-nx-c_fr_c-i": 3,
+      "_____10c-o_mper-nx-snooze-f": 0,
+      "_____10c-o_mper-cx-de_gen-f": 0,
+      "_____10c-o_mper-cx-dstmap-d": {
          "i__mot": [
             [
                "block_to_block",
@@ -525,7 +525,7 @@
       "_____10c-t_pmot-nx-snooze-f": 0,
       "_____10c-t_pmot-cx-de_gen-f": 0,
       "_____10c-t_pmot-cx-dstmap-d": {
-         "o__mot": [
+         "o_mper": [
             [
                "block_to_block4",
                [
