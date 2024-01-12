@@ -124,7 +124,7 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 10, 1]
             },
-            "i__pos": {
+            "i_spos": {
                 "enabled": True,
                 "cortical_name": "servo_position_ipu",
                 "structure": "asymmetric",
