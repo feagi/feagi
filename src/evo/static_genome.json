@@ -1530,41 +1530,41 @@
       "_____10c-___pwr-cx-mem_ls-i": 9,
       "_____10c-___pwr-cx-__name-t": "Brain_Power",
       "_____10c-___pwr-cx-_group-t": "CORE",
-      "_____10c-o__mot-cx-subgrp-t": "",
-      "_____10c-o__mot-cx-_n_cnt-i": 1,
-      "_____10c-o__mot-cx-synatt-i": 100,
-      "_____10c-o__mot-cx-de_gen-f": 0,
-      "_____10c-o__mot-cx-pspuni-b": false,
-      "_____10c-o__mot-nx-pstcrm-f": 35,
-      "_____10c-o__mot-cx-dstmap-d": {},
-      "_____10c-o__mot-cx-___bbx-i": 8,
-      "_____10c-o__mot-cx-___bby-i": 1,
-      "_____10c-o__mot-cx-___bbz-i": 1,
-      "_____10c-o__mot-cx-rcordx-i": -31,
-      "_____10c-o__mot-cx-rcordy-i": 0,
-      "_____10c-o__mot-cx-rcordz-i": -22,
-      "_____10c-o__mot-cx-2dcorx-i": 2083,
-      "_____10c-o__mot-cx-2dcory-i": 187,
-      "_____10c-o__mot-cx-gd_vis-b": true,
-      "_____10c-o__mot-nx-pstcr_-f": 6,
-      "_____10c-o__mot-nx-fire_t-f": 1,
-      "_____10c-o__mot-nx-refrac-i": 0,
-      "_____10c-o__mot-nx-leak_c-f": 0,
-      "_____10c-o__mot-nx-leak_v-f": 0,
-      "_____10c-o__mot-nx-c_fr_c-i": 0,
-      "_____10c-o__mot-nx-snooze-f": 0,
-      "_____10c-o__mot-nx-ftincx-f": 0,
-      "_____10c-o__mot-nx-ftincy-f": 0,
-      "_____10c-o__mot-nx-ftincz-f": 0,
-      "_____10c-o__mot-nx-fthlim-i": 0,
-      "_____10c-o__mot-nx-mp_acc-b": false,
-      "_____10c-o__mot-nx-mp_psp-b": false,
-      "_____10c-o__mot-cx-memory-b": false,
-      "_____10c-o__mot-cx-mem__t-i": 100,
-      "_____10c-o__mot-cx-mem_gr-i": 1,
-      "_____10c-o__mot-cx-mem_ls-i": 9,
-      "_____10c-o__mot-cx-__name-t": "motor_opu",
-      "_____10c-o__mot-cx-_group-t": "OPU",
+      "_____10c-o_mper-cx-subgrp-t": "",
+      "_____10c-o_mper-cx-_n_cnt-i": 1,
+      "_____10c-o_mper-cx-synatt-i": 100,
+      "_____10c-o_mper-cx-de_gen-f": 0,
+      "_____10c-o_mper-cx-pspuni-b": false,
+      "_____10c-o_mper-nx-pstcrm-f": 35,
+      "_____10c-o_mper-cx-dstmap-d": {},
+      "_____10c-o_mper-cx-___bbx-i": 8,
+      "_____10c-o_mper-cx-___bby-i": 1,
+      "_____10c-o_mper-cx-___bbz-i": 1,
+      "_____10c-o_mper-cx-rcordx-i": -31,
+      "_____10c-o_mper-cx-rcordy-i": 0,
+      "_____10c-o_mper-cx-rcordz-i": -22,
+      "_____10c-o_mper-cx-2dcorx-i": 2083,
+      "_____10c-o_mper-cx-2dcory-i": 187,
+      "_____10c-o_mper-cx-gd_vis-b": true,
+      "_____10c-o_mper-nx-pstcr_-f": 6,
+      "_____10c-o_mper-nx-fire_t-f": 1,
+      "_____10c-o_mper-nx-refrac-i": 0,
+      "_____10c-o_mper-nx-leak_c-f": 0,
+      "_____10c-o_mper-nx-leak_v-f": 0,
+      "_____10c-o_mper-nx-c_fr_c-i": 0,
+      "_____10c-o_mper-nx-snooze-f": 0,
+      "_____10c-o_mper-nx-ftincx-f": 0,
+      "_____10c-o_mper-nx-ftincy-f": 0,
+      "_____10c-o_mper-nx-ftincz-f": 0,
+      "_____10c-o_mper-nx-fthlim-i": 0,
+      "_____10c-o_mper-nx-mp_acc-b": false,
+      "_____10c-o_mper-nx-mp_psp-b": false,
+      "_____10c-o_mper-cx-memory-b": false,
+      "_____10c-o_mper-cx-mem__t-i": 100,
+      "_____10c-o_mper-cx-mem_gr-i": 1,
+      "_____10c-o_mper-cx-mem_ls-i": 9,
+      "_____10c-o_mper-cx-__name-t": "motor_opu",
+      "_____10c-o_mper-cx-_group-t": "OPU",
       "_____10c-m__lef-cx-subgrp-t": "",
       "_____10c-m__lef-cx-_n_cnt-i": 1,
       "_____10c-m__lef-cx-synatt-i": 100,
@@ -2181,7 +2181,7 @@
       "_____10c-CRSMot-cx-pspuni-b": false,
       "_____10c-CRSMot-nx-pstcrm-f": 99999,
       "_____10c-CRSMot-cx-dstmap-d": {
-         "o__mot": [
+         "o_mper": [
             [
                "0_0_0-_0_0_0",
                [
@@ -2232,7 +2232,7 @@
       "_____10c-CIHMot-cx-pspuni-b": false,
       "_____10c-CIHMot-nx-pstcrm-f": 99999,
       "_____10c-CIHMot-cx-dstmap-d": {
-         "o__mot": [
+         "o_mper": [
             [
                "0_0_0-1_0_0",
                [
@@ -2283,7 +2283,7 @@
       "_____10c-CKQM2_-cx-pspuni-b": false,
       "_____10c-CKQM2_-nx-pstcrm-f": 99999,
       "_____10c-CKQM2_-cx-dstmap-d": {
-         "o__mot": [
+         "o_mper": [
             [
                "0_0_0-2_0_0",
                [
@@ -2334,7 +2334,7 @@
       "_____10c-CKYM2_-cx-pspuni-b": false,
       "_____10c-CKYM2_-nx-pstcrm-f": 99999,
       "_____10c-CKYM2_-cx-dstmap-d": {
-         "o__mot": [
+         "o_mper": [
             [
                "0_0_0-3_0_0",
                [
@@ -2385,7 +2385,7 @@
       "_____10c-CO4M3_-cx-pspuni-b": false,
       "_____10c-CO4M3_-nx-pstcrm-f": 99999,
       "_____10c-CO4M3_-cx-dstmap-d": {
-         "o__mot": [
+         "o_mper": [
             [
                "0_0_0-4_0_0",
                [
@@ -2436,7 +2436,7 @@
       "_____10c-CJWM3_-cx-pspuni-b": false,
       "_____10c-CJWM3_-nx-pstcrm-f": 99999,
       "_____10c-CJWM3_-cx-dstmap-d": {
-         "o__mot": [
+         "o_mper": [
             [
                "0_0_0-5_0_0",
                [
@@ -2487,7 +2487,7 @@
       "_____10c-CTGM4_-cx-pspuni-b": false,
       "_____10c-CTGM4_-nx-pstcrm-f": 99999,
       "_____10c-CTGM4_-cx-dstmap-d": {
-         "o__mot": [
+         "o_mper": [
             [
                "0_0_0-6_0_0",
                [
@@ -2538,7 +2538,7 @@
       "_____10c-CLWM4_-cx-pspuni-b": false,
       "_____10c-CLWM4_-nx-pstcrm-f": 99999,
       "_____10c-CLWM4_-cx-dstmap-d": {
-         "o__mot": [
+         "o_mper": [
             [
                "0_0_0-7_0_0",
                [
