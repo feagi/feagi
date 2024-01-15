@@ -231,6 +231,12 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
+            "o__con": {
+                "enabled": True,
+                "cortical_name": "control_opu",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 1]
+            },
         }
     },
     "CORE": {
