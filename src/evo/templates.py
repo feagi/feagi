@@ -235,7 +235,7 @@ cortical_types = {
                 "enabled": True,
                 "cortical_name": "control_opu",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 1]
+                "resolution": [4, 3, 1]
             },
         }
     },
