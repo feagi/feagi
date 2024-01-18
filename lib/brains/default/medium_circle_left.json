@@ -2,7 +2,7 @@
   "stimulation_script": {
       "medium_circle":
       {
-        "definition": [ [{"o_mper": ["0-0-2", "2-0-4", "4-0-2", "6-0-4"]}, 1] ] }
+        "definition": [ [{"o__mot": ["0-0-2", "2-0-4", "4-0-2", "6-0-4"]}, 1] ] }
   }
 }
 

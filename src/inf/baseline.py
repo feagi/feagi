@@ -22,7 +22,7 @@ gui_baseline = {
         'i__pro'
     },
     'opu': {
-        'o_mper',
+        'o__mot',
         'o_sper'
     },
     "morphology": {

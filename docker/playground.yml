@@ -90,6 +90,14 @@ services:
     networks:
       - net
 
+#  feagi_trainer:
+#    build: /home/bwuk/feagi-agent/embodiments/neuraville/feagi_trainer
+#    env_file:
+#      - ./.env
+#    volumes:
+#      - /current/test:/root/test
+#    networks:
+#      - net
 
 #  influxdb:
 #    image: ${INFLUX_DB_IMAGE}
