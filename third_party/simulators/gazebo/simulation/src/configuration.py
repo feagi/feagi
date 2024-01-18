@@ -49,7 +49,7 @@ capabilities = {
         "count": 4,
         'topic_identifier': '/M',
         "refresh_rate": 1,
-        "cortical_mapping": "o_mper",
+        "cortical_mapping": "o__mot",
         "power_coefficient": 0.02,
         "wheel_diameter": 0.065,  # radius is in sdf under wheels inside <link></link>
     },
