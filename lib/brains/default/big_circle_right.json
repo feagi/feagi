@@ -2,7 +2,7 @@
   "stimulation_script": {
       "big_circle":
       {
-        "definition": [ [{"o_mper": ["0-0-4", "2-0-3", "4-0-4", "6-0-3"]}, 1] ] }
+        "definition": [ [{"o__mot": ["0-0-4", "2-0-3", "4-0-4", "6-0-3"]}, 1] ] }
   }
 }
 
