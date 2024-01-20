@@ -225,6 +225,18 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [4, 1, 1]
             },
+            "ovflph": {
+                "enabled": True,
+                "cortical_name": "vision_horizontal_flip",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 1]
+            },
+            "ovflpv": {
+                "enabled": True,
+                "cortical_name": "vision_vertical_flip",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 1]
+            },
         }
     },
     "CORE": {
