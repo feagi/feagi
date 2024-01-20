@@ -123,21 +123,27 @@ cortical_types = {
                 "cortical_name": "ID_Trainer",
                 "structure": "asymmetric",
                 "resolution": [1, 10, 1]
+            },
+            "i_spos": {
+                "enabled": True,
+                "cortical_name": "servo_position_ipu",
+                "structure": "asymmetric",
+                "resolution": [6, 1, 20]
             }
         }
     },
     "OPU": {
         "gui_name": "Actuators",
         "supported_devices": {
-            "o__mot": {
+            "motor": {
                 "enabled": True,
-                "cortical_name": "Motor Opu",
+                "cortical_name": "motor_opu",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
             "o__ser": {
                 "enabled": True,
-                "cortical_name": "Servo",
+                "cortical_name": "servo_opu",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
@@ -210,6 +216,24 @@ cortical_types = {
             "o_misc": {
                 "enabled": True,
                 "cortical_name": "Misc",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 1]
+            },
+            "o_mctl": {
+                "enabled": True,
+                "cortical_name": "motion_control_opu",
+                "structure": "asymmetric",
+                "resolution": [4, 1, 1]
+            },
+            "ovflph": {
+                "enabled": True,
+                "cortical_name": "vision_horizontal_flip",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 1]
+            },
+            "ovflpv": {
+                "enabled": True,
+                "cortical_name": "vision_vertical_flip",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },

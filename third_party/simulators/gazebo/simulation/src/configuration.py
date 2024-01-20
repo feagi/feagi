@@ -39,7 +39,7 @@ capabilities = {
         "type": "opu",
         "disabled": True,
         "refresh_rate": 1,
-        "cortical_mapping": "o__ser",
+        "cortical_mapping": "o_sper",
         'count': 2,
         'topic_identifier': '/S'
     },
