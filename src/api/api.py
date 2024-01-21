@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 import datetime
-import json
+
 import os
 import traceback
 import time
@@ -24,7 +24,7 @@ import random
 import io
 
 from fastapi import FastAPI, Depends, File, UploadFile, Response, status, Request, HTTPException
-from fastapi.responses import JSONResponse
+
 
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse, StreamingResponse
@@ -38,18 +38,9 @@ from inf import feagi
 from inf import runtime_data
 from inf.baseline import gui_baseline
 
-
-from evo.templates import cortical_types
-from evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
-from evo import synaptogenesis_rules
-from evo.stats import circuit_size
-from evo.genome_properties import genome_properties
-from evo.x_genesis import neighboring_cortical_areas, add_core_cortical_area, add_custom_cortical_area
-from evo.genome_processor import genome_2_1_convertor
-
 from .config import settings
-from inf.messenger import Sub
-from inf.initialize import generate_cortical_dimensions_by_id
+
+
 from .dependencies import *
 from .error_handling import *
 from .commons import *

@@ -195,3 +195,9 @@ class RobotModel(BaseModel):
 
     slip2: float
     slip2 = 1.0
+
+
+class AmalgamationRequest(BaseModel):
+    genome_id: Optional[str] = None
+    genome_title: Optional[str] = None
+    genome_payload: Optional[dict] = None
