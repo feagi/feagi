@@ -26,7 +26,7 @@ def human_readable_version(version):
     return reminder + '-' + human_readable_time.strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
-@router.get("/v1/feagi/versions", tags=["System"])
+@router.get("/versions")
 def get_versions():
     try:
         all_versions = dict()
@@ -43,7 +43,7 @@ def get_versions():
         print(f"Error during version collection {e}")
 
 
-@router.get("/v1/feagi/health_check", tags=["System"])
+@router.get("/health_check")
 async def feagi_health_check():
     health = dict()
     health["burst_engine"] = not runtime_data.exit_condition
@@ -68,12 +68,12 @@ async def feagi_health_check():
     return health
 
 
-@router.get("/v1/feagi/unique_logs")
+@router.get("/unique_logs")
 async def unique_log_entries():
     return runtime_data.logs
 
 
-@router.post("/v1/feagi/register")
+@router.post("/register")
 async def feagi_registration(message: Registration):
     message = message.dict()
     source = message['source']
@@ -83,19 +83,19 @@ async def feagi_registration(message: Registration):
     print("########## ###### >>>>>> >>>> ", source, host, capabilities)
 
 
-@router.post("/v1/feagi/feagi/logs")
+@router.post("/logs")
 async def log_management(message: Logs):
     message = message.dict()
     message = {"log_management": message}
     api_queue.put(item=message)
 
 
-@router.get("/v1/feagi/feagi/configuration")
+@router.get("/configuration")
 async def configuration_parameters():
     return runtime_data.parameters
 
 
-@router.get("/v1/feagi/feagi/beacon/subscribers")
+@router.get("/beacon/subscribers")
 async def beacon_query():
     if runtime_data.beacon_sub:
         return tuple(runtime_data.beacon_sub)
@@ -103,19 +103,19 @@ async def beacon_query():
         raise HTTPException(status_code=404, detail=f"No subscriber found")
 
 
-@router.post("/v1/feagi/feagi/beacon/subscribe")
+@router.post("/beacon/subscribe")
 async def beacon_subscribe(message: Subscriber):
     message = {'beacon_sub': message.subscriber_address}
     api_queue.put(item=message)
 
 
-@router.delete("/v1/feagi/feagi/beacon/unsubscribe")
+@router.delete("/beacon/unsubscribe")
 async def beacon_unsubscribe(message: Subscriber):
     message = {"beacon_unsub": message.subscriber_address}
     api_queue.put(item=message)
 
 
-@router.get("/v1/feagi/db/influxdb/test")
+@router.get("/db/influxdb/test")
 async def test_influxdb():
     """
     Enables changes against various Burst Engine parameters.
@@ -126,7 +126,7 @@ async def test_influxdb():
         return influx_status
 
 
-@router.post("/v1/feagi/circuit_library_path")
+@router.post("/circuit_library_path")
 async def change_circuit_library_path(circuit_library_path: str):
     if os.path.exists(circuit_library_path):
         runtime_data.circuit_lib_path = circuit_library_path

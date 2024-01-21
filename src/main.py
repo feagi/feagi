@@ -14,21 +14,22 @@
 # limitations under the License.
 # ==============================================================================
 
-"""
-FEAGI is a brain inspired evolutionary framework capable of growing an artificial brain from a
-genome and helping it evolve over generations.
+# FEAGI is a brain inspired evolutionary framework capable of growing an artificial brain from a
+# genome and helping it evolve over generations.
+#
+# This main module is responsible for driving the lifecycle of a single generation of an
+# artificial brain at a time. To scale up the system to many parallel generations, FEAGI
+# is intended to run within a container and scale up to many container instances.
 
-This main module is responsible for driving the lifecycle of a single generation of an
-artificial brain at a time. To scale up the system to many parallel generations, FEAGI
-is intended to run within a container and scale up to many container instances.
-"""
 import sys
 sys.path.append('../')
 import uvicorn
 import platform
 import json
 import logging.config
-from inf.initialize import init_parameters, runtime_data
+
+from inf.initialize import init_parameters
+from inf import runtime_data
 
 if platform.system() == 'Windows':
     with open("logging_config.json", "r") as config_file:
