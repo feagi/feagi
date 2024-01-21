@@ -54,7 +54,7 @@ Syntax
 
 
 - OPU
-  - o_sper
+  - o__ser
   - o__mot
   - o__bat
 

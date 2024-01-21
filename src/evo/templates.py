@@ -135,7 +135,7 @@ cortical_types = {
     "OPU": {
         "gui_name": "Actuators",
         "supported_devices": {
-            "motor": {
+            "o__mot": {
                 "enabled": True,
                 "cortical_name": "motor_opu",
                 "structure": "asymmetric",
