@@ -14,43 +14,25 @@
 # ==============================================================================
 
 
-import os
 from fastapi import APIRouter
 
-from ...schemas import *
-from ...commons import *
+from ....inf import runtime_data
 
 
 router = APIRouter()
 
 
-# #########  Robot   ###########
-# ##############################
-@router.post("/parameters")
-async def robot_controller_tunner(message: RobotController):
+@router.get("/v1/feagi/genome/plasticity_queue_depth")
+async def show_plasticity_queue_depth():
+    """
+    Returns the current plasticity queue depth value
+    """
+    return runtime_data.genome["plasticity_queue_depth"]
+
+
+@router.put("/v1/feagi/genome/plasticity_queue_depth")
+async def update_plasticity_queue_depth(queue_depth: int):
     """
     Enables changes against various Burst Engine parameters.
     """
-
-    message = message.dict()
-    message = {'robot_controller': message}
-    api_queue.put(item=message)
-
-
-@router.post("/model")
-async def robot_model_modification(message: RobotModel):
-    """
-    Enables changes against various Burst Engine parameters.
-    """
-
-    message = message.dict()
-    message = {'robot_model': message}
-    api_queue.put(item=message)
-
-
-@router.get("/gazebo/files")
-async def gazebo_robot_default_files():
-
-    default_robots_path = "./evo/defaults/robot/"
-    default_robots = os.listdir(default_robots_path)
-    return {"robots": default_robots}
+    runtime_data.genome["plasticity_queue_depth"] = queue_depth

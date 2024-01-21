@@ -1,4 +1,4 @@
-# Copyright 2016-2023 The FEAGI Authors. All Rights Reserved.
+# Copyright 2016-2024 The FEAGI Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,25 +16,16 @@
 import traceback
 import time
 import string
-import logging
 import random
 
-import io
-
-from fastapi import FastAPI, Depends, File, UploadFile, Response, status, Request, HTTPException
-
-
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import FileResponse, StreamingResponse
-
 
 from threading import Thread
+from ..inf import feagi
 
 from io import StringIO, BytesIO
 
-from inf import feagi
-from inf import runtime_data
-from inf.baseline import gui_baseline
 
 from .config import settings
 
@@ -44,7 +35,7 @@ from .error_handling import *
 from .commons import *
 from .models import *
 from .routers.v1 import burst_engine, connectome, embodiment, evolution, feagi_agent, genome, insights, morphology, \
-    network, simulation, system, training
+    network, simulation, system, training, cortical_area, neuroplasticity, cortical_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -159,11 +150,109 @@ standard_response = {
 #     return response
 
 
-
 app.include_router(
     burst_engine.router,
+    prefix="/v1/burst_engine",
+    tags=["BURST ENGINE"],
+    dependencies=[Depends(tbd)],
+    responses=standard_response
+)
+
+app.include_router(
+    connectome.router,
+    prefix="/v1/connectome",
+    tags=["CONNECTOME"],
+    dependencies=[Depends(tbd)],
+    responses=standard_response
+)
+app.include_router(
+    embodiment.router,
+    prefix="/v1/robot",
+    tags=["EMBODIMENT"],
+    dependencies=[Depends(tbd)],
+    responses=standard_response
+)
+app.include_router(
+    evolution.router,
+    prefix="/v1/evolution",
+    tags=["EVOLUTIONARY"],
+    dependencies=[Depends(tbd)],
+    responses=standard_response
+)
+app.include_router(
+    feagi_agent.router,
+    prefix="/v1/agent",
+    tags=["FEAGI AGENT"],
+    dependencies=[Depends(tbd)],
+    responses=standard_response
+)
+app.include_router(
+    genome.router,
     prefix="/v1/genomes",
-    tags=["GENOME MANAGEMENT"],
+    tags=["GENOME"],
+    dependencies=[Depends(tbd)],
+    responses=standard_response
+)
+app.include_router(
+    insights.router,
+    prefix="/v1/insights",
+    tags=["INSIGHTS"],
+    dependencies=[Depends(tbd)],
+    responses=standard_response
+)
+app.include_router(
+    morphology.router,
+    prefix="/v1/morphology",
+    tags=["MORPHOLOGY"],
+    dependencies=[Depends(tbd)],
+    responses=standard_response
+)
+app.include_router(
+    cortical_area.router,
+    prefix="/v1/cortical_area",
+    tags=["CORTICAL AREA"],
+    dependencies=[Depends(tbd)],
+    responses=standard_response
+)
+app.include_router(
+    network.router,
+    prefix="/v1/network",
+    tags=["NETWORK"],
+    dependencies=[Depends(tbd)],
+    responses=standard_response
+)
+app.include_router(
+    simulation.router,
+    prefix="/v1/simulation",
+    tags=["SIMULATION"],
+    dependencies=[Depends(tbd)],
+    responses=standard_response
+)
+app.include_router(
+    system.router,
+    prefix="/v1/system",
+    tags=["SYSTEM"],
+    dependencies=[Depends(tbd)],
+    responses=standard_response
+)
+app.include_router(
+    training.router,
+    prefix="/v1/training",
+    tags=["TRAINING"],
+    dependencies=[Depends(tbd)],
+    responses=standard_response
+)
+app.include_router(
+    cortical_mapping.router,
+    prefix="/v1/cortical_mapping",
+    tags=["CORTICAL MAPPINGS"],
+    dependencies=[Depends(tbd)],
+    responses=standard_response
+)
+app.include_router(
+    neuroplasticity.router,
+    prefix="/v1/neuroplasticity",
+    tags=["NEUROPLASTICITY"],
     dependencies=[Depends(tbd)],
     responses=standard_response
 )

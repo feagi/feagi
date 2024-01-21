@@ -1,15 +1,32 @@
+# Copyright 2016-2024 The FEAGI Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
+
 import tempfile
 from fastapi import APIRouter, File, UploadFile
 from fastapi import HTTPException
 from starlette.responses import FileResponse
-from datetime import datetime
+
 from ast import literal_eval
-# from threading import Thread
+from threading import Thread
 
 from ...commons import *
 from ....inf import runtime_data
 from ....evo.synapse import cortical_mapping
 from ....inf.disk_ops import preserve_brain, revive_brain
+from ....inf.feagi import start_feagi
 from ....inf.initialize import deploy_genome
 
 
@@ -18,7 +35,7 @@ router = APIRouter()
 
 # ######  Connectome Endpoints #########
 # ######################################
-@router.get("/v1/feagi/connectome/cortical_areas/list/summary")
+@router.get("/cortical_areas/list/summary")
 async def connectome_cortical_areas_summary():
     cortical_list = set()
     for cortical_area in runtime_data.brain:
@@ -27,12 +44,12 @@ async def connectome_cortical_areas_summary():
     return cortical_list
 
 
-@router.get("/v1/feagi/connectome/cortical_areas/list/transforming")
+@router.get("/cortical_areas/list/transforming")
 async def transforming_cortical_areas_summary():
     return runtime_data.transforming_areas
 
 
-@router.get("/v1/feagi/connectome/cortical_areas/list/detailed")
+@router.get("/cortical_areas/list/detailed")
 async def connectome_cortical_areas():
     cortical_list = dict()
     for cortical_area in runtime_data.brain:
@@ -44,7 +61,7 @@ async def connectome_cortical_areas():
     return cortical_list
 
 
-@router.get("/v1/feagi/connectome/cortical_info")
+@router.get("/cortical_info")
 async def connectome_cortical_info(cortical_area: str):
 
     if cortical_area in runtime_data.brain:
@@ -53,20 +70,17 @@ async def connectome_cortical_info(cortical_area: str):
         raise HTTPException(status_code=404, detail="Requested cortical area not found!")
 
 
-# @router.api_route("/v1/feagi/connectome/all", methods=['Get'], tags=["Connectome"])
+# @router.get("/all")
 # async def connectome_comprehensive_info(response: Response):
-#     try:
-#         if runtime_data.brain:
-#             response.status_code = status.HTTP_200_OK
-#             return runtime_data.brain
-#         else:
-#             response.status_code = status.HTTP_404_NOT_FOUND
-#     except Exception as e:
-#         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-#         print("API Error:", e)
+
+    # if runtime_data.brain:
+    #     response.status_code = status.HTTP_200_OK
+    #     return runtime_data.brain
+    # else:
+    #     response.status_code = status.HTTP_404_NOT_FOUND
 
 
-@router.get("/v1/feagi/connectome/plasticity")
+@router.get("/plasticity")
 async def connectome_plasticity_info():
     if runtime_data.plasticity_dict:
         return runtime_data.plasticity_dict
@@ -74,7 +88,7 @@ async def connectome_plasticity_info():
         return {}
 
 
-@router.get("/v1/feagi/connectome/path")
+@router.get("/path")
 async def connectome_system_path():
     if runtime_data.connectome_path:
         return runtime_data.connectome_path
@@ -82,20 +96,20 @@ async def connectome_system_path():
         return {}
 
 
-# @router.post("/v1/feagi/connectome/source")
-# async def connectome_source_path(connectome_path: str):
-#     feagi_thread = Thread(target=start_feagi, args=(api_queue, 'connectome', 'path', connectome_path,))
-#     feagi_thread.start()
+@router.post("/source")
+async def connectome_source_path(connectome_path: str):
+    feagi_thread = Thread(target=start_feagi, args=(api_queue, 'connectome', 'path', connectome_path,))
+    feagi_thread.start()
 
 
-@router.post("/v1/feagi/connectome/snapshot")
+@router.post("/snapshot")
 async def connectome_snapshot(connectome_storage_path: str):
     message = {'connectome_path': connectome_storage_path}
     print("Snapshot path:", message)
     api_queue.put(item=message)
 
 
-@router.get("/v1/feagi/connectome/download-cortical-area")
+@router.get("/download-cortical-area")
 async def connectome_download(cortical_area: str):
     print("Downloading Connectome...")
     file_name = "connectome_" + cortical_area + datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".json"
@@ -106,7 +120,7 @@ async def connectome_download(cortical_area: str):
         raise HTTPException(status_code=404, detail="Requested cortical area not found!")
 
 
-@router.post("/v1/feagi/connectome/upload-cortical-area")
+@router.post("/upload-cortical-area")
 async def connectome_file_upload(file: UploadFile = File(...)):
     data = await file.read()
     connectome_str = data.decode("utf-8").split(" = ")[1]
@@ -116,7 +130,7 @@ async def connectome_file_upload(file: UploadFile = File(...)):
     return {"Connectome received as a file"}
 
 
-@router.get("/v1/feagi/connectome/properties/dimensions")
+@router.get("/properties/dimensions")
 async def connectome_dimensions_report():
     if runtime_data.cortical_dimensions:
         return runtime_data.cortical_dimensions
@@ -124,7 +138,7 @@ async def connectome_dimensions_report():
         return [0, 0, 0]
 
 
-@router.get("/v1/feagi/connectome/stats/cortical/cumulative")
+@router.get("/stats/cortical/cumulative")
 async def connectome_dimensions_report(cortical_area: str):
     if runtime_data.cumulative_stats[cortical_area]:
         return runtime_data.cumulative_stats[cortical_area]
@@ -132,7 +146,7 @@ async def connectome_dimensions_report(cortical_area: str):
         return {}
 
 
-@router.get("/v1/feagi/connectome/properties/mappings")
+@router.get("/properties/mappings")
 async def connectome_mapping_report():
     """
     Report result can be used with the following tool to visualize the connectome mapping:
@@ -149,7 +163,7 @@ async def connectome_mapping_report():
         return {}
 
 
-@router.get("/v1/feagi/connectome/download")
+@router.get("/download")
 async def download_connectome():
     """
     Creates a compressed file containing the entire brain data
@@ -179,7 +193,7 @@ async def download_connectome():
         return response
 
 
-@router.post("/v1/feagi/connectome/upload")
+@router.post("/upload")
 async def upload_connectome(file: UploadFile = File(...)):
 
     runtime_data.brain_readiness = False

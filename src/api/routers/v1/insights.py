@@ -1,6 +1,22 @@
+# Copyright 2016-2024 The FEAGI Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
+
 from fastapi import APIRouter, HTTPException
 
-from ...commons import *
+# from ...commons import *
 from ....inf import runtime_data
 
 
@@ -10,7 +26,7 @@ router = APIRouter()
 # ######  Statistics and Reporting Endpoints #########
 # ####################################################
 
-@router.get("/v1/feagi/monitoring/neuron/membrane_potential")
+@router.get("/neurons/membrane_potential")
 async def cortical_neuron_membrane_potential_monitoring(cortical_area):
     print("Cortical membrane potential monitoring", runtime_data.neuron_mp_collection_scope)
 
@@ -20,7 +36,7 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area):
         return False
 
 
-@router.post("/v1/feagi/monitoring/neuron/membrane_potential")
+@router.post("/neurons/membrane_potential")
 async def cortical_neuron_membrane_potential_monitoring(cortical_area, state: bool):
     print("Cortical membrane potential monitoring", runtime_data.neuron_mp_collection_scope)
 
@@ -39,7 +55,7 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area, state: bo
         raise HTTPException(status_code=400, detail="InfluxDb service is not running!")
 
 
-@router.get("/v1/feagi/monitoring/neuron/synaptic_potential", tags=["Insights"])
+@router.get("/neuron/synaptic_potential")
 async def cortical_synaptic_potential_monitoring(cortical_area):
     print("Cortical synaptic potential monitoring flag", runtime_data.neuron_psp_collection_scope)
 
@@ -49,7 +65,7 @@ async def cortical_synaptic_potential_monitoring(cortical_area):
         return False
 
 
-@router.post("/v1/feagi/monitoring/neuron/synaptic_potential")
+@router.post("/neuron/synaptic_potential")
 async def cortical_synaptic_potential_monitoring(cortical_area, state: bool):
     print("Cortical synaptic potential monitoring flag", runtime_data.neuron_psp_collection_scope)
     if runtime_data.influxdb:
@@ -66,84 +82,84 @@ async def cortical_synaptic_potential_monitoring(cortical_area, state: bool):
         raise HTTPException(status_code=400, detail="InfluxDb service is not running!")
 
 
-@router.get("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting")
-async def neuron_membrane_potential_collection_filters():
-    print("Membrane potential monitoring filter setting:", runtime_data.neuron_mp_collection_scope)
-
-    if runtime_data.neuron_mp_collection_scope:
-        return runtime_data.neuron_mp_collection_scope
-    else:
-        return {}
-
-
-@router.get("/v1/feagi/neuron/physiology/postsynaptic_potential_monitoring/filter_setting")
-async def neuron_postsynaptic_potential_collection_filters():
-    print("Membrane potential monitoring filter setting:", runtime_data.neuron_psp_collection_scope)
-    if runtime_data.neuron_psp_collection_scope:
-        return runtime_data.neuron_psp_collection_scope
-    else:
-        return {}
-
-
-@router.post("/v1/feagi/neuron/physiology/membrane_potential_monitoring/filter_setting")
-async def neuron_membrane_potential_monitoring_scope(message: dict):
-    """
-    Monitor the membrane potential of select cortical areas and voxels in Grafana.
-    Message Template:
-            {
-                "o__mot": {
-                    "voxels": [[0, 0, 0], [2, 0, 0]],
-                    "neurons": []
-                },
-                "i__inf": {
-                    "voxels": [[1, 1, 1]],
-                    "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3']
-                },
-                ...
-            }
-    """
-
-    message = {'neuron_mp_collection_scope': message}
-    api_queue.put(item=message)
-
-
-@router.post("/v1/feagi/neuron/physiology/postsynaptic_potential_monitoring")
-async def neuron_postsynaptic_potential_monitoring_scope(message: dict):
-    """
-    Monitor the post synaptic potentials of select cortical areas and voxels in Grafana.
-
-    Message Template:
-            {
-                "o__mot": {
-                    "dst_filter": {
-                        "voxels": [[0, 0, 0], [2, 0, 0]],
-                        "neurons": []
-                        },
-                    "sources": {
-                        "i__inf": {
-                            "voxels": [[1, 1, 1]],
-                            "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3']
-                            },
-                        "o__inf": {
-                            "voxels": [[1, 1, 1]],
-                            "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3']
-                            }
-                    },
-                },
-                "i__bat": {
-                    "dst_filter": {
-                        "voxels": [[0, 0, 0], [2, 0, 0]],
-                        "neurons": []
-                    },
-                    "sources": {
-                        "i__inf": {
-                            "voxels": [[1, 1, 1]],
-                            "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3']
-                        }
-                    }
-                }
-            }
-    """
-
-    message = {'neuron_psp_collection_scope': message}
-    api_queue.put(item=message)
+# @router.get("/membrane_potential_monitoring/filter_setting")
+# async def neuron_membrane_potential_collection_filters():
+#     print("Membrane potential monitoring filter setting:", runtime_data.neuron_mp_collection_scope)
+#
+#     if runtime_data.neuron_mp_collection_scope:
+#         return runtime_data.neuron_mp_collection_scope
+#     else:
+#         return {}
+#
+#
+# @router.get("/postsynaptic_potential_monitoring/filter_setting")
+# async def neuron_postsynaptic_potential_collection_filters():
+#     print("Membrane potential monitoring filter setting:", runtime_data.neuron_psp_collection_scope)
+#     if runtime_data.neuron_psp_collection_scope:
+#         return runtime_data.neuron_psp_collection_scope
+#     else:
+#         return {}
+#
+#
+# @router.post("/membrane_potential_monitoring/filter_setting")
+# async def neuron_membrane_potential_monitoring_scope(message: dict):
+#     """
+#     Monitor the membrane potential of select cortical areas and voxels in Grafana.
+#     Message Template:
+#             {
+#                 "o__mot": {
+#                     "voxels": [[0, 0, 0], [2, 0, 0]],
+#                     "neurons": []
+#                 },
+#                 "i__inf": {
+#                     "voxels": [[1, 1, 1]],
+#                     "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3']
+#                 },
+#                 ...
+#             }
+#     """
+#
+#     message = {'neuron_mp_collection_scope': message}
+#     api_queue.put(item=message)
+#
+#
+# @router.post("/postsynaptic_potential_monitoring")
+# async def neuron_postsynaptic_potential_monitoring_scope(message: dict):
+#     """
+#     Monitor the post synaptic potentials of select cortical areas and voxels in Grafana.
+#
+#     Message Template:
+#             {
+#                 "o__mot": {
+#                     "dst_filter": {
+#                         "voxels": [[0, 0, 0], [2, 0, 0]],
+#                         "neurons": []
+#                         },
+#                     "sources": {
+#                         "i__inf": {
+#                             "voxels": [[1, 1, 1]],
+#                             "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3']
+#                             },
+#                         "o__inf": {
+#                             "voxels": [[1, 1, 1]],
+#                             "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3']
+#                             }
+#                     },
+#                 },
+#                 "i__bat": {
+#                     "dst_filter": {
+#                         "voxels": [[0, 0, 0], [2, 0, 0]],
+#                         "neurons": []
+#                     },
+#                     "sources": {
+#                         "i__inf": {
+#                             "voxels": [[1, 1, 1]],
+#                             "neurons": ['neuron_id_1', 'neuron_id_2', 'neuron_id_3']
+#                         }
+#                     }
+#                 }
+#             }
+#     """
+#
+#     message = {'neuron_psp_collection_scope': message}
+#     api_queue.put(item=message)

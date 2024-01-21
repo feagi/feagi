@@ -1,3 +1,18 @@
+# Copyright 2016-2024 The FEAGI Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -10,23 +25,21 @@ router = APIRouter()
 # ######  Peripheral Nervous System Endpoints #########
 # #####################################################
 
-@router.get("/v1/feagi/feagi/pns/current/ipu")
-async def current_ipu_list():
-    if runtime_data.ipu_list:
-        return runtime_data.ipu_list
-    else:
-        return {}
+def assign_available_port():
+    ports_used = []
+    port_ranges = (40001, 40050)
+    for agent_id, agent_info in runtime_data.agent_registry.items():
+        print(agent_id, agent_info, agent_info['agent_type'], type(agent_info['agent_type']))
+        if agent_info['agent_type'] != 'monitor':
+            ports_used.append(agent_info['agent_data_port'])
+    print("ports_used", ports_used)
+    for port in range(port_ranges[0], port_ranges[1]):
+        if port not in ports_used:
+            return port
+    return None
 
 
-@router.get("/v1/feagi/feagi/pns/current/opu")
-async def current_opu_list():
-    if runtime_data.opu_list:
-        return runtime_data.opu_list
-    else:
-        return {}
-
-
-@router.get("/v1/agent/list")
+@router.get("/list")
 async def agent_list():
     agents = set(runtime_data.agent_registry.keys())
     if agents:
@@ -35,7 +48,7 @@ async def agent_list():
         return {}
 
 
-@router.get("/v1/agent/properties")
+@router.get("/properties")
 async def agent_properties(agent_id: str):
     print("agent_id", agent_id)
     print("agent_registry", runtime_data.agent_registry)
@@ -52,21 +65,7 @@ async def agent_properties(agent_id: str):
         raise HTTPException(status_code=404, detail="Requested agent not found!")
 
 
-def assign_available_port():
-    ports_used = []
-    port_ranges = (40001, 40050)
-    for agent_id, agent_info in runtime_data.agent_registry.items():
-        print(agent_id, agent_info, agent_info['agent_type'], type(agent_info['agent_type']))
-        if agent_info['agent_type'] != 'monitor':
-            ports_used.append(agent_info['agent_data_port'])
-    print("ports_used", ports_used)
-    for port in range(port_ranges[0], port_ranges[1]):
-        if port not in ports_used:
-            return port
-    return None
-
-
-@router.post("/v1/agent/register")
+@router.post("/register")
 async def agent_registration(request: Request, agent_type: str, agent_id: str, agent_data_port: int,
                              agent_version: str, controller_version: str):
 
@@ -102,7 +101,7 @@ async def agent_registration(request: Request, agent_type: str, agent_id: str, a
     return agent_info
 
 
-@router.delete("/v1/agent/deregister")
+@router.delete("/deregister")
 async def agent_removal(agent_id: str):
 
     if agent_id in runtime_data.agent_registry:

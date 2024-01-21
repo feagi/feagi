@@ -1,3 +1,18 @@
+# Copyright 2016-2024 The FEAGI Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 from fastapi import APIRouter
 
 from ....inf import runtime_data
@@ -9,7 +24,7 @@ router = APIRouter()
 # ######  Evolution #########
 # #############################
 
-@router.get("/v1/feagi/evolution/autopilot/status")
+@router.get("/autopilot/status")
 async def return_autopilot_status():
     """
     Returns the status of genome autopilot system.
@@ -21,7 +36,7 @@ async def return_autopilot_status():
         return False
 
 
-@router.post("/v1/feagi/evolution/autopilot/on")
+@router.post("/autopilot/on")
 async def turn_autopilot_on():
     if not runtime_data.autopilot:
         autopilot.init_generation_dict()
@@ -31,13 +46,13 @@ async def turn_autopilot_on():
         print("<" * 30, "  Autopilot has been turned on  ", ">" * 30)
 
 
-@router.post("/v1/feagi/evolution/autopilot/off", tags=["Evolution"])
+@router.post("/autopilot/off", tags=["Evolution"])
 async def turn_autopilot_off():
     runtime_data.autopilot = False
     return
 
 
-@router.get("/v1/feagi/evolution/generations")
+@router.get("/generations")
 async def list_generations():
     """
     Return details about all generations.
@@ -49,7 +64,7 @@ async def list_generations():
         return {}
 
 
-@router.get("/v1/feagi/evolution/change_register")
+@router.get("/change_register")
 async def list_generations():
     """
     Return details about all generations.
