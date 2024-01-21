@@ -1,21 +1,22 @@
+from fastapi import APIRouter, HTTPException
+
+from ...commons import *
+
+router = APIRouter()
+
 
 # ######  Networking Endpoints #########
 # ##################################
 
-@app.api_route("/v1/feagi/feagi/network", methods=['GET'], tags=["Networking"])
-async def network_management(response: Response):
-    try:
-        if runtime_data.parameters['Sockets']:
-            response.status_code = status.HTTP_200_OK
-            return runtime_data.parameters['Sockets']
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
+@router.get("/v1/feagi/feagi/network")
+async def network_management():
+    if runtime_data.parameters['Sockets']:
+        return runtime_data.parameters['Sockets']
+    else:
+        raise HTTPException(status_code=400, detail=f"Networking data not available!")
 
 
-# @app.api_route("/v1/feagi/feagi/network", methods=['POST'], tags=["Networking"])
+# @router.api_route("/v1/feagi/feagi/network", methods=['POST'], tags=["Networking"])
 # async def network_management(message: Network):
 #     try:
 #         message = message.dict()

@@ -1,9 +1,18 @@
 
+from fastapi import APIRouter
+
+from ...schemas import *
+from ...commons import *
+
+
+router = APIRouter()
+
+
 # ######  Stimulation #########
 # #############################
 
-@app.api_route("/v1/feagi/stimulation/upload/string", methods=['POST'], tags=["Stimulation"])
-async def stimulation_string_upload(stimulation_script: Stimulation, response: Response):
+@router.api_route("/v1/feagi/stimulation/upload/string", methods=['POST'], tags=["Stimulation"])
+async def stimulation_string_upload(stimulation_script: Stimulation):
     """
     stimulation_script = {
     "IR_pain": {
@@ -28,25 +37,14 @@ async def stimulation_string_upload(stimulation_script: Stimulation, response: R
         ]
     }
     """
-    try:
-        message = stimulation_script.dict()
-        message = {'stimulation_script': message}
-        api_queue.put(item=message)
-        response.status_code = status.HTTP_200_OK
 
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e)
+    message = stimulation_script.dict()
+    message = {'stimulation_script': message}
+    api_queue.put(item=message)
 
 
-@app.api_route("/v1/feagi/stimulation/reset", methods=['POST'], tags=["Stimulation"])
-async def stimulation_string_upload(response: Response):
-    try:
-        message = {"stimulation_script": {}}
-        message = {'stimulation_script': message}
-        api_queue.put(item=message)
-        response.status_code = status.HTTP_200_OK
-
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        print("API Error:", e, traceback.print_exc)
+@router.post("/v1/feagi/stimulation/reset")
+async def stimulation_string_upload():
+    message = {"stimulation_script": {}}
+    message = {'stimulation_script': message}
+    api_queue.put(item=message)

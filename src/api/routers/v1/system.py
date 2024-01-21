@@ -1,9 +1,11 @@
-from datetime import datetime
-from fastapi import HTTPException
-from ....inf import runtime_data
+import os
+from fastapi import APIRouter, HTTPException
+
 from ....version import __version__
 from ...commons import *
 from ...schemas import *
+
+router = APIRouter()
 
 
 # ######   System Endpoints #########
@@ -24,7 +26,7 @@ def human_readable_version(version):
     return reminder + '-' + human_readable_time.strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
-@app.get("/v1/feagi/versions", tags=["System"])
+@router.get("/v1/feagi/versions", tags=["System"])
 def get_versions():
     try:
         all_versions = dict()
@@ -41,7 +43,7 @@ def get_versions():
         print(f"Error during version collection {e}")
 
 
-@app.get("/v1/feagi/health_check", tags=["System"])
+@router.get("/v1/feagi/health_check", tags=["System"])
 async def feagi_health_check():
     health = dict()
     health["burst_engine"] = not runtime_data.exit_condition
@@ -66,12 +68,12 @@ async def feagi_health_check():
     return health
 
 
-@app.get("/v1/feagi/unique_logs", tags=["System"])
+@router.get("/v1/feagi/unique_logs")
 async def unique_log_entries():
     return runtime_data.logs
 
 
-@app.api_route("/v1/feagi/register", methods=['POST'], tags=["System"])
+@router.post("/v1/feagi/register")
 async def feagi_registration(message: Registration):
     message = message.dict()
     source = message['source']
@@ -81,42 +83,39 @@ async def feagi_registration(message: Registration):
     print("########## ###### >>>>>> >>>> ", source, host, capabilities)
 
 
-@app.api_route("/v1/feagi/feagi/logs", methods=['POST'], tags=["System"])
+@router.post("/v1/feagi/feagi/logs")
 async def log_management(message: Logs):
     message = message.dict()
     message = {"log_management": message}
     api_queue.put(item=message)
 
 
-@app.api_route("/v1/feagi/feagi/configuration", methods=['Get'], tags=["System"])
+@router.get("/v1/feagi/feagi/configuration")
 async def configuration_parameters():
-   return runtime_data.parameters
+    return runtime_data.parameters
 
 
-@app.api_route("/v1/feagi/feagi/beacon/subscribers", methods=['GET'], tags=["System"])
+@router.get("/v1/feagi/feagi/beacon/subscribers")
 async def beacon_query():
     if runtime_data.beacon_sub:
-        print("A")
         return tuple(runtime_data.beacon_sub)
     else:
         raise HTTPException(status_code=404, detail=f"No subscriber found")
-        print("B")
-        return {}
 
 
-@app.api_route("/v1/feagi/feagi/beacon/subscribe", methods=['POST'], tags=["System"])
+@router.post("/v1/feagi/feagi/beacon/subscribe")
 async def beacon_subscribe(message: Subscriber):
     message = {'beacon_sub': message.subscriber_address}
     api_queue.put(item=message)
 
 
-@app.api_route("/v1/feagi/feagi/beacon/unsubscribe", methods=['DELETE'], tags=["System"])
+@router.delete("/v1/feagi/feagi/beacon/unsubscribe")
 async def beacon_unsubscribe(message: Subscriber):
     message = {"beacon_unsub": message.subscriber_address}
     api_queue.put(item=message)
 
 
-@app.api_route("/v1/feagi/db/influxdb/test", methods=['GET'], tags=["System"])
+@router.get("/v1/feagi/db/influxdb/test")
 async def test_influxdb():
     """
     Enables changes against various Burst Engine parameters.
@@ -125,19 +124,12 @@ async def test_influxdb():
     influx_status = runtime_data.influxdb.test_influxdb()
     if influx_status:
         return influx_status
-    else:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return influx_status
 
 
-
-@app.api_route("/v1/feagi/circuit_library_path", methods=['POST'], tags=["System"])
+@router.post("/v1/feagi/circuit_library_path")
 async def change_circuit_library_path(circuit_library_path: str):
-        if os.path.exists(circuit_library_path):
-            runtime_data.circuit_lib_path = circuit_library_path
-            print(f"{circuit_library_path} is the new circuit library path.")
-            response.status_code = status.HTTP_200_OK
-        else:
-            response.status_code = status.HTTP_404_NOT_FOUND
-            print(f"{circuit_library_path} is not a valid path.")
-
+    if os.path.exists(circuit_library_path):
+        runtime_data.circuit_lib_path = circuit_library_path
+        print(f"{circuit_library_path} is the new circuit library path.")
+    else:
+        raise HTTPException(status_code=400, detail=f"{circuit_library_path} is not a valid path.")
