@@ -5,10 +5,10 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from starlette.responses import FileResponse
 
-from ....inf import runtime_data
-from ....inf.initialize import generate_cortical_dimensions_by_id
 from ...schemas import *
 from ...commons import *
+from ....inf import runtime_data
+from ....inf.initialize import generate_cortical_dimensions_by_id
 from ....evo.genome_properties import genome_properties
 from ....evo.x_genesis import neighboring_cortical_areas, add_core_cortical_area, add_custom_cortical_area
 from ....evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
