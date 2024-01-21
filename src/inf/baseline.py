@@ -23,7 +23,7 @@ gui_baseline = {
     },
     'opu': {
         'o__mot',
-        'o_sper'
+        'o__ser'
     },
     "morphology": {
         "block_to_block": {
