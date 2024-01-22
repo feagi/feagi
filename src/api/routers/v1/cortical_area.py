@@ -32,11 +32,11 @@ router = APIRouter()
 
 
 @router.get("/cortical_area")
-async def fetch_cortical_properties(cortical_area):
+async def fetch_cortical_properties(cortical_name: CorticalName):
     """
     Returns the properties of cortical areas
     """
-
+    cortical_area = cortical_name.cortical_name
     if len(cortical_area) == genome_properties["structure"]["cortical_name_length"]:
         if cortical_area in runtime_data.genome['blueprint']:
             cortical_data = runtime_data.genome['blueprint'][cortical_area]
@@ -167,11 +167,11 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
 
 
 @router.delete("/cortical_area")
-async def delete_cortical_area(cortical_area_name):
+async def delete_cortical_area(cortical_name: CorticalName):
     """
     Enables changes against various Burst Engine parameters.
     """
-
+    cortical_area_name = cortical_name.cortical_name
     message = {'delete_cortical_area': cortical_area_name}
     api_queue.put(item=message)
 
@@ -188,11 +188,11 @@ async def genome_cortical_ids():
 
 
 @router.get("/cortical_name_location")
-async def genome_cortical_location_by_name(cortical_name):
+async def genome_cortical_location_by_name(cortical_name: CorticalName):
     """
     Returns a comprehensive list of all cortical area names.
     """
-
+    cortical_name = cortical_name.cortical_name
     cortical_area = cortical_name_to_id(cortical_name=cortical_name)
     return runtime_data.genome["blueprint"][cortical_area]["relative_coordinate"]
 
