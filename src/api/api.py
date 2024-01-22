@@ -171,7 +171,7 @@ app.include_router(
 app.include_router(
     embodiment.router,
     prefix="/v1/robot",
-    tags=["EMBODIMENT"],
+    tags=["EMBODIMENTS"],
     dependencies=[Depends(tbd)],
     responses=standard_response
 )
@@ -203,7 +203,7 @@ app.include_router(
 app.include_router(
     morphology.router,
     prefix="/v1/morphology",
-    tags=["MORPHOLOGY"],
+    tags=["NEURON MORPHOLOGIES"],
     dependencies=[Depends(tbd)],
     responses=standard_response
 )
@@ -211,7 +211,7 @@ app.include_router(
 app.include_router(
     cortical_area.router,
     prefix="/v1/cortical_area",
-    tags=["CORTICAL AREA"],
+    tags=["CORTICAL AREAS"],
     dependencies=[Depends(tbd)],
     responses=standard_response
 )

@@ -376,7 +376,6 @@ def init_resources():
 
 
 def init_infrastructure():
-    print("@@@@--parameters-", runtime_data.parameters)
     if not runtime_data.parameters:
         from src.configuration import init_parameters
         runtime_data.parameters = init_parameters()

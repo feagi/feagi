@@ -46,7 +46,7 @@ async def turn_autopilot_on():
         print("<" * 30, "  Autopilot has been turned on  ", ">" * 30)
 
 
-@router.post("/autopilot/off", tags=["Evolution"])
+@router.post("/autopilot/off")
 async def turn_autopilot_off():
     runtime_data.autopilot = False
     return

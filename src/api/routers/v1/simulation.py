@@ -11,7 +11,7 @@ router = APIRouter()
 # ######  Stimulation #########
 # #############################
 
-@router.api_route("/upload/string", methods=['POST'], tags=["Stimulation"])
+@router.post("/upload/string")
 async def stimulation_string_upload(stimulation_script: Stimulation):
     """
     stimulation_script = {
