@@ -28,6 +28,7 @@ todo: need a higher level mechanism to switch between life mode and autopilot mo
 """
 import os
 import glob
+import random
 import traceback
 
 import requests
@@ -57,14 +58,6 @@ def cortical_group_members(group):
     #         members.append(item)
     return [item for item in runtime_data.cortical_list if runtime_data.genome['blueprint'][item]['group_id'][:1]
             == group]
-
-
-def neuro_excitability_check(cortical_area):
-    if "neuron_excitability" in runtime_data.genome["blueprint"][cortical_area]:
-        excitability_percentage = runtime_data.genome["blueprint"][cortical_area]["neuron_excitability"]
-    else:
-        excitability_percentage = 100
-    # todo
 
 
 def burst_manager():
