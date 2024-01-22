@@ -67,7 +67,7 @@ async def agent_properties(agent_id: str):
         agent_info["controller_version"] = runtime_data.agent_registry[agent_id]["controller_version"]
         return agent_info
     else:
-        raise HTTPException(status_code=404, detail="Requested agent not found!")
+        raise HTTPException(status_code=400, detail="Requested agent not found!")
 
 
 @router.post("/register")
@@ -113,7 +113,7 @@ async def agent_removal(agent_id: str):
         agent_info = runtime_data.agent_registry.pop(agent_id)
         agent_info['listener'].terminate()
     else:
-        raise HTTPException(status_code=404, detail="Requested agent not found!")
+        raise HTTPException(status_code=400, detail="Requested agent not found!")
 
 
 @router.post("/parameters")

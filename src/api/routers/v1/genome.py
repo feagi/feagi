@@ -100,7 +100,7 @@ async def genome_download():
     if runtime_data.genome:
         return FileResponse(path=runtime_data.connectome_path + "genome.json", filename=file_name)
     else:
-        raise HTTPException(status_code=404, detail="No running genome found!")
+        raise HTTPException(status_code=400, detail="No running genome found!")
 
 
 @router.post("/upload/file/edit")
@@ -225,7 +225,7 @@ async def amalgamation_conclusion(circuit_origin_x: int,
         runtime_data.amalgamation_history["amalgamation_id"] = "complete"
         return f"Amalgamation for \"{genome_title}\" is complete."
     else:
-        raise HTTPException(status_code=404, detail="No pending amalgamation request found")
+        raise HTTPException(status_code=400, detail="No pending amalgamation request found")
 
 
 @router.get("/amalgamation")
@@ -233,7 +233,7 @@ async def circuit_library(amalgamation_id):
     if amalgamation_id in runtime_data.amalgamation_history:
         return runtime_data.amalgamation_history[amalgamation_id]
     else:
-        raise HTTPException(status_code=404, detail="No matching amalgamation found")
+        raise HTTPException(status_code=400, detail="No matching amalgamation found")
 
 
 @router.delete("/amalgamation_cancellation")

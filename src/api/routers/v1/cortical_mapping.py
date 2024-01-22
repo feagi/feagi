@@ -87,7 +87,7 @@ async def fetch_cortical_mappings(cortical_id: CorticalId):
     if runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
         return runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']
     else:
-        raise HTTPException(status_code=404, detail=f"Cortical area with id={cortical_area} not found!")
+        raise HTTPException(status_code=400, detail=f"Cortical area with id={cortical_area} not found!")
 
 
 @router.get("/mapping_properties")
@@ -100,7 +100,7 @@ async def fetch_cortical_mapping_properties(source_destination: CorticalAreaSrcD
     if dst_cortical_area in runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst']:
         return runtime_data.genome['blueprint'][src_cortical_area]['cortical_mapping_dst'][dst_cortical_area]
     else:
-        raise HTTPException(status_code=404,
+        raise HTTPException(status_code=400,
                             detail=f"{dst_cortical_area} is not a cortical destination of {src_cortical_area}!")
 
 

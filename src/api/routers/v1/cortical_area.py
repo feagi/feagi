@@ -14,7 +14,7 @@
 # ==============================================================================
 
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 
 from ...schemas import *
@@ -31,7 +31,7 @@ from src.evo.templates import cortical_types
 router = APIRouter()
 
 
-@router.post("/cortical_area")
+@router.post("/cortical_area_properties")
 async def fetch_cortical_properties(cortical_id: CorticalId):
     """
     Returns the properties of cortical areas
@@ -103,7 +103,7 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                 cortical_properties["transforming"] = True
             return cortical_properties
         else:
-            raise HTTPException(status_code=404, detail=f"{cortical_area} not found part of current genome.")
+            raise HTTPException(status_code=400, detail=f"{cortical_area} not found part of current genome.")
     else:
         raise HTTPException(status_code=400, detail=f"{cortical_area} is not meeting standard length constraints")
 
@@ -115,7 +115,7 @@ async def update_cortical_properties(message: UpdateCorticalProperties):
     """
 
     if message.cortical_id in runtime_data.transforming_areas:
-        return JSONResponse(status_code=409, content={'message': "Operation rejected as the target cortical area is"
+        return JSONResponse(status_code=400, content={'message': "Operation rejected as the target cortical area is"
                                                                  "currently undergoing transformation."})
     else:
         runtime_data.transforming_areas.add(message.cortical_id)

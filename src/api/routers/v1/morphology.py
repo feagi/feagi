@@ -82,7 +82,7 @@ async def genome_neuron_morphology_properties(morphology_name: MorphologyName):
         results["morphology_name"] = morphology_name
         return results
     else:
-        raise HTTPException(status_code=404, detail=f"Morphology named {morphology_name} not found!")
+        raise HTTPException(status_code=400, detail=f"Morphology named {morphology_name} not found!")
 
 
 @router.post("/morphology_usage")
@@ -98,7 +98,7 @@ async def genome_neuron_morphology_usage_report(morphology_name: MorphologyName)
         else:
             return JSONResponse(status_code=200, content=[])
     else:
-        return JSONResponse(status_code=404, content="Morphology not found")
+        return JSONResponse(status_code=400, content="Morphology not found")
 
 
 @router.put("/morphology")
@@ -147,10 +147,10 @@ async def genome_delete_neuron_morphology(morphology_name: MorphologyName):
                 if not usage:
                     runtime_data.genome['neuron_morphologies'].pop(morphology_name)
                 else:
-                    raise HTTPException(status_code=403, detail="In use morphology cannot be deleted!")
+                    raise HTTPException(status_code=400, detail="In use morphology cannot be deleted!")
             elif runtime_data.genome['neuron_morphologies'][morphology_name]["class"] == "core":
-                raise HTTPException(status_code=403, detail="Core morphology cannot be deleted!")
+                raise HTTPException(status_code=400, detail="Core morphology cannot be deleted!")
         else:
             pass
     else:
-        raise HTTPException(status_code=404, detail=f"Morphology wth name {morphology_name} not found!")
+        raise HTTPException(status_code=400, detail=f"Morphology with name {morphology_name} not found!")

@@ -102,7 +102,7 @@ async def beacon_query():
     if runtime_data.beacon_sub:
         return tuple(runtime_data.beacon_sub)
     else:
-        raise HTTPException(status_code=404, detail=f"No subscriber found")
+        raise HTTPException(status_code=400, detail=f"No subscriber found")
 
 
 @router.post("/beacon/subscribe")

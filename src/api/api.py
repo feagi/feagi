@@ -117,15 +117,15 @@ async def catch_exceptions_middleware(request: Request, call_next):
         )
 
 standard_response = {
-        403: {
-            "description": "Forbidden: Core assets cannot be modified or removed.",
+        400: {
+            "model": GeneralErrorResponse,
+            "description": "All Handled Errors",
             "content": {
                 "application/json": {
-                    "example": {"error_code": 403, "error_message": "Operation not allowed"}
+                    "example": {"error_code": 400, "error_message": "Request failed"}
                 }
             }
         },
-        404: {"description": "Item Not found"},
         500: {
             "model": InternalServerErrorResponse,
             "description": "Internal Server Error",

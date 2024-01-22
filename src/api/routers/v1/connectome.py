@@ -67,7 +67,7 @@ async def connectome_cortical_info(cortical_area: str):
     if cortical_area in runtime_data.brain:
         return runtime_data.brain[cortical_area]
     else:
-        raise HTTPException(status_code=404, detail="Requested cortical area not found!")
+        raise HTTPException(status_code=400, detail="Requested cortical area not found!")
 
 
 # @router.get("/all")
@@ -117,7 +117,7 @@ async def connectome_download(cortical_area: str):
     if runtime_data.brain[cortical_area]:
         return FileResponse(path=runtime_data.connectome_path + cortical_area + ".json", filename=file_name)
     else:
-        raise HTTPException(status_code=404, detail="Requested cortical area not found!")
+        raise HTTPException(status_code=400, detail="Requested cortical area not found!")
 
 
 @router.post("/upload-cortical-area")
