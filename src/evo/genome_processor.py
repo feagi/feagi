@@ -474,7 +474,8 @@ gene_decoder = {
     "_______c-______-cx-memory-b": "is_mem_type",
     "_______c-______-cx-mem__t-i": "longterm_mem_threshold",
     "_______c-______-cx-mem_gr-i": "lifespan_growth_rate",
-    "_______c-______-cx-mem_ls-i": "init_lifespan"
+    "_______c-______-cx-mem_ls-i": "init_lifespan",
+    "_______c-______-nx-excite-i": "neuron_excitability"
 }
 
 genome_1_template = {
@@ -516,7 +517,8 @@ genome_1_template = {
     "is_mem_type": False,
     "longterm_mem_threshold": 100,
     "lifespan_growth_rate": 1,
-    "init_lifespan": 9
+    "init_lifespan": 9,
+    "neuron_excitability": 100
     }
 
 genome_2_to_1 = {
@@ -555,7 +557,8 @@ genome_2_to_1 = {
     "memory-b": "is_mem_type",
     "mem__t-i": "longterm_mem_threshold",
     "mem_gr-i": "lifespan_growth_rate",
-    "mem_ls-i": "init_lifespan"
+    "mem_ls-i": "init_lifespan",
+    "excite-i": "neuron_excitability"
 }
 
 genome_1_to_2 = {
@@ -572,6 +575,7 @@ genome_1_to_2 = {
     "firing_threshold_increment_x": "nx-ftincx-f",
     "firing_threshold_increment_y": "nx-ftincy-f",
     "firing_threshold_increment_z": "nx-ftincz-f",
+    "neuron_excitability": "nx-excite-i",
     "firing_threshold_limit": "nx-fthlim-i",
     "refractory_period": "nx-refrac-i",
     "leak_coefficient": "nx-leak_c-f",

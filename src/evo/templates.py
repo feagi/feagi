@@ -293,7 +293,8 @@ cortical_template = {
     "is_mem_type": False,
     "longterm_mem_threshold": 100,
     "lifespan_growth_rate": 1,
-    "init_lifespan": 9
+    "init_lifespan": 9,
+    "neuron_excitability": 100
 }
 
 

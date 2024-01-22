@@ -59,6 +59,14 @@ def cortical_group_members(group):
             == group]
 
 
+def neuro_excitability_check(cortical_area):
+    if "neuron_excitability" in runtime_data.genome["blueprint"][cortical_area]:
+        excitability_percentage = runtime_data.genome["blueprint"][cortical_area]["neuron_excitability"]
+    else:
+        excitability_percentage = 100
+    # todo
+
+
 def burst_manager():
     """This function behaves as instance of Neuronal activities"""
 
