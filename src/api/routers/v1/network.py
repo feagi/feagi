@@ -24,7 +24,7 @@ router = APIRouter()
 # ######  Networking Endpoints #########
 # ##################################
 
-@router.get("/v1/feagi/feagi/network")
+@router.get("/network")
 async def network_management():
     if runtime_data.parameters['Sockets']:
         return runtime_data.parameters['Sockets']
@@ -32,7 +32,7 @@ async def network_management():
         raise HTTPException(status_code=400, detail=f"Networking data not available!")
 
 
-# @router.api_route("/v1/feagi/feagi/network", methods=['POST'], tags=["Networking"])
+# @router.api_route("/network", methods=['POST'], tags=["Networking"])
 # async def network_management(message: Network):
 #     try:
 #         message = message.dict()

@@ -33,7 +33,7 @@ router = APIRouter()
 
 # ######  Genome Endpoints #########
 # ##################################
-@router.post("/v1/feagi/genome/upload/blank")
+@router.post("/upload/blank")
 async def upload_blank_genome():
 
     with open("./evo/defaults/genome/blank_genome.json", "r") as genome_file:
@@ -45,7 +45,7 @@ async def upload_blank_genome():
     api_queue.put(item=message)
 
 
-@router.post("/v1/feagi/genome/upload/default")
+@router.post("/upload/default")
 async def genome_default_upload():
     with open("./evo/static_genome.json", "r") as genome_file:
         genome_data = json.load(genome_file)
@@ -55,7 +55,7 @@ async def genome_default_upload():
     api_queue.put(item=message)
 
 
-@router.post("/v1/feagi/genome/upload/file", tags=["Genome"])
+@router.post("/upload/file", tags=["Genome"])
 async def genome_file_upload(file: UploadFile = File(...)):
     """
     This API allows you to browse files from your computer and upload a genome to FEAGI.
@@ -73,7 +73,7 @@ async def genome_file_upload(file: UploadFile = File(...)):
     api_queue.put(item=message)
 
 
-@router.get("/v1/feagi/genome/file_name")
+@router.get("/file_name")
 async def genome_file_name():
     """
     Returns the name of the genome file last uploaded to FEAGI
@@ -85,13 +85,13 @@ async def genome_file_name():
         return ""
 
 
-@router.post("/v1/feagi/genome/upload/string")
+@router.post("/upload/string")
 async def genome_string_upload(genome: dict):
     message = {'genome': genome}
     api_queue.put(item=message)
 
 
-@router.get("/v1/feagi/genome/download", tags=["Genome"])
+@router.get("/download", tags=["Genome"])
 async def genome_download():
     print("Downloading Genome...")
 
@@ -103,14 +103,14 @@ async def genome_download():
         raise HTTPException(status_code=404, detail="No running genome found!")
 
 
-@router.post("/v1/feagi/genome/upload/file/edit")
+@router.post("/upload/file/edit")
 async def genome_file_upload_edit(file: UploadFile = File(...)):
     data = await file.read()
     genome_str = data.decode("utf-8")
     return {genome_str}
 
 
-@router.get("/v1/feagi/genome/defaults/files", tags=["Genome"])
+@router.get("/defaults/files", tags=["Genome"])
 async def genome_default_files():
     default_genomes_path = "./evo/defaults/genome/"
     default_genomes = os.listdir(default_genomes_path)
@@ -126,7 +126,7 @@ async def genome_default_files():
     return {"genome": genome_mappings}
 
 
-@router.get("/v1/feagi/genome/genome_number")
+@router.get("/genome_number")
 async def genome_number():
     """
     Return the number associated with current Genome instance.
@@ -135,13 +135,13 @@ async def genome_number():
         return runtime_data.genome_counter
 
 
-@router.post("/v1/feagi/genome/reset")
+@router.post("/reset")
 async def reset_genome():
     print("API call has triggered a genome reset")
     runtime_data.genome_reset_flag = True
 
 
-@router.post("/v1/feagi/genome/amalgamation_by_payload")
+@router.post("/amalgamation_by_payload")
 async def amalgamation_attempt(amalgamation_param: AmalgamationRequest):
     if pending_amalgamation():
         raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
@@ -160,7 +160,7 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest):
         return amalgamation_id
 
 
-@router.post("/v1/feagi/genome/amalgamation_by_upload")
+@router.post("/amalgamation_by_upload")
 async def amalgamation_attempt(file: UploadFile = File(...)):
     if pending_amalgamation():
         raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
@@ -185,7 +185,7 @@ async def amalgamation_attempt(file: UploadFile = File(...)):
         return amalgamation_id
 
 
-@router.post("/v1/feagi/genome/amalgamation_by_filename")
+@router.post("/amalgamation_by_filename")
 async def amalgamation_attempt(amalgamation_param: AmalgamationRequest):
     if pending_amalgamation():
         raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
@@ -204,12 +204,12 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest):
         return amalgamation_id
 
 
-@router.get("/v1/feagi/genome/amalgamation_history")
+@router.get("/amalgamation_history")
 async def amalgamation_history():
     return runtime_data.amalgamation_history
 
 
-@router.post("/v1/feagi/genome/amalgamation_destination")
+@router.post("/amalgamation_destination")
 async def amalgamation_conclusion(circuit_origin_x: int,
                                   circuit_origin_y: int,
                                   circuit_origin_z: int,
@@ -228,7 +228,7 @@ async def amalgamation_conclusion(circuit_origin_x: int,
         raise HTTPException(status_code=404, detail="No pending amalgamation request found")
 
 
-@router.get("/v1/feagi/genome/amalgamation")
+@router.get("/amalgamation")
 async def circuit_library(amalgamation_id):
     if amalgamation_id in runtime_data.amalgamation_history:
         return runtime_data.amalgamation_history[amalgamation_id]
@@ -236,12 +236,12 @@ async def circuit_library(amalgamation_id):
         raise HTTPException(status_code=404, detail="No matching amalgamation found")
 
 
-@router.delete("/v1/feagi/genome/amalgamation_cancellation")
+@router.delete("/amalgamation_cancellation")
 async def cancel_amalgamation_request(amalgamation_id):
     cancel_pending_amalgamation(amalgamation_id)
 
 
-@router.get("/v1/feagi/genome/circuits")
+@router.get("/circuits")
 async def circuit_library():
     """
     Returns the list of neuronal circuits under /evo/circuits
@@ -250,7 +250,7 @@ async def circuit_library():
     return circuit_list
 
 
-# @router.get("/v1/feagi/genome/circuit_description")
+# @router.get("/circuit_description")
 # async def cortical_area_types(circuit_name, response: Response):
 #     """
 #     Returns circuit aka. genome description including its size
@@ -271,7 +271,7 @@ async def circuit_library():
     # return circuit_description
 
 
-@router.post("/v1/feagi/genome/append-file")
+@router.post("/append-file")
 async def genome_append_circuit(circuit_origin_x: int,
                                 circuit_origin_y: int,
                                 circuit_origin_z: int,
@@ -292,7 +292,7 @@ async def genome_append_circuit(circuit_origin_x: int,
     api_queue.put(item=data)
 
 
-# @router.api_route("/v1/feagi/genome/append", methods=['POST'], tags=["Genome"])
+# @router.api_route("/append", methods=['POST'], tags=["Genome"])
 # async def genome_append_circuit(circuit_name: str,
 #                                 circuit_origin_x: int,
 #                                 circuit_origin_y: int,

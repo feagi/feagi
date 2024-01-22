@@ -22,7 +22,7 @@ from src.inf import runtime_data
 router = APIRouter()
 
 
-@router.get("/v1/feagi/genome/plasticity_queue_depth")
+@router.get("/plasticity_queue_depth")
 async def show_plasticity_queue_depth():
     """
     Returns the current plasticity queue depth value
@@ -30,7 +30,7 @@ async def show_plasticity_queue_depth():
     return runtime_data.genome["plasticity_queue_depth"]
 
 
-@router.put("/v1/feagi/genome/plasticity_queue_depth")
+@router.put("/plasticity_queue_depth")
 async def update_plasticity_queue_depth(queue_depth: int):
     """
     Enables changes against various Burst Engine parameters.

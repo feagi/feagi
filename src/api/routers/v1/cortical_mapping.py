@@ -35,7 +35,7 @@ router = APIRouter()
 #
 
 
-@router.get("/v1/feagi/genome/cortical_mappings/efferents")
+@router.get("/efferents")
 async def fetch_cortical_mappings(cortical_area):
     """
     Returns the list of cortical areas downstream to the given cortical areas
@@ -50,7 +50,7 @@ async def fetch_cortical_mappings(cortical_area):
         raise HTTPException(status_code=400, detail="Wrong cortical id format!")
 
 
-@router.get("/v1/feagi/genome/cortical_mappings/afferents")
+@router.get("/afferents")
 async def fetch_cortical_mappings(cortical_area):
     """
     Returns the list of cortical areas downstream to the given cortical areas
@@ -64,7 +64,7 @@ async def fetch_cortical_mappings(cortical_area):
         raise HTTPException(status_code=400, detail="Wrong cortical id format!")
 
 
-@router.get("/v1/feagi/genome/cortical_mappings_by_name")
+@router.get("/cortical_mappings_by_name")
 async def fetch_cortical_mappings(cortical_area):
     """
     Returns the list of cortical names being downstream to the given cortical areas
@@ -76,7 +76,7 @@ async def fetch_cortical_mappings(cortical_area):
     return cortical_mappings
 
 
-@router.get("/v1/feagi/genome/cortical_mappings_detailed")
+@router.get("/cortical_mappings_detailed")
 async def fetch_cortical_mappings(cortical_area):
     """
     Returns the list of cortical areas downstream to the given cortical areas
@@ -88,7 +88,7 @@ async def fetch_cortical_mappings(cortical_area):
         raise HTTPException(status_code=404, detail=f"Cortical area with id={cortical_area} not found!")
 
 
-@router.get("/v1/feagi/genome/mapping_properties")
+@router.get("/mapping_properties")
 async def fetch_cortical_mapping_properties(src_cortical_area, dst_cortical_area):
     """
     Returns the list of cortical areas downstream to the given cortical areas
@@ -100,7 +100,7 @@ async def fetch_cortical_mapping_properties(src_cortical_area, dst_cortical_area
                             detail=f"{dst_cortical_area} is not a cortical destination of {src_cortical_area}!")
 
 
-@router.put("/v1/feagi/genome/mapping_properties")
+@router.put("/mapping_properties")
 async def update_cortical_mapping_properties(src_cortical_area, dst_cortical_area,
                                              mapping_string: list):
     """
@@ -115,7 +115,7 @@ async def update_cortical_mapping_properties(src_cortical_area, dst_cortical_are
     api_queue.put(item=data)
 
 
-@router.get("/v1/feagi/genome/cortical_map")
+@router.get("/cortical_map")
 async def connectome_cortical_map():
     cortical_map = dict()
     for cortical_area in runtime_data.genome["blueprint"]:

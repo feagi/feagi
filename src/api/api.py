@@ -183,14 +183,14 @@ app.include_router(
 )
 app.include_router(
     genome.router,
-    prefix="/v1/genomes",
+    prefix="/v1/genome",
     tags=["GENOME"],
     dependencies=[Depends(tbd)],
     responses=standard_response
 )
 app.include_router(
     insights.router,
-    prefix="/v1/insights",
+    prefix="/v1/insight",
     tags=["INSIGHTS"],
     dependencies=[Depends(tbd)],
     responses=standard_response

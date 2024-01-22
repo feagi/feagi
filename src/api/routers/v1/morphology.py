@@ -27,7 +27,7 @@ from src.evo.synapse import morphology_usage_list
 router = APIRouter()
 
 
-@router.get("/v1/feagi/genome/morphology_list")
+@router.get("/morphology_list")
 async def genome_neuron_morphologies():
     """
     Returns a comprehensive list of all neuron morphologies.
@@ -39,7 +39,7 @@ async def genome_neuron_morphologies():
     return sorted(morphology_names)
 
 
-@router.get("/v1/feagi/genome/morphology_types")
+@router.get("/morphology_types")
 async def genome_neuron_morphology_types():
     """
     Returns the properties of a neuron morphology.
@@ -47,7 +47,7 @@ async def genome_neuron_morphology_types():
     return {"vectors", "patterns", "composite", "functions"}
 
 
-@router.get("/v1/feagi/morphologies/list/types")
+@router.get("/list/types")
 async def genome_neuron_morphology_type_list():
     """
     Returns the properties of a neuron morphology.
@@ -59,7 +59,7 @@ async def genome_neuron_morphology_type_list():
     return report
 
 
-@router.get("/v1/feagi/genome/morphology_functions")
+@router.get("/morphology_functions")
 async def genome_neuron_morphology_functions():
     """
     Returns the list of morphology function names.
@@ -71,7 +71,7 @@ async def genome_neuron_morphology_functions():
     return morphology_list
 
 
-@router.get("/v1/feagi/genome/morphology")
+@router.get("/morphology")
 async def genome_neuron_morphology_properties(morphology_name):
     """
     Returns the properties of a neuron morphology.
@@ -84,7 +84,7 @@ async def genome_neuron_morphology_properties(morphology_name):
         raise HTTPException(status_code=404, detail=f"Morphology named {morphology_name} not found!")
 
 
-@router.get("/v1/feagi/genome/morphology_usage")
+@router.get("/morphology_usage")
 async def genome_neuron_morphology_usage_report(morphology_name):
     """
     Returns the properties of a neuron morphology.
@@ -99,7 +99,7 @@ async def genome_neuron_morphology_usage_report(morphology_name):
         return JSONResponse(status_code=404, content="Morphology not found")
 
 
-@router.put("/v1/feagi/genome/morphology")
+@router.put("/morphology")
 async def genome_update_neuron_morphology(morphology_name: str,
                                           morphology_type: str,
                                           morphology_parameters: dict):
@@ -117,7 +117,7 @@ async def genome_update_neuron_morphology(morphology_name: str,
     api_queue.put(item=message)
 
 
-@router.post("/v1/feagi/genome/morphology")
+@router.post("/morphology")
 async def genome_add_neuron_morphology(morphology_name: str,
                                        morphology_type: str,
                                        morphology_parameters: dict):
@@ -134,7 +134,7 @@ async def genome_add_neuron_morphology(morphology_name: str,
         pass
 
 
-@router.delete("/v1/feagi/genome/morphology")
+@router.delete("/morphology")
 async def genome_delete_neuron_morphology(morphology_name):
     """
     Returns the properties of a neuron morphology.

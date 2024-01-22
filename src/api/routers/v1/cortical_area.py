@@ -31,7 +31,7 @@ from src.evo.templates import cortical_types
 router = APIRouter()
 
 
-@router.get("/v1/feagi/genome/cortical_area")
+@router.get("/cortical_area")
 async def fetch_cortical_properties(cortical_area):
     """
     Returns the properties of cortical areas
@@ -107,7 +107,7 @@ async def fetch_cortical_properties(cortical_area):
         raise HTTPException(status_code=400, detail=f"{cortical_area} is not meeting standard length constraints")
 
 
-@router.put("/v1/feagi/genome/cortical_area")
+@router.put("/cortical_area")
 async def update_cortical_properties(message: UpdateCorticalProperties):
     """
     Enables changes against various Burst Engine parameters.
@@ -124,7 +124,7 @@ async def update_cortical_properties(message: UpdateCorticalProperties):
         api_queue.put(item=message)
 
 
-@router.post("/v1/feagi/genome/cortical_area")
+@router.post("/cortical_area")
 async def add_cortical_area(new_cortical_properties: NewCorticalProperties):
     """
     Enables changes against various Burst Engine parameters.
@@ -141,7 +141,7 @@ async def add_cortical_area(new_cortical_properties: NewCorticalProperties):
     return JSONResponse(status_code=200, content={'cortical_id': cortical_id})
 
 
-@router.api_route("/v1/feagi/genome/custom_cortical_area", methods=['POST'], tags=["Genome"])
+@router.api_route("/custom_cortical_area", methods=['POST'], tags=["Genome"])
 async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCorticalProperties):
     """
     Enables changes against various Burst Engine parameters.
@@ -166,7 +166,7 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
     return JSONResponse(status_code=200, content={'cortical_id': cortical_id})
 
 
-@router.delete("/v1/feagi/genome/cortical_area")
+@router.delete("/cortical_area")
 async def delete_cortical_area(cortical_area_name):
     """
     Enables changes against various Burst Engine parameters.
@@ -176,7 +176,7 @@ async def delete_cortical_area(cortical_area_name):
     api_queue.put(item=message)
 
 
-@router.get("/v1/feagi/genome/cortical_area_id_list")
+@router.get("/cortical_area_id_list")
 async def genome_cortical_ids():
     """
     Returns a comprehensive list of all cortical area names.
@@ -187,7 +187,7 @@ async def genome_cortical_ids():
         return []
 
 
-@router.get("/v1/feagi/genome/cortical_name_location")
+@router.get("/cortical_name_location")
 async def genome_cortical_location_by_name(cortical_name):
     """
     Returns a comprehensive list of all cortical area names.
@@ -197,7 +197,7 @@ async def genome_cortical_location_by_name(cortical_name):
     return runtime_data.genome["blueprint"][cortical_area]["relative_coordinate"]
 
 
-@router.get("/v1/feagi/genome/cortical_area_name_list")
+@router.get("/cortical_area_name_list")
 async def genome_cortical_names():
     """
     Returns a comprehensive list of all cortical area names.
@@ -206,7 +206,7 @@ async def genome_cortical_names():
         return sorted(cortical_name_list())
 
 
-@router.get("/v1/feagi/genome/cortical_types")
+@router.get("/cortical_types")
 async def cortical_area_types():
     """
     Returns the list of supported cortical types
@@ -215,7 +215,7 @@ async def cortical_area_types():
         return runtime_data.cortical_defaults
 
 
-@router.get("/v1/feagi/genome/cortical_type_options")
+@router.get("/cortical_type_options")
 async def cortical_area_types(cortical_type):
     """
     Returns the list of supported cortical area for a given type
@@ -231,7 +231,7 @@ async def cortical_area_types(cortical_type):
         return []
 
 
-@router.get("/v1/feagi/genome/cortical_id_name_mapping")
+@router.get("/cortical_id_name_mapping")
 async def connectome_cortical_id_name_mapping_table():
     mapping_table = dict()
     for cortical_area in runtime_data.genome["blueprint"]:
@@ -239,7 +239,7 @@ async def connectome_cortical_id_name_mapping_table():
     return mapping_table
 
 
-@router.get("/v1/feagi/genome/cortical_locations_2d")
+@router.get("/cortical_locations_2d")
 async def cortical_2d_locations():
     """
     Enables changes against various Burst Engine parameters.
@@ -255,7 +255,7 @@ async def cortical_2d_locations():
     return report
 
 
-@router.get("/v1/feagi/genome/cortical_area/geometry")
+@router.get("/cortical_area/geometry")
 async def cortical_area_geometry():
     if runtime_data.cortical_dimensions_by_id:
         return runtime_data.cortical_dimensions_by_id
@@ -263,7 +263,7 @@ async def cortical_area_geometry():
         return {}
 
 
-@router.put("/v1/feagi/genome/coord_2d")
+@router.put("/coord_2d")
 async def update_coord_2d(new_2d_coordinates: dict):
     """
     Accepts a dictionary of 2D coordinates of one or more cortical areas and update them in genome.
@@ -279,7 +279,7 @@ async def update_coord_2d(new_2d_coordinates: dict):
     runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
 
 
-@router.put("/v1/feagi/genome/coord_3d")
+@router.put("/coord_3d")
 async def update_coord_3d(new_3d_coordinates: dict):
     """
     Accepts a dictionary of 3D coordinates of one or more cortical areas and update them in genome.
@@ -296,7 +296,7 @@ async def update_coord_3d(new_3d_coordinates: dict):
     runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
 
 
-@router.get("/v1/ipu")
+@router.get("/ipu")
 async def current_ipu_list():
     if runtime_data.ipu_list:
         return runtime_data.ipu_list
@@ -304,7 +304,7 @@ async def current_ipu_list():
         return {}
 
 
-@router.get("/v1/opu")
+@router.get("/opu")
 async def current_opu_list():
     if runtime_data.opu_list:
         return runtime_data.opu_list
@@ -312,7 +312,7 @@ async def current_opu_list():
         return {}
 
 
-@router.get("/v1/feagi/genome/cortical_map_detailed")
+@router.get("/cortical_map_detailed")
 async def connectome_detailed_cortical_map():
     cortical_map = dict()
     for cortical_area in runtime_data.genome["blueprint"]:

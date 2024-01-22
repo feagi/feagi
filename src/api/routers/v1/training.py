@@ -12,7 +12,7 @@ router = APIRouter()
 # ######  Training Endpoints #######
 # ##################################
 
-@router.delete("/v1/feagi/training/reset_game_stats")
+@router.delete("/reset_game_stats")
 async def delete_game_stats_from_db():
     """
     Erases the game statistics from the database.
@@ -21,7 +21,7 @@ async def delete_game_stats_from_db():
     runtime_data.influxdb.drop_game_activity()
 
 
-@router.get("/v1/feagi/training/shock/options")
+@router.get("/shock/options")
 async def list_available_shock_scenarios():
     """
     Get a list of available shock scenarios.
@@ -30,7 +30,7 @@ async def list_available_shock_scenarios():
         return runtime_data.shock_scenarios_options
 
 
-@router.get("/v1/feagi/training/shock/status")
+@router.get("/shock/status")
 async def list_activated_shock_scenarios():
     if runtime_data.shock_scenarios:
         return runtime_data.shock_scenarios
@@ -38,7 +38,7 @@ async def list_activated_shock_scenarios():
         raise HTTPException(status_code=400, detail="No shock scenario is defined")
 
 
-@router.post("/v1/feagi/training/shock/activate")
+@router.post("/shock/activate")
 async def activate_shock_scenarios(shock: Shock):
     """
     Enables shock for given scenarios. One or many shock scenario could coexist. e.g.
@@ -57,7 +57,7 @@ async def activate_shock_scenarios(shock: Shock):
     api_queue.put(item=message)
 
 
-@router.post("/v1/feagi/training/reward")
+@router.post("/reward")
 async def reward_intensity(intensity: Intensity):
     """
     Captures feedback from the environment during training
@@ -67,7 +67,7 @@ async def reward_intensity(intensity: Intensity):
     api_queue.put(item=message)
 
 
-@router.post("/v1/feagi/training/punishment")
+@router.post("/punishment")
 async def punishment_intensity(intensity: Intensity):
     """
     Captures feedback from the environment during training
@@ -77,7 +77,7 @@ async def punishment_intensity(intensity: Intensity):
     api_queue.put(item=message)
 
 
-@router.post("/v1/feagi/training/gameover")
+@router.post("/gameover")
 async def gameover_signal():
     """
     Captures feedback from the environment during training
@@ -86,7 +86,7 @@ async def gameover_signal():
     api_queue.put(item=message)
 
 
-@router.get("/v1/feagi/training/training_report")
+@router.get("/training_report")
 async def training_report():
     """
     Returns stats associated with training

@@ -11,7 +11,7 @@ router = APIRouter()
 # ######  Stimulation #########
 # #############################
 
-@router.api_route("/v1/feagi/stimulation/upload/string", methods=['POST'], tags=["Stimulation"])
+@router.api_route("/upload/string", methods=['POST'], tags=["Stimulation"])
 async def stimulation_string_upload(stimulation_script: Stimulation):
     """
     stimulation_script = {
@@ -45,7 +45,7 @@ async def stimulation_string_upload(stimulation_script: Stimulation):
     # api_queue.put(item=message)
 
 
-@router.post("/v1/feagi/stimulation/reset")
+@router.post("/reset")
 async def stimulation_string_upload():
     message = {"stimulation_script": {}}
     message = {'stimulation_script': message}
