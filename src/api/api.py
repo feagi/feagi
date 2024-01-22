@@ -22,7 +22,8 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from threading import Thread
 
-from src.inf import feagi, runtime_data
+from src.inf.initialize import *
+from src.inf import runtime_data
 from .config import settings
 from .dependencies import *
 from .error_handling import *
@@ -30,7 +31,7 @@ from .commons import CustomError, api_queue
 from .models import *
 from .routers.v1 import burst_engine, connectome, embodiment, evolution, feagi_agent, genome, insights, morphology, \
     network, simulation, system, training, cortical_area, neuroplasticity, cortical_mapping
-
+from src.inf.feagi import start_feagi
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ app.add_middleware(
 def kickstart_feagi_thread():
     print("<>--" * 20)
     print("Starting FEAGI thread..")
-    runtime_data.feagi_thread = Thread(target=feagi.start_feagi, args=(api_queue,))
+    runtime_data.feagi_thread = Thread(target=start_feagi, args=(api_queue,))
     runtime_data.feagi_thread.start()
 
 

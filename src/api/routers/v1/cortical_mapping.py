@@ -17,9 +17,10 @@
 from fastapi import APIRouter, HTTPException
 
 from ...commons import *
-from ....inf import runtime_data
-from ....evo.genome_properties import genome_properties
-from ....evo.x_genesis import neighboring_cortical_areas
+
+from src.inf import runtime_data
+from src.evo.genome_properties import genome_properties
+from src.evo.x_genesis import neighboring_cortical_areas
 
 
 router = APIRouter()

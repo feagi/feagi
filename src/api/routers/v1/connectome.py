@@ -22,12 +22,12 @@ from starlette.responses import FileResponse
 from ast import literal_eval
 from threading import Thread
 
-from ...commons import *
-from ....inf import runtime_data
-from ....evo.synapse import cortical_mapping
-from ....inf.disk_ops import preserve_brain, revive_brain
-from ....inf.feagi import start_feagi
-from ....inf.initialize import deploy_genome
+from src.api.commons import *
+from src.inf import runtime_data
+from src.evo.synapse import cortical_mapping
+from src.inf.disk_ops import preserve_brain, revive_brain
+# from src.inf.feagi import start_feagi
+from src.inf.initialize import deploy_genome
 
 
 router = APIRouter()
@@ -96,10 +96,10 @@ async def connectome_system_path():
         return {}
 
 
-@router.post("/source")
-async def connectome_source_path(connectome_path: str):
-    feagi_thread = Thread(target=start_feagi, args=(api_queue, 'connectome', 'path', connectome_path,))
-    feagi_thread.start()
+# @router.post("/source")
+# async def connectome_source_path(connectome_path: str):
+#     feagi_thread = Thread(target=start_feagi, args=(api_queue, 'connectome', 'path', connectome_path,))
+#     feagi_thread.start()
 
 
 @router.post("/snapshot")

@@ -19,12 +19,13 @@ from fastapi.responses import JSONResponse
 
 from ...schemas import *
 from ...commons import *
-from ....inf import runtime_data
-from ....inf.initialize import generate_cortical_dimensions_by_id
-from ....evo.genome_properties import genome_properties
-from ....evo.x_genesis import add_core_cortical_area, add_custom_cortical_area
-from ....evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
-from ....evo.templates import cortical_types
+
+from src.inf import runtime_data
+from src.inf.initialize import generate_cortical_dimensions_by_id
+from src.evo.genome_properties import genome_properties
+from src.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area
+from src.evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
+from src.evo.templates import cortical_types
 
 
 router = APIRouter()

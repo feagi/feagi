@@ -16,8 +16,8 @@
 
 from fastapi import APIRouter, HTTPException, Request
 
-from ....inf import runtime_data
-from ....inf.messenger import Sub
+from src.inf import runtime_data
+from src.inf.messenger import Sub
 
 router = APIRouter()
 

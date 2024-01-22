@@ -15,8 +15,8 @@
 
 from fastapi import APIRouter
 
-from ....inf import runtime_data
-from ....evo import autopilot
+from src.inf import runtime_data
+from src.evo import autopilot
 
 router = APIRouter()
 

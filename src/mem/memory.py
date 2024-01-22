@@ -51,6 +51,7 @@ reduced) and incorporated in the new neuroplasticity function (below).
 import traceback
 import logging
 import xxhash
+
 from src.inf import runtime_data
 from src.evo.neuron import init_neuron, increase_neuron_lifespan, neuron_apoptosis, convert_shortterm_to_longterm
 from src.evo.synapse import memory_synapse

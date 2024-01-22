@@ -14,14 +14,14 @@
 # ==============================================================================
 
 import datetime
-import json
-from src.inf.initialize import deploy_genome
+# import json
 from src.inf import runtime_data, disk_ops
-from src.evo.genome_processor import genome_ver_check
-from src.evo.autopilot import update_generation_dict
+# from src.evo.genome_processor import genome_ver_check
+# from src.evo.autopilot import update_generation_dict
 from src.evo.x_genesis import update_cortical_properties, update_morphology_properties, update_cortical_mappings
 from src.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal, append_circuit
 from src.inf.db_handler import InfluxManagement
+from src.inf.initialize import deploy_genome
 
 influx = InfluxManagement()
 
@@ -35,14 +35,14 @@ def api_message_processor(api_message):
     """
     Processes the incoming API calls to FEAGI
     """
-    if 'burst_management' in api_message:
-        if 'burst_duration' in api_message['burst_management']:
-            if api_message['burst_management']['burst_duration'] is not None:
-                runtime_data.burst_timer = api_message['burst_management']['burst_duration']
-                runtime_data.genome['burst_delay'] = runtime_data.burst_timer
+    # if 'burst_management' in api_message:
+    #     if 'burst_duration' in api_message['burst_management']:
+    #         if api_message['burst_management']['burst_duration'] is not None:
+    #             runtime_data.burst_timer = api_message['burst_management']['burst_duration']
+    #             runtime_data.genome['burst_delay'] = runtime_data.burst_timer
 
-    if 'stimulation_script' in api_message:
-        runtime_data.stimulation_script = api_message['stimulation_script']['stimulation_script']
+    # if 'stimulation_script' in api_message:
+    #     runtime_data.stimulation_script = api_message['stimulation_script']['stimulation_script']
 
     if 'log_management' in api_message:
         if 'print_cortical_activity_counters' in api_message['log_management']:

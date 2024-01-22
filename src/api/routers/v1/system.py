@@ -1,9 +1,11 @@
 import os
 from fastapi import APIRouter, HTTPException
 
-from ....version import __version__
 from ...commons import *
 from ...schemas import *
+
+from src.version import __version__
+
 
 router = APIRouter()
 

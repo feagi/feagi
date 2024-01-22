@@ -21,16 +21,17 @@ This module is responsible for updating the commectome structure during brain li
 import logging
 import json
 import datetime
-import concurrent.futures
+# import concurrent.futures
 import random
 import string
 import traceback
 
-from src.evo import neuron, synapse, stats, genetics, voxels, neuroembryogenesis, templates
-from functools import partial
-from multiprocessing import Pool, Process
-from src.inf import disk_ops
-from src.inf import settings
+# from src.evo import neuron, synapse, stats, genetics, voxels, neuroembryogenesis, templates
+from src.evo import synapse, voxels, neuroembryogenesis, templates
+# from functools import partial
+# from multiprocessing import Pool, Process
+# from src.inf import disk_ops
+# from src.inf import settings
 from src.inf import runtime_data
 from src.evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter, genome_2_1_convertor
 from src.evo.genome_editor import save_genome

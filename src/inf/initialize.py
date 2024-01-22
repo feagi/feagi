@@ -24,7 +24,7 @@ from src.inf import settings
 from src.inf.helpers import id_gen
 
 from queue import Queue
-
+from src.evo.autopilot import update_generation_dict
 
 from threading import Thread
 from watchdog.observers import Observer
@@ -40,7 +40,6 @@ from src.evo.neuroembryogenesis import generate_plasticity_dict, develop_brain
 from src.evo.genome_processor import genome_1_cortical_list, genome_ver_check
 from src.evo.genome_validator import *
 from src.evo.templates import cortical_types
-from src.evo.autopilot import update_generation_dict
 
 
 logger = logging.getLogger(__name__)

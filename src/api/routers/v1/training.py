@@ -2,7 +2,8 @@ from fastapi import APIRouter, HTTPException
 
 from ...schemas import *
 from ...commons import *
-from ....inf import runtime_data
+
+from src.inf import runtime_data
 
 
 router = APIRouter()

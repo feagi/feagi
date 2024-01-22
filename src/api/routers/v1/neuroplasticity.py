@@ -16,7 +16,7 @@
 
 from fastapi import APIRouter
 
-from ....inf import runtime_data
+from src.inf import runtime_data
 
 
 router = APIRouter()

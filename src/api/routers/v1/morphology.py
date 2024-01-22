@@ -18,9 +18,10 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
 from ...commons import *
-from ....inf import runtime_data
-from ....evo import synaptogenesis_rules
-from ....evo.synapse import morphology_usage_list
+
+from src.inf import runtime_data
+from src.evo import synaptogenesis_rules
+from src.evo.synapse import morphology_usage_list
 
 
 router = APIRouter()

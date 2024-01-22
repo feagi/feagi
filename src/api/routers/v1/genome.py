@@ -22,9 +22,10 @@ from starlette.responses import FileResponse
 
 from ...schemas import *
 from ...commons import *
-from ....inf import runtime_data
-from ....evo.genome_processor import genome_2_1_convertor
-from ....evo.stats import circuit_size
+
+from src.inf import runtime_data
+from src.evo.genome_processor import genome_2_1_convertor
+from src.evo.stats import circuit_size
 
 
 router = APIRouter()

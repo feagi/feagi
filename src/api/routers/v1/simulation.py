@@ -38,9 +38,11 @@ async def stimulation_string_upload(stimulation_script: Stimulation):
     }
     """
 
-    message = stimulation_script.dict()
-    message = {'stimulation_script': message}
-    api_queue.put(item=message)
+    runtime_data.stimulation_script = stimulation_script.stimulation_script
+
+    # message = stimulation_script.dict()
+    # message = {'stimulation_script': message}
+    # api_queue.put(item=message)
 
 
 @router.post("/v1/feagi/stimulation/reset")

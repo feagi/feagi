@@ -19,6 +19,8 @@ from fastapi import APIRouter
 from ...schemas import BurstEngine
 from ...commons import *
 
+from src.inf import runtime_data
+
 
 router = APIRouter()
 
@@ -49,6 +51,4 @@ async def change_stimulation_period(message: BurstEngine):
     Enables changes against various Burst Engine parameters.
     """
 
-    message = message.dict()
-    message = {'burst_management': message}
-    api_queue.put(item=message)
+    runtime_data.genome['burst_delay'] = message.burst_duration
