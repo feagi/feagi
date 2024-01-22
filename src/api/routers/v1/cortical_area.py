@@ -96,6 +96,7 @@ async def fetch_cortical_properties(cortical_name: CorticalName):
                 "neuron_longterm_mem_threshold": cortical_data['longterm_mem_threshold'],
                 "neuron_lifespan_growth_rate": cortical_data['lifespan_growth_rate'],
                 "neuron_init_lifespan": cortical_data['init_lifespan'],
+                "neuron_excitability": cortical_data['neuron_excitability'],
                 "transforming": False
             }
             if cortical_area in runtime_data.transforming_areas:

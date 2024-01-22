@@ -166,6 +166,11 @@ def update_cortical_properties(cortical_properties):
             cortical_properties['neuron_refractory_period']
         changed_areas.add("blueprint")
 
+    if cortical_properties['neuron_excitability'] is not None:
+        runtime_data.genome["blueprint"][cortical_area]["neuron_excitability"] = \
+            cortical_properties['neuron_excitability']
+        changed_areas.add("blueprint")
+
     if cortical_properties['neuron_snooze_period'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["snooze_length"] = \
             cortical_properties['neuron_snooze_period']
