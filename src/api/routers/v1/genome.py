@@ -91,7 +91,7 @@ async def genome_string_upload(genome: dict):
     api_queue.put(item=message)
 
 
-@router.get("/download", tags=["Genome"])
+@router.get("/download")
 async def genome_download():
     print("Downloading Genome...")
 
@@ -110,7 +110,7 @@ async def genome_file_upload_edit(file: UploadFile = File(...)):
     return {genome_str}
 
 
-@router.get("/defaults/files", tags=["Genome"])
+@router.get("/defaults/files")
 async def genome_default_files():
     default_genomes_path = "./evo/defaults/genome/"
     default_genomes = os.listdir(default_genomes_path)
@@ -292,7 +292,7 @@ async def genome_append_circuit(circuit_origin_x: int,
     api_queue.put(item=data)
 
 
-# @router.api_route("/append", methods=['POST'], tags=["Genome"])
+# @router.api_route("/append", methods=['POST'])
 # async def genome_append_circuit(circuit_name: str,
 #                                 circuit_origin_x: int,
 #                                 circuit_origin_y: int,

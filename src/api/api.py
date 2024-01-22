@@ -144,11 +144,10 @@ standard_response = {
 #     response.headers["Access-Control-Allow-Origin"] = f"{origin},{new_origin}"
 #     return response
 
-
 app.include_router(
-    burst_engine.router,
-    prefix="/v1/burst_engine",
-    tags=["BURST ENGINE"],
+    genome.router,
+    prefix="/v1/genome",
+    tags=["GENOME"],
     dependencies=[Depends(tbd)],
     responses=standard_response
 )
@@ -160,6 +159,15 @@ app.include_router(
     dependencies=[Depends(tbd)],
     responses=standard_response
 )
+
+app.include_router(
+    burst_engine.router,
+    prefix="/v1/burst_engine",
+    tags=["BURST ENGINE"],
+    dependencies=[Depends(tbd)],
+    responses=standard_response
+)
+
 app.include_router(
     embodiment.router,
     prefix="/v1/robot",
@@ -167,6 +175,7 @@ app.include_router(
     dependencies=[Depends(tbd)],
     responses=standard_response
 )
+
 app.include_router(
     evolution.router,
     prefix="/v1/evolution",
@@ -174,6 +183,7 @@ app.include_router(
     dependencies=[Depends(tbd)],
     responses=standard_response
 )
+
 app.include_router(
     feagi_agent.router,
     prefix="/v1/agent",
@@ -181,13 +191,7 @@ app.include_router(
     dependencies=[Depends(tbd)],
     responses=standard_response
 )
-app.include_router(
-    genome.router,
-    prefix="/v1/genome",
-    tags=["GENOME"],
-    dependencies=[Depends(tbd)],
-    responses=standard_response
-)
+
 app.include_router(
     insights.router,
     prefix="/v1/insight",
@@ -195,6 +199,7 @@ app.include_router(
     dependencies=[Depends(tbd)],
     responses=standard_response
 )
+
 app.include_router(
     morphology.router,
     prefix="/v1/morphology",
@@ -202,6 +207,7 @@ app.include_router(
     dependencies=[Depends(tbd)],
     responses=standard_response
 )
+
 app.include_router(
     cortical_area.router,
     prefix="/v1/cortical_area",
@@ -209,6 +215,23 @@ app.include_router(
     dependencies=[Depends(tbd)],
     responses=standard_response
 )
+
+app.include_router(
+    cortical_mapping.router,
+    prefix="/v1/cortical_mapping",
+    tags=["CORTICAL MAPPINGS"],
+    dependencies=[Depends(tbd)],
+    responses=standard_response
+)
+
+app.include_router(
+    neuroplasticity.router,
+    prefix="/v1/neuroplasticity",
+    tags=["NEUROPLASTICITY"],
+    dependencies=[Depends(tbd)],
+    responses=standard_response
+)
+
 app.include_router(
     network.router,
     prefix="/v1/network",
@@ -216,6 +239,7 @@ app.include_router(
     dependencies=[Depends(tbd)],
     responses=standard_response
 )
+
 app.include_router(
     simulation.router,
     prefix="/v1/simulation",
@@ -223,6 +247,7 @@ app.include_router(
     dependencies=[Depends(tbd)],
     responses=standard_response
 )
+
 app.include_router(
     system.router,
     prefix="/v1/system",
@@ -237,17 +262,4 @@ app.include_router(
     dependencies=[Depends(tbd)],
     responses=standard_response
 )
-app.include_router(
-    cortical_mapping.router,
-    prefix="/v1/cortical_mapping",
-    tags=["CORTICAL MAPPINGS"],
-    dependencies=[Depends(tbd)],
-    responses=standard_response
-)
-app.include_router(
-    neuroplasticity.router,
-    prefix="/v1/neuroplasticity",
-    tags=["NEUROPLASTICITY"],
-    dependencies=[Depends(tbd)],
-    responses=standard_response
-)
+
