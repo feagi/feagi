@@ -46,8 +46,13 @@ app = FastAPI(
     version=settings.version,
     terms_of_service=settings.terms_of_service,
     contact=settings.contact,
-    license_info=settings.license_info
-)
+    license_info=settings.license_info,
+    swagger_ui_parameters={
+        "defaultModelsExpandDepth": -1,
+        "filter": True,  # Enable filtering
+        # "jsonEditor": True
+        }
+    )
 
 
 favicon_path = settings.favicon_path
