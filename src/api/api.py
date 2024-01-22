@@ -28,7 +28,7 @@ from .dependencies import *
 from .error_handling import *
 from .commons import CustomError, api_queue
 from .models import *
-from .routers.v1 import burst_engine, connectome, embodiment, evolution, feagi_agent, genome, insights, morphology, \
+from .routers.v1 import burst_engine, connectome, evolution, feagi_agent, genome, insights, morphology, \
     network, simulation, system, training, cortical_area, neuroplasticity, cortical_mapping
 from src.inf.feagi import start_feagi
 
@@ -153,7 +153,7 @@ app.include_router(
     genome.router,
     prefix="/v1/genome",
     tags=["GENOME"],
-    dependencies=[Depends(tbd)],
+    dependencies=[Depends(check_burst_engine)],
     responses=standard_response
 )
 
@@ -161,7 +161,7 @@ app.include_router(
     connectome.router,
     prefix="/v1/connectome",
     tags=["CONNECTOME"],
-    dependencies=[Depends(tbd)],
+    dependencies=[Depends(check_brain_running)],
     responses=standard_response
 )
 
@@ -169,15 +169,7 @@ app.include_router(
     burst_engine.router,
     prefix="/v1/burst_engine",
     tags=["BURST ENGINE"],
-    dependencies=[Depends(tbd)],
-    responses=standard_response
-)
-
-app.include_router(
-    embodiment.router,
-    prefix="/v1/robot",
-    tags=["EMBODIMENTS"],
-    dependencies=[Depends(tbd)],
+    dependencies=[Depends(check_burst_engine)],
     responses=standard_response
 )
 
@@ -185,7 +177,7 @@ app.include_router(
     evolution.router,
     prefix="/v1/evolution",
     tags=["EVOLUTIONARY"],
-    dependencies=[Depends(tbd)],
+    dependencies=[Depends(check_burst_engine)],
     responses=standard_response
 )
 
@@ -193,7 +185,7 @@ app.include_router(
     feagi_agent.router,
     prefix="/v1/agent",
     tags=["FEAGI AGENT"],
-    dependencies=[Depends(tbd)],
+    dependencies=[Depends(check_burst_engine)],
     responses=standard_response
 )
 
@@ -201,7 +193,7 @@ app.include_router(
     insights.router,
     prefix="/v1/insight",
     tags=["INSIGHTS"],
-    dependencies=[Depends(tbd)],
+    dependencies=[Depends(check_brain_running)],
     responses=standard_response
 )
 
@@ -209,7 +201,7 @@ app.include_router(
     morphology.router,
     prefix="/v1/morphology",
     tags=["NEURON MORPHOLOGIES"],
-    dependencies=[Depends(tbd)],
+    dependencies=[Depends(check_active_genome)],
     responses=standard_response
 )
 
@@ -217,7 +209,7 @@ app.include_router(
     cortical_area.router,
     prefix="/v1/cortical_area",
     tags=["CORTICAL AREAS"],
-    dependencies=[Depends(tbd)],
+    dependencies=[Depends(check_active_genome)],
     responses=standard_response
 )
 
@@ -225,7 +217,7 @@ app.include_router(
     cortical_mapping.router,
     prefix="/v1/cortical_mapping",
     tags=["CORTICAL MAPPINGS"],
-    dependencies=[Depends(tbd)],
+    dependencies=[Depends(check_active_genome)],
     responses=standard_response
 )
 
@@ -233,7 +225,7 @@ app.include_router(
     neuroplasticity.router,
     prefix="/v1/neuroplasticity",
     tags=["NEUROPLASTICITY"],
-    dependencies=[Depends(tbd)],
+    dependencies=[Depends(check_active_genome)],
     responses=standard_response
 )
 
@@ -241,7 +233,7 @@ app.include_router(
     network.router,
     prefix="/v1/network",
     tags=["NETWORK"],
-    dependencies=[Depends(tbd)],
+    dependencies=[],
     responses=standard_response
 )
 
@@ -249,7 +241,7 @@ app.include_router(
     simulation.router,
     prefix="/v1/simulation",
     tags=["SIMULATION"],
-    dependencies=[Depends(tbd)],
+    dependencies=[Depends(check_brain_running)],
     responses=standard_response
 )
 
@@ -257,14 +249,14 @@ app.include_router(
     system.router,
     prefix="/v1/system",
     tags=["SYSTEM"],
-    dependencies=[Depends(tbd)],
+    dependencies=[],
     responses=standard_response
 )
 app.include_router(
     training.router,
     prefix="/v1/training",
     tags=["TRAINING"],
-    dependencies=[Depends(tbd)],
+    dependencies=[Depends(check_brain_running)],
     responses=standard_response
 )
 

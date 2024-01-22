@@ -14,7 +14,12 @@
 # ==============================================================================
 
 
+import os
+
 from fastapi import APIRouter, HTTPException, Request
+
+from ...schemas import *
+from ...commons import *
 
 from src.inf import runtime_data
 from src.inf.messenger import Sub
@@ -109,3 +114,33 @@ async def agent_removal(agent_id: str):
         agent_info['listener'].terminate()
     else:
         raise HTTPException(status_code=404, detail="Requested agent not found!")
+
+
+@router.post("/parameters")
+async def robot_controller_tunner(message: RobotController):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+
+    message = message.dict()
+    message = {'robot_controller': message}
+    api_queue.put(item=message)
+
+
+@router.post("/model")
+async def robot_model_modification(message: RobotModel):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+
+    message = message.dict()
+    message = {'robot_model': message}
+    api_queue.put(item=message)
+
+
+@router.get("/gazebo/files")
+async def gazebo_robot_default_files():
+
+    default_robots_path = "./evo/defaults/robot/"
+    default_robots = os.listdir(default_robots_path)
+    return {"robots": default_robots}
