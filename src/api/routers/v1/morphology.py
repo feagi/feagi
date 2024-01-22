@@ -139,7 +139,7 @@ async def genome_delete_neuron_morphology(morphology_name: MorphologyName):
     Returns the properties of a neuron morphology.
     """
     # todo: Needs to be rewritten
-    morphology_name = morphology_name.name
+    morphology_name = morphology_name.morphology_name
     if morphology_name in runtime_data.genome['neuron_morphologies']:
         if "class" in runtime_data.genome['neuron_morphologies'][morphology_name]:
             if runtime_data.genome['neuron_morphologies'][morphology_name]["class"] == "custom":
