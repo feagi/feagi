@@ -72,8 +72,8 @@ async def genome_neuron_morphology_functions():
     return morphology_list
 
 
-@router.get("/morphology")
-async def genome_neuron_morphology_properties(morphology_name):
+@router.post("/morphology")
+async def genome_neuron_morphology_properties(morphology_name: MorphologyName):
     """
     Returns the properties of a neuron morphology.
     """
@@ -85,7 +85,7 @@ async def genome_neuron_morphology_properties(morphology_name):
         raise HTTPException(status_code=404, detail=f"Morphology named {morphology_name} not found!")
 
 
-@router.get("/morphology_usage")
+@router.post("/morphology_usage")
 async def genome_neuron_morphology_usage_report(morphology_name: MorphologyName):
     """
     Returns the properties of a neuron morphology.

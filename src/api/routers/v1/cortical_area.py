@@ -31,13 +31,13 @@ from src.evo.templates import cortical_types
 router = APIRouter()
 
 
-@router.get("/cortical_area")
-async def fetch_cortical_properties(cortical_name: CorticalName):
+@router.post("/cortical_area")
+async def fetch_cortical_properties(cortical_id: CorticalId):
     """
     Returns the properties of cortical areas
     """
-    cortical_area = cortical_name.cortical_name
-    if len(cortical_area) == genome_properties["structure"]["cortical_name_length"]:
+    cortical_area = cortical_id.cortical_id
+    if len(cortical_area) == genome_properties["structure"]["cortical_id_length"]:
         if cortical_area in runtime_data.genome['blueprint']:
             cortical_data = runtime_data.genome['blueprint'][cortical_area]
 
@@ -168,13 +168,14 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
 
 
 @router.delete("/cortical_area")
-async def delete_cortical_area(cortical_name: CorticalName):
+async def delete_cortical_area(cortical_id: CorticalId):
     """
     Enables changes against various Burst Engine parameters.
     """
-    cortical_area_name = cortical_name.cortical_name
-    message = {'delete_cortical_area': cortical_area_name}
-    api_queue.put(item=message)
+    cortical_id = cortical_id.cortical_id
+    if cortical_id in runtime_data.genome["blueprint"]:
+        message = {'delete_cortical_area': cortical_id}
+        api_queue.put(item=message)
 
 
 @router.get("/cortical_area_id_list")
@@ -188,7 +189,7 @@ async def genome_cortical_ids():
         return []
 
 
-@router.get("/cortical_name_location")
+@router.post("/cortical_name_location")
 async def genome_cortical_location_by_name(cortical_name: CorticalName):
     """
     Returns a comprehensive list of all cortical area names.

@@ -37,12 +37,12 @@ router = APIRouter()
 
 
 @router.get("/efferents")
-async def fetch_cortical_mappings(cortical_name: CorticalName):
+async def fetch_cortical_mappings(cortical_id: CorticalId):
     """
     Returns the list of cortical areas downstream to the given cortical areas
     """
-    cortical_area = cortical_name.cortical_name
-    if len(cortical_area) == genome_properties["structure"]["cortical_name_length"]:
+    cortical_area = cortical_id.cortical_id
+    if len(cortical_area) == genome_properties["structure"]["cortical_id_length"]:
         cortical_mappings = set()
         for destination in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
             cortical_mappings.add(destination)
@@ -52,12 +52,12 @@ async def fetch_cortical_mappings(cortical_name: CorticalName):
 
 
 @router.get("/afferents")
-async def fetch_cortical_mappings(cortical_name: CorticalName):
+async def fetch_cortical_mappings(cortical_id: CorticalId):
     """
     Returns the list of cortical areas downstream to the given cortical areas
     """
-    cortical_area = cortical_name.cortical_name
-    if len(cortical_area) == genome_properties["structure"]["cortical_name_length"]:
+    cortical_area = cortical_id.cortical_id
+    if len(cortical_area) == genome_properties["structure"]["cortical_id_length"]:
         upstream_cortical_areas, downstream_cortical_areas = \
             neighboring_cortical_areas(cortical_area, blueprint=runtime_data.genome["blueprint"])
         return upstream_cortical_areas
@@ -66,11 +66,11 @@ async def fetch_cortical_mappings(cortical_name: CorticalName):
 
 
 @router.get("/cortical_mappings_by_name")
-async def fetch_cortical_mappings(cortical_name: CorticalName):
+async def fetch_cortical_mappings(cortical_id: CorticalId):
     """
     Returns the list of cortical names being downstream to the given cortical areas
     """
-    cortical_area = cortical_name.cortical_name
+    cortical_area = cortical_id.cortical_id
     cortical_mappings = set()
     for destination in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
         cortical_mappings.add(runtime_data.genome['blueprint'][destination]['cortical_name'])
@@ -79,11 +79,11 @@ async def fetch_cortical_mappings(cortical_name: CorticalName):
 
 
 @router.get("/cortical_mappings_detailed")
-async def fetch_cortical_mappings(cortical_name: CorticalName):
+async def fetch_cortical_mappings(cortical_id: CorticalId):
     """
     Returns the list of cortical areas downstream to the given cortical areas
     """
-    cortical_area = cortical_name.cortical_name
+    cortical_area = cortical_id.cortical_id
     if runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
         return runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']
     else:
