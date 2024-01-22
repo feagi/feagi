@@ -109,6 +109,30 @@ class UpdateCorticalProperties(BaseModel):
 #     gazebo_data_port: Optional[int] = runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']
 #     gazebo_web_port: Optional[int] = 6080
 
+class CorticalName(BaseModel):
+    cortical_name: str
+
+
+class MorphologyName(BaseModel):
+    morphology_name: str
+
+
+class MorphologyInput(BaseModel):
+    morphology_name: str
+    morphology_type: str
+    morphology_parameters: dict
+
+
+class UpdateCorticalMappingProperties(BaseModel):
+    src_cortical_area: str
+    dst_cortical_area: str
+    mapping_string: list
+
+
+class CorticalAreaSrcDst(BaseModel):
+    src_cortical_area: str
+    dst_cortical_area: str
+
 
 class ConnectomePath(BaseModel):
     connectome_path: str

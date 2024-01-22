@@ -18,6 +18,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
 from ...commons import *
+from ...schemas import *
 
 from src.inf import runtime_data
 from src.evo import synaptogenesis_rules
@@ -85,10 +86,11 @@ async def genome_neuron_morphology_properties(morphology_name):
 
 
 @router.get("/morphology_usage")
-async def genome_neuron_morphology_usage_report(morphology_name):
+async def genome_neuron_morphology_usage_report(morphology_name: MorphologyName):
     """
     Returns the properties of a neuron morphology.
     """
+    morphology_name = morphology_name.name
     if morphology_name in runtime_data.genome["neuron_morphologies"]:
         usage_list = morphology_usage_list(morphology_name=morphology_name, genome=runtime_data.genome)
         if usage_list:
@@ -100,17 +102,15 @@ async def genome_neuron_morphology_usage_report(morphology_name):
 
 
 @router.put("/morphology")
-async def genome_update_neuron_morphology(morphology_name: str,
-                                          morphology_type: str,
-                                          morphology_parameters: dict):
+async def genome_update_neuron_morphology(morphology_input: MorphologyInput):
     """
     Enables changes against various Burst Engine parameters.
     """
 
     message = dict()
-    message["name"] = morphology_name
-    message["type"] = morphology_type
-    message["parameters"] = morphology_parameters
+    message["name"] = morphology_input.morphology_name
+    message["type"] = morphology_input.morphology_type
+    message["parameters"] = morphology_input.morphology_parameters
 
     message = {'update_morphology_properties': message}
     print("*" * 50 + "\n", message)
@@ -118,28 +118,28 @@ async def genome_update_neuron_morphology(morphology_name: str,
 
 
 @router.post("/morphology")
-async def genome_add_neuron_morphology(morphology_name: str,
-                                       morphology_type: str,
-                                       morphology_parameters: dict):
+async def genome_add_neuron_morphology(morphology_input: MorphologyInput):
     """
     Enables changes against various Burst Engine parameters.
     """
-
-    if morphology_name not in runtime_data.genome['neuron_morphologies']:
+    morphology_name = morphology_input.morphology_name
+    if morphology_input.morphology_name not in runtime_data.genome['neuron_morphologies']:
         runtime_data.genome['neuron_morphologies'][morphology_name] = {}
-        runtime_data.genome['neuron_morphologies'][morphology_name]["type"] = morphology_type
+        runtime_data.genome['neuron_morphologies'][morphology_name]["type"] = morphology_input.morphology_type
         runtime_data.genome['neuron_morphologies'][morphology_name]["class"] = "custom"
-        runtime_data.genome['neuron_morphologies'][morphology_name]["parameters"] = morphology_parameters
+        runtime_data.genome['neuron_morphologies'][morphology_name]["parameters"] = \
+            morphology_input.morphology_parameters
     else:
         pass
 
 
 @router.delete("/morphology")
-async def genome_delete_neuron_morphology(morphology_name):
+async def genome_delete_neuron_morphology(morphology_name: MorphologyName):
     """
     Returns the properties of a neuron morphology.
     """
     # todo: Needs to be rewritten
+    morphology_name = morphology_name.morphology_name
     if morphology_name in runtime_data.genome['neuron_morphologies']:
         if "class" in runtime_data.genome['neuron_morphologies'][morphology_name]:
             if runtime_data.genome['neuron_morphologies'][morphology_name]["class"] == "custom":
