@@ -22,7 +22,6 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from threading import Thread
 
-from src.inf.initialize import *
 from src.inf import runtime_data
 from .config import settings
 from .dependencies import *

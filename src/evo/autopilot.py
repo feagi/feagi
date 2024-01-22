@@ -26,7 +26,6 @@ import logging
 
 from src.inf import runtime_data
 from src.inf.initialize import id_gen
-from src.api.message_processor import api_message_processor
 
 
 logger = logging.getLogger(__name__)
@@ -56,10 +55,11 @@ def load_new_genome():
             genome_str = json.load(data_file)
             # todo: refactor the genome handling to not have to use the message processor for evo purpose
             api_message = {"genome": genome_str}
+            from src.api.message_processor import api_message_processor
             api_message_processor(api_message)
 
-    except Exception:
-        print("Error while loading genome file\n", traceback.print_exc())
+    except Exception as e:
+        print(f"Error while loading genome file {e}\n", traceback.print_exc())
 
 
 def pick_a_random_genome():

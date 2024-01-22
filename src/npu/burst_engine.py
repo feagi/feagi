@@ -43,7 +43,7 @@ from src.evo.death import death_manager
 from src.inf.initialize import init_burst_engine, init_fcl, utc_time
 from src.inf.messenger import Pub, Sub
 from src.pns.pns_router import opu_router, stimuli_router
-from src.api.message_processor import api_message_processor
+# from src.api.message_processor import api_message_processor
 from src.trn.shock import shock_manager
 from src.evo.autopilot import load_new_genome
 
@@ -553,6 +553,7 @@ def burst_manager():
             pass
         else:
             api_message = runtime_data.api_queue.get()
+            from src.api.message_processor import api_message_processor
             api_message_processor(api_message)
             return
 
