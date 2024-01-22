@@ -55,7 +55,7 @@ async def genome_default_upload():
     api_queue.put(item=message)
 
 
-@router.post("/upload/file", tags=["Genome"])
+@router.post("/upload/file")
 async def genome_file_upload(file: UploadFile = File(...)):
     """
     This API allows you to browse files from your computer and upload a genome to FEAGI.

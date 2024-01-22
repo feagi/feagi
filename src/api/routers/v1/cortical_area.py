@@ -141,7 +141,7 @@ async def add_cortical_area(new_cortical_properties: NewCorticalProperties):
     return JSONResponse(status_code=200, content={'cortical_id': cortical_id})
 
 
-@router.api_route("/custom_cortical_area", methods=['POST'], tags=["Genome"])
+@router.post("/custom_cortical_area")
 async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCorticalProperties):
     """
     Enables changes against various Burst Engine parameters.
