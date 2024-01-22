@@ -117,12 +117,11 @@ async def catch_exceptions_middleware(request: Request, call_next):
         )
 
 standard_response = {
-        401: {
-            "model": UnauthorizedResponse,
-            "description": "Unauthorized: Invalid or expired token",
+        403: {
+            "description": "Forbidden: Core assets cannot be modified or removed.",
             "content": {
                 "application/json": {
-                    "example": {"error_code": 401, "error_message": "Invalid token"}
+                    "example": {"error_code": 403, "error_message": "Operation not allowed"}
                 }
             }
         },

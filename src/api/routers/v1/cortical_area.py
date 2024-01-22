@@ -102,7 +102,7 @@ async def fetch_cortical_properties(cortical_area):
                 cortical_properties["transforming"] = True
             return cortical_properties
         else:
-            raise HTTPException(status_code=400, detail="Bad reqeust!")
+            raise HTTPException(status_code=404, detail=f"{cortical_area} not found part of current genome.")
     else:
         raise HTTPException(status_code=400, detail=f"{cortical_area} is not meeting standard length constraints")
 
