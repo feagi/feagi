@@ -295,9 +295,9 @@ def burst_manager():
                             if runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'] == 0:
                                 ready_to_fire = True
 
-                            elif membrane_potential <= fire_threshold * \
-                                (100 + runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit']) / \
-                                    100:
+                            elif membrane_potential <= \
+                                    (fire_threshold +
+                                     runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit']):
                                 ready_to_fire = True
 
                             else:
