@@ -51,10 +51,10 @@ reduced) and incorporated in the new neuroplasticity function (below).
 import traceback
 import logging
 import xxhash
-from inf import runtime_data
-from evo.neuron import init_neuron, increase_neuron_lifespan, neuron_apoptosis, convert_shortterm_to_longterm
-from evo.synapse import memory_synapse
-from npu.physiology import list_upstream_plastic_neurons, list_downstream_plastic_neurons, post_synaptic_current_update
+from src.inf import runtime_data
+from src.evo.neuron import init_neuron, increase_neuron_lifespan, neuron_apoptosis, convert_shortterm_to_longterm
+from src.evo.synapse import memory_synapse
+from src.npu.physiology import list_upstream_plastic_neurons, list_downstream_plastic_neurons, post_synaptic_current_update
 
 
 logger = logging.getLogger(__name__)

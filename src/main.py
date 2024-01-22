@@ -6,32 +6,36 @@
 # artificial brain at a time. To scale up the system to many parallel generations, FEAGI
 # is intended to run within a container and scale up to many container instances.
 
-import sys
-from configuration import init_parameters
-sys.path.append('../')
-import uvicorn
-import platform
-import json
-import logging.config
 
-from inf import runtime_data
+if __name__ == "__main__":
+    import sys
+    from configuration import init_parameters
 
-if platform.system() == 'Windows':
-    with open("logging_config.json", "r") as config_file:
-        logging_config_data = json.load(config_file)
+    sys.path.append('../')
+    import uvicorn
+    import platform
+    import json
+    import logging.config
 
-    # setup loggers
-    logging.config.dictConfig(logging_config_data)
+    from inf import runtime_data
 
-    # get root logger
-    logger = logging.getLogger(__name__)
+    if platform.system() == 'Windows':
+        with open("logging_config.json", "r") as config_file:
+            logging_config_data = json.load(config_file)
 
-runtime_data.parameters = init_parameters()
+        # setup loggers
+        logging.config.dictConfig(logging_config_data)
 
-print("Starting FEAGI API on port ", runtime_data.parameters['Sockets']['feagi_api_port'])
+        # get root logger
+        logger = logging.getLogger(__name__)
 
-if runtime_data.parameters['Sockets']['feagi_api_port'] is None:
-    runtime_data.parameters['Sockets']['feagi_api_port'] = 8000  # Default port
+    runtime_data.parameters = init_parameters()
 
-uvicorn.run("src.api.api:app", host="0.0.0.0", port=int(runtime_data.parameters['Sockets']['feagi_api_port']),
-            reload=False, log_level="debug", debug=True, workers=4)
+    if runtime_data.parameters['Sockets']['feagi_api_port'] is None:
+        runtime_data.parameters['Sockets']['feagi_api_port'] = 8000  # Default port
+
+    print("Starting FEAGI API on port ", runtime_data.parameters['Sockets']['feagi_api_port'])
+
+    uvicorn.run("api.api:app", host="0.0.0.0", port=int(runtime_data.parameters['Sockets']['feagi_api_port']),
+                reload=False, log_level="debug", debug=True, workers=4)
+

@@ -18,20 +18,19 @@ import json
 import os
 import platform
 import tempfile
-from inf import initialize
-from evo import neuroembryogenesis, death, genome_processor
-from npu import burst_engine
-from inf import runtime_data, disk_ops
-from inf.initialize import init_parameters
-from evo.genome_editor import save_genome
-from configparser import ConfigParser
-from tempfile import gettempdir
+from src.inf import initialize, runtime_data, disk_ops
+from src.evo import neuroembryogenesis, death, genome_processor
+from src.npu import burst_engine
+# from ..inf.initialize import init_parameters
+# from evo.genome_editor import save_genome
+# from configparser import ConfigParser
+# from tempfile import gettempdir
 import logging
 
 log = logging.getLogger(__name__)
 
 
-init_parameters()
+# init_parameters()
 
 
 def splash_screen():

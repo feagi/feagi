@@ -26,18 +26,18 @@ import random
 import string
 import traceback
 
-from evo import neuron, synapse, stats, genetics, voxels, neuroembryogenesis, templates
+from src.evo import neuron, synapse, stats, genetics, voxels, neuroembryogenesis, templates
 from functools import partial
 from multiprocessing import Pool, Process
-from inf import disk_ops
-from inf import settings
-from inf import runtime_data
-from evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter, genome_2_1_convertor
-from evo.genome_editor import save_genome
-from evo.connectome import reset_connectome_file
-from evo.neuroembryogenesis import cortical_name_list, develop, generate_plasticity_dict
-from inf.initialize import generate_cortical_dimensions, generate_cortical_dimensions_by_id, init_fcl
-from mem.memory import is_memory_cortical_area
+from src.inf import disk_ops
+from src.inf import settings
+from src.inf import runtime_data
+from src.evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter, genome_2_1_convertor
+from src.evo.genome_editor import save_genome
+from src.evo.connectome import reset_connectome_file
+from src.evo.neuroembryogenesis import cortical_name_list, develop, generate_plasticity_dict
+from src.inf.initialize import generate_cortical_dimensions, generate_cortical_dimensions_by_id, init_fcl
+from src.mem.memory import is_memory_cortical_area
 
 logger = logging.getLogger(__name__)
 

@@ -23,9 +23,9 @@ import random
 import json
 import traceback
 import logging
-from inf import runtime_data
-from inf.initialize import id_gen
-from api import message_processor
+from src.inf import runtime_data
+from src.inf.initialize import id_gen
+from src.api import message_processor
 
 
 logger = logging.getLogger(__name__)

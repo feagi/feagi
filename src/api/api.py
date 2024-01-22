@@ -22,13 +22,12 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from threading import Thread
 
+from src.inf import feagi, runtime_data
 from .config import settings
 from .dependencies import *
 from .error_handling import *
-from .commons import *
+from .commons import CustomError, api_queue
 from .models import *
-from ..inf import feagi
-
 from .routers.v1 import burst_engine, connectome, embodiment, evolution, feagi_agent, genome, insights, morphology, \
     network, simulation, system, training, cortical_area, neuroplasticity, cortical_mapping
 

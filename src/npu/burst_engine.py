@@ -35,17 +35,17 @@ from datetime import datetime, timedelta
 from time import sleep
 import lz4.frame
 import pickle
-from npu.physiology import *
-from npu import stimulator, auxiliary
-from mem.memory import neuroplasticity, long_short_term_memory, lstm_lifespan_mgmt
-from evo.stats import *
-from evo.death import death_manager
-from inf.initialize import init_burst_engine, init_fcl, utc_time
-from inf.messenger import Pub, Sub
-from pns.pns_router import opu_router, stimuli_router
-from api.message_processor import api_message_processor
-from trn.shock import shock_manager
-from evo.autopilot import load_new_genome
+from src.npu.physiology import *
+from src.npu import stimulator, auxiliary
+from src.mem.memory import neuroplasticity, long_short_term_memory, lstm_lifespan_mgmt
+from src.evo.stats import *
+from src.evo.death import death_manager
+from src.inf.initialize import init_burst_engine, init_fcl, utc_time
+from src.inf.messenger import Pub, Sub
+from src.pns.pns_router import opu_router, stimuli_router
+from src.api.message_processor import api_message_processor
+from src.trn.shock import shock_manager
+from src.evo.autopilot import load_new_genome
 
 logger = logging.getLogger(__name__)
 

@@ -20,7 +20,7 @@ import logging
 # from evo.neuron import block_reference_builder
 # from evo.synapse import synapse
 # from evo.voxels import block_reference_builder
-from inf import runtime_data, settings
+from src.inf import runtime_data, settings
 # from cython_lib import neuron_functions_cy as cy
 
 

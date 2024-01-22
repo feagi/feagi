@@ -17,10 +17,10 @@ import logging
 import copy
 import traceback
 import datetime
-from evo.genome_editor import save_genome
-from evo.genome_validator import genome_validator
-from evo.templates import core_morphologies, cortical_types
-from inf import runtime_data
+from src.evo.genome_editor import save_genome
+from src.evo.genome_validator import genome_validator
+from src.evo.templates import core_morphologies, cortical_types
+from src.inf import runtime_data
 
 
 logger = logging.getLogger(__name__)

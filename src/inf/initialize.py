@@ -16,14 +16,12 @@
 import json
 import os
 import platform
-import traceback
 
 import psutil
-import string
-import random
 
-
-from ..inf import runtime_data, settings
+from src.inf import runtime_data
+from src.inf import settings
+from src.inf.helpers import id_gen
 
 from queue import Queue
 
@@ -34,15 +32,15 @@ from watchdog.events import LoggingEventHandler
 from datetime import datetime, timedelta
 from collections import deque
 from shutil import copyfile
-from ..evo.connectome import reset_connectome
-from ..evo.stats import voxel_dict_summary
-from ..evo.genome_editor import save_genome
-from ..inf.messenger import Pub
-from ..evo.neuroembryogenesis import generate_plasticity_dict, develop_brain
-from ..evo.genome_processor import genome_1_cortical_list, genome_ver_check
-from ..evo.genome_validator import *
-from ..evo.templates import cortical_types
-from ..evo.autopilot import update_generation_dict
+from src.evo.connectome import reset_connectome
+from src.evo.stats import voxel_dict_summary
+from src.evo.genome_editor import save_genome
+from src.inf.messenger import Pub
+from src.evo.neuroembryogenesis import generate_plasticity_dict, develop_brain
+from src.evo.genome_processor import genome_1_cortical_list, genome_ver_check
+from src.evo.genome_validator import *
+from src.evo.templates import cortical_types
+from src.evo.autopilot import update_generation_dict
 
 
 logger = logging.getLogger(__name__)
@@ -121,10 +119,6 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
     print("=======================    Genome Staging Completed        =======================")
     runtime_data.brain_readiness = True
 
-
-def id_gen(size=6, chars=string.ascii_uppercase + string.digits, signature=''):
-    return (str(datetime.now()).replace(' ', '_')).replace('.', '_')+'_'+(''.join(random.choice(chars) for
-                                                                                           _ in range(size)))+signature
 
 # def init_hw_controller():
 #     """

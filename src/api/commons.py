@@ -1,7 +1,7 @@
 from queue import Queue
 from datetime import datetime
 
-from ..inf import runtime_data
+from src.inf import runtime_data
 
 
 api_queue = Queue()
