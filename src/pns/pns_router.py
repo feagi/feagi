@@ -17,11 +17,11 @@
 # ==============================================================================
 
 import logging
-from pns import stimuli_translator
+from src.pns import stimuli_translator
 import traceback
 from datetime import datetime
-from evo.voxels import *
-from evo.stats import opu_activity_report
+from src.evo.voxels import *
+from src.evo.stats import opu_activity_report
 
 
 logger = logging.getLogger(__name__)

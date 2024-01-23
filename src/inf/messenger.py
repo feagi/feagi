@@ -30,7 +30,7 @@ from datetime import datetime
 import logging
 import zmq
 import time
-from inf import runtime_data
+from src.inf import runtime_data
 import pickle
 import lz4.frame
 
