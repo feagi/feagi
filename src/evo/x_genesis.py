@@ -38,6 +38,7 @@ from evo.connectome import reset_connectome_file
 from evo.neuroembryogenesis import cortical_name_list, develop, generate_plasticity_dict
 from inf.initialize import generate_cortical_dimensions, generate_cortical_dimensions_by_id, init_fcl
 from mem.memory import is_memory_cortical_area
+from evo.synaptogenesis_rules import syn_memory
 
 logger = logging.getLogger(__name__)
 
@@ -333,6 +334,7 @@ def update_evo_change_register(change_area: set):
 
 
 def update_cortical_mappings(cortical_mappings):
+    print("@________________" * 50)
     cortical_area = cortical_mappings["src_cortical_area"]
     dst_cortical_area = cortical_mappings["dst_cortical_area"]
     mappings = cortical_mappings["mapping_data"]
@@ -362,6 +364,9 @@ def update_cortical_mappings(cortical_mappings):
             synapse.memory_synapse(memory_cortical_area=cortical_area, memory_neuron_id=memory_neuron)
     else:
         neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
+
+    if is_memory_cortical_area(cortical_area=dst_cortical_area):
+        syn_memory(src_cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
 
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                 file_name=runtime_data.connectome_path + "genome.json")

@@ -149,6 +149,7 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
                     # candidate_voxel_list.append([candidate, post_synaptic_current])
 
             elif neuron_morphology == "memory":
+                print("%$___" * 20)
                 syn_memory(src_cortical_area=cortical_area_src, dst_cortical_area=cortical_area_dst)
 
             candidate_list = None

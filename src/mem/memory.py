@@ -168,11 +168,9 @@ def long_short_term_memory():
                 if upstream_cortical_area in runtime_data.fire_candidate_list:
                     if runtime_data.fire_candidate_list[upstream_cortical_area]:
                         neurogenesis_list.update(runtime_data.fire_candidate_list[upstream_cortical_area])
-
             memory_hash = generate_mem_hash_cache(afferent_neuron_list=neurogenesis_list)
 
             mem_neuron_id = convert_hash_to_neuron_id(cortical_area=memory_cortical_area, memory_hash=memory_hash)
-
             if mem_neuron_id not in runtime_data.brain[memory_cortical_area] and memory_hash != "0x0":
                 init_neuron(cortical_area=memory_cortical_area, soma_location=[0, 0, 0], mem_neuron_id=memory_hash)
             else:
@@ -186,7 +184,7 @@ def long_short_term_memory():
                 if memory_cortical_area in runtime_data.plasticity_dict:
                     runtime_data.plasticity_queue_candidates.add(mem_neuron_id)
 
-    inject_lstm_fire_queue_to_fcl()
+            inject_lstm_fire_queue_to_fcl()
 
 
 def lstm_lifespan_mgmt():
