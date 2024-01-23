@@ -217,7 +217,7 @@ async def cortical_area_types():
         return runtime_data.cortical_defaults
 
 
-@router.get("/cortical_type_options")
+@router.post("/cortical_type_options")
 async def cortical_area_types(cortical_type):
     """
     Returns the list of supported cortical area for a given type
