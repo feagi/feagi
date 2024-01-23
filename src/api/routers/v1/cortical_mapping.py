@@ -90,7 +90,7 @@ async def fetch_cortical_mappings(cortical_id: CorticalId):
         raise HTTPException(status_code=400, detail=f"Cortical area with id={cortical_area} not found!")
 
 
-@router.get("/mapping_properties")
+@router.post("/mapping_properties")
 async def fetch_cortical_mapping_properties(source_destination: CorticalAreaSrcDst):
     """
     Returns the list of cortical areas downstream to the given cortical areas
