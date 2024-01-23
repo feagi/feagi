@@ -16,7 +16,7 @@
 
 from fastapi import APIRouter, HTTPException
 
-# from ...commons import *
+from ...schemas import *
 
 from src.inf import runtime_data
 
@@ -27,8 +27,8 @@ router = APIRouter()
 # ######  Statistics and Reporting Endpoints #########
 # ####################################################
 
-@router.get("/neurons/membrane_potential")
-async def cortical_neuron_membrane_potential_monitoring(cortical_area):
+@router.post("/neurons/membrane_potential_status")
+async def cortical_neuron_membrane_potential_monitoring(cortical_area: CorticalId):
     print("Cortical membrane potential monitoring", runtime_data.neuron_mp_collection_scope)
 
     if cortical_area in runtime_data.neuron_mp_collection_scope:
@@ -37,7 +37,7 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area):
         return False
 
 
-@router.post("/neurons/membrane_potential")
+@router.post("/neurons/membrane_potential_set")
 async def cortical_neuron_membrane_potential_monitoring(cortical_area, state: bool):
     print("Cortical membrane potential monitoring", runtime_data.neuron_mp_collection_scope)
 
@@ -56,7 +56,7 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area, state: bo
         raise HTTPException(status_code=400, detail="InfluxDb service is not running!")
 
 
-@router.get("/neuron/synaptic_potential")
+@router.post("/neuron/synaptic_potential_status")
 async def cortical_synaptic_potential_monitoring(cortical_area):
     print("Cortical synaptic potential monitoring flag", runtime_data.neuron_psp_collection_scope)
 
@@ -66,7 +66,7 @@ async def cortical_synaptic_potential_monitoring(cortical_area):
         return False
 
 
-@router.post("/neuron/synaptic_potential")
+@router.post("/neuron/synaptic_potential_set")
 async def cortical_synaptic_potential_monitoring(cortical_area, state: bool):
     print("Cortical synaptic potential monitoring flag", runtime_data.neuron_psp_collection_scope)
     if runtime_data.influxdb:
