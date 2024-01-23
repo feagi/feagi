@@ -72,7 +72,7 @@ async def genome_neuron_morphology_functions():
     return morphology_list
 
 
-@router.post("/morphology")
+@router.post("/morphology_properties")
 async def genome_neuron_morphology_properties(morphology_name: MorphologyName):
     """
     Returns the properties of a neuron morphology.
