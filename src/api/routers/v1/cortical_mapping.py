@@ -65,7 +65,7 @@ async def fetch_cortical_mappings(cortical_id: CorticalId):
         raise HTTPException(status_code=400, detail="Wrong cortical id format!")
 
 
-@router.get("/cortical_mappings_by_name")
+@router.post("/cortical_mappings_by_name")
 async def fetch_cortical_mappings(cortical_id: CorticalId):
     """
     Returns the list of cortical names being downstream to the given cortical areas
@@ -78,7 +78,7 @@ async def fetch_cortical_mappings(cortical_id: CorticalId):
     return cortical_mappings
 
 
-@router.get("/cortical_mappings_detailed")
+@router.post("/cortical_mappings_detailed")
 async def fetch_cortical_mappings(cortical_id: CorticalId):
     """
     Returns the list of cortical areas downstream to the given cortical areas
