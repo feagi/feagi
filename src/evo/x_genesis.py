@@ -356,6 +356,10 @@ def update_cortical_mappings(cortical_mappings):
 
     if not mappings:
         runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'].pop(dst_cortical_area)
+        if is_memory_cortical_area(cortical_area=dst_cortical_area):
+            if dst_cortical_area in runtime_data.memory_register:
+                if cortical_area in runtime_data.memory_register[dst_cortical_area]:
+                    runtime_data.memory_register[dst_cortical_area].remove(cortical_area)
 
     # Update Plasticity Dict
     generate_plasticity_dict()
@@ -363,11 +367,11 @@ def update_cortical_mappings(cortical_mappings):
     if is_memory_cortical_area(cortical_area=cortical_area):
         for memory_neuron in runtime_data.brain[cortical_area]:
             synapse.memory_synapse(memory_cortical_area=cortical_area, memory_neuron_id=memory_neuron)
+        if mappings:
+            syn_memory(src_cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
+
     else:
         neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
-
-    if is_memory_cortical_area(cortical_area=dst_cortical_area):
-        syn_memory(src_cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
 
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                 file_name=runtime_data.connectome_path + "genome.json")
