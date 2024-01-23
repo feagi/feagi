@@ -36,7 +36,7 @@ router = APIRouter()
 #
 
 
-@router.get("/efferents")
+@router.post("/efferents")
 async def fetch_cortical_mappings(cortical_id: CorticalId):
     """
     Returns the list of cortical areas downstream to the given cortical areas
@@ -51,7 +51,7 @@ async def fetch_cortical_mappings(cortical_id: CorticalId):
         raise HTTPException(status_code=400, detail="Wrong cortical id format!")
 
 
-@router.get("/afferents")
+@router.post("/afferents")
 async def fetch_cortical_mappings(cortical_id: CorticalId):
     """
     Returns the list of cortical areas downstream to the given cortical areas
