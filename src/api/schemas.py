@@ -99,7 +99,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_longterm_mem_threshold: Optional[int]
     neuron_lifespan_growth_rate: Optional[int]
     neuron_init_lifespan: Optional[int]
-
+    neuron_excitability: Optional[int]
 
 # class Network(BaseModel):
 #     godot_host: Optional[str] = runtime_data.parameters['Sockets']['godot_host_name']
