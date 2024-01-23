@@ -146,7 +146,7 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
     for dst_neuron_id in neighbor_list:
         # Timing the update function
         # update_start_time = datetime.now()
-        if neuro_excitability_check(dst_neuron_id):
+        if neuron_excitability_check(dst_neuron_id):
             dst_cortical_area = \
                 runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["cortical_area"]
             postsynaptic_current = \

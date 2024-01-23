@@ -101,6 +101,8 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
             }
             if cortical_area in runtime_data.transforming_areas:
                 cortical_properties["transforming"] = True
+            else:
+                cortical_properties["transforming"] = False
             return cortical_properties
         else:
             raise HTTPException(status_code=400, detail=f"{cortical_area} not found part of current genome.")
