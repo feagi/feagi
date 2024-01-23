@@ -90,7 +90,7 @@ async def genome_neuron_morphology_usage_report(morphology_name: MorphologyName)
     """
     Returns the properties of a neuron morphology.
     """
-    morphology_name = morphology_name.name
+    morphology_name = morphology_name.morphology_name
     if morphology_name in runtime_data.genome["neuron_morphologies"]:
         usage_list = morphology_usage_list(morphology_name=morphology_name, genome=runtime_data.genome)
         if usage_list:
