@@ -38,7 +38,7 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area: CorticalI
 
 
 @router.post("/neurons/membrane_potential_set")
-async def cortical_neuron_membrane_potential_monitoring(cortical_area, state: bool):
+async def cortical_neuron_membrane_potential_monitoring(cortical_area: CorticalId, state: bool):
     print("Cortical membrane potential monitoring", runtime_data.neuron_mp_collection_scope)
 
     if runtime_data.influxdb:
@@ -57,7 +57,7 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area, state: bo
 
 
 @router.post("/neuron/synaptic_potential_status")
-async def cortical_synaptic_potential_monitoring(cortical_area):
+async def cortical_synaptic_potential_monitoring(cortical_area: CorticalId):
     print("Cortical synaptic potential monitoring flag", runtime_data.neuron_psp_collection_scope)
 
     if cortical_area in runtime_data.neuron_psp_collection_scope:
@@ -67,7 +67,7 @@ async def cortical_synaptic_potential_monitoring(cortical_area):
 
 
 @router.post("/neuron/synaptic_potential_set")
-async def cortical_synaptic_potential_monitoring(cortical_area, state: bool):
+async def cortical_synaptic_potential_monitoring(cortical_area: CorticalId, state: bool):
     print("Cortical synaptic potential monitoring flag", runtime_data.neuron_psp_collection_scope)
     if runtime_data.influxdb:
         if runtime_data.influxdb.test_influxdb():
