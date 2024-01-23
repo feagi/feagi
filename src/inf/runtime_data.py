@@ -41,6 +41,8 @@ working_directory = ''
 connectome_path = ''
 circuit_lib_path = "./evo/circuits"
 paths = {}
+pending_amalgamation = {}
+amalgamation_history = {}
 
 
 # Evolutionary

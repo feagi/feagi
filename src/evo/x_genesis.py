@@ -42,6 +42,12 @@ from mem.memory import is_memory_cortical_area
 logger = logging.getLogger(__name__)
 
 
+class CustomError(Exception):
+    def __init__(self, message, status_code):
+        self.message = message
+        self.status_code = status_code
+
+
 def x_neurogenesis():
     pass
 
@@ -663,7 +669,7 @@ def add_core_cortical_area(cortical_properties):
 
 
 def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cortical_dimensions,
-                             cortical_id_overwrite=None, is_memory=False):
+                             cortical_id_overwrite=None, is_memory=False, copy_of=None):
     # Generate Cortical ID
     # todo: instead of hard coding the length have the genome properties captured and reference instead
     temp_name = cortical_name
@@ -675,7 +681,16 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
         cortical_area = cortical_id_gen(temp_name[:3], is_memory=is_memory)
 
     cortical_names = neuroembryogenesis.cortical_name_list()
-    template = templates.cortical_template.copy()
+    if copy_of:
+        if copy_of in runtime_data.genome["blueprint"]:
+            template = runtime_data.genome["blueprint"][copy_of].copy()
+            template["cortical_mapping_dst"] = {}
+            template["cortical_name"] = cortical_name
+        else:
+            print("Source cortical area chosen for cloning is not part of Genome")
+            raise CustomError
+    else:
+        template = templates.cortical_template.copy()
 
     if cortical_name in cortical_names:
         print("Warning! Cortical area with same name already exists in genome. Nothing got added.")
@@ -685,58 +700,35 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
         runtime_data.genome['blueprint'][cortical_area] = {}
         runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
 
-        runtime_data.genome["blueprint"][cortical_area] = \
-            template.copy()
+        cortical_template = template.copy()
+
+        runtime_data.genome["blueprint"][cortical_area] = cortical_template
+
+        for parameter in cortical_template:
+            runtime_data.genome["blueprint"][cortical_area][parameter] = cortical_template[parameter]
 
         runtime_data.genome['blueprint'][cortical_area]['cortical_name'] = cortical_name
 
-        runtime_data.genome['blueprint'][cortical_area]["block_boundaries"] = \
-            [cortical_dimensions[0],
-             cortical_dimensions[1],
-             cortical_dimensions[2]]
+        new_cortical_dimensions = cortical_dimensions.copy()
+        runtime_data.genome['blueprint'][cortical_area]["block_boundaries"] = new_cortical_dimensions
 
-        runtime_data.genome['blueprint'][cortical_area]["relative_coordinate"] = \
-            [coordinates_3d[0],
-             coordinates_3d[1],
-             coordinates_3d[2]]
+        new_3d_coordinates = coordinates_3d.copy()
+        runtime_data.genome['blueprint'][cortical_area]["relative_coordinate"] = new_3d_coordinates
 
-        runtime_data.genome['blueprint'][cortical_area]["2d_coordinate"] = \
-            [coordinates_2d[0],
-             coordinates_2d[1]]
+        new_coordinates_2d = coordinates_2d.copy()
+        runtime_data.genome['blueprint'][cortical_area]["2d_coordinate"] = new_coordinates_2d
 
         runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'] = {}
-        runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"] = \
-            template['per_voxel_neuron_cnt']
-        runtime_data.genome["blueprint"][cortical_area]["synapse_attractivity"] = \
-            template['synapse_attractivity']
-        runtime_data.genome["blueprint"][cortical_area]["postsynaptic_current"] = \
-            template['postsynaptic_current']
-        runtime_data.genome["blueprint"][cortical_area]["plasticity_constant"] = \
-            template['plasticity_constant']
-        runtime_data.genome["blueprint"][cortical_area]["degeneration"] = \
-            template['degeneration']
-        runtime_data.genome["blueprint"][cortical_area]["psp_uniform_distribution"] = \
-            template['psp_uniform_distribution']
-        runtime_data.genome["blueprint"][cortical_area]["postsynaptic_current_max"] = \
-            template['postsynaptic_current_max']
-        runtime_data.genome["blueprint"][cortical_area]["mp_charge_accumulation"] = \
-            template['mp_charge_accumulation']
-        runtime_data.genome["blueprint"][cortical_area]["mp_driven_psp"] = \
-            template['mp_driven_psp']
-        runtime_data.genome["blueprint"][cortical_area]["firing_threshold_increment"] = \
-            template['firing_threshold_increment']
-        runtime_data.genome["blueprint"][cortical_area]["firing_threshold_limit"] = \
-            template['firing_threshold_limit']
-
+        
         runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] = ""
 
         if is_memory:
             runtime_data.genome["blueprint"][cortical_area]["longterm_mem_threshold"] = \
-                template['longterm_mem_threshold']
+                cortical_template['longterm_mem_threshold']
             runtime_data.genome["blueprint"][cortical_area]["lifespan_growth_rate"] = \
-                template['lifespan_growth_rate']
+                cortical_template['lifespan_growth_rate']
             runtime_data.genome["blueprint"][cortical_area]["init_lifespan"] = \
-                template['init_lifespan']
+                cortical_template['init_lifespan']
             runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] = "MEMORY"
             runtime_data.memory_register[cortical_area] = set()
 
