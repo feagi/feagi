@@ -167,6 +167,9 @@ def update_cortical_properties(cortical_properties):
         changed_areas.add("blueprint")
 
     if cortical_properties['neuron_excitability'] is not None:
+        if "neuron_excitability" not in runtime_data.genome["blueprint"][cortical_area]:
+            runtime_data.genome["blueprint"][cortical_area]["neuron_excitability"] = \
+                cortical_properties['neuron_excitability']
         runtime_data.genome["blueprint"][cortical_area]["neuron_excitability"] = \
             cortical_properties['neuron_excitability']
         changed_areas.add("blueprint")
