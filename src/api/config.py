@@ -1,7 +1,7 @@
 import os
-from inf import runtime_data
 from pydantic import BaseSettings
 
+print("$$$$ 1")
 env_ip = os.getenv("ip_server")
 if not env_ip:
     env_ip = "placeholder"

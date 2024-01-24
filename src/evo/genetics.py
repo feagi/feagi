@@ -24,7 +24,7 @@ import datetime
 import random
 import string
 from math import floor
-from inf import db_handler, settings, runtime_data
+from src.inf import db_handler, settings, runtime_data
 
 
 logger = logging.getLogger(__name__)
