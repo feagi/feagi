@@ -19,11 +19,11 @@ This module covers needed tools for synapse creation.
 """
 import random
 import logging
-from evo.synaptogenesis_rules import *
-from inf import runtime_data
+from src.evo.synaptogenesis_rules import *
+from src.inf import runtime_data
 import traceback
-from npu.physiology import post_synaptic_current_update
-from evo.voxels import subregion_neurons
+from src.npu.physiology import post_synaptic_current_update
+from src.evo.voxels import subregion_neurons
 
 logger = logging.getLogger(__name__)
 

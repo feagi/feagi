@@ -5,7 +5,7 @@ This module contains a virtual set of hardware controllers used for simulation a
 todo: Need to have all of the controller.py modules follow the same convention and be consistent especially input data
 """
 
-from inf import runtime_data
+from src.inf import runtime_data
 import logging
 
 logger = logging.getLogger(__name__)

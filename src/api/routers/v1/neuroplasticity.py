@@ -1,5 +1,4 @@
-
-# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+# Copyright 2016-2024 The FEAGI Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,20 +14,25 @@
 # ==============================================================================
 
 
-def start():
-    return
+from fastapi import APIRouter
+
+from src.inf import runtime_data
 
 
-def candidate_list_counter(candidate_list):
-    count = 0
-    for cortical_area in candidate_list:
-        count += len(candidate_list[cortical_area])
-        # print("&&$$%%>>", cortical_area, len(candidate_list[cortical_area]))
-    return count
+router = APIRouter()
 
 
+@router.get("/plasticity_queue_depth")
+async def show_plasticity_queue_depth():
+    """
+    Returns the current plasticity queue depth value
+    """
+    return runtime_data.genome["plasticity_queue_depth"]
 
 
-def stop():
-    return
-
+@router.put("/plasticity_queue_depth")
+async def update_plasticity_queue_depth(queue_depth: int):
+    """
+    Enables changes against various Burst Engine parameters.
+    """
+    runtime_data.genome["plasticity_queue_depth"] = queue_depth
