@@ -16,31 +16,30 @@
 import json
 import os
 import platform
-import traceback
 
 import psutil
-import string
-import random
-import logging
+
+from src.inf import runtime_data
+from src.inf import settings
+from src.inf.helpers import id_gen
 
 from queue import Queue
-from configparser import ConfigParser
-from tempfile import gettempdir
+from src.evo.autopilot import update_generation_dict
+
 from threading import Thread
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
 from datetime import datetime, timedelta
 from collections import deque
-from inf import runtime_data, disk_ops, settings
 from shutil import copyfile
-from evo.connectome import reset_connectome
-from evo.stats import voxel_dict_summary
-from evo.genome_editor import save_genome
-from inf.messenger import Pub
-from evo.neuroembryogenesis import generate_plasticity_dict, develop_brain
-from evo.genome_processor import genome_1_cortical_list, genome_ver_check
-from evo.genome_validator import *
-from evo.templates import cortical_types
+from src.evo.connectome import reset_connectome
+from src.evo.stats import voxel_dict_summary
+from src.evo.genome_editor import save_genome
+from src.inf.messenger import Pub
+from src.evo.neuroembryogenesis import generate_plasticity_dict, develop_brain
+from src.evo.genome_processor import genome_1_cortical_list, genome_ver_check
+from src.evo.genome_validator import *
+from src.evo.templates import cortical_types
 
 
 logger = logging.getLogger(__name__)
@@ -119,25 +118,6 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
     print("=======================    Genome Staging Completed        =======================")
     runtime_data.brain_readiness = True
 
-
-def update_ini_variables_from_environment(var_dict):
-    """
-    Function to update ini variables from environment
-    Any ini variable starting with $ will be referenced from environment
-    """
-    new_var_dict = {}
-    for key, val in var_dict.items():
-        new_var_dict[key] = val
-        if val.startswith('$'):
-            new_val = os.environ.get(val.lstrip('$'))
-            print(f"Fetching {key} from environment with ENV {val} - NEW VAL - {new_val}")
-            new_var_dict[key] = new_val
-    return new_var_dict
-
-
-def id_gen(size=6, chars=string.ascii_uppercase + string.digits, signature=''):
-    return (str(datetime.now()).replace(' ', '_')).replace('.', '_')+'_'+(''.join(random.choice(chars) for
-                                                                                           _ in range(size)))+signature
 
 # def init_hw_controller():
 #     """
@@ -230,23 +210,6 @@ def assess_max_thread_count():
     return max_thread_count
 
 
-def init_parameters(ini_path='./feagi_configuration.ini'):
-    """To load all the key configuration parameters"""
-    print("\n_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+")
-    print("Initializing FEAGI parameters...")
-    print("_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+\n")
-    feagi_config = ConfigParser()
-    feagi_config.read(ini_path)
-    runtime_data.parameters = { 
-        s: update_ini_variables_from_environment(dict(feagi_config.items(s))) \
-        for s in feagi_config.sections()
-    }
-    # print("runtime_data.parameters ", runtime_data.parameters)
-    if not runtime_data.parameters["InitData"]["working_directory"]:
-        runtime_data.parameters["InitData"]["working_directory"] = gettempdir()
-    logger.info("All parameters have been initialized.")
-
-
 def init_working_directory():
     """
     Creates needed folder structure as the working directory for FEAGI. This includes a folder to house connectome
@@ -335,7 +298,7 @@ def init_timeseries_db():
 
     Utilizing InfluxDb as the time-series database
     """
-    from inf import db_handler
+    from ..inf import db_handler
     runtime_data.influxdb = db_handler.InfluxManagement()
     runtime_data.influxdb.test_influxdb()
 
@@ -377,7 +340,7 @@ def init_cortical_info():
 
 def init_genome_db():
     print("- Starting MongoDb initialization...")
-    from inf import db_handler
+    from ..inf import db_handler
     runtime_data.mongodb = db_handler.MongoManagement()
     runtime_data.mongodb.test_mongodb()
     print("+ MondoDb has been successfully initialized")
@@ -416,6 +379,9 @@ def init_resources():
 
 
 def init_infrastructure():
+    if not runtime_data.parameters:
+        from src.configuration import init_parameters
+        runtime_data.parameters = init_parameters()
     # init_io_channels()
     init_cortical_defaults()
     init_working_directory()

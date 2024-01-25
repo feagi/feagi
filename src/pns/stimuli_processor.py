@@ -18,8 +18,8 @@
 
 import logging
 from math import inf
-from evo.voxels import *
-from inf import runtime_data
+from src.evo.voxels import *
+from src.inf import runtime_data
 
 
 logger = logging.getLogger(__name__)

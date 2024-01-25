@@ -21,24 +21,24 @@ This module is responsible for updating the commectome structure during brain li
 import logging
 import json
 import datetime
-import concurrent.futures
+# import concurrent.futures
 import random
 import string
 import traceback
 
-from evo import neuron, synapse, stats, genetics, voxels, neuroembryogenesis, templates
-from functools import partial
-from multiprocessing import Pool, Process
-from inf import disk_ops
-from inf import settings
-from inf import runtime_data
-from evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter, genome_2_1_convertor
-from evo.genome_editor import save_genome
-from evo.connectome import reset_connectome_file
-from evo.neuroembryogenesis import cortical_name_list, develop, generate_plasticity_dict
-from inf.initialize import generate_cortical_dimensions, generate_cortical_dimensions_by_id, init_fcl
-from mem.memory import is_memory_cortical_area
-from evo.synaptogenesis_rules import syn_memory
+# from src.evo import neuron, synapse, stats, genetics, voxels, neuroembryogenesis, templates
+from src.evo import synapse, voxels, neuroembryogenesis, templates
+# from functools import partial
+# from multiprocessing import Pool, Process
+# from src.inf import disk_ops
+# from src.inf import settings
+from src.inf import runtime_data
+from src.evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter, genome_2_1_convertor
+from src.evo.genome_editor import save_genome
+from src.evo.connectome import reset_connectome_file
+from src.evo.neuroembryogenesis import cortical_name_list, develop, generate_plasticity_dict
+from src.inf.initialize import generate_cortical_dimensions, generate_cortical_dimensions_by_id, init_fcl
+from src.mem.memory import is_memory_cortical_area
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +164,13 @@ def update_cortical_properties(cortical_properties):
     if cortical_properties['neuron_refractory_period'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["refractory_period"] = \
             cortical_properties['neuron_refractory_period']
+        changed_areas.add("blueprint")
+
+    if cortical_properties['neuron_excitability'] is not None:
+        runtime_data.genome["blueprint"][cortical_area]["neuron_excitability"] = \
+            cortical_properties['neuron_excitability']
+        runtime_data.genome["blueprint"][cortical_area]["neuron_excitability"] = \
+            cortical_properties['neuron_excitability']
         changed_areas.add("blueprint")
 
     if cortical_properties['neuron_snooze_period'] is not None:
@@ -334,8 +341,6 @@ def update_evo_change_register(change_area: set):
 
 
 def update_cortical_mappings(cortical_mappings):
-    print("@________________" * 50)
-    print(cortical_mappings)
     cortical_area = cortical_mappings["src_cortical_area"]
     dst_cortical_area = cortical_mappings["dst_cortical_area"]
     mappings = cortical_mappings["mapping_data"]

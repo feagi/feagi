@@ -16,8 +16,8 @@
 
 import logging
 import traceback
-from evo import voxels
-from inf import runtime_data
+from src.evo import voxels
+from src.inf import runtime_data
 from random import randrange
 from math import prod
 

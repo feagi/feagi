@@ -30,8 +30,8 @@ todo: a system that can trigger multiple data feeder instances at the same time
 """
 
 import logging
-from inf import runtime_data
-from evo.voxels import neurons_in_the_block
+from src.inf import runtime_data
+from src.evo.voxels import neurons_in_the_block
 import traceback
 
 
