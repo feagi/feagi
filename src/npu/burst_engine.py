@@ -579,9 +579,6 @@ def burst_manager():
         if runtime_data.genome:
             runtime_data.current_age += 1
 
-        # Short-term and Long-term memory formation
-        long_short_term_memory()
-
         if runtime_data.brain and runtime_data.brain_readiness:
             # Activating the always on neurons
             if "___pwr" in runtime_data.brain:
@@ -590,6 +587,9 @@ def burst_manager():
 
                 for neuron in runtime_data.brain["___pwr"]:
                     runtime_data.fire_candidate_list["___pwr"].add(neuron)
+
+            # Short-term and Long-term memory formation
+            long_short_term_memory()
 
             # Manage ZMQ communication from and to FEAGI
             message_router()
