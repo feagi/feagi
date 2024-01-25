@@ -21,7 +21,7 @@ Todo: Make improvements to this tool as it will have further use-cases.
 """
 
 import logging
-from inf import runtime_data
+from src.inf import runtime_data
 from datetime import datetime
 from time import sleep
 import json

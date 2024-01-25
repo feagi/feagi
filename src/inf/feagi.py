@@ -18,20 +18,20 @@ import json
 import os
 import platform
 import tempfile
-from inf import initialize
-from evo import neuroembryogenesis, death, genome_processor
-from npu import burst_engine
-from inf import runtime_data, disk_ops
-from inf.initialize import init_parameters
-from evo.genome_editor import save_genome
-from configparser import ConfigParser
-from tempfile import gettempdir
+from src.inf import runtime_data, disk_ops
+from src.inf.initialize import init_infrastructure
+from src.evo import neuroembryogenesis, death, genome_processor
+from src.npu import burst_engine
+# from src.inf.initialize import init_parameters
+# from evo.genome_editor import save_genome
+# from configparser import ConfigParser
+# from tempfile import gettempdir
 import logging
 
 log = logging.getLogger(__name__)
 
 
-init_parameters()
+# init_parameters()
 
 
 def splash_screen():
@@ -69,7 +69,7 @@ def start_feagi(api_queue=None):
     # This while loop simulates a single cycle of life for the artificial brain
     while not runtime_data.exit_condition:
         # Initialize the environment
-        initialize.init_infrastructure()
+        init_infrastructure()
 
         # if mode == 'genome':
         #     # Process of artificial neuroembryogenesis that leads to connectome development
