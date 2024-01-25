@@ -24,8 +24,8 @@ import datetime
 import logging
 # import collections
 # import numpy as np
-from evo.voxels import *
-from evo.synapse import memory_synapse
+from src.evo.voxels import *
+from src.evo.synapse import memory_synapse
 
 
 logger = logging.getLogger(__name__)

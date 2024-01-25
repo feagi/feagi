@@ -3,7 +3,7 @@ genome_properties = {
         "segment_guide": "________-______-__-______-_",
         "segment_count": 5,
         "segment_seperator": "-",
-        "cortical_name_length": 6
+        "cortical_id_length": 6
     },
     "position": {
         "gene": [0, 0, 26],

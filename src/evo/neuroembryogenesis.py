@@ -34,13 +34,13 @@ import json
 import datetime
 import shutil
 import concurrent.futures
-from evo import neuron, synapse, stats, genetics, voxels
+from src.evo import neuron, synapse, stats, genetics, voxels
 from functools import partial
 from multiprocessing import Pool, Process
-from inf import disk_ops
-from inf import settings
-from inf import runtime_data
-from inf.db_handler import InfluxManagement
+from src.inf import disk_ops
+from src.inf import settings
+from src.inf import runtime_data
+from src.inf.db_handler import InfluxManagement
 
 # from igraph import *
 # from igraph.directed_graph import DirectGraph

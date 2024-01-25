@@ -22,8 +22,8 @@ import traceback
 import gzip
 import sys
 
-from inf import runtime_data
-from evo.genome_processor import genome_v1_v2_converter
+from src.inf import runtime_data
+from src.evo.genome_processor import genome_v1_v2_converter
 
 logger = logging.getLogger(__name__)
 
