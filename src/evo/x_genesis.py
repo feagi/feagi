@@ -39,6 +39,7 @@ from src.evo.connectome import reset_connectome_file
 from src.evo.neuroembryogenesis import cortical_name_list, develop, generate_plasticity_dict
 from src.inf.initialize import generate_cortical_dimensions, generate_cortical_dimensions_by_id, init_fcl
 from src.mem.memory import is_memory_cortical_area
+from src.evo.synaptogenesis_rules import syn_memory
 
 logger = logging.getLogger(__name__)
 
