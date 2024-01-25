@@ -186,9 +186,12 @@ def init_container_variables():
 
 def init_memory_register():
     for cortical_area in runtime_data.genome["blueprint"]:
-        if "sub_group_id" in runtime_data.genome["blueprint"][cortical_area]:
-            if runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] == "MEMORY":
-                runtime_data.memory_register[cortical_area] = set()
+        for dst_cortical_area in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"]:
+            if "sub_group_id" in runtime_data.genome["blueprint"][dst_cortical_area]:
+                if runtime_data.genome["blueprint"][dst_cortical_area]["sub_group_id"] == "MEMORY":
+                    if dst_cortical_area not in runtime_data.memory_register:
+                        runtime_data.memory_register[dst_cortical_area] = set()
+                    runtime_data.memory_register[dst_cortical_area].add(cortical_area)
 
 
 def running_in_container():

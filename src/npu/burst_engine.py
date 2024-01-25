@@ -611,8 +611,7 @@ def burst_manager():
 
         neuroplasticity()
         lstm_lifespan_mgmt()
-        print("runtime_data.memory_register:", runtime_data.memory_register)
-        print("runtime_data.fire_candidate_list:", runtime_data.fire_candidate_list)
+
         # A deep copy of the FCL to previous FCL
         for _ in runtime_data.fire_candidate_list:
             runtime_data.previous_fcl[_] = set([item for item in runtime_data.fire_candidate_list[_]])
