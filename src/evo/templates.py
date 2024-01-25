@@ -237,6 +237,12 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
+            "o_stop": {
+                "enabled": True,
+                "cortical_name": "emergency_stop",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 1]
+            }
         }
     },
     "CORE": {
