@@ -79,6 +79,7 @@ def kickstart_feagi_thread():
 kickstart_feagi_thread()
 
 
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """
@@ -155,6 +156,7 @@ app.include_router(
     dependencies=[Depends(check_burst_engine)],
     responses=standard_response
 )
+
 
 app.include_router(
     connectome.router,
@@ -258,4 +260,3 @@ app.include_router(
     dependencies=[Depends(check_brain_running)],
     responses=standard_response
 )
-
