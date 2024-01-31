@@ -14,6 +14,10 @@
 # limitations under the License.
 # ==============================================================================
 
+from src.inf import runtime_data, settings
+from src.evo import stats
+
+
 def print_cortical_neuron_mappings(src_cortical_area, dst_cortical_area):
     print('Listing neuron mappings between %s and %s' % (src_cortical_area, dst_cortical_area))
     for neuron in runtime_data.brain[src_cortical_area]:
@@ -34,7 +38,6 @@ def utf_neuron_id(n):
 
 def utf_neuron_position(neuron_id):
     return int(runtime_data.brain['utf8_memory'][neuron_id]["soma_location"][0][2]) - ord('0')
-
 
 
 def reset_cumulative_counter_instances():

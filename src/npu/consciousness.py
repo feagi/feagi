@@ -18,6 +18,7 @@
 def start():
     return
 
+
 def candidate_list_counter(candidate_list):
     count = 0
     for cortical_area in candidate_list:

@@ -123,6 +123,12 @@ cortical_types = {
                 "cortical_name": "ID_Trainer",
                 "structure": "asymmetric",
                 "resolution": [1, 10, 1]
+            },
+            "i_spos": {
+                "enabled": True,
+                "cortical_name": "servo_position_ipu",
+                "structure": "asymmetric",
+                "resolution": [6, 1, 20]
             }
         }
     },
@@ -131,13 +137,13 @@ cortical_types = {
         "supported_devices": {
             "o__mot": {
                 "enabled": True,
-                "cortical_name": "Motor Opu",
+                "cortical_name": "motor_opu",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
             "o__ser": {
                 "enabled": True,
-                "cortical_name": "Servo",
+                "cortical_name": "servo_opu",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
@@ -213,6 +219,30 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
+            "o_mctl": {
+                "enabled": True,
+                "cortical_name": "motion_control_opu",
+                "structure": "asymmetric",
+                "resolution": [4, 1, 1]
+            },
+            "ovflph": {
+                "enabled": True,
+                "cortical_name": "vision_horizontal_flip",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 1]
+            },
+            "ovflpv": {
+                "enabled": True,
+                "cortical_name": "vision_vertical_flip",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 1]
+            },
+            "o_stop": {
+                "enabled": True,
+                "cortical_name": "emergency_stop",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 1]
+            }
         }
     },
     "CORE": {
@@ -269,7 +299,8 @@ cortical_template = {
     "is_mem_type": False,
     "longterm_mem_threshold": 100,
     "lifespan_growth_rate": 1,
-    "init_lifespan": 9
+    "init_lifespan": 9,
+    "neuron_excitability": 100
 }
 
 
