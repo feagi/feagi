@@ -1,0 +1,30 @@
+name: push_nrs_feagi_to_gcr
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'generate_version.sh'
+  workflow_dispatch:
+
+jobs:
+  Build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout the required branch
+      uses: actions/checkout@v2
+      with:
+        repository: Neuraville/nrs-feagi
+        ref: main
+
+    - name: Push to GCR GitHub Action
+      uses: RafikFarhad/push-to-gcr-github-action@v4.1
+      with:
+        gcloud_service_key: ${{secrets.GCR_SERVICE}}
+        project_id: feagi-poc
+        image_name: feagi/feagi
+        image_tag: ${{ github.run_number }}, latest
+        dockerfile: ./docker/Dockerfile
+        build_args: REPO=https://${{ secrets.NRS_FEAGI_TOKEN }}@github.com/Neuraville/nrs-feagi.git,BRANCH=main
