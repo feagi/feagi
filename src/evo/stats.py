@@ -20,8 +20,8 @@ Provides functions performing statistical analysis on the Connectome and Cortica
 """
 
 import logging
-from evo.voxels import *
-from inf import runtime_data, db_handler
+from src.evo.voxels import *
+from src.inf import runtime_data, db_handler
 
 
 logger = logging.getLogger(__name__)

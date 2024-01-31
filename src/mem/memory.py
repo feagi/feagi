@@ -51,10 +51,11 @@ reduced) and incorporated in the new neuroplasticity function (below).
 import traceback
 import logging
 import xxhash
-from inf import runtime_data
-from evo.neuron import init_neuron, increase_neuron_lifespan, neuron_apoptosis, convert_shortterm_to_longterm
-from evo.synapse import memory_synapse
-from npu.physiology import list_upstream_plastic_neurons, list_downstream_plastic_neurons, post_synaptic_current_update
+
+from src.inf import runtime_data
+from src.evo.neuron import init_neuron, increase_neuron_lifespan, neuron_apoptosis, convert_shortterm_to_longterm
+from src.evo.synapse import memory_synapse
+from src.npu.physiology import list_upstream_plastic_neurons, list_downstream_plastic_neurons, post_synaptic_current_update
 
 
 logger = logging.getLogger(__name__)
@@ -168,11 +169,9 @@ def long_short_term_memory():
                 if upstream_cortical_area in runtime_data.fire_candidate_list:
                     if runtime_data.fire_candidate_list[upstream_cortical_area]:
                         neurogenesis_list.update(runtime_data.fire_candidate_list[upstream_cortical_area])
-
             memory_hash = generate_mem_hash_cache(afferent_neuron_list=neurogenesis_list)
 
             mem_neuron_id = convert_hash_to_neuron_id(cortical_area=memory_cortical_area, memory_hash=memory_hash)
-
             if mem_neuron_id not in runtime_data.brain[memory_cortical_area] and memory_hash != "0x0":
                 init_neuron(cortical_area=memory_cortical_area, soma_location=[0, 0, 0], mem_neuron_id=memory_hash)
             else:
@@ -186,7 +185,7 @@ def long_short_term_memory():
                 if memory_cortical_area in runtime_data.plasticity_dict:
                     runtime_data.plasticity_queue_candidates.add(mem_neuron_id)
 
-    inject_lstm_fire_queue_to_fcl()
+            inject_lstm_fire_queue_to_fcl()
 
 
 def lstm_lifespan_mgmt():

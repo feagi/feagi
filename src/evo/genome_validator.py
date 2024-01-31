@@ -23,8 +23,8 @@ Supporting Genome Versions: 2.0
 import logging
 import traceback
 
-from evo.genome_properties import *
-from inf import settings
+from src.evo.genome_properties import *
+from src.inf import settings
 
 
 logger = logging.getLogger(__name__)
