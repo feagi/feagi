@@ -17,11 +17,11 @@
 # ==============================================================================
 
 import logging
-from pns import stimuli_translator
+from src.pns import stimuli_translator
 import traceback
 from datetime import datetime
-from evo.voxels import *
-from evo.stats import opu_activity_report
+from src.evo.voxels import *
+from src.evo.stats import opu_activity_report
 
 
 logger = logging.getLogger(__name__)
@@ -208,12 +208,12 @@ def opu_router():
 #                 motor_data[device]['speed'] = chosen_block
 #             action_processor.activate_device(device_type='motor', device_data=motor_data)
 #
-#     if 'o_sper' in runtime_data.fire_candidate_list:
-#         if len(runtime_data.fire_candidate_list["o_sper"]) > 0:
+#     if 'o__ser' in runtime_data.fire_candidate_list:
+#         if len(runtime_data.fire_candidate_list["o__ser"]) > 0:
 #             # active_neurons = active_neurons_in_blocks(cortical_area='motor_opu')
 #             # data = motor.convert_neuron_activity_to_motor_speed(active_neurons)
 #             # movement.activate_motor(data)
-#             activity_report = opu_activity_report(cortical_area='o_sper')
+#             activity_report = opu_activity_report(cortical_area='o__ser')
 #             device_data = dict()
 #             for device in activity_report:
 #                 # if there are "ties" w/r/t block activity, this will select the first index in the list w/the tie value

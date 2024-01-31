@@ -16,8 +16,8 @@
 
 import logging
 import traceback
-from evo import voxels
-from inf import runtime_data
+from src.evo import voxels
+from src.inf import runtime_data
 from random import randrange
 from math import prod
 
@@ -412,5 +412,6 @@ def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subre
 
 
 def syn_memory(src_cortical_area, dst_cortical_area):
-    if dst_cortical_area in runtime_data.memory_register:
-        runtime_data.memory_register[dst_cortical_area].add(src_cortical_area)
+    if dst_cortical_area not in runtime_data.memory_register:
+        runtime_data.memory_register[dst_cortical_area] = set()
+    runtime_data.memory_register[dst_cortical_area].add(src_cortical_area)

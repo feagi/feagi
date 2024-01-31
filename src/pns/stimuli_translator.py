@@ -17,9 +17,9 @@
 # ==============================================================================
 
 import logging
-from evo.voxels import *
-from pns import stimuli_processor
-from npu.physiology import update_membrane_potential_fire_queue
+from src.evo.voxels import *
+from src.pns import stimuli_processor
+from src.npu.physiology import update_membrane_potential_fire_queue
 
 logger = logging.getLogger(__name__)
 

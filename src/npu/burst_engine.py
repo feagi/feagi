@@ -28,6 +28,7 @@ todo: need a higher level mechanism to switch between life mode and autopilot mo
 """
 import os
 import glob
+import random
 import traceback
 
 import requests
@@ -35,17 +36,17 @@ from datetime import datetime, timedelta
 from time import sleep
 import lz4.frame
 import pickle
-from npu.physiology import *
-from npu import stimulator, auxiliary
-from mem.memory import neuroplasticity, long_short_term_memory, lstm_lifespan_mgmt
-from evo.stats import *
-from evo.death import death_manager
-from inf.initialize import init_burst_engine, init_fcl, utc_time
-from inf.messenger import Pub, Sub
-from pns.pns_router import opu_router, stimuli_router
-from api.message_processor import api_message_processor
-from trn.shock import shock_manager
-from evo.autopilot import load_new_genome
+from src.npu.physiology import *
+from src.npu import stimulator, auxiliary
+from src.mem.memory import neuroplasticity, long_short_term_memory, lstm_lifespan_mgmt
+from src.evo.stats import *
+from src.evo.death import death_manager
+from src.inf.initialize import init_burst_engine, init_fcl, utc_time
+from src.inf.messenger import Pub, Sub
+from src.pns.pns_router import opu_router, stimuli_router
+# from src.api.message_processor import api_message_processor
+from src.trn.shock import shock_manager
+from src.evo.autopilot import load_new_genome
 
 logger = logging.getLogger(__name__)
 
@@ -295,9 +296,9 @@ def burst_manager():
                             if runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'] == 0:
                                 ready_to_fire = True
 
-                            elif membrane_potential <= fire_threshold * \
-                                (100 + runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit']) / \
-                                    100:
+                            elif membrane_potential <= \
+                                    (fire_threshold +
+                                     runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit']):
                                 ready_to_fire = True
 
                             else:
@@ -553,6 +554,7 @@ def burst_manager():
             pass
         else:
             api_message = runtime_data.api_queue.get()
+            from src.api.message_processor import api_message_processor
             api_message_processor(api_message)
             return
 
@@ -577,9 +579,6 @@ def burst_manager():
         if runtime_data.genome:
             runtime_data.current_age += 1
 
-        # Short-term and Long-term memory formation
-        long_short_term_memory()
-
         if runtime_data.brain and runtime_data.brain_readiness:
             # Activating the always on neurons
             if "___pwr" in runtime_data.brain:
@@ -588,6 +587,9 @@ def burst_manager():
 
                 for neuron in runtime_data.brain["___pwr"]:
                     runtime_data.fire_candidate_list["___pwr"].add(neuron)
+
+            # Short-term and Long-term memory formation
+            long_short_term_memory()
 
             # Manage ZMQ communication from and to FEAGI
             message_router()

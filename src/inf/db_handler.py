@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 
 from pymongo.errors import ServerSelectionTimeoutError
 from pymongo import MongoClient, DESCENDING, ASCENDING
-from inf import runtime_data, settings
+from src.inf import runtime_data, settings
 
 import influxdb_client
 from influxdb_client import InfluxDBClient, Point, WriteOptions, Bucket

@@ -135,7 +135,7 @@ cortical_types = {
     "OPU": {
         "gui_name": "Actuators",
         "supported_devices": {
-            "motor": {
+            "o__mot": {
                 "enabled": True,
                 "cortical_name": "motor_opu",
                 "structure": "asymmetric",
@@ -237,6 +237,12 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
+            "o_stop": {
+                "enabled": True,
+                "cortical_name": "emergency_stop",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 1]
+            }
         }
     },
     "CORE": {
@@ -293,7 +299,8 @@ cortical_template = {
     "is_mem_type": False,
     "longterm_mem_threshold": 100,
     "lifespan_growth_rate": 1,
-    "init_lifespan": 9
+    "init_lifespan": 9,
+    "neuron_excitability": 100
 }
 
 

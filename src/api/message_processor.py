@@ -14,14 +14,14 @@
 # ==============================================================================
 
 import datetime
-import json
-from inf.initialize import deploy_genome
-from inf import runtime_data, disk_ops
-from evo.genome_processor import genome_ver_check
-from evo.autopilot import update_generation_dict
-from evo.x_genesis import update_cortical_properties, update_morphology_properties, update_cortical_mappings
-from evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal, append_circuit
-from inf.db_handler import InfluxManagement
+# import json
+from src.inf import runtime_data, disk_ops
+# from src.evo.genome_processor import genome_ver_check
+# from src.evo.autopilot import update_generation_dict
+from src.evo.x_genesis import update_cortical_properties, update_morphology_properties, update_cortical_mappings
+from src.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal, append_circuit
+from src.inf.db_handler import InfluxManagement
+from src.inf.initialize import deploy_genome
 
 influx = InfluxManagement()
 
