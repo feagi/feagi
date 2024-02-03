@@ -488,6 +488,11 @@ def cortical_removal(cortical_area, genome_scrub=False):
         # Clear connectome entries
         runtime_data.brain[cortical_area] = {}
 
+        # Update memory register
+        for memory_area in runtime_data.memory_register:
+            if cortical_area in runtime_data.memory_register[memory_area]:
+                runtime_data.memory_register[memory_area].remove(cortical_area)
+
         # Clear voxel indexes
         voxels.voxel_reset(cortical_area=cortical_area)
 
