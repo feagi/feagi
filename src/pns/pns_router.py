@@ -158,7 +158,6 @@ def stimuli_router(ipu_data):
                         print("ERROR while processing Object Identification Generic IPU", traceback.format_exc())
 
 
-
 def opu_router():
     """
     Relays neuronal activities to the controller.
