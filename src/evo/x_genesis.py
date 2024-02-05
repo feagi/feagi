@@ -37,7 +37,8 @@ from src.evo.genome_processor import genome_1_cortical_list, genome_v1_v2_conver
 from src.evo.genome_editor import save_genome
 from src.evo.connectome import reset_connectome_file
 from src.evo.neuroembryogenesis import cortical_name_list, develop, generate_plasticity_dict
-from src.inf.initialize import generate_cortical_dimensions, generate_cortical_dimensions_by_id, init_fcl
+from src.inf.initialize import generate_cortical_dimensions, generate_cortical_dimensions_by_id, init_fcl, \
+    init_memory_register
 from src.mem.memory import is_memory_cortical_area
 from src.evo.synaptogenesis_rules import syn_memory
 
@@ -371,6 +372,7 @@ def update_cortical_mappings(cortical_mappings):
     generate_plasticity_dict()
 
     if is_memory_cortical_area(cortical_area=cortical_area):
+        init_memory_register()
         for memory_neuron in runtime_data.brain[cortical_area]:
             synapse.memory_synapse(memory_cortical_area=cortical_area, memory_neuron_id=memory_neuron)
         if mappings:
@@ -492,6 +494,8 @@ def cortical_removal(cortical_area, genome_scrub=False):
         for memory_area in runtime_data.memory_register:
             if cortical_area in runtime_data.memory_register[memory_area]:
                 runtime_data.memory_register[memory_area].remove(cortical_area)
+        if cortical_area in runtime_data.memory_register:
+            del runtime_data.memory_register[cortical_area]
 
         # Clear voxel indexes
         voxels.voxel_reset(cortical_area=cortical_area)

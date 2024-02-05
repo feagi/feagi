@@ -588,14 +588,14 @@ def burst_manager():
                 for neuron in runtime_data.brain["___pwr"]:
                     runtime_data.fire_candidate_list["___pwr"].add(neuron)
 
+            # Process efferent signals
+            opu_router()
+
             # Short-term and Long-term memory formation
             long_short_term_memory()
 
             # Manage ZMQ communication from and to FEAGI
             message_router()
-
-            # Process efferent signals
-            opu_router()
 
         # Feeding FCL queue content into the FCL
         while not runtime_data.fcl_queue.empty():
@@ -610,7 +610,7 @@ def burst_manager():
 
         # logging neuron activities to the influxdb
         # log_neuron_activity_influx()
-        # print("memory_reg:", runtime_data.memory_register)
+        print("memory_reg:", runtime_data.memory_register)
         neuroplasticity()
         lstm_lifespan_mgmt()
 

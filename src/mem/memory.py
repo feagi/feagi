@@ -166,6 +166,10 @@ def long_short_term_memory():
         for memory_cortical_area in runtime_data.memory_register:
             neurogenesis_list = set()
             for upstream_cortical_area in runtime_data.memory_register[memory_cortical_area]:
+                print("******>", memory_cortical_area)
+                print("------>", upstream_cortical_area)
+                print("++++++>", runtime_data.fire_candidate_list)
+                print("@@@@@@>", runtime_data.cortical_list)
                 if upstream_cortical_area in runtime_data.fire_candidate_list:
                     if runtime_data.fire_candidate_list[upstream_cortical_area]:
                         neurogenesis_list.update(runtime_data.fire_candidate_list[upstream_cortical_area])
