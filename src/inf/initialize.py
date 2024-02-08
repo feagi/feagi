@@ -165,6 +165,7 @@ def init_container_variables():
 
 
 def init_memory_register():
+    runtime_data.memory_register = dict()
     for cortical_area in runtime_data.genome["blueprint"]:
         for dst_cortical_area in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"]:
             if "sub_group_id" in runtime_data.genome["blueprint"][dst_cortical_area]:

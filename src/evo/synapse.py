@@ -24,6 +24,7 @@ from src.inf import runtime_data
 import traceback
 from src.npu.physiology import post_synaptic_current_update
 from src.evo.voxels import subregion_neurons
+from src.evo.genome_processor import is_memory_cortical_area
 
 logger = logging.getLogger(__name__)
 
@@ -154,27 +155,28 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
                     # neighbor_candidates contain the list of candidate connections along with associated
                     # postSynapticCurrent
                     # morphology_ = runtime_data.genome["neuron_morphologies"][morphology["morphology_id"]]
-                    neighbor_candidates = neighbor_finder(cortical_area_src=cortical_area,
-                                                          cortical_area_dst=cortical_area_dst,
-                                                          src_neuron_id=src_id,
-                                                          morphology_=morphology,
-                                                          morphology_id_overwrite=mapper_morphology,
-                                                          src_subregion=src_subregion)
+                    if runtime_data.brain[cortical_area][src_id]["immortal"]:
+                        neighbor_candidates = neighbor_finder(cortical_area_src=cortical_area,
+                                                              cortical_area_dst=cortical_area_dst,
+                                                              src_neuron_id=src_id,
+                                                              morphology_=morphology,
+                                                              morphology_id_overwrite=mapper_morphology,
+                                                              src_subregion=src_subregion)
 
-                    if neighbor_candidates:
-                        for dst_id, psc in neighbor_candidates:
-                            # Throw a die to decide for synapse creation. This is to limit the amount of synapses.
-                            if random.randrange(1, 100) < \
-                                    runtime_data.genome['blueprint'][cortical_area_dst]['synapse_attractivity']:
-                                # Connect the source and destination neuron via creating a synapse
-                                synapse(cortical_area=cortical_area,
-                                        src_id=src_id,
-                                        dst_cortical_area=cortical_area_dst,
-                                        dst_id=dst_id,
-                                        postsynaptic_current=psc
-                                        )
-                                synapse_count += 1
-                                # print("Made a Synapse between %s and %s" % (src_id, dst_id))
+                        if neighbor_candidates:
+                            for dst_id, psc in neighbor_candidates:
+                                # Throw a die to decide for synapse creation. This is to limit the amount of synapses.
+                                if random.randrange(1, 100) < \
+                                        runtime_data.genome['blueprint'][cortical_area_dst]['synapse_attractivity']:
+                                    # Connect the source and destination neuron via creating a synapse
+                                    synapse(cortical_area=cortical_area,
+                                            src_id=src_id,
+                                            dst_cortical_area=cortical_area_dst,
+                                            dst_id=dst_id,
+                                            postsynaptic_current=psc
+                                            )
+                                    synapse_count += 1
+                                    # print("Made a Synapse between %s and %s" % (src_id, dst_id))
         except Exception as e:
             print(f"Exception during mapping of {morphology}", e, traceback.print_exc())
     if brain_gen:
@@ -184,20 +186,22 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
     return synapse_count, brain
 
 
-def memory_synapse(memory_cortical_area, memory_neuron_id):
+def memory_to_non_memory_synapse(memory_cortical_area, memory_neuron_id):
     # todo: add counters to track global synapse count
     synapse_count = 0
+    # Check if memory neuron is a long-term-memory neuron
     if runtime_data.brain[memory_cortical_area][memory_neuron_id]["immortal"]:
         for dst_cortical_area in runtime_data.genome["blueprint"][memory_cortical_area]["cortical_mapping_dst"]:
-            for dst_neuron_id in runtime_data.brain[dst_cortical_area]:
-                synapse(cortical_area=memory_cortical_area,
-                        src_id=memory_neuron_id,
-                        dst_cortical_area=dst_cortical_area,
-                        dst_id=dst_neuron_id,
-                        postsynaptic_current=
-                        runtime_data.genome["blueprint"][memory_cortical_area]["postsynaptic_current"]
-                        )
-                synapse_count += 1
+            if not is_memory_cortical_area(cortical_area=dst_cortical_area):
+                for dst_neuron_id in runtime_data.brain[dst_cortical_area]:
+                    synapse(cortical_area=memory_cortical_area,
+                            src_id=memory_neuron_id,
+                            dst_cortical_area=dst_cortical_area,
+                            dst_id=dst_neuron_id,
+                            postsynaptic_current=
+                            runtime_data.genome["blueprint"][memory_cortical_area]["postsynaptic_current"]
+                            )
+                    synapse_count += 1
     return synapse_count
 
 

@@ -610,7 +610,7 @@ def burst_manager():
 
         # logging neuron activities to the influxdb
         # log_neuron_activity_influx()
-        print("memory_reg:", runtime_data.memory_register)
+
         neuroplasticity()
         lstm_lifespan_mgmt()
 
@@ -762,5 +762,3 @@ def toggle_brain_status():
     else:
         runtime_data.brain_is_running = True
         print("Brain is now running!!!")
-
-

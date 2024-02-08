@@ -149,6 +149,7 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
                     # candidate_voxel_list.append([candidate, post_synaptic_current])
 
             elif neuron_morphology == "memory":
+                print("#++" * 5, f"Forming new memory mapping between: {cortical_area_src} --> {cortical_area_dst}")
                 syn_memory(src_cortical_area=cortical_area_src, dst_cortical_area=cortical_area_dst)
 
             candidate_list = None
@@ -408,6 +409,7 @@ def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subre
                     candidate_list.append([
                         x, y, z
                     ])
+    print(f"Projecting {src_cortical_area} --> {dst_cortical_area} \n Candidate list:{candidate_list}")
     return candidate_list
 
 

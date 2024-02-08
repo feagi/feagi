@@ -54,7 +54,7 @@ import xxhash
 
 from src.inf import runtime_data
 from src.evo.neuron import init_neuron, increase_neuron_lifespan, neuron_apoptosis, convert_shortterm_to_longterm
-from src.evo.synapse import memory_synapse
+
 from src.npu.physiology import list_upstream_plastic_neurons, list_downstream_plastic_neurons, post_synaptic_current_update
 
 
@@ -166,13 +166,10 @@ def long_short_term_memory():
         for memory_cortical_area in runtime_data.memory_register:
             neurogenesis_list = set()
             for upstream_cortical_area in runtime_data.memory_register[memory_cortical_area]:
-                print("******>", memory_cortical_area)
-                print("------>", upstream_cortical_area)
-                print("++++++>", runtime_data.fire_candidate_list)
-                print("@@@@@@>", runtime_data.cortical_list)
-                if upstream_cortical_area in runtime_data.fire_candidate_list:
-                    if runtime_data.fire_candidate_list[upstream_cortical_area]:
-                        neurogenesis_list.update(runtime_data.fire_candidate_list[upstream_cortical_area])
+                if upstream_cortical_area in runtime_data.previous_fcl:
+                    if runtime_data.previous_fcl[upstream_cortical_area]:
+                        # todo: performance: exclude non-immortal neurons from being processed
+                        neurogenesis_list.update(runtime_data.previous_fcl[upstream_cortical_area])
             memory_hash = generate_mem_hash_cache(afferent_neuron_list=neurogenesis_list)
 
             mem_neuron_id = convert_hash_to_neuron_id(cortical_area=memory_cortical_area, memory_hash=memory_hash)
@@ -251,10 +248,3 @@ def generate_mem_hash_cache(afferent_neuron_list):
 def convert_hash_to_neuron_id(cortical_area, memory_hash):
     neuron_id = str(cortical_area + '_' + memory_hash)
     return neuron_id
-
-
-def is_memory_cortical_area(cortical_area):
-    if "MEMORY" in runtime_data.genome["blueprint"][cortical_area]["sub_group_id"]:
-        return True
-    else:
-        return False

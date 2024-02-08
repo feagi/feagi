@@ -233,7 +233,7 @@ def neurogenesis(cortical_area):
 
 
 def synaptogenesis(cortical_area, dst_cortical_area=None):
-
+    print("@@ " * 5, f"  Synaptogenesis initiated for src:{cortical_area} dst:{dst_cortical_area} ", "@@ " * 5)
     build_synapses(genome=runtime_data.genome,
                    brain=runtime_data.brain,
                    voxel_dict=runtime_data.voxel_dict,
