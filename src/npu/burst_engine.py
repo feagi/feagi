@@ -612,21 +612,13 @@ def burst_manager():
                         set([item for item in fcl_tmp[_]])
                     fcl_tmp = set()
 
-            # print("^^^^^^^^^^ Current FCL ^^^^^^^^^\n", runtime_data.fire_candidate_list)
-
-            # logging neuron activities to the influxdb
-            # log_neuron_activity_influx()
-
-            neuroplasticity()
-            lstm_lifespan_mgmt()
-            # Short-term and Long-term memory formation
-            long_short_term_memory()
-
             # A deep copy of the FCL to previous FCL
             for _ in runtime_data.fire_candidate_list:
                 runtime_data.previous_fcl[_] = set([item for item in runtime_data.fire_candidate_list[_]])
 
-            # print("^^^^^^^^^^ Previous FCL ^^^^^^^^^\n", runtime_data.previous_fcl)
+            long_short_term_memory()
+            neuroplasticity()
+            lstm_lifespan_mgmt()
 
             # Placeholder for auxiliary functions
             auxiliary.aux()
