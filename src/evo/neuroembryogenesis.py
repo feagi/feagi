@@ -290,10 +290,6 @@ def develop(target_areas=None):
     if not target_areas:
         target_areas = runtime_data.cortical_list
 
-    if parameters["Switches"]["folder_backup"]:
-        # Backup the current folder
-        connectome_backup('../Metis', '../Metis_archive/Metis_' + str(datetime.datetime.now()).replace(' ', '_'))
-
     print("Defined cortical areas: %s " % target_areas)
     print("::::: connectome path is:", runtime_data.connectome_path)
 

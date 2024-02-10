@@ -409,7 +409,6 @@ def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subre
                     candidate_list.append([
                         x, y, z
                     ])
-    print(f"Projecting {src_cortical_area} --> {dst_cortical_area} \n Candidate list:{candidate_list}")
     return candidate_list
 
 

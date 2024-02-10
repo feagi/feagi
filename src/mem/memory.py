@@ -166,10 +166,10 @@ def long_short_term_memory():
         for memory_cortical_area in runtime_data.memory_register:
             neurogenesis_list = set()
             for upstream_cortical_area in runtime_data.memory_register[memory_cortical_area]:
-                if upstream_cortical_area in runtime_data.previous_fcl:
-                    if runtime_data.previous_fcl[upstream_cortical_area]:
+                if upstream_cortical_area in runtime_data.fire_candidate_list:
+                    if runtime_data.fire_candidate_list[upstream_cortical_area]:
                         # todo: performance: exclude non-immortal neurons from being processed
-                        neurogenesis_list.update(runtime_data.previous_fcl[upstream_cortical_area])
+                        neurogenesis_list.update(runtime_data.fire_candidate_list[upstream_cortical_area])
             memory_hash = generate_mem_hash_cache(afferent_neuron_list=neurogenesis_list)
 
             mem_neuron_id = convert_hash_to_neuron_id(cortical_area=memory_cortical_area, memory_hash=memory_hash)
