@@ -461,10 +461,14 @@ def init_brain():
     print("\n\n=========================   Brain Initialization Complete ===================================\n\n")
     runtime_data.cumulative_stats = {}
     for area in runtime_data.cortical_list:
-        runtime_data.cumulative_stats[area] = {}
-        runtime_data.cumulative_stats[area]["LTP"] = 0
-        runtime_data.cumulative_stats[area]["LTD"] = 0
-        runtime_data.cumulative_stats[area]["Bursts"] = 0
+        init_cortical_cumulative_stats(area)
+
+
+def init_cortical_cumulative_stats(cortical_area):
+    runtime_data.cumulative_stats[cortical_area] = {}
+    runtime_data.cumulative_stats[cortical_area]["LTP"] = 0
+    runtime_data.cumulative_stats[cortical_area]["LTD"] = 0
+    runtime_data.cumulative_stats[cortical_area]["Bursts"] = 0
 
 
 def init_cortical_defaults():

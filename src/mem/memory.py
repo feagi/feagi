@@ -54,7 +54,7 @@ import xxhash
 
 from src.inf import runtime_data
 from src.evo.neuron import init_neuron, increase_neuron_lifespan, neuron_apoptosis, convert_shortterm_to_longterm
-
+from src.evo.synapse import synapse_memory_neuron
 from src.npu.physiology import list_upstream_plastic_neurons, list_downstream_plastic_neurons, post_synaptic_current_update
 
 
@@ -73,7 +73,6 @@ def neuroplasticity():
             # presynaptic_neurons = list_upstream_plastic_neurons(cortical_area=cortical_area, neuron_id=neuron)
 
             postsynaptic_neurons = list_downstream_plastic_neurons(cortical_area=cortical_area, neuron_id=neuron)
-
             postsynaptic_neurons_set = set()
             for item in postsynaptic_neurons:
                 postsynaptic_neurons_set.add(item)
@@ -174,7 +173,9 @@ def long_short_term_memory():
 
             mem_neuron_id = convert_hash_to_neuron_id(cortical_area=memory_cortical_area, memory_hash=memory_hash)
             if mem_neuron_id not in runtime_data.brain[memory_cortical_area] and memory_hash != "0x0":
-                init_neuron(cortical_area=memory_cortical_area, soma_location=[0, 0, 0], mem_neuron_id=memory_hash)
+                neuron_id = init_neuron(cortical_area=memory_cortical_area, soma_location=[0, 0, 0], mem_neuron_id=memory_hash)
+                runtime_data.voxel_dict[memory_cortical_area]["0-0-0"].add(neuron_id)
+                synapse_count = synapse_memory_neuron(neuron_id=neuron_id)
             else:
                 increase_neuron_lifespan(cortical_area=memory_cortical_area, neuron_id=mem_neuron_id)
 

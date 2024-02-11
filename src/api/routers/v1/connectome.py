@@ -140,7 +140,7 @@ async def connectome_dimensions_report():
 
 @router.get("/stats/cortical/cumulative")
 async def connectome_dimensions_report(cortical_area: str):
-    if runtime_data.cumulative_stats[cortical_area]:
+    if cortical_area in runtime_data.cumulative_stats:
         return runtime_data.cumulative_stats[cortical_area]
     else:
         return {}
