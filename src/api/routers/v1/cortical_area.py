@@ -37,6 +37,9 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
     """
     Returns the properties of cortical areas
     """
+    a = 0
+    x = 4 / a
+    print(x)
     cortical_area = cortical_id.cortical_id
     if len(cortical_area) == genome_properties["structure"]["cortical_id_length"]:
         if cortical_area in runtime_data.genome['blueprint']:
