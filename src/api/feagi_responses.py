@@ -1,7 +1,7 @@
 response_list = {
     "CORTICAL_AREA_NOT_FOUND": {
         "type": "error",
-        "message": "Requested cortical area not found."
+        "message": "Requested cortical area not found.",
     },
     "CORTICAL_AREA_ID_LENGTH_INVALID": {
         "type": "error",
@@ -26,5 +26,9 @@ response_list = {
     "CORTICAL_AREA_PROPERTIES_UPDATED": {
         "type": "info",
         "message": "Cortical area properties has been successfully updated."
+    },
+    "TESTING_ERROR_HANDLING": {
+        "type": "error",
+        "message": "Placeholder error for testing purposes."
     }
   }

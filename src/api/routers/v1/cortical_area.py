@@ -37,9 +37,6 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
     """
     Returns the properties of cortical areas
     """
-    a = 0
-    x = 4 / a
-    print(x)
     cortical_area = cortical_id.cortical_id
     if len(cortical_area) == genome_properties["structure"]["cortical_id_length"]:
         if cortical_area in runtime_data.genome['blueprint']:
@@ -160,6 +157,7 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
     if "MEMORY" in sub_group_id:
         is_memory = True
         cortical_dimensions = [1, 1, 1]
+        return generate_response("CORTICAL_AREA_INVALID_ID_LENGTH")
     else:
         is_memory = False
         cortical_dimensions = new_custom_cortical_properties.cortical_dimensions
@@ -179,6 +177,7 @@ async def delete_cortical_area(cortical_id: CorticalId):
     """
     cortical_id = cortical_id.cortical_id
     if cortical_id in runtime_data.genome["blueprint"]:
+
         message = {'delete_cortical_area': cortical_id}
         api_queue.put(item=message)
 
