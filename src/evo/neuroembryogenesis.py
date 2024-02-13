@@ -233,7 +233,6 @@ def neurogenesis(cortical_area):
 
 
 def synaptogenesis(cortical_area, dst_cortical_area=None):
-    print("\n\n\n@@ " * 5, f"  Synaptogenesis initiated for src:{cortical_area} dst:{dst_cortical_area} ", "@@ " * 5)
     build_synapses(genome=runtime_data.genome,
                    brain=runtime_data.brain,
                    voxel_dict=runtime_data.voxel_dict,
@@ -261,7 +260,6 @@ def build_synapses(genome, brain, parameters, voxel_dict, connectome_path, src_c
 
     if dst_cortical_area and dst_cortical_area in cortical_genes["cortical_mapping_dst"]:
         timer = datetime.datetime.now()
-        print(f"neighbor_builder between {src_cortical_area} and {dst_cortical_area}")
         synapse_count_, runtime_data.brain = \
             synapse.neighbor_builder(cortical_area=src_cortical_area, brain=brain, genome=genome, brain_gen=True,
                                      cortical_area_dst=dst_cortical_area)

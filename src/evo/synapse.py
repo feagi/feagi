@@ -115,7 +115,6 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
     todo: take advantage of multi processing building the synapses for a given cortical area
     todo: deficiency when brain gen is false
     """
-    print("@#_______neighbor_builder__________" * 10)
     # to accommodate the new namespace used by multiprocessing
     if brain_gen:
         runtime_data.brain = brain
