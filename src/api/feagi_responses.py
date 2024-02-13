@@ -26,9 +26,5 @@ response_list = {
     "CORTICAL_AREA_PROPERTIES_UPDATED": {
         "type": "info",
         "message": "Cortical area properties has been successfully updated."
-    },
-    "TESTING_ERROR_HANDLING": {
-        "type": "error",
-        "message": "Placeholder error for testing purposes."
     }
   }

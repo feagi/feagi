@@ -157,7 +157,6 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
     if "MEMORY" in sub_group_id:
         is_memory = True
         cortical_dimensions = [1, 1, 1]
-        return generate_response("TESTING_ERROR_HANDLING")
     else:
         is_memory = False
         cortical_dimensions = new_custom_cortical_properties.cortical_dimensions
