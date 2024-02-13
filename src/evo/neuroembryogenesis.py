@@ -233,7 +233,6 @@ def neurogenesis(cortical_area):
 
 
 def synaptogenesis(cortical_area, dst_cortical_area=None):
-
     build_synapses(genome=runtime_data.genome,
                    brain=runtime_data.brain,
                    voxel_dict=runtime_data.voxel_dict,
@@ -289,10 +288,6 @@ def develop(target_areas=None):
 
     if not target_areas:
         target_areas = runtime_data.cortical_list
-
-    if parameters["Switches"]["folder_backup"]:
-        # Backup the current folder
-        connectome_backup('../Metis', '../Metis_archive/Metis_' + str(datetime.datetime.now()).replace(' ', '_'))
 
     print("Defined cortical areas: %s " % target_areas)
     print("::::: connectome path is:", runtime_data.connectome_path)
@@ -362,7 +357,7 @@ def generate_plasticity_dict():
     """
 
     cortical_areas = runtime_data.genome['blueprint']
-
+    runtime_data.plasticity_dict = dict()
     for area in cortical_areas:
         for mapping_dst in cortical_areas[area]['cortical_mapping_dst']:
             for morphology in cortical_areas[area]['cortical_mapping_dst'][mapping_dst]:

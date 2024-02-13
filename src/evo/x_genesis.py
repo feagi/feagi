@@ -33,13 +33,14 @@ from src.evo import synapse, voxels, neuroembryogenesis, templates
 # from src.inf import disk_ops
 # from src.inf import settings
 from src.inf import runtime_data
-from src.evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter, genome_2_1_convertor
+from src.evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter, genome_2_1_convertor, is_memory_cortical_area
 from src.evo.genome_editor import save_genome
 from src.evo.connectome import reset_connectome_file
 from src.evo.neuroembryogenesis import cortical_name_list, develop, generate_plasticity_dict
-from src.inf.initialize import generate_cortical_dimensions, generate_cortical_dimensions_by_id, init_fcl
-from src.mem.memory import is_memory_cortical_area
-from src.evo.synaptogenesis_rules import syn_memory
+from src.inf.initialize import generate_cortical_dimensions, generate_cortical_dimensions_by_id, init_fcl, \
+    init_memory_register, init_cortical_cumulative_stats
+
+# from src.evo.synaptogenesis_rules import syn_memory
 
 logger = logging.getLogger(__name__)
 
@@ -345,6 +346,8 @@ def update_cortical_mappings(cortical_mappings):
     cortical_area = cortical_mappings["src_cortical_area"]
     dst_cortical_area = cortical_mappings["dst_cortical_area"]
     mappings = cortical_mappings["mapping_data"]
+
+    #  ------- Cleanup prior mappings ---------
     runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=cortical_area,
                                                  dst_cortical_area=dst_cortical_area)
 
@@ -358,6 +361,15 @@ def update_cortical_mappings(cortical_mappings):
                 if upstream_neuron[:6] == cortical_area:
                     runtime_data.brain[dst_cortical_area][neuron_]["upstream_neurons"].discard(upstream_neuron)
 
+    # -------- Update supporting data structures -------
+    src_is_mem = is_memory_cortical_area(cortical_area=cortical_area)
+    dst_is_mem = is_memory_cortical_area(cortical_area=dst_cortical_area)
+
+    if src_is_mem or dst_is_mem:
+        # todo: only update impacted areas
+        init_memory_register()
+
+    #  ------- Add new mappings ---------
     runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'][dst_cortical_area] = mappings
 
     if not mappings:
@@ -366,18 +378,21 @@ def update_cortical_mappings(cortical_mappings):
             if dst_cortical_area in runtime_data.memory_register:
                 if cortical_area in runtime_data.memory_register[dst_cortical_area]:
                     runtime_data.memory_register[dst_cortical_area].remove(cortical_area)
-
-    # Update Plasticity Dict
-    generate_plasticity_dict()
-
-    if is_memory_cortical_area(cortical_area=cortical_area):
-        for memory_neuron in runtime_data.brain[cortical_area]:
-            synapse.memory_synapse(memory_cortical_area=cortical_area, memory_neuron_id=memory_neuron)
-        if mappings:
-            syn_memory(src_cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
-
     else:
+        print("*****************              ************************        ********************")
+        # todo: very inefficient. Need to only initiate synaptogenesis on changed links instead of all connections
         neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
+
+    # if src_is_mem and not dst_is_mem:
+    #     for memory_neuron in runtime_data.brain[cortical_area]:
+    #         synapse.memory_to_non_memory_synapse(memory_cortical_area=cortical_area, memory_neuron_id=memory_neuron)
+    #     if mappings:
+    #         syn_memory(src_cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
+    #
+    # else:
+
+    # todo: only update impacted areas
+    generate_plasticity_dict()
 
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                 file_name=runtime_data.connectome_path + "genome.json")
@@ -487,6 +502,13 @@ def cortical_removal(cortical_area, genome_scrub=False):
 
         # Clear connectome entries
         runtime_data.brain[cortical_area] = {}
+
+        # Update memory register
+        for memory_area in runtime_data.memory_register:
+            if cortical_area in runtime_data.memory_register[memory_area]:
+                runtime_data.memory_register[memory_area].remove(cortical_area)
+        if cortical_area in runtime_data.memory_register:
+            del runtime_data.memory_register[cortical_area]
 
         # Clear voxel indexes
         voxels.voxel_reset(cortical_area=cortical_area)
@@ -672,6 +694,7 @@ def add_core_cortical_area(cortical_properties):
             neuroembryogenesis.voxelogenesis(cortical_area=cortical_id_)
             neuroembryogenesis.neurogenesis(cortical_area=cortical_id_)
             init_fcl(cortical_id_)
+            init_cortical_cumulative_stats(cortical_area=cortical_id_)
             runtime_data.cortical_dimensions = generate_cortical_dimensions()
             runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
 
@@ -753,6 +776,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
         neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
         neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
         init_fcl(cortical_area)
+        init_cortical_cumulative_stats(cortical_area=cortical_area)
         runtime_data.cortical_dimensions = generate_cortical_dimensions()
         runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
 

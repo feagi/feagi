@@ -423,7 +423,26 @@ def burst_manager():
         runtime_data.burst_publisher.send(message=lz4.frame.compress(serialized_data))
         runtime_data.opu_data = {}
 
-    def message_router():
+    def monitor_manager():
+        if runtime_data.agent_registry is not {}:
+            try:
+                for agent in runtime_data.agent_registry:
+                    if runtime_data.agent_registry[agent]["agent_type"] == "monitor":
+                        godot_data = runtime_data.agent_registry[agent]["listener"].receive()
+                        if godot_data:
+                            stimuli_router(godot_data)
+            except Exception as e:
+                print("Error on message router:", e, traceback.print_exc())
+                pass
+        # Broadcasts a TCP message on each burst
+        if runtime_data.brain_activity_pub:
+            # todo: Obtain the frequency from controller config
+            if runtime_data.burst_count % runtime_data.brain_activity_pub_freq == 0:
+                activity_data = brain_activity_voxelizer()
+                runtime_data.burst_activities = activity_data
+
+
+    def pns_manager():
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.agent_registry is not {}:
             try:
@@ -434,10 +453,7 @@ def burst_manager():
                         runtime_data.burst_timer = burst_duration_calculator(embodiment_data)
                         if embodiment_data:
                             stimuli_router(embodiment_data)
-                    if runtime_data.agent_registry[agent]["agent_type"] == "monitor":
-                        godot_data = runtime_data.agent_registry[agent]["listener"].receive()
-                        if godot_data:
-                            stimuli_router(godot_data)
+
             except Exception as e:
                 print("Error on message router:", e, traceback.print_exc())
                 pass
@@ -451,13 +467,6 @@ def burst_manager():
         # Evaluated multiple scenarios and administers shock as needed
         if runtime_data.shock_admin:
             shock_manager()
-
-        # Broadcasts a TCP message on each burst
-        if runtime_data.brain_activity_pub:
-            # todo: Obtain the frequency from controller config
-            if runtime_data.burst_count % runtime_data.brain_activity_pub_freq == 0:
-                activity_data = brain_activity_voxelizer()
-                runtime_data.burst_activities = activity_data
 
     def brain_activity_voxelizer():
         """
@@ -588,40 +597,33 @@ def burst_manager():
                 for neuron in runtime_data.brain["___pwr"]:
                     runtime_data.fire_candidate_list["___pwr"].add(neuron)
 
-            # Short-term and Long-term memory formation
-            long_short_term_memory()
-
-            # Manage ZMQ communication from and to FEAGI
-            message_router()
-
             # Process efferent signals
             opu_router()
 
-        # Feeding FCL queue content into the FCL
-        while not runtime_data.fcl_queue.empty():
-            fcl_tmp = runtime_data.fcl_queue.get()
+            # Manage ZMQ communication from and to FEAGI
+            pns_manager()
 
-            for _ in fcl_tmp:
-                runtime_data.fire_candidate_list[_] = \
-                    set([item for item in fcl_tmp[_]])
-                fcl_tmp = set()
+            # Feeding FCL queue content into the FCL
+            while not runtime_data.fcl_queue.empty():
+                fcl_tmp = runtime_data.fcl_queue.get()
 
-        # print("^^^^^^^^^^ Current FCL ^^^^^^^^^\n", runtime_data.fire_candidate_list)
+                for _ in fcl_tmp:
+                    runtime_data.fire_candidate_list[_] = \
+                        set([item for item in fcl_tmp[_]])
+                    fcl_tmp = set()
 
-        # logging neuron activities to the influxdb
-        # log_neuron_activity_influx()
+            # A deep copy of the FCL to previous FCL
+            for _ in runtime_data.fire_candidate_list:
+                runtime_data.previous_fcl[_] = set([item for item in runtime_data.fire_candidate_list[_]])
 
-        neuroplasticity()
-        lstm_lifespan_mgmt()
+            long_short_term_memory()
+            neuroplasticity()
+            lstm_lifespan_mgmt()
 
-        # A deep copy of the FCL to previous FCL
-        for _ in runtime_data.fire_candidate_list:
-            runtime_data.previous_fcl[_] = set([item for item in runtime_data.fire_candidate_list[_]])
+            # Placeholder for auxiliary functions
+            auxiliary.aux()
 
-        # print("^^^^^^^^^^ Previous FCL ^^^^^^^^^\n", runtime_data.previous_fcl)
-
-        # Placeholder for auxiliary functions
-        auxiliary.aux()
+            monitor_manager()
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         if not runtime_data.new_genome and runtime_data.brain_readiness:
@@ -762,5 +764,3 @@ def toggle_brain_status():
     else:
         runtime_data.brain_is_running = True
         print("Brain is now running!!!")
-
-
