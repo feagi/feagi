@@ -423,7 +423,15 @@ def burst_manager():
         runtime_data.burst_publisher.send(message=lz4.frame.compress(serialized_data))
         runtime_data.opu_data = {}
 
-    def monitor_manager():
+    def monitor_visualization():
+        # Broadcasts a TCP message on each burst
+        if runtime_data.brain_activity_pub:
+            # todo: Obtain the frequency from controller config
+            if runtime_data.burst_count % runtime_data.brain_activity_pub_freq == 0:
+                activity_data = brain_activity_voxelizer()
+                runtime_data.burst_activities = activity_data
+
+    def manual_neuron_stimulation():
         if runtime_data.agent_registry is not {}:
             try:
                 for agent in runtime_data.agent_registry:
@@ -434,13 +442,6 @@ def burst_manager():
             except Exception as e:
                 print("Error on message router:", e, traceback.print_exc())
                 pass
-        # Broadcasts a TCP message on each burst
-        if runtime_data.brain_activity_pub:
-            # todo: Obtain the frequency from controller config
-            if runtime_data.burst_count % runtime_data.brain_activity_pub_freq == 0:
-                activity_data = brain_activity_voxelizer()
-                runtime_data.burst_activities = activity_data
-
 
     def pns_manager():
         # IPU listener: Receives IPU data through ZMQ channel
@@ -597,9 +598,6 @@ def burst_manager():
                 for neuron in runtime_data.brain["___pwr"]:
                     runtime_data.fire_candidate_list["___pwr"].add(neuron)
 
-            # Process efferent signals
-            opu_router()
-
             # Manage ZMQ communication from and to FEAGI
             pns_manager()
 
@@ -616,14 +614,20 @@ def burst_manager():
             for _ in runtime_data.fire_candidate_list:
                 runtime_data.previous_fcl[_] = set([item for item in runtime_data.fire_candidate_list[_]])
 
+            manual_neuron_stimulation()
+
             long_short_term_memory()
             neuroplasticity()
             lstm_lifespan_mgmt()
 
+            # Process efferent signals
+            opu_router()
+
             # Placeholder for auxiliary functions
             auxiliary.aux()
 
-            monitor_manager()
+            # Transmits neuronal activations to the monitoring agent
+            monitor_visualization()
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         if not runtime_data.new_genome and runtime_data.brain_readiness:
