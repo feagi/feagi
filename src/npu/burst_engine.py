@@ -28,6 +28,7 @@ todo: need a higher level mechanism to switch between life mode and autopilot mo
 """
 import os
 import glob
+import random
 import traceback
 
 import requests
@@ -35,17 +36,17 @@ from datetime import datetime, timedelta
 from time import sleep
 import lz4.frame
 import pickle
-from npu.physiology import *
-from npu import stimulator, auxiliary
-from mem.memory import neuroplasticity, long_short_term_memory, lstm_lifespan_mgmt
-from evo.stats import *
-from evo.death import death_manager
-from inf.initialize import init_burst_engine, init_fcl, utc_time
-from inf.messenger import Pub, Sub
-from pns.pns_router import opu_router, stimuli_router
-from api.message_processor import api_message_processor
-from trn.shock import shock_manager
-from evo.autopilot import load_new_genome
+from src.npu.physiology import *
+from src.npu import stimulator, auxiliary
+from src.mem.memory import neuroplasticity, long_short_term_memory, lstm_lifespan_mgmt
+from src.evo.stats import *
+from src.evo.death import death_manager
+from src.inf.initialize import init_burst_engine, init_fcl, utc_time
+from src.inf.messenger import Pub, Sub
+from src.pns.pns_router import opu_router, stimuli_router
+# from src.api.message_processor import api_message_processor
+from src.trn.shock import shock_manager
+from src.evo.autopilot import load_new_genome
 
 logger = logging.getLogger(__name__)
 
@@ -295,9 +296,9 @@ def burst_manager():
                             if runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit'] == 0:
                                 ready_to_fire = True
 
-                            elif membrane_potential <= fire_threshold * \
-                                (100 + runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit']) / \
-                                    100:
+                            elif membrane_potential <= \
+                                    (fire_threshold +
+                                     runtime_data.genome['blueprint'][fq_cortical_area]['firing_threshold_limit']):
                                 ready_to_fire = True
 
                             else:
@@ -422,7 +423,27 @@ def burst_manager():
         runtime_data.burst_publisher.send(message=lz4.frame.compress(serialized_data))
         runtime_data.opu_data = {}
 
-    def message_router():
+    def monitor_visualization():
+        # Broadcasts a TCP message on each burst
+        if runtime_data.brain_activity_pub:
+            # todo: Obtain the frequency from controller config
+            if runtime_data.burst_count % runtime_data.brain_activity_pub_freq == 0:
+                activity_data = brain_activity_voxelizer()
+                runtime_data.burst_activities = activity_data
+
+    def manual_neuron_stimulation():
+        if runtime_data.agent_registry is not {}:
+            try:
+                for agent in runtime_data.agent_registry:
+                    if runtime_data.agent_registry[agent]["agent_type"] == "monitor":
+                        godot_data = runtime_data.agent_registry[agent]["listener"].receive()
+                        if godot_data:
+                            stimuli_router(godot_data)
+            except Exception as e:
+                print("Error on message router:", e, traceback.print_exc())
+                pass
+
+    def pns_manager():
         # IPU listener: Receives IPU data through ZMQ channel
         if runtime_data.agent_registry is not {}:
             try:
@@ -433,10 +454,7 @@ def burst_manager():
                         runtime_data.burst_timer = burst_duration_calculator(embodiment_data)
                         if embodiment_data:
                             stimuli_router(embodiment_data)
-                    if runtime_data.agent_registry[agent]["agent_type"] == "monitor":
-                        godot_data = runtime_data.agent_registry[agent]["listener"].receive()
-                        if godot_data:
-                            stimuli_router(godot_data)
+
             except Exception as e:
                 print("Error on message router:", e, traceback.print_exc())
                 pass
@@ -450,13 +468,6 @@ def burst_manager():
         # Evaluated multiple scenarios and administers shock as needed
         if runtime_data.shock_admin:
             shock_manager()
-
-        # Broadcasts a TCP message on each burst
-        if runtime_data.brain_activity_pub:
-            # todo: Obtain the frequency from controller config
-            if runtime_data.burst_count % runtime_data.brain_activity_pub_freq == 0:
-                activity_data = brain_activity_voxelizer()
-                runtime_data.burst_activities = activity_data
 
     def brain_activity_voxelizer():
         """
@@ -553,6 +564,7 @@ def burst_manager():
             pass
         else:
             api_message = runtime_data.api_queue.get()
+            from src.api.message_processor import api_message_processor
             api_message_processor(api_message)
             return
 
@@ -577,9 +589,6 @@ def burst_manager():
         if runtime_data.genome:
             runtime_data.current_age += 1
 
-        # Short-term and Long-term memory formation
-        long_short_term_memory()
-
         if runtime_data.brain and runtime_data.brain_readiness:
             # Activating the always on neurons
             if "___pwr" in runtime_data.brain:
@@ -590,36 +599,35 @@ def burst_manager():
                     runtime_data.fire_candidate_list["___pwr"].add(neuron)
 
             # Manage ZMQ communication from and to FEAGI
-            message_router()
+            pns_manager()
+
+            # Feeding FCL queue content into the FCL
+            while not runtime_data.fcl_queue.empty():
+                fcl_tmp = runtime_data.fcl_queue.get()
+
+                for _ in fcl_tmp:
+                    runtime_data.fire_candidate_list[_] = \
+                        set([item for item in fcl_tmp[_]])
+                    fcl_tmp = set()
+
+            # A deep copy of the FCL to previous FCL
+            for _ in runtime_data.fire_candidate_list:
+                runtime_data.previous_fcl[_] = set([item for item in runtime_data.fire_candidate_list[_]])
+
+            manual_neuron_stimulation()
+
+            long_short_term_memory()
+            neuroplasticity()
+            lstm_lifespan_mgmt()
 
             # Process efferent signals
             opu_router()
 
-        # Feeding FCL queue content into the FCL
-        while not runtime_data.fcl_queue.empty():
-            fcl_tmp = runtime_data.fcl_queue.get()
+            # Placeholder for auxiliary functions
+            auxiliary.aux()
 
-            for _ in fcl_tmp:
-                runtime_data.fire_candidate_list[_] = \
-                    set([item for item in fcl_tmp[_]])
-                fcl_tmp = set()
-
-        # print("^^^^^^^^^^ Current FCL ^^^^^^^^^\n", runtime_data.fire_candidate_list)
-
-        # logging neuron activities to the influxdb
-        # log_neuron_activity_influx()
-
-        neuroplasticity()
-        lstm_lifespan_mgmt()
-
-        # A deep copy of the FCL to previous FCL
-        for _ in runtime_data.fire_candidate_list:
-            runtime_data.previous_fcl[_] = set([item for item in runtime_data.fire_candidate_list[_]])
-
-        # print("^^^^^^^^^^ Previous FCL ^^^^^^^^^\n", runtime_data.previous_fcl)
-
-        # Placeholder for auxiliary functions
-        auxiliary.aux()
+            # Transmits neuronal activations to the monitoring agent
+            monitor_visualization()
 
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         if not runtime_data.new_genome and runtime_data.brain_readiness:
@@ -760,5 +768,3 @@ def toggle_brain_status():
     else:
         runtime_data.brain_is_running = True
         print("Brain is now running!!!")
-
-

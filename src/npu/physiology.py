@@ -15,12 +15,13 @@
 # ==============================================================================
 
 import json
+import random
 import logging
 # from collections import deque
 # from evo.neuron import block_reference_builder
 # from evo.synapse import synapse
 # from evo.voxels import block_reference_builder
-from inf import runtime_data, settings
+from src.inf import runtime_data, settings
 # from cython_lib import neuron_functions_cy as cy
 
 
@@ -110,6 +111,19 @@ def add_neuron_to_fcl(cortical_area, neuron_id, pre_fire_mp):
     runtime_data.brain[cortical_area][neuron_id]["pre_fire_mp"] = pre_fire_mp
 
 
+def neuron_excitability_check(neuron_id):
+    # todo: use a function to convert neuron id to cortical id instead
+    cortical_area = neuron_id[:6]
+    if "neuron_excitability" in runtime_data.genome["blueprint"][cortical_area]:
+        excitability_percentage = runtime_data.genome["blueprint"][cortical_area]["neuron_excitability"]
+    else:
+        excitability_percentage = 100
+    if random.randrange(100) <= excitability_percentage:
+        return True
+    else:
+        return False
+
+
 def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
     """This function initiate the firing of Neuron in a given cortical area which includes updating the membrane
     potential of the downstream neurons and tracking them in the fire_queue"""
@@ -132,42 +146,42 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
     for dst_neuron_id in neighbor_list:
         # Timing the update function
         # update_start_time = datetime.now()
+        if neuron_excitability_check(dst_neuron_id):
+            dst_cortical_area = \
+                runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["cortical_area"]
+            postsynaptic_current = \
+                runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
 
-        dst_cortical_area = \
-            runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["cortical_area"]
-        postsynaptic_current = \
-            runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
+            # TODO: create separate asynchronous process that performs maintenance-like operations
+            """# (apoptosis, synaptic pruning) during brain IPU inactivity based on certain cortical area
+            # conditions being met (ex: postsynaptic current degenerates to 0, exceeds bursting lifespan, etc.)
+            # to avoid adding more conditional statements to this function (for performance reasons)"""
 
-        # TODO: create separate asynchronous process that performs maintenance-like operations
-        """# (apoptosis, synaptic pruning) during brain IPU inactivity based on certain cortical area
-        # conditions being met (ex: postsynaptic current degenerates to 0, exceeds bursting lifespan, etc.)
-        # to avoid adding more conditional statements to this function (for performance reasons)"""
+            if degenerate > 0:
+                # reduce neuron postsynaptic current by degeneration value defined in genome (if applicable)
+                new_psc = runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
+                new_psc -= degenerate
+                if new_psc < 0:
+                    new_psc = 0
+                post_synaptic_current_update(cortical_area_src=cortical_area, cortical_area_dst=dst_cortical_area,
+                                             neuron_id_src=neuron_id, neuron_id_dst=dst_neuron_id,
+                                             post_synaptic_current=new_psc)
 
-        if degenerate > 0:
-            # reduce neuron postsynaptic current by degeneration value defined in genome (if applicable)
-            new_psc = runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
-            new_psc -= degenerate
-            if new_psc < 0:
-                new_psc = 0
-            post_synaptic_current_update(cortical_area_src=cortical_area, cortical_area_dst=dst_cortical_area,
-                                         neuron_id_src=neuron_id, neuron_id_dst=dst_neuron_id,
-                                         post_synaptic_current=new_psc)
+            if runtime_data.genome['blueprint'][cortical_area]['mp_driven_psp']:
+                postsynaptic_current = runtime_data.brain[cortical_area][neuron_id]['pre_fire_mp']
 
-        if runtime_data.genome['blueprint'][cortical_area]['mp_driven_psp']:
-            postsynaptic_current = runtime_data.brain[cortical_area][neuron_id]['pre_fire_mp']
+            neuron_output = activation_function(postsynaptic_current)
 
-        neuron_output = activation_function(postsynaptic_current)
+            # Update membrane potential of the downstream neuron in the fire_queue
+            if runtime_data.genome['blueprint'][cortical_area]['psp_uniform_distribution']:
+                update_membrane_potential_fire_queue(cortical_area=dst_cortical_area,
+                                                     neuron_id=dst_neuron_id,
+                                                     mp_update_amount=neuron_output)
 
-        # Update membrane potential of the downstream neuron in the fire_queue
-        if runtime_data.genome['blueprint'][cortical_area]['psp_uniform_distribution']:
-            update_membrane_potential_fire_queue(cortical_area=dst_cortical_area,
-                                                 neuron_id=dst_neuron_id,
-                                                 mp_update_amount=neuron_output)
-
-        else:
-            update_membrane_potential_fire_queue(cortical_area=dst_cortical_area,
-                                                 neuron_id=dst_neuron_id,
-                                                 mp_update_amount=neuron_output/neighbor_count)
+            else:
+                update_membrane_potential_fire_queue(cortical_area=dst_cortical_area,
+                                                     neuron_id=dst_neuron_id,
+                                                     mp_update_amount=neuron_output/neighbor_count)
 
 
 def neuron_leak(cortical_area, neuron_id):

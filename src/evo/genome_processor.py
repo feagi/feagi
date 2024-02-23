@@ -17,10 +17,10 @@ import logging
 import copy
 import traceback
 import datetime
-from evo.genome_editor import save_genome
-from evo.genome_validator import genome_validator
-from evo.templates import core_morphologies, cortical_types
-from inf import runtime_data
+from src.evo.genome_editor import save_genome
+from src.evo.genome_validator import genome_validator
+from src.evo.templates import core_morphologies, cortical_types
+from src.inf import runtime_data
 
 
 logger = logging.getLogger(__name__)
@@ -440,6 +440,13 @@ def genome_morphology_updator(genome):
     return genome
 
 
+def is_memory_cortical_area(cortical_area):
+    if "MEMORY" in runtime_data.genome["blueprint"][cortical_area]["sub_group_id"]:
+        return True
+    else:
+        return False
+
+
 gene_decoder = {
     "_______b-_____s-__-__name-t": "species_name",
     "_______c-______-cx-__name-t": "cortical_name",
@@ -474,7 +481,8 @@ gene_decoder = {
     "_______c-______-cx-memory-b": "is_mem_type",
     "_______c-______-cx-mem__t-i": "longterm_mem_threshold",
     "_______c-______-cx-mem_gr-i": "lifespan_growth_rate",
-    "_______c-______-cx-mem_ls-i": "init_lifespan"
+    "_______c-______-cx-mem_ls-i": "init_lifespan",
+    "_______c-______-nx-excite-i": "neuron_excitability"
 }
 
 genome_1_template = {
@@ -516,7 +524,8 @@ genome_1_template = {
     "is_mem_type": False,
     "longterm_mem_threshold": 100,
     "lifespan_growth_rate": 1,
-    "init_lifespan": 9
+    "init_lifespan": 9,
+    "neuron_excitability": 100
     }
 
 genome_2_to_1 = {
@@ -555,7 +564,8 @@ genome_2_to_1 = {
     "memory-b": "is_mem_type",
     "mem__t-i": "longterm_mem_threshold",
     "mem_gr-i": "lifespan_growth_rate",
-    "mem_ls-i": "init_lifespan"
+    "mem_ls-i": "init_lifespan",
+    "excite-i": "neuron_excitability"
 }
 
 genome_1_to_2 = {
@@ -572,6 +582,7 @@ genome_1_to_2 = {
     "firing_threshold_increment_x": "nx-ftincx-f",
     "firing_threshold_increment_y": "nx-ftincy-f",
     "firing_threshold_increment_z": "nx-ftincz-f",
+    "neuron_excitability": "nx-excite-i",
     "firing_threshold_limit": "nx-fthlim-i",
     "refractory_period": "nx-refrac-i",
     "leak_coefficient": "nx-leak_c-f",

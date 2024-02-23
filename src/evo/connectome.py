@@ -20,7 +20,7 @@ import json
 import shutil
 import errno
 
-from inf import runtime_data, settings
+from src.inf import runtime_data, settings
 
 
 log = logging.getLogger(__name__)
@@ -91,4 +91,3 @@ def connectome_backup(src, dst):
             shutil.copy(src, dst)
         else:
             raise
-

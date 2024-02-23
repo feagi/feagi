@@ -19,8 +19,8 @@ This module is responsible for the processes involved with the death of a brain.
 preparations so a new brain can come into life.
 """
 
-from inf import runtime_data
-from inf.initialize import reset_runtime_data
+from src.inf import runtime_data
+from src.inf.initialize import reset_runtime_data
 import logging
 
 

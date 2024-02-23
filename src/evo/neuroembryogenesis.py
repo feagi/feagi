@@ -34,13 +34,13 @@ import json
 import datetime
 import shutil
 import concurrent.futures
-from evo import neuron, synapse, stats, genetics, voxels
+from src.evo import neuron, synapse, stats, genetics, voxels
 from functools import partial
 from multiprocessing import Pool, Process
-from inf import disk_ops
-from inf import settings
-from inf import runtime_data
-from inf.db_handler import InfluxManagement
+from src.inf import disk_ops
+from src.inf import settings
+from src.inf import runtime_data
+from src.inf.db_handler import InfluxManagement
 
 # from igraph import *
 # from igraph.directed_graph import DirectGraph
@@ -233,7 +233,6 @@ def neurogenesis(cortical_area):
 
 
 def synaptogenesis(cortical_area, dst_cortical_area=None):
-
     build_synapses(genome=runtime_data.genome,
                    brain=runtime_data.brain,
                    voxel_dict=runtime_data.voxel_dict,
@@ -289,10 +288,6 @@ def develop(target_areas=None):
 
     if not target_areas:
         target_areas = runtime_data.cortical_list
-
-    if parameters["Switches"]["folder_backup"]:
-        # Backup the current folder
-        connectome_backup('../Metis', '../Metis_archive/Metis_' + str(datetime.datetime.now()).replace(' ', '_'))
 
     print("Defined cortical areas: %s " % target_areas)
     print("::::: connectome path is:", runtime_data.connectome_path)
@@ -362,7 +357,7 @@ def generate_plasticity_dict():
     """
 
     cortical_areas = runtime_data.genome['blueprint']
-
+    runtime_data.plasticity_dict = dict()
     for area in cortical_areas:
         for mapping_dst in cortical_areas[area]['cortical_mapping_dst']:
             for morphology in cortical_areas[area]['cortical_mapping_dst'][mapping_dst]:

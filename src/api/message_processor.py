@@ -14,14 +14,14 @@
 # ==============================================================================
 
 import datetime
-import json
-from inf.initialize import deploy_genome
-from inf import runtime_data, disk_ops
-from evo.genome_processor import genome_ver_check
-from evo.autopilot import update_generation_dict
-from evo.x_genesis import update_cortical_properties, update_morphology_properties, update_cortical_mappings
-from evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal, append_circuit
-from inf.db_handler import InfluxManagement
+# import json
+from src.inf import runtime_data, disk_ops
+# from src.evo.genome_processor import genome_ver_check
+# from src.evo.autopilot import update_generation_dict
+from src.evo.x_genesis import update_cortical_properties, update_morphology_properties, update_cortical_mappings
+from src.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal, append_circuit
+from src.inf.db_handler import InfluxManagement
+from src.inf.initialize import deploy_genome
 
 influx = InfluxManagement()
 
@@ -194,10 +194,11 @@ def api_message_processor(api_message):
     # if 'add_core_cortical_area' in api_message:
     #     add_core_cortical_area(cortical_properties=api_message['add_core_cortical_area'])
 
-    if 'add_custom_cortical_area' in api_message:
-        add_custom_cortical_area(cortical_name=api_message['add_custom_cortical_area']['cortical_name'],
-                                 cortical_coordinates=api_message['add_custom_cortical_area']['cortical_coordinates'],
-                                 cortical_dimensions=api_message['add_custom_cortical_area']['cortical_dimensions'])
+    # if 'add_custom_cortical_area' in api_message:
+    #     add_custom_cortical_area(cortical_name=api_message['add_custom_cortical_area']['cortical_name'],
+    #                              coordinates_3d=api_message['add_custom_cortical_area']['cortical_coordinates'],
+    #                              coordinates_2d=api_message['add_custom_cortical_area']['cortical_coordinates'],
+    #                              cortical_dimensions=api_message['add_custom_cortical_area']['cortical_dimensions'])
 
     if 'append_circuit' in api_message:
         if runtime_data.genome:
@@ -211,7 +212,8 @@ def api_message_processor(api_message):
         reward_intensity = api_message['reward']
         if runtime_data.influxdb:
             print("+++++++++++  REWARD ++++++++++++++")
-            runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="success", intensity=reward_intensity)
+            runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="success",
+                                                       intensity=reward_intensity)
         else:
             record_training_event(event_name="reward", details={"intensity": reward_intensity})
 

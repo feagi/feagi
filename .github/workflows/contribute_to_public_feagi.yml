@@ -6,7 +6,7 @@ on:
     paths-ignore:
       - '.github/workflows/**'
     branches:
-      - pre-pub-staging
+      - pre-pub
 
 jobs:
   sync:
@@ -17,7 +17,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         repository: Neuraville/feagi
-        ref: pre-pub-staging
+        ref: pre-pub
         fetch-depth: 0
         path: neuraville-feagi
 
@@ -47,7 +47,7 @@ jobs:
         cd community-feagi
         git remote add neuraville ../neuraville-feagi
         git fetch neuraville
-        git merge neuraville/pre-pub-staging --allow-unrelated-histories
+        git merge neuraville/pre-pub --allow-unrelated-histories
 
     - name: Check for merge conflicts
       run: |
@@ -66,7 +66,7 @@ jobs:
         git branch --all
         git status
         git checkout $BRANCH_NAME || git checkout -b $BRANCH_NAME
-        git diff --exit-code || git commit -m "Sync with pre-pub-staging excluding .env and .github directory changes"
+        git diff --exit-code || git commit -m "Sync with pre-pub excluding .env and .github directory changes"
         git push public ${{ env.BRANCH_NAME }}
 
     - name: Create PR using GitHub CLI

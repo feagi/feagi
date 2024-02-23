@@ -24,8 +24,8 @@ import datetime
 import logging
 # import collections
 # import numpy as np
-from evo.voxels import *
-from evo.synapse import memory_synapse
+from src.evo.voxels import *
+from src.evo.synapse import memory_to_non_memory_synapse
 
 
 logger = logging.getLogger(__name__)
@@ -186,5 +186,6 @@ def increase_neuron_lifespan(cortical_area, neuron_id):
 def convert_shortterm_to_longterm(memory_area, memory_neuron_id):
     if not runtime_data.brain[memory_area][memory_neuron_id]["immortal"]:
         runtime_data.brain[memory_area][memory_neuron_id]["immortal"] = True
-        synapse_count = memory_synapse(memory_cortical_area=memory_area, memory_neuron_id=memory_neuron_id)
+        synapse_count = memory_to_non_memory_synapse(memory_cortical_area=memory_area,
+                                                     memory_neuron_id=memory_neuron_id)
         return synapse_count

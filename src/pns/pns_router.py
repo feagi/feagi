@@ -17,11 +17,11 @@
 # ==============================================================================
 
 import logging
-from pns import stimuli_translator
+from src.pns import stimuli_translator
 import traceback
 from datetime import datetime
-from evo.voxels import *
-from evo.stats import opu_activity_report
+from src.evo.voxels import *
+from src.evo.stats import opu_activity_report
 
 
 logger = logging.getLogger(__name__)
@@ -150,6 +150,12 @@ def stimuli_router(ipu_data):
                         stimuli_translator.training_translator(stimulation=ipu_data["data"]["sensory_data"][sensor_type])
                     except Exception:
                         print("ERROR while processing Object Identification Training IPU", traceback.format_exc())
+                if 'generic_ipu' in sensor_type and ipu_data["data"]["sensory_data"][sensor_type] is not None:
+                    try:
+                        stimuli_translator.generic_ipu_translator(
+                            ipu_data=ipu_data["data"]["sensory_data"][sensor_type])
+                    except Exception:
+                        print("ERROR while processing Object Identification Generic IPU", traceback.format_exc())
 
 
 def opu_router():
