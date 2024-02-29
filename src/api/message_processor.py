@@ -35,14 +35,14 @@ def api_message_processor(api_message):
     """
     Processes the incoming API calls to FEAGI
     """
-    # if 'burst_management' in api_message:
-    #     if 'burst_duration' in api_message['burst_management']:
-    #         if api_message['burst_management']['burst_duration'] is not None:
-    #             runtime_data.burst_timer = api_message['burst_management']['burst_duration']
-    #             runtime_data.genome['burst_delay'] = runtime_data.burst_timer
+    if 'burst_management' in api_message:
+        if 'burst_duration' in api_message['burst_management']:
+            if api_message['burst_management']['burst_duration'] is not None:
+                runtime_data.burst_timer = api_message['burst_management']['burst_duration']
+                runtime_data.genome['burst_delay'] = runtime_data.burst_timer
 
-    # if 'stimulation_script' in api_message:
-    #     runtime_data.stimulation_script = api_message['stimulation_script']['stimulation_script']
+    if 'stimulation_script' in api_message:
+        runtime_data.stimulation_script = api_message['stimulation_script']['stimulation_script']
 
     if 'log_management' in api_message:
         if 'print_cortical_activity_counters' in api_message['log_management']:
@@ -194,10 +194,11 @@ def api_message_processor(api_message):
     # if 'add_core_cortical_area' in api_message:
     #     add_core_cortical_area(cortical_properties=api_message['add_core_cortical_area'])
 
-    if 'add_custom_cortical_area' in api_message:
-        add_custom_cortical_area(cortical_name=api_message['add_custom_cortical_area']['cortical_name'],
-                                 cortical_coordinates=api_message['add_custom_cortical_area']['cortical_coordinates'],
-                                 cortical_dimensions=api_message['add_custom_cortical_area']['cortical_dimensions'])
+    # if 'add_custom_cortical_area' in api_message:
+    #     add_custom_cortical_area(cortical_name=api_message['add_custom_cortical_area']['cortical_name'],
+    #                              coordinates_3d=api_message['add_custom_cortical_area']['cortical_coordinates'],
+    #                              coordinates_2d=api_message['add_custom_cortical_area']['cortical_coordinates'],
+    #                              cortical_dimensions=api_message['add_custom_cortical_area']['cortical_dimensions'])
 
     if 'append_circuit' in api_message:
         if runtime_data.genome:
@@ -211,7 +212,8 @@ def api_message_processor(api_message):
         reward_intensity = api_message['reward']
         if runtime_data.influxdb:
             print("+++++++++++  REWARD ++++++++++++++")
-            runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="success", intensity=reward_intensity)
+            runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="success",
+                                                       intensity=reward_intensity)
         else:
             record_training_event(event_name="reward", details={"intensity": reward_intensity})
 
