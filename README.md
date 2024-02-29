@@ -61,7 +61,7 @@ favorite.
 Similar to how fMRI helps us visualize the activities of a functioning brain, we have developed tools to help you gain
 insights into how the artificial brain operates.
 
-![Godot](_static/display_godot.gif)
+![IMG_5253](https://github.com/Neuraville/feagi/assets/26581495/8b2354b9-d13a-4e0c-b1d5-0c738b8f7518)
 
 
 Another powerful tool to help gain insights into how the artificial brain developed by FEAGI operates is the use of 

@@ -21,6 +21,7 @@ from ...schemas import *
 from ...commons import *
 
 from src.inf import runtime_data
+from src.api.error_handling import generate_response
 from src.inf.initialize import generate_cortical_dimensions_by_id
 from src.evo.genome_properties import genome_properties
 from src.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area
@@ -105,9 +106,9 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                 cortical_properties["transforming"] = False
             return cortical_properties
         else:
-            raise HTTPException(status_code=400, detail=f"{cortical_area} not found part of current genome.")
+            return generate_response("CORTICAL_AREA_NOT_FOUND")
     else:
-        raise HTTPException(status_code=400, detail=f"{cortical_area} is not meeting standard length constraints")
+        return generate_response("CORTICAL_AREA_INVALID_ID_LENGTH")
 
 
 @router.put("/cortical_area")
@@ -117,8 +118,7 @@ async def update_cortical_properties(message: UpdateCorticalProperties):
     """
 
     if message.cortical_id in runtime_data.transforming_areas:
-        return JSONResponse(status_code=400, content={'message': "Operation rejected as the target cortical area is"
-                                                                 "currently undergoing transformation."})
+        return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
     else:
         runtime_data.transforming_areas.add(message.cortical_id)
         message = message.dict()
@@ -176,6 +176,7 @@ async def delete_cortical_area(cortical_id: CorticalId):
     """
     cortical_id = cortical_id.cortical_id
     if cortical_id in runtime_data.genome["blueprint"]:
+
         message = {'delete_cortical_area': cortical_id}
         api_queue.put(item=message)
 

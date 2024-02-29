@@ -440,6 +440,13 @@ def genome_morphology_updator(genome):
     return genome
 
 
+def is_memory_cortical_area(cortical_area):
+    if "MEMORY" in runtime_data.genome["blueprint"][cortical_area]["sub_group_id"]:
+        return True
+    else:
+        return False
+
+
 gene_decoder = {
     "_______b-_____s-__-__name-t": "species_name",
     "_______c-______-cx-__name-t": "cortical_name",

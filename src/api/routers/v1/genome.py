@@ -33,23 +33,23 @@ router = APIRouter()
 
 # ######  Genome Endpoints #########
 # ##################################
-@router.post("/upload/blank")
-async def upload_blank_genome():
+@router.post("/upload/barebones")
+async def upload_barebones_genome():
 
-    with open("./evo/defaults/genome/blank_genome.json", "r") as genome_file:
+    with open("./evo/defaults/genome/barebones_genome.json", "r") as genome_file:
         genome_data = json.load(genome_file)
-        runtime_data.genome_file_name = "blank_genome.json"
+        runtime_data.genome_file_name = "barebones_genome.json"
     runtime_data.brain_readiness = False
     message = {'genome': genome_data}
 
     api_queue.put(item=message)
 
 
-@router.post("/upload/default")
+@router.post("/upload/essential")
 async def genome_default_upload():
-    with open("./evo/static_genome.json", "r") as genome_file:
+    with open("./evo/defaults/genome/essential_genome.json", "r") as genome_file:
         genome_data = json.load(genome_file)
-        runtime_data.genome_file_name = "static_genome.json"
+        runtime_data.genome_file_name = "essential_genome.json"
     runtime_data.brain_readiness = False
     message = {'genome': genome_data}
     api_queue.put(item=message)

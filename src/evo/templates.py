@@ -28,6 +28,12 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
+            "i_gpio": {
+                "enabled": True,
+                "cortical_name": "GPIO_input",
+                "structure": "asymmetric",
+                "resolution": [13, 1, 1]
+            },
             "i_iinf": {
                 "enabled": True,
                 "cortical_name": "inverse_infrared_sensor",
