@@ -437,7 +437,7 @@ def update_morphology_properties(morphology_properties):
         if morphology_properties['name'] in runtime_data.genome['neuron_morphologies']:
             if morphology_properties['name'] in runtime_data.genome['neuron_morphologies']:
                 runtime_data.genome['neuron_morphologies'].pop(morphology_properties['name'])
-            runtime_data.genome['neuron_morphologies'][morphology_properties['name']] = dict()
+
             runtime_data.genome['neuron_morphologies'][morphology_properties['name']]["type"] = \
                 morphology_properties['type']
             runtime_data.genome['neuron_morphologies'][morphology_properties['name']]["parameters"] = \
