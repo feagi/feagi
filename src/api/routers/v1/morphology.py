@@ -161,3 +161,12 @@ async def genome_delete_neuron_morphology(morphology_name: MorphologyName):
             pass
     else:
         raise HTTPException(status_code=400, detail=f"Morphology with name {morphology_name} not found!")
+
+
+@router.get("/morphologies")
+async def comprehensive_morphology_list():
+    """
+    Returns all morphologies and all payloads
+    """
+    if runtime_data.genome['neuron_morphologies']:
+        return runtime_data.genome['neuron_morphologies']
