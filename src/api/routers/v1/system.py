@@ -32,14 +32,14 @@ def human_readable_version(version):
 def get_versions():
     try:
         all_versions = dict()
-        all_versions["feagi"] = human_readable_version(__version__)
+        all_versions["feagi"] = str(__version__)
         for agent_id in runtime_data.agent_registry:
             if agent_id not in all_versions:
                 all_versions[agent_id] = {}
             all_versions[agent_id]["agent_version"] = \
-                human_readable_version(runtime_data.agent_registry[agent_id]["agent_version"])
+                str(runtime_data.agent_registry[agent_id]["agent_version"])
             all_versions[agent_id]["controller_version"] = \
-                human_readable_version(runtime_data.agent_registry[agent_id]["controller_version"])
+                str(runtime_data.agent_registry[agent_id]["controller_version"])
         return all_versions
     except Exception as e:
         print(f"Error during version collection {e}")
