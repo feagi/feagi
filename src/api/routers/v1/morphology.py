@@ -105,17 +105,23 @@ async def genome_neuron_morphology_usage_report(morphology_name: MorphologyName)
 @router.put("/morphology")
 async def genome_update_neuron_morphology(morphology_input: MorphologyInput):
     """
-    Enables changes against various Burst Engine parameters.
+    Updates an exsiting morphology of non-core class
     """
+    if morphology_input.morphology_name not in runtime_data.genome['neuron_morphologies']:
+        raise HTTPException(status_code=400, detail=f"Morphology {morphology_input.morphology_name} not found!")
+    elif runtime_data.genome['neuron_morphologies'][morphology_input.morphology_name]["class"] == "core":
+        raise HTTPException(status_code=400, detail=f"{morphology_input.morphology_name} is a core morphology and "
+                                                    f"cannot be modified!")
+    else:
+        message = dict()
+        message["name"] = morphology_input.morphology_name
+        message["type"] = morphology_input.morphology_type
+        message["class"] = runtime_data.genome['neuron_morphologies'][morphology_input.morphology_name]["class"]
+        message["parameters"] = morphology_input.morphology_parameters
 
-    message = dict()
-    message["name"] = morphology_input.morphology_name
-    message["type"] = morphology_input.morphology_type
-    message["parameters"] = morphology_input.morphology_parameters
-
-    message = {'update_morphology_properties': message}
-    print("*" * 50 + "\n", message)
-    api_queue.put(item=message)
+        message = {'update_morphology_properties': message}
+        print("*" * 50 + "\n", message)
+        api_queue.put(item=message)
 
 
 @router.post("/morphology")
@@ -155,3 +161,12 @@ async def genome_delete_neuron_morphology(morphology_name: MorphologyName):
             pass
     else:
         raise HTTPException(status_code=400, detail=f"Morphology with name {morphology_name} not found!")
+
+
+@router.get("/morphologies")
+async def comprehensive_morphology_list():
+    """
+    Returns all morphologies and all payloads
+    """
+    if runtime_data.genome['neuron_morphologies']:
+        return runtime_data.genome['neuron_morphologies']
