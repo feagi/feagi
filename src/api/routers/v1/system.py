@@ -70,9 +70,9 @@ async def feagi_health_check():
             "genome_title": runtime_data.pending_amalgamation["genome_title"],
             "circuit_size": runtime_data.pending_amalgamation["circuit_size"],
             "neuron_count": connectome_neuron_count,
-            "neuron_count_max": 9999999999,
+            "neuron_count_max": runtime_data.parameters["max_neuron_count"],
             "synapse_count": connectome_synapse_count,
-            "synapse_count_max": 9999999999,
+            "synapse_count_max": runtime_data.parameters["max_synapse_count"],
             "estimated_brain_size_in_MB": connectome_size,
             "influxdb_availability": runtime_data.influxdb
         }
