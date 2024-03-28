@@ -63,9 +63,9 @@ async def feagi_health_check():
     connectome_size = 3E-08 * connectome_neuron_count**2 + 0.0011 * connectome_neuron_count + 2.9073
 
     health["neuron_count"] = connectome_neuron_count,
-    health["neuron_count_max"] = runtime_data.parameters["max_neuron_count"],
+    health["neuron_count_max"] = runtime_data.parameters["Limits"]["max_neuron_count"],
     health["synapse_count"] = connectome_synapse_count,
-    health["synapse_count_max"] = runtime_data.parameters["max_synapse_count"],
+    health["synapse_count_max"] = runtime_data.parameters["Limits"]["max_synapse_count"],
     health["estimated_brain_size_in_MB"] = connectome_size,
     health["influxdb_availability"] = runtime_data.influxdb
 
