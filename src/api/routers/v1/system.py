@@ -62,19 +62,20 @@ async def feagi_health_check():
     connectome_synapse_count = runtime_data.brain_stats["synapse_count"]
     connectome_size = 3E-08 * connectome_neuron_count**2 + 0.0011 * connectome_neuron_count + 2.9073
 
+    health["neuron_count"] = connectome_neuron_count,
+    health["neuron_count_max"] = runtime_data.parameters["max_neuron_count"],
+    health["synapse_count"] = connectome_synapse_count,
+    health["synapse_count_max"] = runtime_data.parameters["max_synapse_count"],
+    health["estimated_brain_size_in_MB"] = connectome_size,
+    health["influxdb_availability"] = runtime_data.influxdb
+
     if pending_amalgamation():
         health["amalgamation_pending"] = {
             "initiation_time": runtime_data.pending_amalgamation["initiation_time"],
             "genome_id": runtime_data.pending_amalgamation["genome_id"],
             "amalgamation_id": runtime_data.pending_amalgamation["amalgamation_id"],
             "genome_title": runtime_data.pending_amalgamation["genome_title"],
-            "circuit_size": runtime_data.pending_amalgamation["circuit_size"],
-            "neuron_count": connectome_neuron_count,
-            "neuron_count_max": runtime_data.parameters["max_neuron_count"],
-            "synapse_count": connectome_synapse_count,
-            "synapse_count_max": runtime_data.parameters["max_synapse_count"],
-            "estimated_brain_size_in_MB": connectome_size,
-            "influxdb_availability": runtime_data.influxdb
+            "circuit_size": runtime_data.pending_amalgamation["circuit_size"]
         }
 
     return health
