@@ -7,7 +7,7 @@ psutil==5.8.0
 uvicorn==0.17.5
 fastapi==0.95.2
 pydantic==1.10.11
-python-multipart==0.0.5
+python-multipart==0.0.7
 starlette~=0.17.1
 requests~=2.27.1
 setuptools~=57.0.0
