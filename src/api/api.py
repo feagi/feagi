@@ -79,7 +79,6 @@ def kickstart_feagi_thread():
 kickstart_feagi_thread()
 
 
-
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """
@@ -114,7 +113,11 @@ async def catch_exceptions_middleware(request: Request, call_next):
         print(f"Exception:\n {e}", traceback.print_exc())
         return JSONResponse(
             status_code=500,
-            content={"message": f"An error occurred: {str(e)}"},
+            content={
+                "type": "error",
+                "code": "UNHANDLED_EXCEPTION",
+                "message": f"An error occurred: {str(e)}"
+            },
         )
 
 standard_response = {
@@ -156,7 +159,6 @@ app.include_router(
     dependencies=[Depends(check_burst_engine)],
     responses=standard_response
 )
-
 
 app.include_router(
     connectome.router,
@@ -260,3 +262,4 @@ app.include_router(
     dependencies=[Depends(check_brain_running)],
     responses=standard_response
 )
+

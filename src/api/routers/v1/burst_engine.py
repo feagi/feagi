@@ -51,4 +51,6 @@ async def change_stimulation_period(message: BurstEngine):
     Enables changes against various Burst Engine parameters.
     """
 
-    runtime_data.genome['burst_delay'] = message.burst_duration
+    message = message.dict()
+    message = {'burst_management': message}
+    api_queue.put(item=message)
