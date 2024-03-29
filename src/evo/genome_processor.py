@@ -148,12 +148,12 @@ def cortical_area_id_update_checker(cortical_id):
     """
     if cortical_id == "i__v0C":
         return "iv00_C"
-    elif cortical_id == "i_v0LL":
-        return "iv00LL"
-    elif cortical_id == "i_v0LR":
-        return "iv00LR"
-    elif cortical_id == "i_v0LM":
-        return "iv00LM"
+    elif cortical_id == "i_v0BL":
+        return "iv00BL"
+    elif cortical_id == "i_v0BR":
+        return "iv00BR"
+    elif cortical_id == "i_v0BM":
+        return "iv00BM"
     elif cortical_id == "i_v0ML":
         return "iv00ML"
     elif cortical_id == "i_v0MR":
@@ -397,7 +397,6 @@ def morphology_convertor(morphology_in):
                     print("> >", morphology_in)
                     morphology_out["parameters"]["patterns"] = [morphology_out["parameters"]["patterns"]]
                     print("> >", morphology_out)
-            break
 
     if "class" not in morphology_out:
         morphology_out["class"] = "custom"
