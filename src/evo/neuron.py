@@ -1,191 +1,137 @@
+import os
+from fastapi import APIRouter, HTTPException
 
-# Copyright 2016-2023 The FEAGI Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
+from ...commons import *
+from ...schemas import *
 
-"""
-A collection of functions related to Neurons
-"""
-
-import random
-import string
-import datetime
-import logging
-# import collections
-# import numpy as np
-from src.evo.voxels import *
-from src.evo.synapse import memory_to_non_memory_synapse
+from src.version import __version__
 
 
-logger = logging.getLogger(__name__)
-
-# def neuron_location_gen(x1, y1, z1, x2, y2, z2):
-#     """
-#     Function responsible to generate a pseudo-random location for a Neuron given some constraints
-#
-#     """
-#     # todo: update to leverage the Genome template
-#     # todo: Would it be better to use relative locations in each cortical region instead?
-#     neuron_location = [random.randrange(x1, x2, 1), random.randrange(y1, y2, 1), random.randrange(z1, z2, 1)]
-#     return neuron_location
+router = APIRouter()
 
 
-def neuron_id_gen(cortical_id=None, size=6, chars=string.ascii_uppercase + string.digits):
-    """
-    This function generates a unique id which will be associated with each neuron
-    :param size:
-    :param chars:
-    :param cortical_id
-    :return:
-    """
-    now = datetime.datetime.now()
-    # Rand gen source partially from:
-    # http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
-    return str(cortical_id + '_' + now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_' + \
-           (''.join(random.choice(chars) for _ in range(size))) + '_N'
+# ######   System Endpoints #########
+# ###################################
 
-
-def init_neuron(cortical_area, soma_location, mem_neuron_id=None):
-    """
-    Responsible for adding a Neuron to connectome
-
-    """
-
-    genome = runtime_data.genome
-
-    if mem_neuron_id:
-        immortality = False
-        is_memory_type = True
-        lifespan = runtime_data.genome["blueprint"][cortical_area]["init_lifespan"] + runtime_data.burst_count
-        neuron_id = str(cortical_area + '_' + mem_neuron_id)
+def human_readable_version(version):
+    print(version)
+    time_portion = str(version)[-10:]
+    reminder = str(version)[:-10]
+    human_readable_time = datetime.utcfromtimestamp(int(time_portion))
+    if reminder:
+        if int(reminder) == 0:
+            reminder = "C"
+        else:
+            reminder = "N"
     else:
-        immortality = True
-        is_memory_type = False
-        lifespan = None
-        neuron_id = neuron_id_gen(cortical_id=cortical_area)
-
-    runtime_data.brain[cortical_area][neuron_id] = {}
-    runtime_data.brain[cortical_area][neuron_id]["memory_neuron"] = is_memory_type
-    runtime_data.brain[cortical_area][neuron_id]["neighbors"] = {}
-    runtime_data.brain[cortical_area][neuron_id]["upstream_neurons"] = set()
-    runtime_data.brain[cortical_area][neuron_id]["event_id"] = {}
-    runtime_data.brain[cortical_area][neuron_id]['membrane_potential'] = 0
-    runtime_data.brain[cortical_area][neuron_id]['cumulative_fire_count'] = 0
-    runtime_data.brain[cortical_area][neuron_id]["cumulative_fire_count_inst"] = 0
-    runtime_data.brain[cortical_area][neuron_id]["cumulative_intake_total"] = 0
-    runtime_data.brain[cortical_area][neuron_id]["cumulative_intake_count"] = 0
-    runtime_data.brain[cortical_area][neuron_id]["consecutive_fire_cnt"] = 0
-    runtime_data.brain[cortical_area][neuron_id]["snooze_till_burst_num"] = 0
-    runtime_data.brain[cortical_area][neuron_id]["last_burst_num"] = 0
-    runtime_data.brain[cortical_area][neuron_id]["activity_history"] = []
-    runtime_data.brain[cortical_area][neuron_id]["lifespan"] = lifespan
-    runtime_data.brain[cortical_area][neuron_id]["immortal"] = immortality
-    runtime_data.brain[cortical_area][neuron_id]["soma_location"] = soma_location
-    # loc_blk is a two element list where first element being the location of the neuron and second being the block
-    # runtime_data.brain[cortical_area][neuron_id]["dendrite_locations"] = dendrite_locations
-    runtime_data.brain[cortical_area][neuron_id]["status"] = "Passive"
-    runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"] = 0
-
-    runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_update"] = 0
-    # runtime_data.brain[cortical_area][neuron_id]["residual_membrane_potential"] = 0
-
-    #   runtime_data.brain[cortical_area][neuron_id]["group_id"] = ""
-    #  consider using the group name part of Genome instead
-    # runtime_data.brain[cortical_area][neuron_id]["depolarization_threshold"] = \
-    #     genome['blueprint'][cortical_area]['depolarization_threshold']
-
-    # todo: firing_threshold_increment to have options in different directions
-
-    runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] = \
-        genome['blueprint'][cortical_area]['firing_threshold']
-
-    if "firing_threshold_increment_x" in genome['blueprint'][cortical_area]:
-        runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] += \
-            genome['blueprint'][cortical_area]['firing_threshold_increment_x'] * soma_location[0]
-
-    if "firing_threshold_increment_y" in genome['blueprint'][cortical_area]:
-        runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] += \
-            genome['blueprint'][cortical_area]['firing_threshold_increment_y'] * soma_location[1]
-
-    if "firing_threshold_increment_z" in genome['blueprint'][cortical_area]:
-        runtime_data.brain[cortical_area][neuron_id]['firing_threshold'] += \
-            genome['blueprint'][cortical_area]['firing_threshold_increment_z'] * soma_location[2]
-
-    leak = genome['blueprint'][cortical_area]['leak_coefficient']
-    leak_variability = genome['blueprint'][cortical_area]['leak_variability']
-    if leak_variability:
-        if abs(leak_variability) > 2:
-            leak = leak + leak * random.randrange(1, int(leak_variability), 1) / 100
-
-    runtime_data.brain[cortical_area][neuron_id]["leak_coefficient"] = leak
-
-    return neuron_id
+        reminder = "N"
+    return reminder + '-' + human_readable_time.strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
-def create_neuron(cortical_area, voxel):
+@router.get("/versions")
+def get_versions():
+    try:
+        all_versions = dict()
+        all_versions["feagi"] = str(__version__)
+        for agent_id in runtime_data.agent_registry:
+            if agent_id not in all_versions:
+                all_versions[agent_id] = {}
+            all_versions[agent_id]["agent_version"] = \
+                str(runtime_data.agent_registry[agent_id]["agent_version"])
+            all_versions[agent_id]["controller_version"] = \
+                str(runtime_data.agent_registry[agent_id]["controller_version"])
+        return all_versions
+    except Exception as e:
+        print(f"Error during version collection {e}")
+
+
+@router.get("/health_check")
+async def feagi_health_check():
+    health = dict()
+    health["burst_engine"] = not runtime_data.exit_condition
+
+    if runtime_data.genome:
+        health["genome_availability"] = True
+    else:
+        health["genome_availability"] = False
+
+    health["genome_validity"] = runtime_data.genome_validity
+    health["brain_readiness"] = runtime_data.brain_readiness
+
+    if pending_amalgamation():
+        health["amalgamation_pending"] = {
+            "initiation_time": runtime_data.pending_amalgamation["initiation_time"],
+            "genome_id": runtime_data.pending_amalgamation["genome_id"],
+            "amalgamation_id": runtime_data.pending_amalgamation["amalgamation_id"],
+            "genome_title": runtime_data.pending_amalgamation["genome_title"],
+            "circuit_size": runtime_data.pending_amalgamation["circuit_size"]
+        }
+
+    return health
+
+
+@router.get("/unique_logs")
+async def unique_log_entries():
+    return runtime_data.logs
+
+
+@router.post("/register")
+async def feagi_registration(message: Registration):
+    message = message.dict()
+    source = message['source']
+
+    host = message['host']
+    capabilities = message['capabilities']
+    print("########## ###### >>>>>> >>>> ", source, host, capabilities)
+
+
+@router.post("/logs")
+async def log_management(message: Logs):
+    message = message.dict()
+    message = {"log_management": message}
+    api_queue.put(item=message)
+
+
+@router.get("/configuration")
+async def configuration_parameters():
+    return runtime_data.parameters
+
+
+@router.get("/beacon/subscribers")
+async def beacon_query():
+    if runtime_data.beacon_sub:
+        return tuple(runtime_data.beacon_sub)
+    else:
+        raise HTTPException(status_code=400, detail=f"No subscriber found")
+
+
+@router.post("/beacon/subscribe")
+async def beacon_subscribe(message: Subscriber):
+    message = {'beacon_sub': message.subscriber_address}
+    api_queue.put(item=message)
+
+
+@router.delete("/beacon/unsubscribe")
+async def beacon_unsubscribe(message: Subscriber):
+    message = {"beacon_unsub": message.subscriber_address}
+    api_queue.put(item=message)
+
+
+@router.get("/db/influxdb/test")
+async def test_influxdb():
     """
-    Responsible for creating Neurons and updating the Voxel Dictionary
+    Enables changes against various Burst Engine parameters.
     """
-    neuron_count = runtime_data.genome["blueprint"][cortical_area]["per_voxel_neuron_cnt"]
 
-    if neuron_count < 1 or not neuron_count:
-        neuron_count = 1
-
-    neuron_location = block_ref_2_id(voxel)
-
-    # Create a new Neuron in target destination
-    for _ in range(int(neuron_count)):
-        neuron_id = init_neuron(cortical_area=cortical_area, soma_location=neuron_location)
-        runtime_data.voxel_dict[cortical_area][voxel].add(neuron_id)
+    influx_status = runtime_data.influxdb.test_influxdb()
+    if influx_status:
+        return influx_status
 
 
-def neuron_apoptosis(cortical_area, neuron_id):
-    """
-    Responsible for programmed death of neuron
-    """
-    if neuron_id in runtime_data.brain[cortical_area]:
-        runtime_data.brain[cortical_area].pop(neuron_id)
-    if cortical_area in runtime_data.fire_candidate_list:
-        if neuron_id in runtime_data.fire_candidate_list[cortical_area]:
-            runtime_data.fire_candidate_list[cortical_area].remove(neuron_id)
-    if cortical_area in runtime_data.future_fcl:
-        if neuron_id in runtime_data.future_fcl[cortical_area]:
-            runtime_data.future_fcl[cortical_area].remove(neuron_id)
-    if cortical_area in runtime_data.previous_fcl:
-        if neuron_id in runtime_data.previous_fcl[cortical_area]:
-            runtime_data.previous_fcl[cortical_area].remove(neuron_id)
-    if cortical_area in runtime_data.fire_queue:
-        if neuron_id in runtime_data.fire_queue[cortical_area]:
-            runtime_data.fire_queue[cortical_area].remove(neuron_id)
-
-
-def increase_neuron_lifespan(cortical_area, neuron_id):
-    if cortical_area in runtime_data.brain:
-        if neuron_id in runtime_data.brain[cortical_area]:
-            runtime_data.brain[cortical_area][neuron_id]["lifespan"] += \
-                runtime_data.genome["blueprint"][cortical_area]["lifespan_growth_rate"]
-
-            # Check eligibility for neuron immortality (Short-term to Long-term memory xfer)
-            if runtime_data.brain[cortical_area][neuron_id]["lifespan"] > \
-                    runtime_data.genome["blueprint"][cortical_area]["longterm_mem_threshold"] + \
-                    runtime_data.burst_count:
-                convert_shortterm_to_longterm(memory_area=cortical_area, memory_neuron_id=neuron_id)
-
-
-def convert_shortterm_to_longterm(memory_area, memory_neuron_id):
-    if not runtime_data.brain[memory_area][memory_neuron_id]["immortal"]:
-        runtime_data.brain[memory_area][memory_neuron_id]["immortal"] = True
-        synapse_count = memory_to_non_memory_synapse(memory_cortical_area=memory_area,
-                                                     memory_neuron_id=memory_neuron_id)
-        return synapse_count
+@router.post("/circuit_library_path")
+async def change_circuit_library_path(circuit_library_path: str):
+    if os.path.exists(circuit_library_path):
+        runtime_data.circuit_lib_path = circuit_library_path
+        print(f"{circuit_library_path} is the new circuit library path.")
+    else:
+        raise HTTPException(status_code=400, detail=f"{circuit_library_path} is not a valid path.")
