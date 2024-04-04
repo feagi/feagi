@@ -109,6 +109,7 @@ class UpdateCorticalProperties(BaseModel):
 #     gazebo_data_port: Optional[int] = runtime_data.parameters['Sockets']['feagi_inbound_port_gazebo']
 #     gazebo_web_port: Optional[int] = 6080
 
+
 class CorticalId(BaseModel):
     cortical_id: str
 
@@ -181,6 +182,10 @@ class SPAStaticFiles(StaticFiles):
 
 class Subscriber(BaseModel):
     subscriber_address: str
+
+
+class GameStats(BaseModel):
+    game_stats: dict
 
 
 class RobotController(BaseModel):
