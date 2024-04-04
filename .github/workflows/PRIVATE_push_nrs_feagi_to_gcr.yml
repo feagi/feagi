@@ -25,6 +25,6 @@ jobs:
         gcloud_service_key: ${{secrets.GCR_SERVICE}}
         project_id: feagi-poc
         image_name: feagi/feagi
-        image_tag: $GITHUB_SHA , latest
+        image_tag: ${{ github.sha }}, latest
         dockerfile: ./docker/Dockerfile
         build_args: REPO=https://${{ secrets.NRS_FEAGI_TOKEN }}@github.com/Neuraville/nrs-feagi.git,BRANCH=main
