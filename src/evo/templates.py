@@ -189,6 +189,12 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10]
             },
+            "o_spos": {
+                "enabled": True,
+                "cortical_name": "Servo Position OPU",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 10]
+            },
             "o_blnk": {
                 "enabled": True,
                 "cortical_name": "Blink",
