@@ -91,4 +91,3 @@ def connectome_backup(src, dst):
             shutil.copy(src, dst)
         else:
             raise
-

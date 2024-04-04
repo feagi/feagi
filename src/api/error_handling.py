@@ -1,8 +1,11 @@
+import logging
+
+from src.api.feagi_responses import response_list
 from fastapi import Request, HTTPException, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
-import logging
+
 
 
 # Custom Error Response Schema
@@ -47,3 +50,11 @@ def register_exception_handlers(app):
     app.add_exception_handler(ItemNotFoundException, item_not_found_exception_handler)
     app.add_exception_handler(DatabaseConnectionError, database_connection_error_handler)
     # ... register more handlers ...
+
+
+def generate_response(key: str):
+    response_data = response_list.get(key, None)
+    response_data["code"] = key
+    if not response_data:
+        raise HTTPException(status_code=404, detail="Response key not found.")
+    return JSONResponse(content=response_data, status_code=200 if response_data["type"] == "info" else 400)
