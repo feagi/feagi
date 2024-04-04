@@ -113,7 +113,11 @@ async def catch_exceptions_middleware(request: Request, call_next):
         print(f"Exception:\n {e}", traceback.print_exc())
         return JSONResponse(
             status_code=500,
-            content={"message": f"An error occurred: {str(e)}"},
+            content={
+                "type": "error",
+                "code": "UNHANDLED_EXCEPTION",
+                "message": f"An error occurred: {str(e)}"
+            },
         )
 
 standard_response = {

@@ -165,6 +165,12 @@ def init_container_variables():
 
 
 def init_memory_register():
+    runtime_data.memory_register = dict()
+    for cortical_area in runtime_data.genome["blueprint"]:
+        if "sub_group_id" in runtime_data.genome["blueprint"][cortical_area]:
+            if runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] == "MEMORY":
+                runtime_data.memory_register[cortical_area] = set()
+
     for cortical_area in runtime_data.genome["blueprint"]:
         for dst_cortical_area in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"]:
             if "sub_group_id" in runtime_data.genome["blueprint"][dst_cortical_area]:
@@ -455,10 +461,14 @@ def init_brain():
     print("\n\n=========================   Brain Initialization Complete ===================================\n\n")
     runtime_data.cumulative_stats = {}
     for area in runtime_data.cortical_list:
-        runtime_data.cumulative_stats[area] = {}
-        runtime_data.cumulative_stats[area]["LTP"] = 0
-        runtime_data.cumulative_stats[area]["LTD"] = 0
-        runtime_data.cumulative_stats[area]["Bursts"] = 0
+        init_cortical_cumulative_stats(area)
+
+
+def init_cortical_cumulative_stats(cortical_area):
+    runtime_data.cumulative_stats[cortical_area] = {}
+    runtime_data.cumulative_stats[cortical_area]["LTP"] = 0
+    runtime_data.cumulative_stats[cortical_area]["LTD"] = 0
+    runtime_data.cumulative_stats[cortical_area]["Bursts"] = 0
 
 
 def init_cortical_defaults():

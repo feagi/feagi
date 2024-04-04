@@ -32,14 +32,14 @@ def human_readable_version(version):
 def get_versions():
     try:
         all_versions = dict()
-        all_versions["feagi"] = human_readable_version(__version__)
+        all_versions["feagi"] = str(__version__)
         for agent_id in runtime_data.agent_registry:
             if agent_id not in all_versions:
                 all_versions[agent_id] = {}
             all_versions[agent_id]["agent_version"] = \
-                human_readable_version(runtime_data.agent_registry[agent_id]["agent_version"])
+                str(runtime_data.agent_registry[agent_id]["agent_version"])
             all_versions[agent_id]["controller_version"] = \
-                human_readable_version(runtime_data.agent_registry[agent_id]["controller_version"])
+                str(runtime_data.agent_registry[agent_id]["controller_version"])
         return all_versions
     except Exception as e:
         print(f"Error during version collection {e}")
@@ -49,9 +49,22 @@ def get_versions():
 async def feagi_health_check():
     health = dict()
     health["burst_engine"] = not runtime_data.exit_condition
+    if runtime_data.influxdb:
+        health["influxdb_availability"] = True
+    else:
+        health["influxdb_availability"] = False
+    health["neuron_count_max"] = runtime_data.parameters["Limits"]["max_neuron_count"]
+    health["synapse_count_max"] = runtime_data.parameters["Limits"]["max_synapse_count"]
 
     if runtime_data.genome:
         health["genome_availability"] = True
+        connectome_neuron_count = runtime_data.brain_stats["neuron_count"]
+        connectome_synapse_count = runtime_data.brain_stats["synapse_count"]
+        connectome_size = 3E-08 * connectome_neuron_count ** 2 + 0.0011 * connectome_neuron_count + 2.9073
+        health["neuron_count"] = connectome_neuron_count
+        health["synapse_count"] = connectome_synapse_count
+        health["estimated_brain_size_in_MB"] = connectome_size
+
     else:
         health["genome_availability"] = False
 
