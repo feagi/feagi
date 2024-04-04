@@ -92,3 +92,19 @@ async def training_report():
     Returns stats associated with training
     """
     return runtime_data.training_stats
+
+
+@router.get("/game_stats")
+async def fetch_game_stats():
+    """
+    updates game stats
+    """
+    return runtime_data.game_stats
+
+
+@router.put("/game_stats")
+async def capture_game_stats(game_stats: GameStats):
+    """
+    updates game stats
+    """
+    runtime_data.training_stats = game_stats

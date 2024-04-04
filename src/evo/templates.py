@@ -24,111 +24,117 @@ cortical_types = {
         "supported_devices": {
             "i__inf": {
                 "enabled": True,
-                "cortical_name": "infrared_sensor",
+                "cortical_name": "Infrared sensor",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
             "i_iinf": {
                 "enabled": True,
-                "cortical_name": "inverse_infrared_sensor",
+                "cortical_name": "Infrared sensor (Inverse)",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
+            "i_gpio": {
+                "enabled": True,
+                "cortical_name": "GPIO input",
+                "structure": "asymmetric",
+                "resolution": [13, 1, 1]
+            },
             "i__pro": {
                 "enabled": True,
-                "cortical_name": "proximity_sensor ",
+                "cortical_name": "Proximity sensor",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10]
             },
             "i__acc": {
                 "enabled": True,
-                "cortical_name": "accelerometer_sensor",
+                "cortical_name": "Accelerometer sensor",
                 "structure": "symmetric",
-                "resolution": [1, 1, 20]
+                "resolution": [3, 1, 21]
             },
             "i__gyr": {
                 "enabled": True,
-                "cortical_name": "gyroscope_sensor",
+                "cortical_name": "Gyro sensor",
                 "structure": "symmetric",
-                "resolution": [1, 1, 20]
+                "resolution": [3, 1, 21]
             },
             "ishock": {
                 "enabled": True,
-                "cortical_name": "shock_sensor",
+                "cortical_name": "Shock sensor",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
             "i__bat": {
                 "enabled": True,
-                "cortical_name": "battery_sensor",
+                "cortical_name": "Battery gauge",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10]
             },
             "iv00_C": {
                 "enabled": True,
-                "cortical_name": "central_vision_sensor",
+                "cortical_name": "Central vision sensor",
                 "structure": "asymmetric",
-                "resolution": [64, 64, 3]
+                "resolution": [64, 64, 1]
             },
             "iv00TR": {
                 "enabled": True,
-                "cortical_name": "top_right_peripheral_vision_sensor",
+                "cortical_name": "Peripheral vision sensor - top right",
                 "structure": "asymmetric",
-                "resolution": [8, 8, 3]
+                "resolution": [8, 8, 1]
             },
             "iv00TL": {
                 "enabled": True,
-                "cortical_name": "top_left_peripheral_vision_sensor",
+                "cortical_name": "Peripheral vision sensor - top left",
                 "structure": "asymmetric",
-                "resolution": [8, 8, 3]
+                "resolution": [8, 8, 1]
             },
             "iv00TM": {
                 "enabled": True,
-                "cortical_name": "top_middle_peripheral_vision_sensor",
+                "cortical_name": "Peripheral vision sensor - top middle",
                 "structure": "asymmetric",
-                "resolution": [8, 8, 3]
+                "resolution": [8, 8, 1]
             },
             "iv00ML": {
                 "enabled": True,
-                "cortical_name": "middle_left_peripheral_vision_sensor",
+                "cortical_name": "Peripheral vision sensor - middle left",
                 "structure": "asymmetric",
-                "resolution": [8, 8, 3]
+                "resolution": [8, 8, 1]
             },
             "iv00MR": {
                 "enabled": True,
-                "cortical_name": "middle_right_peripheral_vision_sensor",
+                "cortical_name": "Peripheral vision sensor - middle right",
                 "structure": "asymmetric",
-                "resolution": [8, 8, 3]
+                "resolution": [8, 8, 1]
             },
-            "iv00LL": {
+            "iv00BL": {
                 "enabled": True,
-                "cortical_name": "lower_left_peripheral_vision_sensor",
+                "cortical_name": "Peripheral vision sensor - bottom left",
                 "structure": "asymmetric",
-                "resolution": [8, 8, 3]
+                "resolution": [8, 8, 1]
             },
-            "iv00LR": {
+            "iv00BR": {
                 "enabled": True,
-                "cortical_name": "lower_right_peripheral_vision_sensor",
+                "cortical_name": "Peripheral vision sensor - bottom right",
                 "structure": "asymmetric",
-                "resolution": [8, 8, 3]
+                "resolution": [8, 8, 1]
             },
-            "iv00LM": {
+            "iv00BM": {
                 "enabled": True,
-                "cortical_name": "lower_middle_peripheral_vision_sensor",
+                "cortical_name": "Peripheral vision sensor - bottom middle",
                 "structure": "asymmetric",
-                "resolution": [8, 8, 3]
+                "resolution": [8, 8, 1]
             },
             "i___id": {
                 "enabled": True,
-                "cortical_name": "ID_Trainer",
+                "cortical_name": "ID Trainer",
                 "structure": "asymmetric",
                 "resolution": [1, 10, 1]
             },
             "i_spos": {
                 "enabled": True,
-                "cortical_name": "servo_position_ipu",
+                "cortical_name": "Servo position sensor",
                 "structure": "asymmetric",
-                "resolution": [6, 1, 20]
+                "resolution": [1, 1, 21]
             }
         }
     },
@@ -137,109 +143,109 @@ cortical_types = {
         "supported_devices": {
             "o__mot": {
                 "enabled": True,
-                "cortical_name": "motor_opu",
+                "cortical_name": "Motor control",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 1]
+                "resolution": [2, 1, 10]
             },
             "o__ser": {
                 "enabled": True,
-                "cortical_name": "servo_opu",
+                "cortical_name": "Servo control",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 1]
+                "resolution": [2, 1, 10]
             },
             "o__nav": {
                 "enabled": True,
-                "cortical_name": "Navigation",
+                "cortical_name": "Navigation vector",
                 "structure": "asymmetric",
-                "resolution": [3, 1, 20]
+                "resolution": [3, 1, 21]
             },
             "o__spd": {
                 "enabled": True,
-                "cortical_name": "Speed",
+                "cortical_name": "Navigation speed",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10]
             },
             "o__bat": {
                 "enabled": True,
-                "cortical_name": "Battery",
+                "cortical_name": "Battery charger",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10]
             },
             "o_init": {
                 "enabled": True,
-                "cortical_name": "Position_Initializer",
+                "cortical_name": "Position initializer",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
             "o__pup": {
                 "enabled": True,
-                "cortical_name": "Vision_Pupil",
+                "cortical_name": "Pupil control",
                 "structure": "asymmetric",
-                "resolution": [2, 1, 1]
+                "resolution": [2, 1, 10]
             },
             "o__gaz": {
                 "enabled": True,
-                "cortical_name": "Vision_Gaze",
+                "cortical_name": "Gaze control",
                 "structure": "asymmetric",
-                "resolution": [2, 1, 1]
+                "resolution": [2, 1, 10]
+            },
+            "o_spos": {
+                "enabled": True,
+                "cortical_name": "Servo Position OPU",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 10]
             },
             "o_blnk": {
                 "enabled": True,
-                "cortical_name": "Visual_Blink",
+                "cortical_name": "Blink",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
             "o___id": {
                 "enabled": True,
-                "cortical_name": "ID_Recognition",
+                "cortical_name": "ID Recognition",
                 "structure": "asymmetric",
                 "resolution": [1, 10, 1]
             },
             "ov_enh": {
                 "enabled": True,
-                "cortical_name": "enhancement",
+                "cortical_name": "Lighting enhancement",
                 "structure": "asymmetric",
                 "resolution": [3, 1, 10]
             },
             "ovtune": {
                 "enabled": True,
-                "cortical_name": "threshold",
+                "cortical_name": "Lighting threshold",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10]
             },
-            "ov_thr": {
-                "enabled": True,
-                "cortical_name": "threshold_type",
-                "structure": "asymmetric",
-                "resolution": [4, 1, 1]
-            },
             "o_misc": {
                 "enabled": True,
-                "cortical_name": "Misc",
+                "cortical_name": "Miscellaneous",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
             "o_mctl": {
                 "enabled": True,
-                "cortical_name": "motion_control_opu",
+                "cortical_name": "Motion control",
                 "structure": "asymmetric",
-                "resolution": [4, 1, 1]
+                "resolution": [4, 3, 10]
             },
             "ovflph": {
                 "enabled": True,
-                "cortical_name": "vision_horizontal_flip",
+                "cortical_name": "Vision horizontal flip",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
             "ovflpv": {
                 "enabled": True,
-                "cortical_name": "vision_vertical_flip",
+                "cortical_name": "Vision vertical flip",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
             "o_stop": {
                 "enabled": True,
-                "cortical_name": "emergency_stop",
+                "cortical_name": "Emergency stop",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             }
