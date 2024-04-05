@@ -22,9 +22,10 @@ jobs:
     - name: Push to GCR GitHub Action
       uses: RafikFarhad/push-to-gcr-github-action@v4.1
       with:
-        gcloud_service_key: ${{secrets.GCR_SERVICE}}
-        project_id: feagi-poc
-        image_name: feagi/feagi
-        image_tag: ${{ github.sha }}, latest
+        gcloud_service_key: ${{secrets.NRS_GAR_PUSH_TOKEN}}
+        project_id: nrs-core
+        registry: us-docker.pkg.dev
+        image_name: nrs-feagi-us/feagi
+        image_tag: $GITHUB_SHA
         dockerfile: ./docker/Dockerfile
         build_args: REPO=https://${{ secrets.NRS_FEAGI_TOKEN }}@github.com/Neuraville/nrs-feagi.git,BRANCH=main
