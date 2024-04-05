@@ -1,4 +1,4 @@
-name: push_nrs_feagi_to_gcr
+name: nrs-feagi(main) -> GAR
 on:
   push:
     branches:
