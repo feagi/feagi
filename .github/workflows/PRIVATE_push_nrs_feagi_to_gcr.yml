@@ -26,6 +26,6 @@ jobs:
         project_id: nrs-core
         registry: us-docker.pkg.dev
         image_name: nrs-feagi-us/feagi
-        image_tag: $GITHUB_SHA , latest
+        image_tag: $GITHUB_SHA
         dockerfile: ./docker/Dockerfile
         build_args: REPO=https://${{ secrets.NRS_FEAGI_TOKEN }}@github.com/Neuraville/nrs-feagi.git,BRANCH=main
