@@ -6,7 +6,6 @@ on:
     paths:
       - 'src/**'
       - 'generate_version.sh'
-  workflow_dispatch:
 
 jobs:
   Build:
