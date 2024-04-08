@@ -1,0 +1,44 @@
+name: nrs-feagi(main) -> GAR
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'generate_version.sh'
+  
+
+
+jobs:
+  setup-build-publish-deploy:
+    name: Setup, Build, Publish to Artifact Registry
+    runs-on: ubuntu-latest
+
+    steps:      
+    - name: Checkout
+      uses: actions/checkout@v3
+      
+    - id: 'auth'
+      uses: 'google-github-actions/auth@v1'
+      with:
+        credentials_json: '${{ secrets.NRS_GAR_PUSH_TOKEN }}'
+
+    - name: 'Set up Cloud SDK'
+      uses: 'google-github-actions/setup-gcloud@v1'
+
+    # Ensure Docker uses gcloud as a credential helper
+    - name: Configure Docker to use gcloud as a credential helper
+      run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+    
+
+    # Build the Docker image
+    - name: Build
+      run: |-
+        docker build \
+          --tag "us-central1-docker.pkg.dev/nrs-core/feagi/feagi:$GITHUB_SHA,latest" \
+          ./docker/Dockerfile
+          
+    - name: Publish
+      run: |-
+        docker push "us-central1-docker.pkg.dev/nrs-core/feagi/feagi:$GITHUB_SHA,latest"
