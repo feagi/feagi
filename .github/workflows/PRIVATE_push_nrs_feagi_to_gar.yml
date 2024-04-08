@@ -35,10 +35,10 @@ jobs:
     # Build the Docker image
     - name: Build
       run: |-
-        docker build \
+        docker build -f /docker/Dockerfile \
           --tag "us-central1-docker.pkg.dev/nrs-core/feagi/feagi:$GITHUB_SHA" \
           --tag "us-central1-docker.pkg.dev/nrs-core/feagi/feagi:latest" \
-          ./docker/Dockerfile
+          ./docker
           
     - name: Publish
       run: |-
