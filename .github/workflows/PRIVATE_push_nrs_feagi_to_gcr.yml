@@ -1,11 +1,13 @@
 name: nrs-feagi(main) -> GAR
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
     paths:
       - 'src/**'
       - 'generate_version.sh'
+  
 
 jobs:
   Build:
