@@ -27,4 +27,4 @@ jobs:
         image_name: nrs-feagi-us/feagi
         image_tag: $GITHUB_SHA
         dockerfile: ./docker/Dockerfile
-        build_args: REPO=https://${{ secrets.GITHUB_TOKEN }}@github.com/Neuraville/nrs-feagi.git,BRANCH=main
+        build_args: REPO=https://${{ secrets.NRS_FEAGI_TOKEN }}@github.com/Neuraville/nrs-feagi.git,BRANCH=main
