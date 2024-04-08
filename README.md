@@ -13,7 +13,7 @@ a journal paper published in IEEE Transactions on Neural Networks. Thus far, [Ne
 been the biggest contributor to this open-source software but we hope others would join in building an amazing solution.
 
 [FEAGI.org](https://feagi.org) is dedicated to this project and intends to capture information about FEAGI applications, 
-use-cases, tutorials, and deployment examples. To learn more and get involved, join the FEAGI [Slack workspace](https://join.slack.com/t/feagi/shared_invite/zt-12ggts9vk-3waU0hembwG3q8sm8HwNpw).
+use-cases, tutorials, and deployment examples. To learn more and get involved, join the FEAGI [LinkedIn group](https://www.linkedin.com/groups/12777894/).
 
 Here are some key highlights of the framework differentiating it from others:
 * Inspired by the evolutionary process that developed the human brain over millions of years
