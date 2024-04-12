@@ -24,7 +24,8 @@ from ...schemas import *
 from ...commons import *
 
 from src.inf import runtime_data
-from src.evo.genome_processor import genome_2_1_convertor
+from src.evo.genome_editor import save_genome
+from src.evo.genome_processor import genome_2_1_convertor, genome_v1_v2_converter
 from src.evo.stats import circuit_size
 
 
@@ -94,7 +95,9 @@ async def genome_string_upload(genome: dict):
 @router.get("/download")
 async def genome_download():
     print("Downloading Genome...")
-
+    print("==========================>>>>\n", runtime_data.genome)
+    save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
+                file_name=runtime_data.connectome_path + "genome.json")
     file_name = "genome_" + datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".json"
     print(file_name)
     if runtime_data.genome:
