@@ -257,13 +257,7 @@
       "class": "core"
     }
   },
-  "species": {
-    "parents": {},
-    "species_id": "",
-    "class": "toy",
-    "brand": "gazebo",
-    "model": "smart_car"
-  },
+  "host": {},
   "stats": {
     "innate_cortical_area_count": 2,
     "innate_neuron_count": 2,

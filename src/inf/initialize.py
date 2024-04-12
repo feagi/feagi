@@ -131,24 +131,24 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
 #     import controller
 
 
-def detect_hardware():
-    """
-    Identifies the type of hardware the brain is running on so the right capabilities can be utilized
-    """
-    # todo
-
-    try:
-        with open('/sys/firmware/devicetree/base/model', "r") as file:
-            if "Raspberry" in file.read():
-                runtime_data.hardware = "raspberry_pi"
-    except:
-        print("Need to figure how other platforms can be detected")
-
-    runtime_data.hw_controller_path = '../third_party/' + \
-                                      runtime_data.genome['species']['brand'] + '/' +\
-                                      runtime_data.genome['species']['model'] + '/controller.py'
-    print("Hardware controller path: ", runtime_data.hw_controller_path)
-
+# def detect_hardware():
+#     """
+#     Identifies the type of hardware the brain is running on so the right capabilities can be utilized
+#     """
+#     # todo
+#
+#     try:
+#         with open('/sys/firmware/devicetree/base/model', "r") as file:
+#             if "Raspberry" in file.read():
+#                 runtime_data.hardware = "raspberry_pi"
+#     except:
+#         print("Need to figure how other platforms can be detected")
+#
+#     runtime_data.hw_controller_path = '../third_party/' + \
+#                                       runtime_data.genome['species']['brand'] + '/' +\
+#                                       runtime_data.genome['species']['model'] + '/controller.py'
+#     print("Hardware controller path: ", runtime_data.hw_controller_path)
+#
 
 def init_container_variables():
     """

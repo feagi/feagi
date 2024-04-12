@@ -1536,13 +1536,7 @@
       "class": "custom"
     }
   },
-  "species": {
-    "parents": {},
-    "species_id": "",
-    "class": "toy",
-    "brand": "gazebo",
-    "model": "smart_car"
-  },
+  "host": {},
   "physiology": {
     "burst_delay": 0.025,
     "max_age": 10000000,

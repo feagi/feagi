@@ -488,7 +488,6 @@ def genome_stat_updator(genome: dict):
 
 
 gene_decoder = {
-    "_______b-_____s-__-__name-t": "species_name",
     "_______c-______-cx-__name-t": "cortical_name",
     "_______c-______-cx-_n_cnt-i": "cortical_neuron_count",
     "_______c-______-cx-gd_vis-b": "godot_visualization",
