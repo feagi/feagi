@@ -63,6 +63,7 @@ async def feagi_health_check():
         connectome_neuron_count = runtime_data.brain_stats["neuron_count"]
         connectome_synapse_count = runtime_data.brain_stats["synapse_count"]
         connectome_size = 3E-08 * connectome_neuron_count ** 2 + 0.0011 * connectome_neuron_count + 2.9073
+        health["cortical_area_count"] = len(runtime_data.cortical_list)
         health["neuron_count"] = connectome_neuron_count
         health["synapse_count"] = connectome_synapse_count
         health["estimated_brain_size_in_MB"] = connectome_size
