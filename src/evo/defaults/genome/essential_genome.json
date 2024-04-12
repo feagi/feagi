@@ -1536,7 +1536,8 @@
       "class": "custom"
     }
   },
-  "host": {},
+  "hosts": {},
+  "signature": "afaasdfwefwefwefwfef",
   "physiology": {
     "burst_delay": 0.025,
     "max_age": 10000000,
