@@ -78,8 +78,10 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
     runtime_data.genome_ver = "2.0"
 
     # todo temp check to find a better solution
-    if "lifespan_mgmt_interval" not in runtime_data.genome:
-        runtime_data.genome["lifespan_mgmt_interval"] = 10
+    if "physiology" not in runtime_data.genome:
+        runtime_data.genome["physiology"] = {}
+    if "lifespan_mgmt_interval" not in runtime_data.genome["physiology"]:
+        runtime_data.genome["physiology"]["lifespan_mgmt_interval"] = 10
 
     for _ in runtime_data.genome["blueprint"]:
         if "mp_charge_accumulation" not in runtime_data.genome["blueprint"][_]:
@@ -97,10 +99,10 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
         if "leak_variability" not in runtime_data.genome["blueprint"][_]:
             runtime_data.genome["blueprint"][_]["leak_variability"] = 0
 
-    if "plasticity_queue_depth" not in runtime_data.genome:
-        runtime_data.genome["plasticity_queue_depth"] = 3
+    if "plasticity_queue_depth" not in runtime_data.genome["physiology"]:
+        runtime_data.genome["physiology"]["plasticity_queue_depth"] = 3
 
-    runtime_data.plasticity_queue_depth = runtime_data.genome["plasticity_queue_depth"]
+    runtime_data.plasticity_queue_depth = runtime_data.genome["physiology"]["plasticity_queue_depth"]
     init_fcl()
     init_brain()
     if 'genome_id' not in runtime_data.genome:
@@ -455,8 +457,8 @@ def init_brain():
     init_genome_post_processes()
     generate_plasticity_dict()
     runtime_data.new_genome = True
-    if 'burst_delay' in runtime_data.genome:
-        runtime_data.burst_timer = float(runtime_data.genome['burst_delay'])
+    if 'burst_delay' in runtime_data.genome["physiology"]:
+        runtime_data.burst_timer = float(runtime_data.genome['physiology']['burst_delay'])
 
     print("\n\n=========================   Brain Initialization Complete ===================================\n\n")
     runtime_data.cumulative_stats = {}
@@ -489,7 +491,7 @@ def init_burst_engine():
     runtime_data.death_flag = False
 
     try:
-        runtime_data.burst_timer = float(runtime_data.genome['burst_delay'])
+        runtime_data.burst_timer = float(runtime_data.genome['physiology']['burst_delay'])
         print("Burst time has been set to:", runtime_data.burst_timer)
     except KeyError:
         print("\n\n==============================================")
