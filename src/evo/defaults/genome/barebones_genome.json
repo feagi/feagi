@@ -1,211 +1,346 @@
 {
-   "genome_id": "2022-07-10_21:53:10_961677_111111_G",
-   "version": "2.0",
-   "max_burst_count": 3,
-   "burst_delay": 1,
-   "max_age": 10000000,
-   "evolution_burst_count": 50,
-   "ipu_idle_threshold": 1000,
-   "physiology": {
-      "plasticity_queue_depth": 3
-   },
-   "neuron_morphologies": {
-      "block_to_block": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  0,
-                  0
-               ]
+  "genome_id": "2022-07-10_21:53:10_961677_111111_G",
+  "version": "2.0",
+  "physiology": {
+    "plasticity_queue_depth": 3,
+    "burst_delay": 1,
+    "max_age": 10000000,
+    "evolution_burst_count": 50,
+    "ipu_idle_threshold": 1000,
+    "lifespan_mgmt_interval": 10
+  },
+  "neuron_morphologies": {
+    "block_to_block": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "core"
+    },
+    "decrease_filter_diagonal": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            1,
+            1
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "custom"
+    },
+    "decrease_filter_diagonal2": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            2,
+            1
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "custom"
+    },
+    "increase_filter_diagonal": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            1,
+            -1
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "custom"
+    },
+    "lateral_+x": {
+      "parameters": {
+        "vectors": [
+          [
+            1,
+            0,
+            0
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "core"
+    },
+    "lateral_-x": {
+      "parameters": {
+        "vectors": [
+          [
+            -1,
+            0,
+            0
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "core"
+    },
+    "lateral_+y": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            1,
+            0
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "core"
+    },
+    "lateral_-y": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            -1,
+            0
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "core"
+    },
+    "lateral_+z": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            1
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "core"
+    },
+    "lateral_-z": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            -1
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "core"
+    },
+    "expander_x": {
+      "parameters": {},
+      "type": "functions",
+      "class": "core"
+    },
+    "reducer_x": {
+      "parameters": {},
+      "type": "functions",
+      "class": "core"
+    },
+    "randomizer": {
+      "parameters": {},
+      "type": "functions",
+      "class": "core"
+    },
+    "projector": {
+      "parameters": {},
+      "type": "functions",
+      "class": "core"
+    },
+    "memory": {
+      "parameters": {},
+      "type": "functions",
+      "class": "core"
+    },
+    "0-0-0_to_all": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              "*",
+              "*",
+              "*"
             ]
-         },
-         "type": "vectors"
+          ]
+        ]
       },
-      "decrease_filter_diagonal": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  1,
-                  1
-               ]
+      "class": "core"
+    },
+    "all_to_0-0-0": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              "*",
+              "*",
+              "*"
+            ],
+            [
+              0,
+              0,
+              0
             ]
-         },
-         "type": "vectors"
+          ]
+        ]
       },
-      "decrease_filter_diagonal2": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  2,
-                  1
-               ]
+      "class": "core"
+    },
+    "all_to_all": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              "?",
+              "?",
+              "?"
+            ],
+            [
+              "*",
+              "*",
+              "*"
             ]
-         },
-         "type": "vectors"
+          ]
+        ]
       },
-      "increase_filter_diagonal": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  1,
-                  -1
-               ]
-            ]
-         },
-         "type": "vectors"
+      "class": "core"
+    },
+    "lateral_pairs_x": {
+      "parameters": {},
+      "type": "functions",
+      "class": "core"
+    },
+    "tile": {
+      "parameters": {
+        "src_seed": [
+          16,
+          16,
+          1
+        ],
+        "src_pattern": [
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ],
+        "mapper_morphology": "projector"
       },
-      "lateral_+x": {
-         "parameters": {
-            "vectors": [
-               [
-                  1,
-                  0,
-                  0
-               ]
-            ]
-         },
-         "type": "vectors"
-      },
-      "lateral_-x": {
-         "parameters": {
-            "vectors": [
-               [
-                  -1,
-                  0,
-                  0
-               ]
-            ]
-         },
-         "type": "vectors"
-      },
-      "lateral_+y": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  1,
-                  0
-               ]
-            ]
-         },
-         "type": "vectors"
-      },
-      "lateral_-y": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  -1,
-                  0
-               ]
-            ]
-         },
-         "type": "vectors"
-      },
-      "lateral_+z": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  0,
-                  1
-               ]
-            ]
-         },
-         "type": "vectors"
-      },
-      "lateral_-z": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  0,
-                  -1
-               ]
-            ]
-         },
-         "type": "vectors"
-      },
-      "expander_x": {
-         "parameters": {},
-         "type": "functions"
-      },
-      "reducer_x": {
-         "parameters": {},
-         "type": "functions"
-      },
-      "randomizer": {
-         "parameters": {},
-         "type": "functions"
-      }
-   },
-   "species": {
-      "parents": {},
-      "species_id": "",
-      "class": "toy",
-      "brand": "gazebo",
-      "model": "smart_car"
-   },
-   "blueprint": {
-      "_____10c-___pwr-cx-_n_cnt-i": 1,
-      "_____10c-___pwr-cx-synatt-i": 100,
-      "_____10c-___pwr-cx-de_gen-f": 0.0,
-      "_____10c-___pwr-cx-pspuni-b": false,
-      "_____10c-___pwr-nx-pstcrm-f": 35.0,
-      "_____10c-___pwr-cx-dstmap-d": {},
-      "_____10c-___pwr-cx-___bbx-i": 1,
-      "_____10c-___pwr-cx-___bby-i": 1,
-      "_____10c-___pwr-cx-___bbz-i": 1,
-      "_____10c-___pwr-cx-rcordx-i": 10,
-      "_____10c-___pwr-cx-rcordy-i": 0,
-      "_____10c-___pwr-cx-rcordz-i": -20,
-      "_____10c-___pwr-cx-2dcorx-i": null,
-      "_____10c-___pwr-cx-2dcory-i": null,
-      "_____10c-___pwr-cx-gd_vis-b": true,
-      "_____10c-___pwr-nx-pstcr_-f": 500.0,
-      "_____10c-___pwr-nx-plst_c-f": 0.0,
-      "_____10c-___pwr-nx-fire_t-f": 1.0,
-      "_____10c-___pwr-nx-refrac-i": 0,
-      "_____10c-___pwr-nx-leak_c-f": 10.0,
-      "_____10c-___pwr-nx-leak_v-f": 0,
-      "_____10c-___pwr-nx-c_fr_c-i": 3,
-      "_____10c-___pwr-nx-snooze-f": 0,
-      "_____10c-___pwr-nx-fthinc-f": 0,
-      "_____10c-___pwr-nx-fthlim-i": 0,
-      "_____10c-___pwr-nx-mp_acc-b": true,
-      "_____10c-___pwr-cx-__name-t": "Brain_Power",
-      "_____10c-___pwr-cx-_group-t": "IPU",
-      "_____10c-_death-cx-_n_cnt-i": 1,
-      "_____10c-_death-cx-synatt-i": 100,
-      "_____10c-_death-cx-de_gen-f": 0.01,
-      "_____10c-_death-cx-pspuni-b": false,
-      "_____10c-_death-nx-pstcrm-f": 35,
-      "_____10c-_death-cx-dstmap-d": {},
-      "_____10c-_death-cx-___bbx-i": 1,
-      "_____10c-_death-cx-___bby-i": 1,
-      "_____10c-_death-cx-___bbz-i": 1,
-      "_____10c-_death-cx-rcordx-i": 10,
-      "_____10c-_death-cx-rcordy-i": 0,
-      "_____10c-_death-cx-rcordz-i": -30,
-      "_____10c-_death-cx-2dcorx-i": null,
-      "_____10c-_death-cx-2dcory-i": null,
-      "_____10c-_death-cx-gd_vis-b": true,
-      "_____10c-_death-nx-pstcr_-f": 5,
-      "_____10c-_death-nx-plst_c-f": 0.06,
-      "_____10c-_death-nx-fire_t-f": 1,
-      "_____10c-_death-nx-refrac-i": 0,
-      "_____10c-_death-nx-leak_c-f": 10,
-      "_____10c-_death-nx-leak_v-f": 0,
-      "_____10c-_death-nx-c_fr_c-i": 3,
-      "_____10c-_death-nx-snooze-f": 0,
-      "_____10c-_death-nx-fthinc-f": 0,
-      "_____10c-_death-nx-fthlim-i": 0,
-      "_____10c-_death-nx-mp_acc-b": false,
-      "_____10c-_death-cx-__name-t": "Brain_Death",
-      "_____10c-_death-cx-_group-t": "IPU"
-   }
+      "type": "composite",
+      "class": "core"
+    }
+  },
+  "species": {
+    "parents": {},
+    "species_id": "",
+    "class": "toy",
+    "brand": "gazebo",
+    "model": "smart_car"
+  },
+  "stats": {
+    "innate_cortical_area_count": 2,
+    "innate_neuron_count": 2,
+    "innate_synapse_count": 0
+  },
+  "blueprint": {
+    "_____10c-___pwr-cx-subgrp-t": "",
+    "_____10c-___pwr-cx-_n_cnt-i": 1,
+    "_____10c-___pwr-cx-synatt-i": 100,
+    "_____10c-___pwr-cx-de_gen-f": 0,
+    "_____10c-___pwr-cx-pspuni-b": false,
+    "_____10c-___pwr-nx-pstcrm-f": 35,
+    "_____10c-___pwr-cx-dstmap-d": {},
+    "_____10c-___pwr-cx-___bbx-i": 1,
+    "_____10c-___pwr-cx-___bby-i": 1,
+    "_____10c-___pwr-cx-___bbz-i": 1,
+    "_____10c-___pwr-cx-rcordx-i": 10,
+    "_____10c-___pwr-cx-rcordy-i": 0,
+    "_____10c-___pwr-cx-rcordz-i": -20,
+    "_____10c-___pwr-cx-2dcorx-i": null,
+    "_____10c-___pwr-cx-2dcory-i": null,
+    "_____10c-___pwr-cx-gd_vis-b": true,
+    "_____10c-___pwr-nx-pstcr_-f": 500,
+    "_____10c-___pwr-nx-fire_t-f": 1,
+    "_____10c-___pwr-nx-refrac-i": 0,
+    "_____10c-___pwr-nx-leak_c-f": 10,
+    "_____10c-___pwr-nx-leak_v-f": 0,
+    "_____10c-___pwr-nx-c_fr_c-i": 3,
+    "_____10c-___pwr-nx-snooze-f": 0,
+    "_____10c-___pwr-nx-ftincx-f": 0,
+    "_____10c-___pwr-nx-ftincy-f": 0,
+    "_____10c-___pwr-nx-ftincz-f": 0,
+    "_____10c-___pwr-nx-fthlim-i": 0,
+    "_____10c-___pwr-nx-mp_acc-b": true,
+    "_____10c-___pwr-nx-mp_psp-b": false,
+    "_____10c-___pwr-cx-memory-b": false,
+    "_____10c-___pwr-cx-mem__t-i": 100,
+    "_____10c-___pwr-cx-mem_gr-i": 1,
+    "_____10c-___pwr-cx-mem_ls-i": 9,
+    "_____10c-___pwr-nx-excite-i": 100,
+    "_____10c-___pwr-cx-__name-t": "Brain_Power",
+    "_____10c-___pwr-cx-_group-t": "IPU",
+    "_____10c-_death-cx-subgrp-t": "",
+    "_____10c-_death-cx-_n_cnt-i": 1,
+    "_____10c-_death-cx-synatt-i": 100,
+    "_____10c-_death-cx-de_gen-f": 0.01,
+    "_____10c-_death-cx-pspuni-b": false,
+    "_____10c-_death-nx-pstcrm-f": 35,
+    "_____10c-_death-cx-dstmap-d": {},
+    "_____10c-_death-cx-___bbx-i": 1,
+    "_____10c-_death-cx-___bby-i": 1,
+    "_____10c-_death-cx-___bbz-i": 1,
+    "_____10c-_death-cx-rcordx-i": 10,
+    "_____10c-_death-cx-rcordy-i": 0,
+    "_____10c-_death-cx-rcordz-i": -30,
+    "_____10c-_death-cx-2dcorx-i": null,
+    "_____10c-_death-cx-2dcory-i": null,
+    "_____10c-_death-cx-gd_vis-b": true,
+    "_____10c-_death-nx-pstcr_-f": 5,
+    "_____10c-_death-nx-fire_t-f": 1,
+    "_____10c-_death-nx-refrac-i": 0,
+    "_____10c-_death-nx-leak_c-f": 10,
+    "_____10c-_death-nx-leak_v-f": 0,
+    "_____10c-_death-nx-c_fr_c-i": 3,
+    "_____10c-_death-nx-snooze-f": 0,
+    "_____10c-_death-nx-ftincx-f": 0,
+    "_____10c-_death-nx-ftincy-f": 0,
+    "_____10c-_death-nx-ftincz-f": 0,
+    "_____10c-_death-nx-fthlim-i": 0,
+    "_____10c-_death-nx-mp_acc-b": false,
+    "_____10c-_death-nx-mp_psp-b": false,
+    "_____10c-_death-cx-memory-b": false,
+    "_____10c-_death-cx-mem__t-i": 100,
+    "_____10c-_death-cx-mem_gr-i": 1,
+    "_____10c-_death-cx-mem_ls-i": 9,
+    "_____10c-_death-nx-excite-i": 100,
+    "_____10c-_death-cx-__name-t": "Brain_Death",
+    "_____10c-_death-cx-_group-t": "IPU"
+  }
 }
