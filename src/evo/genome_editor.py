@@ -68,7 +68,7 @@ def save_genome(genome, file_name=''):
             # todo: Identify the cause of errors when sleep is eliminated
             sleep(0.5)  # Elimination of sleep causes issues with Uvicorn
             print("genome is saved")
-
+            runtime_data.changes_saved_externally = False
     except KeyError:
         print("Warning: Genome could not be saved!")
 

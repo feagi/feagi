@@ -17,11 +17,12 @@
 import os
 import json
 
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from starlette.responses import FileResponse
 
 from ...schemas import *
 from ...commons import *
+from ...dependencies import check_active_genome
 
 from src.inf import runtime_data
 from src.evo.genome_editor import save_genome
@@ -93,7 +94,7 @@ async def genome_string_upload(genome: dict):
 
 
 @router.get("/download")
-async def genome_download():
+async def genome_download(_: str = Depends(check_active_genome)):
     print("Downloading Genome...")
     print("==========================>>>>\n", runtime_data.genome)
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
@@ -101,6 +102,7 @@ async def genome_download():
     file_name = "genome_" + datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".json"
     print(file_name)
     if runtime_data.genome:
+        runtime_data.changes_saved_externally = True
         return FileResponse(path=runtime_data.connectome_path + "genome.json", filename=file_name)
     else:
         raise HTTPException(status_code=400, detail="No running genome found!")

@@ -49,12 +49,14 @@ def get_versions():
 async def feagi_health_check():
     health = dict()
     health["burst_engine"] = not runtime_data.exit_condition
+    health["connected_agents"] = runtime_data.connected_agents
     if runtime_data.influxdb:
         health["influxdb_availability"] = True
     else:
         health["influxdb_availability"] = False
     health["neuron_count_max"] = runtime_data.parameters["Limits"]["max_neuron_count"]
     health["synapse_count_max"] = runtime_data.parameters["Limits"]["max_synapse_count"]
+    health["latest_changes_saved_externally"] = runtime_data.changes_saved_externally
 
     if runtime_data.genome:
         health["genome_availability"] = True
