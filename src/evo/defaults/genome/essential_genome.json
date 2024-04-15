@@ -1551,6 +1551,12 @@
     "innate_neuron_count": 13845,
     "innate_synapse_count": 400
   },
+  "signatures": {
+    "genome": "d6c692d9194f8c0a",
+    "blueprint": "b6c2d4f83d8e3088",
+    "physiology": "5f1e7f587e1af2c8"
+  },
+  "timestamp": 1713187080.019076,
   "blueprint": {
     "_____10c-___pwr-cx-subgrp-t": "",
     "_____10c-___pwr-cx-_n_cnt-i": 1,
