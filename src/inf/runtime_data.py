@@ -193,7 +193,7 @@ agent_registry = {
 }
 """
 agent_registry = {}
-
+host_info = {}
 
 # Unique Logs
 logs = {
