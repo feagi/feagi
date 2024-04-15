@@ -21,8 +21,10 @@ Todo: Make improvements to this tool as it will have further use-cases.
 """
 
 import logging
+import xxhash
 from src.inf import runtime_data
 from datetime import datetime
+from time import time
 from time import sleep
 import json
 
@@ -54,15 +56,34 @@ def save_genome(genome, file_name=''):
     try:
         with open(genome_file, "w") as data_file:
             data = genome
+            if "signatures" not in data:
+                data["signatures"] = {}
+            data["timestamp"] = time()
+            data["signatures"]["genome"] = generate_hash(genome_signature_payload(data))
+            data["signatures"]["blueprint"] = generate_hash(data["blueprint"])
+            data["signatures"]["physiology"] = generate_hash(data["physiology"])
             data_file.seek(0)  # rewind
             data_file.write(json.dumps(data, indent=3, default=set_default))
             data_file.truncate()
             # todo: Identify the cause of errors when sleep is eliminated
             sleep(0.5)  # Elimination of sleep causes issues with Uvicorn
             print("genome is saved")
-
+            runtime_data.changes_saved_externally = False
     except KeyError:
         print("Warning: Genome could not be saved!")
+
+
+def generate_hash(payload):
+    serialized_genome = json.dumps(payload, sort_keys=True)
+    signature = xxhash.xxh64(serialized_genome).hexdigest()
+    return signature
+
+
+def genome_signature_payload(genome):
+    payload = dict()
+    payload["blueprint"] = genome["blueprint"]
+    payload["physiology"] = genome["physiology"]
+    return payload
 
 
 # def validate_genome():

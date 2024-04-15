@@ -43,6 +43,7 @@ circuit_lib_path = "./evo/circuits"
 paths = {}
 pending_amalgamation = {}
 amalgamation_history = {}
+changes_saved_externally = False
 
 
 # Evolutionary
@@ -193,6 +194,7 @@ agent_registry = {
 }
 """
 agent_registry = {}
+connected_agents = []
 
 
 # Unique Logs

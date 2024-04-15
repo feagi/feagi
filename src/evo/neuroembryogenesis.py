@@ -35,6 +35,8 @@ import datetime
 import shutil
 import concurrent.futures
 from src.evo import neuron, synapse, stats, genetics, voxels
+from src.evo.genome_editor import save_genome
+from src.evo.genome_processor import genome_v1_v2_converter
 from functools import partial
 from multiprocessing import Pool, Process
 from src.inf import disk_ops
@@ -320,6 +322,12 @@ def develop(target_areas=None):
     # runtime_data.brain = disk_ops.load_brain_in_memory()
 
     connectome_neuron_count, connectome_synapse_count = stats.brain_total_synapse_cnt()
+    runtime_data.genome["stats"]["innate_cortical_area_count"] = len(runtime_data.cortical_list)
+    runtime_data.genome["stats"]["innate_neuron_count"] = connectome_neuron_count
+    runtime_data.genome["stats"]["innate_synapse_count"] = connectome_synapse_count
+
+    save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
+                file_name=runtime_data.connectome_path + "genome.json")
 
     # The following formula was derived by curve fitting sample data
     connectome_size_on_disk = 3E-08 * connectome_neuron_count**2 + 0.0011 * connectome_neuron_count + 2.9073
