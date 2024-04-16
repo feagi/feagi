@@ -35,6 +35,8 @@ logger = logging.getLogger(__name__)
 def set_default(obj):
     if isinstance(obj, set):
         return list(obj)
+    print("#___" * 20)
+    print(obj)
     return obj
 
 
