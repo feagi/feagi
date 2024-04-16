@@ -35,9 +35,12 @@ logger = logging.getLogger(__name__)
 def set_default(obj):
     if isinstance(obj, set):
         return list(obj)
-    print("#___" * 20)
-    print(type(obj), obj)
-    return obj
+    try:
+        # Attempt to serialize custom objects by gathering their public attributes
+        return {attr: getattr(obj, attr) for attr in dir(obj) if not attr.startswith('_') and not callable(getattr(obj, attr))}
+    except TypeError:
+        # Fall back to a simpler type or raise an exception if necessary
+        raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 
 def add_gene():
