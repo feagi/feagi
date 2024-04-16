@@ -82,10 +82,13 @@ def stimuli_router(ipu_data):
                           traceback.format_exc())
 
         if "connected_agents" in ipu_data["data"]:
-            for agent in ipu_data["data"]["connected_agents"]:
-                runtime_data.connected_agents.add(agent)
-                print("$$__" * 100)
-                print("connected_agents:", runtime_data.connected_agents)
+            if ipu_data["data"]["connected_agents"]:
+                for agent in ipu_data["data"]["connected_agents"]:
+                    runtime_data.connected_agents.add(agent)
+                    print("$$__" * 100)
+                    print("connected_agents:", runtime_data.connected_agents)
+            else:
+                runtime_data.connected_agents = set()
 
         if "sensory_data" in ipu_data["data"]:
             for sensor_type in ipu_data["data"]["sensory_data"]:
