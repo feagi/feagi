@@ -36,7 +36,7 @@ def set_default(obj):
     if isinstance(obj, set):
         return list(obj)
     print("#___" * 20)
-    print(obj)
+    print(type(obj), obj)
     return obj
 
 
