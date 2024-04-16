@@ -65,8 +65,8 @@ def death_eligibility():
     # Conditions triggering the brain death
 
     # --- Age related ---
-    if 'max_age' in runtime_data.genome:
-        if runtime_data.current_age > runtime_data.genome['max_age']:
+    if 'max_age' in runtime_data.genome["physiology"]:
+        if runtime_data.current_age > runtime_data.genome["physiology"]['max_age']:
             death_condition = True
             print('\n\n\nAge related death has been triggered!\n\n\n')
 
