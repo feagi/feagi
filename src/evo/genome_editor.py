@@ -68,6 +68,8 @@ def save_genome(genome, file_name=''):
             data["signatures"]["genome"] = generate_hash(genome_signature_payload(data))
             data["signatures"]["blueprint"] = generate_hash(data["blueprint"])
             data["signatures"]["physiology"] = generate_hash(data["physiology"])
+            print("@----" * 20)
+            print(data["hosts"])
             data_file.seek(0)  # rewind
             data_file.write(json.dumps(data, indent=3, default=set_default))
             data_file.truncate()
