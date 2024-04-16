@@ -21,6 +21,8 @@ Todo: Make improvements to this tool as it will have further use-cases.
 """
 
 import logging
+import traceback
+
 import xxhash
 from src.inf import runtime_data
 from datetime import datetime
@@ -61,16 +63,19 @@ def save_genome(genome, file_name=''):
             if "signatures" not in data:
                 data["signatures"] = {}
             data["timestamp"] = time()
-            host_info = runtime_data.host_info.copy()
-            data["hosts"] = clean_host_info(host_info)
+
+            # host_info = runtime_data.host_info.copy()
+            # data["hosts"] = clean_host_info(host_info)
+            # print("@----" * 20)
+            # print(data["hosts"])
+
             if "signatures" not in data:
                 data["signatures"] = {}
             data["timestamp"] = time()
             data["signatures"]["genome"] = generate_hash(genome_signature_payload(data))
             data["signatures"]["blueprint"] = generate_hash(data["blueprint"])
             data["signatures"]["physiology"] = generate_hash(data["physiology"])
-            print("@----" * 20)
-            print(data["hosts"])
+
             data_file.seek(0)  # rewind
             data_file.write(json.dumps(data, indent=3, default=set_default))
             data_file.truncate()
@@ -78,8 +83,8 @@ def save_genome(genome, file_name=''):
             sleep(0.5)  # Elimination of sleep causes issues with Uvicorn
             print("genome is saved")
             runtime_data.changes_saved_externally = False
-    except KeyError:
-        print("Warning: Genome could not be saved!")
+    except Exception as e:
+        print(f"Warning: Genome could not be saved! {e}", traceback.print_exc())
 
 
 def clean_host_info(host_info):
