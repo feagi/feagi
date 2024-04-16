@@ -32,15 +32,21 @@ import json
 logger = logging.getLogger(__name__)
 
 
+class Sub:
+    def __init__(self, id, type):
+        self.id = id
+        self.type = type
+
+    def to_dict(self):
+        return {'id': self.id, 'type': self.type}
+
+
 def set_default(obj):
     if isinstance(obj, set):
         return list(obj)
-    try:
-        # Attempt to serialize custom objects by gathering their public attributes
-        return {attr: getattr(obj, attr) for attr in dir(obj) if not attr.startswith('_') and not callable(getattr(obj, attr))}
-    except TypeError:
-        # Fall back to a simpler type or raise an exception if necessary
-        raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+    print("#___" * 20)
+    print(type(obj), obj)
+    return obj
 
 
 def add_gene():
@@ -64,7 +70,7 @@ def save_genome(genome, file_name=''):
             if "signatures" not in data:
                 data["signatures"] = {}
             data["timestamp"] = time()
-            data["hosts"] = runtime_data.host_info
+            data["hosts"] = clean_host_info(runtime_data.host_info)
             if "signatures" not in data:
                 data["signatures"] = {}
             data["timestamp"] = time()
@@ -82,6 +88,13 @@ def save_genome(genome, file_name=''):
             runtime_data.changes_saved_externally = False
     except KeyError:
         print("Warning: Genome could not be saved!")
+
+
+def clean_host_info(host_info):
+    for host in host_info:
+        if "listener" in host_info[host]:
+            host_info[host].pop("listener")
+    return host_info
 
 
 def generate_hash(payload):
