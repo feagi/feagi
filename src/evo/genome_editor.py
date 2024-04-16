@@ -61,7 +61,8 @@ def save_genome(genome, file_name=''):
             if "signatures" not in data:
                 data["signatures"] = {}
             data["timestamp"] = time()
-            data["hosts"] = clean_host_info(runtime_data.host_info)
+            host_info = runtime_data.host_info.copy()
+            data["hosts"] = clean_host_info(host_info)
             if "signatures" not in data:
                 data["signatures"] = {}
             data["timestamp"] = time()
