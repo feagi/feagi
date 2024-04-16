@@ -81,6 +81,10 @@ def stimuli_router(ipu_data):
                     print("ERROR while processing Stimulation IPU", ipu_data["data"]["direct_stimulation"], ">>", e,
                           traceback.format_exc())
 
+        if "connected_agents" in ipu_data["data"]:
+            for agent in ipu_data["data"]["connected_agents"]:
+                runtime_data.connected_agents.add(agent)
+
         if "sensory_data" in ipu_data["data"]:
             for sensor_type in ipu_data["data"]["sensory_data"]:
                 # Ultrasonic / Lidar Handler

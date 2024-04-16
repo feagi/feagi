@@ -195,7 +195,7 @@ agent_registry = {
 """
 agent_registry = {}
 host_info = {}
-connected_agents = []
+connected_agents = set()
 
 
 # Unique Logs
