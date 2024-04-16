@@ -99,9 +99,7 @@ async def agent_registration(request: Request, agent_type: str, agent_id: str, a
 
     print(f"AGENT Details -- {agent_info}")
     runtime_data.agent_registry[agent_id] = agent_info
-    if "hosts" not in runtime_data.genome:
-        runtime_data.genome["hosts"] = {}
-    runtime_data.genome["hosts"][agent_id] = agent_info
+    runtime_data.host_info[agent_id] = agent_info
 
     print("New agent has been successfully registered:", runtime_data.agent_registry[agent_id])
     agent_info = runtime_data.agent_registry[agent_id].copy()

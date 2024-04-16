@@ -194,6 +194,7 @@ agent_registry = {
 }
 """
 agent_registry = {}
+host_info = {}
 connected_agents = []
 
 
