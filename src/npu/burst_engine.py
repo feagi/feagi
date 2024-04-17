@@ -660,6 +660,14 @@ def burst_manager():
         # Burst stats
         burst_stats(burst_start_time)
 
+        # Clear connected agent list
+        runtime_data.connected_agents = {
+                "media_capture_ctrl": False,
+                "bluetooth_ctrl": False,
+                "godot_game_ctrl": False,
+                "zmq_to_ws_ctrl": False
+            }
+
         # Manage Threads
         # For performance reasons, running this function not on every single burst
         if runtime_data.burst_count % 10 == 0:

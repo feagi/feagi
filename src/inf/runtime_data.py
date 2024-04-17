@@ -195,7 +195,12 @@ agent_registry = {
 """
 agent_registry = {}
 host_info = {}
-connected_agents = set()
+connected_agents = {
+    "media_capture_ctrl": False,
+    "bluetooth_ctrl": False,
+    "godot_game_ctrl": False,
+    "zmq_to_ws_ctrl": False
+}
 
 
 # Unique Logs
