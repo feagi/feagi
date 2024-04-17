@@ -598,6 +598,14 @@ def burst_manager():
                 for neuron in runtime_data.brain["___pwr"]:
                     runtime_data.fire_candidate_list["___pwr"].add(neuron)
 
+            # Reset connected agent list
+            runtime_data.connected_agents = {
+                "media_capture_ctrl": False,
+                "bluetooth_ctrl": False,
+                "godot_game_ctrl": False,
+                "zmq_to_ws_ctrl": False
+            }
+
             # Manage ZMQ communication from and to FEAGI
             pns_manager()
 
