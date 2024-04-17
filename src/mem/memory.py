@@ -196,7 +196,7 @@ def lstm_lifespan_mgmt():
     """
     if runtime_data.memory_register:
         if runtime_data.burst_count > runtime_data.upcoming_lifesnap_mgmt:
-            runtime_data.upcoming_lifesnap_mgmt += runtime_data.genome["lifespan_mgmt_interval"]
+            runtime_data.upcoming_lifesnap_mgmt += runtime_data.genome["physiology"]["lifespan_mgmt_interval"]
 
             # Wipe short-term memory neurons that has expired
             memory_cleanup()

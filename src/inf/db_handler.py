@@ -218,7 +218,7 @@ class InfluxManagement:
                 print("Successfully connected to InfluxDb! ")
 
             except Exception as e:
-                print("ERROR: Influx service is not running!!!", e, traceback.print_exc())
+                print("ERROR: Influx service is not running!!!", e)
         else:
             print("ERROR: Parameters are not set for InfluxDb configuration!")
 

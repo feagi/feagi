@@ -61,12 +61,12 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                 "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
                 "cortical_visibility": cortical_data['visualization'],
                 "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
-                "cortical_coordinates": [
+                "coordinates_3d": [
                     cortical_data["relative_coordinate"][0],
                     cortical_data["relative_coordinate"][1],
                     cortical_data["relative_coordinate"][2]
                 ],
-                "cortical_coordinates_2d": [
+                "coordinates_2d": [
                     cortical_data["2d_coordinate"][0],
                     cortical_data["2d_coordinate"][1]
                 ],
