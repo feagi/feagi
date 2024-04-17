@@ -135,14 +135,14 @@ def update_cortical_properties(cortical_properties):
             cortical_properties['cortical_name']
         changed_areas.add("name")
 
-    if cortical_properties['cortical_coordinates'] is not None:
+    if cortical_properties['coordinates_3d'] is not None:
         x_cortical_reposition(cortical_area=cortical_area,
-                              new_coordinates=cortical_properties['cortical_coordinates'])
+                              new_coordinates=cortical_properties['coordinates_3d'])
         changed_areas.add("3d_loc")
 
-    if cortical_properties['cortical_coordinates_2d'] is not None:
+    if cortical_properties['coordinates_2d'] is not None:
         x_cortical_reposition_2d(cortical_area=cortical_area,
-                                 new_coordinates=cortical_properties['cortical_coordinates_2d'])
+                                 new_coordinates=cortical_properties['coordinates_2d'])
         changed_areas.add("2d_loc")
 
     if cortical_properties['neuron_fire_threshold'] is not None:

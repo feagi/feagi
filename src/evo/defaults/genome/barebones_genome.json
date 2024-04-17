@@ -1,211 +1,1633 @@
 {
-   "genome_id": "2022-07-10_21:53:10_961677_111111_G",
-   "version": "2.0",
-   "max_burst_count": 3,
-   "burst_delay": 1,
-   "max_age": 10000000,
-   "evolution_burst_count": 50,
-   "ipu_idle_threshold": 1000,
-   "physiology": {
-      "plasticity_queue_depth": 3
-   },
-   "neuron_morphologies": {
-      "block_to_block": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  0,
-                  0
-               ]
+  "genome_id": "2022-07-10_21:53:10_961677_111111_G",
+  "version": "2.0",
+  "neuron_morphologies": {
+    "decrease_filter_diagonal": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            1,
+            1
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "custom"
+    },
+    "decrease_filter_diagonal2": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            2,
+            1
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "custom"
+    },
+    "increase_filter_diagonal": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            1,
+            -1
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "custom"
+    },
+    "increase_filter_diagonal2": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            2,
+            -1
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "custom"
+    },
+    "to_block_[5, 7, 4]": {
+      "parameters": {
+        "patterns": [
+          [
+            [
+              "*",
+              "*",
+              "*"
+            ],
+            [
+              5,
+              7,
+              4
             ]
-         },
-         "type": "vectors"
+          ]
+        ]
       },
-      "decrease_filter_diagonal": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  1,
-                  1
-               ]
+      "type": "patterns",
+      "class": "custom"
+    },
+    "turn_left_level_one": {
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              3
             ]
-         },
-         "type": "vectors"
-      },
-      "decrease_filter_diagonal2": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  2,
-                  1
-               ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              4
             ]
-         },
-         "type": "vectors"
-      },
-      "increase_filter_diagonal": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  1,
-                  -1
-               ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              3
             ]
-         },
-         "type": "vectors"
-      },
-      "lateral_+x": {
-         "parameters": {
-            "vectors": [
-               [
-                  1,
-                  0,
-                  0
-               ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              4
             ]
-         },
-         "type": "vectors"
+          ]
+        ]
       },
-      "lateral_-x": {
-         "parameters": {
-            "vectors": [
-               [
-                  -1,
-                  0,
-                  0
-               ]
+      "type": "patterns",
+      "class": "custom"
+    },
+    "turn_left_level_two": {
+      "parameters": {
+        "patterns": [
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              2
             ]
-         },
-         "type": "vectors"
-      },
-      "lateral_+y": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  1,
-                  0
-               ]
+          ],
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              4
             ]
-         },
-         "type": "vectors"
-      },
-      "lateral_-y": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  -1,
-                  0
-               ]
+          ],
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              2
             ]
-         },
-         "type": "vectors"
-      },
-      "lateral_+z": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  0,
-                  1
-               ]
+          ],
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              4
             ]
-         },
-         "type": "vectors"
+          ]
+        ]
       },
-      "lateral_-z": {
-         "parameters": {
-            "vectors": [
-               [
-                  0,
-                  0,
-                  -1
-               ]
+      "type": "patterns",
+      "class": "custom"
+    },
+    "turn_left_level_three": {
+      "parameters": {
+        "patterns": [
+          [
+            [
+              2,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              1
             ]
-         },
-         "type": "vectors"
+          ],
+          [
+            [
+              2,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              2,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              1
+            ]
+          ],
+          [
+            [
+              2,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              4
+            ]
+          ]
+        ]
       },
-      "expander_x": {
-         "parameters": {},
-         "type": "functions"
+      "type": "patterns",
+      "class": "custom"
+    },
+    "turn_left_level_four": {
+      "parameters": {
+        "patterns": [
+          [
+            [
+              3,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              3,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              3,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              3,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              4
+            ]
+          ]
+        ]
       },
-      "reducer_x": {
-         "parameters": {},
-         "type": "functions"
+      "type": "patterns",
+      "class": "custom"
+    },
+    "turn_left_level_five": {
+      "parameters": {
+        "patterns": [
+          [
+            [
+              4,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              4,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              4,
+              0,
+              0
+            ],
+            [
+              5,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              4,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              4
+            ]
+          ]
+        ]
       },
-      "randomizer": {
-         "parameters": {},
-         "type": "functions"
-      }
-   },
-   "species": {
-      "parents": {},
-      "species_id": "",
-      "class": "toy",
-      "brand": "gazebo",
-      "model": "smart_car"
-   },
-   "blueprint": {
-      "_____10c-___pwr-cx-_n_cnt-i": 1,
-      "_____10c-___pwr-cx-synatt-i": 100,
-      "_____10c-___pwr-cx-de_gen-f": 0.0,
-      "_____10c-___pwr-cx-pspuni-b": false,
-      "_____10c-___pwr-nx-pstcrm-f": 35.0,
-      "_____10c-___pwr-cx-dstmap-d": {},
-      "_____10c-___pwr-cx-___bbx-i": 1,
-      "_____10c-___pwr-cx-___bby-i": 1,
-      "_____10c-___pwr-cx-___bbz-i": 1,
-      "_____10c-___pwr-cx-rcordx-i": 10,
-      "_____10c-___pwr-cx-rcordy-i": 0,
-      "_____10c-___pwr-cx-rcordz-i": -20,
-      "_____10c-___pwr-cx-2dcorx-i": null,
-      "_____10c-___pwr-cx-2dcory-i": null,
-      "_____10c-___pwr-cx-gd_vis-b": true,
-      "_____10c-___pwr-nx-pstcr_-f": 500.0,
-      "_____10c-___pwr-nx-plst_c-f": 0.0,
-      "_____10c-___pwr-nx-fire_t-f": 1.0,
-      "_____10c-___pwr-nx-refrac-i": 0,
-      "_____10c-___pwr-nx-leak_c-f": 10.0,
-      "_____10c-___pwr-nx-leak_v-f": 0,
-      "_____10c-___pwr-nx-c_fr_c-i": 3,
-      "_____10c-___pwr-nx-snooze-f": 0,
-      "_____10c-___pwr-nx-fthinc-f": 0,
-      "_____10c-___pwr-nx-fthlim-i": 0,
-      "_____10c-___pwr-nx-mp_acc-b": true,
-      "_____10c-___pwr-cx-__name-t": "Brain_Power",
-      "_____10c-___pwr-cx-_group-t": "IPU",
-      "_____10c-_death-cx-_n_cnt-i": 1,
-      "_____10c-_death-cx-synatt-i": 100,
-      "_____10c-_death-cx-de_gen-f": 0.01,
-      "_____10c-_death-cx-pspuni-b": false,
-      "_____10c-_death-nx-pstcrm-f": 35,
-      "_____10c-_death-cx-dstmap-d": {},
-      "_____10c-_death-cx-___bbx-i": 1,
-      "_____10c-_death-cx-___bby-i": 1,
-      "_____10c-_death-cx-___bbz-i": 1,
-      "_____10c-_death-cx-rcordx-i": 10,
-      "_____10c-_death-cx-rcordy-i": 0,
-      "_____10c-_death-cx-rcordz-i": -30,
-      "_____10c-_death-cx-2dcorx-i": null,
-      "_____10c-_death-cx-2dcory-i": null,
-      "_____10c-_death-cx-gd_vis-b": true,
-      "_____10c-_death-nx-pstcr_-f": 5,
-      "_____10c-_death-nx-plst_c-f": 0.06,
-      "_____10c-_death-nx-fire_t-f": 1,
-      "_____10c-_death-nx-refrac-i": 0,
-      "_____10c-_death-nx-leak_c-f": 10,
-      "_____10c-_death-nx-leak_v-f": 0,
-      "_____10c-_death-nx-c_fr_c-i": 3,
-      "_____10c-_death-nx-snooze-f": 0,
-      "_____10c-_death-nx-fthinc-f": 0,
-      "_____10c-_death-nx-fthlim-i": 0,
-      "_____10c-_death-nx-mp_acc-b": false,
-      "_____10c-_death-cx-__name-t": "Brain_Death",
-      "_____10c-_death-cx-_group-t": "IPU"
-   }
+      "type": "patterns",
+      "class": "custom"
+    },
+    "turn_right_level_one": {
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              3
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              3
+            ]
+          ]
+        ]
+      },
+      "type": "patterns",
+      "class": "custom"
+    },
+    "turn_right_level_two": {
+      "parameters": {
+        "patterns": [
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              2
+            ]
+          ]
+        ]
+      },
+      "type": "patterns",
+      "class": "custom"
+    },
+    "turn_right_level_three": {
+      "parameters": {
+        "patterns": [
+          [
+            [
+              2,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              2,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              1
+            ]
+          ],
+          [
+            [
+              2,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              2,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              1
+            ]
+          ]
+        ]
+      },
+      "type": "patterns",
+      "class": "custom"
+    },
+    "turn_right_level_four": {
+      "parameters": {
+        "patterns": [
+          [
+            [
+              3,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              3,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              3,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              3,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              2
+            ]
+          ]
+        ]
+      },
+      "type": "patterns",
+      "class": "custom"
+    },
+    "turn_right_level_five": {
+      "parameters": {
+        "patterns": [
+          [
+            [
+              4,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              4,
+              0,
+              0
+            ],
+            [
+              3,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              4,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              4,
+              0,
+              0
+            ],
+            [
+              7,
+              0,
+              4
+            ]
+          ]
+        ]
+      },
+      "type": "patterns",
+      "class": "custom"
+    },
+    "motor_forward": {
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              4
+            ]
+          ]
+        ]
+      },
+      "type": "patterns",
+      "class": "custom"
+    },
+    "motor_backward": {
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              3,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              7,
+              0,
+              4
+            ]
+          ]
+        ]
+      },
+      "type": "patterns",
+      "class": "custom"
+    },
+    "y_consolidator": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              "*",
+              "*",
+              "*"
+            ],
+            [
+              "*",
+              "?",
+              "*"
+            ]
+          ]
+        ]
+      },
+      "class": "custom"
+    },
+    "intensity": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              "*",
+              "*",
+              "*"
+            ],
+            [
+              0,
+              0,
+              "*"
+            ]
+          ]
+        ]
+      },
+      "class": "custom"
+    },
+    "APT_low": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              7
+            ],
+            [
+              0,
+              0,
+              8
+            ]
+          ]
+        ]
+      },
+      "class": "custom"
+    },
+    "apt_high": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              2
+            ],
+            [
+              0,
+              0,
+              2
+            ]
+          ]
+        ]
+      },
+      "class": "custom"
+    },
+    "diagonal_proprio": {
+      "type": "vectors",
+      "parameters": {
+        "vectors": [
+          [
+            1,
+            1,
+            0
+          ]
+        ]
+      },
+      "class": "custom"
+    },
+    "right_detect": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              7,
+              "*",
+              0
+            ],
+            [
+              0,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "class": "custom"
+    },
+    "left_detect": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              "*",
+              0
+            ],
+            [
+              0,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "class": "custom"
+    },
+    "bbb3": {
+      "type": "vectors",
+      "parameters": {
+        "vectors": [
+          [
+            -1,
+            1,
+            0
+          ]
+        ]
+      },
+      "class": "custom"
+    },
+    "ori_135_deg": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            -1,
+            0
+          ],
+          [
+            2,
+            -2,
+            0
+          ],
+          [
+            3,
+            -3,
+            0
+          ],
+          [
+            4,
+            -4,
+            0
+          ],
+          [
+            5,
+            -5,
+            0
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "custom"
+    },
+    "ori_115": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            -2,
+            0
+          ],
+          [
+            2,
+            -4,
+            0
+          ],
+          [
+            3,
+            -6,
+            0
+          ],
+          [
+            4,
+            -9,
+            0
+          ],
+          [
+            5,
+            -11,
+            0
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "custom"
+    },
+    "ori_0_deg": {
+      "type": "vectors",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            2,
+            0,
+            0
+          ],
+          [
+            3,
+            0,
+            0
+          ],
+          [
+            4,
+            0,
+            0
+          ]
+        ]
+      },
+      "class": "custom"
+    },
+    "ori_90_deg": {
+      "type": "vectors",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            2,
+            0
+          ],
+          [
+            0,
+            3,
+            0
+          ],
+          [
+            0,
+            4,
+            0
+          ],
+          [
+            0,
+            5,
+            0
+          ],
+          [
+            0,
+            6,
+            0
+          ],
+          [
+            0,
+            7,
+            0
+          ],
+          [
+            0,
+            8,
+            0
+          ],
+          [
+            0,
+            9,
+            0
+          ]
+        ]
+      },
+      "class": "custom"
+    },
+    "ori_45_deg": {
+      "type": "vectors",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            1,
+            0
+          ],
+          [
+            2,
+            2,
+            0
+          ],
+          [
+            3,
+            3,
+            0
+          ],
+          [
+            4,
+            4,
+            0
+          ],
+          [
+            5,
+            5,
+            0
+          ],
+          [
+            6,
+            6,
+            0
+          ],
+          [
+            7,
+            7,
+            0
+          ],
+          [
+            8,
+            8,
+            0
+          ]
+        ]
+      },
+      "class": "custom"
+    },
+    "ori_60_deg": {
+      "type": "vectors",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            1,
+            0
+          ],
+          [
+            1,
+            2,
+            0
+          ],
+          [
+            2,
+            3,
+            0
+          ],
+          [
+            2,
+            4,
+            0
+          ],
+          [
+            3,
+            5,
+            0
+          ],
+          [
+            3,
+            6,
+            0
+          ],
+          [
+            4,
+            7,
+            0
+          ]
+        ]
+      },
+      "class": "custom"
+    },
+    "block_to_block": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "core"
+    },
+    "projector": {
+      "parameters": {},
+      "type": "functions",
+      "class": "core"
+    },
+    "memory": {
+      "parameters": {},
+      "type": "functions",
+      "class": "core"
+    },
+    "0-0-0_to_all": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              "*",
+              "*",
+              "*"
+            ]
+          ]
+        ]
+      },
+      "class": "core"
+    },
+    "all_to_0-0-0": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              "*",
+              "*",
+              "*"
+            ],
+            [
+              0,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "class": "core"
+    },
+    "all_to_all": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              "?",
+              "?",
+              "?"
+            ],
+            [
+              "*",
+              "*",
+              "*"
+            ]
+          ]
+        ]
+      },
+      "class": "core"
+    },
+    "lateral_+x": {
+      "parameters": {
+        "vectors": [
+          [
+            1,
+            0,
+            0
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "core"
+    },
+    "lateral_-x": {
+      "parameters": {
+        "vectors": [
+          [
+            -1,
+            0,
+            0
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "core"
+    },
+    "lateral_+y": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            1,
+            0
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "core"
+    },
+    "lateral_-y": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            -1,
+            0
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "core"
+    },
+    "lateral_+z": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            1
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "core"
+    },
+    "lateral_-z": {
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            -1
+          ]
+        ]
+      },
+      "type": "vectors",
+      "class": "core"
+    },
+    "randomizer": {
+      "parameters": {},
+      "type": "functions",
+      "class": "core"
+    },
+    "expander_x": {
+      "parameters": {},
+      "type": "functions",
+      "class": "core"
+    },
+    "reducer_x": {
+      "parameters": {},
+      "type": "functions",
+      "class": "core"
+    },
+    "lateral_pairs_x": {
+      "parameters": {},
+      "type": "functions",
+      "class": "core"
+    },
+    "tile": {
+      "parameters": {
+        "src_seed": [
+          16,
+          16,
+          1
+        ],
+        "src_pattern": [
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ],
+        "mapper_morphology": "projector"
+      },
+      "type": "composite",
+      "class": "core"
+    },
+    "0_0_0-_0_0_0": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "morphology_name": "0_0_0-_0_0_0",
+      "class": "custom"
+    },
+    "0_0_0-1_0_0": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "morphology_name": "0_0_0-1_0_0",
+      "class": "custom"
+    },
+    "0_0_0-2_0_0": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "morphology_name": "0_0_0-2_0_0",
+      "class": "custom"
+    },
+    "0_0_0-3_0_0": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              3,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "morphology_name": "0_0_0-3_0_0",
+      "class": "custom"
+    },
+    "0_0_0-4_0_0": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "morphology_name": "0_0_0-4_0_0",
+      "class": "custom"
+    },
+    "0_0_0-5_0_0": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "morphology_name": "0_0_0-5_0_0",
+      "class": "custom"
+    },
+    "0_0_0-6_0_0": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "morphology_name": "0_0_0-6_0_0",
+      "class": "custom"
+    },
+    "0_0_0-7_0_0": {
+      "type": "patterns",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              7,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "morphology_name": "0_0_0-7_0_0",
+      "class": "custom"
+    }
+  },
+  "hosts": {},
+  "physiology": {
+    "burst_delay": 0.025,
+    "max_age": 10000000,
+    "evolution_burst_count": 50,
+    "ipu_idle_threshold": 1000,
+    "plasticity_queue_depth": 3,
+    "lifespan_mgmt_interval": 10
+  },
+  "stats": {
+    "innate_cortical_area_count": 2,
+    "innate_neuron_count": 2,
+    "innate_synapse_count": 0
+  },
+  "signatures": {
+    "genome": "d56d9bbc7a5e236d",
+    "blueprint": "f5dacb3e0fd9b7d2",
+    "physiology": "5f1e7f587e1af2c8"
+  },
+  "timestamp": 1712971071.904253,
+  "blueprint": {
+    "_____10c-___pwr-cx-subgrp-t": "",
+    "_____10c-___pwr-cx-_n_cnt-i": 1,
+    "_____10c-___pwr-cx-synatt-i": 100,
+    "_____10c-___pwr-cx-de_gen-f": 0,
+    "_____10c-___pwr-cx-pspuni-b": false,
+    "_____10c-___pwr-nx-pstcrm-f": 35,
+    "_____10c-___pwr-cx-dstmap-d": {},
+    "_____10c-___pwr-cx-___bbx-i": 1,
+    "_____10c-___pwr-cx-___bby-i": 1,
+    "_____10c-___pwr-cx-___bbz-i": 1,
+    "_____10c-___pwr-cx-rcordx-i": 10,
+    "_____10c-___pwr-cx-rcordy-i": 0,
+    "_____10c-___pwr-cx-rcordz-i": -20,
+    "_____10c-___pwr-cx-2dcorx-i": null,
+    "_____10c-___pwr-cx-2dcory-i": null,
+    "_____10c-___pwr-cx-gd_vis-b": true,
+    "_____10c-___pwr-nx-pstcr_-f": 500,
+    "_____10c-___pwr-nx-fire_t-f": 1,
+    "_____10c-___pwr-nx-refrac-i": 0,
+    "_____10c-___pwr-nx-leak_c-f": 10,
+    "_____10c-___pwr-nx-leak_v-f": 0,
+    "_____10c-___pwr-nx-c_fr_c-i": 3,
+    "_____10c-___pwr-nx-snooze-f": 0,
+    "_____10c-___pwr-nx-ftincx-f": 0,
+    "_____10c-___pwr-nx-ftincy-f": 0,
+    "_____10c-___pwr-nx-ftincz-f": 0,
+    "_____10c-___pwr-nx-fthlim-i": 0,
+    "_____10c-___pwr-nx-mp_acc-b": true,
+    "_____10c-___pwr-nx-mp_psp-b": false,
+    "_____10c-___pwr-cx-memory-b": false,
+    "_____10c-___pwr-cx-mem__t-i": 100,
+    "_____10c-___pwr-cx-mem_gr-i": 1,
+    "_____10c-___pwr-cx-mem_ls-i": 9,
+    "_____10c-___pwr-nx-excite-i": 100,
+    "_____10c-___pwr-cx-__name-t": "Brain_Power",
+    "_____10c-___pwr-cx-_group-t": "IPU",
+    "_____10c-_death-cx-subgrp-t": "",
+    "_____10c-_death-cx-_n_cnt-i": 1,
+    "_____10c-_death-cx-synatt-i": 100,
+    "_____10c-_death-cx-de_gen-f": 0.01,
+    "_____10c-_death-cx-pspuni-b": false,
+    "_____10c-_death-nx-pstcrm-f": 35,
+    "_____10c-_death-cx-dstmap-d": {},
+    "_____10c-_death-cx-___bbx-i": 1,
+    "_____10c-_death-cx-___bby-i": 1,
+    "_____10c-_death-cx-___bbz-i": 1,
+    "_____10c-_death-cx-rcordx-i": 10,
+    "_____10c-_death-cx-rcordy-i": 0,
+    "_____10c-_death-cx-rcordz-i": -30,
+    "_____10c-_death-cx-2dcorx-i": null,
+    "_____10c-_death-cx-2dcory-i": null,
+    "_____10c-_death-cx-gd_vis-b": true,
+    "_____10c-_death-nx-pstcr_-f": 5,
+    "_____10c-_death-nx-fire_t-f": 1,
+    "_____10c-_death-nx-refrac-i": 0,
+    "_____10c-_death-nx-leak_c-f": 10,
+    "_____10c-_death-nx-leak_v-f": 0,
+    "_____10c-_death-nx-c_fr_c-i": 3,
+    "_____10c-_death-nx-snooze-f": 0,
+    "_____10c-_death-nx-ftincx-f": 0,
+    "_____10c-_death-nx-ftincy-f": 0,
+    "_____10c-_death-nx-ftincz-f": 0,
+    "_____10c-_death-nx-fthlim-i": 0,
+    "_____10c-_death-nx-mp_acc-b": false,
+    "_____10c-_death-nx-mp_psp-b": false,
+    "_____10c-_death-cx-memory-b": false,
+    "_____10c-_death-cx-mem__t-i": 100,
+    "_____10c-_death-cx-mem_gr-i": 1,
+    "_____10c-_death-cx-mem_ls-i": 9,
+    "_____10c-_death-nx-excite-i": 100,
+    "_____10c-_death-cx-__name-t": "Brain_Death",
+    "_____10c-_death-cx-_group-t": "IPU"
+  }
 }
