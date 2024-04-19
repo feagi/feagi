@@ -228,7 +228,6 @@ async def amalgamation_conclusion(circuit_origin_x: int,
         api_queue.put(item=data)
         genome_title = runtime_data.pending_amalgamation["genome_title"]
         cancel_pending_amalgamation(amalgamation_id=amalgamation_id)
-        runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
         runtime_data.amalgamation_history["amalgamation_id"] = "complete"
         return f"Amalgamation for \"{genome_title}\" is complete."
     else:

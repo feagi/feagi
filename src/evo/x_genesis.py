@@ -849,6 +849,7 @@ def append_circuit(source_genome, circuit_origin):
                     dst_blueprint[new_cortical_area_id]["relative_coordinate"][0] = new_coordinates[0]
                     dst_blueprint[new_cortical_area_id]["relative_coordinate"][1] = new_coordinates[1]
                     dst_blueprint[new_cortical_area_id]["relative_coordinate"][2] = new_coordinates[2]
+                    runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
                     print(f"---------------Successfully imported a new cortical area.  "
                           f"id:{new_cortical_area_id} name:{new_cortical_name}")
                 else:
