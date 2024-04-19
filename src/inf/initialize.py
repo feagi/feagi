@@ -407,7 +407,6 @@ def reset_runtime_data():
     runtime_data.brain = {}
     runtime_data.cortical_list = []
     runtime_data.plasticity_dict = {}
-    runtime_data.cortical_list = {}
     runtime_data.memory_register = {}
     runtime_data.cortical_dimensions = {}
     runtime_data.cortical_dimensions_by_id = {}
