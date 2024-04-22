@@ -405,14 +405,16 @@ def reset_runtime_data():
     runtime_data.genome = {}
     runtime_data.stats = {}
     runtime_data.brain = {}
+    runtime_data.cortical_list = []
     runtime_data.plasticity_dict = {}
-    runtime_data.cortical_list = {}
     runtime_data.memory_register = {}
     runtime_data.cortical_dimensions = {}
+    runtime_data.cortical_dimensions_by_id = {}
     runtime_data.stimulation_script = {}
     runtime_data.plasticity_queue_candidates = set()
     runtime_data.shock_admin = False
     runtime_data.shock_scenarios = tuple
+    runtime_data.intercortical_mapping = []
 
     # Clear brain activities
     runtime_data.fire_candidate_list = {}
