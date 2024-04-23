@@ -23,8 +23,9 @@ Supporting Genome Versions: 2.0
 import logging
 import traceback
 
-from src.evo.genome_properties import *
 from src.inf import settings
+from src.evo.genome_properties import *
+from src.evo.templates import cortical_types
 
 
 logger = logging.getLogger(__name__)
@@ -103,9 +104,8 @@ def morphology_validator(genome):
                                     for pattern_segment in pattern:
                                         if len(pattern_segment) != 3:
                                             genome_validity = False
-                                            print(
-                                                "Warning! Morphology \"%s\" has an incorrect pattern parameter definition."
-                                                % morphology)
+                                            print("Warning! Morphology \"%s\" has an incorrect pattern parameter "
+                                                  "definition." % morphology)
                                             return genome_validity
 
             if "parameters" not in neuron_morphologies[morphology]:
@@ -168,6 +168,18 @@ def blueprint_validator(genome):
                         return False
         return True
 
+    def special_areas(gene_):
+        segments = gene_.split(genome_properties["structure"]["segment_seperator"])
+        special_core_types = {"IPU", "OPU", "CORE"}
+        cortical_area = segments[1]
+        if segments[3] == "_group":
+            defined_cortical_type = blueprint[gene_]
+            if defined_cortical_type in special_core_types:
+                if cortical_area not in cortical_types[defined_cortical_type]["supported_devices"]:
+                    return False
+
+        return True
+
     for gene in blueprint:
         if not gene_segments(gene):
             valid_genome = False
@@ -175,13 +187,11 @@ def blueprint_validator(genome):
         if not destination_rules(gene):
             print(gene)
             valid_genome = False
+        if not special_areas(gene):
+            print(gene)
+            valid_genome = False
 
     return valid_genome
-
-
-def core_validator(genome):
-    # TBD
-    return True
 
 
 def print_validity(validity_status):
@@ -201,7 +211,6 @@ def print_validity(validity_status):
 
 def genome_validator(genome):
     genome_validity = morphology_validator(genome=genome) and \
-                      blueprint_validator(genome=genome) and \
-                      core_validator(genome=genome)
+                      blueprint_validator(genome=genome)
     print_validity(validity_status=genome_validity)
     return genome_validity

@@ -43,6 +43,8 @@ def genome_ver_check(genome):
                 print("Error during genome validation!!\n", traceback.print_exc(), e)
             genome = merge_core_morphologies(genome)
             genome = genome_morphology_updator(genome)
+            genome = genome_physiology_updator(genome=genome)
+            genome = genome_stat_updator(genome=genome)
             save_genome(genome=genome, file_name=runtime_data.connectome_path + "genome.json")
             genome1 = genome_2_1_convertor(flat_genome=genome['blueprint'])
             genome_2_hierarchifier(flat_genome=genome['blueprint'])
@@ -446,8 +448,46 @@ def is_memory_cortical_area(cortical_area):
         return False
 
 
+def genome_physiology_updator(genome: dict):
+    if "physiology" not in genome:
+        genome["physiology"] = {}
+    if "max_burst_count" in genome:
+        genome.pop("max_burst_count")
+    if "burst_delay" in genome:
+        genome["physiology"]["burst_delay"] = genome["burst_delay"]
+        genome.pop("burst_delay")
+    if "max_age" in genome:
+        genome["physiology"]["max_age"] = genome["max_age"]
+        genome.pop("max_age")
+    if "evolution_burst_count" in genome:
+        genome["physiology"]["evolution_burst_count"] = genome["evolution_burst_count"]
+        genome.pop("evolution_burst_count")
+    if "ipu_idle_threshold" in genome:
+        genome["physiology"]["ipu_idle_threshold"] = genome["ipu_idle_threshold"]
+        genome.pop("ipu_idle_threshold")
+    if "plasticity_queue_depth" in genome:
+        genome["physiology"]["plasticity_queue_depth"] = genome["plasticity_queue_depth"]
+        genome.pop("plasticity_queue_depth")
+    if "lifespan_mgmt_interval" in genome:
+        genome["physiology"]["lifespan_mgmt_interval"] = genome["lifespan_mgmt_interval"]
+        genome.pop("lifespan_mgmt_interval")
+
+    return genome
+
+
+def genome_stat_updator(genome: dict):
+    if "stats" not in genome:
+        genome["stats"] = {}
+    if "cortical_count" not in genome["stats"]:
+        genome["stats"]["innate_cortical_area_count"] = 0
+    if "neuron_count" not in genome["stats"]:
+        genome["stats"]["innate_neuron_count"] = 0
+    if "synapse_count" not in genome["stats"]:
+        genome["stats"]["innate_synapse_count"] = 0
+    return genome
+
+
 gene_decoder = {
-    "_______b-_____s-__-__name-t": "species_name",
     "_______c-______-cx-__name-t": "cortical_name",
     "_______c-______-cx-_n_cnt-i": "cortical_neuron_count",
     "_______c-______-cx-gd_vis-b": "godot_visualization",
