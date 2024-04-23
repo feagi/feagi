@@ -49,7 +49,9 @@ def get_versions():
 async def feagi_health_check():
     health = dict()
     health["burst_engine"] = not runtime_data.exit_condition
+
     health["connected_agents"] = runtime_data.connected_agents
+
     if runtime_data.influxdb:
         health["influxdb_availability"] = True
     else:
@@ -63,6 +65,7 @@ async def feagi_health_check():
         connectome_neuron_count = runtime_data.brain_stats["neuron_count"]
         connectome_synapse_count = runtime_data.brain_stats["synapse_count"]
         connectome_size = 3E-08 * connectome_neuron_count ** 2 + 0.0011 * connectome_neuron_count + 2.9073
+
         health["cortical_area_count"] = len(runtime_data.cortical_list)
         health["neuron_count"] = connectome_neuron_count
         health["synapse_count"] = connectome_synapse_count

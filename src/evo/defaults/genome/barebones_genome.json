@@ -1592,7 +1592,7 @@
     "_____10c-___pwr-cx-mem_ls-i": 9,
     "_____10c-___pwr-nx-excite-i": 100,
     "_____10c-___pwr-cx-__name-t": "Brain_Power",
-    "_____10c-___pwr-cx-_group-t": "IPU",
+    "_____10c-___pwr-cx-_group-t": "CORE",
     "_____10c-_death-cx-subgrp-t": "",
     "_____10c-_death-cx-_n_cnt-i": 1,
     "_____10c-_death-cx-synatt-i": 100,
@@ -1628,6 +1628,6 @@
     "_____10c-_death-cx-mem_ls-i": 9,
     "_____10c-_death-nx-excite-i": 100,
     "_____10c-_death-cx-__name-t": "Brain_Death",
-    "_____10c-_death-cx-_group-t": "IPU"
+    "_____10c-_death-cx-_group-t": "CORE"
   }
 }

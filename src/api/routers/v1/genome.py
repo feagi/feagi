@@ -28,6 +28,7 @@ from src.inf import runtime_data
 from src.evo.genome_editor import save_genome
 from src.evo.genome_processor import genome_2_1_convertor, genome_v1_v2_converter
 from src.evo.stats import circuit_size
+from src.inf.initialize import generate_cortical_dimensions_by_id
 
 
 router = APIRouter()
