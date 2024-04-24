@@ -153,6 +153,8 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest):
         raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
     else:
         now = datetime.now()
+        genome = genome_2_1_convertor(amalgamation_param.genome_payload["blueprint"])
+
         amalgamation_id = str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_A'
         runtime_data.pending_amalgamation["genome_id"] = amalgamation_param.genome_id
         runtime_data.pending_amalgamation["genome_title"] = amalgamation_param.genome_title
@@ -160,7 +162,7 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest):
         runtime_data.pending_amalgamation["initiation_time"] = datetime.now()
         runtime_data.pending_amalgamation["amalgamation_id"] = amalgamation_id
         runtime_data.pending_amalgamation["circuit_size"] = \
-            circuit_size(blueprint=amalgamation_param.genome_payload["blueprint"])
+            circuit_size(blueprint=genome["blueprint"])
 
         runtime_data.amalgamation_history[amalgamation_id] = "pending"
         return amalgamation_id
