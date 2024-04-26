@@ -177,15 +177,15 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
-            "o__pup": {
+            "ov_mod": {
                 "enabled": True,
-                "cortical_name": "Pupil control",
+                "cortical_name": "Central Vision Modulation",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10]
             },
-            "o__gaz": {
+            "ov_ecc": {
                 "enabled": True,
-                "cortical_name": "Gaze control",
+                "cortical_name": "Central Vision Eccentricity",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10]
             },
