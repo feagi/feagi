@@ -259,7 +259,7 @@ app.include_router(
     training.router,
     prefix="/v1/training",
     tags=["TRAINING"],
-    dependencies=[Depends(check_brain_running)],
+    dependencies=[Depends(check_active_genome)],
     responses=standard_response
 )
 
