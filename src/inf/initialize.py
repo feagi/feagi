@@ -157,7 +157,7 @@ def init_container_variables():
 
     if os.environ.get('CONTAINERIZED', False):
         runtime_data.running_in_container = True
-    if os.environ.get('INFLUXDB', False):
+    if os.environ.get('INFLUXDB', None):
         init_timeseries_db()
         # runtime_data.influxdb = True
     if os.environ.get('mongodb', False):
