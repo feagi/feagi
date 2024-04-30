@@ -17,15 +17,18 @@
 import os
 import json
 
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from starlette.responses import FileResponse
 
 from ...schemas import *
 from ...commons import *
+from ...dependencies import check_active_genome
 
 from src.inf import runtime_data
-from src.evo.genome_processor import genome_2_1_convertor
+from src.evo.genome_editor import save_genome
+from src.evo.genome_processor import genome_2_1_convertor, genome_v1_v2_converter
 from src.evo.stats import circuit_size
+from src.inf.initialize import generate_cortical_dimensions_by_id
 
 
 router = APIRouter()
@@ -92,12 +95,15 @@ async def genome_string_upload(genome: dict):
 
 
 @router.get("/download")
-async def genome_download():
+async def genome_download(_: str = Depends(check_active_genome)):
     print("Downloading Genome...")
-
+    print("==========================>>>>\n", runtime_data.genome)
+    save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
+                file_name=runtime_data.connectome_path + "genome.json")
     file_name = "genome_" + datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".json"
     print(file_name)
     if runtime_data.genome:
+        runtime_data.changes_saved_externally = True
         return FileResponse(path=runtime_data.connectome_path + "genome.json", filename=file_name)
     else:
         raise HTTPException(status_code=400, detail="No running genome found!")
@@ -147,6 +153,8 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest):
         raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
     else:
         now = datetime.now()
+        genome = genome_2_1_convertor(amalgamation_param.genome_payload["blueprint"])
+
         amalgamation_id = str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_A'
         runtime_data.pending_amalgamation["genome_id"] = amalgamation_param.genome_id
         runtime_data.pending_amalgamation["genome_title"] = amalgamation_param.genome_title
@@ -154,7 +162,7 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest):
         runtime_data.pending_amalgamation["initiation_time"] = datetime.now()
         runtime_data.pending_amalgamation["amalgamation_id"] = amalgamation_id
         runtime_data.pending_amalgamation["circuit_size"] = \
-            circuit_size(blueprint=amalgamation_param.genome_payload["blueprint"])
+            circuit_size(blueprint=genome["blueprint"])
 
         runtime_data.amalgamation_history[amalgamation_id] = "pending"
         return amalgamation_id

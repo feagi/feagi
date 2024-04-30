@@ -189,3 +189,4 @@ def convert_shortterm_to_longterm(memory_area, memory_neuron_id):
         synapse_count = memory_to_non_memory_synapse(memory_cortical_area=memory_area,
                                                      memory_neuron_id=memory_neuron_id)
         return synapse_count
+
