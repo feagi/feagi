@@ -38,7 +38,7 @@ cortical_types = {
                 "enabled": True,
                 "cortical_name": "GPIO input",
                 "structure": "asymmetric",
-                "resolution": [13, 1, 1]
+                "resolution": [28, 1, 1]
             },
             "i__pro": {
                 "enabled": True,
@@ -146,6 +146,12 @@ cortical_types = {
                 "cortical_name": "Motor control",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10]
+            },
+            "o_gpio": {
+                "enabled": True,
+                "cortical_name": "GPIO output",
+                "structure": "asymmetric",
+                "resolution": [28, 1, 1]
             },
             "o__ser": {
                 "enabled": True,
