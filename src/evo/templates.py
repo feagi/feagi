@@ -153,6 +153,18 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [28, 1, 1]
             },
+            "oogpio": {
+                "enabled": True,
+                "cortical_name": "GPIO output pin assignment",
+                "structure": "asymmetric",
+                "resolution": [28, 1, 1]
+            },
+            "oigpio": {
+                "enabled": True,
+                "cortical_name": "GPIO input pin assignment",
+                "structure": "asymmetric",
+                "resolution": [28, 1, 1]
+            },
             "o__ser": {
                 "enabled": True,
                 "cortical_name": "Servo control",
