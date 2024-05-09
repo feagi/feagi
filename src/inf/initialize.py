@@ -164,19 +164,26 @@ def init_brain_regions():
         runtime_data.genome["brain_regions"]["root"]["is_root"] = True
         runtime_data.genome["brain_regions"]["root"]["coordinate_2d"] = [0, 0]
         runtime_data.genome["brain_regions"]["root"]["coordinate_3d"] = [0, 0, 0]
-        runtime_data.genome["brain_regions"]["root"]["members"] = {}
+        runtime_data.genome["brain_regions"]["root"]["areas"] = []
+        runtime_data.genome["brain_regions"]["root"]["regions"] = []
+        runtime_data.genome["brain_regions"]["root"]["inputs"] = {}
+        runtime_data.genome["brain_regions"]["root"]["outputs"] = {}
 
     for cortical_area in runtime_data.cortical_list:
-        print(runtime_data.genome["blueprint"][cortical_area])
-        runtime_data.genome["brain_regions"]["root"]["members"][cortical_area] = {}
-        runtime_data.genome["brain_regions"]["root"]["members"][cortical_area]["type"] = "area"
-        runtime_data.genome["brain_regions"]["root"]["members"][cortical_area]["suggested_afferent_morphology"] = None
-        runtime_data.genome["brain_regions"]["root"]["members"][cortical_area]["suggested_efferent_morphology"] = None
-        runtime_data.genome["brain_regions"]["root"]["members"][cortical_area]["designations"] = []
+        runtime_data.genome["brain_regions"]["root"]["areas"].append(cortical_area)
+
         if runtime_data.genome["blueprint"][cortical_area]["group_id"] == "IPU":
-            runtime_data.genome["brain_regions"]["root"]["members"][cortical_area]["designations"].append("input")
+            runtime_data.genome["brain_regions"]["root"]["inputs"][cortical_area] = {
+                "morphology": None,
+                "inhibitory": False,
+                "plastic": False
+            }
         if runtime_data.genome["blueprint"][cortical_area]["group_id"] == "OPU":
-            runtime_data.genome["brain_regions"]["root"]["members"][cortical_area]["designations"].append("output")
+            runtime_data.genome["brain_regions"]["root"]["outputs"][cortical_area] = {
+                "morphology": None,
+                "inhibitory": False,
+                "plastic": False
+            }
 
 
 def init_container_variables():
