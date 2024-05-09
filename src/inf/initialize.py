@@ -170,6 +170,8 @@ def init_brain_regions():
         print(runtime_data.genome["blueprint"][cortical_area])
         runtime_data.genome["brain_regions"]["root"]["members"][cortical_area] = {}
         runtime_data.genome["brain_regions"]["root"]["members"][cortical_area]["type"] = "area"
+        runtime_data.genome["brain_regions"]["root"]["members"][cortical_area]["suggested_afferent_morphology"] = None
+        runtime_data.genome["brain_regions"]["root"]["members"][cortical_area]["suggested_efferent_morphology"] = None
         runtime_data.genome["brain_regions"]["root"]["members"][cortical_area]["designations"] = []
         if runtime_data.genome["blueprint"][cortical_area]["group_id"] == "IPU":
             runtime_data.genome["brain_regions"]["root"]["members"][cortical_area]["designations"].append("input")
