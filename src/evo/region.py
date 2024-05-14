@@ -72,10 +72,12 @@ def create_region(region_data):
     runtime_data.genome["brain_regions"][region_data.parent_region_id]["regions"].append(region_id)
     if region_data.areas:
         for associated_area in region_data.areas:
-            runtime_data.genome["brain_regions"][region_id]["areas"].append(associated_area)
+            if associated_area in runtime_data.cortical_list:
+                runtime_data.genome["brain_regions"][region_id]["areas"].append(associated_area)
     if region_data.regions:
         for associated_region in region_data.regions:
-            runtime_data.genome["brain_regions"][region_id]["regions"].append(associated_region)
+            if associated_region in runtime_data.genome["brain_regions"]:
+                runtime_data.genome["brain_regions"][region_id]["regions"].append(associated_region)
     return region_id
 
 
