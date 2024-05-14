@@ -71,11 +71,11 @@ def create_region(region_data):
     runtime_data.genome["brain_regions"][region_id]["outputs"] = dict()
     runtime_data.genome["brain_regions"][region_data.parent_region_id]["regions"].append(region_id)
     if region_data.areas:
-        for area in region_data.areas:
-            runtime_data.genome["brain_regions"][region_id]["areas"][area].append(region_data.areas[area])
+        for associated_area in region_data.areas:
+            runtime_data.genome["brain_regions"][region_id]["areas"].append(associated_area)
     if region_data.regions:
-        for region in region_data.regions:
-            runtime_data.genome["brain_regions"][region_id]["regions"][region].append(region_data.regions[region])
+        for associated_region in region_data.regions:
+            runtime_data.genome["brain_regions"][region_id]["regions"].append(associated_region)
     return region_id
 
 
