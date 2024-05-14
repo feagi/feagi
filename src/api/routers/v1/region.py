@@ -6,6 +6,7 @@ from ...schemas import *
 from ...commons import *
 
 from src.inf import runtime_data
+from src.evo.region import *
 from src.api.error_handling import generate_response
 from src.inf.initialize import generate_cortical_dimensions_by_id
 from src.evo.genome_properties import genome_properties
@@ -33,7 +34,22 @@ router = APIRouter()
 
 @router.post("/region")
 async def create_brain_region(region_data: NewRegionProperties):
-    pass
+    region_id = region_id_gen()
+    runtime_data.genome["brain_regions"][region_id] = {}
+    runtime_data.genome["brain_regions"][region_id]["title"] = region_data.region_title
+    runtime_data.genome["brain_regions"][region_id]["is_root"] = False
+    runtime_data.genome["brain_regions"][region_id]["coordinate_2d"] = region_data.coordinates_2d
+    runtime_data.genome["brain_regions"][region_id]["coordinate_2d"] = region_data.coordinates_3d
+    runtime_data.genome["brain_regions"][region_id]["areas"] = list()
+    runtime_data.genome["brain_regions"][region_id]["regions"] = list()
+    runtime_data.genome["brain_regions"][region_id]["inputs"] = dict()
+    runtime_data.genome["brain_regions"][region_id]["outputs"] = dict()
+    if region_data.areas:
+        for area in region_data.areas:
+            runtime_data.genome["brain_regions"][region_id]["areas"][area] = region_data.areas[area]
+    if region_data.regions:
+        for region in region_data.regions:
+            runtime_data.genome["brain_regions"][region_id]["regions"][region] = region_data.regions[region]
 
 
 @router.put("/region")

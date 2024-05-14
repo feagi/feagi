@@ -34,8 +34,11 @@ class NewCorticalProperties(BaseModel):
 
 
 class NewRegionProperties(BaseModel):
-    region_name: str
-    members: list
+    region_title: str
+    coordinates_2d: List[int] = Field(default=[0, 0])
+    coordinates_3d: List[int] = Field(default=[0, 0, 0])
+    areas: Optional[list]
+    regions: Optional[list]
 
 
 class RegionAssociation(BaseModel):
