@@ -22,6 +22,10 @@ import string
 import random
 import datetime
 
+from fastapi.responses import JSONResponse
+
+from src.inf import runtime_data
+
 
 def region_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
 
@@ -31,8 +35,48 @@ def region_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
     return str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_' + (''.join(random.choice(chars) for _ in range(size))) + '_R'
 
 
-def create_region():
-    pass
+def change_cortical_area_parent(cortical_area_id, new_parent_id):
+    try:
+        current_parent_id = runtime_data.cortical_area_region_association[cortical_area_id]
+        print("current_parent_id:", current_parent_id, new_parent_id)
+        runtime_data.cortical_area_region_association[cortical_area_id] = new_parent_id
+        print(">>", runtime_data.genome["brain_regions"][current_parent_id]["areas"])
+        if cortical_area_id in runtime_data.genome["brain_regions"][current_parent_id]["areas"]:
+            runtime_data.genome["brain_regions"][current_parent_id]["areas"].remove(cortical_area_id)
+        else:
+            print(f"{cortical_area_id} not found in current region {current_parent_id}")
+        print(">>", runtime_data.genome["brain_regions"][current_parent_id]["areas"])
+        runtime_data.genome["brain_regions"][new_parent_id]["areas"].append(cortical_area_id)
+    except Exception as e:
+        print(f"Exception during change of cortical area region assignment: {e}")
+
+
+def change_brain_region_parent(region_id, new_parent_id):
+    current_parent_id = runtime_data.genome["brain_regions"][region_id]["parent_region_id"]
+    runtime_data.genome["brain_regions"][region_id]["parent_region_id"] = new_parent_id
+    runtime_data.genome["brain_regions"][current_parent_id]["regions"].remove(region_id)
+    runtime_data.genome["brain_regions"][new_parent_id]["regions"].append(region_id)
+
+
+def create_region(region_data):
+    region_id = region_id_gen()
+    runtime_data.genome["brain_regions"][region_id] = {}
+    runtime_data.genome["brain_regions"][region_id]["title"] = region_data.region_title
+    runtime_data.genome["brain_regions"][region_id]["parent_region_id"] = region_data.parent_region_id
+    runtime_data.genome["brain_regions"][region_id]["coordinate_2d"] = region_data.coordinates_2d
+    runtime_data.genome["brain_regions"][region_id]["coordinate_2d"] = region_data.coordinates_3d
+    runtime_data.genome["brain_regions"][region_id]["areas"] = list()
+    runtime_data.genome["brain_regions"][region_id]["regions"] = list()
+    runtime_data.genome["brain_regions"][region_id]["inputs"] = dict()
+    runtime_data.genome["brain_regions"][region_id]["outputs"] = dict()
+    runtime_data.genome["brain_regions"][region_data.parent_region_id]["regions"].append(region_id)
+    if region_data.areas:
+        for area in region_data.areas:
+            runtime_data.genome["brain_regions"][region_id]["areas"][area].append(region_data.areas[area])
+    if region_data.regions:
+        for region in region_data.regions:
+            runtime_data.genome["brain_regions"][region_id]["regions"][region].append(region_data.regions[region])
+    return region_id
 
 
 def delete_region():

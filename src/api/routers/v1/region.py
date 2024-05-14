@@ -34,47 +34,57 @@ router = APIRouter()
 
 @router.post("/region")
 async def create_brain_region(region_data: NewRegionProperties):
-    region_id = region_id_gen()
-    runtime_data.genome["brain_regions"][region_id] = {}
-    runtime_data.genome["brain_regions"][region_id]["title"] = region_data.region_title
-    runtime_data.genome["brain_regions"][region_id]["is_root"] = False
-    runtime_data.genome["brain_regions"][region_id]["coordinate_2d"] = region_data.coordinates_2d
-    runtime_data.genome["brain_regions"][region_id]["coordinate_2d"] = region_data.coordinates_3d
-    runtime_data.genome["brain_regions"][region_id]["areas"] = list()
-    runtime_data.genome["brain_regions"][region_id]["regions"] = list()
-    runtime_data.genome["brain_regions"][region_id]["inputs"] = dict()
-    runtime_data.genome["brain_regions"][region_id]["outputs"] = dict()
-    if region_data.areas:
-        for area in region_data.areas:
-            runtime_data.genome["brain_regions"][region_id]["areas"][area] = region_data.areas[area]
-    if region_data.regions:
-        for region in region_data.regions:
-            runtime_data.genome["brain_regions"][region_id]["regions"][region] = region_data.regions[region]
+    if region_data.parent_region_id not in runtime_data.genome["brain_regions"]:
+        raise HTTPException(status_code=400, detail=f"{region_data.parent_region_id} is not a valid region id")
+    else:
+        region_id = create_region(region_data)
+        return region_id
 
 
 @router.put("/region")
 async def update_region_properties(region_id: Id):
-    pass
+    # todo: implement
+    return {"This endpoint is not yet implemented"}
 
 
 @router.get("/region")
-async def view_region_properties(region_id: Id):
-    pass
+async def view_region_properties(region_id):
+    if region_id in runtime_data.genome["brain_regions"]:
+        return runtime_data.genome["brain_regions"][region_id]
+    else:
+        raise HTTPException(status_code=400, detail=f"{region_id} is not a valid region id")
 
 
 @router.delete("/region")
 async def delete_region(region_id: Id):
-    pass
+    if region_id.id == "root":
+        raise HTTPException(status_code=400, detail="Root region cannot be deleted")
+    elif region_id.id in runtime_data.genome["brain_regions"]:
+        region_parent = runtime_data.genome["brain_regions"][region_id.id]["parent_region_id"]
+        for area in runtime_data.genome["brain_regions"][region_id.id]:
+            change_cortical_area_parent(cortical_area_id=area,
+                                        current_parent_id=region_id.id,
+                                        new_parent_id=region_parent)
+            runtime_data.cortical_area_region_association[area] = region_parent
+    else:
+        raise HTTPException(status_code=400, detail=f"{region_id.id} is not a valid region id")
 
 
 @router.delete("/region_and_members")
 async def delete_region_and_members(region_id: Id):
-    pass
+    if region_id.id == "root":
+        raise HTTPException(status_code=400, detail="Root region cannot be deleted")
+    elif region_id.id in runtime_data.genome["brain_regions"]:
+        region_parent = runtime_data.genome["brain_regions"][region_id.id]["parent_region_id"]
+        runtime_data.genome["brain_regions"].pop(region_id.id)
+        runtime_data.genome["brain_regions"][region_parent]["regions"].pop(region_id.id)
+    else:
+        raise HTTPException(status_code=400, detail=f"{region_id.id} is not a valid region id")
 
 
 @router.get("/regions")
 async def list_all_regions():
-    return runtime_data.genome["brain_regions"].keys
+    return list(runtime_data.genome["brain_regions"].keys())
 
 
 @router.get("/regions_members")
@@ -82,6 +92,26 @@ async def list_all_regions_and_members():
     return runtime_data.genome["brain_regions"]
 
 
-@router.put("/cortical_area_region")
+@router.put("/change_cortical_area_region")
 async def update_cortical_area_region_association(association_data: RegionAssociation):
-    pass
+    if association_data.id not in runtime_data.genome["blueprint"]:
+        raise HTTPException(status_code=400, detail=f"{association_data.id} is not a valid cortical area id")
+    elif runtime_data.genome["blueprint"][association_data.id]["group_id"] in ["IPU", "OPU", "CORE"]:
+        raise HTTPException(status_code=400, detail=f"{association_data.id} is not custom area and "
+                                                    f"restricted to move")
+    elif association_data.new_region_id not in runtime_data.genome["brain_regions"]:
+        raise HTTPException(status_code=400, detail=f"{association_data.new_region_id} is not a valid brain region  id")
+    else:
+        change_cortical_area_parent(cortical_area_id=association_data.id,
+                                    new_parent_id=association_data.new_region_id)
+
+
+@router.put("/change_region_parent")
+async def update_brain_region_parent(association_data: RegionAssociation):
+    if association_data.id not in runtime_data.genome["brain_regions"]:
+        raise HTTPException(status_code=400, detail=f"{association_data.id} is not a valid brain region id")
+    elif association_data.new_region_id not in runtime_data.genome["brain_regions"]:
+        raise HTTPException(status_code=400, detail=f"{association_data.new_region_id} is not a valid brain region  id")
+    else:
+        change_brain_region_parent(region_id=association_data.id,
+                                   new_parent_id=association_data.new_region_id)
