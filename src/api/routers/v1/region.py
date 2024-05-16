@@ -84,7 +84,14 @@ async def delete_region_and_members(region_id: Id):
 
 @router.get("/regions")
 async def list_all_regions():
-    return list(runtime_data.genome["brain_regions"].keys())
+    region_summary = dict()
+    region_list = runtime_data.genome["brain_regions"].keys()
+    for region in region_list:
+        region_summary[region] = {}
+        region_summary[region]["coordinate_2d"] = runtime_data.genome["brain_regions"][region]["coordinate_2d"]
+        region_summary[region]["coordinate_3d"] = runtime_data.genome["brain_regions"][region]["coordinate_3d"]
+
+    return region_summary
 
 
 @router.get("/regions_members")
