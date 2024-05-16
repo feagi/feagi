@@ -173,10 +173,10 @@ def init_brain_regions():
         runtime_data.genome["brain_regions"]["root"]["areas"].append(cortical_area)
         runtime_data.cortical_area_region_association[cortical_area] = "root"
 
-        if runtime_data.genome["blueprint"][cortical_area]["group_id"] == "IPU":
-            runtime_data.genome["brain_regions"]["root"]["inputs"][cortical_area] = []
-        if runtime_data.genome["blueprint"][cortical_area]["group_id"] == "OPU":
-            runtime_data.genome["brain_regions"]["root"]["outputs"][cortical_area] = []
+        # if runtime_data.genome["blueprint"][cortical_area]["group_id"] == "IPU":
+        #     runtime_data.genome["brain_regions"]["root"]["inputs"][cortical_area] = []
+        # if runtime_data.genome["blueprint"][cortical_area]["group_id"] == "OPU":
+        #     runtime_data.genome["brain_regions"]["root"]["outputs"][cortical_area] = []
 
 
 def init_container_variables():
