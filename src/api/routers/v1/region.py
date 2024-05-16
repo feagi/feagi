@@ -63,7 +63,6 @@ async def delete_region(region_id: Id):
         region_parent = runtime_data.genome["brain_regions"][region_id.id]["parent_region_id"]
         for area in runtime_data.genome["brain_regions"][region_id.id]:
             change_cortical_area_parent(cortical_area_id=area,
-                                        current_parent_id=region_id.id,
                                         new_parent_id=region_parent)
             runtime_data.cortical_area_region_association[area] = region_parent
     else:
