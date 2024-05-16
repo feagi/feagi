@@ -64,7 +64,7 @@ def create_region(region_data):
     runtime_data.genome["brain_regions"][region_id]["title"] = region_data.region_title
     runtime_data.genome["brain_regions"][region_id]["parent_region_id"] = region_data.parent_region_id
     runtime_data.genome["brain_regions"][region_id]["coordinate_2d"] = region_data.coordinates_2d
-    runtime_data.genome["brain_regions"][region_id]["coordinate_2d"] = region_data.coordinates_3d
+    runtime_data.genome["brain_regions"][region_id]["coordinate_3d"] = region_data.coordinates_3d
     runtime_data.genome["brain_regions"][region_id]["areas"] = list()
     runtime_data.genome["brain_regions"][region_id]["regions"] = list()
     runtime_data.genome["brain_regions"][region_id]["inputs"] = dict()
