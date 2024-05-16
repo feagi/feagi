@@ -166,8 +166,8 @@ def init_brain_regions():
         runtime_data.genome["brain_regions"]["root"]["coordinate_3d"] = [0, 0, 0]
         runtime_data.genome["brain_regions"]["root"]["areas"] = []
         runtime_data.genome["brain_regions"]["root"]["regions"] = []
-        runtime_data.genome["brain_regions"]["root"]["inputs"] = {}
-        runtime_data.genome["brain_regions"]["root"]["outputs"] = {}
+        runtime_data.genome["brain_regions"]["root"]["inputs"] = []
+        runtime_data.genome["brain_regions"]["root"]["outputs"] = []
 
     for cortical_area in runtime_data.cortical_list:
         runtime_data.genome["brain_regions"]["root"]["areas"].append(cortical_area)
