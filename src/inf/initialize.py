@@ -39,6 +39,7 @@ from src.inf.messenger import Pub
 from src.evo.neuroembryogenesis import generate_plasticity_dict, develop_brain
 from src.evo.genome_processor import genome_1_cortical_list, genome_ver_check
 from src.evo.genome_validator import *
+from src.evo.region import region_id_gen
 from src.evo.templates import cortical_types
 
 
@@ -80,6 +81,7 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
     # todo temp check to find a better solution
     if "physiology" not in runtime_data.genome:
         runtime_data.genome["physiology"] = {}
+
     if "lifespan_mgmt_interval" not in runtime_data.genome["physiology"]:
         runtime_data.genome["physiology"]["lifespan_mgmt_interval"] = 10
 
@@ -105,6 +107,7 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
     runtime_data.plasticity_queue_depth = runtime_data.genome["physiology"]["plasticity_queue_depth"]
     init_fcl()
     init_brain()
+    init_brain_regions()
     if 'genome_id' not in runtime_data.genome:
         runtime_data.genome['genome_id'] = id_gen(signature="_G")
     runtime_data.genome_id = runtime_data.genome['genome_id']
@@ -149,6 +152,32 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
 #                                       runtime_data.genome['species']['model'] + '/controller.py'
 #     print("Hardware controller path: ", runtime_data.hw_controller_path)
 #
+
+
+def init_brain_regions():
+    if "brain_regions" not in runtime_data.genome:
+        runtime_data.genome["brain_regions"] = {}
+
+    if "root" not in runtime_data.genome["brain_regions"]:
+        runtime_data.genome["brain_regions"]["root"] = {}
+        runtime_data.genome["brain_regions"]["root"]["title"] = "Genome's root brain region"
+        runtime_data.genome["brain_regions"]["root"]["parent_region_id"] = None
+        runtime_data.genome["brain_regions"]["root"]["coordinate_2d"] = [0, 0]
+        runtime_data.genome["brain_regions"]["root"]["coordinate_3d"] = [0, 0, 0]
+        runtime_data.genome["brain_regions"]["root"]["areas"] = []
+        runtime_data.genome["brain_regions"]["root"]["regions"] = []
+        runtime_data.genome["brain_regions"]["root"]["inputs"] = []
+        runtime_data.genome["brain_regions"]["root"]["outputs"] = []
+
+    for cortical_area in runtime_data.cortical_list:
+        runtime_data.genome["brain_regions"]["root"]["areas"].append(cortical_area)
+        runtime_data.cortical_area_region_association[cortical_area] = "root"
+
+        # if runtime_data.genome["blueprint"][cortical_area]["group_id"] == "IPU":
+        #     runtime_data.genome["brain_regions"]["root"]["inputs"][cortical_area] = []
+        # if runtime_data.genome["blueprint"][cortical_area]["group_id"] == "OPU":
+        #     runtime_data.genome["brain_regions"]["root"]["outputs"][cortical_area] = []
+
 
 def init_container_variables():
     """

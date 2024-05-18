@@ -33,6 +33,20 @@ class NewCorticalProperties(BaseModel):
     channel_count: Optional[int]
 
 
+class NewRegionProperties(BaseModel):
+    region_title: str
+    parent_region_id: str
+    coordinates_2d: List[int] = Field(default=[0, 0])
+    coordinates_3d: List[int] = Field(default=[0, 0, 0])
+    areas: Optional[list] = Field(default=[])
+    regions: Optional[list] = Field(default=[])
+
+
+class RegionAssociation(BaseModel):
+    id: str = Field(default="")
+    new_region_id: str = Field(default="")
+
+
 class NewCustomCorticalProperties(BaseModel):
     cortical_name: str = Field(..., max_length=20, min_length=1)
     coordinates_2d: Optional[list] = [0, 0]
@@ -182,6 +196,10 @@ class SPAStaticFiles(StaticFiles):
 
 class Subscriber(BaseModel):
     subscriber_address: str
+
+
+class Id(BaseModel):
+    id: str
 
 
 class GameStats(BaseModel):
