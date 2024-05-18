@@ -484,6 +484,10 @@ def cortical_removal(cortical_area, genome_scrub=False):
         print("Processing cortical removal for", cortical_area)
         msg = "Processing cortical removal request for" + cortical_area
         logger.info(msg=msg)
+
+        # Update neuron count
+        runtime_data.brain_stats["neuron_count"] -= len(runtime_data.brain[cortical_area])
+
         # cortical_area = cortical_id(cortical_name=cortical_name)
         upstream_cortical_areas, downstream_cortical_areas = \
             neighboring_cortical_areas(cortical_area, blueprint=runtime_data.genome["blueprint"])
