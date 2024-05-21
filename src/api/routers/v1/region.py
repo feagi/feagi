@@ -166,5 +166,7 @@ async def brain_region_member_relocation(relocation_data: dict):
                 else:
                     parent_id = relocation_data[object_id]["parent_region_id"]
                     raise HTTPException(status_code=400, detail=f"{parent_id} is not a valid region id")
+        else:
+            raise HTTPException(status_code=400, detail=f"{object_id} is not a valid region nor cortical id")
 
     runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
