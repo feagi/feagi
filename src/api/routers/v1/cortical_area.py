@@ -202,7 +202,8 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
                                            coordinates_2d=coordinates_2d,
                                            cortical_dimensions=cortical_dimensions,
                                            is_memory=is_memory,
-                                           copy_of=copy_of)
+                                           copy_of=copy_of,
+                                           brain_region_id=new_custom_cortical_properties.brain_region_id)
     return JSONResponse(status_code=200, content={'cortical_id': cortical_id})
 
 
