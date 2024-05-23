@@ -73,7 +73,9 @@ def create_region(region_data):
     if region_data.areas:
         for associated_area in region_data.areas:
             if associated_area in runtime_data.cortical_list:
-                runtime_data.genome["brain_regions"][region_id]["areas"].append(associated_area)
+                change_cortical_area_parent(cortical_area_id=associated_area,
+                                            new_parent_id=region_id)
+
     if region_data.regions:
         for associated_region in region_data.regions:
             if associated_region in runtime_data.genome["brain_regions"]:
