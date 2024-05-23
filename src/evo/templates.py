@@ -135,6 +135,12 @@ cortical_types = {
                 "cortical_name": "Servo position sensor",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 21]
+            },
+            "i_smot": {
+                "enabled": True,
+                "cortical_name": "Servo motion sensor",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 21]
             }
         }
     },
