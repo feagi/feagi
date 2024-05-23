@@ -769,6 +769,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
         runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] = ""
 
         runtime_data.genome["brain_regions"][brain_region_id]["areas"].append(cortical_area)
+        runtime_data.cortical_area_region_association[cortical_area] = brain_region_id
 
         if is_memory:
             runtime_data.genome["blueprint"][cortical_area]["longterm_mem_threshold"] = \
