@@ -54,6 +54,7 @@ class NewCustomCorticalProperties(BaseModel):
     cortical_dimensions: List[int] = Field(default=[1, 1, 1])
     sub_group_id: Optional[str] = ""
     copy_of: Optional[str] = ""
+    brain_region_id: Optional[str] = "root"
 
 
 # class NewCorticalProperties_old(BaseModel):

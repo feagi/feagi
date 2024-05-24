@@ -21,6 +21,7 @@ This module covers needed functions for brain region management
 import string
 import random
 import datetime
+import traceback
 
 from fastapi.responses import JSONResponse
 
@@ -48,7 +49,7 @@ def change_cortical_area_parent(cortical_area_id, new_parent_id):
         print(">>", runtime_data.genome["brain_regions"][current_parent_id]["areas"])
         runtime_data.genome["brain_regions"][new_parent_id]["areas"].append(cortical_area_id)
     except Exception as e:
-        print(f"Exception during change of cortical area region assignment: {e}")
+        print(f"Exception during change of cortical area region assignment: {e}", traceback.print_exc())
 
 
 def change_brain_region_parent(region_id, new_parent_id):
@@ -73,7 +74,9 @@ def create_region(region_data):
     if region_data.areas:
         for associated_area in region_data.areas:
             if associated_area in runtime_data.cortical_list:
-                runtime_data.genome["brain_regions"][region_id]["areas"].append(associated_area)
+                change_cortical_area_parent(cortical_area_id=associated_area,
+                                            new_parent_id=region_id)
+
     if region_data.regions:
         for associated_region in region_data.regions:
             if associated_region in runtime_data.genome["brain_regions"]:
