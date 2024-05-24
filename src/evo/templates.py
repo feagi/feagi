@@ -34,9 +34,15 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
-            "i_gpio": {
+            "idgpio": {
                 "enabled": True,
-                "cortical_name": "GPIO input",
+                "cortical_name": "Digital GPIO input",
+                "structure": "asymmetric",
+                "resolution": [28, 1, 1]
+            },
+            "iagpio": {
+                "enabled": True,
+                "cortical_name": "Analog GPIO input",
                 "structure": "asymmetric",
                 "resolution": [28, 1, 1]
             },
@@ -153,9 +159,15 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10]
             },
-            "o_gpio": {
+            "odgpio": {
                 "enabled": True,
-                "cortical_name": "GPIO output",
+                "cortical_name": "Digital GPIO output",
+                "structure": "asymmetric",
+                "resolution": [28, 1, 1]
+            },
+            "oagpio": {
+                "enabled": True,
+                "cortical_name": "Analog GPIO output",
                 "structure": "asymmetric",
                 "resolution": [28, 1, 1]
             },
