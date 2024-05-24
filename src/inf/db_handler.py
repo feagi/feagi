@@ -186,7 +186,7 @@ class InfluxManagement:
         if runtime_data.parameters:
             self.evo_bucket = self.db_params["influxdb_evolutionary_bucket"]
             self.stats_bucket = self.db_params["influxdb_stats_bucket"]
-            self.game_stats_bucket = self.db_params["influxdb_game_stats_bucket"]
+            self.fitness_stats_bucket = self.db_params["influxdb_fitness_stats_bucket"]
             self.org = self.db_params["influxdb_organization"]
             self.token = self.db_params["influxdb_token"]
 
@@ -382,7 +382,7 @@ class InfluxManagement:
             }
         }]
 
-        self.write_client.write(bucket=self.game_stats_bucket, org=self.org, record=event_data)
+        self.write_client.write(bucket=self.fitness_stats_bucket, org=self.org, record=event_data)
 
     def insert_burst_checkpoints(self, connectome_path, burst_id):
         raw_data = [
@@ -472,8 +472,8 @@ class InfluxManagement:
     def drop_game_activity(self):
         # Get the list of buckets
         print("@@@ @   @ @ @ @  @ @\n" * 20)
-        self.delete_bucket_content(bucket_name=self.game_stats_bucket)
-        # self.create_new_bucket(bucket_name=self.game_stats_bucket)
+        self.delete_bucket_content(bucket_name=self.fitness_stats_bucket)
+        # self.create_new_bucket(bucket_name=self.fitness_stats_bucket)
 
         # # Create a new bucket with the same name
         # new_bucket = self.client.buckets_api().create_bucket(bucket_name=bucket.name, org_id=self.org)
