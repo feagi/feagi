@@ -44,7 +44,7 @@ cortical_types = {
                 "enabled": True,
                 "cortical_name": "Analog GPIO input",
                 "structure": "asymmetric",
-                "resolution": [28, 1, 1]
+                "resolution": [28, 1, 10]
             },
             "i__pro": {
                 "enabled": True,
@@ -169,7 +169,7 @@ cortical_types = {
                 "enabled": True,
                 "cortical_name": "Analog GPIO output",
                 "structure": "asymmetric",
-                "resolution": [28, 1, 1]
+                "resolution": [28, 1, 10]
             },
             "oogpio": {
                 "enabled": True,
