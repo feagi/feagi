@@ -75,6 +75,7 @@ evo_change_register = {
     "3d_viz": 0
 }
 manual_delete_list = set()
+genome_fitness = 1
 
 # Staging Zone
 pending_genome = None
