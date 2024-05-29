@@ -119,7 +119,7 @@ async def fetch_fitness_stats():
 
 
 @router.put("/fitness_stats")
-async def capture_fitness_stats(fitness_stats: fitnessStats):
+async def capture_fitness_stats(fitness_stats: FitnessStats):
     """
     updates fitness stats
     """
