@@ -76,6 +76,7 @@ async def feagi_health_check():
     health["latest_changes_saved_externally"] = runtime_data.changes_saved_externally
 
     if runtime_data.genome:
+        health["fitness"] = runtime_data.genome_fitness
         health["genome_availability"] = True
         connectome_neuron_count = runtime_data.brain_stats["neuron_count"]
         connectome_synapse_count = runtime_data.brain_stats["synapse_count"]

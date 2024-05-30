@@ -203,8 +203,8 @@ class Id(BaseModel):
     id: str
 
 
-class GameStats(BaseModel):
-    game_stats: dict
+class FitnessStats(BaseModel):
+    fitness_stats: dict
 
 
 class RobotController(BaseModel):

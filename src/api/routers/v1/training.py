@@ -28,13 +28,13 @@ router = APIRouter()
 # ######  Training Endpoints #######
 # ##################################
 
-@router.delete("/reset_game_stats")
-async def delete_game_stats_from_db():
+@router.delete("/reset_fitness_stats")
+async def delete_fitness_stats_from_db():
     """
-    Erases the game statistics from the database.
+    Erases the fitness statistics from the database.
     """
 
-    runtime_data.influxdb.drop_game_activity()
+    runtime_data.influxdb.drop_fitness_activity()
 
 
 @router.get("/shock/options")
@@ -110,17 +110,17 @@ async def training_report():
     return runtime_data.training_stats
 
 
-@router.get("/game_stats")
-async def fetch_game_stats():
+@router.get("/fitness_stats")
+async def fetch_fitness_stats():
     """
-    updates game stats
+    updates fitness stats
     """
-    return runtime_data.game_stats
+    return runtime_data.fitness_stats
 
 
-@router.put("/game_stats")
-async def capture_game_stats(game_stats: GameStats):
+@router.put("/fitness_stats")
+async def capture_fitness_stats(fitness_stats: FitnessStats):
     """
-    updates game stats
+    updates fitness stats
     """
-    runtime_data.training_stats = game_stats
+    runtime_data.training_stats = fitness_stats

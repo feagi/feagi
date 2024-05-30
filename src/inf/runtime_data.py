@@ -75,6 +75,7 @@ evo_change_register = {
     "3d_viz": 0
 }
 manual_delete_list = set()
+genome_fitness = 1
 
 # Staging Zone
 pending_genome = None
@@ -110,7 +111,7 @@ upcoming_lifesnap_mgmt = 0
 neuron_mp_collection_scope = {}
 neuron_psp_collection_scope = {}
 training_stats = {}
-game_stats = {}
+fitness_stats = {}
 brain_stats = {
     "neuron_count": 0,
     "synapse_count": 0
