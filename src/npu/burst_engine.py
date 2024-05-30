@@ -207,6 +207,7 @@ def burst_manager():
         consecutive_fire_cnt_max = runtime_data.genome["blueprint"][cortical_area_]["consecutive_fire_cnt_max"]
         consecutive_fire_cnt = runtime_data.brain[cortical_area_][neuron_id]["consecutive_fire_cnt"]
         if 0 < consecutive_fire_cnt_max <= consecutive_fire_cnt:
+
             snooze_till(cortical_area_, neuron_id, runtime_data.burst_count +
                         runtime_data.genome["blueprint"][cortical_area_]["snooze_length"])
             runtime_data.brain[cortical_area_][neuron_id]["consecutive_fire_cnt"] = 0

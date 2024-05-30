@@ -34,12 +34,15 @@ def activation_function(postsynaptic_current):
 
 
 def reset_cumulative_counters(cortical_area, neuron_id):
+    if runtime_data.brain[cortical_area][neuron_id]["last_burst_num"] == runtime_data.burst_count - 1:
+        runtime_data.brain[cortical_area][neuron_id]["consecutive_fire_cnt"] += 1
+    else:
+        runtime_data.brain[cortical_area][neuron_id]["consecutive_fire_cnt"] = 0
+
     runtime_data.brain[cortical_area][neuron_id]["last_burst_num"] = runtime_data.burst_count
     runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"] = runtime_data.burst_count
     runtime_data.brain[cortical_area][neuron_id]['cumulative_fire_count'] += 1
     runtime_data.brain[cortical_area][neuron_id]["cumulative_fire_count_inst"] += 1
-    # Condition to increase the consecutive fire count
-    runtime_data.brain[cortical_area][neuron_id]["consecutive_fire_cnt"] += 1
 
 
 def neuron_stimulation_mp_logger(cortical_area, neuron_id):
