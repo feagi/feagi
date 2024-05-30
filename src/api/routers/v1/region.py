@@ -52,7 +52,7 @@ async def create_brain_region(region_data: NewRegionProperties):
         raise HTTPException(status_code=400, detail=f"{region_data.parent_region_id} is not a valid region id")
     else:
         region_id = create_region(region_data)
-        return region_id
+        return {"region_id": region_id}
 
 
 @router.put("/region")
