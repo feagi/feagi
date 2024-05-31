@@ -163,7 +163,8 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
 
             if degenerate > 0:
                 # reduce neuron postsynaptic current by degeneration value defined in genome (if applicable)
-                new_psc = runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
+                new_psc = \
+                    runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
                 new_psc -= degenerate
                 if new_psc < 0:
                     new_psc = 0
@@ -172,7 +173,8 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
                                              post_synaptic_current=new_psc)
 
             if runtime_data.genome['blueprint'][cortical_area]['mp_driven_psp']:
-                postsynaptic_current = runtime_data.brain[cortical_area][neuron_id]['pre_fire_mp']
+                if "pre_fire_mp" in runtime_data.brain[cortical_area][neuron_id]:
+                    postsynaptic_current = runtime_data.brain[cortical_area][neuron_id]['pre_fire_mp']
 
             neuron_output = activation_function(postsynaptic_current)
 
