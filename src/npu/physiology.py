@@ -361,16 +361,15 @@ def neuron_neighbors(cortical_area, neuron_id):
     return data[neuron_id]["neighbors"]
 
 
-def snooze_till(cortical_area, neuron_id, burst_id):
+def snooze(cortical_area, neuron_id):
     """ Acting as an inhibitory neurotransmitter to suppress firing of neuron till a later burst_manager
 
     *** This function instead of inhibitory behavior is more inline with Neuron Refractory period
 
     """
     runtime_data.brain[cortical_area][neuron_id]["snooze_till_burst_num"] \
-        = burst_id + runtime_data.genome["blueprint"][cortical_area]["snooze_length"] - 1
+        = runtime_data.burst_count + runtime_data.genome["blueprint"][cortical_area]["snooze_length"] - 1
     # print("%s : %s has been snoozed!" % (cortical_area, neuron_id))
-    return
 
 
 def pruner(pruning_data):
