@@ -71,8 +71,9 @@ async def feagi_health_check():
         health["influxdb_availability"] = True
     else:
         health["influxdb_availability"] = False
-    health["neuron_count_max"] = runtime_data.parameters["Limits"]["max_neuron_count"]
-    health["synapse_count_max"] = runtime_data.parameters["Limits"]["max_synapse_count"]
+
+    health["neuron_count_max"] = int(runtime_data.parameters["Limits"]["max_neuron_count"])
+    health["synapse_count_max"] = int(runtime_data.parameters["Limits"]["max_synapse_count"])
     health["latest_changes_saved_externally"] = runtime_data.changes_saved_externally
 
     if runtime_data.genome:
