@@ -61,12 +61,12 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                 "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
                 "cortical_visibility": cortical_data['visualization'],
                 "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
-                "cortical_coordinates": [
+                "coordinates_3d": [
                     cortical_data["relative_coordinate"][0],
                     cortical_data["relative_coordinate"][1],
                     cortical_data["relative_coordinate"][2]
                 ],
-                "cortical_coordinates_2d": [
+                "coordinates_2d": [
                     cortical_data["2d_coordinate"][0],
                     cortical_data["2d_coordinate"][1]
                 ],
@@ -117,6 +117,32 @@ async def update_cortical_properties(message: UpdateCorticalProperties):
     Enables changes against various Burst Engine parameters.
     """
 
+    current_cortical_size = runtime_data.genome["blueprint"][message.cortical_id]["block_boundaries"][0] * \
+                            runtime_data.genome["blueprint"][message.cortical_id]["block_boundaries"][1] * \
+                            runtime_data.genome["blueprint"][message.cortical_id]["block_boundaries"][2]
+    updated_cortical_size = current_cortical_size
+
+    if message.cortical_dimensions:
+        updated_cortical_size = message.cortical_dimensions[0] * \
+                            message.cortical_dimensions[1] * \
+                            message.cortical_dimensions[2]
+
+    current_neuron_density = runtime_data.genome["blueprint"][message.cortical_id]["per_voxel_neuron_cnt"]
+    updated_neuron_density = current_neuron_density
+
+    if message.cortical_neuron_per_vox_count:
+        updated_neuron_density = message.cortical_neuron_per_vox_count
+
+    current_neuron_count = current_cortical_size * current_neuron_density
+    updated_neuron_count = updated_cortical_size * updated_neuron_density
+
+    max_allowable_neuron_count = int(runtime_data.parameters["Limits"]["max_neuron_count"])
+
+    if runtime_data.brain_stats["neuron_count"] - current_neuron_count + updated_neuron_count > \
+            max_allowable_neuron_count:
+        return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count will"
+                                                                 f" exceed {max_allowable_neuron_count} threshold"})
+
     if message.cortical_id in runtime_data.transforming_areas:
         return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
     else:
@@ -160,12 +186,24 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
     else:
         is_memory = False
         cortical_dimensions = new_custom_cortical_properties.cortical_dimensions
+
+    neuron_density = 1
+    if copy_of:
+        neuron_density = runtime_data.genome["blueprint"][copy_of]["per_voxel_neuron_cnt"]
+
+    neuron_count = neuron_density * cortical_dimensions[0] * cortical_dimensions[1] * cortical_dimensions[2]
+    max_allowable_neuron_count = int(runtime_data.parameters["Limits"]["max_neuron_count"])
+    if neuron_count + runtime_data.brain_stats["neuron_count"] > max_allowable_neuron_count:
+        return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count will"
+                                                                 f" exceed {max_allowable_neuron_count} threshold"})
+
     cortical_id = add_custom_cortical_area(cortical_name=cortical_name,
                                            coordinates_3d=coordinates_3d,
                                            coordinates_2d=coordinates_2d,
                                            cortical_dimensions=cortical_dimensions,
                                            is_memory=is_memory,
-                                           copy_of=copy_of)
+                                           copy_of=copy_of,
+                                           brain_region_id=new_custom_cortical_properties.brain_region_id)
     return JSONResponse(status_code=200, content={'cortical_id': cortical_id})
 
 

@@ -35,6 +35,8 @@ import datetime
 import shutil
 import concurrent.futures
 from src.evo import neuron, synapse, stats, genetics, voxels
+from src.evo.genome_editor import save_genome
+from src.evo.genome_processor import genome_v1_v2_converter
 from functools import partial
 from multiprocessing import Pool, Process
 from src.inf import disk_ops
@@ -230,6 +232,8 @@ def neurogenesis(cortical_area):
     #                             parameters=runtime_data.parameters)
     # disk_ops.save_voxel_dict_to_disk(cortical_area=cortical_area,
     #                                  voxel_dict=runtime_data.voxel_dict)
+    runtime_data.brain_stats["neuron_count"] += neuron_count
+    return neuron_count
 
 
 def synaptogenesis(cortical_area, dst_cortical_area=None):
@@ -257,7 +261,7 @@ def build_synapses(genome, brain, parameters, voxel_dict, connectome_path, src_c
     runtime_data.connectome_path = connectome_path
     # Read Genome data
     cortical_genes = genome["blueprint"][src_cortical_area]
-
+    synapse_count_ = 0
     if dst_cortical_area and dst_cortical_area in cortical_genes["cortical_mapping_dst"]:
         timer = datetime.datetime.now()
         synapse_count_, runtime_data.brain = \
@@ -273,6 +277,7 @@ def build_synapses(genome, brain, parameters, voxel_dict, connectome_path, src_c
 
             intercortical_mapping.append((src_cortical_area, mapped_cortical_area, synapse_count_))
 
+    runtime_data.brain_stats["synapse_count"] += synapse_count_
     # disk_ops.save_brain_to_disk(cortical_area=src_cortical_area, brain=runtime_data.brain, parameters=parameters)
     return intercortical_mapping
 
@@ -320,6 +325,12 @@ def develop(target_areas=None):
     # runtime_data.brain = disk_ops.load_brain_in_memory()
 
     connectome_neuron_count, connectome_synapse_count = stats.brain_total_synapse_cnt()
+    runtime_data.genome["stats"]["innate_cortical_area_count"] = len(runtime_data.cortical_list)
+    runtime_data.genome["stats"]["innate_neuron_count"] = connectome_neuron_count
+    runtime_data.genome["stats"]["innate_synapse_count"] = connectome_synapse_count
+
+    save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
+                file_name=runtime_data.connectome_path + "genome.json")
 
     # The following formula was derived by curve fitting sample data
     connectome_size_on_disk = 3E-08 * connectome_neuron_count**2 + 0.0011 * connectome_neuron_count + 2.9073

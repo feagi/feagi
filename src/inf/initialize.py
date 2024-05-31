@@ -39,6 +39,7 @@ from src.inf.messenger import Pub
 from src.evo.neuroembryogenesis import generate_plasticity_dict, develop_brain
 from src.evo.genome_processor import genome_1_cortical_list, genome_ver_check
 from src.evo.genome_validator import *
+from src.evo.region import region_id_gen
 from src.evo.templates import cortical_types
 
 
@@ -78,8 +79,11 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
     runtime_data.genome_ver = "2.0"
 
     # todo temp check to find a better solution
-    if "lifespan_mgmt_interval" not in runtime_data.genome:
-        runtime_data.genome["lifespan_mgmt_interval"] = 10
+    if "physiology" not in runtime_data.genome:
+        runtime_data.genome["physiology"] = {}
+
+    if "lifespan_mgmt_interval" not in runtime_data.genome["physiology"]:
+        runtime_data.genome["physiology"]["lifespan_mgmt_interval"] = 10
 
     for _ in runtime_data.genome["blueprint"]:
         if "mp_charge_accumulation" not in runtime_data.genome["blueprint"][_]:
@@ -97,12 +101,13 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
         if "leak_variability" not in runtime_data.genome["blueprint"][_]:
             runtime_data.genome["blueprint"][_]["leak_variability"] = 0
 
-    if "plasticity_queue_depth" not in runtime_data.genome:
-        runtime_data.genome["plasticity_queue_depth"] = 3
+    if "plasticity_queue_depth" not in runtime_data.genome["physiology"]:
+        runtime_data.genome["physiology"]["plasticity_queue_depth"] = 3
 
-    runtime_data.plasticity_queue_depth = runtime_data.genome["plasticity_queue_depth"]
+    runtime_data.plasticity_queue_depth = runtime_data.genome["physiology"]["plasticity_queue_depth"]
     init_fcl()
     init_brain()
+    init_brain_regions()
     if 'genome_id' not in runtime_data.genome:
         runtime_data.genome['genome_id'] = id_gen(signature="_G")
     runtime_data.genome_id = runtime_data.genome['genome_id']
@@ -129,23 +134,49 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
 #     import controller
 
 
-def detect_hardware():
-    """
-    Identifies the type of hardware the brain is running on so the right capabilities can be utilized
-    """
-    # todo
+# def detect_hardware():
+#     """
+#     Identifies the type of hardware the brain is running on so the right capabilities can be utilized
+#     """
+#     # todo
+#
+#     try:
+#         with open('/sys/firmware/devicetree/base/model', "r") as file:
+#             if "Raspberry" in file.read():
+#                 runtime_data.hardware = "raspberry_pi"
+#     except:
+#         print("Need to figure how other platforms can be detected")
+#
+#     runtime_data.hw_controller_path = '../third_party/' + \
+#                                       runtime_data.genome['species']['brand'] + '/' +\
+#                                       runtime_data.genome['species']['model'] + '/controller.py'
+#     print("Hardware controller path: ", runtime_data.hw_controller_path)
+#
 
-    try:
-        with open('/sys/firmware/devicetree/base/model', "r") as file:
-            if "Raspberry" in file.read():
-                runtime_data.hardware = "raspberry_pi"
-    except:
-        print("Need to figure how other platforms can be detected")
 
-    runtime_data.hw_controller_path = '../third_party/' + \
-                                      runtime_data.genome['species']['brand'] + '/' +\
-                                      runtime_data.genome['species']['model'] + '/controller.py'
-    print("Hardware controller path: ", runtime_data.hw_controller_path)
+def init_brain_regions():
+    if "brain_regions" not in runtime_data.genome:
+        runtime_data.genome["brain_regions"] = {}
+
+    if "root" not in runtime_data.genome["brain_regions"]:
+        runtime_data.genome["brain_regions"]["root"] = {}
+        runtime_data.genome["brain_regions"]["root"]["title"] = "Genome's root brain region"
+        runtime_data.genome["brain_regions"]["root"]["parent_region_id"] = None
+        runtime_data.genome["brain_regions"]["root"]["coordinate_2d"] = [0, 0]
+        runtime_data.genome["brain_regions"]["root"]["coordinate_3d"] = [0, 0, 0]
+        runtime_data.genome["brain_regions"]["root"]["areas"] = []
+        runtime_data.genome["brain_regions"]["root"]["regions"] = []
+        runtime_data.genome["brain_regions"]["root"]["inputs"] = []
+        runtime_data.genome["brain_regions"]["root"]["outputs"] = []
+
+    for cortical_area in runtime_data.cortical_list:
+        runtime_data.genome["brain_regions"]["root"]["areas"].append(cortical_area)
+        runtime_data.cortical_area_region_association[cortical_area] = "root"
+
+        # if runtime_data.genome["blueprint"][cortical_area]["group_id"] == "IPU":
+        #     runtime_data.genome["brain_regions"]["root"]["inputs"][cortical_area] = []
+        # if runtime_data.genome["blueprint"][cortical_area]["group_id"] == "OPU":
+        #     runtime_data.genome["brain_regions"]["root"]["outputs"][cortical_area] = []
 
 
 def init_container_variables():
@@ -155,7 +186,7 @@ def init_container_variables():
 
     if os.environ.get('CONTAINERIZED', False):
         runtime_data.running_in_container = True
-    if os.environ.get('INFLUXDB', False):
+    if os.environ.get('INFLUXDB', None):
         init_timeseries_db()
         # runtime_data.influxdb = True
     if os.environ.get('mongodb', False):
@@ -403,14 +434,16 @@ def reset_runtime_data():
     runtime_data.genome = {}
     runtime_data.stats = {}
     runtime_data.brain = {}
+    runtime_data.cortical_list = []
     runtime_data.plasticity_dict = {}
-    runtime_data.cortical_list = {}
     runtime_data.memory_register = {}
     runtime_data.cortical_dimensions = {}
+    runtime_data.cortical_dimensions_by_id = {}
     runtime_data.stimulation_script = {}
     runtime_data.plasticity_queue_candidates = set()
     runtime_data.shock_admin = False
     runtime_data.shock_scenarios = tuple
+    runtime_data.intercortical_mapping = []
 
     # Clear brain activities
     runtime_data.fire_candidate_list = {}
@@ -455,8 +488,8 @@ def init_brain():
     init_genome_post_processes()
     generate_plasticity_dict()
     runtime_data.new_genome = True
-    if 'burst_delay' in runtime_data.genome:
-        runtime_data.burst_timer = float(runtime_data.genome['burst_delay'])
+    if 'burst_delay' in runtime_data.genome["physiology"]:
+        runtime_data.burst_timer = float(runtime_data.genome['physiology']['burst_delay'])
 
     print("\n\n=========================   Brain Initialization Complete ===================================\n\n")
     runtime_data.cumulative_stats = {}
@@ -489,7 +522,7 @@ def init_burst_engine():
     runtime_data.death_flag = False
 
     try:
-        runtime_data.burst_timer = float(runtime_data.genome['burst_delay'])
+        runtime_data.burst_timer = float(runtime_data.genome['physiology']['burst_delay'])
         print("Burst time has been set to:", runtime_data.burst_timer)
     except KeyError:
         print("\n\n==============================================")

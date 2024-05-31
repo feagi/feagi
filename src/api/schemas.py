@@ -33,6 +33,20 @@ class NewCorticalProperties(BaseModel):
     channel_count: Optional[int]
 
 
+class NewRegionProperties(BaseModel):
+    region_title: str
+    parent_region_id: str
+    coordinates_2d: List[int] = Field(default=[0, 0])
+    coordinates_3d: List[int] = Field(default=[0, 0, 0])
+    areas: Optional[list] = Field(default=[])
+    regions: Optional[list] = Field(default=[])
+
+
+class RegionAssociation(BaseModel):
+    id: str = Field(default="")
+    new_region_id: str = Field(default="")
+
+
 class NewCustomCorticalProperties(BaseModel):
     cortical_name: str = Field(..., max_length=20, min_length=1)
     coordinates_2d: Optional[list] = [0, 0]
@@ -40,6 +54,7 @@ class NewCustomCorticalProperties(BaseModel):
     cortical_dimensions: List[int] = Field(default=[1, 1, 1])
     sub_group_id: Optional[str] = ""
     copy_of: Optional[str] = ""
+    brain_region_id: Optional[str] = "root"
 
 
 # class NewCorticalProperties_old(BaseModel):
@@ -78,8 +93,8 @@ class UpdateCorticalProperties(BaseModel):
     cortical_name: Optional[str]
     cortical_neuron_per_vox_count: Optional[int]
     cortical_visibility: Optional[bool]
-    cortical_coordinates: Optional[list]
-    cortical_coordinates_2d: Optional[list]
+    coordinates_3d: Optional[list]
+    coordinates_2d: Optional[list]
     cortical_dimensions: Optional[list]
     cortical_synaptic_attractivity: Optional[int]
     neuron_post_synaptic_potential: Optional[float]
@@ -184,8 +199,12 @@ class Subscriber(BaseModel):
     subscriber_address: str
 
 
-class GameStats(BaseModel):
-    game_stats: dict
+class Id(BaseModel):
+    id: str
+
+
+class FitnessStats(BaseModel):
+    fitness_stats: dict
 
 
 class RobotController(BaseModel):

@@ -43,6 +43,7 @@ circuit_lib_path = "./evo/circuits"
 paths = {}
 pending_amalgamation = {}
 amalgamation_history = {}
+changes_saved_externally = False
 
 
 # Evolutionary
@@ -74,6 +75,7 @@ evo_change_register = {
     "3d_viz": 0
 }
 manual_delete_list = set()
+genome_fitness = 1
 
 # Staging Zone
 pending_genome = None
@@ -109,7 +111,7 @@ upcoming_lifesnap_mgmt = 0
 neuron_mp_collection_scope = {}
 neuron_psp_collection_scope = {}
 training_stats = {}
-game_stats = {}
+fitness_stats = {}
 brain_stats = {
     "neuron_count": 0,
     "synapse_count": 0
@@ -159,6 +161,7 @@ intercortical_mapping = []
 brain_is_running = False
 cumulative_stats = {}
 memory_register = {}
+cortical_area_region_association = dict()
 
 
 # Training
@@ -193,6 +196,13 @@ agent_registry = {
 }
 """
 agent_registry = {}
+host_info = {}
+connected_agents = {
+    "media_capture_ctrl": False,
+    "bluetooth_ctrl": False,
+    "godot_game_ctrl": False,
+    "zmq_to_ws_ctrl": False
+}
 
 
 # Unique Logs

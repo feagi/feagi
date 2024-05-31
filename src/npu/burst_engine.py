@@ -93,7 +93,7 @@ def burst_manager():
     #     alert_condition = elapsed_time.seconds > int(runtime_data.parameters['Timers']['alert_mode_duration'])
     #     if alert_condition:
     #         time_delta = datetime.now() - runtime_data.last_ipu_activity
-    #         if time_delta.seconds > int(runtime_data.genome['ipu_idle_threshold']):
+    #         if time_delta.seconds > int(runtime_data.genome["physiology"]['ipu_idle_threshold']):
     #             # Go to sleep by stopping IPU/OPU threads
     #             # todo: instead of turning off the IPU, reduce IPU responsiveness so via an trigger brain can awake
     #             print(">> >> Brain going to sleep..")
@@ -168,7 +168,7 @@ def burst_manager():
                       % (runtime_data.burst_duration, runtime_data.burst_count) + settings.Bcolors.ENDC)
 
     def evolutionary_checkpoint():
-        if runtime_data.burst_count % runtime_data.genome['evolution_burst_count'] == 0:
+        if runtime_data.burst_count % runtime_data.genome["physiology"]['evolution_burst_count'] == 0:
             print('Evolution phase reached...')
             for area in runtime_data.cortical_list:
                 neuron_count, synapse_count = connectome_total_synapse_cnt(area)
@@ -207,8 +207,8 @@ def burst_manager():
         consecutive_fire_cnt_max = runtime_data.genome["blueprint"][cortical_area_]["consecutive_fire_cnt_max"]
         consecutive_fire_cnt = runtime_data.brain[cortical_area_][neuron_id]["consecutive_fire_cnt"]
         if 0 < consecutive_fire_cnt_max <= consecutive_fire_cnt:
-            snooze_till(cortical_area_, neuron_id, runtime_data.burst_count +
-                        runtime_data.genome["blueprint"][cortical_area_]["snooze_length"])
+
+            snooze(cortical_area_, neuron_id)
             runtime_data.brain[cortical_area_][neuron_id]["consecutive_fire_cnt"] = 0
             return False
         else:
@@ -597,6 +597,14 @@ def burst_manager():
 
                 for neuron in runtime_data.brain["___pwr"]:
                     runtime_data.fire_candidate_list["___pwr"].add(neuron)
+
+            # Reset connected agent list
+            runtime_data.connected_agents = {
+                "media_capture_ctrl": False,
+                "bluetooth_ctrl": False,
+                "godot_game_ctrl": False,
+                "zmq_to_ws_ctrl": False
+            }
 
             # Manage ZMQ communication from and to FEAGI
             pns_manager()

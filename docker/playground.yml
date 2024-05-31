@@ -52,43 +52,43 @@ services:
     networks:
       - net
 
-#  webcam_javascript_controller:
-#    image: ${WEBCAM_CONTROLLER_IMAGE}
-#    deploy:
-#      resources:
-#        limits:
-#          cpus: '1'
-#          memory: '2g'
-#    ports:
-#      - "9051:9051"
-#    env_file:
-#      - ./.env
-#    privileged: true
-#    networks:
-#      - net
-#    depends_on:
-#      - feagi
-#
-#
-#  brain_pong_controller:
-#    image: ${BRAIN_PONG_IMAGE}
-#    ports:
-#      - "9055:9055"
-#    env_file:
-#      - ./.env
-#    privileged: true
-#    networks:
-#      - net
-#
-#  microbit_controller:
-#    image: ${MICROBIT_IMAGE}
-#    ports:
-#      - "9052:9052"
-#    env_file:
-#      - ./.env
-#    privileged: true
-#    networks:
-#      - net
+  webcam_javascript_controller:
+    image: ${WEBCAM_CONTROLLER_IMAGE}
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2g'
+    ports:
+      - "9051:9051"
+    env_file:
+      - ./.env
+    privileged: true
+    networks:
+      - net
+    depends_on:
+      - feagi
+
+
+  brain_pong_controller:
+    image: ${BRAIN_PONG_IMAGE}
+    ports:
+      - "9055:9055"
+    env_file:
+      - ./.env
+    privileged: true
+    networks:
+      - net
+
+  microbit_controller:
+    image: ${MICROBIT_IMAGE}
+    ports:
+      - "9052:9052"
+    env_file:
+      - ./.env
+    privileged: true
+    networks:
+      - net
 
 #  feagi_trainer:
 #    build: /home/bwuk/feagi-agent/embodiments/neuraville/feagi_trainer

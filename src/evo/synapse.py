@@ -237,11 +237,14 @@ def cortical_mapping(blueprint=None):
 
 
 def synaptic_pruner(src_cortical_area, dst_cortical_area):
+    synapse_count = 0
     for neuron in runtime_data.brain[src_cortical_area].copy():
         for neighbor in runtime_data.brain[src_cortical_area][neuron]['neighbors'].copy():
             if runtime_data.brain[src_cortical_area][neuron]['neighbors'][neighbor]['cortical_area'] == \
                     dst_cortical_area:
                 runtime_data.brain[src_cortical_area][neuron]['neighbors'].pop(neighbor)
+                synapse_count += 1
+    runtime_data.brain_stats["synapse_count"] -= synapse_count
     return runtime_data.brain
 
 

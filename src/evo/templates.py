@@ -34,11 +34,17 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
-            "i_gpio": {
+            "idgpio": {
                 "enabled": True,
-                "cortical_name": "GPIO input",
+                "cortical_name": "Digital GPIO input",
                 "structure": "asymmetric",
-                "resolution": [13, 1, 1]
+                "resolution": [28, 1, 1]
+            },
+            "iagpio": {
+                "enabled": True,
+                "cortical_name": "Analog GPIO input",
+                "structure": "asymmetric",
+                "resolution": [28, 1, 10]
             },
             "i__pro": {
                 "enabled": True,
@@ -135,6 +141,12 @@ cortical_types = {
                 "cortical_name": "Servo position sensor",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 21]
+            },
+            "i_smot": {
+                "enabled": True,
+                "cortical_name": "Servo motion sensor",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 21]
             }
         }
     },
@@ -146,6 +158,30 @@ cortical_types = {
                 "cortical_name": "Motor control",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10]
+            },
+            "odgpio": {
+                "enabled": True,
+                "cortical_name": "Digital GPIO output",
+                "structure": "asymmetric",
+                "resolution": [28, 1, 1]
+            },
+            "oagpio": {
+                "enabled": True,
+                "cortical_name": "Analog GPIO output",
+                "structure": "asymmetric",
+                "resolution": [28, 1, 10]
+            },
+            "oogpio": {
+                "enabled": True,
+                "cortical_name": "GPIO output pin assignment",
+                "structure": "asymmetric",
+                "resolution": [28, 1, 1]
+            },
+            "oigpio": {
+                "enabled": True,
+                "cortical_name": "GPIO input pin assignment",
+                "structure": "asymmetric",
+                "resolution": [28, 1, 1]
             },
             "o__ser": {
                 "enabled": True,
@@ -177,17 +213,23 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             },
-            "o__pup": {
+            "ov_mod": {
                 "enabled": True,
-                "cortical_name": "Pupil control",
+                "cortical_name": "Central Vision Modulation",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10]
             },
-            "o__gaz": {
+            "ov_ecc": {
                 "enabled": True,
-                "cortical_name": "Gaze control",
+                "cortical_name": "Central Vision Eccentricity",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10]
+            },
+            "o_spos": {
+                "enabled": True,
+                "cortical_name": "Servo Position OPU",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 10]
             },
             "o_blnk": {
                 "enabled": True,

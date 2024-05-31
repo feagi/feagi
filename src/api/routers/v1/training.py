@@ -1,3 +1,19 @@
+# Copyright 2016-2024 The FEAGI Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
+
 from fastapi import APIRouter, HTTPException
 
 from ...schemas import *
@@ -12,13 +28,13 @@ router = APIRouter()
 # ######  Training Endpoints #######
 # ##################################
 
-@router.delete("/reset_game_stats")
-async def delete_game_stats_from_db():
+@router.delete("/reset_fitness_stats")
+async def delete_fitness_stats_from_db():
     """
-    Erases the game statistics from the database.
+    Erases the fitness statistics from the database.
     """
 
-    runtime_data.influxdb.drop_game_activity()
+    runtime_data.influxdb.drop_fitness_activity()
 
 
 @router.get("/shock/options")
@@ -94,17 +110,17 @@ async def training_report():
     return runtime_data.training_stats
 
 
-@router.get("/game_stats")
-async def fetch_game_stats():
+@router.get("/fitness_stats")
+async def fetch_fitness_stats():
     """
-    updates game stats
+    updates fitness stats
     """
-    return runtime_data.game_stats
+    return runtime_data.fitness_stats
 
 
-@router.put("/game_stats")
-async def capture_game_stats(game_stats: GameStats):
+@router.put("/fitness_stats")
+async def capture_fitness_stats(fitness_stats: FitnessStats):
     """
-    updates game stats
+    updates fitness stats
     """
-    runtime_data.training_stats = game_stats
+    runtime_data.training_stats = fitness_stats
