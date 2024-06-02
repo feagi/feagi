@@ -17,15 +17,20 @@
 """
 This module covers needed functions for brain region management
 """
-
+import json
 import string
 import random
 import datetime
 import traceback
 
-from fastapi.responses import JSONResponse
+from time import time
 
+from fastapi.responses import JSONResponse
 from src.inf import runtime_data
+from src.evo.stats import cortical_area_anatomical_stats
+from src.evo.genetics import genome_id_gen
+from src.evo.genome_processor import genome_v1_v2_converter
+from src.evo.genome_editor import generate_hash
 
 
 def region_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
@@ -34,6 +39,11 @@ def region_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
     # Rand gen source partially from:
     # http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
     return str(now.strftime("%Y%m%d%H%M%S%f")[2:]) + '_' + (''.join(random.choice(chars) for _ in range(size))) + '_R'
+
+
+def region_id_2_title(region_id):
+    if region_id in runtime_data.genome["brain_regions"]:
+        return runtime_data.genome["brain_regions"][region_id]["title"]
 
 
 def change_cortical_area_parent(cortical_area_id, new_parent_id):
@@ -70,6 +80,7 @@ def create_region(region_data):
     runtime_data.genome["brain_regions"][region_id]["regions"] = list()
     runtime_data.genome["brain_regions"][region_id]["inputs"] = dict()
     runtime_data.genome["brain_regions"][region_id]["outputs"] = dict()
+    runtime_data.genome["brain_regions"][region_id]["signature"] = ""
     runtime_data.genome["brain_regions"][region_data.parent_region_id]["regions"].append(region_id)
     if region_data.areas:
         for associated_area in region_data.areas:
@@ -88,7 +99,59 @@ def delete_region():
     pass
 
 
+def construct_genome_from_region(region_id):
+    genome_from_region = {
+        "title": region_id_2_title(region_id=region_id),
+        "timestamp": time(),
+        "genome_id": genome_id_gen(size=6, chars=string.ascii_uppercase + string.digits),
+        "version": runtime_data.genome["version"],
+        "signatures": {},
+        "stats": {},
+        "hosts": {},
+        "physiology": runtime_data.genome["physiology"],
+        "neuron_morphologies": {},
+        "blueprint": {},
+        "brain_regions": {}
+    }
 
+    region_cortical_list = runtime_data.genome["brain_regions"][region_id]["areas"]
 
+    print("region_cortical_list:", region_cortical_list)
 
+    # Set region stats
+    region_neuron_count = 0
+    region_synapse_count = 0
 
+    for cortical_area in region_cortical_list:
+        neuron_cnt, synapse_cnt = cortical_area_anatomical_stats(cortical_area=cortical_area)
+        region_neuron_count += neuron_cnt
+        region_synapse_count += synapse_cnt
+
+    genome_from_region["stats"]["innate_cortical_area_count"] = len(region_cortical_list)
+    genome_from_region["stats"]["innate_neuron_count"] = region_neuron_count
+    genome_from_region["stats"]["innate_synapse_count"] = region_synapse_count
+
+    # Generate blueprint
+    for cortical_area in region_cortical_list:
+        genome_from_region["blueprint"][cortical_area] = runtime_data.genome["blueprint"][cortical_area].copy()
+    genome_from_region["blueprint"] = genome_v1_v2_converter(genome_from_region)["blueprint"]
+
+    # Set morphologies
+    morphology_list = set()
+    for cortical_area in region_cortical_list:
+        for mapping_destination in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"]:
+            for mapping in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"][mapping_destination]:
+                morphology_list.add(mapping["morphology_id"])
+
+    for morphology_id in morphology_list:
+        genome_from_region["neuron_morphologies"][morphology_id] = \
+            runtime_data.genome["neuron_morphologies"][morphology_id].copy()
+
+    # Set signatures
+    genome_from_region["signatures"]["genome"] = generate_hash(genome_from_region)
+    genome_from_region["signatures"]["blueprint"] = generate_hash(genome_from_region["blueprint"])
+    genome_from_region["signatures"]["physiology"] = generate_hash(genome_from_region["physiology"])
+
+    print("#__" * 20)
+    print(json.dumps(genome_from_region, indent=4))
+    return genome_from_region

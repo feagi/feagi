@@ -112,6 +112,14 @@ async def list_all_regions_and_members():
     return runtime_data.genome["brain_regions"]
 
 
+@router.get("/region_titles")
+async def list_all_region_titles():
+    title_list = []
+    for region_id in runtime_data.genome["brain_regions"]:
+        title_list.append((region_id, region_id_2_title(region_id=region_id)))
+    return title_list
+
+
 @router.put("/change_cortical_area_region")
 async def update_cortical_area_region_association(association_data: RegionAssociation):
     if association_data.id not in runtime_data.genome["blueprint"]:
