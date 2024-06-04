@@ -716,7 +716,7 @@ def add_core_cortical_area(cortical_properties):
 
 
 def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cortical_dimensions, brain_region_id="root",
-                             cortical_id_overwrite=None, is_memory=False, copy_of=None):
+                             parent_region_id="root", cortical_id_overwrite=None, is_memory=False, copy_of=None):
     # Generate Cortical ID
     # todo: instead of hard coding the length have the genome properties captured and reference instead
     temp_name = cortical_name

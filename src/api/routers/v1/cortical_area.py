@@ -27,6 +27,7 @@ from src.evo.genome_properties import genome_properties
 from src.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area
 from src.evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
 from src.evo.templates import cortical_types
+from src.evo.region import change_cortical_area_parent
 
 
 router = APIRouter()
@@ -41,6 +42,8 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
     if len(cortical_area) == genome_properties["structure"]["cortical_id_length"]:
         if cortical_area in runtime_data.genome['blueprint']:
             cortical_data = runtime_data.genome['blueprint'][cortical_area]
+            brain_region_id = runtime_data.cortical_area_region_association[cortical_id]
+            brain_region_title = runtime_data.genome["brain_regions"][brain_region_id]["title"]
 
             if 'mp_charge_accumulation' not in cortical_data:
                 cortical_data['mp_charge_accumulation'] = True
@@ -56,6 +59,8 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
             cortical_properties = {
                 "cortical_id": cortical_area,
                 "cortical_name": cortical_data['cortical_name'],
+                "parent_region_id": brain_region_id,
+                "parent_region_title": brain_region_title,
                 "cortical_group": cortical_data['group_id'],
                 "cortical_sub_group": cortical_data['sub_group_id'],
                 "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
@@ -133,6 +138,9 @@ async def update_cortical_properties(message: UpdateCorticalProperties):
     if message.cortical_neuron_per_vox_count:
         updated_neuron_density = message.cortical_neuron_per_vox_count
 
+    if message.parent_region_id:
+        change_cortical_area_parent(cortical_area_id=message.cortical_id, new_parent_id=message.parent_region_id)
+
     current_neuron_count = current_cortical_size * current_neuron_density
     updated_neuron_count = updated_cortical_size * updated_neuron_density
 
@@ -176,6 +184,7 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
     Enables changes against various Burst Engine parameters.
     """
     cortical_name = new_custom_cortical_properties.cortical_name
+    parent_region_id = new_custom_cortical_properties.parent_region_id
     coordinates_3d = new_custom_cortical_properties.coordinates_3d.copy()
     coordinates_2d = new_custom_cortical_properties.coordinates_2d.copy()
     sub_group_id = new_custom_cortical_properties.sub_group_id
@@ -201,6 +210,7 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
                                            coordinates_3d=coordinates_3d,
                                            coordinates_2d=coordinates_2d,
                                            cortical_dimensions=cortical_dimensions,
+                                           parent_region_id=parent_region_id,
                                            is_memory=is_memory,
                                            copy_of=copy_of,
                                            brain_region_id=new_custom_cortical_properties.brain_region_id)
