@@ -93,7 +93,7 @@ def create_region(region_data):
 
     region_id = region_id_gen()
     runtime_data.genome["brain_regions"][region_id] = {}
-    runtime_data.genome["brain_regions"][region_id]["title"] = region_data.region_title
+    runtime_data.genome["brain_regions"][region_id]["title"] = region_data.title
     runtime_data.genome["brain_regions"][region_id]["description"] = region_data.region_description
     runtime_data.genome["brain_regions"][region_id]["parent_region_id"] = region_data.parent_region_id
     runtime_data.genome["brain_regions"][region_id]["coordinate_2d"] = region_data.coordinates_2d
