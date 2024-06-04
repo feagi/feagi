@@ -242,11 +242,13 @@ async def amalgamation_history():
 async def amalgamation_conclusion(circuit_origin_x: int,
                                   circuit_origin_y: int,
                                   circuit_origin_z: int,
-                                  amalgamation_id):
+                                  amalgamation_id,
+                                  disable_autoconnect: Optional[bool]):
     if pending_amalgamation():
         payload = dict()
         payload["genome_str"] = runtime_data.pending_amalgamation["genome_payload"]
         payload["circuit_origin"] = [circuit_origin_x, circuit_origin_y, circuit_origin_z]
+        payload[""]
         data = {'append_circuit': payload}
         api_queue.put(item=data)
         genome_title = runtime_data.pending_amalgamation["genome_title"]

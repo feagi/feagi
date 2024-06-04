@@ -14,10 +14,10 @@
 # limitations under the License.
 # ==============================================================================
 
+import json
 from math import floor
 from src.inf import runtime_data
 import logging
-import traceback
 
 
 logger = logging.getLogger(__name__)
@@ -320,3 +320,43 @@ def subregion_neurons(src_cortical_area, region_definition):
         print("Exception while processing subregion neurons", e)
         pass
     return neurons
+
+
+def generate_cortical_dimensions_by_id():
+    """
+    Generates the information needed to display cortical areas on Godot
+    """
+    cortical_information = {}
+
+    for cortical_area in runtime_data.genome["blueprint"]:
+        cortical_information[cortical_area] = {}
+        genes = runtime_data.genome["blueprint"][cortical_area]
+
+        cortical_information[cortical_area]["cortical_name"] = genes["cortical_name"]
+        cortical_information[cortical_area]["cortical_group"] = genes["group_id"]
+        cortical_information[cortical_area]["cortical_sub_group"] = genes["sub_group_id"]
+        cortical_information[cortical_area]["visible"] = genes["visualization"]
+
+        cortical_information[cortical_area]["coordinates_2d"] = [
+            genes["2d_coordinate"][0],
+            genes["2d_coordinate"][1]
+        ]
+
+        cortical_information[cortical_area]["coordinates_3d"] = [
+            genes["relative_coordinate"][0],
+            genes["relative_coordinate"][1],
+            genes["relative_coordinate"][2]
+        ]
+
+        cortical_information[cortical_area]["cortical_dimensions"] = [
+            genes["block_boundaries"][0],
+            genes["block_boundaries"][1],
+            genes["block_boundaries"][2]
+        ]
+
+    with open(runtime_data.connectome_path+"cortical_data_by_id.json", "w") as data_file:
+        data_file.seek(0)
+        data_file.write(json.dumps(cortical_information, indent=3))
+        data_file.truncate()
+
+    return cortical_information

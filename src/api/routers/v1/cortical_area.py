@@ -22,7 +22,7 @@ from ...commons import *
 
 from src.inf import runtime_data
 from src.api.error_handling import generate_response
-from src.inf.initialize import generate_cortical_dimensions_by_id
+from src.evo.voxels import generate_cortical_dimensions_by_id
 from src.evo.genome_properties import genome_properties
 from src.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area
 from src.evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id

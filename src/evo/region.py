@@ -25,12 +25,13 @@ import traceback
 
 from time import time
 
-from fastapi.responses import JSONResponse
 from src.inf import runtime_data
+from src.evo.voxels import generate_cortical_dimensions_by_id
 from src.evo.stats import cortical_area_anatomical_stats
 from src.evo.genetics import genome_id_gen
 from src.evo.genome_processor import genome_v1_v2_converter
 from src.evo.genome_editor import generate_hash
+from src.api.commons import CustomError
 
 
 def region_id_gen(size=6, chars=string.ascii_uppercase + string.digits):
@@ -70,9 +71,33 @@ def change_brain_region_parent(region_id, new_parent_id):
 
 
 def create_region(region_data):
+    """
+
+    suggested_afferents = [
+        {
+            "src_cortical_area_id": "___pwr",
+            "src_cortical_area_name": "brain_power",
+            "src_cortical_area_custom_label": "power",
+            "dst_cortical_area_id": "C2WFW3",
+            "morphology": "projector",
+            "psp_multiplier": "1",
+            "scalar": [1,1,1],
+            "plastic": True,
+            "plasticity_multiplier": 1,
+            "LTP_multiplier": 2,
+            "LTD_multiplier": 1
+        },
+        {}
+    ]
+
+
+
+    """
+
     region_id = region_id_gen()
     runtime_data.genome["brain_regions"][region_id] = {}
     runtime_data.genome["brain_regions"][region_id]["title"] = region_data.region_title
+    runtime_data.genome["brain_regions"][region_id]["description"] = region_data.region_description
     runtime_data.genome["brain_regions"][region_id]["parent_region_id"] = region_data.parent_region_id
     runtime_data.genome["brain_regions"][region_id]["coordinate_2d"] = region_data.coordinates_2d
     runtime_data.genome["brain_regions"][region_id]["coordinate_3d"] = region_data.coordinates_3d
@@ -80,6 +105,9 @@ def create_region(region_data):
     runtime_data.genome["brain_regions"][region_id]["regions"] = list()
     runtime_data.genome["brain_regions"][region_id]["inputs"] = dict()
     runtime_data.genome["brain_regions"][region_id]["outputs"] = dict()
+    runtime_data.genome["brain_regions"][region_id]["suggested_afferents"] = list()
+    runtime_data.genome["brain_regions"][region_id]["suggested_efferents"] = list()
+    runtime_data.genome["brain_regions"][region_id]["regions"] = list()
     runtime_data.genome["brain_regions"][region_id]["signature"] = ""
     runtime_data.genome["brain_regions"][region_data.parent_region_id]["regions"].append(region_id)
     if region_data.areas:
@@ -95,8 +123,57 @@ def create_region(region_data):
     return region_id
 
 
-def delete_region():
-    pass
+def update_region(region_data):
+    region_id = region_data["region_id"]
+    region_data.pop("region_id")
+    for update in region_data:
+        if update not in ["area", "region"]:
+            if update == "parent_region_id":
+                change_brain_region_parent(region_id=region_id, new_parent_id=update["parent_region_id"])
+            else:
+                runtime_data.genome["brain_regions"][region_id][update] = region_data[update]
+        else:
+            raise CustomError(status_code=400, message=f"{update} cannot be updated using this endpoint")
+
+
+def delete_region_with_members(region_id):
+    if region_id in runtime_data.genome["brain_regions"]:
+        parent_region = runtime_data.genome["brain_regions"][region_id]["parent_region_id"]
+        for area in runtime_data.genome["brain_regions"][region_id]:
+            change_cortical_area_parent(cortical_area_id=area, new_parent_id=parent_region)
+        for region in runtime_data.genome["brain_regions"][region_id]:
+            change_brain_region_parent(region_id=region, new_parent_id=parent_region)
+        runtime_data.genome["brain_regions"].pop(region_id)
+
+
+def relocate_region_members(relocation_data):
+    for object_id in relocation_data:
+        if object_id in runtime_data.genome["blueprint"]:
+            if "coordinate_2d" in relocation_data[object_id]:
+                runtime_data.genome["blueprint"][object_id]["2d_coordinate"][0] = \
+                    relocation_data[object_id]["coordinate_2d"][0]
+                runtime_data.genome["blueprint"][object_id]["2d_coordinate"][1] = \
+                    relocation_data[object_id]["coordinate_2d"][1]
+            if "parent_region_id" in relocation_data[object_id]:
+                change_cortical_area_parent(cortical_area_id=object_id,
+                                            new_parent_id=relocation_data[object_id]["parent_region_id"])
+        elif object_id in runtime_data.genome["brain_regions"]:
+            if "coordinate_2d" in relocation_data[object_id]:
+                runtime_data.genome["brain_regions"][object_id]["coordinate_2d"][0] = \
+                    relocation_data[object_id]["coordinate_2d"][0]
+                runtime_data.genome["brain_regions"][object_id]["coordinate_2d"][1] = \
+                    relocation_data[object_id]["coordinate_2d"][1]
+            if "parent_region_id" in relocation_data[object_id]:
+                if relocation_data[object_id]["parent_region_id"] in runtime_data.genome["brain_regions"]:
+                    change_brain_region_parent(region_id=object_id,
+                                               new_parent_id=relocation_data[object_id]["parent_region_id"])
+                else:
+                    parent_id = relocation_data[object_id]["parent_region_id"]
+                    raise CustomError(status_code=400, message=f"{parent_id} is not a valid region id")
+        else:
+            raise CustomError(status_code=400, message=f"{object_id} is not a valid region nor cortical id")
+
+    runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
 
 
 def construct_genome_from_region(region_id):

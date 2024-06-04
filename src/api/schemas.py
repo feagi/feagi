@@ -35,11 +35,21 @@ class NewCorticalProperties(BaseModel):
 
 class NewRegionProperties(BaseModel):
     region_title: str
-    parent_region_id: str
+    region_description: Optional[str]
+    parent_region_id: str = Field(default="root")
     coordinates_2d: List[int] = Field(default=[0, 0])
     coordinates_3d: List[int] = Field(default=[0, 0, 0])
     areas: Optional[list] = Field(default=[])
     regions: Optional[list] = Field(default=[])
+
+
+class UpdateRegionProperties(BaseModel):
+    region_id: str
+    region_title: Optional[str]
+    region_description: Optional[str]
+    parent_region_id: Optional[str]
+    coordinates_2d: Optional[list]
+    coordinates_3d: Optional[list]
 
 
 class RegionAssociation(BaseModel):
