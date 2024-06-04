@@ -79,19 +79,16 @@ def create_region(region_data):
             "src_cortical_area_name": "brain_power",
             "src_cortical_area_custom_label": "power",
             "dst_cortical_area_id": "C2WFW3",
-            "morphology": "projector",
-            "psp_multiplier": "1",
-            "scalar": [1,1,1],
-            "plastic": True,
-            "plasticity_multiplier": 1,
-            "LTP_multiplier": 2,
-            "LTD_multiplier": 1
+            "morphology_id": "projector",
+            "postSynapticCurrent_multiplier": "1",
+            "morphology_scalar": [1,1,1],
+            "plasticity_flag": True,
+            "plasticity_constant": 1,
+            "ltp_multiplier": 2,
+            "ltd_multiplier": 1
         },
         {}
     ]
-
-
-
     """
 
     region_id = region_id_gen()
