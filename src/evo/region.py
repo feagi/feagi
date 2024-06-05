@@ -31,6 +31,7 @@ from src.evo.stats import cortical_area_anatomical_stats
 from src.evo.genetics import genome_id_gen
 from src.evo.genome_processor import genome_v1_v2_converter
 from src.evo.genome_editor import generate_hash
+from src.evo.x_genesis import neighboring_cortical_areas
 from src.api.commons import CustomError
 
 
@@ -71,26 +72,6 @@ def change_brain_region_parent(region_id, new_parent_id):
 
 
 def create_region(region_data):
-    """
-
-    suggested_afferents = [
-        {
-            "src_cortical_area_id": "___pwr",
-            "src_cortical_area_name": "brain_power",
-            "src_cortical_area_custom_label": "power",
-            "dst_cortical_area_id": "C2WFW3",
-            "morphology_id": "projector",
-            "postSynapticCurrent_multiplier": "1",
-            "morphology_scalar": [1,1,1],
-            "plasticity_flag": True,
-            "plasticity_constant": 1,
-            "ltp_multiplier": 2,
-            "ltd_multiplier": 1
-        },
-        {}
-    ]
-    """
-
     region_id = region_id_gen()
     runtime_data.genome["brain_regions"][region_id] = {}
     runtime_data.genome["brain_regions"][region_id]["title"] = region_data.title
@@ -189,6 +170,61 @@ def construct_genome_from_region(region_id):
     }
 
     region_cortical_list = runtime_data.genome["brain_regions"][region_id]["areas"]
+
+    # Todo: Generating suggested afferent / efferent
+    afferent_areas = set()
+    efferent_areas = set()
+
+    for area in region_cortical_list:
+        upstream_cortical_areas, downstream_cortical_areas = \
+            neighboring_cortical_areas(cortical_area=area, blueprint=runtime_data.genome["blueprint"])
+
+        # Afferents
+        for area_ in upstream_cortical_areas:
+            if area_ not in region_cortical_list:
+                afferent_areas.add(area_)
+
+        # Efferents
+        for area_ in downstream_cortical_areas:
+            if area_ not in region_cortical_list:
+                efferent_areas.add(area_)
+
+    suggested_afferents = []
+    suggested_efferents = []
+
+    """
+    suggested_afferents = [
+        {
+            "src_cortical_area_id": "___pwr",
+            "src_cortical_area_name": "brain_power",
+            "src_cortical_area_custom_label": "power",
+            "dst_cortical_area_id": "C2WFW3",
+            "morphology_id": "projector",
+            "postSynapticCurrent_multiplier": "1",
+            "morphology_scalar": [1,1,1],
+            "plasticity_flag": True,
+            "plasticity_constant": 1,
+            "ltp_multiplier": 2,
+            "ltd_multiplier": 1
+        },
+        {}
+    ]
+    """
+    # Build suggested afferent list
+    for afferent_area in afferent_areas:
+        for dst in runtime_data.genome["blueprint"][afferent_area]["cortical_mapping_dst"]:
+            if dst in region_cortical_list:
+                for mapping in runtime_data.genome["blueprint"][afferent_area]["cortical_mapping_dst"][dst]:
+                    mapping["src_cortical_area_id"] = afferent_area
+                    mapping["src_cortical_area_name"] = runtime_data.genome["blueprint"][afferent_area]["cortical_name"]
+                    mapping["src_cortical_area_custom_label"] = None
+                    mapping["dst_cortical_area_id"] = dst
+                    suggested_afferents.append(mapping)
+
+    # Build efferent mapping list
+    # for efferent_area in efferent_areas:
+        # todo
+
 
     print("region_cortical_list:", region_cortical_list)
 
