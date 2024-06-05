@@ -33,7 +33,7 @@ from datetime import datetime, timedelta
 from collections import deque
 from shutil import copyfile
 from src.evo.connectome import reset_connectome
-from src.evo.voxels import generate_cortical_dimensions_by_id
+from src.evo.voxels import generate_cortical_dimensions_by_id, generate_cortical_dimensions
 from src.evo.stats import voxel_dict_summary
 from src.evo.genome_editor import save_genome
 from src.inf.messenger import Pub
@@ -565,29 +565,3 @@ def init_burst_engine():
     # except KeyError as e:
     #     print('ERROR: OPU socket is not properly defined as part of feagi_configuration.ini\n', e)
 
-
-def generate_cortical_dimensions():
-    """
-    Generates the information needed to display cortical areas on Godot
-    """
-    cortical_information = {}
-
-    for cortical_area in runtime_data.genome["blueprint"]:
-        cortical_name = runtime_data.genome["blueprint"][cortical_area]["cortical_name"]
-        cortical_information[cortical_name] = []
-        genes = runtime_data.genome["blueprint"][cortical_area]
-        cortical_information[cortical_name].append(genes["relative_coordinate"][0])
-        cortical_information[cortical_name].append(genes["relative_coordinate"][1])
-        cortical_information[cortical_name].append(genes["relative_coordinate"][2])
-        cortical_information[cortical_name].append(genes["visualization"])
-        cortical_information[cortical_name].append(genes["block_boundaries"][0])
-        cortical_information[cortical_name].append(genes["block_boundaries"][1])
-        cortical_information[cortical_name].append(genes["block_boundaries"][2])
-        cortical_information[cortical_name].append(cortical_area)
-
-    with open(runtime_data.connectome_path+"cortical_data.json", "w") as data_file:
-        data_file.seek(0)
-        data_file.write(json.dumps(cortical_information, indent=3))
-        data_file.truncate()
-
-    return cortical_information

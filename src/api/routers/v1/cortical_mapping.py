@@ -21,7 +21,7 @@ from ...schemas import *
 
 from src.inf import runtime_data
 from src.evo.genome_properties import genome_properties
-from src.evo.x_genesis import neighboring_cortical_areas
+from src.evo.synapse import neighboring_cortical_areas
 
 
 router = APIRouter()

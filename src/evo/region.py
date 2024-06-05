@@ -31,7 +31,7 @@ from src.evo.stats import cortical_area_anatomical_stats
 from src.evo.genetics import genome_id_gen
 from src.evo.genome_processor import genome_v1_v2_converter
 from src.evo.genome_editor import generate_hash
-from src.evo.x_genesis import neighboring_cortical_areas
+from src.evo.synapse import neighboring_cortical_areas
 from src.api.commons import CustomError
 
 

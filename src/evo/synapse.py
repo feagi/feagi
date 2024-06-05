@@ -288,3 +288,18 @@ def synapse_memory_neuron(neuron_id):
                                                                 src_neuron=neuron_id,
                                                                 dst_area=dst_cortical_area,
                                                                 candidate_list=neighbor_candidates)
+
+
+def neighboring_cortical_areas(cortical_area, blueprint=None):
+    try:
+        if not blueprint:
+            blueprint = runtime_data.genome["blueprint"]
+        cortical_mappings = cortical_mapping(blueprint=blueprint)
+        upstream_cortical_areas = set()
+        downstream_cortical_areas = set(cortical_mappings[cortical_area])
+        for area in cortical_mappings:
+            if cortical_area in cortical_mappings[area]:
+                upstream_cortical_areas.add(area)
+        return upstream_cortical_areas, downstream_cortical_areas
+    except KeyError:
+        print("Exception in neighboring_cortical_areas: Cortical area not found", traceback.print_exc())
