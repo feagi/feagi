@@ -34,10 +34,12 @@ from src.evo.synapse import synaptic_pruner, morphology_usage_list, cortical_are
 # from src.inf import disk_ops
 # from src.inf import settings
 from src.inf import runtime_data
-from src.evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter, genome_2_1_convertor, is_memory_cortical_area
+from src.evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter, genome_2_1_convertor, \
+    is_memory_cortical_area
 from src.evo.genome_editor import save_genome
 from src.evo.voxels import generate_cortical_dimensions_by_id, generate_cortical_dimensions
 from src.evo.connectome import reset_connectome_file
+from src.evo.synapse import neighboring_cortical_areas
 from src.evo.neuroembryogenesis import cortical_name_list, develop, generate_plasticity_dict
 from src.inf.initialize import init_fcl, init_memory_register, init_cortical_cumulative_stats
 
