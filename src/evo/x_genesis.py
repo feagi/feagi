@@ -702,7 +702,7 @@ def add_core_cortical_area(cortical_properties):
         print("Error: New cortical area was not added.", traceback.print_exc())
 
 
-def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cortical_dimensions, brain_region_id="root",
+def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cortical_dimensions,
                              parent_region_id="root", cortical_id_overwrite=None, is_memory=False, copy_of=None):
     # Generate Cortical ID
     # todo: instead of hard coding the length have the genome properties captured and reference instead
@@ -757,10 +757,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
         runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] = ""
 
         runtime_data.cortical_area_region_association[cortical_area] = parent_region_id
-        runtime_data.genome["brain_regions"][brain_region_id]["areas"].append(cortical_area)
-
-        runtime_data.genome["brain_regions"][brain_region_id]["areas"].append(cortical_area)
-        runtime_data.cortical_area_region_association[cortical_area] = brain_region_id
+        runtime_data.genome["brain_regions"][parent_region_id]["areas"].append(cortical_area)
 
         if is_memory:
             runtime_data.genome["blueprint"][cortical_area]["longterm_mem_threshold"] = \

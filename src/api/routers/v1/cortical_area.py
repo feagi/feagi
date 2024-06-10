@@ -206,14 +206,16 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
         return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count will"
                                                                  f" exceed {max_allowable_neuron_count} threshold"})
 
+    if parent_region_id not in runtime_data.genome["brain_regions"]:
+        return JSONResponse(status_code=400, content={'message': f"{parent_region_id} does not exist!"})
+
     cortical_id = add_custom_cortical_area(cortical_name=cortical_name,
                                            coordinates_3d=coordinates_3d,
                                            coordinates_2d=coordinates_2d,
                                            cortical_dimensions=cortical_dimensions,
                                            parent_region_id=parent_region_id,
                                            is_memory=is_memory,
-                                           copy_of=copy_of,
-                                           brain_region_id=new_custom_cortical_properties.brain_region_id)
+                                           copy_of=copy_of)
     return JSONResponse(status_code=200, content={'cortical_id': cortical_id})
 
 

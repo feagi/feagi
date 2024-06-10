@@ -154,5 +154,22 @@ async def update_brain_region_parent(association_data: RegionAssociation):
 async def brain_region_member_relocation(relocation_data: dict):
     """
     Accepts a dictionary of 2D coordinates of one or more cortical areas and update them in genome.
+
+    Input format:
+
+    {
+        "region_id_1": {
+            "coordinate_2d": [10, 9],
+            "parent_region_id": "fhafsihwfiuhr23r_b",
+        },
+        "region_id_2": {
+            "coordinate_2d": [4, 93],
+            "parent_region_id": "dhdfsihwfiuhr23r_b",
+        },
+        "cortical_area_id": {
+            "coordinate_2d": [30, 29],
+            "parent_region_id": "gdfsihwfiuhr23r_b",
+        }
+    }
     """
     relocate_region_members(relocation_data=relocation_data)
