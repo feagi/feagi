@@ -22,7 +22,6 @@ from ...commons import *
 from src.inf import runtime_data
 from src.evo.region import *
 from src.api.error_handling import generate_response
-from src.inf.initialize import generate_cortical_dimensions_by_id
 from src.evo.genome_properties import genome_properties
 from src.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area
 from src.evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
@@ -56,9 +55,17 @@ async def create_brain_region(region_data: NewRegionProperties):
 
 
 @router.put("/region")
-async def update_region_properties(region_id: Id):
-    # todo: implement
-    return {"This endpoint is not yet implemented"}
+async def update_region_properties(region_data: UpdateRegionProperties):
+    region_dict = region_data.__dict__
+    unacceptable_root_fields = ["parent_region_id", "coordinates_2d", "coordinates_3d"]
+    if region_data.region_id == "root":
+        for field in unacceptable_root_fields:
+            if field in region_dict:
+                raise HTTPException(status_code=400, detail=f"{field} cannot be modified for root region")
+    if "parent_region_id" in region_dict:
+        region_dict.pop("parent_region_id")
+
+    update_region(region_data=region_dict)
 
 
 @router.get("/region")
@@ -75,10 +82,16 @@ async def delete_region(region_id: Id):
         raise HTTPException(status_code=400, detail="Root region cannot be deleted")
     elif region_id.id in runtime_data.genome["brain_regions"]:
         region_parent = runtime_data.genome["brain_regions"][region_id.id]["parent_region_id"]
-        for area in runtime_data.genome["brain_regions"][region_id.id]:
-            change_cortical_area_parent(cortical_area_id=area,
+        for area_id in runtime_data.genome["brain_regions"][region_id.id]["areas"]:
+            change_cortical_area_parent(cortical_area_id=area_id,
                                         new_parent_id=region_parent)
-            runtime_data.cortical_area_region_association[area] = region_parent
+            runtime_data.cortical_area_region_association[area_id] = region_parent
+        for region_id_ in runtime_data.genome["brain_regions"][region_id.id]["regions"]:
+            change_brain_region_parent(region_id=region_id_,
+                                       new_parent_id=region_parent)
+        runtime_data.genome["brain_regions"].pop(region_id.id)
+        runtime_data.genome["brain_regions"][region_parent]["regions"].remove(region_id.id)
+
     else:
         raise HTTPException(status_code=400, detail=f"{region_id.id} is not a valid region id")
 
@@ -88,9 +101,7 @@ async def delete_region_and_members(region_id: Id):
     if region_id.id == "root":
         raise HTTPException(status_code=400, detail="Root region cannot be deleted")
     elif region_id.id in runtime_data.genome["brain_regions"]:
-        region_parent = runtime_data.genome["brain_regions"][region_id.id]["parent_region_id"]
-        runtime_data.genome["brain_regions"].pop(region_id.id)
-        runtime_data.genome["brain_regions"][region_parent]["regions"].pop(region_id.id)
+        delete_region_with_members(region_id=region_id)
     else:
         raise HTTPException(status_code=400, detail=f"{region_id.id} is not a valid region id")
 
@@ -110,6 +121,14 @@ async def list_all_regions():
 @router.get("/regions_members")
 async def list_all_regions_and_members():
     return runtime_data.genome["brain_regions"]
+
+
+@router.get("/region_titles")
+async def list_all_region_titles():
+    title_list = []
+    for region_id in runtime_data.genome["brain_regions"]:
+        title_list.append((region_id, region_id_2_title(region_id=region_id)))
+    return title_list
 
 
 @router.put("/change_cortical_area_region")
@@ -141,32 +160,22 @@ async def update_brain_region_parent(association_data: RegionAssociation):
 async def brain_region_member_relocation(relocation_data: dict):
     """
     Accepts a dictionary of 2D coordinates of one or more cortical areas and update them in genome.
+
+    Input format:
+
+    {
+        "region_id_1": {
+            "coordinate_2d": [10, 9],
+            "parent_region_id": "fhafsihwfiuhr23r_b",
+        },
+        "region_id_2": {
+            "coordinate_2d": [4, 93],
+            "parent_region_id": "dhdfsihwfiuhr23r_b",
+        },
+        "cortical_area_id": {
+            "coordinate_2d": [30, 29],
+            "parent_region_id": "gdfsihwfiuhr23r_b",
+        }
+    }
     """
-
-    for object_id in relocation_data:
-        if object_id in runtime_data.genome["blueprint"]:
-            if "coordinate_2d" in relocation_data[object_id]:
-                runtime_data.genome["blueprint"][object_id]["2d_coordinate"][0] = \
-                    relocation_data[object_id]["coordinate_2d"][0]
-                runtime_data.genome["blueprint"][object_id]["2d_coordinate"][1] = \
-                    relocation_data[object_id]["coordinate_2d"][1]
-            if "parent_region_id" in relocation_data[object_id]:
-                change_cortical_area_parent(cortical_area_id=object_id,
-                                            new_parent_id=relocation_data[object_id]["parent_region_id"])
-        elif object_id in runtime_data.genome["brain_regions"]:
-            if "coordinate_2d" in relocation_data[object_id]:
-                runtime_data.genome["brain_regions"][object_id]["coordinate_2d"][0] = \
-                    relocation_data[object_id]["coordinate_2d"][0]
-                runtime_data.genome["brain_regions"][object_id]["coordinate_2d"][1] = \
-                    relocation_data[object_id]["coordinate_2d"][1]
-            if "parent_region_id" in relocation_data[object_id]:
-                if relocation_data[object_id]["parent_region_id"] in runtime_data.genome["brain_regions"]:
-                    change_brain_region_parent(region_id=object_id,
-                                               new_parent_id=relocation_data[object_id]["parent_region_id"])
-                else:
-                    parent_id = relocation_data[object_id]["parent_region_id"]
-                    raise HTTPException(status_code=400, detail=f"{parent_id} is not a valid region id")
-        else:
-            raise HTTPException(status_code=400, detail=f"{object_id} is not a valid region nor cortical id")
-
-    runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
+    relocate_region_members(relocation_data=relocation_data)

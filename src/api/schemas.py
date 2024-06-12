@@ -34,12 +34,22 @@ class NewCorticalProperties(BaseModel):
 
 
 class NewRegionProperties(BaseModel):
-    region_title: str
-    parent_region_id: str
+    title: str
+    region_description: Optional[str]
+    parent_region_id: str = Field(default="root")
     coordinates_2d: List[int] = Field(default=[0, 0])
     coordinates_3d: List[int] = Field(default=[0, 0, 0])
     areas: Optional[list] = Field(default=[])
     regions: Optional[list] = Field(default=[])
+
+
+class UpdateRegionProperties(BaseModel):
+    region_id: str
+    title: Optional[str]
+    region_description: Optional[str]
+    parent_region_id: Optional[str]
+    coordinates_2d: Optional[list]
+    coordinates_3d: Optional[list]
 
 
 class RegionAssociation(BaseModel):
@@ -49,12 +59,12 @@ class RegionAssociation(BaseModel):
 
 class NewCustomCorticalProperties(BaseModel):
     cortical_name: str = Field(..., max_length=20, min_length=1)
+    parent_region_id: Optional[str] = Field(default="root")
     coordinates_2d: Optional[list] = [0, 0]
     coordinates_3d: List[int] = Field(default=[0, 0, 0])
     cortical_dimensions: List[int] = Field(default=[1, 1, 1])
     sub_group_id: Optional[str] = ""
     copy_of: Optional[str] = ""
-    brain_region_id: Optional[str] = "root"
 
 
 # class NewCorticalProperties_old(BaseModel):
@@ -91,6 +101,7 @@ class NewCustomCorticalProperties(BaseModel):
 class UpdateCorticalProperties(BaseModel):
     cortical_id: str = Field(None, max_length=6, min_length=6)
     cortical_name: Optional[str]
+    parent_region_id: Optional[str]
     cortical_neuron_per_vox_count: Optional[int]
     cortical_visibility: Optional[bool]
     coordinates_3d: Optional[list]

@@ -52,8 +52,8 @@ services:
     networks:
       - net
 
-  webcam_javascript_controller:
-    image: ${WEBCAM_CONTROLLER_IMAGE}
+  media_capture_controller:
+    image: ${MEDIA_CONTROLLER_IMAGE}
     deploy:
       resources:
         limits:
@@ -70,8 +70,8 @@ services:
       - feagi
 
 
-  brain_pong_controller:
-    image: ${BRAIN_PONG_IMAGE}
+  godot-games-controller:
+    image: ${GODOT_GAMES_IMAGE}
     ports:
       - "9055:9055"
     env_file:
@@ -80,8 +80,8 @@ services:
     networks:
       - net
 
-  microbit_controller:
-    image: ${MICROBIT_IMAGE}
+  bluetooth_controller:
+    image: ${BLUETOOTH_IMAGE}
     ports:
       - "9052:9052"
     env_file:

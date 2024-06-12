@@ -27,18 +27,21 @@ import string
 import traceback
 
 # from src.evo import neuron, synapse, stats, genetics, voxels, neuroembryogenesis, templates
-from src.evo import synapse, voxels, neuroembryogenesis, templates
+from src.evo import voxels, neuroembryogenesis, templates
+from src.evo.synapse import synaptic_pruner, morphology_usage_list, cortical_areas_sharing_same_morphology
 # from functools import partial
 # from multiprocessing import Pool, Process
 # from src.inf import disk_ops
 # from src.inf import settings
 from src.inf import runtime_data
-from src.evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter, genome_2_1_convertor, is_memory_cortical_area
+from src.evo.genome_processor import genome_1_cortical_list, genome_v1_v2_converter, genome_2_1_convertor, \
+    is_memory_cortical_area
 from src.evo.genome_editor import save_genome
+from src.evo.voxels import generate_cortical_dimensions_by_id, generate_cortical_dimensions
 from src.evo.connectome import reset_connectome_file
+from src.evo.synapse import neighboring_cortical_areas
 from src.evo.neuroembryogenesis import cortical_name_list, develop, generate_plasticity_dict
-from src.inf.initialize import generate_cortical_dimensions, generate_cortical_dimensions_by_id, init_fcl, \
-    init_memory_register, init_cortical_cumulative_stats
+from src.inf.initialize import init_fcl, init_memory_register, init_cortical_cumulative_stats
 
 # from src.evo.synaptogenesis_rules import syn_memory
 
@@ -348,7 +351,7 @@ def update_cortical_mappings(cortical_mappings):
     mappings = cortical_mappings["mapping_data"]
 
     #  ------- Cleanup prior mappings ---------
-    runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=cortical_area,
+    runtime_data.brain = synaptic_pruner(src_cortical_area=cortical_area,
                                                  dst_cortical_area=dst_cortical_area)
 
     if dst_cortical_area in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
@@ -442,7 +445,7 @@ def update_morphology_properties(morphology_properties):
                 morphology_properties['type']
             runtime_data.genome['neuron_morphologies'][morphology_properties['name']]["parameters"] = \
                 morphology_properties['parameters']
-            impacted_cortical_areas = synapse.cortical_areas_sharing_same_morphology(morphology_properties['name'])
+            impacted_cortical_areas = cortical_areas_sharing_same_morphology(morphology_properties['name'])
             print("<><><><><>   <><><><> Impacted areas", impacted_cortical_areas)
             for impacted_area in impacted_cortical_areas:
                 print(impacted_area[0], impacted_area[1])
@@ -457,21 +460,6 @@ def update_morphology_properties(morphology_properties):
 
     except Exception as e:
         print("Error during morphology update\n", e, traceback.print_exc())
-
-
-def neighboring_cortical_areas(cortical_area, blueprint=None):
-    try:
-        if not blueprint:
-            blueprint = runtime_data.genome["blueprint"]
-        cortical_mappings = synapse.cortical_mapping(blueprint=blueprint)
-        upstream_cortical_areas = set()
-        downstream_cortical_areas = set(cortical_mappings[cortical_area])
-        for area in cortical_mappings:
-            if cortical_area in cortical_mappings[area]:
-                upstream_cortical_areas.add(area)
-        return upstream_cortical_areas, downstream_cortical_areas
-    except KeyError:
-        print("Exception in neighboring_cortical_areas: Cortical area not found", traceback.print_exc())
 
 
 def cortical_removal(cortical_area, genome_scrub=False):
@@ -556,7 +544,7 @@ def prune_cortical_synapses(cortical_area):
 
     for src_cortical_area in upstream_cortical_areas:
         print("++++++ 2")
-        runtime_data.brain = synapse.synaptic_pruner(src_cortical_area=src_cortical_area,
+        runtime_data.brain = synaptic_pruner(src_cortical_area=src_cortical_area,
                                                      dst_cortical_area=cortical_area)
 
 
@@ -591,7 +579,7 @@ def cortical_regeneration(cortical_area):
 
 def cortical_rewiring(src_cortical_area, dst_cortical_area):
     print("++++++ 3")
-    synapse.synaptic_pruner(src_cortical_area=src_cortical_area, dst_cortical_area=dst_cortical_area)
+    synaptic_pruner(src_cortical_area=src_cortical_area, dst_cortical_area=dst_cortical_area)
     neuroembryogenesis.synaptogenesis(cortical_area=src_cortical_area, dst_cortical_area=dst_cortical_area)
 
 
@@ -714,8 +702,8 @@ def add_core_cortical_area(cortical_properties):
         print("Error: New cortical area was not added.", traceback.print_exc())
 
 
-def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cortical_dimensions, brain_region_id="root",
-                             cortical_id_overwrite=None, is_memory=False, copy_of=None):
+def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cortical_dimensions,
+                             parent_region_id="root", cortical_id_overwrite=None, is_memory=False, copy_of=None):
     # Generate Cortical ID
     # todo: instead of hard coding the length have the genome properties captured and reference instead
     temp_name = cortical_name
@@ -768,8 +756,8 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
         
         runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] = ""
 
-        runtime_data.genome["brain_regions"][brain_region_id]["areas"].append(cortical_area)
-        runtime_data.cortical_area_region_association[cortical_area] = brain_region_id
+        runtime_data.cortical_area_region_association[cortical_area] = parent_region_id
+        runtime_data.genome["brain_regions"][parent_region_id]["areas"].append(cortical_area)
 
         if is_memory:
             runtime_data.genome["blueprint"][cortical_area]["longterm_mem_threshold"] = \
@@ -894,7 +882,7 @@ def append_circuit(source_genome, circuit_origin):
             print(f"-----Attempting to import morphology {src_morphology}")
             try:
                 # Check if morphology is used or not
-                morphology_usage = synapse.morphology_usage_list(morphology_name=src_morphology, genome=source_genome)
+                morphology_usage = morphology_usage_list(morphology_name=src_morphology, genome=source_genome)
 
                 if morphology_usage:
                     morphology_str = json.dumps(src_morphologies[src_morphology])

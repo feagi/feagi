@@ -28,6 +28,7 @@ from src.inf import runtime_data
 from src.evo.genome_editor import save_genome
 from src.evo.genome_processor import genome_2_1_convertor, genome_v1_v2_converter
 from src.evo.stats import circuit_size
+from src.evo.region import region_id_2_title, construct_genome_from_region
 from src.inf.initialize import generate_cortical_dimensions_by_id
 
 
@@ -105,6 +106,26 @@ async def genome_download(_: str = Depends(check_active_genome)):
     if runtime_data.genome:
         runtime_data.changes_saved_externally = True
         return FileResponse(path=runtime_data.connectome_path + "genome.json", filename=file_name)
+    else:
+        raise HTTPException(status_code=400, detail="No running genome found!")
+
+
+@router.get("/download_region")
+async def genome_download_from_region(region_id, _: str = Depends(check_active_genome)):
+    print(f"Downloading genome associated with {region_id} ...")
+    print("==========================>>>>\n", runtime_data.genome)
+
+    region_title = region_id_2_title(region_id=region_id)
+    genome_payload = construct_genome_from_region(region_id=region_id)
+
+    genome_path = runtime_data.connectome_path + f"genome_{region_title}.json"
+    save_genome(genome=genome_payload,
+                file_name=genome_path)
+    file_name = f"genome_{region_title}" + datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".json"
+
+    if runtime_data.genome:
+        runtime_data.changes_saved_externally = True
+        return FileResponse(path=genome_path, filename=file_name)
     else:
         raise HTTPException(status_code=400, detail="No running genome found!")
 
@@ -221,11 +242,13 @@ async def amalgamation_history():
 async def amalgamation_conclusion(circuit_origin_x: int,
                                   circuit_origin_y: int,
                                   circuit_origin_z: int,
-                                  amalgamation_id):
+                                  amalgamation_id,
+                                  disable_autoconnect: Optional[bool]):
     if pending_amalgamation():
         payload = dict()
         payload["genome_str"] = runtime_data.pending_amalgamation["genome_payload"]
         payload["circuit_origin"] = [circuit_origin_x, circuit_origin_y, circuit_origin_z]
+        payload[""]
         data = {'append_circuit': payload}
         api_queue.put(item=data)
         genome_title = runtime_data.pending_amalgamation["genome_title"]

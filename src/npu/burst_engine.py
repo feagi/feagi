@@ -171,7 +171,7 @@ def burst_manager():
         if runtime_data.burst_count % runtime_data.genome["physiology"]['evolution_burst_count'] == 0:
             print('Evolution phase reached...')
             for area in runtime_data.cortical_list:
-                neuron_count, synapse_count = connectome_total_synapse_cnt(area)
+                neuron_count, synapse_count = cortical_area_anatomical_stats(area)
                 if (runtime_data.parameters["Database"]["influxdb_enabled"] and
                         runtime_data.influxdb and
                         runtime_data.parameters["Database"]["influx_stat_logger"]):
