@@ -90,6 +90,7 @@ async def delete_region(region_id: Id):
             change_brain_region_parent(region_id=region_id.id,
                                        new_parent_id=region_parent)
         runtime_data.genome["brain_regions"].pop(region_id.id)
+        runtime_data.genome["brain_regions"][region_parent]["regions"].pop(region_id.id)
 
     else:
         raise HTTPException(status_code=400, detail=f"{region_id.id} is not a valid region id")
