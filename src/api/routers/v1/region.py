@@ -82,10 +82,14 @@ async def delete_region(region_id: Id):
         raise HTTPException(status_code=400, detail="Root region cannot be deleted")
     elif region_id.id in runtime_data.genome["brain_regions"]:
         region_parent = runtime_data.genome["brain_regions"][region_id.id]["parent_region_id"]
-        for area in runtime_data.genome["brain_regions"][region_id.id]:
-            change_cortical_area_parent(cortical_area_id=area,
+        for area_id in runtime_data.genome["brain_regions"][region_id.id]["areas"]:
+            change_cortical_area_parent(cortical_area_id=area_id,
                                         new_parent_id=region_parent)
-            runtime_data.cortical_area_region_association[area] = region_parent
+            runtime_data.cortical_area_region_association[area_id] = region_parent
+        for region_id in runtime_data.genome["brain_regions"][region_id.id]["regions"]:
+            change_brain_region_parent(region_id=region_id,
+                                       new_parent_id=region_parent)
+
     else:
         raise HTTPException(status_code=400, detail=f"{region_id.id} is not a valid region id")
 
