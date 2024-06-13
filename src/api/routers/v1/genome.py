@@ -71,6 +71,12 @@ async def genome_file_upload(file: UploadFile = File(...)):
 
     genome_str = json.loads(data)
 
+    if "genome_title" not in genome_str:
+        genome_str["genome_title"] = runtime_data.genome_file_name
+
+    if "genome_description" not in genome_str:
+        genome_str["genome_description"] = ""
+
     # genome_str = genome_str.replace('\'', '\"')
     # genome_str = data.decode("utf-8").split(" = ")[1]
     message = {'genome': genome_str}
@@ -91,6 +97,13 @@ async def genome_file_name():
 
 @router.post("/upload/string")
 async def genome_string_upload(genome: dict):
+
+    if "genome_title" not in genome:
+        genome["genome_title"] = "Unknown Genome"
+
+    if "genome_description" not in genome:
+        genome["genome_description"] = ""
+
     message = {'genome': genome}
     api_queue.put(item=message)
 
@@ -239,19 +252,19 @@ async def amalgamation_history():
 
 
 @router.post("/amalgamation_destination")
-async def amalgamation_conclusion(circuit_origin_x: int,
-                                  circuit_origin_y: int,
-                                  circuit_origin_z: int,
-                                  amalgamation_id,
-                                  disable_autoconnect: Optional[bool]):
+async def amalgamation_conclusion(circuit_origin_x,
+                                  circuit_origin_y,
+                                  circuit_origin_z,
+                                  amalgamation_id):
     if pending_amalgamation():
         payload = dict()
         payload["genome_str"] = runtime_data.pending_amalgamation["genome_payload"]
-        payload["circuit_origin"] = [circuit_origin_x, circuit_origin_y, circuit_origin_z]
-        payload[""]
+        payload["circuit_origin"] = [int(circuit_origin_x), int(circuit_origin_y), int(circuit_origin_z)]
         data = {'append_circuit': payload}
+        print(data)
         api_queue.put(item=data)
         genome_title = runtime_data.pending_amalgamation["genome_title"]
+
         cancel_pending_amalgamation(amalgamation_id=amalgamation_id)
         runtime_data.amalgamation_history["amalgamation_id"] = "complete"
         return f"Amalgamation for \"{genome_title}\" is complete."

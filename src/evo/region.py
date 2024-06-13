@@ -225,7 +225,6 @@ def construct_genome_from_region(region_id):
     # for efferent_area in efferent_areas:
         # todo
 
-
     print("region_cortical_list:", region_cortical_list)
 
     # Set region stats
@@ -265,3 +264,10 @@ def construct_genome_from_region(region_id):
     print("#__" * 20)
     print(json.dumps(genome_from_region, indent=4))
     return genome_from_region
+
+
+def cortical_area_region_sanity_check(cortical_area):
+    if cortical_area not in runtime_data.cortical_area_region_association:
+        runtime_data.cortical_area_region_association[cortical_area] = "root"
+
+
