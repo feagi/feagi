@@ -39,9 +39,11 @@ from src.evo.genome_processor import genome_1_cortical_list, genome_v1_v2_conver
 from src.evo.genome_editor import save_genome
 from src.evo.voxels import generate_cortical_dimensions_by_id, generate_cortical_dimensions
 from src.evo.connectome import reset_connectome_file
+from src.evo.region import create_region
 from src.evo.synapse import neighboring_cortical_areas
 from src.evo.neuroembryogenesis import cortical_name_list, develop, generate_plasticity_dict
 from src.inf.initialize import init_fcl, init_memory_register, init_cortical_cumulative_stats
+from src.api.schemas import NewRegionProperties
 
 # from src.evo.synaptogenesis_rules import syn_memory
 
@@ -784,9 +786,31 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
         return cortical_area
 
 
-def append_circuit(source_genome, circuit_origin):
+def append_circuit(source_genome, circuit_origin, parent_brain_region):
     print("\n\n----------------------------------  Merging a new circuit  ----------------------------------------\n\n")
     try:
+        if "genome_title" in source_genome:
+            brain_region_title = source_genome["genome_title"]
+        else:
+            brain_region_title = "imported_genome"
+
+        if "genome_description" in source_genome:
+            brain_region_description = source_genome["genome_description"]
+        else:
+            brain_region_description = "No Description"
+
+        region_data = NewRegionProperties
+        region_data.title = brain_region_title
+        region_data.region_description = brain_region_description
+        region_data.parent_region_id = parent_brain_region
+        region_data.coordinates_2d = [0, 0]
+        region_data.coordinates_3d = circuit_origin
+
+        region_data.areas = []
+        region_data.regions = []
+
+        new_region_id = create_region(region_data=region_data)
+
         converted_genome = genome_2_1_convertor(source_genome["blueprint"])
         source_genome["blueprint"] = converted_genome['blueprint']
 
@@ -798,7 +822,7 @@ def append_circuit(source_genome, circuit_origin):
 
         appended_cortical_areas = set()
 
-        # Append Blueprint
+        # Amalgamate Blueprint
         for cortical_area_id in src_blueprint:
             print(f"-----Attempting to import cortical area {cortical_area_id}")
             try:
@@ -865,7 +889,21 @@ def append_circuit(source_genome, circuit_origin):
             except Exception as e:
                 print("Exception during cortical import", e, traceback.print_exc())
 
-        # Append Morphologies
+        # Amalgamate Brain Regions
+        if "brain_regions" in source_genome:
+            incoming_genome_region_data = source_genome["brain_regions"]
+            for sub_region in incoming_genome_region_data["root"]["regions"]:
+                incoming_genome_region_data[sub_region]["parent_region_id"] = new_region_id
+            for sub_area in incoming_genome_region_data["root"]["areas"]:
+                runtime_data.cortical_area_region_association[sub_area] = new_region_id
+            incoming_genome_region_data[new_region_id] = incoming_genome_region_data.pop('root')
+        else:
+            incoming_genome_region_data = dict()
+
+        amalgamated_brain_region = {**runtime_data.genome["brain_regions"], **incoming_genome_region_data}
+        print("amalgamated_brain_region", amalgamated_brain_region)
+
+        # Amalgamate Morphologies
         # Create a hash table for source and destination morphologies
         dst_morphology_hash_table = dict()
 

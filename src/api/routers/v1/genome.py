@@ -255,11 +255,13 @@ async def amalgamation_history():
 async def amalgamation_conclusion(circuit_origin_x,
                                   circuit_origin_y,
                                   circuit_origin_z,
-                                  amalgamation_id):
+                                  amalgamation_id,
+                                  brain_region_id="root"):
     if pending_amalgamation():
         payload = dict()
         payload["genome_str"] = runtime_data.pending_amalgamation["genome_payload"]
         payload["circuit_origin"] = [int(circuit_origin_x), int(circuit_origin_y), int(circuit_origin_z)]
+        payload["parent_brain_region"] = brain_region_id
         data = {'append_circuit': payload}
         print(data)
         api_queue.put(item=data)
