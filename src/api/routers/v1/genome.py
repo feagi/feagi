@@ -114,11 +114,21 @@ async def genome_download(_: str = Depends(check_active_genome)):
     print("==========================>>>>\n", runtime_data.genome)
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                 file_name=runtime_data.connectome_path + "genome.json")
-    file_name = "genome_" + datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".json"
+    file_name = "genome-" + runtime_data.genome["genome_title"].replace(" ", "_") + ".json"
     print(file_name)
+
     if runtime_data.genome:
         runtime_data.changes_saved_externally = True
-        return FileResponse(path=runtime_data.connectome_path + "genome.json", filename=file_name)
+        file_path = runtime_data.connectome_path + "genome.json"
+        headers = {"Content-Disposition": f"attachment; filename={file_name}"}
+        response = FileResponse(path=file_path,
+                                media_type="application/json",
+                                filename=file_name,
+                                headers=headers
+                                )
+        # response.headers["Content-Disposition"] = f'attachment; filename=\"{file_name}\"'
+        # print("response headers", response.headers)
+        return response
     else:
         raise HTTPException(status_code=400, detail="No running genome found!")
 
@@ -134,11 +144,11 @@ async def genome_download_from_region(region_id, _: str = Depends(check_active_g
     genome_path = runtime_data.connectome_path + f"genome_{region_title}.json"
     save_genome(genome=genome_payload,
                 file_name=genome_path)
-    file_name = f"genome_{region_title}" + datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".json"
+    file_name = f"genome-{region_title}".replace(" ", "_") + ".json"
 
     if runtime_data.genome:
         runtime_data.changes_saved_externally = True
-        return FileResponse(path=genome_path, filename=file_name)
+        return FileResponse(path=genome_path, media_type="application/json", filename=file_name)
     else:
         raise HTTPException(status_code=400, detail="No running genome found!")
 

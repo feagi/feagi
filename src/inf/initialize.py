@@ -162,6 +162,7 @@ def init_brain_regions():
     if "root" not in runtime_data.genome["brain_regions"]:
         runtime_data.genome["brain_regions"]["root"] = {}
         runtime_data.genome["brain_regions"]["root"]["title"] = "Genome's root brain region"
+        runtime_data.genome["brain_regions"]["root"]["description"] = None
         runtime_data.genome["brain_regions"]["root"]["parent_region_id"] = None
         runtime_data.genome["brain_regions"]["root"]["coordinate_2d"] = [0, 0]
         runtime_data.genome["brain_regions"]["root"]["coordinate_3d"] = [0, 0, 0]
@@ -170,9 +171,9 @@ def init_brain_regions():
         runtime_data.genome["brain_regions"]["root"]["inputs"] = []
         runtime_data.genome["brain_regions"]["root"]["outputs"] = []
 
-    for cortical_area in runtime_data.cortical_list:
-        runtime_data.genome["brain_regions"]["root"]["areas"].append(cortical_area)
-        runtime_data.cortical_area_region_association[cortical_area] = "root"
+        for cortical_area in runtime_data.cortical_list:
+            runtime_data.genome["brain_regions"]["root"]["areas"].append(cortical_area)
+            runtime_data.cortical_area_region_association[cortical_area] = "root"
 
         # if runtime_data.genome["blueprint"][cortical_area]["group_id"] == "IPU":
         #     runtime_data.genome["brain_regions"]["root"]["inputs"][cortical_area] = []
