@@ -822,6 +822,8 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region):
 
         appended_cortical_areas = set()
 
+        amalgamation_cortical_mapping = dict()
+
         # Amalgamate Blueprint
         for cortical_area_id in src_blueprint:
             print(f"-----Attempting to import cortical area {cortical_area_id}")
@@ -865,6 +867,7 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region):
                     #                          cortical_id_overwrite=new_cortical_area_id)
 
                     appended_cortical_areas.add(new_cortical_area_id)
+                    amalgamation_cortical_mapping[cortical_area_id] = new_cortical_area_id
 
                     dst_blueprint[new_cortical_area_id] = src_cortical_area.copy()
                     dst_blueprint[new_cortical_area_id]["cortical_name"] = new_cortical_name
@@ -910,6 +913,15 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region):
             incoming_genome_region_data[new_region_id] = incoming_genome_region_data.pop('root')
         else:
             incoming_genome_region_data = dict()
+
+        # Swap cortical IDs
+        for region in incoming_genome_region_data:
+            incoming_area_set = set(incoming_genome_region_data[region]["areas"])
+            for area in incoming_genome_region_data[region]["areas"]:
+                if area in amalgamation_cortical_mapping:
+                    incoming_area_set.remove(area)
+                    incoming_area_set.add(amalgamation_cortical_mapping[area])
+            incoming_genome_region_data[region]["areas"] = list(incoming_area_set)
 
         runtime_data.genome["brain_regions"] = {**runtime_data.genome["brain_regions"], **incoming_genome_region_data}
 
