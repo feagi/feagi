@@ -219,7 +219,6 @@ def construct_genome_from_region(region_id):
     genome_from_region["brain_regions"]["root"]["coordinate_3d"] = [0, 0, 0]
 
     for region in comprehensive_subregion_list:
-        print(f"@ - > {region}")
         genome_from_region["brain_regions"][region] = runtime_data.genome["brain_regions"][region].copy()
 
     # Create suggested input/output mappings for all regions
