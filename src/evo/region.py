@@ -191,7 +191,7 @@ def construct_genome_from_region(region_id):
         "blueprint": {},
         "brain_regions": {
             "root": {
-                "title": runtime_data.genome["brain_regions"][region_id].get("description", "No Description"),
+                "title": runtime_data.genome["brain_regions"][region_id].get("title", "No Title"),
                 "parent_region_id": None,
                 "coordinate_2d": [0, 0],
                 "coordinate_3d": [0, 0, 0],
@@ -213,8 +213,14 @@ def construct_genome_from_region(region_id):
     genome_from_region["blueprint"] = genome_v1_v2_converter(genome_from_region)["blueprint"]
 
     # Create Region list
+    genome_from_region["brain_regions"]["root"] = runtime_data.genome["brain_regions"][region_id].copy()
+    genome_from_region["brain_regions"]["root"]["parent_region_id"] = None
+    genome_from_region["brain_regions"]["root"]["coordinate_2d"] = [0, 0]
+    genome_from_region["brain_regions"]["root"]["coordinate_3d"] = [0, 0, 0]
+
     for region in comprehensive_subregion_list:
-        genome_from_region["brain_regions"][region] = runtime_data.genome["brain_regions"][region_id].copy()
+        print(f"@ - > {region}")
+        genome_from_region["brain_regions"][region] = runtime_data.genome["brain_regions"][region].copy()
 
     # Create suggested input/output mappings for all regions
     """

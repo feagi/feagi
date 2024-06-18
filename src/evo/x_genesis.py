@@ -913,8 +913,6 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region):
 
         runtime_data.genome["brain_regions"] = {**runtime_data.genome["brain_regions"], **incoming_genome_region_data}
 
-        print("\n\n\n\n\n\n\nBrain Regions", runtime_data.genome["brain_regions"])
-
         # Amalgamate Morphologies
         # Create a hash table for source and destination morphologies
         dst_morphology_hash_table = dict()
