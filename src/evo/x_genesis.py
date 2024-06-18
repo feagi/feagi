@@ -892,10 +892,14 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region):
         # Amalgamate Brain Regions
         if "brain_regions" in source_genome:
             incoming_genome_region_data = source_genome["brain_regions"]
-            incoming_genome_region_data[new_region_id]["title"] = source_genome.get("genome_title", "No title")
-            incoming_genome_region_data[new_region_id]["description"] = \
+
+            incoming_genome_region_data["root"]["title"] = \
+                source_genome.get("genome_title", "No title")
+
+            incoming_genome_region_data["root"]["description"] = \
                 source_genome.get("genome_description", "No description")
-            incoming_genome_region_data[new_region_id]["parent_region_id"] = parent_brain_region
+
+            incoming_genome_region_data["root"]["parent_region_id"] = parent_brain_region
 
             for sub_region in incoming_genome_region_data["root"]["regions"]:
                 incoming_genome_region_data[sub_region]["parent_region_id"] = new_region_id
@@ -908,6 +912,8 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region):
             incoming_genome_region_data = dict()
 
         runtime_data.genome["brain_regions"] = {**runtime_data.genome["brain_regions"], **incoming_genome_region_data}
+
+        print("\n\n\n\n\n\n\nBrain Regions", runtime_data.genome["brain_regions"])
 
         # Amalgamate Morphologies
         # Create a hash table for source and destination morphologies
