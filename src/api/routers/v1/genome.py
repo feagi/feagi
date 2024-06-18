@@ -192,7 +192,7 @@ async def reset_genome():
 
 
 @router.post("/amalgamation_by_payload")
-async def amalgamation_attempt(amalgamation_param: AmalgamationRequest):
+async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, _: str = Depends(check_active_genome)):
     if pending_amalgamation():
         raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
     else:
@@ -213,7 +213,7 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest):
 
 
 @router.post("/amalgamation_by_upload")
-async def amalgamation_attempt(file: UploadFile = File(...)):
+async def amalgamation_attempt(_: str = Depends(check_active_genome), file: UploadFile = File(...)):
     if pending_amalgamation():
         raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
     else:
@@ -238,7 +238,7 @@ async def amalgamation_attempt(file: UploadFile = File(...)):
 
 
 @router.post("/amalgamation_by_filename")
-async def amalgamation_attempt(amalgamation_param: AmalgamationRequest):
+async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, _: str = Depends(check_active_genome)):
     if pending_amalgamation():
         raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
     else:
@@ -266,6 +266,7 @@ async def amalgamation_conclusion(circuit_origin_x,
                                   circuit_origin_y,
                                   circuit_origin_z,
                                   amalgamation_id,
+                                  _: str = Depends(check_active_genome),
                                   brain_region_id="root"):
     if pending_amalgamation():
         payload = dict()
