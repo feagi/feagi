@@ -240,7 +240,7 @@ def construct_genome_from_region(region_id):
         {}
     ]
     """
-    for subregion in runtime_data.genome["brain_regions"][region_id]["regions"]:
+    for subregion in runtime_data.genome["brain_regions"][region_id]["regions"] + [region_id]:
         subregion_suggested_afferents = []
         subregion_suggested_efferents = []
         afferent_areas = set()
@@ -286,8 +286,12 @@ def construct_genome_from_region(region_id):
                         mapping["dst_cortical_area_id"] = dst
                         subregion_suggested_efferents.append(mapping)
 
-        genome_from_region["brain_regions"][subregion]["inputs"] = subregion_suggested_afferents
-        genome_from_region["brain_regions"][subregion]["outputs"] = subregion_suggested_efferents
+        if subregion == region_id:
+            genome_from_region["brain_regions"]["root"]["inputs"] = subregion_suggested_afferents
+            genome_from_region["brain_regions"]["root"]["outputs"] = subregion_suggested_efferents
+        else:
+            genome_from_region["brain_regions"][subregion]["inputs"] = subregion_suggested_afferents
+            genome_from_region["brain_regions"][subregion]["outputs"] = subregion_suggested_efferents
 
     # Set region stats
     region_neuron_count = 0
