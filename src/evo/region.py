@@ -210,7 +210,6 @@ def construct_genome_from_region(region_id):
     # Generate blueprint
     for cortical_area in comprehensive_area_list:
         genome_from_region["blueprint"][cortical_area] = runtime_data.genome["blueprint"][cortical_area].copy()
-    genome_from_region["blueprint"] = genome_v1_v2_converter(genome_from_region)["blueprint"]
 
     # Create Region list
     genome_from_region["brain_regions"]["root"] = runtime_data.genome["brain_regions"][region_id].copy()
@@ -220,6 +219,9 @@ def construct_genome_from_region(region_id):
 
     for region in comprehensive_subregion_list:
         genome_from_region["brain_regions"][region] = runtime_data.genome["brain_regions"][region].copy()
+
+    region_afferents = set()
+    region_efferents = set()
 
     # Create suggested input/output mappings for all regions
     """
@@ -293,6 +295,15 @@ def construct_genome_from_region(region_id):
             genome_from_region["brain_regions"][subregion]["inputs"] = subregion_suggested_afferents
             genome_from_region["brain_regions"][subregion]["outputs"] = subregion_suggested_efferents
 
+        region_efferents.update(efferent_areas)
+        region_afferents.update(afferent_areas)
+
+    # Scrub Efferents
+    for cortical_area in genome_from_region["blueprint"].copy():
+        for dst in genome_from_region["blueprint"][cortical_area]["cortical_mapping_dst"].copy():
+            if dst in region_efferents:
+                genome_from_region["blueprint"][cortical_area]["cortical_mapping_dst"].pop(dst)
+
     # Set region stats
     region_neuron_count = 0
     region_synapse_count = 0
@@ -322,7 +333,9 @@ def construct_genome_from_region(region_id):
     genome_from_region["signatures"]["blueprint"] = generate_hash(genome_from_region["blueprint"])
     genome_from_region["signatures"]["physiology"] = generate_hash(genome_from_region["physiology"])
 
-    print(json.dumps(genome_from_region, indent=4))
+    # Convert Genome to 2.0
+    genome_from_region["blueprint"] = genome_v1_v2_converter(genome_from_region)["blueprint"]
+
     return genome_from_region
 
 
