@@ -900,8 +900,7 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region):
         else:
             incoming_genome_region_data = dict()
 
-        amalgamated_brain_region = {**runtime_data.genome["brain_regions"], **incoming_genome_region_data}
-        print("amalgamated_brain_region", amalgamated_brain_region)
+        runtime_data.genome["brain_regions"] = {**runtime_data.genome["brain_regions"], **incoming_genome_region_data}
 
         # Amalgamate Morphologies
         # Create a hash table for source and destination morphologies
