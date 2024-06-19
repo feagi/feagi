@@ -81,10 +81,10 @@ def create_region(region_data):
     runtime_data.genome["brain_regions"][region_id]["coordinate_3d"] = region_data.coordinates_3d
     runtime_data.genome["brain_regions"][region_id]["areas"] = list()
     runtime_data.genome["brain_regions"][region_id]["regions"] = list()
-    runtime_data.genome["brain_regions"][region_id]["inputs"] = dict()
-    runtime_data.genome["brain_regions"][region_id]["outputs"] = dict()
-    runtime_data.genome["brain_regions"][region_id]["suggested_afferents"] = list()
-    runtime_data.genome["brain_regions"][region_id]["suggested_efferents"] = list()
+    runtime_data.genome["brain_regions"][region_id]["inputs"] = list()
+    runtime_data.genome["brain_regions"][region_id]["outputs"] = list()
+    # runtime_data.genome["brain_regions"][region_id]["suggested_afferents"] = list()
+    # runtime_data.genome["brain_regions"][region_id]["suggested_efferents"] = list()
     runtime_data.genome["brain_regions"][region_id]["regions"] = list()
     runtime_data.genome["brain_regions"][region_id]["signature"] = ""
     runtime_data.genome["brain_regions"][region_data.parent_region_id]["regions"].append(region_id)
@@ -135,6 +135,7 @@ def relocate_region_members(relocation_data):
             if "parent_region_id" in relocation_data[object_id]:
                 change_cortical_area_parent(cortical_area_id=object_id,
                                             new_parent_id=relocation_data[object_id]["parent_region_id"])
+
         elif object_id in runtime_data.genome["brain_regions"]:
             if "coordinate_2d" in relocation_data[object_id]:
                 runtime_data.genome["brain_regions"][object_id]["coordinate_2d"][0] = \
@@ -154,9 +155,32 @@ def relocate_region_members(relocation_data):
     runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
 
 
+def direct_region_cortical_areas(region_id):
+    area_list = runtime_data.genome["brain_regions"][region_id]["areas"]
+    return area_list
+
+
+def recursive_sub_regions(region_id):
+    region_list = set()
+    for region in runtime_data.genome["brain_regions"][region_id]["regions"]:
+        region_list.add(region)
+
+    return region_list
+
+
+def recursive_region_cortical_areas(region_id):
+    recursive_region_list = recursive_sub_regions(region_id)
+    area_list = set()
+    area_list.update(set(direct_region_cortical_areas(region_id=region_id)))
+    for sub_region_id in recursive_region_list:
+        area_list.update(set(direct_region_cortical_areas(region_id=sub_region_id)))
+    return area_list
+
+
 def construct_genome_from_region(region_id):
     genome_from_region = {
-        "title": region_id_2_title(region_id=region_id),
+        "genome_title": runtime_data.genome["brain_regions"][region_id].get("title", "No Title"),
+        "genome_description": runtime_data.genome["brain_regions"][region_id].get("description", "No Description"),
         "timestamp": time(),
         "genome_id": genome_id_gen(size=6, chars=string.ascii_uppercase + string.digits),
         "version": runtime_data.genome["version"],
@@ -166,32 +190,41 @@ def construct_genome_from_region(region_id):
         "physiology": runtime_data.genome["physiology"],
         "neuron_morphologies": {},
         "blueprint": {},
-        "brain_regions": {}
+        "brain_regions": {
+            "root": {
+                "title": runtime_data.genome["brain_regions"][region_id].get("title", "No Title"),
+                "parent_region_id": None,
+                "coordinate_2d": [0, 0],
+                "coordinate_3d": [0, 0, 0],
+                "areas": runtime_data.genome["brain_regions"][region_id]["areas"],
+                "regions": runtime_data.genome["brain_regions"][region_id]["regions"],
+                "inputs": [],
+                "outputs": []
+            }
+        }
     }
 
-    region_cortical_list = runtime_data.genome["brain_regions"][region_id]["areas"]
+    region_cortical_list = direct_region_cortical_areas(region_id=region_id)
+    comprehensive_subregion_list = recursive_sub_regions(region_id=region_id)
+    comprehensive_area_list = recursive_region_cortical_areas(region_id=region_id)
 
-    # Todo: Generating suggested afferent / efferent
-    afferent_areas = set()
-    efferent_areas = set()
+    # Generate blueprint
+    for cortical_area in comprehensive_area_list:
+        genome_from_region["blueprint"][cortical_area] = runtime_data.genome["blueprint"][cortical_area].copy()
 
-    for area in region_cortical_list:
-        upstream_cortical_areas, downstream_cortical_areas = \
-            neighboring_cortical_areas(cortical_area=area, blueprint=runtime_data.genome["blueprint"])
+    # Create Region list
+    genome_from_region["brain_regions"]["root"] = runtime_data.genome["brain_regions"][region_id].copy()
+    genome_from_region["brain_regions"]["root"]["parent_region_id"] = None
+    genome_from_region["brain_regions"]["root"]["coordinate_2d"] = [0, 0]
+    genome_from_region["brain_regions"]["root"]["coordinate_3d"] = [0, 0, 0]
 
-        # Afferents
-        for area_ in upstream_cortical_areas:
-            if area_ not in region_cortical_list:
-                afferent_areas.add(area_)
+    for region in comprehensive_subregion_list:
+        genome_from_region["brain_regions"][region] = runtime_data.genome["brain_regions"][region].copy()
 
-        # Efferents
-        for area_ in downstream_cortical_areas:
-            if area_ not in region_cortical_list:
-                efferent_areas.add(area_)
+    region_afferents = set()
+    region_efferents = set()
 
-    suggested_afferents = []
-    suggested_efferents = []
-
+    # Create suggested input/output mappings for all regions
     """
     suggested_afferents = [
         {
@@ -210,45 +243,84 @@ def construct_genome_from_region(region_id):
         {}
     ]
     """
-    # Build suggested afferent list
-    for afferent_area in afferent_areas:
-        for dst in runtime_data.genome["blueprint"][afferent_area]["cortical_mapping_dst"]:
-            if dst in region_cortical_list:
-                for mapping in runtime_data.genome["blueprint"][afferent_area]["cortical_mapping_dst"][dst]:
-                    mapping["src_cortical_area_id"] = afferent_area
-                    mapping["src_cortical_area_name"] = runtime_data.genome["blueprint"][afferent_area]["cortical_name"]
-                    mapping["src_cortical_area_custom_label"] = None
-                    mapping["dst_cortical_area_id"] = dst
-                    suggested_afferents.append(mapping)
+    for subregion in runtime_data.genome["brain_regions"][region_id]["regions"] + [region_id]:
+        subregion_suggested_afferents = []
+        subregion_suggested_efferents = []
+        afferent_areas = set()
+        efferent_areas = set()
+        subregion_recursive_cortical_list = recursive_region_cortical_areas(region_id=subregion)
 
-    # Build efferent mapping list
-    # for efferent_area in efferent_areas:
-        # todo
+        # Develop Afferent / Efferent lists
+        for area in runtime_data.genome["brain_regions"][subregion]["areas"]:
+            upstream_cortical_areas, downstream_cortical_areas = \
+                neighboring_cortical_areas(cortical_area=area, blueprint=runtime_data.genome["blueprint"])
 
+            # Afferents
+            for area_ in upstream_cortical_areas:
+                if area_ not in subregion_recursive_cortical_list:
+                    afferent_areas.add(area_)
 
-    print("region_cortical_list:", region_cortical_list)
+            # Efferents
+            for area_ in downstream_cortical_areas:
+                if area_ not in subregion_recursive_cortical_list:
+                    efferent_areas.add(area_)
+
+        # Build suggested afferent list for each region
+        for afferent_area in afferent_areas:
+            for dst in runtime_data.genome["blueprint"][afferent_area]["cortical_mapping_dst"]:
+                if dst in region_cortical_list:
+                    for mapping in runtime_data.genome["blueprint"][afferent_area]["cortical_mapping_dst"][dst]:
+                        mapping["src_cortical_area_id"] = afferent_area
+                        mapping["src_cortical_area_name"] = runtime_data.genome["blueprint"][afferent_area][
+                            "cortical_name"]
+                        mapping["src_cortical_area_custom_label"] = None
+                        mapping["dst_cortical_area_id"] = dst
+                        subregion_suggested_afferents.append(mapping)
+
+        # Build suggested efferent list
+        for cortical_area in comprehensive_area_list:
+            for dst in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"]:
+                if dst in efferent_areas:
+                    for mapping in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"][dst]:
+                        mapping["src_cortical_area_id"] = cortical_area
+                        mapping["src_cortical_area_name"] = runtime_data.genome["blueprint"][cortical_area][
+                            "cortical_name"]
+                        mapping["src_cortical_area_custom_label"] = None
+                        mapping["dst_cortical_area_id"] = dst
+                        subregion_suggested_efferents.append(mapping)
+
+        if subregion == region_id:
+            genome_from_region["brain_regions"]["root"]["inputs"] = subregion_suggested_afferents
+            genome_from_region["brain_regions"]["root"]["outputs"] = subregion_suggested_efferents
+        else:
+            genome_from_region["brain_regions"][subregion]["inputs"] = subregion_suggested_afferents
+            genome_from_region["brain_regions"][subregion]["outputs"] = subregion_suggested_efferents
+
+        region_efferents.update(efferent_areas)
+        region_afferents.update(afferent_areas)
+
+    # Scrub Efferents
+    for cortical_area in genome_from_region["blueprint"].copy():
+        for dst in genome_from_region["blueprint"][cortical_area]["cortical_mapping_dst"].copy():
+            if dst in region_efferents:
+                genome_from_region["blueprint"][cortical_area]["cortical_mapping_dst"].pop(dst)
 
     # Set region stats
     region_neuron_count = 0
     region_synapse_count = 0
 
-    for cortical_area in region_cortical_list:
+    for cortical_area in comprehensive_area_list:
         neuron_cnt, synapse_cnt = cortical_area_anatomical_stats(cortical_area=cortical_area)
         region_neuron_count += neuron_cnt
         region_synapse_count += synapse_cnt
 
-    genome_from_region["stats"]["innate_cortical_area_count"] = len(region_cortical_list)
+    genome_from_region["stats"]["innate_cortical_area_count"] = len(comprehensive_area_list)
     genome_from_region["stats"]["innate_neuron_count"] = region_neuron_count
     genome_from_region["stats"]["innate_synapse_count"] = region_synapse_count
 
-    # Generate blueprint
-    for cortical_area in region_cortical_list:
-        genome_from_region["blueprint"][cortical_area] = runtime_data.genome["blueprint"][cortical_area].copy()
-    genome_from_region["blueprint"] = genome_v1_v2_converter(genome_from_region)["blueprint"]
-
     # Set morphologies
     morphology_list = set()
-    for cortical_area in region_cortical_list:
+    for cortical_area in comprehensive_area_list:
         for mapping_destination in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"]:
             for mapping in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"][mapping_destination]:
                 morphology_list.add(mapping["morphology_id"])
@@ -262,6 +334,12 @@ def construct_genome_from_region(region_id):
     genome_from_region["signatures"]["blueprint"] = generate_hash(genome_from_region["blueprint"])
     genome_from_region["signatures"]["physiology"] = generate_hash(genome_from_region["physiology"])
 
-    print("#__" * 20)
-    print(json.dumps(genome_from_region, indent=4))
+    # Convert Genome to 2.0
+    genome_from_region["blueprint"] = genome_v1_v2_converter(genome_from_region)["blueprint"]
+
     return genome_from_region
+
+
+def cortical_area_region_sanity_check(cortical_area):
+    if cortical_area not in runtime_data.cortical_area_region_association:
+        runtime_data.cortical_area_region_association[cortical_area] = "root"

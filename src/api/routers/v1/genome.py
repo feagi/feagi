@@ -71,6 +71,12 @@ async def genome_file_upload(file: UploadFile = File(...)):
 
     genome_str = json.loads(data)
 
+    if "genome_title" not in genome_str:
+        genome_str["genome_title"] = runtime_data.genome_file_name
+
+    if "genome_description" not in genome_str:
+        genome_str["genome_description"] = ""
+
     # genome_str = genome_str.replace('\'', '\"')
     # genome_str = data.decode("utf-8").split(" = ")[1]
     message = {'genome': genome_str}
@@ -91,6 +97,13 @@ async def genome_file_name():
 
 @router.post("/upload/string")
 async def genome_string_upload(genome: dict):
+
+    if "genome_title" not in genome:
+        genome["genome_title"] = "Unknown Genome"
+
+    if "genome_description" not in genome:
+        genome["genome_description"] = ""
+
     message = {'genome': genome}
     api_queue.put(item=message)
 
@@ -101,11 +114,21 @@ async def genome_download(_: str = Depends(check_active_genome)):
     print("==========================>>>>\n", runtime_data.genome)
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                 file_name=runtime_data.connectome_path + "genome.json")
-    file_name = "genome_" + datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".json"
+    file_name = "genome-" + runtime_data.genome["genome_title"].replace(" ", "_") + ".json"
     print(file_name)
+
     if runtime_data.genome:
         runtime_data.changes_saved_externally = True
-        return FileResponse(path=runtime_data.connectome_path + "genome.json", filename=file_name)
+        file_path = runtime_data.connectome_path + "genome.json"
+        headers = {"Content-Disposition": f"attachment; filename={file_name}"}
+        response = FileResponse(path=file_path,
+                                media_type="application/json",
+                                filename=file_name,
+                                headers=headers
+                                )
+        # response.headers["Content-Disposition"] = f'attachment; filename=\"{file_name}\"'
+        # print("response headers", response.headers)
+        return response
     else:
         raise HTTPException(status_code=400, detail="No running genome found!")
 
@@ -121,11 +144,11 @@ async def genome_download_from_region(region_id, _: str = Depends(check_active_g
     genome_path = runtime_data.connectome_path + f"genome_{region_title}.json"
     save_genome(genome=genome_payload,
                 file_name=genome_path)
-    file_name = f"genome_{region_title}" + datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p") + ".json"
+    file_name = f"genome-{region_title}".replace(" ", "_") + ".json"
 
     if runtime_data.genome:
         runtime_data.changes_saved_externally = True
-        return FileResponse(path=genome_path, filename=file_name)
+        return FileResponse(path=genome_path, media_type="application/json", filename=file_name)
     else:
         raise HTTPException(status_code=400, detail="No running genome found!")
 
@@ -169,7 +192,7 @@ async def reset_genome():
 
 
 @router.post("/amalgamation_by_payload")
-async def amalgamation_attempt(amalgamation_param: AmalgamationRequest):
+async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, _: str = Depends(check_active_genome)):
     if pending_amalgamation():
         raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
     else:
@@ -190,7 +213,7 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest):
 
 
 @router.post("/amalgamation_by_upload")
-async def amalgamation_attempt(file: UploadFile = File(...)):
+async def amalgamation_attempt(_: str = Depends(check_active_genome), file: UploadFile = File(...)):
     if pending_amalgamation():
         raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
     else:
@@ -215,7 +238,7 @@ async def amalgamation_attempt(file: UploadFile = File(...)):
 
 
 @router.post("/amalgamation_by_filename")
-async def amalgamation_attempt(amalgamation_param: AmalgamationRequest):
+async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, _: str = Depends(check_active_genome)):
     if pending_amalgamation():
         raise HTTPException(status_code=409, detail="An existing amalgamation attempt is pending")
     else:
@@ -239,19 +262,22 @@ async def amalgamation_history():
 
 
 @router.post("/amalgamation_destination")
-async def amalgamation_conclusion(circuit_origin_x: int,
-                                  circuit_origin_y: int,
-                                  circuit_origin_z: int,
+async def amalgamation_conclusion(circuit_origin_x,
+                                  circuit_origin_y,
+                                  circuit_origin_z,
                                   amalgamation_id,
-                                  disable_autoconnect: Optional[bool]):
+                                  _: str = Depends(check_active_genome),
+                                  brain_region_id="root"):
     if pending_amalgamation():
         payload = dict()
         payload["genome_str"] = runtime_data.pending_amalgamation["genome_payload"]
-        payload["circuit_origin"] = [circuit_origin_x, circuit_origin_y, circuit_origin_z]
-        payload[""]
+        payload["circuit_origin"] = [int(circuit_origin_x), int(circuit_origin_y), int(circuit_origin_z)]
+        payload["parent_brain_region"] = brain_region_id
         data = {'append_circuit': payload}
+        print(data)
         api_queue.put(item=data)
         genome_title = runtime_data.pending_amalgamation["genome_title"]
+
         cancel_pending_amalgamation(amalgamation_id=amalgamation_id)
         runtime_data.amalgamation_history["amalgamation_id"] = "complete"
         return f"Amalgamation for \"{genome_title}\" is complete."

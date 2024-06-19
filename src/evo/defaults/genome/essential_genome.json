@@ -1,5 +1,7 @@
 {
   "genome_id": "2022-07-10_21:53:10_961677_111111_G",
+  "genome_title": "The Essential Genome",
+  "genome_description": "A basis genome with vision and motor control",
   "version": "2.0",
   "neuron_morphologies": {
     "decrease_filter_diagonal": {
