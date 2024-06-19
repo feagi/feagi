@@ -135,6 +135,7 @@ def relocate_region_members(relocation_data):
             if "parent_region_id" in relocation_data[object_id]:
                 change_cortical_area_parent(cortical_area_id=object_id,
                                             new_parent_id=relocation_data[object_id]["parent_region_id"])
+
         elif object_id in runtime_data.genome["brain_regions"]:
             if "coordinate_2d" in relocation_data[object_id]:
                 runtime_data.genome["brain_regions"][object_id]["coordinate_2d"][0] = \
@@ -247,7 +248,7 @@ def construct_genome_from_region(region_id):
         subregion_suggested_efferents = []
         afferent_areas = set()
         efferent_areas = set()
-        subregion_recursive_cortical_list = recursive_sub_regions(region_id=subregion)
+        subregion_recursive_cortical_list = recursive_region_cortical_areas(region_id=subregion)
 
         # Develop Afferent / Efferent lists
         for area in runtime_data.genome["brain_regions"][subregion]["areas"]:
