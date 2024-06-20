@@ -921,6 +921,21 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region):
                 if area in amalgamation_cortical_mapping:
                     incoming_area_set.remove(area)
                     incoming_area_set.add(amalgamation_cortical_mapping[area])
+            for suggested_input in incoming_genome_region_data[region]["inputs"]:
+                if suggested_input["dst_cortical_area_id"] in amalgamation_cortical_mapping:
+                    updated_suggested_input = suggested_input.copy()
+                    updated_suggested_input["dst_cortical_area_id"] = \
+                        amalgamation_cortical_mapping[suggested_input["dst_cortical_area_id"]]
+                    incoming_genome_region_data[region]["inputs"].remove(suggested_input)
+                    incoming_genome_region_data[region]["inputs"].append(updated_suggested_input)
+            for suggested_output in incoming_genome_region_data[region]["outputs"]:
+                if suggested_output["src_cortical_area_id"] in amalgamation_cortical_mapping:
+                    updated_suggested_output = suggested_output.copy()
+                    updated_suggested_output["src_cortical_area_id"] = \
+                        amalgamation_cortical_mapping[suggested_output["src_cortical_area_id"]]
+                    incoming_genome_region_data[region]["outputs"].remove(suggested_output)
+                    incoming_genome_region_data[region]["outputs"].append(updated_suggested_output)
+
             incoming_genome_region_data[region]["areas"] = list(incoming_area_set)
 
         runtime_data.genome["brain_regions"] = {**runtime_data.genome["brain_regions"], **incoming_genome_region_data}
