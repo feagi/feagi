@@ -17,7 +17,7 @@
 import os
 import json
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query
 from starlette.responses import FileResponse
 
 from ...schemas import *
@@ -267,12 +267,15 @@ async def amalgamation_conclusion(circuit_origin_x,
                                   circuit_origin_z,
                                   amalgamation_id,
                                   _: str = Depends(check_active_genome),
-                                  brain_region_id="root"):
+                                  brain_region_id="root",
+                                  rewire_mode: RewiringMode = Query(default=RewiringMode.rewire_all)):
+
     if pending_amalgamation():
         payload = dict()
         payload["genome_str"] = runtime_data.pending_amalgamation["genome_payload"]
         payload["circuit_origin"] = [int(circuit_origin_x), int(circuit_origin_y), int(circuit_origin_z)]
         payload["parent_brain_region"] = brain_region_id
+        payload["rewire_mode"] = rewire_mode.value
         data = {'append_circuit': payload}
         print(data)
         api_queue.put(item=data)

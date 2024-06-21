@@ -205,7 +205,8 @@ def api_message_processor(api_message):
         if runtime_data.genome:
             append_circuit(source_genome=api_message['append_circuit']["genome_str"],
                            circuit_origin=api_message['append_circuit']['circuit_origin'],
-                           parent_brain_region=api_message['append_circuit']['parent_brain_region'])
+                           parent_brain_region=api_message['append_circuit']['parent_brain_region'],
+                           rewire_mode=api_message['append_circuit']['rewire_mode'])
         else:
             deploy_genome(neuroembryogenesis_flag=True, reset_runtime_data_flag=True,
                           genome_data=api_message['append_circuit']["genome_str"])

@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Optional, Literal, List
 from pydantic import BaseModel, Field, conint
 from fastapi.staticfiles import StaticFiles
@@ -264,3 +265,9 @@ class AmalgamationRequest(BaseModel):
     genome_id: Optional[str] = None
     genome_title: Optional[str] = None
     genome_payload: Optional[dict] = None
+
+
+class RewiringMode(str, Enum):
+    rewire_all = "all"
+    rewire_system = "system"
+    rewire_none = "none"
