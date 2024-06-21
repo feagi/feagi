@@ -328,10 +328,8 @@ def genome_v1_v2_converter(genome_v1):
                 gene = "_____10c-" + cortical_area + "-cx-dstmap-d"
                 destination_map = {}
                 for destination in genome_v1['blueprint'][cortical_area]["cortical_mapping_dst"]:
-                    print("!!! destination:", cortical_area, destination)
                     destination_map[destination] = list()
                     for entry in genome_v1['blueprint'][cortical_area]["cortical_mapping_dst"][destination]:
-                        print("entry:", entry)
                         morphology_id = entry["morphology_id"]
                         morphology_scalar = entry["morphology_scalar"]
                         postSynapticCurrent_multiplier = entry["postSynapticCurrent_multiplier"]
@@ -353,12 +351,12 @@ def genome_v1_v2_converter(genome_v1):
                             ltd_multiplier = 1
 
                         destination_map[destination].append([morphology_id,
-                                                            morphology_scalar,
-                                                            postSynapticCurrent_multiplier,
-                                                            plasticity_flag,
-                                                            plasticity_constant,
-                                                            ltp_multiplier,
-                                                            ltd_multiplier])
+                                                             morphology_scalar,
+                                                             postSynapticCurrent_multiplier,
+                                                             plasticity_flag,
+                                                             plasticity_constant,
+                                                             ltp_multiplier,
+                                                             ltd_multiplier])
 
                 genome_v2['blueprint'][gene] = destination_map
             else:
