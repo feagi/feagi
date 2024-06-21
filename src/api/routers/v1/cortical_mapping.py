@@ -141,7 +141,7 @@ async def delete_suggested_mapping(mapping_data: SuggestedMapping):
     mapping_type = mapping_data.mapping_type
     mapping_definition = mapping_data.mapping_definition
 
-    if region_id not in runtime_data.genome["brain_regions"]:
+    if region_id in runtime_data.genome["brain_regions"]:
         if mapping_type in ["inputs", "outputs"]:
             if mapping_definition in runtime_data.genome["brain_regions"][region_id][mapping_type]:
                 runtime_data.genome["brain_regions"][region_id][mapping_type].remove(mapping_definition)
