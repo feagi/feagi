@@ -164,7 +164,7 @@ class UpdateCorticalMappingProperties(BaseModel):
 class SuggestedMapping(BaseModel):
     brain_region_id: str
     mapping_type: str
-    mapping_definition: dict
+    mapping_definitions: list = [{}]
 
 
 class CorticalAreaSrcDst(BaseModel):
