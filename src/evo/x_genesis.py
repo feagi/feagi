@@ -1017,7 +1017,8 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
         # Wire to external cortical areas
         if rewire_mode in ['all', 'system']:
             for region in incoming_genome_region_data:
-                for suggested_input_mapping in incoming_genome_region_data[region]["inputs"]:
+                # Wiring Afferents
+                for suggested_input_mapping in incoming_genome_region_data[region]["inputs"].copy():
                     print("processing suggested input mapping:", suggested_input_mapping)
                     if rewire_mode == 'system' and not \
                             area_is_system(suggested_input_mapping["src_cortical_area_id"]):
@@ -1051,7 +1052,6 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                                 "ltp_multiplier": suggested_input_mapping["ltp_multiplier"],
                                 "ltd_multiplier": suggested_input_mapping["ltd_multiplier"]
                             }
-                            print("new mapping:", new_mapping)
 
                             if new_mapping not in \
                                     runtime_data.genome["blueprint"][suggested_input_mapping["src_cortical_area_id"]][
@@ -1061,11 +1061,18 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                                     new_mapping)
                                 print("New mapping added!", suggested_input_mapping["src_cortical_area_id"], suggested_input_mapping["dst_cortical_area_id"], runtime_data.genome["blueprint"][suggested_input_mapping["src_cortical_area_id"]][
                                     "cortical_mapping_dst"][suggested_input_mapping["dst_cortical_area_id"]])
+
                             else:
                                 print("input mapping already there!", suggested_input_mapping["src_cortical_area_id"], new_mapping)
+
+                            # remove the suggested mapping post wiring
+                            incoming_genome_region_data[region]["inputs"].remove(suggested_input_mapping)
+
                         else:
                             print("Suggested source cortical area not found!!", suggested_input_mapping["src_cortical_area_id"])
-                for suggested_output_mapping in incoming_genome_region_data[region]["outputs"]:
+
+                # Wiring Efferents
+                for suggested_output_mapping in incoming_genome_region_data[region]["outputs"].copy():
                     print("processing suggested input mapping:", suggested_output_mapping)
                     if rewire_mode == 'system' and not \
                             area_is_system(suggested_output_mapping["dst_cortical_area_id"]):
@@ -1109,8 +1116,13 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                                     new_mapping)
                                 print("New mapping added!", suggested_output_mapping["dst_cortical_area_id"], suggested_output_mapping["src_cortical_area_id"], runtime_data.genome["blueprint"][suggested_output_mapping["dst_cortical_area_id"]][
                                     "cortical_mapping_dst"][suggested_output_mapping["src_cortical_area_id"]])
+
                             else:
                                 print("output mapping already there!", suggested_output_mapping["dst_cortical_area_id"], new_mapping)
+
+                            # remove the suggested mapping post wiring
+                            incoming_genome_region_data[region]["outputs"].remove(suggested_output_mapping)
+
                         else:
                             print("Suggested destination cortical area not found!!", suggested_output_mapping["dst_cortical_area_id"])
         else:
