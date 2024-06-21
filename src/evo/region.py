@@ -292,9 +292,9 @@ def construct_genome_from_region(region_id):
         if subregion == region_id:
             genome_from_region["brain_regions"]["root"]["inputs"] = subregion_suggested_afferents
             genome_from_region["brain_regions"]["root"]["outputs"] = subregion_suggested_efferents
-        else:
-            genome_from_region["brain_regions"][subregion]["inputs"] = subregion_suggested_afferents
-            genome_from_region["brain_regions"][subregion]["outputs"] = subregion_suggested_efferents
+        # else:
+        #     genome_from_region["brain_regions"][subregion]["inputs"] = subregion_suggested_afferents
+        #     genome_from_region["brain_regions"][subregion]["outputs"] = subregion_suggested_efferents
 
         region_efferents.update(efferent_areas)
         region_afferents.update(afferent_areas)
