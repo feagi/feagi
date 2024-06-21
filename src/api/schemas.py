@@ -161,6 +161,12 @@ class UpdateCorticalMappingProperties(BaseModel):
     mapping_string: list
 
 
+class SuggestedMapping(BaseModel):
+    brain_region_id: str
+    mapping_type: str
+    mapping_definition: dict
+
+
 class CorticalAreaSrcDst(BaseModel):
     src_cortical_area: str
     dst_cortical_area: str
@@ -271,3 +277,4 @@ class RewiringMode(str, Enum):
     rewire_all = "all"
     rewire_system = "system"
     rewire_none = "none"
+

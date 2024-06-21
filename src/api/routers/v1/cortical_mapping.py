@@ -130,3 +130,25 @@ async def connectome_cortical_map():
                 cortical_map[cortical_area][dst] += 1
 
     return cortical_map
+
+
+@router.delete("/delete_suggested_mapping")
+async def delete_suggested_mapping(mapping_data: SuggestedMapping):
+    """
+    Deletes suggested mapping hint associated with a brain region
+    """
+    region_id = mapping_data.brain_region_id
+    mapping_type = mapping_data.mapping_type
+    mapping_definition = mapping_data.mapping_definition
+
+    if region_id not in runtime_data.genome["brain_regions"]:
+        if mapping_type in ["inputs", "outputs"]:
+            if mapping_definition in runtime_data.genome["brain_regions"][region_id][mapping_type]:
+                runtime_data.genome["brain_regions"][region_id][mapping_type].remove(mapping_definition)
+            else:
+                raise HTTPException(status_code=400, detail=f"Mapping definition not found!")
+
+        else:
+            raise HTTPException(status_code=400, detail=f"Mapping type can be defined as either 'inputs' or 'outputs' ")
+    else:
+        raise HTTPException(status_code=400, detail=f"Brain region id {region_id} is not valid.")

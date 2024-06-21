@@ -356,7 +356,7 @@ def update_cortical_mappings(cortical_mappings):
 
     #  ------- Cleanup prior mappings ---------
     runtime_data.brain = synaptic_pruner(src_cortical_area=cortical_area,
-                                                 dst_cortical_area=dst_cortical_area)
+                                         dst_cortical_area=dst_cortical_area)
 
     if dst_cortical_area in runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst']:
         runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'].pop(dst_cortical_area)
