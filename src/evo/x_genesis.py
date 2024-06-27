@@ -549,7 +549,7 @@ def prune_cortical_synapses(cortical_area):
     for src_cortical_area in upstream_cortical_areas:
         print("++++++ 2")
         runtime_data.brain = synaptic_pruner(src_cortical_area=src_cortical_area,
-                                                     dst_cortical_area=cortical_area)
+                                             dst_cortical_area=cortical_area)
 
 
 def cortical_regeneration(cortical_area):

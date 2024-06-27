@@ -163,31 +163,34 @@ def long_short_term_memory():
     runtime_data.lstm_fire_queue = set()
     if runtime_data.memory_register:
         for memory_cortical_area in runtime_data.memory_register:
-            neurogenesis_list = set()
-            for upstream_cortical_area in runtime_data.memory_register[memory_cortical_area]:
-                if upstream_cortical_area in runtime_data.fire_candidate_list:
-                    if runtime_data.fire_candidate_list[upstream_cortical_area]:
-                        # todo: performance: exclude non-immortal neurons from being processed
-                        neurogenesis_list.update(runtime_data.fire_candidate_list[upstream_cortical_area])
-            memory_hash = generate_mem_hash_cache(afferent_neuron_list=neurogenesis_list)
+            if memory_cortical_area in runtime_data.brain:
+                neurogenesis_list = set()
+                for upstream_cortical_area in runtime_data.memory_register[memory_cortical_area]:
+                    if upstream_cortical_area in runtime_data.fire_candidate_list:
+                        if runtime_data.fire_candidate_list[upstream_cortical_area]:
+                            # todo: performance: exclude non-immortal neurons from being processed
+                            neurogenesis_list.update(runtime_data.fire_candidate_list[upstream_cortical_area])
+                memory_hash = generate_mem_hash_cache(afferent_neuron_list=neurogenesis_list)
 
-            mem_neuron_id = convert_hash_to_neuron_id(cortical_area=memory_cortical_area, memory_hash=memory_hash)
-            if mem_neuron_id not in runtime_data.brain[memory_cortical_area] and memory_hash != "0x0":
-                neuron_id = init_neuron(cortical_area=memory_cortical_area, soma_location=[0, 0, 0], mem_neuron_id=memory_hash)
-                runtime_data.voxel_dict[memory_cortical_area]["0-0-0"].add(neuron_id)
-                synapse_count = synapse_memory_neuron(neuron_id=neuron_id)
-            else:
-                increase_neuron_lifespan(cortical_area=memory_cortical_area, neuron_id=mem_neuron_id)
+                mem_neuron_id = convert_hash_to_neuron_id(cortical_area=memory_cortical_area, memory_hash=memory_hash)
+                if mem_neuron_id not in runtime_data.brain[memory_cortical_area] and memory_hash != "0x0":
+                    neuron_id = init_neuron(cortical_area=memory_cortical_area,
+                                            soma_location=[0, 0, 0],
+                                            mem_neuron_id=memory_hash)
+                    runtime_data.voxel_dict[memory_cortical_area]["0-0-0"].add(neuron_id)
+                    synapse_count = synapse_memory_neuron(neuron_id=neuron_id)
+                else:
+                    increase_neuron_lifespan(cortical_area=memory_cortical_area, neuron_id=mem_neuron_id)
 
-            if memory_hash != "0x0":
-                if memory_cortical_area not in runtime_data.future_fcl:
-                    runtime_data.future_fcl[memory_cortical_area] = set()
+                if memory_hash != "0x0":
+                    if memory_cortical_area not in runtime_data.future_fcl:
+                        runtime_data.future_fcl[memory_cortical_area] = set()
 
-                runtime_data.lstm_fire_queue.add(mem_neuron_id)
-                if memory_cortical_area in runtime_data.plasticity_dict:
-                    runtime_data.plasticity_queue_candidates.add(mem_neuron_id)
+                    runtime_data.lstm_fire_queue.add(mem_neuron_id)
+                    if memory_cortical_area in runtime_data.plasticity_dict:
+                        runtime_data.plasticity_queue_candidates.add(mem_neuron_id)
 
-            inject_lstm_fire_queue_to_fcl()
+                inject_lstm_fire_queue_to_fcl()
 
 
 def lstm_lifespan_mgmt():
