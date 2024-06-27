@@ -1562,7 +1562,7 @@
     "_____10c-___pwr-cx-subgrp-t": "",
     "_____10c-___pwr-cx-_n_cnt-i": 1,
     "_____10c-___pwr-cx-synatt-i": 100,
-    "_____10c-___pwr-cx-de_gen-f": 0.01,
+    "_____10c-___pwr-cx-de_gen-f": 0,
     "_____10c-___pwr-cx-pspuni-b": false,
     "_____10c-___pwr-nx-pstcrm-f": 35,
     "_____10c-___pwr-cx-dstmap-d": {},

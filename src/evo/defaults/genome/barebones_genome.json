@@ -1598,7 +1598,7 @@
     "_____10c-_death-cx-subgrp-t": "",
     "_____10c-_death-cx-_n_cnt-i": 1,
     "_____10c-_death-cx-synatt-i": 100,
-    "_____10c-_death-cx-de_gen-f": 0.01,
+    "_____10c-_death-cx-de_gen-f": 0,
     "_____10c-_death-cx-pspuni-b": false,
     "_____10c-_death-nx-pstcrm-f": 35,
     "_____10c-_death-cx-dstmap-d": {},
