@@ -489,9 +489,11 @@ def cortical_removal(cortical_area, genome_scrub=False):
             for downstream_cortical_area in downstream_cortical_areas:
                 if downstream_cortical_area:
                     for neuron in runtime_data.brain[downstream_cortical_area]:
-                        for upstream_neuron in runtime_data.brain[downstream_cortical_area][neuron]["upstream_neurons"].copy():
+                        for upstream_neuron in \
+                                runtime_data.brain[downstream_cortical_area][neuron]["upstream_neurons"].copy():
                             if upstream_neuron[:6] == cortical_area:
-                                runtime_data.brain[downstream_cortical_area][neuron]["upstream_neurons"].discard(upstream_neuron)
+                                runtime_data.brain[downstream_cortical_area][neuron]["upstream_neurons"].discard(
+                                    upstream_neuron)
 
         # Prune affected synapses
         prune_cortical_synapses(cortical_area=cortical_area)
@@ -503,6 +505,7 @@ def cortical_removal(cortical_area, genome_scrub=False):
         for memory_area in runtime_data.memory_register:
             if cortical_area in runtime_data.memory_register[memory_area]:
                 runtime_data.memory_register[memory_area].remove(cortical_area)
+
         if cortical_area in runtime_data.memory_register:
             del runtime_data.memory_register[cortical_area]
 

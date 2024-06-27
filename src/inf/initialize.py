@@ -210,11 +210,14 @@ def init_memory_register():
 
     for cortical_area in runtime_data.genome["blueprint"]:
         for dst_cortical_area in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"]:
-            if "sub_group_id" in runtime_data.genome["blueprint"][dst_cortical_area]:
-                if runtime_data.genome["blueprint"][dst_cortical_area]["sub_group_id"] == "MEMORY":
-                    if dst_cortical_area not in runtime_data.memory_register:
-                        runtime_data.memory_register[dst_cortical_area] = set()
-                    runtime_data.memory_register[dst_cortical_area].add(cortical_area)
+            if dst_cortical_area in runtime_data.genome["blueprint"]:
+                if "sub_group_id" in runtime_data.genome["blueprint"][dst_cortical_area]:
+                    if runtime_data.genome["blueprint"][dst_cortical_area]["sub_group_id"] == "MEMORY":
+                        if dst_cortical_area not in runtime_data.memory_register:
+                            runtime_data.memory_register[dst_cortical_area] = set()
+                        runtime_data.memory_register[dst_cortical_area].add(cortical_area)
+            else:
+                print(f"Warning!! {dst_cortical_area} not found in blueprint while running init_memory_register func.")
 
 
 def running_in_container():

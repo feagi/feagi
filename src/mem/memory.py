@@ -191,6 +191,13 @@ def long_short_term_memory():
                         runtime_data.plasticity_queue_candidates.add(mem_neuron_id)
 
                 inject_lstm_fire_queue_to_fcl()
+            else:
+                # Clean up memory register in case it doesn't exist in brain
+                for memory_area in runtime_data.memory_register:
+                    if memory_cortical_area in runtime_data.memory_register[memory_area]:
+                        runtime_data.memory_register[memory_area].remove(memory_cortical_area)
+
+                del runtime_data.memory_register[memory_cortical_area]
 
 
 def lstm_lifespan_mgmt():
