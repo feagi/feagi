@@ -108,7 +108,7 @@ class UpdateCorticalProperties(BaseModel):
     coordinates_3d: Optional[list]
     coordinates_2d: Optional[list]
     cortical_dimensions: Optional[list]
-    cortical_synaptic_attractivity: Optional[int]
+    cortical_synaptic_attractivity: Optional[float]
     neuron_post_synaptic_potential: Optional[float]
     neuron_post_synaptic_potential_max: Optional[float]
     neuron_fire_threshold: Optional[float]
@@ -126,7 +126,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_longterm_mem_threshold: Optional[int]
     neuron_lifespan_growth_rate: Optional[int]
     neuron_init_lifespan: Optional[int]
-    neuron_excitability: Optional[int]
+    neuron_excitability: Optional[float]
 
 # class Network(BaseModel):
 #     godot_host: Optional[str] = runtime_data.parameters['Sockets']['godot_host_name']

@@ -499,7 +499,7 @@ gene_decoder = {
     "_______c-______-cx-___bbx-i": "block_boundary_x",
     "_______c-______-cx-___bby-i": "block_boundary_y",
     "_______c-______-cx-___bbz-i": "block_boundary_z",
-    "_______c-______-cx-synatt-i": "synapse_attractivity",
+    "_______c-______-cx-synatt-f": "synapse_attractivity",
     "_______c-______-cx-__rand-b": "location_generation_type",
     "_______c-______-cx-dstmap-d": "cortical_mapping_dst",
     "_______c-______-cx-de_gen-f": "degeneration",
@@ -509,19 +509,19 @@ gene_decoder = {
     "_______c-______-nx-ftincx-f": "firing_threshold_increment_x",
     "_______c-______-nx-ftincy-f": "firing_threshold_increment_y",
     "_______c-______-nx-ftincz-f": "firing_threshold_increment_z",
-    "_______c-______-nx-fthlim-i": "firing_threshold_limit",
+    "_______c-______-nx-fthlim-f": "firing_threshold_limit",
     "_______c-______-nx-mp_acc-b": "mp_charge_accumulation",
     "_______c-______-nx-mp_psp-b": "mp_driven_psp",
     "_______c-______-nx-refrac-i": "refractory_period",
     "_______c-______-nx-leak_c-f": "leak_coefficient",
-    "_______c-______-nx-leak_v-i": "leak_variability",
+    "_______c-______-nx-leak_v-f": "leak_variability",
     "_______c-______-nx-c_fr_c-i": "consecutive_fire_cnt_max",
     "_______c-______-nx-snooze-f": "snooze_length",
     "_______c-______-cx-memory-b": "is_mem_type",
     "_______c-______-cx-mem__t-i": "longterm_mem_threshold",
     "_______c-______-cx-mem_gr-i": "lifespan_growth_rate",
     "_______c-______-cx-mem_ls-i": "init_lifespan",
-    "_______c-______-nx-excite-i": "neuron_excitability"
+    "_______c-______-nx-excite-f": "neuron_excitability"
 }
 
 genome_1_template = {
@@ -580,14 +580,14 @@ genome_2_to_1 = {
     "___bby-i": "block_boundaries",
     "___bbz-i": "block_boundaries",
     "__rand-b": "location_generation_type",
-    "synatt-i": "synapse_attractivity",
+    "synatt-f": "synapse_attractivity",
     "pstcr_-f": "postsynaptic_current",
     "pstcrm-f": "postsynaptic_current_max",
     "fire_t-f": 'firing_threshold',
     "ftincx-f": "firing_threshold_increment_x",
     "ftincy-f": "firing_threshold_increment_y",
     "ftincz-f": "firing_threshold_increment_z",
-    "fthlim-i": "firing_threshold_limit",
+    "fthlim-f": "firing_threshold_limit",
     "refrac-i": "refractory_period",
     "leak_c-f": "leak_coefficient",
     "leak_v-f": "leak_variability",
@@ -604,7 +604,7 @@ genome_2_to_1 = {
     "mem__t-i": "longterm_mem_threshold",
     "mem_gr-i": "lifespan_growth_rate",
     "mem_ls-i": "init_lifespan",
-    "excite-i": "neuron_excitability"
+    "excite-f": "neuron_excitability"
 }
 
 genome_1_to_2 = {
@@ -614,15 +614,15 @@ genome_1_to_2 = {
     "per_voxel_neuron_cnt": "cx-_n_cnt-i",
     "visualization": "cx-gd_vis-b",
     "location_generation_type": "cx-__rand-b",
-    "synapse_attractivity": "cx-synatt-i",
+    "synapse_attractivity": "cx-synatt-f",
     "postsynaptic_current": "nx-pstcr_-f",
     "postsynaptic_current_max": "nx-pstcrm-f",
     'firing_threshold': "nx-fire_t-f",
     "firing_threshold_increment_x": "nx-ftincx-f",
     "firing_threshold_increment_y": "nx-ftincy-f",
     "firing_threshold_increment_z": "nx-ftincz-f",
-    "neuron_excitability": "nx-excite-i",
-    "firing_threshold_limit": "nx-fthlim-i",
+    "neuron_excitability": "nx-excite-f",
+    "firing_threshold_limit": "nx-fthlim-f",
     "refractory_period": "nx-refrac-i",
     "leak_coefficient": "nx-leak_c-f",
     "leak_variability": "nx-leak_v-f",
