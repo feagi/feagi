@@ -388,6 +388,7 @@ async def fetch_visualized_cortical_list():
 @router.put("/cortical_visibility")
 async def update_visualized_cortical_list(cortical_id_list: list):
     unprocessed_list = set()
+    runtime_data.cortical_viz_list = set()
     for cortical_id in cortical_id_list:
         if cortical_id in runtime_data.cortical_list:
             runtime_data.cortical_viz_list.add(cortical_id)
