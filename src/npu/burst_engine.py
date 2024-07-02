@@ -479,7 +479,7 @@ def burst_manager():
                 try:
                     for _ in runtime_data.fire_candidate_list:
                         fire_list = set(runtime_data.fire_candidate_list[_])
-                        if runtime_data.genome['blueprint'][_].get('visualization'):
+                        if _ in runtime_data.cortical_viz_list:
                             while fire_list:
                                 firing_neuron = fire_list.pop()
                                 firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']

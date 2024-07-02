@@ -210,3 +210,6 @@ logs = {
     "PNS": set(),
     "CNS": set()
 }
+
+# Visualization
+cortical_viz_list = set()
