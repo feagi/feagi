@@ -620,6 +620,7 @@ def mapping_change_report(cortical_area, new_mapping):
 
 
 def cortical_id_gen(seed='___', is_memory=False):
+    seed = seed.replace('-', '_')
     while True:
         chars = string.ascii_uppercase + string.digits
         if not is_memory:
