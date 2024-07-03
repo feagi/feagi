@@ -64,7 +64,7 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                 "cortical_group": cortical_data['group_id'],
                 "cortical_sub_group": cortical_data['sub_group_id'],
                 "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
-                "cortical_visibility": cortical_data['visualization'],
+                "cortical_visibility": cortical_area in runtime_data.cortical_viz_list,
                 "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
                 "coordinates_3d": [
                     cortical_data["relative_coordinate"][0],
@@ -378,3 +378,23 @@ async def connectome_detailed_cortical_map():
                 cortical_map[cortical_area][dst].append(mapping)
 
     return cortical_map
+
+
+@router.get("/cortical_visibility")
+async def fetch_visualized_cortical_list():
+    return runtime_data.cortical_viz_list
+
+
+@router.put("/cortical_visibility")
+async def update_visualized_cortical_list(cortical_id_list: list):
+    unprocessed_list = set()
+    runtime_data.cortical_viz_list = set()
+    for cortical_id in cortical_id_list:
+        if cortical_id in runtime_data.cortical_list:
+            runtime_data.cortical_viz_list.add(cortical_id)
+        else:
+            unprocessed_list.add(cortical_id)
+
+    if unprocessed_list:
+        return JSONResponse(status_code=400, content={'message': f"Following cortical ids were not found!\n "
+                                                                 f"{unprocessed_list}"})
