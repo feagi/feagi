@@ -141,6 +141,10 @@ class CorticalId(BaseModel):
     cortical_id: str
 
 
+class CorticalIdList(BaseModel):
+    cortical_id_list: list
+
+
 class CorticalName(BaseModel):
     cortical_name: str
 

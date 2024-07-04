@@ -222,13 +222,25 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
 @router.delete("/cortical_area")
 async def delete_cortical_area(cortical_id: CorticalId):
     """
-    Enables changes against various Burst Engine parameters.
+    Deletes a single cortical area
     """
     cortical_id = cortical_id.cortical_id
     if cortical_id in runtime_data.genome["blueprint"]:
 
         message = {'delete_cortical_area': cortical_id}
         api_queue.put(item=message)
+
+
+@router.delete("/cortical_areas")
+async def multi_delete_cortical_areas(cortical_id_list: CorticalIdList):
+    """
+    Deletes multiple cortical areas at the same time
+    """
+    for cortical_id in cortical_id_list.cortical_id_list:
+        if cortical_id in runtime_data.genome["blueprint"]:
+
+            message = {'delete_cortical_area': cortical_id}
+            api_queue.put(item=message)
 
 
 @router.get("/cortical_area_id_list")
