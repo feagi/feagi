@@ -43,7 +43,10 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
         if cortical_area in runtime_data.genome['blueprint']:
             cortical_data = runtime_data.genome['blueprint'][cortical_area]
             brain_region_id = runtime_data.cortical_area_region_association[cortical_area]
-            brain_region_title = runtime_data.genome["brain_regions"][brain_region_id]["title"]
+            if brain_region_id:
+                brain_region_title = runtime_data.genome["brain_regions"][brain_region_id]["title"]
+            else:
+                brain_region_title = ""
 
             if 'mp_charge_accumulation' not in cortical_data:
                 cortical_data['mp_charge_accumulation'] = True
