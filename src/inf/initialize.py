@@ -178,7 +178,11 @@ def init_brain_regions():
 
     for cortical_area in runtime_data.cortical_list:
         if cortical_area not in runtime_data.cortical_area_region_association:
-            runtime_data.cortical_area_region_association[cortical_area] = "root"
+            for region in runtime_data.genome["brain_regions"]:
+                if cortical_area in runtime_data.genome["brain_regions"][region]["areas"]:
+                    runtime_data.cortical_area_region_association[cortical_area] = region
+            if not runtime_data.cortical_area_region_association[cortical_area]:
+                runtime_data.cortical_area_region_association[cortical_area] = "root"
 
         # if runtime_data.genome["blueprint"][cortical_area]["group_id"] == "IPU":
         #     runtime_data.genome["brain_regions"]["root"]["inputs"][cortical_area] = []
