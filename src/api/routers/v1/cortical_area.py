@@ -486,6 +486,52 @@ async def fetch_multiple_cortical_properties(cortical_id_list: CorticalIdList):
     return results
 
 
+@router.put("/multi/cortical_area")
+async def update_multiple_cortical_properties(message: UpdateMultipleCorticalProperties):
+    """
+    Updates properties for multiple cortical areas at the same time
+    """
+
+    for cortical_id in message.cortical_id_list:
+        current_cortical_size = runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][0] * \
+                                runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][1] * \
+                                runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][2]
+        updated_cortical_size = current_cortical_size
+
+        if message.cortical_dimensions:
+            updated_cortical_size = message.cortical_dimensions[0] * \
+                                message.cortical_dimensions[1] * \
+                                message.cortical_dimensions[2]
+
+        current_neuron_density = runtime_data.genome["blueprint"][cortical_id]["per_voxel_neuron_cnt"]
+        updated_neuron_density = current_neuron_density
+
+        if message.cortical_neuron_per_vox_count:
+            updated_neuron_density = message.cortical_neuron_per_vox_count
+
+        if message.parent_region_id:
+            change_cortical_area_parent(cortical_area_id=cortical_id, new_parent_id=message.parent_region_id)
+
+        current_neuron_count = current_cortical_size * current_neuron_density
+        updated_neuron_count = updated_cortical_size * updated_neuron_density
+
+        max_allowable_neuron_count = int(runtime_data.parameters["Limits"]["max_neuron_count"])
+
+        if runtime_data.brain_stats["neuron_count"] - current_neuron_count + updated_neuron_count > \
+                max_allowable_neuron_count:
+            return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count will"
+                                                                     f" exceed {max_allowable_neuron_count} threshold"})
+
+        if cortical_id in runtime_data.transforming_areas:
+            return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
+        else:
+            runtime_data.transforming_areas.add(cortical_id)
+            message = message.dict()
+            message = {'update_cortical_properties': message}
+            print("*-----* " * 200 + "\n", message)
+            api_queue.put(item=message)
+
+
 @router.delete("/multi/cortical_area")
 async def delete_multiple_cortical_areas(cortical_id_list: CorticalIdList):
     """
@@ -496,3 +542,5 @@ async def delete_multiple_cortical_areas(cortical_id_list: CorticalIdList):
 
             message = {'delete_cortical_area': cortical_id}
             api_queue.put(item=message)
+        else:
+            return generate_response("CORTICAL_AREA_NOT_FOUND")
