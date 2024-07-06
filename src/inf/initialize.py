@@ -99,6 +99,10 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
         if "firing_threshold_limit" not in runtime_data.genome["blueprint"][_]:
             runtime_data.genome["blueprint"][_]["firing_threshold_limit"] = 0
 
+        if "cortical_visibility" not in runtime_data.genome["blueprint"][_]:
+            runtime_data.genome["blueprint"][_]["cortical_visibility"] = True
+            runtime_data.cortical_viz_list.add(_)
+
         if "leak_variability" not in runtime_data.genome["blueprint"][_]:
             runtime_data.genome["blueprint"][_]["leak_variability"] = 0
 
