@@ -495,7 +495,15 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
     """
     Updates properties for multiple cortical areas at the same time
     """
+    # Check to ensure all selected areas are of same type
+    type_list = set()
+    for cortical_id in message.cortical_id_list:
+        type_list.add(runtime_data.genome["blueprint"][cortical_id]["is_mem_type"])
+    if len(type_list) > 1:
+        return JSONResponse(status_code=400, content={'message': f"Memory and non-memory type cortical areas cannot"
+                                                                 f"be edited at the same time"})
 
+    # Proceed with updates
     for cortical_id in message.cortical_id_list:
         current_cortical_size = runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][0] * \
                                 runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][1] * \
@@ -523,8 +531,9 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
 
         if runtime_data.brain_stats["neuron_count"] - current_neuron_count + updated_neuron_count > \
                 max_allowable_neuron_count:
-            return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count will"
-                                                                     f" exceed {max_allowable_neuron_count} threshold"})
+            return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count"
+                                                                     f" will exceed {max_allowable_neuron_count} "
+                                                                     f"threshold"})
 
         if cortical_id in runtime_data.transforming_areas:
             return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
