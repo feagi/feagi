@@ -218,7 +218,7 @@ def burst_manager():
         # time_firing_activities = datetime.now()
         if candidate_list_counter(runtime_data.fire_candidate_list) == 0:
             runtime_data.empty_fcl_counter += 1
-            print("FCL is empty!")
+            # print("FCL is empty!")
         else:
             # Capture cortical activity stats
             capture_cortical_activity_stats()

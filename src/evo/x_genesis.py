@@ -669,6 +669,7 @@ def add_core_cortical_area(cortical_properties):
                      cortical_properties['coordinates_2d'][1]]
 
                 runtime_data.genome['blueprint'][cortical_id_]['cortical_mapping_dst'] = dict()
+                runtime_data.genome['blueprint'][cortical_id_]['cortical_visibility'] = True
 
                 if cortical_id_ not in runtime_data.genome["brain_regions"]["root"]["areas"]:
                     runtime_data.genome["brain_regions"]["root"]["areas"].append(cortical_id_)
@@ -714,7 +715,8 @@ def add_core_cortical_area(cortical_properties):
                 runtime_data.last_genome_modification_time = datetime.datetime.now()
                 return cortical_id_
         else:
-            print(f"Warning! while adding core cortical area. {cortical_id_} is not defined as {cortical_type}, possibly a bad gene.")
+            print(f"Warning! while adding core cortical area. {cortical_id_} is not defined as {cortical_type}"
+                  f", possibly a bad gene.")
 
     except KeyError:
         print("Error: New cortical area was not added.", traceback.print_exc())
@@ -773,6 +775,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
         runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'] = {}
         
         runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] = ""
+        runtime_data.genome['blueprint'][cortical_area]['cortical_visibility'] = True
 
         runtime_data.cortical_area_region_association[cortical_area] = parent_region_id
         runtime_data.genome["brain_regions"][parent_region_id]["areas"].append(cortical_area)
