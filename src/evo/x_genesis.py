@@ -494,13 +494,15 @@ def cortical_removal(cortical_area, genome_scrub=False):
         # Clean Upstream neuron associations
         if len(downstream_cortical_areas) > 0:
             for downstream_cortical_area in downstream_cortical_areas:
-                if downstream_cortical_area:
+                if downstream_cortical_area in runtime_data.brain:
                     for neuron in runtime_data.brain[downstream_cortical_area]:
                         for upstream_neuron in \
                                 runtime_data.brain[downstream_cortical_area][neuron]["upstream_neurons"].copy():
                             if upstream_neuron[:6] == cortical_area:
                                 runtime_data.brain[downstream_cortical_area][neuron]["upstream_neurons"].discard(
                                     upstream_neuron)
+                else:
+                    print(f"ERROR!! {downstream_cortical_area} is in genome but not in connectome!")
 
         # Prune affected synapses
         prune_cortical_synapses(cortical_area=cortical_area)
