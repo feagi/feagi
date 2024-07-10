@@ -29,6 +29,7 @@ from src.evo.genome_editor import save_genome
 from src.evo.genome_processor import genome_2_1_convertor, genome_v1_v2_converter
 from src.evo.stats import circuit_size
 from src.evo.region import region_id_2_title, construct_genome_from_region
+from src.evo.templates import cortical_template
 from src.inf.initialize import generate_cortical_dimensions_by_id
 
 
@@ -259,6 +260,11 @@ async def amalgamation_attempt(amalgamation_param: AmalgamationRequest, _: str =
 @router.get("/amalgamation_history")
 async def amalgamation_history():
     return runtime_data.amalgamation_history
+
+
+@router.get("/cortical_template")
+async def cortical_template_():
+    return cortical_template
 
 
 @router.post("/amalgamation_destination")

@@ -27,7 +27,8 @@ import string
 import traceback
 
 # from src.evo import neuron, synapse, stats, genetics, voxels, neuroembryogenesis, templates
-from src.evo import voxels, neuroembryogenesis, templates
+from src.evo import voxels, neuroembryogenesis
+from src.evo.templates import cortical_template, cortical_types
 from src.evo.synapse import synaptic_pruner, morphology_usage_list, cortical_areas_sharing_same_morphology
 # from functools import partial
 # from multiprocessing import Pool, Process
@@ -476,7 +477,7 @@ def cortical_removal(cortical_area, genome_scrub=False):
     if cortical_area not in runtime_data.cortical_list:
         print("Error: Cortical area requested for removal does not exist:", cortical_area)
 
-    elif cortical_area in templates.cortical_types["CORE"]["supported_devices"]:
+    elif cortical_area in cortical_types["CORE"]["supported_devices"]:
         print("Error: Cortical areas of CORE type cannot be removed", cortical_area)
     else:
         print("Processing cortical removal for", cortical_area)
@@ -635,12 +636,12 @@ def cortical_id_gen(seed='___', is_memory=False):
 
 def add_core_cortical_area(cortical_properties):
     try:
-        template = templates.cortical_template.copy()
+
         cortical_type = cortical_properties['cortical_type']
         cortical_id_ = cortical_properties['cortical_id']
-        if cortical_id_ in templates.cortical_types[cortical_type]["supported_devices"]:
+        if cortical_id_ in cortical_types[cortical_type]["supported_devices"]:
             cortical_name = \
-                templates.cortical_types[cortical_type]["supported_devices"][cortical_id_]['cortical_name']
+                cortical_types[cortical_type]["supported_devices"][cortical_id_]['cortical_name']
 
             if cortical_id_ in runtime_data.genome['blueprint']:
                 print("Warning! Cortical area already part of genome. Nothing got added.")
@@ -649,14 +650,13 @@ def add_core_cortical_area(cortical_properties):
                 runtime_data.voxel_dict[cortical_id_] = dict()
                 runtime_data.genome['blueprint'][cortical_id_] = dict()
                 runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
-                runtime_data.genome["blueprint"][cortical_id_] = \
-                    template.copy()
+                runtime_data.genome["blueprint"][cortical_id_] = cortical_template.copy()
                 runtime_data.genome["blueprint"][cortical_id_]["cortical_name"] = cortical_name
                 runtime_data.genome['blueprint'][cortical_id_]["block_boundaries"] = \
                     [cortical_properties['channel_count'] *
-                     templates.cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][0],
-                     templates.cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][1],
-                     templates.cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][2],
+                     cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][0],
+                     cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][1],
+                     cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][2],
                      ]
 
                 runtime_data.genome['blueprint'][cortical_id_]["relative_coordinate"] = \
@@ -675,8 +675,11 @@ def add_core_cortical_area(cortical_properties):
                     runtime_data.genome["brain_regions"]["root"]["areas"].append(cortical_id_)
                     runtime_data.cortical_area_region_association[cortical_id_] = "root"
 
-                for parameter in template:
-                    runtime_data.genome["blueprint"][cortical_id_][parameter] = template[parameter]
+                # template = cortical_template.copy()
+                # for parameter in template:
+                #     runtime_data.genome["blueprint"][cortical_id_][parameter] = template[parameter]
+
+                runtime_data.genome["blueprint"][cortical_id_].update(cortical_template.copy())
 
                 # runtime_data.genome["blueprint"][cortical_id_]["per_voxel_neuron_cnt"] = \
                 #     template['per_voxel_neuron_cnt']
@@ -704,15 +707,19 @@ def add_core_cortical_area(cortical_properties):
                 runtime_data.genome["blueprint"][cortical_id_]["group_id"] = cortical_properties['cortical_type']
 
                 neuroembryogenesis.voxelogenesis(cortical_area=cortical_id_)
+
                 neuroembryogenesis.neurogenesis(cortical_area=cortical_id_)
+
                 init_fcl(cortical_id_)
                 init_cortical_cumulative_stats(cortical_area=cortical_id_)
+
                 runtime_data.cortical_dimensions = generate_cortical_dimensions()
                 runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
 
                 save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                             file_name=runtime_data.connectome_path + "genome.json")
                 runtime_data.last_genome_modification_time = datetime.datetime.now()
+
                 return cortical_id_
         else:
             print(f"Warning! while adding core cortical area. {cortical_id_} is not defined as {cortical_type}"
@@ -744,7 +751,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
             print("Source cortical area chosen for cloning is not part of Genome")
             raise CustomError
     else:
-        template = templates.cortical_template.copy()
+        template = cortical_template.copy()
 
     if cortical_name in cortical_names:
         print("Warning! Cortical area with same name already exists in genome. Nothing got added.")
@@ -754,12 +761,12 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
         runtime_data.genome['blueprint'][cortical_area] = {}
         runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
 
-        cortical_template = template.copy()
+        cortical_template_ = template.copy()
 
-        runtime_data.genome["blueprint"][cortical_area] = cortical_template
+        runtime_data.genome["blueprint"][cortical_area] = cortical_template_
 
-        for parameter in cortical_template:
-            runtime_data.genome["blueprint"][cortical_area][parameter] = cortical_template[parameter]
+        for parameter in cortical_template_:
+            runtime_data.genome["blueprint"][cortical_area][parameter] = cortical_template_[parameter]
 
         runtime_data.genome['blueprint'][cortical_area]['cortical_name'] = cortical_name
 
@@ -782,11 +789,11 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
 
         if is_memory:
             runtime_data.genome["blueprint"][cortical_area]["longterm_mem_threshold"] = \
-                cortical_template['longterm_mem_threshold']
+                cortical_template_['longterm_mem_threshold']
             runtime_data.genome["blueprint"][cortical_area]["lifespan_growth_rate"] = \
-                cortical_template['lifespan_growth_rate']
+                cortical_template_['lifespan_growth_rate']
             runtime_data.genome["blueprint"][cortical_area]["init_lifespan"] = \
-                cortical_template['init_lifespan']
+                cortical_template_['init_lifespan']
             runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] = "MEMORY"
             runtime_data.memory_register[cortical_area] = set()
 
@@ -844,7 +851,6 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
         appended_cortical_areas = set()
 
         amalgamation_cortical_mapping = dict()
-
         # Amalgamate Blueprint
         for cortical_area_id in src_blueprint:
             print(f"-----Attempting to import cortical area {cortical_area_id}")
@@ -912,7 +918,6 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                         print(f"---------------Successfully imported a built-in cortical area. id:{cortical_area_id}")
             except Exception as e:
                 print("Exception during cortical import", e, traceback.print_exc())
-
         # Amalgamate Brain Regions
         if "brain_regions" in source_genome:
             incoming_genome_region_data = source_genome["brain_regions"]
@@ -965,7 +970,8 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
             # print("after update ++++ ", incoming_genome_region_data[region]["inputs"])
 
             updated_suggested_outputs = []
-            for suggested_output in incoming_genome_region_data[region]["outputs"].copy():
+            incoming_genome_region_data_outputs_copy = incoming_genome_region_data[region]["outputs"].copy()
+            for suggested_output in incoming_genome_region_data_outputs_copy:
                 if suggested_output["src_cortical_area_id"] in amalgamation_cortical_mapping:
                     updated_suggested_output = suggested_output.copy()
                     updated_suggested_output["src_cortical_area_id"] = \
@@ -979,7 +985,6 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
             # print("output_genome_region_data", incoming_genome_region_data[region]["outputs"])
 
             incoming_genome_region_data[region]["areas"] = list(incoming_area_set)
-
         runtime_data.genome["brain_regions"] = {**runtime_data.genome["brain_regions"], **incoming_genome_region_data}
 
         # Amalgamate Morphologies
@@ -1023,12 +1028,12 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
 
         for cortical_area in appended_cortical_areas:
             x_corticogenesis(cortical_area)
-
         # Wire to external cortical areas
         if rewire_mode in ['all', 'system']:
             for region in incoming_genome_region_data:
                 # Wiring Afferents
-                for suggested_input_mapping in incoming_genome_region_data[region]["inputs"].copy():
+                incoming_genome_region_data_inputs_copy = incoming_genome_region_data[region]["inputs"].copy()
+                for suggested_input_mapping in incoming_genome_region_data_inputs_copy:
                     # print("processing suggested input mapping:", suggested_input_mapping)
                     if rewire_mode == 'system' and not \
                             area_is_system(suggested_input_mapping["src_cortical_area_id"]):
@@ -1044,16 +1049,17 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                                 "coordinates_3d": [0, 0, 0],
                                 "channel_count": 1
                             })
-                            # print("@@ New system cortical area added:", suggested_input_mapping["src_cortical_area_id"])
+                            # print("@@ New system cortical area added:",
+                            # suggested_input_mapping["src_cortical_area_id"])
+
                         if suggested_input_mapping["src_cortical_area_id"] in runtime_data.genome["blueprint"]:
                             # print("Suggested input source found in genome as ",
                             #       suggested_input_mapping["src_cortical_area_id"])
                             if suggested_input_mapping["dst_cortical_area_id"] not in \
                                     runtime_data.genome["blueprint"][suggested_input_mapping["src_cortical_area_id"]][
                                         "cortical_mapping_dst"]:
-                                runtime_data.genome["blueprint"][suggested_input_mapping["src_cortical_area_id"]][
-                                    "cortical_mapping_dst"][suggested_input_mapping["dst_cortical_area_id"]] = list()
-
+                                runtime_data.genome["blueprint"][suggested_input_mapping["src_cortical_area_id"]]["cortical_mapping_dst"][suggested_input_mapping["dst_cortical_area_id"]] = list()
+                                cortical_template["cortical_mapping_dst"] = dict()
                             new_mapping = {
                                 "morphology_id": suggested_input_mapping["morphology_id"],
                                 "morphology_scalar": suggested_input_mapping["morphology_scalar"],
@@ -1077,10 +1083,12 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                                     "cortical_mapping_dst"][suggested_input_mapping["dst_cortical_area_id"]])
 
                             else:
+
                                 print("input mapping already there!", suggested_input_mapping["src_cortical_area_id"],
                                       new_mapping)
 
                             # remove the suggested mapping post wiring
+
                             incoming_genome_region_data[region]["inputs"].remove(suggested_input_mapping)
 
                         else:
@@ -1096,7 +1104,8 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                         pass
                     else:
                         if area_is_system(suggested_output_mapping["dst_cortical_area_id"]) and \
-                                suggested_output_mapping["dst_cortical_area_id"] not in runtime_data.genome["blueprint"]:
+                                suggested_output_mapping["dst_cortical_area_id"] not in \
+                                runtime_data.genome["blueprint"]:
                             add_core_cortical_area(cortical_properties={
                                 "cortical_type": cortical_area_type(suggested_output_mapping["dst_cortical_area_id"]),
                                 "cortical_id": suggested_output_mapping["dst_cortical_area_id"],
@@ -1104,9 +1113,11 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                                 "coordinates_3d": [0, 0, 0],
                                 "channel_count": 1
                             })
-                            print("@@ New system cortical area added:", suggested_output_mapping["dst_cortical_area_id"])
+                            print("@@ New system cortical area added:",
+                                  suggested_output_mapping["dst_cortical_area_id"])
                         if suggested_output_mapping["dst_cortical_area_id"] in runtime_data.genome["blueprint"]:
-                            print("Suggested input source found in genome as ", suggested_output_mapping["dst_cortical_area_id"])
+                            print("Suggested input source found in genome as ", suggested_output_mapping[
+                                "dst_cortical_area_id"])
                             if suggested_output_mapping["src_cortical_area_id"] not in \
                                     runtime_data.genome["blueprint"][suggested_output_mapping["dst_cortical_area_id"]][
                                         "cortical_mapping_dst"]:
@@ -1123,7 +1134,6 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                                 "ltp_multiplier": suggested_output_mapping["ltp_multiplier"],
                                 "ltd_multiplier": suggested_output_mapping["ltd_multiplier"]
                             }
-                            print("new mapping:", new_mapping)
 
                             if new_mapping not in \
                                     runtime_data.genome["blueprint"][suggested_output_mapping["dst_cortical_area_id"]][
@@ -1131,22 +1141,25 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                                 runtime_data.genome["blueprint"][suggested_output_mapping["dst_cortical_area_id"]][
                                     "cortical_mapping_dst"][suggested_output_mapping["src_cortical_area_id"]].append(
                                     new_mapping)
-                                print("New mapping added!", suggested_output_mapping["dst_cortical_area_id"], suggested_output_mapping["src_cortical_area_id"], runtime_data.genome["blueprint"][suggested_output_mapping["dst_cortical_area_id"]][
-                                    "cortical_mapping_dst"][suggested_output_mapping["src_cortical_area_id"]])
+                                print("New mapping added!", suggested_output_mapping["dst_cortical_area_id"],
+                                      suggested_output_mapping["src_cortical_area_id"],
+                                      runtime_data.genome["blueprint"][suggested_output_mapping[
+                                          "dst_cortical_area_id"]][
+                                          "cortical_mapping_dst"][suggested_output_mapping["src_cortical_area_id"]])
 
                             else:
-                                print("output mapping already there!", suggested_output_mapping["dst_cortical_area_id"], new_mapping)
+                                print("output mapping already there!", suggested_output_mapping["dst_cortical_area_id"],
+                                      new_mapping)
 
                             # remove the suggested mapping post wiring
                             incoming_genome_region_data[region]["outputs"].remove(suggested_output_mapping)
 
                         else:
-                            print("Suggested destination cortical area not found!!", suggested_output_mapping["dst_cortical_area_id"])
+                            print("Suggested destination cortical area not found!!", suggested_output_mapping[
+                                "dst_cortical_area_id"])
         else:
             pass
-
         develop(appended_cortical_areas)
-
         runtime_data.cortical_dimensions = generate_cortical_dimensions()
         runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
 
@@ -1154,8 +1167,23 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                     file_name=runtime_data.connectome_path + "genome.json")
         runtime_data.last_genome_modification_time = datetime.datetime.now()
 
-        print("++ ++ ++ " * 10)
         print("Merger of new genome completed successfully!")
 
     except Exception as e:
         print("Exception during morphology join", e, traceback.print_exc())
+
+
+def find_variable_names_by_id(target_id):
+    variable_names = []
+
+    # Check in globals
+    for name, value in globals().items():
+        if id(value) == target_id:
+            variable_names.append(name)
+
+    # Check in locals
+    for name, value in locals().items():
+        if id(value) == target_id:
+            variable_names.append(name)
+
+    return variable_names
