@@ -232,7 +232,6 @@ def neurogenesis(cortical_area):
     #                             parameters=runtime_data.parameters)
     # disk_ops.save_voxel_dict_to_disk(cortical_area=cortical_area,
     #                                  voxel_dict=runtime_data.voxel_dict)
-    runtime_data.brain_stats["neuron_count"] += neuron_count
     return neuron_count
 
 
