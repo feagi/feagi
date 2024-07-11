@@ -68,7 +68,7 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                 "cortical_group": cortical_data['group_id'],
                 "cortical_sub_group": cortical_data['sub_group_id'],
                 "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
-                "visualization": not(cortical_area in runtime_data.cortical_viz_list),
+                "cortical_visibility": not(cortical_area in runtime_data.cortical_viz_list),
                 "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
                 "coordinates_3d": [
                     cortical_data["relative_coordinate"][0],
