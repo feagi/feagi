@@ -68,7 +68,7 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                 "cortical_group": cortical_data['group_id'],
                 "cortical_sub_group": cortical_data['sub_group_id'],
                 "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
-                "cortical_visibility": cortical_area in runtime_data.cortical_viz_list,
+                "visualization": not(cortical_area in runtime_data.cortical_viz_list),
                 "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
                 "coordinates_3d": [
                     cortical_data["relative_coordinate"][0],
@@ -398,6 +398,7 @@ async def suppress_cortical_activity_visualization(cortical_id_list: list):
             runtime_data.cortical_viz_list.add(cortical_id)
         else:
             unprocessed_list.add(cortical_id)
+            runtime_data.genome["blueprint"][cortical_id]["visualization"] = False
 
     if unprocessed_list:
         return JSONResponse(status_code=400, content={'message': f"Following cortical ids were not found!\n "
@@ -436,7 +437,7 @@ async def fetch_multiple_cortical_properties(cortical_id_list: CorticalIdList):
                     "cortical_group": cortical_data['group_id'],
                     "cortical_sub_group": cortical_data['sub_group_id'],
                     "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
-                    "cortical_visibility": not (cortical_area in runtime_data.cortical_viz_list),
+                    "visualization": not (cortical_area in runtime_data.cortical_viz_list),
                     "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
                     "coordinates_3d": [
                         cortical_data["relative_coordinate"][0],
