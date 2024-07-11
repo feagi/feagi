@@ -213,12 +213,12 @@ def update_cortical_properties(cortical_properties):
             cortical_properties['neuron_mp_driven_psp']
         changed_areas.add("blueprint")
 
-    if cortical_properties['visualization'] is not None:
+    if cortical_properties['cortical_visibility'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["visualization"] = \
-            cortical_properties['visualization']
-        if cortical_properties['visualization'] and cortical_area in runtime_data.cortical_viz_list:
+            cortical_properties['cortical_visibility']
+        if cortical_properties['cortical_visibility'] and cortical_area in runtime_data.cortical_viz_list:
             runtime_data.cortical_viz_list.remove(cortical_area)
-        elif not cortical_properties['visualization']:
+        elif not cortical_properties['cortical_visibility']:
             runtime_data.cortical_viz_list.add(cortical_area)
 
         changed_areas.add("3d_viz")
