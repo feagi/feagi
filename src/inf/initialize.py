@@ -101,7 +101,6 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
 
         if "cortical_visibility" not in runtime_data.genome["blueprint"][_]:
             runtime_data.genome["blueprint"][_]["cortical_visibility"] = True
-            runtime_data.cortical_viz_list.add(_)
 
         if "leak_variability" not in runtime_data.genome["blueprint"][_]:
             runtime_data.genome["blueprint"][_]["leak_variability"] = 0
@@ -113,7 +112,7 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
     init_fcl()
     init_brain()
     init_brain_regions()
-    init_cortical_viz_list()
+
     if 'genome_id' not in runtime_data.genome:
         runtime_data.genome['genome_id'] = id_gen(signature="_G")
     runtime_data.genome_id = runtime_data.genome['genome_id']
@@ -549,12 +548,6 @@ def init_burst_engine():
         print("Burst_delay has been set to its default value %f " %
               float(runtime_data.parameters["Timers"]["default_burst_delay"]))
         print("==============================================\n\n")
-
-
-def init_cortical_viz_list():
-    for cortical_area in runtime_data.genome["blueprint"]:
-        if runtime_data.genome['blueprint'][cortical_area].get('visualization'):
-            runtime_data.cortical_viz_list.add(cortical_area)
 
 
 # def init_io_channels():
