@@ -680,7 +680,7 @@ def add_core_cortical_area(cortical_properties):
                 # for parameter in template:
                 #     runtime_data.genome["blueprint"][cortical_id_][parameter] = template[parameter]
 
-                runtime_data.genome["blueprint"][cortical_id_].update(cortical_template.copy())
+                # runtime_data.genome["blueprint"][cortical_id_].update(cortical_template.copy())
 
                 # runtime_data.genome["blueprint"][cortical_id_]["per_voxel_neuron_cnt"] = \
                 #     template['per_voxel_neuron_cnt']
