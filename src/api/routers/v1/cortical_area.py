@@ -502,8 +502,9 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
     transforming = False
     for cortical_id in message.cortical_id_list:
         type_list.add(runtime_data.genome["blueprint"][cortical_id]["is_mem_type"])
-        if runtime_data.genome["blueprint"][cortical_id]["transforming"]:
-            transforming = True
+        if "transforming" in runtime_data.genome["blueprint"][cortical_id]:
+            if runtime_data.genome["blueprint"][cortical_id]["transforming"]:
+                transforming = True
     if len(type_list) > 1:
         return JSONResponse(status_code=400, content={'message': f"Memory and non-memory type cortical areas cannot"
                                                                  f"be edited at the same time"})
