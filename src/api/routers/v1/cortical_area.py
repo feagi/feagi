@@ -499,11 +499,18 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
     """
     # Check to ensure all selected areas are of same type
     type_list = set()
+    transforming = False
     for cortical_id in message.cortical_id_list:
         type_list.add(runtime_data.genome["blueprint"][cortical_id]["is_mem_type"])
+        if runtime_data.genome["blueprint"][cortical_id]["transforming"]:
+            transforming = True
     if len(type_list) > 1:
         return JSONResponse(status_code=400, content={'message': f"Memory and non-memory type cortical areas cannot"
                                                                  f"be edited at the same time"})
+
+    if transforming:
+        return JSONResponse(status_code=400, content={'message': f"One of the selected cortical areas is still "
+                                                                 f"undergoing transformation. Plesae try again later"})
 
     # Proceed with updates
     for cortical_id in message.cortical_id_list:
