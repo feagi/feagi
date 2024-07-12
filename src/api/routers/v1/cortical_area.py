@@ -551,8 +551,7 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
             return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
         else:
             runtime_data.transforming_areas.add(cortical_id)
-            message = message.dict()
-            message = {'update_cortical_properties': message}
+            message = {'update_cortical_properties': message_dict}
             print("*-----* " * 200 + "\n", message)
             api_queue.put(item=message)
 
