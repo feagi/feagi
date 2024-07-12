@@ -520,7 +520,7 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
                                 runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][2]
         updated_cortical_size = current_cortical_size
 
-        if message.cortical_dimensions:
+        if message.get("cortical_dimensions"):
             updated_cortical_size = message.cortical_dimensions[0] * \
                                 message.cortical_dimensions[1] * \
                                 message.cortical_dimensions[2]
@@ -528,10 +528,10 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
         current_neuron_density = runtime_data.genome["blueprint"][cortical_id]["per_voxel_neuron_cnt"]
         updated_neuron_density = current_neuron_density
 
-        if message.cortical_neuron_per_vox_count:
+        if message.get("cortical_neuron_per_vox_count"):
             updated_neuron_density = message.cortical_neuron_per_vox_count
 
-        if message.parent_region_id:
+        if message.get("parent_region_id"):
             change_cortical_area_parent(cortical_area_id=cortical_id, new_parent_id=message.parent_region_id)
 
         current_neuron_count = current_cortical_size * current_neuron_density
