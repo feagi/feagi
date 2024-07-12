@@ -216,11 +216,10 @@ def update_cortical_properties(cortical_properties):
     if cortical_properties['cortical_visibility'] is not None:
         runtime_data.genome["blueprint"][cortical_area]["visualization"] = \
             cortical_properties['cortical_visibility']
-        if cortical_properties['cortical_visibility']:
+        if cortical_properties['cortical_visibility'] and cortical_area in runtime_data.cortical_viz_list:
+            runtime_data.cortical_viz_list.remove(cortical_area)
+        elif not cortical_properties['cortical_visibility']:
             runtime_data.cortical_viz_list.add(cortical_area)
-        else:
-            if cortical_area in runtime_data.cortical_viz_list:
-                runtime_data.cortical_viz_list.remove(cortical_area)
 
         changed_areas.add("3d_viz")
 
@@ -494,13 +493,15 @@ def cortical_removal(cortical_area, genome_scrub=False):
         # Clean Upstream neuron associations
         if len(downstream_cortical_areas) > 0:
             for downstream_cortical_area in downstream_cortical_areas:
-                if downstream_cortical_area:
+                if downstream_cortical_area in runtime_data.brain:
                     for neuron in runtime_data.brain[downstream_cortical_area]:
                         for upstream_neuron in \
                                 runtime_data.brain[downstream_cortical_area][neuron]["upstream_neurons"].copy():
                             if upstream_neuron[:6] == cortical_area:
                                 runtime_data.brain[downstream_cortical_area][neuron]["upstream_neurons"].discard(
                                     upstream_neuron)
+                else:
+                    print(f"ERROR!! {downstream_cortical_area} is in genome but not in connectome!")
 
         # Prune affected synapses
         prune_cortical_synapses(cortical_area=cortical_area)
@@ -669,7 +670,7 @@ def add_core_cortical_area(cortical_properties):
                      cortical_properties['coordinates_2d'][1]]
 
                 runtime_data.genome['blueprint'][cortical_id_]['cortical_mapping_dst'] = dict()
-                runtime_data.genome['blueprint'][cortical_id_]['cortical_visibility'] = True
+                runtime_data.genome['blueprint'][cortical_id_]['visualization'] = True
 
                 if cortical_id_ not in runtime_data.genome["brain_regions"]["root"]["areas"]:
                     runtime_data.genome["brain_regions"]["root"]["areas"].append(cortical_id_)
@@ -679,7 +680,7 @@ def add_core_cortical_area(cortical_properties):
                 # for parameter in template:
                 #     runtime_data.genome["blueprint"][cortical_id_][parameter] = template[parameter]
 
-                runtime_data.genome["blueprint"][cortical_id_].update(cortical_template.copy())
+                # runtime_data.genome["blueprint"][cortical_id_].update(cortical_template.copy())
 
                 # runtime_data.genome["blueprint"][cortical_id_]["per_voxel_neuron_cnt"] = \
                 #     template['per_voxel_neuron_cnt']
@@ -782,7 +783,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
         runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'] = {}
         
         runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] = ""
-        runtime_data.genome['blueprint'][cortical_area]['cortical_visibility'] = True
+        runtime_data.genome['blueprint'][cortical_area]['visualization'] = True
 
         runtime_data.cortical_area_region_association[cortical_area] = parent_region_id
         runtime_data.genome["brain_regions"][parent_region_id]["areas"].append(cortical_area)

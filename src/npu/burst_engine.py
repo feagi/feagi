@@ -238,19 +238,22 @@ def burst_manager():
                 while runtime_data.fire_candidate_list[fcl_cortical_area]:
                     neuron_to_fire = runtime_data.fire_candidate_list[fcl_cortical_area].pop()
                     # Update downstream neurons in an isolated queue
-                    neuron_pre_fire_processing(fcl_cortical_area, neuron_to_fire, degenerate=degeneration_val)
+                    if neuron_to_fire in runtime_data.brain[fcl_cortical_area]:
+                        neuron_pre_fire_processing(fcl_cortical_area, neuron_to_fire, degenerate=degeneration_val)
 
-                    runtime_data.brain[fcl_cortical_area][neuron_to_fire][
-                        "last_membrane_potential_update"] = runtime_data.burst_count
+                        runtime_data.brain[fcl_cortical_area][neuron_to_fire][
+                            "last_membrane_potential_update"] = runtime_data.burst_count
 
-                    # Log the pre-fire neuron membrane potential in database
-                    neuron_stimulation_mp_logger(cortical_area=fcl_cortical_area, neuron_id=neuron_to_fire)
+                        # Log the pre-fire neuron membrane potential in database
+                        neuron_stimulation_mp_logger(cortical_area=fcl_cortical_area, neuron_id=neuron_to_fire)
 
-                    runtime_data.brain[fcl_cortical_area][neuron_to_fire]['membrane_potential'] = 0
+                        runtime_data.brain[fcl_cortical_area][neuron_to_fire]['membrane_potential'] = 0
 
-                    # Log a zero membrane potential for post neuron firing
-                    membrane_potential_update(cortical_area=fcl_cortical_area, neuron_id=neuron_to_fire,
-                                              membrane_potential_change=0, overwrite=True, overwrite_value=0)
+                        # Log a zero membrane potential for post neuron firing
+                        membrane_potential_update(cortical_area=fcl_cortical_area, neuron_id=neuron_to_fire,
+                                                  membrane_potential_change=0, overwrite=True, overwrite_value=0)
+                    else:
+                        print("Warning!! FCL contained dead neuron!")
 
             # Add neurons to future FCL
             # This is where neuron leak is considered and membrane potentials are updated+++
@@ -479,7 +482,7 @@ def burst_manager():
                 try:
                     for _ in runtime_data.fire_candidate_list:
                         fire_list = set(runtime_data.fire_candidate_list[_])
-                        if _ in runtime_data.cortical_viz_list:
+                        if _ not in runtime_data.cortical_viz_list:
                             while fire_list:
                                 firing_neuron = fire_list.pop()
                                 firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
