@@ -125,6 +125,8 @@ async def update_cortical_properties(message: UpdateCorticalProperties):
     """
     Enables changes against various Burst Engine parameters.
     """
+    if message.cortical_id not in runtime_data.genome["blueprint"]:
+        return JSONResponse(status_code=400, content={'message': f"{message.cortical_id} is not found in Genome!"})
 
     current_cortical_size = runtime_data.genome["blueprint"][message.cortical_id]["block_boundaries"][0] * \
                             runtime_data.genome["blueprint"][message.cortical_id]["block_boundaries"][1] * \
