@@ -512,8 +512,7 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
                                                                  f"be edited at the same time"})
 
     if transforming:
-        return JSONResponse(status_code=400, content={'message': f"One of the selected cortical areas is still "
-                                                                 f"undergoing transformation. Plesae try again later"})
+        return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
 
     # Proceed with updates
     for cortical_id in message.cortical_id_list:
@@ -551,6 +550,7 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
             return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
         else:
             runtime_data.transforming_areas.add(cortical_id)
+            message_dict["cortical_id"] = cortical_id
             message = {'update_cortical_properties': message_dict}
             print("*-----* " * 200 + "\n", message)
             api_queue.put(item=message)
