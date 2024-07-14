@@ -178,3 +178,8 @@ async def change_circuit_library_path(circuit_library_path: str):
 async def fetch_cortical_area_types():
     return cortical_types
 
+
+@router.put("/cortical_area_types")
+async def update_cortical_area_types(cortical_id: str):
+    # todo
+    return "Endpoint pending implementation"
