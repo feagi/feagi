@@ -112,7 +112,6 @@ async def genome_string_upload(genome: dict):
 @router.get("/download")
 async def genome_download(_: str = Depends(check_active_genome)):
     print("Downloading Genome...")
-    print("==========================>>>>\n", runtime_data.genome)
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                 file_name=runtime_data.connectome_path + "genome.json")
     file_name = "genome-" + runtime_data.genome["genome_title"].replace(" ", "_") + ".json"
@@ -137,7 +136,6 @@ async def genome_download(_: str = Depends(check_active_genome)):
 @router.get("/download_region")
 async def genome_download_from_region(region_id, _: str = Depends(check_active_genome)):
     print(f"Downloading genome associated with {region_id} ...")
-    print("==========================>>>>\n", runtime_data.genome)
 
     region_title = region_id_2_title(region_id=region_id)
     genome_payload = construct_genome_from_region(region_id=region_id)
