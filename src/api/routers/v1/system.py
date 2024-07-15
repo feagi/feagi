@@ -20,6 +20,7 @@ from ...commons import *
 from ...schemas import *
 
 from src.version import __version__
+from src.evo.templates import cortical_types
 
 
 router = APIRouter()
@@ -171,3 +172,14 @@ async def change_circuit_library_path(circuit_library_path: str):
         print(f"{circuit_library_path} is the new circuit library path.")
     else:
         raise HTTPException(status_code=400, detail=f"{circuit_library_path} is not a valid path.")
+
+
+@router.get("/cortical_area_types")
+async def fetch_cortical_area_types():
+    return cortical_types
+
+
+@router.put("/cortical_area_types")
+async def update_cortical_area_types(cortical_id: str):
+    # todo
+    return "Endpoint pending implementation"
