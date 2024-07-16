@@ -51,7 +51,7 @@ from src.api.schemas import NewRegionProperties
 # from src.evo.synaptogenesis_rules import syn_memory
 
 logger = logging.getLogger(__name__)
-
+sentinel = object()
 
 class CustomError(Exception):
     def __init__(self, message, status_code):
@@ -203,19 +203,19 @@ def update_cortical_properties(cortical_properties):
             cortical_properties['neuron_consecutive_fire_count']
         changed_areas.add("blueprint")
 
-    if cortical_properties.get('neuron_mp_charge_accumulation'):
-        runtime_data.genome["blueprint"][cortical_area]["mp_charge_accumulation"] = \
-            cortical_properties['neuron_mp_charge_accumulation']
+    neuron_mp_charge_accumulation = cortical_properties.get('neuron_mp_charge_accumulation', sentinel)
+    if neuron_mp_charge_accumulation is not sentinel:
+        runtime_data.genome["blueprint"][cortical_area]["mp_charge_accumulation"] = neuron_mp_charge_accumulation
         changed_areas.add("blueprint")
 
-    if cortical_properties.get('neuron_mp_driven_psp'):
-        runtime_data.genome["blueprint"][cortical_area]["mp_driven_psp"] = \
-            cortical_properties['neuron_mp_driven_psp']
+    neuron_mp_driven_psp = cortical_properties.get('neuron_mp_driven_psp', sentinel)
+    if neuron_mp_driven_psp is not sentinel:
+        runtime_data.genome["blueprint"][cortical_area]["mp_driven_psp"] = neuron_mp_driven_psp
         changed_areas.add("blueprint")
 
-    if cortical_properties.get('cortical_visibility'):
-        runtime_data.genome["blueprint"][cortical_area]["visualization"] = \
-            cortical_properties['cortical_visibility']
+    cortical_visibility = cortical_properties.get('cortical_visibility', sentinel)
+    if cortical_visibility is not sentinel:
+        runtime_data.genome["blueprint"][cortical_area]["visualization"] = cortical_visibility
         if cortical_properties['cortical_visibility'] and cortical_area in runtime_data.cortical_viz_list:
             runtime_data.cortical_viz_list.remove(cortical_area)
         elif not cortical_properties['cortical_visibility']:
@@ -278,11 +278,12 @@ def update_cortical_properties(cortical_properties):
             regeneration_flag = True
             changed_areas.add("blueprint")
 
-    if cortical_properties.get('neuron_psp_uniform_distribution'):
+    neuron_psp_uniform_distribution = cortical_properties.get('neuron_psp_uniform_distribution', sentinel)
+    if neuron_psp_uniform_distribution is not sentinel:
         if runtime_data.genome['blueprint'][cortical_area]["psp_uniform_distribution"] != \
-                cortical_properties['neuron_psp_uniform_distribution']:
+                neuron_psp_uniform_distribution:
             runtime_data.genome['blueprint'][cortical_area]["psp_uniform_distribution"] = \
-                cortical_properties['neuron_psp_uniform_distribution']
+                neuron_psp_uniform_distribution
             regeneration_flag = True
             changed_areas.add("blueprint")
 
