@@ -402,13 +402,13 @@ def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subre
         for i in range(3):
             dst_vox_dict[i] = set()
             if src_shape[i] > dst_shape[i]:
-                ratio = src_shape[i]//dst_shape[i]
-                target_vox = (neuron_location[i] - src_subregion[0][i])//ratio
+                ratio = src_shape[i]/dst_shape[i]
+                target_vox = int((neuron_location[i] - src_subregion[0][i])/ratio)
                 dst_vox_dict[i].add(target_vox)
             elif src_shape[i] < dst_shape[i]:
-                ratio = dst_shape[i]//src_shape[i]
+                ratio = dst_shape[i]/src_shape[i]
                 for vox in range(dst_shape[i]):
-                    if vox//ratio == (neuron_location[i] - src_subregion[0][i]):
+                    if int(vox/ratio) == (neuron_location[i] - src_subregion[0][i]):
                         target_vox = vox
                         dst_vox_dict[i].add(target_vox)
             elif src_shape[i] == dst_shape[i]:
