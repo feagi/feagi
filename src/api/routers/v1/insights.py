@@ -38,19 +38,20 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area: CorticalI
 
 
 @router.post("/neurons/membrane_potential_set")
-async def cortical_neuron_membrane_potential_monitoring(cortical_area: CorticalId, state: bool):
+async def cortical_neuron_membrane_potential_monitoring(cortical_area: CorticalIdList, state: bool):
     print("Cortical membrane potential monitoring", runtime_data.neuron_mp_collection_scope)
-    cortical_area = cortical_area.cortical_id
+
     if runtime_data.influxdb:
         influx_readiness = runtime_data.influxdb.test_influxdb()
         if influx_readiness:
-            if cortical_area in runtime_data.genome['blueprint']:
-                if state and cortical_area not in runtime_data.neuron_mp_collection_scope:
-                    runtime_data.neuron_mp_collection_scope[cortical_area] = {}
-                elif not state and cortical_area in runtime_data.neuron_mp_collection_scope:
-                    runtime_data.neuron_mp_collection_scope.pop(cortical_area)
-                else:
-                    pass
+            for cortical_area in cortical_area.cortical_id_list:
+                if cortical_area in runtime_data.genome['blueprint']:
+                    if state and cortical_area not in runtime_data.neuron_mp_collection_scope:
+                        runtime_data.neuron_mp_collection_scope[cortical_area] = {}
+                    elif not state and cortical_area in runtime_data.neuron_mp_collection_scope:
+                        runtime_data.neuron_mp_collection_scope.pop(cortical_area)
+                    else:
+                        pass
             return True
     else:
         raise HTTPException(status_code=400, detail="InfluxDb service is not running!")
@@ -67,18 +68,19 @@ async def cortical_synaptic_potential_monitoring(cortical_area: CorticalId):
 
 
 @router.post("/neuron/synaptic_potential_set")
-async def cortical_synaptic_potential_monitoring(cortical_area: CorticalId, state: bool):
+async def cortical_synaptic_potential_monitoring(cortical_area: CorticalIdList, state: bool):
     print("Cortical synaptic potential monitoring flag", runtime_data.neuron_psp_collection_scope)
-    cortical_area = cortical_area.cortical_id
+
     if runtime_data.influxdb:
         if runtime_data.influxdb.test_influxdb():
-            if cortical_area in runtime_data.genome['blueprint']:
-                if state and cortical_area not in runtime_data.neuron_psp_collection_scope:
-                    runtime_data.neuron_psp_collection_scope[cortical_area] = {}
-                elif not state and cortical_area in runtime_data.neuron_psp_collection_scope:
-                    runtime_data.neuron_psp_collection_scope.pop(cortical_area)
-                else:
-                    pass
+            for cortical_area in cortical_area.cortical_id_list:
+                if cortical_area in runtime_data.genome['blueprint']:
+                    if state and cortical_area not in runtime_data.neuron_psp_collection_scope:
+                        runtime_data.neuron_psp_collection_scope[cortical_area] = {}
+                    elif not state and cortical_area in runtime_data.neuron_psp_collection_scope:
+                        runtime_data.neuron_psp_collection_scope.pop(cortical_area)
+                    else:
+                        pass
             return True
     else:
         raise HTTPException(status_code=400, detail="InfluxDb service is not running!")
