@@ -500,7 +500,7 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
     Updates properties for multiple cortical areas at the same time
     """
     # Check to ensure all selected areas are of same type
-    message_dict = message.__dict__
+    message_dict = message.dict(exclude_none=True)
     print("message_dict:", message_dict)
     type_list = set()
     transforming = False

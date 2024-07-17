@@ -131,29 +131,29 @@ class UpdateCorticalProperties(BaseModel):
 
 class UpdateMultipleCorticalProperties(BaseModel):
     cortical_id_list: list
-    parent_region_id: Optional[str]
-    cortical_neuron_per_vox_count: Optional[int]
-    cortical_visibility: Optional[bool]
-    cortical_dimensions: Optional[list]
-    cortical_synaptic_attractivity: Optional[float]
-    neuron_post_synaptic_potential: Optional[float]
-    neuron_post_synaptic_potential_max: Optional[float]
-    neuron_fire_threshold: Optional[float]
-    neuron_fire_threshold_increment: Optional[list]
-    neuron_firing_threshold_limit: Optional[float]
-    neuron_refractory_period: Optional[int]
-    neuron_leak_coefficient: Optional[float]
-    neuron_leak_variability: Optional[float]
-    neuron_consecutive_fire_count: Optional[int]
-    neuron_snooze_period: Optional[int]
-    neuron_degeneracy_coefficient: Optional[float]
-    neuron_psp_uniform_distribution: Optional[bool]
-    neuron_mp_charge_accumulation: Optional[bool]
-    neuron_mp_driven_psp: Optional[bool]
-    neuron_longterm_mem_threshold: Optional[int]
-    neuron_lifespan_growth_rate: Optional[int]
-    neuron_init_lifespan: Optional[int]
-    neuron_excitability: Optional[float]
+    parent_region_id: Optional[str] = None
+    cortical_neuron_per_vox_count: Optional[int] = None
+    cortical_visibility: Optional[bool] = None
+    cortical_dimensions: Optional[list] = None
+    cortical_synaptic_attractivity: Optional[float] = None
+    neuron_post_synaptic_potential: Optional[float] = None
+    neuron_post_synaptic_potential_max: Optional[float] = None
+    neuron_fire_threshold: Optional[float] = None
+    neuron_fire_threshold_increment: Optional[list] = None
+    neuron_firing_threshold_limit: Optional[float] = None
+    neuron_refractory_period: Optional[int] = None
+    neuron_leak_coefficient: Optional[float] = None
+    neuron_leak_variability: Optional[float] = None
+    neuron_consecutive_fire_count: Optional[int] = None
+    neuron_snooze_period: Optional[int] = None
+    neuron_degeneracy_coefficient: Optional[float] = None
+    neuron_psp_uniform_distribution: Optional[bool] = None
+    neuron_mp_charge_accumulation: Optional[bool] = None
+    neuron_mp_driven_psp: Optional[bool] = None
+    neuron_longterm_mem_threshold: Optional[int] = None
+    neuron_lifespan_growth_rate: Optional[int] = None
+    neuron_init_lifespan: Optional[int] = None
+    neuron_excitability: Optional[float] = None
 
 # class Network(BaseModel):
 #     godot_host: Optional[str] = runtime_data.parameters['Sockets']['godot_host_name']
