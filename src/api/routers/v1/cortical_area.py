@@ -43,11 +43,10 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
         if cortical_area in runtime_data.genome['blueprint']:
             cortical_data = runtime_data.genome['blueprint'][cortical_area]
             brain_region_id = runtime_data.cortical_area_region_association[cortical_area]
+            brain_region_title = ""
             if brain_region_id:
                 if brain_region_id in runtime_data.genome["brain_regions"]:
                     brain_region_title = runtime_data.genome["brain_regions"][brain_region_id]["title"]
-            else:
-                brain_region_title = ""
 
             if 'mp_charge_accumulation' not in cortical_data:
                 cortical_data['mp_charge_accumulation'] = True
@@ -60,6 +59,10 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                 cortical_data['2d_coordinate'].append(None)
                 cortical_data['2d_coordinate'].append(None)
 
+            cortical_visibility = True
+            if cortical_area in runtime_data.cortical_viz_list:
+                cortical_visibility = False
+
             cortical_properties = {
                 "cortical_id": cortical_area,
                 "cortical_name": cortical_data['cortical_name'],
@@ -68,7 +71,7 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                 "cortical_group": cortical_data['group_id'],
                 "cortical_sub_group": cortical_data['sub_group_id'],
                 "cortical_neuron_per_vox_count": cortical_data['per_voxel_neuron_cnt'],
-                "cortical_visibility": not(cortical_area in runtime_data.cortical_viz_list),
+                "cortical_visibility": cortical_visibility,
                 "cortical_synaptic_attractivity": cortical_data['synapse_attractivity'],
                 "coordinates_3d": [
                     cortical_data["relative_coordinate"][0],
