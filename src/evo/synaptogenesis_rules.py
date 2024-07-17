@@ -218,6 +218,7 @@ def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar, src
                             (dst_pattern_x == dst_x and
                              (src_pattern_x == "*" or
                               (src_pattern_x == "?" and src_x == dst_x) or
+                              (src_pattern_x == "!" and src_x != dst_x) or
                               (src_pattern_x == src_x)))
                     )
 
@@ -231,6 +232,7 @@ def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar, src
                             (dst_pattern_y == dst_y and
                              (src_pattern_y == "*" or
                               (src_pattern_y == "?" and src_y == dst_y) or
+                              (src_pattern_y == "!" and src_y != dst_y) or
                               (src_pattern_y == src_y)))
                     )
 
@@ -244,6 +246,7 @@ def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar, src
                             (dst_pattern_z == dst_z and
                              (src_pattern_z == "*" or
                               (src_pattern_z == "?" and src_z == dst_z) or
+                              (src_pattern_z == "!" and src_z != dst_z) or
                               (src_pattern_z == src_z)))
                     )
 
