@@ -28,13 +28,14 @@ router = APIRouter()
 # ####################################################
 
 @router.post("/neurons/membrane_potential_status")
-async def cortical_neuron_membrane_potential_monitoring(cortical_area: CorticalId):
+async def cortical_neuron_membrane_potential_monitoring(cortical_area: CorticalIdList):
     print("Cortical membrane potential monitoring", runtime_data.neuron_mp_collection_scope)
-    cortical_area = cortical_area.cortical_id
-    if cortical_area in runtime_data.neuron_mp_collection_scope:
-        return True
-    else:
-        return False
+    response = list()
+    for cortical_area in cortical_area.cortical_id_list:
+        if cortical_area in runtime_data.neuron_mp_collection_scope:
+            response.append([cortical_area, True])
+        else:
+            response.append([cortical_area, False])
 
 
 @router.post("/neurons/membrane_potential_set")
@@ -58,13 +59,14 @@ async def cortical_neuron_membrane_potential_monitoring(cortical_area: CorticalI
 
 
 @router.post("/neuron/synaptic_potential_status")
-async def cortical_synaptic_potential_monitoring(cortical_area: CorticalId):
+async def cortical_synaptic_potential_monitoring(cortical_area: CorticalIdList):
     print("Cortical synaptic potential monitoring flag", runtime_data.neuron_psp_collection_scope)
-    cortical_area = cortical_area.cortical_id
-    if cortical_area in runtime_data.neuron_psp_collection_scope:
-        return True
-    else:
-        return False
+    response = list()
+    for cortical_area in cortical_area.cortical_id_list:
+        if cortical_area in runtime_data.neuron_psp_collection_scope:
+            response.append([cortical_area, True])
+        else:
+            response.append([cortical_area, False])
 
 
 @router.post("/neuron/synaptic_potential_set")
