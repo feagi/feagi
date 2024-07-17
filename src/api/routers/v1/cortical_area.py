@@ -157,10 +157,10 @@ async def update_cortical_properties(message: UpdateCorticalProperties):
         return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count will"
                                                                  f" exceed {max_allowable_neuron_count} threshold"})
 
+
     if message.cortical_id in runtime_data.transforming_areas:
         return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
     else:
-        runtime_data.transforming_areas.add(message.cortical_id)
         message = message.dict()
         message = {'update_cortical_properties': message}
         print("*-----* " * 200 + "\n", message)
@@ -515,6 +515,7 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
         return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
 
     # Proceed with updates
+    print("<<<<<<<<<<<<<< message.cortical_id_list:", message.cortical_id_list)
     for cortical_id in message.cortical_id_list:
         current_cortical_size = runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][0] * \
                                 runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][1] * \
@@ -549,10 +550,10 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
         if cortical_id in runtime_data.transforming_areas:
             return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
         else:
-            runtime_data.transforming_areas.add(cortical_id)
+            print("!!!!!!!! cortical id", cortical_id)
             message_dict["cortical_id"] = cortical_id
             message = {'update_cortical_properties': message_dict}
-            print("*-----* " * 200 + "\n", message)
+            print("*--###---* " * 200 + "\n", message)
             api_queue.put(item=message)
 
 
