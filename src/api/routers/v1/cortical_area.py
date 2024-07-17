@@ -498,8 +498,8 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
     Updates properties for multiple cortical areas at the same time
     """
     # Check to ensure all selected areas are of same type
-    message_dict = message.dict()
-
+    message_dict = message.__dict__
+    print("message_dict:", message_dict)
     type_list = set()
     transforming = False
     for cortical_id in message.cortical_id_list:
@@ -515,7 +515,6 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
         return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
 
     # Proceed with updates
-    print("<<<<<<<<<<<<<< message.cortical_id_list:", message.cortical_id_list)
     for cortical_id in message.cortical_id_list:
         current_cortical_size = runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][0] * \
                                 runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][1] * \
@@ -550,11 +549,9 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
         if cortical_id in runtime_data.transforming_areas:
             return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
         else:
-            print("!!!!!!!! cortical id", cortical_id)
             message_dict["cortical_id"] = cortical_id
-            message = {'update_cortical_properties': message_dict}
-            print("*--###---* " * 200 + "\n", message)
-            api_queue.put(item=message)
+            message_ = {'update_cortical_properties': message_dict}
+            api_queue.put(item=message_)
 
 
 @router.delete("/multi/cortical_area")

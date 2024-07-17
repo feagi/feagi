@@ -137,9 +137,7 @@ def update_cortical_properties(cortical_properties):
     logger.info(f"+++++++++++++++++++++   Cortical Change Request Received for %s ++++++++++++++++++++++++"
                 f"  {cortical_properties['cortical_id']}")
     cortical_area = cortical_properties['cortical_id']
-    print("$$$$ ___<<>> cortical id", cortical_area)
     runtime_data.transforming_areas.add(cortical_area)
-    print("1-transforming list:", runtime_data.transforming_areas)
     if cortical_properties.get('cortical_name'):
         runtime_data.genome['blueprint'][cortical_area]["cortical_name"] = \
             cortical_properties['cortical_name']
@@ -337,9 +335,7 @@ def update_cortical_properties(cortical_properties):
                 cortical_properties['neuron_firing_threshold_limit']
             regeneration_flag = True
             changed_areas.add("blueprint")
-    print("2-transforming list:", runtime_data.transforming_areas)
     if regeneration_flag:
-        print("@-----@ " * 10)
         logger.info(f"Cortical regeneration triggered for {cortical_area}")
         cortical_regeneration(cortical_area=cortical_area)
 
@@ -348,7 +344,6 @@ def update_cortical_properties(cortical_properties):
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                 file_name=runtime_data.connectome_path + "genome.json")
     runtime_data.last_genome_modification_time = datetime.datetime.now()
-    print("3-transforming list:", runtime_data.transforming_areas, cortical_area)
     runtime_data.transforming_areas.remove(cortical_area)
     update_evo_change_register(change_area=changed_areas)
 
@@ -569,35 +564,31 @@ def prune_cortical_synapses(cortical_area):
 
 def cortical_regeneration(cortical_area):
     # Clearing the burst engine from neuronal activities
-    print("##### 1 #####")
+
     # Reset effected areas
     cortical_removal(cortical_area=cortical_area)
-    print("##### 2 #####")
+
     x_corticogenesis(cortical_area)
-    print("%%%%%%%     Brain:\n", runtime_data.brain[cortical_area])
-    print("##### 3 #####")
+
     upstream_cortical_areas, downstream_cortical_areas = \
         neighboring_cortical_areas(cortical_area, runtime_data.genome["blueprint"])
-    print("##### 4 #####")
+
     # Recreate voxels
     neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
-    print("##### 5 #####")
+
     # Recreate neurons
     neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
-    print("##### 6 #####")
 
-    print(runtime_data.genome["blueprint"][cortical_area])
     # Recreate synapses
     for src_cortical_area in upstream_cortical_areas:
         neuroembryogenesis.synaptogenesis(cortical_area=src_cortical_area, dst_cortical_area=cortical_area)
-    print("##### 7 #####", downstream_cortical_areas)
+
     for dst_cortical_area in downstream_cortical_areas:
         if dst_cortical_area:
             neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
 
 
 def cortical_rewiring(src_cortical_area, dst_cortical_area):
-    print("++++++ 3")
     synaptic_pruner(src_cortical_area=src_cortical_area, dst_cortical_area=dst_cortical_area)
     neuroembryogenesis.synaptogenesis(cortical_area=src_cortical_area, dst_cortical_area=dst_cortical_area)
 
