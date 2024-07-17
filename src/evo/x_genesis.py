@@ -1099,7 +1099,7 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
 
                 # Wiring Efferents
                 for suggested_output_mapping in incoming_genome_region_data[region]["outputs"].copy():
-                    print("processing suggested input mapping:", suggested_output_mapping)
+                    print("processing suggested output mapping:", suggested_output_mapping)
                     if rewire_mode == 'system' and not \
                             area_is_system(suggested_output_mapping["dst_cortical_area_id"]):
                         print("Wiring to a custom unknown external area was skipped.")
@@ -1118,13 +1118,13 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                             print("@@ New system cortical area added:",
                                   suggested_output_mapping["dst_cortical_area_id"])
                         if suggested_output_mapping["dst_cortical_area_id"] in runtime_data.genome["blueprint"]:
-                            print("Suggested input source found in genome as ", suggested_output_mapping[
+                            print("Suggested output destination found in genome as ", suggested_output_mapping[
                                 "dst_cortical_area_id"])
-                            if suggested_output_mapping["src_cortical_area_id"] not in \
-                                    runtime_data.genome["blueprint"][suggested_output_mapping["dst_cortical_area_id"]][
+                            if suggested_output_mapping["dst_cortical_area_id"] not in \
+                                    runtime_data.genome["blueprint"][suggested_output_mapping["src_cortical_area_id"]][
                                         "cortical_mapping_dst"]:
-                                runtime_data.genome["blueprint"][suggested_output_mapping["dst_cortical_area_id"]][
-                                    "cortical_mapping_dst"][suggested_output_mapping["src_cortical_area_id"]] = list()
+                                runtime_data.genome["blueprint"][suggested_output_mapping["src_cortical_area_id"]][
+                                    "cortical_mapping_dst"][suggested_output_mapping["dst_cortical_area_id"]] = list()
 
                             new_mapping = {
                                 "morphology_id": suggested_output_mapping["morphology_id"],
@@ -1138,10 +1138,10 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                             }
 
                             if new_mapping not in \
-                                    runtime_data.genome["blueprint"][suggested_output_mapping["dst_cortical_area_id"]][
-                                    "cortical_mapping_dst"][suggested_output_mapping["src_cortical_area_id"]]:
-                                runtime_data.genome["blueprint"][suggested_output_mapping["dst_cortical_area_id"]][
-                                    "cortical_mapping_dst"][suggested_output_mapping["src_cortical_area_id"]].append(
+                                    runtime_data.genome["blueprint"][suggested_output_mapping["src_cortical_area_id"]][
+                                    "cortical_mapping_dst"][suggested_output_mapping["dst_cortical_area_id"]]:
+                                runtime_data.genome["blueprint"][suggested_output_mapping["src_cortical_area_id"]][
+                                    "cortical_mapping_dst"][suggested_output_mapping["dst_cortical_area_id"]].append(
                                     new_mapping)
                                 print("New mapping added!", suggested_output_mapping["dst_cortical_area_id"],
                                       suggested_output_mapping["src_cortical_area_id"],
