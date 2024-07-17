@@ -160,11 +160,10 @@ async def update_cortical_properties(message: UpdateCorticalProperties):
         return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count will"
                                                                  f" exceed {max_allowable_neuron_count} threshold"})
 
-
     if message.cortical_id in runtime_data.transforming_areas:
         return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
     else:
-        message = message.dict()
+        message = message.dict(exclude_none=True)
         message = {'update_cortical_properties': message}
         print("*-----* " * 200 + "\n", message)
         api_queue.put(item=message)
