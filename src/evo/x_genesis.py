@@ -51,7 +51,7 @@ from src.api.schemas import NewRegionProperties
 # from src.evo.synaptogenesis_rules import syn_memory
 
 logger = logging.getLogger(__name__)
-
+sentinel = object()
 
 class CustomError(Exception):
     def __init__(self, message, status_code):
@@ -137,7 +137,7 @@ def update_cortical_properties(cortical_properties):
     logger.info(f"+++++++++++++++++++++   Cortical Change Request Received for %s ++++++++++++++++++++++++"
                 f"  {cortical_properties['cortical_id']}")
     cortical_area = cortical_properties['cortical_id']
-
+    runtime_data.transforming_areas.add(cortical_area)
     if cortical_properties.get('cortical_name'):
         runtime_data.genome['blueprint'][cortical_area]["cortical_name"] = \
             cortical_properties['cortical_name']
@@ -203,19 +203,19 @@ def update_cortical_properties(cortical_properties):
             cortical_properties['neuron_consecutive_fire_count']
         changed_areas.add("blueprint")
 
-    if cortical_properties.get('neuron_mp_charge_accumulation'):
-        runtime_data.genome["blueprint"][cortical_area]["mp_charge_accumulation"] = \
-            cortical_properties['neuron_mp_charge_accumulation']
+    neuron_mp_charge_accumulation = cortical_properties.get('neuron_mp_charge_accumulation', sentinel)
+    if neuron_mp_charge_accumulation is not sentinel:
+        runtime_data.genome["blueprint"][cortical_area]["mp_charge_accumulation"] = neuron_mp_charge_accumulation
         changed_areas.add("blueprint")
 
-    if cortical_properties.get('neuron_mp_driven_psp'):
-        runtime_data.genome["blueprint"][cortical_area]["mp_driven_psp"] = \
-            cortical_properties['neuron_mp_driven_psp']
+    neuron_mp_driven_psp = cortical_properties.get('neuron_mp_driven_psp', sentinel)
+    if neuron_mp_driven_psp is not sentinel:
+        runtime_data.genome["blueprint"][cortical_area]["mp_driven_psp"] = neuron_mp_driven_psp
         changed_areas.add("blueprint")
 
-    if cortical_properties.get('cortical_visibility'):
-        runtime_data.genome["blueprint"][cortical_area]["visualization"] = \
-            cortical_properties['cortical_visibility']
+    cortical_visibility = cortical_properties.get('cortical_visibility', sentinel)
+    if cortical_visibility is not sentinel:
+        runtime_data.genome["blueprint"][cortical_area]["visualization"] = cortical_visibility
         if cortical_properties['cortical_visibility'] and cortical_area in runtime_data.cortical_viz_list:
             runtime_data.cortical_viz_list.remove(cortical_area)
         elif not cortical_properties['cortical_visibility']:
@@ -278,11 +278,12 @@ def update_cortical_properties(cortical_properties):
             regeneration_flag = True
             changed_areas.add("blueprint")
 
-    if cortical_properties.get('neuron_psp_uniform_distribution'):
+    neuron_psp_uniform_distribution = cortical_properties.get('neuron_psp_uniform_distribution', sentinel)
+    if neuron_psp_uniform_distribution is not sentinel:
         if runtime_data.genome['blueprint'][cortical_area]["psp_uniform_distribution"] != \
-                cortical_properties['neuron_psp_uniform_distribution']:
+                neuron_psp_uniform_distribution:
             runtime_data.genome['blueprint'][cortical_area]["psp_uniform_distribution"] = \
-                cortical_properties['neuron_psp_uniform_distribution']
+                neuron_psp_uniform_distribution
             regeneration_flag = True
             changed_areas.add("blueprint")
 
@@ -334,9 +335,7 @@ def update_cortical_properties(cortical_properties):
                 cortical_properties['neuron_firing_threshold_limit']
             regeneration_flag = True
             changed_areas.add("blueprint")
-
     if regeneration_flag:
-        print("@-----@ " * 10)
         logger.info(f"Cortical regeneration triggered for {cortical_area}")
         cortical_regeneration(cortical_area=cortical_area)
 
@@ -565,35 +564,31 @@ def prune_cortical_synapses(cortical_area):
 
 def cortical_regeneration(cortical_area):
     # Clearing the burst engine from neuronal activities
-    print("##### 1 #####")
+
     # Reset effected areas
     cortical_removal(cortical_area=cortical_area)
-    print("##### 2 #####")
+
     x_corticogenesis(cortical_area)
-    print("%%%%%%%     Brain:\n", runtime_data.brain[cortical_area])
-    print("##### 3 #####")
+
     upstream_cortical_areas, downstream_cortical_areas = \
         neighboring_cortical_areas(cortical_area, runtime_data.genome["blueprint"])
-    print("##### 4 #####")
+
     # Recreate voxels
     neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
-    print("##### 5 #####")
+
     # Recreate neurons
     neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
-    print("##### 6 #####")
 
-    print(runtime_data.genome["blueprint"][cortical_area])
     # Recreate synapses
     for src_cortical_area in upstream_cortical_areas:
         neuroembryogenesis.synaptogenesis(cortical_area=src_cortical_area, dst_cortical_area=cortical_area)
-    print("##### 7 #####", downstream_cortical_areas)
+
     for dst_cortical_area in downstream_cortical_areas:
         if dst_cortical_area:
             neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
 
 
 def cortical_rewiring(src_cortical_area, dst_cortical_area):
-    print("++++++ 3")
     synaptic_pruner(src_cortical_area=src_cortical_area, dst_cortical_area=dst_cortical_area)
     neuroembryogenesis.synaptogenesis(cortical_area=src_cortical_area, dst_cortical_area=dst_cortical_area)
 
@@ -1098,7 +1093,7 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
 
                 # Wiring Efferents
                 for suggested_output_mapping in incoming_genome_region_data[region]["outputs"].copy():
-                    print("processing suggested input mapping:", suggested_output_mapping)
+                    print("processing suggested output mapping:", suggested_output_mapping)
                     if rewire_mode == 'system' and not \
                             area_is_system(suggested_output_mapping["dst_cortical_area_id"]):
                         print("Wiring to a custom unknown external area was skipped.")
@@ -1117,13 +1112,13 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                             print("@@ New system cortical area added:",
                                   suggested_output_mapping["dst_cortical_area_id"])
                         if suggested_output_mapping["dst_cortical_area_id"] in runtime_data.genome["blueprint"]:
-                            print("Suggested input source found in genome as ", suggested_output_mapping[
+                            print("Suggested output destination found in genome as ", suggested_output_mapping[
                                 "dst_cortical_area_id"])
-                            if suggested_output_mapping["src_cortical_area_id"] not in \
-                                    runtime_data.genome["blueprint"][suggested_output_mapping["dst_cortical_area_id"]][
+                            if suggested_output_mapping["dst_cortical_area_id"] not in \
+                                    runtime_data.genome["blueprint"][suggested_output_mapping["src_cortical_area_id"]][
                                         "cortical_mapping_dst"]:
-                                runtime_data.genome["blueprint"][suggested_output_mapping["dst_cortical_area_id"]][
-                                    "cortical_mapping_dst"][suggested_output_mapping["src_cortical_area_id"]] = list()
+                                runtime_data.genome["blueprint"][suggested_output_mapping["src_cortical_area_id"]][
+                                    "cortical_mapping_dst"][suggested_output_mapping["dst_cortical_area_id"]] = list()
 
                             new_mapping = {
                                 "morphology_id": suggested_output_mapping["morphology_id"],
@@ -1137,10 +1132,10 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                             }
 
                             if new_mapping not in \
-                                    runtime_data.genome["blueprint"][suggested_output_mapping["dst_cortical_area_id"]][
-                                    "cortical_mapping_dst"][suggested_output_mapping["src_cortical_area_id"]]:
-                                runtime_data.genome["blueprint"][suggested_output_mapping["dst_cortical_area_id"]][
-                                    "cortical_mapping_dst"][suggested_output_mapping["src_cortical_area_id"]].append(
+                                    runtime_data.genome["blueprint"][suggested_output_mapping["src_cortical_area_id"]][
+                                    "cortical_mapping_dst"][suggested_output_mapping["dst_cortical_area_id"]]:
+                                runtime_data.genome["blueprint"][suggested_output_mapping["src_cortical_area_id"]][
+                                    "cortical_mapping_dst"][suggested_output_mapping["dst_cortical_area_id"]].append(
                                     new_mapping)
                                 print("New mapping added!", suggested_output_mapping["dst_cortical_area_id"],
                                       suggested_output_mapping["src_cortical_area_id"],

@@ -157,10 +157,10 @@ async def update_cortical_properties(message: UpdateCorticalProperties):
         return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count will"
                                                                  f" exceed {max_allowable_neuron_count} threshold"})
 
+
     if message.cortical_id in runtime_data.transforming_areas:
         return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
     else:
-        runtime_data.transforming_areas.add(message.cortical_id)
         message = message.dict()
         message = {'update_cortical_properties': message}
         print("*-----* " * 200 + "\n", message)
@@ -498,8 +498,8 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
     Updates properties for multiple cortical areas at the same time
     """
     # Check to ensure all selected areas are of same type
-    message_dict = message.dict()
-
+    message_dict = message.__dict__
+    print("message_dict:", message_dict)
     type_list = set()
     transforming = False
     for cortical_id in message.cortical_id_list:
@@ -549,11 +549,9 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
         if cortical_id in runtime_data.transforming_areas:
             return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
         else:
-            runtime_data.transforming_areas.add(cortical_id)
             message_dict["cortical_id"] = cortical_id
-            message = {'update_cortical_properties': message_dict}
-            print("*-----* " * 200 + "\n", message)
-            api_queue.put(item=message)
+            message_ = {'update_cortical_properties': message_dict}
+            api_queue.put(item=message_)
 
 
 @router.delete("/multi/cortical_area")
