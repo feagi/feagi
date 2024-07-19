@@ -229,7 +229,7 @@ def burst_manager():
 
             # Fire FCL neurons and pre-process viability of the downstream neurons for firing
             # Todo: Move degeneration items to a higher level to save on compute cycles
-            for fcl_cortical_area in runtime_data.fire_candidate_list:
+            for fcl_cortical_area in runtime_data.fire_candidate_list.copy():
                 if "degeneration" not in runtime_data.genome['blueprint'][fcl_cortical_area] or \
                         runtime_data.genome['blueprint'][fcl_cortical_area]['degeneration'] is None:
                     degeneration_val = 0

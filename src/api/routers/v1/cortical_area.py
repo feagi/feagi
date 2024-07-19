@@ -547,13 +547,9 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
             return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count"
                                                                      f" will exceed {max_allowable_neuron_count} "
                                                                      f"threshold"})
-
-        if cortical_id in runtime_data.transforming_areas:
-            return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
-        else:
-            message_dict["cortical_id"] = cortical_id
-            message_ = {'update_cortical_properties': message_dict}
-            api_queue.put(item=message_)
+        message_dict["cortical_id"] = cortical_id
+        message_ = {'update_cortical_properties': message_dict}
+        api_queue.put(item=message_)
 
 
 @router.delete("/multi/cortical_area")
