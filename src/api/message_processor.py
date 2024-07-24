@@ -183,8 +183,6 @@ def api_message_processor(api_message):
         update_cortical_properties(cortical_properties=api_message['update_cortical_properties'])
 
     if 'update_multiple_cortical_properties' in api_message:
-        print("@___________" * 10)
-        print(api_message['update_multiple_cortical_properties'])
         for message in api_message['update_multiple_cortical_properties']:
             update_cortical_properties(cortical_properties=message)
 
