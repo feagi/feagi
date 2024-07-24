@@ -499,9 +499,13 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
     """
     Updates properties for multiple cortical areas at the same time
     """
+
+    cortical_id_list = message.cortical_id_list
+
     # Check to ensure all selected areas are of same type
     message_dict = message.dict(exclude_none=True)
-    print("message_dict:", message_dict)
+    message_dict.pop("cortical_id_list")
+
     type_list = set()
     transforming = False
     for cortical_id in message.cortical_id_list:
@@ -516,8 +520,10 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
     if transforming:
         return generate_response("CORTICAL_AREA_UNDERGOING_TRANSFORMATION")
 
+    multi_edit_payload = []
+
     # Proceed with updates
-    for cortical_id in message.cortical_id_list:
+    for cortical_id in cortical_id_list:
         current_cortical_size = runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][0] * \
                                 runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][1] * \
                                 runtime_data.genome["blueprint"][cortical_id]["block_boundaries"][2]
@@ -547,9 +553,13 @@ async def update_multiple_cortical_properties(message: UpdateMultipleCorticalPro
             return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count"
                                                                      f" will exceed {max_allowable_neuron_count} "
                                                                      f"threshold"})
-        message_dict["cortical_id"] = cortical_id
-        message_ = {'update_cortical_properties': message_dict}
-        api_queue.put(item=message_)
+
+        cortical_payload = message_dict.copy()
+        cortical_payload["cortical_id"] = cortical_id
+        multi_edit_payload.append(cortical_payload)
+
+    message_ = {'update_multiple_cortical_properties': multi_edit_payload}
+    api_queue.put(item=message_)
 
 
 @router.delete("/multi/cortical_area")
