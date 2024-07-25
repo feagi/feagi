@@ -127,6 +127,14 @@ def update_cortical_properties(cortical_properties):
     - Cortical name
 
     """
+
+    if not runtime_data.brain_readiness:
+        brain_was_not_ready = True
+    else:
+        brain_was_not_ready = False
+        print("Brain is busy processing cortical area modifications...")
+        runtime_data.brain_readiness = False
+
     changed_areas = set()
     regeneration_flag = False
 
@@ -141,6 +149,7 @@ def update_cortical_properties(cortical_properties):
                 f"  {cortical_properties['cortical_id']}")
     cortical_area = cortical_properties['cortical_id']
     runtime_data.transforming_areas.add(cortical_area)
+
     if cortical_properties.get('cortical_name'):
         runtime_data.genome['blueprint'][cortical_area]["cortical_name"] = \
             cortical_properties['cortical_name']
@@ -351,6 +360,10 @@ def update_cortical_properties(cortical_properties):
     runtime_data.transforming_areas.remove(cortical_area)
     update_evo_change_register(change_area=changed_areas)
 
+    if not brain_was_not_ready:
+        print("Brain is ready now :)")
+        runtime_data.brain_readiness = True
+
 
 def update_evo_change_register(change_area: set):
     for change in change_area:
@@ -359,6 +372,14 @@ def update_evo_change_register(change_area: set):
 
 
 def update_cortical_mappings(cortical_mappings):
+
+    if not runtime_data.brain_readiness:
+        brain_was_not_ready = True
+    else:
+        print("Brain is busy processing new cortical mappings....")
+        brain_was_not_ready = False
+        runtime_data.brain_readiness = False
+
     cortical_area = cortical_mappings["src_cortical_area"]
     dst_cortical_area = cortical_mappings["dst_cortical_area"]
     mappings = cortical_mappings["mapping_data"]
@@ -413,6 +434,10 @@ def update_cortical_mappings(cortical_mappings):
     save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                 file_name=runtime_data.connectome_path + "genome.json")
     update_evo_change_register(change_area={"mappings"})
+
+    if not brain_was_not_ready:
+        print("Brain is ready now :)")
+        runtime_data.brain_readiness = True
 
     # added_mappings, removed_mappings, modified_mappings = \
     #     mapping_change_report(cortical_area=cortical_area, new_mapping=cortical_properties['cortical_destinations'])
@@ -636,6 +661,12 @@ def cortical_id_gen(seed='___', is_memory=False):
 
 def add_core_cortical_area(cortical_properties):
     try:
+        if not runtime_data.brain_readiness:
+            brain_was_not_ready = True
+        else:
+            brain_was_not_ready = False
+            print("Brain is busy creating a new cortical area ...")
+            runtime_data.brain_readiness = False
 
         cortical_type = cortical_properties['cortical_type']
         cortical_id_ = cortical_properties['cortical_id']
@@ -720,6 +751,10 @@ def add_core_cortical_area(cortical_properties):
                             file_name=runtime_data.connectome_path + "genome.json")
                 runtime_data.last_genome_modification_time = datetime.datetime.now()
 
+                if not brain_was_not_ready:
+                    print("Brain is ready now :)")
+                    runtime_data.brain_readiness = True
+
                 return cortical_id_
         else:
             print(f"Warning! while adding core cortical area. {cortical_id_} is not defined as {cortical_type}"
@@ -731,6 +766,14 @@ def add_core_cortical_area(cortical_properties):
 
 def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cortical_dimensions,
                              parent_region_id="root", cortical_id_overwrite=None, is_memory=False, copy_of=None):
+
+    if not runtime_data.brain_readiness:
+        brain_was_not_ready = True
+    else:
+        brain_was_not_ready = False
+        print("Brain is busy creating a new cortical area ...")
+        runtime_data.brain_readiness = False
+
     # Generate Cortical ID
     # todo: instead of hard coding the length have the genome properties captured and reference instead
     temp_name = cortical_name
@@ -809,6 +852,11 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
         save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
                     file_name=runtime_data.connectome_path + "genome.json")
         runtime_data.last_genome_modification_time = datetime.datetime.now()
+
+        if not brain_was_not_ready:
+            print("Brain is ready now :)")
+            runtime_data.brain_readiness = True
+
         return cortical_area
 
 
