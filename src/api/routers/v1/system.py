@@ -185,6 +185,16 @@ async def update_cortical_area_types(cortical_id: str):
     return "Endpoint pending implementation"
 
 
+@router.get("/cortical_area_visualization_skip_rate")
+async def update_cortical_area_visualization_skip_rate():
+    return runtime_data.cortical_viz_skip_rate
+
+
+@router.get("/cortical_area_visualization_suppression_threshold")
+async def update_cortical_area_visualization_suppression_threshold():
+    return runtime_data.cortical_viz_sup_threshold
+
+
 @router.put("/cortical_area_visualization_skip_rate")
 async def update_cortical_area_visualization_skip_rate(cortical_viz_skip_rate: VizSkipRate):
     """Set cortical area visualization skip rate. This value defines the number of skips between each instance of
