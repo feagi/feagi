@@ -213,3 +213,6 @@ logs = {
 
 # Visualization
 cortical_viz_list = set()
+cortical_viz_skip_rate = 15
+cortical_viz_sup_threshold = 50
+cortical_viz_sup_till_burst = dict()
