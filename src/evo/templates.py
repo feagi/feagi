@@ -249,6 +249,12 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 10, 1]
             },
+            "o__loc": {
+                "enabled": True,
+                "cortical_name": "Recognition Location",
+                "structure": "asymmetric",
+                "resolution": [32, 32, 1]
+            },
             "ov_enh": {
                 "enabled": True,
                 "cortical_name": "Lighting enhancement",
