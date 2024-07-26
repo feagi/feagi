@@ -215,6 +215,9 @@ def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar, src
                             (dst_pattern_x == "?" and
                              (src_x == dst_x))
                             or
+                            (dst_pattern_x == "!" and
+                             (src_x != dst_x))
+                            or
                             (dst_pattern_x == dst_x and
                              (src_pattern_x == "*" or
                               (src_pattern_x == "?" and src_x == dst_x) or
@@ -228,6 +231,9 @@ def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar, src
                             or
                             (dst_pattern_y == "?" and
                              (src_y == dst_y))
+                            or
+                            (dst_pattern_y == "!" and
+                             (src_y != dst_y))
                             or
                             (dst_pattern_y == dst_y and
                              (src_pattern_y == "*" or
@@ -243,6 +249,9 @@ def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar, src
                             (dst_pattern_z == "?" and
                              (src_z == dst_z))
                             or
+                            (dst_pattern_z == "!" and
+                             (src_z != dst_z))
+                            or
                             (dst_pattern_z == dst_z and
                              (src_pattern_z == "*" or
                               (src_pattern_z == "?" and src_z == dst_z) or
@@ -253,7 +262,6 @@ def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar, src
                 if matching_condition_x and matching_condition_y and matching_condition_z:
                     voxel_list.append([dst_x, dst_y, dst_z])
 
-    # print("Matched voxel list based on pattern:", src_voxel, cortical_area_dst, voxel_list)
 
     # todo: account for morphology scalar
 
