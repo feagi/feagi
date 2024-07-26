@@ -201,7 +201,7 @@ async def update_cortical_area_visualization_skip_rate(cortical_viz_skip_rate: V
     neuron firing visualization"""
     if cortical_viz_skip_rate.cortical_viz_skip_rate < 0:
         raise HTTPException(status_code=400, detail=f"Visualization skip rate cannot be negative")
-    runtime_data.cortical_viz_skip_rate = cortical_viz_skip_rate
+    runtime_data.cortical_viz_skip_rate = cortical_viz_skip_rate.cortical_viz_skip_rate
 
 
 @router.put("/cortical_area_visualization_suppression_threshold")
@@ -210,4 +210,4 @@ async def update_cortical_area_visualization_suppression_threshold(visualization
     control to kick in."""
     if visualization_threshold.visualization_threshold < 0:
         raise HTTPException(status_code=400, detail=f"Suppression threshold cannot be negative.")
-    runtime_data.cortical_viz_sup_threshold = visualization_threshold
+    runtime_data.cortical_viz_sup_threshold = visualization_threshold.visualization_threshold
