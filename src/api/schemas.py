@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Optional, Literal, List
 from pydantic import BaseModel, Field, conint
 from fastapi.staticfiles import StaticFiles
+from src.inf import runtime_data
 
 
 class Launch(BaseModel):
@@ -178,6 +179,14 @@ class CorticalName(BaseModel):
 
 class MorphologyName(BaseModel):
     morphology_name: str
+
+
+class VizSkipRate(BaseModel):
+    cortical_viz_skip_rate: int = runtime_data.cortical_viz_skip_rate
+
+
+class VizThreshold(BaseModel):
+    visualization_threshold: int = runtime_data.cortical_viz_sup_threshold
 
 
 class MorphologyInput(BaseModel):

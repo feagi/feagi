@@ -483,18 +483,43 @@ def burst_manager():
                     for _ in runtime_data.fire_candidate_list:
                         fire_list = set(runtime_data.fire_candidate_list[_])
                         if _ not in runtime_data.cortical_viz_list:
-                            while fire_list:
-                                firing_neuron = fire_list.pop()
-                                firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
-                                relative_coords = runtime_data.genome['blueprint'][_].get('relative_coordinate')
-                                broadcast_message.add(
-                                    (
-                                        runtime_data.burst_count,
-                                        firing_neuron_loc[0] + relative_coords[0],
-                                        firing_neuron_loc[1] + relative_coords[1],
-                                        firing_neuron_loc[2] + relative_coords[2]
+                            if len(fire_list) > runtime_data.cortical_viz_sup_threshold:
+                                # todo: move this to a function that does cortical area initialization
+                                if _ not in runtime_data.cortical_viz_sup_till_burst:
+                                    runtime_data.cortical_viz_sup_till_burst[_] = \
+                                        runtime_data.burst_count + runtime_data.cortical_viz_skip_rate
+
+                                if runtime_data.burst_count < runtime_data.cortical_viz_sup_till_burst[_]:
+                                    pass
+                                else:
+                                    runtime_data.cortical_viz_sup_till_burst[_] = \
+                                        runtime_data.burst_count + runtime_data.cortical_viz_skip_rate
+                                    # todo: duplicate code snippet 10 lines down -- refactor
+                                    while fire_list:
+                                        firing_neuron = fire_list.pop()
+                                        firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
+                                        relative_coords = runtime_data.genome['blueprint'][_].get('relative_coordinate')
+                                        broadcast_message.add(
+                                            (
+                                                runtime_data.burst_count,
+                                                firing_neuron_loc[0] + relative_coords[0],
+                                                firing_neuron_loc[1] + relative_coords[1],
+                                                firing_neuron_loc[2] + relative_coords[2]
+                                            )
+                                        )
+                            else:
+                                while fire_list:
+                                    firing_neuron = fire_list.pop()
+                                    firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
+                                    relative_coords = runtime_data.genome['blueprint'][_].get('relative_coordinate')
+                                    broadcast_message.add(
+                                        (
+                                            runtime_data.burst_count,
+                                            firing_neuron_loc[0] + relative_coords[0],
+                                            firing_neuron_loc[1] + relative_coords[1],
+                                            firing_neuron_loc[2] + relative_coords[2]
+                                        )
                                     )
-                                )
                     return broadcast_message
                 except Exception as e:
                     print("Exception during voxelization.", e, traceback.print_exc())

@@ -183,3 +183,31 @@ async def fetch_cortical_area_types():
 async def update_cortical_area_types(cortical_id: str):
     # todo
     return "Endpoint pending implementation"
+
+
+@router.get("/cortical_area_visualization_skip_rate")
+async def update_cortical_area_visualization_skip_rate():
+    return runtime_data.cortical_viz_skip_rate
+
+
+@router.get("/cortical_area_visualization_suppression_threshold")
+async def update_cortical_area_visualization_suppression_threshold():
+    return runtime_data.cortical_viz_sup_threshold
+
+
+@router.put("/cortical_area_visualization_skip_rate")
+async def update_cortical_area_visualization_skip_rate(cortical_viz_skip_rate: VizSkipRate):
+    """Set cortical area visualization skip rate. This value defines the number of skips between each instance of
+    neuron firing visualization"""
+    if cortical_viz_skip_rate.cortical_viz_skip_rate < 0:
+        raise HTTPException(status_code=400, detail=f"Visualization skip rate cannot be negative")
+    runtime_data.cortical_viz_skip_rate = cortical_viz_skip_rate
+
+
+@router.put("/cortical_area_visualization_suppression_threshold")
+async def update_cortical_area_visualization_suppression_threshold(visualization_threshold: VizThreshold):
+    """Controls the level of voxel activity per cortical area where if exceeded will enforce visualization frequency
+    control to kick in."""
+    if visualization_threshold.visualization_threshold < 0:
+        raise HTTPException(status_code=400, detail=f"Suppression threshold cannot be negative.")
+    runtime_data.cortical_viz_sup_threshold = visualization_threshold
