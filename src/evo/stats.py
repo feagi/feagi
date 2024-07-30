@@ -47,7 +47,7 @@ def connectome_neuron_count():
     return total_neuron_count
 
 
-def connectome_total_synapse_cnt(cortical_area):
+def cortical_area_anatomical_stats(cortical_area):
     """
     Returns the total number of Neurons and Synapses for a given cortical area
     """
@@ -65,7 +65,7 @@ def brain_total_synapse_cnt(verbose=True):
     brain_synapse_cnt = 0
     brain_neuron_cnt = 0
     for cortical_area in runtime_data.brain:
-        neuron_count, synapse_count = connectome_total_synapse_cnt(cortical_area)
+        neuron_count, synapse_count = cortical_area_anatomical_stats(cortical_area)
         brain_neuron_cnt = brain_neuron_cnt + neuron_count
         brain_synapse_cnt = brain_synapse_cnt + synapse_count
         if verbose:
@@ -94,7 +94,7 @@ def connectome_neighbor_histogram(cortical_area):
 def print_cortical_stats():
     for cortical_area in runtime_data.cortical_list:
         print("%s total Neuron count: %i" % (cortical_area, connectome_neuron_count(cortical_area)))
-        print("%s average synapse count per Neuron: %i" % (cortical_area, connectome_total_synapse_cnt(cortical_area)/connectome_neuron_count(cortical_area)))
+        print("%s average synapse count per Neuron: %i" % (cortical_area, cortical_area_anatomical_stats(cortical_area)/connectome_neuron_count(cortical_area)))
     return
 
 

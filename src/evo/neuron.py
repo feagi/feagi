@@ -129,7 +129,7 @@ def init_neuron(cortical_area, soma_location, mem_neuron_id=None):
             leak = leak + leak * random.randrange(1, int(leak_variability), 1) / 100
 
     runtime_data.brain[cortical_area][neuron_id]["leak_coefficient"] = leak
-
+    runtime_data.brain_stats["neuron_count"] += 1
     return neuron_id
 
 
@@ -168,6 +168,8 @@ def neuron_apoptosis(cortical_area, neuron_id):
     if cortical_area in runtime_data.fire_queue:
         if neuron_id in runtime_data.fire_queue[cortical_area]:
             runtime_data.fire_queue[cortical_area].remove(neuron_id)
+
+    runtime_data.brain_stats["neuron_count"] -= 1
 
 
 def increase_neuron_lifespan(cortical_area, neuron_id):

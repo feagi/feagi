@@ -1,6 +1,8 @@
+from enum import Enum
 from typing import Optional, Literal, List
 from pydantic import BaseModel, Field, conint
 from fastapi.staticfiles import StaticFiles
+from src.inf import runtime_data
 
 
 class Launch(BaseModel):
@@ -33,8 +35,33 @@ class NewCorticalProperties(BaseModel):
     channel_count: Optional[int]
 
 
+class NewRegionProperties(BaseModel):
+    title: str
+    region_description: Optional[str]
+    parent_region_id: str = Field(default="root")
+    coordinates_2d: List[int] = Field(default=[0, 0])
+    coordinates_3d: List[int] = Field(default=[0, 0, 0])
+    areas: Optional[list] = Field(default=[])
+    regions: Optional[list] = Field(default=[])
+
+
+class UpdateRegionProperties(BaseModel):
+    region_id: str
+    title: Optional[str]
+    region_description: Optional[str]
+    parent_region_id: Optional[str]
+    coordinates_2d: Optional[list]
+    coordinates_3d: Optional[list]
+
+
+class RegionAssociation(BaseModel):
+    id: str = Field(default="")
+    new_region_id: str = Field(default="")
+
+
 class NewCustomCorticalProperties(BaseModel):
     cortical_name: str = Field(..., max_length=20, min_length=1)
+    parent_region_id: Optional[str] = Field(default="root")
     coordinates_2d: Optional[list] = [0, 0]
     coordinates_3d: List[int] = Field(default=[0, 0, 0])
     cortical_dimensions: List[int] = Field(default=[1, 1, 1])
@@ -75,31 +102,59 @@ class NewCustomCorticalProperties(BaseModel):
 
 class UpdateCorticalProperties(BaseModel):
     cortical_id: str = Field(None, max_length=6, min_length=6)
-    cortical_name: Optional[str]
-    cortical_neuron_per_vox_count: Optional[int]
-    cortical_visibility: Optional[bool]
-    coordinates_3d: Optional[list]
-    coordinates_2d: Optional[list]
-    cortical_dimensions: Optional[list]
-    cortical_synaptic_attractivity: Optional[int]
-    neuron_post_synaptic_potential: Optional[float]
-    neuron_post_synaptic_potential_max: Optional[float]
-    neuron_fire_threshold: Optional[float]
-    neuron_fire_threshold_increment: Optional[list]
-    neuron_firing_threshold_limit: Optional[float]
-    neuron_refractory_period: Optional[int]
-    neuron_leak_coefficient: Optional[float]
-    neuron_leak_variability: Optional[float]
-    neuron_consecutive_fire_count: Optional[int]
-    neuron_snooze_period: Optional[int]
-    neuron_degeneracy_coefficient: Optional[float]
-    neuron_psp_uniform_distribution: Optional[bool]
-    neuron_mp_charge_accumulation: Optional[bool]
-    neuron_mp_driven_psp: Optional[bool]
-    neuron_longterm_mem_threshold: Optional[int]
-    neuron_lifespan_growth_rate: Optional[int]
-    neuron_init_lifespan: Optional[int]
-    neuron_excitability: Optional[int]
+    cortical_name: Optional[str] = None
+    parent_region_id: Optional[str] = None
+    cortical_neuron_per_vox_count: Optional[int] = None
+    cortical_visibility: Optional[bool] = None
+    coordinates_3d: Optional[list] = None
+    coordinates_2d: Optional[list] = None
+    cortical_dimensions: Optional[list] = None
+    cortical_synaptic_attractivity: Optional[float] = None
+    neuron_post_synaptic_potential: Optional[float] = None
+    neuron_post_synaptic_potential_max: Optional[float] = None
+    neuron_fire_threshold: Optional[float] = None
+    neuron_fire_threshold_increment: Optional[list] = None
+    neuron_firing_threshold_limit: Optional[float] = None
+    neuron_refractory_period: Optional[int] = None
+    neuron_leak_coefficient: Optional[float] = None
+    neuron_leak_variability: Optional[float] = None
+    neuron_consecutive_fire_count: Optional[int] = None
+    neuron_snooze_period: Optional[int] = None
+    neuron_degeneracy_coefficient: Optional[float] = None
+    neuron_psp_uniform_distribution: Optional[bool] = None
+    neuron_mp_charge_accumulation: Optional[bool] = None
+    neuron_mp_driven_psp: Optional[bool] = None
+    neuron_longterm_mem_threshold: Optional[int] = None
+    neuron_lifespan_growth_rate: Optional[int] = None
+    neuron_init_lifespan: Optional[int] = None
+    neuron_excitability: Optional[float] = None
+
+
+class UpdateMultipleCorticalProperties(BaseModel):
+    cortical_id_list: list
+    parent_region_id: Optional[str] = None
+    cortical_neuron_per_vox_count: Optional[int] = None
+    cortical_visibility: Optional[bool] = None
+    cortical_dimensions: Optional[list] = None
+    cortical_synaptic_attractivity: Optional[float] = None
+    neuron_post_synaptic_potential: Optional[float] = None
+    neuron_post_synaptic_potential_max: Optional[float] = None
+    neuron_fire_threshold: Optional[float] = None
+    neuron_fire_threshold_increment: Optional[list] = None
+    neuron_firing_threshold_limit: Optional[float] = None
+    neuron_refractory_period: Optional[int] = None
+    neuron_leak_coefficient: Optional[float] = None
+    neuron_leak_variability: Optional[float] = None
+    neuron_consecutive_fire_count: Optional[int] = None
+    neuron_snooze_period: Optional[int] = None
+    neuron_degeneracy_coefficient: Optional[float] = None
+    neuron_psp_uniform_distribution: Optional[bool] = None
+    neuron_mp_charge_accumulation: Optional[bool] = None
+    neuron_mp_driven_psp: Optional[bool] = None
+    neuron_longterm_mem_threshold: Optional[int] = None
+    neuron_lifespan_growth_rate: Optional[int] = None
+    neuron_init_lifespan: Optional[int] = None
+    neuron_excitability: Optional[float] = None
 
 # class Network(BaseModel):
 #     godot_host: Optional[str] = runtime_data.parameters['Sockets']['godot_host_name']
@@ -114,12 +169,24 @@ class CorticalId(BaseModel):
     cortical_id: str
 
 
+class CorticalIdList(BaseModel):
+    cortical_id_list: list
+
+
 class CorticalName(BaseModel):
     cortical_name: str
 
 
 class MorphologyName(BaseModel):
     morphology_name: str
+
+
+class VizSkipRate(BaseModel):
+    cortical_viz_skip_rate: int = runtime_data.cortical_viz_skip_rate
+
+
+class VizThreshold(BaseModel):
+    visualization_threshold: int = runtime_data.cortical_viz_sup_threshold
 
 
 class MorphologyInput(BaseModel):
@@ -132,6 +199,12 @@ class UpdateCorticalMappingProperties(BaseModel):
     src_cortical_area: str
     dst_cortical_area: str
     mapping_string: list
+
+
+class SuggestedMapping(BaseModel):
+    brain_region_id: str
+    mapping_type: str
+    mapping_definitions: list = [{}]
 
 
 class CorticalAreaSrcDst(BaseModel):
@@ -184,8 +257,12 @@ class Subscriber(BaseModel):
     subscriber_address: str
 
 
-class GameStats(BaseModel):
-    game_stats: dict
+class Id(BaseModel):
+    id: str
+
+
+class FitnessStats(BaseModel):
+    fitness_stats: dict
 
 
 class RobotController(BaseModel):
@@ -234,3 +311,9 @@ class AmalgamationRequest(BaseModel):
     genome_id: Optional[str] = None
     genome_title: Optional[str] = None
     genome_payload: Optional[dict] = None
+
+
+class RewiringMode(str, Enum):
+    rewire_all = "all"
+    rewire_system = "system"
+    rewire_none = "none"

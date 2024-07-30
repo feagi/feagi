@@ -232,6 +232,7 @@ def neurogenesis(cortical_area):
     #                             parameters=runtime_data.parameters)
     # disk_ops.save_voxel_dict_to_disk(cortical_area=cortical_area,
     #                                  voxel_dict=runtime_data.voxel_dict)
+    return neuron_count
 
 
 def synaptogenesis(cortical_area, dst_cortical_area=None):
@@ -259,7 +260,7 @@ def build_synapses(genome, brain, parameters, voxel_dict, connectome_path, src_c
     runtime_data.connectome_path = connectome_path
     # Read Genome data
     cortical_genes = genome["blueprint"][src_cortical_area]
-
+    synapse_count_ = 0
     if dst_cortical_area and dst_cortical_area in cortical_genes["cortical_mapping_dst"]:
         timer = datetime.datetime.now()
         synapse_count_, runtime_data.brain = \
@@ -275,6 +276,7 @@ def build_synapses(genome, brain, parameters, voxel_dict, connectome_path, src_c
 
             intercortical_mapping.append((src_cortical_area, mapped_cortical_area, synapse_count_))
 
+    runtime_data.brain_stats["synapse_count"] += synapse_count_
     # disk_ops.save_brain_to_disk(cortical_area=src_cortical_area, brain=runtime_data.brain, parameters=parameters)
     return intercortical_mapping
 
