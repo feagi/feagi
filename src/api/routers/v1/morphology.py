@@ -127,7 +127,7 @@ async def genome_update_neuron_morphology(morphology_input: MorphologyInput):
 @router.post("/morphology")
 async def genome_add_neuron_morphology(morphology_input: MorphologyInput):
     """
-    Enables changes against various Burst Engine parameters.
+    Create new connectivity rule aka. neuron morphology.
     """
     morphology_name = morphology_input.morphology_name
     if morphology_input.morphology_name not in runtime_data.genome['neuron_morphologies']:

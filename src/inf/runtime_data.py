@@ -75,6 +75,7 @@ evo_change_register = {
     "3d_viz": 0
 }
 manual_delete_list = set()
+genome_fitness = 1
 
 # Staging Zone
 pending_genome = None
@@ -110,7 +111,7 @@ upcoming_lifesnap_mgmt = 0
 neuron_mp_collection_scope = {}
 neuron_psp_collection_scope = {}
 training_stats = {}
-game_stats = {}
+fitness_stats = {}
 brain_stats = {
     "neuron_count": 0,
     "synapse_count": 0
@@ -160,6 +161,7 @@ intercortical_mapping = []
 brain_is_running = False
 cumulative_stats = {}
 memory_register = {}
+cortical_area_region_association = dict()
 
 
 # Training
@@ -208,3 +210,9 @@ logs = {
     "PNS": set(),
     "CNS": set()
 }
+
+# Visualization
+cortical_viz_list = set()
+cortical_viz_skip_rate = 0
+cortical_viz_sup_threshold = 10000
+cortical_viz_sup_till_burst = dict()

@@ -29,7 +29,7 @@ from .error_handling import *
 from .commons import CustomError, api_queue
 from .models import *
 from .routers.v1 import burst_engine, connectome, evolution, feagi_agent, genome, insights, morphology, \
-    network, simulation, system, training, cortical_area, neuroplasticity, cortical_mapping
+    network, simulation, system, training, cortical_area, neuroplasticity, cortical_mapping, region
 from src.inf.feagi import start_feagi
 
 logger = logging.getLogger(__name__)
@@ -65,7 +65,8 @@ app.add_middleware(
     allow_origins=ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 
@@ -217,6 +218,14 @@ app.include_router(
 )
 
 app.include_router(
+    region.router,
+    prefix="/v1/region",
+    tags=["BRAIN REGIONS"],
+    dependencies=[Depends(check_active_genome)],
+    responses=standard_response
+)
+
+app.include_router(
     cortical_mapping.router,
     prefix="/v1/cortical_mapping",
     tags=["CORTICAL MAPPINGS"],
@@ -259,7 +268,7 @@ app.include_router(
     training.router,
     prefix="/v1/training",
     tags=["TRAINING"],
-    dependencies=[Depends(check_brain_running)],
+    dependencies=[Depends(check_active_genome)],
     responses=standard_response
 )
 

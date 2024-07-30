@@ -89,7 +89,7 @@ gui_baseline = {
     "plasticity_flag": False,
     "cortical_genes": {
         "per_voxel_neuron_cnt (int)": ["cx-_n_cnt-i", 1],
-        "synapse_attractivity (int)": ["cx-synatt-i", 100],
+        "synapse_attractivity (int)": ["cx-synatt-f", 100],
         "postsynaptic_current (float)": ["cx-pstcr_-f", 5.0],
         "postsynaptic_current_max (float)": ["cx-pstcrm-f", 35.0],
         "plasticity_constant (float)": ["cx-plst_c-f", 0.05],

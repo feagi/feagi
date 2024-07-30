@@ -33,12 +33,14 @@ from datetime import datetime, timedelta
 from collections import deque
 from shutil import copyfile
 from src.evo.connectome import reset_connectome
+from src.evo.voxels import generate_cortical_dimensions_by_id, generate_cortical_dimensions
 from src.evo.stats import voxel_dict_summary
 from src.evo.genome_editor import save_genome
 from src.inf.messenger import Pub
 from src.evo.neuroembryogenesis import generate_plasticity_dict, develop_brain
 from src.evo.genome_processor import genome_1_cortical_list, genome_ver_check
 from src.evo.genome_validator import *
+from src.evo.region import region_id_gen
 from src.evo.templates import cortical_types
 
 
@@ -80,6 +82,7 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
     # todo temp check to find a better solution
     if "physiology" not in runtime_data.genome:
         runtime_data.genome["physiology"] = {}
+
     if "lifespan_mgmt_interval" not in runtime_data.genome["physiology"]:
         runtime_data.genome["physiology"]["lifespan_mgmt_interval"] = 10
 
@@ -96,6 +99,9 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
         if "firing_threshold_limit" not in runtime_data.genome["blueprint"][_]:
             runtime_data.genome["blueprint"][_]["firing_threshold_limit"] = 0
 
+        if "visualization" not in runtime_data.genome["blueprint"][_]:
+            runtime_data.genome["blueprint"][_]["visualization"] = True
+
         if "leak_variability" not in runtime_data.genome["blueprint"][_]:
             runtime_data.genome["blueprint"][_]["leak_variability"] = 0
 
@@ -105,6 +111,8 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
     runtime_data.plasticity_queue_depth = runtime_data.genome["physiology"]["plasticity_queue_depth"]
     init_fcl()
     init_brain()
+    init_brain_regions()
+
     if 'genome_id' not in runtime_data.genome:
         runtime_data.genome['genome_id'] = id_gen(signature="_G")
     runtime_data.genome_id = runtime_data.genome['genome_id']
@@ -150,6 +158,41 @@ def deploy_genome(neuroembryogenesis_flag=False, reset_runtime_data_flag=False, 
 #     print("Hardware controller path: ", runtime_data.hw_controller_path)
 #
 
+
+def init_brain_regions():
+    if "brain_regions" not in runtime_data.genome:
+        runtime_data.genome["brain_regions"] = {}
+
+    if "root" not in runtime_data.genome["brain_regions"]:
+        runtime_data.genome["brain_regions"]["root"] = {}
+        runtime_data.genome["brain_regions"]["root"]["title"] = "Genome's root brain region"
+        runtime_data.genome["brain_regions"]["root"]["description"] = None
+        runtime_data.genome["brain_regions"]["root"]["parent_region_id"] = None
+        runtime_data.genome["brain_regions"]["root"]["coordinate_2d"] = [0, 0]
+        runtime_data.genome["brain_regions"]["root"]["coordinate_3d"] = [0, 0, 0]
+        runtime_data.genome["brain_regions"]["root"]["areas"] = []
+        runtime_data.genome["brain_regions"]["root"]["regions"] = []
+        runtime_data.genome["brain_regions"]["root"]["inputs"] = []
+        runtime_data.genome["brain_regions"]["root"]["outputs"] = []
+
+        for cortical_area in runtime_data.cortical_list:
+            runtime_data.genome["brain_regions"]["root"]["areas"].append(cortical_area)
+            runtime_data.cortical_area_region_association[cortical_area] = "root"
+
+    for cortical_area in runtime_data.cortical_list:
+        if cortical_area not in runtime_data.cortical_area_region_association:
+            for region in runtime_data.genome["brain_regions"]:
+                if cortical_area in runtime_data.genome["brain_regions"][region]["areas"]:
+                    runtime_data.cortical_area_region_association[cortical_area] = region
+            if cortical_area not in runtime_data.cortical_area_region_association:
+                runtime_data.cortical_area_region_association[cortical_area] = "root"
+
+        # if runtime_data.genome["blueprint"][cortical_area]["group_id"] == "IPU":
+        #     runtime_data.genome["brain_regions"]["root"]["inputs"][cortical_area] = []
+        # if runtime_data.genome["blueprint"][cortical_area]["group_id"] == "OPU":
+        #     runtime_data.genome["brain_regions"]["root"]["outputs"][cortical_area] = []
+
+
 def init_container_variables():
     """
     Identifies variables set by containers and sets them in FEAGI runtime parameters
@@ -175,11 +218,14 @@ def init_memory_register():
 
     for cortical_area in runtime_data.genome["blueprint"]:
         for dst_cortical_area in runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"]:
-            if "sub_group_id" in runtime_data.genome["blueprint"][dst_cortical_area]:
-                if runtime_data.genome["blueprint"][dst_cortical_area]["sub_group_id"] == "MEMORY":
-                    if dst_cortical_area not in runtime_data.memory_register:
-                        runtime_data.memory_register[dst_cortical_area] = set()
-                    runtime_data.memory_register[dst_cortical_area].add(cortical_area)
+            if dst_cortical_area in runtime_data.genome["blueprint"]:
+                if "sub_group_id" in runtime_data.genome["blueprint"][dst_cortical_area]:
+                    if runtime_data.genome["blueprint"][dst_cortical_area]["sub_group_id"] == "MEMORY":
+                        if dst_cortical_area not in runtime_data.memory_register:
+                            runtime_data.memory_register[dst_cortical_area] = set()
+                        runtime_data.memory_register[dst_cortical_area].add(cortical_area)
+            else:
+                print(f"Warning!! {dst_cortical_area} not found in blueprint while running init_memory_register func.")
 
 
 def running_in_container():
@@ -535,69 +581,3 @@ def init_burst_engine():
     # except KeyError as e:
     #     print('ERROR: OPU socket is not properly defined as part of feagi_configuration.ini\n', e)
 
-
-def generate_cortical_dimensions():
-    """
-    Generates the information needed to display cortical areas on Godot
-    """
-    cortical_information = {}
-
-    for cortical_area in runtime_data.genome["blueprint"]:
-        cortical_name = runtime_data.genome["blueprint"][cortical_area]["cortical_name"]
-        cortical_information[cortical_name] = []
-        genes = runtime_data.genome["blueprint"][cortical_area]
-        cortical_information[cortical_name].append(genes["relative_coordinate"][0])
-        cortical_information[cortical_name].append(genes["relative_coordinate"][1])
-        cortical_information[cortical_name].append(genes["relative_coordinate"][2])
-        cortical_information[cortical_name].append(genes["visualization"])
-        cortical_information[cortical_name].append(genes["block_boundaries"][0])
-        cortical_information[cortical_name].append(genes["block_boundaries"][1])
-        cortical_information[cortical_name].append(genes["block_boundaries"][2])
-        cortical_information[cortical_name].append(cortical_area)
-
-    with open(runtime_data.connectome_path+"cortical_data.json", "w") as data_file:
-        data_file.seek(0)
-        data_file.write(json.dumps(cortical_information, indent=3))
-        data_file.truncate()
-
-    return cortical_information
-
-
-def generate_cortical_dimensions_by_id():
-    """
-    Generates the information needed to display cortical areas on Godot
-    """
-    cortical_information = {}
-
-    for cortical_area in runtime_data.genome["blueprint"]:
-        cortical_information[cortical_area] = {}
-        genes = runtime_data.genome["blueprint"][cortical_area]
-
-        cortical_information[cortical_area]["cortical_name"] = genes["cortical_name"]
-        cortical_information[cortical_area]["cortical_group"] = genes["group_id"]
-        cortical_information[cortical_area]["cortical_sub_group"] = genes["sub_group_id"]
-        cortical_information[cortical_area]["visible"] = genes["visualization"]
-
-        cortical_information[cortical_area]["coordinates_2d"] = [
-            genes["2d_coordinate"][0],
-            genes["2d_coordinate"][1]
-        ]
-
-        cortical_information[cortical_area]["coordinates_3d"] = [
-            genes["relative_coordinate"][0],
-            genes["relative_coordinate"][1],
-            genes["relative_coordinate"][2]
-        ]
-
-        cortical_information[cortical_area]["cortical_dimensions"] = [
-            genes["block_boundaries"][0],
-            genes["block_boundaries"][1],
-            genes["block_boundaries"][2]
-        ]
-
-    with open(runtime_data.connectome_path+"cortical_data_by_id.json", "w") as data_file:
-        data_file.seek(0)
-        data_file.write(json.dumps(cortical_information, indent=3))
-        data_file.truncate()
-
-    return cortical_information
