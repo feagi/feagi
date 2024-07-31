@@ -317,3 +317,8 @@ class RewiringMode(str, Enum):
     rewire_all = "all"
     rewire_system = "system"
     rewire_none = "none"
+
+
+class UserPreferences(BaseModel):
+    adv_mode: bool
+    ui_magnification: float = 1.0

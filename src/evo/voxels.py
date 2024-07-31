@@ -332,10 +332,17 @@ def generate_cortical_dimensions_by_id():
         cortical_information[cortical_area] = {}
         genes = runtime_data.genome["blueprint"][cortical_area]
 
+        if "visualization" in genes:
+            cortical_visibility = genes["visualization"]
+            if not genes["visualization"]:
+                cortical_visibility = False
+        else:
+            cortical_visibility = True
+
         cortical_information[cortical_area]["cortical_name"] = genes["cortical_name"]
         cortical_information[cortical_area]["cortical_group"] = genes["group_id"]
         cortical_information[cortical_area]["cortical_sub_group"] = genes["sub_group_id"]
-        cortical_information[cortical_area]["visible"] = genes["visualization"]
+        cortical_information[cortical_area]["visible"] = cortical_visibility
 
         cortical_information[cortical_area]["coordinates_2d"] = [
             genes["2d_coordinate"][0],

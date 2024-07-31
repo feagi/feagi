@@ -173,6 +173,7 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
                 new_psc = \
                     runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
                 new_psc -= degenerate
+                # todo: consider degeneracy for inhibitory connections
                 if new_psc < 0:
                     new_psc = 0
                 post_synaptic_current_update(cortical_area_src=cortical_area, cortical_area_dst=dst_cortical_area,

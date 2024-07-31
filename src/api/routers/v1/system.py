@@ -29,6 +29,20 @@ router = APIRouter()
 # ######   System Endpoints #########
 # ###################################
 
+@router.get("/user_preferences")
+async def get_user_preferences():
+    return {
+        "bv_advanced_mode": runtime_data.bv_advanced_mode,
+        "ui_magnification": runtime_data.ui_magnification,
+        }
+
+
+@router.put("/user_preferences")
+async def update_user_preferences(payload: UserPreferences):
+    runtime_data.bv_advanced_mode = payload.adv_mode
+    runtime_data.ui_magnification = payload.ui_magnification
+
+
 def human_readable_version(version):
     print(version)
     time_portion = str(version)[-10:]

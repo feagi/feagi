@@ -44,7 +44,8 @@ paths = {}
 pending_amalgamation = {}
 amalgamation_history = {}
 changes_saved_externally = False
-
+bv_advanced_mode = True
+ui_magnification = 1.0
 
 # Evolutionary
 genome = {}
