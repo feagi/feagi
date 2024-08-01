@@ -148,12 +148,18 @@ def update_cortical_properties(cortical_properties):
     logger.info(f"+++++++++++++++++++++   Cortical Change Request Received for %s ++++++++++++++++++++++++"
                 f"  {cortical_properties['cortical_id']}")
     cortical_area = cortical_properties['cortical_id']
+    cortical_type = cortical_area_type(cortical_area=cortical_area)
     runtime_data.transforming_areas.add(cortical_area)
 
     if cortical_properties.get('cortical_name'):
         runtime_data.genome['blueprint'][cortical_area]["cortical_name"] = \
             cortical_properties['cortical_name']
         changed_areas.add("name")
+
+    if cortical_properties.get('dev_count'):
+        runtime_data.genome["blueprint"][cortical_area]["dev_count"] = \
+            cortical_properties['dev_count']
+        changed_areas.add("dev_count")
 
     if cortical_properties.get('coordinates_3d'):
         x_cortical_reposition(cortical_area=cortical_area,
@@ -239,24 +245,37 @@ def update_cortical_properties(cortical_properties):
     # ####################################################
     # Conditions that require cortical regeneration
     # ####################################################
+    
     if cortical_properties.get('cortical_dimensions'):
-        if runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][0] != \
-                cortical_properties['cortical_dimensions'][0] and cortical_properties['cortical_dimensions'][0] > 0:
+        new_dim_x, new_dim_y, new_dim_z = cortical_properties['cortical_dimensions']
+
+        dev_count = cortical_types[cortical_type]["supported_devices"][cortical_area]["dev_count"]
+            
+        if runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][0] != new_dim_x and new_dim_x > 0:
             regeneration_flag = True
-            runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][0] = \
-                cortical_properties['cortical_dimensions'][0]
+            if cortical_type in ["IPU", "OPU"]:
+                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0] = new_dim_x
+                runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][0] = new_dim_x * dev_count
+            else:
+                runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][0] = new_dim_x
             changed_areas.add("3d_dimm")
-        if runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][1] != \
-                cortical_properties['cortical_dimensions'][1] and cortical_properties['cortical_dimensions'][1] > 0:
+
+        if runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][1] != new_dim_y and new_dim_y > 0:
             regeneration_flag = True
-            runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][1] = \
-                cortical_properties['cortical_dimensions'][1]
+            if cortical_type in ["IPU", "OPU"]:
+                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1] = new_dim_y
+                runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][1] = new_dim_y * dev_count
+            else:
+                runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][1] = new_dim_y
             changed_areas.add("3d_dimm")
-        if runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][2] != \
-                cortical_properties['cortical_dimensions'][2] and cortical_properties['cortical_dimensions'][2] > 0:
+
+        if runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][2] != new_dim_z and new_dim_z > 0:
             regeneration_flag = True
-            runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][2] = \
-                cortical_properties['cortical_dimensions'][2]
+            if cortical_type in ["IPU", "OPU"]:
+                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2] = new_dim_z
+                runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][2] = new_dim_z * dev_count
+            else:
+                runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][2] = new_dim_z
             changed_areas.add("3d_dimm")
 
     if 'cortical_neuron_per_vox_count' in cortical_properties:

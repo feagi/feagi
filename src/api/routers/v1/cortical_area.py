@@ -28,6 +28,7 @@ from src.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area
 from src.evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
 from src.evo.templates import cortical_types
 from src.evo.region import change_cortical_area_parent
+from src.evo.cortical_area import cortical_area_type
 
 
 router = APIRouter()
@@ -49,7 +50,7 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                     brain_region_title = runtime_data.genome["brain_regions"][brain_region_id]["title"]
 
             if 'mp_charge_accumulation' not in cortical_data:
-                cortical_data['mp_charge_accumulation'] = True
+                cortical_data['mp_charge_accumulation'] = False
 
             if 'mp_driven_psp' not in cortical_data:
                 cortical_data['mp_driven_psp'] = False
@@ -63,9 +64,23 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
             if cortical_area in runtime_data.cortical_viz_list:
                 cortical_visibility = False
 
+            cortical_type = cortical_area_type(cortical_area=cortical_area)
+
+            dim_x = cortical_data["block_boundaries"][0]
+            dim_y = cortical_data["block_boundaries"][1]
+            dim_z = cortical_data["block_boundaries"][2]
+
+            dev_count = 0
+            if cortical_type in ["IPU", "OPU"]:
+                dev_count = runtime_data.genome["blueprint"][cortical_area]["dev_count"]
+                dim_x = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0]
+                dim_y = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1]
+                dim_z = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2]
+
             cortical_properties = {
                 "cortical_id": cortical_area,
                 "cortical_name": cortical_data['cortical_name'],
+                "dev_count": dev_count,
                 "parent_region_id": brain_region_id,
                 "parent_region_title": brain_region_title,
                 "cortical_group": cortical_data['group_id'],
@@ -83,9 +98,9 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                     cortical_data["2d_coordinate"][1]
                 ],
                 "cortical_dimensions": [
-                    cortical_data["block_boundaries"][0],
-                    cortical_data["block_boundaries"][1],
-                    cortical_data["block_boundaries"][2]
+                    dim_x,
+                    dim_y,
+                    dim_z
                 ],
                 "cortical_destinations": cortical_data['cortical_mapping_dst'],
                 "neuron_post_synaptic_potential": cortical_data['postsynaptic_current'],
@@ -423,7 +438,7 @@ async def fetch_multiple_cortical_properties(cortical_id_list: CorticalIdList):
                 brain_region_title = runtime_data.genome["brain_regions"][brain_region_id]["title"]
 
                 if 'mp_charge_accumulation' not in cortical_data:
-                    cortical_data['mp_charge_accumulation'] = True
+                    cortical_data['mp_charge_accumulation'] = False
 
                 if 'mp_driven_psp' not in cortical_data:
                     cortical_data['mp_driven_psp'] = False

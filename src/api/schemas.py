@@ -128,6 +128,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_lifespan_growth_rate: Optional[int] = None
     neuron_init_lifespan: Optional[int] = None
     neuron_excitability: Optional[float] = None
+    dev_count: Optional[int] = None
 
 
 class UpdateMultipleCorticalProperties(BaseModel):

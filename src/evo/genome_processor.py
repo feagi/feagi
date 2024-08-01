@@ -521,7 +521,8 @@ gene_decoder = {
     "_______c-______-cx-mem__t-i": "longterm_mem_threshold",
     "_______c-______-cx-mem_gr-i": "lifespan_growth_rate",
     "_______c-______-cx-mem_ls-i": "init_lifespan",
-    "_______c-______-nx-excite-f": "neuron_excitability"
+    "_______c-______-nx-excite-f": "neuron_excitability",
+    "_______c-______-cx-devcnt-i": "dev_count",
 }
 
 genome_1_template = {
@@ -604,7 +605,8 @@ genome_2_to_1 = {
     "mem__t-i": "longterm_mem_threshold",
     "mem_gr-i": "lifespan_growth_rate",
     "mem_ls-i": "init_lifespan",
-    "excite-f": "neuron_excitability"
+    "excite-f": "neuron_excitability",
+    "devcnt-i": "dev_count"
 }
 
 genome_1_to_2 = {
@@ -636,5 +638,6 @@ genome_1_to_2 = {
     "is_mem_type": "cx-memory-b",
     "longterm_mem_threshold": "cx-mem__t-i",
     "lifespan_growth_rate": "cx-mem_gr-i",
-    "init_lifespan": "cx-mem_ls-i"
+    "init_lifespan": "cx-mem_ls-i",
+    "dev_count": "cx-devcnt-i"
 }
