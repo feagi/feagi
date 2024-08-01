@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import Optional, Literal, List
-from pydantic import BaseModel, Field, conint
+from pydantic import BaseModel, Field, conint, conlist, validator
 from fastapi.staticfiles import StaticFiles
 from src.inf import runtime_data
 
@@ -106,9 +106,10 @@ class UpdateCorticalProperties(BaseModel):
     parent_region_id: Optional[str] = None
     cortical_neuron_per_vox_count: Optional[int] = None
     cortical_visibility: Optional[bool] = None
-    coordinates_3d: Optional[list] = None
-    coordinates_2d: Optional[list] = None
-    cortical_dimensions: Optional[list] = None
+    coordinates_2d: Optional[conlist(int, min_items=2, max_items=2)] = None
+    coordinates_3d: Optional[conlist(int, min_items=3, max_items=3)] = None
+    cortical_dimensions: Optional[conlist(int, min_items=3, max_items=3)] = None
+    cortical_dimensions_per_dev: Optional[conlist(int, min_items=3, max_items=3)] = None
     cortical_synaptic_attractivity: Optional[float] = None
     neuron_post_synaptic_potential: Optional[float] = None
     neuron_post_synaptic_potential_max: Optional[float] = None
@@ -130,13 +131,19 @@ class UpdateCorticalProperties(BaseModel):
     neuron_excitability: Optional[float] = None
     dev_count: Optional[int] = None
 
+    @validator('cortical_dimensions', 'cortical_dimensions_per_dev', each_item=True)
+    def check_positive(cls, value):
+        if value is not None and value <= 0:
+            raise ValueError('All coordinates must be positive integers greater than 0')
+        return value
+
 
 class UpdateMultipleCorticalProperties(BaseModel):
     cortical_id_list: list
     parent_region_id: Optional[str] = None
     cortical_neuron_per_vox_count: Optional[int] = None
     cortical_visibility: Optional[bool] = None
-    cortical_dimensions: Optional[list] = None
+    cortical_dimensions: Optional[conlist(int, min_items=3, max_items=3)] = None
     cortical_synaptic_attractivity: Optional[float] = None
     neuron_post_synaptic_potential: Optional[float] = None
     neuron_post_synaptic_potential_max: Optional[float] = None
@@ -156,6 +163,12 @@ class UpdateMultipleCorticalProperties(BaseModel):
     neuron_lifespan_growth_rate: Optional[int] = None
     neuron_init_lifespan: Optional[int] = None
     neuron_excitability: Optional[float] = None
+
+    @validator('cortical_dimensions', each_item=True)
+    def check_positive(cls, value):
+        if value is not None and value <= 0:
+            raise ValueError('All coordinates must be positive integers greater than 0')
+        return value
 
 # class Network(BaseModel):
 #     godot_host: Optional[str] = runtime_data.parameters['Sockets']['godot_host_name']

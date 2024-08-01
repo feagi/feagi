@@ -242,7 +242,7 @@ def update_cortical_properties(cortical_properties):
     # ####################################################
 
     if cortical_type in ["IPU", "OPU"]:
-        if cortical_properties.get('cortical_dimensions') or cortical_properties.get('dev_count'):
+        if cortical_properties.get('cortical_dimensions_per_dev') or cortical_properties.get('dev_count'):
 
             dev_count = runtime_data.genome["blueprint"][cortical_area]["dev_count"]
             dev_count_updated = False
@@ -261,8 +261,8 @@ def update_cortical_properties(cortical_properties):
             old_dim_y = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1]
             old_dim_z = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2]
 
-            if cortical_properties.get('cortical_dimensions'):
-                new_dim_x, new_dim_y, new_dim_z = cortical_properties['cortical_dimensions']
+            if cortical_properties.get('cortical_dimensions_per_dev'):
+                new_dim_x, new_dim_y, new_dim_z = cortical_properties['cortical_dimensions_per_dev']
             else:
                 new_dim_x = old_dim_x
                 new_dim_y = old_dim_y
