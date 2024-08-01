@@ -70,17 +70,9 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
             dim_y = cortical_data["block_boundaries"][1]
             dim_z = cortical_data["block_boundaries"][2]
 
-            dev_count = 0
-            if cortical_type in ["IPU", "OPU"]:
-                dev_count = runtime_data.genome["blueprint"][cortical_area]["dev_count"]
-                dim_x = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0]
-                dim_y = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1]
-                dim_z = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2]
-
             cortical_properties = {
                 "cortical_id": cortical_area,
                 "cortical_name": cortical_data['cortical_name'],
-                "dev_count": dev_count,
                 "parent_region_id": brain_region_id,
                 "parent_region_title": brain_region_title,
                 "cortical_group": cortical_data['group_id'],
@@ -127,6 +119,16 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                 "neuron_excitability": cortical_data['neuron_excitability'],
                 "transforming": False
             }
+
+            if cortical_type in ["IPU", "OPU"]:
+                dev_count = runtime_data.genome["blueprint"][cortical_area]["dev_count"]
+                unit_dim_x = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0]
+                unit_dim_y = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1]
+                unit_dim_z = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2]
+
+                cortical_properties["dev_count"] = dev_count
+                cortical_properties["cortical_dimensions_per_device"] = [unit_dim_x, unit_dim_y, unit_dim_z]
+
             if cortical_area in runtime_data.transforming_areas:
                 cortical_properties["transforming"] = True
             else:
