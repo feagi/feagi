@@ -285,11 +285,6 @@ def update_cortical_properties(cortical_properties):
 
                 regeneration_flag = True
                 changed_areas.add("3d_dimm")
-                print(f"\n \n \n@@@@@@@@ New size for {cortical_area} has {dev_count} devs and in {new_dim_x, new_dim_y, new_dim_z}")
-                print(runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][0],
-                      runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][1],
-                      runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][2])
-                print("____" * 20)
 
     else:
         if cortical_properties.get('cortical_dimensions'):
