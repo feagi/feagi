@@ -19,6 +19,9 @@ from math import floor
 from src.inf import runtime_data
 import logging
 
+from src.evo.cortical_area import cortical_area_type
+from src.evo.templates import cortical_types
+
 
 logger = logging.getLogger(__name__)
 
@@ -360,6 +363,16 @@ def generate_cortical_dimensions_by_id():
             genes["block_boundaries"][1],
             genes["block_boundaries"][2]
         ]
+
+        cortical_type = cortical_area_type(cortical_area=cortical_area)
+        if cortical_type in ["IPU", "OPU"]:
+            cortical_information[cortical_area]["dev_count"] = \
+                runtime_data.genome["blueprint"][cortical_area]["dev_count"]
+            cortical_information[cortical_area]["cortical_dimensions_per_device"] = [
+                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0],
+                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1],
+                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2]
+            ]
 
     with open(runtime_data.connectome_path+"cortical_data_by_id.json", "w") as data_file:
         data_file.seek(0)
