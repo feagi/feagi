@@ -195,14 +195,12 @@ async def add_cortical_area(new_cortical_properties: NewCorticalProperties,
     """
 
     print("Adding core cortical area:\n", new_cortical_properties)
-    # message = message.dict()
-    # message = {'add_core_cortical_area': message}
-    # print("*" * 50 + "\n", message)
-    # api_queue.put(item=message)
-    new_cortical_properties = dict(new_cortical_properties)
-    cortical_id = add_core_cortical_area(cortical_properties=new_cortical_properties)
-    # response.status_code = status.HTTP_200_OK
-    return JSONResponse(status_code=200, content={'cortical_id': cortical_id})
+    message = new_cortical_properties.dict()
+    message = {'add_core_cortical_area': message}
+    print("*" * 50 + "\n", message)
+    api_queue.put(item=message)
+
+    return JSONResponse(status_code=200, content={'cortical_id': new_cortical_properties.cortical_id})
 
 
 @router.post("/custom_cortical_area")
