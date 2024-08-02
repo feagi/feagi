@@ -646,14 +646,20 @@ def cortical_regeneration(cortical_area):
 
     # Recreate neurons
     neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
+    print(f"{cortical_area} completed neurogenesis.")
 
     # Recreate synapses
     for src_cortical_area in upstream_cortical_areas:
         neuroembryogenesis.synaptogenesis(cortical_area=src_cortical_area, dst_cortical_area=cortical_area)
 
+    print(f"{cortical_area} completed synaptogenesis of upstream cortical areas.")
+
     for dst_cortical_area in downstream_cortical_areas:
         if dst_cortical_area:
             neuroembryogenesis.synaptogenesis(cortical_area=cortical_area, dst_cortical_area=dst_cortical_area)
+
+    print(f"{cortical_area} completed synaptogenesis of downstream cortical areas.")
+    print(f"---------- {cortical_area} has completed cortical regeneration successfully --------")
 
 
 def cortical_rewiring(src_cortical_area, dst_cortical_area):

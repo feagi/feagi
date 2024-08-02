@@ -366,6 +366,11 @@ def generate_cortical_dimensions_by_id():
 
         cortical_type = cortical_area_type(cortical_area=cortical_area)
         if cortical_type in ["IPU", "OPU"]:
+            if "dev_count" not in runtime_data.genome["blueprint"][cortical_area]:
+                runtime_data.genome["blueprint"][cortical_area]["dev_count"] = \
+                    int(runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][0] /
+                        cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0])
+
             cortical_information[cortical_area]["dev_count"] = \
                 runtime_data.genome["blueprint"][cortical_area]["dev_count"]
             cortical_information[cortical_area]["cortical_dimensions_per_device"] = [
