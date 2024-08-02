@@ -690,20 +690,6 @@ def mapping_change_report(cortical_area, new_mapping):
     return added, removed, modified
 
 
-def cortical_id_gen(seed='___', is_memory=False):
-    seed = seed.replace('-', '_')
-    while True:
-        chars = string.ascii_uppercase + string.digits
-        if not is_memory:
-            random_id = 'C' + str('').join(random.choice(chars) for _ in range(2)) + seed
-            if random_id not in runtime_data.cortical_list:
-                return random_id
-        else:
-            random_id = 'M' + str('').join(random.choice(chars) for _ in range(2)) + seed
-            if random_id not in runtime_data.cortical_list:
-                return random_id
-
-
 def add_core_cortical_area(cortical_properties):
     try:
         if runtime_data.brain_readiness:
@@ -803,21 +789,13 @@ def add_core_cortical_area(cortical_properties):
         print("Error: New cortical area was not added.", traceback.print_exc())
 
 
-def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cortical_dimensions,
+def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cortical_dimensions, cortical_id,
                              parent_region_id="root", cortical_id_overwrite=None, is_memory=False, copy_of=None):
 
     if runtime_data.brain_readiness:
         runtime_data.brain_readiness = False
 
-        # Generate Cortical ID
-        # todo: instead of hard coding the length have the genome properties captured and reference instead
-        temp_name = cortical_name
-        if len(cortical_name) < 3:
-            temp_name = cortical_name + "000"
-        if cortical_id_overwrite:
-            cortical_area = cortical_id_overwrite
-        else:
-            cortical_area = cortical_id_gen(temp_name[:3], is_memory=is_memory)
+        cortical_area = cortical_id
 
         cortical_names = neuroembryogenesis.cortical_name_list()
         if copy_of:

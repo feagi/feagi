@@ -25,7 +25,7 @@ from src.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area
 from src.evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
 from src.evo.templates import cortical_types
 from src.evo.region import change_cortical_area_parent
-from src.evo.cortical_area import cortical_area_type
+from src.evo.cortical_area import cortical_area_type, cortical_id_gen
 
 from ...schemas import *
 from ...commons import *
@@ -211,10 +211,20 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
     """
     Enables changes against various Burst Engine parameters.
     """
+
+    message = new_custom_cortical_properties.dict(exclude_none=True)
+
+    # Generate Cortical ID
+    # todo: instead of hard coding the length have the genome properties captured and reference instead
     cortical_name = new_custom_cortical_properties.cortical_name
+    temp_name = cortical_name
+    if len(cortical_name) < 3:
+        temp_name = cortical_name + "000"
+
     parent_region_id = new_custom_cortical_properties.parent_region_id
-    coordinates_3d = new_custom_cortical_properties.coordinates_3d.copy()
-    coordinates_2d = new_custom_cortical_properties.coordinates_2d.copy()
+    if parent_region_id not in runtime_data.genome["brain_regions"]:
+        return JSONResponse(status_code=400, content={'message': f"{parent_region_id} does not exist!"})
+
     sub_group_id = new_custom_cortical_properties.sub_group_id
     copy_of = new_custom_cortical_properties.copy_of
     if "MEMORY" in sub_group_id:
@@ -224,9 +234,17 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
         is_memory = False
         cortical_dimensions = new_custom_cortical_properties.cortical_dimensions
 
+    message["is_memory"] = is_memory
+    message["cortical_dimensions"] = cortical_dimensions
+
+    cortical_id = cortical_id_gen(temp_name[:3], is_memory=is_memory)
+
     neuron_density = 1
     if copy_of:
         neuron_density = runtime_data.genome["blueprint"][copy_of]["per_voxel_neuron_cnt"]
+
+    message["copy_of"] = copy_of
+    message["cortical_id"] = cortical_id
 
     neuron_count = neuron_density * cortical_dimensions[0] * cortical_dimensions[1] * cortical_dimensions[2]
     max_allowable_neuron_count = int(runtime_data.parameters["Limits"]["max_neuron_count"])
@@ -234,16 +252,10 @@ async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCort
         return JSONResponse(status_code=400, content={'message': f"Cannot create new cortical area as neuron count will"
                                                                  f" exceed {max_allowable_neuron_count} threshold"})
 
-    if parent_region_id not in runtime_data.genome["brain_regions"]:
-        return JSONResponse(status_code=400, content={'message': f"{parent_region_id} does not exist!"})
+    message = {'add_custom_cortical_area': message}
+    print("*-----* " * 200 + "\n", message)
+    api_queue.put(item=message)
 
-    cortical_id = add_custom_cortical_area(cortical_name=cortical_name,
-                                           coordinates_3d=coordinates_3d,
-                                           coordinates_2d=coordinates_2d,
-                                           cortical_dimensions=cortical_dimensions,
-                                           parent_region_id=parent_region_id,
-                                           is_memory=is_memory,
-                                           copy_of=copy_of)
     return JSONResponse(status_code=200, content={'cortical_id': cortical_id})
 
 
