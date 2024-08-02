@@ -668,8 +668,6 @@ def burst_manager():
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         if not runtime_data.new_genome and runtime_data.brain_readiness:
             fire_fcl_contents()
-        else:
-            print("Brain is not ready to fire FCL contents....")
 
         runtime_data.plasticity_queue.append(runtime_data.plasticity_queue_candidates)
 

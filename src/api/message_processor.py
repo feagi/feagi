@@ -196,14 +196,19 @@ def api_message_processor(api_message):
         cortical_removal(cortical_area=api_message['delete_cortical_area'],
                          genome_scrub=True)
 
-    # if 'add_core_cortical_area' in api_message:
-    #     add_core_cortical_area(cortical_properties=api_message['add_core_cortical_area'])
+    if 'add_core_cortical_area' in api_message:
+        add_core_cortical_area(cortical_properties=api_message['add_core_cortical_area'])
 
-    # if 'add_custom_cortical_area' in api_message:
-    #     add_custom_cortical_area(cortical_name=api_message['add_custom_cortical_area']['cortical_name'],
-    #                              coordinates_3d=api_message['add_custom_cortical_area']['cortical_coordinates'],
-    #                              coordinates_2d=api_message['add_custom_cortical_area']['cortical_coordinates'],
-    #                              cortical_dimensions=api_message['add_custom_cortical_area']['cortical_dimensions'])
+    if 'add_custom_cortical_area' in api_message:
+        add_custom_cortical_area(cortical_name=api_message['add_custom_cortical_area']['cortical_name'],
+                                 coordinates_3d=api_message['add_custom_cortical_area']['coordinates_3d'],
+                                 coordinates_2d=api_message['add_custom_cortical_area']['coordinates_2d'],
+                                 cortical_dimensions=api_message['add_custom_cortical_area']['cortical_dimensions'],
+                                 parent_region_id=api_message['add_custom_cortical_area']['parent_region_id'],
+                                 is_memory=api_message['add_custom_cortical_area']['is_memory'],
+                                 copy_of=api_message['add_custom_cortical_area']['copy_of'],
+                                 cortical_id=api_message['add_custom_cortical_area']['cortical_id'],
+                                 )
 
     if 'append_circuit' in api_message:
         if runtime_data.genome:

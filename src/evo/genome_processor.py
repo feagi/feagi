@@ -521,7 +521,8 @@ gene_decoder = {
     "_______c-______-cx-mem__t-i": "longterm_mem_threshold",
     "_______c-______-cx-mem_gr-i": "lifespan_growth_rate",
     "_______c-______-cx-mem_ls-i": "init_lifespan",
-    "_______c-______-nx-excite-f": "neuron_excitability"
+    "_______c-______-nx-excite-f": "neuron_excitability",
+    "_______c-______-cx-devcnt-i": "dev_count",
 }
 
 genome_1_template = {
@@ -529,7 +530,7 @@ genome_1_template = {
     "per_voxel_neuron_cnt": 1,
     "synapse_attractivity": 100,
     "degeneration": 0,
-    "psp_uniform_distribution": False,
+    "psp_uniform_distribution": True,
     "postsynaptic_current_max": 99999,
     "cortical_mapping_dst": {},
     "block_boundaries": [
@@ -558,7 +559,7 @@ genome_1_template = {
     "firing_threshold_increment_y": 0,
     "firing_threshold_increment_z": 0,
     "firing_threshold_limit": 0,
-    "mp_charge_accumulation": True,
+    "mp_charge_accumulation": False,
     "mp_driven_psp": False,
     "is_mem_type": False,
     "longterm_mem_threshold": 100,
@@ -604,7 +605,8 @@ genome_2_to_1 = {
     "mem__t-i": "longterm_mem_threshold",
     "mem_gr-i": "lifespan_growth_rate",
     "mem_ls-i": "init_lifespan",
-    "excite-f": "neuron_excitability"
+    "excite-f": "neuron_excitability",
+    "devcnt-i": "dev_count"
 }
 
 genome_1_to_2 = {
@@ -636,5 +638,6 @@ genome_1_to_2 = {
     "is_mem_type": "cx-memory-b",
     "longterm_mem_threshold": "cx-mem__t-i",
     "lifespan_growth_rate": "cx-mem_gr-i",
-    "init_lifespan": "cx-mem_ls-i"
+    "init_lifespan": "cx-mem_ls-i",
+    "dev_count": "cx-devcnt-i"
 }

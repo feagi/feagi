@@ -34,6 +34,7 @@ from collections import deque
 from shutil import copyfile
 from src.evo.connectome import reset_connectome
 from src.evo.voxels import generate_cortical_dimensions_by_id, generate_cortical_dimensions
+from src.evo.cortical_area import cortical_area_type
 from src.evo.stats import voxel_dict_summary
 from src.evo.genome_editor import save_genome
 from src.inf.messenger import Pub
@@ -495,6 +496,7 @@ def init_brain():
     runtime_data.last_alertness_trigger = datetime.now()
     runtime_data.brain_run_id = id_gen(signature='_R')
     init_cortical_info()
+    init_io_areas()
     init_memory_register()
     runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
     runtime_data.cortical_dimensions = generate_cortical_dimensions()
@@ -548,6 +550,13 @@ def init_burst_engine():
         print("Burst_delay has been set to its default value %f " %
               float(runtime_data.parameters["Timers"]["default_burst_delay"]))
         print("==============================================\n\n")
+
+
+def init_io_areas():
+    for area in runtime_data.genome["blueprint"]:
+        if cortical_area_type(area) in ["IPU", "OPU"]:
+            if "dev_count" not in runtime_data.genome["blueprint"][area]:
+                runtime_data.genome["blueprint"][area]["dev_count"] = 1
 
 
 # def init_io_channels():

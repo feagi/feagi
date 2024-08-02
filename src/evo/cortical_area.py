@@ -14,7 +14,10 @@
 # limitations under the License.
 # ==============================================================================
 
+import string
+import random
 
+from src.inf import runtime_data
 from src.evo.templates import cortical_types
 
 
@@ -36,3 +39,17 @@ def cortical_area_type(cortical_area):
                 if cortical_area == cortical_id:
                     cortical_type = area_type
     return cortical_type
+
+
+def cortical_id_gen(seed='___', is_memory=False):
+    seed = seed.replace('-', '_')
+    while True:
+        chars = string.ascii_uppercase + string.digits
+        if not is_memory:
+            random_id = 'C' + str('').join(random.choice(chars) for _ in range(2)) + seed
+            if random_id not in runtime_data.cortical_list:
+                return random_id
+        else:
+            random_id = 'M' + str('').join(random.choice(chars) for _ in range(2)) + seed
+            if random_id not in runtime_data.cortical_list:
+                return random_id
