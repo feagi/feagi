@@ -14,11 +14,8 @@
 # ==============================================================================
 
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.responses import JSONResponse
-
-from ...schemas import *
-from ...commons import *
 
 from src.inf import runtime_data
 from src.api.error_handling import generate_response
@@ -29,6 +26,10 @@ from src.evo.neuroembryogenesis import cortical_name_list, cortical_name_to_id
 from src.evo.templates import cortical_types
 from src.evo.region import change_cortical_area_parent
 from src.evo.cortical_area import cortical_area_type
+
+from ...schemas import *
+from ...commons import *
+from ...dependencies import check_brain_running
 
 
 router = APIRouter()
@@ -141,7 +142,7 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
 
 
 @router.put("/cortical_area")
-async def update_cortical_properties(message: UpdateCorticalProperties):
+async def update_cortical_properties(message: UpdateCorticalProperties, _: str = Depends(check_brain_running)):
     """
     Enables changes against various Burst Engine parameters.
     """

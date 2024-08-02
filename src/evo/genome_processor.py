@@ -530,7 +530,7 @@ genome_1_template = {
     "per_voxel_neuron_cnt": 1,
     "synapse_attractivity": 100,
     "degeneration": 0,
-    "psp_uniform_distribution": False,
+    "psp_uniform_distribution": True,
     "postsynaptic_current_max": 99999,
     "cortical_mapping_dst": {},
     "block_boundaries": [
@@ -559,7 +559,7 @@ genome_1_template = {
     "firing_threshold_increment_y": 0,
     "firing_threshold_increment_z": 0,
     "firing_threshold_limit": 0,
-    "mp_charge_accumulation": True,
+    "mp_charge_accumulation": False,
     "mp_driven_psp": False,
     "is_mem_type": False,
     "longterm_mem_threshold": 100,
