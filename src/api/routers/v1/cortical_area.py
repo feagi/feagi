@@ -188,7 +188,8 @@ async def update_cortical_properties(message: UpdateCorticalProperties, _: str =
 
 
 @router.post("/cortical_area")
-async def add_cortical_area(new_cortical_properties: NewCorticalProperties):
+async def add_cortical_area(new_cortical_properties: NewCorticalProperties,
+                            _: str = Depends(check_brain_running)):
     """
     Enables changes against various Burst Engine parameters.
     """
@@ -205,7 +206,8 @@ async def add_cortical_area(new_cortical_properties: NewCorticalProperties):
 
 
 @router.post("/custom_cortical_area")
-async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCorticalProperties):
+async def add_cortical_area_custom(new_custom_cortical_properties: NewCustomCorticalProperties,
+                                   _: str = Depends(check_brain_running)):
     """
     Enables changes against various Burst Engine parameters.
     """
