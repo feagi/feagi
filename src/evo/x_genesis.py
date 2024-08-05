@@ -711,7 +711,7 @@ def add_core_cortical_area(cortical_properties):
                     runtime_data.genome["blueprint"][cortical_id_] = cortical_template.copy()
                     runtime_data.genome["blueprint"][cortical_id_]["cortical_name"] = cortical_name
                     runtime_data.genome['blueprint'][cortical_id_]["block_boundaries"] = \
-                        [cortical_properties['channel_count'] *
+                        [cortical_properties['dev_count'] *
                          cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][0],
                          cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][1],
                          cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][2],
@@ -970,7 +970,7 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                             "cortical_type": src_blueprint[cortical_area_id]['group_id'],
                             "cortical_name": src_blueprint[cortical_area_id]['cortical_name'],
                             "coordinates_3d": [new_coordinates[0], new_coordinates[1], new_coordinates[2]],
-                            "channel_count": 1,
+                            "dev_count": 1,
                             "coordinates_2d": [0, 0]
                         })
                         appended_cortical_areas.add(cortical_area_id)
@@ -1106,7 +1106,7 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                                 "cortical_id": suggested_input_mapping["src_cortical_area_id"],
                                 "coordinates_2d": [0, 0],
                                 "coordinates_3d": [0, 0, 0],
-                                "channel_count": 1
+                                "dev_count": 1
                             })
                             # print("@@ New system cortical area added:",
                             # suggested_input_mapping["src_cortical_area_id"])
@@ -1170,7 +1170,7 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                                 "cortical_id": suggested_output_mapping["dst_cortical_area_id"],
                                 "coordinates_2d": [0, 0],
                                 "coordinates_3d": [0, 0, 0],
-                                "channel_count": 1
+                                "dev_count": 1
                             })
                             print("@@ New system cortical area added:",
                                   suggested_output_mapping["dst_cortical_area_id"])

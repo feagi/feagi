@@ -32,7 +32,7 @@ class NewCorticalProperties(BaseModel):
     cortical_id: str
     coordinates_2d: list
     coordinates_3d: list
-    channel_count: Optional[int]
+    dev_count: Optional[int]
 
 
 class NewRegionProperties(BaseModel):
