@@ -46,6 +46,7 @@ amalgamation_history = {}
 changes_saved_externally = False
 bv_advanced_mode = True
 ui_magnification = 1.0
+auto_pns_area_creation = True
 
 # Evolutionary
 genome = {}

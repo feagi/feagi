@@ -72,8 +72,10 @@ async def agent_properties(agent_id: str):
 
 @router.post("/register")
 async def agent_registration(request: Request, agent_type: str, agent_id: str, agent_data_port: int,
-                             agent_version: str, controller_version: str):
+                             agent_version: str, controller_version: str, capabilities=None):
 
+    if capabilities is None:
+        capabilities = {}
     if agent_id in runtime_data.agent_registry:
         agent_info = runtime_data.agent_registry[agent_id]
     else:
@@ -96,6 +98,7 @@ async def agent_registration(request: Request, agent_type: str, agent_id: str, a
         agent_info["agent_router_address"] = agent_router_address
         agent_info["agent_version"] = agent_version
         agent_info["controller_version"] = controller_version
+        agent_info["capabilities"] = capabilities
 
     print(f"AGENT Details -- {agent_info}")
     runtime_data.agent_registry[agent_id] = agent_info

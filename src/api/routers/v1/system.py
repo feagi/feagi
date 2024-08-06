@@ -34,6 +34,7 @@ async def get_user_preferences():
     return {
         "bv_advanced_mode": runtime_data.bv_advanced_mode,
         "ui_magnification": runtime_data.ui_magnification,
+        "auto_pns_area_creation": runtime_data.auto_pns_area_creation
         }
 
 
@@ -130,9 +131,10 @@ async def unique_log_entries():
 async def feagi_registration(message: Registration):
     message = message.dict()
     source = message['source']
-
     host = message['host']
     capabilities = message['capabilities']
+
+    # todo: use
     print("########## ###### >>>>>> >>>> ", source, host, capabilities)
 
 

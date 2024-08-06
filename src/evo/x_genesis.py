@@ -392,10 +392,7 @@ def update_cortical_properties(cortical_properties):
                 changed_areas.add("blueprint")
 
         if regeneration_flag:
-            logger.info(f"Cortical regeneration triggered for {cortical_area}")
-            print(f"{cortical_area} started the regeneration")
             cortical_regeneration(cortical_area=cortical_area)
-            print(f"{cortical_area} completed the regeneration")
 
         runtime_data.cortical_dimensions = generate_cortical_dimensions()
         runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
@@ -634,6 +631,8 @@ def cortical_regeneration(cortical_area):
     # Clearing the burst engine from neuronal activities
 
     # Reset effected areas
+    logger.info(f"Cortical regeneration triggered for {cortical_area}")
+    print(f"{cortical_area} started the regeneration")
     cortical_removal(cortical_area=cortical_area)
 
     x_corticogenesis(cortical_area)
@@ -1246,3 +1245,60 @@ def find_variable_names_by_id(target_id):
             variable_names.append(name)
 
     return variable_names
+
+
+def create_missing_pns_areas(dev_list):
+    """
+    dev_list = {
+        "o__mot": {
+            "dev_count": 2
+        },
+        "i__inf": {
+            "dev_count": 1
+        }
+    }
+    """
+
+    pns_update_report = {
+        "updated": [],
+        "added": []
+    }
+    for cortical_area in dev_list:
+        if cortical_area not in runtime_data.genome["blueprint"]:
+            dev_count = 1
+            if "dev_count" in dev_list[cortical_area]:
+                dev_count = dev_list[cortical_area][dev_count]
+
+            add_core_cortical_area(cortical_properties={
+                "cortical_type": cortical_area_type(cortical_area=cortical_area),
+                "cortical_id": cortical_area,
+                "coordinates_2d": [0, 0],
+                "coordinates_3d": [0, 0, 0],
+                "dev_count": dev_count
+            })
+            pns_update_report["added"].append(cortical_area)
+        elif "dev_count" in dev_list[cortical_area]:
+            dev_count = dev_list[cortical_area]["dev_count"]
+            if dev_count != runtime_data.genome["blueprint"][cortical_area]["dev_count"]:
+                update_pns_dev_count(pns_area=cortical_area, new_dev_count=dev_count)
+                pns_update_report["updated"].append(cortical_area)
+
+    print(f"Cortical areas automatically added/reconfigured:\n {pns_update_report}")
+    return pns_update_report
+
+
+def update_pns_dev_count(pns_area, new_dev_count):
+    cortical_area = pns_area
+    cortical_type = cortical_area_type(cortical_area=cortical_area)
+
+    runtime_data.genome["blueprint"][cortical_area]["dev_count"] = new_dev_count
+
+    dim_x = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0]
+    dim_y = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1]
+    dim_z = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2]
+
+    runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][0] = dim_x * new_dev_count
+    runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][1] = dim_y
+    runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][2] = dim_z
+
+    cortical_regeneration(cortical_area=pns_area)

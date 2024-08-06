@@ -702,8 +702,8 @@ def burst_manager():
                 death_manager()
                 if runtime_data.feagi_state["state"] == "idle" and runtime_data.autopilot:
                     load_new_genome()
-            except:
-                print("consciousness_manager encountered an error!!")
+            except Exception as e:
+                print(f"consciousness_manager encountered an error!! {e}")
 
         if not runtime_data.controller_config and runtime_data.burst_publisher:
             controller_handshake()
