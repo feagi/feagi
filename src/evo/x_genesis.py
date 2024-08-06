@@ -707,6 +707,8 @@ def add_core_cortical_area(cortical_properties):
 
                     if "dev_count" in cortical_properties:
                         dev_count = cortical_properties["dev_count"]
+                        if not dev_count:
+                            dev_count = 1
                     else:
                         dev_count = 1
 
