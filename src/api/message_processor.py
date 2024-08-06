@@ -20,8 +20,10 @@ from src.inf import runtime_data, disk_ops
 # from src.evo.autopilot import update_generation_dict
 from src.evo.x_genesis import update_cortical_properties, update_morphology_properties, update_cortical_mappings
 from src.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal, append_circuit
+from src.evo.x_genesis import create_missing_pns_areas
 from src.inf.db_handler import InfluxManagement
 from src.inf.initialize import deploy_genome
+from src.evo.templates import cortical_types
 
 influx = InfluxManagement()
 
@@ -244,19 +246,30 @@ def api_message_processor(api_message):
         else:
             record_training_event(event_name="game_over")
 
-    # todo
-    # if 'update_pns_areas' in api_message:
-    #     agent_capabilities = api_message['update_pns_areas']
-    #     if agent_capabilities:
-    #         dev_list = {}
-    #         for type in agent_capabilities:
-    #             for capability in agent_capabilities[type]:
-    #
-    #                 cortical_area = agent_capabilities[type]
-    #
-    #                 if cortical_area not in dev_list:
-    #                     dev_list[cortical_area] = {}
-    #                 dev_count = 0
-    #                 for dev in agent_capabilities[key][cor]
-    #
-    #                 dev_list["cortical_area"]["dev_count"] =
+    if 'update_pns_areas' in api_message:
+        agent_capabilities = api_message['update_pns_areas']
+        if agent_capabilities:
+            dev_list = {}
+            for device_type in agent_capabilities:
+                for device_name in agent_capabilities[device_type]:
+                    dev_count = 0
+                    for _ in agent_capabilities[device_type][device_name]:
+                        dev_count += 1
+
+                    cortical_type = "unknown"
+
+                    if device_type in ["input", "inputs"]:
+                        cortical_type = "IPU"
+
+                    if device_type == ["output", "outputs"]:
+                        cortical_type = "OPU"
+
+                    if cortical_type in ["IPU", "OPU"]:
+                        if device_name in cortical_types[cortical_type]["name_to_id_mapping"]:
+                            for cortical_id in cortical_types[cortical_type]["name_to_id_mapping"][device_name]:
+                                dev_list[cortical_id] = {"dev_count": dev_count}
+                    else:
+                        print(f"Device name {device_name} is not defined in FEAGI templates!")
+
+            print("+++++++ |||| >>>>\n dev_list:", dev_list)
+            create_missing_pns_areas(dev_list=dev_list)

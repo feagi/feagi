@@ -156,7 +156,40 @@ cortical_types = {
             }
         },
         "name_to_id_mapping": {
-            "infrared": ""
+            "infrared": [
+                "i__inf",
+                "ii_inf"
+            ],
+            "proximity": [
+                "i__pro"
+            ],
+            "gpio": [
+                "idgpio",
+                "iagpio"
+            ],
+            "accelerometer": [
+                "i__acc"
+            ],
+            "gyro": [
+                "i__gyr"
+            ],
+            "shock": [
+                "ishock"
+            ],
+            "battery": [
+                "i__bat"
+            ],
+            "camera": [
+                "iv00_C",
+                "iv00TL",
+                "iv00TM",
+                "iv00TR",
+                "iv00ML",
+                "iv00MR",
+                "iv00BL",
+                "iv00BR",
+                "iv00BM"
+            ]
         }
     },
     "OPU": {
