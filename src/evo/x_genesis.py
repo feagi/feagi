@@ -704,6 +704,12 @@ def add_core_cortical_area(cortical_properties):
                 if cortical_id_ in runtime_data.genome['blueprint']:
                     print("Warning! Cortical area already part of genome. Nothing got added.")
                 else:
+
+                    if "dev_count" in cortical_properties:
+                        dev_count = cortical_properties["dev_count"]
+                    else:
+                        dev_count = 1
+
                     reset_connectome_file(cortical_area=cortical_id_)
                     runtime_data.voxel_dict[cortical_id_] = dict()
                     runtime_data.genome['blueprint'][cortical_id_] = dict()
@@ -711,7 +717,7 @@ def add_core_cortical_area(cortical_properties):
                     runtime_data.genome["blueprint"][cortical_id_] = cortical_template.copy()
                     runtime_data.genome["blueprint"][cortical_id_]["cortical_name"] = cortical_name
                     runtime_data.genome['blueprint'][cortical_id_]["block_boundaries"] = \
-                        [cortical_properties['dev_count'] *
+                        [dev_count *
                          cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][0],
                          cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][1],
                          cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][2],
