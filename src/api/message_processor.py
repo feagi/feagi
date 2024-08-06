@@ -243,3 +243,20 @@ def api_message_processor(api_message):
             runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="game_over")
         else:
             record_training_event(event_name="game_over")
+
+    # todo
+    # if 'update_pns_areas' in api_message:
+    #     agent_capabilities = api_message['update_pns_areas']
+    #     if agent_capabilities:
+    #         dev_list = {}
+    #         for type in agent_capabilities:
+    #             for capability in agent_capabilities[type]:
+    #
+    #                 cortical_area = agent_capabilities[type]
+    #
+    #                 if cortical_area not in dev_list:
+    #                     dev_list[cortical_area] = {}
+    #                 dev_count = 0
+    #                 for dev in agent_capabilities[key][cor]
+    #
+    #                 dev_list["cortical_area"]["dev_count"] =

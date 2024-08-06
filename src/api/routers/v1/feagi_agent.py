@@ -104,6 +104,10 @@ async def agent_registration(request: Request, agent_type: str, agent_id: str, a
     runtime_data.agent_registry[agent_id] = agent_info
     runtime_data.host_info[agent_id] = agent_info
 
+    message = {'update_pns_areas': capabilities}
+    print("*-----* " * 200 + "\n", message)
+    api_queue.put(item=message)
+
     print("New agent has been successfully registered:", runtime_data.agent_registry[agent_id])
     agent_info = runtime_data.agent_registry[agent_id].copy()
     agent_info.pop('listener')
