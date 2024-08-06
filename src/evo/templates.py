@@ -154,6 +154,9 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1]
             }
+        },
+        "name_to_id_mapping": {
+            "infrared": ""
         }
     },
     "OPU": {
