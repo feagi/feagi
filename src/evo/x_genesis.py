@@ -710,7 +710,7 @@ def add_core_cortical_area(cortical_properties):
                     runtime_data.genome["blueprint"][cortical_id_] = cortical_template.copy()
                     runtime_data.genome["blueprint"][cortical_id_]["cortical_name"] = cortical_name
                     runtime_data.genome['blueprint'][cortical_id_]["block_boundaries"] = \
-                        [cortical_properties['channel_count'] *
+                        [cortical_properties['dev_count'] *
                          cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][0],
                          cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][1],
                          cortical_types[cortical_type]['supported_devices'][cortical_id_]['resolution'][2],
