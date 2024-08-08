@@ -15,6 +15,8 @@
 
 import datetime
 # import json
+import json
+
 from src.inf import runtime_data, disk_ops
 # from src.evo.genome_processor import genome_ver_check
 # from src.evo.autopilot import update_generation_dict
@@ -247,7 +249,7 @@ def api_message_processor(api_message):
             record_training_event(event_name="game_over")
 
     if 'update_pns_areas' in api_message:
-        agent_capabilities = api_message['update_pns_areas']
+        agent_capabilities = json.loads(api_message['update_pns_areas'])
         if agent_capabilities:
             dev_list = {}
             for device_type in agent_capabilities:
