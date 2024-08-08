@@ -1267,7 +1267,7 @@ def create_missing_pns_areas(dev_list):
         if cortical_area not in runtime_data.genome["blueprint"]:
             dev_count = 1
             if "dev_count" in dev_list[cortical_area]:
-                dev_count = dev_list[cortical_area][dev_count]
+                dev_count = dev_list[cortical_area]["dev_count"]
 
             add_core_cortical_area(cortical_properties={
                 "cortical_type": cortical_area_type(cortical_area=cortical_area),
