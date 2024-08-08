@@ -251,7 +251,7 @@ def api_message_processor(api_message):
     if 'update_pns_areas' in api_message:
         print("---+++++ " * 20)
         print(type(api_message['update_pns_areas']), api_message['update_pns_areas'])
-        agent_capabilities = json.loads(api_message['update_pns_areas'])
+        agent_capabilities = api_message['update_pns_areas']
         if agent_capabilities:
             dev_list = {}
             for device_type in agent_capabilities:
