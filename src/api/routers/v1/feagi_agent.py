@@ -72,7 +72,7 @@ async def agent_properties(agent_id: str):
 
 @router.post("/register")
 async def agent_registration(request: Request, data: AgentRegistration):
-
+    agent_data_port = data.agent_data_port
     capabilities = {}
     if data.capabilities:
         capabilities = data.capabilities
