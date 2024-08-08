@@ -73,8 +73,10 @@ async def agent_properties(agent_id: str):
 @router.post("/register")
 async def agent_registration(request: Request, data: AgentRegistration):
 
-    if data.capabilities is None:
-        capabilities = {}
+    capabilities = {}
+    if data.capabilities:
+        capabilities = data.capabilities
+
     if data.agent_id in runtime_data.agent_registry:
         agent_info = runtime_data.agent_registry[data.agent_id]
     else:
@@ -90,10 +92,10 @@ async def agent_registration(request: Request, data: AgentRegistration):
             runtime_data.brain_activity_pub = True
         else:
             agent_data_port = assign_available_port()
-            agent_router_address = f"tcp://*:{agent_data_port}"
+            agent_router_address = f"tcp://*:{data.agent_data_port}"
             agent_info["listener"] = Sub(address=agent_router_address, bind=True)
 
-        agent_info["agent_data_port"] = agent_data_port
+        agent_info["agent_data_port"] = data.agent_data_port
         agent_info["agent_router_address"] = agent_router_address
         agent_info["agent_version"] = data.agent_version
         agent_info["controller_version"] = data.controller_version
