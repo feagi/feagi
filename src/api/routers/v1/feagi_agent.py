@@ -106,6 +106,7 @@ async def agent_registration(request: Request, agent_type: str, agent_id: str, a
 
     if runtime_data.auto_pns_area_creation:
         print("@@@@  Auto generation of IPU/OPU areas has been initiated @@@")
+        print("#### Capabilities:", capabilities)
         message = {'update_pns_areas': capabilities}
         print("*-----* " * 200 + "\n", message)
         api_queue.put(item=message)
