@@ -249,6 +249,8 @@ def api_message_processor(api_message):
             record_training_event(event_name="game_over")
 
     if 'update_pns_areas' in api_message:
+        print("---+++++ " * 20)
+        print(type(api_message['update_pns_areas']), api_message['update_pns_areas'])
         agent_capabilities = json.loads(api_message['update_pns_areas'])
         if agent_capabilities:
             dev_list = {}
