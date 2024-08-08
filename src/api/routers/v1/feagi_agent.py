@@ -72,7 +72,7 @@ async def agent_properties(agent_id: str):
 
 @router.post("/register")
 async def agent_registration(request: Request, agent_type: str, agent_id: str, agent_data_port: int,
-                             agent_version: str, controller_version: str, capabilities=None):
+                             agent_version: str, controller_version: str, capabilities: dict = None):
 
     if capabilities is None:
         capabilities = {}
