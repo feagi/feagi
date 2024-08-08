@@ -437,7 +437,7 @@ def burst_manager():
     def manual_neuron_stimulation():
         if runtime_data.agent_registry is not {}:
             try:
-                for agent in runtime_data.agent_registry:
+                for agent in runtime_data.agent_registry.copy():
                     if runtime_data.agent_registry[agent]["agent_type"] == "monitor":
                         godot_data = runtime_data.agent_registry[agent]["listener"].receive()
                         if godot_data:
