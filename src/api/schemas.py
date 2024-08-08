@@ -240,6 +240,15 @@ class Registration(BaseModel):
     capabilities: dict
 
 
+class AgentRegistration(BaseModel):
+    agent_type: str
+    agent_id: str
+    agent_data_port: int
+    agent_version: str
+    controller_version: str
+    capabilities: dict = None
+
+
 class Stats(BaseModel):
     neuron_stat_collection: Optional[bool] = False
     synapse_stat_collection: Optional[bool] = False
