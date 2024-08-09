@@ -211,7 +211,7 @@ def api_message_processor(api_message):
                                  parent_region_id=api_message['add_custom_cortical_area']['parent_region_id'],
                                  is_memory=api_message['add_custom_cortical_area']['is_memory'],
                                  copy_of=api_message['add_custom_cortical_area']['copy_of'],
-                                 cortical_id=api_message['add_custom_cortical_area']['cortical_id'],
+                                 cortical_area_id=api_message['add_custom_cortical_area']['cortical_id'],
                                  )
 
     if 'append_circuit' in api_message:

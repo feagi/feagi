@@ -788,13 +788,11 @@ def add_core_cortical_area(cortical_properties):
         print("Error: New cortical area was not added.", traceback.print_exc())
 
 
-def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cortical_dimensions, cortical_id,
+def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cortical_dimensions, cortical_area_id,
                              parent_region_id="root", cortical_id_overwrite=None, is_memory=False, copy_of=None):
 
     if runtime_data.brain_readiness:
         runtime_data.brain_readiness = False
-
-        cortical_area = cortical_id
 
         cortical_names = neuroembryogenesis.cortical_name_list()
         if copy_of:
@@ -811,53 +809,53 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
         if cortical_name in cortical_names:
             print("Warning! Cortical area with same name already exists in genome. Nothing got added.")
         else:
-            reset_connectome_file(cortical_area=cortical_area)
-            runtime_data.voxel_dict[cortical_area] = {}
-            runtime_data.genome['blueprint'][cortical_area] = {}
+            reset_connectome_file(cortical_area=cortical_area_id)
+            runtime_data.voxel_dict[cortical_area_id] = {}
+            runtime_data.genome['blueprint'][cortical_area_id] = {}
             runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
 
             cortical_template_ = template.copy()
 
-            runtime_data.genome["blueprint"][cortical_area] = cortical_template_
+            runtime_data.genome["blueprint"][cortical_area_id] = cortical_template_
 
             for parameter in cortical_template_:
-                runtime_data.genome["blueprint"][cortical_area][parameter] = cortical_template_[parameter]
+                runtime_data.genome["blueprint"][cortical_area_id][parameter] = cortical_template_[parameter]
 
-            runtime_data.genome['blueprint'][cortical_area]['cortical_name'] = cortical_name
+            runtime_data.genome['blueprint'][cortical_area_id]['cortical_name'] = cortical_name
 
             new_cortical_dimensions = cortical_dimensions.copy()
-            runtime_data.genome['blueprint'][cortical_area]["block_boundaries"] = new_cortical_dimensions
+            runtime_data.genome['blueprint'][cortical_area_id]["block_boundaries"] = new_cortical_dimensions
 
             new_3d_coordinates = coordinates_3d.copy()
-            runtime_data.genome['blueprint'][cortical_area]["relative_coordinate"] = new_3d_coordinates
+            runtime_data.genome['blueprint'][cortical_area_id]["relative_coordinate"] = new_3d_coordinates
 
             new_coordinates_2d = coordinates_2d.copy()
-            runtime_data.genome['blueprint'][cortical_area]["2d_coordinate"] = new_coordinates_2d
+            runtime_data.genome['blueprint'][cortical_area_id]["2d_coordinate"] = new_coordinates_2d
 
-            runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'] = {}
+            runtime_data.genome['blueprint'][cortical_area_id]['cortical_mapping_dst'] = {}
 
-            runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] = ""
-            runtime_data.genome['blueprint'][cortical_area]['visualization'] = True
+            runtime_data.genome["blueprint"][cortical_area_id]["sub_group_id"] = ""
+            runtime_data.genome['blueprint'][cortical_area_id]['visualization'] = True
 
-            runtime_data.cortical_area_region_association[cortical_area] = parent_region_id
-            runtime_data.genome["brain_regions"][parent_region_id]["areas"].append(cortical_area)
+            runtime_data.cortical_area_region_association[cortical_area_id] = parent_region_id
+            runtime_data.genome["brain_regions"][parent_region_id]["areas"].append(cortical_area_id)
 
             if is_memory:
-                runtime_data.genome["blueprint"][cortical_area]["longterm_mem_threshold"] = \
+                runtime_data.genome["blueprint"][cortical_area_id]["longterm_mem_threshold"] = \
                     cortical_template_['longterm_mem_threshold']
-                runtime_data.genome["blueprint"][cortical_area]["lifespan_growth_rate"] = \
+                runtime_data.genome["blueprint"][cortical_area_id]["lifespan_growth_rate"] = \
                     cortical_template_['lifespan_growth_rate']
-                runtime_data.genome["blueprint"][cortical_area]["init_lifespan"] = \
+                runtime_data.genome["blueprint"][cortical_area_id]["init_lifespan"] = \
                     cortical_template_['init_lifespan']
-                runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] = "MEMORY"
-                runtime_data.memory_register[cortical_area] = set()
+                runtime_data.genome["blueprint"][cortical_area_id]["sub_group_id"] = "MEMORY"
+                runtime_data.memory_register[cortical_area_id] = set()
 
-            runtime_data.genome["blueprint"][cortical_area]["group_id"] = "CUSTOM"
+            runtime_data.genome["blueprint"][cortical_area_id]["group_id"] = "CUSTOM"
 
-            neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
-            neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
-            init_fcl(cortical_area)
-            init_cortical_cumulative_stats(cortical_area=cortical_area)
+            neuroembryogenesis.voxelogenesis(cortical_area=cortical_area_id)
+            neuroembryogenesis.neurogenesis(cortical_area=cortical_area_id)
+            init_fcl(cortical_area_id)
+            init_cortical_cumulative_stats(cortical_area=cortical_area_id)
             runtime_data.cortical_dimensions = generate_cortical_dimensions()
             runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
 
@@ -867,7 +865,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
 
             runtime_data.brain_readiness = True
 
-            return cortical_area
+            return cortical_area_id
 
 
 def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mode):
