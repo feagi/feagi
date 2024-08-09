@@ -24,6 +24,7 @@ from ...commons import *
 from src.inf import runtime_data
 from src.inf.messenger import Sub
 
+
 router = APIRouter()
 
 
@@ -105,7 +106,7 @@ async def agent_registration(request: Request, data: AgentRegistration):
     runtime_data.agent_registry[data.agent_id] = agent_info
     runtime_data.host_info[data.agent_id] = agent_info
 
-    if runtime_data.auto_pns_area_creation:
+    if runtime_data.auto_pns_area_creation and runtime_data.genome:
         print("@@@@  Auto generation of IPU/OPU areas has been initiated @@@")
         print("#### Capabilities:", capabilities)
         message = {'update_pns_areas': capabilities}
