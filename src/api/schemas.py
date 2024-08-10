@@ -130,6 +130,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_init_lifespan: Optional[int] = None
     neuron_excitability: Optional[float] = None
     dev_count: Optional[int] = None
+    cortical_dimensions_per_device: Optional[conlist(int, min_items=3, max_items=3)] = None
 
     @validator('cortical_dimensions', 'cortical_dimensions_per_dev', each_item=True)
     def check_positive(cls, value):
