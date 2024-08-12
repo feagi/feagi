@@ -374,7 +374,8 @@ def generate_cortical_dimensions_by_id():
             cortical_information[cortical_area]["dev_count"] = \
                 runtime_data.genome["blueprint"][cortical_area]["dev_count"]
             cortical_information[cortical_area]["cortical_dimensions_per_device"] = [
-                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0],
+                int(cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0] /
+                    cortical_information[cortical_area]["dev_count"]),
                 cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1],
                 cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2]
             ]
