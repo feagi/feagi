@@ -358,10 +358,14 @@ def generate_cortical_dimensions_by_id():
             genes["relative_coordinate"][2]
         ]
 
+        dim_x = genes["block_boundaries"][0]
+        dim_y = genes["block_boundaries"][1]
+        dim_z = genes["block_boundaries"][2]
+
         cortical_information[cortical_area]["cortical_dimensions"] = [
-            genes["block_boundaries"][0],
-            genes["block_boundaries"][1],
-            genes["block_boundaries"][2]
+            dim_x,
+            dim_y,
+            dim_z
         ]
 
         cortical_type = cortical_area_type(cortical_area=cortical_area)
@@ -374,10 +378,9 @@ def generate_cortical_dimensions_by_id():
             cortical_information[cortical_area]["dev_count"] = \
                 runtime_data.genome["blueprint"][cortical_area]["dev_count"]
             cortical_information[cortical_area]["cortical_dimensions_per_device"] = [
-                int(cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0] /
-                    cortical_information[cortical_area]["dev_count"]),
-                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1],
-                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2]
+                int(dim_x / cortical_information[cortical_area]["dev_count"]),
+                dim_y,
+                dim_z
             ]
 
     with open(runtime_data.connectome_path+"cortical_data_by_id.json", "w") as data_file:
