@@ -15,13 +15,17 @@
 
 import datetime
 # import json
+import json
+
 from src.inf import runtime_data, disk_ops
 # from src.evo.genome_processor import genome_ver_check
 # from src.evo.autopilot import update_generation_dict
 from src.evo.x_genesis import update_cortical_properties, update_morphology_properties, update_cortical_mappings
 from src.evo.x_genesis import add_core_cortical_area, add_custom_cortical_area, cortical_removal, append_circuit
+from src.evo.x_genesis import create_missing_pns_areas
 from src.inf.db_handler import InfluxManagement
 from src.inf.initialize import deploy_genome
+from src.evo.templates import cortical_types
 
 influx = InfluxManagement()
 
@@ -196,14 +200,19 @@ def api_message_processor(api_message):
         cortical_removal(cortical_area=api_message['delete_cortical_area'],
                          genome_scrub=True)
 
-    # if 'add_core_cortical_area' in api_message:
-    #     add_core_cortical_area(cortical_properties=api_message['add_core_cortical_area'])
+    if 'add_core_cortical_area' in api_message:
+        add_core_cortical_area(cortical_properties=api_message['add_core_cortical_area'])
 
-    # if 'add_custom_cortical_area' in api_message:
-    #     add_custom_cortical_area(cortical_name=api_message['add_custom_cortical_area']['cortical_name'],
-    #                              coordinates_3d=api_message['add_custom_cortical_area']['cortical_coordinates'],
-    #                              coordinates_2d=api_message['add_custom_cortical_area']['cortical_coordinates'],
-    #                              cortical_dimensions=api_message['add_custom_cortical_area']['cortical_dimensions'])
+    if 'add_custom_cortical_area' in api_message:
+        add_custom_cortical_area(cortical_name=api_message['add_custom_cortical_area']['cortical_name'],
+                                 coordinates_3d=api_message['add_custom_cortical_area']['coordinates_3d'],
+                                 coordinates_2d=api_message['add_custom_cortical_area']['coordinates_2d'],
+                                 cortical_dimensions=api_message['add_custom_cortical_area']['cortical_dimensions'],
+                                 parent_region_id=api_message['add_custom_cortical_area']['parent_region_id'],
+                                 is_memory=api_message['add_custom_cortical_area']['is_memory'],
+                                 copy_of=api_message['add_custom_cortical_area']['copy_of'],
+                                 cortical_area_id=api_message['add_custom_cortical_area']['cortical_id'],
+                                 )
 
     if 'append_circuit' in api_message:
         if runtime_data.genome:
@@ -229,7 +238,7 @@ def api_message_processor(api_message):
         if runtime_data.influxdb:
             print("----------- PUNISHMENT --------------")
             runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="punishment",
-                                        intensity=punishment_intensity)
+                                                       intensity=punishment_intensity)
         else:
             record_training_event(event_name="punishment", details={"intensity": punishment_intensity})
 
@@ -238,3 +247,30 @@ def api_message_processor(api_message):
             runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="game_over")
         else:
             record_training_event(event_name="game_over")
+
+    if 'update_pns_areas' in api_message:
+        agent_capabilities = api_message['update_pns_areas']
+        if agent_capabilities:
+            dev_list = {}
+            for device_type in agent_capabilities:
+                for device_name in agent_capabilities[device_type]:
+                    dev_count = 0
+                    for _ in agent_capabilities[device_type][device_name]:
+                        dev_count += 1
+
+                    cortical_type = "unknown"
+
+                    if device_type in ["input", "inputs"]:
+                        cortical_type = "IPU"
+
+                    if device_type == ["output", "outputs"]:
+                        cortical_type = "OPU"
+
+                    if cortical_type in ["IPU", "OPU"]:
+                        if device_name in cortical_types[cortical_type]["name_to_id_mapping"]:
+                            for cortical_id in cortical_types[cortical_type]["name_to_id_mapping"][device_name]:
+                                dev_list[cortical_id] = {"dev_count": dev_count}
+                    else:
+                        print(f"Device name {device_name} is not defined in FEAGI templates!")
+
+            create_missing_pns_areas(dev_list=dev_list)
