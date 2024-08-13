@@ -238,7 +238,7 @@ def api_message_processor(api_message):
         if runtime_data.influxdb:
             print("----------- PUNISHMENT --------------")
             runtime_data.influxdb.insert_game_activity(genome_id=runtime_data.genome_id, event="punishment",
-                                        intensity=punishment_intensity)
+                                                       intensity=punishment_intensity)
         else:
             record_training_event(event_name="punishment", details={"intensity": punishment_intensity})
 
@@ -249,8 +249,6 @@ def api_message_processor(api_message):
             record_training_event(event_name="game_over")
 
     if 'update_pns_areas' in api_message:
-        print("---+++++ " * 20)
-        print(type(api_message['update_pns_areas']), api_message['update_pns_areas'])
         agent_capabilities = api_message['update_pns_areas']
         if agent_capabilities:
             dev_list = {}
@@ -275,5 +273,4 @@ def api_message_processor(api_message):
                     else:
                         print(f"Device name {device_name} is not defined in FEAGI templates!")
 
-            print("+++++++ |||| >>>>\n dev_list:", dev_list)
             create_missing_pns_areas(dev_list=dev_list)
