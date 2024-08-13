@@ -134,8 +134,11 @@ async def feagi_registration(message: Registration):
     host = message['host']
     capabilities = message['capabilities']
 
-    # todo: use
+    # todo: This endpoint is currently not performing any task
+
+    print("Warning! This endpoint is not doing anything at this time!")
     print("########## ###### >>>>>> >>>> ", source, host, capabilities)
+    return "Warning! This endpoint is not doing anything at this time!"
 
 
 @router.post("/logs")
