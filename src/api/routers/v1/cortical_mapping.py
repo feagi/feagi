@@ -14,10 +14,11 @@
 # ==============================================================================
 
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 
 from ...commons import *
 from ...schemas import *
+from ...dependencies import check_brain_running
 
 from src.inf import runtime_data
 from src.evo.genome_properties import genome_properties
@@ -104,7 +105,8 @@ async def fetch_cortical_mapping_properties(source_destination: CorticalAreaSrcD
 
 
 @router.put("/mapping_properties")
-async def update_cortical_mapping_properties(cortical_mapping_properties: UpdateCorticalMappingProperties):
+async def update_cortical_mapping_properties(cortical_mapping_properties: UpdateCorticalMappingProperties,
+                                             _: str = Depends(check_brain_running)):
     """
     Enables changes against various Burst Engine parameters.
     """

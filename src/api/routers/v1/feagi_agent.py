@@ -24,6 +24,7 @@ from ...commons import *
 from src.inf import runtime_data
 from src.inf.messenger import Sub
 
+
 router = APIRouter()
 
 
@@ -71,19 +72,22 @@ async def agent_properties(agent_id: str):
 
 
 @router.post("/register")
-async def agent_registration(request: Request, agent_type: str, agent_id: str, agent_data_port: int,
-                             agent_version: str, controller_version: str):
+async def agent_registration(request: Request, data: AgentRegistration):
+    agent_data_port = data.agent_data_port
+    capabilities = {}
+    if data.capabilities:
+        capabilities = data.capabilities
 
-    if agent_id in runtime_data.agent_registry:
-        agent_info = runtime_data.agent_registry[agent_id]
+    if data.agent_id in runtime_data.agent_registry:
+        agent_info = runtime_data.agent_registry[data.agent_id]
     else:
         agent_info = dict()
-        agent_info["agent_id"] = agent_id
-        agent_info["agent_type"] = agent_type
+        agent_info["agent_id"] = data.agent_id
+        agent_info["agent_type"] = data.agent_type
         # runtime_data.agent_registry[agent_id]["agent_ip"] = agent_ip
         agent_info["agent_ip"] = request.client.host
-        if agent_type == 'monitor':
-            agent_router_address = f"tcp://{request.client.host}:{agent_data_port}"
+        if data.agent_type == 'monitor':
+            agent_router_address = f"tcp://{request.client.host}:{data.agent_data_port}"
             agent_info["listener"] = Sub(address=agent_router_address, bind=False)
             print("Publication of brain activity turned on!")
             runtime_data.brain_activity_pub = True
@@ -94,15 +98,23 @@ async def agent_registration(request: Request, agent_type: str, agent_id: str, a
 
         agent_info["agent_data_port"] = agent_data_port
         agent_info["agent_router_address"] = agent_router_address
-        agent_info["agent_version"] = agent_version
-        agent_info["controller_version"] = controller_version
+        agent_info["agent_version"] = data.agent_version
+        agent_info["controller_version"] = data.controller_version
+        agent_info["capabilities"] = capabilities
 
     print(f"AGENT Details -- {agent_info}")
-    runtime_data.agent_registry[agent_id] = agent_info
-    runtime_data.host_info[agent_id] = agent_info
+    runtime_data.agent_registry[data.agent_id] = agent_info
+    runtime_data.host_info[data.agent_id] = agent_info
 
-    print("New agent has been successfully registered:", runtime_data.agent_registry[agent_id])
-    agent_info = runtime_data.agent_registry[agent_id].copy()
+    if runtime_data.auto_pns_area_creation and runtime_data.genome:
+        print("@@@@  Auto generation of IPU/OPU areas has been initiated @@@")
+        print("#### Capabilities:", capabilities)
+        message = {'update_pns_areas': capabilities}
+        print("*-----* " * 200 + "\n", message)
+        api_queue.put(item=message)
+
+    print("New agent has been successfully registered:", runtime_data.agent_registry[data.agent_id])
+    agent_info = runtime_data.agent_registry[data.agent_id].copy()
     agent_info.pop('listener')
     return agent_info
 

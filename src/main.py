@@ -9,6 +9,7 @@
 
 if __name__ == "__main__":
     import sys
+    import os
     from configuration import init_parameters
 
     sys.path.append('../')
@@ -22,7 +23,10 @@ if __name__ == "__main__":
     if platform.system() == 'Windows':
         with open("logging_config.json", "r") as config_file:
             logging_config_data = json.load(config_file)
-
+        # grab temp from local only regardleess account name.
+        temp_misc = os.getenv('TEMP')
+        logging_config_data['handlers']['misc_logs']['filename'] = temp_misc + r'\feagi-misc.log'
+        logging_config_data['handlers']['api_logs']['filename'] = temp_misc + r'\feagi-api.log'
         # setup loggers
         logging.config.dictConfig(logging_config_data)
 

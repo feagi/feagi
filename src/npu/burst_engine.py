@@ -437,7 +437,7 @@ def burst_manager():
     def manual_neuron_stimulation():
         if runtime_data.agent_registry is not {}:
             try:
-                for agent in runtime_data.agent_registry:
+                for agent in runtime_data.agent_registry.copy():
                     if runtime_data.agent_registry[agent]["agent_type"] == "monitor":
                         godot_data = runtime_data.agent_registry[agent]["listener"].receive()
                         if godot_data:
@@ -668,8 +668,6 @@ def burst_manager():
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         if not runtime_data.new_genome and runtime_data.brain_readiness:
             fire_fcl_contents()
-        else:
-            print("Brain is not ready to fire FCL contents....")
 
         runtime_data.plasticity_queue.append(runtime_data.plasticity_queue_candidates)
 
@@ -704,8 +702,8 @@ def burst_manager():
                 death_manager()
                 if runtime_data.feagi_state["state"] == "idle" and runtime_data.autopilot:
                     load_new_genome()
-            except:
-                print("consciousness_manager encountered an error!!")
+            except Exception as e:
+                print(f"consciousness_manager encountered an error!! {e}")
 
         if not runtime_data.controller_config and runtime_data.burst_publisher:
             controller_handshake()
