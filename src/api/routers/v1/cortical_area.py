@@ -126,13 +126,10 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
 
                 dim_x, dim_y, dim_z = runtime_data.genome["blueprint"][cortical_area]["block_boundaries"]
 
-                # unit_dim_x = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0]
                 unit_dim_x = int(dim_x / dev_count)
 
-                # unit_dim_y = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1]
                 unit_dim_y = int(dim_y / dev_count)
 
-                # unit_dim_z = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2]
                 unit_dim_z = int(dim_z / dev_count)
 
                 cortical_properties["dev_count"] = dev_count
