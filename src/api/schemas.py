@@ -32,7 +32,7 @@ class NewCorticalProperties(BaseModel):
     cortical_id: str
     coordinates_2d: list
     coordinates_3d: list
-    channel_count: Optional[int]
+    dev_count: Optional[int] = 1
 
 
 class NewRegionProperties(BaseModel):
@@ -130,6 +130,7 @@ class UpdateCorticalProperties(BaseModel):
     neuron_init_lifespan: Optional[int] = None
     neuron_excitability: Optional[float] = None
     dev_count: Optional[int] = None
+    cortical_dimensions_per_device: Optional[conlist(int, min_items=3, max_items=3)] = None
 
     @validator('cortical_dimensions', 'cortical_dimensions_per_dev', each_item=True)
     def check_positive(cls, value):
@@ -238,6 +239,15 @@ class Registration(BaseModel):
     source: str
     host: str
     capabilities: dict
+
+
+class AgentRegistration(BaseModel):
+    agent_type: str
+    agent_id: str
+    agent_data_port: int
+    agent_version: str
+    controller_version: str
+    capabilities: dict = None
 
 
 class Stats(BaseModel):
