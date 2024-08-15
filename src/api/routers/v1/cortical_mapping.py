@@ -14,14 +14,15 @@
 # ==============================================================================
 
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 
 from ...commons import *
 from ...schemas import *
+from ...dependencies import check_brain_running
 
 from src.inf import runtime_data
 from src.evo.genome_properties import genome_properties
-from src.evo.x_genesis import neighboring_cortical_areas
+from src.evo.synapse import neighboring_cortical_areas
 
 
 router = APIRouter()
@@ -104,7 +105,8 @@ async def fetch_cortical_mapping_properties(source_destination: CorticalAreaSrcD
 
 
 @router.put("/mapping_properties")
-async def update_cortical_mapping_properties(cortical_mapping_properties: UpdateCorticalMappingProperties):
+async def update_cortical_mapping_properties(cortical_mapping_properties: UpdateCorticalMappingProperties,
+                                             _: str = Depends(check_brain_running)):
     """
     Enables changes against various Burst Engine parameters.
     """
@@ -130,3 +132,24 @@ async def connectome_cortical_map():
                 cortical_map[cortical_area][dst] += 1
 
     return cortical_map
+
+
+@router.delete("/delete_suggested_mappings")
+async def delete_suggested_mapping(mapping_data: SuggestedMapping):
+    """
+    Deletes suggested mapping hint associated with a brain region
+    """
+    region_id = mapping_data.brain_region_id
+    mapping_type = mapping_data.mapping_type
+
+    if region_id in runtime_data.genome["brain_regions"]:
+        if mapping_type in ["inputs", "outputs"]:
+            for mapping_definition in mapping_data.mapping_definitions:
+                if mapping_definition in runtime_data.genome["brain_regions"][region_id][mapping_type]:
+                    runtime_data.genome["brain_regions"][region_id][mapping_type].remove(mapping_definition)
+                else:
+                    raise HTTPException(status_code=400, detail=f"Mapping definition not found!")
+        else:
+            raise HTTPException(status_code=400, detail=f"Mapping type can be defined as either 'inputs' or 'outputs' ")
+    else:
+        raise HTTPException(status_code=400, detail=f"Brain region id {region_id} is not valid.")

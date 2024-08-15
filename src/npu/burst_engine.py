@@ -171,7 +171,7 @@ def burst_manager():
         if runtime_data.burst_count % runtime_data.genome["physiology"]['evolution_burst_count'] == 0:
             print('Evolution phase reached...')
             for area in runtime_data.cortical_list:
-                neuron_count, synapse_count = connectome_total_synapse_cnt(area)
+                neuron_count, synapse_count = cortical_area_anatomical_stats(area)
                 if (runtime_data.parameters["Database"]["influxdb_enabled"] and
                         runtime_data.influxdb and
                         runtime_data.parameters["Database"]["influx_stat_logger"]):
@@ -207,8 +207,8 @@ def burst_manager():
         consecutive_fire_cnt_max = runtime_data.genome["blueprint"][cortical_area_]["consecutive_fire_cnt_max"]
         consecutive_fire_cnt = runtime_data.brain[cortical_area_][neuron_id]["consecutive_fire_cnt"]
         if 0 < consecutive_fire_cnt_max <= consecutive_fire_cnt:
-            snooze_till(cortical_area_, neuron_id, runtime_data.burst_count +
-                        runtime_data.genome["blueprint"][cortical_area_]["snooze_length"])
+
+            snooze(cortical_area_, neuron_id)
             runtime_data.brain[cortical_area_][neuron_id]["consecutive_fire_cnt"] = 0
             return False
         else:
@@ -218,7 +218,7 @@ def burst_manager():
         # time_firing_activities = datetime.now()
         if candidate_list_counter(runtime_data.fire_candidate_list) == 0:
             runtime_data.empty_fcl_counter += 1
-            print("FCL is empty!")
+            # print("FCL is empty!")
         else:
             # Capture cortical activity stats
             capture_cortical_activity_stats()
@@ -229,7 +229,7 @@ def burst_manager():
 
             # Fire FCL neurons and pre-process viability of the downstream neurons for firing
             # Todo: Move degeneration items to a higher level to save on compute cycles
-            for fcl_cortical_area in runtime_data.fire_candidate_list:
+            for fcl_cortical_area in runtime_data.fire_candidate_list.copy():
                 if "degeneration" not in runtime_data.genome['blueprint'][fcl_cortical_area] or \
                         runtime_data.genome['blueprint'][fcl_cortical_area]['degeneration'] is None:
                     degeneration_val = 0
@@ -238,19 +238,22 @@ def burst_manager():
                 while runtime_data.fire_candidate_list[fcl_cortical_area]:
                     neuron_to_fire = runtime_data.fire_candidate_list[fcl_cortical_area].pop()
                     # Update downstream neurons in an isolated queue
-                    neuron_pre_fire_processing(fcl_cortical_area, neuron_to_fire, degenerate=degeneration_val)
+                    if neuron_to_fire in runtime_data.brain[fcl_cortical_area]:
+                        neuron_pre_fire_processing(fcl_cortical_area, neuron_to_fire, degenerate=degeneration_val)
 
-                    runtime_data.brain[fcl_cortical_area][neuron_to_fire][
-                        "last_membrane_potential_update"] = runtime_data.burst_count
+                        runtime_data.brain[fcl_cortical_area][neuron_to_fire][
+                            "last_membrane_potential_update"] = runtime_data.burst_count
 
-                    # Log the pre-fire neuron membrane potential in database
-                    neuron_stimulation_mp_logger(cortical_area=fcl_cortical_area, neuron_id=neuron_to_fire)
+                        # Log the pre-fire neuron membrane potential in database
+                        neuron_stimulation_mp_logger(cortical_area=fcl_cortical_area, neuron_id=neuron_to_fire)
 
-                    runtime_data.brain[fcl_cortical_area][neuron_to_fire]['membrane_potential'] = 0
+                        runtime_data.brain[fcl_cortical_area][neuron_to_fire]['membrane_potential'] = 0
 
-                    # Log a zero membrane potential for post neuron firing
-                    membrane_potential_update(cortical_area=fcl_cortical_area, neuron_id=neuron_to_fire,
-                                              membrane_potential_change=0, overwrite=True, overwrite_value=0)
+                        # Log a zero membrane potential for post neuron firing
+                        membrane_potential_update(cortical_area=fcl_cortical_area, neuron_id=neuron_to_fire,
+                                                  membrane_potential_change=0, overwrite=True, overwrite_value=0)
+                    else:
+                        print("Warning!! FCL contained dead neuron!")
 
             # Add neurons to future FCL
             # This is where neuron leak is considered and membrane potentials are updated+++
@@ -434,7 +437,7 @@ def burst_manager():
     def manual_neuron_stimulation():
         if runtime_data.agent_registry is not {}:
             try:
-                for agent in runtime_data.agent_registry:
+                for agent in runtime_data.agent_registry.copy():
                     if runtime_data.agent_registry[agent]["agent_type"] == "monitor":
                         godot_data = runtime_data.agent_registry[agent]["listener"].receive()
                         if godot_data:
@@ -479,19 +482,44 @@ def burst_manager():
                 try:
                     for _ in runtime_data.fire_candidate_list:
                         fire_list = set(runtime_data.fire_candidate_list[_])
-                        if runtime_data.genome['blueprint'][_].get('visualization'):
-                            while fire_list:
-                                firing_neuron = fire_list.pop()
-                                firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
-                                relative_coords = runtime_data.genome['blueprint'][_].get('relative_coordinate')
-                                broadcast_message.add(
-                                    (
-                                        runtime_data.burst_count,
-                                        firing_neuron_loc[0] + relative_coords[0],
-                                        firing_neuron_loc[1] + relative_coords[1],
-                                        firing_neuron_loc[2] + relative_coords[2]
+                        if _ not in runtime_data.cortical_viz_list:
+                            if len(fire_list) > runtime_data.cortical_viz_sup_threshold:
+                                # todo: move this to a function that does cortical area initialization
+                                if _ not in runtime_data.cortical_viz_sup_till_burst:
+                                    runtime_data.cortical_viz_sup_till_burst[_] = \
+                                        runtime_data.burst_count + runtime_data.cortical_viz_skip_rate
+
+                                if runtime_data.burst_count < runtime_data.cortical_viz_sup_till_burst[_]:
+                                    pass
+                                else:
+                                    runtime_data.cortical_viz_sup_till_burst[_] = \
+                                        runtime_data.burst_count + runtime_data.cortical_viz_skip_rate
+                                    # todo: duplicate code snippet 10 lines down -- refactor
+                                    while fire_list:
+                                        firing_neuron = fire_list.pop()
+                                        firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
+                                        relative_coords = runtime_data.genome['blueprint'][_].get('relative_coordinate')
+                                        broadcast_message.add(
+                                            (
+                                                runtime_data.burst_count,
+                                                firing_neuron_loc[0] + relative_coords[0],
+                                                firing_neuron_loc[1] + relative_coords[1],
+                                                firing_neuron_loc[2] + relative_coords[2]
+                                            )
+                                        )
+                            else:
+                                while fire_list:
+                                    firing_neuron = fire_list.pop()
+                                    firing_neuron_loc = runtime_data.brain[_][firing_neuron]['soma_location']
+                                    relative_coords = runtime_data.genome['blueprint'][_].get('relative_coordinate')
+                                    broadcast_message.add(
+                                        (
+                                            runtime_data.burst_count,
+                                            firing_neuron_loc[0] + relative_coords[0],
+                                            firing_neuron_loc[1] + relative_coords[1],
+                                            firing_neuron_loc[2] + relative_coords[2]
+                                        )
                                     )
-                                )
                     return broadcast_message
                 except Exception as e:
                     print("Exception during voxelization.", e, traceback.print_exc())
@@ -640,8 +668,6 @@ def burst_manager():
         # Fire all neurons within fire_candidate_list (FCL) or add a delay if FCL is empty
         if not runtime_data.new_genome and runtime_data.brain_readiness:
             fire_fcl_contents()
-        else:
-            print("Brain is not ready to fire FCL contents....")
 
         runtime_data.plasticity_queue.append(runtime_data.plasticity_queue_candidates)
 
@@ -676,8 +702,8 @@ def burst_manager():
                 death_manager()
                 if runtime_data.feagi_state["state"] == "idle" and runtime_data.autopilot:
                     load_new_genome()
-            except:
-                print("consciousness_manager encountered an error!!")
+            except Exception as e:
+                print(f"consciousness_manager encountered an error!! {e}")
 
         if not runtime_data.controller_config and runtime_data.burst_publisher:
             controller_handshake()

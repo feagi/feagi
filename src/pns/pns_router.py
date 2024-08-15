@@ -172,7 +172,7 @@ def opu_router():
     {'o__bat': {}, 'o__mot': {'0-0-0': 47, '0-0-5': 48, '0-0-15': 50, '0-0-1': 45}}
 
     """
-    for cortical_area in runtime_data.fire_candidate_list:
+    for cortical_area in runtime_data.fire_candidate_list.copy():
         if str(cortical_area)[0] == 'o':
             if cortical_area not in runtime_data.opu_data:
                 runtime_data.opu_data[cortical_area] = {}

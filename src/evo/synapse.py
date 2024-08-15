@@ -237,11 +237,14 @@ def cortical_mapping(blueprint=None):
 
 
 def synaptic_pruner(src_cortical_area, dst_cortical_area):
+    synapse_count = 0
     for neuron in runtime_data.brain[src_cortical_area].copy():
         for neighbor in runtime_data.brain[src_cortical_area][neuron]['neighbors'].copy():
             if runtime_data.brain[src_cortical_area][neuron]['neighbors'][neighbor]['cortical_area'] == \
                     dst_cortical_area:
                 runtime_data.brain[src_cortical_area][neuron]['neighbors'].pop(neighbor)
+                synapse_count += 1
+    runtime_data.brain_stats["synapse_count"] -= synapse_count
     return runtime_data.brain
 
 
@@ -285,3 +288,18 @@ def synapse_memory_neuron(neuron_id):
                                                                 src_neuron=neuron_id,
                                                                 dst_area=dst_cortical_area,
                                                                 candidate_list=neighbor_candidates)
+
+
+def neighboring_cortical_areas(cortical_area, blueprint=None):
+    try:
+        if not blueprint:
+            blueprint = runtime_data.genome["blueprint"]
+        cortical_mappings = cortical_mapping(blueprint=blueprint)
+        upstream_cortical_areas = set()
+        downstream_cortical_areas = set(cortical_mappings[cortical_area])
+        for area in cortical_mappings:
+            if cortical_area in cortical_mappings[area]:
+                upstream_cortical_areas.add(area)
+        return upstream_cortical_areas, downstream_cortical_areas
+    except KeyError:
+        print("Exception in neighboring_cortical_areas: Cortical area not found", traceback.print_exc())

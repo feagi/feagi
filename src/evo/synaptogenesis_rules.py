@@ -209,31 +209,59 @@ def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar, src
             for dst_z in range(dst_block_boundaries[2]):
 
                 matching_condition_x = \
-                    ((dst_pattern_x == "*" and
-                      (src_pattern_x == "*" or src_pattern_x == "?" or src_pattern_x == src_x)) or
-                     (dst_pattern_x == "?" and (src_pattern_x == "*" or src_pattern_x == "?" or src_x == dst_x)) or
-                     (dst_pattern_x == dst_x and (src_pattern_x == "*" or
-                                                  (src_pattern_x == "?" and src_x == dst_x) or
-                                                  (src_pattern_x == src_x))))
+                    (
+                            dst_pattern_x == "*"
+                            or
+                            (dst_pattern_x == "?" and
+                             (src_x == dst_x))
+                            or
+                            (dst_pattern_x == "!" and
+                             (src_x != dst_x))
+                            or
+                            (dst_pattern_x == dst_x and
+                             (src_pattern_x == "*" or
+                              (src_pattern_x == "?" and src_x == dst_x) or
+                              (src_pattern_x == "!" and src_x != dst_x) or
+                              (src_pattern_x == src_x)))
+                    )
 
                 matching_condition_y = \
-                    ((dst_pattern_y == "*" and
-                      (src_pattern_y == "*" or src_pattern_y == "?" or src_pattern_y == src_y) or
-                      (dst_pattern_y == "?" and (src_pattern_y == "*" or src_pattern_y == "?" or src_y == dst_y)) or
-                      (dst_pattern_y == dst_y and (src_pattern_y == "*" or (src_pattern_y == "?" and src_y == dst_y) or
-                                                  (src_pattern_y == src_y)))))
+                    (
+                            dst_pattern_y == "*"
+                            or
+                            (dst_pattern_y == "?" and
+                             (src_y == dst_y))
+                            or
+                            (dst_pattern_y == "!" and
+                             (src_y != dst_y))
+                            or
+                            (dst_pattern_y == dst_y and
+                             (src_pattern_y == "*" or
+                              (src_pattern_y == "?" and src_y == dst_y) or
+                              (src_pattern_y == "!" and src_y != dst_y) or
+                              (src_pattern_y == src_y)))
+                    )
 
                 matching_condition_z = \
-                    ((dst_pattern_z == "*" and
-                      (src_pattern_z == "*" or src_pattern_z == "?" or src_pattern_z == src_z) or
-                      (dst_pattern_z == "?" and (src_pattern_z == "*" or src_pattern_z == "?" or src_z == dst_z)) or
-                      (dst_pattern_z == dst_z and (src_pattern_z == "*" or (src_pattern_z == "?" and src_z == dst_z) or
-                                                  (src_pattern_z == src_z)))))
+                    (
+                            dst_pattern_z == "*"
+                            or
+                            (dst_pattern_z == "?" and
+                             (src_z == dst_z))
+                            or
+                            (dst_pattern_z == "!" and
+                             (src_z != dst_z))
+                            or
+                            (dst_pattern_z == dst_z and
+                             (src_pattern_z == "*" or
+                              (src_pattern_z == "?" and src_z == dst_z) or
+                              (src_pattern_z == "!" and src_z != dst_z) or
+                              (src_pattern_z == src_z)))
+                    )
 
                 if matching_condition_x and matching_condition_y and matching_condition_z:
                     voxel_list.append([dst_x, dst_y, dst_z])
 
-    # print("Matched voxel list based on pattern:", src_voxel, cortical_area_dst, voxel_list)
 
     # todo: account for morphology scalar
 
@@ -385,13 +413,13 @@ def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subre
         for i in range(3):
             dst_vox_dict[i] = set()
             if src_shape[i] > dst_shape[i]:
-                ratio = src_shape[i]//dst_shape[i]
-                target_vox = (neuron_location[i] - src_subregion[0][i])//ratio
+                ratio = src_shape[i]/dst_shape[i]
+                target_vox = int((neuron_location[i] - src_subregion[0][i])/ratio)
                 dst_vox_dict[i].add(target_vox)
             elif src_shape[i] < dst_shape[i]:
-                ratio = dst_shape[i]//src_shape[i]
+                ratio = dst_shape[i]/src_shape[i]
                 for vox in range(dst_shape[i]):
-                    if vox//ratio == (neuron_location[i] - src_subregion[0][i]):
+                    if int(vox/ratio) == (neuron_location[i] - src_subregion[0][i]):
                         target_vox = vox
                         dst_vox_dict[i].add(target_vox)
             elif src_shape[i] == dst_shape[i]:

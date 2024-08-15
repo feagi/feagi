@@ -34,12 +34,16 @@ def activation_function(postsynaptic_current):
 
 
 def reset_cumulative_counters(cortical_area, neuron_id):
-    runtime_data.brain[cortical_area][neuron_id]["last_burst_num"] = runtime_data.burst_count
-    runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"] = runtime_data.burst_count
-    runtime_data.brain[cortical_area][neuron_id]['cumulative_fire_count'] += 1
-    runtime_data.brain[cortical_area][neuron_id]["cumulative_fire_count_inst"] += 1
-    # Condition to increase the consecutive fire count
-    runtime_data.brain[cortical_area][neuron_id]["consecutive_fire_cnt"] += 1
+    if neuron_id in runtime_data.brain[cortical_area]:
+        if runtime_data.brain[cortical_area][neuron_id]["last_burst_num"] == runtime_data.burst_count - 1:
+            runtime_data.brain[cortical_area][neuron_id]["consecutive_fire_cnt"] += 1
+        else:
+            runtime_data.brain[cortical_area][neuron_id]["consecutive_fire_cnt"] = 0
+
+        runtime_data.brain[cortical_area][neuron_id]["last_burst_num"] = runtime_data.burst_count
+        runtime_data.brain[cortical_area][neuron_id]["last_membrane_potential_reset_burst"] = runtime_data.burst_count
+        runtime_data.brain[cortical_area][neuron_id]['cumulative_fire_count'] += 1
+        runtime_data.brain[cortical_area][neuron_id]["cumulative_fire_count_inst"] += 1
 
 
 def neuron_stimulation_mp_logger(cortical_area, neuron_id):
@@ -99,9 +103,16 @@ def update_membrane_potential_fire_queue(cortical_area, neuron_id, mp_update_amo
         runtime_data.fire_queue[cortical_area][neuron_id][0] += mp_update_amount
     if fcl_insertion:
         if runtime_data.fire_queue[cortical_area][neuron_id][0] > runtime_data.fire_queue[cortical_area][neuron_id][1]:
-            add_neuron_to_fcl(cortical_area=cortical_area,
-                              neuron_id=neuron_id,
-                              pre_fire_mp=runtime_data.fire_queue[cortical_area][neuron_id][0])
+            if runtime_data.genome['blueprint'][cortical_area]['firing_threshold_limit'] == 0:
+                add_neuron_to_fcl(cortical_area=cortical_area,
+                                  neuron_id=neuron_id,
+                                  pre_fire_mp=runtime_data.fire_queue[cortical_area][neuron_id][0])
+            elif runtime_data.fire_queue[cortical_area][neuron_id][0] <= \
+                    (runtime_data.fire_queue[cortical_area][neuron_id][1] +
+                     runtime_data.genome['blueprint'][cortical_area]['firing_threshold_limit']):
+                add_neuron_to_fcl(cortical_area=cortical_area,
+                                  neuron_id=neuron_id,
+                                  pre_fire_mp=runtime_data.fire_queue[cortical_area][neuron_id][0])
 
 
 def add_neuron_to_fcl(cortical_area, neuron_id, pre_fire_mp):
@@ -159,8 +170,10 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
 
             if degenerate > 0:
                 # reduce neuron postsynaptic current by degeneration value defined in genome (if applicable)
-                new_psc = runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
+                new_psc = \
+                    runtime_data.brain[cortical_area][neuron_id]["neighbors"][dst_neuron_id]["postsynaptic_current"]
                 new_psc -= degenerate
+                # todo: consider degeneracy for inhibitory connections
                 if new_psc < 0:
                     new_psc = 0
                 post_synaptic_current_update(cortical_area_src=cortical_area, cortical_area_dst=dst_cortical_area,
@@ -168,7 +181,8 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
                                              post_synaptic_current=new_psc)
 
             if runtime_data.genome['blueprint'][cortical_area]['mp_driven_psp']:
-                postsynaptic_current = runtime_data.brain[cortical_area][neuron_id]['pre_fire_mp']
+                if "pre_fire_mp" in runtime_data.brain[cortical_area][neuron_id]:
+                    postsynaptic_current = runtime_data.brain[cortical_area][neuron_id]['pre_fire_mp']
 
             neuron_output = activation_function(postsynaptic_current)
 
@@ -358,16 +372,15 @@ def neuron_neighbors(cortical_area, neuron_id):
     return data[neuron_id]["neighbors"]
 
 
-def snooze_till(cortical_area, neuron_id, burst_id):
+def snooze(cortical_area, neuron_id):
     """ Acting as an inhibitory neurotransmitter to suppress firing of neuron till a later burst_manager
 
     *** This function instead of inhibitory behavior is more inline with Neuron Refractory period
 
     """
     runtime_data.brain[cortical_area][neuron_id]["snooze_till_burst_num"] \
-        = burst_id + runtime_data.genome["blueprint"][cortical_area]["snooze_length"] - 1
+        = runtime_data.burst_count + runtime_data.genome["blueprint"][cortical_area]["snooze_length"] - 1
     # print("%s : %s has been snoozed!" % (cortical_area, neuron_id))
-    return
 
 
 def pruner(pruning_data):

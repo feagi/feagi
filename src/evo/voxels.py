@@ -14,10 +14,13 @@
 # limitations under the License.
 # ==============================================================================
 
+import json
 from math import floor
 from src.inf import runtime_data
 import logging
-import traceback
+
+from src.evo.cortical_area import cortical_area_type
+from src.evo.templates import cortical_types
 
 
 logger = logging.getLogger(__name__)
@@ -320,3 +323,98 @@ def subregion_neurons(src_cortical_area, region_definition):
         print("Exception while processing subregion neurons", e)
         pass
     return neurons
+
+
+def generate_cortical_dimensions_by_id():
+    """
+    Generates the information needed to display cortical areas on Godot
+    """
+    cortical_information = {}
+
+    for cortical_area in runtime_data.genome["blueprint"]:
+        cortical_information[cortical_area] = {}
+        genes = runtime_data.genome["blueprint"][cortical_area]
+
+        if "visualization" in genes:
+            cortical_visibility = genes["visualization"]
+            if not genes["visualization"]:
+                cortical_visibility = False
+        else:
+            cortical_visibility = True
+
+        cortical_information[cortical_area]["cortical_name"] = genes["cortical_name"]
+        cortical_information[cortical_area]["cortical_group"] = genes["group_id"]
+        cortical_information[cortical_area]["cortical_sub_group"] = genes["sub_group_id"]
+        cortical_information[cortical_area]["visible"] = cortical_visibility
+
+        cortical_information[cortical_area]["coordinates_2d"] = [
+            genes["2d_coordinate"][0],
+            genes["2d_coordinate"][1]
+        ]
+
+        cortical_information[cortical_area]["coordinates_3d"] = [
+            genes["relative_coordinate"][0],
+            genes["relative_coordinate"][1],
+            genes["relative_coordinate"][2]
+        ]
+
+        dim_x = genes["block_boundaries"][0]
+        dim_y = genes["block_boundaries"][1]
+        dim_z = genes["block_boundaries"][2]
+
+        cortical_information[cortical_area]["cortical_dimensions"] = [
+            dim_x,
+            dim_y,
+            dim_z
+        ]
+
+        cortical_type = cortical_area_type(cortical_area=cortical_area)
+        if cortical_type in ["IPU", "OPU"]:
+            if "dev_count" not in runtime_data.genome["blueprint"][cortical_area]:
+                runtime_data.genome["blueprint"][cortical_area]["dev_count"] = \
+                    int(runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][0] /
+                        cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0])
+
+            dev_count = runtime_data.genome["blueprint"][cortical_area]["dev_count"]
+
+            cortical_information[cortical_area]["dev_count"] = dev_count
+
+            cortical_information[cortical_area]["cortical_dimensions_per_device"] = [
+                int(dim_x / dev_count),
+                dim_y,
+                dim_z
+            ]
+
+    with open(runtime_data.connectome_path+"cortical_data_by_id.json", "w") as data_file:
+        data_file.seek(0)
+        data_file.write(json.dumps(cortical_information, indent=3))
+        data_file.truncate()
+
+    return cortical_information
+
+
+def generate_cortical_dimensions():
+    """
+    Generates the information needed to display cortical areas on Godot
+    """
+    cortical_information = {}
+
+    for cortical_area in runtime_data.genome["blueprint"]:
+        cortical_name = runtime_data.genome["blueprint"][cortical_area]["cortical_name"]
+        cortical_information[cortical_name] = []
+        genes = runtime_data.genome["blueprint"][cortical_area]
+        cortical_information[cortical_name].append(genes["relative_coordinate"][0])
+        cortical_information[cortical_name].append(genes["relative_coordinate"][1])
+        cortical_information[cortical_name].append(genes["relative_coordinate"][2])
+        cortical_information[cortical_name].append(genes["visualization"])
+        cortical_information[cortical_name].append(genes["block_boundaries"][0])
+        cortical_information[cortical_name].append(genes["block_boundaries"][1])
+        cortical_information[cortical_name].append(genes["block_boundaries"][2])
+        cortical_information[cortical_name].append(cortical_area)
+
+    with open(runtime_data.connectome_path+"cortical_data.json", "w") as data_file:
+        data_file.seek(0)
+        data_file.write(json.dumps(cortical_information, indent=3))
+        data_file.truncate()
+
+    return cortical_information

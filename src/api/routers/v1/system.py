@@ -1,3 +1,18 @@
+# Copyright 2016-2024 The FEAGI Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 import os
 from fastapi import APIRouter, HTTPException
 
@@ -5,6 +20,7 @@ from ...commons import *
 from ...schemas import *
 
 from src.version import __version__
+from src.evo.templates import cortical_types
 
 
 router = APIRouter()
@@ -12,6 +28,21 @@ router = APIRouter()
 
 # ######   System Endpoints #########
 # ###################################
+
+@router.get("/user_preferences")
+async def get_user_preferences():
+    return {
+        "bv_advanced_mode": runtime_data.bv_advanced_mode,
+        "ui_magnification": runtime_data.ui_magnification,
+        "auto_pns_area_creation": runtime_data.auto_pns_area_creation
+        }
+
+
+@router.put("/user_preferences")
+async def update_user_preferences(payload: UserPreferences):
+    runtime_data.bv_advanced_mode = payload.adv_mode
+    runtime_data.ui_magnification = payload.ui_magnification
+
 
 def human_readable_version(version):
     print(version)
@@ -56,11 +87,13 @@ async def feagi_health_check():
         health["influxdb_availability"] = True
     else:
         health["influxdb_availability"] = False
-    health["neuron_count_max"] = runtime_data.parameters["Limits"]["max_neuron_count"]
-    health["synapse_count_max"] = runtime_data.parameters["Limits"]["max_synapse_count"]
+
+    health["neuron_count_max"] = int(runtime_data.parameters["Limits"]["max_neuron_count"])
+    health["synapse_count_max"] = int(runtime_data.parameters["Limits"]["max_synapse_count"])
     health["latest_changes_saved_externally"] = runtime_data.changes_saved_externally
 
     if runtime_data.genome:
+        health["fitness"] = runtime_data.genome_fitness
         health["genome_availability"] = True
         connectome_neuron_count = runtime_data.brain_stats["neuron_count"]
         connectome_synapse_count = runtime_data.brain_stats["synapse_count"]
@@ -98,10 +131,14 @@ async def unique_log_entries():
 async def feagi_registration(message: Registration):
     message = message.dict()
     source = message['source']
-
     host = message['host']
     capabilities = message['capabilities']
+
+    # todo: This endpoint is currently not performing any task
+
+    print("Warning! This endpoint is not doing anything at this time!")
     print("########## ###### >>>>>> >>>> ", source, host, capabilities)
+    return "Warning! This endpoint is not doing anything at this time!"
 
 
 @router.post("/logs")
@@ -154,3 +191,42 @@ async def change_circuit_library_path(circuit_library_path: str):
         print(f"{circuit_library_path} is the new circuit library path.")
     else:
         raise HTTPException(status_code=400, detail=f"{circuit_library_path} is not a valid path.")
+
+
+@router.get("/cortical_area_types")
+async def fetch_cortical_area_types():
+    return cortical_types
+
+
+@router.put("/cortical_area_types")
+async def update_cortical_area_types(cortical_id: str):
+    # todo
+    return "Endpoint pending implementation"
+
+
+@router.get("/cortical_area_visualization_skip_rate")
+async def update_cortical_area_visualization_skip_rate():
+    return runtime_data.cortical_viz_skip_rate
+
+
+@router.get("/cortical_area_visualization_suppression_threshold")
+async def update_cortical_area_visualization_suppression_threshold():
+    return runtime_data.cortical_viz_sup_threshold
+
+
+@router.put("/cortical_area_visualization_skip_rate")
+async def update_cortical_area_visualization_skip_rate(cortical_viz_skip_rate: VizSkipRate):
+    """Set cortical area visualization skip rate. This value defines the number of skips between each instance of
+    neuron firing visualization"""
+    if cortical_viz_skip_rate.cortical_viz_skip_rate < 0:
+        raise HTTPException(status_code=400, detail=f"Visualization skip rate cannot be negative")
+    runtime_data.cortical_viz_skip_rate = cortical_viz_skip_rate.cortical_viz_skip_rate
+
+
+@router.put("/cortical_area_visualization_suppression_threshold")
+async def update_cortical_area_visualization_suppression_threshold(visualization_threshold: VizThreshold):
+    """Controls the level of voxel activity per cortical area where if exceeded will enforce visualization frequency
+    control to kick in."""
+    if visualization_threshold.visualization_threshold < 0:
+        raise HTTPException(status_code=400, detail=f"Suppression threshold cannot be negative.")
+    runtime_data.cortical_viz_sup_threshold = visualization_threshold.visualization_threshold
