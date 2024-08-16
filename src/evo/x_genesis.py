@@ -238,6 +238,7 @@ def update_cortical_properties(cortical_properties):
         # ####################################################
 
         if cortical_type in ["IPU", "OPU"]:
+
             if cortical_properties.get('cortical_dimensions_per_device') or cortical_properties.get('dev_count'):
 
                 dev_count = runtime_data.genome["blueprint"][cortical_area]["dev_count"]
@@ -392,10 +393,7 @@ def update_cortical_properties(cortical_properties):
                 changed_areas.add("blueprint")
 
         if regeneration_flag:
-            logger.info(f"Cortical regeneration triggered for {cortical_area}")
-            print(f"{cortical_area} started the regeneration")
             cortical_regeneration(cortical_area=cortical_area)
-            print(f"{cortical_area} completed the regeneration")
 
         runtime_data.cortical_dimensions = generate_cortical_dimensions()
         runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
@@ -634,6 +632,8 @@ def cortical_regeneration(cortical_area):
     # Clearing the burst engine from neuronal activities
 
     # Reset effected areas
+    logger.info(f"Cortical regeneration triggered for {cortical_area}")
+    print(f"{cortical_area} started the regeneration")
     cortical_removal(cortical_area=cortical_area)
 
     x_corticogenesis(cortical_area)
@@ -797,13 +797,11 @@ def add_core_cortical_area(cortical_properties):
         print("Error: New cortical area was not added.", traceback.print_exc())
 
 
-def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cortical_dimensions, cortical_id,
+def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cortical_dimensions, cortical_area_id,
                              parent_region_id="root", cortical_id_overwrite=None, is_memory=False, copy_of=None):
 
     if runtime_data.brain_readiness:
         runtime_data.brain_readiness = False
-
-        cortical_area = cortical_id
 
         cortical_names = neuroembryogenesis.cortical_name_list()
         if copy_of:
@@ -820,53 +818,53 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
         if cortical_name in cortical_names:
             print("Warning! Cortical area with same name already exists in genome. Nothing got added.")
         else:
-            reset_connectome_file(cortical_area=cortical_area)
-            runtime_data.voxel_dict[cortical_area] = {}
-            runtime_data.genome['blueprint'][cortical_area] = {}
+            reset_connectome_file(cortical_area=cortical_area_id)
+            runtime_data.voxel_dict[cortical_area_id] = {}
+            runtime_data.genome['blueprint'][cortical_area_id] = {}
             runtime_data.cortical_list = genome_1_cortical_list(runtime_data.genome)
 
             cortical_template_ = template.copy()
 
-            runtime_data.genome["blueprint"][cortical_area] = cortical_template_
+            runtime_data.genome["blueprint"][cortical_area_id] = cortical_template_
 
             for parameter in cortical_template_:
-                runtime_data.genome["blueprint"][cortical_area][parameter] = cortical_template_[parameter]
+                runtime_data.genome["blueprint"][cortical_area_id][parameter] = cortical_template_[parameter]
 
-            runtime_data.genome['blueprint'][cortical_area]['cortical_name'] = cortical_name
+            runtime_data.genome['blueprint'][cortical_area_id]['cortical_name'] = cortical_name
 
             new_cortical_dimensions = cortical_dimensions.copy()
-            runtime_data.genome['blueprint'][cortical_area]["block_boundaries"] = new_cortical_dimensions
+            runtime_data.genome['blueprint'][cortical_area_id]["block_boundaries"] = new_cortical_dimensions
 
             new_3d_coordinates = coordinates_3d.copy()
-            runtime_data.genome['blueprint'][cortical_area]["relative_coordinate"] = new_3d_coordinates
+            runtime_data.genome['blueprint'][cortical_area_id]["relative_coordinate"] = new_3d_coordinates
 
             new_coordinates_2d = coordinates_2d.copy()
-            runtime_data.genome['blueprint'][cortical_area]["2d_coordinate"] = new_coordinates_2d
+            runtime_data.genome['blueprint'][cortical_area_id]["2d_coordinate"] = new_coordinates_2d
 
-            runtime_data.genome['blueprint'][cortical_area]['cortical_mapping_dst'] = {}
+            runtime_data.genome['blueprint'][cortical_area_id]['cortical_mapping_dst'] = {}
 
-            runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] = ""
-            runtime_data.genome['blueprint'][cortical_area]['visualization'] = True
+            runtime_data.genome["blueprint"][cortical_area_id]["sub_group_id"] = ""
+            runtime_data.genome['blueprint'][cortical_area_id]['visualization'] = True
 
-            runtime_data.cortical_area_region_association[cortical_area] = parent_region_id
-            runtime_data.genome["brain_regions"][parent_region_id]["areas"].append(cortical_area)
+            runtime_data.cortical_area_region_association[cortical_area_id] = parent_region_id
+            runtime_data.genome["brain_regions"][parent_region_id]["areas"].append(cortical_area_id)
 
             if is_memory:
-                runtime_data.genome["blueprint"][cortical_area]["longterm_mem_threshold"] = \
+                runtime_data.genome["blueprint"][cortical_area_id]["longterm_mem_threshold"] = \
                     cortical_template_['longterm_mem_threshold']
-                runtime_data.genome["blueprint"][cortical_area]["lifespan_growth_rate"] = \
+                runtime_data.genome["blueprint"][cortical_area_id]["lifespan_growth_rate"] = \
                     cortical_template_['lifespan_growth_rate']
-                runtime_data.genome["blueprint"][cortical_area]["init_lifespan"] = \
+                runtime_data.genome["blueprint"][cortical_area_id]["init_lifespan"] = \
                     cortical_template_['init_lifespan']
-                runtime_data.genome["blueprint"][cortical_area]["sub_group_id"] = "MEMORY"
-                runtime_data.memory_register[cortical_area] = set()
+                runtime_data.genome["blueprint"][cortical_area_id]["sub_group_id"] = "MEMORY"
+                runtime_data.memory_register[cortical_area_id] = set()
 
-            runtime_data.genome["blueprint"][cortical_area]["group_id"] = "CUSTOM"
+            runtime_data.genome["blueprint"][cortical_area_id]["group_id"] = "CUSTOM"
 
-            neuroembryogenesis.voxelogenesis(cortical_area=cortical_area)
-            neuroembryogenesis.neurogenesis(cortical_area=cortical_area)
-            init_fcl(cortical_area)
-            init_cortical_cumulative_stats(cortical_area=cortical_area)
+            neuroembryogenesis.voxelogenesis(cortical_area=cortical_area_id)
+            neuroembryogenesis.neurogenesis(cortical_area=cortical_area_id)
+            init_fcl(cortical_area_id)
+            init_cortical_cumulative_stats(cortical_area=cortical_area_id)
             runtime_data.cortical_dimensions = generate_cortical_dimensions()
             runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
 
@@ -876,7 +874,7 @@ def add_custom_cortical_area(cortical_name, coordinates_3d, coordinates_2d, cort
 
             runtime_data.brain_readiness = True
 
-            return cortical_area
+            return cortical_area_id
 
 
 def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mode):
@@ -1254,3 +1252,74 @@ def find_variable_names_by_id(target_id):
             variable_names.append(name)
 
     return variable_names
+
+
+def create_missing_pns_areas(dev_list):
+    """
+    dev_list = {
+        "o__mot": {
+            "dev_count": 2
+        },
+        "i__inf": {
+            "dev_count": 1
+        }
+    }
+    """
+
+    pns_update_report = {
+        "updated": [],
+        "added": []
+    }
+    for cortical_area in dev_list:
+        if cortical_area not in runtime_data.genome["blueprint"]:
+            dev_count = 1
+            if "dev_count" in dev_list[cortical_area]:
+                dev_count = dev_list[cortical_area]["dev_count"]
+
+            cortical_type = cortical_area_type(cortical_area=cortical_area)
+
+            coordinate_2d = [0, 0]
+            if cortical_type == "IPU":
+                coordinate_2d = [random.randint(10, 100), random.randint(10, 200)]
+
+            if cortical_type == "OPU":
+                coordinate_2d = [random.randint(1000, 1100), random.randint(0, 300)]
+
+            coordinate_3d = [random.randint(10, 100), random.randint(10, 40), 0]
+
+            if "coordinate_3d" in cortical_types[cortical_type]["supported_devices"][cortical_area]:
+                coordinate_3d = cortical_types[cortical_type]["supported_devices"][cortical_area]["coordinate_3d"]
+
+            add_core_cortical_area(cortical_properties={
+                "cortical_type": cortical_type,
+                "cortical_id": cortical_area,
+                "coordinates_2d": coordinate_2d,
+                "coordinates_3d": coordinate_3d,
+                "dev_count": dev_count
+            })
+            pns_update_report["added"].append(cortical_area)
+        elif "dev_count" in dev_list[cortical_area]:
+            dev_count = dev_list[cortical_area]["dev_count"]
+            if dev_count != runtime_data.genome["blueprint"][cortical_area]["dev_count"]:
+                update_pns_dev_count(pns_area=cortical_area, new_dev_count=dev_count)
+                pns_update_report["updated"].append(cortical_area)
+
+    print(f"Cortical areas automatically added/reconfigured:\n {pns_update_report}")
+    return pns_update_report
+
+
+def update_pns_dev_count(pns_area, new_dev_count):
+    cortical_area = pns_area
+    cortical_type = cortical_area_type(cortical_area=cortical_area)
+
+    runtime_data.genome["blueprint"][cortical_area]["dev_count"] = new_dev_count
+
+    dim_x = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0]
+    dim_y = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1]
+    dim_z = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2]
+
+    runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][0] = dim_x * new_dev_count
+    runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][1] = dim_y
+    runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][2] = dim_z
+
+    cortical_regeneration(cortical_area=pns_area)

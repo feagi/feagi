@@ -46,6 +46,7 @@ amalgamation_history = {}
 changes_saved_externally = False
 bv_advanced_mode = True
 ui_magnification = 1.0
+auto_pns_area_creation = True
 
 # Evolutionary
 genome = {}
@@ -73,7 +74,8 @@ evo_change_register = {
     "2d_loc": 0,
     "3d_dimm": 0,
     "name": 0,
-    "3d_viz": 0
+    "3d_viz": 0,
+    "agent": 0
 }
 manual_delete_list = set()
 genome_fitness = 1

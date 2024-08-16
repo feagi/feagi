@@ -16,7 +16,6 @@
 import os
 from pydantic import BaseSettings
 
-print("$$$$ 1")
 env_ip = os.getenv("ip_server")
 if not env_ip:
     env_ip = "placeholder"
