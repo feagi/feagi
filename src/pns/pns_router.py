@@ -84,7 +84,7 @@ def stimuli_router(ipu_data):
         if "connected_agents" in ipu_data["data"]:
             if ipu_data["data"]["connected_agents"]:
                 for connected_agent in ipu_data["data"]["connected_agents"]:
-                    if not runtime_data.connected_agents[connected_agent]:
+                    if not runtime_data.connected_agents.get(connected_agent):
                         runtime_data.connected_agents[connected_agent] = True
 
         if "sensory_data" in ipu_data["data"]:
