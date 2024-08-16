@@ -175,7 +175,14 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0]
-            }
+            },
+            "i_misc": {
+                "enabled": True,
+                "cortical_name": "Miscellaneous Input",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 1],
+                "coordinate_3d": [20, 0, 0]
+            },
         },
         "name_to_id_mapping": {
             "infrared": [
@@ -211,6 +218,9 @@ cortical_types = {
                 "iv00BL",
                 "iv00BR",
                 "iv00BM"
+            ],
+            "miscellaneous": [
+                "i_misc"
             ]
         }
     },
