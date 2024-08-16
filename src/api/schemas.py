@@ -109,7 +109,7 @@ class UpdateCorticalProperties(BaseModel):
     coordinates_2d: Optional[conlist(int, min_items=2, max_items=2)] = None
     coordinates_3d: Optional[conlist(int, min_items=3, max_items=3)] = None
     cortical_dimensions: Optional[conlist(int, min_items=3, max_items=3)] = None
-    cortical_dimensions_per_dev: Optional[conlist(int, min_items=3, max_items=3)] = None
+    cortical_dimensions_per_device: Optional[conlist(int, min_items=3, max_items=3)] = None
     cortical_synaptic_attractivity: Optional[float] = None
     neuron_post_synaptic_potential: Optional[float] = None
     neuron_post_synaptic_potential_max: Optional[float] = None
@@ -132,7 +132,7 @@ class UpdateCorticalProperties(BaseModel):
     dev_count: Optional[int] = None
     cortical_dimensions_per_device: Optional[conlist(int, min_items=3, max_items=3)] = None
 
-    @validator('cortical_dimensions', 'cortical_dimensions_per_dev', each_item=True)
+    @validator('cortical_dimensions', 'cortical_dimensions_per_device', each_item=True)
     def check_positive(cls, value):
         if value is not None and value <= 0:
             raise ValueError('All coordinates must be positive integers greater than 0')
