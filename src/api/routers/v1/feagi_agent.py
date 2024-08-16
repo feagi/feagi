@@ -114,7 +114,9 @@ async def agent_registration(request: Request, data: AgentRegistration):
         api_queue.put(item=message)
 
     print("New agent has been successfully registered:", runtime_data.agent_registry[data.agent_id])
+
     runtime_data.evo_change_register["agent"] += 1
+
     agent_info = runtime_data.agent_registry[data.agent_id].copy()
     agent_info.pop('listener')
     return agent_info
