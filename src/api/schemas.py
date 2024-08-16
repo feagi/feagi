@@ -346,3 +346,7 @@ class RewiringMode(str, Enum):
 class UserPreferences(BaseModel):
     adv_mode: bool
     ui_magnification: float = 1.0
+
+
+class BrainVisualization(BaseModel):
+    global_visualization: bool = True
