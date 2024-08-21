@@ -273,4 +273,7 @@ def api_message_processor(api_message):
                     else:
                         print(f"Device name {device_name} is not defined in FEAGI templates!")
 
+            print("+ *** " * 20)
+            print("\ndev_list:", dev_list)
+            print("+ *** " * 20)
             create_missing_pns_areas(dev_list=dev_list)
