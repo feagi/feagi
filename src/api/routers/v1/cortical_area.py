@@ -128,9 +128,9 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
 
                 unit_dim_x = int(dim_x / dev_count)
 
-                unit_dim_y = int(dim_y / dev_count)
+                unit_dim_y = dim_y
 
-                unit_dim_z = int(dim_z / dev_count)
+                unit_dim_z = dim_z
 
                 cortical_properties["dev_count"] = dev_count
                 cortical_properties["cortical_dimensions_per_device"] = [unit_dim_x, unit_dim_y, unit_dim_z]
