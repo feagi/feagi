@@ -268,8 +268,13 @@ def api_message_processor(api_message):
 
                             max_feagi_index = 0
                             for _ in agent_capabilities[device_type][device_name]:
-                                if not agent_capabilities[device_type][device_name].get("disabled", False):
+                                device_is_active = not agent_capabilities[device_type][device_name].get("disabled",
+                                                                                                        False)
+                                print(f"{device_name} active status is {device_is_active}")
+                                if device_is_active:
                                     feagi_index = agent_capabilities[device_type][device_name].get("feagi_index", 0)
+                                    print("$__ " * 100)
+                                    print(feagi_index)
                                     if int(feagi_index) > max_feagi_index:
                                         max_feagi_index = int(feagi_index)
 
