@@ -297,18 +297,11 @@ cortical_types = {
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0]
             },
-            "ov_mod": {
+            "o_stop": {
                 "enabled": True,
-                "cortical_name": "Central Vision Modulation",
+                "cortical_name": "Emergency stop",
                 "structure": "asymmetric",
-                "resolution": [2, 1, 10],
-                "coordinate_3d": [20, 0, 0]
-            },
-            "ov_ecc": {
-                "enabled": True,
-                "cortical_name": "Central Vision Eccentricity",
-                "structure": "asymmetric",
-                "resolution": [2, 1, 10],
+                "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0]
             },
             "o_spos": {
@@ -339,20 +332,6 @@ cortical_types = {
                 "resolution": [32, 32, 1],
                 "coordinate_3d": [20, 0, 0]
             },
-            "ov_enh": {
-                "enabled": True,
-                "cortical_name": "Lighting enhancement",
-                "structure": "asymmetric",
-                "resolution": [3, 1, 10],
-                "coordinate_3d": [20, 0, 0]
-            },
-            "ovtune": {
-                "enabled": True,
-                "cortical_name": "Lighting threshold",
-                "structure": "asymmetric",
-                "resolution": [2, 1, 10],
-                "coordinate_3d": [20, 0, 0]
-            },
             "o_misc": {
                 "enabled": True,
                 "cortical_name": "Miscellaneous",
@@ -381,15 +360,74 @@ cortical_types = {
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0]
             },
-            "o_stop": {
+            "ov_mod": {
                 "enabled": True,
-                "cortical_name": "Emergency stop",
+                "cortical_name": "Central Vision Modulation",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 1],
+                "resolution": [2, 1, 10],
                 "coordinate_3d": [20, 0, 0]
-            }
+            },
+            "ov_ecc": {
+                "enabled": True,
+                "cortical_name": "Central Vision Eccentricity",
+                "structure": "asymmetric",
+                "resolution": [2, 1, 10],
+                "coordinate_3d": [20, 0, 0]
+            },
+            "ov_enh": {
+                "enabled": True,
+                "cortical_name": "Lighting enhancement",
+                "structure": "asymmetric",
+                "resolution": [3, 1, 10],
+                "coordinate_3d": [20, 0, 0]
+            },
+            "ovtune": {
+                "enabled": True,
+                "cortical_name": "Lighting threshold",
+                "structure": "asymmetric",
+                "resolution": [2, 1, 10],
+                "coordinate_3d": [20, 0, 0]
+            },
         },
-        "name_to_id_mapping": {}
+        "name_to_id_mapping": {
+            "gpio": [
+                "odgpio",
+                "oagpio",
+                "oogpio",
+                "oigpio",
+            ],
+            "motor": [
+                "o__mot",
+            ],
+            "servo": [
+                "o__ser",
+                "o_spos",
+            ],
+            "navigation": [
+                "o__nav",
+                "o__spd",
+                "o_init",
+                "o_mctl",
+                "o_stop",
+            ],
+            "battery": [
+                "o__bat",
+            ],
+            "camera": [
+                "ov_mod",
+                "ov_ecc",
+                "o_blnk",
+                "ov_enh",
+                "ovtune",
+                "ovflph",
+                "ovflpv",
+            ],
+            "recognition": [
+                "o___id",
+                "o__loc",
+            ]
+
+        }
     },
     "CORE": {
         "gui_name": "Core",
