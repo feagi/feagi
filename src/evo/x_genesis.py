@@ -1280,26 +1280,27 @@ def create_missing_pns_areas(dev_list):
 
             cortical_type = cortical_area_type(cortical_area=cortical_area)
 
-            coordinate_2d = [0, 0]
-            if cortical_type == "IPU":
-                coordinate_2d = [random.randint(10, 100), random.randint(10, 200)]
+            if cortical_type in ["IPU", "OPU"]:
+                coordinate_2d = [0, 0]
+                if cortical_type == "IPU":
+                    coordinate_2d = [random.randint(10, 100), random.randint(10, 200)]
 
-            if cortical_type == "OPU":
-                coordinate_2d = [random.randint(1000, 1100), random.randint(0, 300)]
+                if cortical_type == "OPU":
+                    coordinate_2d = [random.randint(1000, 1100), random.randint(0, 300)]
 
-            coordinate_3d = [random.randint(10, 100), random.randint(10, 40), 0]
+                coordinate_3d = [random.randint(10, 100), random.randint(10, 40), 0]
 
-            if "coordinate_3d" in cortical_types[cortical_type]["supported_devices"][cortical_area]:
-                coordinate_3d = cortical_types[cortical_type]["supported_devices"][cortical_area]["coordinate_3d"]
+                if "coordinate_3d" in cortical_types[cortical_type]["supported_devices"][cortical_area]:
+                    coordinate_3d = cortical_types[cortical_type]["supported_devices"][cortical_area]["coordinate_3d"]
 
-            add_core_cortical_area(cortical_properties={
-                "cortical_type": cortical_type,
-                "cortical_id": cortical_area,
-                "coordinates_2d": coordinate_2d,
-                "coordinates_3d": coordinate_3d,
-                "dev_count": dev_count
-            })
-            pns_update_report["added"].append(cortical_area)
+                add_core_cortical_area(cortical_properties={
+                    "cortical_type": cortical_type,
+                    "cortical_id": cortical_area,
+                    "coordinates_2d": coordinate_2d,
+                    "coordinates_3d": coordinate_3d,
+                    "dev_count": dev_count
+                })
+                pns_update_report["added"].append(cortical_area)
 
         elif "max_feagi_index" in dev_list[cortical_area]:
             needed_dev_count = dev_list[cortical_area]["max_feagi_index"] + 1
