@@ -388,6 +388,13 @@ cortical_types = {
                 "resolution": [2, 1, 10],
                 "coordinate_3d": [20, 0, 0]
             },
+            "o__led": {
+                "enabled": True,
+                "cortical_name": "LED",
+                "structure": "asymmetric",
+                "resolution": [2, 1, 1],
+                "coordinate_3d": [-40, 0, -50]
+            }
         },
         "name_to_id_mapping": {
             "gpio": [
