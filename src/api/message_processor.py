@@ -262,8 +262,6 @@ def api_message_processor(api_message):
                     cortical_type = "OPU"
 
                 for device_name in agent_capabilities[device_type]:
-                    print("@@@@ >>>> device_name:", device_name)
-                    print("agent_capabilities:\n", agent_capabilities)
                     if cortical_type in ["IPU", "OPU"]:
                         if device_name in cortical_types[cortical_type]["name_to_id_mapping"]:
 
@@ -273,8 +271,6 @@ def api_message_processor(api_message):
                                                                                                            False)
                                 if device_is_active:
                                     feagi_index = agent_capabilities[device_type][device_name][_].get("feagi_index", 0)
-                                    print("$__ " * 100)
-                                    print("feagi_index:", feagi_index, type(feagi_index))
                                     if int(feagi_index) > max_feagi_index:
                                         max_feagi_index = int(feagi_index)
 
@@ -283,7 +279,4 @@ def api_message_processor(api_message):
                     else:
                         print(f"Device name {device_name} is not defined in FEAGI templates!")
 
-            print("+ *** " * 20)
-            print("\ndev_list:", dev_list)
-            print("+ *** " * 20)
             create_missing_pns_areas(dev_list=dev_list)
