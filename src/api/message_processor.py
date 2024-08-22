@@ -260,7 +260,6 @@ def api_message_processor(api_message):
 
                 if device_type in ["output", "outputs"]:
                     cortical_type = "OPU"
-                print("cortical_type:", cortical_type)
                 for device_name in agent_capabilities[device_type]:
                     if cortical_type in ["IPU", "OPU"]:
                         if device_name in cortical_types[cortical_type]["name_to_id_mapping"]:
