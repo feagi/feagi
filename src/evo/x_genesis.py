@@ -1258,10 +1258,10 @@ def create_missing_pns_areas(dev_list):
     """
     dev_list = {
         "o__mot": {
-            "dev_count": 2
+            "max_feagi_index": 2
         },
         "i__inf": {
-            "dev_count": 1
+            "max_feagi_index": 1
         }
     }
     """
@@ -1272,9 +1272,11 @@ def create_missing_pns_areas(dev_list):
     }
     for cortical_area in dev_list:
         if cortical_area not in runtime_data.genome["blueprint"]:
+
             dev_count = 1
-            if "dev_count" in dev_list[cortical_area]:
-                dev_count = dev_list[cortical_area]["dev_count"]
+
+            if "max_feagi_index" in dev_list[cortical_area]:
+                dev_count = dev_list[cortical_area]["max_feagi_index"] + 1
 
             cortical_type = cortical_area_type(cortical_area=cortical_area)
 
@@ -1298,10 +1300,11 @@ def create_missing_pns_areas(dev_list):
                 "dev_count": dev_count
             })
             pns_update_report["added"].append(cortical_area)
-        elif "dev_count" in dev_list[cortical_area]:
-            dev_count = dev_list[cortical_area]["dev_count"]
-            if dev_count != runtime_data.genome["blueprint"][cortical_area]["dev_count"]:
-                update_pns_dev_count(pns_area=cortical_area, new_dev_count=dev_count)
+
+        elif "max_feagi_index" in dev_list[cortical_area]:
+            needed_dev_count = dev_list[cortical_area]["max_feagi_index"] + 1
+            if needed_dev_count > runtime_data.genome["blueprint"][cortical_area]["dev_count"]:
+                update_pns_dev_count(pns_area=cortical_area, new_dev_count=needed_dev_count)
                 pns_update_report["updated"].append(cortical_area)
 
     print(f"Cortical areas automatically added/reconfigured:\n {pns_update_report}")

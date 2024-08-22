@@ -253,23 +253,28 @@ def api_message_processor(api_message):
         if agent_capabilities:
             dev_list = {}
             for device_type in agent_capabilities:
+                cortical_type = "unknown"
+
+                if device_type in ["input", "inputs"]:
+                    cortical_type = "IPU"
+
+                if device_type == ["output", "outputs"]:
+                    cortical_type = "OPU"
+
                 for device_name in agent_capabilities[device_type]:
-                    dev_count = 0
-                    for _ in agent_capabilities[device_type][device_name]:
-                        dev_count += 1
-
-                    cortical_type = "unknown"
-
-                    if device_type in ["input", "inputs"]:
-                        cortical_type = "IPU"
-
-                    if device_type == ["output", "outputs"]:
-                        cortical_type = "OPU"
 
                     if cortical_type in ["IPU", "OPU"]:
                         if device_name in cortical_types[cortical_type]["name_to_id_mapping"]:
+
+                            max_feagi_index = 0
+                            for _ in agent_capabilities[device_type][device_name]:
+                                if not agent_capabilities[device_type][device_name]["disabled"]:
+                                    feagi_index = agent_capabilities[device_type][device_name].get("feagi_index", 0)
+                                    if int(feagi_index) > max_feagi_index:
+                                        max_feagi_index = int(feagi_index)
+
                             for cortical_id in cortical_types[cortical_type]["name_to_id_mapping"][device_name]:
-                                dev_list[cortical_id] = {"dev_count": dev_count}
+                                dev_list[cortical_id] = {"max_feagi_index": max_feagi_index}
                     else:
                         print(f"Device name {device_name} is not defined in FEAGI templates!")
 
