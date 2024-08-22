@@ -1301,6 +1301,9 @@ def create_missing_pns_areas(dev_list):
                     "dev_count": dev_count
                 })
                 pns_update_report["added"].append(cortical_area)
+            else:
+                print(f"Warning!! During auto IO area creation '{cortical_area}' detected to have  '{cortical_type}' "
+                      f"as its cortical type.")
 
         elif "max_feagi_index" in dev_list[cortical_area]:
             needed_dev_count = dev_list[cortical_area]["max_feagi_index"] + 1
