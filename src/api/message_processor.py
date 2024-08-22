@@ -262,13 +262,13 @@ def api_message_processor(api_message):
                     cortical_type = "OPU"
 
                 for device_name in agent_capabilities[device_type]:
-
+                    print("@@@@ >>>> device_name:", device_name)
                     if cortical_type in ["IPU", "OPU"]:
                         if device_name in cortical_types[cortical_type]["name_to_id_mapping"]:
 
                             max_feagi_index = 0
                             for _ in agent_capabilities[device_type][device_name]:
-                                if not agent_capabilities[device_type][device_name]["disabled"]:
+                                if not agent_capabilities[device_type][device_name].get("disabled", False):
                                     feagi_index = agent_capabilities[device_type][device_name].get("feagi_index", 0)
                                     if int(feagi_index) > max_feagi_index:
                                         max_feagi_index = int(feagi_index)
