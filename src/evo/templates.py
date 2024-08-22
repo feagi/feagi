@@ -309,7 +309,7 @@ cortical_types = {
                 "cortical_name": "Servo Position OPU",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [-50, 0, -35]
             },
             "o_blnk": {
                 "enabled": True,
