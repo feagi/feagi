@@ -263,6 +263,7 @@ def api_message_processor(api_message):
 
                 for device_name in agent_capabilities[device_type]:
                     print("@@@@ >>>> device_name:", device_name)
+                    print("agent_capabilities:\n", agent_capabilities)
                     if cortical_type in ["IPU", "OPU"]:
                         if device_name in cortical_types[cortical_type]["name_to_id_mapping"]:
 
