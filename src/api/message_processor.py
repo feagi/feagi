@@ -275,7 +275,7 @@ def api_message_processor(api_message):
                                 if device_is_active:
                                     feagi_index = agent_capabilities[device_type][device_name].get("feagi_index", 0)
                                     print("$__ " * 100)
-                                    print(feagi_index)
+                                    print("feagi_index:", feagi_index)
                                     if int(feagi_index) > max_feagi_index:
                                         max_feagi_index = int(feagi_index)
 
