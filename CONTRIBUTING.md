@@ -49,5 +49,5 @@ If you haven't done it before (or in a while), here is how to push your changes 
 1. Fork the repo.
 2. Create a new branch for your edits, and add and commit them.
 3. Push the branch to your forked repo.
-4. Click on create pull request for your branch. Select the actual repo, not your forked repo, as the target.
+4. Click on create pull request for your branch. Select the actual repo (should be selected by default), not your forked repo, as the base repository.
 5. Create the pull request and await review!
