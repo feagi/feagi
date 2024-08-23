@@ -47,7 +47,8 @@ FEAGI Python code contributions should adhere to the standards described in [PEP
 If you haven't done it before (or in a while), here is how to push your changes for review using git/Github:
 
 1. Fork the repo.
-2. Create a new branch for your edits, and add and commit them.
-3. Push the branch to your forked repo.
-4. Click on create pull request for your branch. Select the actual repo (should be selected by default), not your forked repo, as the base repository.
-5. Create the pull request and await review!
+2. Clone your fork (if working locally).
+3. Create a new branch for your edits, and add and commit them.
+4. If working locally, push the branch to your forked repo.
+5. Click on create pull request for your branch. Select the actual repo (should be selected by default), not your forked repo, as the base repository.
+6. Create the pull request and await review!
