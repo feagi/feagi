@@ -186,14 +186,18 @@ cortical_types = {
         },
         "name_to_id_mapping": {
             "infrared": [
-                "i__inf",
+                "i__inf"
+            ],
+            "infrared_inverse": [
                 "ii_inf"
             ],
             "proximity": [
                 "i__pro"
             ],
-            "gpio": [
-                "idgpio",
+            "gpio_digital": [
+                "idgpio"
+            ],
+            "gpio_analog": [
                 "iagpio"
             ],
             "accelerometer": [
