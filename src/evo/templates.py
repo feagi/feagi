@@ -186,14 +186,18 @@ cortical_types = {
         },
         "name_to_id_mapping": {
             "infrared": [
-                "i__inf",
+                "i__inf"
+            ],
+            "infrared_inverse": [
                 "ii_inf"
             ],
             "proximity": [
                 "i__pro"
             ],
-            "gpio": [
-                "idgpio",
+            "gpio_digital": [
+                "idgpio"
+            ],
+            "gpio_analog": [
                 "iagpio"
             ],
             "accelerometer": [
@@ -309,7 +313,7 @@ cortical_types = {
                 "cortical_name": "Servo Position OPU",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [-50, 0, -35]
             },
             "o_blnk": {
                 "enabled": True,
@@ -388,6 +392,13 @@ cortical_types = {
                 "resolution": [2, 1, 10],
                 "coordinate_3d": [20, 0, 0]
             },
+            "o__led": {
+                "enabled": True,
+                "cortical_name": "LED",
+                "structure": "asymmetric",
+                "resolution": [2, 1, 1],
+                "coordinate_3d": [-40, 0, -50]
+            }
         },
         "name_to_id_mapping": {
             "gpio": [
