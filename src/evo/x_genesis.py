@@ -1307,7 +1307,9 @@ def create_missing_pns_areas(dev_list):
 
         elif "max_feagi_index" in dev_list[cortical_area]:
             needed_dev_count = dev_list[cortical_area]["max_feagi_index"] + 1
+            print(">>>>>>>>> cortical area:", cortical_area, needed_dev_count, runtime_data.genome["blueprint"][cortical_area]["dev_count"])
             if needed_dev_count > runtime_data.genome["blueprint"][cortical_area]["dev_count"]:
+                print("<<<<<<<< >>>>>>>>", )
                 update_pns_dev_count(pns_area=cortical_area, new_dev_count=needed_dev_count)
                 pns_update_report["updated"].append(cortical_area)
 
@@ -1329,4 +1331,17 @@ def update_pns_dev_count(pns_area, new_dev_count):
     runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][1] = dim_y
     runtime_data.genome["blueprint"][cortical_area]["block_boundaries"][2] = dim_z
 
+    runtime_data.transforming_areas.add(cortical_area)
+    runtime_data.brain_readiness = False
     cortical_regeneration(cortical_area=pns_area)
+
+    runtime_data.cortical_dimensions = generate_cortical_dimensions()
+    runtime_data.cortical_dimensions_by_id = generate_cortical_dimensions_by_id()
+    save_genome(genome=genome_v1_v2_converter(runtime_data.genome),
+                file_name=runtime_data.connectome_path + "genome.json")
+    runtime_data.last_genome_modification_time = datetime.datetime.now()
+
+    runtime_data.transforming_areas.remove(cortical_area)
+    update_evo_change_register(change_area={pns_area})
+
+    runtime_data.brain_readiness = True

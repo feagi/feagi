@@ -102,15 +102,11 @@ async def agent_registration(request: Request, data: AgentRegistration):
         agent_info["controller_version"] = data.controller_version
         agent_info["capabilities"] = capabilities
 
-    print(f"AGENT Details -- {agent_info}")
     runtime_data.agent_registry[data.agent_id] = agent_info
     runtime_data.host_info[data.agent_id] = agent_info
 
     if runtime_data.auto_pns_area_creation and runtime_data.genome:
-        print("@@@@  Auto generation of IPU/OPU areas has been initiated @@@")
-        print("#### Capabilities:", capabilities)
         message = {'update_pns_areas': capabilities}
-        print("*-----* " * 200 + "\n", message)
         api_queue.put(item=message)
 
     print("New agent has been successfully registered:", runtime_data.agent_registry[data.agent_id])
