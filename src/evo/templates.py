@@ -1,5 +1,5 @@
 
-# Copyright 2016-2022 The FEAGI Authors. All Rights Reserved.
+# Copyright 2016-2022 Neuraville Inc. Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,21 +55,21 @@ cortical_types = {
                 "cortical_name": "Proximity sensor",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [70, 0, 0]
             },
             "i__acc": {
                 "enabled": True,
                 "cortical_name": "Accelerometer sensor",
                 "structure": "symmetric",
                 "resolution": [3, 1, 21],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [40, 0, 0]
             },
             "i__gyr": {
                 "enabled": True,
                 "cortical_name": "Gyro sensor",
                 "structure": "symmetric",
                 "resolution": [3, 1, 21],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [50, 0, 0]
             },
             "ishock": {
                 "enabled": True,
@@ -83,70 +83,70 @@ cortical_types = {
                 "cortical_name": "Battery gauge",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [60, 0, 0]
             },
             "iv00_C": {
                 "enabled": True,
                 "cortical_name": "Central vision sensor",
                 "structure": "asymmetric",
                 "resolution": [64, 64, 1],
-                "coordinate_3d": [20, 30, -20]
+                "coordinate_3d": [30, 40, -20]
             },
             "iv00TR": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - top right",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
-                "coordinate_3d": [55, 105, -20]
+                "coordinate_3d": [95, 105, -20]
             },
             "iv00TL": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - top left",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [20, 105, -20]
             },
             "iv00TM": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - top middle",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [55, 105, -20]
             },
             "iv00ML": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - middle left",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [20, 70, -20]
             },
             "iv00MR": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - middle right",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [95, 70, -20]
             },
             "iv00BL": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - bottom left",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [20, 30, -20]
             },
             "iv00BR": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - bottom right",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [95, 30, -20]
             },
             "iv00BM": {
                 "enabled": True,
                 "cortical_name": "Peripheral vision sensor - bottom middle",
                 "structure": "asymmetric",
                 "resolution": [8, 8, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [55, 30, -20]
             },
             "i___id": {
                 "enabled": True,
@@ -175,18 +175,29 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0]
-            }
+            },
+            "i_misc": {
+                "enabled": True,
+                "cortical_name": "Miscellaneous Input",
+                "structure": "asymmetric",
+                "resolution": [1, 1, 1],
+                "coordinate_3d": [20, 0, 0]
+            },
         },
         "name_to_id_mapping": {
             "infrared": [
-                "i__inf",
+                "i__inf"
+            ],
+            "infrared_inverse": [
                 "ii_inf"
             ],
             "proximity": [
                 "i__pro"
             ],
-            "gpio": [
-                "idgpio",
+            "gpio_digital": [
+                "idgpio"
+            ],
+            "gpio_analog": [
                 "iagpio"
             ],
             "accelerometer": [
@@ -211,6 +222,9 @@ cortical_types = {
                 "iv00BL",
                 "iv00BR",
                 "iv00BM"
+            ],
+            "miscellaneous": [
+                "i_misc"
             ]
         }
     },
@@ -222,7 +236,7 @@ cortical_types = {
                 "cortical_name": "Motor control",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [-30, 0, -20]
             },
             "odgpio": {
                 "enabled": True,
@@ -257,7 +271,7 @@ cortical_types = {
                 "cortical_name": "Servo control",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [-50, 0, -20]
             },
             "o__nav": {
                 "enabled": True,
@@ -287,18 +301,11 @@ cortical_types = {
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0]
             },
-            "ov_mod": {
+            "o_stop": {
                 "enabled": True,
-                "cortical_name": "Central Vision Modulation",
+                "cortical_name": "Emergency stop",
                 "structure": "asymmetric",
-                "resolution": [2, 1, 10],
-                "coordinate_3d": [20, 0, 0]
-            },
-            "ov_ecc": {
-                "enabled": True,
-                "cortical_name": "Central Vision Eccentricity",
-                "structure": "asymmetric",
-                "resolution": [2, 1, 10],
+                "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0]
             },
             "o_spos": {
@@ -306,7 +313,7 @@ cortical_types = {
                 "cortical_name": "Servo Position OPU",
                 "structure": "asymmetric",
                 "resolution": [1, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [-50, 0, -35]
             },
             "o_blnk": {
                 "enabled": True,
@@ -327,20 +334,6 @@ cortical_types = {
                 "cortical_name": "Recognition Location",
                 "structure": "asymmetric",
                 "resolution": [32, 32, 1],
-                "coordinate_3d": [20, 0, 0]
-            },
-            "ov_enh": {
-                "enabled": True,
-                "cortical_name": "Lighting enhancement",
-                "structure": "asymmetric",
-                "resolution": [3, 1, 10],
-                "coordinate_3d": [20, 0, 0]
-            },
-            "ovtune": {
-                "enabled": True,
-                "cortical_name": "Lighting threshold",
-                "structure": "asymmetric",
-                "resolution": [2, 1, 10],
                 "coordinate_3d": [20, 0, 0]
             },
             "o_misc": {
@@ -371,15 +364,84 @@ cortical_types = {
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0]
             },
-            "o_stop": {
+            "ov_mod": {
                 "enabled": True,
-                "cortical_name": "Emergency stop",
+                "cortical_name": "Central Vision Modulation",
                 "structure": "asymmetric",
-                "resolution": [1, 1, 1],
+                "resolution": [2, 1, 10],
                 "coordinate_3d": [20, 0, 0]
+            },
+            "ov_ecc": {
+                "enabled": True,
+                "cortical_name": "Central Vision Eccentricity",
+                "structure": "asymmetric",
+                "resolution": [2, 1, 10],
+                "coordinate_3d": [20, 0, 0]
+            },
+            "ov_enh": {
+                "enabled": True,
+                "cortical_name": "Lighting enhancement",
+                "structure": "asymmetric",
+                "resolution": [3, 1, 10],
+                "coordinate_3d": [20, 0, 0]
+            },
+            "ovtune": {
+                "enabled": True,
+                "cortical_name": "Lighting threshold",
+                "structure": "asymmetric",
+                "resolution": [2, 1, 10],
+                "coordinate_3d": [20, 0, 0]
+            },
+            "o__led": {
+                "enabled": True,
+                "cortical_name": "LED",
+                "structure": "asymmetric",
+                "resolution": [2, 1, 1],
+                "coordinate_3d": [-40, 0, -50]
             }
         },
-        "name_to_id_mapping": {}
+        "name_to_id_mapping": {
+            "gpio": [
+                "odgpio",
+                "oagpio",
+                "oogpio",
+                "oigpio",
+            ],
+            "motor": [
+                "o__mot",
+            ],
+            "servo": [
+                "o__ser",
+                "o_spos",
+            ],
+            "navigation": [
+                "o__nav",
+                "o__spd",
+                "o_init",
+                "o_mctl",
+                "o_stop",
+            ],
+            "battery": [
+                "o__bat",
+            ],
+            "led": [
+                "o__led"
+            ],
+            "camera": [
+                "ov_mod",
+                "ov_ecc",
+                "o_blnk",
+                "ov_enh",
+                "ovtune",
+                "ovflph",
+                "ovflpv",
+            ],
+            "recognition": [
+                "o___id",
+                "o__loc",
+            ]
+
+        }
     },
     "CORE": {
         "gui_name": "Core",

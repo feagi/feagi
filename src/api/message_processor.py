@@ -1,4 +1,4 @@
-# Copyright 2016-2023 The FEAGI Authors. All Rights Reserved.
+# Copyright 2016-2023 Neuraville Inc. Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -253,24 +253,30 @@ def api_message_processor(api_message):
         if agent_capabilities:
             dev_list = {}
             for device_type in agent_capabilities:
+                cortical_type = "unknown"
+
+                if device_type in ["input", "inputs"]:
+                    cortical_type = "IPU"
+
+                if device_type in ["output", "outputs"]:
+                    cortical_type = "OPU"
+
                 for device_name in agent_capabilities[device_type]:
-                    dev_count = 0
-                    for _ in agent_capabilities[device_type][device_name]:
-                        dev_count += 1
-
-                    cortical_type = "unknown"
-
-                    if device_type in ["input", "inputs"]:
-                        cortical_type = "IPU"
-
-                    if device_type == ["output", "outputs"]:
-                        cortical_type = "OPU"
-
                     if cortical_type in ["IPU", "OPU"]:
                         if device_name in cortical_types[cortical_type]["name_to_id_mapping"]:
+
+                            max_feagi_index = 0
+                            for _ in agent_capabilities[device_type][device_name]:
+                                device_is_active = not agent_capabilities[device_type][device_name][_].get("disabled",
+                                                                                                           False)
+                                if device_is_active:
+                                    feagi_index = agent_capabilities[device_type][device_name][_].get("feagi_index", 0)
+                                    if int(feagi_index) > max_feagi_index:
+                                        max_feagi_index = int(feagi_index)
+
                             for cortical_id in cortical_types[cortical_type]["name_to_id_mapping"][device_name]:
-                                dev_list[cortical_id] = {"dev_count": dev_count}
+                                dev_list[cortical_id] = {"max_feagi_index": max_feagi_index}
                     else:
-                        print(f"Device name {device_name} is not defined in FEAGI templates!")
+                        print(f"Device name {device_name} has invalid type {device_type}!")
 
             create_missing_pns_areas(dev_list=dev_list)

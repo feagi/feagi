@@ -1,4 +1,4 @@
-# Copyright 2016-2024 The FEAGI Authors. All Rights Reserved.
+# Copyright 2016-2024 Neuraville Inc. Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -230,3 +230,15 @@ async def update_cortical_area_visualization_suppression_threshold(visualization
     if visualization_threshold.visualization_threshold < 0:
         raise HTTPException(status_code=400, detail=f"Suppression threshold cannot be negative.")
     runtime_data.cortical_viz_sup_threshold = visualization_threshold.visualization_threshold
+
+
+@router.get("/global_activity_visualization")
+async def fetch_cortical_area_visualization_globally():
+    """Returns the brain activity visualization status across the entire brain."""
+    return runtime_data.brain_activity_pub
+
+
+@router.put("/global_activity_visualization")
+async def update_cortical_area_visualization_globally(viz_ctrl: BrainVisualization):
+    """Controls the brain activity visualization across the entire brain."""
+    runtime_data.brain_activity_pub = viz_ctrl.global_visualization
