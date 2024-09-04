@@ -447,6 +447,9 @@ cortical_types = {
             ],
             "motion_control": [
                 "o_mctl"
+            ],
+            "miscellaneous": [
+                "o_misc"
             ]
 
         }
