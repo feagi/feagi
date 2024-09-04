@@ -226,11 +226,12 @@ cortical_types = {
             "miscellaneous": [
                 "i_misc"
             ],
-            "servo": [
-                "i_smot",
+            "servo_position": [
                 "i_spos"
+            ],
+            "servo_motion": [
+                "i_smot"
             ]
-
         }
     },
     "OPU": {
@@ -271,13 +272,6 @@ cortical_types = {
                 "resolution": [28, 1, 1],
                 "coordinate_3d": [20, 0, 0]
             },
-            "o__ser": {
-                "enabled": True,
-                "cortical_name": "Servo control",
-                "structure": "asymmetric",
-                "resolution": [2, 1, 10],
-                "coordinate_3d": [-50, 0, -20]
-            },
             "o__nav": {
                 "enabled": True,
                 "cortical_name": "Navigation vector",
@@ -312,6 +306,13 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0]
+            },
+            "o__ser": {
+                "enabled": True,
+                "cortical_name": "Servo control",
+                "structure": "asymmetric",
+                "resolution": [2, 1, 10],
+                "coordinate_3d": [-50, 0, -20]
             },
             "o_spos": {
                 "enabled": True,
