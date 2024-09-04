@@ -227,10 +227,11 @@ cortical_types = {
                 "i_misc"
             ],
             "servo": [
-                "i_smot",
                 "i_spos"
+            ],
+            "servo_motion": [
+                "i_smot"
             ]
-
         }
     },
     "OPU": {
