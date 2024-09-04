@@ -1,4 +1,5 @@
-# Copyright 2016-2024 The FEAGI Authors. All Rights Reserved.
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -128,9 +129,9 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
 
                 unit_dim_x = int(dim_x / dev_count)
 
-                unit_dim_y = int(dim_y / dev_count)
+                unit_dim_y = dim_y
 
-                unit_dim_z = int(dim_z / dev_count)
+                unit_dim_z = dim_z
 
                 cortical_properties["dev_count"] = dev_count
                 cortical_properties["cortical_dimensions_per_device"] = [unit_dim_x, unit_dim_y, unit_dim_z]
@@ -517,6 +518,17 @@ async def fetch_multiple_cortical_properties(cortical_id_list: CorticalIdList):
                     "neuron_excitability": cortical_data['neuron_excitability'],
                     "transforming": False
                 }
+
+                cortical_type = cortical_area_type(cortical_area=cortical_area)
+                if cortical_type in ["IPU", "OPU"]:
+                    dev_count = runtime_data.genome["blueprint"][cortical_area]["dev_count"]
+                    unit_dim_x = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0]
+                    unit_dim_y = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1]
+                    unit_dim_z = cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2]
+
+                    cortical_properties["dev_count"] = dev_count
+                    cortical_properties["cortical_dimensions_per_device"] = [unit_dim_x, unit_dim_y, unit_dim_z]
+
                 if cortical_area in runtime_data.transforming_areas:
                     cortical_properties["transforming"] = True
                 else:
