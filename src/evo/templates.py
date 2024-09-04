@@ -225,7 +225,12 @@ cortical_types = {
             ],
             "miscellaneous": [
                 "i_misc"
+            ],
+            "servo": [
+                "i_smot",
+                "i_spos"
             ]
+
         }
     },
     "OPU": {
@@ -439,6 +444,9 @@ cortical_types = {
             "recognition": [
                 "o___id",
                 "o__loc",
+            ],
+            "motion_control": [
+                "o_mctl"
             ]
 
         }
