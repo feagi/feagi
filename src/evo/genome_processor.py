@@ -1,4 +1,5 @@
-# Copyright 2016-2023 The FEAGI Authors. All Rights Reserved.
+#
+# Copyright 2016-Present Neuraville Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +14,7 @@
 # limitations under the License.
 # ==============================================================================
 
+
 import logging
 import copy
 import traceback
@@ -20,6 +22,7 @@ import datetime
 from src.evo.genome_editor import save_genome
 from src.evo.genome_validator import genome_validator
 from src.evo.templates import core_morphologies, cortical_types
+from src.evo.cortical_area import cortical_area_type
 from src.inf import runtime_data
 
 
@@ -49,12 +52,34 @@ def genome_ver_check(genome):
             genome1 = genome_2_1_convertor(flat_genome=genome['blueprint'])
             genome_2_hierarchifier(flat_genome=genome['blueprint'])
             genome['blueprint'] = genome1['blueprint']
+            update_template()
             return genome
         else:
             print("ERROR! Genome is not compatible with 2.0 standard")
     except KeyError as e:
         print("Exception during genome version check", e, traceback.print_exc())
         pass
+
+
+def update_template():
+    for cortical_area in runtime_data.genome["blueprint"]:
+        cortical_type = cortical_area_type(cortical_area=cortical_area)
+        if cortical_type in ["IPU", "OPU"]:
+            if "dev_count" not in runtime_data.genome["blueprint"][cortical_area]:
+                dev_count = 1
+            else:
+                dev_count = runtime_data.genome["blueprint"][cortical_area]["dev_count"]
+            cortical_size = runtime_data.genome["blueprint"][cortical_area]["block_boundaries"]
+            if dev_count != 0:
+                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0] = \
+                    int(cortical_size[0]/dev_count)
+                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1] = \
+                    int(cortical_size[1]/dev_count)
+                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2] = \
+                    int(cortical_size[2]/dev_count)
+            else:
+                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"] = \
+                    cortical_size
 
 
 def genome_2_print(genome):
