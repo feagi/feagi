@@ -404,6 +404,13 @@ cortical_types = {
                 "structure": "asymmetric",
                 "resolution": [2, 1, 1],
                 "coordinate_3d": [-40, 0, -50]
+            },
+            "ov_reg": {
+                "enabled": True,
+                "cortical_name": "",
+                "structure": "asymmetric",
+                "resolution": [3, 3, 1],
+                "coordinate_3d": [-20, 0, -50]
             }
         },
         "name_to_id_mapping": {
