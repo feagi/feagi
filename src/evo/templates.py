@@ -372,14 +372,14 @@ cortical_types = {
             },
             "ov_mod": {
                 "enabled": True,
-                "cortical_name": "Central Vision Modulation",
+                "cortical_name": "Central vision modulation",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10],
                 "coordinate_3d": [20, 0, 0]
             },
             "ov_ecc": {
                 "enabled": True,
-                "cortical_name": "Central Vision Eccentricity",
+                "cortical_name": "Central vision eccentricity",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10],
                 "coordinate_3d": [20, 0, 0]
@@ -407,7 +407,7 @@ cortical_types = {
             },
             "ov_reg": {
                 "enabled": True,
-                "cortical_name": "",
+                "cortical_name": "Vision activation regions",
                 "structure": "asymmetric",
                 "resolution": [3, 3, 1],
                 "coordinate_3d": [-20, 0, -50]
