@@ -71,19 +71,25 @@ def update_template():
                 runtime_data.genome["blueprint"][cortical_area]["dev_count"] = \
                     cortical_size[0] / cortical_types[cortical_type][
                         "supported_devices"][cortical_area]["resolution"][0]
+
+                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1] = \
+                    cortical_size[1]
+                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2] = \
+                    cortical_size[2]
             else:
                 dev_count = runtime_data.genome["blueprint"][cortical_area]["dev_count"]
 
-            # if dev_count != 0:
-            #     cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0] = \
-            #         int(cortical_size[0]/dev_count)
-            #     cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1] = \
-            #         int(cortical_size[1]/dev_count)
-            #     cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2] = \
-            #         int(cortical_size[2]/dev_count)
-            # else:
-            #     cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"] = \
-            #         cortical_size
+                if dev_count != 0:
+                    cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0] = \
+                        int(cortical_size[0]/dev_count)
+                    cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1] = \
+                        cortical_size[1]
+                    cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2] = \
+                        cortical_size[2]
+                else:
+                    runtime_data.genome["blueprint"][cortical_area]["dev_count"] = 1
+                    cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"] = \
+                        cortical_size
 
 
 def genome_2_print(genome):
