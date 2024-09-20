@@ -65,21 +65,25 @@ def update_template():
     for cortical_area in runtime_data.genome["blueprint"]:
         cortical_type = cortical_area_type(cortical_area=cortical_area)
         if cortical_type in ["IPU", "OPU"]:
+            cortical_size = runtime_data.genome["blueprint"][cortical_area]["block_boundaries"]
+
             if "dev_count" not in runtime_data.genome["blueprint"][cortical_area]:
-                dev_count = 1
+                runtime_data.genome["blueprint"][cortical_area]["dev_count"] = \
+                    cortical_size[0] / cortical_types[cortical_type][
+                        "supported_devices"][cortical_area]["resolution"][0]
             else:
                 dev_count = runtime_data.genome["blueprint"][cortical_area]["dev_count"]
-            cortical_size = runtime_data.genome["blueprint"][cortical_area]["block_boundaries"]
-            if dev_count != 0:
-                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0] = \
-                    int(cortical_size[0]/dev_count)
-                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1] = \
-                    int(cortical_size[1]/dev_count)
-                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2] = \
-                    int(cortical_size[2]/dev_count)
-            else:
-                cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"] = \
-                    cortical_size
+
+            # if dev_count != 0:
+            #     cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][0] = \
+            #         int(cortical_size[0]/dev_count)
+            #     cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][1] = \
+            #         int(cortical_size[1]/dev_count)
+            #     cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"][2] = \
+            #         int(cortical_size[2]/dev_count)
+            # else:
+            #     cortical_types[cortical_type]["supported_devices"][cortical_area]["resolution"] = \
+            #         cortical_size
 
 
 def genome_2_print(genome):
