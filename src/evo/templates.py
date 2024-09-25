@@ -460,6 +460,30 @@ cortical_types = {
                 "o_misc"
             ]
 
+        },
+        "id_to_name_mapping": {
+            "odgpio": ["gpio"],
+            "oagpio": ["gpio"],
+            "oogpio": ["gpio"],
+            "oigpio": ["gpio_input"],
+            "o__mot": ["motor"],
+            "o__ser": ["servo"],
+            "o_spos": ["servo"],
+            "o__nav": ["navigation"],
+            "o__spd": ["speed"],
+            "o_init": ["reset"],
+            "o_mctl": ["motion_control"],
+            "o_stop": ["emergency"],
+            "o__bat": ["battery"],
+            "o__led": ["led"],
+            "o_blnk": ["camera"],
+            "ov_enh": ["camera"],
+            "ovtune": ["camera"],
+            "ovflph": ["camera"],
+            "ovflpv": ["camera"],
+            "o___id": ["recognition"],
+            "o__loc": ["recognition"],
+            "o_misc": ["misc"]
         }
     },
     "CORE": {
