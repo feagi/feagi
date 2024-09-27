@@ -27,6 +27,7 @@ from src.evo.x_genesis import create_missing_pns_areas
 from src.inf.db_handler import InfluxManagement
 from src.inf.initialize import deploy_genome
 from src.evo.templates import cortical_types
+from src.pns.stimuli_translator import induce_manual_stimulation
 
 influx = InfluxManagement()
 
@@ -281,3 +282,6 @@ def api_message_processor(api_message):
                         print(f"Device name {device_name} has invalid type {device_type}!")
 
             create_missing_pns_areas(dev_list=dev_list)
+
+    if 'manual_stimulation' in api_message:
+        induce_manual_stimulation(stimulation=api_message["manual_stimulation"])
