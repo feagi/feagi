@@ -237,7 +237,7 @@ def percent_active_neurons_in_block(block_ref, cortical_area, current_fcl=True):
     else:
         active_block_neurons = len(blocks_with_active_neurons[block_ref])
         total_block_neurons = len(runtime_data.voxel_dict[cortical_area][block_ref])
-        percent_active_neurons = round(active_block_neurons / total_block_neurons * 100)
+        percent_active_neurons = active_block_neurons / total_block_neurons
         return percent_active_neurons
 
 

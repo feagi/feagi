@@ -41,7 +41,36 @@ Stimulation data received will have the following data structure:
 """
 
 
-def fake_cortical_stimulation(input_instruction, burst_count):
+def induce_manual_stimulation(stimulation):
+    """
+    Stimulation data received will have the following data structure:
+    { 'stimulation': {
+            'i__inf': [[x1, y1, z1], [x2, y2, z2], .....],
+            'i__pro': [[x1, y1, z1], [x2, y2, z2], .....],
+            ...
+            ...
+        }
+    }
+    """
+    stimulation = convert_stimulation_to_dashed_format(stimulation_data=stimulation)
+    stimulation_injector(stimulation_data=stimulation)
+
+
+def convert_stimulation_to_dashed_format(stimulation_data):
+    """
+    Converts stimulation from list format to dashed format
+    # todo: revisit the value of having dashed format in the first place and get rid of it
+    """
+
+    dashed_stimulation = {}
+    for cortical_area in stimulation_data:
+        dashed_stimulation[cortical_area] = list()
+        for neuron_block in stimulation_data[cortical_area]:
+            dashed_stimulation[cortical_area].append(block_reference_builder(neuron_block))
+    return dashed_stimulation
+
+
+def stimuli_generator(input_instruction, burst_count):
     """
     It fakes cortical stimulation for the purpose of testing
 
@@ -79,6 +108,11 @@ def fake_cortical_stimulation(input_instruction, burst_count):
 
 
 def stimulation_injector(stimulation_data):
+    """
+    TODO: define the stimulation_data format here
+
+    """
+
     for cortical_area in stimulation_data:
         if stimulation_data[cortical_area]:
             neuron_list = set()

@@ -157,3 +157,18 @@ async def gazebo_robot_default_files():
     default_robots_path = "./evo/defaults/robot/"
     default_robots = os.listdir(default_robots_path)
     return {"robots": default_robots}
+
+
+@router.post("/manual_stimulation")
+async def trigger_manual_stimulation(stimulation: ManualStimulation):
+    """
+    Stimulation needs to be in the following format:
+    {
+    "cortical_id": [[0,0,3], [1,4,1]],
+    "cortical_id": [[1,0,3], [1,4,3]],
+    "cortical_id": [[0,2,3], [3,4,1]],
+    }
+    """
+
+    message = {'manual_stimulation': stimulation.stimulation_payload}
+    api_queue.put(item=message)
