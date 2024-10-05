@@ -72,6 +72,10 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
             dim_y = cortical_data["block_boundaries"][1]
             dim_z = cortical_data["block_boundaries"][2]
 
+            leak_variability = cortical_data.get('leak_variability', 0)
+            if not leak_variability:
+                leak_variability = 0
+
             cortical_properties = {
                 "cortical_id": cortical_area,
                 "cortical_name": cortical_data['cortical_name'],
@@ -108,7 +112,7 @@ async def fetch_cortical_properties(cortical_id: CorticalId):
                 "neuron_firing_threshold_limit": cortical_data['firing_threshold_limit'],
                 "neuron_refractory_period": cortical_data['refractory_period'],
                 "neuron_leak_coefficient": cortical_data['leak_coefficient'],
-                "neuron_leak_variability": cortical_data['leak_variability'],
+                "neuron_leak_variability": leak_variability,
                 "neuron_consecutive_fire_count": cortical_data['consecutive_fire_cnt_max'],
                 "neuron_snooze_period": cortical_data['snooze_length'],
                 "neuron_degeneracy_coefficient": cortical_data['degeneration'],
@@ -469,6 +473,10 @@ async def fetch_multiple_cortical_properties(cortical_id_list: CorticalIdList):
                     cortical_data['2d_coordinate'].append(None)
                     cortical_data['2d_coordinate'].append(None)
 
+                leak_variability = cortical_data.get('leak_variability', 0)
+                if not leak_variability:
+                    leak_variability = 0
+
                 cortical_properties = {
                     "cortical_id": cortical_area,
                     "cortical_name": cortical_data['cortical_name'],
@@ -505,7 +513,7 @@ async def fetch_multiple_cortical_properties(cortical_id_list: CorticalIdList):
                     "neuron_firing_threshold_limit": cortical_data['firing_threshold_limit'],
                     "neuron_refractory_period": cortical_data['refractory_period'],
                     "neuron_leak_coefficient": cortical_data['leak_coefficient'],
-                    "neuron_leak_variability": cortical_data['leak_variability'],
+                    "neuron_leak_variability": leak_variability,
                     "neuron_consecutive_fire_count": cortical_data['consecutive_fire_cnt_max'],
                     "neuron_snooze_period": cortical_data['snooze_length'],
                     "neuron_degeneracy_coefficient": cortical_data['degeneration'],
