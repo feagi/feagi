@@ -602,6 +602,9 @@ def cortical_removal(cortical_area, genome_scrub=False):
         if cortical_area in runtime_data.memory_register:
             runtime_data.memory_register.pop(cortical_area)
 
+        # Remove area from brain region registry
+        eject_area_from_regions(cortical_area=cortical_area)
+
         # Optional genome scrub
         if genome_scrub:
             if cortical_area in runtime_data.genome['blueprint']:
@@ -620,12 +623,17 @@ def cortical_removal(cortical_area, genome_scrub=False):
                     file_name=runtime_data.connectome_path + "genome.json")
 
 
+def eject_area_from_regions(cortical_area):
+    for region in runtime_data.genome["brain_regions"]:
+        if cortical_area in runtime_data.genome["brain_regions"][region]["areas"]:
+            runtime_data.genome["brain_regions"][region]["areas"].remove(cortical_area)
+
+
 def prune_cortical_synapses(cortical_area):
     upstream_cortical_areas, downstream_cortical_areas = \
         neighboring_cortical_areas(cortical_area, blueprint=runtime_data.genome["blueprint"])
 
     for src_cortical_area in upstream_cortical_areas:
-        print("++++++ 2")
         runtime_data.brain = synaptic_pruner(src_cortical_area=src_cortical_area,
                                              dst_cortical_area=cortical_area)
 
@@ -973,7 +981,7 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                           f"id:{new_cortical_area_id} name:{new_cortical_name}")
                 else:
                     if cortical_area_id not in dst_blueprint:
-                        add_core_cortical_area(cortical_properties={
+                        added_id = add_core_cortical_area(cortical_properties={
                             "cortical_id": cortical_area_id,
                             "cortical_type": src_blueprint[cortical_area_id]['group_id'],
                             "cortical_name": src_blueprint[cortical_area_id]['cortical_name'],
@@ -981,8 +989,11 @@ def append_circuit(source_genome, circuit_origin, parent_brain_region, rewire_mo
                             "dev_count": 1,
                             "coordinates_2d": [0, 0]
                         })
-                        appended_cortical_areas.add(cortical_area_id)
-                        print(f"---------------Successfully imported a built-in cortical area. id:{cortical_area_id}")
+                        if cortical_area_id == added_id:
+                            appended_cortical_areas.add(cortical_area_id)
+                            print(f"-------------Successfully imported a built-in cortical area. id:{cortical_area_id}")
+                        else:
+                            print(f"!!!! Could not import {cortical_area_id}")
             except Exception as e:
                 print("Exception during cortical import", e, traceback.print_exc())
         # Amalgamate Brain Regions
