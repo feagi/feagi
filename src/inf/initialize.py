@@ -165,6 +165,9 @@ def init_brain_regions():
     if "brain_regions" not in runtime_data.genome:
         runtime_data.genome["brain_regions"] = {}
 
+    if not runtime_data.genome["brain_regions"]:
+        runtime_data.genome["brain_regions"] = {}
+
     if "root" not in runtime_data.genome["brain_regions"]:
         runtime_data.genome["brain_regions"]["root"] = {}
         runtime_data.genome["brain_regions"]["root"]["title"] = "Genome's root brain region"
