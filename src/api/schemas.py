@@ -351,6 +351,6 @@ class UserPreferences(BaseModel):
 class BrainVisualization(BaseModel):
     global_visualization: bool = True
 
-
+      
 class ManualStimulation(BaseModel):
     stimulation_payload: dict = None
