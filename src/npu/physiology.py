@@ -182,9 +182,16 @@ def neuron_pre_fire_processing(cortical_area, neuron_id, degenerate=0):
                                              neuron_id_src=neuron_id, neuron_id_dst=dst_neuron_id,
                                              post_synaptic_current=new_psc)
 
+            mappings = runtime_data.genome["blueprint"][cortical_area]["cortical_mapping_dst"][dst_cortical_area]
+
+            psp_multipliers = [d["postSynapticCurrent_multiplier"] for d in mappings if
+                               "postSynapticCurrent_multiplier" in d]
+            average_psp_multiplier = sum(psp_multipliers) / len(psp_multipliers) if psp_multipliers else None
+
             if runtime_data.genome['blueprint'][cortical_area]['mp_driven_psp']:
                 if "pre_fire_mp" in runtime_data.brain[cortical_area][neuron_id]:
-                    postsynaptic_current = runtime_data.brain[cortical_area][neuron_id]['pre_fire_mp']
+                    postsynaptic_current = runtime_data.brain[cortical_area][neuron_id]['pre_fire_mp'] * \
+                                           average_psp_multiplier
 
             neuron_output = activation_function(postsynaptic_current)
 
