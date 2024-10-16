@@ -445,12 +445,6 @@ cortical_types = {
             }
         },
         "name_to_id_mapping": {
-            "gpio": [
-                "odgpio",
-                "oagpio",
-                "oogpio",
-                "oigpio",
-            ],
             "motor": [
                 "o__mot",
             ],
@@ -491,7 +485,9 @@ cortical_types = {
                 "o_misc"
             ],
             "digital_output": [
-                "odgpio"
+                "odgpio",
+                "oogpio",
+                "oigpio",
             ],
             "analog_output": [
                 "oagpio"
