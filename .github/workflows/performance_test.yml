@@ -1,0 +1,48 @@
+name: Run timer on FEAGI
+
+on:
+  [workflow_dispatch]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.x'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build
+        ls -a
+    - name: Install Root Requirements
+      run: pip3 install -r requirements.txt
+    - name: Run Main Python Script in src
+      run: |
+        cd src/
+        python3 main &
+    - name: Git Pull from FEAGI Controllers Staging Branch
+      run: |
+        git clone https://github.com/feagi/controllers.git
+        cd controllers
+        git checkout staging
+        git pull origin staging
+
+    - name: Change Directory to Timer Controller
+      run: cd controllers/embodiments/neuraville/timer
+
+    - name: Install Timer Controller Requirements
+      run: pip3 install -r requirements.txt
+    - name: Test Timer Controller
+      run: python3 controller.py
+    - name: Exit Container
+      if: ${{ success() }}
+      run: |
+        echo "No error"
+        exit 0
