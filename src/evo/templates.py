@@ -38,17 +38,17 @@ cortical_types = {
             },
             "idgpio": {
                 "enabled": True,
-                "cortical_name": "Digital GPIO input",
+                "cortical_name": "Digital input",
                 "structure": "asymmetric",
-                "resolution": [28, 1, 1],
-                "coordinate_3d": [20, 0, 0]
+                "resolution": [1, 1, 1],
+                "coordinate_3d": [35, 20, -70]
             },
             "iagpio": {
                 "enabled": True,
-                "cortical_name": "Analog GPIO input",
+                "cortical_name": "Analog input",
                 "structure": "asymmetric",
-                "resolution": [28, 1, 10],
-                "coordinate_3d": [20, 0, 0]
+                "resolution": [1, 1, 10],
+                "coordinate_3d": [35, 0, -70]
             },
             "i__pro": {
                 "enabled": True,
@@ -231,6 +231,12 @@ cortical_types = {
             ],
             "servo_motion": [
                 "i_smot"
+            ],
+            "digital_input":[
+                "idgpio"
+            ],
+            "analog_input":[
+                "iagpio"
             ]
         }
     },
@@ -247,7 +253,7 @@ cortical_types = {
             },
             "odgpio": {
                 "enabled": True,
-                "cortical_name": "Digital GPIO output",
+                "cortical_name": "Digital output",
                 "controller_id": "gpio",
                 "structure": "asymmetric",
                 "resolution": [28, 1, 1],
@@ -255,7 +261,7 @@ cortical_types = {
             },
             "oagpio": {
                 "enabled": True,
-                "cortical_name": "Analog GPIO output",
+                "cortical_name": "Analog output",
                 "controller_id": "gpio",
                 "structure": "asymmetric",
                 "resolution": [28, 1, 10],
@@ -481,8 +487,14 @@ cortical_types = {
             "motion_control": [
                 "o_mctl"
             ],
-            "miscellaneous": [
+            "misc": [
                 "o_misc"
+            ],
+            "digital_output": [
+                "odgpio"
+            ],
+            "analog_output": [
+                "oagpio"
             ]
         }
     },
