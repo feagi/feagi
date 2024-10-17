@@ -90,8 +90,14 @@ def prepare_the_genome_of_timer(args):
 
 
 if __name__ == '__main__':
-    feagi_settings, agent_settings, capabilities, message_to_feagi, configuration = FEAGI.configuration_load(
-        './')
+    config = FEAGI.build_up_from_configuration()
+    feagi_settings = config['feagi_settings'].copy()
+    agent_settings = config['agent_settings'].copy()
+    default_capabilities = config['default_capabilities'].copy()
+    message_to_feagi = config['message_to_feagi'].copy()
+    capabilities = config['capabilities'].copy()
+
+
     message_to_feagi = {}
     parser = argparse.ArgumentParser(description='Number to update width')
     parser.add_argument('-number', '--number', help='for the number', default=10, required=False)

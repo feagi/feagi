@@ -15,32 +15,29 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v3
       with:
-        python-version: '3.x'
+        python-version: '3.9'
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install build
+        pip install build setuptools
         ls -a
+
     - name: Install Root Requirements
       run: pip3 install -r requirements.txt
+
     - name: Run Main Python Script in src
       run: |
+        ls
         cd src/
-        python3 main &
-    - name: Git Pull from FEAGI Controllers Staging Branch
+        python3 main.py &
+      
+    - name: Work with Controller
       run: |
-        git clone https://github.com/feagi/controllers.git
-        cd controllers
-        git checkout staging
-        git pull origin staging
+        cd tests/timer
+        pip3 install -r requirements.txt
+        python3 controller.py
 
-    - name: Change Directory to Timer Controller
-      run: cd controllers/embodiments/neuraville/timer
-
-    - name: Install Timer Controller Requirements
-      run: pip3 install -r requirements.txt
-    - name: Test Timer Controller
-      run: python3 controller.py
     - name: Exit Container
       if: ${{ success() }}
       run: |
