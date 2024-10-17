@@ -1,7 +1,7 @@
 {
    "genome_id": "2022-07-10_21:53:10_961677_111111_G",
-   "genome_title": "The Barebones Genome",
-   "genome_description": "An empty genome",
+   "genome_title": "Performance Test Genome",
+   "genome_description": "This genome will enable testing neuron activation time on FEAGI while number of activated neurons progressively increase",
    "version": "2.0",
    "neuron_morphologies": {
       "decrease_filter_diagonal": {
