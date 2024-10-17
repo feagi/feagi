@@ -30,7 +30,7 @@ jobs:
       run: |
         ls
         cd src/
-        python3 main &
+        python3 main.py &
 
     - name: Git Pull from FEAGI Controllers Staging Branch
       run: |
