@@ -34,10 +34,9 @@ jobs:
 
     - name: Git Pull from FEAGI Controllers Staging Branch
       run: |
-        git clone https://github.com/feagi/controllers.git
-        cd controllers
-        git checkout staging
-        git pull origin staging
+        pwd
+        ls
+        echo "HERE"
 
     - name: Work with Controller
       run: |
