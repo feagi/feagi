@@ -1,7 +1,10 @@
 name: Run timer on FEAGI
 
 on:
-  [workflow_dispatch]
+  workflow_dispatch:
+  push:
+    branches:
+      - "staging"
 
 permissions:
   contents: read
