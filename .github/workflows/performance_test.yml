@@ -28,6 +28,7 @@ jobs:
 
     - name: Run Main Python Script in src
       run: |
+        ls
         cd src/
         python3 main &
 
@@ -38,14 +39,11 @@ jobs:
         git checkout staging
         git pull origin staging
 
-    - name: Change Directory to Timer Controller
-      run: cd controllers/embodiments/neuraville/timer
-
-    - name: Install Timer Controller Requirements
-      run: pip3 install -r requirements.txt
-
-    - name: Test Timer Controller
-      run: python3 controller.py
+    - name: Work with Controller
+      run: |
+        cd controllers/embodiments/neuraville/timer
+        pip3 install -r requirements.txt
+        python3 controller.py
 
     - name: Exit Container
       if: ${{ success() }}
