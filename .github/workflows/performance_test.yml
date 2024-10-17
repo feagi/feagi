@@ -31,16 +31,10 @@ jobs:
         ls
         cd src/
         python3 main.py &
-
-    - name: Git Pull from FEAGI Controllers Staging Branch
-      run: |
-        pwd
-        ls
-        echo "HERE"
-
+      
     - name: Work with Controller
       run: |
-        cd controllers/embodiments/neuraville/timer
+        cd tests/timer
         pip3 install -r requirements.txt
         python3 controller.py
 
