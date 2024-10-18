@@ -34,7 +34,7 @@ By submitting a genome to this repository, you agree to share it under a **Creat
 If you base your genome on someone else’s work, please acknowledge them in your submission’s `README.md` file.
 
 ### Online Repository
-For a comprehensive, ranked genome repository, visit: [Neurorobotics Studio Hub](https://www.neurorobotics.studio/hub).
+For a comprehensive, ranked genome repository, visit: [FEAGI Hub](https://www.neurorobotics.studio/hub).
 
 ### Support
 For any questions or assistance, feel free to reach out through our [Discord](https://discord.gg/link) or create an issue in this repository.
