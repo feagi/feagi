@@ -7,7 +7,6 @@ Welcome to the **FEAGI Community Genome Repository**! We invite all FEAGI commun
 - **README**: It’s highly encouraged to include a `README.md` file in markdown format, outlining the purpose and features of the genome.
   
 ### Example Folder Structure:
-### Example Folder Structure:
 ```plaintext
 community_genomes/
   ├── genome_name/
