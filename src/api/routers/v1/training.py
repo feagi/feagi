@@ -124,4 +124,4 @@ async def capture_fitness_stats(fitness_stats: FitnessStats):
     """
     updates fitness stats
     """
-    runtime_data.training_stats = fitness_stats
+    runtime_data.fitness_stats = fitness_stats
