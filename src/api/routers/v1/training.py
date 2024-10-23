@@ -157,13 +157,13 @@ async def configure_fitness_criteria(fitness_criteria: dict):
 
     Actual game stats will be weighted based on the defined criteria and produce a single fitness value between 0 and 1.
     ```json
-            {
-            "time_alive": 672,
-            "max_level_reached": 2,
-            "score_trying_to_max": 78,
-            "score_trying_to_min": 42,
-            "something_custom": 23
-        }
+    {
+    "time_alive": 672,
+    "max_level_reached": 2,
+    "score_trying_to_max": 78,
+    "score_trying_to_min": 42,
+    "something_custom": 23
+    }
     ```
 
     """
