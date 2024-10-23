@@ -178,6 +178,14 @@ async def configure_fitness_criteria(fitness_criteria: dict):
     runtime_data.fitness_criteria = fitness_criteria
 
 
+@router.get("/fitness_stats")
+async def reset_fitness_stats():
+    """
+    Resets fitness stats
+    """
+    return runtime_data.fitness_stats
+
+
 @router.put("/fitness_stats")
 async def capture_fitness_stats_instance(fitness_stats: dict):
     """
