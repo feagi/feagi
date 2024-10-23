@@ -112,7 +112,7 @@ async def training_report():
 
 
 @router.get("/fitness_criteria")
-async def configure_fitness_criteria(fitness_criteria: dict):
+async def fetch_fitness_criteria():
     """
     Returns the effective fitness criteria
     """
