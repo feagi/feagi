@@ -166,10 +166,13 @@ async def configure_fitness_criteria(fitness_criteria: dict):
         },
     "METADATA":
         {
-
+            "Fitness calculation": "Some description for future reference"
         }
     }
     ```
+
+    Note: Metadata is optional and to provide additional context.
+
     """
     if "FITNESS_KEYS" not in fitness_criteria:
         raise HTTPException(status_code=400, detail=f"FITNESS_KEYS is not defined as a dictionary key")
