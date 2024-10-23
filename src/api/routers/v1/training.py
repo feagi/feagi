@@ -111,17 +111,57 @@ async def training_report():
     return runtime_data.training_stats
 
 
-@router.get("/fitness_stats")
-async def fetch_fitness_stats():
+@router.post("/fitness_criteria")
+async def configure_fitness_criteria(fitness_criteria: dict):
     """
-    updates fitness stats
+    Configure the weights associated with each fitness criteria. Total weights has to equal to 1.
+    Actual game stats will be weighted based on the defined criteria and produce a single fitness value between 0 and 1.
+    {
+        time_alive: 0.4,
+        max_level_reached: 0.2,
+        score_trying_to_max: 1.0,
+        score_trying_to_min: -1.0,
+        something_custom: 0.5
+    }
     """
-    return runtime_data.fitness_stats
+    runtime_data.fitness_criteria = fitness_criteria
+
+
+@router.get("/brain_fitness")
+async def brain_average_fitness_value():
+    """
+    Calculates fitness score based on the defined fitness criteria
+    """
+    cumulative_score = 0
+    try:
+        counter = 0
+        for stat in runtime_data.fitness_stats:
+            fitness_score = 0
+            counter += 1
+            for criterion in stat:
+                fitness_score += stat[criterion] * runtime_data.fitness_criteria[criterion]
+            cumulative_score += fitness_score
+
+        if counter == 0:
+            return 1
+        else:
+            runtime_data.fitness_score = cumulative_score / counter
+            return runtime_data.fitness_score
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error during fitness calculation as {e}")
 
 
 @router.put("/fitness_stats")
-async def capture_fitness_stats(fitness_stats: FitnessStats):
+async def capture_fitness_stats_instance(fitness_stats: dict):
     """
     updates fitness stats
     """
-    runtime_data.fitness_stats = fitness_stats
+    runtime_data.fitness_stats.append(fitness_stats)
+
+
+@router.delete("/fitness_stats")
+async def reset_fitness_stats():
+    """
+    Resets fitness stats
+    """
+    runtime_data.fitness_stats = []
