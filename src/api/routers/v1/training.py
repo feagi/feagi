@@ -178,6 +178,18 @@ async def configure_fitness_criteria(fitness_criteria: dict):
 async def capture_fitness_stats_instance(fitness_stats: dict):
     """
     updates fitness stats. Data should be in a dictionary form following the structure defined under /fitness_criteria
+
+    Sample:
+    ```json
+            {
+            "time_alive": 672,
+            "max_level_reached": 2,
+            "score_trying_to_max": 78,
+            "score_trying_to_min": 42,
+            "something_custom": 23
+        }
+    ```
+
     """
     runtime_data.fitness_stats.append(fitness_stats)
 
