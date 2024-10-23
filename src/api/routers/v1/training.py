@@ -111,30 +111,6 @@ async def training_report():
     return runtime_data.training_stats
 
 
-@router.get("/fitness_criteria")
-async def fetch_fitness_criteria():
-    """
-    Returns the effective fitness criteria
-    """
-    return runtime_data.fitness_criteria
-
-
-@router.post("/fitness_criteria")
-async def configure_fitness_criteria(fitness_criteria: dict):
-    """
-    Configure the weights associated with each fitness criteria. Total weights has to equal to 1.
-    Actual game stats will be weighted based on the defined criteria and produce a single fitness value between 0 and 1.
-    {
-        time_alive: 0.4,
-        max_level_reached: 0.2,
-        score_trying_to_max: 1.0,
-        score_trying_to_min: -1.0,
-        something_custom: 0.5
-    }
-    """
-    runtime_data.fitness_criteria = fitness_criteria
-
-
 @router.get("/brain_fitness")
 async def brain_average_fitness_value():
     """
@@ -147,10 +123,10 @@ async def brain_average_fitness_value():
             fitness_score = 0
             counter += 1
             for criterion in stat:
-                if criterion not in runtime_data.fitness_criteria:
+                if criterion not in runtime_data.fitness_criteria["FITNESS_KEYS"]:
                     raise HTTPException(status_code=400, detail=f"{criterion} is not defied as a fitness criteria!"
                                                                 f"Use post:/fitness_criteria to define it first.")
-                fitness_score += stat[criterion] * runtime_data.fitness_criteria[criterion]
+                fitness_score += stat[criterion] * runtime_data.fitness_criteria["FITNESS_KEYS"][criterion]
             cumulative_score += fitness_score
 
         if counter == 0:
@@ -160,6 +136,42 @@ async def brain_average_fitness_value():
             return runtime_data.fitness_score
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error during fitness calculation as {e}")
+
+
+@router.get("/fitness_criteria")
+async def fetch_fitness_criteria():
+    """
+    Returns the effective fitness criteria
+    """
+    return runtime_data.fitness_criteria
+
+
+@router.post("/fitness_criteria")
+async def configure_fitness_criteria(fitness_criteria: dict):
+    """
+    Configure the weights associated with each fitness criteria.
+
+    Important: Total weights has to equal to 1.
+
+    Actual game stats will be weighted based on the defined criteria and produce a single fitness value between 0 and 1.
+    ```json
+    }
+    "FITNESS_KEYS":
+        {
+            "time_alive": 0.4,
+            "max_level_reached": 0.2,
+            "score_trying_to_max": 1.0,
+            "score_trying_to_min": -1.0,
+            "something_custom": 0.4
+        },
+    "METADATA":
+        {
+
+        }
+    }
+    ```
+    """
+    runtime_data.fitness_criteria = fitness_criteria
 
 
 @router.put("/fitness_stats")
