@@ -122,11 +122,13 @@ async def brain_average_fitness_value():
         for stat in runtime_data.fitness_stats:
             fitness_score = 0
             counter += 1
-            for criterion in stat:
-                if criterion not in runtime_data.fitness_criteria["FITNESS_KEYS"]:
-                    raise HTTPException(status_code=400, detail=f"{criterion} is not defied as a fitness criteria!"
-                                                                f"Use post:/fitness_criteria to define it first.")
-                fitness_score += stat[criterion] * runtime_data.fitness_criteria["FITNESS_KEYS"][criterion]
+            criteria = stat.get("FITNESS_KEYS")
+            if criteria:
+                for criterion in stat["FITNESS_KEYS"]:
+                    if criterion not in runtime_data.fitness_criteria:
+                        raise HTTPException(status_code=400, detail=f"{criterion} is not defied as a fitness criteria!"
+                                                                    f"Use post:/fitness_criteria to define it first.")
+                    fitness_score += stat["FITNESS_KEYS"][criterion] * runtime_data.fitness_criteria[criterion]
             cumulative_score += fitness_score
 
         if counter == 0:
@@ -155,34 +157,20 @@ async def configure_fitness_criteria(fitness_criteria: dict):
 
     Actual game stats will be weighted based on the defined criteria and produce a single fitness value between 0 and 1.
     ```json
-    {
-    "FITNESS_KEYS":
-        {
-            "time_alive": 0.4,
-            "max_level_reached": 0.2,
-            "score_trying_to_max": 1.0,
-            "score_trying_to_min": -1.0,
-            "something_custom": 0.4
-        },
-    "METADATA":
-        {
-            "Fitness calculation": "Some description for future reference"
+            {
+            "time_alive": 672,
+            "max_level_reached": 2,
+            "score_trying_to_max": 78,
+            "score_trying_to_min": 42,
+            "something_custom": 23
         }
-    }
     ```
 
-    Note: Metadata is optional and to provide additional context.
-
     """
-    if "FITNESS_KEYS" not in fitness_criteria:
-        raise HTTPException(status_code=400, detail=f"FITNESS_KEYS is not defined as a dictionary key")
-
-    if "METADATA" not in fitness_criteria:
-        fitness_criteria["METADATA"] = {}
 
     key_sum = 0
-    for criterion in fitness_criteria["FITNESS_KEYS"]:
-        key_sum += fitness_criteria["FITNESS_KEYS"][criterion]
+    for criterion in fitness_criteria:
+        key_sum += fitness_criteria[criterion]
 
     if key_sum != 1:
         raise HTTPException(status_code=400, detail=f"The sum of all FITNESS_KEYS should be equal to 1")
@@ -197,16 +185,31 @@ async def capture_fitness_stats_instance(fitness_stats: dict):
 
     Sample:
     ```json
-            {
-            "time_alive": 672,
-            "max_level_reached": 2,
-            "score_trying_to_max": 78,
-            "score_trying_to_min": 42,
-            "something_custom": 23
+    {
+    "FITNESS_KEYS":
+        {
+            "time_alive": 0.4,
+            "max_level_reached": 0.2,
+            "score_trying_to_max": 1.0,
+            "score_trying_to_min": -1.0,
+            "something_custom": 0.4
+        },
+    "METADATA":
+        {
+            "event": "changed such and such environment variable"
         }
+    }
     ```
+    Note: Metadata is optional and to provide additional context.
 
     """
+
+    if "FITNESS_KEYS" not in fitness_stats:
+        raise HTTPException(status_code=400, detail=f"FITNESS_KEYS is not defined as a dictionary key")
+
+    if "METADATA" not in fitness_stats:
+        fitness_stats["METADATA"] = {}
+
     runtime_data.fitness_stats.append(fitness_stats)
 
 
