@@ -154,7 +154,7 @@ async def brain_average_fitness_value():
 @router.put("/fitness_stats")
 async def capture_fitness_stats_instance(fitness_stats: dict):
     """
-    updates fitness stats
+    updates fitness stats. Data should be in a dictionary form following the structure defined under /fitness_criteria
     """
     runtime_data.fitness_stats.append(fitness_stats)
 
