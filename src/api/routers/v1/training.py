@@ -111,6 +111,14 @@ async def training_report():
     return runtime_data.training_stats
 
 
+@router.get("/fitness_criteria")
+async def configure_fitness_criteria(fitness_criteria: dict):
+    """
+    Returns the effective fitness criteria
+    """
+    return runtime_data.fitness_criteria
+
+
 @router.post("/fitness_criteria")
 async def configure_fitness_criteria(fitness_criteria: dict):
     """
@@ -139,6 +147,9 @@ async def brain_average_fitness_value():
             fitness_score = 0
             counter += 1
             for criterion in stat:
+                if criterion not in runtime_data.fitness_criteria:
+                    raise HTTPException(status_code=400, detail=f"{criterion} is not defied as a fitness criteria!"
+                                                                f"Use post:/fitness_criteria to define it first.")
                 fitness_score += stat[criterion] * runtime_data.fitness_criteria[criterion]
             cumulative_score += fitness_score
 
