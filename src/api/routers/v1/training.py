@@ -171,6 +171,19 @@ async def configure_fitness_criteria(fitness_criteria: dict):
     }
     ```
     """
+    if "FITNESS_KEYS" not in fitness_criteria:
+        raise HTTPException(status_code=400, detail=f"FITNESS_KEYS is not defined as a dictionary key")
+
+    if "METADATA" not in fitness_criteria:
+        fitness_criteria["METADATA"] = {}
+
+    key_sum = 0
+    for criterion in fitness_criteria["FITNESS_KEYS"]:
+        key_sum += fitness_criteria["FITNESS_KEYS"][criterion]
+
+    if key_sum != 1:
+        raise HTTPException(status_code=400, detail=f"The sum of all FITNESS_KEYS should be equal to 1")
+
     runtime_data.fitness_criteria = fitness_criteria
 
 
