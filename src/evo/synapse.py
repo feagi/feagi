@@ -125,7 +125,7 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
     synapse_count = 0
 
     mappings = runtime_data.genome["blueprint"][cortical_area]['cortical_mapping_dst'][cortical_area_dst]
-
+    print("__2")
     for morphology in mappings:
         try:
             # subregion definition is the start and end points of a vector defining a subregion
@@ -133,7 +133,7 @@ def neighbor_builder(cortical_area, brain, genome, brain_gen, cortical_area_dst)
             # src_subregions with be a collection of all subregions associated with a select composite morphology
             morphology_properties = runtime_data.genome["neuron_morphologies"][morphology["morphology_id"]]
             mapper_morphology = None
-
+            print("__morphology:", morphology)
             src_subregions = set()
             if morphology_properties["type"] == "composite":
                 src_subregions = define_subregions(cortical_area=cortical_area,

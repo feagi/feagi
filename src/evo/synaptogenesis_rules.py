@@ -108,9 +108,22 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
         elif runtime_data.genome["neuron_morphologies"][neuron_morphology]["type"] == "patterns":
             for pattern in runtime_data.genome["neuron_morphologies"][neuron_morphology]["parameters"]["patterns"]:
 
-                candidate_list = match_patterns(src_voxel=src_voxel, cortical_area_dst=cortical_area_dst,
-                                                pattern=pattern, morphology_scalar=morphology_scalar
-                                                , src_subregion=src_subregion)
+                src_block_boundaries = runtime_data.genome["blueprint"][cortical_area_src]["block_boundaries"]
+                dst_block_boundaries = runtime_data.genome["blueprint"][cortical_area_dst]["block_boundaries"]
+
+                source_pattern = pattern[0]
+                destination_pattern = pattern[1]
+
+                src_generator = find_source_coordinates(src_pattern=pattern[0],
+                                                        src_cortical_boundary=src_block_boundaries)
+                candidate_list = []
+                for src_candidate in src_generator:
+                    dst_candidate = find_destination_coordinates(dst_cortical_boundary=dst_block_boundaries,
+                                                                 src_coordinate=src_candidate,
+                                                                 dst_pattern=destination_pattern)
+                    if dst_candidate:
+                        candidate_list.append(src_candidate, dst_candidate)
+
                 if candidate_list:
                     for candidate in candidate_list:
                         raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
@@ -175,6 +188,20 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
         return candidate_neuron_list
 
 
+def validate_pattern(pattern):
+    valid_patterns = {"*", "?", "!"}
+    for p in pattern:
+        if isinstance(p, list) and len(p) == 3:
+            for axis_pattern in p:
+                if axis_pattern not in valid_patterns:
+                    try:
+                        int(axis_pattern)
+                    except ValueError:
+                        raise ValueError(f"Invalid pattern value: {axis_pattern}")
+        else:
+            raise ValueError("Pattern must be a list of three elements per axis.")
+
+
 def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar, src_subregion):
     scaled_vector = [prod(x) for x in zip(vector, morphology_scalar)]
     candidate_vector = [sum(x) for x in zip(src_voxel, scaled_vector)]
@@ -187,87 +214,84 @@ def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar, src_s
         return [candidate_vector]
 
 
-def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar, src_subregion):
+def check_pattern_validity(pattern):
     """
-    Matches source voxels to destination voxels
-
-    Expected pattern format:    [source pattern, destination pattern] e.g. [["*", "?", 3], [2, "*", "?"]]
-
+    Checks the validity of a pattern
     """
-    voxel_list = list()
-    dst_block_boundaries = runtime_data.genome["blueprint"][cortical_area_dst]["block_boundaries"]
+    valid_patterns = {"*", "?", "!"}
+    for element in pattern:
+        if element not in valid_patterns:
+            try:
+                value = int(element)
+                if not (0 <= value):
+                    return False
+            except ValueError:
+                return False
+    return True
 
-    # todo: need better pattern validation
-    if len(pattern) != 2:
-        print("Error! Pattern was not defined correctly.. "
-              "should be similar to e.g. [[\"*\", \"?\", 3], [2, \"*\", \"?\"]]\n Current is as:", pattern)
-    else:
-        src_pattern_x, src_pattern_y, src_pattern_z = pattern[0]
-        dst_pattern_x, dst_pattern_y, dst_pattern_z = pattern[1]
 
-        src_x, src_y, src_z = src_voxel
+def find_source_coordinates(src_pattern, src_cortical_boundary):
+    """
+    Generator that yields coordinates within the cortical boundary that match the given pattern.
 
-        for dst_x in range(dst_block_boundaries[0]):
-            for dst_y in range(dst_block_boundaries[1]):
-                for dst_z in range(dst_block_boundaries[2]):
+    :param src_pattern: A tuple (x, y, z) where each element can be an integer or "*".
+                        "*" matches all positions along that axis.
+    :param src_cortical_boundary: A list [x, y, z] defining the size of the cortical cube.
+    :yield: Coordinates (as tuples) that match the pattern within the cortical boundaries.
+    """
+    # Generate ranges based on pattern and boundary
+    x_range = range(src_cortical_boundary[0]) if src_pattern[0] == "*" else [src_pattern[0]]
+    y_range = range(src_cortical_boundary[1]) if src_pattern[1] == "*" else [src_pattern[1]]
+    z_range = range(src_cortical_boundary[2]) if src_pattern[2] == "*" else [src_pattern[2]]
 
-                    matching_condition_x = \
-                        (
-                                dst_pattern_x == "*"
-                                or
-                                (dst_pattern_x == "?" and
-                                 (src_x == dst_x))
-                                or
-                                (dst_pattern_x == "!" and
-                                 (src_x != dst_x))
-                                or
-                                (dst_pattern_x == dst_x and
-                                 (src_pattern_x == "*" or
-                                  (src_pattern_x == "?" and src_x == dst_x) or
-                                  (src_pattern_x == "!" and src_x != dst_x) or
-                                  (src_pattern_x == src_x)))
-                        )
+    # Use a generator expression to yield each matching coordinate
+    for x in x_range:
+        for y in y_range:
+            for z in z_range:
+                yield [x, y, z]
 
-                    matching_condition_y = \
-                        (
-                                dst_pattern_y == "*"
-                                or
-                                (dst_pattern_y == "?" and
-                                 (src_y == dst_y))
-                                or
-                                (dst_pattern_y == "!" and
-                                 (src_y != dst_y))
-                                or
-                                (dst_pattern_y == dst_y and
-                                 (src_pattern_y == "*" or
-                                  (src_pattern_y == "?" and src_y == dst_y) or
-                                  (src_pattern_y == "!" and src_y != dst_y) or
-                                  (src_pattern_y == src_y)))
-                        )
 
-                    matching_condition_z = \
-                        (
-                                dst_pattern_z == "*"
-                                or
-                                (dst_pattern_z == "?" and
-                                 (src_z == dst_z))
-                                or
-                                (dst_pattern_z == "!" and
-                                 (src_z != dst_z))
-                                or
-                                (dst_pattern_z == dst_z and
-                                 (src_pattern_z == "*" or
-                                  (src_pattern_z == "?" and src_z == dst_z) or
-                                  (src_pattern_z == "!" and src_z != dst_z) or
-                                  (src_pattern_z == src_z)))
-                        )
+def find_destination_coordinates(dst_cortical_boundary, src_coordinate, dst_pattern):
+    """
+    Generator that yields destination coordinates within the cortical boundary
+    that match the given pattern based on the source coordinate.
 
-                    if matching_condition_x and matching_condition_y and matching_condition_z:
-                        voxel_list.append([dst_x, dst_y, dst_z])
+    :param dst_cortical_boundary: A list [x, y, z] defining the size of the destination cube.
+    :param src_coordinate: A list [int, int, int] representing the coordinate on the source object.
+    :param dst_pattern: A tuple (x, y, z) where each element can be "*", "?", "!", or an int.
+                        "*" matches any position along that axis.
+                        "?" matches the corresponding source coordinate.
+                        "!" matches any coordinate except the corresponding source coordinate.
+                        int specifies an exact match on that axis.
+    :yield: Destination coordinates (as tuples) that match the pattern within the destination boundaries.
+    """
+    # Generate ranges based on dst_pattern, dst_cortical_boundary, and src_coordinate
+    x_range = (
+        range(dst_cortical_boundary[0]) if dst_pattern[0] == "*"
+        else [src_coordinate[0]] if dst_pattern[0] == "?"
+        else [i for i in range(dst_cortical_boundary[0]) if i != src_coordinate[0]] if dst_pattern[0] == "!"
+        else [dst_pattern[0]]
+    )
 
-        # todo: account for morphology scalar
+    y_range = (
+        range(dst_cortical_boundary[1]) if dst_pattern[1] == "*"
+        else [src_coordinate[1]] if dst_pattern[1] == "?"
+        else [i for i in range(dst_cortical_boundary[1]) if i != src_coordinate[1]] if dst_pattern[1] == "!"
+        else [dst_pattern[1]]
+    )
 
-    return voxel_list
+    z_range = (
+        range(dst_cortical_boundary[2]) if dst_pattern[2] == "*"
+        else [src_coordinate[2]] if dst_pattern[2] == "?"
+        else [i for i in range(dst_cortical_boundary[2]) if i != src_coordinate[2]] if dst_pattern[2] == "!"
+        else [dst_pattern[2]]
+    )
+
+    # Use a generator expression to yield each matching destination coordinate
+    for x in x_range:
+        for y in y_range:
+            for z in z_range:
+                yield[x, y, z]
 
 
 def syn_expander_x(src_cortical_area, dst_cortical_area, src_neuron_id, src_subregion, dst_y_index=0, dst_z_index=0):
