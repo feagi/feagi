@@ -232,11 +232,14 @@ cortical_types = {
             "servo_motion": [
                 "i_smot"
             ],
-            "digital_input":[
+            "digital_input": [
                 "idgpio"
             ],
-            "analog_input":[
+            "analog_input": [
                 "iagpio"
+            ],
+            "id_trainer": [
+                "i___id"
             ]
         }
     },
