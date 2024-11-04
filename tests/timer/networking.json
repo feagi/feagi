@@ -1,0 +1,14 @@
+{    "description": "timer",
+    "version": "v0.0.0",
+    "feagi_settings": {
+        "feagi_url": "http://127.0.0.1",
+        "feagi_api_port": 8000,
+        "magic_link": "null"
+  },
+    "agent_settings": {
+        "agent_data_port": 10006,
+        "agent_id": "timer",
+        "agent_type": "embodiment",
+        "compression": true
+    }
+}

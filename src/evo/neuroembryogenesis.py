@@ -36,6 +36,7 @@ import json
 import datetime
 import shutil
 import concurrent.futures
+from src.evo.connectome import reuse
 from src.evo import neuron, synapse, stats, genetics, voxels
 from src.evo.genome_editor import save_genome
 from src.evo.genome_processor import genome_v1_v2_converter

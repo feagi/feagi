@@ -1,0 +1,2 @@
+feagi-connector>=0.0.17
+psutil==5.8.0
