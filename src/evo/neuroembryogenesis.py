@@ -259,7 +259,6 @@ def build_synapses(genome, brain, parameters, voxel_dict, connectome_path, src_c
     #     from inf import db_handler
     #     influxdb = db_handler.InfluxManagement()
     runtime_data.voxel_dict = voxel_dict
-    print("__1")
     intercortical_mapping = []
     runtime_data.connectome_path = connectome_path
     # Read Genome data
@@ -320,9 +319,7 @@ def develop(target_areas=None):
 
     # --Synaptogenesis-- Build Synapses within all cortical areas
     for cortical_area in target_areas:
-        print(f"---Starting synaptogenesis for {cortical_area}")
         synaptogenesis(cortical_area=cortical_area)
-        print(f"+++Completed synaptogenesis for {cortical_area}")
 
     print("=================================== Synaptogenesis Completed ==================================")
 

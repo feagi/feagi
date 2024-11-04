@@ -113,7 +113,6 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
 
                 source_pattern = pattern[0]
                 destination_pattern = pattern[1]
-                print(">>>>>>>>>>>> destination_pattern:", destination_pattern)
                 candidate_list = []
                 # for src_candidate in src_generator:
                 dst_generator = find_destination_coordinates(dst_pattern=destination_pattern,
@@ -123,7 +122,6 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
                     candidate_list.append(dst_candidate)
 
                 if candidate_list:
-                    print("candidate list:",  candidate_list, morphology_)
                     for candidate in candidate_list:
                         raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
                         # candidate_voxel_list.append([item, post_synaptic_current])
@@ -187,6 +185,7 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
         return candidate_neuron_list
 
 
+# todo: use the following function
 def validate_pattern(pattern):
     valid_patterns = {"*", "?", "!"}
     for p in pattern:
@@ -267,23 +266,23 @@ def find_destination_coordinates(dst_cortical_boundary, src_coordinate, dst_patt
     # Generate ranges based on dst_pattern, dst_cortical_boundary, and src_coordinate
     x_range = (
         range(dst_cortical_boundary[0]) if dst_pattern[0] == "*"
-        else [src_coordinate[0]] if dst_pattern[0] == "?"
+        else [src_coordinate[0]] if (dst_pattern[0] == "?" and src_coordinate[0] < dst_cortical_boundary[0])
         else [i for i in range(dst_cortical_boundary[0]) if i != src_coordinate[0]] if dst_pattern[0] == "!"
-        else [dst_pattern[0]]
+        else [dst_pattern[0]] if isinstance(dst_pattern[0], int) else []
     )
 
     y_range = (
         range(dst_cortical_boundary[1]) if dst_pattern[1] == "*"
-        else [src_coordinate[1]] if dst_pattern[1] == "?"
+        else [src_coordinate[1]] if (dst_pattern[1] == "?" and src_coordinate[1] < dst_cortical_boundary[1])
         else [i for i in range(dst_cortical_boundary[1]) if i != src_coordinate[1]] if dst_pattern[1] == "!"
-        else [dst_pattern[1]]
+        else [dst_pattern[1]] if isinstance(dst_pattern[1], int) else []
     )
 
     z_range = (
         range(dst_cortical_boundary[2]) if dst_pattern[2] == "*"
-        else [src_coordinate[2]] if dst_pattern[2] == "?"
+        else [src_coordinate[2]] if (dst_pattern[2] == "?" and src_coordinate[2] < dst_cortical_boundary[2])
         else [i for i in range(dst_cortical_boundary[2]) if i != src_coordinate[2]] if dst_pattern[2] == "!"
-        else [dst_pattern[2]]
+        else [dst_pattern[2]] if isinstance(dst_pattern[2], int) else []
     )
 
     # Use a generator expression to yield each matching destination coordinate
