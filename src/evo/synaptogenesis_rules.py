@@ -197,75 +197,75 @@ def match_patterns(src_voxel, cortical_area_dst, pattern, morphology_scalar, src
     voxel_list = list()
     dst_block_boundaries = runtime_data.genome["blueprint"][cortical_area_dst]["block_boundaries"]
 
+    # todo: need better pattern validation
     if len(pattern) != 2:
         print("Error! Pattern was not defined correctly.. "
               "should be similar to e.g. [[\"*\", \"?\", 3], [2, \"*\", \"?\"]]\n Current is as:", pattern)
+    else:
+        src_pattern_x, src_pattern_y, src_pattern_z = pattern[0]
+        dst_pattern_x, dst_pattern_y, dst_pattern_z = pattern[1]
 
-    src_pattern_x, src_pattern_y, src_pattern_z = pattern[0]
-    dst_pattern_x, dst_pattern_y, dst_pattern_z = pattern[1]
+        src_x, src_y, src_z = src_voxel
 
-    src_x, src_y, src_z = src_voxel
+        for dst_x in range(dst_block_boundaries[0]):
+            for dst_y in range(dst_block_boundaries[1]):
+                for dst_z in range(dst_block_boundaries[2]):
 
-    for dst_x in range(dst_block_boundaries[0]):
-        for dst_y in range(dst_block_boundaries[1]):
-            for dst_z in range(dst_block_boundaries[2]):
+                    matching_condition_x = \
+                        (
+                                dst_pattern_x == "*"
+                                or
+                                (dst_pattern_x == "?" and
+                                 (src_x == dst_x))
+                                or
+                                (dst_pattern_x == "!" and
+                                 (src_x != dst_x))
+                                or
+                                (dst_pattern_x == dst_x and
+                                 (src_pattern_x == "*" or
+                                  (src_pattern_x == "?" and src_x == dst_x) or
+                                  (src_pattern_x == "!" and src_x != dst_x) or
+                                  (src_pattern_x == src_x)))
+                        )
 
-                matching_condition_x = \
-                    (
-                            dst_pattern_x == "*"
-                            or
-                            (dst_pattern_x == "?" and
-                             (src_x == dst_x))
-                            or
-                            (dst_pattern_x == "!" and
-                             (src_x != dst_x))
-                            or
-                            (dst_pattern_x == dst_x and
-                             (src_pattern_x == "*" or
-                              (src_pattern_x == "?" and src_x == dst_x) or
-                              (src_pattern_x == "!" and src_x != dst_x) or
-                              (src_pattern_x == src_x)))
-                    )
+                    matching_condition_y = \
+                        (
+                                dst_pattern_y == "*"
+                                or
+                                (dst_pattern_y == "?" and
+                                 (src_y == dst_y))
+                                or
+                                (dst_pattern_y == "!" and
+                                 (src_y != dst_y))
+                                or
+                                (dst_pattern_y == dst_y and
+                                 (src_pattern_y == "*" or
+                                  (src_pattern_y == "?" and src_y == dst_y) or
+                                  (src_pattern_y == "!" and src_y != dst_y) or
+                                  (src_pattern_y == src_y)))
+                        )
 
-                matching_condition_y = \
-                    (
-                            dst_pattern_y == "*"
-                            or
-                            (dst_pattern_y == "?" and
-                             (src_y == dst_y))
-                            or
-                            (dst_pattern_y == "!" and
-                             (src_y != dst_y))
-                            or
-                            (dst_pattern_y == dst_y and
-                             (src_pattern_y == "*" or
-                              (src_pattern_y == "?" and src_y == dst_y) or
-                              (src_pattern_y == "!" and src_y != dst_y) or
-                              (src_pattern_y == src_y)))
-                    )
+                    matching_condition_z = \
+                        (
+                                dst_pattern_z == "*"
+                                or
+                                (dst_pattern_z == "?" and
+                                 (src_z == dst_z))
+                                or
+                                (dst_pattern_z == "!" and
+                                 (src_z != dst_z))
+                                or
+                                (dst_pattern_z == dst_z and
+                                 (src_pattern_z == "*" or
+                                  (src_pattern_z == "?" and src_z == dst_z) or
+                                  (src_pattern_z == "!" and src_z != dst_z) or
+                                  (src_pattern_z == src_z)))
+                        )
 
-                matching_condition_z = \
-                    (
-                            dst_pattern_z == "*"
-                            or
-                            (dst_pattern_z == "?" and
-                             (src_z == dst_z))
-                            or
-                            (dst_pattern_z == "!" and
-                             (src_z != dst_z))
-                            or
-                            (dst_pattern_z == dst_z and
-                             (src_pattern_z == "*" or
-                              (src_pattern_z == "?" and src_z == dst_z) or
-                              (src_pattern_z == "!" and src_z != dst_z) or
-                              (src_pattern_z == src_z)))
-                    )
+                    if matching_condition_x and matching_condition_y and matching_condition_z:
+                        voxel_list.append([dst_x, dst_y, dst_z])
 
-                if matching_condition_x and matching_condition_y and matching_condition_z:
-                    voxel_list.append([dst_x, dst_y, dst_z])
-
-
-    # todo: account for morphology scalar
+        # todo: account for morphology scalar
 
     return voxel_list
 

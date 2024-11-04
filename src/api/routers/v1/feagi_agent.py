@@ -17,13 +17,14 @@
 
 import os
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 
 from ...schemas import *
 from ...commons import *
 
 from src.inf import runtime_data
 from src.inf.messenger import Sub
+from ...dependencies import check_brain_running
 
 
 router = APIRouter()
@@ -160,7 +161,8 @@ async def gazebo_robot_default_files():
 
 
 @router.post("/manual_stimulation")
-async def trigger_manual_stimulation(stimulation: ManualStimulation):
+async def trigger_manual_stimulation(stimulation: ManualStimulation,
+                                     _: str = Depends(check_brain_running)):
     """
     Stimulation needs to be in the following format:
     {
