@@ -113,18 +113,17 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
 
                 source_pattern = pattern[0]
                 destination_pattern = pattern[1]
-
-                src_generator = find_source_coordinates(src_pattern=pattern[0],
-                                                        src_cortical_boundary=src_block_boundaries)
+                print(">>>>>>>>>>>> destination_pattern:", destination_pattern)
                 candidate_list = []
-                for src_candidate in src_generator:
-                    dst_candidate = find_destination_coordinates(dst_cortical_boundary=dst_block_boundaries,
-                                                                 src_coordinate=src_candidate,
-                                                                 dst_pattern=destination_pattern)
-                    if dst_candidate:
-                        candidate_list.append(src_candidate, dst_candidate)
+                # for src_candidate in src_generator:
+                dst_generator = find_destination_coordinates(dst_pattern=destination_pattern,
+                                                             dst_cortical_boundary=dst_block_boundaries,
+                                                             src_coordinate=src_voxel)
+                for dst_candidate in dst_generator:
+                    candidate_list.append(dst_candidate)
 
                 if candidate_list:
+                    print("candidate list:",  candidate_list, morphology_)
                     for candidate in candidate_list:
                         raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
                         # candidate_voxel_list.append([item, post_synaptic_current])
