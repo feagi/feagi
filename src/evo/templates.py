@@ -355,6 +355,14 @@ cortical_types = {
                 "resolution": [1, 10, 1],
                 "coordinate_3d": [20, 0, 0]
             },
+            "o__sid": {
+                "enabled": True,
+                "cortical_name": "Trainer Stimuli ID Selector",
+                "controller_id": "stimuli_id_selector",
+                "structure": "asymmetric",
+                "resolution": [1, 10, 1],
+                "coordinate_3d": [30, 0, 0]
+            },
             "o__loc": {
                 "enabled": True,
                 "cortical_name": "Recognition Location",
