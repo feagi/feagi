@@ -41,6 +41,15 @@ Stimulation data received will have the following data structure:
 """
 
 
+def stimulation_validator(stimulation):
+    # Removes stimulation that are not part of genome
+    for cortical_area in stimulation.copy():
+        if cortical_area not in runtime_data.cortical_list:
+            del stimulation[cortical_area]
+            print(f"!! Manual stimulation container {cortical_area} which was not part of genome !!")
+    return stimulation
+
+
 def induce_manual_stimulation(stimulation):
     """
     Stimulation data received will have the following data structure:
@@ -52,6 +61,7 @@ def induce_manual_stimulation(stimulation):
         }
     }
     """
+    stimulation = stimulation_validator(stimulation=stimulation)
     stimulation = convert_stimulation_to_dashed_format(stimulation_data=stimulation)
     stimulation_injector(stimulation_data=stimulation)
 
