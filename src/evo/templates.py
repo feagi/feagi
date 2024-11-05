@@ -153,7 +153,7 @@ cortical_types = {
                 "cortical_name": "ID Trainer",
                 "structure": "asymmetric",
                 "resolution": [1, 10, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [111, 91, 0]
             },
             "i_spos": {
                 "enabled": True,
@@ -232,11 +232,14 @@ cortical_types = {
             "servo_motion": [
                 "i_smot"
             ],
-            "digital_input":[
+            "digital_input": [
                 "idgpio"
             ],
-            "analog_input":[
+            "analog_input": [
                 "iagpio"
+            ],
+            "id_trainer": [
+                "i___id"
             ]
         }
     },
@@ -353,7 +356,15 @@ cortical_types = {
                 "controller_id": "id_recognition",
                 "structure": "asymmetric",
                 "resolution": [1, 10, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [120, 91, 0]
+            },
+            "o__sid": {
+                "enabled": True,
+                "cortical_name": "Trainer Stimuli ID Selector",
+                "controller_id": "stimuli_id_selector",
+                "structure": "asymmetric",
+                "resolution": [1, 10, 1],
+                "coordinate_3d": [30, 0, 0]
             },
             "o__loc": {
                 "enabled": True,
@@ -361,7 +372,7 @@ cortical_types = {
                 "controller_id": "recognition_location",
                 "structure": "asymmetric",
                 "resolution": [32, 32, 1],
-                "coordinate_3d": [20, 0, 0]
+                "coordinate_3d": [110, 51, 0]
             },
             "o_misc": {
                 "enabled": True,

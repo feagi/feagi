@@ -285,10 +285,6 @@ class Id(BaseModel):
     id: str
 
 
-class FitnessStats(BaseModel):
-    fitness_stats: dict
-
-
 class RobotController(BaseModel):
     motor_power_coefficient: float
     motor_power_coefficient = 0.5
