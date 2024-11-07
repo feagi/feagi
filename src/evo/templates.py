@@ -247,7 +247,11 @@ cortical_types = {
             ],
             "id_trainer": [
                 "i___id"
+            ],
+            "pressure": [
+                "i_pres"
             ]
+
         }
     },
     "OPU": {
