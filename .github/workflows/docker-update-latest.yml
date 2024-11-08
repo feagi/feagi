@@ -3,7 +3,7 @@ name: Update FEAGI on Docker Hub
 on:
   push:
     branches:
-      - "main"
+      - "staging"
     paths:
       - 'src/**'
       - 'generate_version.sh'
