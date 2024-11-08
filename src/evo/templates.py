@@ -183,6 +183,13 @@ cortical_types = {
                 "resolution": [1, 1, 1],
                 "coordinate_3d": [20, 0, 0]
             },
+            "i_pres": {
+                "enabled": True,
+                "cortical_name": "Pressure Sensor Input",
+                "structure": "asymmetric",
+                "resolution": [3, 1, 21],
+                "coordinate_3d": [60, 0, 0]
+            },
         },
         "name_to_id_mapping": {
             "infrared": [
@@ -240,7 +247,11 @@ cortical_types = {
             ],
             "id_trainer": [
                 "i___id"
+            ],
+            "pressure": [
+                "i_pres"
             ]
+
         }
     },
     "OPU": {
