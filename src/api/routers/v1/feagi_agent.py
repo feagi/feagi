@@ -68,6 +68,7 @@ async def agent_properties(agent_id: str):
         agent_info["agent_router_address"] = runtime_data.agent_registry[agent_id]["agent_router_address"]
         agent_info["agent_version"] = runtime_data.agent_registry[agent_id]["agent_version"]
         agent_info["controller_version"] = runtime_data.agent_registry[agent_id]["controller_version"]
+        agent_info["capabilities"] = runtime_data.agent_registry[agent_id].get("capabilities", {})
         return agent_info
     else:
         raise HTTPException(status_code=400, detail="Requested agent not found!")
