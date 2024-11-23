@@ -159,7 +159,24 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
                                                src_neuron_id, src_subregion=src_subregion)
                 for candidate in candidate_list:
                     raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
-                    # candidate_voxel_list.append([candidate, post_synaptic_current])
+
+            elif neuron_morphology == "projector_xy":
+                candidate_list = syn_projector(cortical_area_src, cortical_area_dst,
+                                               src_neuron_id, src_subregion=src_subregion, transpose=("y", "x", "z"))
+                for candidate in candidate_list:
+                    raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+
+            elif neuron_morphology == "projector_xz":
+                candidate_list = syn_projector(cortical_area_src, cortical_area_dst,
+                                               src_neuron_id, src_subregion=src_subregion, transpose=("z", "y", "x"))
+                for candidate in candidate_list:
+                    raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+
+            elif neuron_morphology == "projector_yz":
+                candidate_list = syn_projector(cortical_area_src, cortical_area_dst,
+                                               src_neuron_id, src_subregion=src_subregion, transpose=("x", "z", "y"))
+                for candidate in candidate_list:
+                    raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
 
             elif neuron_morphology == "memory":
                 syn_memory(src_cortical_area=cortical_area_src, dst_cortical_area=cortical_area_dst)
@@ -422,8 +439,35 @@ def syn_block_connection(src_cortical_area, dst_cortical_area, src_neuron_id, sr
     return [neuron_block_index_x // s, neuron_block_index_y, neuron_block_index_z]
 
 
-def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subregion):
+def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subregion, transpose=None):
     candidate_list = list()
+
+    # Apply transpose to src_subregion and neuron_location
+    if transpose:
+        axis_map = {"x": 0, "y": 1, "z": 2}  # Mapping of axes to indices
+        transpose_indices = [axis_map[axis] for axis in transpose]  # Get new order indices
+
+        # Transpose the source subregion
+        src_subregion = [
+            [src_subregion[0][transpose_indices[0]], src_subregion[0][transpose_indices[1]], src_subregion[0][transpose_indices[2]]],
+            [src_subregion[1][transpose_indices[0]], src_subregion[1][transpose_indices[1]], src_subregion[1][transpose_indices[2]]],
+        ]
+
+        # Transpose the neuron location
+        neuron_location = [
+            runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][transpose_indices[0]],
+            runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][transpose_indices[1]],
+            runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][transpose_indices[2]],
+        ]
+    else:
+        # If no transpose, use the default order
+        neuron_location = [
+            runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][0],
+            runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1],
+            runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][2],
+        ]
+
+    # Compute shapes of the source subregion and destination block boundaries
     src_shape = [
         src_subregion[1][0] - src_subregion[0][0],
         src_subregion[1][1] - src_subregion[0][1],
@@ -432,23 +476,19 @@ def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subre
 
     dst_shape = runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"]
 
-    neuron_location = [runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][0],
-                       runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][1],
-                       runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][2]]
-
     dst_vox_dict = dict()
 
     try:
         for i in range(3):
             dst_vox_dict[i] = set()
             if src_shape[i] > dst_shape[i]:
-                ratio = src_shape[i]/dst_shape[i]
-                target_vox = int((neuron_location[i] - src_subregion[0][i])/ratio)
+                ratio = src_shape[i] / dst_shape[i]
+                target_vox = int((neuron_location[i] - src_subregion[0][i]) / ratio)
                 dst_vox_dict[i].add(target_vox)
             elif src_shape[i] < dst_shape[i]:
-                ratio = dst_shape[i]/src_shape[i]
+                ratio = dst_shape[i] / src_shape[i]
                 for vox in range(dst_shape[i]):
-                    if int(vox/ratio) == (neuron_location[i] - src_subregion[0][i]):
+                    if int(vox / ratio) == (neuron_location[i] - src_subregion[0][i]):
                         target_vox = vox
                         dst_vox_dict[i].add(target_vox)
             elif src_shape[i] == dst_shape[i]:
@@ -458,13 +498,13 @@ def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subre
                 pass
     except ZeroDivisionError:
         pass
+
     if dst_vox_dict[0] and dst_vox_dict[1] and dst_vox_dict[2]:
         for x in dst_vox_dict[0]:
             for y in dst_vox_dict[1]:
                 for z in dst_vox_dict[2]:
-                    candidate_list.append([
-                        x, y, z
-                    ])
+                    candidate_list.append([x, y, z])
+
     return candidate_list
 
 

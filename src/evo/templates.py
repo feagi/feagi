@@ -594,6 +594,21 @@ core_morphologies = {
         "type": "functions",
         "class": "core"
     },
+    "projector_xy": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core"
+    },
+    "projector_xz": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core"
+    },
+    "projector_yz": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core"
+    },
     "memory": {
         "parameters": {},
         "type": "functions",
