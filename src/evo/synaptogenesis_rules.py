@@ -517,3 +517,8 @@ def syn_memory(src_cortical_area, dst_cortical_area):
     if dst_cortical_area not in runtime_data.memory_register:
         runtime_data.memory_register[dst_cortical_area] = set()
     runtime_data.memory_register[dst_cortical_area].add(src_cortical_area)
+
+
+# Todo: last to first X
+# Todo: last to first Y
+# Todo: last to first Z
