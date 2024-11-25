@@ -287,7 +287,9 @@ def find_destination_coordinates(dst_cortical_boundary, src_coordinate, src_patt
         else [src_coordinate[0]] if (dst_pattern[0] == "?" and src_coordinate[0] < dst_cortical_boundary[0] and
                                      (src_coordinate[0] == src_pattern[0] or src_pattern[0] in ["*", "?"]))
         else [i for i in range(dst_cortical_boundary[0]) if i != src_coordinate[0]] if dst_pattern[0] == "!"
-        else [dst_pattern[0]] if (isinstance(dst_pattern[0], int) and src_pattern[0] == src_coordinate[0]) else []
+        else [dst_pattern[0]] if (isinstance(dst_pattern[0], int) and
+                                  (src_pattern[0] == src_coordinate[0] or src_pattern[0] == "*" or
+                                   (src_pattern[0] == "?" and dst_pattern[0] == src_coordinate[0]))) else []
     )
 
     y_range = (
@@ -295,7 +297,9 @@ def find_destination_coordinates(dst_cortical_boundary, src_coordinate, src_patt
         else [src_coordinate[1]] if (dst_pattern[1] == "?" and src_coordinate[1] < dst_cortical_boundary[1] and
                                      (src_coordinate[1] == src_pattern[1] or src_pattern[1] in ["*", "?"]))
         else [i for i in range(dst_cortical_boundary[1]) if i != src_coordinate[1]] if dst_pattern[1] == "!"
-        else [dst_pattern[1]] if (isinstance(dst_pattern[1], int) and src_pattern[1] == src_coordinate[1]) else []
+        else [dst_pattern[1]] if (isinstance(dst_pattern[1], int) and
+                                  (src_pattern[1] == src_coordinate[1] or src_pattern[1] == "*" or
+                                   (src_pattern[1] == "?" and dst_pattern[1] == src_coordinate[1]))) else []
     )
 
     z_range = (
@@ -303,17 +307,15 @@ def find_destination_coordinates(dst_cortical_boundary, src_coordinate, src_patt
         else [src_coordinate[2]] if (dst_pattern[2] == "?" and src_coordinate[2] < dst_cortical_boundary[2] and
                                      (src_coordinate[2] == src_pattern[2] or src_pattern[2] in ["*", "?"]))
         else [i for i in range(dst_cortical_boundary[2]) if i != src_coordinate[2]] if dst_pattern[2] == "!"
-        else [dst_pattern[2]] if (isinstance(dst_pattern[2], int) and src_pattern[2] == src_coordinate[2]) else []
+        else [dst_pattern[2]] if (isinstance(dst_pattern[2], int) and
+                                  (src_pattern[2] == src_coordinate[2] or src_pattern[2] == "*" or
+                                   (src_pattern[2] == "?" and dst_pattern[2] == src_coordinate[2]))) else []
     )
 
     # Use a generator expression to yield each matching destination coordinate
-    print("x_range:", x_range)
-    print("y_range:", y_range)
-    print("z_range:", z_range)
     for x in x_range:
         for y in y_range:
             for z in z_range:
-                print(">> >> >>", src_coordinate, [x, y, z], src_pattern, dst_pattern)
                 yield [x, y, z]
 
 
