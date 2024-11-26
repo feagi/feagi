@@ -624,6 +624,11 @@ core_morphologies = {
         "type": "functions",
         "class": "core"
     },
+    "last_to_first": {
+        "parameters": {},
+        "type": "functions",
+        "class": "core"
+    },
     "memory": {
         "parameters": {},
         "type": "functions",

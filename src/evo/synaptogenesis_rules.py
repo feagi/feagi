@@ -155,6 +155,12 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
                                                  s=10, src_subregion=src_subregion)
                 raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
                 # candidate_voxel_list.append([candidate, post_synaptic_current])
+
+            elif neuron_morphology == "last_to_first":
+                src_cortical_dim = runtime_data.genome['blueprint'][cortical_area_src]["block_boundaries"]
+                if src_voxel == [src_cortical_dim[0] - 1, src_cortical_dim[1] - 1, src_cortical_dim[2] - 1]:
+                    raw_candidate_list.add((0, 0, 0))
+
             elif neuron_morphology == "projector":
                 candidate_list = syn_projector(cortical_area_src, cortical_area_dst,
                                                src_neuron_id, src_subregion=src_subregion)
@@ -606,5 +612,5 @@ def syn_memory(src_cortical_area, dst_cortical_area):
 
 def last_to_first(src_cortical_area):
     src_cortical_dim = runtime_data.genome['blueprint'][src_cortical_area]["block_boundaries"]
-    return [src_cortical_dim[0] - 1, src_cortical_dim[1] - 1, src_cortical_dim[2] - 1]
+    return [[src_cortical_dim[0] - 1, src_cortical_dim[1] - 1, src_cortical_dim[2] - 1]]
 
