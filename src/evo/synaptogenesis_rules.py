@@ -484,8 +484,12 @@ def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subre
 
         # Transpose the source subregion
         src_subregion = [
-            [src_subregion[0][transpose_indices[0]], src_subregion[0][transpose_indices[1]], src_subregion[0][transpose_indices[2]]],
-            [src_subregion[1][transpose_indices[0]], src_subregion[1][transpose_indices[1]], src_subregion[1][transpose_indices[2]]],
+            [src_subregion[0][transpose_indices[0]],
+             src_subregion[0][transpose_indices[1]],
+             src_subregion[0][transpose_indices[2]]],
+            [src_subregion[1][transpose_indices[0]],
+             src_subregion[1][transpose_indices[1]],
+             src_subregion[1][transpose_indices[2]]],
         ]
 
         # Transpose the neuron location
