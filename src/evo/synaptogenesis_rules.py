@@ -93,6 +93,8 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
     psc_base = runtime_data.genome["blueprint"][cortical_area_src]['postsynaptic_current']
     post_synaptic_current = psc_multiplier * psc_base
 
+    src_block_boundaries = runtime_data.genome["blueprint"][cortical_area_src]["block_boundaries"]
+
     try:
         if runtime_data.genome["neuron_morphologies"][neuron_morphology]["type"] == "vectors":
             for vector in runtime_data.genome["neuron_morphologies"][neuron_morphology]["parameters"]["vectors"]:
@@ -108,7 +110,6 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
         elif runtime_data.genome["neuron_morphologies"][neuron_morphology]["type"] == "patterns":
             for pattern in runtime_data.genome["neuron_morphologies"][neuron_morphology]["parameters"]["patterns"]:
 
-                src_block_boundaries = runtime_data.genome["blueprint"][cortical_area_src]["block_boundaries"]
                 dst_block_boundaries = runtime_data.genome["blueprint"][cortical_area_dst]["block_boundaries"]
 
                 source_pattern = pattern[0]
@@ -177,6 +178,30 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
                                                src_neuron_id, src_subregion=src_subregion, transpose=("x", "z", "y"))
                 for candidate in candidate_list:
                     raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+
+            elif neuron_morphology == "project_from_end_x":
+                if src_voxel[0] == src_block_boundaries[0] - 1:
+                    candidate_list = syn_projector(cortical_area_src, cortical_area_dst,
+                                                   src_neuron_id, src_subregion=src_subregion,
+                                                   project_last_layer_of="x")
+                    for candidate in candidate_list:
+                        raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+
+            elif neuron_morphology == "project_from_end_y":
+                if src_voxel[1] == src_block_boundaries[1] - 1:
+                    candidate_list = syn_projector(cortical_area_src, cortical_area_dst,
+                                                   src_neuron_id, src_subregion=src_subregion,
+                                                   project_last_layer_of="y")
+                    for candidate in candidate_list:
+                        raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
+
+            elif neuron_morphology == "project_from_end_z":
+                if src_voxel[2] == src_block_boundaries[2] - 1:
+                    candidate_list = syn_projector(cortical_area_src, cortical_area_dst,
+                                                   src_neuron_id, src_subregion=src_subregion,
+                                                   project_last_layer_of="z")
+                    for candidate in candidate_list:
+                        raw_candidate_list.add((candidate[0], candidate[1], candidate[2]))
 
             elif neuron_morphology == "memory":
                 syn_memory(src_cortical_area=cortical_area_src, dst_cortical_area=cortical_area_dst)
@@ -444,7 +469,12 @@ def syn_block_connection(src_cortical_area, dst_cortical_area, src_neuron_id, sr
     return [neuron_block_index_x // s, neuron_block_index_y, neuron_block_index_z]
 
 
-def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subregion, transpose=None):
+def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subregion,
+                  transpose=None, project_last_layer_of=None):
+
+    src_dimensions = runtime_data.genome['blueprint'][src_cortical_area]["block_boundaries"]
+    src_shape = [0, 0, 0]
+    dst_shape = [0, 0, 0]
     candidate_list = list()
 
     # Apply transpose to src_subregion and neuron_location
@@ -472,14 +502,60 @@ def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subre
             runtime_data.brain[src_cortical_area][src_neuron_id]['soma_location'][2],
         ]
 
-    # Compute shapes of the source subregion and destination block boundaries
-    src_shape = [
-        src_subregion[1][0] - src_subregion[0][0],
-        src_subregion[1][1] - src_subregion[0][1],
-        src_subregion[1][2] - src_subregion[0][2],
-    ]
+    # If project_last_layer is enabled, handle that case
+    if project_last_layer_of:
 
-    dst_shape = runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"]
+        if project_last_layer_of == "x":
+            # Compute shapes of the source subregion and destination block boundaries
+            src_shape = [
+                src_dimensions[0] - 1,
+                src_subregion[1][1] - src_subregion[0][1],
+                src_subregion[1][2] - src_subregion[0][2],
+            ]
+
+            dst_shape = [
+                1,
+                runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][1],
+                runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][2]
+            ]
+
+        if project_last_layer_of == "y":
+            # Compute shapes of the source subregion and destination block boundaries
+            src_shape = [
+                src_subregion[1][0] - src_subregion[0][0],
+                src_dimensions[1] - 1,
+                src_subregion[1][2] - src_subregion[0][2],
+            ]
+
+            dst_shape = [
+                runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][0],
+                1,
+                runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][2]
+            ]
+
+        if project_last_layer_of == "z":
+            # Compute shapes of the source subregion and destination block boundaries
+            src_shape = [
+                src_subregion[1][0] - src_subregion[0][0],
+                src_subregion[1][1] - src_subregion[0][1],
+                src_dimensions[2] - 1,
+            ]
+
+            dst_shape = [
+                runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][0],
+                runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"][1],
+                1
+            ]
+
+    else:
+        # Compute shapes of the source subregion and destination block boundaries
+        src_shape = [
+            src_subregion[1][0] - src_subregion[0][0],
+            src_subregion[1][1] - src_subregion[0][1],
+            src_subregion[1][2] - src_subregion[0][2],
+        ]
+
+        dst_shape = runtime_data.genome['blueprint'][dst_cortical_area]["block_boundaries"]
 
     dst_vox_dict = dict()
 
@@ -489,7 +565,12 @@ def syn_projector(src_cortical_area, dst_cortical_area, src_neuron_id, src_subre
             if src_shape[i] > dst_shape[i]:
                 ratio = src_shape[i] / dst_shape[i]
                 target_vox = int((neuron_location[i] - src_subregion[0][i]) / ratio)
+                if (project_last_layer_of == "x" and i == 0) or \
+                        (project_last_layer_of == "y" and i == 1) or \
+                        (project_last_layer_of == "z" and i == 2):
+                    target_vox -= 1
                 dst_vox_dict[i].add(target_vox)
+
             elif src_shape[i] < dst_shape[i]:
                 ratio = dst_shape[i] / src_shape[i]
                 for vox in range(dst_shape[i]):
@@ -519,6 +600,7 @@ def syn_memory(src_cortical_area, dst_cortical_area):
     runtime_data.memory_register[dst_cortical_area].add(src_cortical_area)
 
 
-# Todo: last to first X
-# Todo: last to first Y
-# Todo: last to first Z
+def last_to_first(src_cortical_area):
+    src_cortical_dim = runtime_data.genome['blueprint'][src_cortical_area]["block_boundaries"]
+    return [src_cortical_dim[0] - 1, src_cortical_dim[1] - 1, src_cortical_dim[2] - 1]
+
