@@ -62,6 +62,34 @@ def cortical_group_members(group):
             == group]
 
 
+class FCLManager:
+    def __init__(self, cortical_areas):
+        # Pre-allocate two sets for each cortical area
+        self.current_fcl = {area: set() for area in cortical_areas}
+        self.future_fcl = {area: set() for area in cortical_areas}
+        print("@#$_" * 100)
+        print(self.current_fcl)
+        print(self.future_fcl)
+
+    def swap_and_clear(self):
+        """
+        Swap current and future FCLs and clear future FCL.
+        More efficient than creating new sets.
+        """
+        for area in self.current_fcl:
+            # Clear current FCL
+            self.current_fcl[area].clear()
+            # Swap with future FCL
+            self.current_fcl[area] = self.future_fcl[area]
+
+            self.future_fcl[area].clear()
+
+    def add_to_future(self, area, neuron_id, pre_fire_mp):
+        """Add a neuron to future FCL"""
+        self.future_fcl[area].add(neuron_id)
+        runtime_data.brain[area][neuron_id]["pre_fire_mp"] = pre_fire_mp
+
+
 def burst_manager():
     """This function behaves as instance of Neuronal activities"""
 
@@ -231,7 +259,8 @@ def burst_manager():
 
             # Fire FCL neurons and pre-process viability of the downstream neurons for firing
             # Todo: Move degeneration items to a higher level to save on compute cycles
-            for fcl_cortical_area in runtime_data.fire_candidate_list.copy():
+            fcl_copy = runtime_data.fire_candidate_list.copy()
+            for fcl_cortical_area in fcl_copy:
                 if "degeneration" not in runtime_data.genome['blueprint'][fcl_cortical_area] or \
                         runtime_data.genome['blueprint'][fcl_cortical_area]['degeneration'] is None:
                     degeneration_val = 0
@@ -357,9 +386,10 @@ def burst_manager():
                         #     membrane_potential_update(cortical_area=fq_cortical_area, neuron_id=neuron_id,
                         #                               membrane_potential_change=0, overwrite=True, overwrite_value=0)
                         #
-                        add_neuron_to_fcl(cortical_area=fq_cortical_area,
-                                          neuron_id=neuron_id,
-                                          pre_fire_mp=pre_fire_mp)
+
+                        runtime_data.fcl_manager.add_to_future(area=fq_cortical_area,
+                                                               neuron_id=neuron_id,
+                                                               pre_fire_mp=pre_fire_mp)
 
                     if runtime_data.genome["blueprint"][fq_cortical_area]["mp_charge_accumulation"]:
                         runtime_data.brain[fq_cortical_area][neuron_id]['membrane_potential'] = \
@@ -369,10 +399,11 @@ def burst_manager():
                         runtime_data.fire_queue[fq_cortical_area][neuron_id][0] = 0
 
             # Transferring future_fcl to current one and resetting the future one in process
-            for _ in runtime_data.future_fcl:
-                runtime_data.fire_candidate_list[_] = \
-                    set([item for item in runtime_data.future_fcl[_]])
-                runtime_data.future_fcl[_] = set()
+            runtime_data.fcl_manager.swap_and_clear()
+
+            # Update runtime_data's FCL references to point to the manager's sets
+            runtime_data.fire_candidate_list = runtime_data.fcl_manager.current_fcl
+            runtime_data.future_fcl = runtime_data.fcl_manager.future_fcl
 
     def log_burst_activity_influx():
         if (runtime_data.parameters["Database"]["influxdb_enabled"] and
@@ -559,6 +590,8 @@ def burst_manager():
 
             runtime_data.feagi_state["state"] = "running"
 
+            runtime_data.fcl_manager = FCLManager(runtime_data.cortical_list)
+
         # Maintaining a constant queue depth for the plasticity queue
         """
         Sample of the plasticity queue with queue depth of 3
@@ -646,7 +679,6 @@ def burst_manager():
                 for _ in fcl_tmp:
                     runtime_data.fire_candidate_list[_] = \
                         set([item for item in fcl_tmp[_]])
-                    fcl_tmp = set()
 
             # A deep copy of the FCL to previous FCL
             for _ in runtime_data.fire_candidate_list:
