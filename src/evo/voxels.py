@@ -34,7 +34,7 @@ def voxel_list_to_neuron_list(cortical_area, voxel_list):
     neuron_list = list()
 
     for voxel in voxel_list:
-        voxel_ref = block_reference_builder(voxel[0])
+        voxel_ref = voxel[0]
         neurons = neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel_ref)
         for neuron in neurons:
             neuron_list.append([neuron, voxel[1]])
@@ -59,7 +59,7 @@ def block_trimmer(cortical_area, block):
     """
     limits the size of a block to stay within the block boundary of a cortical area
     """
-    trimmed_block = [None, None, None]
+    trimmed_block = (None, None, None)
     block_boundary = runtime_data.genome["blueprint"][cortical_area]["block_boundaries"]
     if isinstance(block, list):
         for _ in range(3):
@@ -69,11 +69,11 @@ def block_trimmer(cortical_area, block):
         block_in_list = block_ref_2_id(block)
         for _ in range(3):
             trimmed_block[_] = min(block_boundary[_] - 1, block_in_list[_])
-        return block_reference_builder(trimmed_block)
+        return trimmed_block
 
 
-def block_reference_builder(block):
-    return str(block[0]) + '-' + str(block[1]) + '-' + str(block[2])
+# def block_reference_builder(block):
+#     return str(block[0]) + '-' + str(block[1]) + '-' + str(block[2])
 
 
 def block_id_gen(cortical_area, coordinate):
@@ -124,17 +124,18 @@ def block_z_offset(block_ref, offset):
     Returns: Adjusted block reference
 
     """
-    block_id = block_ref_2_id(block_ref)
+    # block_id = block_ref_2_id(block_ref)
+    block_id = block_ref
     block_id[2] += int(offset)
     if block_id[2] < 0:
         block_id[2] = 0
-    return block_reference_builder(block_id)
-
-
-def block_ref_2_id(block_ref):
-    block_id_str = block_ref.split('-')
-    block_id = [int(x) for x in block_id_str]
     return block_id
+
+
+# def block_ref_2_id(block_ref):
+#     block_id_str = block_ref.split('-')
+#     block_id = [int(x) for x in block_id_str]
+#     return block_id
 
 
 def neighboring_blocks(block_ref, kernel_size):
@@ -172,7 +173,7 @@ def neurons_in_block_neighborhood(cortical_area, block_ref, kernel_size=3):
     for _ in block_list:
         trimmed_block = block_trimmer(cortical_area, _)
         neurons_in_block = \
-            neurons_in_the_block(cortical_area=cortical_area, block_ref=block_reference_builder(trimmed_block))
+            neurons_in_the_block(cortical_area=cortical_area, block_ref=trimmed_block)
         for __ in neurons_in_block:
             candidate_list.append(__)
     return candidate_list
@@ -187,7 +188,7 @@ def all_block_refs(cortical_area):
     for x in range(block_boundaries[0]):
         for y in range(block_boundaries[1]):
             for z in range(block_boundaries[2]):
-                block_ref_list.append(block_reference_builder([x, y, z]))
+                block_ref_list.append((x, y, z))
     return block_ref_list
 
 
@@ -198,7 +199,7 @@ def x_block_refs(cortical_area, y_ref, z_ref):
     block_ref_list = list()
     block_boundaries = runtime_data.genome['blueprint'][cortical_area]["block_boundaries"]
     for x in range(block_boundaries[0]):
-        block_ref_list.append(block_reference_builder([x, y_ref, z_ref]))
+        block_ref_list.append((x, y_ref, z_ref))
     return block_ref_list
 
 
@@ -209,7 +210,7 @@ def y_block_refs(cortical_area, x_ref, z_ref):
     block_ref_list = list()
     block_boundaries = runtime_data.genome['blueprint'][cortical_area]["block_boundaries"]
     for y in range(block_boundaries[1]):
-        block_ref_list.append(block_reference_builder([x_ref, y, z_ref]))
+        block_ref_list.append((x_ref, y, z_ref))
     return block_ref_list
 
 
@@ -220,7 +221,7 @@ def z_block_refs(cortical_area, x_ref, y_ref):
     block_ref_list = list()
     block_boundaries = runtime_data.genome['blueprint'][cortical_area]["block_boundaries"]
     for z in range(block_boundaries[2]):
-        block_ref_list.append(block_reference_builder([x_ref, y_ref, z]))
+        block_ref_list.append((x_ref, y_ref, z))
     return block_ref_list
 
 
@@ -276,9 +277,8 @@ def active_neurons_in_blocks(cortical_area, current_fcl=True, include_neurons=Fa
 
     blocks_with_active_neurons = {}
     for neuron in fcl[cortical_area]:
-        neuron_block_ref = block_reference_builder(
-            runtime_data.brain[cortical_area][neuron]['soma_location']
-        )
+        neuron_block_ref = runtime_data.brain[cortical_area][neuron]['soma_location']
+
         if include_neurons:
             if neuron_block_ref in blocks_with_active_neurons:
                 blocks_with_active_neurons[neuron_block_ref].append(neuron)
@@ -318,7 +318,7 @@ def subregion_neurons(src_cortical_area, region_definition):
     try:
         for voxel in voxels:
             voxel_neurons = neurons_in_the_block(cortical_area=src_cortical_area,
-                                                 block_ref=block_reference_builder(list(voxel)))
+                                                 block_ref=tuple(voxel))
             for neuron in voxel_neurons:
                 neurons.add(neuron)
     except Exception as e:

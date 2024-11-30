@@ -256,7 +256,7 @@ def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar, src_s
         if item < 0:
             return None
     within_limits = voxels.block_size_checker(cortical_area=cortical_area_dst,
-                                              block=voxels.block_reference_builder(candidate_vector))
+                                              block=(candidate_vector[0], candidate_vector[1], candidate_vector[2]))
     if within_limits:
         return [candidate_vector]
 

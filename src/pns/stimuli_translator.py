@@ -64,23 +64,23 @@ def induce_manual_stimulation(stimulation):
     }
     """
     stimulation = stimulation_validator(stimulation=stimulation)
-    stimulation = convert_stimulation_to_dashed_format(stimulation_data=stimulation)
+    # stimulation = convert_stimulation_to_dashed_format(stimulation_data=stimulation)
     stimulation_injector(stimulation_data=stimulation)
 
 
-def convert_stimulation_to_dashed_format(stimulation_data):
-    """
-    Converts stimulation from list format to dashed format
-    # todo: revisit the value of having dashed format in the first place and get rid of it
-    """
-
-    dashed_stimulation = {}
-    for cortical_area in stimulation_data:
-        if not is_memory_cortical_area(cortical_area=cortical_area):
-            dashed_stimulation[cortical_area] = list()
-            for neuron_block in stimulation_data[cortical_area]:
-                dashed_stimulation[cortical_area].append(block_reference_builder(neuron_block))
-    return dashed_stimulation
+# def convert_stimulation_to_dashed_format(stimulation_data):
+#     """
+#     Converts stimulation from list format to dashed format
+#     # todo: revisit the value of having dashed format in the first place and get rid of it
+#     """
+#
+#     dashed_stimulation = {}
+#     for cortical_area in stimulation_data:
+#         if not is_memory_cortical_area(cortical_area=cortical_area):
+#             dashed_stimulation[cortical_area] = list()
+#             for neuron_block in stimulation_data[cortical_area]:
+#                 dashed_stimulation[cortical_area].append(neuron_block)
+#     return dashed_stimulation
 
 
 def stimuli_generator(input_instruction, burst_count):
@@ -133,7 +133,7 @@ def stimulation_injector(stimulation_data):
                 neuron_list = set()
                 for voxel in stimulation_data[cortical_area]:
                     if type(voxel) is list:
-                        voxel = block_reference_builder(voxel)
+                        voxel = tuple(voxel)
                     in_the_block = neurons_in_the_block(cortical_area=cortical_area, block_ref=voxel)
                     for neuron in in_the_block:
                         neuron_list.add(neuron)
