@@ -47,7 +47,7 @@ def block_size_checker(cortical_area, block):
     Tests if the given block fits inside the cortical area block boundary
     """
     block_boundary = runtime_data.genome["blueprint"][cortical_area]["block_boundaries"]
-    block_in_list = block_ref_2_id(block)
+    block_in_list = block
 
     for _ in range(3):
         if block_in_list[_] >= block_boundary[_]:
@@ -66,7 +66,7 @@ def block_trimmer(cortical_area, block):
             trimmed_block[_] = min(block_boundary[_] - 1, block[_])
         return trimmed_block
     else:
-        block_in_list = block_ref_2_id(block)
+        block_in_list = block
         for _ in range(3):
             trimmed_block[_] = min(block_boundary[_] - 1, block_in_list[_])
         return trimmed_block
@@ -143,7 +143,7 @@ def neighboring_blocks(block_ref, kernel_size):
     Returns the list of block ids who are neighbor of the given one
     Block_id is in form of [x,y,z]
     """
-    block_id = block_ref_2_id(block_ref)
+    block_id = block_ref
 
     block_id_list = list()
 
