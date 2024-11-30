@@ -111,6 +111,7 @@ fire_list = []
 prunning_candidates = set()
 plasticity_queue_candidates = dict()
 upcoming_lifesnap_mgmt = 0
+fcl_manager = None
 
 # Stats Collection
 neuron_mp_collection_scope = {}
