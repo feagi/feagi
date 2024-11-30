@@ -34,6 +34,7 @@ FEAGI.validate_requirements('requirements.txt')  # you should get it from the bo
 def current_milli_time():
     return time.time() * 1000
 
+
 def prepare_the_genome_of_timer(args):
     # Prepare the file to be uploaded
     print("Loading genome now...")
@@ -54,7 +55,6 @@ def prepare_the_genome_of_timer(args):
         else:
             # print("failed. type: ", type(response.status_code)," and status: ", response.status_code)
             sleep(1)
-
 
     json_data = {"cortical_id": "CM0Tim", "cortical_name": "Timer",
                  "cortical_dimensions": [int(args['number']), 100, 1]}
@@ -135,7 +135,10 @@ if __name__ == '__main__':
                             time_per_neuron = time_delta / (100 * iteration)
                             cpu = psutil.cpu_percent(interval=1)
                             memory = psutil.virtual_memory().percent
-                            print(f"iteration = {iteration}, total_numbers = {total_numbers}, total_time = {total_time}, time_delta = {time_delta}, time_per_neuron = {time_per_neuron}, cpu utilization = {cpu}, memory_usuage={memory}" )
+                            print(f"iteration = {iteration}, total_numbers = {total_numbers}, "
+                                  f"total_time = {total_time}, time_delta = {time_delta}, "
+                                  f"time_per_neuron = {time_per_neuron}, cpu utilization = {cpu}, "
+                                  f"memory_usuage={memory}")
                             # previous_total_time = total_time
                             iteration_list.append(iteration)
                             previous_total_time = current_milli_time()
