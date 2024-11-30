@@ -225,7 +225,7 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
         print(traceback.format_exc())
 
     for candidate in raw_candidate_list:
-        candidate_voxel_list.append([list(candidate), post_synaptic_current])
+        candidate_voxel_list.append([tuple(candidate), post_synaptic_current])
 
     if candidate_voxel_list:
         candidate_neuron_list = \
