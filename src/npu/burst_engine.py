@@ -452,7 +452,7 @@ def burst_manager():
                         # Dynamically adjusting burst duration based on Controller needs
                         runtime_data.burst_timer = burst_duration_calculator(embodiment_data)
                         if embodiment_data:
-                            print("embodiment_data:", embodiment_data)
+                            # print("embodiment_data:", embodiment_data)
                             stimuli_router(embodiment_data)
 
             except Exception as e:
@@ -463,7 +463,7 @@ def burst_manager():
         if runtime_data.stimulation_script is not None:
             virtual_data = stimulator.stimulate()
             if virtual_data:
-                print("virtual_data:", virtual_data)
+                # print("virtual_data:", virtual_data)
                 stimuli_router({"data": {"direct_stimulation": virtual_data}})
 
         # Evaluated multiple scenarios and administers shock as needed
