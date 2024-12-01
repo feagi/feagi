@@ -135,8 +135,10 @@ if __name__ == '__main__':
                             time_per_neuron = time_delta / (100 * iteration)
                             cpu = psutil.cpu_percent(interval=1)
                             memory = psutil.virtual_memory().percent
-                            print(
-                                f"iteration = {iteration}, total_numbers = {total_numbers}, total_time = {total_time}, time_delta = {time_delta}, time_per_neuron = {time_per_neuron}, cpu utilization = {cpu}, memory_usuage={memory}")
+                            print(f"iteration = {iteration}, total_numbers = {total_numbers}, "
+                                  f"total_time = {total_time}, time_delta = {time_delta}, "
+                                  f"time_per_neuron = {time_per_neuron}, cpu utilization = {cpu}, "
+                                  f"memory_usuage={memory}")
                             # previous_total_time = total_time
                             iteration_list.append(iteration)
                             previous_total_time = current_milli_time()
@@ -165,6 +167,6 @@ if __name__ == '__main__':
                                  agent_settings, feagi_settings)
             message_to_feagi.clear()
         except Exception as e:
-            print("ERROR IN COZMO MAIN CODE: ", e)
+            print("ERROR IN TIMER MAIN CODE: ", e)
             traceback.print_exc()
             break
