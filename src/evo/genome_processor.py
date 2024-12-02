@@ -477,8 +477,12 @@ def genome_morphology_updator(genome):
 
 
 def is_memory_cortical_area(cortical_area):
-    if "MEMORY" in runtime_data.genome["blueprint"][cortical_area]["sub_group_id"]:
-        return True
+    cortical_obj = runtime_data.genome["blueprint"].get(cortical_area)
+    if cortical_obj:
+        if "MEMORY" in runtime_data.genome["blueprint"][cortical_area]["sub_group_id"]:
+            return True
+        else:
+            return False
     else:
         return False
 

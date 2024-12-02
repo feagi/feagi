@@ -171,7 +171,7 @@ def opu_router():
     Relays neuronal activities to the controller.
     Sample data format for runtime_data.opu_data:
 
-    {'o__bat': {}, 'o__mot': {'0-0-0': 47, '0-0-5': 48, '0-0-15': 50, '0-0-1': 45}}
+    {'o__bat': {}, 'o__mot': {(0, 0, 0): 47, (0, 0, 5): 48, (0, 0, 15): 50, (0, 0, 1): 45}}
 
     """
     for cortical_area in runtime_data.fire_candidate_list.copy():
@@ -179,7 +179,6 @@ def opu_router():
             if cortical_area not in runtime_data.opu_data:
                 runtime_data.opu_data[cortical_area] = {}
             runtime_data.opu_data[cortical_area] = opu_percentage_report(cortical_area=cortical_area)
-
 
 #
 # def action_router():

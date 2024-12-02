@@ -34,6 +34,7 @@ FEAGI.validate_requirements('requirements.txt')  # you should get it from the bo
 def current_milli_time():
     return time.time() * 1000
 
+
 def prepare_the_genome_of_timer(args):
     # Prepare the file to be uploaded
     print("Loading genome now...")
@@ -54,7 +55,6 @@ def prepare_the_genome_of_timer(args):
         else:
             # print("failed. type: ", type(response.status_code)," and status: ", response.status_code)
             sleep(1)
-
 
     json_data = {"cortical_id": "CM0Tim", "cortical_name": "Timer",
                  "cortical_dimensions": [int(args['number']), 100, 1]}
@@ -88,7 +88,6 @@ def prepare_the_genome_of_timer(args):
     print("genome is completed")
 
 
-
 if __name__ == '__main__':
     config = FEAGI.build_up_from_configuration()
     feagi_settings = config['feagi_settings'].copy()
@@ -96,7 +95,6 @@ if __name__ == '__main__':
     default_capabilities = config['default_capabilities'].copy()
     message_to_feagi = config['message_to_feagi'].copy()
     capabilities = config['capabilities'].copy()
-
 
     message_to_feagi = {}
     parser = argparse.ArgumentParser(description='Number to update width')
@@ -112,7 +110,7 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
     prepare_the_genome_of_timer(args)
     message_to_feagi = sensors.add_generic_input_to_feagi_data(
-        {'i_misc': {"0-0-0": 100}}, message_to_feagi)
+        {'i_misc': {(0, 0, 0): 100}}, message_to_feagi)
     pns.signals_to_feagi(message_to_feagi, feagi_ipu_channel, agent_settings,
                          feagi_settings)
 
@@ -137,7 +135,10 @@ if __name__ == '__main__':
                             time_per_neuron = time_delta / (100 * iteration)
                             cpu = psutil.cpu_percent(interval=1)
                             memory = psutil.virtual_memory().percent
-                            print(f"iteration = {iteration}, total_numbers = {total_numbers}, total_time = {total_time}, time_delta = {time_delta}, time_per_neuron = {time_per_neuron}, cpu utilization = {cpu}, memory_usuage={memory}" )
+                            print(f"iteration = {iteration}, total_numbers = {total_numbers}, "
+                                  f"total_time = {total_time}, time_delta = {time_delta}, "
+                                  f"time_per_neuron = {time_per_neuron}, cpu utilization = {cpu}, "
+                                  f"memory_usuage={memory}")
                             # previous_total_time = total_time
                             iteration_list.append(iteration)
                             previous_total_time = current_milli_time()
@@ -156,16 +157,16 @@ if __name__ == '__main__':
                     flag = True
             if current_milli_time() - start_time >= 2000.0 and not iteration_list:
                 # print("missed, trying again...")
-                message_to_feagi = sensors.add_generic_input_to_feagi_data({'i_misc': {"0-0-0": 100}}, message_to_feagi)
+                message_to_feagi = sensors.add_generic_input_to_feagi_data({'i_misc': {(0, 0, 0): 100}},
+                                                                           message_to_feagi)
                 start_time = current_milli_time()
                 previous_total_time = start_time
-
 
             sleep(feagi_settings['feagi_burst_speed'])  # bottleneck
             pns.signals_to_feagi(message_to_feagi, feagi_ipu_channel,
                                  agent_settings, feagi_settings)
             message_to_feagi.clear()
         except Exception as e:
-            print("ERROR IN COZMO MAIN CODE: ", e)
+            print("ERROR IN TIMER MAIN CODE: ", e)
             traceback.print_exc()
             break

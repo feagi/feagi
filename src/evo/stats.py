@@ -284,7 +284,7 @@ def opu_activity_report(cortical_area):
             z_report = []
             # The Z axis is captures the primary property of the OPU such as speed, color, angle, etc
             for primary_variable in range(block_boundaries[2]):
-                block_ref = block_reference_builder([device, secondary_variable, primary_variable])
+                block_ref = (device, secondary_variable, primary_variable)
                 z_report.append(percent_active_neurons_in_block(block_ref=block_ref,
                                                                 cortical_area=cortical_area))
                 # device_activity_report.append(percent_active_neurons_in_block(block_ref=block_ref,
