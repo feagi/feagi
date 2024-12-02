@@ -121,6 +121,7 @@ def add_neuron_to_fcl(cortical_area, neuron_id, pre_fire_mp):
     if cortical_area not in runtime_data.future_fcl:
         runtime_data.future_fcl[cortical_area] = set()
     runtime_data.future_fcl[cortical_area].add(neuron_id)
+
     runtime_data.brain[cortical_area][neuron_id]["pre_fire_mp"] = pre_fire_mp
 
 
