@@ -259,14 +259,16 @@ cortical_types = {
         "supported_devices": {
             "o__mot": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Motor control",
                 "controller_id": "motor",
                 "structure": "asymmetric",
                 "resolution": [2, 1, 10],
-                "coordinate_3d": [-30, 0, -20]
+                "coordinate_3d": [-30, 0, -20],
             },
             "odgpio": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Digital output",
                 "controller_id": "gpio",
                 "structure": "asymmetric",
@@ -275,6 +277,7 @@ cortical_types = {
             },
             "oagpio": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Analog output",
                 "controller_id": "gpio",
                 "structure": "asymmetric",
@@ -283,6 +286,7 @@ cortical_types = {
             },
             "oogpio": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "GPIO output pin assignment",
                 "controller_id": "gpio",
                 "structure": "asymmetric",
@@ -291,6 +295,7 @@ cortical_types = {
             },
             "oigpio": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "GPIO input pin assignment",
                 "controller_id": "gpio_input",
                 "structure": "asymmetric",
@@ -299,6 +304,7 @@ cortical_types = {
             },
             "o__nav": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Navigation vector",
                 "controller_id": "navigation",
                 "structure": "asymmetric",
@@ -307,6 +313,7 @@ cortical_types = {
             },
             "o__spd": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Navigation speed",
                 "controller_id": "speed",
                 "structure": "asymmetric",
@@ -315,6 +322,7 @@ cortical_types = {
             },
             "o__bat": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Battery charger",
                 "controller_id": "battery",
                 "structure": "asymmetric",
@@ -323,6 +331,7 @@ cortical_types = {
             },
             "o_init": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Position initializer",
                 "controller_id": "reset",
                 "structure": "asymmetric",
@@ -331,6 +340,7 @@ cortical_types = {
             },
             "o_stop": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Emergency stop",
                 "controller_id": "emergency",
                 "structure": "asymmetric",
@@ -339,6 +349,7 @@ cortical_types = {
             },
             "o__ser": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Servo control",
                 "controller_id": "servo",
                 "structure": "asymmetric",
@@ -347,6 +358,7 @@ cortical_types = {
             },
             "o_spos": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Servo Position OPU",
                 "controller_id": "servo_position",
                 "structure": "asymmetric",
@@ -355,6 +367,7 @@ cortical_types = {
             },
             "o_blnk": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Blink",
                 "controller_id": "blink",
                 "structure": "asymmetric",
@@ -363,6 +376,7 @@ cortical_types = {
             },
             "o___id": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "ID Recognition",
                 "controller_id": "id_recognition",
                 "structure": "asymmetric",
@@ -371,6 +385,7 @@ cortical_types = {
             },
             "o__sid": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Trainer Stimuli ID Selector",
                 "controller_id": "stimuli_id_selector",
                 "structure": "asymmetric",
@@ -379,6 +394,7 @@ cortical_types = {
             },
             "o__loc": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Recognition Location",
                 "controller_id": "recognition_location",
                 "structure": "asymmetric",
@@ -387,6 +403,7 @@ cortical_types = {
             },
             "o_misc": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Miscellaneous",
                 "controller_id": "misc",
                 "structure": "asymmetric",
@@ -395,6 +412,7 @@ cortical_types = {
             },
             "o_mctl": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Motion control",
                 "controller_id": "motion_control",
                 "structure": "asymmetric",
@@ -403,6 +421,7 @@ cortical_types = {
             },
             "ovflph": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Vision horizontal flip",
                 "controller_id": "horizontal_flip",
                 "structure": "asymmetric",
@@ -411,6 +430,7 @@ cortical_types = {
             },
             "ovflpv": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Vision vertical flip",
                 "controller_id": "vertical_flip",
                 "structure": "asymmetric",
@@ -419,6 +439,7 @@ cortical_types = {
             },
             "ov_mod": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Central vision modulation",
                 "controller_id": "modulation_control",
                 "structure": "asymmetric",
@@ -427,6 +448,7 @@ cortical_types = {
             },
             "ov_ecc": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Central vision eccentricity",
                 "controller_id": "eccentricity_control",
                 "structure": "asymmetric",
@@ -435,6 +457,7 @@ cortical_types = {
             },
             "ov_enh": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Lighting enhancement",
                 "controller_id": "enhancement",
                 "structure": "asymmetric",
@@ -443,6 +466,7 @@ cortical_types = {
             },
             "ovtune": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "Lighting threshold",
                 "controller_id": "threshold",
                 "structure": "asymmetric",
@@ -451,6 +475,7 @@ cortical_types = {
             },
             "o__led": {
                 "enabled": True,
+                "measurable": True,
                 "cortical_name": "LED",
                 "controller_id": "led",
                 "structure": "asymmetric",
@@ -459,6 +484,7 @@ cortical_types = {
             },
             "ov_reg": {
                 "enabled": True,
+                "measurable": False,
                 "cortical_name": "Vision activation regions",
                 "controller_id": "activation_regions",
                 "structure": "asymmetric",

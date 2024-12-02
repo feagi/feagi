@@ -225,7 +225,7 @@ def neighbor_finder(cortical_area_src, cortical_area_dst, src_neuron_id, morphol
         print(traceback.format_exc())
 
     for candidate in raw_candidate_list:
-        candidate_voxel_list.append([list(candidate), post_synaptic_current])
+        candidate_voxel_list.append([tuple(candidate), post_synaptic_current])
 
     if candidate_voxel_list:
         candidate_neuron_list = \
@@ -256,7 +256,7 @@ def match_vectors(src_voxel, cortical_area_dst, vector, morphology_scalar, src_s
         if item < 0:
             return None
     within_limits = voxels.block_size_checker(cortical_area=cortical_area_dst,
-                                              block=voxels.block_reference_builder(candidate_vector))
+                                              block=(candidate_vector[0], candidate_vector[1], candidate_vector[2]))
     if within_limits:
         return [candidate_vector]
 
