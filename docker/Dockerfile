@@ -6,11 +6,8 @@ ARG BRANCH="main"
 ENV Running_In_CONTAINER Yes
 
 RUN mkdir -p /opt/source-code/feagi/
-RUN git clone $REPO /opt/source-code/feagi
-WORKDIR /opt/source-code/feagi
-RUN git fetch --all
-RUN git checkout $BRANCH
-
+RUN echo "branch: " $BRANCH
+RUN git clone $REPO -b $BRANCH /opt/source-code/feagi
 
 WORKDIR /opt/source-code/feagi/src
 ENV PYTHONPATH "${PYTHONPATH}:/opt/source-code/feagi"
